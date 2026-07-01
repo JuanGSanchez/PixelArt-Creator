@@ -1,0 +1,93 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/context-budget.py\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/context-budget.py\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/context-budget.py\"",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-contract.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/context-budget.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "agt-03-python-dev|agt-04-python-tester|agt-05-ui-expert|agt-06-qa-expert|agt-08-documenter|the-researcher|the-gleaner",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/subagent-report.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "the-gleaner",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/gleaner-budget.py\"",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "agt-03-python-dev|agt-04-python-tester|agt-05-ui-expert|agt-06-qa-expert|agt-08-documenter|the-researcher|the-gleaner",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/subagent-report.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

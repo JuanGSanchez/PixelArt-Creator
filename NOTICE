@@ -1,0 +1,23 @@
+PixelArt Creator
+Copyright 2026 Juan Garcia Sanchez
+
+This product includes software developed for the PixelArt Creator project.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy of
+the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This software depends on, but does not incorporate or relink, the following
+third-party components (installed separately by end users via the package
+manager, preserving license separation):
+
+  - PySide6 / Qt for Python — LGPL v3 (https://www.qt.io/licensing/).
+    Used as a dynamically-linked library dependency; not modified or
+    statically linked. Apache-2.0 for this project's own source is compatible
+    with distributing an application that dynamically links LGPL PySide6, per
+    the LGPL v3 dynamic-linking allowance and Qt for Python licensing docs.
+  - NumPy (BSD-3-Clause), Pillow (HPND/MIT-CMU), pytest and plugins (MIT).
+
+See each dependency's own license for its terms.
