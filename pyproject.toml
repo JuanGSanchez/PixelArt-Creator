@@ -1,0 +1,103 @@
+# =============================================================================
+# Packaging / dependency manifest — PixelArt Creator
+# Owner: AGT-09 GitHub/DevOps (+ coding agents keep deps current). Grounded by
+# F14 (build backend + runtime & dev deps + tool config). Mandatory software-dev
+# extension (spec-driven-development.md §5): declares BOTH runtime and dev deps so
+# CI installs exactly what tests import — no "works on my machine" gaps.
+# =============================================================================
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pixelart-creator"
+version = "0.1.0"
+description = "Unified pixel-art platform: 8K editable grid, colour tools, layers, GPU render pipeline."
+readme = "NOTICE"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Juan Garcia Sanchez" }]
+keywords = ["pixel-art", "editor", "pyside6", "qt6", "graphics"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics :: Editors",
+]
+
+# Runtime dependencies (S8 fixed stack).
+dependencies = [
+    "PySide6>=6.6",
+    "numpy>=1.26",
+    "Pillow>=10.0",
+]
+
+[project.optional-dependencies]
+# Dev/test dependencies — CI installs `.[dev]` so it runs exactly what tests import.
+dev = [
+    "pytest>=8.0",
+    "pytest-qt>=4.4",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.100",
+    "black>=24.0",
+    "isort>=5.13",
+    "flake8>=7.0",
+    "mypy>=1.10",
+    "pydocstyle>=6.3",
+]
+
+[tool.setuptools.packages.find]
+include = ["pixelart_creator*"]
+# Exclude non-shipped infra from the distributed package (scripts/ are dev tooling).
+exclude = ["tests*", "scripts*", "docs*"]
+
+# ------------------------------- tool config ---------------------------------
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_ignores = true
+warn_redundant_casts = true
+# Strict typing for the pure layers; UI/Qt stubs are looser.
+[[tool.mypy.overrides]]
+module = ["pixelart_creator.logic.*", "pixelart_creator.data.*"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+module = ["PySide6.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra"
+# Machine-agnostic default: heavy/host-sensitive tests are deselectable markers.
+markers = [
+    "slow: long-running tests, deselected in the default gate",
+    "gpu: tests needing a real GPU/display, deselected in headless CI",
+    "integration: tests that reach outside the process, deselected by default",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["pixelart_creator"]
+
+[tool.coverage.report]
+show_missing = true
+# Gate is enforced by scripts/coverage_gate.py (>=90 line / >=80 branch, S13),
+# not by fail_under here, so the verdict is a single P11 script (per-package).
+
+[tool.flake8]
+# flake8 reads setup.cfg/.flake8 natively; this block documents intent. The
+# repo also carries a .flake8 mirror if the installed flake8 version ignores
+# pyproject. Keep line-length aligned with black.
+max-line-length = 88
+extend-ignore = ["E203", "W503"]
+exclude = [".git", "__pycache__", "build", "dist", ".venv"]

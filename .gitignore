@@ -1,0 +1,48 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ---- Packaging / build ----
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+pip-wheel-metadata/
+
+# ---- Virtual environments ----
+.venv/
+venv/
+env/
+ENV/
+
+# ---- Test / coverage / type-check caches ----
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+
+# ---- Editors / OS ----
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---- PixelArt Creator scratch / runtime ----
+*.pixproj
+.claude/hooks/.cbstate-*.json
+.claude/hooks/.gleanerstate-*.json
+.claude/hooks/.subagent-report-state-*.json
+.claude/hooks/.*-debug.log
+
+# ---- Runtime temporal files under docs/ (design/delivery artifacts are kept) ----
+docs/gather-*
+docs/checkpoint-*
+docs/subagent-report-*
