@@ -42,7 +42,14 @@ Thumbs.db
 .claude/hooks/.subagent-report-state-*.json
 .claude/hooks/.*-debug.log
 
-# ---- Runtime temporal files under docs/ (design/delivery artifacts are kept) ----
+# ---- Runtime temporal files under docs/ ----
 docs/gather-*
 docs/checkpoint-*
 docs/subagent-report-*
+
+# ---- PRIVATE build/design artifacts (S19) — gitignored AND purged from git
+#      history. These files are intentionally absent from the repository:
+#      the design dossier/manifest/inventory/delivery, the 5 mandatory docs,
+#      and DEPLOYMENT.md are internal-only. They remain on disk locally. ----
+docs/
+DEPLOYMENT.md
