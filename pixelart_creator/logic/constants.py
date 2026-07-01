@@ -12,3 +12,6 @@ PARALLAX_FACTOR = 30.0  # background parallax divisor
 SCALE_FACTOR = 0.15  # zoom step factor
 FPS_TARGET = 60  # target frames per second (S12)
 FRAME_BUDGET_MS = 16  # per-frame render budget, ms (1000/FPS_TARGET, S12)
+MAX_PALETTE_SIZE = 256  # indexed-palette entry cap (8-bit index space) (S12-1)
+DEFAULT_FRAME_DURATION_MS = 100  # default animation frame duration, ms (S12-2)
+PROJECT_ZLIB_LEVEL = 9  # .pixproj pixel-data compression level (S12-6)

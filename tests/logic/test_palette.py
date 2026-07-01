@@ -4,7 +4,16 @@ from __future__ import annotations
 
 import pytest
 
+from pixelart_creator.logic import constants
 from pixelart_creator.logic.palette import MAX_PALETTE_SIZE, Palette, PaletteError
+
+
+def test_max_palette_size_is_single_sourced_from_constants():
+    # Regression (T2, S12): palette re-exports the constant; constants.py is the
+    # sole source of truth. No magic 256 inlined in palette.py.
+    assert MAX_PALETTE_SIZE == constants.MAX_PALETTE_SIZE
+    assert constants.MAX_PALETTE_SIZE == 256
+
 
 RED = (255, 0, 0, 255)
 GREEN = (0, 255, 0, 255)

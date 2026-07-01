@@ -11,10 +11,14 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
+from pixelart_creator.logic.constants import DEFAULT_FRAME_DURATION_MS
 from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 
-DEFAULT_FRAME_DURATION_MS = 100
+#: Default animation frame duration (ms). Re-exported from
+#: :mod:`pixelart_creator.logic.constants` (single source, S12) so existing
+#: default-arg call sites and importers keep working.
+__all__ = ["DEFAULT_FRAME_DURATION_MS", "DocumentError", "Layer", "Frame", "Document"]
 
 
 class DocumentError(ValueError):

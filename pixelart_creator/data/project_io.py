@@ -17,7 +17,12 @@ from typing import Any, Dict, List, Union
 import numpy as np
 
 from pixelart_creator.logic.color import from_hex, to_hex
-from pixelart_creator.logic.constants import MAX_CANVAS_HEIGHT, MAX_CANVAS_WIDTH
+from pixelart_creator.logic.constants import (
+    DEFAULT_FRAME_DURATION_MS,
+    MAX_CANVAS_HEIGHT,
+    MAX_CANVAS_WIDTH,
+    PROJECT_ZLIB_LEVEL,
+)
 from pixelart_creator.logic.document import Document, Frame, Layer
 from pixelart_creator.logic.palette import MAX_PALETTE_SIZE, Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
@@ -41,7 +46,7 @@ class ProjectIOError(ValueError):
 
 def _encode_buffer(buffer: PixelBuffer) -> str:
     raw = np.ascontiguousarray(buffer.data).tobytes()
-    return base64.b64encode(zlib.compress(raw, 9)).decode("ascii")
+    return base64.b64encode(zlib.compress(raw, PROJECT_ZLIB_LEVEL)).decode("ascii")
 
 
 def _serialise_layer(layer: Layer) -> Dict[str, Any]:
@@ -201,7 +206,7 @@ def deserialize(payload: Dict[str, Any]) -> Document:
     frames: List[Frame] = []
     for fdata in frames_raw:
         _require(isinstance(fdata, dict), "each frame must be a JSON object")
-        duration = fdata.get("duration_ms", 100)
+        duration = fdata.get("duration_ms", DEFAULT_FRAME_DURATION_MS)
         _require(
             isinstance(duration, int)
             and not isinstance(duration, bool)
