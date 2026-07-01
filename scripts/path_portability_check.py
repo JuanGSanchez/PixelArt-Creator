@@ -72,16 +72,18 @@ def scan_source(path, rel):
             elif looks_like_path(val) and BACKSLASH_SEP.search(val):
                 kind = "backslash-separator-in-literal"
             if kind:
-                findings.append({"file": rel, "line": line, "kind": kind,
-                                 "text": val[:80]})
+                findings.append(
+                    {"file": rel, "line": line, "kind": kind, "text": val[:80]}
+                )
     return findings
 
 
 def main():
     ap = argparse.ArgumentParser(description="Flag non-portable path literals.")
     ap.add_argument("--root", default=".")
-    ap.add_argument("--include", nargs="+",
-                    default=["pixelart_creator", "scripts", "tests"])
+    ap.add_argument(
+        "--include", nargs="+", default=["pixelart_creator", "scripts", "tests"]
+    )
     args = ap.parse_args()
 
     if not os.path.isdir(args.root):
@@ -105,19 +107,24 @@ def main():
     findings = []
     try:
         for path in files:
-            findings.extend(scan_source(path, os.path.relpath(path, args.root)
-                                        .replace("\\", "/")))
+            findings.extend(
+                scan_source(path, os.path.relpath(path, args.root).replace("\\", "/"))
+            )
     except (SyntaxError, OSError, UnicodeDecodeError) as exc:
         sys.stderr.write("path_portability_check: error: %r\n" % exc)
         print(json.dumps({"findings": findings, "error": repr(exc)}))
         return 2
 
     findings.sort(key=lambda f: (f["file"], f["line"]))
-    print(json.dumps({"findings": findings, "scanned": len(files)},
-                     indent=2, sort_keys=True))
+    print(
+        json.dumps(
+            {"findings": findings, "scanned": len(files)}, indent=2, sort_keys=True
+        )
+    )
     if findings:
-        sys.stderr.write("path_portability_check: %d non-portable path(s).\n"
-                         % len(findings))
+        sys.stderr.write(
+            "path_portability_check: %d non-portable path(s).\n" % len(findings)
+        )
         return 1
     sys.stderr.write("path_portability_check: clean (%d files).\n" % len(files))
     return 0

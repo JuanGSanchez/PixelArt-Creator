@@ -49,7 +49,9 @@ def pct(rate):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Coverage gate (S13: >=90 line / >=80 branch).")
+    ap = argparse.ArgumentParser(
+        description="Coverage gate (S13: >=90 line / >=80 branch)."
+    )
     ap.add_argument("--xml", default="coverage.xml")
     ap.add_argument("--line", type=float, default=90.0)
     ap.add_argument("--branch", type=float, default=80.0)
@@ -79,20 +81,35 @@ def main():
         line_pct = pct(pkg.get("line-rate"))
         branch_pct = pct(pkg.get("branch-rate"))
         ok = line_pct >= args.line and branch_pct >= args.branch
-        packages.append({"name": name, "line_pct": line_pct,
-                         "branch_pct": branch_pct, "pass": ok})
+        packages.append(
+            {"name": name, "line_pct": line_pct, "branch_pct": branch_pct, "pass": ok}
+        )
         if not ok:
-            failures.append({"name": name, "line_pct": line_pct,
-                             "branch_pct": branch_pct,
-                             "need_line": args.line, "need_branch": args.branch})
+            failures.append(
+                {
+                    "name": name,
+                    "line_pct": line_pct,
+                    "branch_pct": branch_pct,
+                    "need_line": args.line,
+                    "need_branch": args.branch,
+                }
+            )
 
-    overall = {"line_pct": pct(root.get("line-rate")),
-               "branch_pct": pct(root.get("branch-rate"))}
-    result = {"packages": packages, "overall": overall, "failures": failures,
-              "thresholds": {"line": args.line, "branch": args.branch}}
+    overall = {
+        "line_pct": pct(root.get("line-rate")),
+        "branch_pct": pct(root.get("branch-rate")),
+    }
+    result = {
+        "packages": packages,
+        "overall": overall,
+        "failures": failures,
+        "thresholds": {"line": args.line, "branch": args.branch},
+    }
     print(json.dumps(result, indent=2, sort_keys=True))
     if failures:
-        sys.stderr.write("coverage_gate: %d package(s) below threshold.\n" % len(failures))
+        sys.stderr.write(
+            "coverage_gate: %d package(s) below threshold.\n" % len(failures)
+        )
         return 1
     if not packages:
         sys.stderr.write("coverage_gate: no packages in report.\n")

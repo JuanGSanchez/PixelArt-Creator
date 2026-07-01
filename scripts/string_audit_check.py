@@ -43,10 +43,26 @@ import sys
 
 # Qt methods whose (first) string argument is user-visible and must be tr()-wrapped.
 USER_FACING_SETTERS = {
-    "setText", "setWindowTitle", "setToolTip", "setStatusTip", "setPlaceholderText",
-    "setTitle", "addItem", "addAction", "setLabelText", "setWhatsThis",
-    "setAccessibleName", "setAccessibleDescription", "insertItem", "setItemText",
-    "setTabText", "information", "warning", "critical", "question", "setPrefix",
+    "setText",
+    "setWindowTitle",
+    "setToolTip",
+    "setStatusTip",
+    "setPlaceholderText",
+    "setTitle",
+    "addItem",
+    "addAction",
+    "setLabelText",
+    "setWhatsThis",
+    "setAccessibleName",
+    "setAccessibleDescription",
+    "insertItem",
+    "setItemText",
+    "setTabText",
+    "information",
+    "warning",
+    "critical",
+    "question",
+    "setPrefix",
     "setSuffix",
 }
 TR_FUNCS = {"tr", "translate", "trUtf8"}
@@ -64,8 +80,11 @@ def is_tr_call(node):
 
 
 def nonempty_str(node):
-    return (isinstance(node, ast.Constant) and isinstance(node.value, str)
-            and node.value.strip() != "")
+    return (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and node.value.strip() != ""
+    )
 
 
 class Auditor(ast.NodeVisitor):
@@ -78,20 +97,28 @@ class Auditor(ast.NodeVisitor):
         if isinstance(fn, ast.Attribute) and fn.attr in USER_FACING_SETTERS:
             for arg in node.args:
                 if nonempty_str(arg):
-                    self.findings.append({
-                        "file": self.rel, "line": arg.lineno,
-                        "kind": "unwrapped-string",
-                        "text": arg.value[:80]})
+                    self.findings.append(
+                        {
+                            "file": self.rel,
+                            "line": arg.lineno,
+                            "kind": "unwrapped-string",
+                            "text": arg.value[:80],
+                        }
+                    )
                     break
         self.generic_visit(node)
 
     def visit_BinOp(self, node):
         if isinstance(node.op, ast.Add):
             if is_tr_call(node.left) or is_tr_call(node.right):
-                self.findings.append({
-                    "file": self.rel, "line": node.lineno,
-                    "kind": "tr-concatenation",
-                    "text": "translated string joined with '+' (breaks word order)"})
+                self.findings.append(
+                    {
+                        "file": self.rel,
+                        "line": node.lineno,
+                        "kind": "tr-concatenation",
+                        "text": "translated string joined with '+' (breaks word order)",
+                    }
+                )
         self.generic_visit(node)
 
 
@@ -108,7 +135,9 @@ def collect(paths, root):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Audit ui/ for unwrapped translatable strings.")
+    ap = argparse.ArgumentParser(
+        description="Audit ui/ for unwrapped translatable strings."
+    )
     ap.add_argument("paths", nargs="*")
     ap.add_argument("--root", default=os.path.join("pixelart_creator", "ui"))
     args = ap.parse_args()
@@ -128,11 +157,15 @@ def main():
         return 2
 
     findings.sort(key=lambda f: (f["file"], f["line"]))
-    print(json.dumps({"findings": findings, "scanned": len(files)},
-                     indent=2, sort_keys=True))
+    print(
+        json.dumps(
+            {"findings": findings, "scanned": len(files)}, indent=2, sort_keys=True
+        )
+    )
     if findings:
-        sys.stderr.write("string_audit_check: %d finding(s) for AGT-07 review.\n"
-                         % len(findings))
+        sys.stderr.write(
+            "string_audit_check: %d finding(s) for AGT-07 review.\n" % len(findings)
+        )
         return 1
     sys.stderr.write("string_audit_check: clean (%d files).\n" % len(files))
     return 0
