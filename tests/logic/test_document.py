@@ -4,11 +4,25 @@ from __future__ import annotations
 
 import pytest
 
-from pixelart_creator.logic.document import Document, DocumentError, Frame, Layer
+from pixelart_creator.logic import constants
+from pixelart_creator.logic.document import (
+    DEFAULT_FRAME_DURATION_MS,
+    Document,
+    DocumentError,
+    Frame,
+    Layer,
+)
 from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 
 RED = (255, 0, 0, 255)
+
+
+def test_default_frame_duration_is_single_sourced_from_constants():
+    # Regression (T3, S12): document re-exports the constant; constants.py is the
+    # sole source of truth. No magic 100 inlined in document.py.
+    assert DEFAULT_FRAME_DURATION_MS == constants.DEFAULT_FRAME_DURATION_MS
+    assert constants.DEFAULT_FRAME_DURATION_MS == 100
 
 
 def test_new_document_has_one_frame_one_layer():

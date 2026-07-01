@@ -7,12 +7,34 @@ import json
 import pytest
 
 from pixelart_creator.data import project_io as pio
+from pixelart_creator.logic import constants
 from pixelart_creator.logic.document import Document
 from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode
 
 RED = (255, 0, 0, 255)
 BLUE = (0, 0, 255, 255)
+
+
+def test_tuning_constants_single_sourced_from_constants():
+    # Regression (T4, S12): project_io imports its tuning values from
+    # logic.constants (no inlined zlib level 9 / duration 100 / palette cap 256).
+    assert pio.PROJECT_ZLIB_LEVEL is constants.PROJECT_ZLIB_LEVEL
+    assert pio.DEFAULT_FRAME_DURATION_MS is constants.DEFAULT_FRAME_DURATION_MS
+    assert pio.MAX_PALETTE_SIZE == constants.MAX_PALETTE_SIZE
+    assert constants.PROJECT_ZLIB_LEVEL == 9
+    assert constants.DEFAULT_FRAME_DURATION_MS == 100
+    assert constants.MAX_PALETTE_SIZE == 256
+
+
+def test_missing_duration_defaults_to_constant():
+    # Regression (T4): a frame with no "duration_ms" key falls back to the
+    # single-sourced DEFAULT_FRAME_DURATION_MS on load.
+    payload = pio.serialize(_sample_document())
+    for frame in payload["frames"]:
+        frame.pop("duration_ms", None)
+    loaded = pio.deserialize(payload)
+    assert loaded.frames[0].duration_ms == constants.DEFAULT_FRAME_DURATION_MS
 
 
 def _sample_document():

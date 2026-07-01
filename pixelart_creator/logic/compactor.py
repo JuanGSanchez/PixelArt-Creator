@@ -15,8 +15,9 @@
 #   Optional CLI for smoke test: python -m pixelart_creator.logic.compactor
 # INPUTS:
 #   rects: list[Rect] or list of (id, w, h); non-negative int dimensions.
-#   max_width, max_height: atlas bounds (default MAX_CANVAS_WIDTH/HEIGHT from
-#     logic.constants when available, else explicit args).
+#   max_width, max_height: atlas bounds — REQUIRED explicit positive-int args.
+#     This module imports no constants; callers pass the bounds they want (e.g.
+#     MAX_CANVAS_WIDTH/HEIGHT from logic.constants) explicitly.
 # OUTPUTS:
 #   Return value: Packing(placements=[Placement(id,x,y,w,h)], width, height).
 #   Raises CompactionError on invalid input or when a rect cannot fit.
@@ -49,7 +50,7 @@ import sys
 from typing import Iterable, List, NamedTuple, Sequence, Tuple, Union
 
 
-class CompactionError(Exception):
+class CompactionError(ValueError):
     """Raised when packing cannot proceed. `reason` is a stable machine token."""
 
     def __init__(self, message: str, reason: str = "invalid-input"):

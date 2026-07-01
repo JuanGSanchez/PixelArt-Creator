@@ -11,9 +11,12 @@ from __future__ import annotations
 from typing import Iterable, Iterator, List, Optional
 
 from pixelart_creator.logic.color import RGBA, distance_sq, is_rgba, rgba
+from pixelart_creator.logic.constants import MAX_PALETTE_SIZE
 
-#: Maximum entries in an indexed palette (8-bit index space).
-MAX_PALETTE_SIZE = 256
+#: Maximum entries in an indexed palette (8-bit index space). Re-exported from
+#: :mod:`pixelart_creator.logic.constants` (single source, S12) for callers that
+#: import it from here (e.g. ``data.project_io``).
+__all__ = ["MAX_PALETTE_SIZE", "PaletteError", "Palette"]
 
 
 class PaletteError(ValueError):

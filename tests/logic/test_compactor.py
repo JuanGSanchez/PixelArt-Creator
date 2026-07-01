@@ -92,6 +92,20 @@ def test_smoke_entrypoint_returns_zero():
     assert compactor._smoke() == 0
 
 
+def test_compaction_error_is_valueerror_subclass():
+    # Regression (T6, CL-8): CompactionError must share the ValueError domain base
+    # used by ColorError/PaletteError/PixelBufferError/DocumentError/ProjectIOError.
+    assert issubclass(CompactionError, ValueError)
+
+
+def test_compaction_error_caught_as_valueerror():
+    # Callers relying on the common ValueError base must catch CompactionError.
+    with pytest.raises(ValueError) as exc:
+        compact([("a", 1, 1)], 0, 10)
+    assert isinstance(exc.value, CompactionError)
+    assert exc.value.reason == "invalid-input"
+
+
 @given(
     st.lists(
         st.tuples(st.integers(1, 20), st.integers(1, 20)),
