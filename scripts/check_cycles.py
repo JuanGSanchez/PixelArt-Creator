@@ -65,7 +65,9 @@ def internal_imports(path, pkg, root_parent):
                     base = base.rsplit(".", 1)[0] if "." in base else base
                 mod = base + ("." + node.module if node.module else "")
                 out.add(mod)
-            elif node.module and (node.module == pkg or node.module.startswith(pkg + ".")):
+            elif node.module and (
+                node.module == pkg or node.module.startswith(pkg + ".")
+            ):
                 out.add(node.module)
     return out
 
@@ -114,8 +116,11 @@ def main():
     root = args.root.rstrip("/\\")
     if not os.path.isdir(root):
         sys.stderr.write("check_cycles: root not found: %s\n" % root)
-        print(json.dumps({"cycles": [], "modules": 0, "edges": 0,
-                          "error": "root-not-found"}))
+        print(
+            json.dumps(
+                {"cycles": [], "modules": 0, "edges": 0, "error": "root-not-found"}
+            )
+        )
         return 2
 
     pkg = os.path.basename(root)

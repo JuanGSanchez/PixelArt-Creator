@@ -42,6 +42,7 @@
 #   User req S11 (pure logic, zero Qt).
 # =============================================================================
 """Deterministic MaxRects (BSSF, rotation=False) sprite compaction library."""
+
 from __future__ import annotations
 
 import sys
@@ -93,20 +94,25 @@ def _coerce(rects: Iterable[InputRect]) -> List[Rect]:
             rid, w, h = r.id, r.w, r.h
         else:
             try:
-                rid, w, h = r  # type: ignore[misc]
+                rid, w, h = r
             except (ValueError, TypeError):
                 raise CompactionError("rect %d is not (id, w, h)" % i, "invalid-input")
         if not isinstance(w, int) or not isinstance(h, int) or w < 0 or h < 0:
-            raise CompactionError("rect %r has non-int/negative size" % (rid,),
-                                  "invalid-input")
+            raise CompactionError(
+                "rect %r has non-int/negative size" % (rid,), "invalid-input"
+            )
         out.append(Rect(str(rid), w, h))
     return out
 
 
 def _split_free(free: _Free, p: Placement) -> List[_Free]:
     # Guillotine-free MaxRects split: return sub-rects of `free` not covered by p.
-    if (p.x >= free.x + free.w or p.x + p.w <= free.x
-            or p.y >= free.y + free.h or p.y + p.h <= free.y):
+    if (
+        p.x >= free.x + free.w
+        or p.x + p.w <= free.x
+        or p.y >= free.y + free.h
+        or p.y + p.h <= free.y
+    ):
         return [free]  # no overlap
     out: List[_Free] = []
     if p.x > free.x:
@@ -121,8 +127,9 @@ def _split_free(free: _Free, p: Placement) -> List[_Free]:
 
 
 def _contained(a: _Free, b: _Free) -> bool:
-    return (a.x >= b.x and a.y >= b.y
-            and a.x + a.w <= b.x + b.w and a.y + a.h <= b.y + b.h)
+    return (
+        a.x >= b.x and a.y >= b.y and a.x + a.w <= b.x + b.w and a.y + a.h <= b.y + b.h
+    )
 
 
 def _prune(frees: List[_Free]) -> List[_Free]:
@@ -130,8 +137,11 @@ def _prune(frees: List[_Free]) -> List[_Free]:
     for i, a in enumerate(frees):
         if a.w <= 0 or a.h <= 0:
             continue
-        if any(j != i and _contained(a, b) and (a != b or j < i)
-               for j, b in enumerate(frees) if b.w > 0 and b.h > 0):
+        if any(
+            j != i and _contained(a, b) and (a != b or j < i)
+            for j, b in enumerate(frees)
+            if b.w > 0 and b.h > 0
+        ):
             continue
         kept.append(a)
     # Deterministic ordering.
@@ -140,14 +150,19 @@ def _prune(frees: List[_Free]) -> List[_Free]:
 
 def compact(rects: Sequence[InputRect], max_width: int, max_height: int) -> Packing:
     """Pack `rects` into a (max_width x max_height) atlas. Deterministic."""
-    if not isinstance(max_width, int) or not isinstance(max_height, int) \
-            or max_width <= 0 or max_height <= 0:
+    if (
+        not isinstance(max_width, int)
+        or not isinstance(max_height, int)
+        or max_width <= 0
+        or max_height <= 0
+    ):
         raise CompactionError("atlas bounds must be positive ints", "invalid-input")
     items = _coerce(rects)
     for r in items:
         if r.w > max_width or r.h > max_height:
-            raise CompactionError("rect %r exceeds atlas bounds" % (r.id,),
-                                  "does-not-fit")
+            raise CompactionError(
+                "rect %r exceeds atlas bounds" % (r.id,), "does-not-fit"
+            )
     # Sort: largest area first, id tie-break -> stable, deterministic.
     order = sorted(items, key=lambda r: (-(r.w * r.h), r.id))
     frees: List[_Free] = [_Free(0, 0, max_width, max_height)]
@@ -165,8 +180,9 @@ def compact(rects: Sequence[InputRect], max_width: int, max_height: int) -> Pack
                 if best is None or cand < best:
                     best = cand
         if best is None:
-            raise CompactionError("rect %r does not fit remaining space" % (r.id,),
-                                  "does-not-fit")
+            raise CompactionError(
+                "rect %r does not fit remaining space" % (r.id,), "does-not-fit"
+            )
         _s, _l, y, x, _idx = best
         p = Placement(r.id, x, y, r.w, r.h)
         placements.append(p)
@@ -185,8 +201,10 @@ def _smoke() -> int:
         demo = [("a", 64, 64), ("b", 32, 128), ("c", 100, 20), ("d", 40, 40)]
         pk = compact(demo, 256, 256)
         assert len({p.id for p in pk.placements}) == 4
-        print("compactor smoke ok: %dx%d, %d placements"
-              % (pk.width, pk.height, len(pk.placements)))
+        print(
+            "compactor smoke ok: %dx%d, %d placements"
+            % (pk.width, pk.height, len(pk.placements))
+        )
         return 0
     except CompactionError as exc:
         sys.stderr.write("CompactionError(%s): %s\n" % (exc.reason, exc))

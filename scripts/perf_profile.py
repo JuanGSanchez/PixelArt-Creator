@@ -55,6 +55,7 @@ import time
 # Defaults from the centralised constants (S12) when the package is importable.
 try:
     from pixelart_creator.logic import constants as _c
+
     D_W, D_H = _c.MAX_CANVAS_WIDTH, _c.MAX_CANVAS_HEIGHT
     D_TILE, D_BUDGET = _c.TILE_SIZE, float(_c.FRAME_BUDGET_MS)
 except Exception:  # pragma: no cover - fallback when package not on path
@@ -113,8 +114,10 @@ def main():
         while y < rect.bottom():
             x = left
             while x < rect.right():
-                painter.fillRect(QRectF(x, y, tile, tile),
-                                 c0 if ((x // tile + y // tile) % 2 == 0) else c1)
+                painter.fillRect(
+                    QRectF(x, y, tile, tile),
+                    c0 if ((x // tile + y // tile) % 2 == 0) else c1,
+                )
                 x += tile
                 count += 1
             y += tile
@@ -153,13 +156,20 @@ def main():
         "frames": args.frames,
         "tiles_per_frame": tiles_per_frame,
         "within_budget": within,
-        "scenario": {"width": args.width, "height": args.height, "tile": tile,
-                     "zoom": args.zoom, "viewport": [vw, vh]},
+        "scenario": {
+            "width": args.width,
+            "height": args.height,
+            "tile": tile,
+            "zoom": args.zoom,
+            "viewport": [vw, vh],
+        },
     }
     print(json.dumps(report, indent=2, sort_keys=True))
     if not within:
-        sys.stderr.write("perf_profile: OVER budget (median %.3f ms > %.1f ms).\n"
-                         % (median, args.budget_ms))
+        sys.stderr.write(
+            "perf_profile: OVER budget (median %.3f ms > %.1f ms).\n"
+            % (median, args.budget_ms)
+        )
         return 1
     sys.stderr.write("perf_profile: within budget (median %.3f ms).\n" % median)
     return 0

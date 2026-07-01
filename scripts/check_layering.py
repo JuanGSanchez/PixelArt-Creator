@@ -79,8 +79,7 @@ def main():
 
     if not os.path.isdir(args.root):
         sys.stderr.write("check_layering: root not found: %s\n" % args.root)
-        print(json.dumps({"violations": [], "scanned": 0,
-                          "error": "root-not-found"}))
+        print(json.dumps({"violations": [], "scanned": 0, "error": "root-not-found"}))
         return 2
 
     violations = []
@@ -97,21 +96,33 @@ def main():
                     continue
                 scanned += 1
                 mods = imports_of(path)
-                bad = sorted(m for m in mods
-                             if any(m == r or m.startswith(r + ".") or
-                                    (r.startswith("..") and m.startswith(r))
-                                    for r in rules))
+                bad = sorted(
+                    m
+                    for m in mods
+                    if any(
+                        m == r
+                        or m.startswith(r + ".")
+                        or (r.startswith("..") and m.startswith(r))
+                        for r in rules
+                    )
+                )
                 if bad:
-                    violations.append({
-                        "file": os.path.relpath(path, args.root).replace("\\", "/"),
-                        "layer": layer,
-                        "imports": bad,
-                        "rule": "%s/ must not import: %s" % (layer, ", ".join(rules)),
-                    })
+                    violations.append(
+                        {
+                            "file": os.path.relpath(path, args.root).replace("\\", "/"),
+                            "layer": layer,
+                            "imports": bad,
+                            "rule": "%s/ must not import: %s"
+                            % (layer, ", ".join(rules)),
+                        }
+                    )
     except (SyntaxError, OSError, UnicodeDecodeError) as exc:
         sys.stderr.write("check_layering: parse error: %r\n" % exc)
-        print(json.dumps({"violations": violations, "scanned": scanned,
-                          "error": repr(exc)}))
+        print(
+            json.dumps(
+                {"violations": violations, "scanned": scanned, "error": repr(exc)}
+            )
+        )
         return 2
 
     violations.sort(key=lambda v: v["file"])
@@ -119,7 +130,9 @@ def main():
     if violations or args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     if violations:
-        sys.stderr.write("check_layering: %d layering violation(s).\n" % len(violations))
+        sys.stderr.write(
+            "check_layering: %d layering violation(s).\n" % len(violations)
+        )
         return 1
     sys.stderr.write("check_layering: clean (%d modules).\n" % scanned)
     return 0
