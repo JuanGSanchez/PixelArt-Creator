@@ -34,6 +34,24 @@ do not assume the default.
 | AGT-09 GitHub/DevOps | git, Conventional Commits, ci.yml, pyproject.toml, LICENSE, repo + branch protection | `.claude/agents/agt-09-github-devops.md` | .github/, ci.yml, pyproject.toml, LICENSE/NOTICE, repo/branch config, semver, coverage_gate/path_portability in CI | code/tests/docs (03–08), spec (02), placement (01), render-perf (10) |
 | AGT-10 Rendering & Performance | GPU render-pipeline strategy + frame-budget profiling; issues directives to AGT-05 | `.claude/agents/agt-10-rendering-performance.md` | render strategy (tiling/culling/dirty-rect/QOpenGL/BSP), perf_profile, optimization directives | widget authoring (05), functional/a11y tests (06), logic (03), docs publish (08) |
 
+## Per-Agent Capability Skills (Phase 3 v4.1 delta — 25 new, `.claude/skills/<name>/SKILL.md`)
+
+Owned via each agent's frontmatter/body (`Skill` tool) and invoked by that agent. Names are
+kebab-case with no agent-id prefix (portable/extensible to roadmap Phases 5–12, Dossier §6.2).
+
+| Owning agent | Owned capability skills |
+|--------------|-------------------------|
+| AGT-01 Architecture | `layer-audit`, `adr-author`, `interface-contract` (+ SDD `sdd-plan`/`sdd-tasks`/`sdd-analyze`) |
+| AGT-02 Requirements | `story-map`, `traceability-matrix` (+ SDD `sdd-specify`/`sdd-clarify`) |
+| AGT-03 Python Dev | `logic-scaffold`, `reversible-op`, `numpy-buffer-ops` |
+| AGT-04 Python Tester | `pytest-scaffold`, `hypothesis-strategy` |
+| AGT-05 UI Expert | `widget-scaffold`, `qss-theming`, `canvas-view`, `colour-hub` |
+| AGT-06 QA Expert | `pytest-qt-harness`, `a11y-audit` (+ SDD `sdd-checklist`) |
+| AGT-07 Localisation | `string-extract`, `ts-qm-build` |
+| AGT-08 Documenter | `changelog`, `mkdocs-site` |
+| AGT-09 GitHub/DevOps | `ci-author`, `repo-provision`, `release` |
+| AGT-10 Rendering & Performance | `frame-profile`, `render-strategy` |
+
 **Tool-owner context (not a domain agent):** AGT-00 = the orchestration tool-context;
 owns file_lock, hook_dispatch_record, schema_validate — declared in
 `.claude/agents/orchestrator.md` OWNED TOOLS section (Build Manifest Open Item 1 resolution).

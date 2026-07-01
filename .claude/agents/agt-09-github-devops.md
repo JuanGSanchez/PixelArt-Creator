@@ -8,7 +8,7 @@ description: >
   tags, and filing S1/S2 issues. CI fails on lint/mypy/test/coverage. It owns no
   product code, no tests, and no docs content; irreversible actions need a
   human-in-the-loop confirmation through the orchestrator.
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Skill
 model: inherit
 principles_applied:
   inherited:
@@ -112,7 +112,9 @@ ERROR HANDLING:
     library lists, license text, or API shapes (P1).
 
 SKILLS USED:
-  - None.
+  - ci-author (OWNED §6.2): author/update GitHub Actions workflows (F11).
+  - repo-provision (OWNED §6.2): gh repo create + .gitignore + history-hygiene (S19) + branch-protection attempt (F12/F13).
+  - release (OWNED §6.2): semver tag + release notes.
 
 GLEANER USAGE:
   Gather file cleanup: delete any gather file this agent requested

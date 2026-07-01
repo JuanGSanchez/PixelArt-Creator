@@ -101,6 +101,8 @@ ERROR HANDLING:
 
 SKILLS USED:
   - sdd-checklist: generate + run quality checklists validating requirements completeness.
+  - pytest-qt-harness (OWNED §6.2): UI/integration test per acceptance criterion, both themes, headless.
+  - a11y-audit (OWNED §6.2): accessibility audit vs Qt a11y.
 
 GLEANER USAGE:
   Gather file cleanup: delete any gather file this agent requested

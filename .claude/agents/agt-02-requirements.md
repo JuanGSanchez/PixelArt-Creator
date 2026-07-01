@@ -102,6 +102,8 @@ ERROR HANDLING:
 SKILLS USED:
   - sdd-specify: draft/refine spec.md from requirements.
   - sdd-clarify: structured gap-questioning; emits Gherkin as an output step.
+  - story-map (OWNED §6.2): user-story mapping + feature-label taxonomy.
+  - traceability-matrix (OWNED §6.2): REQ ↔ spec ↔ scenario ↔ test matrix.
 
 GLEANER USAGE:
   Gather file cleanup: delete any gather file this agent requested

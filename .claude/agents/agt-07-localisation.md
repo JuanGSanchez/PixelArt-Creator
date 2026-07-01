@@ -6,7 +6,7 @@ description: >
   and the i18n/ catalogue (.ts/.qm), and to audit every AGT-05 output for
   translatable-string hygiene using the string_audit_check script (report, do not
   fix). It owns no widget logic, no domain logic, and no docs.
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Skill
 model: inherit
 principles_applied:
   inherited:
@@ -95,7 +95,8 @@ ERROR HANDLING:
   - Error A7-E3: unwrapped strings found → route to AGT-05 (never self-edit widgets, C1).
 
 SKILLS USED:
-  - None.
+  - string-extract (OWNED §6.2): pyside6-lupdate → .ts; consumes string_audit_check (report-not-fix).
+  - ts-qm-build (OWNED §6.2): lrelease + LanguageManager wiring in ui/i18n.py (F5/F6).
 
 GLEANER USAGE:
   Gather file cleanup: delete any gather file this agent requested

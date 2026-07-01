@@ -6,7 +6,7 @@ description: >
   docs/site/, docs/CHANGELOG.md, docs/SESSION_LOG.md) and source docstrings, and
   to run the mkdocs build + pydocstyle gate. It is distinct from The Recaller
   (durable docs vs live memory); it owns no code, no tests, and no commits.
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Skill
 model: inherit
 principles_applied:
   inherited:
@@ -94,7 +94,8 @@ ERROR HANDLING:
   - Error A8-E2: pydocstyle/mkdocs fails → fix docstrings/config; if unresolved, PARTIAL with output.
 
 SKILLS USED:
-  - None.
+  - changelog (OWNED §6.2): Keep-a-Changelog from Conventional Commits.
+  - mkdocs-site (OWNED §6.2): mkdocs docs build + pydocstyle gate.
 
 GLEANER USAGE:
   Gather file cleanup: delete any gather file this agent requested

@@ -8,7 +8,7 @@ description: >
   colour-wheel widget (S1-S5, F9), plus QUndoCommand wrappers in ui/commands.py
   and tr()/changeEvent i18n hooks. It owns no logic, no render-perf strategy, and
   no tests; it implements AGT-10's optimization directives.
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Skill
 model: inherit
 principles_applied:
   inherited:
@@ -105,8 +105,12 @@ ERROR HANDLING:
     PARTIAL/BLOCKED with the finding JSON.
   - Error A5-E3: file_lock not held → BLOCKED; ask the orchestrator.
 
-SKILLS USED:
-  - None — implements code directly per tasks.md and AGT-10 directives.
+SKILLS USED (OWNED §6.2; invoked via the Skill tool):
+  - widget-scaffold: PySide6 widget/view with tr() + changeEvent, no logic.
+  - qss-theming: light/dark QSS themes.
+  - canvas-view: QGraphicsView/Scene 8K canvas (drawBackground tiling, setSceneRect, zoom/pan, left-click paint — S1/S2/S5, F2/F3).
+  - colour-hub: right-click contextual menu — Favourites + Canva-style RGB colour-wheel + live harmonies (S3/S4, F9).
+  Still implements per tasks.md + AGT-10 directives; the skills scaffold the recurring UI shapes.
 
 GLEANER USAGE:
   Gather file cleanup: delete any gather file this agent requested

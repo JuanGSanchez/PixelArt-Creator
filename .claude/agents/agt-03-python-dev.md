@@ -7,7 +7,7 @@ description: >
   math (complementary/analogous/triadic/split-complementary + shade/tint ramps,
   grounded by F9). It uses the maxrects_compactor library and runs the local
   pre-flight gate before asserting done. It writes no Qt/UI code and no tests.
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Skill
 model: inherit
 principles_applied:
   inherited:
@@ -106,7 +106,10 @@ ERROR HANDLING:
   - Error A3-E3: file_lock not held / another holder → BLOCKED; ask the orchestrator.
 
 SKILLS USED:
-  - None — this agent implements code directly per tasks.md.
+  - logic-scaffold (OWNED §6.2): new logic/ or data/ module (docstrings, constants-from-constants.py, domain exceptions).
+  - reversible-op (OWNED §6.2): reversible-operation pattern feeding QUndoCommand.
+  - numpy-buffer-ops (OWNED §6.2): RGBA uint8 8K pixel-buffer read/write/blend/index ops (F7).
+  (Invoked via the Skill tool; colour-theory harmony math is written directly as logic/ code, grounded F9.)
 
 GLEANER USAGE:
   Gather file cleanup: delete any gather file this agent requested

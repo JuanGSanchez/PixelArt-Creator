@@ -41,6 +41,12 @@ SCOPED = (
     "agt-06-qa-expert", "agt-08-documenter", "the-researcher", "the-gleaner",
 )
 
+# exit-status-validate (folded in, Dossier §6.3): the exit-status vocabulary a
+# finishing subagent must surface exactly one of (advisory, fail-open).
+EXIT_STATUS_VOCAB = (
+    "COMPLETED", "PARTIAL", "BLOCKED", "FAILED", "CANCELLED", "EXHAUSTED",
+)
+
 CONTRACT = (
     "[subagent-report contract] You are a heavy-output subagent. Deliver your "
     "COMPLETE answer as a FILE, not inline, to keep the invoker's context lean:\n"
@@ -129,6 +135,30 @@ def handle_start(data):
     sys.exit(0)
 
 
+def validate_exit_status(data):
+    """exit-status-validate (folded in): read the subagent transcript tail and
+    assert exactly one exit-status vocabulary token was surfaced. Returns an
+    advisory string when malformed (zero / conflicting), else None. Fail-open:
+    any read/parse problem -> None (no false flag)."""
+    try:
+        tpath = data.get("transcript_path") or ""
+        if not tpath or not os.path.isfile(tpath):
+            return None
+        with io.open(tpath, "r", encoding="utf-8", errors="ignore") as fh:
+            tail = fh.read()[-8000:]
+        found = set(s for s in EXIT_STATUS_VOCAB if s in tail)
+        if len(found) == 0:
+            return ("exit-status-validate: no exit-status token found — return "
+                    "one of %s." % " | ".join(EXIT_STATUS_VOCAB))
+        if len(found) > 1:
+            return ("exit-status-validate: multiple conflicting status tokens "
+                    "(%s) — surface exactly one." % ", ".join(sorted(found)))
+        return None
+    except Exception as e:
+        log_debug("validate_exit_status failed: %r" % e)
+        return None
+
+
 def handle_stop(data):
     atype = safe_type(data.get("agent_type"))
     if not in_scope(atype):
@@ -138,8 +168,15 @@ def handle_stop(data):
     state = read_state(key)
     if state.get("reminded"):
         allow()  # loop-guard: remind at most once per subagent session
+    status_note = validate_exit_status(data)  # exit-status-validate (advisory)
     if deliverable_exists(atype, aid8):
-        allow()  # report/gather file present -> contract satisfied
+        if status_note is None:
+            allow()  # report/gather file present + status well-formed -> satisfied
+        state["reminded"] = True
+        write_state(key, state)
+        sys.stderr.write("[subagent-report hook] " + status_note)
+        sys.stderr.flush()
+        sys.exit(2)  # advisory: report present but the exit status is malformed
     state["reminded"] = True
     write_state(key, state)
     msg = (
@@ -149,6 +186,8 @@ def handle_stop(data):
         "EXIT_STATUS pointer (summary / report_file absolute path / status / "
         "key_points). If your result is genuinely 1-2 lines, an inline answer is "
         "acceptable." % (atype, aid8))
+    if status_note:
+        msg += "\n" + status_note
     sys.stderr.write(msg)
     sys.stderr.flush()
     sys.exit(2)

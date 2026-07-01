@@ -122,6 +122,9 @@ SKILLS USED:
   - sdd-plan: architecture + stack → plan.md.
   - sdd-tasks: dependency-ordered tasks.md.
   - sdd-analyze: cross-artifact consistency/coverage gate.
+  - layer-audit (OWNED §6.2): run/interpret check_layering + check_cycles → placement decision (absorbs file-placement).
+  - adr-author (OWNED §6.2): Architecture Decision Records under docs/adr/.
+  - interface-contract (OWNED §6.2): module interface contracts + STRUCTURE.md upkeep.
 
 GLEANER USAGE:
   Gather file cleanup: delete any gather file this agent requested

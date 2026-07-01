@@ -6,7 +6,7 @@ description: >
   ≥80% branch per package, using Hypothesis for property tests and adding a
   regression test for every fix. It runs the coverage_gate script. It writes no
   product code and no UI tests.
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Skill
 model: inherit
 principles_applied:
   inherited:
@@ -97,7 +97,8 @@ ERROR HANDLING:
     itself fails, return FAILED with the traceback.
 
 SKILLS USED:
-  - None.
+  - pytest-scaffold (OWNED §6.2): logic/data test module + conftest, ≥90/80 gate.
+  - hypothesis-strategy (OWNED §6.2): property-based strategies for pixel/palette/geometry data.
 
 GLEANER USAGE:
   Gather file cleanup: delete any gather file this agent requested

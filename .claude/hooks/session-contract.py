@@ -14,17 +14,26 @@
 # Coexistence (Open Item 3): wired as a SEPARATE SessionStart matcher group; it
 # does NOT displace the existing SessionStart->context-budget.py group (both stack).
 #
+# conventions-inject (folded in, Dossier §6.3): on UserPromptSubmit it injects a
+# THIN pointer to the active CONVENTIONS source + constitution.md + the active
+# spec.md under work (paths only, no full-file dump — P13). Wired as a SEPARATE
+# UserPromptSubmit group so it does NOT displace the mandatory
+# UserPromptSubmit->context-budget.py group (both stack).
+#
 # FAIL OPEN: any internal error -> exit 0 (no feedback).
-# Wiring: .claude/settings.json -> SessionStart (matcher "startup|resume|clear|compact").
-# Invoked: python "$CLAUDE_PROJECT_DIR/.claude/hooks/session-contract.py"
+# Wiring: .claude/settings.json -> SessionStart (matcher "startup|resume|clear|
+#   compact") + UserPromptSubmit. Invoked:
+#   python "$CLAUDE_PROJECT_DIR/.claude/hooks/session-contract.py"
 # =============================================================================
 import sys
 import os
 import io
+import glob
 import json
 import datetime
 
 HOOKS_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.environ.get("CLAUDE_PROJECT_DIR") or os.path.dirname(HOOKS_DIR)
 DEBUG_LOG = os.path.join(HOOKS_DIR, ".session-contract-debug.log")
 
 REMINDER = (
@@ -35,6 +44,24 @@ REMINDER = (
     "Maximal-Effort Completeness (P12): carry every task to a definitive, "
     "fully-covered, ready-to-grow end unless the user says otherwise."
 )
+
+
+def conventions_pointer():
+    """Thin CONVENTIONS/constitution/active-spec pointer (paths only, no dump)."""
+    bits = ["[conventions] Single source of conventions: "
+            ".claude/agents/orchestrator.md CONVENTIONS field."]
+    if os.path.isfile(os.path.join(PROJECT_DIR, "constitution.md")):
+        bits.append("Governing: constitution.md.")
+    try:
+        specs = sorted(glob.glob(os.path.join(PROJECT_DIR, "specs", "*", "spec.md")))
+        if specs:
+            rels = [os.path.relpath(s, PROJECT_DIR).replace("\\", "/")
+                    for s in specs[:3]]
+            bits.append("Active spec(s): " + ", ".join(rels) + ".")
+    except Exception as e:
+        log_debug("spec glob failed: %r" % e)
+    bits.append("Inherit them; do not re-establish conventions (P4/P13).")
+    return " ".join(bits)
 
 
 def log_debug(msg):
@@ -57,6 +84,11 @@ def main():
         if event == "SessionStart":
             out = {"hookSpecificOutput": {"hookEventName": "SessionStart",
                                           "additionalContext": REMINDER}}
+            sys.stdout.write(json.dumps(out))
+            sys.stdout.flush()
+        elif event == "UserPromptSubmit":
+            out = {"hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
+                                          "additionalContext": conventions_pointer()}}
             sys.stdout.write(json.dumps(out))
             sys.stdout.flush()
         sys.exit(0)

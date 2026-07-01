@@ -8,7 +8,7 @@ description: >
   against the 16 ms / 60 fps budget with the perf_profile script. It issues
   optimization directives that AGT-05 implements; it authors no widget classes and
   no functional/a11y tests.
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Skill
 model: inherit
 principles_applied:
   inherited:
@@ -101,7 +101,8 @@ ERROR HANDLING:
   - Error A10-E3: UI to profile missing → BLOCKED; ask AGT-05 via orchestrator.
 
 SKILLS USED:
-  - None.
+  - frame-profile (OWNED §6.2): run/interpret perf_profile vs FRAME_BUDGET_MS (F4/F7).
+  - render-strategy (OWNED §6.2): tile-culling / dirty-rect / BSP-depth / QOpenGL optimization directives for AGT-05 (F2/F3/F4).
 
 GLEANER USAGE:
   Gather file cleanup: delete any gather file this agent requested
