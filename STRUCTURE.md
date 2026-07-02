@@ -18,7 +18,7 @@
 | `pixel_buffer.py` | NumPy uint8 pixel storage (RGBA/INDEXED), access/region/blit/resize. | `PixelBuffer`, `ColorMode`, `PixelValue`, `PixelBufferError` |
 | `drawing.py` | Raster primitives returning changed `(x,y)` coords. | `pencil`, `pick_color`, `line`, `rectangle`, `ellipse`, `flood_fill` |
 | `history.py` | Reversible command pattern + bounded undo/redo. | `Command`, `PixelEdit`, `FunctionCommand`, `History`, `record_edit` |
-| `document.py` | Document → frames → layers → buffers; resize. | `Document`, `Frame`, `Layer`, `resize_canvas`, `DocumentError` |
+| `document.py` | Document → frames → layers → buffers; resize; **colour-mode authority** — `Document.mode` is the single source of truth (ADR-0008); reversible colour-mode conversion (flatten-then-index / palette-lookup) that flips buffers **and** `Document.mode` atomically, delegating pixels to `palette_ops.to_indexed`/`to_rgba`. | `Document`, `Frame`, `Layer`, `resize_canvas`, `make_convert_to_indexed_command`, `make_convert_to_rgba_command`, `DocumentError` |
 | `compactor.py` | Deterministic MaxRects atlas packing (Phase-7 fwd). | `compact`, `Packing`, `Rect`, `CompactionError` |
 
 ## `pixelart_creator/logic/` — Phase-2 advanced-drawing — PLANNED (Slice 2A)
@@ -58,9 +58,27 @@
 | `hardware_palette.py` | NES (64-entry `2C02G_wiki.pal` decode) + Game Boy (4-shade DMG) reference palettes (module-local data, ADR-0003). | `nes_palette`, `game_boy_palette` (each returns a new independent `Palette`) | LOGIC-008 |
 | `quantize.py` | Palette-constraint (⊆) + auto-extract median-cut/k-means (≤N); reversible constraint builder. | `constrain_to_palette`, `median_cut`, `kmeans`, `make_constraint_command`, `QuantizeError` | LOGIC-009..011 |
 | `palette_analytics.py` | Per-colour/per-index usage counts across buffer/document (read-only, vectorised F7). | `color_usage_counts`, `index_usage_counts`, `document_usage_counts` | LOGIC-012 |
-| `palette_ops.py` | Colour cycling (rotate index range) + palette swap/remap; reversible builders. | `cycle_palette`, `swap_indices`, `remap_colors`, `make_cycle_command`, `make_swap_command` | LOGIC-013, 014 |
+| `palette_ops.py` | Colour cycling (rotate index range) + palette swap/remap; reversible builders. **Pure mode converters** `to_indexed`/`to_rgba` stay here (called by `document.py`'s conversion commands); the buffer-level `make_to_indexed_command`/`make_to_rgba_command` + `SupportsBuffer` are **retired** — colour-mode authority moved to `document.py` (ADR-0008). | `cycle_palette`, `swap_indices`, `remap_colors`, `to_indexed`, `to_rgba`, `make_cycle_command`, `make_swap_command` | LOGIC-013, 014 |
 | `favourites.py` | Persisted, ordered, de-duplicated `Favourites` model + JSON `to/from_serializable`; soft cap. | `Favourites` (add/remove/move/colors/to_serializable/from_serializable), `FavouritesError` | LOGIC-015 |
 | `palette_io.py` | Encode/decode `Palette` to/from `.gpl`/`.pal`/hex (defensive, Qt-free). | `encode`, `decode`, `PaletteIOError` | LOGIC-016 |
+
+## `pixelart_creator/logic/` — Phase-4 layer & canvas — BUILT (Slice 4A)
+
+> New `logic/blend.py` + an extension of `document.py`, frozen by AGT-01 (`interface-contract`,
+> plan §6) BEFORE implementation so the 4B/4C slices bind to a stable contract. Blend maths grounded
+> by `docs/research-blend-modes.md` (W3C Compositing & Blending Level 1). **PL-D2 (cycle-free):**
+> `BlendMode` lives in `blend.py`; `document.py` imports it (one-way `document → blend`); `blend.py`
+> **never imports `document`** — `composite_stack` consumes nodes via the structural `CompositeNode`
+> Protocol. New tuning constants → `constants.py` (T1: `DEFAULT_LAYER_OPACITY=1.0`,
+> `MAX_LAYERS_PER_FRAME=256`, `MAX_GROUP_NESTING_DEPTH=8`). Blend-formula magic numbers are
+> **intrinsic-local** to `blend.py` (ADR-0001/0005); straight (non-premultiplied) alpha, float32
+> 0..1 working space (ADR-0005). New exception `BlendError(ValueError)`; `DocumentError` reused.
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `constants.py` | extend | +3 tuning bounds (leaf). | `DEFAULT_LAYER_OPACITY`, `MAX_LAYERS_PER_FRAME`, `MAX_GROUP_NESTING_DEPTH` | LOGIC-015 |
+| `blend.py` | **new** | `BlendMode` enum (12 — W3C separable set: NORMAL + 11 non-normal; FU-13 corrected from 13, a double-count of normal); separable per-mode maths (W3C); stack compositor honouring visibility/opacity/order/mode/mask + group recursion + region-scoped dirty-rect; NORMAL → `color.blend_over`. Zero `document` import (PL-D2). | `BlendMode` (12 members), `BlendError`, `blend_channel`, `blend_pixels`, `blend_arrays`, `composite_stack(nodes,w,h,*,region=None)`, `CompositeNode` (Protocol) | LOGIC-001..007, 011/012 (compositor side) |
+| `document.py` | extend | `Layer` +`blend_mode`/`mask`/`reference`/`smart_source`/`effective_buffer()`; new `LayerGroup` node; reversible attribute + structural + group/mask/reference/smart ops → `history.Command`; lock/reference guard; bounds. | `LayerGroup`, `LayerNode`, `set_layer_opacity/visible/locked/blend_mode`, `make_add/remove/move/duplicate_layer_command`, `make_group/ungroup_command`, `make_attach/detach_mask_command`, `make_set_reference_command`, `make_smart_layer_command`, `ensure_editable` | LOGIC-008..015, 011/012 (node side) |
 
 ## `pixelart_creator/data/` — I/O & persistence (zero Qt) — SHIPPED
 
@@ -73,6 +91,34 @@
 | Module | Responsibility | Key public surface | REQ |
 | --- | --- | --- | --- |
 | `favourites_io.py` | App-level JSON persistence of `Favourites` (ADR-0004); mirrors `project_io.py`; path supplied by UI (`QStandardPaths`), so `data/` stays Qt-free. | `save_favourites(path, favourites)`, `load_favourites(path)`, `FavouritesIOError` | LOGIC-015 (persistence), UI-004 |
+
+## `pixelart_creator/data/` — Phase-4 `.pixproj` v2 — BUILT (Slice 4B)
+
+> `data/project_io.py` extended to persist the richer layer model. Schema-v2 decision + v1
+> back-compat read ruled in **ADR-0006**; `FORMAT_VERSION` bumped to **2** (the version bump itself is
+> format-intrinsic, stays local — ADR-0001); defensive validated load (Article VII) that also
+> **reads legacy v1 files** (flat layers → `NORMAL`, no groups/masks). AGT-01 allocates the DATA IDs
+> (plan §7). Zero Qt.
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `project_io.py` | extend | Serialise per-node blend_mode/opacity/visible/lock + nested groups + masks + reference/smart links; schema v2; defensive load + v1 back-compat read. | `serialize`, `deserialize`, `save_project`, `load_project`, `FORMAT_VERSION=2`, `ProjectIOError` | DATA-001..005 |
+
+## `pixelart_creator/ui/` — Phase-4 layer & canvas — BUILT (Slice 4C)
+
+> Binds to Slice-4A logic (`blend.composite_stack`, `document` layer ops) + `data/project_io` v2; Qt
+> lives here only. `ui/commands.py` (extended) is the sole Qt undo-bridge and delegates to the
+> `history.Command` each layer op returns (one `QUndoCommand` per op, no domain math — Article I).
+> Canvas recomposites the dirty region only (ADR-0007, **amended T13**: `composite_stack(region=…)`
+> returns a region-sized `(h,w,4)` buffer blitted into the resident composite at `(x,y)` — no
+> full-canvas alloc on the region path; contract signature unchanged); resident buffers never culled (F7).
+
+| Module | Change | Responsibility | Binds to (logic/data) | REQ |
+| --- | --- | --- | --- | --- |
+| `layer_panel.py` | **new** | `Layer_Panel(QWidget)`: top-to-bottom layer list; per-row opacity slider / visibility / lock / blend-mode dropdown (12 tr-labels, populated by iterating `list(BlendMode)` — no hard count) / drag-reorder; add/remove/duplicate/group/ungroup; mask + reference + smart affordances; expandable groups; single-selection active layer. | `document` ops, `blend.BlendMode`, `ui/commands` | UI-001..011, 013, 016..018 |
+| `canvas_scene.py` | extend | Render the flattened composite via `blend.composite_stack`; refresh only the dirty region on edit. | `blend.composite_stack`, `document` | UI-012 |
+| `main_window.py` | extend | Multi-canvas / artboard tabs: per-tab layer tree + `QUndoStack` + composite + scene rect; dock the layer panel; wire to the active document. | `document`, tabs | UI-014 |
+| `commands.py` | extend | One `QUndoCommand` per layer op, delegating to the returned `history.Command`; dirty-rect recomposite signalling; no domain math. | `history` + all 4A ops | UI-013 |
 
 ## `pixelart_creator/ui/` — PySide6 presentation — PLANNED (Phase-1 UI increment)
 
