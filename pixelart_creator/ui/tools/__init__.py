@@ -9,6 +9,7 @@ pixel geometry lives in ``logic/drawing.py``.
 from __future__ import annotations
 
 from pixelart_creator.ui.tools.base import Tool, ToolContext
+from pixelart_creator.ui.tools.dither_tool import DitherTool
 from pixelart_creator.ui.tools.ellipse_tool import EllipseTool
 from pixelart_creator.ui.tools.eraser import EraserTool
 from pixelart_creator.ui.tools.fill import FloodFillTool
@@ -37,4 +38,5 @@ __all__ = [
     "RectSelectTool",
     "LassoTool",
     "MagicWandTool",
+    "DitherTool",
 ]

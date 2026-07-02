@@ -46,8 +46,11 @@ class PencilTool(Tool):
         return QCoreApplication.translate("tools", "Pencil")
 
     def value(self, ctx: ToolContext) -> PixelValue:
-        """The value plotted (overridden by the eraser)."""
-        return ctx.active_color
+        """The value plotted (overridden by the eraser).
+
+        Resolves to the active palette index on an indexed buffer and the active
+        RGBA colour on an RGBA buffer (paint-by-index, REQ-P3-UI-014)."""
+        return ctx.paint_value()
 
     def _plot_segment(self, coords: List[Coord], ctx: ToolContext) -> None:
         """Stamp a segment's symmetry mirrors and record it for deferred modes."""

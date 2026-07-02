@@ -434,6 +434,17 @@ class CanvasScene(QGraphicsScene):
         """Return the active :class:`Layer` (the transform/RotSprite holder)."""
         return self._document.frames[0].layers[-1]
 
+    def set_display_palette(self, colors: List[RGBA]) -> None:
+        """Re-derive the indexed display from ``colors`` without touching pixels.
+
+        Used by the non-destructive colour-cycling preview (REQ-P3-UI-012): the
+        buffer indices are untouched; only the display LUT the item resolves them
+        through changes. A no-op-equivalent for RGBA buffers (they ignore the LUT).
+        """
+        self._item.set_buffer(self.active_buffer(), colors)
+        if self._tiled_enabled:
+            self._tiled_item.mark_dirty()
+
     def set_document(self, document: Document) -> None:
         """Rebind the scene to a different document (tab switch, SC-UI-020-3)."""
         self._document = document

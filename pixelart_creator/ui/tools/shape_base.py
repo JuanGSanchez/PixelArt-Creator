@@ -80,22 +80,24 @@ class ShapeTool(Tool):
         sx, sy = self._start
         self._start = None
         ctx.scene.hide_shape_preview()
-        color = ctx.active_color
+        # Commit with the mode-correct value (index on indexed buffers, P3-UI-014);
+        # previews above use the RGBA active_color for display.
+        value = ctx.paint_value()
         stroke = Stroke(ctx.buffer)
 
         def op(buffer: PixelBuffer) -> List[Coord]:
-            return self._draw_op(buffer, sx, sy, x, y, color)
+            return self._draw_op(buffer, sx, sy, x, y, value)
 
         mask = ctx.selection if ctx.selection and not ctx.selection.is_empty else None
         if mask is None:
             drawn = op(ctx.buffer)
             stroke.absorb(drawn)
-            stroke.stamp(mirror_coords(drawn, ctx), color)
+            stroke.stamp(mirror_coords(drawn, ctx), value)
         else:
             drawn = apply_masked(ctx.buffer, op, mask)
             stroke.absorb(drawn)
             mirrored = [c for c in mirror_coords(drawn, ctx) if mask.is_selected(*c)]
-            stroke.stamp(mirrored, color)
+            stroke.stamp(mirrored, value)
 
         command = stroke.to_command(ctx.scene.refresh_rect, self.label())
         if command is not None:

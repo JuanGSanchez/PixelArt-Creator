@@ -22,7 +22,8 @@ class FloodFillTool(Tool):
 
     def on_press(self, x: int, y: int, ctx: ToolContext) -> None:
         stroke = Stroke(ctx.buffer)
-        stroke.flood_fill(x, y, ctx.active_color)
+        # Paint-by-index on an indexed buffer; RGBA elsewhere (REQ-P3-UI-014).
+        stroke.flood_fill(x, y, ctx.paint_value())
         command = stroke.to_command(ctx.scene.refresh_rect, self.label())
         if command is not None:
             ctx.undo_stack.push(command)
