@@ -99,6 +99,8 @@ class ShapeTool(Tool):
             mirrored = [c for c in mirror_coords(drawn, ctx) if mask.is_selected(*c)]
             stroke.stamp(mirrored, value)
 
-        command = stroke.to_command(ctx.scene.refresh_rect, self.label())
+        command = stroke.to_command(
+            ctx.scene.refresh_rect, self.label(), ctx.scene.invalidate_group_caches
+        )
         if command is not None:
             ctx.undo_stack.push(command)

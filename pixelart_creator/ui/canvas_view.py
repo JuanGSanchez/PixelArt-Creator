@@ -234,6 +234,7 @@ class Canvas_View(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self._zoom = target
         self.zoomChanged.emit(target)
+        self._scene.recomposite_exposed()  # zoom-out may expose stale area (D2)
 
     def fit(self) -> None:
         """Zoom so the whole scene fits the viewport (the zoom minimum)."""
@@ -269,7 +270,22 @@ class Canvas_View(QGraphicsView):
         self.scale(applied, applied)
         self._zoom = target
         self.zoomChanged.emit(target)
+        self._scene.recomposite_exposed()  # zoom-out may expose stale area (D2)
         event.accept()
+
+    # -- lazy off-screen recomposite (D2 follow-up) ----------------------
+
+    def scrollContentsBy(self, dx: int, dy: int) -> None:  # noqa: N802 (Qt override)
+        """Refresh any off-screen-stale composite scrolled into view (D2).
+
+        An attribute change recomposites only the visible viewport
+        (``CanvasScene.refresh_visible``); the rest of the canvas is marked stale
+        and brought up to date here as it pans/zooms into view, so the flattened
+        composite stays correct without ever recompositing the whole 33 Mpx stack.
+        A cheap no-op when nothing is stale.
+        """
+        super().scrollContentsBy(dx, dy)
+        self._scene.recomposite_exposed()
 
     # -- keyboard (Space pan modifier) -----------------------------------
 
@@ -327,6 +343,11 @@ class Canvas_View(QGraphicsView):
             event.accept()
             return
         if button == Qt.MouseButton.LeftButton and self._tool is not None:
+            # A locked or reference active layer rejects paint (P4-UI-004/-010);
+            # the guard lives in the scene (it knows the active layer/mask).
+            if not self._scene.is_active_editable():
+                event.accept()
+                return
             self._ctx = self._make_context()
             self._ctx.modifiers = event.modifiers()
             x, y = self._pixel_at(event)

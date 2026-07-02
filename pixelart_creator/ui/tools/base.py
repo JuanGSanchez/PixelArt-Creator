@@ -126,8 +126,14 @@ class Stroke:
         self,
         refresh: Callable[[QRectF], None],
         label: str,
+        invalidate: Optional[Callable[[], None]] = None,
     ) -> Optional[PaintCommand]:
-        """Build a :class:`PaintCommand`, or ``None`` if nothing changed (CL-12/-14)."""
+        """Build a :class:`PaintCommand`, or ``None`` if nothing changed (CL-12/-14).
+
+        ``invalidate`` is the D4 cache-safety hook (``scene.invalidate_group_caches``)
+        forwarded to the command so a group's flatten cache cannot serve a stale
+        composite after the edit; ``None`` for a non-composited target.
+        """
         changes: List[PixelChange] = []
         for x, y in sorted(self._touched):
             old = self._before.get_pixel(x, y)
@@ -137,7 +143,9 @@ class Stroke:
         if not changes:
             return None
         edit = PixelEdit(self._buffer, changes, label=label)
-        return PaintCommand(edit, refresh, self.touched_rect(), text=label)
+        return PaintCommand(
+            edit, refresh, self.touched_rect(), text=label, invalidate=invalidate
+        )
 
 
 class ToolContext:

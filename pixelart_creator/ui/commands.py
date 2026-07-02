@@ -40,6 +40,11 @@ from pixelart_creator.logic.history import Command, PixelEdit
 #: the view can repaint only the affected region (D5).
 RefreshCallback = Callable[[QRectF], None]
 
+#: Called (no args) on both redo and undo of a pixel edit to drop the LayerGroup
+#: flatten caches so a stale composite can never be served after the edit (D4;
+#: AGT-03 ``Document.invalidate_caches`` via ``CanvasScene.invalidate_group_caches``).
+InvalidateCallback = Callable[[], None]
+
 #: Called (no args) after a whole-buffer / dimension-changing op so the view can
 #: rebind the scene and repaint (dirty-rect scope is AGT-10's concern).
 RebindCallback = Callable[[], None]
@@ -59,6 +64,12 @@ class PaintCommand(QUndoCommand):
         dirty_rect: Bounding rect of the changed pixels, in scene/pixel coords.
         text: Undo-menu label; defaults to the edit's own label.
         parent: Optional parent command (macro support).
+        invalidate: Optional cache-safety hook fired **before** the repaint on
+            both redo and undo (D4). It drops the LayerGroup flatten caches
+            (``CanvasScene.invalidate_group_caches`` → ``Document.invalidate_caches``)
+            so the region recomposite triggered by ``refresh`` cannot read a stale
+            group composite for the edited pixels. ``None`` when the target buffer
+            is not a composited RGBA layer.
     """
 
     def __init__(
@@ -68,11 +79,14 @@ class PaintCommand(QUndoCommand):
         dirty_rect: QRectF,
         text: str = "",
         parent: Optional[QUndoCommand] = None,
+        *,
+        invalidate: Optional[InvalidateCallback] = None,
     ) -> None:
         super().__init__(text or edit.label, parent)
         self._edit = edit
         self._refresh = refresh
         self._dirty_rect = QRectF(dirty_rect)
+        self._invalidate = invalidate
         self._applied = True  # record_edit already applied it once.
 
     def redo(self) -> None:
@@ -81,12 +95,17 @@ class PaintCommand(QUndoCommand):
             self._applied = False
         else:
             self._edit.execute()
+        # Drop stale group caches BEFORE the region recomposite the repaint fires.
+        if self._invalidate is not None:
+            self._invalidate()
         self._refresh(self._dirty_rect)
 
     def undo(self) -> None:
         """Revert exactly the pixels the edit changed, then repaint them."""
         self._edit.undo()
         self._applied = False
+        if self._invalidate is not None:
+            self._invalidate()
         self._refresh(self._dirty_rect)
 
 
@@ -131,3 +150,38 @@ class LogicCommand(QUndoCommand):
         """Revert the logic command exactly, then repaint/rebind."""
         self._command.undo()
         self._rebind()
+
+
+class LayerCommand(LogicCommand):
+    """One ``QUndoCommand`` per layer-tree operation (T12, REQ-P4-UI-013).
+
+    Wraps the **unapplied** :class:`~pixelart_creator.logic.history.Command` a
+    ``logic/document`` layer op returns — set opacity / visibility / lock /
+    blend-mode, add / remove / duplicate / move, group / ungroup, attach / detach
+    mask, set reference, create smart layer. Like :class:`LogicCommand`,
+    ``redo()`` applies the logic command on push (and on every later redo) and
+    ``undo()`` reverts it exactly (``apply ∘ undo = identity``), so each layer op
+    is exactly one undoable step whose inverse restores the exact prior tree
+    state.
+
+    The ``refresh`` callback supplies **only** the Qt-side follow-up — a
+    dirty-rect / whole-stack recomposite of the canvas plus a layer-panel sync
+    (REQ-P4-UI-012/-013). No domain maths lives in this bridge (Article I / S11):
+    the reversible logic is entirely the wrapped ``document`` command.
+
+    Args:
+        command: The unapplied reversible layer-op command to bridge.
+        refresh: Callback (no args) recompositing the canvas + syncing the panel
+            after apply or revert.
+        text: Undo-menu label; defaults to the command's own label.
+        parent: Optional parent command (macro support).
+    """
+
+    def __init__(
+        self,
+        command: Command,
+        refresh: RebindCallback,
+        text: str = "",
+        parent: Optional[QUndoCommand] = None,
+    ) -> None:
+        super().__init__(command, refresh, text, parent)

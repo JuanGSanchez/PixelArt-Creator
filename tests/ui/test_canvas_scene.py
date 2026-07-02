@@ -40,6 +40,9 @@ def test_sc_ui_001_1_buffer_pixel_rendered_no_aa(make_scene):
     """SC-UI-001-1: buffer pixel (3,3)=RED renders exactly RED, no AA edge."""
     scene = make_scene(8, 8)
     scene.active_buffer().set_pixel(3, 3, RED)
+    # The scene now displays the flattened composite (REQ-P4-UI-012); a direct
+    # buffer poke bypasses the paint pipeline, so recomposite explicitly.
+    scene.refresh_all()
     scale = 20
     img = _render(scene, 8, 8, scale)
     # Centre of the (3,3) cell is exactly RED.
@@ -57,6 +60,9 @@ def test_sc_ui_001_2_magnified_pixel_is_solid_square(make_scene):
     """SC-UI-001-2: at deep zoom a painted pixel is a solid crisp square."""
     scene = make_scene(4, 4)
     scene.active_buffer().set_pixel(1, 1, RED)
+    # Recomposite after the direct poke: the scene shows the composite, not the
+    # raw active buffer (REQ-P4-UI-012).
+    scene.refresh_all()
     scale = 32  # 3200 %
     img = _render(scene, 4, 4, scale)
     x0, y0 = 1 * scale, 1 * scale

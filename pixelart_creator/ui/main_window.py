@@ -63,14 +63,12 @@ from pixelart_creator.logic.constants import (
     DEFAULT_CANVAS_HEIGHT,
     DEFAULT_CANVAS_WIDTH,
 )
-from pixelart_creator.logic.document import Document, Layer
+from pixelart_creator.logic.document import Document, DocumentError, Layer
 from pixelart_creator.logic.palette import Palette, PaletteError
 from pixelart_creator.logic.palette_ops import (
     IndexedModeError,
     make_cycle_command,
     make_swap_command,
-    make_to_indexed_command,
-    make_to_rgba_command,
 )
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 from pixelart_creator.logic.quantize import QuantizeError, make_constraint_command
@@ -92,6 +90,7 @@ from pixelart_creator.ui.colour_hub_menu import Colour_Hub_Menu
 from pixelart_creator.ui.commands import LogicCommand, PaintCommand
 from pixelart_creator.ui.extract_palette_dialog import Extract_Palette_Dialog
 from pixelart_creator.ui.i18n import LanguageManager
+from pixelart_creator.ui.layer_panel import Layer_Panel
 from pixelart_creator.ui.palette_analytics_view import Palette_Analytics_View
 from pixelart_creator.ui.palette_constraint_panel import (
     Palette_Constraint_Panel,
@@ -302,6 +301,16 @@ class Main_Window(QMainWindow):
         self._symmetry_dock = QDockWidget(self)
         self._symmetry_dock.setWidget(self._symmetry_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._symmetry_dock)
+
+        # Phase-4 layer panel (REQ-P4-UI-001..011): the layer/group tree bound to
+        # the active document. Its ops push one LayerCommand each; a mutation
+        # recomposites the active scene via the per-tab tree-changed hook (UI-013).
+        self._layer_panel = Layer_Panel(self)
+        self._layer_panel.activeNodeChanged.connect(self._on_active_node_changed)
+        self._layer_panel.maskEditToggled.connect(self._on_mask_edit_toggled)
+        self._layer_dock = QDockWidget(self)
+        self._layer_dock.setWidget(self._layer_panel)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._layer_dock)
 
         # Phase-3 Slice-3C palette-workflow surfaces (REQ-P3-UI-001/-002/-007..-013).
         # Each binds to the Slice-3A logic and pushes one QUndoCommand per mutation.
@@ -566,6 +575,8 @@ class Main_Window(QMainWindow):
         self._view_menu.addSeparator()
         self._view_menu.addAction(self._filled_action)
         self._view_menu.addAction(self._pixel_perfect_action)
+        self._view_menu.addSeparator()
+        self._view_menu.addAction(self._layer_dock.toggleViewAction())
 
         self._palette_menu = bar.addMenu("")
         self._palette_menu.addAction(self._extract_action)
@@ -650,6 +661,20 @@ class Main_Window(QMainWindow):
         self._cycling_panel.stop()
         self._cycling_panel.set_palette(palette)
         self._dither_tool.set_palette(palette)
+        # Bind the layer panel to this tab's document + undo stack; the
+        # tree-changed hook recomposites THIS tab's scene only (state isolation,
+        # UI-014). Each tab owns its own document tree, QUndoStack and composite.
+        scene = record.scene
+        # Structural ops recomposite the whole stack (refresh_all); attribute ops
+        # scope to the visible viewport (refresh_visible, D2) and a live opacity
+        # drag is throttled to one recomposite/frame (refresh_visible_throttled, D3).
+        self._layer_panel.set_context(
+            record.document,
+            record.stack,
+            scene.refresh_all,
+            scene.refresh_visible,
+            scene.refresh_visible_throttled,
+        )
         self._refresh_mode_ui()
 
     def _apply_modes_to(self, record: _DocTab) -> None:
@@ -737,6 +762,26 @@ class Main_Window(QMainWindow):
         self._active_index = int(index)
         for record in self._tabs_data:
             record.view.set_active_index(self._active_index)
+
+    # -- layer panel (REQ-P4-UI-001, -009) -------------------------------
+
+    def _on_active_node_changed(self, node: object) -> None:
+        """The layer panel selected a node → retarget paint at the active leaf.
+
+        A leaf :class:`Layer` becomes the scene's paint/transform target; a group
+        selection leaves the paint target unchanged (groups hold no pixels)."""
+        record = self.active_tab()
+        if record is None:
+            return
+        if isinstance(node, Layer):
+            record.scene.set_active_layer(node)
+
+    def _on_mask_edit_toggled(self, enabled: bool) -> None:
+        """Route paint to the active layer's mask buffer when editing a mask
+        (REQ-P4-UI-009); the canvas recomposites with the mask modulating alpha."""
+        record = self.active_tab()
+        if record is not None:
+            record.scene.set_mask_edit(enabled)
 
     # -- palette workflows (REQ-P3-UI-001/-007..-013) --------------------
 
@@ -868,15 +913,20 @@ class Main_Window(QMainWindow):
     # -- indexed-mode conversion (REQ-P3-UI-014, T22) --------------------
 
     def _on_convert_to_indexed(self) -> None:
-        """Convert the active layer RGBA→indexed as one undoable command (T22)."""
+        """Convert the whole document RGBA→indexed as one undoable command (T22).
+
+        Colour mode is a document-wide authority (ADR-0008 D1/D5): the logic
+        command flips every frame's buffer(s) **and** ``Document.mode`` together,
+        collapsing each frame to a single indexed layer (D4 flatten-then-index).
+        Exactly one command is pushed onto the tab's undo stack.
+        """
         record = self.active_tab()
         if record is None:
             return
-        layer: Layer = record.scene.active_layer()
         palette = record.document.palette
         try:
-            command = make_to_indexed_command(layer, palette)
-        except (IndexedModeError, PaletteError) as exc:
+            command = record.document.make_convert_to_indexed_command(palette)
+        except (DocumentError, IndexedModeError, PaletteError) as exc:
             QMessageBox.warning(self, self.tr("Convert to Indexed"), str(exc))
             return
         record.stack.push(
@@ -888,15 +938,19 @@ class Main_Window(QMainWindow):
         )
 
     def _on_convert_to_rgba(self) -> None:
-        """Convert the active layer indexed→RGBA as one undoable command (T22)."""
+        """Convert the whole document indexed→RGBA as one undoable command (T22).
+
+        The inverse of :meth:`_on_convert_to_indexed`: the logic command flips
+        every frame's single indexed layer to RGBA **and** ``Document.mode`` in one
+        step (ADR-0008 D4). Exactly one command is pushed onto the undo stack.
+        """
         record = self.active_tab()
         if record is None:
             return
-        layer: Layer = record.scene.active_layer()
         palette = record.document.palette
         try:
-            command = make_to_rgba_command(layer, palette)
-        except (IndexedModeError, PaletteError) as exc:
+            command = record.document.make_convert_to_rgba_command(palette)
+        except (DocumentError, IndexedModeError, PaletteError) as exc:
             QMessageBox.warning(self, self.tr("Convert to RGBA"), str(exc))
             return
         record.stack.push(
@@ -906,28 +960,45 @@ class Main_Window(QMainWindow):
         )
 
     def _mode_switch_rebind(self, record: "_DocTab") -> Callable[[], None]:
-        """Rebind callback for a mode switch: re-read the swapped buffer + refresh.
+        """Rebind callback for a whole-document colour-mode switch (ADR-0008 D4/D5).
 
-        The logic command swaps ``Layer.buffer`` (a new buffer of the other mode);
-        the scene must re-point at it, the selection is dropped (indices differ),
-        and the mode indicator + convert-action states refresh. Runs on apply,
-        undo and redo so the UI always mirrors the live buffer mode."""
+        A mode conversion changes the document's **tree shape** (it collapses to a
+        single indexed layer on →indexed, and undo restores the full multi-layer
+        RGBA tree), so a narrow ``rebind_active()`` buffer re-point is not enough.
+        This does a **full document re-bind + layer-panel repopulate**:
+
+        - ``scene.set_document`` re-reads the tree, resets the active leaf and
+          rebuilds the composite off ``Document.mode`` (now the single authority) —
+          so on →indexed the RGBA-only compositor is not run over indexed buffers
+          (the T14 crash path is gone);
+        - ``layer_panel.rebuild`` repopulates the tree so the panel collapses to one
+          layer on →indexed and re-expands the multi-layer tree on undo→RGBA;
+        - the selection is dropped (indices/structure changed) and the mode
+          indicator + convert-action states refresh.
+
+        Runs on apply, undo and redo so the UI always mirrors ``Document.mode``.
+        """
 
         def rebind() -> None:
-            record.scene.rebind_active()
+            record.scene.set_document(record.document)
+            self._layer_panel.rebuild()
             record.view.clear_selection()
             self._refresh_mode_ui()
 
         return rebind
 
     def _refresh_mode_ui(self) -> None:
-        """Sync the mode indicator + convert-action enablement to the buffer mode."""
+        """Sync the mode indicator + convert-action enablement to ``Document.mode``.
+
+        Reads the document-level mode — the single colour-mode authority
+        (ADR-0008 D5) — rather than a per-buffer ``active_buffer().mode``.
+        """
         record = self.active_tab()
         if record is None:
             self._to_indexed_action.setEnabled(False)
             self._to_rgba_action.setEnabled(False)
             return
-        mode = record.scene.active_buffer().mode
+        mode = record.document.mode
         self._palette_panel.set_mode(mode)
         self._to_indexed_action.setEnabled(mode is ColorMode.RGBA)
         self._to_rgba_action.setEnabled(mode is ColorMode.INDEXED)
@@ -1122,7 +1193,13 @@ class Main_Window(QMainWindow):
         )
         dirty = QRectF(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
         record.stack.push(
-            PaintCommand(edit, record.scene.refresh_rect, dirty, text=label)
+            PaintCommand(
+                edit,
+                record.scene.refresh_rect,
+                dirty,
+                text=label,
+                invalidate=record.scene.invalidate_group_caches,
+            )
         )
 
     # -- transform + RotSprite actions (REQ-P2-UI-009, -010) -------------
@@ -1267,6 +1344,7 @@ class Main_Window(QMainWindow):
         self._toolbar.setWindowTitle(self.tr("Tools"))
         self._palette_dock.setWindowTitle(self.tr("Palette"))
         self._symmetry_dock.setWindowTitle(self.tr("Symmetry"))
+        self._layer_dock.setWindowTitle(self.tr("Layers"))
         self._editor_dock.setWindowTitle(self.tr("Palette Editor"))
         self._constraint_dock.setWindowTitle(self.tr("Constraints"))
         self._ramp_dock.setWindowTitle(self.tr("Shade Ramps"))
