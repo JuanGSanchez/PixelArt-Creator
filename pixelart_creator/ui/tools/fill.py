@@ -24,6 +24,8 @@ class FloodFillTool(Tool):
         stroke = Stroke(ctx.buffer)
         # Paint-by-index on an indexed buffer; RGBA elsewhere (REQ-P3-UI-014).
         stroke.flood_fill(x, y, ctx.paint_value())
-        command = stroke.to_command(ctx.scene.refresh_rect, self.label())
+        command = stroke.to_command(
+            ctx.scene.refresh_rect, self.label(), ctx.scene.invalidate_group_caches
+        )
         if command is not None:
             ctx.undo_stack.push(command)

@@ -43,7 +43,9 @@ class LineTool(Tool):
         stroke = Stroke(ctx.buffer)
         # Commit with the mode-correct value (index on indexed buffers, P3-UI-014).
         stroke.line(sx, sy, x, y, ctx.paint_value())
-        command = stroke.to_command(ctx.scene.refresh_rect, self.label())
+        command = stroke.to_command(
+            ctx.scene.refresh_rect, self.label(), ctx.scene.invalidate_group_caches
+        )
         if command is not None:
             ctx.undo_stack.push(command)
         self._start = None

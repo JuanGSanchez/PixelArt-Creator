@@ -120,7 +120,11 @@ class PencilTool(Tool):
         elif ctx.pixel_perfect:
             self._commit_pixel_perfect(ctx)
         else:
-            command = self._stroke.to_command(ctx.scene.refresh_rect, self.label())
+            command = self._stroke.to_command(
+                ctx.scene.refresh_rect,
+                self.label(),
+                ctx.scene.invalidate_group_caches,
+            )
             if command is not None:
                 ctx.undo_stack.push(command)
         self._stroke = None
@@ -145,6 +149,8 @@ class PencilTool(Tool):
         self._stroke.revert_touched()  # discard the live raw path
         self._stroke.stamp(cleaned, value)
         self._stroke.stamp(mirror_coords(cleaned, ctx), value)
-        command = self._stroke.to_command(ctx.scene.refresh_rect, self.label())
+        command = self._stroke.to_command(
+            ctx.scene.refresh_rect, self.label(), ctx.scene.invalidate_group_caches
+        )
         if command is not None:
             ctx.undo_stack.push(command)
