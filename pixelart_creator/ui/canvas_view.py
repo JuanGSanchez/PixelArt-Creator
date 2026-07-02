@@ -37,6 +37,8 @@ from pixelart_creator.logic.constants import (
     ZOOM_MAX,
     ZOOM_PRESET_STOPS,
 )
+from pixelart_creator.logic.selection import SelectionMask
+from pixelart_creator.logic.symmetry import SymmetryAxis
 from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.tools.base import Tool, ToolContext
 
@@ -75,6 +77,12 @@ class Canvas_View(QGraphicsView):
         self._pan_origin = QPoint()
         self._ctx: Optional[ToolContext] = None
         self._menu_hook: Optional[Callable[[int, int], None]] = None
+        # Phase-2 drawing modes / active selection (bound into each ToolContext).
+        self._symmetry_axis: SymmetryAxis = SymmetryAxis.NONE
+        self._pixel_perfect = False
+        self._tiled = False
+        self._snap = False
+        self._selection: Optional[SelectionMask] = None
 
         self.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
@@ -139,6 +147,53 @@ class Canvas_View(QGraphicsView):
     def set_grid_enabled(self, enabled: bool) -> None:
         """Toggle the per-pixel grid overlay (delegates to the scene, CL-4)."""
         self._scene.set_grid_enabled(enabled)
+
+    # -- Phase-2 drawing modes -------------------------------------------
+
+    def set_symmetry_axis(self, axis: SymmetryAxis) -> None:
+        """Set the live mirror-drawing axis (REQ-P2-UI-011)."""
+        self._symmetry_axis = axis
+
+    def symmetry_axis(self) -> SymmetryAxis:
+        """Return the active symmetry axis."""
+        return self._symmetry_axis
+
+    def set_pixel_perfect(self, enabled: bool) -> None:
+        """Toggle pixel-perfect elbow cleaning for freehand strokes (P2-UI-012)."""
+        self._pixel_perfect = bool(enabled)
+
+    def set_tiled(self, enabled: bool) -> None:
+        """Toggle torus-wrapped tiled painting for freehand strokes (P2-UI-015)."""
+        self._tiled = bool(enabled)
+
+    def set_snap_enabled(self, enabled: bool) -> None:
+        """Toggle endpoint snapping to the pixel grid (REQ-P2-UI-013)."""
+        self._snap = bool(enabled)
+
+    def reassert_no_antialiasing(self) -> None:
+        """Re-lock the AA-off render hints (REQ-P2-UI-014; CL-15).
+
+        The canvas is nearest-neighbour with anti-aliasing and smooth-pixmap
+        transform disabled at every zoom. This re-asserts that guarantee (the
+        toggle stays effectively locked on) whenever the shell touches it.
+        """
+        self.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+
+    # -- active selection (REQ-P2-UI-004..008) ---------------------------
+
+    def set_selection(self, mask: Optional[SelectionMask]) -> None:
+        """Set the active selection mask and refresh the overlay."""
+        self._selection = mask
+        self._scene.set_selection_mask(mask)
+
+    def active_selection(self) -> Optional[SelectionMask]:
+        """Return the active selection mask, or ``None``."""
+        return self._selection
+
+    def clear_selection(self) -> None:
+        """Deselect (empty the active mask) and clear the overlay."""
+        self.set_selection(None)
 
     # -- zoom (CL-1/-2/-15) ----------------------------------------------
 
@@ -233,6 +288,13 @@ class Canvas_View(QGraphicsView):
             undo_stack=self._undo_stack,
             scene=self._scene,
             set_active_color=self._on_color_picked,
+            selection=self._selection,
+            set_selection=self.set_selection,
+            symmetry_axis=self._symmetry_axis,
+            symmetry_pos=None,
+            pixel_perfect=self._pixel_perfect,
+            tiled=self._tiled,
+            snap=self._snap,
         )
 
     def _on_color_picked(self, color: RGBA) -> None:
@@ -255,6 +317,7 @@ class Canvas_View(QGraphicsView):
             return
         if button == Qt.MouseButton.LeftButton and self._tool is not None:
             self._ctx = self._make_context()
+            self._ctx.modifiers = event.modifiers()
             x, y = self._pixel_at(event)
             self._drawing = True
             self._tool.on_press(x, y, self._ctx)
