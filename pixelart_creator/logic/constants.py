@@ -128,3 +128,24 @@ value lives here per Article II) (plan §8; spec REQ-P3-UI-012)."""
 FAVOURITES_MAX: int = 64
 """Soft cap on the persisted Favourites list (defensive bound, Article VII; suits
 a hub swatch grid) (plan §8; spec REQ-P3-LOGIC-015)."""
+
+# --- Phase-4 layer & canvas tuning (phase-4 T1; Article II single-source) --------
+# Tuning scalars consumed by the new logic/blend.py compositor and the extended
+# logic/document.py layer model. The 13-member BlendMode enum is an enumerated
+# *vocabulary* and lives in logic/blend.py (BF-2); the W3C blend-formula magic
+# numbers (/255, 0.5, 0.25, the 16/12/4 Horner cubic coefficients, 2*Cs factors)
+# are *intrinsic* to the algorithm and stay module-local in blend.py (ADR-0001,
+# ADR-0005) — none go here. This module stays a leaf (no intra-package imports).
+
+DEFAULT_LAYER_OPACITY: float = 1.0
+"""Opacity a new layer / group starts at, in ``0.0..1.0`` (CL-2; matches the
+shipped ``Layer(opacity=1.0)``) (plan §8; spec REQ-P4-LOGIC-015; SC-L015-2)."""
+
+MAX_LAYERS_PER_FRAME: int = 256
+"""Defensive cap on the number of layer leaves in a single frame (Article VII;
+CL-7 — generous for hand-drawn pixel art) (plan §8; spec REQ-P4-LOGIC-015;
+SC-L015-1)."""
+
+MAX_GROUP_NESTING_DEPTH: int = 8
+"""Defensive cap on layer-group nesting depth (Article VII; CL-6 — generous for
+pixel-art work) (plan §8; spec REQ-P4-LOGIC-011/015; SC-L011-3)."""
