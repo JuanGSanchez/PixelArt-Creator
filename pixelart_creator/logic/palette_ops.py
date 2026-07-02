@@ -12,20 +12,21 @@
   *palette-quantised* image (its colour set ⊆ ``pal``), never the original RGBA,
   because :func:`to_indexed` snaps each pixel to its nearest palette colour.
 * :func:`make_cycle_command` / :func:`make_swap_command` capture an application as
-  a reversible :class:`~pixelart_creator.logic.history.PixelEdit`; the mode
-  switches (:func:`make_to_indexed_command` / :func:`make_to_rgba_command`) change
-  the buffer's *mode* (not just pixel values), so they use a
-  :class:`~pixelart_creator.logic.history.FunctionCommand` that swaps the holder's
-  buffer and restores the prior one exactly on undo. All are returned **unapplied**
-  so ``ui/commands.py`` wraps each as one ``QUndoCommand`` (REQ-P3-LOGIC-017;
-  ``apply ∘ undo = identity``).
+  a reversible :class:`~pixelart_creator.logic.history.PixelEdit`, returned
+  **unapplied** so ``ui/commands.py`` wraps each as one ``QUndoCommand``
+  (REQ-P3-LOGIC-017; ``apply ∘ undo = identity``). Whole-document RGBA↔indexed
+  *mode* conversion is **not** here: because colour mode is document-wide and must
+  flip ``Document.mode`` atomically with the buffers (ADR-0008), it lives in
+  :meth:`pixelart_creator.logic.document.Document.make_convert_to_indexed_command`
+  / :meth:`~pixelart_creator.logic.document.Document.make_convert_to_rgba_command`,
+  which call the pure :func:`to_indexed` / :func:`to_rgba` functions below.
 
 REQ-P3-LOGIC-013, -014; REQ-P3-UI-014 (logic support).
 """
 
 from __future__ import annotations
 
-from typing import List, Mapping, Optional, Protocol
+from typing import List, Mapping, Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -38,7 +39,6 @@ from pixelart_creator.logic.selection import SelectionMask
 
 __all__ = [
     "IndexedModeError",
-    "SupportsBuffer",
     "cycle_palette",
     "swap_indices",
     "remap_colors",
@@ -46,8 +46,6 @@ __all__ = [
     "to_rgba",
     "make_cycle_command",
     "make_swap_command",
-    "make_to_indexed_command",
-    "make_to_rgba_command",
 ]
 
 _INDEX_MIN = 0
@@ -57,17 +55,6 @@ _INDEX_METRICS = ("distance_sq", "ciede2000")
 
 class IndexedModeError(ValueError):
     """Raised on an invalid buffer mode or metric for indexed-mode conversion."""
-
-
-class SupportsBuffer(Protocol):
-    """A mutable holder of a :class:`PixelBuffer` (e.g. a document ``Layer``).
-
-    The indexed-mode command builders swap this ``buffer`` attribute rather than
-    mutating a buffer in place (a mode switch changes the array's shape/mode), so
-    the logic stays decoupled from :mod:`~pixelart_creator.logic.document`.
-    """
-
-    buffer: PixelBuffer
 
 
 def _check_range(palette: Palette, start: int, end: int) -> int:
@@ -321,58 +308,3 @@ def to_rgba(buffer: PixelBuffer, palette: Palette) -> PixelBuffer:
     out = PixelBuffer(buffer.width, buffer.height, ColorMode.RGBA)
     out.data[:, :] = pal[indices]
     return out
-
-
-def make_to_indexed_command(
-    holder: SupportsBuffer, palette: Palette, *, metric: str = "distance_sq"
-) -> history.Command:
-    """Build a reversible RGBA→indexed mode switch for a buffer ``holder``.
-
-    ``holder`` is any object exposing a mutable ``buffer`` attribute (a document
-    :class:`~pixelart_creator.logic.document.Layer`). Because the conversion
-    changes the buffer's *mode* — not just pixel values — it cannot be a per-pixel
-    :class:`history.PixelEdit`; instead a :class:`history.FunctionCommand`
-    captures the prior buffer and swaps ``holder.buffer`` on execute, restoring it
-    exactly on undo (``apply ∘ undo = identity``, REQ-P3-LOGIC-017). The
-    conversion runs eagerly (so an invalid buffer/metric raises here); the command
-    is returned **unapplied** for ``ui/commands.py`` to wrap as one
-    ``QUndoCommand``.
-
-    Raises:
-        IndexedModeError: If the holder's buffer is not RGBA or ``metric`` is
-            unknown.
-        PaletteError: If ``palette`` is empty.
-    """
-    old_buffer = holder.buffer
-    new_buffer = to_indexed(old_buffer, palette, metric=metric)
-
-    def _do() -> None:
-        holder.buffer = new_buffer
-
-    def _undo() -> None:
-        holder.buffer = old_buffer
-
-    return history.FunctionCommand(_do, _undo, label="convert to indexed")
-
-
-def make_to_rgba_command(holder: SupportsBuffer, palette: Palette) -> history.Command:
-    """Build a reversible indexed→RGBA mode switch for a buffer ``holder``.
-
-    The inverse-direction companion of :func:`make_to_indexed_command`; see it for
-    the ``holder`` contract and the FunctionCommand rationale. Returned
-    **unapplied**.
-
-    Raises:
-        IndexedModeError: If the holder's buffer is not indexed.
-        PaletteError: If ``palette`` is empty or a buffer index is out of range.
-    """
-    old_buffer = holder.buffer
-    new_buffer = to_rgba(old_buffer, palette)
-
-    def _do() -> None:
-        holder.buffer = new_buffer
-
-    def _undo() -> None:
-        holder.buffer = old_buffer
-
-    return history.FunctionCommand(_do, _undo, label="convert to RGBA")

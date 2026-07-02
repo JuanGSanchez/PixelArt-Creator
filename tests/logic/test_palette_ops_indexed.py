@@ -1,6 +1,12 @@
-"""Tests for the indexed-mode conversion half of ``logic.palette_ops`` (no Qt).
+"""Tests for the pure indexed-mode converters in ``logic.palette_ops`` (no Qt).
 
-Covers the RGBA<->indexed builders AGT-03 added (REQ-P3-UI-014 logic support):
+Covers the RGBA<->indexed *pure* functions AGT-03 kept (REQ-P3-UI-014 logic
+support). The reversible **mode-conversion commands** moved up to
+:class:`~pixelart_creator.logic.document.Document` (ADR-0008 D3/D6 — the
+buffer-level ``make_to_indexed_command`` / ``make_to_rgba_command`` and the
+``SupportsBuffer`` protocol were retired); those commands are covered by
+``tests/logic/test_document_convert.py``. This module keeps the pure-function
+coverage the commands delegate to:
 
 * :func:`to_indexed` snaps each pixel to its nearest palette index — by squared
   RGBA distance (default, matching :meth:`Palette.nearest_index`, ties -> lower
@@ -9,13 +15,11 @@ Covers the RGBA<->indexed builders AGT-03 added (REQ-P3-UI-014 logic support):
 * the pair is lossy-to-the-palette: ``to_rgba(to_indexed(rgba, pal), pal)`` has a
   colour set ⊆ ``pal`` and is idempotent on an already-quantised buffer;
 * :class:`IndexedModeError` / :class:`PaletteError` on invalid input;
-* :func:`make_to_indexed_command` / :func:`make_to_rgba_command` are reversible —
-  ``apply ∘ undo = identity`` via a :class:`history.FunctionCommand` that swaps a
-  holder's ``buffer`` (SC-L017-1);
 * determinism (P2).
 
-Hypothesis: round-trip colour-containment and command reversibility on generated
-RGBA buffers + palettes, deterministic under the ``ci`` profile (conftest).
+Hypothesis: round-trip colour-containment and nearest-index equivalence on
+generated RGBA buffers + palettes, deterministic under the ``ci`` profile
+(conftest).
 """
 
 from __future__ import annotations
@@ -27,13 +31,11 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from pixelart_creator.logic import history, perceptual
+from pixelart_creator.logic import perceptual
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.palette import Palette, PaletteError
 from pixelart_creator.logic.palette_ops import (
     IndexedModeError,
-    make_to_indexed_command,
-    make_to_rgba_command,
     to_indexed,
     to_rgba,
 )
@@ -63,13 +65,6 @@ def _indexed_buffer(rows: Sequence[Sequence[int]]) -> PixelBuffer:
     buf = PixelBuffer(w, h, ColorMode.INDEXED)
     buf.data[:, :] = arr
     return buf
-
-
-class _Holder:
-    """Minimal :class:`SupportsBuffer` — a mutable ``buffer`` attribute."""
-
-    def __init__(self, buffer: PixelBuffer) -> None:
-        self.buffer = buffer
 
 
 # -- to_indexed: nearest-index mapping (default distance_sq) ------------------
@@ -223,71 +218,6 @@ def test_to_rgba_index_out_of_palette_range_raises():
         to_rgba(buf, pal)
 
 
-# -- reversible command builders (SC-L017-1) ----------------------------------
-
-
-def test_make_to_indexed_command_reversible():
-    pal = Palette([RED, GREEN, BLUE])
-    holder = _Holder(_rgba_buffer([[RED, GREEN], [BLUE, RED]]))
-    before = holder.buffer
-    cmd = make_to_indexed_command(holder, pal)
-    assert isinstance(cmd, history.Command)
-    # Returned unapplied.
-    assert holder.buffer is before
-    cmd.execute()
-    assert holder.buffer.mode is ColorMode.INDEXED
-    assert holder.buffer.data.tolist() == [[0, 1], [2, 0]]
-    cmd.undo()
-    assert holder.buffer is before
-    assert holder.buffer.mode is ColorMode.RGBA
-
-
-def test_make_to_rgba_command_reversible():
-    pal = Palette([RED, GREEN, BLUE])
-    holder = _Holder(_indexed_buffer([[0, 1], [2, 0]]))
-    before = holder.buffer
-    cmd = make_to_rgba_command(holder, pal)
-    assert holder.buffer is before
-    cmd.execute()
-    assert holder.buffer.mode is ColorMode.RGBA
-    assert holder.buffer.get_pixel(0, 0) == RED
-    cmd.undo()
-    assert holder.buffer is before
-    assert holder.buffer.mode is ColorMode.INDEXED
-
-
-def test_make_to_indexed_then_to_rgba_command_chain_reversible():
-    # Redo after undo restores the applied state (execute is idempotent replay).
-    pal = Palette([RED, GREEN, BLUE])
-    holder = _Holder(_rgba_buffer([[RED, GREEN], [BLUE, RED]]))
-    cmd = make_to_indexed_command(holder, pal)
-    cmd.execute()
-    applied = holder.buffer
-    cmd.undo()
-    cmd.execute()
-    assert holder.buffer is applied
-
-
-def test_make_to_indexed_command_ciede2000_metric():
-    pal = Palette([BLACK, WHITE])
-    holder = _Holder(_rgba_buffer([[(20, 20, 20, 255), (230, 230, 230, 255)]]))
-    cmd = make_to_indexed_command(holder, pal, metric="ciede2000")
-    cmd.execute()
-    assert holder.buffer.data.tolist() == [[0, 1]]
-
-
-def test_make_to_indexed_command_rejects_indexed_holder():
-    holder = _Holder(PixelBuffer(2, 2, ColorMode.INDEXED))
-    with pytest.raises(IndexedModeError):
-        make_to_indexed_command(holder, Palette([RED]))
-
-
-def test_make_to_rgba_command_rejects_rgba_holder():
-    holder = _Holder(PixelBuffer(2, 2, ColorMode.RGBA))
-    with pytest.raises(IndexedModeError):
-        make_to_rgba_command(holder, Palette([RED]))
-
-
 # -- determinism (P2) ---------------------------------------------------------
 
 
@@ -350,16 +280,3 @@ def test_property_to_indexed_matches_nearest_index(data):
     for y in range(buf.height):
         for x in range(buf.width):
             assert out.get_pixel(x, y) == pal.nearest_index(buf.get_pixel(x, y))
-
-
-@given(_palette_and_pixels())
-def test_property_command_apply_undo_is_identity(data):
-    colours, pixels = data
-    pal = Palette(colours)
-    holder = _Holder(_rgba_buffer(pixels))
-    before = holder.buffer
-    cmd = make_to_indexed_command(holder, pal)
-    cmd.execute()
-    assert holder.buffer.mode is ColorMode.INDEXED
-    cmd.undo()
-    assert holder.buffer is before
