@@ -13,7 +13,22 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest  # noqa: E402  (must follow the platform env set above)
+from PySide6.QtCore import QLocale  # noqa: E402
 from PySide6.QtGui import QUndoStack  # noqa: E402
+
+# Pin the *system* locale to English for the whole UI suite so the tests run
+# identically in CI and on any developer machine (F11 / portability). Qt reads
+# the OS UI language for ``QLocale.system().uiLanguages()`` and ignores the
+# LANG/LC_ALL env vars on Windows, so on a non-English host (e.g. es_ES)
+# ``Main_Window`` would install a translated catalogue at construction and leak
+# it onto the shared ``QApplication`` — polluting later tests that assert the
+# English source strings. Replacing ``QLocale.system`` (patchable at the Python
+# level) makes ``install_from_locale`` resolve to the English fallback exactly as
+# CI's C/en environment does; the explicit ``es`` tests bypass this via
+# ``set_language("es")`` and are unaffected.
+QLocale.system = staticmethod(  # type: ignore[method-assign]
+    lambda: QLocale(QLocale.Language.English, QLocale.Country.UnitedStates)
+)
 
 from pixelart_creator.logic.document import Document  # noqa: E402
 from pixelart_creator.logic.palette import Palette  # noqa: E402

@@ -14,14 +14,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Callable, List, Optional
 
-from PySide6.QtCore import QEvent, Qt
+import numpy as np
+from PySide6.QtCore import QEvent, QRectF, Qt
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
     QColor,
     QIcon,
+    QImage,
     QKeySequence,
     QPixmap,
     QUndoGroup,
@@ -29,11 +31,15 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QDockWidget,
     QFileDialog,
+    QLabel,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMessageBox,
+    QSpinBox,
     QTabWidget,
     QToolBar,
     QWidget,
@@ -44,30 +50,53 @@ from pixelart_creator.data.project_io import (
     load_project,
     save_project,
 )
-from pixelart_creator.logic.color import BLACK, RGBA, to_hex
+from pixelart_creator.logic import history, transform
+from pixelart_creator.logic.color import BLACK, RGBA, TRANSPARENT, to_hex
 from pixelart_creator.logic.constants import (
     DEFAULT_CANVAS_HEIGHT,
     DEFAULT_CANVAS_WIDTH,
 )
-from pixelart_creator.logic.document import Document
+from pixelart_creator.logic.document import Document, Layer
 from pixelart_creator.logic.palette import Palette
+from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+from pixelart_creator.logic.rotsprite import make_rotsprite_command, rotsprite
+from pixelart_creator.logic.selection import (
+    SelectionMask,
+    apply_masked,
+    rect_mask,
+)
+from pixelart_creator.logic.symmetry import SymmetryAxis
+from pixelart_creator.logic.transform import (
+    TransformError,
+    scale_nearest,
+)
 from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.canvas_view import Canvas_View
+from pixelart_creator.ui.commands import LogicCommand, PaintCommand
 from pixelart_creator.ui.i18n import LanguageManager
+from pixelart_creator.ui.rotsprite_dialog import RotSprite_Dialog
+from pixelart_creator.ui.symmetry_panel import Symmetry_Panel
 from pixelart_creator.ui.theme import (
     THEME_DARK,
     THEME_LIGHT,
     apply_theme,
     canvas_roles,
 )
+from pixelart_creator.ui.tiled_mode import set_tiled_mode
 from pixelart_creator.ui.tools import (
+    EllipseTool,
     EraserTool,
     FloodFillTool,
+    LassoTool,
     LineTool,
+    MagicWandTool,
     PencilTool,
     PickerTool,
+    RectangleTool,
+    RectSelectTool,
     Tool,
 )
+from pixelart_creator.ui.transform_dialog import Scale_Dialog
 
 #: A sensible starter palette for a new document (usability, not a spec value).
 _STARTER_PALETTE: List[RGBA] = [
@@ -169,14 +198,27 @@ class Main_Window(QMainWindow):
         self._active_color: RGBA = BLACK
         self._theme = THEME_LIGHT
 
+        self._rectangle_tool = RectangleTool()
+        self._ellipse_tool = EllipseTool()
+        self._wand_tool = MagicWandTool()
         self._tools: dict[str, Tool] = {
             PencilTool.tool_id: PencilTool(),
             EraserTool.tool_id: EraserTool(),
             FloodFillTool.tool_id: FloodFillTool(),
             LineTool.tool_id: LineTool(),
             PickerTool.tool_id: PickerTool(),
+            RectangleTool.tool_id: self._rectangle_tool,
+            EllipseTool.tool_id: self._ellipse_tool,
+            RectSelectTool.tool_id: RectSelectTool(),
+            LassoTool.tool_id: LassoTool(),
+            MagicWandTool.tool_id: self._wand_tool,
         }
         self._active_tool_id = PencilTool.tool_id
+        # Per-view Phase-2 drawing modes (applied to each tab's view).
+        self._symmetry_axis: SymmetryAxis = SymmetryAxis.NONE
+        self._pixel_perfect = False
+        self._tiled = False
+        self._snap = False
 
         self._tab_widget = QTabWidget(self)
         self._tab_widget.setTabsClosable(True)
@@ -189,6 +231,12 @@ class Main_Window(QMainWindow):
         self._palette_dock = QDockWidget(self)
         self._palette_dock.setWidget(self._palette_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._palette_dock)
+
+        self._symmetry_panel = Symmetry_Panel(self)
+        self._symmetry_panel.axisChanged.connect(self._on_symmetry_axis_changed)
+        self._symmetry_dock = QDockWidget(self)
+        self._symmetry_dock.setWidget(self._symmetry_panel)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._symmetry_dock)
 
         self._build_actions()
         self._build_toolbar()
@@ -203,13 +251,19 @@ class Main_Window(QMainWindow):
     # -- actions / toolbar / menu ----------------------------------------
 
     def _build_actions(self) -> None:
-        # Aseprite-conventional single-key tool shortcuts (REQ-P1-UI-024).
+        # Aseprite-conventional single-key tool shortcuts (REQ-P1-UI-024). The
+        # Phase-2 keys avoid the Phase-1 set (B/E/G/L/I).
         tool_shortcuts = {
             PencilTool.tool_id: "B",
             EraserTool.tool_id: "E",
             FloodFillTool.tool_id: "G",
             LineTool.tool_id: "L",
             PickerTool.tool_id: "I",
+            RectangleTool.tool_id: "R",
+            EllipseTool.tool_id: "O",
+            RectSelectTool.tool_id: "M",
+            LassoTool.tool_id: "Q",
+            MagicWandTool.tool_id: "W",
         }
         self._tool_action_group = QActionGroup(self)
         self._tool_action_group.setExclusive(True)
@@ -258,6 +312,65 @@ class Main_Window(QMainWindow):
         self._grid_action = QAction(self)
         self._grid_action.setCheckable(True)
         self._grid_action.toggled.connect(self._on_grid_toggled)
+        self._snap_action = QAction(self)
+        self._snap_action.setCheckable(True)
+        self._snap_action.toggled.connect(self._on_snap_toggled)
+        self._aa_off_action = QAction(self)
+        self._aa_off_action.setCheckable(True)
+        self._aa_off_action.setChecked(True)  # locked on (CL-15)
+        self._aa_off_action.toggled.connect(self._on_aa_off_toggled)
+
+        # Shape + drawing-mode toggles (REQ-P2-UI-003, -012, -015).
+        self._filled_action = QAction(self)
+        self._filled_action.setCheckable(True)
+        self._filled_action.toggled.connect(self._on_filled_toggled)
+        self._pixel_perfect_action = QAction(self)
+        self._pixel_perfect_action.setCheckable(True)
+        self._pixel_perfect_action.toggled.connect(self._on_pixel_perfect_toggled)
+        self._tiled_action = QAction(self)
+        self._tiled_action.setCheckable(True)
+        self._tiled_action.toggled.connect(self._on_tiled_toggled)
+
+        # Selection-op actions (REQ-P2-UI-008).
+        self._select_all_action = QAction(self)
+        self._select_all_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_A)
+        self._select_all_action.triggered.connect(self._on_select_all)
+        self._deselect_action = QAction(self)
+        self._deselect_action.setShortcut(
+            Qt.Modifier.CTRL | Qt.Modifier.SHIFT | Qt.Key.Key_A
+        )
+        self._deselect_action.triggered.connect(self._on_deselect)
+        self._invert_action = QAction(self)
+        self._invert_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_I)
+        self._invert_action.triggered.connect(self._on_invert_selection)
+        self._clear_action = QAction(self)
+        self._clear_action.setShortcut(Qt.Key.Key_Delete)
+        self._clear_action.triggered.connect(self._on_clear_selection)
+
+        # Transform + RotSprite actions (REQ-P2-UI-009, -010). Flips get direct
+        # accelerators (A11Y-P2-2); Shift+H / Shift+V are free (disjoint from the
+        # tool single keys and the Ctrl/Del selection shortcuts).
+        self._flip_h_action = QAction(self)
+        self._flip_h_action.setShortcut(Qt.Modifier.SHIFT | Qt.Key.Key_H)
+        self._flip_h_action.triggered.connect(self._on_flip_horizontal)
+        self._flip_v_action = QAction(self)
+        self._flip_v_action.setShortcut(Qt.Modifier.SHIFT | Qt.Key.Key_V)
+        self._flip_v_action.triggered.connect(self._on_flip_vertical)
+        self._rotate_cw_action = QAction(self)
+        self._rotate_cw_action.triggered.connect(self._on_rotate_cw)
+        self._rotate_ccw_action = QAction(self)
+        self._rotate_ccw_action.triggered.connect(self._on_rotate_ccw)
+        self._scale_action = QAction(self)
+        self._scale_action.triggered.connect(self._on_scale)
+        self._rotsprite_action = QAction(self)
+        self._rotsprite_action.triggered.connect(self._on_rotsprite)
+
+        # Magic-wand tolerance control (REQ-P2-UI-006).
+        self._tolerance_spin = QSpinBox(self)
+        self._tolerance_spin.setRange(0, 255)
+        self._tolerance_spin.setValue(self._wand_tool.tolerance)
+        self._tolerance_spin.valueChanged.connect(self._on_tolerance_changed)
+        self._tolerance_label = QLabel(self)
 
         self._theme_light_action = QAction(self)
         self._theme_light_action.setCheckable(True)
@@ -276,6 +389,12 @@ class Main_Window(QMainWindow):
         self._toolbar.setObjectName("tool_toolbar")
         for tool_id in self._tools:
             self._toolbar.addAction(self._tool_actions[tool_id])
+        self._toolbar.addSeparator()
+        self._toolbar.addAction(self._filled_action)
+        self._toolbar.addAction(self._pixel_perfect_action)
+        self._toolbar.addSeparator()
+        self._toolbar.addWidget(self._tolerance_label)
+        self._toolbar.addWidget(self._tolerance_spin)
         self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, self._toolbar)
 
     def _build_menu(self) -> None:
@@ -292,12 +411,36 @@ class Main_Window(QMainWindow):
         self._edit_menu.addAction(self._undo_action)
         self._edit_menu.addAction(self._redo_action)
 
+        self._select_menu = bar.addMenu("")
+        self._select_menu.addAction(self._select_all_action)
+        self._select_menu.addAction(self._deselect_action)
+        self._select_menu.addAction(self._invert_action)
+        self._select_menu.addAction(self._clear_action)
+
+        self._image_menu = bar.addMenu("")
+        self._image_menu.addAction(self._flip_h_action)
+        self._image_menu.addAction(self._flip_v_action)
+        self._image_menu.addAction(self._rotate_cw_action)
+        self._image_menu.addAction(self._rotate_ccw_action)
+        self._image_menu.addSeparator()
+        self._image_menu.addAction(self._scale_action)
+        self._image_menu.addAction(self._rotsprite_action)
+
         self._view_menu = bar.addMenu("")
         self._view_menu.addAction(self._zoom_in_action)
         self._view_menu.addAction(self._zoom_out_action)
         self._view_menu.addAction(self._fit_action)
         self._view_menu.addSeparator()
         self._view_menu.addAction(self._grid_action)
+        self._view_menu.addAction(self._snap_action)
+        self._view_menu.addAction(self._aa_off_action)
+        self._view_menu.addAction(self._tiled_action)
+        # Discoverable + keyboard-reachable drawing-mode toggles (A11Y-P2-1): the
+        # filled-shape and pixel-perfect toggles were toolbar-only; surface them in
+        # the menu with mnemonics alongside the other drawing modes.
+        self._view_menu.addSeparator()
+        self._view_menu.addAction(self._filled_action)
+        self._view_menu.addAction(self._pixel_perfect_action)
 
         self._theme_menu = bar.addMenu("")
         self._theme_menu.addAction(self._theme_light_action)
@@ -346,8 +489,19 @@ class Main_Window(QMainWindow):
         self._apply_theme_to_scene(scene)
         view.set_tool(self._tools[self._active_tool_id])
         view.set_active_color(self._active_color)
+        self._apply_modes_to(record)
         self._palette_panel.set_palette(document.palette)
         return document
+
+    def _apply_modes_to(self, record: _DocTab) -> None:
+        """Push the shell's Phase-2 drawing modes onto a tab's view/scene."""
+        view = record.view
+        view.set_symmetry_axis(self._symmetry_axis)
+        view.set_pixel_perfect(self._pixel_perfect)
+        view.set_snap_enabled(self._snap)
+        view.set_grid_enabled(self._grid_action.isChecked())
+        view.reassert_no_antialiasing()
+        set_tiled_mode(record.scene, view, self._tiled)
 
     def close_document(self, index: int) -> None:
         """Close the document tab at ``index``."""
@@ -378,6 +532,7 @@ class Main_Window(QMainWindow):
         self._undo_group.setActiveStack(record.stack)
         record.view.set_tool(self._tools[self._active_tool_id])
         record.view.set_active_color(self._active_color)
+        self._apply_modes_to(record)
         self._palette_panel.set_palette(record.document.palette)
 
     def _on_tool_action(self) -> None:
@@ -445,9 +600,223 @@ class Main_Window(QMainWindow):
             record.view.fit()
 
     def _on_grid_toggled(self, enabled: bool) -> None:
+        for record in self._tabs_data:
+            record.view.set_grid_enabled(enabled)
+
+    def _on_snap_toggled(self, enabled: bool) -> None:
+        self._snap = bool(enabled)
+        for record in self._tabs_data:
+            record.view.set_snap_enabled(enabled)
+
+    def _on_aa_off_toggled(self, enabled: bool) -> None:
+        # The AA-off guarantee is locked on (CL-15); refuse to disable it.
+        if not enabled:
+            self._aa_off_action.setChecked(True)
+            return
+        for record in self._tabs_data:
+            record.view.reassert_no_antialiasing()
+
+    def _on_filled_toggled(self, enabled: bool) -> None:
+        self._rectangle_tool.set_filled(enabled)
+        self._ellipse_tool.set_filled(enabled)
+
+    def _on_pixel_perfect_toggled(self, enabled: bool) -> None:
+        self._pixel_perfect = bool(enabled)
+        for record in self._tabs_data:
+            record.view.set_pixel_perfect(enabled)
+
+    def _on_tiled_toggled(self, enabled: bool) -> None:
+        self._tiled = bool(enabled)
+        for record in self._tabs_data:
+            set_tiled_mode(record.scene, record.view, enabled)
+
+    def _on_tolerance_changed(self, value: int) -> None:
+        self._wand_tool.set_tolerance(value)
+
+    def _on_symmetry_axis_changed(self, axis: SymmetryAxis) -> None:
+        self._symmetry_axis = axis
+        for record in self._tabs_data:
+            record.view.set_symmetry_axis(axis)
+
+    # -- selection-op actions (REQ-P2-UI-008) ----------------------------
+
+    def _on_select_all(self) -> None:
+        record = self.active_tab()
+        if record is None:
+            return
+        buffer = record.scene.active_buffer()
+        mask = rect_mask(
+            buffer.width, buffer.height, 0, 0, buffer.width - 1, buffer.height - 1
+        )
+        record.view.set_selection(mask)
+
+    def _on_deselect(self) -> None:
         record = self.active_tab()
         if record is not None:
-            record.view.set_grid_enabled(enabled)
+            record.view.clear_selection()
+
+    def _on_invert_selection(self) -> None:
+        record = self.active_tab()
+        if record is None:
+            return
+        buffer = record.scene.active_buffer()
+        current = record.view.active_selection()
+        base = (
+            current
+            if current is not None
+            else SelectionMask(buffer.width, buffer.height)
+        )
+        inverted = base.invert()
+        record.view.set_selection(inverted if not inverted.is_empty else None)
+
+    def _on_clear_selection(self) -> None:
+        record = self.active_tab()
+        if record is None:
+            return
+        mask = record.view.active_selection()
+        if mask is None or mask.is_empty:
+            return
+        buffer = record.scene.active_buffer()
+        box = mask.bounds()
+        if box is None:
+            return
+        x0, y0, x1, y1 = box
+        blank = TRANSPARENT if buffer.mode is ColorMode.RGBA else 0
+
+        def clear_op(scratch: PixelBuffer) -> List[tuple[int, int]]:
+            scratch.fill_rect(x0, y0, x1 - x0 + 1, y1 - y0 + 1, blank)
+            return [
+                (x, y)
+                for y in range(y0, y1 + 1)
+                for x in range(x0, x1 + 1)
+                if mask.is_selected(x, y)
+            ]
+
+        label = self.tr("Clear Selection")
+        edit = history.record_edit(
+            buffer, lambda b: apply_masked(b, clear_op, mask), label=label
+        )
+        dirty = QRectF(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
+        record.stack.push(
+            PaintCommand(edit, record.scene.refresh_rect, dirty, text=label)
+        )
+
+    # -- transform + RotSprite actions (REQ-P2-UI-009, -010) -------------
+
+    def _apply_buffer_command(
+        self, command: history.Command, dims_change: bool, text: str
+    ) -> None:
+        record = self.active_tab()
+        if record is None:
+            return
+        if dims_change:
+
+            def rebind() -> None:
+                record.scene.rebind_active()
+                record.view.clear_selection()
+
+            record.stack.push(LogicCommand(command, rebind, text))
+        else:
+            record.stack.push(LogicCommand(command, record.scene.refresh_all, text))
+
+    def _apply_transform(
+        self, fn: Callable[[PixelBuffer], PixelBuffer], text: str
+    ) -> None:
+        record = self.active_tab()
+        if record is None:
+            return
+        layer: Layer = record.scene.active_layer()
+        mask = record.view.active_selection()
+        command = transform.make_transform_command(layer, fn, mask)
+        dims_change = isinstance(command, history.FunctionCommand)
+        self._apply_buffer_command(command, dims_change, text)
+
+    def _on_flip_horizontal(self) -> None:
+        self._apply_transform(transform.flip_horizontal, self.tr("Flip Horizontal"))
+
+    def _on_flip_vertical(self) -> None:
+        self._apply_transform(transform.flip_vertical, self.tr("Flip Vertical"))
+
+    def _on_rotate_cw(self) -> None:
+        self._apply_transform(transform.rotate_90_cw, self.tr("Rotate 90° CW"))
+
+    def _on_rotate_ccw(self) -> None:
+        self._apply_transform(transform.rotate_90_ccw, self.tr("Rotate 90° CCW"))
+
+    def _on_scale(self) -> None:
+        record = self.active_tab()
+        if record is None:
+            return
+        dialog = Scale_Dialog(record.document.width, record.document.height, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        new_w, new_h = dialog.target_size()
+        layer: Layer = record.scene.active_layer()
+
+        def fn(buffer: PixelBuffer) -> PixelBuffer:
+            return scale_nearest(buffer, new_w, new_h)
+
+        try:
+            command = transform.make_transform_command(layer, fn, None)
+        except TransformError as exc:
+            QMessageBox.warning(self, self.tr("Scale Canvas"), str(exc))
+            return
+        dims_change = isinstance(command, history.FunctionCommand)
+        self._apply_buffer_command(command, dims_change, self.tr("Scale Canvas"))
+
+    def _on_rotsprite(self) -> None:
+        record = self.active_tab()
+        if record is None:
+            return
+        dialog = RotSprite_Dialog(self._rotsprite_preview, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        angle = dialog.angle()
+        layer: Layer = record.scene.active_layer()
+        mask = record.view.active_selection()
+        command = make_rotsprite_command(layer, angle, mask)
+        dims_change = isinstance(command, history.FunctionCommand)
+        self._apply_buffer_command(command, dims_change, self.tr("Rotate (RotSprite)"))
+
+    # -- RotSprite preview rendering (presentation of a logic result) ----
+
+    def _rotsprite_preview(self, angle: float) -> Optional[QImage]:
+        record = self.active_tab()
+        if record is None:
+            return None
+        thumbnail = self._preview_thumbnail(record.scene.active_buffer())
+        rotated = rotsprite(thumbnail, angle)
+        return self._buffer_to_qimage(rotated, record.document.palette.colors())
+
+    @staticmethod
+    def _preview_thumbnail(buffer: PixelBuffer) -> PixelBuffer:
+        """Down-scale a buffer to a small preview thumbnail (nearest-neighbour)."""
+        max_edge = 128
+        longest = max(buffer.width, buffer.height)
+        if longest <= max_edge:
+            return buffer
+        factor = max_edge / longest
+        tw = max(1, int(buffer.width * factor))
+        th = max(1, int(buffer.height * factor))
+        return scale_nearest(buffer, tw, th)
+
+    @staticmethod
+    def _buffer_to_qimage(buffer: PixelBuffer, palette_colors: List[RGBA]) -> QImage:
+        """Convert a buffer to an owned RGBA :class:`QImage` for preview display."""
+        if buffer.mode is ColorMode.RGBA:
+            rgba = np.ascontiguousarray(buffer.data)
+        else:
+            lut = np.array(palette_colors or [(0, 0, 0, 255)], dtype=np.uint8)
+            idx = np.clip(buffer.data, 0, len(lut) - 1)
+            rgba = np.ascontiguousarray(lut[idx])
+        image = QImage(
+            rgba.data,
+            buffer.width,
+            buffer.height,
+            rgba.strides[0],
+            QImage.Format.Format_RGBA8888,
+        )
+        return image.copy()
 
     def _on_language_action(self) -> None:
         action = self.sender()
@@ -473,6 +842,7 @@ class Main_Window(QMainWindow):
         self.setWindowTitle(self.tr("PixelArt Creator"))
         self._toolbar.setWindowTitle(self.tr("Tools"))
         self._palette_dock.setWindowTitle(self.tr("Palette"))
+        self._symmetry_dock.setWindowTitle(self.tr("Symmetry"))
         self._tab_widget.setAccessibleName(self.tr("Open documents"))
 
         labels = {
@@ -481,6 +851,11 @@ class Main_Window(QMainWindow):
             FloodFillTool.tool_id: self.tr("Fill"),
             LineTool.tool_id: self.tr("Line"),
             PickerTool.tool_id: self.tr("Colour picker"),
+            RectangleTool.tool_id: self.tr("Rectangle"),
+            EllipseTool.tool_id: self.tr("Ellipse"),
+            RectSelectTool.tool_id: self.tr("Rectangle select"),
+            LassoTool.tool_id: self.tr("Lasso select"),
+            MagicWandTool.tool_id: self.tr("Magic wand"),
         }
         for tool_id, action in self._tool_actions.items():
             label = labels[tool_id]
@@ -498,11 +873,35 @@ class Main_Window(QMainWindow):
         self._zoom_out_action.setText(self.tr("Zoom &Out"))
         self._fit_action.setText(self.tr("&Fit to View"))
         self._grid_action.setText(self.tr("Show &Grid"))
+        self._snap_action.setText(self.tr("&Snap to Grid"))
+        self._aa_off_action.setText(self.tr("&Anti-aliasing Off"))
+        self._tiled_action.setText(self.tr("&Tiled Mode"))
         self._theme_light_action.setText(self.tr("Light"))
         self._theme_dark_action.setText(self.tr("Dark"))
 
+        # Mnemonics make the drawing-mode toggles keyboard-reachable (A11Y-P2-1);
+        # letters are disjoint from the other View-menu entries.
+        self._filled_action.setText(self.tr("Fille&d Shapes"))
+        self._pixel_perfect_action.setText(self.tr("&Pixel Perfect"))
+        self._tolerance_label.setText(self.tr("Tolerance"))
+        self._tolerance_spin.setAccessibleName(self.tr("Magic-wand tolerance"))
+
+        self._select_all_action.setText(self.tr("Select &All"))
+        self._deselect_action.setText(self.tr("&Deselect"))
+        self._invert_action.setText(self.tr("&Invert Selection"))
+        self._clear_action.setText(self.tr("&Clear Selection"))
+
+        self._flip_h_action.setText(self.tr("Flip &Horizontal"))
+        self._flip_v_action.setText(self.tr("Flip &Vertical"))
+        self._rotate_cw_action.setText(self.tr("Rotate 90° C&W"))
+        self._rotate_ccw_action.setText(self.tr("Rotate 90° CC&W"))
+        self._scale_action.setText(self.tr("&Scale…"))
+        self._rotsprite_action.setText(self.tr("&Rotate (RotSprite)…"))
+
         self._file_menu.setTitle(self.tr("&File"))
         self._edit_menu.setTitle(self.tr("&Edit"))
+        self._select_menu.setTitle(self.tr("&Select"))
+        self._image_menu.setTitle(self.tr("&Image"))
         self._view_menu.setTitle(self.tr("&View"))
         self._theme_menu.setTitle(self.tr("&Theme"))
         self._language_menu.setTitle(self.tr("&Language"))
