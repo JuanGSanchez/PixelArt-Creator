@@ -41,3 +41,34 @@ DEFAULT_CANVAS_WIDTH: int = 64
 
 DEFAULT_CANVAS_HEIGHT: int = 64
 """Default height, px, for a new document (8K still supported) (CL-7)."""
+
+# --- Phase-2 advanced-drawing tuning (phase-2 T1; Article II single-source) -----
+# Numeric parameters consumed by the new logic/ modules (selection, transform,
+# rotsprite, tiled). Defined here so no call site inlines a magic number (S12).
+# This module stays a leaf (no intra-package imports).
+
+ROTSPRITE_UPSCALE_FACTOR: int = 8
+"""RotSprite upscale factor = three similarity-Scale2x passes (2x2x2 = 8x)
+(ROADMAP Phase 2; research Topic 1; ADR-0002; SC-L013-5)."""
+
+ROTSPRITE_SIMILARITY_THRESHOLD: int = 100
+"""Scale2x "similar, not equal" test: two pixels are similar when
+``color.distance_sq(a, b) <= ROTSPRITE_SIMILARITY_THRESHOLD`` (squared-RGBA units,
+the same metric as flood_fill / magic-wand). Sqrt(100) = 10 ~ a modest per-channel
+delta (ADR-0002 pin #1; plan §5)."""
+
+MAGIC_WAND_DEFAULT_TOLERANCE: int = 0
+"""Default magic-wand colour tolerance: exact match, parity with flood_fill /
+Aseprite (CL-1; plan §8)."""
+
+TILED_PREVIEW_REPEAT: int = 3
+"""Tiled-mode repeating preview arrangement: TILED_PREVIEW_REPEAT x
+TILED_PREVIEW_REPEAT tiles (3x3, centre tile editable) (CL-13; plan §8)."""
+
+SCALE_MIN_FACTOR: float = 0.01
+"""Lower bound on the nearest-neighbour scale factor (guards pathological
+near-zero factors below the MAX_CANVAS_* hard bound) (plan §8, PL-D5)."""
+
+SCALE_MAX_FACTOR: float = 64.0
+"""Upper bound on the nearest-neighbour scale factor; the hard pixel ceiling
+remains MAX_CANVAS_WIDTH / MAX_CANVAS_HEIGHT (plan §8, PL-D5)."""

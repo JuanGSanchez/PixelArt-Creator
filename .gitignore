@@ -24,6 +24,7 @@ ENV/
 .ruff_cache/
 .coverage
 .coverage.*
+*.coverage
 coverage.xml
 htmlcov/
 .tox/
