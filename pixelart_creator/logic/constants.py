@@ -72,3 +72,59 @@ near-zero factors below the MAX_CANVAS_* hard bound) (plan §8, PL-D5)."""
 SCALE_MAX_FACTOR: float = 64.0
 """Upper bound on the nearest-neighbour scale factor; the hard pixel ceiling
 remains MAX_CANVAS_WIDTH / MAX_CANVAS_HEIGHT (plan §8, PL-D5)."""
+
+# --- Phase-3 colour & palette tuning (phase-3 T1; Article II single-source) -----
+# Tuning scalars consumed by the new logic/ colour modules. The ΔE00 formula
+# magic numbers, sRGB/Lab constants, Bayer matrix values, and Floyd–Steinberg
+# coefficients are intrinsic → local to their module (plan §5, ADR-0001); the
+# NES/GB palette tables are module-local data in hardware_palette.py (ADR-0003).
+# This module stays a leaf (no intra-package imports).
+
+HARMONY_COMPLEMENTARY_DEG: int = 180
+"""Hue rotation for the complementary harmony, degrees
+(research F9 Topic 1.1; spec REQ-P3-LOGIC-002; SC-L002-1)."""
+
+HARMONY_ANALOGOUS_DEG: int = 30
+"""Hue offset (±) for the analogous harmony neighbours, degrees
+(research F9 Topic 1.1; spec REQ-P3-LOGIC-002; SC-L002-2)."""
+
+HARMONY_TRIADIC_DEG: int = 120
+"""Hue offset (±) for the triadic harmony, degrees
+(research F9 Topic 1.1; spec REQ-P3-LOGIC-002; SC-L002-3)."""
+
+HARMONY_SPLIT_COMPLEMENTARY_DEG: int = 150
+"""Hue offset (±) for the split-complementary harmony, degrees
+(research F9 Topic 1.1; spec REQ-P3-LOGIC-002; SC-L002-4)."""
+
+RAMP_STEP_COUNT: int = 5
+"""Number of steps in a shade/tint/tone ramp (Aseprite ramp norm; odd count
+keeps the base centred) (plan §8; spec REQ-P3-LOGIC-003; SC-L003-1)."""
+
+BAYER_MATRIX_SIZE: int = 4
+"""Default ordered-dither Bayer matrix edge (4×4). The matrix *values* are
+intrinsic-local to dither.py (research F9 Topic 5.1; SC-L006-2)."""
+
+PALETTE_EXTRACT_DEFAULT_N: int = 16
+"""Default auto-extract colour count (common 4-bit palette default)
+(plan §8; spec REQ-P3-LOGIC-010; SC-L010-2)."""
+
+CIEDE2000_KL: float = 1.0
+"""ΔE00 parametric lightness weight k_L (Sharma et al. 2005; SC-L004-4)."""
+
+CIEDE2000_KC: float = 1.0
+"""ΔE00 parametric chroma weight k_C (Sharma et al. 2005; SC-L004-4)."""
+
+CIEDE2000_KH: float = 1.0
+"""ΔE00 parametric hue weight k_H (Sharma et al. 2005; SC-L004-4)."""
+
+KMEANS_SEED: int = 0
+"""Deterministic k-means RNG seed for reproducible extraction
+(P2; research F9 Topic 3.2; spec REQ-P3-LOGIC-011; CL-8)."""
+
+CYCLE_DEFAULT_FPS: int = 10
+"""Default colour-cycling preview rate, frames per second (UI-driven; a numeric
+value lives here per Article II) (plan §8; spec REQ-P3-UI-012)."""
+
+FAVOURITES_MAX: int = 64
+"""Soft cap on the persisted Favourites list (defensive bound, Article VII; suits
+a hub swatch grid) (plan §8; spec REQ-P3-LOGIC-015)."""
