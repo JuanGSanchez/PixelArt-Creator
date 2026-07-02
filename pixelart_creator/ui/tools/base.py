@@ -19,7 +19,7 @@ from PySide6.QtGui import QUndoStack
 from pixelart_creator.logic import drawing
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.history import PixelChange, PixelEdit
-from pixelart_creator.logic.pixel_buffer import PixelBuffer, PixelValue
+from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer, PixelValue
 from pixelart_creator.logic.selection import SelectionMask
 from pixelart_creator.logic.symmetry import SymmetryAxis, mirror
 from pixelart_creator.ui.canvas_scene import CanvasScene
@@ -145,7 +145,11 @@ class ToolContext:
 
     Attributes:
         buffer: The active layer buffer being edited.
-        active_color: The active RGBA colour.
+        active_color: The active RGBA colour (the display colour of the picked
+            palette entry; used for previews in every mode).
+        active_index: The active palette index used as the paint value in an
+            indexed buffer — the palette panel selects it (REQ-P3-UI-014). In an
+            RGBA buffer it is ignored (``active_color`` is written instead).
         undo_stack: The active document's undo stack.
         scene: The canvas scene (for dirty-rect refresh + previews).
         set_active_color: Callback the picker uses to set the active colour.
@@ -167,6 +171,7 @@ class ToolContext:
         scene: CanvasScene,
         set_active_color: Callable[[RGBA], None],
         *,
+        active_index: int = 0,
         selection: Optional[SelectionMask] = None,
         set_selection: Optional[Callable[[Optional[SelectionMask]], None]] = None,
         symmetry_axis: SymmetryAxis = SymmetryAxis.NONE,
@@ -178,6 +183,7 @@ class ToolContext:
     ) -> None:
         self.buffer = buffer
         self.active_color = active_color
+        self.active_index = active_index
         self.undo_stack = undo_stack
         self.scene = scene
         self.set_active_color = set_active_color
@@ -189,6 +195,16 @@ class ToolContext:
         self.tiled = tiled
         self.snap = snap
         self.modifiers = modifiers
+
+    def paint_value(self) -> PixelValue:
+        """Return the value a paint tool writes for the active buffer mode.
+
+        Indexed buffers are painted by the active palette *index* (paint-by-index,
+        REQ-P3-UI-014); RGBA buffers are painted with the active RGBA colour. The
+        mode decision stays a thin binding — no colour maths lives here (S11)."""
+        if self.buffer.mode is ColorMode.INDEXED:
+            return self.active_index
+        return self.active_color
 
 
 class Tool:

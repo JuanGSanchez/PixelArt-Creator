@@ -17,11 +17,12 @@ from pathlib import Path
 from typing import Callable, List, Optional
 
 import numpy as np
-from PySide6.QtCore import QEvent, QRectF, Qt
+from PySide6.QtCore import QEvent, QRectF, QStandardPaths, Qt
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
     QColor,
+    QCursor,
     QIcon,
     QImage,
     QKeySequence,
@@ -31,6 +32,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QApplication,
+    QComboBox,
     QDialog,
     QDockWidget,
     QFileDialog,
@@ -45,6 +47,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from pixelart_creator.data.favourites_io import (
+    FavouritesIOError,
+    load_favourites,
+    save_favourites,
+)
 from pixelart_creator.data.project_io import (
     FILE_SUFFIX,
     load_project,
@@ -57,8 +64,16 @@ from pixelart_creator.logic.constants import (
     DEFAULT_CANVAS_WIDTH,
 )
 from pixelart_creator.logic.document import Document, Layer
-from pixelart_creator.logic.palette import Palette
+from pixelart_creator.logic.palette import Palette, PaletteError
+from pixelart_creator.logic.palette_ops import (
+    IndexedModeError,
+    make_cycle_command,
+    make_swap_command,
+    make_to_indexed_command,
+    make_to_rgba_command,
+)
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+from pixelart_creator.logic.quantize import QuantizeError, make_constraint_command
 from pixelart_creator.logic.rotsprite import make_rotsprite_command, rotsprite
 from pixelart_creator.logic.selection import (
     SelectionMask,
@@ -72,9 +87,20 @@ from pixelart_creator.logic.transform import (
 )
 from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.canvas_view import Canvas_View
+from pixelart_creator.ui.colour_cycling_panel import Colour_Cycling_Panel
+from pixelart_creator.ui.colour_hub_menu import Colour_Hub_Menu
 from pixelart_creator.ui.commands import LogicCommand, PaintCommand
+from pixelart_creator.ui.extract_palette_dialog import Extract_Palette_Dialog
 from pixelart_creator.ui.i18n import LanguageManager
+from pixelart_creator.ui.palette_analytics_view import Palette_Analytics_View
+from pixelart_creator.ui.palette_constraint_panel import (
+    Palette_Constraint_Panel,
+    preset_palette,
+)
+from pixelart_creator.ui.palette_editor_panel import Palette_Editor_Panel
+from pixelart_creator.ui.palette_swap_dialog import Palette_Swap_Dialog
 from pixelart_creator.ui.rotsprite_dialog import RotSprite_Dialog
+from pixelart_creator.ui.shade_ramp_picker import Shade_Ramp_Picker
 from pixelart_creator.ui.symmetry_panel import Symmetry_Panel
 from pixelart_creator.ui.theme import (
     THEME_DARK,
@@ -84,6 +110,7 @@ from pixelart_creator.ui.theme import (
 )
 from pixelart_creator.ui.tiled_mode import set_tiled_mode
 from pixelart_creator.ui.tools import (
+    DitherTool,
     EllipseTool,
     EraserTool,
     FloodFillTool,
@@ -95,6 +122,10 @@ from pixelart_creator.ui.tools import (
     RectangleTool,
     RectSelectTool,
     Tool,
+)
+from pixelart_creator.ui.tools.dither_tool import (
+    MODE_FLOYD_STEINBERG,
+    MODE_ORDERED,
 )
 from pixelart_creator.ui.transform_dialog import Scale_Dialog
 
@@ -111,6 +142,9 @@ _STARTER_PALETTE: List[RGBA] = [
 #: Swatch icon edge, px (presentation-only sizing, not a domain tuning value).
 _SWATCH_PX = 24
 
+#: Filename of the app-level Favourites store under AppConfigLocation (ADR-0004).
+_FAVOURITES_FILE = "favourites.json"
+
 
 @dataclass
 class _DocTab:
@@ -126,7 +160,7 @@ class Palette_Panel(QWidget):
     """Displays the document palette in index order; single-select (018/CL-6)."""
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
-        """Build an empty single-select swatch list."""
+        """Build an empty single-select swatch list with a colour-mode indicator."""
         super().__init__(parent)
         from PySide6.QtWidgets import QVBoxLayout
 
@@ -134,8 +168,12 @@ class Palette_Panel(QWidget):
         self._list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
         self._list.setViewMode(QListWidget.ViewMode.IconMode)
         self._list.setResizeMode(QListWidget.ResizeMode.Adjust)
+        # Colour-mode indicator (RGBA vs Indexed) for the active buffer (P3-UI-014).
+        self._mode_label = QLabel(self)
+        self._mode: Optional[ColorMode] = None
         layout = QVBoxLayout(self)
         layout.addWidget(self._list)
+        layout.addWidget(self._mode_label)
         self._retranslate()
 
     @property
@@ -149,6 +187,19 @@ class Palette_Panel(QWidget):
         if not items:
             return None
         return items[0].data(Qt.ItemDataRole.UserRole)
+
+    def selected_index(self) -> Optional[int]:
+        """Return the palette index of the selected swatch, or ``None`` (P3-UI-014).
+
+        The list is populated in palette index order, so the current row is the
+        palette index (the paint-by-index value for an indexed buffer)."""
+        row = self._list.currentRow()
+        return row if 0 <= row < self._list.count() else None
+
+    def set_mode(self, mode: ColorMode) -> None:
+        """Show the active buffer's colour mode (RGBA vs Indexed) (P3-UI-014)."""
+        self._mode = mode
+        self._retranslate_mode()
 
     def set_palette(self, palette: Palette) -> None:
         """Populate the panel from ``palette`` in index order."""
@@ -176,6 +227,17 @@ class Palette_Panel(QWidget):
     def _retranslate(self) -> None:
         self._list.setAccessibleName(self.tr("Colour palette"))
         self.setAccessibleName(self.tr("Palette panel"))
+        self._mode_label.setAccessibleName(self.tr("Colour mode"))
+        self._retranslate_mode()
+
+    def _retranslate_mode(self) -> None:
+        if self._mode is ColorMode.INDEXED:
+            text = self.tr("Mode: Indexed")
+        elif self._mode is ColorMode.RGBA:
+            text = self.tr("Mode: RGBA")
+        else:
+            text = self.tr("Mode: —")
+        self._mode_label.setText(text)
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
         if event.type() == QEvent.Type.LanguageChange:
@@ -196,11 +258,13 @@ class Main_Window(QMainWindow):
         self._undo_group = QUndoGroup(self)
         self._tabs_data: List[_DocTab] = []
         self._active_color: RGBA = BLACK
+        self._active_index: int = 0
         self._theme = THEME_LIGHT
 
         self._rectangle_tool = RectangleTool()
         self._ellipse_tool = EllipseTool()
         self._wand_tool = MagicWandTool()
+        self._dither_tool = DitherTool()
         self._tools: dict[str, Tool] = {
             PencilTool.tool_id: PencilTool(),
             EraserTool.tool_id: EraserTool(),
@@ -212,6 +276,7 @@ class Main_Window(QMainWindow):
             RectSelectTool.tool_id: RectSelectTool(),
             LassoTool.tool_id: LassoTool(),
             MagicWandTool.tool_id: self._wand_tool,
+            DitherTool.tool_id: self._dither_tool,
         }
         self._active_tool_id = PencilTool.tool_id
         # Per-view Phase-2 drawing modes (applied to each tab's view).
@@ -237,6 +302,39 @@ class Main_Window(QMainWindow):
         self._symmetry_dock = QDockWidget(self)
         self._symmetry_dock.setWidget(self._symmetry_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._symmetry_dock)
+
+        # Phase-3 Slice-3C palette-workflow surfaces (REQ-P3-UI-001/-002/-007..-013).
+        # Each binds to the Slice-3A logic and pushes one QUndoCommand per mutation.
+        self._palette_editor = Palette_Editor_Panel(self)
+        self._palette_editor.colorSelected.connect(self._on_palette_selected_rgba)
+        self._editor_dock = self._add_workflow_dock(self._palette_editor)
+
+        self._constraint_panel = Palette_Constraint_Panel(self)
+        self._constraint_panel.constraintRequested.connect(self._on_constrain)
+        self._constraint_dock = self._add_workflow_dock(self._constraint_panel)
+
+        self._ramp_picker = Shade_Ramp_Picker(self)
+        self._ramp_picker.colorPicked.connect(self._on_ramp_picked)
+        self._ramp_picker.rampAddRequested.connect(self._on_ramp_added)
+        self._ramp_dock = self._add_workflow_dock(self._ramp_picker)
+
+        self._cycling_panel = Colour_Cycling_Panel(self)
+        self._cycling_panel.previewColors.connect(self._on_cycle_preview)
+        self._cycling_panel.applyRequested.connect(self._on_cycle_apply)
+        self._cycling_dock = self._add_workflow_dock(self._cycling_panel)
+
+        self._analytics_view = Palette_Analytics_View(self)
+        self._analytics_view.set_document_provider(self.active_document)
+        self._analytics_dock = self._add_workflow_dock(self._analytics_view)
+
+        # Marquee S3/S4 colour hub: a persisted Favourites model + the cursor-
+        # anchored hub, wired into each view's Phase-1 right-click seam. A pick
+        # applies to the active colour (tool state) — never an undo entry (T17).
+        self._favourites = self._load_favourites()
+        self._colour_hub = Colour_Hub_Menu(self)
+        self._colour_hub.set_favourites_model(self._favourites)
+        self._colour_hub.colorApplied.connect(self._on_hub_color_applied)
+        self._colour_hub.favouritesChanged.connect(self._save_favourites)
 
         self._build_actions()
         self._build_toolbar()
@@ -264,6 +362,7 @@ class Main_Window(QMainWindow):
             RectSelectTool.tool_id: "M",
             LassoTool.tool_id: "Q",
             MagicWandTool.tool_id: "W",
+            DitherTool.tool_id: "D",
         }
         self._tool_action_group = QActionGroup(self)
         self._tool_action_group.setExclusive(True)
@@ -372,6 +471,29 @@ class Main_Window(QMainWindow):
         self._tolerance_spin.valueChanged.connect(self._on_tolerance_changed)
         self._tolerance_label = QLabel(self)
 
+        # Dither-mode selector for the dither brush (REQ-P3-UI-008).
+        self._dither_mode_combo = QComboBox(self)
+        self._dither_mode_combo.addItem("", MODE_ORDERED)
+        self._dither_mode_combo.addItem("", MODE_FLOYD_STEINBERG)
+        self._dither_mode_combo.currentIndexChanged.connect(
+            self._on_dither_mode_changed
+        )
+        self._dither_mode_label = QLabel(self)
+
+        # Palette-workflow menu actions (REQ-P3-UI-007/-010/-013).
+        self._extract_action = QAction(self)
+        self._extract_action.triggered.connect(self._on_extract_palette)
+        self._swap_action = QAction(self)
+        self._swap_action.triggered.connect(self._on_palette_swap)
+
+        # Indexed-mode conversion actions (REQ-P3-UI-014, T22). No standalone
+        # QKeySequence — menu items only, so they never clash with the reserved
+        # single-key tool shortcuts; the mnemonics are unique within &Palette.
+        self._to_indexed_action = QAction(self)
+        self._to_indexed_action.triggered.connect(self._on_convert_to_indexed)
+        self._to_rgba_action = QAction(self)
+        self._to_rgba_action.triggered.connect(self._on_convert_to_rgba)
+
         self._theme_light_action = QAction(self)
         self._theme_light_action.setCheckable(True)
         self._theme_light_action.setChecked(True)
@@ -395,6 +517,9 @@ class Main_Window(QMainWindow):
         self._toolbar.addSeparator()
         self._toolbar.addWidget(self._tolerance_label)
         self._toolbar.addWidget(self._tolerance_spin)
+        self._toolbar.addSeparator()
+        self._toolbar.addWidget(self._dither_mode_label)
+        self._toolbar.addWidget(self._dither_mode_combo)
         self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, self._toolbar)
 
     def _build_menu(self) -> None:
@@ -442,6 +567,19 @@ class Main_Window(QMainWindow):
         self._view_menu.addAction(self._filled_action)
         self._view_menu.addAction(self._pixel_perfect_action)
 
+        self._palette_menu = bar.addMenu("")
+        self._palette_menu.addAction(self._extract_action)
+        self._palette_menu.addAction(self._swap_action)
+        self._palette_menu.addSeparator()
+        self._palette_menu.addAction(self._to_indexed_action)
+        self._palette_menu.addAction(self._to_rgba_action)
+        self._palette_menu.addSeparator()
+        self._palette_menu.addAction(self._editor_dock.toggleViewAction())
+        self._palette_menu.addAction(self._constraint_dock.toggleViewAction())
+        self._palette_menu.addAction(self._ramp_dock.toggleViewAction())
+        self._palette_menu.addAction(self._cycling_dock.toggleViewAction())
+        self._palette_menu.addAction(self._analytics_dock.toggleViewAction())
+
         self._theme_menu = bar.addMenu("")
         self._theme_menu.addAction(self._theme_light_action)
         self._theme_menu.addAction(self._theme_dark_action)
@@ -482,6 +620,7 @@ class Main_Window(QMainWindow):
         self._undo_group.addStack(stack)
         view = Canvas_View(scene, stack)
         view.colorPicked.connect(self._on_color_picked)
+        view.set_menu_hook(self._open_colour_hub)
         record = _DocTab(document, scene, view, stack)
         self._tabs_data.append(record)
         index = self._tab_widget.addTab(view, title)
@@ -489,9 +628,29 @@ class Main_Window(QMainWindow):
         self._apply_theme_to_scene(scene)
         view.set_tool(self._tools[self._active_tool_id])
         view.set_active_color(self._active_color)
+        view.set_active_index(self._active_index)
         self._apply_modes_to(record)
-        self._palette_panel.set_palette(document.palette)
+        self._bind_palette_workflows(record)
         return document
+
+    def _add_workflow_dock(self, widget: QWidget) -> QDockWidget:
+        """Add a Slice-3C workflow widget as a dock tabified with the palette."""
+        dock = QDockWidget(self)
+        dock.setWidget(widget)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+        self.tabifyDockWidget(self._palette_dock, dock)
+        return dock
+
+    def _bind_palette_workflows(self, record: "_DocTab") -> None:
+        """Point the palette editor / cycling / dither surfaces at ``record``."""
+        palette = record.document.palette
+        self._palette_panel.set_palette(palette)
+        self._palette_editor.set_active_color(self._active_color)
+        self._palette_editor.set_context(palette, record.stack, self._on_palette_edited)
+        self._cycling_panel.stop()
+        self._cycling_panel.set_palette(palette)
+        self._dither_tool.set_palette(palette)
+        self._refresh_mode_ui()
 
     def _apply_modes_to(self, record: _DocTab) -> None:
         """Push the shell's Phase-2 drawing modes onto a tab's view/scene."""
@@ -532,8 +691,10 @@ class Main_Window(QMainWindow):
         self._undo_group.setActiveStack(record.stack)
         record.view.set_tool(self._tools[self._active_tool_id])
         record.view.set_active_color(self._active_color)
+        record.view.set_active_index(self._active_index)
         self._apply_modes_to(record)
-        self._palette_panel.set_palette(record.document.palette)
+        self._bind_palette_workflows(record)
+        self._analytics_view.refresh()
 
     def _on_tool_action(self) -> None:
         action = self.sender()
@@ -544,9 +705,15 @@ class Main_Window(QMainWindow):
                 record.view.set_tool(self._tools[self._active_tool_id])
 
     def _on_palette_selected(self) -> None:
+        # The palette panel drives paint-by-index: the selected row is the paint
+        # index on an indexed buffer (REQ-P3-UI-014). Set the colour first, then
+        # let the precise row index win over any index_of() duplicate match.
         color = self._palette_panel.selected_color()
         if color is not None:
             self._set_active_color(color)
+        index = self._palette_panel.selected_index()
+        if index is not None:
+            self._set_active_index(index)
 
     def _on_color_picked(self, color: RGBA) -> None:
         self._set_active_color(color)
@@ -557,6 +724,263 @@ class Main_Window(QMainWindow):
         record = self.active_tab()
         if record is not None:
             record.view.set_active_color(color)
+            # Keep the paint-by-index value aligned when the colour is an exact
+            # palette entry (e.g. a hub/ramp pick that matches, REQ-P3-UI-014).
+            index = record.document.palette.index_of(color)
+            if index is not None:
+                self._set_active_index(index)
+        self._palette_editor.set_active_color(color)
+        self._ramp_picker.set_base_color(color)
+
+    def _set_active_index(self, index: int) -> None:
+        """Set the paint-by-index value and push it to every view (P3-UI-014)."""
+        self._active_index = int(index)
+        for record in self._tabs_data:
+            record.view.set_active_index(self._active_index)
+
+    # -- palette workflows (REQ-P3-UI-001/-007..-013) --------------------
+
+    def _on_palette_selected_rgba(self, color: RGBA) -> None:
+        """A pick in the editor list sets the active colour."""
+        self._set_active_color(color)
+        self._palette_panel.select_color(color)
+
+    def _on_dither_mode_changed(self, _index: int) -> None:
+        self._dither_tool.set_mode(self._dither_mode_combo.currentData())
+
+    def _on_palette_edited(self) -> None:
+        """Refresh every palette surface after an editor mutation / undo / redo."""
+        record = self.active_tab()
+        if record is None:
+            return
+        palette = record.document.palette
+        self._palette_panel.set_palette(palette)
+        self._cycling_panel.set_palette(palette)
+        self._dither_tool.set_palette(palette)
+        record.scene.set_display_palette(palette.colors())
+        self._analytics_view.refresh()
+
+    def _on_ramp_picked(self, color: RGBA) -> None:
+        """A ramp swatch applies to the active colour (REQ-P3-UI-007)."""
+        self._set_active_color(color)
+        self._palette_panel.select_color(color)
+
+    def _on_ramp_added(self, colors: List[RGBA]) -> None:
+        """Append a whole ramp to the palette as one command (REQ-P3-UI-007)."""
+        record = self.active_tab()
+        if record is None:
+            return
+        self._palette_editor.replace_all(
+            record.document.palette.colors() + list(colors), self.tr("Add Shade Ramp")
+        )
+
+    def _on_constrain(self, preset: str) -> None:
+        """Constrain the buffer/selection onto a hardware palette (REQ-P3-UI-009)."""
+        record = self.active_tab()
+        if record is None:
+            return
+        palette = preset_palette(preset)
+        if palette is None:
+            return
+        buffer = record.scene.active_buffer()
+        mask = record.view.active_selection()
+        try:
+            command = make_constraint_command(buffer, palette, mask=mask)
+        except (QuantizeError, PaletteError) as exc:
+            QMessageBox.warning(self, self.tr("Constrain to Palette"), str(exc))
+            return
+        record.stack.push(
+            LogicCommand(
+                command, record.scene.refresh_all, self.tr("Constrain to Palette")
+            )
+        )
+
+    def _on_cycle_preview(self, colors: List[RGBA]) -> None:
+        """Show a cycled display palette without mutating pixels (REQ-P3-UI-012)."""
+        record = self.active_tab()
+        if record is not None:
+            record.scene.set_display_palette(colors)
+
+    def _on_cycle_apply(self, start: int, end: int, step: int) -> None:
+        """Commit a colour-cycle state to the buffer as one command (REQ-P3-UI-012)."""
+        record = self.active_tab()
+        if record is None:
+            return
+        buffer = record.scene.active_buffer()
+        if buffer.mode is not ColorMode.INDEXED:
+            QMessageBox.warning(
+                self,
+                self.tr("Colour Cycling"),
+                self.tr("Colour cycling applies to indexed documents."),
+            )
+            return
+        try:
+            command = make_cycle_command(buffer, start, end, step)
+        except PaletteError as exc:
+            QMessageBox.warning(self, self.tr("Colour Cycling"), str(exc))
+            return
+        record.stack.push(
+            LogicCommand(command, record.scene.refresh_all, self.tr("Colour Cycle"))
+        )
+        record.scene.set_display_palette(record.document.palette.colors())
+
+    def _on_extract_palette(self) -> None:
+        """Extract a ≤N palette from an image into the editor (REQ-P3-UI-010)."""
+        record = self.active_tab()
+        if record is None:
+            return
+        dialog = Extract_Palette_Dialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        palette = dialog.result_palette()
+        if palette is None:
+            return
+        self._palette_editor.replace_all(palette.colors(), self.tr("Extract Palette"))
+
+    def _on_palette_swap(self) -> None:
+        """Define + apply an index remap as one command (REQ-P3-UI-013)."""
+        record = self.active_tab()
+        if record is None:
+            return
+        buffer = record.scene.active_buffer()
+        if buffer.mode is not ColorMode.INDEXED:
+            QMessageBox.warning(
+                self,
+                self.tr("Palette Swap"),
+                self.tr("Palette swap applies to indexed documents."),
+            )
+            return
+        dialog = Palette_Swap_Dialog(max(0, len(record.document.palette) - 1), self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        mapping = dialog.mapping()
+        if not mapping:
+            return
+        try:
+            command = make_swap_command(buffer, mapping, record.view.active_selection())
+        except PaletteError as exc:
+            QMessageBox.warning(self, self.tr("Palette Swap"), str(exc))
+            return
+        record.stack.push(
+            LogicCommand(command, record.scene.refresh_all, self.tr("Palette Swap"))
+        )
+
+    # -- indexed-mode conversion (REQ-P3-UI-014, T22) --------------------
+
+    def _on_convert_to_indexed(self) -> None:
+        """Convert the active layer RGBA→indexed as one undoable command (T22)."""
+        record = self.active_tab()
+        if record is None:
+            return
+        layer: Layer = record.scene.active_layer()
+        palette = record.document.palette
+        try:
+            command = make_to_indexed_command(layer, palette)
+        except (IndexedModeError, PaletteError) as exc:
+            QMessageBox.warning(self, self.tr("Convert to Indexed"), str(exc))
+            return
+        record.stack.push(
+            LogicCommand(
+                command,
+                self._mode_switch_rebind(record),
+                self.tr("Convert to Indexed"),
+            )
+        )
+
+    def _on_convert_to_rgba(self) -> None:
+        """Convert the active layer indexed→RGBA as one undoable command (T22)."""
+        record = self.active_tab()
+        if record is None:
+            return
+        layer: Layer = record.scene.active_layer()
+        palette = record.document.palette
+        try:
+            command = make_to_rgba_command(layer, palette)
+        except (IndexedModeError, PaletteError) as exc:
+            QMessageBox.warning(self, self.tr("Convert to RGBA"), str(exc))
+            return
+        record.stack.push(
+            LogicCommand(
+                command, self._mode_switch_rebind(record), self.tr("Convert to RGBA")
+            )
+        )
+
+    def _mode_switch_rebind(self, record: "_DocTab") -> Callable[[], None]:
+        """Rebind callback for a mode switch: re-read the swapped buffer + refresh.
+
+        The logic command swaps ``Layer.buffer`` (a new buffer of the other mode);
+        the scene must re-point at it, the selection is dropped (indices differ),
+        and the mode indicator + convert-action states refresh. Runs on apply,
+        undo and redo so the UI always mirrors the live buffer mode."""
+
+        def rebind() -> None:
+            record.scene.rebind_active()
+            record.view.clear_selection()
+            self._refresh_mode_ui()
+
+        return rebind
+
+    def _refresh_mode_ui(self) -> None:
+        """Sync the mode indicator + convert-action enablement to the buffer mode."""
+        record = self.active_tab()
+        if record is None:
+            self._to_indexed_action.setEnabled(False)
+            self._to_rgba_action.setEnabled(False)
+            return
+        mode = record.scene.active_buffer().mode
+        self._palette_panel.set_mode(mode)
+        self._to_indexed_action.setEnabled(mode is ColorMode.RGBA)
+        self._to_rgba_action.setEnabled(mode is ColorMode.INDEXED)
+
+    # -- colour hub (REQ-P3-UI-003/-004/-006) ----------------------------
+
+    def _favourites_path(self) -> Path:
+        """Return the app-level Favourites store path (QStandardPaths, ADR-0004).
+
+        The app-config directory is resolved here in ``ui/`` and passed to the
+        Qt-free ``data/favourites_io`` layer, keeping ``data/`` free of Qt.
+        """
+        base = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.AppConfigLocation
+        )
+        directory = Path(base) if base else Path.home() / ".pixelart_creator"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory / _FAVOURITES_FILE
+
+    def _load_favourites(self):
+        """Load the persisted Favourites (empty on first run or on error)."""
+        try:
+            return load_favourites(self._favourites_path())
+        except (FavouritesIOError, OSError):
+            from pixelart_creator.logic.favourites import Favourites
+
+            return Favourites()
+
+    def _save_favourites(self) -> None:
+        """Persist the Favourites model after an add / remove / reorder."""
+        try:
+            save_favourites(self._favourites_path(), self._favourites)
+        except (FavouritesIOError, OSError):
+            pass  # a non-writable config dir must not crash the editor.
+
+    def _open_colour_hub(self, x: int, y: int) -> None:
+        """Seam hook: open the hub anchored at buffer pixel ``(x, y)`` (SC-U003-1).
+
+        Anchoring off the buffer pixel (mapped through the active view) — rather
+        than the mouse cursor — makes the hub open in the right place for BOTH a
+        right-click and a keyboard Menu-key request (A11Y-COLHUB-1)."""
+        self._colour_hub.set_color(self._active_color)
+        record = self.active_tab()
+        if record is not None:
+            global_pos = record.view.scene_pixel_to_global(x, y)
+        else:
+            global_pos = QCursor.pos()
+        self._colour_hub.popup_at(global_pos)
+
+    def _on_hub_color_applied(self, color: RGBA) -> None:
+        """A hub pick applies immediately to the active swatch (SC-U006-1)."""
+        self._set_active_color(color)
+        self._palette_panel.select_color(color)
 
     def _on_open(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -843,6 +1267,11 @@ class Main_Window(QMainWindow):
         self._toolbar.setWindowTitle(self.tr("Tools"))
         self._palette_dock.setWindowTitle(self.tr("Palette"))
         self._symmetry_dock.setWindowTitle(self.tr("Symmetry"))
+        self._editor_dock.setWindowTitle(self.tr("Palette Editor"))
+        self._constraint_dock.setWindowTitle(self.tr("Constraints"))
+        self._ramp_dock.setWindowTitle(self.tr("Shade Ramps"))
+        self._cycling_dock.setWindowTitle(self.tr("Colour Cycling"))
+        self._analytics_dock.setWindowTitle(self.tr("Analytics"))
         self._tab_widget.setAccessibleName(self.tr("Open documents"))
 
         labels = {
@@ -856,6 +1285,7 @@ class Main_Window(QMainWindow):
             RectSelectTool.tool_id: self.tr("Rectangle select"),
             LassoTool.tool_id: self.tr("Lasso select"),
             MagicWandTool.tool_id: self.tr("Magic wand"),
+            DitherTool.tool_id: self.tr("Dither"),
         }
         for tool_id, action in self._tool_actions.items():
             label = labels[tool_id]
@@ -885,6 +1315,15 @@ class Main_Window(QMainWindow):
         self._pixel_perfect_action.setText(self.tr("&Pixel Perfect"))
         self._tolerance_label.setText(self.tr("Tolerance"))
         self._tolerance_spin.setAccessibleName(self.tr("Magic-wand tolerance"))
+        self._dither_mode_label.setText(self.tr("Dither"))
+        self._dither_mode_combo.setAccessibleName(self.tr("Dither mode"))
+        self._dither_mode_combo.setItemText(0, self.tr("Ordered (Bayer)"))
+        self._dither_mode_combo.setItemText(1, self.tr("Floyd–Steinberg"))
+        self._extract_action.setText(self.tr("&Extract from Image…"))
+        self._swap_action.setText(self.tr("Palette &Swap…"))
+        # Mnemonics X / C are unique within the &Palette menu; no global shortcut.
+        self._to_indexed_action.setText(self.tr("Convert to Inde&xed"))
+        self._to_rgba_action.setText(self.tr("&Convert to RGBA"))
 
         self._select_all_action.setText(self.tr("Select &All"))
         self._deselect_action.setText(self.tr("&Deselect"))
@@ -903,6 +1342,7 @@ class Main_Window(QMainWindow):
         self._select_menu.setTitle(self.tr("&Select"))
         self._image_menu.setTitle(self.tr("&Image"))
         self._view_menu.setTitle(self.tr("&View"))
+        self._palette_menu.setTitle(self.tr("&Palette"))
         self._theme_menu.setTitle(self.tr("&Theme"))
         self._language_menu.setTitle(self.tr("&Language"))
 

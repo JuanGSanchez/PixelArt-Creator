@@ -13,6 +13,18 @@ Qt's undo framework to the logic command and schedules a repaint/rebind (D5).
 ``QtWidgets`` in Qt6 — F1). ``LogicCommand`` is the single wrapper class every new
 mutating op reuses, so the QUndoStack in this module stays the only undo system
 (C1) and no domain logic leaks into the widgets (S11).
+
+Phase-3 note: a colour-hub pick (wheel / harmony / favourite) sets the **active
+paint colour** — a tool-state change, not a buffer mutation — so it creates **no**
+``QUndoCommand`` and never touches the undo stack (REQ-P3-UI-006, T17). The Slice-3C
+mutating ops all reuse :class:`LogicCommand` (T21): the buffer ops
+(dither / constraint / cycle / swap) pass the unapplied ``PixelEdit`` returned by
+their ``logic`` builder, and the palette-editor edits (add / remove / reorder /
+import) pass a :class:`~pixelart_creator.logic.history.FunctionCommand` whose
+do/undo replace the shared ``Palette``'s contents in place (plan §10). ``redo()``
+fires on push (applying the op) and every later redo/undo delegates to the logic
+command, so each op is exactly one reversible step with **zero** domain maths in
+this bridge (Article I / S11).
 """
 
 from __future__ import annotations

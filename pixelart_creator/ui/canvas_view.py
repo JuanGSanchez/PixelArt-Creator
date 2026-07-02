@@ -18,8 +18,9 @@ from __future__ import annotations
 import math
 from typing import Callable, Optional, Tuple
 
-from PySide6.QtCore import QEvent, QPoint, Qt, Signal
+from PySide6.QtCore import QEvent, QPoint, QPointF, Qt, Signal
 from PySide6.QtGui import (
+    QContextMenuEvent,
     QGuiApplication,
     QKeyEvent,
     QMouseEvent,
@@ -70,6 +71,7 @@ class Canvas_View(QGraphicsView):
         self._undo_stack = undo_stack
         self._tool: Optional[Tool] = None
         self._active_color: RGBA = BLACK
+        self._active_index: int = 0
         self._zoom = 1.0
         self._panning = False
         self._space_held = False
@@ -135,6 +137,14 @@ class Canvas_View(QGraphicsView):
     def active_color(self) -> RGBA:
         """Return the active colour."""
         return self._active_color
+
+    def set_active_index(self, index: int) -> None:
+        """Set the active palette index painted on an indexed buffer (P3-UI-014)."""
+        self._active_index = int(index)
+
+    def active_index(self) -> int:
+        """Return the active palette index used for paint-by-index."""
+        return self._active_index
 
     def set_undo_stack(self, undo_stack: QUndoStack) -> None:
         """Rebind the view to a different document's undo stack (tab switch)."""
@@ -285,6 +295,7 @@ class Canvas_View(QGraphicsView):
         return ToolContext(
             buffer=self._scene.active_buffer(),
             active_color=self._active_color,
+            active_index=self._active_index,
             undo_stack=self._undo_stack,
             scene=self._scene,
             set_active_color=self._on_color_picked,
@@ -381,6 +392,34 @@ class Canvas_View(QGraphicsView):
         placeholder = menu.addAction(self.tr("No canvas actions yet"))
         placeholder.setEnabled(False)
         menu.exec(global_pos)
+
+    def contextMenuEvent(  # noqa: N802 (Qt override)
+        self, event: QContextMenuEvent
+    ) -> None:
+        """Open the colour hub from the keyboard (Menu key / Shift+F10).
+
+        Makes the hub reachable without a mouse (A11Y-COLHUB-1, SC-U003-3). Mouse
+        right-clicks are already handled in :meth:`mousePressEvent`, so only the
+        keyboard-triggered request is serviced here to avoid a double menu. With no
+        cursor to anchor to, the hub opens at the viewport centre; the seam hook
+        maps the buffer pixel back to a screen position (device-independent)."""
+        if event.reason() != QContextMenuEvent.Reason.Keyboard:
+            super().contextMenuEvent(event)
+            return
+        view_point = self.viewport().rect().center()
+        scene_point = self.mapToScene(view_point)
+        x, y = math.floor(scene_point.x()), math.floor(scene_point.y())
+        self.rightClicked.emit(x, y)
+        if self._menu_hook is not None:
+            self._menu_hook(x, y)
+        else:
+            self._show_placeholder_menu(self.viewport().mapToGlobal(view_point))
+        event.accept()
+
+    def scene_pixel_to_global(self, x: int, y: int) -> QPoint:
+        """Map a buffer pixel to a global screen point (hub anchor, any device)."""
+        view_point = self.mapFromScene(QPointF(x + 0.5, y + 0.5))
+        return self.viewport().mapToGlobal(view_point)
 
     # -- i18n -------------------------------------------------------------
 

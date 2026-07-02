@@ -41,7 +41,8 @@ class LineTool(Tool):
         sx, sy = self._start
         ctx.scene.hide_line_preview()
         stroke = Stroke(ctx.buffer)
-        stroke.line(sx, sy, x, y, ctx.active_color)
+        # Commit with the mode-correct value (index on indexed buffers, P3-UI-014).
+        stroke.line(sx, sy, x, y, ctx.paint_value())
         command = stroke.to_command(ctx.scene.refresh_rect, self.label())
         if command is not None:
             ctx.undo_stack.push(command)

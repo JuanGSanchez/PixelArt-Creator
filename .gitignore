@@ -50,6 +50,7 @@ docs/subagent-report-*
 
 # ---- Stray orchestration artifacts written to repo root ----
 subagent-report-*.md
+claude-checkpoint-*.md
 
 # ---- PRIVATE build/design artifacts (S19) — gitignored AND purged from git
 #      history. These files are intentionally absent from the repository:
