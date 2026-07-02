@@ -9,42 +9,104 @@ reshaping it.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
-from pixelart_creator.logic.constants import DEFAULT_FRAME_DURATION_MS
+from pixelart_creator.logic import palette_ops
+from pixelart_creator.logic.blend import BlendMode, composite_stack
+from pixelart_creator.logic.constants import (
+    DEFAULT_FRAME_DURATION_MS,
+    DEFAULT_LAYER_OPACITY,
+    MAX_GROUP_NESTING_DEPTH,
+    MAX_LAYERS_PER_FRAME,
+)
+from pixelart_creator.logic.history import Command, FunctionCommand
 from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 
 #: Default animation frame duration (ms). Re-exported from
 #: :mod:`pixelart_creator.logic.constants` (single source, S12) so existing
 #: default-arg call sites and importers keep working.
-__all__ = ["DEFAULT_FRAME_DURATION_MS", "DocumentError", "Layer", "Frame", "Document"]
+__all__ = [
+    "DEFAULT_FRAME_DURATION_MS",
+    "DocumentError",
+    "Layer",
+    "LayerGroup",
+    "LayerNode",
+    "LayerRef",
+    "Frame",
+    "Document",
+    "ensure_editable",
+    "iter_layers",
+]
+
+#: Address of a node in a frame tree: a top-level index, or a path of indices
+#: descending through nested groups (``[i, j, k]`` -> ``layers[i].children[j]
+#: .children[k]``).
+LayerRef = Union[int, Sequence[int]]
 
 
 class DocumentError(ValueError):
     """Raised on an invalid document structure or operation."""
 
 
-class Layer:
-    """A single named pixel layer with opacity / visibility / lock flags."""
+def _validate_opacity(value: float) -> float:
+    """Validate and coerce an opacity to a ``float`` in ``0.0..1.0``."""
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise DocumentError(f"opacity must be a number, got {value!r}")
+    if value < 0.0 or value > 1.0:
+        raise DocumentError(f"opacity {value} out of range 0.0..1.0")
+    return float(value)
 
-    __slots__ = ("name", "buffer", "_opacity", "visible", "locked")
+
+def _validate_blend_mode(value: BlendMode) -> BlendMode:
+    if not isinstance(value, BlendMode):
+        raise DocumentError(f"blend_mode must be a BlendMode, got {value!r}")
+    return value
+
+
+class Layer:
+    """A single named pixel layer with compositing attributes.
+
+    Satisfies :class:`~pixelart_creator.logic.blend.CompositeNode` as a leaf.
+    """
+
+    __slots__ = (
+        "name",
+        "buffer",
+        "_opacity",
+        "visible",
+        "locked",
+        "_blend_mode",
+        "mask",
+        "reference",
+        "smart_source",
+    )
 
     def __init__(
         self,
         buffer: PixelBuffer,
         name: str = "Layer",
         *,
-        opacity: float = 1.0,
+        opacity: float = DEFAULT_LAYER_OPACITY,
         visible: bool = True,
         locked: bool = False,
+        blend_mode: BlendMode = BlendMode.NORMAL,
+        mask: Optional[PixelBuffer] = None,
+        reference: bool = False,
+        smart_source: Optional["Layer"] = None,
     ) -> None:
+        """Initialise a layer from a buffer plus optional compositing attributes."""
         self.name = name
         self.buffer = buffer
         self.visible = visible
         self.locked = locked
-        self._opacity = 1.0
+        self.mask = mask
+        self.reference = reference
+        self.smart_source = smart_source
+        self._opacity = DEFAULT_LAYER_OPACITY
+        self._blend_mode = BlendMode.NORMAL
         self.opacity = opacity  # validates via setter
+        self.blend_mode = blend_mode  # validates via setter
 
     @property
     def opacity(self) -> float:
@@ -53,32 +115,193 @@ class Layer:
 
     @opacity.setter
     def opacity(self, value: float) -> None:
-        if not isinstance(value, (int, float)) or isinstance(value, bool):
-            raise DocumentError(f"opacity must be a number, got {value!r}")
-        if value < 0.0 or value > 1.0:
-            raise DocumentError(f"opacity {value} out of range 0.0..1.0")
-        self._opacity = float(value)
+        self._opacity = _validate_opacity(value)
+
+    @property
+    def blend_mode(self) -> BlendMode:
+        """The layer's :class:`~pixelart_creator.logic.blend.BlendMode`."""
+        return self._blend_mode
+
+    @blend_mode.setter
+    def blend_mode(self, value: BlendMode) -> None:
+        self._blend_mode = _validate_blend_mode(value)
+
+    def effective_buffer(self) -> PixelBuffer:
+        """Return the buffer this layer contributes to the composite.
+
+        A smart layer mirrors its source's *current* pixels read-only
+        (LOGIC-014); an ordinary layer contributes its own buffer.
+        """
+        if self.smart_source is not None:
+            return self.smart_source.effective_buffer()
+        return self.buffer
 
     def __repr__(self) -> str:
+        """Return a debug representation naming the layer and its buffer."""
         return f"Layer({self.name!r}, {self.buffer!r})"
 
 
+class LayerGroup:
+    """A group node: ordered children composited then blended as one (LOGIC-011).
+
+    Satisfies :class:`~pixelart_creator.logic.blend.CompositeNode` as a group
+    (detected by its ``children`` attribute); carries its own compositing
+    attributes applied to the flattened subtree.
+    """
+
+    __slots__ = (
+        "name",
+        "children",
+        "_opacity",
+        "visible",
+        "locked",
+        "_blend_mode",
+        "mask",
+        "reference",
+        "_composite_cache",
+    )
+
+    def __init__(
+        self,
+        name: str = "Group",
+        children: Optional[List["LayerNode"]] = None,
+        *,
+        opacity: float = DEFAULT_LAYER_OPACITY,
+        visible: bool = True,
+        locked: bool = False,
+        blend_mode: BlendMode = BlendMode.NORMAL,
+        mask: Optional[PixelBuffer] = None,
+        reference: bool = False,
+    ) -> None:
+        """Initialise a group from optional children plus compositing attributes."""
+        self.name = name
+        self.children: List["LayerNode"] = list(children) if children else []
+        self.visible = visible
+        self.locked = locked
+        self.mask = mask
+        self.reference = reference
+        self._opacity = DEFAULT_LAYER_OPACITY
+        self._blend_mode = BlendMode.NORMAL
+        self.opacity = opacity
+        self.blend_mode = blend_mode
+        #: Transient single-entry MRU of this group's flattened children,
+        #: ``(region_key, ndarray)``, written by ``blend._flatten_group`` (D4).
+        #: NEVER serialised — ``data/project_io.py`` lists persisted fields
+        #: explicitly and does not touch it; a fresh/loaded group starts
+        #: uncached. Invalidated up the ancestor chain on any mutating op.
+        self._composite_cache: Optional[Tuple[Tuple[int, int, int, int], Any]] = None
+
+    @property
+    def opacity(self) -> float:
+        """Group opacity in ``0.0..1.0``."""
+        return self._opacity
+
+    @opacity.setter
+    def opacity(self, value: float) -> None:
+        self._opacity = _validate_opacity(value)
+
+    @property
+    def blend_mode(self) -> BlendMode:
+        """The group's :class:`~pixelart_creator.logic.blend.BlendMode`."""
+        return self._blend_mode
+
+    @blend_mode.setter
+    def blend_mode(self, value: BlendMode) -> None:
+        self._blend_mode = _validate_blend_mode(value)
+
+    def __repr__(self) -> str:
+        """Return a debug representation naming the group and its child count."""
+        return f"LayerGroup({self.name!r}, {len(self.children)} children)"
+
+
+#: A node in the frame layer tree — a leaf :class:`Layer` or a :class:`LayerGroup`.
+LayerNode = Union[Layer, LayerGroup]
+
+
+def iter_layers(nodes: Sequence["LayerNode"]) -> "List[Layer]":
+    """Depth-first list of every :class:`Layer` leaf under ``nodes``.
+
+    Flattens groups so callers that only care about pixel layers (colour
+    analytics, export, canvas paint) can ignore the group structure.
+    """
+    out: List[Layer] = []
+    for node in nodes:
+        if isinstance(node, LayerGroup):
+            out.extend(iter_layers(node.children))
+        else:
+            out.append(node)
+    return out
+
+
+#: Backwards-compatible private alias (pre-Phase-4 internal name).
+_iter_layers = iter_layers
+
+
+def _group_depth(node: "LayerNode") -> int:
+    """Nesting depth of ``node``: ``0`` for a leaf, ``1 + max child depth``."""
+    if isinstance(node, LayerGroup):
+        return 1 + max((_group_depth(c) for c in node.children), default=0)
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# Group-cache invalidation (D4 — ADR-0007 §Amendment (T13))                    #
+# --------------------------------------------------------------------------- #
+
+
+def _group_chain(
+    nodes: List["LayerNode"], target: List["LayerNode"], acc: List["LayerGroup"]
+) -> bool:
+    """Collect into ``acc`` the ancestor groups owning ``target`` (root→owner).
+
+    Descends ``nodes`` for the group whose ``children`` list *is* ``target``,
+    appending each :class:`LayerGroup` on the path. Returns ``True`` and leaves
+    ``acc`` = ``[outermost, …, immediate owner]`` once found; ``[]`` when
+    ``target`` is a top-level list (no owning group).
+    """
+    if nodes is target:
+        return True
+    for node in nodes:
+        if isinstance(node, LayerGroup):
+            acc.append(node)
+            if _group_chain(node.children, target, acc):
+                return True
+            acc.pop()
+    return False
+
+
+def _clear_caches(groups: Iterable["LayerGroup"]) -> None:
+    """Drop the cached flattened intermediate of each group (D4)."""
+    for group in groups:
+        group._composite_cache = None
+
+
+def _invalidate_all_caches(nodes: Sequence["LayerNode"]) -> None:
+    """Drop every group cache in a subtree (geometry / bulk change)."""
+    for node in nodes:
+        if isinstance(node, LayerGroup):
+            node._composite_cache = None
+            _invalidate_all_caches(node.children)
+
+
 class Frame:
-    """One animation frame: a stack of layers plus a display duration."""
+    """One animation frame: a tree of layers/groups plus a display duration."""
 
     __slots__ = ("layers", "duration_ms")
 
     def __init__(
         self,
-        layers: Optional[List[Layer]] = None,
+        layers: Optional[List["LayerNode"]] = None,
         duration_ms: int = DEFAULT_FRAME_DURATION_MS,
     ) -> None:
+        """Initialise a frame from an optional node list and display duration."""
         if duration_ms <= 0:
             raise DocumentError(f"frame duration must be positive, got {duration_ms}")
-        self.layers: List[Layer] = list(layers) if layers else []
+        self.layers: List["LayerNode"] = list(layers) if layers else []
         self.duration_ms = duration_ms
 
     def __repr__(self) -> str:
+        """Return a debug representation with the frame's layer count and duration."""
         return f"Frame({len(self.layers)} layers, {self.duration_ms}ms)"
 
 
@@ -119,8 +342,8 @@ class Document:
         frame.layers.append(layer)
         return layer
 
-    def remove_layer(self, layer_index: int, *, frame_index: int = 0) -> Layer:
-        """Remove and return a layer; refuses to remove the last one."""
+    def remove_layer(self, layer_index: int, *, frame_index: int = 0) -> "LayerNode":
+        """Remove and return a top-level node; refuses to remove the last one."""
         frame = self._check_frame(frame_index)
         if len(frame.layers) <= 1:
             raise DocumentError("cannot remove the last layer of a frame")
@@ -164,15 +387,664 @@ class Document:
     ) -> None:
         """Resize every layer buffer in every frame (non-destructive crop/pad)."""
         for frame in self.frames:
-            for layer in frame.layers:
+            for layer in _iter_layers(frame.layers):
                 layer.buffer = layer.buffer.resize(
                     new_width, new_height, offset_x=offset_x, offset_y=offset_y
                 )
+                if layer.mask is not None:
+                    layer.mask = layer.mask.resize(
+                        new_width, new_height, offset_x=offset_x, offset_y=offset_y
+                    )
+            _invalidate_all_caches(frame.layers)
         self.width = new_width
         self.height = new_height
 
+    # -- node addressing (Phase-4 layer tree) -----------------------------
+
+    def _resolve(
+        self, frame: Frame, ref: LayerRef
+    ) -> Tuple[List["LayerNode"], int, "LayerNode"]:
+        """Return ``(container, index, node)`` for an existing node ``ref``.
+
+        ``ref`` is a top-level index or a path of indices descending through
+        nested groups.
+
+        Raises:
+            DocumentError: If ``ref`` addresses no existing node.
+        """
+        path = [ref] if isinstance(ref, int) else list(ref)
+        if not path:
+            raise DocumentError("empty layer reference")
+        container: List["LayerNode"] = frame.layers
+        node: Optional["LayerNode"] = None
+        for depth, idx in enumerate(path):
+            if not isinstance(idx, int) or isinstance(idx, bool):
+                raise DocumentError(
+                    f"layer reference index must be an int, got {idx!r}"
+                )
+            if not 0 <= idx < len(container):
+                raise DocumentError(f"layer reference {ref!r} out of range")
+            node = container[idx]
+            if depth < len(path) - 1:
+                if not isinstance(node, LayerGroup):
+                    raise DocumentError(f"layer reference {ref!r} descends into a leaf")
+                container = node.children
+        assert node is not None
+        return container, path[-1], node
+
+    def _container_and_index(
+        self, frame: Frame, addr: LayerRef
+    ) -> Tuple[List["LayerNode"], int]:
+        """Return ``(container, insertion_index)`` for a destination ``addr``."""
+        path = [addr] if isinstance(addr, int) else list(addr)
+        if not path:
+            raise DocumentError("empty destination reference")
+        if len(path) == 1:
+            return frame.layers, int(path[0])
+        _container, _index, parent = self._resolve(frame, path[:-1])
+        if not isinstance(parent, LayerGroup):
+            raise DocumentError(f"destination {addr!r} parent is not a group")
+        return parent.children, int(path[-1])
+
+    def resolve_layer(self, ref: LayerRef, *, frame_index: int = 0) -> "LayerNode":
+        """Return the node addressed by ``ref`` in ``frame_index``."""
+        frame = self._check_frame(frame_index)
+        return self._resolve(frame, ref)[2]
+
+    def layer_count(self, *, frame_index: int = 0) -> int:
+        """Return the number of :class:`Layer` leaves in a frame.
+
+        The count is bounded by ``MAX_LAYERS_PER_FRAME``.
+        """
+        frame = self._check_frame(frame_index)
+        return len(_iter_layers(frame.layers))
+
+    # -- group-cache invalidation (D4) ------------------------------------
+
+    def _chain_for_container(
+        self, frame: Frame, container: List["LayerNode"]
+    ) -> List["LayerGroup"]:
+        """Ancestor groups owning ``container`` (root→owner); ``[]`` if top-level."""
+        chain: List["LayerGroup"] = []
+        _group_chain(frame.layers, container, chain)
+        return chain
+
+    def _invalidating(
+        self, command: Command, groups: Sequence["LayerGroup"]
+    ) -> Command:
+        """Wrap ``command`` so it also clears ``groups`` caches on do **and** undo.
+
+        Invalidation is MANDATORY and fires on both directions — an undo also
+        changes the composite, so a stale cache would render wrongly
+        (SC-UI-012-2, ADR-0007 §Amendment (T13) D4).
+        """
+        if not groups:
+            return command
+        cleared = tuple(groups)
+
+        def _do() -> None:
+            command.execute()
+            _clear_caches(cleared)
+
+        def _undo() -> None:
+            command.undo()
+            _clear_caches(cleared)
+
+        return FunctionCommand(_do, _undo, label=command.label)
+
+    def invalidate_caches(
+        self, ref: Optional[LayerRef] = None, *, frame_index: int = 0
+    ) -> None:
+        """Invalidate cached group composites up the ancestor chain of ``ref``.
+
+        The reversible layer ops in this module already self-invalidate; call
+        this from the **pixel-edit** path (``ui/commands.py`` after a
+        :class:`~pixelart_creator.logic.history.PixelEdit` on a layer inside a
+        group) so the group cache cannot serve a stale flatten for the edited
+        region. ``ref=None`` clears every group cache in the frame.
+        """
+        frame = self._check_frame(frame_index)
+        if ref is None:
+            _invalidate_all_caches(frame.layers)
+            return
+        container, _index, node = self._resolve(frame, ref)
+        _clear_caches(self._chain_for_container(frame, container))
+        if isinstance(node, LayerGroup):
+            node._composite_cache = None
+
+    # -- reversible attribute ops (return a history.Command) --------------
+
+    def _attr_command(
+        self, node: "LayerNode", attr: str, value: object, label: str
+    ) -> Command:
+        old = getattr(node, attr)
+
+        def _do() -> None:
+            setattr(node, attr, value)
+
+        def _undo() -> None:
+            setattr(node, attr, old)
+
+        return FunctionCommand(_do, _undo, label=label)
+
+    def set_layer_opacity(
+        self, ref: LayerRef, value: float, *, frame_index: int = 0
+    ) -> Command:
+        """Reversibly set a node's opacity (LOGIC-008)."""
+        frame = self._check_frame(frame_index)
+        container, _index, node = self._resolve(frame, ref)
+        _validate_opacity(value)
+        return self._invalidating(
+            self._attr_command(node, "opacity", float(value), "set opacity"),
+            self._chain_for_container(frame, container),
+        )
+
+    def set_layer_visible(
+        self, ref: LayerRef, value: bool, *, frame_index: int = 0
+    ) -> Command:
+        """Reversibly set a node's visibility (LOGIC-008)."""
+        frame = self._check_frame(frame_index)
+        container, _index, node = self._resolve(frame, ref)
+        return self._invalidating(
+            self._attr_command(node, "visible", bool(value), "set visibility"),
+            self._chain_for_container(frame, container),
+        )
+
+    def set_layer_locked(
+        self, ref: LayerRef, value: bool, *, frame_index: int = 0
+    ) -> Command:
+        """Reversibly set a node's lock flag (LOGIC-008/010)."""
+        frame = self._check_frame(frame_index)
+        container, _index, node = self._resolve(frame, ref)
+        return self._invalidating(
+            self._attr_command(node, "locked", bool(value), "set lock"),
+            self._chain_for_container(frame, container),
+        )
+
+    def set_layer_blend_mode(
+        self, ref: LayerRef, mode: BlendMode, *, frame_index: int = 0
+    ) -> Command:
+        """Reversibly set a node's blend mode (LOGIC-008)."""
+        frame = self._check_frame(frame_index)
+        container, _index, node = self._resolve(frame, ref)
+        _validate_blend_mode(mode)
+        return self._invalidating(
+            self._attr_command(node, "blend_mode", mode, "set blend mode"),
+            self._chain_for_container(frame, container),
+        )
+
+    # -- reversible structural ops ----------------------------------------
+
+    def _insert_command(
+        self, container: List["LayerNode"], index: int, node: "LayerNode", label: str
+    ) -> Command:
+        def _do() -> None:
+            container.insert(index, node)
+
+        def _undo() -> None:
+            _remove_by_identity(container, node)
+
+        return FunctionCommand(_do, _undo, label=label)
+
+    def make_add_layer_command(
+        self,
+        *,
+        ref: Optional[LayerRef] = None,
+        name: str = "Layer",
+        frame_index: int = 0,
+    ) -> Command:
+        """Build a command inserting a new empty layer above ``ref`` (LOGIC-009).
+
+        Raises:
+            DocumentError: If the frame is already at ``MAX_LAYERS_PER_FRAME``.
+        """
+        frame = self._check_frame(frame_index)
+        if len(_iter_layers(frame.layers)) >= MAX_LAYERS_PER_FRAME:
+            raise DocumentError(
+                f"frame already at MAX_LAYERS_PER_FRAME ({MAX_LAYERS_PER_FRAME})"
+            )
+        layer = Layer(PixelBuffer(self.width, self.height, self.mode), name)
+        if ref is None:
+            container: List["LayerNode"] = frame.layers
+            insert_index = len(frame.layers)
+        else:
+            container, index, _node = self._resolve(frame, ref)
+            insert_index = index + 1
+        return self._invalidating(
+            self._insert_command(container, insert_index, layer, "add layer"),
+            self._chain_for_container(frame, container),
+        )
+
+    def make_remove_layer_command(
+        self, ref: LayerRef, *, frame_index: int = 0
+    ) -> Command:
+        """Build a command removing a node, restorable at its exact position.
+
+        Implements LOGIC-009; refuses to remove the last remaining top-level
+        node.
+        """
+        frame = self._check_frame(frame_index)
+        container, index, node = self._resolve(frame, ref)
+        if container is frame.layers and len(frame.layers) <= 1:
+            raise DocumentError("cannot remove the last layer of a frame")
+
+        def _do() -> None:
+            _remove_by_identity(container, node)
+
+        def _undo() -> None:
+            container.insert(index, node)
+
+        return self._invalidating(
+            FunctionCommand(_do, _undo, label="remove layer"),
+            self._chain_for_container(frame, container),
+        )
+
+    def make_move_layer_command(
+        self, ref: LayerRef, to: LayerRef, *, frame_index: int = 0
+    ) -> Command:
+        """Build a command reordering / re-parenting a node (LOGIC-009).
+
+        ``to`` addresses the destination container + insertion index (a
+        top-level index, or a path whose last element is the index inside a
+        target group).
+        """
+        frame = self._check_frame(frame_index)
+        src_container, src_index, node = self._resolve(frame, ref)
+        dst_container, dst_index = self._container_and_index(frame, to)
+        if isinstance(node, LayerGroup) and _would_exceed_depth(
+            dst_container, frame, node
+        ):
+            raise DocumentError(
+                f"move exceeds MAX_GROUP_NESTING_DEPTH ({MAX_GROUP_NESTING_DEPTH})"
+            )
+
+        def _do() -> None:
+            _remove_by_identity(src_container, node)
+            dst_container.insert(dst_index, node)
+
+        def _undo() -> None:
+            _remove_by_identity(dst_container, node)
+            src_container.insert(src_index, node)
+
+        groups: List["LayerGroup"] = self._chain_for_container(frame, src_container)
+        for group in self._chain_for_container(frame, dst_container):
+            if group not in groups:
+                groups.append(group)
+        return self._invalidating(
+            FunctionCommand(_do, _undo, label="move layer"), groups
+        )
+
+    def make_duplicate_layer_command(
+        self, ref: LayerRef, *, frame_index: int = 0
+    ) -> Command:
+        """Build a command inserting a pixel-for-pixel copy above ``ref``.
+
+        Implements LOGIC-009.
+
+        Raises:
+            DocumentError: If duplicating would exceed ``MAX_LAYERS_PER_FRAME``.
+        """
+        frame = self._check_frame(frame_index)
+        container, index, node = self._resolve(frame, ref)
+        copy = _copy_node(node)
+        if (
+            len(_iter_layers(frame.layers)) + len(_iter_layers([copy]))
+            > MAX_LAYERS_PER_FRAME
+        ):
+            raise DocumentError(
+                f"duplicate exceeds MAX_LAYERS_PER_FRAME ({MAX_LAYERS_PER_FRAME})"
+            )
+        return self._invalidating(
+            self._insert_command(container, index + 1, copy, "duplicate layer"),
+            self._chain_for_container(frame, container),
+        )
+
+    def make_group_command(
+        self, refs: Sequence[LayerRef], *, name: str = "Group", frame_index: int = 0
+    ) -> Command:
+        """Build a command wrapping the selected top-level nodes in a new group.
+
+        Implements LOGIC-011. All ``refs`` must be top-level nodes of the
+        frame. The group is inserted
+        at the lowest selected index; children keep their relative order.
+
+        Raises:
+            DocumentError: On an empty / non-top-level / out-of-range selection,
+                or if grouping would exceed ``MAX_GROUP_NESTING_DEPTH``.
+        """
+        frame = self._check_frame(frame_index)
+        if not refs:
+            raise DocumentError("cannot group an empty selection")
+        indices: List[int] = []
+        for ref in refs:
+            if not isinstance(ref, int) or isinstance(ref, bool):
+                raise DocumentError("group only supports top-level layer indices")
+            if not 0 <= ref < len(frame.layers):
+                raise DocumentError(f"group reference {ref} out of range")
+            indices.append(ref)
+        indices = sorted(set(indices))
+        selected = [frame.layers[i] for i in indices]
+        group = LayerGroup(name, selected)
+        if _group_depth(group) > MAX_GROUP_NESTING_DEPTH:
+            raise DocumentError(
+                f"group exceeds MAX_GROUP_NESTING_DEPTH ({MAX_GROUP_NESTING_DEPTH})"
+            )
+        insert_at = indices[0]
+
+        def _do() -> None:
+            for node in selected:
+                _remove_by_identity(frame.layers, node)
+            frame.layers.insert(insert_at, group)
+
+        def _undo() -> None:
+            _remove_by_identity(frame.layers, group)
+            for i, node in zip(indices, selected):
+                frame.layers.insert(i, node)
+
+        return FunctionCommand(_do, _undo, label="group layers")
+
+    def make_ungroup_command(self, ref: LayerRef, *, frame_index: int = 0) -> Command:
+        """Build a command dissolving a group, promoting its children in place.
+
+        Implements LOGIC-011.
+        """
+        frame = self._check_frame(frame_index)
+        container, index, node = self._resolve(frame, ref)
+        if not isinstance(node, LayerGroup):
+            raise DocumentError("ungroup target is not a group")
+        children = list(node.children)
+
+        def _do() -> None:
+            _remove_by_identity(container, node)
+            for offset, child in enumerate(children):
+                container.insert(index + offset, child)
+
+        def _undo() -> None:
+            for child in children:
+                _remove_by_identity(container, child)
+            container.insert(index, node)
+
+        return self._invalidating(
+            FunctionCommand(_do, _undo, label="ungroup layers"),
+            self._chain_for_container(frame, container),
+        )
+
+    # -- reversible mask / reference / smart ops --------------------------
+
+    def make_attach_mask_command(
+        self, ref: LayerRef, mask: PixelBuffer, *, frame_index: int = 0
+    ) -> Command:
+        """Build a command attaching ``mask`` to a node (LOGIC-012)."""
+        frame = self._check_frame(frame_index)
+        container, _index, node = self._resolve(frame, ref)
+        if not isinstance(mask, PixelBuffer):
+            raise DocumentError(f"mask must be a PixelBuffer, got {mask!r}")
+        if mask.width != self.width or mask.height != self.height:
+            raise DocumentError("mask geometry must match the canvas")
+        return self._invalidating(
+            self._attr_command(node, "mask", mask, "attach mask"),
+            self._chain_for_container(frame, container),
+        )
+
+    def make_detach_mask_command(
+        self, ref: LayerRef, *, frame_index: int = 0
+    ) -> Command:
+        """Build a command detaching a node's mask (LOGIC-012)."""
+        frame = self._check_frame(frame_index)
+        container, _index, node = self._resolve(frame, ref)
+        return self._invalidating(
+            self._attr_command(node, "mask", None, "detach mask"),
+            self._chain_for_container(frame, container),
+        )
+
+    def make_set_reference_command(
+        self, ref: LayerRef, value: bool, *, frame_index: int = 0
+    ) -> Command:
+        """Build a command toggling a node's reference flag (LOGIC-013)."""
+        frame = self._check_frame(frame_index)
+        container, _index, node = self._resolve(frame, ref)
+        return self._invalidating(
+            self._attr_command(node, "reference", bool(value), "set reference"),
+            self._chain_for_container(frame, container),
+        )
+
+    def make_smart_layer_command(
+        self, source_ref: LayerRef, *, name: str = "Smart", frame_index: int = 0
+    ) -> Command:
+        """Build a command inserting a smart layer above its source layer.
+
+        The smart layer mirrors ``source_ref`` (LOGIC-014).
+
+        Raises:
+            DocumentError: If the source is a group, or the frame is at
+                ``MAX_LAYERS_PER_FRAME``.
+        """
+        frame = self._check_frame(frame_index)
+        container, index, node = self._resolve(frame, source_ref)
+        if not isinstance(node, Layer):
+            raise DocumentError("a smart layer can only mirror a leaf layer")
+        if len(_iter_layers(frame.layers)) >= MAX_LAYERS_PER_FRAME:
+            raise DocumentError(
+                f"frame already at MAX_LAYERS_PER_FRAME ({MAX_LAYERS_PER_FRAME})"
+            )
+        smart = Layer(
+            PixelBuffer(self.width, self.height, self.mode),
+            name,
+            smart_source=node,
+        )
+        return self._invalidating(
+            self._insert_command(container, index + 1, smart, "create smart layer"),
+            self._chain_for_container(frame, container),
+        )
+
+    # -- colour-mode conversion (ADR-0008: Document is the single mode authority)
+
+    def make_convert_to_indexed_command(
+        self, palette: Palette, *, metric: str = "distance_sq"
+    ) -> Command:
+        """Build a reversible RGBA→INDEXED whole-document conversion (ADR-0008 D3/D4).
+
+        Colour mode is document-wide, so this converts **every frame** and flips
+        ``Document.mode`` to :data:`ColorMode.INDEXED` in one
+        :class:`~pixelart_creator.logic.history.FunctionCommand` — the buffers and
+        the mode never move independently, so persistence / compositor / UI can
+        never observe a mixed-mode state (D1/D2). Pixel conversion is delegated to
+        :func:`pixelart_creator.logic.palette_ops.to_indexed`.
+
+        Per frame (enforcing the invariant *INDEXED frame = exactly one indexed
+        layer*):
+
+        - a **single leaf layer** is indexed in place (its buffer only), preserving
+          its pixels exactly;
+        - a **multi-layer / grouped** frame is **flattened** with
+          :func:`pixelart_creator.logic.blend.composite_stack` to one RGBA buffer,
+          then that flat buffer is indexed (D4 flatten-then-index).
+
+        The result replaces each frame's whole ``layers`` list with a single
+        :class:`Layer`. ``execute`` snapshots each ``frame.layers`` list reference
+        and the prior ``Document.mode`` and swaps the lists wholesale — the original
+        nodes are **never mutated** — so ``undo`` restores the full original tree
+        (multi-layer RGBA, groups/masks/opacity/blend/references intact) exactly and
+        ``apply ∘ undo = identity`` (REQ-P3-LOGIC-017). Returned **unapplied** for
+        ``ui/commands.py`` to wrap as one ``QUndoCommand``.
+
+        Raises:
+            DocumentError: If the document is not currently RGBA.
+            IndexedModeError: If a source buffer is not RGBA or ``metric`` is
+                unknown.
+            PaletteError: If ``palette`` is empty.
+        """
+        if self.mode is not ColorMode.RGBA:
+            raise DocumentError(
+                "convert-to-indexed requires an RGBA document, "
+                f"got {self.mode.value}"
+            )
+        # Eager conversion so an invalid palette / metric / buffer raises at build
+        # time (mirrors the module's build-time validation pattern).
+        new_frame_layers: List[List["LayerNode"]] = []
+        for frame in self.frames:
+            nodes = frame.layers
+            if len(nodes) == 1 and isinstance(nodes[0], Layer):
+                source = nodes[0]
+                indexed = palette_ops.to_indexed(source.buffer, palette, metric=metric)
+                name = source.name
+            else:
+                flat = composite_stack(nodes, self.width, self.height)
+                indexed = palette_ops.to_indexed(flat, palette, metric=metric)
+                name = nodes[-1].name if nodes else "Layer"
+            new_frame_layers.append([Layer(indexed, name)])
+        return self._make_mode_command(
+            new_frame_layers, ColorMode.INDEXED, "convert to indexed"
+        )
+
+    def make_convert_to_rgba_command(self, palette: Palette) -> Command:
+        """Build a reversible INDEXED→RGBA whole-document conversion (ADR-0008 D4).
+
+        The inverse of :meth:`make_convert_to_indexed_command`: each frame's single
+        indexed layer becomes one RGBA layer via
+        :func:`pixelart_creator.logic.palette_ops.to_rgba`, and ``Document.mode``
+        flips to :data:`ColorMode.RGBA` in the same
+        :class:`~pixelart_creator.logic.history.FunctionCommand`. ``undo`` restores
+        the indexed single-layer lists and ``mode = INDEXED`` exactly (list
+        references swapped wholesale, originals never mutated). Returned
+        **unapplied**.
+
+        Raises:
+            DocumentError: If the document is not currently indexed.
+            IndexedModeError: If a source buffer is not indexed.
+            PaletteError: If ``palette`` is empty or a buffer index is out of range.
+        """
+        if self.mode is not ColorMode.INDEXED:
+            raise DocumentError(
+                "convert-to-rgba requires an indexed document, "
+                f"got {self.mode.value}"
+            )
+        new_frame_layers: List[List["LayerNode"]] = []
+        for frame in self.frames:
+            leaves = iter_layers(frame.layers)
+            source = leaves[0]  # invariant: an indexed frame holds exactly one layer
+            rgba_buffer = palette_ops.to_rgba(source.buffer, palette)
+            new_frame_layers.append([Layer(rgba_buffer, source.name)])
+        return self._make_mode_command(
+            new_frame_layers, ColorMode.RGBA, "convert to RGBA"
+        )
+
+    def _make_mode_command(
+        self,
+        new_frame_layers: List[List["LayerNode"]],
+        new_mode: ColorMode,
+        label: str,
+    ) -> Command:
+        """Assemble the reversible whole-document mode swap (ADR-0008 D3/D4).
+
+        Snapshots each frame's current ``layers`` list reference and the prior
+        ``Document.mode``; on ``execute`` swaps in ``new_frame_layers`` and sets
+        ``new_mode``; on ``undo`` restores the saved lists and mode. Group caches
+        are dropped on **both** directions since the whole tree is replaced (D4).
+        """
+        saved_frame_layers = [frame.layers for frame in self.frames]
+        saved_mode = self.mode
+        frames = self.frames
+
+        def _do() -> None:
+            for frame, new_layers in zip(frames, new_frame_layers):
+                frame.layers = new_layers
+            self.mode = new_mode
+
+        def _undo() -> None:
+            for frame, old_layers in zip(frames, saved_frame_layers):
+                frame.layers = old_layers
+                _invalidate_all_caches(frame.layers)
+            self.mode = saved_mode
+
+        return FunctionCommand(_do, _undo, label=label)
+
     def __repr__(self) -> str:
+        """Return a debug representation of the document's geometry and frames."""
         return (
             f"Document({self.width}x{self.height}, {self.mode.value}, "
             f"{len(self.frames)} frames)"
         )
+
+
+# --------------------------------------------------------------------------- #
+# Module-level tree helpers                                                   #
+# --------------------------------------------------------------------------- #
+
+
+def _remove_by_identity(container: List["LayerNode"], node: "LayerNode") -> None:
+    """Remove ``node`` from ``container`` by identity (not equality)."""
+    for i, existing in enumerate(container):
+        if existing is node:
+            del container[i]
+            return
+    raise DocumentError("node is not in the expected container")
+
+
+def _copy_node(node: "LayerNode") -> "LayerNode":
+    """Return a deep, independent copy of a layer / group node."""
+    if isinstance(node, LayerGroup):
+        return LayerGroup(
+            node.name,
+            [_copy_node(c) for c in node.children],
+            opacity=node.opacity,
+            visible=node.visible,
+            locked=node.locked,
+            blend_mode=node.blend_mode,
+            mask=node.mask.copy() if node.mask is not None else None,
+            reference=node.reference,
+        )
+    return Layer(
+        node.buffer.copy(),
+        node.name,
+        opacity=node.opacity,
+        visible=node.visible,
+        locked=node.locked,
+        blend_mode=node.blend_mode,
+        mask=node.mask.copy() if node.mask is not None else None,
+        reference=node.reference,
+        smart_source=node.smart_source,
+    )
+
+
+def _would_exceed_depth(
+    dst_container: List["LayerNode"], frame: Frame, node: "LayerNode"
+) -> bool:
+    """Return ``True`` if inserting ``node`` exceeds the nesting bound.
+
+    Checks whether adding ``node`` to ``dst_container`` would push the frame
+    past ``MAX_GROUP_NESTING_DEPTH``.
+    """
+    parent_depth = _container_depth(frame.layers, dst_container, 0)
+    if parent_depth is None:
+        return False
+    return parent_depth + _group_depth(node) + 1 > MAX_GROUP_NESTING_DEPTH
+
+
+def _container_depth(
+    nodes: List["LayerNode"], target: List["LayerNode"], depth: int
+) -> Optional[int]:
+    """Depth of the group whose ``children`` list is ``target`` (0 = top level)."""
+    if nodes is target:
+        return depth
+    for node in nodes:
+        if isinstance(node, LayerGroup):
+            found = _container_depth(node.children, target, depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+def ensure_editable(layer: Layer) -> None:
+    """Guard a pixel-mutating op: raise if ``layer`` is locked or reference.
+
+    Visibility / opacity / mode / order stay changeable — this guards *pixel*
+    mutation only (LOGIC-010/013, CL-11).
+
+    Raises:
+        DocumentError: If ``layer.locked`` or ``layer.reference`` is set.
+    """
+    if layer.locked:
+        raise DocumentError(f"layer {layer.name!r} is locked")
+    if layer.reference:
+        raise DocumentError(f"layer {layer.name!r} is a reference layer")
