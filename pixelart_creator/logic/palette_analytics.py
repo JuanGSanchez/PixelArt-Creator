@@ -15,7 +15,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from pixelart_creator.logic.color import RGBA
-from pixelart_creator.logic.document import Document
+from pixelart_creator.logic.document import Document, iter_layers
 from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 
@@ -82,7 +82,7 @@ def document_usage_counts(
     if document.mode is ColorMode.RGBA:
         colour_totals: Counter[RGBA] = Counter()
         for frame in document.frames:
-            for layer in frame.layers:
+            for layer in iter_layers(frame.layers):
                 for colour, count in color_usage_counts(layer.buffer):
                     colour_totals[colour] += count
         colour_sorted = sorted(
@@ -93,7 +93,7 @@ def document_usage_counts(
     active_palette = palette if palette is not None else document.palette
     index_totals: Counter[int] = Counter()
     for frame in document.frames:
-        for layer in frame.layers:
+        for layer in iter_layers(frame.layers):
             for index, count in index_usage_counts(layer.buffer, active_palette):
                 index_totals[index] += count
     index_sorted = sorted(index_totals.items(), key=lambda item: (-item[1], item[0]))

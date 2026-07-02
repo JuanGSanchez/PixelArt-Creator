@@ -109,3 +109,18 @@ def test_document_usage_counts_indexed_explicit_palette():
     counts = dict(document_usage_counts(doc, palette=pal))
     assert counts[0] == 4
     assert counts[2] == 0
+
+
+def test_document_usage_counts_walks_leaves_through_groups():
+    # Regression (Phase-4): analytics now flatten group subtrees via iter_layers,
+    # so a layer nested inside a LayerGroup is counted like a top-level layer.
+    from pixelart_creator.logic.document import Layer, LayerGroup
+
+    doc = Document(2, 2, mode=ColorMode.RGBA)
+    doc.frames[0].layers[0].buffer.fill(RED)  # top-level: 4 px RED
+    inner = Layer(PixelBuffer(2, 2, ColorMode.RGBA), "inner")
+    inner.buffer.fill(WHITE)  # nested: 4 px WHITE
+    doc.frames[0].layers.append(LayerGroup("G", [inner]))
+    counts = dict(document_usage_counts(doc))
+    assert counts[RED] == 4
+    assert counts[WHITE] == 4  # the grouped leaf is counted, not skipped
