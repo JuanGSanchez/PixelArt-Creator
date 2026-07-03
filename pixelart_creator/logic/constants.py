@@ -210,3 +210,68 @@ ONION_SKIN_OPACITY_MIN: float = 0.15
 """Onion ghost opacity for the *farthest* neighbour, in ``0.0..1.0`` (linear
 distance falloff floor from :data:`ONION_SKIN_OPACITY`) (research Q1 — *medium
 reliability*; plan §8; spec REQ-P5-LOGIC-012)."""
+
+# --- Phase-6 tilemap & level-design tuning (phase-6 T6A-01; Article II) ----------
+# Named bounds/defaults consumed by logic/tileset.py, logic/tilemap.py and
+# logic/autotile.py. BF-2 (spec §8 / ADR-0015): these are DISTINCT from the
+# shipped TILE_SIZE (=64, the viewport-culling *rendering* edge) and TILE_BUFFER —
+# Phase 6 NEVER reuses those as the tileset tile dimension. The Tiled GID flag
+# masks stay module-local in tilemap.py and the Blob-47 bit weights + 256->47 LUT
+# stay module-local in autotile.py (algorithm-intrinsic tables, ADR-0001 exemption
+# / ADR-0013 / ADR-0015). This module stays a leaf (no intra-package imports).
+
+DEFAULT_TILE_WIDTH: int = 16
+"""Default tileset tile width, px (CL-1; common pixel-art tile — Tiled/Aseprite
+user-set). DISTINCT from :data:`TILE_SIZE` (=64, the viewport-cull edge)
+(plan §8; spec REQ-P6-LOGIC-014; SC-L014-2)."""
+
+DEFAULT_TILE_HEIGHT: int = 16
+"""Default tileset tile height, px (CL-1). DISTINCT from :data:`TILE_SIZE`
+(plan §8; spec REQ-P6-LOGIC-014; SC-L014-2)."""
+
+DEFAULT_TILE_MARGIN: int = 0
+"""Default border offset, px, before the first tile in a tileset image (CL-2;
+Tiled packed default) (plan §8; spec REQ-P6-LOGIC-014)."""
+
+DEFAULT_TILE_SPACING: int = 0
+"""Default gap, px, between adjacent tiles in a tileset image (CL-2; Tiled
+packed default) (plan §8; spec REQ-P6-LOGIC-014)."""
+
+MAX_TILE_DIMENSION: int = 1024
+"""Defensive cap on a tileset tile edge, px (Article VII; generous vs pixel-art
+tile sizes) (plan §8; spec REQ-P6-LOGIC-001/014; SC-L001-2)."""
+
+MAX_TILESET_TILES: int = 65536
+"""Defensive cap on the number of tiles in a single tileset (Article VII; ample
+local-id space under the 28-bit gid range) (plan §8; spec REQ-P6-LOGIC-014)."""
+
+MAX_TILEMAP_LAYERS: int = 256
+"""Defensive cap on the number of layers in a tilemap (Article VII; parallels
+:data:`MAX_LAYERS_PER_FRAME`) (plan §8; spec REQ-P6-LOGIC-008/014; SC-L008-1)."""
+
+TILEMAP_CHUNK_SIZE: int = 16
+"""Edge, in tiles, of a chunked-sparse tilemap-layer storage chunk (16x16, the
+Tiled default; research §2.5) (plan §8; spec REQ-P6-LOGIC-009; ADR-0015)."""
+
+MAX_TILEMAP_COORD: int = 1048576
+"""Defensive coordinate-magnitude guard (2^20) for infinite-map cell addressing
+(Article VII) (plan §8; spec REQ-P6-LOGIC-009; SC-L009-1)."""
+
+# --- Phase-6 tilemap-viewport performance-gate tuning (Article II single-source) --
+# Ceiling for the catastrophic full-8K tilemap-viewport CI perf gate (part-2 of the
+# tilemap perf gate). Consumed by scripts/perf_profile.py --tilemap (passed as
+# --budget-ms by .github/workflows/ci.yml, mirroring the FU-15 composite gate).
+
+TILEMAP_VIEWPORT_CEILING_MS: int = 3000
+"""Catastrophic-regression ceiling for the full-8K tilemap-viewport render path, ms.
+
+DISTINCT from :data:`FRAME_BUDGET_MS` (16 ms, the 60-fps interactive *render*
+budget used by part-1 of the tilemap perf gate — ``perf_profile.py --tilemap``
+against the default budget): this is the deliberately *loose* order-of-magnitude
+ceiling for part-2, the catastrophic full-8K tilemap-viewport CI gate. Like
+:data:`COMPOSITE_REGION_CEILING_MS` (FU-15), it sits far above the correct
+tilemap-viewport p95 yet orders of magnitude below the O(full-canvas) regression
+class, so it never flakes on a noisy 2-core CI runner yet always catches a
+catastrophic viewport-render regression. AGT-09 wires ci.yml to pass this value as
+``perf_profile.py --tilemap --budget-ms``.
+(AGT-10 rendering-performance re-profile / perf-gate spec; S12 single-source.)"""
