@@ -14,6 +14,7 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
+from pixelart_creator.logic._rgba_unique import unique_rgba_counts
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.document import Document, iter_layers
 from pixelart_creator.logic.palette import Palette
@@ -42,7 +43,7 @@ def color_usage_counts(buffer: PixelBuffer) -> List[Tuple[RGBA, int]]:
     if buffer.mode is not ColorMode.RGBA:
         raise PaletteAnalyticsError("color_usage_counts requires an RGBA buffer")
     pixels = buffer.data.reshape(-1, 4)
-    unique, counts = np.unique(pixels, axis=0, return_counts=True)
+    unique, counts = unique_rgba_counts(pixels)
     pairs = [
         ((int(c[0]), int(c[1]), int(c[2]), int(c[3])), int(n))
         for c, n in zip(unique, counts)

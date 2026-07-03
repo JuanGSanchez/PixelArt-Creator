@@ -32,6 +32,7 @@ import numpy as np
 import numpy.typing as npt
 
 from pixelart_creator.logic import history, perceptual
+from pixelart_creator.logic._rgba_unique import unique_rgba_inverse
 from pixelart_creator.logic.color import RGBA, is_rgba, rgba
 from pixelart_creator.logic.palette import Palette, PaletteError
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
@@ -261,10 +262,11 @@ def to_indexed(
     if not colors:
         raise PaletteError("cannot index against an empty palette")
 
-    pixels = buffer.data.reshape(-1, 4).astype(np.int64)
-    unique, inverse = np.unique(pixels, axis=0, return_inverse=True)
+    unique, inverse = unique_rgba_inverse(buffer.data.reshape(-1, 4))
     if metric == "distance_sq":
-        uniq_idx = _nearest_index_map(unique, np.asarray(colors, dtype=np.int64))
+        uniq_idx = _nearest_index_map(
+            unique.astype(np.int64), np.asarray(colors, dtype=np.int64)
+        )
     else:
         uniq_idx = np.array(
             [
