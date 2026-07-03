@@ -943,15 +943,26 @@ class Main_Window(QMainWindow):
         self._undo_group.removeStack(record.stack)
         self._tab_widget.removeTab(index)
 
+    def shutdown_prewarm(self) -> None:
+        """Deterministically tear down every open scene's off-thread warm (D2).
+
+        A window-level, idempotent shutdown that drains and releases each tab's
+        pre-warm pool + signal carrier. It does not rely on the Qt event loop, so
+        it is safe to call directly — from :meth:`closeEvent`, and by tests in a
+        teardown fixture to guarantee no worker thread or connected carrier
+        survives a :class:`MainWindow` past its use.
+        """
+        for record in self._tabs_data:
+            record.scene.shutdown_prewarm()
+
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt override)
         """Tear down every scene's off-thread warm pool before the window closes.
 
         A running pool must not be destroyed with a task in flight, so each scene's
-        warm is cancelled and awaited (bounded) here (D2).
+        warm is cancelled, awaited (bounded) and its carrier released here (D2).
         """
         self._playback_controls.stop()
-        for record in self._tabs_data:
-            record.scene.shutdown_prewarm()
+        self.shutdown_prewarm()
         super().closeEvent(event)
 
     def active_tab(self) -> Optional[_DocTab]:
