@@ -328,6 +328,46 @@ class Document:
         self.metadata: Dict[str, str] = dict(metadata) if metadata else {}
         self.frames: List[Frame] = [Frame([Layer(base, "Background")])]
 
+    @classmethod
+    def from_buffer(
+        cls,
+        buffer: PixelBuffer,
+        *,
+        palette: Optional[Palette] = None,
+        name: str = "Imported",
+    ) -> "Document":
+        """Build a single-frame RGBA document seeded by an existing buffer.
+
+        The returned document has exactly one frame holding one layer whose
+        buffer **is** ``buffer`` (same object, not a copy) — the factory the
+        image-import path uses so a decoded RGBA :class:`PixelBuffer` (produced
+        in ``ui/image_import``) becomes a new canvas tab without ``ui/`` reaching
+        into the layer tree (plan §5, REQ-P7-UI-003). Qt-free.
+
+        Args:
+            buffer: The RGBA source buffer; its geometry sizes the document.
+            palette: Optional palette for the new document (empty if omitted).
+            name: The name of the seeded background layer.
+
+        Returns:
+            A new :class:`Document` sized to ``buffer``.
+
+        Raises:
+            DocumentError: If ``buffer`` is not a :class:`PixelBuffer` or is not
+                in :data:`ColorMode.RGBA`.
+        """
+        if not isinstance(buffer, PixelBuffer):
+            raise DocumentError(f"from_buffer needs a PixelBuffer, got {buffer!r}")
+        if buffer.mode is not ColorMode.RGBA:
+            raise DocumentError(
+                f"from_buffer requires an RGBA buffer, got {buffer.mode.value}"
+            )
+        document = cls(
+            buffer.width, buffer.height, mode=ColorMode.RGBA, palette=palette
+        )
+        document.frames = [Frame([Layer(buffer, name)])]
+        return document
+
     # -- layer operations (operate on a chosen frame) --------------------
 
     def _check_frame(self, frame_index: int) -> Frame:
