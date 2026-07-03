@@ -34,10 +34,14 @@ jobs:
   quality-gate:
     runs-on: ubuntu-latest
     # Job-level wall-clock cap: a hung/deadlocked test can no longer pin a runner
-    # for ~6h. Set comfortably above the real suite time (~a few min) so healthy
-    # runs never trip it; the per-test --timeout below is the fine-grained guard
-    # that fails fast and names the offending test (FU-12).
-    timeout-minutes: 45
+    # for ~6h. The full offscreen-Qt UI suite measures ~46-48 min on the 2-core
+    # GitHub runner (see run 28635312681, cancelled at 98% by an earlier 45-min
+    # cap), so this is set comfortably above that with headroom for runner
+    # variance. The per-test --timeout below (120s, thread) is the fine-grained
+    # guard that fails fast and names a genuinely hung test; this job cap is only
+    # the coarse backstop (FU-12). A suite-runtime reduction (e.g. pytest-xdist)
+    # is tracked as follow-up FU-20.
+    timeout-minutes: 75
     steps:
       - name: Checkout
         uses: actions/checkout@v4
