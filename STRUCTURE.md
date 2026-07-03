@@ -80,6 +80,64 @@
 | `blend.py` | **new** | `BlendMode` enum (12 — W3C separable set: NORMAL + 11 non-normal; FU-13 corrected from 13, a double-count of normal); separable per-mode maths (W3C); stack compositor honouring visibility/opacity/order/mode/mask + group recursion + region-scoped dirty-rect; NORMAL → `color.blend_over`. Zero `document` import (PL-D2). | `BlendMode` (12 members), `BlendError`, `blend_channel`, `blend_pixels`, `blend_arrays`, `composite_stack(nodes,w,h,*,region=None)`, `CompositeNode` (Protocol) | LOGIC-001..007, 011/012 (compositor side) |
 | `document.py` | extend | `Layer` +`blend_mode`/`mask`/`reference`/`smart_source`/`effective_buffer()`; new `LayerGroup` node; reversible attribute + structural + group/mask/reference/smart ops → `history.Command`; lock/reference guard; bounds. | `LayerGroup`, `LayerNode`, `set_layer_opacity/visible/locked/blend_mode`, `make_add/remove/move/duplicate_layer_command`, `make_group/ungroup_command`, `make_attach/detach_mask_command`, `make_set_reference_command`, `make_smart_layer_command`, `ensure_editable` | LOGIC-008..015, 011/012 (node side) |
 
+## `pixelart_creator/logic/` — Phase-5 animation — BUILT (Slice 5A)
+
+> New Qt-free `animation.py` + additive extensions to `document.py` / `constants.py`, on disk and
+> green (`check_layering` + `check_cycles` exit 0). Contract frozen by AGT-01 (`interface-contract`,
+> plan §4/§5) before implementation so 5B/5C bound to a stable surface. Domain grounded by `docs/research-phase5-animation.md` (Aseprite/Pixelorama parity).
+> **PL5-D3 (cycle-free):** the only new intra-logic edge is `document → animation`; `animation.py`
+> **never imports `document`** — it consumes layer stacks via `blend.CompositeNode` and durations via
+> `Sequence[int]` (the `blend.py` precedent), so `document → animation → blend` stays one-way/acyclic.
+> `PlaybackMode` is enumerated **vocabulary** in `animation.py` (not `constants.py`, BF-2). New
+> numerics → `constants.py` (`MAX_FRAMES=4096`, `MAX_ONION_SKIN_FRAMES=8`, `DEFAULT_ONION_PREV/NEXT=1`,
+> `ONION_TINT_PREV=(255,0,0,255)`, `ONION_TINT_NEXT=(0,0,255,255)`, `ONION_SKIN_OPACITY=0.5`,
+> `ONION_SKIN_OPACITY_MIN=0.15`); `DEFAULT_FRAME_DURATION_MS` reused. Animation model + cached
+> per-frame composite in **ADR-0011**. New `AnimationError(ValueError)`; `DocumentError` reused.
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `constants.py` | extend | +8 animation numerics (leaf). | `MAX_FRAMES`, `MAX_ONION_SKIN_FRAMES`, `DEFAULT_ONION_PREV/NEXT`, `ONION_TINT_PREV/NEXT`, `ONION_SKIN_OPACITY`, `ONION_SKIN_OPACITY_MIN` | LOGIC-014 |
+| `animation.py` | **new** | `PlaybackMode` enum (LOOP/ONCE/PING_PONG/REVERSE, default LOOP) + `PLAYBACK_STOP`; pure deterministic sequencing (ping-pong endpoints not doubled); onion overlay via `blend.composite_stack`; `FrameTag` model + range validate/clamp; named-animation resolution. Zero Qt, no `document` import (PL5-D3). | `PlaybackMode`, `PLAYBACK_STOP`, `next_frame`, `playback_steps`, `tag_playback_steps`, `onion_overlay`, `OnionContribution`, `FrameTag`, `validate_tag_range`, `clamp_tag_range`, `AnimationError` | LOGIC-001, 002, 003, 009, 011, 012, 013, 014 |
+| `document.py` | extend | Reversible frame commands (add/remove/move/duplicate/set-duration); document-level `frame_tags` + reversible tag ops (add/edit/remove) with range-clamp folded into frame add/remove; additive stable `layer_id` on nodes (`_copy_node(new_ids=…)`); `MAX_FRAMES` bound. | `frame_tags`, `make_add/remove/move/duplicate_frame_command`, `make_set_frame_duration_command`, `make_add/edit/remove_tag_command`, `layer_id` | LOGIC-004..010, 014 |
+
+## `pixelart_creator/data/` — Phase-5 `.pixproj` v3 — BUILT (Slice 5B)
+
+> `data/project_io.py` extended to persist `frame_tags` (native `PlaybackMode` value strings) +
+> per-node `layer_id`. Schema-v3 decision + v1/v2 back-compat read + native-mode (not Aseprite
+> `direction`) ruled in **ADR-0012**; `FORMAT_VERSION` bumped to **3** (`_SUPPORTED_VERSIONS=(1,2,3)`;
+> the bump itself is format-intrinsic, stays local — ADR-0001). Defensive validated tag load
+> (Article VII); v1/v2 (tagless) load with an empty collection + minted `layer_id`s. Frames +
+> `duration_ms` reused (v2 path unchanged). Imports `logic/animation` (`FrameTag`, `PlaybackMode`).
+> Zero Qt.
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `project_io.py` | extend | Serialise `frame_tags` + `layer_id`; schema v3; defensive tag load + v1/v2 back-compat read. | `serialize`, `deserialize`, `save_project`, `load_project`, `FORMAT_VERSION=3`, `ProjectIOError` | DATA-001, 002, 003 |
+
+## `pixelart_creator/ui/` — Phase-5 animation — BUILT (Slice 5C)
+
+> Binds to Slice-5A/5B logic; Qt lives here only. The `QTimer` (playback clock, CL-14) and all
+> timeline/onion/tag widgets are `ui/`; the sole Qt undo-bridge stays `ui/commands.py` (one
+> `QUndoCommand` per frame/tag op). Onion overlay drawn behind the active frame (BF-1: separate
+> tinted pixmap items vs pre-blend is an AGT-05 HOW). Per-frame composite cache + **off-thread
+> pre-warm** (playback perf loop-back D1/D2/D3, ADR-0011 §Perf): `frame_cache.py` (LRU of composited
+> frames, Qt-free), `composite_warmer.py` (`QRunnable` that calls the Qt-free `blend.composite_stack`
+> off the GUI thread — no Qt crosses into `logic/`), `prewarm_indicator.py` (progress widget); onion
+> suppressed during playback (CL-11). D4 further budget-tuning deferred to Phase 12 (FU-P5-PERF).
+
+| Module | Change | Responsibility | Binds to (logic/data) | REQ |
+| --- | --- | --- | --- | --- |
+| `timeline_panel.py` | **new** | `Timeline_Panel(QWidget)`: frames×layer-track grid + thumbnails; select + drag-scrub (no undo); add/remove/reorder/duplicate + per-frame duration (one command each); tag spans. | `document` frame ops, `animation`, `ui/commands`, `frame_cache` | UI-001..007, 013, 015, 017..019 |
+| `playback_controls.py` | **new** | `Playback_Controls(QWidget)`: play/pause/stop + mode selector (4 tr-labels, default LOOP); owns `QTimer`; advances via `animation.playback_steps` honouring `duration_ms`; named-animation "play tag"; streams cold frames via the pre-warm worker. | `animation`, active document, `composite_warmer` | UI-008, 009, 010, 014, 017..019 |
+| `onion_skin_controls.py` | **new** | `Onion_Skin_Controls(QWidget)`: toggle + prev/next count + tint (view settings, no undo). | `animation.onion_overlay`, `constants` | UI-011, 012, 017..019 |
+| `frame_tags_panel.py` | **new** | Create/edit/delete tag over a range + per-tag mode/repeat/colour (one command each); select-and-play. | `document` tag ops, `animation`, `ui/commands` | UI-013, 014, 015, 017..019 |
+| `frame_cache.py` | **new** | `FrameCache`: bounded LRU (`OrderedDict`) of composited per-frame `PixelBuffer`s keyed by frame; invalidate on edit. **Zero Qt** (imports only `logic/pixel_buffer`). | `logic/pixel_buffer` | UI-016 |
+| `composite_warmer.py` | **new** | `FrameCompositeWarmRunnable(QRunnable)` + warmer/`Signal`: flattens a frame's layer stack **off the GUI thread** by calling the Qt-free `blend.composite_stack`, emitting the resident `PixelBuffer` back to the GUI thread — no Qt leaks into `logic/`. | `logic/blend.composite_stack`, `frame_cache` | UI-016 |
+| `prewarm_indicator.py` | **new** | Pre-warm progress widget (`Signal`, `changeEvent` retranslate); shows cold-range warming state during scrub/playback. | — (pure Qt widget) | UI-016, 019 |
+| `canvas_scene.py` | extend | Render active/scrubbed/playing frame composite (cache hit or async warm); draw onion overlay behind active frame when toggled; suppress onion during playback. | `blend.composite_stack`, `animation.onion_overlay`, `frame_cache`, `composite_warmer` | UI-002, 011 |
+| `main_window.py` | extend | Active frame index; dock timeline/playback/onion/tag UI; own per-frame composite cache + invalidation + pre-warm wiring. | `document`, tabs, new panels, `frame_cache` | UI-001, 002, 008, 016 |
+| `commands.py` | extend | One `QUndoCommand` per frame/tag op; no domain math. | `history` + 5A frame/tag ops | UI-015 |
+
 ## `pixelart_creator/data/` — I/O & persistence (zero Qt) — SHIPPED
 
 | Module | Responsibility | Key public surface |
