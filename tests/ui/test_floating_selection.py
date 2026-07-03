@@ -1,0 +1,551 @@
+"""Floating-selection move/copy UI acceptance (REQ-P2-UI-030..036).
+
+One test per acceptance criterion for Slice F-B (tasks FB-T1..T7), driving the
+real :class:`~pixelart_creator.ui.canvas_view.Canvas_View` /
+:class:`~pixelart_creator.ui.canvas_scene.CanvasScene` /
+:class:`~pixelart_creator.ui.main_window.Main_Window` headlessly
+(``QT_QPA_PLATFORM=offscreen``). Every test runs under **both** themes via the
+autouse ``theme`` fixture in ``conftest.py``.
+
+Mapping (spec §11 Gherkin ↔ REQ ↔ task):
+
+- FB-T1 / REQ-P2-UI-030 — lift on press-inside (SC-U030-1); press-outside builds
+  a new selection (SC-U030-2).
+- FB-T2 / REQ-P2-UI-031 — drag = MOVE, non-destructive preview (SC-U031-1);
+  offset tracks the cursor in integer pixels (SC-U031-2).
+- FB-T3 / REQ-P2-UI-032 — Ctrl-only drag = COPY, origin intact (SC-U032-1; CL-F5
+  reconciled to Ctrl only, whether Ctrl is held from the lift or applied mid-drag);
+  copy-mode affordance (SC-U032-2); Ctrl copies as ONE command without touching the
+  CL-4 combine, while an Alt interior drag stays the shipped subtract (SC-U032-3).
+- FB-T4 / REQ-P2-UI-033 — release / Enter / tool-switch / tab-switch each commit
+  ONE command (SC-U033-1..3); mask follows to destination (SC-U033-4).
+- FB-T5 / REQ-P2-UI-034 — ESC restores exactly (SC-U034-1); no undo entry, mask
+  returns (SC-U034-2).
+- FB-T6 / REQ-P2-UI-035 — one-step undo/redo (SC-U035-1); NN/AA-off preview
+  (SC-U035-2); legible in both themes (SC-U035-3).
+- FB-T7 / REQ-P2-UI-036 — active-layer scope (SC-U036-1); off-canvas discard on
+  commit (SC-U036-2); a11y hint tr()-wrapped + keyboard-reachable + visible focus
+  (SC-U036-3).
+
+The base buffer is asserted **byte-for-byte unchanged during a float** and only
+mutated at commit — the core REQ-NEW-C non-destructive contract. Preview content
+correctness lives in the logic suite (AGT-04); here we verify the UI observable
+surface: controller state, the scene overlay geometry/visibility, the committed
+buffer, the undo stack, and the a11y/theme wiring.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+from PySide6.QtCore import QEvent, QPointF, Qt
+from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QUndoStack
+from PySide6.QtWidgets import QApplication
+
+from pixelart_creator.logic.document import Document
+from pixelart_creator.logic.palette import Palette
+from pixelart_creator.logic.selection import rect_mask
+from pixelart_creator.ui.canvas_scene import CanvasScene
+from pixelart_creator.ui.canvas_view import Canvas_View
+from pixelart_creator.ui.main_window import Main_Window
+from pixelart_creator.ui.theme import canvas_roles
+from pixelart_creator.ui.tools import PencilTool, RectSelectTool
+from tests.ui._ui_helpers import prepare_for_click
+
+LEFT = Qt.MouseButton.LeftButton
+NO_BTN = Qt.MouseButton.NoButton
+NO_MOD = Qt.KeyboardModifier.NoModifier
+CTRL = Qt.KeyboardModifier.ControlModifier
+ALT = Qt.KeyboardModifier.AltModifier
+
+RED = (230, 30, 30, 255)
+GREEN = (30, 190, 60, 255)
+BLUE = (40, 90, 220, 255)
+YELLOW = (240, 220, 40, 255)
+TRANSPARENT = (0, 0, 0, 0)
+
+STARTER = [(0, 0, 0, 255), (255, 255, 255, 255), (230, 30, 30, 255)]
+
+
+# -- event helpers (modifier-carrying; the shared _ui_helpers force NoModifier) --
+
+
+def _mev(etype, x, y, button, buttons, mod) -> QMouseEvent:
+    pt = QPointF(x + 0.2, y + 0.2)
+    return QMouseEvent(etype, pt, pt, button, buttons, mod)
+
+
+def press(view, x, y, mod=NO_MOD) -> None:
+    view.mousePressEvent(_mev(QEvent.Type.MouseButtonPress, x, y, LEFT, LEFT, mod))
+
+
+def move(view, x, y, mod=NO_MOD) -> None:
+    view.mouseMoveEvent(_mev(QEvent.Type.MouseMove, x, y, NO_BTN, LEFT, mod))
+
+
+def release(view, x, y, mod=NO_MOD) -> None:
+    view.mouseReleaseEvent(
+        _mev(QEvent.Type.MouseButtonRelease, x, y, LEFT, NO_BTN, mod)
+    )
+
+
+def key(view, keycode, mod=NO_MOD) -> None:
+    view.keyPressEvent(QKeyEvent(QEvent.Type.KeyPress, keycode, mod))
+
+
+def _non_transparent(buf) -> int:
+    """Count pixels with a non-zero alpha (RGBA buffer)."""
+    return int(np.count_nonzero(buf.data[:, :, 3]))
+
+
+# -- fixtures / builders ---------------------------------------------------
+
+
+def _make_move_view(make_scene, qtbot, w=16, h=16):
+    """A pinned view with the rect-select tool, a 3x3 selection (2,2)-(4,4) and a
+    distinctive RED/GREEN/BLUE pattern inside it. Returns (view, scene, stack, buf)."""
+    scene = make_scene(w, h)
+    stack = QUndoStack()
+    view = Canvas_View(scene, stack)
+    qtbot.addWidget(view)
+    prepare_for_click(view)
+    view.set_tool(RectSelectTool())
+    buf = scene.active_buffer()
+    buf.set_pixel(2, 2, RED)
+    buf.set_pixel(3, 3, GREEN)
+    buf.set_pixel(4, 4, BLUE)
+    view.set_selection(rect_mask(w, h, 2, 2, 4, 4))
+    return view, scene, stack, buf
+
+
+def _window(qtbot) -> Main_Window:
+    win = Main_Window()
+    qtbot.addWidget(win)
+    return win
+
+
+def _prep_window_move(win):
+    """Arm the active tab's view for a floating move: rect-select tool, pinned,
+    a 3x3 selection with a RED pattern. Returns (view, scene, stack, buf)."""
+    record = win.active_tab()
+    view, scene, stack = record.view, record.scene, record.stack
+    prepare_for_click(view)
+    win._tool_actions[RectSelectTool.tool_id].trigger()
+    buf = scene.active_buffer()
+    buf.set_pixel(2, 2, RED)
+    buf.set_pixel(3, 3, GREEN)
+    buf.set_pixel(4, 4, BLUE)
+    view.set_selection(rect_mask(buf.width, buf.height, 2, 2, 4, 4))
+    return view, scene, stack, buf
+
+
+# =========================================================================
+# FB-T1 / REQ-P2-UI-030 — lift/float interaction
+# =========================================================================
+
+
+def test_sc_u030_1_press_inside_lifts_nondestructive_preview(make_scene, qtbot):
+    """SC-U030-1: pressing inside the mask lifts a floating preview that follows
+    the cursor; the underlying pixels are NOT yet modified."""
+    view, scene, _stack, buf = _make_move_view(make_scene, qtbot)
+    controller = view.floating_controller()
+    before = buf.copy()
+
+    press(view, 3, 3)  # inside the (2,2)-(4,4) mask
+    assert controller.is_active()
+
+    move(view, 8, 8)  # drag by (5, 5)
+    assert buf == before  # non-destructive: base untouched during the float
+
+    # The floated-colours preview follows the cursor: origin bbox (2,2,4,4)
+    # shifted by (5,5) -> destination top-left (7,7), size 3x3.
+    rect = scene._float_item.boundingRect()
+    assert scene._float_item.isVisible()
+    assert (rect.left(), rect.top(), rect.width(), rect.height()) == (7, 7, 3, 3)
+
+    controller.cancel()  # do not leak an active float
+
+
+def test_sc_u030_2_press_outside_starts_new_selection(make_scene, qtbot):
+    """SC-U030-2: pressing outside the active mask does not lift — it starts a new
+    selection through the shipped build path."""
+    view, _scene, _stack, _buf = _make_move_view(make_scene, qtbot)
+    controller = view.floating_controller()
+
+    press(view, 10, 10)  # outside the (2,2)-(4,4) mask
+    assert not controller.is_active()
+    move(view, 12, 12)
+    release(view, 12, 12)
+
+    assert not controller.is_active()
+    mask = view.active_selection()
+    assert mask is not None
+    assert mask.bounds() == (10, 10, 12, 12)  # a fresh selection was built
+
+
+# =========================================================================
+# FB-T2 / REQ-P2-UI-031 — drag = move preview
+# =========================================================================
+
+
+def test_sc_u031_1_drag_previews_move_nondestructive(make_scene, qtbot):
+    """SC-U031-1: a modifier-free drag is MOVE — the origin reads vacated (a
+    dedicated origin overlay) and colours float at the offset, non-destructively."""
+    view, scene, _stack, buf = _make_move_view(make_scene, qtbot)
+    controller = view.floating_controller()
+    before = buf.copy()
+
+    press(view, 3, 3)
+    move(view, 6, 5)  # offset (3, 2)
+
+    assert controller.is_active() and not controller.is_copy()  # MOVE
+    assert buf == before  # non-destructive
+    assert scene._origin_shown  # MOVE shows the vacated-origin overlay
+    rect = scene._float_item.boundingRect()  # dest bbox (5,4)-(7,6)
+    assert (rect.left(), rect.top(), rect.width(), rect.height()) == (5, 4, 3, 3)
+
+    controller.cancel()
+
+
+def test_sc_u031_2_offset_tracks_cursor_in_integer_pixels(make_scene, qtbot):
+    """SC-U031-2: the live offset tracks the cursor in integer pixel units — the
+    marching-ants overlay shift and the committed destination both prove it."""
+    view, scene, stack, buf = _make_move_view(make_scene, qtbot)
+
+    press(view, 3, 3)
+    move(view, 8, 6)  # cursor delta (5, 3)
+    assert scene._selection_overlay._offset == (5, 3)
+
+    release(view, 8, 6)  # commit at offset (5, 3)
+    assert stack.count() == 1
+    assert buf.get_pixel(7, 5) == RED  # RED at (2,2) moved to (7,5)
+    assert buf.get_pixel(2, 2) == TRANSPARENT  # origin vacated
+
+
+# =========================================================================
+# FB-T3 / REQ-P2-UI-032 — modifier + drag = copy
+# =========================================================================
+
+
+@pytest.mark.parametrize(
+    "ctrl_at_press", [True, False], ids=["ctrl-at-press", "ctrl-mid-drag"]
+)
+def test_sc_u032_1_ctrl_drag_previews_copy_origin_intact(
+    make_scene, qtbot, ctrl_at_press
+):
+    """SC-U032-1 (CL-F5, Ctrl-only): holding **Ctrl** during the drag switches to
+    COPY — whether Ctrl is held from the initial lift or applied mid-float (the live
+    modifier re-sample). The origin stays intact (no vacate overlay) and the base is
+    untouched pre-commit. Alt is NOT a copy trigger (it is the CL-4 subtract)."""
+    view, scene, _stack, buf = _make_move_view(make_scene, qtbot)
+    controller = view.floating_controller()
+    before = buf.copy()
+
+    press(view, 3, 3, mod=CTRL if ctrl_at_press else NO_MOD)
+    move(view, 7, 3, mod=CTRL)  # offset (4, 0), Ctrl (copy) held during the drag
+
+    assert controller.is_active() and controller.is_copy()  # COPY
+    assert buf == before  # non-destructive
+    assert not scene._origin_shown  # COPY keeps the origin — no vacate overlay
+
+    controller.cancel()
+
+
+def test_sc_u032_2_copy_mode_affordance_signals_copy(qtbot):
+    """SC-U032-2: the copy-mode affordance (the status-bar hint) signals COPY while
+    a copy float is active, and reverts to the move hint otherwise."""
+    win = _window(qtbot)
+    view, _scene, _stack, _buf = _prep_window_move(win)
+
+    press(view, 3, 3)
+    move(view, 7, 3, mod=CTRL)
+    # isHidden() reflects the explicit hide flag independent of the (unshown)
+    # window, unlike isVisible() which needs the whole hierarchy on screen.
+    assert not win._float_hint.isHidden()
+    assert "Copying" in win._float_hint.text()
+
+    move(view, 7, 3, mod=NO_MOD)  # drop the modifier mid-drag -> back to MOVE
+    assert "Moving" in win._float_hint.text()
+
+    view.floating_controller().cancel()
+    assert win._float_hint.isHidden()  # hint hides when no float is active
+
+
+def test_sc_u032_3_ctrl_copy_commits_one_command_origin_intact(make_scene, qtbot):
+    """SC-U032-3 (CL-F5, Ctrl-only): a Ctrl in-selection drag COPIES — it commits
+    exactly ONE pixel-copy command (not a selection combine edit), keeps the origin
+    intact and stamps the copy at the destination. The Alt interior drag is NOT copy;
+    it remains the shipped CL-4 subtract, verified in test_rect_select_tool.py — so
+    the earlier build-subtract collision no longer exists."""
+    view, _scene, stack, buf = _make_move_view(make_scene, qtbot)
+
+    press(view, 3, 3)
+    move(view, 6, 2, mod=CTRL)  # offset (3, -1), Ctrl (copy) held
+    release(view, 6, 2, mod=CTRL)
+
+    assert stack.count() == 1  # ONE pixel-copy command, not a selection edit
+    assert buf.get_pixel(2, 2) == RED  # origin intact (a copy, not a subtract/move)
+    assert buf.get_pixel(5, 1) == RED  # copied to (2,2)+(3,-1)
+
+
+# =========================================================================
+# FB-T4 / REQ-P2-UI-033 — commit triggers
+# =========================================================================
+
+
+def test_sc_u033_1_release_commits_one_command(make_scene, qtbot):
+    """SC-U033-1: releasing the mouse commits the float as exactly ONE undoable
+    command (a MOVE: origin vacated + colours stamped at the destination)."""
+    view, _scene, stack, buf = _make_move_view(make_scene, qtbot)
+    controller = view.floating_controller()
+
+    press(view, 3, 3)
+    move(view, 7, 5)  # offset (4, 2)
+    release(view, 7, 5)
+
+    assert stack.count() == 1
+    assert not controller.is_active()
+    assert buf.get_pixel(2, 2) == TRANSPARENT  # origin vacated
+    assert buf.get_pixel(6, 4) == RED  # stamped at (2,2)+(4,2)
+
+
+def test_sc_u033_2_enter_commits_one_command(make_scene, qtbot):
+    """SC-U033-2: pressing Enter commits the active float as ONE command."""
+    view, _scene, stack, buf = _make_move_view(make_scene, qtbot)
+    controller = view.floating_controller()
+
+    press(view, 3, 3)
+    move(view, 7, 5)  # offset (4, 2), no release
+    assert controller.is_active()
+
+    key(view, Qt.Key.Key_Return)
+    assert not controller.is_active()
+    assert stack.count() == 1
+    assert buf.get_pixel(6, 4) == RED
+
+
+def test_sc_u033_3_tool_switch_commits_one_command(qtbot):
+    """SC-U033-3: switching tools commits the active float as ONE command."""
+    win = _window(qtbot)
+    view, _scene, stack, buf = _prep_window_move(win)
+    controller = view.floating_controller()
+
+    press(view, 3, 3)
+    move(view, 7, 5)  # offset (4, 2), no release
+    assert controller.is_active()
+
+    win._tool_actions[PencilTool.tool_id].trigger()  # tool-switch commits first
+    assert not controller.is_active()
+    assert stack.count() == 1
+    assert buf.get_pixel(6, 4) == RED
+
+
+def test_sc_u033_3_tab_switch_commits_one_command(qtbot):
+    """SC-U033-3 (tab variant): switching document tabs commits the leaving float."""
+    win = _window(qtbot)
+    view, _scene, stack, buf = _prep_window_move(win)
+    controller = view.floating_controller()
+
+    press(view, 3, 3)
+    move(view, 7, 5)  # offset (4, 2), no release
+    assert controller.is_active()
+
+    win.new_document()  # opens + switches to a new tab -> commits the old float
+    assert not controller.is_active()
+    assert stack.count() == 1
+    assert buf.get_pixel(6, 4) == RED
+
+
+def test_sc_u033_4_mask_follows_to_destination(make_scene, qtbot):
+    """SC-U033-4: after commit the selection mask follows to the destination."""
+    view, _scene, _stack, _buf = _make_move_view(make_scene, qtbot)
+
+    press(view, 3, 3)
+    move(view, 7, 5)  # offset (4, 2)
+    release(view, 7, 5)
+
+    mask = view.active_selection()
+    assert mask is not None
+    assert mask.bounds() == (6, 4, 8, 6)  # (2,2,4,4) shifted by (4,2)
+
+
+# =========================================================================
+# FB-T5 / REQ-P2-UI-034 — ESC cancels and restores
+# =========================================================================
+
+
+def test_sc_u034_1_esc_restores_pre_move_state_exactly(make_scene, qtbot):
+    """SC-U034-1: pressing ESC during a float restores the pre-move canvas exactly
+    and records NO undoable command."""
+    view, _scene, stack, buf = _make_move_view(make_scene, qtbot)
+    controller = view.floating_controller()
+    before = buf.copy()
+
+    press(view, 3, 3)
+    move(view, 9, 7)  # offset (6, 4)
+    assert controller.is_active()
+
+    key(view, Qt.Key.Key_Escape)
+    assert not controller.is_active()
+    assert buf == before  # byte-for-byte unchanged
+    assert stack.count() == 0  # no command produced
+
+
+def test_sc_u034_2_cancel_returns_mask_and_records_no_undo(make_scene, qtbot):
+    """SC-U034-2: a cancelled float records NO undo entry and the mask returns to
+    its pre-lift position (the ants offset resets to zero)."""
+    view, scene, stack, _buf = _make_move_view(make_scene, qtbot)
+
+    press(view, 3, 3)
+    move(view, 9, 7)
+    key(view, Qt.Key.Key_Escape)
+
+    assert stack.count() == 0
+    assert scene._selection_overlay._offset == (0, 0)  # mask outline back home
+    mask = view.active_selection()
+    assert mask is not None and mask.bounds() == (2, 2, 4, 4)  # unmoved
+
+
+# =========================================================================
+# FB-T6 / REQ-P2-UI-035 — reversibility, single command, render policy
+# =========================================================================
+
+
+def test_sc_u035_1_undo_restores_in_one_step_redo_reapplies(make_scene, qtbot):
+    """SC-U035-1: undo after a committed move restores the pre-move buffer in ONE
+    step; redo re-applies (apply then undo = identity)."""
+    view, _scene, stack, buf = _make_move_view(make_scene, qtbot)
+    before = buf.copy()
+
+    press(view, 3, 3)
+    move(view, 7, 5)
+    release(view, 7, 5)
+    after = buf.copy()
+    assert stack.count() == 1
+    assert after != before
+
+    stack.undo()
+    assert buf == before  # exact restore in one step
+    stack.redo()
+    assert buf == after  # redo re-applies
+
+
+def test_sc_u035_2_preview_renders_nearest_neighbour_aa_off(make_scene, qtbot):
+    """SC-U035-2: the floating preview renders nearest-neighbour / AA-off at any
+    zoom — the view keeps both hints disabled and the float item is present."""
+    view, scene, _stack, _buf = _make_move_view(make_scene, qtbot)
+
+    press(view, 3, 3)  # lift at identity zoom (pinned coordinate mapping)
+    move(view, 6, 6)
+    view.set_zoom(8.0)  # a high zoom must not enable smoothing on the live float
+
+    hints = view.renderHints()
+    assert not (hints & QPainter.RenderHint.Antialiasing)
+    assert not (hints & QPainter.RenderHint.SmoothPixmapTransform)
+    assert scene._float_item.isVisible()
+
+    view.floating_controller().cancel()
+
+
+def test_sc_u035_3_preview_legible_in_both_themes(make_scene, qtbot, theme):
+    """SC-U035-3: the floating preview is legible in both themes — its checker
+    colours come from the active theme's canvas roles (role-based, not hard-coded)."""
+    view, scene, _stack, _buf = _make_move_view(make_scene, qtbot)
+    light, dark, _grid = canvas_roles(theme)
+
+    press(view, 3, 3)
+    move(view, 6, 6)
+
+    assert scene._float_item.isVisible()
+    # The overlay's checker roles track the theme (both float + origin layers).
+    assert scene._float_item._checker_light == QColor(light)
+    assert scene._float_item._checker_dark == QColor(dark)
+
+    view.floating_controller().cancel()
+
+
+# =========================================================================
+# FB-T7 / REQ-P2-UI-036 — active-layer scope, off-canvas, a11y
+# =========================================================================
+
+
+def test_sc_u036_1_float_modifies_only_the_active_layer(qtbot, theme):
+    """SC-U036-1: the floating move affects ONLY the active layer — other layers
+    stay untouched."""
+    doc = Document(16, 16, palette=Palette(STARTER))
+    scene = CanvasScene(doc)
+    scene.set_background_roles(*canvas_roles(theme))
+    stack = QUndoStack()
+    view = Canvas_View(scene, stack)
+    qtbot.addWidget(view)
+    prepare_for_click(view)
+    view.set_tool(RectSelectTool())
+
+    # The scene's active layer is the move target; a second layer must stay
+    # untouched. Capture the active layer, then add the other layer.
+    active = scene.active_buffer()
+    active.set_pixel(2, 2, RED)
+    other = doc.add_layer("other")
+    other.buffer.set_pixel(2, 2, YELLOW)  # a pixel on the non-active layer
+    other_before = other.buffer.copy()
+    view.set_selection(rect_mask(16, 16, 2, 2, 4, 4))
+
+    press(view, 3, 3)
+    move(view, 7, 5)
+    release(view, 7, 5)
+
+    assert other.buffer == other_before  # other layer untouched
+    assert active.get_pixel(6, 4) == RED  # active layer received the move
+    assert active.get_pixel(2, 2) == TRANSPARENT
+
+
+def test_sc_u036_2_off_canvas_pixels_discarded_on_commit(make_scene, qtbot):
+    """SC-U036-2: dragging partly off-canvas discards the out-of-bounds destination
+    pixels on commit (clipped, never wrapped); the whole origin still vacates."""
+    view, _scene, stack, buf = _make_move_view(make_scene, qtbot)
+
+    # offset (13, 0): dest xs 15/16/17 -> only x=15 stays in a 16-wide buffer.
+    press(view, 3, 3)
+    move(view, 16, 3)
+    release(view, 16, 3)
+
+    assert stack.count() == 1
+    assert buf.get_pixel(15, 2) == RED  # RED at (2,2) clipped-in at (15,2)
+    assert buf.get_pixel(2, 2) == TRANSPARENT  # whole origin vacated
+    assert buf.get_pixel(3, 3) == TRANSPARENT
+    assert buf.get_pixel(4, 4) == TRANSPARENT
+    # GREEN (dest 16,3) and BLUE (dest 17,4) fell off-canvas and were dropped,
+    # never wrapped — only the single clipped-in RED survives.
+    assert _non_transparent(buf) == 1
+
+
+def test_sc_u036_3_a11y_hint_translatable_keyboard_reachable_focus_visible(
+    qtbot, theme
+):
+    """SC-U036-3: the floating-selection status hint is tr()-wrapped with an
+    accessible name; commit/cancel are keyboard-reachable; focus is visible."""
+    win = _window(qtbot)
+    view, _scene, stack, _buf = _prep_window_move(win)
+
+    # Accessible name present on the status hint (announced by assistive tech).
+    assert win._float_hint.accessibleName() == "Floating selection status"
+
+    # Keyboard reachability: the canvas takes strong focus and Enter commits.
+    assert view.focusPolicy() == Qt.FocusPolicy.StrongFocus
+    press(view, 3, 3)
+    move(view, 7, 5)
+    assert win._float_hint.text() != ""  # tr()-wrapped hint text shown
+    key(view, Qt.Key.Key_Return)
+    assert stack.count() == 1  # committed from the keyboard alone
+
+    # Escape is likewise keyboard-reachable (cancel a fresh float).
+    buf = _scene.active_buffer()
+    buf.set_pixel(2, 2, RED)
+    view.set_selection(rect_mask(buf.width, buf.height, 2, 2, 4, 4))
+    press(view, 3, 3)
+    move(view, 8, 8)
+    key(view, Qt.Key.Key_Escape)
+    assert not view.floating_controller().is_active()
+
+    # A visible focus indicator is themed once by role (a :focus QSS rule).
+    assert ":focus" in QApplication.instance().styleSheet()
