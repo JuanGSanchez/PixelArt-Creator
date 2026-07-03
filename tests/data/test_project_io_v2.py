@@ -60,7 +60,8 @@ def _rich_document() -> Document:
 def test_serialize_declares_version_2():
     payload = pio.serialize(Document(2, 2))
     assert payload["format"] == "pixproj"
-    assert payload["version"] == 2
+    # Saving always writes the current schema (v3, ADR-0012); v2 still loads.
+    assert payload["version"] == 3
     node = payload["frames"][0]["layers"][0]
     assert node["type"] == "layer"
     assert node["blend_mode"] == "normal"
@@ -166,7 +167,7 @@ def _valid_v2() -> dict:
 @pytest.mark.parametrize(
     "mutate, _label",
     [
-        (lambda p: p.update(version=3), "unknown version"),
+        (lambda p: p.update(version=99), "unknown version"),
         (lambda p: p.update(version="two"), "non-int version"),
         (lambda p: p["frames"][0]["layers"][0].update(type="doodad"), "bad node type"),
         (
