@@ -259,6 +259,11 @@ class Main_Window(QMainWindow):
         self._active_color: RGBA = BLACK
         self._active_index: int = 0
         self._theme = THEME_LIGHT
+        # Floating move/copy status (REQ-P2-UI-032/-036): the last view-reported
+        # float state, surfaced as a status-bar hint (see _update_float_hint).
+        self._active_view: Optional[Canvas_View] = None
+        self._float_active = False
+        self._float_copy = False
 
         self._rectangle_tool = RectangleTool()
         self._ellipse_tool = EllipseTool()
@@ -350,6 +355,14 @@ class Main_Window(QMainWindow):
         self._colour_hub.set_favourites_model(self._favourites)
         self._colour_hub.colorApplied.connect(self._on_hub_color_applied)
         self._colour_hub.favouritesChanged.connect(self._save_favourites)
+
+        # Copy-mode status hint for a live floating move (REQ-P2-UI-032/-036,
+        # NFR-8): tr()-wrapped, shown only while a float is active. A11y: the
+        # commit/cancel actions are keyboard-reachable on the focused canvas
+        # (Enter/Escape); this label announces the state via its accessible name.
+        self._float_hint = QLabel(self)
+        self._float_hint.setVisible(False)
+        self.statusBar().addPermanentWidget(self._float_hint)
 
         self._build_actions()
         self._build_toolbar()
@@ -637,6 +650,7 @@ class Main_Window(QMainWindow):
         self._undo_group.addStack(stack)
         view = Canvas_View(scene, stack)
         view.colorPicked.connect(self._on_color_picked)
+        view.floatingStateChanged.connect(self._on_floating_state_changed)
         view.set_menu_hook(self._open_colour_hub)
         record = _DocTab(document, scene, view, stack)
         self._tabs_data.append(record)
@@ -716,9 +730,15 @@ class Main_Window(QMainWindow):
     # -- slots ------------------------------------------------------------
 
     def _on_tab_changed(self, index: int) -> None:
+        # Commit a live float on the view being left before switching (a float is
+        # a transient edit state, committed on tool/tab switch — REQ-P2-UI-033).
+        if self._active_view is not None:
+            self._active_view.commit_active_float()
         record = self.active_tab()
         if record is None:
+            self._active_view = None
             return
+        self._active_view = record.view
         self._undo_group.setActiveStack(record.stack)
         record.view.set_tool(self._tools[self._active_tool_id])
         record.view.set_active_color(self._active_color)
@@ -731,10 +751,38 @@ class Main_Window(QMainWindow):
     def _on_tool_action(self) -> None:
         action = self.sender()
         if isinstance(action, QAction):
-            self._active_tool_id = action.data()
             record = self.active_tab()
+            # Commit a live float before the tool changes (REQ-P2-UI-033).
+            if record is not None:
+                record.view.commit_active_float()
+            self._active_tool_id = action.data()
             if record is not None:
                 record.view.set_tool(self._tools[self._active_tool_id])
+
+    def _on_floating_state_changed(self, active: bool, copy: bool) -> None:
+        """Update the copy-mode status hint from a view's float state (UI-032/-036)."""
+        self._float_active = bool(active)
+        self._float_copy = bool(copy)
+        self._update_float_hint()
+
+    def _update_float_hint(self) -> None:
+        """Show the tr()-wrapped floating move/copy hint while a float is active."""
+        if not self._float_active:
+            self._float_hint.clear()
+            self._float_hint.setVisible(False)
+            return
+        if self._float_copy:
+            self._float_hint.setText(
+                self.tr("Copying selection — release, Enter to commit, Esc to cancel")
+            )
+        else:
+            self._float_hint.setText(
+                self.tr(
+                    "Moving selection — hold Ctrl to copy; "
+                    "Enter to commit, Esc to cancel"
+                )
+            )
+        self._float_hint.setVisible(True)
 
     def _on_palette_selected(self) -> None:
         # The palette panel drives paint-by-index: the selected row is the paint
@@ -1359,6 +1407,8 @@ class Main_Window(QMainWindow):
         self._cycling_dock.setWindowTitle(self.tr("Colour Cycling"))
         self._analytics_dock.setWindowTitle(self.tr("Analytics"))
         self._tab_widget.setAccessibleName(self.tr("Open documents"))
+        self._float_hint.setAccessibleName(self.tr("Floating selection status"))
+        self._update_float_hint()
 
         labels = {
             PencilTool.tool_id: self.tr("Pencil"),

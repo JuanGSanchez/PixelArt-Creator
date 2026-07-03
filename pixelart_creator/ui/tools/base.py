@@ -11,7 +11,7 @@ performs undo bookkeeping (capture-before / diff-after, the same pattern as
 
 from __future__ import annotations
 
-from typing import Callable, Iterable, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Callable, Iterable, List, Optional, Set, Tuple
 
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QUndoStack
@@ -24,6 +24,9 @@ from pixelart_creator.logic.selection import SelectionMask
 from pixelart_creator.logic.symmetry import SymmetryAxis, mirror
 from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.commands import PaintCommand
+
+if TYPE_CHECKING:
+    from pixelart_creator.ui.tools.floating_move import FloatingMoveController
 
 Coord = Tuple[int, int]
 
@@ -169,6 +172,9 @@ class ToolContext:
         tiled: Whether edits wrap on the torus (P2-UI-015).
         snap: Whether shape/selection endpoints snap to the pixel grid (P2-UI-013).
         modifiers: Keyboard modifiers at the interaction's press (combine modes).
+        floating_controller: The view's floating move/copy controller — a
+            selection tool starts a float through it when a press lands inside the
+            active mask (REQ-P2-UI-030..034). ``None`` outside a canvas view.
     """
 
     def __init__(
@@ -188,6 +194,7 @@ class ToolContext:
         tiled: bool = False,
         snap: bool = False,
         modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier,
+        floating_controller: Optional["FloatingMoveController"] = None,
     ) -> None:
         self.buffer = buffer
         self.active_color = active_color
@@ -203,6 +210,7 @@ class ToolContext:
         self.tiled = tiled
         self.snap = snap
         self.modifiers = modifiers
+        self.floating_controller = floating_controller
 
     def paint_value(self) -> PixelValue:
         """Return the value a paint tool writes for the active buffer mode.

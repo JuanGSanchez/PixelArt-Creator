@@ -65,7 +65,12 @@ from pixelart_creator.logic.document import (
     iter_layers,
 )
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
-from pixelart_creator.logic.selection import SelectionMask
+from pixelart_creator.logic.selection import (
+    FloatingSelection,
+    FloatMode,
+    SelectionMask,
+    composite_preview,
+)
 
 #: Default role-based background colours (overridden by the active theme, 025).
 _DEFAULT_CHECKER_LIGHT = QColor(200, 200, 200)
@@ -367,6 +372,117 @@ class _TiledPreviewItem(QGraphicsItem):
                 painter.drawPixmap(clipped, pixmap, src)
 
 
+def _paint_checker_tiles(
+    painter: QPainter, rect: QRectF, light: QColor, dark: QColor
+) -> None:
+    """Fill ``rect`` with the ``TILE_SIZE`` checkerboard (D2).
+
+    Shared by :meth:`CanvasScene.drawBackground` and
+    :class:`_FloatingPreviewItem` so a vacated (transparent) MOVE origin reads as
+    the checker rather than the buffer pixmap beneath it. Tile indices use
+    absolute scene coordinates, so the item's checker aligns pixel-perfectly with
+    the scene background.
+    """
+    left = math.floor(rect.left() / TILE_SIZE) - TILE_BUFFER
+    top = math.floor(rect.top() / TILE_SIZE) - TILE_BUFFER
+    right = math.ceil(rect.right() / TILE_SIZE) + TILE_BUFFER
+    bottom = math.ceil(rect.bottom() / TILE_SIZE) + TILE_BUFFER
+    for ty in range(top, bottom):
+        for tx in range(left, right):
+            colour = light if (tx + ty) % 2 == 0 else dark
+            painter.fillRect(
+                QRectF(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE),
+                colour,
+            )
+
+
+class _FloatingPreviewItem(QGraphicsItem):
+    """One **bounded** region-scoped floating-preview layer (REQ-P2-UI-030/-035).
+
+    Paints a single ``composite_preview`` region image over the canvas pixmap:
+    the checker is repainted under the region so transparent (vacated) pixels
+    read empty instead of showing the buffer pixmap, then the region image is
+    blitted. Nearest-neighbour, anti-aliasing off, legible in **both** themes.
+
+    The scene instantiates it **twice** so a MOVE drag never recomposites an
+    area that grows with the drag distance (AGT-10 FB-8 / ADR-0009 D3 /
+    ADR-0007 T13): a **floated-colours** layer bounded to the selection bbox,
+    recomposited per drag frame (z ``_Z``); and a **vacated-origin** layer
+    bounded to the fixed origin bbox, composited **once** at lift and reused for
+    the whole gesture (z ``_ORIGIN_Z``, just below, so the floated colours draw
+    over the origin where they overlap). Each layer's ``boundingRect`` stays a
+    single selection bbox — never the union of origin + destination — so a long
+    drag keeps a constant, bounded dirty/recomposite area.
+
+    The base buffer is never written until commit — the compositing maths live
+    entirely in ``logic/selection.composite_preview`` (Article I); this item
+    only blits the returned image. ``ItemClipsToShape`` confines the checker
+    ring to the item's region so no paint leaks under the view's
+    ``DontSavePainterState`` flag.
+    """
+
+    _Z = 1.75
+    _ORIGIN_Z = 1.70
+
+    def __init__(self, z: float = _Z) -> None:
+        super().__init__()
+        self.setZValue(z)
+        self.setVisible(False)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemClipsToShape, True)
+        self._region = QRectF()
+        self._image = QImage()
+        self._checker_light = QColor(_DEFAULT_CHECKER_LIGHT)
+        self._checker_dark = QColor(_DEFAULT_CHECKER_DARK)
+
+    def set_roles(self, light: QColor, dark: QColor) -> None:
+        """Set the two checker colours (kept in step with the scene's, 025)."""
+        self._checker_light = QColor(light)
+        self._checker_dark = QColor(dark)
+        self.update()
+
+    def set_preview(self, image: QImage, region: QRectF) -> None:
+        """Show ``image`` (owns its memory) covering ``region`` (scene coords)."""
+        self.prepareGeometryChange()
+        self._image = image
+        self._region = QRectF(region)
+        self.setVisible(not image.isNull() and not self._region.isEmpty())
+        self.update()
+
+    def clear_preview(self) -> None:
+        """Hide the preview and drop its image (float committed / cancelled)."""
+        self.prepareGeometryChange()
+        self._image = QImage()
+        self._region = QRectF()
+        self.setVisible(False)
+        self.update()
+
+    def boundingRect(self) -> QRectF:  # noqa: N802 (Qt override)
+        return QRectF(self._region)
+
+    def paint(  # noqa: N802 (Qt override)
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: Optional[QWidget] = None,
+    ) -> None:
+        if self._image.isNull() or self._region.isEmpty():
+            return
+        target = self._region
+        exposed = option.exposedRect
+        if not exposed.isEmpty():
+            target = target.intersected(exposed)
+        if target.isEmpty():
+            return
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+        # Repaint the checker so a vacated (transparent) MOVE origin reads empty
+        # instead of showing the untouched buffer pixmap underneath.
+        _paint_checker_tiles(painter, target, self._checker_light, self._checker_dark)
+        # Map the (culled) target back into the region-local image coordinates.
+        src = target.translated(-self._region.left(), -self._region.top())
+        painter.drawImage(target, self._image, src)
+
+
 def _boundary_edges(
     data: "np.ndarray",
 ) -> list[tuple[float, float, float, float]]:
@@ -458,6 +574,23 @@ class CanvasScene(QGraphicsScene):
         self._shape_preview: Optional[QGraphicsItem] = None
         self._selection_overlay = _SelectionOverlayItem()
         self.addItem(self._selection_overlay)
+        # Floating move/copy preview overlay (REQ-P2-UI-030..035); z below the
+        # marching-ants overlay, above the buffer pixmap. Hidden until a lift.
+        # The floated colours are recomposited per drag frame over ONLY their
+        # (bounded) destination bbox; the vacated origin is a SEPARATE one-shot
+        # layer just below, composited once at lift — so a long MOVE drag never
+        # unions the two into a distance-growing region (AGT-10 FB-8).
+        self._float_item = _FloatingPreviewItem()
+        self._float_item.set_roles(self._checker_light, self._checker_dark)
+        self.addItem(self._float_item)
+        self._origin_item = _FloatingPreviewItem(z=_FloatingPreviewItem._ORIGIN_Z)
+        self._origin_item.set_roles(self._checker_light, self._checker_dark)
+        self.addItem(self._origin_item)
+        self._floating_prev: QRectF = QRectF()
+        #: Scene rect of the one-shot vacated-origin overlay (empty when none).
+        self._origin_region: QRectF = QRectF()
+        #: Whether the vacated-origin overlay is currently shown (MOVE only).
+        self._origin_shown = False
         self._tiled_item = _TiledPreviewItem(self._item)
         self._tiled_item.setVisible(False)
         self.addItem(self._tiled_item)
@@ -913,6 +1046,183 @@ class CanvasScene(QGraphicsScene):
         """Shift the selection outline during a floating move (pre-commit)."""
         self._selection_overlay.set_move_offset(dx, dy)
 
+    # -- floating move/copy preview (REQ-P2-UI-030/-031/-035) ------------
+
+    def begin_floating(self, floating: FloatingSelection) -> None:
+        """Show the non-destructive floating preview for ``floating`` (D3 path).
+
+        Two bounded layers are shown (AGT-10 FB-8 fix): the floated colours are
+        rendered per drag frame from the **region-scoped** ``composite_preview``
+        over their (bounded) destination bbox, and — for a MOVE — the vacated
+        origin is composited **once** here into a separate persistent overlay
+        (:meth:`_origin_vacate`). Neither is ever unioned into a distance-growing
+        region, and the base display buffer is untouched until commit (ADR-0009
+        D3 / ADR-0007 T13; the 16 ms budget is never relaxed, Article VI §2).
+        """
+        self._floating_prev = QRectF()
+        self._ensure_composite()
+        origin = (
+            self._origin_vacate(floating) if floating.mode is FloatMode.MOVE else None
+        )
+        if origin is None:
+            self._origin_item.clear_preview()
+            self._origin_region = QRectF()
+            self._origin_shown = False
+        else:
+            image, rect = origin
+            self._origin_item.set_preview(image, rect)
+            self._origin_region = QRectF(rect)
+            self._origin_shown = True
+        self.update_floating(floating)
+
+    def update_floating(self, floating: FloatingSelection) -> None:
+        """Recompute the floated-colours preview over ONLY its dirty band (D3).
+
+        Per frame only the **incremental** dirty area is invalidated — the old
+        float rect ∪ new float rect (the band the float moved through this
+        frame) — never a region that grows with the total drag distance. The
+        floated colours are composited over their bounded destination bbox
+        alone; the vacated origin is the separate one-shot overlay set at lift
+        (:meth:`begin_floating`), toggled here with the live mode (a COPY keeps
+        the origin intact). No full-canvas allocation (AGT-10 FB-8).
+        """
+        self._ensure_composite()
+        # Toggle the one-shot vacated-origin overlay with the live mode. A
+        # MOVE↔COPY switch mid-drag re-lifts the float (same mask/bbox), so the
+        # cached vacate image stays valid; only its visibility flips.
+        want_origin = (
+            floating.mode is FloatMode.MOVE and not self._origin_region.isEmpty()
+        )
+        origin_dirty = QRectF()
+        if want_origin != self._origin_shown:
+            self._origin_item.setVisible(want_origin)
+            self._origin_shown = want_origin
+            origin_dirty = QRectF(self._origin_region)
+        region = self._float_region(floating)
+        if region is None:
+            # Fully off-canvas (e.g. a COPY dragged past the edge): nothing to
+            # show now, but keep the float active until commit / cancel.
+            new_rect = QRectF()
+            self._float_item.clear_preview()
+        else:
+            rx, ry, rw, rh = region
+            preview = composite_preview(floating, self._display_source(), region=region)
+            image = self._preview_qimage(preview)
+            new_rect = QRectF(rx, ry, rw, rh)
+            self._float_item.set_preview(image, new_rect)
+        dirty = QRectF(new_rect)
+        if not self._floating_prev.isEmpty():
+            dirty = self._union(dirty, self._floating_prev)
+        if not origin_dirty.isEmpty():
+            dirty = self._union(dirty, origin_dirty)
+        if not dirty.isEmpty():
+            self.update(dirty)
+        self._floating_prev = new_rect
+
+    def end_floating(self) -> None:
+        """Tear down both floating layers; the buffer item shows the final state."""
+        dirty = QRectF(self._floating_prev)
+        if not self._origin_region.isEmpty():
+            dirty = self._union(dirty, self._origin_region)
+        self._floating_prev = QRectF()
+        self._origin_region = QRectF()
+        self._origin_shown = False
+        self._float_item.clear_preview()
+        self._origin_item.clear_preview()
+        if not dirty.isEmpty():
+            self.update(dirty)
+
+    @staticmethod
+    def _union(a: QRectF, b: QRectF) -> QRectF:
+        """Union of two (possibly empty) scene rects, dropping empty operands."""
+        if a.isEmpty():
+            return QRectF(b)
+        if b.isEmpty():
+            return a
+        return a.united(b)
+
+    def _origin_vacate(
+        self, floating: FloatingSelection
+    ) -> Optional[Tuple[QImage, QRectF]]:
+        """One-shot vacated-origin overlay for a MOVE: ``(image, scene_rect)``.
+
+        Returns the **pure-vacate** preview of the (fixed) origin bounding box —
+        the base with the masked origin pixels read transparent and NOTHING
+        stamped — plus its scene rect, or ``None`` when the origin lies fully
+        off-canvas. Computed **once** when the float is lifted and reused for the
+        whole gesture (the origin bbox and mask never change), so a long MOVE
+        drag never re-composites the origin per frame nor grows the recomposited
+        area (AGT-10 FB-8 / ADR-0009 D3 / ADR-0007 T13).
+
+        The vacate maths stay in ``logic.composite_preview`` (Article I): the
+        stamp is displaced a full float-width past the origin's right edge so the
+        region-scoped preview vacates the masked origin pixels but stamps
+        nothing; the live offset is restored immediately (single-threaded, so the
+        transient set is invisible to the controller). The base is never written.
+        """
+        fx0, fy0, fx1, fy1 = floating.bounds()
+        dx, dy = floating.offset
+        # Origin bbox = floated bbox shifted back by the live offset (fixed
+        # across the gesture); avoids copying the full-canvas mask here.
+        ox0, oy0, ox1, oy1 = fx0 - dx, fy0 - dy, fx1 - dx, fy1 - dy
+        w, h = self._document.width, self._document.height
+        cx0, cy0 = max(0, ox0), max(0, oy0)
+        cx1, cy1 = min(w - 1, ox1), min(h - 1, oy1)
+        if cx1 < cx0 or cy1 < cy0:
+            return None
+        region = (cx0, cy0, cx1 - cx0 + 1, cy1 - cy0 + 1)
+        saved = floating.offset
+        # Absolute displacement of one float-width guarantees the stamp clears
+        # the origin region's right edge regardless of the current offset.
+        floating.set_offset(floating.width, 0)
+        try:
+            preview = composite_preview(floating, self._display_source(), region=region)
+        finally:
+            floating.set_offset(*saved)
+        image = self._preview_qimage(preview)
+        return image, QRectF(cx0, cy0, region[2], region[3])
+
+    def _float_region(
+        self, floating: FloatingSelection
+    ) -> Optional[Tuple[int, int, int, int]]:
+        """Bounded dirty region ``(x, y, w, h)`` of the floated destination bbox.
+
+        The floated bbox clamped to canvas — for BOTH modes. Unlike the previous
+        implementation it is **never** unioned with the fixed origin bbox: the
+        vacated origin is handled once by the separate origin overlay, so this
+        region stays a single selection bbox and never grows with the drag
+        distance (AGT-10 FB-8). Returns ``None`` when nothing lies on-canvas.
+        """
+        fx0, fy0, fx1, fy1 = floating.bounds()
+        w, h = self._document.width, self._document.height
+        cx0, cy0 = max(0, fx0), max(0, fy0)
+        cx1, cy1 = min(w - 1, fx1), min(h - 1, fy1)
+        if cx1 < cx0 or cy1 < cy0:
+            return None
+        return (cx0, cy0, cx1 - cx0 + 1, cy1 - cy0 + 1)
+
+    def _preview_qimage(self, preview: PixelBuffer) -> QImage:
+        """Build an owned RGBA :class:`QImage` from a preview region buffer.
+
+        Indexed previews are resolved through the document palette LUT (like the
+        buffer item's indexed display). ``QImage.copy()`` detaches from the NumPy
+        memory so the region buffer can be released.
+        """
+        if preview.mode is ColorMode.RGBA:
+            data = np.ascontiguousarray(preview.data)
+        else:
+            colors = self._document.palette.colors()
+            lut = (
+                np.array(colors, dtype=np.uint8)
+                if colors
+                else np.zeros((1, 4), dtype=np.uint8)
+            )
+            idx = np.clip(preview.data, 0, max(0, len(colors) - 1))
+            data = np.ascontiguousarray(lut[idx])
+        h, w = int(data.shape[0]), int(data.shape[1])
+        image = QImage(data.data, w, h, data.strides[0], QImage.Format.Format_RGBA8888)
+        return image.copy()
+
     # -- tiled mode (REQ-P2-UI-015) --------------------------------------
 
     def set_tiled_preview(self, enabled: bool) -> None:
@@ -948,6 +1258,8 @@ class CanvasScene(QGraphicsScene):
         self._checker_light = QColor(checker_light)
         self._checker_dark = QColor(checker_dark)
         self._grid_color = QColor(grid)
+        self._float_item.set_roles(self._checker_light, self._checker_dark)
+        self._origin_item.set_roles(self._checker_light, self._checker_dark)
         self.invalidate(self.sceneRect(), QGraphicsScene.SceneLayer.BackgroundLayer)
 
     # -- background -------------------------------------------------------
@@ -961,20 +1273,7 @@ class CanvasScene(QGraphicsScene):
         self._ensure_composite()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         # Snap the tile loop to a TILE_SIZE grid, extend a TILE_BUFFER ring.
-        left = math.floor(rect.left() / TILE_SIZE) - TILE_BUFFER
-        top = math.floor(rect.top() / TILE_SIZE) - TILE_BUFFER
-        right = math.ceil(rect.right() / TILE_SIZE) + TILE_BUFFER
-        bottom = math.ceil(rect.bottom() / TILE_SIZE) + TILE_BUFFER
-
-        for ty in range(top, bottom):
-            for tx in range(left, right):
-                colour = (
-                    self._checker_light if (tx + ty) % 2 == 0 else self._checker_dark
-                )
-                painter.fillRect(
-                    QRectF(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE),
-                    colour,
-                )
+        _paint_checker_tiles(painter, rect, self._checker_light, self._checker_dark)
 
         if (
             self._grid_enabled
