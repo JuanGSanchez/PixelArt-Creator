@@ -349,6 +349,23 @@ class Layer_Panel(QWidget):
         )
         self.rebuild()
 
+    def set_frame_index(self, index: int) -> None:
+        """Point the panel at frame ``index``'s layer tree (Phase-5 timeline sync).
+
+        The active frame is chosen on the timeline (REQ-P5-UI-001/-002); the layer
+        panel must then reflect (and edit) that frame's own layer stack. Additive
+        and non-undoable (selecting a frame mutates no document state, CL-13); a
+        no-op when the index is unchanged or out of range.
+        """
+        if self._document is None:
+            return
+        if not 0 <= index < len(self._document.frames):
+            return
+        if index == self._frame_index:
+            return
+        self._frame_index = index
+        self.rebuild()
+
     def blend_label(self, mode: BlendMode) -> str:
         """Return the translatable label for a blend mode (UI-005)."""
         labels: Dict[BlendMode, str] = {

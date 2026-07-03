@@ -23,10 +23,21 @@ maps that buffer to Qt paint calls (Article I).
 from __future__ import annotations
 
 import math
-from typing import List, Optional, Tuple
+import threading
+from typing import List, Optional, Sequence, Set, Tuple
 
 import numpy as np
-from PySide6.QtCore import QLineF, QObject, QPointF, QRect, QRectF, Qt, QTimer
+from PySide6.QtCore import (
+    QLineF,
+    QObject,
+    QPointF,
+    QRect,
+    QRectF,
+    Qt,
+    QThreadPool,
+    QTimer,
+    Signal,
+)
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -49,7 +60,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pixelart_creator.logic.blend import composite_stack
+from pixelart_creator.logic.animation import AnimationError, onion_overlay
+from pixelart_creator.logic.blend import BlendError, composite_stack
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.constants import (
     FRAME_BUDGET_MS,
@@ -71,6 +83,11 @@ from pixelart_creator.logic.selection import (
     SelectionMask,
     composite_preview,
 )
+from pixelart_creator.ui.composite_warmer import (
+    CompositeWarmSignals,
+    FrameCompositeWarmRunnable,
+)
+from pixelart_creator.ui.frame_cache import FrameCompositeCache
 
 #: Default role-based background colours (overridden by the active theme, 025).
 _DEFAULT_CHECKER_LIGHT = QColor(200, 200, 200)
@@ -83,6 +100,20 @@ _DEFAULT_GRID = QColor(120, 120, 120, 160)
 #: AGT-10). Presentation-only sizing — not a domain tuning value (cf. _SWATCH_PX,
 #: _preview_thumbnail max_edge in main_window); the resident buffer is never culled.
 _TILED_PREVIEW_CACHE_MAX_EDGE = 512
+
+#: Memory budget (bytes) of the DERIVED per-frame composite cache (D3, F7-safe).
+#: Bounds the flattened render products only — the source layer buffers are NEVER
+#: culled (Article VI §3). At 8K a composite is ~132 MB, so ~512 MiB keeps a small
+#: residency window (a handful of frames) rather than the previous MAX_FRAMES-sized
+#: ~1 GB dict; a cold frame beyond the window is re-warmed off-thread on demand.
+#: Presentation/resource sizing — not a domain tuning value (cf.
+#: _TILED_PREVIEW_CACHE_MAX_EDGE), so it lives here in ui/, not logic/constants.
+_COMPOSITE_CACHE_BUDGET_BYTES = 512 * 1024 * 1024
+
+#: Bounded wait (ms) for an in-flight off-thread warm to finish on tab close / app
+#: quit before the pool is torn down. A single flatten is uninterruptible, so a
+#: close mid-warm may wait up to one frame's flatten; new frames never start.
+_WARM_SHUTDOWN_WAIT_MS = 5000
 
 
 class _BufferPixmapItem(QGraphicsPixmapItem):
@@ -508,6 +539,67 @@ def _boundary_edges(
     return edges
 
 
+class _OnionOverlayItem(QGraphicsItem):
+    """Onion-skin ghosts drawn behind the active frame (REQ-P5-UI-011).
+
+    Holds a list of pre-recoloured, distance-faded ghost :class:`QImage` s (the
+    per-frame composites the Qt-free
+    :func:`~pixelart_creator.logic.animation.onion_overlay` produced), ordered
+    **farthest-first** so nearer ghosts draw on top. z is below the active buffer
+    item (``0``) yet above the tiled preview (``-0.5``), so ghosts show through the
+    active composite's transparent pixels. Only the exposed rect is blitted
+    (culling, F7). Suppressed during playback (the scene clears it, CL-11).
+    """
+
+    _Z = -0.25
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setZValue(self._Z)
+        self.setVisible(False)
+        self._ghosts: List[QImage] = []
+        self._w = 0
+        self._h = 0
+
+    def set_ghosts(self, ghosts: List[QImage], width: int, height: int) -> None:
+        """Show ``ghosts`` (farthest-first) covering the ``width`` × ``height`` area."""
+        self.prepareGeometryChange()
+        self._ghosts = ghosts
+        self._w, self._h = int(width), int(height)
+        self.setVisible(bool(ghosts))
+        self.update()
+
+    def clear(self) -> None:
+        """Hide the overlay and drop its ghost images (onion off / playing)."""
+        if not self._ghosts and not self.isVisible():
+            return
+        self.prepareGeometryChange()
+        self._ghosts = []
+        self.setVisible(False)
+        self.update()
+
+    def boundingRect(self) -> QRectF:  # noqa: N802 (Qt override)
+        return QRectF(0, 0, self._w, self._h)
+
+    def paint(  # noqa: N802 (Qt override)
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: Optional[QWidget] = None,
+    ) -> None:
+        if not self._ghosts:
+            return
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+        target = option.exposedRect.intersected(self.boundingRect())
+        if target.isEmpty():
+            target = self.boundingRect()
+        if target.isEmpty():
+            return
+        for image in self._ghosts:
+            painter.drawImage(target, image, target)
+
+
 class CanvasScene(QGraphicsScene):
     """Scene rendering the active frame's composited layer stack + background.
 
@@ -524,7 +616,21 @@ class CanvasScene(QGraphicsScene):
     while a mask is the edit target); the scene composites the whole stack for
     display. No compositing maths lives here — this module only calls the
     ``logic/blend`` compositor and maps its buffer to Qt paint calls (Article I).
+
+    Cold-frame playback pre-warm (D1/D2) is coordinated here but computed off the
+    GUI thread: :meth:`prewarm_frames` dispatches each cold frame's flatten to a
+    single-thread pool (:mod:`~pixelart_creator.ui.composite_warmer`) and each
+    result lands in the bounded cache via a queued signal; the shell drives a
+    progress indicator and the transport from :data:`prewarmStarted` /
+    :data:`prewarmAdvanced` / :data:`prewarmFinished`.
     """
+
+    #: Emitted with the number of frames a fresh warm will flatten (indicator show).
+    prewarmStarted = Signal(int)
+    #: Emitted ``(frame_index, done, total)`` as each cold frame is warmed (queued).
+    prewarmAdvanced = Signal(int, int, int)
+    #: Emitted when the warm completes or is cancelled (indicator hide).
+    prewarmFinished = Signal()
 
     def __init__(self, document: Document, parent: Optional[QObject] = None) -> None:
         """Create the scene for ``document`` and fix its scene rect (D3)."""
@@ -556,12 +662,51 @@ class CanvasScene(QGraphicsScene):
         self._live_timer.setInterval(FRAME_BUDGET_MS)
         self._live_timer.timeout.connect(self._flush_live_recomposite)
         self._live_pending = False
+        # Per-frame flattened-composite cache (FU-19 / ADR-0011): scrub and
+        # playback switch between pre-flattened frame buffers (a blit) instead of
+        # re-flattening every layer per tick. ``self._composite`` is always the
+        # cache entry for ``self._frame_index`` (all edit paths write into it, so
+        # the active frame's entry never goes stale); a switch consults the cache
+        # and rebuilds only on a MISS (deferred rebuild, never eager per switch).
+        # Keyed by frame index; the whole cache is cleared on a structural frame op
+        # (indices shift) via :meth:`refresh_frames`. Bounded by an LRU memory
+        # budget (D3): only these DERIVED composites are culled, never the source
+        # layer buffers (F7); the active frame is pinned so it is never evicted.
+        self._frame_cache = FrameCompositeCache(_COMPOSITE_CACHE_BUDGET_BYTES)
+        # Off-GUI-thread pre-warm (D1/D2): a dedicated single-thread pool flattens
+        # cold frames via the Qt-free compositor and delivers each result to the
+        # GUI thread through a QUEUED signal, so the scene owns the buffer only in
+        # _on_frame_warmed. One thread serialises the flattens and caps peak float
+        # memory. A warm ``token`` (bumped on start/cancel/edit/close) makes any
+        # superseded result a no-op; the shared cancel event is a best-effort early
+        # exit. Cancelled on Stop / edit / tab switch / close.
+        self._warm_signals = CompositeWarmSignals()
+        self._warm_signals.frameReady.connect(self._on_frame_warmed)
+        self._warm_pool = QThreadPool(self)
+        self._warm_pool.setMaxThreadCount(1)
+        self._warm_cancel = threading.Event()
+        self._warm_token = 0
+        self._warm_inflight: Set[int] = set()
+        self._warm_total = 0
+        self._warm_done = 0
+        self._warming = False
+        # Onion-skin view state (REQ-P5-UI-011/-012); recomputed via the Qt-free
+        # logic.onion_overlay. Suppressed while playing (CL-11) and during a scrub
+        # drag (kept off the 16 ms budget — recomputed when the frame settles).
+        self._onion_enabled = False
+        self._onion_prev = 0
+        self._onion_next = 0
+        self._onion_tint_prev: RGBA = (255, 0, 0, 255)
+        self._onion_tint_next: RGBA = (0, 0, 255, 255)
+        self._playing = False
         if self._compositing:
             self._composite = PixelBuffer(
                 document.width, document.height, ColorMode.RGBA
             )
             # Defer the full-stack composite to the first paint (O(1) construction).
             self._composite_dirty = True
+            self._frame_cache.put(self._frame_index, self._composite)
+            self._frame_cache.pin(self._frame_index)
         self._grid_enabled = False
         self._checker_light = QColor(_DEFAULT_CHECKER_LIGHT)
         self._checker_dark = QColor(_DEFAULT_CHECKER_DARK)
@@ -595,6 +740,9 @@ class CanvasScene(QGraphicsScene):
         self._tiled_item.setVisible(False)
         self.addItem(self._tiled_item)
         self._tiled_enabled = False
+        # Onion ghosts draw behind the active frame composite (REQ-P5-UI-011).
+        self._onion_item = _OnionOverlayItem()
+        self.addItem(self._onion_item)
         self.setSceneRect(0, 0, document.width, document.height)
 
     # -- line-tool preview (D5) ------------------------------------------
@@ -699,16 +847,382 @@ class CanvasScene(QGraphicsScene):
         self._composite.data[y0:y1, x0:x1, :] = result.data
 
     def _rebuild_composite(self) -> None:
-        """(Re)allocate the composite buffer for the current document geometry."""
+        """(Re)allocate the composite buffer for the current document geometry.
+
+        Drops the whole per-frame composite cache (geometry / tree / frame set may
+        have changed, so every cached flatten is suspect) and re-registers the
+        freshly recomposited active frame as its cache entry (FU-19 / ADR-0011).
+        """
         self._compositing = self._document.mode is ColorMode.RGBA
+        self._frame_cache.clear()
+        if self._frame_index >= len(self._document.frames):
+            self._frame_index = max(0, len(self._document.frames) - 1)
         if self._compositing:
             self._composite = PixelBuffer(
                 self._document.width, self._document.height, ColorMode.RGBA
             )
             self._recomposite_all()
+            self._frame_cache.put(self._frame_index, self._composite)
+            self._frame_cache.pin(self._frame_index)
         else:
             self._composite = None
             self._stale = QRegion()
+
+    # -- frame navigation + per-frame cache (REQ-P5-UI-002, FU-19) -------
+
+    @property
+    def frame_index(self) -> int:
+        """The active (canvas-displayed) frame index."""
+        return self._frame_index
+
+    def set_frame_index(
+        self, index: int, *, scrub: bool = False, block_on_miss: bool = True
+    ) -> bool:
+        """Display frame ``index`` (scrub / selection / playback, REQ-P5-UI-002).
+
+        The FU-19 deferred-rebuild switch (ADR-0011): the current frame's live
+        composite is stashed in the per-frame cache, then the target frame is
+        served from the cache — a cheap blit on a HIT, a single ``composite_stack``
+        flatten only on a MISS (never an eager per-switch full recomposite). Sets
+        no document state → pushes no command (CL-13).
+
+        ``scrub=True`` keeps the drag fast and **suppresses onion** (kept off the
+        16 ms budget); a settled selection (``scrub=False``) recomputes the onion
+        overlay. Playback advances with ``scrub=True`` and onion already cleared.
+
+        ``block_on_miss=False`` (playback advance, D1/D2): on a cache MISS the
+        ~20 s 8K flatten is **not** run on the GUI thread — the current display is
+        held, an off-thread warm is ensured for ``index``, and ``False`` is
+        returned so the transport waits and resumes on the streamed result. The
+        default ``block_on_miss=True`` preserves the existing synchronous scrub /
+        selection behaviour. Returns whether ``index`` is now displayed.
+        """
+        if not 0 <= index < len(self._document.frames):
+            return False
+        if index == self._frame_index:
+            # Re-selecting the current frame: nothing to switch, but a settled
+            # selection may still need the onion overlay refreshed.
+            if not scrub:
+                self._update_onion()
+            return True
+        if (
+            self._compositing
+            and not block_on_miss
+            and not self._frame_cache.contains(index)
+        ):
+            # Cold playback advance: never flatten on the GUI thread. Hold the
+            # display, warm the frame off-thread, and let the transport resume on
+            # the queued result (streaming, D1/D2).
+            self._ensure_warm(index)
+            return False
+        # Stash the current live composite so a later switch back is a blit.
+        if self._compositing and self._composite is not None:
+            self._ensure_composite()
+            self._frame_cache.put(self._frame_index, self._composite)
+        self._frame_index = index
+        self._active_layer = self._default_active_layer()
+        self._mask_edit = False
+        if self._compositing:
+            self._composite = self._ensure_frame_composite(index)
+            self._frame_cache.pin(index)
+            self._composite_dirty = False
+        self._item.set_buffer(self._display_source(), self._document.palette.colors())
+        self._tiled_item.set_source(self._item)
+        if scrub:
+            self._onion_item.clear()
+        else:
+            self._update_onion()
+        return True
+
+    def _ensure_frame_composite(self, index: int) -> PixelBuffer:
+        """Return frame ``index``'s flattened composite, building it on a miss.
+
+        The per-frame cache hit path is a blit (the resident buffer is returned
+        unchanged); the miss path flattens that frame's own layer stack **once**
+        via :func:`~pixelart_creator.logic.blend.composite_stack` and caches it
+        (FU-19). Only ever called for a compositing (RGBA) document. During
+        playback the cold-frame flatten runs off-thread instead (see
+        :meth:`prewarm_frames`); this synchronous path serves scrub / selection.
+        """
+        cached = self._frame_cache.get(index)
+        if cached is not None:
+            return cached
+        w, h = self._document.width, self._document.height
+        self._document.invalidate_caches(frame_index=index)
+        result = composite_stack(self._document.frames[index].layers, w, h)
+        self._frame_cache.put(index, result)
+        return result
+
+    # -- off-thread playback pre-warm (D1/D2) ----------------------------
+
+    def is_frame_warm(self, index: int) -> bool:
+        """Return whether frame ``index`` can be shown without a GUI-thread flatten.
+
+        True for a non-compositing (indexed) document (no flatten needed), for the
+        currently displayed frame, and for any frame resident in the derived
+        composite cache. The transport consults this to decide whether to advance
+        immediately (a blit) or wait for an off-thread warm (D1/D2).
+        """
+        if not self._compositing:
+            return True
+        if index == self._frame_index:
+            return True
+        return self._frame_cache.contains(index)
+
+    def prewarm_frames(self, order: Sequence[int]) -> None:
+        """Warm the cold frames in ``order`` off the GUI thread (D1/D2).
+
+        Opens a fresh warm session (new token; the shared cancel is cleared and any
+        queued runnables from a prior session are dropped) and dispatches each cold
+        frame — one whose composite is not already resident and is not the active
+        frame — to the single-thread pool in visitation order, so the earliest
+        frames playback needs are flattened first. A no-op for a non-compositing
+        document; when nothing is cold the transport streams at cache-hit speed
+        (no indicator shown).
+        """
+        if not self._compositing:
+            return
+        self._warm_token += 1
+        self._warm_cancel.clear()
+        self._warm_pool.clear()
+        self._warm_inflight.clear()
+        self._warm_total = 0
+        self._warm_done = 0
+        self._warming = False
+        misses = [
+            i
+            for i in order
+            if 0 <= i < len(self._document.frames)
+            and i != self._frame_index
+            and not self._frame_cache.contains(i)
+        ]
+        if not misses:
+            return
+        self._warm_total = len(misses)
+        self._warming = True
+        self.prewarmStarted.emit(self._warm_total)
+        for index in misses:
+            self._dispatch_warm(index)
+
+    def _ensure_warm(self, index: int) -> None:
+        """Warm frame ``index`` off-thread on demand unless already covered.
+
+        Skips a frame already resident or already in flight; self-healing for a
+        frame the bounded cache evicted before playback reached it (re-warmed
+        here). Opens a fresh warm episode if none is active (the initial batch
+        already finished), otherwise just extends the current one. It never signals
+        the frame as *ready* — only :meth:`_on_frame_warmed` does, on the actual
+        completion — so the transport never resumes on a not-yet-flattened frame.
+        """
+        if not self._compositing:
+            return
+        if not 0 <= index < len(self._document.frames):
+            return
+        if self._frame_cache.contains(index) or index in self._warm_inflight:
+            return
+        started = not self._warming
+        if started:
+            self._warm_total = 0
+            self._warm_done = 0
+            self._warming = True
+        self._warm_total += 1
+        self._dispatch_warm(index)
+        if started:
+            self.prewarmStarted.emit(self._warm_total)
+
+    def _dispatch_warm(self, index: int) -> None:
+        """Queue frame ``index``'s flatten on the pool (invalidate caches first).
+
+        Invalidates the frame's group caches on the GUI thread before dispatch so
+        the off-thread flatten recomputes a correct composite, then starts a
+        runnable carrying the current warm token.
+        """
+        self._document.invalidate_caches(frame_index=index)
+        self._warm_inflight.add(index)
+        runnable = FrameCompositeWarmRunnable(
+            self._warm_token,
+            index,
+            self._document.frames[index].layers,
+            self._document.width,
+            self._document.height,
+            self._warm_cancel,
+            self._warm_signals,
+        )
+        self._warm_pool.start(runnable)
+
+    def _on_frame_warmed(self, token: int, index: int, buffer: object) -> None:
+        """Receive a warmed composite on the GUI thread and cache it (queued, D2).
+
+        Ignores a result whose ``token`` no longer matches the active warm session
+        (the warm was cancelled, superseded or the document mutated). The scene
+        takes ownership of the buffer only here, on the GUI thread; it is stored in
+        the bounded cache and the transport is nudged via :data:`prewarmAdvanced`.
+        """
+        if token != self._warm_token:
+            return
+        self._warm_inflight.discard(index)
+        if not isinstance(buffer, PixelBuffer):
+            return
+        self._frame_cache.put(index, buffer)
+        self._warm_done += 1
+        self.prewarmAdvanced.emit(index, self._warm_done, self._warm_total)
+        if self._warm_done >= self._warm_total:
+            self._warming = False
+            self.prewarmFinished.emit()
+
+    def cancel_prewarm(self) -> None:
+        """Cancel any in-flight warm (Stop / edit / tab switch, D2).
+
+        Bumps the token so every in-flight result becomes a no-op, sets the shared
+        cancel event (best-effort early exit) and drops queued runnables. Cheap and
+        idempotent when no warm is active.
+        """
+        if not self._warming and not self._warm_inflight:
+            return
+        self._warm_token += 1
+        self._warm_cancel.set()
+        self._warm_pool.clear()
+        self._warm_inflight.clear()
+        self._warm_total = 0
+        self._warm_done = 0
+        was_warming = self._warming
+        self._warming = False
+        if was_warming:
+            self.prewarmFinished.emit()
+
+    def shutdown_prewarm(self) -> None:
+        """Tear the warm down on tab close / app quit (bounded wait).
+
+        Cancels, drops queued runnables and waits (bounded) for any running flatten
+        so the pool is not destroyed while a task runs. A single flatten is
+        uninterruptible, so a close mid-warm may wait up to one frame's flatten.
+        """
+        self._warm_token += 1
+        self._warm_cancel.set()
+        self._warm_pool.clear()
+        self._warm_pool.waitForDone(_WARM_SHUTDOWN_WAIT_MS)
+        self._warm_inflight.clear()
+        self._warming = False
+
+    def refresh_frames(self, index: Optional[int] = None) -> None:
+        """Rebind after a structural frame op (add/remove/reorder/duplicate).
+
+        Called by the :class:`~pixelart_creator.ui.commands.FrameCommand` refresh
+        hook: the frames list changed so cached composites (keyed by index) are
+        cleared and the active frame — clamped, or set to ``index`` when given — is
+        recomposited fresh (:meth:`_rebuild_composite`). Onion is recomputed for
+        the settled frame. Any in-flight warm is cancelled — the frame set changed,
+        so its indices and results are stale.
+        """
+        self.cancel_prewarm()
+        if index is not None and 0 <= index < len(self._document.frames):
+            self._frame_index = index
+        self._active_layer = self._default_active_layer()
+        self._mask_edit = False
+        self._rebuild_composite()
+        self._item.set_buffer(self._display_source(), self._document.palette.colors())
+        self._tiled_item.set_source(self._item)
+        self._update_onion()
+        self.invalidate(self.sceneRect(), QGraphicsScene.SceneLayer.BackgroundLayer)
+
+    # -- onion skinning (REQ-P5-UI-011/-012) -----------------------------
+
+    def set_playing(self, playing: bool) -> None:
+        """Toggle playback state; onion is suppressed while playing (CL-11)."""
+        self._playing = bool(playing)
+        if self._playing:
+            self._onion_item.clear()
+        else:
+            self._update_onion()
+
+    def set_onion_settings(
+        self,
+        enabled: bool,
+        prev_count: int,
+        next_count: int,
+        tint_prev: RGBA,
+        tint_next: RGBA,
+    ) -> None:
+        """Apply the onion view settings and recompute the overlay live (UI-012).
+
+        View settings only — no document mutation, no undo (CL-13).
+        """
+        self._onion_enabled = bool(enabled)
+        self._onion_prev = int(prev_count)
+        self._onion_next = int(next_count)
+        self._onion_tint_prev = tint_prev
+        self._onion_tint_next = tint_next
+        self._update_onion()
+
+    def _update_onion(self) -> None:
+        """Recompute the onion ghosts for the active frame (Qt-free maths in logic).
+
+        Gathers the nearest-first previous/next frame layer stacks around the
+        active frame and delegates the composite + distance-fade + z-order to
+        :func:`~pixelart_creator.logic.animation.onion_overlay` (S11 — no onion
+        maths here). Suppressed when disabled, while playing, or for a
+        non-compositing (indexed) document (the compositor is RGBA-only).
+        """
+        if not self._onion_enabled or self._playing or not self._compositing:
+            self._onion_item.clear()
+            return
+        frames = self._document.frames
+        active = self._frame_index
+        count = len(frames)
+        prev_stacks = [
+            frames[active - d].layers
+            for d in range(1, self._onion_prev + 1)
+            if active - d >= 0
+        ]
+        next_stacks = [
+            frames[active + d].layers
+            for d in range(1, self._onion_next + 1)
+            if active + d < count
+        ]
+        if not prev_stacks and not next_stacks:
+            self._onion_item.clear()
+            return
+        w, h = self._document.width, self._document.height
+        try:
+            contributions = onion_overlay(prev_stacks, next_stacks, w, h)
+        except (AnimationError, BlendError):
+            self._onion_item.clear()
+            return
+        prev_len = len(prev_stacks)
+        ordered: List[Tuple[int, QImage]] = []
+        for i, contribution in enumerate(contributions):
+            tint = self._onion_tint_prev if i < prev_len else self._onion_tint_next
+            image = self._recolor_silhouette(
+                self._preview_qimage(contribution.buffer), tint
+            )
+            ordered.append((contribution.z_order, image))
+        # z_order is -distance; ascending order draws the farthest ghost first so
+        # nearer ghosts render on top (matching the logic's z semantics).
+        ordered.sort(key=lambda pair: pair[0])
+        self._onion_item.set_ghosts([image for _z, image in ordered], w, h)
+        self.update(self._onion_item.boundingRect())
+
+    @staticmethod
+    def _recolor_silhouette(image: QImage, tint: RGBA) -> QImage:
+        """Recolour an alpha silhouette to ``tint``, preserving per-pixel alpha.
+
+        Presentation-only styling — the same class of Qt-side visual choice as the
+        marching-ants colours or the tiled-preview dimming (``setOpacity``): an
+        onion ghost is an ephemeral view overlay that never becomes document
+        pixels, so its *display* tint is applied here in Qt while the composite,
+        distance-fade and z-order MATHS stay in ``logic.onion_overlay`` (S11). The
+        silhouette's alpha (already faded by distance) is kept; only its RGB is set
+        to the configured tint via ``CompositionMode_SourceIn`` (REQ-P5-UI-012).
+        """
+        base = image.convertToFormat(QImage.Format.Format_RGBA8888)
+        out = QImage(base.size(), QImage.Format.Format_RGBA8888)
+        out.fill(0)
+        painter = QPainter(out)
+        painter.drawImage(0, 0, base)
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+        painter.fillRect(out.rect(), QColor(*tint))
+        painter.end()
+        return out
 
     # -- document binding -------------------------------------------------
 
@@ -782,6 +1296,7 @@ class CanvasScene(QGraphicsScene):
         self._item.set_buffer(self._display_source(), document.palette.colors())
         self._tiled_item.set_source(self._item)
         self._selection_overlay.set_mask(None)
+        self._update_onion()
         self._apply_scene_rect()
         self.invalidate(self.sceneRect(), QGraphicsScene.SceneLayer.BackgroundLayer)
 
@@ -830,8 +1345,10 @@ class CanvasScene(QGraphicsScene):
 
         When compositing, the dirty region is recomposited from the layer stack
         first (``composite_stack(region=...)``, ADR-0007) so the edit shows
-        through the flattened view (REQ-P4-UI-012).
+        through the flattened view (REQ-P4-UI-012). A pixel edit mutates a source
+        buffer, so any in-flight warm reading it is cancelled (D2 no-race).
         """
+        self.cancel_prewarm()
         if self._compositing:
             self._recomposite_region(rect)
         self._item.sync_region(rect)
@@ -844,7 +1361,10 @@ class CanvasScene(QGraphicsScene):
         A layer-**tree** change (add/remove/reorder/group/ungroup) recomposites
         the whole stack before repainting (REQ-P4-UI-013). Attribute changes take
         the viewport-scoped :meth:`refresh_visible` path instead (D2), never this.
+        A tree change invalidates the warmed frame composites, so any in-flight
+        warm is cancelled (D2 no-race).
         """
+        self.cancel_prewarm()
         if self._compositing:
             self._recomposite_all()
         self._item.sync_region(self._item.boundingRect())
@@ -880,8 +1400,11 @@ class CanvasScene(QGraphicsScene):
         off-screen remainder is recorded as stale and refreshed lazily by
         :meth:`recomposite_exposed` when it pans into view (F2/F7 viewport culling
         applied to compositing). This never recomposites the whole 33 Mpx canvas.
-        The resident per-layer buffers are never culled (Article VI §3, F7).
+        The resident per-layer buffers are never culled (Article VI §3, F7). An
+        attribute change alters the composite, so any in-flight warm is cancelled
+        (D2 no-race).
         """
+        self.cancel_prewarm()
         if not self._compositing:
             self._item.sync_region(self._item.boundingRect())
             self._item.update()
