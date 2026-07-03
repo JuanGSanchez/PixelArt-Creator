@@ -16,8 +16,14 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
+from pixelart_creator.logic.animation import (
+    AnimationError,
+    FrameTag,
+    PlaybackMode,
+    validate_tag_range,
+)
 from pixelart_creator.logic.blend import BlendMode
-from pixelart_creator.logic.color import from_hex, to_hex
+from pixelart_creator.logic.color import ColorError, from_hex, to_hex
 from pixelart_creator.logic.constants import (
     DEFAULT_FRAME_DURATION_MS,
     DEFAULT_LAYER_OPACITY,
@@ -38,11 +44,14 @@ from pixelart_creator.logic.palette import MAX_PALETTE_SIZE, Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 
 FORMAT_NAME = "pixproj"
-#: Current schema version (ADR-0006). v2 serialises the richer layer model
-#: (per-node blend mode, groups, masks, reference/smart links); v1 files still
-#: load (flat NORMAL layers, no groups/masks — back-compat).
-FORMAT_VERSION = 2
-_SUPPORTED_VERSIONS = (1, 2)
+#: Current schema version (ADR-0012). v3 adds document-level ``frame_tags``
+#: (named animations, native ``PlaybackMode`` value strings) and a per-node
+#: stable ``layer_id``; v2 serialises the richer layer model (per-node blend
+#: mode, groups, masks, reference/smart links); v1 files still load (flat NORMAL
+#: layers). v1/v2 load with an empty tag collection and minted ``layer_id`` s
+#: (back-compat). Saving always writes v3.
+FORMAT_VERSION = 3
+_SUPPORTED_VERSIONS = (1, 2, 3)
 FILE_SUFFIX = ".pixproj"
 
 #: Hard cap on a decoded pixel payload (bytes) — a full 8K RGBA layer plus slack.
@@ -91,6 +100,7 @@ def _serialise_node(node: LayerNode, paths: Dict[int, List[int]]) -> Dict[str, A
         "locked": node.locked,
         "blend_mode": node.blend_mode.value,
         "reference": node.reference,
+        "layer_id": node.layer_id,
         "mask": _serialise_buffer(node.mask) if node.mask is not None else None,
     }
     if isinstance(node, LayerGroup):
@@ -105,8 +115,20 @@ def _serialise_node(node: LayerNode, paths: Dict[int, List[int]]) -> Dict[str, A
     return common
 
 
+def _serialise_tag(tag: FrameTag) -> Dict[str, Any]:
+    """Serialise a :class:`FrameTag` (native ``PlaybackMode`` value string)."""
+    return {
+        "name": tag.name,
+        "from": tag.from_frame,
+        "to": tag.to_frame,
+        "mode": tag.mode.value,
+        "repeat": tag.repeat,
+        "color": tag.color,
+    }
+
+
 def serialize(document: Document) -> Dict[str, Any]:
-    """Serialise a :class:`Document` to a plain JSON-ready dict (schema v2)."""
+    """Serialise a :class:`Document` to a plain JSON-ready dict (schema v3)."""
     frames_out: List[Dict[str, Any]] = []
     for frame in document.frames:
         paths = _node_paths(frame.layers)
@@ -127,6 +149,7 @@ def serialize(document: Document) -> Dict[str, Any]:
         "palette": [to_hex(c) for c in document.palette],
         "metadata": dict(document.metadata),
         "frames": frames_out,
+        "frame_tags": [_serialise_tag(tag) for tag in document.frame_tags],
     }
 
 
@@ -259,6 +282,11 @@ def _parse_node_v2(
     reference = bool(data.get("reference", False))
     visible = bool(data.get("visible", True))
     locked = bool(data.get("locked", False))
+    layer_id = data.get("layer_id", 0)
+    _require(
+        isinstance(layer_id, int) and not isinstance(layer_id, bool) and layer_id >= 0,
+        "layer_id must be a non-negative int",
+    )
 
     if node_type == "group":
         _require(
@@ -280,6 +308,7 @@ def _parse_node_v2(
             blend_mode=blend_mode,
             mask=mask,
             reference=reference,
+            layer_id=layer_id,
         )
 
     leaf_counter[0] += 1
@@ -297,6 +326,7 @@ def _parse_node_v2(
         blend_mode=blend_mode,
         mask=mask,
         reference=reference,
+        layer_id=layer_id,
     )
     smart = data.get("smart_source")
     if smart is not None:
@@ -368,6 +398,69 @@ def _parse_frame_v1(fdata: Any, width: int, height: int, mode: ColorMode) -> Fra
     return Frame(layers, duration_ms=duration)
 
 
+def _parse_tags(raw: Any, frame_count: int) -> List[FrameTag]:
+    """Parse and validate the document ``frame_tags`` array (v3, defensive).
+
+    Rejects a non-list container, a malformed tag object, an unknown
+    :class:`PlaybackMode`, a non-int/negative repeat, a malformed colour, or an
+    inverted/out-of-range frame range — each with :class:`ProjectIOError`
+    (Article VII / REQ-P5-DATA-003). No clamping on load (clamping is a runtime
+    frame-op concern, REQ-P5-LOGIC-010).
+    """
+    _require(isinstance(raw, list), "frame_tags must be a list")
+    tags: List[FrameTag] = []
+    for entry in raw:
+        _require(isinstance(entry, dict), "each frame tag must be a JSON object")
+        name = _get(entry, "name", str)
+        from_frame = _get(entry, "from", int)
+        to_frame = _get(entry, "to", int)
+        mode_name = _get(entry, "mode", str)
+        try:
+            mode = PlaybackMode(mode_name)
+        except ValueError as exc:
+            raise ProjectIOError(f"unknown playback mode {mode_name!r}") from exc
+        repeat = entry.get("repeat", 0)
+        _require(
+            isinstance(repeat, int) and not isinstance(repeat, bool) and repeat >= 0,
+            "tag repeat must be a non-negative int",
+        )
+        color = entry.get("color", "#ff0000ff")
+        _require(isinstance(color, str), "tag color must be a string")
+        try:
+            from_hex(color)
+        except ColorError as exc:
+            raise ProjectIOError(f"invalid tag color {color!r}: {exc}") from exc
+        try:
+            validate_tag_range(from_frame, to_frame, frame_count)
+        except AnimationError as exc:
+            raise ProjectIOError(str(exc)) from exc
+        tags.append(
+            FrameTag(name, from_frame, to_frame, mode=mode, repeat=repeat, color=color)
+        )
+    return tags
+
+
+def _assign_loaded_ids(document: Document) -> None:
+    """Preserve loaded stable ``layer_id`` s and mint fresh ones for unset nodes.
+
+    v3 nodes carry an explicit ``layer_id``; v1/v2 nodes have ``0`` (unminted).
+    The document's monotonic counter is advanced past the highest loaded id so
+    later mints never collide, then any unset node is assigned a fresh id.
+    """
+    max_id = 0
+    stack: List[LayerNode] = []
+    for frame in document.frames:
+        stack.extend(frame.layers)
+    while stack:
+        node = stack.pop()
+        max_id = max(max_id, node.layer_id)
+        if isinstance(node, LayerGroup):
+            stack.extend(node.children)
+    document._next_layer_id = max_id + 1
+    for frame in document.frames:
+        document._assign_ids(frame.layers)
+
+
 def deserialize(payload: Dict[str, Any]) -> Document:
     """Reconstruct a :class:`Document` from a parsed ``.pixproj`` dict.
 
@@ -413,6 +506,10 @@ def deserialize(payload: Dict[str, Any]) -> Document:
     document = Document(width, height, mode=mode, palette=palette, metadata=metadata)
     parse_frame = _parse_frame_v1 if version == 1 else _parse_frame_v2
     document.frames = [parse_frame(fdata, width, height, mode) for fdata in frames_raw]
+    _assign_loaded_ids(document)
+    document.frame_tags = _parse_tags(
+        payload.get("frame_tags", []), len(document.frames)
+    )
     return document
 
 
