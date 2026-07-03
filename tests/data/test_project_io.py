@@ -77,8 +77,9 @@ def test_save_keeps_existing_suffix(tmp_path):
 def test_serialize_shape():
     payload = pio.serialize(Document(2, 2))
     assert payload["format"] == "pixproj"
-    # Schema is now v3 (Phase-5 frame tags, ADR-0012); v1/v2 still load (back-compat).
-    assert payload["version"] == 3
+    # Schema is now v4 (Phase-6 tilesets/tilemaps, ADR-0016); v1/v2/v3 still
+    # load (back-compat).
+    assert payload["version"] == 4
     assert payload["canvas"] == {"width": 2, "height": 2, "mode": "rgba"}
 
 

@@ -41,6 +41,7 @@ from pixelart_creator.ui.theme import (  # noqa: E402
     apply_theme,
     canvas_roles,
 )
+from pixelart_creator.ui.tilemap_canvas import Tilemap_Canvas  # noqa: E402
 from pixelart_creator.ui.tools import PencilTool  # noqa: E402
 
 #: A tiny deterministic palette used across the suite.
@@ -119,6 +120,17 @@ def _drain_prewarm_after_test():
     # however it was constructed (fixture, factory, or bare constructor),
     # without each test opting in. Idempotent + guarded, so double/partial
     # drains are harmless.
+    #
+    # Phase-6 (AGT-06): the tilemap canvas owns its OWN off-thread chunk warmer
+    # (``_Tilemap_Scene`` QThreadPool + ``TilemapChunkWarmSignals`` carrier) — the
+    # same PySide6 cross-thread-GC-of-Qt-C++ segfault class as the Phase-5 prewarm.
+    # A ``Main_Window``'s tilemap canvas is drained by its ``shutdown_prewarm``
+    # (it calls ``self._tilemap_canvas.shutdown_warm()``), so the Main_Window branch
+    # already covers it. A test that builds a **standalone** ``Tilemap_Canvas`` (no
+    # window) is NOT reached that way, so it is drained explicitly here via
+    # ``shutdown_warm``. This makes the tilemap tests xdist-safe (``-n auto``) with
+    # no per-test opt-in — no worker thread / connected carrier survives into a
+    # later worker-process test's GC.
     for obj in gc.get_objects():
         if isinstance(obj, (Main_Window, CanvasScene)):
             try:
@@ -127,6 +139,11 @@ def _drain_prewarm_after_test():
                 # RuntimeError: underlying Qt C++ object already deleted.
                 # AttributeError: instance from a __init__ that raised before
                 # the warm attributes existed -> nothing live to drain.
+                pass
+        elif isinstance(obj, Tilemap_Canvas):
+            try:
+                obj.shutdown_warm()
+            except (RuntimeError, AttributeError):
                 pass
 
     # Collect NOW, while every pool is drained and every carrier disconnected,
@@ -183,5 +200,62 @@ def make_view(make_scene, qtbot):
         view.set_tool(PencilTool())
         view.set_active_color(BLUE)
         return view, scene, stack
+
+    return _make
+
+
+# --------------------------------------------------------------------------- #
+# Phase-6 tilemap builders (AGT-06). Pure-logic factories the UI binds to; no  #
+# Qt is needed to construct them, so they exercise the frozen logic/data API   #
+# exactly as the widgets do (Article I / S11).                                 #
+# --------------------------------------------------------------------------- #
+
+
+def _rgba_tileset_source(cols: int, rows: int, tile: int):
+    """Return an RGBA source of ``cols x rows`` distinctly-coloured tiles."""
+    from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+
+    src = PixelBuffer(cols * tile, rows * tile, ColorMode.RGBA)
+    for r in range(rows):
+        for c in range(cols):
+            colour = ((c * 37 + 20) % 256, (r * 53 + 40) % 256, 90, 255)
+            src.data[r * tile : (r + 1) * tile, c * tile : (c + 1) * tile] = colour
+    return src
+
+
+@pytest.fixture
+def make_tilemap_setup():
+    """Factory: ``(tileset, tilemap)`` with ``cols*rows`` tiles + ``layers`` layer(s).
+
+    The tileset's ``first_gid`` is ``1`` (Tiled's first tileset) and it is attached
+    to the tilemap's gid space, so gids ``1..cols*rows`` are stampable. Returns the
+    logic objects the tileset editor / tilemap canvas / layer panel bind to.
+    """
+    from pixelart_creator.logic.tilemap import Tilemap
+    from pixelart_creator.logic.tileset import Tileset
+
+    def _make(cols: int = 4, rows: int = 2, tile: int = 16, layers: int = 1):
+        source = _rgba_tileset_source(cols, rows, tile)
+        tileset = Tileset(source, tile_width=tile, tile_height=tile, first_gid=1)
+        tilemap = Tilemap(tile_width=tile, tile_height=tile)
+        tilemap.make_attach_tileset_command(tileset).execute()
+        for index in range(layers):
+            tilemap.make_add_layer_command(name=f"Layer {index + 1}").execute()
+        return tileset, tilemap
+
+    return _make
+
+
+@pytest.fixture
+def make_blob_setup(make_tilemap_setup):
+    """Factory: ``(tileset, tilemap)`` whose tileset holds a full 47-frame blob atlas.
+
+    ``base_gid = 1`` and gids ``1..47`` all resolve, so the tilemap canvas can build
+    a Blob-47 :class:`AutotileRuleset` (auto-tile acceptance, REQ-P6-UI-009).
+    """
+
+    def _make(tile: int = 16, layers: int = 1):
+        # 7x7 = 49 tiles >= BLOB_TILE_COUNT (47); frames 1..47 all resolve.
+        return make_tilemap_setup(cols=7, rows=7, tile=tile, layers=layers)
 
     return _make
