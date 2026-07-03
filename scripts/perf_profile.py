@@ -84,6 +84,16 @@ except Exception:  # pragma: no cover - fallback when package not on path
 D_LAYERS = 8
 D_REGION_SIZE = 16
 
+# Tilemap-mode defaults (AGT-10 DEP-3 Phase-6 render-seam profiling). Qt-FREE:
+# times logic/tilemap.render_region — the single tunable call the tilemap
+# drawBackground seam issues per exposed rect (AGT-05 report, DEP-3). Distinct
+# from the composite gate: this measures the tilemap per-cell resolve+blit+
+# composite cost against FRAME_BUDGET_MS (16 ms), not the region-recomposite
+# catastrophic ceiling.
+D_TM_TILE = 16  # default tileset tile edge (DEFAULT_TILE_WIDTH) — NOT TILE_SIZE
+D_TM_LAYERS = 1
+_TM_ATLAS_EDGE_TILES = 8  # 8x8 = 64 tiles >= 47 blob frames for the autotile case
+
 
 def _percentile(sorted_vals, q):
     if not sorted_vals:
@@ -258,6 +268,372 @@ def _run_composite(args):
     return 0
 
 
+# --------------------------------------------------------------------------- #
+# Tilemap mode (DEP-3) — Qt-FREE render-seam frame-budget profiler             #
+# --------------------------------------------------------------------------- #
+# Origin sweep strides (coprime with tile/chunk edges) so a pan scenario reads
+# a fresh set of chunks each frame rather than short-circuiting on identity.
+_TM_STRIDE_X = 37
+_TM_STRIDE_Y = 23
+_TM_WARMUP = 2
+
+
+def _run_tilemap(args):
+    """Profile ``logic/tilemap.render_region`` against FRAME_BUDGET_MS (DEP-3).
+
+    Builds a populated tilemap (a real RGBA tileset atlas + ``args.tm_layers``
+    chunked-sparse layers, optionally auto-tiled) and times ``args.frames``
+    ``render_region(x, y, rw, rh)`` calls over an ``rw`` x ``rh`` pixel region —
+    the exact viewport-cull seam the tilemap ``drawBackground`` issues per exposed
+    rect (AGT-05 render-seam report). Qt-FREE: numpy + logic only, so it runs in
+    CI under no display. Compares the median to ``args.budget_ms`` (16 ms, S12).
+
+    Returns 0 (median <= budget), 1 (over budget), 2 (construction error).
+    """
+    rw, rh = args.tm_region
+    tw = args.tm_tile
+    layers = args.tm_layers
+    budget = args.budget_ms
+
+    if rw <= 0 or rh <= 0 or tw <= 0 or layers < 1 or args.frames <= 0:
+        sys.stderr.write("perf_profile: invalid tilemap geometry/layers.\n")
+        print(json.dumps({"error": "invalid-input"}))
+        return 2
+    if rw > D_W or rh > D_H:
+        sys.stderr.write("perf_profile: tilemap region exceeds canvas bounds.\n")
+        print(json.dumps({"error": "region-larger-than-canvas"}))
+        return 2
+
+    # Qt-FREE imports: numpy + logic only (NO PySide6 on this branch).
+    try:
+        from pixelart_creator.logic.autotile import (
+            BLOB_TILE_COUNT,
+            AutotileRuleset,
+        )
+        from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+        from pixelart_creator.logic.tilemap import Tilemap, TilemapLayer
+        from pixelart_creator.logic.tileset import Tileset
+    except Exception as exc:  # logic unavailable -> construction error, not Qt.
+        sys.stderr.write("perf_profile: logic package unavailable: %r\n" % exc)
+        print(json.dumps({"error": "logic-unavailable", "detail": repr(exc)}))
+        return 2
+
+    try:
+        # A real RGBA tileset atlas: 8x8 = 64 tiles (>= 47 blob frames). Each tile
+        # gets a distinct semi-opaque fill so blit actually alpha-composites (the
+        # per-cell blend cost is on the critical path — no fully-opaque shortcut).
+        atlas_edge = _TM_ATLAS_EDGE_TILES
+        source = PixelBuffer(
+            atlas_edge * tw, atlas_edge * tw, ColorMode.RGBA, fill=(90, 140, 200, 200)
+        )
+        tileset = Tileset(source, tile_width=tw, tile_height=tw, first_gid=1)
+        tilemap = Tilemap(tile_width=tw, tile_height=tw)
+        tilemap.tilesets.append(tileset)
+
+        # Cell range covering the region plus a margin so a pan scenario can slide
+        # the origin over genuinely populated chunks each frame (culling realism).
+        margin_cells = max(2, (max(_TM_STRIDE_X, _TM_STRIDE_Y) // tw) + 2)
+        cols = rw // tw + margin_cells
+        rows = rh // tw + margin_cells
+        terrain_gid = 1
+
+        for li in range(layers):
+            layer = TilemapLayer(name=f"L{li}")
+            if args.tm_autotile:
+                frame_gids = list(range(terrain_gid, terrain_gid + BLOB_TILE_COUNT))
+                layer.autotile = AutotileRuleset(
+                    terrain_gid=terrain_gid, frame_gids=frame_gids
+                )
+            tilemap.layers.append(layer)
+            # Populate the full cell block (worst case: every cell occupied).
+            cmd = tilemap.make_fill_rect_command(li, 0, 0, cols, rows, terrain_gid)
+            cmd.execute()
+    except Exception as exc:
+        sys.stderr.write("perf_profile: tilemap construction error: %r\n" % exc)
+        print(json.dumps({"error": repr(exc)}))
+        return 2
+
+    # Slide the origin over the populated margin so each frame reads fresh cells.
+    span_x = max(1, margin_cells * tw)
+    span_y = max(1, margin_cells * tw)
+
+    def _origin(i):
+        return ((i * _TM_STRIDE_X) % span_x, (i * _TM_STRIDE_Y) % span_y)
+
+    try:
+        for w in range(_TM_WARMUP):
+            ox, oy = _origin(w)
+            tilemap.render_region(ox, oy, rw, rh)
+        samples = []
+        for i in range(args.frames):
+            ox, oy = _origin(i + _TM_WARMUP)
+            t0 = time.perf_counter()
+            tilemap.render_region(ox, oy, rw, rh)
+            t1 = time.perf_counter()
+            samples.append((t1 - t0) * 1000.0)
+    except Exception as exc:
+        sys.stderr.write("perf_profile: tilemap render error: %r\n" % exc)
+        print(json.dumps({"error": repr(exc)}))
+        return 2
+
+    samples.sort()
+    median = _percentile(samples, 0.5)
+    p95 = _percentile(samples, 0.95)
+    within = median <= budget
+    cells = (rw // tw + 1) * (rh // tw + 1) * layers
+    report = {
+        "mode": "tilemap",
+        "median_ms": round(median, 4),
+        "p95_ms": round(p95, 4),
+        "budget_ms": budget,
+        "within_budget": within,
+        "frames": args.frames,
+        "cells_per_frame": cells,
+        "scenario": {
+            "region": [rw, rh],
+            "tile": tw,
+            "layers": layers,
+            "autotile": bool(args.tm_autotile),
+            "region_cells": [rw // tw, rh // tw],
+        },
+    }
+    print(json.dumps(report, indent=2, sort_keys=True))
+    if not within:
+        sys.stderr.write(
+            "perf_profile: tilemap OVER budget (median %.3f ms > %.1f ms).\n"
+            % (median, budget)
+        )
+        return 1
+    sys.stderr.write(
+        "perf_profile: tilemap within budget (median %.3f ms <= %.1f ms).\n"
+        % (median, budget)
+    )
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# Tilemap CACHE mode (DEP-3 loop-back) — the ACTUAL interactive per-frame slice #
+# --------------------------------------------------------------------------- #
+# Models the shipped drawBackground path WITH the D1 chunk-pixmap cache in place
+# (AGT-05 tilemap_canvas._draw_map), NOT a cold full re-render. The GUI-thread
+# per-frame cost is:
+#   * up to _SYNC_CHUNK_BUDGET (8) COLD chunks rendered INLINE via render_region
+#     (each a chunk-sized region == TILEMAP_CHUNK_SIZE*tile px square); the rest
+#     of a cold viewport streams OFF-THREAD (not on this frame's GUI slice), plus
+#   * N WARM cached-chunk QPixmap blits (drawPixmap) for chunks already resident.
+# COLD first-paint  == cold=_SYNC_CHUNK_BUDGET renders + already-cached blits.
+# WARM steady-state == cold=0 renders (pure blits, all cache hits).
+# The render slice is Qt-FREE (render_region); the blit slice uses Qt when
+# PySide6 is importable (guarded) and degrades to a structural 0 otherwise.
+_TM_CHUNK_CELLS_FALLBACK = 16  # TILEMAP_CHUNK_SIZE fallback
+
+
+def _run_tilemap_cache(args):
+    """Profile the cache-in-place GUI-thread per-frame slice (DEP-3 loop-back).
+
+    Per timed frame: render ``args.tm_cold`` cold chunks inline (bounded by the
+    _SYNC_CHUNK_BUDGET model) via ``render_region`` over a chunk-sized region,
+    then blit ``args.tm_warm`` cached chunk pixmaps (Qt, guarded). Reports the
+    per-chunk render cost, the combined GUI-thread frame cost (median + p95), and
+    compares the median to ``args.budget_ms`` (16 ms, S12).
+
+    Returns 0 (median <= budget), 1 (over budget), 2 (construction error).
+    """
+    tw = args.tm_tile
+    layers = args.tm_layers
+    budget = args.budget_ms
+    cold = args.tm_cold
+    warm = args.tm_warm
+    if tw <= 0 or layers < 1 or args.frames <= 0 or cold < 0 or warm < 0:
+        sys.stderr.write("perf_profile: invalid tilemap-cache geometry.\n")
+        print(json.dumps({"error": "invalid-input"}))
+        return 2
+
+    try:
+        from pixelart_creator.logic.autotile import BLOB_TILE_COUNT, AutotileRuleset
+        from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+        from pixelart_creator.logic.tilemap import Tilemap, TilemapLayer
+        from pixelart_creator.logic.tileset import Tileset
+
+        try:
+            from pixelart_creator.logic.constants import TILEMAP_CHUNK_SIZE as _CC
+        except Exception:
+            _CC = _TM_CHUNK_CELLS_FALLBACK
+    except Exception as exc:
+        sys.stderr.write("perf_profile: logic package unavailable: %r\n" % exc)
+        print(json.dumps({"error": "logic-unavailable", "detail": repr(exc)}))
+        return 2
+
+    chunk_cells = _CC
+    chunk_px = chunk_cells * tw
+    if chunk_px <= 0 or chunk_px > D_W or chunk_px > D_H:
+        sys.stderr.write("perf_profile: chunk px exceeds canvas bounds.\n")
+        print(json.dumps({"error": "chunk-larger-than-canvas"}))
+        return 2
+
+    # Populate a block of chunks large enough to sweep the cold-chunk origins over
+    # genuinely-filled chunks (worst case: every cell occupied).
+    need_chunks = max(cold, warm, 16)
+    grid = 1
+    while grid * grid < need_chunks:
+        grid += 1
+    # Cap the block so it stays within the 8K canvas.
+    grid = min(grid, D_W // chunk_px, D_H // chunk_px)
+    if grid < 1:
+        grid = 1
+    block_cells = grid * chunk_cells
+
+    try:
+        atlas_edge = _TM_ATLAS_EDGE_TILES
+        source = PixelBuffer(
+            atlas_edge * tw, atlas_edge * tw, ColorMode.RGBA, fill=(90, 140, 200, 200)
+        )
+        tileset = Tileset(source, tile_width=tw, tile_height=tw, first_gid=1)
+        tilemap = Tilemap(tile_width=tw, tile_height=tw)
+        tilemap.tilesets.append(tileset)
+        terrain_gid = 1
+        for li in range(layers):
+            layer = TilemapLayer(name=f"L{li}")
+            if args.tm_autotile:
+                frame_gids = list(range(terrain_gid, terrain_gid + BLOB_TILE_COUNT))
+                layer.autotile = AutotileRuleset(
+                    terrain_gid=terrain_gid, frame_gids=frame_gids
+                )
+            tilemap.layers.append(layer)
+            cmd = tilemap.make_fill_rect_command(
+                li, 0, 0, block_cells, block_cells, terrain_gid
+            )
+            cmd.execute()
+    except Exception as exc:
+        sys.stderr.write("perf_profile: tilemap-cache construction error: %r\n" % exc)
+        print(json.dumps({"error": repr(exc)}))
+        return 2
+
+    total_chunks = grid * grid
+
+    def _chunk_origin(idx):
+        cxi = idx % grid
+        cyi = (idx // grid) % grid
+        return cxi * chunk_px, cyi * chunk_px
+
+    # --- Qt blit setup (guarded; warm slice). Degrades to structural 0. -------
+    # Uses QImage + QPainter.drawImage (NOT QPixmap): needs no QGuiApplication and
+    # runs fully headless. An offscreen/raster QPixmap is a QImage internally, so
+    # drawImage of a premultiplied ARGB image is a faithful proxy for the shipped
+    # drawPixmap blit cost (a GL viewport uploads to a texture, typically cheaper).
+    qt_ok = False
+    warm_images = []
+    painter_img = None
+    _QPainter = _QImage = None
+    if warm > 0:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        try:
+            from PySide6.QtGui import QImage, QPainter
+
+            _QPainter, _QImage = QPainter, QImage
+            qt_ok = True
+        except Exception as exc:  # pragma: no cover - Qt absent -> structural 0
+            sys.stderr.write(
+                "perf_profile: PySide6 unavailable, warm-blit modelled as 0: %r\n" % exc
+            )
+
+    try:
+        # Per-chunk render cost (Qt-free) — the inline-miss building block.
+        per_chunk = []
+        for w in range(_TM_WARMUP):
+            ox, oy = _chunk_origin(w)
+            tilemap.render_region(ox, oy, chunk_px, chunk_px)
+        for i in range(args.frames):
+            ox, oy = _chunk_origin(i + _TM_WARMUP)
+            t0 = time.perf_counter()
+            tilemap.render_region(ox, oy, chunk_px, chunk_px)
+            per_chunk.append((time.perf_counter() - t0) * 1000.0)
+
+        # Build the warm cache once (render -> premultiplied QImage) for the blit.
+        if warm > 0 and qt_ok:
+            for k in range(min(warm, total_chunks)):
+                ox, oy = _chunk_origin(k)
+                buf = tilemap.render_region(ox, oy, chunk_px, chunk_px)
+                arr = buf.data  # (H, W, 4) uint8, RGBA
+                img = _QImage(
+                    arr.tobytes(),
+                    chunk_px,
+                    chunk_px,
+                    chunk_px * 4,
+                    _QImage.Format.Format_RGBA8888,
+                ).convertToFormat(_QImage.Format.Format_ARGB32_Premultiplied)
+                warm_images.append(img)
+            # Tile the (possibly fewer) built images up to `warm` blits/frame.
+            vw = min(D_W, grid * chunk_px)
+            vh = min(D_H, grid * chunk_px)
+            painter_img = _QImage(vw, vh, _QImage.Format.Format_ARGB32_Premultiplied)
+
+        # Timed frames: cold inline renders + warm blits (the GUI-thread slice).
+        samples = []
+        for i in range(args.frames):
+            t0 = time.perf_counter()
+            for c in range(cold):
+                ox, oy = _chunk_origin((i * max(cold, 1) + c) % max(total_chunks, 1))
+                tilemap.render_region(ox, oy, chunk_px, chunk_px)
+            if warm > 0 and qt_ok and warm_images:
+                p = _QPainter(painter_img)
+                np_ = len(warm_images)
+                cols = max(1, painter_img.width() // chunk_px)
+                for b in range(warm):
+                    im = warm_images[b % np_]
+                    dx = (b % cols) * chunk_px
+                    dy = (b // cols) * chunk_px
+                    p.drawImage(dx, dy, im)
+                p.end()
+            samples.append((time.perf_counter() - t0) * 1000.0)
+    except Exception as exc:
+        sys.stderr.write("perf_profile: tilemap-cache render error: %r\n" % exc)
+        print(json.dumps({"error": repr(exc)}))
+        return 2
+
+    per_chunk.sort()
+    samples.sort()
+    pc_median = _percentile(per_chunk, 0.5)
+    pc_p95 = _percentile(per_chunk, 0.95)
+    median = _percentile(samples, 0.5)
+    p95 = _percentile(samples, 0.95)
+    within = median <= budget
+    report = {
+        "mode": "tilemap-cache",
+        "median_ms": round(median, 4),
+        "p95_ms": round(p95, 4),
+        "per_chunk_median_ms": round(pc_median, 4),
+        "per_chunk_p95_ms": round(pc_p95, 4),
+        "budget_ms": budget,
+        "within_budget": within,
+        "frames": args.frames,
+        "warm_blit_measured": bool(warm > 0 and qt_ok),
+        "scenario": {
+            "tile": tw,
+            "chunk_cells": chunk_cells,
+            "chunk_px": chunk_px,
+            "layers": layers,
+            "autotile": bool(args.tm_autotile),
+            "cold_chunks_inline": cold,
+            "warm_blits": warm,
+            "sync_chunk_budget": args.tm_sync_budget,
+            "block_chunks": total_chunks,
+        },
+    }
+    print(json.dumps(report, indent=2, sort_keys=True))
+    if not within:
+        sys.stderr.write(
+            "perf_profile: tilemap-cache OVER budget (median %.3f ms > %.1f ms).\n"
+            % (median, budget)
+        )
+        return 1
+    sys.stderr.write(
+        "perf_profile: tilemap-cache within budget (median %.3f ms <= %.1f ms; "
+        "per-chunk %.3f ms).\n" % (median, budget, pc_median)
+    )
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description="Headless frame-budget profiler (S12).")
     ap.add_argument("--width", type=int, default=D_W)
@@ -277,10 +653,50 @@ def main():
     ap.add_argument("--region-size", type=int, default=D_REGION_SIZE)
     ap.add_argument("--ceiling-ms", type=float, default=D_CEILING)
     ap.add_argument("--frame-budget-ms", type=int, default=D_FRAME_BUDGET)
+    # --- DEP-3 tilemap mode (Qt-free render_region frame-budget profiler) ----
+    ap.add_argument(
+        "--tilemap",
+        action="store_true",
+        help="profile logic/tilemap.render_region vs FRAME_BUDGET_MS (Qt-free)",
+    )
+    ap.add_argument(
+        "--tm-region",
+        type=int,
+        nargs=2,
+        default=[D_W, D_H],
+        metavar=("W", "H"),
+        help="render-region size in pixels (default: full 8K)",
+    )
+    ap.add_argument("--tm-tile", type=int, default=D_TM_TILE)
+    ap.add_argument("--tm-layers", type=int, default=D_TM_LAYERS)
+    ap.add_argument("--tm-autotile", action="store_true")
+    # --- DEP-3 loop-back tilemap-CACHE mode (cache-in-place per-frame slice) --
+    ap.add_argument(
+        "--tm-cache",
+        action="store_true",
+        help="profile the cache-in-place per-frame GUI slice (cold renders + blits)",
+    )
+    ap.add_argument(
+        "--tm-cold",
+        type=int,
+        default=8,
+        help="cold chunks rendered inline per frame (GUI slice; <= sync budget)",
+    )
+    ap.add_argument(
+        "--tm-warm",
+        type=int,
+        default=0,
+        help="cached-chunk pixmap blits per frame (Qt, guarded)",
+    )
+    ap.add_argument("--tm-sync-budget", type=int, default=8)
     args = ap.parse_args()
 
     if args.composite:
         return _run_composite(args)
+    if args.tm_cache:
+        return _run_tilemap_cache(args)
+    if args.tilemap:
+        return _run_tilemap(args)
 
     if min(args.width, args.height, args.tile) <= 0 or args.frames <= 0:
         sys.stderr.write("perf_profile: invalid geometry/frames.\n")
