@@ -36,17 +36,21 @@ class Palette:
                 self.append(c)
 
     def __len__(self) -> int:
+        """Return the number of colours in the palette."""
         return len(self._colors)
 
     def __iter__(self) -> Iterator[RGBA]:
+        """Iterate over the palette colours in order."""
         return iter(self._colors)
 
     def __eq__(self, other: object) -> bool:
+        """Return whether ``other`` is a palette with identical ordered colours."""
         if not isinstance(other, Palette):
             return NotImplemented
         return self._colors == other._colors
 
     def __repr__(self) -> str:
+        """Return the ``eval``-friendly representation of the palette."""
         return f"Palette({self._colors!r})"
 
     def _check_index(self, index: int) -> int:
@@ -115,6 +119,35 @@ class Palette:
             if dist < best_dist:
                 best_dist, best_index = dist, i
         return best_index
+
+    def replace(self, colors: Iterable[RGBA]) -> None:
+        """Replace all colours in place with ``colors`` (bounds-checked).
+
+        Mutates *this* palette object rather than rebinding a new one, so the
+        scene / palette panel / editor references stay valid — the pattern the
+        drag-drop palette load relies on for a reversible ``apply ∘ undo =
+        identity`` step (plan §6, REQ-P7-UI-005). Validation is done up front on
+        a staged list, so an invalid colour or an oversized palette raises
+        **before** any mutation: on failure this palette is left untouched
+        (atomic replace).
+
+        Args:
+            colors: The new colours, in order.
+
+        Raises:
+            PaletteError: If any colour is not a valid RGBA tuple, or the new
+                length exceeds ``MAX_PALETTE_SIZE``.
+        """
+        staged: List[RGBA] = []
+        for c in colors:
+            if not is_rgba(c):
+                raise PaletteError(f"not an RGBA colour: {c!r}")
+            staged.append(rgba(*c))
+        if len(staged) > MAX_PALETTE_SIZE:
+            raise PaletteError(
+                f"palette has {len(staged)} colours, exceeds {MAX_PALETTE_SIZE}"
+            )
+        self._colors[:] = staged
 
     def colors(self) -> List[RGBA]:
         """Return a shallow copy of the colour list."""
