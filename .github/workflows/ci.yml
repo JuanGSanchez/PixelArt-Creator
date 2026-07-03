@@ -112,3 +112,21 @@ jobs:
         # marker, no extra env — numpy + logic only. Catches the SC-UI-015-1
         # catastrophic O(full-canvas) recomposite regression class.
         run: python scripts/perf_profile.py --composite
+
+      - name: Tilemap render_region perf gate — part 1 (interactive frame budget)
+        # Standalone, Qt-free P11 gate (Phase-6, AGT-10/AGT-01). Times
+        # logic/tilemap.render_region over a typical interactive viewport tile
+        # (256x256 px @ 16 px tiles = 16x16 cells) and exits non-zero if the
+        # median exceeds FRAME_BUDGET_MS (16 ms, logic/constants.py — the default
+        # --budget-ms). Guards the 60-fps interactive draw path (currently
+        # ~0.54 ms). numpy + logic only, no pytest marker, no Qt.
+        run: python scripts/perf_profile.py --tilemap --tm-region 256 256 --tm-tile 16 --frames 30
+
+      - name: Tilemap render_region perf gate — part 2 (catastrophic ceiling)
+        # Companion catastrophic-ceiling gate: renders the full 8K region
+        # (7680x4320 px @ 16 px tiles = 480x270 cells) and exits non-zero if the
+        # median exceeds TILEMAP_VIEWPORT_CEILING_MS (3000 ms, logic/constants.py,
+        # passed via --budget-ms 3000). Catches an O(full-map) worst-case
+        # render regression class distinct from the interactive budget above
+        # (currently ~247 ms). numpy + logic only, no pytest marker, no Qt.
+        run: python scripts/perf_profile.py --tilemap --tm-region 7680 4320 --tm-tile 16 --frames 8 --budget-ms 3000
