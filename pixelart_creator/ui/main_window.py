@@ -23,6 +23,8 @@ from PySide6.QtGui import (
     QActionGroup,
     QColor,
     QCursor,
+    QDragEnterEvent,
+    QDropEvent,
     QIcon,
     QImage,
     QKeySequence,
@@ -52,8 +54,15 @@ from pixelart_creator.data.favourites_io import (
     load_favourites,
     save_favourites,
 )
+from pixelart_creator.data.file_import import (
+    FileImportError,
+    FileType,
+    classify,
+)
+from pixelart_creator.data.palette_import import load_palette
 from pixelart_creator.data.project_io import (
     FILE_SUFFIX,
+    ProjectIOError,
     load_project,
     save_project,
 )
@@ -90,6 +99,7 @@ from pixelart_creator.ui.colour_hub_menu import Colour_Hub_Menu
 from pixelart_creator.ui.commands import LogicCommand, PaintCommand
 from pixelart_creator.ui.extract_palette_dialog import Extract_Palette_Dialog
 from pixelart_creator.ui.i18n import LanguageManager
+from pixelart_creator.ui.image_import import decode_image
 from pixelart_creator.ui.layer_panel import Layer_Panel
 from pixelart_creator.ui.palette_analytics_view import Palette_Analytics_View
 from pixelart_creator.ui.palette_constraint_panel import (
@@ -143,6 +153,10 @@ _SWATCH_PX = 24
 
 #: Filename of the app-level Favourites store under AppConfigLocation (ADR-0004).
 _FAVOURITES_FILE = "favourites.json"
+
+#: Auto-clear delay for a non-blocking status-bar drop notice, ms (presentation-
+#: only timing, not a domain tuning value — cf. _SWATCH_PX).
+_DROP_NOTICE_MS = 6000
 
 
 @dataclass
@@ -288,6 +302,12 @@ class Main_Window(QMainWindow):
         self._pixel_perfect = False
         self._tiled = False
         self._snap = False
+
+        # Accept OS file-URL drops onto the window (REQ-P7-UI-001). Drag/drop is
+        # routed by file TYPE, not drop location (CL-A1) — see dropEvent /
+        # _route_dropped_files. Enabled on the main window so a drop anywhere over
+        # the shell reaches the router.
+        self.setAcceptDrops(True)
 
         self._tab_widget = QTabWidget(self)
         self._tab_widget.setTabsClosable(True)
@@ -639,10 +659,16 @@ class Main_Window(QMainWindow):
         return document
 
     def save_document(self, path: str) -> None:
-        """Save the active document via ``data/project_io`` (020)."""
+        """Save the active document via ``data/project_io`` (020).
+
+        Marks the tab's undo stack **clean** at the saved state so the drag-drop
+        dirty guard (REQ-P7-UI-004) can trust ``QUndoStack.isClean()`` — a saved,
+        un-edited document no longer prompts on a ``.pixproj`` drop.
+        """
         record = self.active_tab()
         if record is not None:
             save_project(record.document, path)
+            record.stack.setClean()
 
     def _add_document_tab(self, document: Document, title: str) -> Document:
         scene = CanvasScene(document)
@@ -726,6 +752,166 @@ class Main_Window(QMainWindow):
         """Return the active document, or ``None``."""
         record = self.active_tab()
         return record.document if record is not None else None
+
+    # -- drag-and-drop import (REQ-P7-UI-001..008) -----------------------
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802
+        """Accept a drag that carries at least one local file URL (UI-001)."""
+        mime = event.mimeData()
+        if mime.hasUrls() and any(url.isLocalFile() for url in mime.urls()):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event: QDropEvent) -> None:  # noqa: N802
+        """Capture the dropped local file paths and route them (UI-001/-008)."""
+        mime = event.mimeData()
+        if not mime.hasUrls():
+            event.ignore()
+            return
+        paths = [url.toLocalFile() for url in mime.urls() if url.isLocalFile()]
+        event.acceptProposedAction()
+        # A zero-file drop is a no-op (SC-U008-5); otherwise route each path.
+        self._route_dropped_files(paths)
+
+    def _route_dropped_files(self, paths: List[str]) -> None:
+        """Route each dropped path by classified TYPE, in stable order (UI-002/-008).
+
+        Routing is by file TYPE (REQ-P7-DATA-003), never by drop location (CL-A1).
+        Each file is guarded so one bad file surfaces a notice and never aborts the
+        batch or crashes the app (REQ-P7-UI-006/-007, NFR-9). Multiple palettes
+        replace sequentially — the last dropped palette wins (CL-A2).
+        """
+        for path in paths:
+            file_type = classify(path)
+            try:
+                if file_type is FileType.IMAGE:
+                    self._import_image_drop(path)
+                elif file_type is FileType.PROJECT:
+                    self._import_project_drop(path)
+                elif file_type is FileType.PALETTE:
+                    self._import_palette_drop(path)
+                else:
+                    self._notify_unsupported(path)
+            except (FileImportError, ProjectIOError) as exc:
+                # Corrupt / malformed / oversized / invalid project → error notice,
+                # state left intact, batch continues (REQ-P7-UI-007, SC-U008-3).
+                self._notify_import_error(path, exc)
+
+    def _import_image_drop(self, path: str) -> None:
+        """IMAGE drop → decode to RGBA and open as a NEW document tab (UI-003).
+
+        Decodes via ``ui/image_import.decode_image`` (QImage, ADR-0010) into an
+        RGBA :class:`PixelBuffer`, wraps it in a new :class:`Document`, and opens it
+        as a new tab through the shipped ``_add_document_tab`` machinery — **never**
+        as a layer on the active document. The source file is not modified.
+        """
+        buffer = decode_image(path)
+        document = Document.from_buffer(buffer, name=Path(path).stem or "Imported")
+        self._add_document_tab(document, Path(path).name)
+
+    def _import_project_drop(self, path: str) -> None:
+        """PROJECT drop → open, replacing the active doc with a dirty guard (UI-004).
+
+        If the active document has unsaved changes, prompt Save / Discard / Cancel
+        first: Cancel aborts (this file only); Save persists then opens; Discard
+        opens without saving. The dropped project then **replaces** the previously
+        active document (its tab is closed once the project opens).
+        """
+        record = self.active_tab()
+        previous_index = self._tab_widget.currentIndex()
+        if record is not None and not record.stack.isClean():
+            choice = QMessageBox.warning(
+                self,
+                self.tr("Unsaved Changes"),
+                self.tr(
+                    "The current document has unsaved changes. Save it before "
+                    "opening the dropped project?"
+                ),
+                QMessageBox.StandardButton.Save
+                | QMessageBox.StandardButton.Discard
+                | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Save,
+            )
+            if choice == QMessageBox.StandardButton.Cancel:
+                return  # abort: leave everything unchanged (SC-U004-3)
+            if choice == QMessageBox.StandardButton.Save and not self._save_for_guard():
+                return  # a cancelled save must not lose the unsaved work
+        self.open_document(path)
+        # REPLACE the previously active document: the project opened in a new tab
+        # (now current); close the old tab, if any (indices below the new one are
+        # unaffected — the new tab was appended last).
+        if record is not None and 0 <= previous_index < len(self._tabs_data):
+            self.close_document(previous_index)
+
+    def _import_palette_drop(self, path: str) -> None:
+        """PALETTE drop → replace the active palette as ONE undoable command (UI-005).
+
+        Parses the ``.gpl`` / ``.hex`` / ``.pal`` via the Qt-free
+        ``data/palette_import.load_palette`` and replaces the active document's
+        palette **in place** as a single :class:`LogicCommand` on the tab's undo
+        stack, so one Undo restores the prior palette (``apply ∘ undo = identity``,
+        SC-U005-4). No open document → a graceful no-op with a notice (SC-U005-5).
+        """
+        record = self.active_tab()
+        if record is None:
+            self._notify_no_document()
+            return
+        new_colors = load_palette(path).colors()
+        palette = record.document.palette
+        before = palette.colors()
+        label = self.tr("Load Palette")
+        command = history.FunctionCommand(
+            do=lambda: palette.replace(new_colors),
+            undo=lambda: palette.replace(before),
+            label=label,
+        )
+        record.stack.push(LogicCommand(command, self._on_palette_edited, label))
+
+    def _save_for_guard(self) -> bool:
+        """Save the active document for the dirty guard; ``False`` if cancelled.
+
+        Prompts for a path (the shipped Save-As flow) and saves via
+        :meth:`save_document` (which marks the stack clean). Returns ``False`` when
+        the user cancels the file dialog, so the caller can abort the open rather
+        than silently discard unsaved work (REQ-P7-UI-004, Save branch).
+        """
+        if self.active_tab() is None:
+            return True
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Save Project"),
+            "",
+            self.tr("Pixel projects (*%1)").replace("%1", FILE_SUFFIX),
+        )
+        if not path:
+            return False
+        self.save_document(path)
+        return True
+
+    def _notify_unsupported(self, path: str) -> None:
+        """Non-blocking notice that a dropped file's type is unsupported (UI-006)."""
+        self.statusBar().showMessage(
+            self.tr("Unsupported file type: %1").replace("%1", Path(path).name),
+            _DROP_NOTICE_MS,
+        )
+
+    def _notify_no_document(self) -> None:
+        """Non-blocking notice that a palette drop needs an open document (UI-005)."""
+        self.statusBar().showMessage(
+            self.tr("Open a document before loading a palette."),
+            _DROP_NOTICE_MS,
+        )
+
+    def _notify_import_error(self, path: str, exc: Exception) -> None:
+        """Surface a caught import failure without crashing (UI-007)."""
+        QMessageBox.warning(
+            self,
+            self.tr("Import Failed"),
+            self.tr("Could not import %1:\n%2")
+            .replace("%1", Path(path).name)
+            .replace("%2", str(exc)),
+        )
 
     # -- slots ------------------------------------------------------------
 
