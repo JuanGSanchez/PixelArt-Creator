@@ -680,7 +680,7 @@ class CanvasScene(QGraphicsScene):
         # memory. A warm ``token`` (bumped on start/cancel/edit/close) makes any
         # superseded result a no-op; the shared cancel event is a best-effort early
         # exit. Cancelled on Stop / edit / tab switch / close.
-        self._warm_signals = CompositeWarmSignals()
+        self._warm_signals: Optional[CompositeWarmSignals] = CompositeWarmSignals()
         self._warm_signals.frameReady.connect(self._on_frame_warmed)
         self._warm_pool = QThreadPool(self)
         self._warm_pool.setMaxThreadCount(1)
@@ -980,7 +980,7 @@ class CanvasScene(QGraphicsScene):
         document; when nothing is cold the transport streams at cache-hit speed
         (no indicator shown).
         """
-        if not self._compositing:
+        if not self._compositing or self._warm_signals is None:
             return
         self._warm_token += 1
         self._warm_cancel.clear()
@@ -1014,7 +1014,7 @@ class CanvasScene(QGraphicsScene):
         the frame as *ready* — only :meth:`_on_frame_warmed` does, on the actual
         completion — so the transport never resumes on a not-yet-flattened frame.
         """
-        if not self._compositing:
+        if not self._compositing or self._warm_signals is None:
             return
         if not 0 <= index < len(self._document.frames):
             return
@@ -1039,6 +1039,11 @@ class CanvasScene(QGraphicsScene):
         """
         self._document.invalidate_caches(frame_index=index)
         self._warm_inflight.add(index)
+        signals = self._warm_signals
+        if signals is None:
+            # The warm subsystem has been shut down (scene/tab teardown); never
+            # dispatch a runnable with a released carrier.
+            return
         runnable = FrameCompositeWarmRunnable(
             self._warm_token,
             index,
@@ -1046,7 +1051,7 @@ class CanvasScene(QGraphicsScene):
             self._document.width,
             self._document.height,
             self._warm_cancel,
-            self._warm_signals,
+            signals,
         )
         self._warm_pool.start(runnable)
 
@@ -1091,18 +1096,47 @@ class CanvasScene(QGraphicsScene):
             self.prewarmFinished.emit()
 
     def shutdown_prewarm(self) -> None:
-        """Tear the warm down on tab close / app quit (bounded wait).
+        """Deterministically tear the off-thread warm down (idempotent, D2).
 
-        Cancels, drops queued runnables and waits (bounded) for any running flatten
-        so the pool is not destroyed while a task runs. A single flatten is
-        uninterruptible, so a close mid-warm may wait up to one frame's flatten.
+        Invoked on scene/tab disposal, document replace and window close, and by
+        tests in a teardown fixture. It does NOT rely on the Qt event loop
+        spinning. In order it:
+
+        1. bumps the warm token so any queued or in-flight result is a no-op;
+        2. sets the shared cancel event (best-effort early exit for the flatten);
+        3. drops queued runnables (``clear``) and **blocks** (bounded) on
+           ``waitForDone`` until the running flatten finishes AND the pool's
+           worker threads are removed — so no native worker survives into a
+           later GC cycle (the PySide6 cross-thread GC-of-Qt-C++ segfault);
+        4. disconnects and releases the GUI-thread ``CompositeWarmSignals``
+           carrier, so any still-queued ``frameReady`` emission has no slot to
+           land on a torn-down scene and the carrier can be collected without a
+           live cross-thread connection.
+
+        A single flatten is uninterruptible, so a close mid-warm may wait up to
+        one frame's flatten. Safe to call repeatedly (subsequent calls are a
+        cheap no-op once the carrier is released).
         """
         self._warm_token += 1
         self._warm_cancel.set()
         self._warm_pool.clear()
         self._warm_pool.waitForDone(_WARM_SHUTDOWN_WAIT_MS)
         self._warm_inflight.clear()
+        self._warm_total = 0
+        self._warm_done = 0
         self._warming = False
+        signals = self._warm_signals
+        if signals is not None:
+            # Drop the cross-thread connection so no queued emission is delivered
+            # to _on_frame_warmed after teardown, and release the carrier. A
+            # runnable still running keeps its own reference alive, so its emit()
+            # is a harmless no-op against the now-disconnected carrier.
+            try:
+                signals.frameReady.disconnect(self._on_frame_warmed)
+            except (RuntimeError, TypeError):
+                # Already disconnected / carrier already torn down — idempotent.
+                pass
+            self._warm_signals = None
 
     def refresh_frames(self, index: Optional[int] = None) -> None:
         """Rebind after a structural frame op (add/remove/reorder/duplicate).

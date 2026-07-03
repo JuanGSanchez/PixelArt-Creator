@@ -34,6 +34,7 @@ from pixelart_creator.logic.document import Document  # noqa: E402
 from pixelart_creator.logic.palette import Palette  # noqa: E402
 from pixelart_creator.ui.canvas_scene import CanvasScene  # noqa: E402
 from pixelart_creator.ui.canvas_view import Canvas_View  # noqa: E402
+from pixelart_creator.ui.main_window import Main_Window  # noqa: E402
 from pixelart_creator.ui.theme import (  # noqa: E402
     THEME_DARK,
     THEME_LIGHT,
@@ -84,6 +85,54 @@ def _isolate_app_config(monkeypatch, tmp_path):
         "writableLocation",
         staticmethod(lambda *_a, **_k: str(cfg)),
     )
+
+
+@pytest.fixture(autouse=True)
+def _drain_prewarm_after_test():
+    """Deterministically drain every off-thread pre-warm before GC (S1 blocker).
+
+    Phase-5 wired an off-thread composite pre-warm (``composite_warmer``
+    ``QThreadPool`` worker + a ``CompositeWarmSignals`` GUI-thread carrier) into
+    ``CanvasScene``. If a test leaves a live worker thread or a still-connected
+    carrier behind, a garbage-collection cycle during a *later* test's
+    ``Main_Window()`` construction cross-thread-GCs Qt C++ objects and crashes
+    PySide6 natively (the ``worker 'gwN' crashed`` segfault seen on CI run
+    28663849512 at
+    ``test_lazy_perf.py::test_lazy_analytics_new_document_with_hidden_dock_no_scan[dark]``).
+
+    This autouse teardown runs after **every** UI test — with no per-test opt-in
+    — and calls the deterministic, event-loop-free
+    :meth:`CanvasScene.shutdown_prewarm` / :meth:`Main_Window.shutdown_prewarm`
+    (AGT-05, uncommitted product fix) on **every** live scene and window still
+    reachable, then forces a collection while all pools are drained and all
+    carriers are disconnected. A ``Main_Window`` drains its own tabs' scenes and
+    a scene reached both via its window and directly is drained twice; both APIs
+    are idempotent, so that is safe. This covers the ``make_scene`` / ``make_view``
+    factories AND the ~33 modules that build a ``CanvasScene`` / ``Main_Window``
+    directly (e.g. ``test_lazy_perf.py`` line ~136) without editing any of them.
+    """
+    yield
+
+    import gc
+
+    # gc.get_objects() is the only net that reaches EVERY live instance,
+    # however it was constructed (fixture, factory, or bare constructor),
+    # without each test opting in. Idempotent + guarded, so double/partial
+    # drains are harmless.
+    for obj in gc.get_objects():
+        if isinstance(obj, (Main_Window, CanvasScene)):
+            try:
+                obj.shutdown_prewarm()
+            except (RuntimeError, AttributeError):
+                # RuntimeError: underlying Qt C++ object already deleted.
+                # AttributeError: instance from a __init__ that raised before
+                # the warm attributes existed -> nothing live to drain.
+                pass
+
+    # Collect NOW, while every pool is drained and every carrier disconnected,
+    # so no worker thread / connected carrier survives into a later test where
+    # the cross-thread GC-of-Qt-C++ segfault would otherwise fire.
+    gc.collect()
 
 
 @pytest.fixture(params=[THEME_LIGHT, THEME_DARK], autouse=True)
