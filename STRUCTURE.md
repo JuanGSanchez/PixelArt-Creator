@@ -31,7 +31,7 @@
 
 | Module | Responsibility | Key public surface | REQ |
 | --- | --- | --- | --- |
-| `selection.py` | Boolean selection-region model + builders + ops + mask-constrained apply + floating move. | `SelectionMask` (is_selected/is_empty/bounds/count/data/copy/invert/cleared/translate/combine), `rect_mask`, `lasso_mask`, `wand_mask`, `apply_masked`, `move_selection`, `SelectionError` | LOGIC-001..006, 010 |
+| `selection.py` | Boolean selection-region model + builders + ops + mask-constrained apply + floating move. **Phase-2 floating-selection (REQ-NEW-C, ADR-0009):** non-destructive `FloatingSelection` model + region-scoped `composite_preview` + `copy_selection` sibling builder + `commit_floating` dispatcher; MOVE reuses `move_selection`; `FloatMode` module-local. | `SelectionMask` (is_selected/is_empty/bounds/count/data/copy/invert/cleared/translate/combine), `rect_mask`, `lasso_mask`, `wand_mask`, `apply_masked`, `move_selection`, `SelectionError`, **`FloatMode`, `FloatingSelection`, `lift_selection`, `composite_preview`, `copy_selection`, `commit_floating`** | LOGIC-001..006, 010; **P2-LOGIC-030..036** |
 | `transform.py` | Flip / rotate-90 / scale-NN; whole-buffer or selection-aware; reversible builder. | `flip_horizontal`, `flip_vertical`, `rotate_90_cw`, `rotate_90_ccw`, `scale_nearest`, `make_transform_command`, `TransformError` | LOGIC-007..010 |
 | `symmetry.py` | Symmetry-axis model + mirrored-coordinate generation. | `SymmetryAxis` (NONE/VERTICAL/HORIZONTAL/BOTH/DIAGONAL), `mirror` | LOGIC-011 |
 | `pixel_perfect.py` | Aseprite elbow-removal → clean 1-px stroke path. | `pixel_perfect` | LOGIC-012 |
@@ -165,6 +165,26 @@
 | `main_window.py` (extend) | Selection-op / transform / RotSprite actions; pixel-perfect, grid/snap, AA-off toggles. | selection ops, transform, `pixel_perfect` | UI-008, 009, 012, 013 |
 | `canvas_view.py`/`canvas_scene.py` (extend) | AA-off render-hint lock (all previews); grid/snap refinements. | — (render policy) | UI-013, 014 |
 | `commands.py` (extend) | One `QUndoCommand` per new mutating op. | `history` + all 2A ops | UI reversibility, LOGIC-015 |
+
+## `pixelart_creator/ui/` — Phase-2 floating-selection (REQ-NEW-C) — BUILT (Slice F-B; ADR-0009)
+
+> Binds to Slice-F-A logic (`selection.lift_selection`/`composite_preview`/`commit_floating`/
+> `FloatMode`). Qt only. Undo **reuses** `ui/commands.LogicCommand` (no new command class — it
+> already wraps any unapplied `history.Command` the commit builders return). The live drag
+> preview is **region-scoped** (ADR-0007-aligned, ADR-0009 D3): per mouse-move calls
+> `composite_preview(region=…)` — no full-canvas alloc. NN / AA-off, both themes. Ctrl-only =
+> COPY, Alt stays the shipped CL-4 subtract (CL-F5). The `base → floating_move` seam import is
+> kept acyclic by a **`TYPE_CHECKING` `LiftContext` `Protocol`** in `floating_move.py` (the tool
+> `ToolContext` satisfies it structurally, so no `base` import — `check_cycles` clean, Article I).
+
+| Module | Change | Responsibility | Binds to (logic) | REQ |
+| --- | --- | --- | --- | --- |
+| `tools/floating_move.py` | **new** | `FloatingMoveController` — single owner of one active float's lift→drag→commit/cancel lifecycle, reachable from mouse (`SelectionTool`), key (`Canvas_View`), and tool-switch (`Main_Window`) events. Declares the `LiftContext` `Protocol` (TYPE_CHECKING) to break the `base` import cycle. No domain math. | `lift_selection`/`composite_preview`/`commit_floating`/`FloatMode`, scene, `ui/commands.LogicCommand` | UI-030..036 |
+| `canvas_scene.py` | extend | New `_FloatingPreviewItem(QGraphicsItem)` (floated colours, NN/AA-off, both themes) — one item for the float, one at `_ORIGIN_Z` for the MOVE-vacated origin via `_origin_vacate(...)` — + scene `begin_floating`/`update_floating`/`end_floating`; reuses `_SelectionOverlayItem.set_move_offset` for the marching-ants outline. | `selection.composite_preview` | UI-030..032, 035 |
+| `tools/selection_base.py` | extend | Delegate the in-mask press/drag/release move path to `FloatingMoveController` (replaces the inline destructive `_commit_move`); build gestures unchanged; copy modifier disambiguated from build combine — `_COPY_MODIFIERS = ControlModifier` only (CL-F5). | `FloatingMoveController` | UI-030..033, 036 |
+| `canvas_view.py` | extend | Route `keyPressEvent`: Enter/Return → `commit()`; Escape → `cancel()`; re-sample modifiers per mouse-move so Ctrl held mid-drag toggles COPY. | controller | UI-033, 034 |
+| `main_window.py` | extend | Commit an active float on tool-switch; wire controller into the doc session; `tr()` copy-mode status hint (keyboard-reachable, both themes). | controller | UI-032, 033, 036 |
+| `commands.py` | **no change** | Reuse `LogicCommand(commit_floating(...), refresh, label)` — one `QUndoCommand` per commit. | `history` | UI-035 |
 
 ## `pixelart_creator/ui/` — Phase-3 colour & palette — PLANNED (Slices 3B/3C)
 
