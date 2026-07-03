@@ -29,6 +29,7 @@ import numpy as np
 import numpy.typing as npt
 
 from pixelart_creator.logic import history, perceptual
+from pixelart_creator.logic._rgba_unique import unique_rgba_counts, unique_rgba_inverse
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.constants import KMEANS_SEED, PALETTE_EXTRACT_DEFAULT_N
 from pixelart_creator.logic.palette import Palette, PaletteError
@@ -101,11 +102,10 @@ def constrain_to_palette(
         raise QuantizeError(f"unknown metric {metric!r}; expected one of {_METRICS}")
 
     pal = np.asarray(colors, dtype=np.int64)
-    pixels = _pixels(source)
     # Map unique colours only, then broadcast back (deterministic + efficient).
-    unique, inverse = np.unique(pixels, axis=0, return_inverse=True)
+    unique, inverse = unique_rgba_inverse(source.data.reshape(-1, 4))
     if metric == "distance_sq":
-        uniq_idx = _nearest_indices_distance_sq(unique, pal)
+        uniq_idx = _nearest_indices_distance_sq(unique.astype(np.int64), pal)
     else:
         uniq_idx = np.array(
             [
@@ -225,8 +225,7 @@ def kmeans(
     if not isinstance(n, int) or isinstance(n, bool) or n <= 0:
         raise QuantizeError(f"n must be a positive int, got {n!r}")
 
-    pixels = _pixels(source)
-    unique, counts = np.unique(pixels, axis=0, return_counts=True)
+    unique, counts = unique_rgba_counts(source.data.reshape(-1, 4))
     if unique.shape[0] <= n:
         return _dedup_palette(
             [(int(c[0]), int(c[1]), int(c[2]), int(c[3])) for c in unique], n
