@@ -90,7 +90,9 @@ def test_ordered_dither_deterministic():
 @pytest.mark.parametrize("bad", [3, 0, -4, True, "x"])
 def test_ordered_dither_rejects_bad_matrix_size(bad):
     with pytest.raises(DitherError):
-        ordered_dither(_gradient_buffer(4, 4), BW, matrix_size=bad)  # type: ignore[arg-type]
+        ordered_dither(
+            _gradient_buffer(4, 4), BW, matrix_size=bad  # type: ignore[arg-type]
+        )
 
 
 def test_ordered_dither_requires_rgba():

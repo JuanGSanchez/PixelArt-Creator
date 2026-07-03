@@ -10,7 +10,6 @@ Maps to REQ-P4-DATA-001..004 (serialisation + defensive load).
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
 from pixelart_creator.data import project_io as pio

@@ -32,7 +32,6 @@ from pixelart_creator.logic._rgba_unique import (
     unique_rgba_inverse,
 )
 from pixelart_creator.logic.hardware_palette import game_boy_palette, nes_palette
-from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.palette_analytics import color_usage_counts
 from pixelart_creator.logic.palette_ops import to_indexed, to_rgba
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer

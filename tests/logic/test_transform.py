@@ -7,12 +7,10 @@ Zero Qt; deterministic and portable.
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from pixelart_creator.logic import transform
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 from pixelart_creator.logic.selection import rect_mask
 from pixelart_creator.logic.transform import (

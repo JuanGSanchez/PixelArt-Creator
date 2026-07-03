@@ -13,7 +13,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest  # noqa: E402  (must follow the platform env set above)
-from PySide6.QtCore import QLocale  # noqa: E402
+from PySide6.QtCore import QLocale, QStandardPaths  # noqa: E402
 from PySide6.QtGui import QUndoStack  # noqa: E402
 
 # Pin the *system* locale to English for the whole UI suite so the tests run
@@ -60,6 +60,30 @@ TRANSPARENT = (0, 0, 0, 0)
 def pytest_configure(config: pytest.Config) -> None:
     """Guarantee the offscreen platform even if imported indirectly (F11)."""
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+
+@pytest.fixture(autouse=True)
+def _isolate_app_config(monkeypatch, tmp_path):
+    """Redirect the app-config dir to a per-test tmp path (xdist isolation, FU-20).
+
+    ``Main_Window`` persists the Favourites list to the app-config directory
+    (``QStandardPaths.AppConfigLocation``) and reads it back on construction;
+    ~25 modules build a ``Main_Window``. Under ``pytest -n auto`` each xdist
+    worker is a **separate process**, so every worker would read/write the ONE
+    shared ``favourites.json`` concurrently — a torn-write race (intermittent
+    ``FavouritesIOError``/``OSError``) that also pollutes the developer's real
+    config. Pointing ``writableLocation`` at a unique per-test tmp dir isolates
+    every worker and test while still exercising the real ``_favourites_path``
+    resolution (so its coverage is preserved). ``tmp_path`` is unique per test
+    and per worker, giving full on-disk isolation with no shared state.
+    """
+    cfg = tmp_path / "appconfig"
+    cfg.mkdir()
+    monkeypatch.setattr(
+        QStandardPaths,
+        "writableLocation",
+        staticmethod(lambda *_a, **_k: str(cfg)),
+    )
 
 
 @pytest.fixture(params=[THEME_LIGHT, THEME_DARK], autouse=True)
