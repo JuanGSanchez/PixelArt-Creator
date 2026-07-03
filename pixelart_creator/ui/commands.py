@@ -223,3 +223,75 @@ class LayerCommand(LogicCommand):
         parent: Optional[QUndoCommand] = None,
     ) -> None:
         super().__init__(command, refresh, text, parent)
+
+
+class TilesetCommand(LogicCommand):
+    """One ``QUndoCommand`` per tileset edit (T6E-02/-03, REQ-P6-UI-002/-003/-013).
+
+    Wraps the **unapplied** :class:`~pixelart_creator.logic.history.Command` a
+    ``logic/tileset`` builder returns — ``make_reslice_command`` (re-slice the
+    source grid) or ``make_edit_tile_command`` (paint a source tile so every
+    linked instance updates live, REQ-P6-LOGIC-004/-006) — plus the
+    ``logic/document`` ``make_add/remove_tileset_command`` attach/detach ops. Like
+    :class:`LogicCommand`, ``redo()`` applies the logic command on push (and on
+    every later redo) and ``undo()`` reverts it exactly, so each tileset edit is
+    exactly one undoable step whose inverse restores the prior state
+    (REQ-P6-UI-013). The ``refresh`` callback supplies only the Qt-side follow-up
+    — rebuild the tile-grid thumbnails and repaint any tilemap canvas showing
+    linked instances of the edited tile. No domain maths lives here (Article I).
+
+    Args:
+        command: The unapplied reversible tileset-op command to bridge.
+        refresh: Callback (no args) rebuilding the tileset grid + repainting the
+            canvas after apply or revert.
+        text: Undo-menu label; defaults to the command's own label.
+        parent: Optional parent command (macro support).
+    """
+
+    def __init__(
+        self,
+        command: Command,
+        refresh: RebindCallback,
+        text: str = "",
+        parent: Optional[QUndoCommand] = None,
+    ) -> None:
+        """Bridge an unapplied tileset command to one ``QUndoCommand``."""
+        super().__init__(command, refresh, text, parent)
+
+
+class TilemapCommand(LogicCommand):
+    """One ``QUndoCommand`` per tilemap edit (T6F-02/-03/-04, REQ-P6-UI-005..008).
+
+    Wraps the **unapplied** :class:`~pixelart_creator.logic.history.Command` a
+    ``logic/tilemap`` builder returns — ``make_stamp_command`` /
+    ``make_erase_command`` / ``make_fill_rect_command`` (each folds in any
+    auto-tile neighbour re-resolution, REQ-P6-LOGIC-011) and the layer ops
+    ``make_add/remove/move_layer_command`` /
+    ``make_set_layer_visibility_command`` / ``make_attach_tileset_command`` — plus
+    the ``logic/document`` ``make_add/remove_tilemap_command``. Like
+    :class:`LogicCommand`, ``redo()`` applies the logic command on push (and on
+    every later redo) and ``undo()`` reverts it exactly, so each stamp / erase /
+    fill / layer op is exactly one undoable step that restores the exact prior
+    cells — including any neighbour cells whose display gid an auto-tile stamp
+    re-resolved (REQ-P6-UI-013, SC-UI-009-1). The ``refresh`` callback supplies
+    only the Qt-side follow-up — invalidate the affected (dirty) rect on the
+    tilemap canvas and sync the layer panel. No domain maths lives here
+    (Article I / S11).
+
+    Args:
+        command: The unapplied reversible tilemap-op command to bridge.
+        refresh: Callback (no args) invalidating the dirty rect + syncing the
+            layer panel after apply or revert.
+        text: Undo-menu label; defaults to the command's own label.
+        parent: Optional parent command (macro support).
+    """
+
+    def __init__(
+        self,
+        command: Command,
+        refresh: RebindCallback,
+        text: str = "",
+        parent: Optional[QUndoCommand] = None,
+    ) -> None:
+        """Bridge an unapplied tilemap command to one ``QUndoCommand``."""
+        super().__init__(command, refresh, text, parent)

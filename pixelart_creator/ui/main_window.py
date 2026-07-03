@@ -59,6 +59,7 @@ from pixelart_creator.data.favourites_io import (
 from pixelart_creator.data.file_import import (
     FileImportError,
     FileType,
+    ImageImportError,
     classify,
 )
 from pixelart_creator.data.palette_import import load_palette
@@ -90,6 +91,8 @@ from pixelart_creator.logic.selection import (
     rect_mask,
 )
 from pixelart_creator.logic.symmetry import SymmetryAxis
+from pixelart_creator.logic.tilemap import Tilemap
+from pixelart_creator.logic.tileset import Tileset, TilesetError
 from pixelart_creator.logic.transform import (
     TransformError,
     scale_nearest,
@@ -98,7 +101,12 @@ from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.canvas_view import Canvas_View
 from pixelart_creator.ui.colour_cycling_panel import Colour_Cycling_Panel
 from pixelart_creator.ui.colour_hub_menu import Colour_Hub_Menu
-from pixelart_creator.ui.commands import LogicCommand, PaintCommand
+from pixelart_creator.ui.commands import (
+    LogicCommand,
+    PaintCommand,
+    TilemapCommand,
+    TilesetCommand,
+)
 from pixelart_creator.ui.extract_palette_dialog import Extract_Palette_Dialog
 from pixelart_creator.ui.frame_tags_panel import Frame_Tags_Panel
 from pixelart_creator.ui.i18n import LanguageManager
@@ -124,6 +132,13 @@ from pixelart_creator.ui.theme import (
     canvas_roles,
 )
 from pixelart_creator.ui.tiled_mode import set_tiled_mode
+from pixelart_creator.ui.tilemap_canvas import Tilemap_Canvas, TilemapTool
+from pixelart_creator.ui.tilemap_io_actions import (
+    export_tilemap_dialog,
+    import_tilemap_dialog,
+)
+from pixelart_creator.ui.tilemap_layer_panel import Tilemap_Layer_Panel
+from pixelart_creator.ui.tileset_editor_panel import Tileset_Editor_Panel
 from pixelart_creator.ui.timeline_panel import Timeline_Panel
 from pixelart_creator.ui.tools import (
     DitherTool,
@@ -410,6 +425,32 @@ class Main_Window(QMainWindow):
             self._analytics_view.on_dock_visibility_changed
         )
 
+        # Phase-6 tilemap surfaces (REQ-P6-UI-001..013): the tileset editor +
+        # tilemap layer panel dock on the right (tabified with the palette); the
+        # tilemap canvas is a bottom dock rendering the active tilemap through the
+        # frozen render_region seam. Active tileset / tilemap are per-tab view
+        # state, rebound on document open + tab switch (state isolation, CL-13).
+        self._active_tileset: Optional[Tileset] = None
+        self._active_tilemap: Optional[Tilemap] = None
+        self._tileset_editor = Tileset_Editor_Panel(self)
+        self._tileset_editor.activeTileChanged.connect(self._on_tileset_tile_changed)
+        self._tileset_dock = self._add_workflow_dock(self._tileset_editor)
+
+        self._tilemap_layer_panel = Tilemap_Layer_Panel(self)
+        self._tilemap_layer_panel.activeLayerChanged.connect(
+            self._on_tilemap_layer_changed
+        )
+        self._tilemap_layer_panel.autotileToggled.connect(self._on_autotile_toggled)
+        self._tilemap_layer_dock = self._add_workflow_dock(self._tilemap_layer_panel)
+
+        self._tilemap_canvas = Tilemap_Canvas(parent=self)
+        self._tilemap_canvas.autotileChanged.connect(
+            self._tilemap_layer_panel.set_autotile_checked
+        )
+        self._tilemap_dock = QDockWidget(self)
+        self._tilemap_dock.setWidget(self._tilemap_canvas)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._tilemap_dock)
+
         # Marquee S3/S4 colour hub: a persisted Favourites model + the cursor-
         # anchored hub, wired into each view's Phase-1 right-click seam. A pick
         # applies to the active colour (tool state) — never an undo entry (T17).
@@ -597,6 +638,45 @@ class Main_Window(QMainWindow):
         self._theme_group.addAction(self._theme_light_action)
         self._theme_group.addAction(self._theme_dark_action)
 
+        # Phase-6 tilemap actions (REQ-P6-UI-005..012). Stamp/erase/fill are a
+        # mutually exclusive tool group driving the tilemap canvas; the flip/rotate
+        # actions map the active stamp to the GID flag transform (view state).
+        self._new_tileset_action = QAction(self)
+        self._new_tileset_action.triggered.connect(self._on_new_tileset_from_image)
+        self._new_tilemap_action = QAction(self)
+        self._new_tilemap_action.triggered.connect(self._on_new_tilemap)
+        self._import_tiled_action = QAction(self)
+        self._import_tiled_action.triggered.connect(self._on_import_tiled)
+        self._export_tiled_action = QAction(self)
+        self._export_tiled_action.triggered.connect(self._on_export_tiled)
+
+        self._tilemap_tool_group = QActionGroup(self)
+        self._tilemap_tool_group.setExclusive(True)
+        self._stamp_action = QAction(self)
+        self._stamp_action.setCheckable(True)
+        self._stamp_action.setChecked(True)
+        self._stamp_action.setData(TilemapTool.STAMP)
+        self._erase_tile_action = QAction(self)
+        self._erase_tile_action.setCheckable(True)
+        self._erase_tile_action.setData(TilemapTool.ERASE)
+        self._fill_tile_action = QAction(self)
+        self._fill_tile_action.setCheckable(True)
+        self._fill_tile_action.setData(TilemapTool.FILL)
+        for action in (
+            self._stamp_action,
+            self._erase_tile_action,
+            self._fill_tile_action,
+        ):
+            action.triggered.connect(self._on_tilemap_tool_action)
+            self._tilemap_tool_group.addAction(action)
+
+        self._stamp_flip_h_action = QAction(self)
+        self._stamp_flip_h_action.triggered.connect(self._tilemap_canvas.toggle_flip_h)
+        self._stamp_flip_v_action = QAction(self)
+        self._stamp_flip_v_action.triggered.connect(self._tilemap_canvas.toggle_flip_v)
+        self._stamp_rotate_action = QAction(self)
+        self._stamp_rotate_action.triggered.connect(self._tilemap_canvas.rotate_cw)
+
     def _build_toolbar(self) -> None:
         self._toolbar = QToolBar(self)
         self._toolbar.setObjectName("tool_toolbar")
@@ -675,6 +755,25 @@ class Main_Window(QMainWindow):
         self._palette_menu.addAction(self._ramp_dock.toggleViewAction())
         self._palette_menu.addAction(self._cycling_dock.toggleViewAction())
         self._palette_menu.addAction(self._analytics_dock.toggleViewAction())
+
+        self._tilemap_menu = bar.addMenu("")
+        self._tilemap_menu.addAction(self._new_tileset_action)
+        self._tilemap_menu.addAction(self._new_tilemap_action)
+        self._tilemap_menu.addSeparator()
+        self._tilemap_menu.addAction(self._stamp_action)
+        self._tilemap_menu.addAction(self._erase_tile_action)
+        self._tilemap_menu.addAction(self._fill_tile_action)
+        self._tilemap_menu.addSeparator()
+        self._tilemap_menu.addAction(self._stamp_flip_h_action)
+        self._tilemap_menu.addAction(self._stamp_flip_v_action)
+        self._tilemap_menu.addAction(self._stamp_rotate_action)
+        self._tilemap_menu.addSeparator()
+        self._tilemap_menu.addAction(self._import_tiled_action)
+        self._tilemap_menu.addAction(self._export_tiled_action)
+        self._tilemap_menu.addSeparator()
+        self._tilemap_menu.addAction(self._tileset_dock.toggleViewAction())
+        self._tilemap_menu.addAction(self._tilemap_layer_dock.toggleViewAction())
+        self._tilemap_menu.addAction(self._tilemap_dock.toggleViewAction())
 
         self._theme_menu = bar.addMenu("")
         self._theme_menu.addAction(self._theme_light_action)
@@ -774,6 +873,7 @@ class Main_Window(QMainWindow):
             scene.refresh_visible_throttled,
         )
         self._bind_animation(record)
+        self._bind_tilemap(record)
         self._refresh_mode_ui()
 
     def _bind_animation(self, record: "_DocTab") -> None:
@@ -944,16 +1044,20 @@ class Main_Window(QMainWindow):
         self._tab_widget.removeTab(index)
 
     def shutdown_prewarm(self) -> None:
-        """Deterministically tear down every open scene's off-thread warm (D2).
+        """Deterministically tear down every off-thread warm in the window (D2/D4).
 
         A window-level, idempotent shutdown that drains and releases each tab's
-        pre-warm pool + signal carrier. It does not rely on the Qt event loop, so
-        it is safe to call directly — from :meth:`closeEvent`, and by tests in a
-        teardown fixture to guarantee no worker thread or connected carrier
-        survives a :class:`MainWindow` past its use.
+        canvas pre-warm pool + signal carrier AND the shared tilemap canvas's
+        off-thread chunk-warm pool + carrier. It does not rely on the Qt event loop,
+        so it is safe to call directly — from :meth:`closeEvent`, and by tests in a
+        teardown fixture to guarantee no worker thread or connected carrier survives
+        a :class:`MainWindow` past its use.
         """
         for record in self._tabs_data:
             record.scene.shutdown_prewarm()
+        # The tilemap canvas is a single window-level widget (not per-tab); tear its
+        # off-thread chunk warm down here so closeEvent covers it too (D4).
+        self._tilemap_canvas.shutdown_warm()
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt override)
         """Tear down every scene's off-thread warm pool before the window closes.
@@ -1803,10 +1907,172 @@ class Main_Window(QMainWindow):
         apply_theme(self._app, name)
         for record in self._tabs_data:
             self._apply_theme_to_scene(record.scene)
+        self._tilemap_canvas.set_theme_colors(*canvas_roles(self._theme))
 
     def _apply_theme_to_scene(self, scene: CanvasScene) -> None:
         checker_light, checker_dark, grid = canvas_roles(self._theme)
         scene.set_background_roles(checker_light, checker_dark, grid)
+
+    # -- Phase-6 tilemap wiring (REQ-P6-UI-001..013) ---------------------
+
+    def _bind_tilemap(self, record: "_DocTab") -> None:
+        """Bind the tileset editor / layer panel / canvas to ``record`` (CL-13).
+
+        The active tileset / tilemap are per-tab view state: kept if still
+        attached to the document, else the first attached one (or ``None``). Each
+        surface binds to this tab's undo stack so every stamp / layer op pushes
+        onto the right :class:`QUndoStack` (state isolation, UI-014).
+        """
+        doc = record.document
+        if self._active_tileset not in doc.tilesets:
+            self._active_tileset = doc.tilesets[0] if doc.tilesets else None
+        if self._active_tilemap not in doc.tilemaps:
+            self._active_tilemap = doc.tilemaps[0] if doc.tilemaps else None
+        self._tileset_editor.set_active_color(self._active_color)
+        self._tileset_editor.set_active_index(self._active_index)
+        self._tileset_editor.set_context(
+            self._active_tileset, record.stack, self._refresh_tilemap_canvas
+        )
+        self._tilemap_layer_panel.set_context(
+            self._active_tilemap, record.stack, self._refresh_tilemap_canvas
+        )
+        self._tilemap_canvas.set_context(self._active_tilemap, record.stack, None)
+        self._tilemap_canvas.set_theme_colors(*canvas_roles(self._theme))
+        gid = self._tileset_editor.active_gid()
+        if gid is not None:
+            self._tilemap_canvas.set_brush_gid(gid)
+
+    def _rebind_active_tilemap(self) -> None:
+        """Rebind the tilemap surfaces to the active tab (after a structural op)."""
+        record = self.active_tab()
+        if record is not None:
+            self._bind_tilemap(record)
+
+    def _refresh_tilemap_canvas(self) -> None:
+        """Repaint the tilemap canvas (linked instances / layer changes)."""
+        self._tilemap_canvas.refresh()
+
+    def _on_tileset_tile_changed(self, gid: int) -> None:
+        """Point the canvas brush at the tile selected in the tileset editor."""
+        self._tilemap_canvas.set_brush_gid(gid)
+
+    def _on_tilemap_layer_changed(self, index: int) -> None:
+        """Route the active layer to the canvas + sync the auto-tile checkbox."""
+        self._tilemap_canvas.set_active_layer(index)
+        self._tilemap_layer_panel.set_autotile_checked(
+            self._tilemap_canvas.is_autotile_enabled()
+        )
+
+    def _on_autotile_toggled(self, enabled: bool) -> None:
+        """Enable/disable Blob-47 auto-tiling on the active layer (mode change)."""
+        self._tilemap_canvas.set_autotile_enabled(enabled)
+
+    def _on_tilemap_tool_action(self) -> None:
+        """Switch the active tilemap stamping tool (stamp / erase / fill)."""
+        action = self.sender()
+        if isinstance(action, QAction):
+            tool = action.data()
+            if isinstance(tool, TilemapTool):
+                self._tilemap_canvas.set_tool(tool)
+
+    def _on_new_tileset_from_image(self) -> None:
+        """Load an image, slice it into a tileset, attach it to the document."""
+        record = self.active_tab()
+        if record is None:
+            return
+        path, _selected = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Open Tileset Image"),
+            "",
+            self.tr("Images (*.png *.jpg *.jpeg *.bmp *.gif)"),
+        )
+        if not path:
+            return
+        try:
+            source = decode_image(path)
+        except ImageImportError as exc:
+            QMessageBox.warning(self, self.tr("Open Tileset Image"), str(exc))
+            return
+        doc = record.document
+        first_gid = 1
+        for existing in doc.tilesets:
+            first_gid = max(first_gid, existing.first_gid + existing.tile_count)
+        try:
+            tileset = Tileset(source, first_gid=first_gid, name=Path(path).stem)
+        except TilesetError as exc:
+            QMessageBox.warning(self, self.tr("New Tileset"), str(exc))
+            return
+        record.stack.push(
+            TilesetCommand(
+                doc.make_add_tileset_command(tileset),
+                self._rebind_active_tilemap,
+                self.tr("Add Tileset"),
+            )
+        )
+        if self._active_tilemap is not None:
+            record.stack.push(
+                TilemapCommand(
+                    self._active_tilemap.make_attach_tileset_command(tileset),
+                    self._refresh_tilemap_canvas,
+                    self.tr("Attach Tileset"),
+                )
+            )
+        self._active_tileset = tileset
+        self._bind_tilemap(record)
+
+    def _on_new_tilemap(self) -> None:
+        """Create an infinite tilemap (with one layer + attached tilesets)."""
+        record = self.active_tab()
+        if record is None:
+            return
+        tilemap = Tilemap(name=self.tr("Tilemap"))
+        # Build the map's initial contents directly (construction, pre-attach); the
+        # whole map is added to the document as one undoable command below.
+        tilemap.make_add_layer_command(name=self.tr("Layer 1")).execute()
+        for tileset in record.document.tilesets:
+            tilemap.make_attach_tileset_command(tileset).execute()
+        record.stack.push(
+            TilemapCommand(
+                record.document.make_add_tilemap_command(tilemap),
+                self._rebind_active_tilemap,
+                self.tr("Add Tilemap"),
+            )
+        )
+        self._active_tilemap = tilemap
+        self._bind_tilemap(record)
+
+    def _on_import_tiled(self) -> None:
+        """Import a Tiled JSON map into the active document (defensive load)."""
+        record = self.active_tab()
+        if record is None:
+            return
+        tilemap = import_tilemap_dialog(self)
+        if tilemap is None:
+            return
+        # Native .pixproj references a tilemap's tilesets by index into the
+        # document collection, so register the imported tilesets first.
+        for tileset in tilemap.tilesets:
+            record.document.make_add_tileset_command(tileset).execute()
+        record.stack.push(
+            TilemapCommand(
+                record.document.make_add_tilemap_command(tilemap),
+                self._rebind_active_tilemap,
+                self.tr("Import Tilemap"),
+            )
+        )
+        self._active_tilemap = tilemap
+        self._bind_tilemap(record)
+
+    def _on_export_tiled(self) -> None:
+        """Export the active tilemap to Tiled JSON (surfaces errors, no crash)."""
+        if self._active_tilemap is None:
+            QMessageBox.information(
+                self,
+                self.tr("Export Tiled Map"),
+                self.tr("There is no tilemap to export."),
+            )
+            return
+        export_tilemap_dialog(self, self._active_tilemap)
 
     # -- i18n -------------------------------------------------------------
 
@@ -1824,6 +2090,9 @@ class Main_Window(QMainWindow):
         self._ramp_dock.setWindowTitle(self.tr("Shade Ramps"))
         self._cycling_dock.setWindowTitle(self.tr("Colour Cycling"))
         self._analytics_dock.setWindowTitle(self.tr("Analytics"))
+        self._tileset_dock.setWindowTitle(self.tr("Tileset Editor"))
+        self._tilemap_layer_dock.setWindowTitle(self.tr("Tilemap Layers"))
+        self._tilemap_dock.setWindowTitle(self.tr("Tilemap Canvas"))
         self._tab_widget.setAccessibleName(self.tr("Open documents"))
         self._float_hint.setAccessibleName(self.tr("Floating selection status"))
         self._update_float_hint()
@@ -1863,6 +2132,22 @@ class Main_Window(QMainWindow):
         self._theme_light_action.setText(self.tr("Light"))
         self._theme_dark_action.setText(self.tr("Dark"))
 
+        self._new_tileset_action.setText(self.tr("New Tileset from Image…"))
+        self._new_tilemap_action.setText(self.tr("New Tilemap"))
+        self._import_tiled_action.setText(self.tr("Import Tiled JSON…"))
+        self._export_tiled_action.setText(self.tr("Export Tiled JSON…"))
+        self._stamp_action.setText(self.tr("Stamp Tool"))
+        self._stamp_action.setToolTip(self.tr("Place the selected tile"))
+        self._erase_tile_action.setText(self.tr("Tile Eraser"))
+        self._erase_tile_action.setToolTip(self.tr("Clear the target cell"))
+        self._fill_tile_action.setText(self.tr("Rectangle Fill"))
+        self._fill_tile_action.setToolTip(
+            self.tr("Fill a dragged rectangle with the selected tile")
+        )
+        self._stamp_flip_h_action.setText(self.tr("Flip Stamp Horizontal"))
+        self._stamp_flip_v_action.setText(self.tr("Flip Stamp Vertical"))
+        self._stamp_rotate_action.setText(self.tr("Rotate Stamp 90° CW"))
+
         # Mnemonics make the drawing-mode toggles keyboard-reachable (A11Y-P2-1);
         # letters are disjoint from the other View-menu entries.
         self._filled_action.setText(self.tr("Fille&d Shapes"))
@@ -1897,6 +2182,7 @@ class Main_Window(QMainWindow):
         self._image_menu.setTitle(self.tr("&Image"))
         self._view_menu.setTitle(self.tr("&View"))
         self._palette_menu.setTitle(self.tr("&Palette"))
+        self._tilemap_menu.setTitle(self.tr("Tile&map"))
         self._theme_menu.setTitle(self.tr("&Theme"))
         self._language_menu.setTitle(self.tr("&Language"))
 
