@@ -49,7 +49,8 @@ def _valid_payload(frames: int = 6) -> Dict[str, Any]:
 
 def test_serialize_declares_version_3():
     payload = pio.serialize(Document(2, 2))
-    assert payload["version"] == 3
+    # Saving always writes the current schema (v4, ADR-0016); v3 still loads.
+    assert payload["version"] == 4
     assert payload["frame_tags"] == []
 
 
