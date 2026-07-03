@@ -149,3 +149,18 @@ SC-L015-1)."""
 MAX_GROUP_NESTING_DEPTH: int = 8
 """Defensive cap on layer-group nesting depth (Article VII; CL-6 — generous for
 pixel-art work) (plan §8; spec REQ-P4-LOGIC-011/015; SC-L011-3)."""
+
+# --- FU-15 compositor performance-gate tuning (Article II single-source) ---------
+# Ceiling for the region-recomposite CI perf gate. Consumed by
+# scripts/perf_profile.py --composite and .github/workflows/ci.yml.
+
+COMPOSITE_REGION_CEILING_MS: int = 200
+"""FU-15 catastrophic-regression ceiling for the region-recomposite path, ms.
+
+DISTINCT from :data:`FRAME_BUDGET_MS` (16 ms, the 60-fps *render* budget): this
+is a deliberately *loose* order-of-magnitude bound, ~400x above the correct
+region-path p95 (~0.5 ms, dev-measured) yet orders of magnitude below the eager
+full-canvas / O(full-canvas) region regression class (hundreds of ms to tens of
+seconds). It catches the SC-UI-015-1 regression class on a noisy 2-core CI runner
+without flaking on scheduler jitter — the wrong altitude for the 16 ms budget.
+(ADR / AGT-10 rendering-performance directive; S12 single-source.)"""
