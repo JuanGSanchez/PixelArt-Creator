@@ -33,6 +33,11 @@ env:
 jobs:
   quality-gate:
     runs-on: ubuntu-latest
+    # Job-level wall-clock cap: a hung/deadlocked test can no longer pin a runner
+    # for ~6h. Set comfortably above the real suite time (~a few min) so healthy
+    # runs never trip it; the per-test --timeout below is the fine-grained guard
+    # that fails fast and names the offending test (FU-12).
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -78,8 +83,13 @@ jobs:
           python scripts/check_cycles.py --root pixelart_creator
 
       - name: Tests (pytest, headless, with coverage XML)
+        # --timeout=120 --timeout-method=thread: per-test hard cap so a single
+        # hung test fails fast (naming itself) instead of hanging the whole run.
+        # --durations=15: always surface the 15 slowest tests in the CI log so a
+        # creeping suite-runtime regression is visible (FU-12 / possible FU-20).
         run: |
           pytest -m "not slow and not gpu" \
+            --timeout=120 --timeout-method=thread --durations=15 \
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 
       - name: Coverage gate (>=90 line / >=80 branch, S13)
