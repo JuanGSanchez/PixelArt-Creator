@@ -42,6 +42,7 @@ from pixelart_creator.logic.selection import SelectionMask
 from pixelart_creator.logic.symmetry import SymmetryAxis
 from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.tools.base import Tool, ToolContext
+from pixelart_creator.ui.tools.floating_move import FloatingMoveController
 
 Coord = Tuple[int, int]
 
@@ -58,6 +59,9 @@ class Canvas_View(QGraphicsView):
     rightClicked = Signal(int, int)
     #: Emitted with the picked RGBA tuple when the colour-picker sets a colour.
     colorPicked = Signal(object)
+    #: Emitted ``(is_active, is_copy)`` when a floating move/copy state changes
+    #: (drives the shell's copy-mode status hint, REQ-P2-UI-032/-036).
+    floatingStateChanged = Signal(bool, bool)
 
     def __init__(
         self,
@@ -79,6 +83,10 @@ class Canvas_View(QGraphicsView):
         self._pan_origin = QPoint()
         self._ctx: Optional[ToolContext] = None
         self._menu_hook: Optional[Callable[[int, int], None]] = None
+        # One floating move/copy controller per view (REQ-P2-UI-030..034); it
+        # owns the active float so release / Enter / tool-switch can all commit it.
+        self._floating_controller = FloatingMoveController()
+        self._floating_controller.state_changed = self._emit_floating_state
         # Phase-2 drawing modes / active selection (bound into each ToolContext).
         self._symmetry_axis: SymmetryAxis = SymmetryAxis.NONE
         self._pixel_perfect = False
@@ -129,6 +137,19 @@ class Canvas_View(QGraphicsView):
     def active_tool(self) -> Optional[Tool]:
         """Return the active tool controller."""
         return self._tool
+
+    def floating_controller(self) -> FloatingMoveController:
+        """Return this view's floating move/copy controller."""
+        return self._floating_controller
+
+    def commit_active_float(self) -> None:
+        """Commit any active floating move before a tool/tab switch (REQ-P2-UI-033)."""
+        if self._floating_controller.is_active():
+            self._floating_controller.commit()
+
+    def _emit_floating_state(self, active: bool, copy: bool) -> None:
+        """Relay the controller's state change to the shell (status hint)."""
+        self.floatingStateChanged.emit(active, copy)
 
     def set_active_color(self, color: RGBA) -> None:
         """Set the active colour subsequent paint tools use (CL-10)."""
@@ -290,6 +311,18 @@ class Canvas_View(QGraphicsView):
     # -- keyboard (Space pan modifier) -----------------------------------
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 (Qt override)
+        # A live floating move commits on Enter/Return and cancels on Escape
+        # (REQ-P2-UI-033/-034); these keys are inert when no float is active.
+        if self._floating_controller.is_active():
+            key = event.key()
+            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                self._floating_controller.commit()
+                event.accept()
+                return
+            if key == Qt.Key.Key_Escape:
+                self._floating_controller.cancel()
+                event.accept()
+                return
         if event.key() == Qt.Key.Key_Space and not event.isAutoRepeat():
             self._space_held = True
             self.viewport().setCursor(Qt.CursorShape.OpenHandCursor)
@@ -322,6 +355,7 @@ class Canvas_View(QGraphicsView):
             pixel_perfect=self._pixel_perfect,
             tiled=self._tiled,
             snap=self._snap,
+            floating_controller=self._floating_controller,
         )
 
     def _on_color_picked(self, color: RGBA) -> None:
@@ -368,6 +402,9 @@ class Canvas_View(QGraphicsView):
             event.accept()
             return
         if self._drawing and self._tool is not None and self._ctx is not None:
+            # Re-sample modifiers each move so Ctrl held mid-drag toggles the
+            # floating move to COPY (REQ-P2-UI-032; the press only sampled once).
+            self._ctx.modifiers = event.modifiers()
             x, y = self._pixel_at(event)
             self._tool.on_move(x, y, self._ctx)
             event.accept()
@@ -389,6 +426,7 @@ class Canvas_View(QGraphicsView):
             and self._tool is not None
             and self._ctx is not None
         ):
+            self._ctx.modifiers = event.modifiers()
             x, y = self._pixel_at(event)
             self._tool.on_release(x, y, self._ctx)
             self._drawing = False
