@@ -422,6 +422,13 @@ class CanvasScene(QGraphicsScene):
         # The compositor is RGBA-only; indexed docs keep the Phase-1 path.
         self._compositing = document.mode is ColorMode.RGBA
         self._composite: Optional[PixelBuffer] = None
+        # Deferred-composite guard: __init__ allocates the resident composite
+        # buffer but does NOT composite the stack into it (the eager full pass was
+        # ~4.4 s at 8K and froze document open — AGT-10 standing flag). The buffer
+        # starts zero-filled; the initial full composite is computed lazily on the
+        # first paint (drawBackground, before the pixmap item blits it) or on any
+        # earlier explicit read via _ensure_composite(). Scene construction is O(1).
+        self._composite_dirty = False
         # Canvas area whose composite is stale — the off-screen remainder left
         # unrecomposited by a viewport-scoped attribute change (D2). Refreshed
         # lazily by recomposite_exposed() as it pans into view. Empty == clean.
@@ -437,7 +444,8 @@ class CanvasScene(QGraphicsScene):
             self._composite = PixelBuffer(
                 document.width, document.height, ColorMode.RGBA
             )
-            self._recomposite_all()
+            # Defer the full-stack composite to the first paint (O(1) construction).
+            self._composite_dirty = True
         self._grid_enabled = False
         self._checker_light = QColor(_DEFAULT_CHECKER_LIGHT)
         self._checker_dark = QColor(_DEFAULT_CHECKER_DARK)
@@ -515,6 +523,24 @@ class CanvasScene(QGraphicsScene):
         result = composite_stack(self._nodes(), w, h)
         self._composite.data[:, :, :] = result.data
         self._stale = QRegion()  # the whole composite is now fresh.
+        self._composite_dirty = False  # deferred initial composite now computed.
+
+    def _ensure_composite(self) -> None:
+        """Compute the deferred initial composite on first paint/access (D1 guard).
+
+        ``__init__`` allocates the resident composite buffer but leaves it
+        zero-filled and marks it dirty rather than running the ~4.4 s full-stack
+        composite eagerly (AGT-10 standing flag: "CanvasScene.__init__
+        full-composites every RGBA doc"). This guard fills it exactly once — from
+        :meth:`drawBackground` before the pixmap item blits it, or from any earlier
+        explicit read of ``self._composite``. It is idempotent: a no-op once the
+        composite is fresh, so the dirty-rect (region) recomposite fast paths are
+        unaffected. The in-place write in :meth:`_recomposite_all` keeps the
+        item's zero-copy ``QImage`` view valid, so no rebuild is needed. FLAGGED
+        for an AGT-10 render-strategy re-profile.
+        """
+        if self._composite_dirty:
+            self._recomposite_all()
 
     def _recomposite_region(self, rect: QRectF) -> None:
         """Recompose only ``rect`` into the composite buffer (dirty-rect path, D1).
@@ -930,6 +956,9 @@ class CanvasScene(QGraphicsScene):
         self, painter: QPainter, rect: QRectF
     ) -> None:
         """Paint checker + optional grid over ONLY the exposed ``rect`` (D2)."""
+        # Compute the deferred initial composite before the pixmap item blits it,
+        # so scene construction stays O(1) yet the first frame is correct (D1).
+        self._ensure_composite()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         # Snap the tile loop to a TILE_SIZE grid, extend a TILE_BUFFER ring.
         left = math.floor(rect.left() / TILE_SIZE) - TILE_BUFFER
