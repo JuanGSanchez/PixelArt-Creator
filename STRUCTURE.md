@@ -104,6 +104,39 @@
 | --- | --- | --- | --- | --- |
 | `project_io.py` | extend | Serialise per-node blend_mode/opacity/visible/lock + nested groups + masks + reference/smart links; schema v2; defensive load + v1 back-compat read. | `serialize`, `deserialize`, `save_project`, `load_project`, `FORMAT_VERSION=2`, `ProjectIOError` | DATA-001..005 |
 
+## `pixelart_creator/data/` — Phase-7 drag-drop import — BUILT (Slice A-A)
+
+> New Qt-free `data/` modules for REQ-NEW-A drag-drop import, on disk and green (`check_layering`
+> + `check_cycles` clean). The palette **parser** is **REUSED** (`logic/palette_io.decode`); only a
+> thin path-loader is new. Image decode is ruled into `ui/` (QImage, ADR-0010) — not `data/`.
+> No new numeric constant (image bounds reuse `MAX_CANVAS_*`; palette ceiling reuses
+> `MAX_PALETTE_SIZE`); extension sets are module-local format identifiers (ADR-0001 exemption).
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `file_import.py` | **new** | File-type classifier + shared import-error family (Qt-free, pure). | `FileType` (IMAGE/PROJECT/PALETTE/UNKNOWN), `classify(path)`, `IMAGE_EXTENSIONS`, `PALETTE_EXTENSIONS`, `PROJECT_EXTENSION`, `PALETTE_FORMAT_BY_EXTENSION`, `FileImportError`, `PaletteImportError`, `ImageImportError` | DATA-003, -005 |
+| `palette_import.py` | **new** | Palette path-loader: read file → dispatch ext→fmt → delegate to `logic.palette_io.decode`; wrap errors as `PaletteImportError`. | `load_palette(path) -> Palette` | DATA-001 (reuses `palette_io`) |
+| `project_io.py` | no change | REUSED for the PROJECT branch (`load_project`). | `load_project`, `ProjectIOError` | DATA-004 |
+
+## `pixelart_creator/logic/` — Phase-7 drag-drop import — BUILT (Slice A-A additions)
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `palette.py` | extend | In-place bulk replace so a palette load is one reversible command. | `Palette.replace(colors)` | UI-005 (enabler) |
+| `document.py` | extend | Factory seeding a single-frame RGBA document from a decoded buffer. | `Document.from_buffer(buffer, *, palette=None, name="Imported")` | UI-003 (enabler) |
+| `palette_io.py` | no change | REUSED — `decode(text, fmt) -> Palette` parses `.gpl`/`.pal`/`hex`. | `decode`, `encode`, `PaletteIOError` | DATA-001 |
+
+## `pixelart_creator/ui/` — Phase-7 drag-drop import — BUILT (Slice A-B)
+
+> Qt lives here only. QImage decode (ADR-0010) hands `logic` a packed RGBA buffer — no Qt crosses
+> the boundary. Drop events + router + dirty prompt + notices extend `main_window.py`; the palette
+> load reuses the shipped `ui/commands.LogicCommand` over the tab's `QUndoStack` (one undo step).
+
+| Module | Change | Responsibility | Binds to (logic/data) | REQ |
+| --- | --- | --- | --- | --- |
+| `image_import.py` | **new** | `decode_image(path) -> PixelBuffer`: QImage → `Format_RGBA8888`, honour `bytesPerLine`, bounds-check pre-alloc, first-frame GIF; raise `ImageImportError`. | `PySide6`, `logic.pixel_buffer`, `logic.constants`, `data.file_import` | DATA-002 |
+| `main_window.py` | extend | `setAcceptDrops`/`dragEnter`/`drop` events; `_route_dropped_files` (stable order, per-file guard); image→new tab; palette→undoable replace; `.pixproj`→dirty-guard replace; notices; `save_document` `setClean()`. | `ui/image_import`, `data/file_import`, `data/palette_import`, `data/project_io`, `logic/document`, `ui/commands` | UI-001..009 |
+
 ## `pixelart_creator/ui/` — Phase-4 layer & canvas — BUILT (Slice 4C)
 
 > Binds to Slice-4A logic (`blend.composite_stack`, `document` layer ops) + `data/project_io` v2; Qt
