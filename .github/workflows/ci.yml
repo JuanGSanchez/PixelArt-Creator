@@ -44,10 +44,10 @@ jobs:
     timeout-minutes: 75
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python 3.12 (pinned)
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -86,15 +86,29 @@ jobs:
           python scripts/check_layering.py --root pixelart_creator
           python scripts/check_cycles.py --root pixelart_creator
 
-      - name: Tests (pytest, headless, with coverage XML)
+      - name: Tests (pytest, headless, parallel, with coverage XML)
+        # -n auto: pytest-xdist fans the suite across all runner cores, cutting
+        # the ~46-48 min single-process wall-time to a fraction (FU-20). Per-test
+        # QStandardPaths app-config is isolated to a per-test tmp dir in the ui
+        # conftest so the parallel workers never race the shared favourites.json.
+        # pytest-cov aggregates coverage across the xdist workers, so the coverage
+        # gate below still sees the full merged result (verified >=90/>=80).
         # --timeout=120 --timeout-method=thread: per-test hard cap so a single
         # hung test fails fast (naming itself) instead of hanging the whole run.
         # --durations=15: always surface the 15 slowest tests in the CI log so a
-        # creeping suite-runtime regression is visible (FU-12 / possible FU-20).
+        # creeping suite-runtime regression is visible (FU-12 / FU-20).
         run: |
-          pytest -m "not slow and not gpu" \
+          pytest -n auto -m "not slow and not gpu" \
             --timeout=120 --timeout-method=thread --durations=15 \
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 
       - name: Coverage gate (>=90 line / >=80 branch, S13)
         run: python scripts/coverage_gate.py --xml coverage.xml --line 90 --branch 80
+
+      - name: Compositor region-recomposite perf gate (FU-15)
+        # Standalone, Qt-free P11 gate: times the region-recomposite path on an
+        # 8K multi-layer document and exits non-zero if the median exceeds
+        # COMPOSITE_REGION_CEILING_MS (200 ms, logic/constants.py). No pytest
+        # marker, no extra env — numpy + logic only. Catches the SC-UI-015-1
+        # catastrophic O(full-canvas) recomposite regression class.
+        run: python scripts/perf_profile.py --composite
