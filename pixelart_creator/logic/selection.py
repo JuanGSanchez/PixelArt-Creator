@@ -8,10 +8,21 @@ a magic-wand (contiguous colour, reusing ``drawing.flood_fill`` +
 masks. :func:`apply_masked` constrains any edit to selected pixels;
 :func:`move_selection` is the reversible floating cut-move. Zero Qt (S11);
 REQ-P2-LOGIC-001..006, 010.
+
+The **floating-selection** model (REQ-P2-LOGIC-030..036, ADR-0009) layers a
+*non-destructive* move/copy on top of that: :func:`lift_selection` captures the
+masked colours into a :class:`FloatingSelection` snapshot **without mutating the
+source**; :func:`composite_preview` renders a region-scoped, non-destructive
+preview (base never written); :func:`commit_floating` turns the float into one
+reversible :class:`history.Command` — MOVE reuses :func:`move_selection`
+verbatim, COPY uses the sibling :func:`copy_selection` (stamp without vacate).
+Because the base is never written during the float, cancel is a pure no-op and
+the lift-time snapshot equals the value read at commit time (ADR-0009 D2).
 """
 
 from __future__ import annotations
 
+import enum
 from typing import Callable, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -32,8 +43,31 @@ COMBINE_SUBTRACT = "subtract"
 _COMBINE_MODES = (COMBINE_REPLACE, COMBINE_ADD, COMBINE_SUBTRACT)
 
 
+class FloatMode(enum.Enum):
+    """Whether a floating selection MOVES its origin or leaves a COPY behind.
+
+    Module-local (like :class:`~pixelart_creator.logic.pixel_buffer.ColorMode`);
+    it is an enum, not a numeric tuning value, so it carries no ``constants.py``
+    entry (NFR-6). MOVE vacates the origin on commit; COPY keeps it intact.
+    """
+
+    MOVE = "move"
+    COPY = "copy"
+
+
 class SelectionError(ValueError):
     """Raised on invalid selection dimensions, arguments, or operations."""
+
+
+def _require_int(name: str, value: object) -> int:
+    """Return ``value`` as an int, or raise :class:`SelectionError`.
+
+    Booleans are rejected (``bool`` is an ``int`` subclass but never a valid
+    coordinate/offset).
+    """
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise SelectionError(f"{name} must be an int, got {value!r}")
+    return value
 
 
 def _check_dims(width: int, height: int) -> None:
@@ -378,9 +412,286 @@ def move_selection(
     return history.PixelEdit(buffer, changes, label="move selection")
 
 
+# -- floating selection (non-destructive move / copy) ---------------------
+# REQ-P2-LOGIC-030..036; ADR-0009 (lifted-snapshot preview, region-scoped
+# composite, commit re-reads the live buffer). MOVE reuses ``move_selection``
+# verbatim (D2 snapshot == commit-read invariant); COPY is the sibling
+# ``copy_selection`` builder. Zero Qt.
+
+
+class FloatingSelection:
+    """A non-destructive floating move/copy: lifted colours + mask + offset.
+
+    Created by :func:`lift_selection`, never constructed directly by the UI. It
+    holds an **immutable snapshot** of the lifted pixel colours (stored as the
+    tight mask-bounding-box sub-buffer — *never* a full-canvas copy, per
+    ADR-0009 D3 / plan §4.3), the source :class:`SelectionMask`, a
+    :class:`FloatMode`, and a **live** integer offset ``(dx, dy)`` that the drag
+    interaction updates via :meth:`set_offset`. Constructing a float does not
+    mutate the source buffer (REQ-P2-LOGIC-030); the buffer changes only at
+    commit (:func:`commit_floating`).
+    """
+
+    __slots__ = ("_mask", "_mode", "_colors", "_bbox", "_offset")
+
+    def __init__(
+        self,
+        mask: SelectionMask,
+        mode: FloatMode,
+        colors: PixelBuffer,
+        bbox: Tuple[int, int, int, int],
+        offset: Tuple[int, int] = (0, 0),
+    ) -> None:
+        """Store the lifted state. Use :func:`lift_selection` in normal code."""
+        self._mask = mask
+        self._mode = mode
+        self._colors = colors
+        self._bbox = bbox
+        self._offset = (int(offset[0]), int(offset[1]))
+
+    # -- properties -------------------------------------------------------
+
+    @property
+    def mode(self) -> FloatMode:
+        """The :class:`FloatMode` (MOVE vacates the origin, COPY keeps it)."""
+        return self._mode
+
+    @property
+    def offset(self) -> Tuple[int, int]:
+        """The current live integer offset ``(dx, dy)`` (initially ``(0, 0)``)."""
+        return self._offset
+
+    @property
+    def width(self) -> int:
+        """Width of the floating content's bounding box (constant across drags)."""
+        return self._colors.width
+
+    @property
+    def height(self) -> int:
+        """Height of the floating content's bounding box (constant across drags)."""
+        return self._colors.height
+
+    # -- accessors --------------------------------------------------------
+
+    def mask(self) -> SelectionMask:
+        """Return an independent copy of the source selection mask.
+
+        Full-buffer-sized (origin top-left), suitable for handing straight to
+        :func:`move_selection` / :func:`copy_selection` at commit.
+        """
+        return self._mask.copy()
+
+    def bounds(self) -> Tuple[int, int, int, int]:
+        """Return the floated bounding box ``(x0, y0, x1, y1)`` in scene coords.
+
+        This is the lift bounding box shifted by the live offset — i.e. the
+        destination rectangle the preview occupies now. The origin (pre-move)
+        bounding box is this shifted back by ``-offset`` (or ``mask().bounds()``).
+        Never ``None`` (a float never has an empty mask — see
+        :func:`lift_selection`).
+        """
+        x0, y0, x1, y1 = self._bbox
+        dx, dy = self._offset
+        return (x0 + dx, y0 + dy, x1 + dx, y1 + dy)
+
+    def set_offset(self, dx: int, dy: int) -> None:
+        """Update the live offset ``(dx, dy)`` (integer pixel units).
+
+        Raises:
+            SelectionError: If either component is not an int.
+        """
+        self._offset = (_require_int("dx", dx), _require_int("dy", dy))
+
+
+def lift_selection(
+    buffer: PixelBuffer, mask: SelectionMask, mode: FloatMode
+) -> FloatingSelection:
+    """Lift the masked colours of ``buffer`` into a :class:`FloatingSelection`.
+
+    Snapshots the masked pixels' colours (the tight mask-bbox sub-buffer)
+    **without mutating** ``buffer`` (REQ-P2-LOGIC-030) and pairs them with a copy
+    of ``mask`` and the given :class:`FloatMode`, at offset ``(0, 0)``.
+
+    Raises:
+        SelectionError: If ``mode`` is not a :class:`FloatMode`, ``mask``
+            dimensions differ from ``buffer`` (REQ-P2-LOGIC-036), or ``mask`` is
+            empty (ADR-0009 D5 — a lift on an empty mask is a programming error,
+            not a control-flow path; no sentinel is returned).
+    """
+    if not isinstance(mode, FloatMode):
+        raise SelectionError(f"mode must be a FloatMode, got {mode!r}")
+    if mask.width != buffer.width or mask.height != buffer.height:
+        raise SelectionError("mask dimensions must match the buffer")
+    box = mask.bounds()
+    if box is None:
+        raise SelectionError("cannot lift an empty selection")
+    x0, y0, x1, y1 = box
+    colors = buffer.region(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
+    return FloatingSelection(mask.copy(), mode, colors, box, offset=(0, 0))
+
+
+def _validate_region(
+    base: PixelBuffer, region: Tuple[int, int, int, int]
+) -> Tuple[int, int, int, int]:
+    """Validate a scene-space ``(x, y, w, h)`` region lies fully within ``base``.
+
+    Mirrors the ADR-0007 ``composite_stack`` rule: validate, never clamp
+    (P2 determinism).
+
+    Raises:
+        SelectionError: If a component is not an int, the size is degenerate
+            (``w < 1`` / ``h < 1``), or the region is out of bounds.
+    """
+    rx = _require_int("region x", region[0])
+    ry = _require_int("region y", region[1])
+    rw = _require_int("region w", region[2])
+    rh = _require_int("region h", region[3])
+    if rw < 1 or rh < 1:
+        raise SelectionError(f"region size must be positive, got {rw}x{rh}")
+    if rx < 0 or ry < 0 or rx + rw > base.width or ry + rh > base.height:
+        raise SelectionError(
+            f"region ({rx},{ry},{rw},{rh}) exceeds buffer bounds "
+            f"{base.width}x{base.height}"
+        )
+    return rx, ry, rw, rh
+
+
+def composite_preview(
+    floating: FloatingSelection,
+    base: PixelBuffer,
+    *,
+    region: Optional[Tuple[int, int, int, int]] = None,
+) -> PixelBuffer:
+    """Render a NON-destructive preview of ``floating`` over ``base``.
+
+    Returns a **new** buffer; ``base`` is never mutated (REQ-P2-LOGIC-031). For
+    :attr:`FloatMode.MOVE` the origin (source-mask pixels) reads **vacated**
+    (``color.TRANSPARENT`` RGBA / index ``0`` indexed, CL-F2); for
+    :attr:`FloatMode.COPY` the origin stays intact. The floated colours are
+    stamped at the current offset, clipped to the returned rectangle
+    (REQ-P2-LOGIC-035). Deterministic (NFR-2).
+
+    Args:
+        floating: The active float (its :attr:`FloatingSelection.offset` is used).
+        base: The buffer to preview over (must match the float's mask
+            dimensions). Never written.
+        region: ``None`` → a full-size copy of ``base`` (reference / test path).
+            ``(x, y, w, h)`` → a **region-sized** ``(h, w[, 4])`` buffer with
+            implied scene origin ``(x, y)``; element ``(i, j)`` is scene pixel
+            ``(x + j, y + i)``. Allocates only the region — **no full-canvas
+            allocation** (ADR-0009 D3 / ADR-0007). The UI drag path MUST pass a
+            bounded ``region`` so a per-frame preview costs its dirty rect.
+
+    Raises:
+        SelectionError: If ``base`` dimensions differ from the float's mask, or
+            ``region`` is degenerate / out of bounds (validated, never clamped).
+    """
+    if floating._mask.width != base.width or floating._mask.height != base.height:
+        raise SelectionError("mask dimensions must match the base buffer")
+
+    if region is None:
+        rx, ry, rw, rh = 0, 0, base.width, base.height
+        out = base.copy()
+    else:
+        rx, ry, rw, rh = _validate_region(base, region)
+        out = base.region(rx, ry, rw, rh)
+
+    out_data = out.data
+    mask_data = floating._mask._data  # same-module read; no full-canvas copy
+    fill: PixelValue = TRANSPARENT if base.mode is ColorMode.RGBA else 0
+
+    # MOVE: vacate the origin pixels that fall inside the returned region.
+    if floating._mode is FloatMode.MOVE:
+        origin_sub = mask_data[ry : ry + rh, rx : rx + rw]
+        if origin_sub.any():
+            out_data[origin_sub] = fill
+
+    # Both modes: stamp the floated colours at the offset, clipped to the region.
+    x0, y0, x1, y1 = floating._bbox
+    dx, dy = floating._offset
+    dest_x0, dest_y0 = x0 + dx, y0 + dy
+    fw, fh = floating._colors.width, floating._colors.height
+
+    ix0 = max(dest_x0, rx)
+    iy0 = max(dest_y0, ry)
+    ix1 = min(dest_x0 + fw, rx + rw)
+    iy1 = min(dest_y0 + fh, ry + rh)
+    if ix0 < ix1 and iy0 < iy1:
+        # Source (mask-bbox) window and destination (region-local) window.
+        sx0, sy0 = ix0 - dest_x0, iy0 - dest_y0
+        sx1, sy1 = ix1 - dest_x0, iy1 - dest_y0
+        ox0, oy0 = ix0 - rx, iy0 - ry
+        ox1, oy1 = ix1 - rx, iy1 - ry
+        bbox_mask = mask_data[y0 : y1 + 1, x0 : x1 + 1]
+        sub_mask = bbox_mask[sy0:sy1, sx0:sx1]
+        src = floating._colors.data[sy0:sy1, sx0:sx1]
+        dst = out_data[oy0:oy1, ox0:ox1]
+        dst[sub_mask] = src[sub_mask]
+    return out
+
+
+def copy_selection(
+    buffer: PixelBuffer, mask: SelectionMask, dx: int, dy: int
+) -> history.Command:
+    """Stamp the masked pixels at ``(dx, dy)`` **without** vacating the origin.
+
+    The sibling of :func:`move_selection` for :attr:`FloatMode.COPY`: it copies
+    the masked colours to ``(x + dx, y + dy)`` (clipped to bounds,
+    REQ-P2-LOGIC-035) and leaves the origin pixels unchanged (CL-F7). Returns an
+    unapplied reversible :class:`history.PixelEdit` (push with ``execute=True``);
+    ``apply then undo`` restores the buffer exactly. A zero offset produces an
+    empty (identity / no-op) command (CL-F8).
+
+    Raises:
+        SelectionError: On a dimension mismatch or non-int offsets.
+    """
+    if mask.width != buffer.width or mask.height != buffer.height:
+        raise SelectionError("mask dimensions must match the buffer")
+    _require_int("dx", dx)
+    _require_int("dy", dy)
+
+    selected = [(int(cx), int(cy)) for cy, cx in zip(*np.nonzero(mask.data()))]
+
+    changes: List[history.PixelChange] = []
+    for cx, cy in selected:
+        tx, ty = cx + dx, cy + dy
+        if not buffer.in_bounds(tx, ty):
+            continue
+        new = buffer.get_pixel(cx, cy)
+        old = buffer.get_pixel(tx, ty)
+        if old != new:
+            changes.append((tx, ty, old, new))
+    return history.PixelEdit(buffer, changes, label="copy selection")
+
+
+def commit_floating(
+    buffer: PixelBuffer, floating: FloatingSelection
+) -> history.Command:
+    """Turn a floating selection into ONE reversible commit command.
+
+    Dispatches on :attr:`FloatingSelection.mode` at the float's current offset:
+    MOVE reuses the shipped :func:`move_selection` **verbatim** (vacate + stamp);
+    COPY uses :func:`copy_selection` (stamp only). This is sound because the base
+    was never written during the float, so the colours read here equal the lifted
+    snapshot (ADR-0009 D2). Returns the command **unapplied** (push with
+    ``execute=True``); ``apply then undo = identity``. A zero-offset commit is an
+    identity / no-op command (CL-F8).
+
+    Raises:
+        SelectionError: On a dimension mismatch (propagated from the builder).
+    """
+    dx, dy = floating.offset
+    mask = floating.mask()
+    if floating.mode is FloatMode.MOVE:
+        return move_selection(buffer, mask, dx, dy)
+    return copy_selection(buffer, mask, dx, dy)
+
+
 __all__ = [
     "SelectionError",
     "SelectionMask",
+    "FloatMode",
+    "FloatingSelection",
     "COMBINE_REPLACE",
     "COMBINE_ADD",
     "COMBINE_SUBTRACT",
@@ -389,4 +700,8 @@ __all__ = [
     "wand_mask",
     "apply_masked",
     "move_selection",
+    "lift_selection",
+    "composite_preview",
+    "copy_selection",
+    "commit_floating",
 ]
