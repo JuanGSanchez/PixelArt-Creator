@@ -164,3 +164,49 @@ full-canvas / O(full-canvas) region regression class (hundreds of ms to tens of
 seconds). It catches the SC-UI-015-1 regression class on a noisy 2-core CI runner
 without flaking on scheduler jitter — the wrong altitude for the 16 ms budget.
 (ADR / AGT-10 rendering-performance directive; S12 single-source.)"""
+
+# --- Phase-5 animation tuning (phase-5 T5A-01; Article II single-source) ---------
+# Named bounds/defaults consumed by logic/animation.py (playback + onion) and the
+# reversible frame ops in logic/document.py. DEFAULT_FRAME_DURATION_MS (above) is
+# REUSED for per-frame timing (FR-2). The PlaybackMode enum is an enumerated
+# *vocabulary* (like BlendMode) and lives in logic/animation.py, NOT here (BF-2,
+# plan §8). Onion tint colours are content-overlay RGBA constants, not theme roles
+# (REQ-P5-UI-018). This module stays a leaf (no intra-package imports).
+
+MAX_FRAMES: int = 4096
+"""Defensive cap on the number of frames in a document (Article VII; parallels
+:data:`MAX_LAYERS_PER_FRAME`, generous for hand-drawn animation)
+(plan §8; spec REQ-P5-LOGIC-014; SC-L014-1)."""
+
+MAX_ONION_SKIN_FRAMES: int = 8
+"""Maximum onion-skin previous/next frame count per side (0..8 per side)
+(research Q1 — *medium reliability*; plan §8; spec REQ-P5-LOGIC-012/014;
+SC-L012-2)."""
+
+DEFAULT_ONION_PREV: int = 1
+"""Default number of previous frames shown by onion skinning (Aseprite default
+1/1) (CL-4; plan §8; spec REQ-P5-LOGIC-014; SC-L014-2)."""
+
+DEFAULT_ONION_NEXT: int = 1
+"""Default number of next frames shown by onion skinning (Aseprite default 1/1)
+(CL-4; plan §8; spec REQ-P5-LOGIC-014; SC-L014-2)."""
+
+ONION_TINT_PREV: tuple[int, int, int, int] = (255, 0, 0, 255)
+"""RGBA tint applied to *previous* onion ghosts (red = previous, Aseprite
+mapping). The alpha channel is the tint *strength* used to blend the ghost toward
+this colour (CL-4; plan §8; spec REQ-P5-LOGIC-012/014; SC-L012-1/L014-2)."""
+
+ONION_TINT_NEXT: tuple[int, int, int, int] = (0, 0, 255, 255)
+"""RGBA tint applied to *next* onion ghosts (blue = next, Aseprite mapping). The
+alpha channel is the tint *strength* used to blend the ghost toward this colour
+(CL-4; plan §8; spec REQ-P5-LOGIC-012/014; SC-L012-1/L014-2)."""
+
+ONION_SKIN_OPACITY: float = 0.5
+"""Onion ghost opacity for the *nearest* neighbour, in ``0.0..1.0`` (farther
+ghosts fade linearly toward :data:`ONION_SKIN_OPACITY_MIN`) (research Q1 —
+*medium reliability*; plan §8; spec REQ-P5-LOGIC-012; SC-L012-1)."""
+
+ONION_SKIN_OPACITY_MIN: float = 0.15
+"""Onion ghost opacity for the *farthest* neighbour, in ``0.0..1.0`` (linear
+distance falloff floor from :data:`ONION_SKIN_OPACITY`) (research Q1 — *medium
+reliability*; plan §8; spec REQ-P5-LOGIC-012)."""

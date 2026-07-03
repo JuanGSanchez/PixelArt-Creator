@@ -9,13 +9,22 @@ reshaping it.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 from pixelart_creator.logic import palette_ops
+from pixelart_creator.logic.animation import (
+    AnimationError,
+    FrameTag,
+    PlaybackMode,
+    clamp_tag_range,
+    validate_tag_range,
+)
 from pixelart_creator.logic.blend import BlendMode, composite_stack
+from pixelart_creator.logic.color import ColorError, from_hex
 from pixelart_creator.logic.constants import (
     DEFAULT_FRAME_DURATION_MS,
     DEFAULT_LAYER_OPACITY,
+    MAX_FRAMES,
     MAX_GROUP_NESTING_DEPTH,
     MAX_LAYERS_PER_FRAME,
 )
@@ -34,6 +43,8 @@ __all__ = [
     "LayerNode",
     "LayerRef",
     "Frame",
+    "FrameTag",
+    "PlaybackMode",
     "Document",
     "ensure_editable",
     "iter_layers",
@@ -80,6 +91,7 @@ class Layer:
         "mask",
         "reference",
         "smart_source",
+        "layer_id",
     )
 
     def __init__(
@@ -94,8 +106,15 @@ class Layer:
         mask: Optional[PixelBuffer] = None,
         reference: bool = False,
         smart_source: Optional["Layer"] = None,
+        layer_id: int = 0,
     ) -> None:
-        """Initialise a layer from a buffer plus optional compositing attributes."""
+        """Initialise a layer from a buffer plus optional compositing attributes.
+
+        ``layer_id`` is a stable cross-frame track identifier (research Q4
+        caveat); ``0`` means "unminted" — :class:`Document` mints a positive id
+        via :meth:`Document._assign_ids`. Additive, so existing call sites that
+        omit it are unaffected.
+        """
         self.name = name
         self.buffer = buffer
         self.visible = visible
@@ -103,6 +122,7 @@ class Layer:
         self.mask = mask
         self.reference = reference
         self.smart_source = smart_source
+        self.layer_id = layer_id
         self._opacity = DEFAULT_LAYER_OPACITY
         self._blend_mode = BlendMode.NORMAL
         self.opacity = opacity  # validates via setter
@@ -158,6 +178,7 @@ class LayerGroup:
         "_blend_mode",
         "mask",
         "reference",
+        "layer_id",
         "_composite_cache",
     )
 
@@ -172,14 +193,20 @@ class LayerGroup:
         blend_mode: BlendMode = BlendMode.NORMAL,
         mask: Optional[PixelBuffer] = None,
         reference: bool = False,
+        layer_id: int = 0,
     ) -> None:
-        """Initialise a group from optional children plus compositing attributes."""
+        """Initialise a group from optional children plus compositing attributes.
+
+        ``layer_id`` is the stable cross-frame track id (``0`` = unminted; see
+        :class:`Layer`).
+        """
         self.name = name
         self.children: List["LayerNode"] = list(children) if children else []
         self.visible = visible
         self.locked = locked
         self.mask = mask
         self.reference = reference
+        self.layer_id = layer_id
         self._opacity = DEFAULT_LAYER_OPACITY
         self._blend_mode = BlendMode.NORMAL
         self.opacity = opacity
@@ -308,7 +335,16 @@ class Frame:
 class Document:
     """A pixel-art project: canvas geometry, palette, and a frame/layer tree."""
 
-    __slots__ = ("width", "height", "mode", "palette", "frames", "metadata")
+    __slots__ = (
+        "width",
+        "height",
+        "mode",
+        "palette",
+        "frames",
+        "metadata",
+        "frame_tags",
+        "_next_layer_id",
+    )
 
     def __init__(
         self,
@@ -326,7 +362,12 @@ class Document:
         self.mode = mode
         self.palette = palette if palette is not None else Palette()
         self.metadata: Dict[str, str] = dict(metadata) if metadata else {}
+        #: Ordered document-level frame tags (named animations, REQ-P5-LOGIC-009).
+        self.frame_tags: List[FrameTag] = []
+        #: Monotonic stable-layer-id source (deterministic, P2); 0 = unminted.
+        self._next_layer_id = 1
         self.frames: List[Frame] = [Frame([Layer(base, "Background")])]
+        self._assign_ids(self.frames[0].layers)
 
     @classmethod
     def from_buffer(
@@ -366,7 +407,24 @@ class Document:
             buffer.width, buffer.height, mode=ColorMode.RGBA, palette=palette
         )
         document.frames = [Frame([Layer(buffer, name)])]
+        document._assign_ids(document.frames[0].layers)
         return document
+
+    # -- stable cross-frame layer identity (research Q4 caveat) ----------
+
+    def _mint_id(self) -> int:
+        """Return a fresh, monotonically increasing stable layer id (P2)."""
+        new_id = self._next_layer_id
+        self._next_layer_id += 1
+        return new_id
+
+    def _assign_ids(self, nodes: Sequence["LayerNode"]) -> None:
+        """Mint stable ids for any node in the subtree whose id is unset (``0``)."""
+        for node in nodes:
+            if node.layer_id == 0:
+                node.layer_id = self._mint_id()
+            if isinstance(node, LayerGroup):
+                self._assign_ids(node.children)
 
     # -- layer operations (operate on a chosen frame) --------------------
 
@@ -379,6 +437,7 @@ class Document:
         """Append a new empty layer to a frame and return it."""
         frame = self._check_frame(frame_index)
         layer = Layer(PixelBuffer(self.width, self.height, self.mode), name)
+        layer.layer_id = self._mint_id()
         frame.layers.append(layer)
         return layer
 
@@ -406,10 +465,9 @@ class Document:
 
     def add_frame(self, *, duration_ms: int = DEFAULT_FRAME_DURATION_MS) -> Frame:
         """Append a new frame with a single empty layer."""
-        frame = Frame(
-            [Layer(PixelBuffer(self.width, self.height, self.mode), "Layer")],
-            duration_ms=duration_ms,
-        )
+        layer = Layer(PixelBuffer(self.width, self.height, self.mode), "Layer")
+        layer.layer_id = self._mint_id()
+        frame = Frame([layer], duration_ms=duration_ms)
         self.frames.append(frame)
         return frame
 
@@ -419,6 +477,333 @@ class Document:
             raise DocumentError("cannot remove the last frame")
         self._check_frame(frame_index)
         return self.frames.pop(frame_index)
+
+    # -- reversible frame commands (return a history.Command) -------------
+
+    def _clamp_all_tags(self) -> None:
+        """Clamp every frame tag's range into the current frame count in place."""
+        count = len(self.frames)
+        for tag in self.frame_tags:
+            clamped = clamp_tag_range(tag, count)
+            tag.from_frame = clamped.from_frame
+            tag.to_frame = clamped.to_frame
+
+    def _with_tag_clamp(
+        self,
+        structural_do: "Callable[[], None]",
+        structural_undo: "Callable[[], None]",
+        label: str,
+    ) -> Command:
+        """Wrap a frame-structural op so tag ranges stay valid on do and undo.
+
+        After ``structural_do`` changes the frame list, every tag range is
+        clamped into the new frame count (REQ-P5-LOGIC-010); ``undo`` reverses the
+        structural change **and** restores the exact prior tag ranges. The tag
+        count/order is unchanged by add/remove-frame, so the saved ranges realign
+        positionally.
+        """
+        saved = [(tag.from_frame, tag.to_frame) for tag in self.frame_tags]
+
+        def _do() -> None:
+            structural_do()
+            self._clamp_all_tags()
+
+        def _undo() -> None:
+            structural_undo()
+            for tag, (from_frame, to_frame) in zip(self.frame_tags, saved):
+                tag.from_frame = from_frame
+                tag.to_frame = to_frame
+
+        return FunctionCommand(_do, _undo, label=label)
+
+    def make_add_frame_command(
+        self, *, after_index: int, duration_ms: int = DEFAULT_FRAME_DURATION_MS
+    ) -> Command:
+        """Build a command inserting a new empty-layer frame after ``after_index``.
+
+        Implements REQ-P5-LOGIC-004: the new frame carries one empty layer and
+        ``duration_ms`` and is inserted immediately after ``after_index``; undo
+        removes exactly it. Bounded by ``MAX_FRAMES`` (REQ-P5-LOGIC-014).
+
+        Raises:
+            DocumentError: If ``after_index`` is out of range, the document is at
+                ``MAX_FRAMES``, or ``duration_ms`` is not a positive int.
+        """
+        if not isinstance(after_index, int) or isinstance(after_index, bool):
+            raise DocumentError(f"after_index must be an int, got {after_index!r}")
+        if not 0 <= after_index < len(self.frames):
+            raise DocumentError(f"after_index {after_index} out of range")
+        if len(self.frames) >= MAX_FRAMES:
+            raise DocumentError(f"document already at MAX_FRAMES ({MAX_FRAMES})")
+        if (
+            not isinstance(duration_ms, int)
+            or isinstance(duration_ms, bool)
+            or duration_ms <= 0
+        ):
+            raise DocumentError(
+                f"frame duration must be a positive int, got {duration_ms!r}"
+            )
+        layer = Layer(PixelBuffer(self.width, self.height, self.mode), "Layer")
+        layer.layer_id = self._mint_id()
+        new_frame = Frame([layer], duration_ms=duration_ms)
+        insert_at = after_index + 1
+
+        def _do() -> None:
+            self.frames.insert(insert_at, new_frame)
+
+        def _undo() -> None:
+            self.frames.remove(new_frame)
+
+        return self._with_tag_clamp(_do, _undo, "add frame")
+
+    def make_remove_frame_command(self, frame_index: int) -> Command:
+        """Build a command removing a frame; refuses the last remaining frame.
+
+        Implements REQ-P5-LOGIC-005: undo restores the removed frame at its prior
+        index with its exact layer tree and ``duration_ms``; tag ranges are
+        clamped on do and restored on undo (REQ-P5-LOGIC-010).
+
+        Raises:
+            DocumentError: If only one frame remains, or ``frame_index`` is out of
+                range.
+        """
+        if len(self.frames) <= 1:
+            raise DocumentError("cannot remove the last frame")
+        frame = self._check_frame(frame_index)
+
+        def _do() -> None:
+            self.frames.remove(frame)
+
+        def _undo() -> None:
+            self.frames.insert(frame_index, frame)
+
+        return self._with_tag_clamp(_do, _undo, "remove frame")
+
+    def make_move_frame_command(self, from_index: int, to_index: int) -> Command:
+        """Build a command reordering a frame (REQ-P5-LOGIC-006, NEW op).
+
+        Undo restores the exact prior order; layers and durations are untouched.
+
+        Raises:
+            DocumentError: If either index is out of range.
+        """
+        count = len(self.frames)
+        if not 0 <= from_index < count:
+            raise DocumentError(f"from_index {from_index} out of range")
+        if not 0 <= to_index < count:
+            raise DocumentError(f"to_index {to_index} out of range")
+        frame = self.frames[from_index]
+
+        def _do() -> None:
+            self.frames.pop(from_index)
+            self.frames.insert(to_index, frame)
+
+        def _undo() -> None:
+            self.frames.pop(to_index)
+            self.frames.insert(from_index, frame)
+
+        return FunctionCommand(_do, _undo, label="move frame")
+
+    def make_duplicate_frame_command(self, frame_index: int) -> Command:
+        """Build a command inserting a deep copy of a frame after it (NEW op).
+
+        Implements REQ-P5-LOGIC-007: the copy's full layer tree is copied
+        pixel-for-pixel with its ``duration_ms`` and is inserted immediately after
+        the source; editing either never affects the other. The copy **preserves**
+        its source layers' stable ``layer_id`` s (a duplicated frame shares the
+        predecessor's layer *tracks*). Undo removes exactly the copy. Bounded by
+        ``MAX_FRAMES``.
+
+        Raises:
+            DocumentError: If ``frame_index`` is out of range or the document is at
+                ``MAX_FRAMES``.
+        """
+        frame = self._check_frame(frame_index)
+        if len(self.frames) >= MAX_FRAMES:
+            raise DocumentError(f"document already at MAX_FRAMES ({MAX_FRAMES})")
+        copy_layers = [_copy_node(node, new_ids=False) for node in frame.layers]
+        copy = Frame(copy_layers, duration_ms=frame.duration_ms)
+        insert_at = frame_index + 1
+
+        def _do() -> None:
+            self.frames.insert(insert_at, copy)
+
+        def _undo() -> None:
+            self.frames.remove(copy)
+
+        return FunctionCommand(_do, _undo, label="duplicate frame")
+
+    def make_set_frame_duration_command(
+        self, frame_index: int, duration_ms: int
+    ) -> Command:
+        """Build a command setting a frame's ``duration_ms`` (REQ-P5-LOGIC-008).
+
+        Captures the prior value; undo restores it exactly.
+
+        Raises:
+            DocumentError: If ``frame_index`` is out of range or ``duration_ms`` is
+                not a positive int (never silently coerced).
+        """
+        frame = self._check_frame(frame_index)
+        if (
+            not isinstance(duration_ms, int)
+            or isinstance(duration_ms, bool)
+            or duration_ms <= 0
+        ):
+            raise DocumentError(
+                f"frame duration must be a positive int, got {duration_ms!r}"
+            )
+        old_duration = frame.duration_ms
+
+        def _do() -> None:
+            frame.duration_ms = duration_ms
+
+        def _undo() -> None:
+            frame.duration_ms = old_duration
+
+        return FunctionCommand(_do, _undo, label="set frame duration")
+
+    # -- document-level frame tags + reversible ops (REQ-P5-LOGIC-009/010) --
+
+    def _validate_tag_fields(
+        self,
+        name: str,
+        from_frame: int,
+        to_frame: int,
+        mode: PlaybackMode,
+        repeat: int,
+        color: str,
+    ) -> None:
+        """Validate tag fields against the current frame count (build-time)."""
+        if not isinstance(name, str):
+            raise DocumentError(f"tag name must be a string, got {name!r}")
+        if not isinstance(mode, PlaybackMode):
+            raise DocumentError(f"tag mode must be a PlaybackMode, got {mode!r}")
+        if not isinstance(repeat, int) or isinstance(repeat, bool) or repeat < 0:
+            raise DocumentError(
+                f"tag repeat must be a non-negative int, got {repeat!r}"
+            )
+        if not isinstance(color, str):
+            raise DocumentError(f"tag color must be a string, got {color!r}")
+        try:
+            from_hex(color)
+        except ColorError as exc:
+            raise DocumentError(f"invalid tag color {color!r}: {exc}") from exc
+        try:
+            validate_tag_range(from_frame, to_frame, len(self.frames))
+        except AnimationError as exc:
+            raise DocumentError(str(exc)) from exc
+
+    def make_add_tag_command(
+        self,
+        name: str,
+        from_frame: int,
+        to_frame: int,
+        *,
+        mode: PlaybackMode = PlaybackMode.LOOP,
+        repeat: int = 0,
+        color: str = "#ff0000ff",
+    ) -> Command:
+        """Build a command appending a new :class:`FrameTag` (REQ-P5-LOGIC-009/010).
+
+        The range is validated against the current frame count; undo removes the
+        tag.
+
+        Raises:
+            DocumentError: On an inverted/out-of-range range, a non-PlaybackMode
+                mode, a non-int/negative repeat, or a malformed colour.
+        """
+        self._validate_tag_fields(name, from_frame, to_frame, mode, repeat, color)
+        tag = FrameTag(
+            name, from_frame, to_frame, mode=mode, repeat=repeat, color=color
+        )
+
+        def _do() -> None:
+            self.frame_tags.append(tag)
+
+        def _undo() -> None:
+            self.frame_tags.remove(tag)
+
+        return FunctionCommand(_do, _undo, label="add tag")
+
+    def make_edit_tag_command(
+        self,
+        tag_index: int,
+        *,
+        name: Optional[str] = None,
+        from_frame: Optional[int] = None,
+        to_frame: Optional[int] = None,
+        mode: Optional[PlaybackMode] = None,
+        repeat: Optional[int] = None,
+        color: Optional[str] = None,
+    ) -> Command:
+        """Build a command editing a tag in place (REQ-P5-LOGIC-010).
+
+        Only the supplied fields change; the result is validated. Undo restores
+        the exact prior tag fields.
+
+        Raises:
+            DocumentError: If ``tag_index`` is out of range or the resulting tag
+                is invalid.
+        """
+        if not 0 <= tag_index < len(self.frame_tags):
+            raise DocumentError(f"tag index {tag_index} out of range")
+        tag = self.frame_tags[tag_index]
+        new_name = tag.name if name is None else name
+        new_from = tag.from_frame if from_frame is None else from_frame
+        new_to = tag.to_frame if to_frame is None else to_frame
+        new_mode = tag.mode if mode is None else mode
+        new_repeat = tag.repeat if repeat is None else repeat
+        new_color = tag.color if color is None else color
+        self._validate_tag_fields(
+            new_name, new_from, new_to, new_mode, new_repeat, new_color
+        )
+        old = (
+            tag.name,
+            tag.from_frame,
+            tag.to_frame,
+            tag.mode,
+            tag.repeat,
+            tag.color,
+        )
+
+        def _do() -> None:
+            tag.name = new_name
+            tag.from_frame = new_from
+            tag.to_frame = new_to
+            tag.mode = new_mode
+            tag.repeat = new_repeat
+            tag.color = new_color
+
+        def _undo() -> None:
+            (
+                tag.name,
+                tag.from_frame,
+                tag.to_frame,
+                tag.mode,
+                tag.repeat,
+                tag.color,
+            ) = old
+
+        return FunctionCommand(_do, _undo, label="edit tag")
+
+    def make_remove_tag_command(self, tag_index: int) -> Command:
+        """Build a command deleting a tag (REQ-P5-LOGIC-010); undo restores it.
+
+        Raises:
+            DocumentError: If ``tag_index`` is out of range.
+        """
+        if not 0 <= tag_index < len(self.frame_tags):
+            raise DocumentError(f"tag index {tag_index} out of range")
+        tag = self.frame_tags[tag_index]
+
+        def _do() -> None:
+            del self.frame_tags[tag_index]
+
+        def _undo() -> None:
+            self.frame_tags.insert(tag_index, tag)
+
+        return FunctionCommand(_do, _undo, label="remove tag")
 
     # -- canvas operations ------------------------------------------------
 
@@ -644,6 +1029,7 @@ class Document:
                 f"frame already at MAX_LAYERS_PER_FRAME ({MAX_LAYERS_PER_FRAME})"
             )
         layer = Layer(PixelBuffer(self.width, self.height, self.mode), name)
+        layer.layer_id = self._mint_id()
         if ref is None:
             container: List["LayerNode"] = frame.layers
             insert_index = len(frame.layers)
@@ -726,7 +1112,7 @@ class Document:
         """
         frame = self._check_frame(frame_index)
         container, index, node = self._resolve(frame, ref)
-        copy = _copy_node(node)
+        copy = _copy_node(node, new_ids=True)
         if (
             len(_iter_layers(frame.layers)) + len(_iter_layers([copy]))
             > MAX_LAYERS_PER_FRAME
@@ -734,6 +1120,7 @@ class Document:
             raise DocumentError(
                 f"duplicate exceeds MAX_LAYERS_PER_FRAME ({MAX_LAYERS_PER_FRAME})"
             )
+        self._assign_ids([copy])
         return self._invalidating(
             self._insert_command(container, index + 1, copy, "duplicate layer"),
             self._chain_for_container(frame, container),
@@ -872,6 +1259,7 @@ class Document:
             name,
             smart_source=node,
         )
+        smart.layer_id = self._mint_id()
         return self._invalidating(
             self._insert_command(container, index + 1, smart, "create smart layer"),
             self._chain_for_container(frame, container),
@@ -933,6 +1321,8 @@ class Document:
                 indexed = palette_ops.to_indexed(flat, palette, metric=metric)
                 name = nodes[-1].name if nodes else "Layer"
             new_frame_layers.append([Layer(indexed, name)])
+        for layers in new_frame_layers:
+            self._assign_ids(layers)
         return self._make_mode_command(
             new_frame_layers, ColorMode.INDEXED, "convert to indexed"
         )
@@ -965,6 +1355,8 @@ class Document:
             source = leaves[0]  # invariant: an indexed frame holds exactly one layer
             rgba_buffer = palette_ops.to_rgba(source.buffer, palette)
             new_frame_layers.append([Layer(rgba_buffer, source.name)])
+        for layers in new_frame_layers:
+            self._assign_ids(layers)
         return self._make_mode_command(
             new_frame_layers, ColorMode.RGBA, "convert to RGBA"
         )
@@ -1021,18 +1413,27 @@ def _remove_by_identity(container: List["LayerNode"], node: "LayerNode") -> None
     raise DocumentError("node is not in the expected container")
 
 
-def _copy_node(node: "LayerNode") -> "LayerNode":
-    """Return a deep, independent copy of a layer / group node."""
+def _copy_node(node: "LayerNode", *, new_ids: bool = True) -> "LayerNode":
+    """Return a deep, independent copy of a layer / group node.
+
+    With ``new_ids=True`` (layer duplication) the copy's ``layer_id`` is left
+    unminted (``0``) for the :class:`Document` to assign a fresh track id; with
+    ``new_ids=False`` (frame duplication) the copy **preserves** the source's
+    ``layer_id`` so a duplicated frame shares its predecessor's layer *tracks*
+    (research Q4 caveat, plan §5).
+    """
+    copy_id = 0 if new_ids else node.layer_id
     if isinstance(node, LayerGroup):
         return LayerGroup(
             node.name,
-            [_copy_node(c) for c in node.children],
+            [_copy_node(c, new_ids=new_ids) for c in node.children],
             opacity=node.opacity,
             visible=node.visible,
             locked=node.locked,
             blend_mode=node.blend_mode,
             mask=node.mask.copy() if node.mask is not None else None,
             reference=node.reference,
+            layer_id=copy_id,
         )
     return Layer(
         node.buffer.copy(),
@@ -1044,6 +1445,7 @@ def _copy_node(node: "LayerNode") -> "LayerNode":
         mask=node.mask.copy() if node.mask is not None else None,
         reference=node.reference,
         smart_source=node.smart_source,
+        layer_id=copy_id,
     )
 
 
