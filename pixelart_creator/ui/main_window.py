@@ -335,6 +335,12 @@ class Main_Window(QMainWindow):
         self._analytics_view = Palette_Analytics_View(self)
         self._analytics_view.set_document_provider(self.active_document)
         self._analytics_dock = self._add_workflow_dock(self._analytics_view)
+        # Lazy analytics: the full-buffer scan is deferred while this dock is
+        # hidden and computed when it becomes visible. visibilityChanged is the
+        # robust Qt signal for a tabified dock's real visibility (PERF fix).
+        self._analytics_dock.visibilityChanged.connect(
+            self._analytics_view.on_dock_visibility_changed
+        )
 
         # Marquee S3/S4 colour hub: a persisted Favourites model + the cursor-
         # anchored hub, wired into each view's Phase-1 right-click seam. A pick
@@ -719,7 +725,8 @@ class Main_Window(QMainWindow):
         record.view.set_active_index(self._active_index)
         self._apply_modes_to(record)
         self._bind_palette_workflows(record)
-        self._analytics_view.refresh()
+        # Lazy: defer the buffer scan unless the analytics dock is visible.
+        self._analytics_view.request_refresh()
 
     def _on_tool_action(self) -> None:
         action = self.sender()
@@ -803,7 +810,8 @@ class Main_Window(QMainWindow):
         self._cycling_panel.set_palette(palette)
         self._dither_tool.set_palette(palette)
         record.scene.set_display_palette(palette.colors())
-        self._analytics_view.refresh()
+        # Lazy: defer the buffer scan unless the analytics dock is visible.
+        self._analytics_view.request_refresh()
 
     def _on_ramp_picked(self, color: RGBA) -> None:
         """A ramp swatch applies to the active colour (REQ-P3-UI-007)."""

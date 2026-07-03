@@ -14,8 +14,8 @@ from __future__ import annotations
 
 from typing import Callable, Optional, cast
 
-from PySide6.QtCore import QEvent, Qt
-from PySide6.QtGui import QColor, QIcon, QPixmap
+from PySide6.QtCore import QEvent, Qt, QTimer
+from PySide6.QtGui import QColor, QIcon, QPixmap, QShowEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -35,6 +35,11 @@ from pixelart_creator.logic.pixel_buffer import ColorMode
 #: Edge of a colour-swatch icon in the table, px (presentation-only sizing).
 _SWATCH_PX = 18
 
+#: Debounce window (ms) coalescing a burst of deferred refresh requests into a
+#: single buffer scan (presentation-only timing, not a domain tuning value —
+#: cf. _SWATCH_PX). Short enough to feel instant when the dock becomes visible.
+_REFRESH_DEBOUNCE_MS = 150
+
 
 class Palette_Analytics_View(QWidget):
     """Read-only, sortable per-colour / per-index usage table."""
@@ -43,6 +48,16 @@ class Palette_Analytics_View(QWidget):
         """Build the usage table and its Refresh button."""
         super().__init__(parent)
         self._provider: Optional[Callable[[], Optional[Document]]] = None
+        # Lazy-scan state: a pending refresh is deferred while the view is not
+        # visible (the full-buffer scan is ~tens of seconds at 8K, so opening a
+        # document with this dock hidden must do ZERO scan). It is computed when
+        # the dock becomes visible; a short single-shot timer coalesces a burst of
+        # triggers into one scan (debounce).
+        self._pending = False
+        self._debounce = QTimer(self)
+        self._debounce.setSingleShot(True)
+        self._debounce.setInterval(_REFRESH_DEBOUNCE_MS)
+        self._debounce.timeout.connect(self._recompute_if_pending)
 
         self._title = QLabel(self)
         self._table = QTableWidget(0, 2, self)
@@ -67,7 +82,50 @@ class Palette_Analytics_View(QWidget):
         self._provider = provider
 
     def refresh(self) -> None:
-        """Recompute + display usage counts for the active document (read-only)."""
+        """Recompute + display usage counts NOW (explicit / manual Refresh path).
+
+        This is the eager path: it always scans the active document buffer. It
+        backs the Refresh button (an explicit user action taken while the view is
+        on screen). The document-open / palette-change triggers instead call
+        :meth:`request_refresh`, which defers the scan while the dock is hidden.
+        """
+        self._debounce.stop()
+        self._pending = False
+        self._recompute()
+
+    def request_refresh(self) -> None:
+        """Request a refresh lazily — scan only while visible, else defer (F7).
+
+        Marks the view dirty and, only when it is actually visible, arms the
+        debounce timer so a burst of document edits coalesces into a single scan.
+        While the dock is hidden nothing is scanned; the pending refresh is
+        computed when :meth:`on_dock_visibility_changed` (or :meth:`showEvent`)
+        reports the view has become visible. Net effect: opening a document with
+        this dock hidden does ZERO buffer scan.
+        """
+        self._pending = True
+        if self.isVisible():
+            self._debounce.start()
+
+    def on_dock_visibility_changed(self, visible: bool) -> None:
+        """Compute a deferred refresh when the analytics dock becomes visible.
+
+        Wired to :data:`QDockWidget.visibilityChanged` — the robust Qt signal for
+        a dock's real visibility (it fires for tabified docks brought to front,
+        (un)minimise and (un)float), unlike a bare ``showEvent`` which a tabbed
+        dock does not reliably emit on tab switch.
+        """
+        if visible and self._pending:
+            self._debounce.start()
+
+    def _recompute_if_pending(self) -> None:
+        """Debounce-timer slot: run the deferred scan iff one is still pending."""
+        if self._pending:
+            self._pending = False
+            self._recompute()
+
+    def _recompute(self) -> None:
+        """Scan the active document and rebuild the usage table (read-only)."""
         self._table.setSortingEnabled(False)
         self._table.setRowCount(0)
         document = self._provider() if self._provider is not None else None
@@ -76,6 +134,16 @@ class Palette_Analytics_View(QWidget):
             for key, count in document_usage_counts(document):
                 self._append_row(key, count, indexed)
         self._table.setSortingEnabled(True)
+
+    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 (Qt override)
+        """Compute a deferred refresh when the view is shown (non-dock guard).
+
+        Secondary to :meth:`on_dock_visibility_changed`; covers the view being
+        shown outside a ``QDockWidget`` (e.g. embedded directly or in a test).
+        """
+        super().showEvent(event)
+        if self._pending:
+            self._debounce.start()
 
     def _append_row(self, key: object, count: int, indexed: bool) -> None:
         row = self._table.rowCount()
