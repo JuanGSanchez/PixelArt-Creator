@@ -100,6 +100,77 @@
 | `animation.py` | **new** | `PlaybackMode` enum (LOOP/ONCE/PING_PONG/REVERSE, default LOOP) + `PLAYBACK_STOP`; pure deterministic sequencing (ping-pong endpoints not doubled); onion overlay via `blend.composite_stack`; `FrameTag` model + range validate/clamp; named-animation resolution. Zero Qt, no `document` import (PL5-D3). | `PlaybackMode`, `PLAYBACK_STOP`, `next_frame`, `playback_steps`, `tag_playback_steps`, `onion_overlay`, `OnionContribution`, `FrameTag`, `validate_tag_range`, `clamp_tag_range`, `AnimationError` | LOGIC-001, 002, 003, 009, 011, 012, 013, 014 |
 | `document.py` | extend | Reversible frame commands (add/remove/move/duplicate/set-duration); document-level `frame_tags` + reversible tag ops (add/edit/remove) with range-clamp folded into frame add/remove; additive stable `layer_id` on nodes (`_copy_node(new_ids=…)`); `MAX_FRAMES` bound. | `frame_tags`, `make_add/remove/move/duplicate_frame_command`, `make_set_frame_duration_command`, `make_add/edit/remove_tag_command`, `layer_id` | LOGIC-004..010, 014 |
 
+## `pixelart_creator/logic/` — Phase-6 tilemap & level design — BUILT (Slices 6A/6B/6C)
+
+> New Qt-free `tileset.py` + `tilemap.py` + `autotile.py` + additive `document.py`/`constants.py`
+> extensions, frozen by AGT-01 (`interface-contract`, plan §4/§5) BEFORE implementation, now SHIPPED
+> against those frozen contracts (AGT-03; logic+data 1386 tests green; `check_layering`/`check_cycles`
+> exit 0). `tilemap.py` additionally exposes the O(1) `chunk_version(cx, cy)` cache-validation API
+> (bumped by every cell/layer mutation) that the `ui/` chunk pixmap cache keys on, and a **vectorised**
+> `render_region` (numpy per-chunk resolve+blit) — both Qt-free, on the frozen `render_region` seam. Domain grounded by `docs/research-phase-6-tilemap-20260703.md` (Tiled
+> 1.12.2 parity; Blob-47 auto-tiling). **PL6-D3 (cycle-free):** new edges `document → tilemap →
+> tileset`, `tilemap → autotile`/`blend`; none imports `document` (`tilemap` composites via
+> `blend`/`pixel_buffer`, the `blend.py`/`animation.py` precedent) → acyclic. The **Tiled GID flag
+> masks are the canonical uint32 cell layout** and are **module-local intrinsic in `tilemap.py`**
+> (matching Tiled 1.12.2, ADR-0001 exemption) so `data/tiled_io.py` imports them downward — **no
+> `logic → data` edge**. Blob-47 bit weights + 256→47 LUT module-local in `autotile.py`. New numerics
+> → `constants.py` (`DEFAULT_TILE_WIDTH/HEIGHT=16`, `DEFAULT_TILE_MARGIN/SPACING=0`,
+> `MAX_TILE_DIMENSION`, `MAX_TILESET_TILES`, `MAX_TILEMAP_LAYERS`, `TILEMAP_CHUNK_SIZE=16`,
+> `MAX_TILEMAP_COORD`) — **names DISTINCT from the shipped `TILE_SIZE=64` (viewport-cull edge, BF-2)**.
+> Auto-tiling model in **ADR-0013**; tilemap/tileset architecture + layering + reversible-command
+> contract in **ADR-0015**. New `TilesetError`/`TilemapError`/`AutotileError(ValueError)`;
+> `DocumentError` reused.
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `constants.py` | extend | +9 tile/tilemap numerics (leaf); names ≠ `TILE_SIZE`. | `DEFAULT_TILE_WIDTH/HEIGHT`, `DEFAULT_TILE_MARGIN/SPACING`, `MAX_TILE_DIMENSION`, `MAX_TILESET_TILES`, `MAX_TILEMAP_LAYERS`, `TILEMAP_CHUNK_SIZE`, `MAX_TILEMAP_COORD` | LOGIC-014 |
+| `tileset.py` | **new** | `Tileset` over a source `PixelBuffer`; deterministic row-major slice (size/margin/spacing → `TileRegion`); `local_id ↔ region` pure total map; `tile_pixels` derives via `PixelBuffer.region` (PB-1, no stored copy); `first_gid` global gid space; reversible source-tile edit + reslice. Zero Qt; no `document` import. | `Tileset`, `TileRegion`, `region_of`, `tile_pixels`, `first_gid`, `contains_gid`, `local_id_for_gid`, `make_edit_tile_command`, `make_reslice_command`, `TilesetError` | LOGIC-001, 002, 003, 004, 014 |
+| `autotile.py` | **new** | Blob-47 resolver: 8-neighbour occupancy → edge-implies-corner gating → 256-entry LUT → one of 47 frame indices (deterministic, O(1)); `AutotileRuleset` (terrain gid + 47 display gids). Bit weights + LUT module-local (ADR-0001). Imports only `constants`. | `resolve_display_index`, `resolve_display_gid`, `AutotileRuleset`, `BLOB_TILE_COUNT`, `AutotileError` | LOGIC-010, 011 |
+| `tilemap.py` | **new** | Canonical uint32 cell bit layout (Tiled masks, module-local); `TileInstance` (`base_gid`/`flip_h`/`flip_v`/`flip_d`); `TilemapLayer` (chunked-sparse `uint32` grid); `Tilemap` (ordered layers + tilesets + `infinite` + gid resolve). Reversible stamp/erase/fill + layer add/remove/move/visibility + attach-tileset (auto-tile re-resolution folded in, reversible). `render_region` resolves instances (flip) + blit (PB-1) + `composite_stack` (CO-4), non-destructive. Zero Qt; no `document` import. | `Tilemap`, `TilemapLayer`, `TileInstance`, `FLIPPED_*_FLAG`, `ROTATED_HEXAGONAL_120_FLAG`, `GID_MASK`, `resolve`, `make_stamp/erase/fill_rect_command`, `make_add/remove/move_layer_command`, `make_set_layer_visibility_command`, `make_attach_tileset_command`, `render_region` (vectorised, pixel-space), `chunk_version`, `tiled_passthrough`, `TilemapError` | LOGIC-005, 006, 007, 008, 009, 012, 013, 014 |
+| `document.py` | extend | Attach `tilesets`/`tilemaps` collections (`__slots__`, created empty) + reversible attach/detach commands. | `tilesets`, `tilemaps`, `make_add/remove_tileset_command`, `make_add/remove_tilemap_command` | LOGIC-012, DATA-004 (surface) |
+
+## `pixelart_creator/data/` — Phase-6 Tiled JSON I/O + `.pixproj` v4 — BUILT (Slice 6D)
+
+> New Qt-free `data/tiled_io.py` (Tiled 1.12.2 JSON export/import) + `data/project_io.py` v4 extension.
+> Tiled encoding set (CSV-default emit + base64/gzip/zlib; zstd + external `.tsx` rejected; full 4-bit
+> GID flag handling incl. diagonal-clear + transform diagonal→H→V; embedded emit + external `.tsj`
+> import; unknown-field verbatim passthrough) ruled in **ADR-0014**. `.pixproj` **v4** (tilesets +
+> tilemaps on `Document`; v1/v2/v3 back-compat empty collections) ruled in **ADR-0016**;
+> `FORMAT_VERSION=4` (`_SUPPORTED_VERSIONS=(1,2,3,4)`, format-intrinsic local — ADR-0001). Defensive
+> validated load (Article VII); reuses the `project_io.py` posture (IO-3). `tiled_io` imports the GID
+> masks from `logic/tilemap` (downward `data → logic`). Zero Qt.
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `tiled_io.py` | **new** | Tiled JSON map export (embedded tilesets + firstgid; CSV/base64+gzip/zlib; chunks[] infinite / dense data fixed; version/tiledversion/orientation/renderorder/counters) + defensive import (base64→decompress→LE uint32; clear 0x20000000; transform diagonal→H→V; validate geometry/gid-range/payload/orientation → `ProjectIOError`; zstd/`.tsx` rejected; unknown fields verbatim → lossless round-trip). Portable paths. | `export_tilemap`, `write_tiled_json`, `import_tilemap`, `read_tiled_json` (raises `ProjectIOError`) | DATA-001, 002, 003 |
+| `project_io.py` | extend | Serialise `tilesets` + `tilemaps` (logical auto-tile placement, not baked frames); schema v4; defensive load + v1/v2/v3 back-compat read (empty collections). Frames/tags/layers (v3) reused. | `serialize`, `deserialize`, `save_project`, `load_project`, `FORMAT_VERSION=4`, `ProjectIOError` | DATA-004 |
+
+## `pixelart_creator/ui/` — Phase-6 tilemap & level design — BUILT (Slices 6E/6F/6G)
+
+> Binds to Slice-6A/6B/6C/6D logic+data; Qt lives here only. The tileset editor / tilemap canvas /
+> stamping tools / layer panel / auto-tile toggle / import-export actions are `ui/`; the sole Qt
+> undo-bridge stays `ui/commands.py` (one `QUndoCommand` per tileset/tilemap op). The 8K tilemap
+> canvas implements the AGT-10 viewport tile-culling + dirty-rect directive (DEP-3, plan §7): a
+> per-chunk `QPixmap` cache (`tilemap_chunk_cache.py`, bounded LRU keyed by `(cx, cy)` + `chunk_version`)
+> plus an off-GUI-thread cold-warm worker on a scene-owned `QThreadPool` that calls the Qt-free
+> `render_region` off-thread and hands the `PixelBuffer` back over a queued GUI-thread signal (no
+> cross-thread QPixmap; Qt stays in `ui/`). Deterministic teardown chain
+> `Tilemap_Canvas.shutdown_warm → MainWindow.shutdown_prewarm → closeEvent` (mirrors the Phase-5
+> `CanvasScene.shutdown_prewarm` fix; QA proved no segfault under `-n auto`). Resident tile/pixel data
+> never culled — only derived pixmaps (Article VI §3). Perf loop-back CLOSED ≤16 ms; UI QA SHIP-READY
+> after S2+S3 fixes. Both themes, a11y, tr()-wrapped strings (AGT-06/AGT-07).
+
+| Module | Change | Responsibility | Binds to (logic/data) | REQ |
+| --- | --- | --- | --- | --- |
+| `tileset_editor_panel.py` | **new** | `Tileset_Editor_Panel(QWidget)`: sliced-tile grid display + active-tile select (view state); slicing spin-boxes (defaults from `DEFAULT_TILE_*`, reject out-of-range) → reslice command; paint into a source tile → one command (instances update live); `tr()` + `changeEvent`. | `tileset`, `ui/commands` | UI-001, 002, 003, 013, 015..017 |
+| `tilemap_canvas.py` | **new** | `Tilemap_Canvas(QGraphicsView/Scene)`: composited stack render via `tilemap.render_region`; pan/zoom unbounded (view state); stamp/eraser/rectangle-fill (one command each); auto-tile on stamp; viewport tile-culling + per-chunk pixmap cache + off-thread cold-warm; deterministic `shutdown_warm` teardown. | `tilemap`, `autotile`, `tilemap_chunk_cache`, `ui/commands` | UI-004..007, 009, 010, 013, 014, 016 |
+| `tilemap_chunk_cache.py` | **new** | `ChunkPixmapCache` (bounded LRU of one `QPixmap` per `TILEMAP_CHUNK_SIZE` chunk, keyed by `(cx, cy)` + validated by `Tilemap.chunk_version`) + `TilemapChunkWarmSignals`/`TilemapChunkWarmRunnable` (off-GUI-thread cold-warm on a scene-owned `QThreadPool` calling the Qt-free `render_region`; result returned via queued signal; only derived pixmaps culled, never resident pixels — Article VI §3). | `tilemap.render_region`, `tilemap.chunk_version` | UI-014 |
+| `tiled_mode.py` | **new** | Qt-free tilemap-view mode helper (no Qt import). | `tilemap` | UI-004 |
+| `tilemap_layer_panel.py` | **new** | `Tilemap_Layer_Panel(QWidget)`: add/remove/reorder/visibility (one command each); active-layer select (view state); auto-tile toggle. | `tilemap` layer ops, `ui/commands` | UI-008, 009, 013, 015..017 |
+| `tilemap_io_actions.py` | **new** | Export active tilemap → Tiled JSON (portable path); import Tiled JSON → equivalent tilemap; malformed → user-facing error. | `data/tiled_io` | UI-011, 012, 015..017 |
+| `main_window.py` | extend | Active tileset/tile/tilemap/layer (view state); dock the editor/canvas/layer panel; wire import/export; attach tilesets/tilemaps to the document. | `document` collections, new panels | UI-001, 004, 008, 011, 012 |
+| `commands.py` | extend | One `QUndoCommand` per tileset/tilemap op, delegating to the returned `history.Command`; no domain math. | `history` + 6A/6B/6C ops | UI-013 |
+
 ## `pixelart_creator/data/` — Phase-5 `.pixproj` v3 — BUILT (Slice 5B)
 
 > `data/project_io.py` extended to persist `frame_tags` (native `PlaybackMode` value strings) +
