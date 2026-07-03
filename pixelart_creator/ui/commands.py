@@ -152,6 +152,44 @@ class LogicCommand(QUndoCommand):
         self._rebind()
 
 
+class FrameCommand(LogicCommand):
+    """One ``QUndoCommand`` per frame/tag operation (T5C-02/-05, REQ-P5-UI-015).
+
+    Wraps the **unapplied** :class:`~pixelart_creator.logic.history.Command` a
+    ``logic/document`` frame or tag builder returns — add / remove / reorder /
+    duplicate frame, set frame duration, add / edit / remove tag. Exactly like
+    :class:`LogicCommand`, ``redo()`` applies the logic command on push (and on
+    every later redo) and ``undo()`` reverts it exactly
+    (``apply ∘ undo = identity``), so each timeline/tag edit is exactly one
+    undoable step whose inverse restores the exact prior document state
+    (REQ-P5-UI-015). Selection / scrub / playback / onion view-settings mutate no
+    document state and therefore create **no** ``FrameCommand`` (CL-13).
+
+    The ``refresh`` callback supplies only the Qt-side follow-up — invalidate the
+    per-frame composite cache (indices shift on a structural frame op),
+    recomposite/repaint the canvas, and rebuild the timeline strip + tag spans.
+    No domain maths lives in this bridge (Article I / S11): the reversible logic
+    is entirely the wrapped ``document`` command.
+
+    Args:
+        command: The unapplied reversible frame/tag-op command to bridge.
+        refresh: Callback (no args) refreshing the timeline + canvas after apply
+            or revert.
+        text: Undo-menu label; defaults to the command's own label.
+        parent: Optional parent command (macro support).
+    """
+
+    def __init__(
+        self,
+        command: Command,
+        refresh: RebindCallback,
+        text: str = "",
+        parent: Optional[QUndoCommand] = None,
+    ) -> None:
+        """Bridge an unapplied frame/tag command to one ``QUndoCommand``."""
+        super().__init__(command, refresh, text, parent)
+
+
 class LayerCommand(LogicCommand):
     """One ``QUndoCommand`` per layer-tree operation (T12, REQ-P4-UI-013).
 

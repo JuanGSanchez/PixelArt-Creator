@@ -21,6 +21,7 @@ from PySide6.QtCore import QEvent, QRectF, QStandardPaths, Qt
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
+    QCloseEvent,
     QColor,
     QCursor,
     QDragEnterEvent,
@@ -46,6 +47,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QTabWidget,
     QToolBar,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -98,9 +100,11 @@ from pixelart_creator.ui.colour_cycling_panel import Colour_Cycling_Panel
 from pixelart_creator.ui.colour_hub_menu import Colour_Hub_Menu
 from pixelart_creator.ui.commands import LogicCommand, PaintCommand
 from pixelart_creator.ui.extract_palette_dialog import Extract_Palette_Dialog
+from pixelart_creator.ui.frame_tags_panel import Frame_Tags_Panel
 from pixelart_creator.ui.i18n import LanguageManager
 from pixelart_creator.ui.image_import import decode_image
 from pixelart_creator.ui.layer_panel import Layer_Panel
+from pixelart_creator.ui.onion_skin_controls import Onion_Skin_Controls, OnionSettings
 from pixelart_creator.ui.palette_analytics_view import Palette_Analytics_View
 from pixelart_creator.ui.palette_constraint_panel import (
     Palette_Constraint_Panel,
@@ -108,6 +112,8 @@ from pixelart_creator.ui.palette_constraint_panel import (
 )
 from pixelart_creator.ui.palette_editor_panel import Palette_Editor_Panel
 from pixelart_creator.ui.palette_swap_dialog import Palette_Swap_Dialog
+from pixelart_creator.ui.playback_controls import Playback_Controls
+from pixelart_creator.ui.prewarm_indicator import Prewarm_Indicator
 from pixelart_creator.ui.rotsprite_dialog import RotSprite_Dialog
 from pixelart_creator.ui.shade_ramp_picker import Shade_Ramp_Picker
 from pixelart_creator.ui.symmetry_panel import Symmetry_Panel
@@ -118,6 +124,7 @@ from pixelart_creator.ui.theme import (
     canvas_roles,
 )
 from pixelart_creator.ui.tiled_mode import set_tiled_mode
+from pixelart_creator.ui.timeline_panel import Timeline_Panel
 from pixelart_creator.ui.tools import (
     DitherTool,
     EllipseTool,
@@ -336,6 +343,42 @@ class Main_Window(QMainWindow):
         self._layer_dock = QDockWidget(self)
         self._layer_dock.setWidget(self._layer_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._layer_dock)
+
+        # Phase-5 animation UI (REQ-P5-UI-001..015): a bottom dock holds the
+        # playback transport above the frame strip; the onion + tag panels tabify
+        # with the right docks. The QTimer lives in Playback_Controls (ui/ only,
+        # CL-14); every frame/tag edit is one FrameCommand; scrub/playback/onion
+        # are non-undoable view state (CL-13). The per-frame composite cache +
+        # FU-19 deferred switch live in CanvasScene (ADR-0011); this shell wires
+        # the panels to the active tab's scene/document/undo-stack.
+        self._active_frame = 0
+        self._timeline_panel = Timeline_Panel(self)
+        self._timeline_panel.frameSelected.connect(self._on_frame_selected)
+        self._timeline_panel.frameScrubbed.connect(self._on_frame_scrubbed)
+        self._playback_controls = Playback_Controls(self)
+        self._playback_controls.frameAdvanced.connect(self._on_frame_advanced)
+        self._playback_controls.playbackActiveChanged.connect(self._on_playback_active)
+        # Non-blocking cold-frame pre-warm indicator (D1): shown in the status bar
+        # while cold frames flatten off the GUI thread; Cancel maps to Stop.
+        self._prewarm_indicator = Prewarm_Indicator(self)
+        self._prewarm_indicator.cancelRequested.connect(self._playback_controls.stop)
+        self.statusBar().addPermanentWidget(self._prewarm_indicator)
+        timeline_container = QWidget(self)
+        timeline_layout = QVBoxLayout(timeline_container)
+        timeline_layout.setContentsMargins(0, 0, 0, 0)
+        timeline_layout.addWidget(self._playback_controls)
+        timeline_layout.addWidget(self._timeline_panel, 1)
+        self._timeline_dock = QDockWidget(self)
+        self._timeline_dock.setWidget(timeline_container)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._timeline_dock)
+
+        self._onion_controls = Onion_Skin_Controls(self)
+        self._onion_controls.settingsChanged.connect(self._on_onion_settings)
+        self._onion_dock = self._add_workflow_dock(self._onion_controls)
+
+        self._frame_tags_panel = Frame_Tags_Panel(self)
+        self._frame_tags_panel.playTagRequested.connect(self._on_play_tag)
+        self._tags_dock = self._add_workflow_dock(self._frame_tags_panel)
 
         # Phase-3 Slice-3C palette-workflow surfaces (REQ-P3-UI-001/-002/-007..-013).
         # Each binds to the Slice-3A logic and pushes one QUndoCommand per mutation.
@@ -616,6 +659,9 @@ class Main_Window(QMainWindow):
         self._view_menu.addAction(self._pixel_perfect_action)
         self._view_menu.addSeparator()
         self._view_menu.addAction(self._layer_dock.toggleViewAction())
+        self._view_menu.addAction(self._timeline_dock.toggleViewAction())
+        self._view_menu.addAction(self._onion_dock.toggleViewAction())
+        self._view_menu.addAction(self._tags_dock.toggleViewAction())
 
         self._palette_menu = bar.addMenu("")
         self._palette_menu.addAction(self._extract_action)
@@ -672,6 +718,12 @@ class Main_Window(QMainWindow):
 
     def _add_document_tab(self, document: Document, title: str) -> Document:
         scene = CanvasScene(document)
+        # Off-thread pre-warm progress (D1/D2): each scene reports its own warm; the
+        # slots guard on the active tab so a background tab's warm never drives the
+        # shared indicator/transport.
+        scene.prewarmStarted.connect(self._on_prewarm_started)
+        scene.prewarmAdvanced.connect(self._on_prewarm_advanced)
+        scene.prewarmFinished.connect(self._on_prewarm_finished)
         stack = QUndoStack(self)
         self._undo_group.addStack(stack)
         view = Canvas_View(scene, stack)
@@ -721,7 +773,153 @@ class Main_Window(QMainWindow):
             scene.refresh_visible,
             scene.refresh_visible_throttled,
         )
+        self._bind_animation(record)
         self._refresh_mode_ui()
+
+    def _bind_animation(self, record: "_DocTab") -> None:
+        """Point the timeline / playback / onion / tag surfaces at ``record``.
+
+        Binds each shared animation panel to this tab's document + undo stack and
+        syncs them to the tab's persisted active frame (state isolation, CL-13).
+        Playback is stopped on rebind so a timer never advances the wrong tab.
+        """
+        document = record.document
+        stack = record.stack
+        scene = record.scene
+        self._playback_controls.stop()
+        self._timeline_panel.set_context(
+            document, stack, self._on_timeline_frames_changed
+        )
+        self._frame_tags_panel.set_context(
+            document, stack, self._on_timeline_tags_changed
+        )
+        self._playback_controls.set_context(
+            self._frame_durations, lambda: self._active_frame
+        )
+        # Bind the transport's off-thread warm to THIS tab's scene (D1/D2).
+        self._playback_controls.set_prewarm_context(
+            scene.is_frame_warm, scene.prewarm_frames
+        )
+        # Sync the shared panels to this tab's persisted active frame.
+        self._active_frame = scene.frame_index
+        self._timeline_panel.select_frame(scene.frame_index)
+        self._layer_panel.set_frame_index(scene.frame_index)
+        self._onion_controls.settingsChanged.emit(self._onion_controls.settings())
+
+    def _frame_durations(self) -> List[int]:
+        """Return the active document's per-frame ``duration_ms`` (authoritative)."""
+        document = self.active_document()
+        if document is None:
+            return []
+        return [frame.duration_ms for frame in document.frames]
+
+    # -- animation slots (REQ-P5-UI-002/-008/-011/-014, CL-13) -----------
+
+    def _on_frame_selected(self, index: int) -> None:
+        """A timeline click selects the active (canvas-displayed) frame (no undo)."""
+        record = self.active_tab()
+        if record is None:
+            return
+        record.view.commit_active_float()
+        self._active_frame = index
+        record.scene.set_frame_index(index, scrub=False)
+        self._layer_panel.set_frame_index(index)
+        record.view.viewport().update()
+
+    def _on_frame_scrubbed(self, index: int) -> None:
+        """A timeline drag scrubs — show the frame under the cursor (fast, no undo)."""
+        record = self.active_tab()
+        if record is None:
+            return
+        self._active_frame = index
+        record.scene.set_frame_index(index, scrub=True)
+        record.view.viewport().update()
+
+    def _on_frame_advanced(self, index: int) -> None:
+        """A playback tick advances the displayed frame (scrub-fast, onion off).
+
+        On a cold frame the scene holds the display and warms it off-thread (D1/D2);
+        the transport waits and this slot only advances the timeline/view once the
+        frame is actually shown, so the marker never runs ahead of a blank frame.
+        """
+        record = self.active_tab()
+        if record is None:
+            return
+        displayed = record.scene.set_frame_index(index, scrub=True, block_on_miss=False)
+        if not displayed:
+            return
+        self._active_frame = index
+        self._timeline_panel.select_frame(index)
+        record.view.viewport().update()
+
+    def _on_playback_active(self, active: bool) -> None:
+        """Suppress onion skinning while playback is active (CL-11).
+
+        On halt (Stop / Pause / end) cancel any in-flight off-thread warm (D2).
+        """
+        record = self.active_tab()
+        if record is not None:
+            record.scene.set_playing(active)
+            if not active:
+                record.scene.cancel_prewarm()
+
+    def _on_prewarm_started(self, total: int) -> None:
+        """Show the pre-warm indicator for the active scene's cold-frame warm (D1)."""
+        record = self.active_tab()
+        if record is None or self.sender() is not record.scene:
+            return
+        self._prewarm_indicator.start(total)
+
+    def _on_prewarm_advanced(self, index: int, done: int, total: int) -> None:
+        """Update pre-warm progress and stream the frame to the transport (D2)."""
+        record = self.active_tab()
+        if record is None or self.sender() is not record.scene:
+            return
+        self._prewarm_indicator.set_progress(done, total)
+        self._playback_controls.notify_frame_ready(index)
+
+    def _on_prewarm_finished(self) -> None:
+        """Hide the pre-warm indicator (warm complete or cancelled, D1)."""
+        self._prewarm_indicator.finish()
+
+    def _on_onion_settings(self, settings: OnionSettings) -> None:
+        """Apply the onion view settings to the active scene (live, no undo)."""
+        record = self.active_tab()
+        if record is None:
+            return
+        record.scene.set_onion_settings(
+            settings.enabled,
+            settings.prev_count,
+            settings.next_count,
+            settings.tint_prev,
+            settings.tint_next,
+        )
+
+    def _on_play_tag(self, tag: object) -> None:
+        """Play a named animation over a tag's range/mode (REQ-P5-UI-014)."""
+        from pixelart_creator.logic.animation import FrameTag
+
+        if isinstance(tag, FrameTag):
+            self._playback_controls.play_tag(tag)
+
+    def _on_timeline_frames_changed(self) -> None:
+        """FrameCommand follow-up after a structural frame op (add/remove/etc.).
+
+        Invalidate the per-frame composite cache + recomposite the active frame,
+        and re-sync the layer panel's frame index. The timeline rebuilds itself.
+        """
+        record = self.active_tab()
+        if record is None:
+            return
+        index = self._timeline_panel.active_index
+        self._active_frame = index
+        record.scene.refresh_frames(index)
+        self._layer_panel.set_frame_index(index)
+        record.view.viewport().update()
+
+    def _on_timeline_tags_changed(self) -> None:
+        """FrameCommand follow-up after a tag op: re-render the timeline tag spans."""
+        self._timeline_panel.rebuild()
 
     def _apply_modes_to(self, record: _DocTab) -> None:
         """Push the shell's Phase-2 drawing modes onto a tab's view/scene."""
@@ -737,9 +935,24 @@ class Main_Window(QMainWindow):
         """Close the document tab at ``index``."""
         if not 0 <= index < len(self._tabs_data):
             return
+        # Stop any playback so the timer never advances a closed document.
+        self._playback_controls.stop()
         record = self._tabs_data.pop(index)
+        # Tear down the scene's off-thread warm pool before dropping it (D2).
+        record.scene.shutdown_prewarm()
         self._undo_group.removeStack(record.stack)
         self._tab_widget.removeTab(index)
+
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt override)
+        """Tear down every scene's off-thread warm pool before the window closes.
+
+        A running pool must not be destroyed with a task in flight, so each scene's
+        warm is cancelled and awaited (bounded) here (D2).
+        """
+        self._playback_controls.stop()
+        for record in self._tabs_data:
+            record.scene.shutdown_prewarm()
+        super().closeEvent(event)
 
     def active_tab(self) -> Optional[_DocTab]:
         """Return the active tab record, or ``None`` if no document is open."""
@@ -920,6 +1133,11 @@ class Main_Window(QMainWindow):
         # a transient edit state, committed on tool/tab switch — REQ-P2-UI-033).
         if self._active_view is not None:
             self._active_view.commit_active_float()
+            # Cancel the outgoing scene's off-thread warm — the transport rebinds
+            # to the incoming scene below (D2, no cross-tab warm bleed).
+            outgoing = self._active_view.scene()
+            if isinstance(outgoing, CanvasScene):
+                outgoing.cancel_prewarm()
         record = self.active_tab()
         if record is None:
             self._active_view = None
@@ -1587,6 +1805,9 @@ class Main_Window(QMainWindow):
         self._palette_dock.setWindowTitle(self.tr("Palette"))
         self._symmetry_dock.setWindowTitle(self.tr("Symmetry"))
         self._layer_dock.setWindowTitle(self.tr("Layers"))
+        self._timeline_dock.setWindowTitle(self.tr("Timeline"))
+        self._onion_dock.setWindowTitle(self.tr("Onion Skin"))
+        self._tags_dock.setWindowTitle(self.tr("Frame Tags"))
         self._editor_dock.setWindowTitle(self.tr("Palette Editor"))
         self._constraint_dock.setWindowTitle(self.tr("Constraints"))
         self._ramp_dock.setWindowTitle(self.tr("Shade Ramps"))
