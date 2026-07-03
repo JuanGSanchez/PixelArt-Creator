@@ -31,6 +31,8 @@ from pixelart_creator.logic.constants import (
 from pixelart_creator.logic.history import Command, FunctionCommand
 from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+from pixelart_creator.logic.tilemap import Tilemap
+from pixelart_creator.logic.tileset import Tileset
 
 #: Default animation frame duration (ms). Re-exported from
 #: :mod:`pixelart_creator.logic.constants` (single source, S12) so existing
@@ -46,6 +48,8 @@ __all__ = [
     "FrameTag",
     "PlaybackMode",
     "Document",
+    "Tileset",
+    "Tilemap",
     "ensure_editable",
     "iter_layers",
 ]
@@ -343,6 +347,8 @@ class Document:
         "frames",
         "metadata",
         "frame_tags",
+        "tilesets",
+        "tilemaps",
         "_next_layer_id",
     )
 
@@ -364,6 +370,10 @@ class Document:
         self.metadata: Dict[str, str] = dict(metadata) if metadata else {}
         #: Ordered document-level frame tags (named animations, REQ-P5-LOGIC-009).
         self.frame_tags: List[FrameTag] = []
+        #: Phase-6 tileset/tilemap collections (ADR-0016; empty by default so
+        #: v1/v2/v3 projects load unchanged). Attach/detach are reversible ops.
+        self.tilesets: List[Tileset] = []
+        self.tilemaps: List[Tilemap] = []
         #: Monotonic stable-layer-id source (deterministic, P2); 0 = unminted.
         self._next_layer_id = 1
         self.frames: List[Frame] = [Frame([Layer(base, "Background")])]
@@ -804,6 +814,82 @@ class Document:
             self.frame_tags.insert(tag_index, tag)
 
         return FunctionCommand(_do, _undo, label="remove tag")
+
+    # -- reversible tileset / tilemap attach-detach (REQ-P6-LOGIC-012) ----
+
+    def make_add_tileset_command(self, tileset: "Tileset") -> Command:
+        """Build a command attaching a tileset to the document (REQ-P6-LOGIC-012).
+
+        Undo detaches exactly it.
+
+        Raises:
+            DocumentError: If ``tileset`` is not a :class:`Tileset`.
+        """
+        if not isinstance(tileset, Tileset):
+            raise DocumentError(f"expected a Tileset, got {tileset!r}")
+
+        def _do() -> None:
+            self.tilesets.append(tileset)
+
+        def _undo() -> None:
+            self.tilesets.remove(tileset)
+
+        return FunctionCommand(_do, _undo, label="add tileset")
+
+    def make_remove_tileset_command(self, tileset_index: int) -> Command:
+        """Build a command detaching a tileset, restorable at its exact position.
+
+        Raises:
+            DocumentError: If ``tileset_index`` is out of range.
+        """
+        if not 0 <= tileset_index < len(self.tilesets):
+            raise DocumentError(f"tileset index {tileset_index} out of range")
+        tileset = self.tilesets[tileset_index]
+
+        def _do() -> None:
+            self.tilesets.remove(tileset)
+
+        def _undo() -> None:
+            self.tilesets.insert(tileset_index, tileset)
+
+        return FunctionCommand(_do, _undo, label="remove tileset")
+
+    def make_add_tilemap_command(self, tilemap: "Tilemap") -> Command:
+        """Build a command attaching a tilemap to the document (REQ-P6-LOGIC-012).
+
+        Undo detaches exactly it.
+
+        Raises:
+            DocumentError: If ``tilemap`` is not a :class:`Tilemap`.
+        """
+        if not isinstance(tilemap, Tilemap):
+            raise DocumentError(f"expected a Tilemap, got {tilemap!r}")
+
+        def _do() -> None:
+            self.tilemaps.append(tilemap)
+
+        def _undo() -> None:
+            self.tilemaps.remove(tilemap)
+
+        return FunctionCommand(_do, _undo, label="add tilemap")
+
+    def make_remove_tilemap_command(self, tilemap_index: int) -> Command:
+        """Build a command detaching a tilemap, restorable at its exact position.
+
+        Raises:
+            DocumentError: If ``tilemap_index`` is out of range.
+        """
+        if not 0 <= tilemap_index < len(self.tilemaps):
+            raise DocumentError(f"tilemap index {tilemap_index} out of range")
+        tilemap = self.tilemaps[tilemap_index]
+
+        def _do() -> None:
+            self.tilemaps.remove(tilemap)
+
+        def _undo() -> None:
+            self.tilemaps.insert(tilemap_index, tilemap)
+
+        return FunctionCommand(_do, _undo, label="remove tilemap")
 
     # -- canvas operations ------------------------------------------------
 
