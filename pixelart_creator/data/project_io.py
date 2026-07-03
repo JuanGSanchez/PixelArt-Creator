@@ -22,6 +22,7 @@ from pixelart_creator.logic.animation import (
     PlaybackMode,
     validate_tag_range,
 )
+from pixelart_creator.logic.autotile import BLOB_TILE_COUNT, AutotileRuleset
 from pixelart_creator.logic.blend import BlendMode
 from pixelart_creator.logic.color import ColorError, from_hex, to_hex
 from pixelart_creator.logic.constants import (
@@ -31,7 +32,11 @@ from pixelart_creator.logic.constants import (
     MAX_CANVAS_WIDTH,
     MAX_GROUP_NESTING_DEPTH,
     MAX_LAYERS_PER_FRAME,
+    MAX_TILE_DIMENSION,
+    MAX_TILEMAP_COORD,
+    MAX_TILEMAP_LAYERS,
     PROJECT_ZLIB_LEVEL,
+    TILEMAP_CHUNK_SIZE,
 )
 from pixelart_creator.logic.document import (
     Document,
@@ -42,16 +47,19 @@ from pixelart_creator.logic.document import (
 )
 from pixelart_creator.logic.palette import MAX_PALETTE_SIZE, Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+from pixelart_creator.logic.tilemap import Tilemap, TilemapLayer
+from pixelart_creator.logic.tileset import Tileset
 
 FORMAT_NAME = "pixproj"
-#: Current schema version (ADR-0012). v3 adds document-level ``frame_tags``
-#: (named animations, native ``PlaybackMode`` value strings) and a per-node
-#: stable ``layer_id``; v2 serialises the richer layer model (per-node blend
-#: mode, groups, masks, reference/smart links); v1 files still load (flat NORMAL
-#: layers). v1/v2 load with an empty tag collection and minted ``layer_id`` s
-#: (back-compat). Saving always writes v3.
-FORMAT_VERSION = 3
-_SUPPORTED_VERSIONS = (1, 2, 3)
+#: Current schema version (ADR-0016). v4 adds document-level ``tilesets`` +
+#: ``tilemaps`` (Phase-6 tileset/tilemap model — source-image ref + slicing;
+#: chunked-sparse layer stack + linked instances + auto-tile logical placement);
+#: v3 adds ``frame_tags`` + per-node ``layer_id``; v2 the richer layer model;
+#: v1 flat NORMAL layers. v1/v2/v3 load with empty tileset/tilemap collections
+#: (back-compat); v1/v2 also with an empty tag collection + minted ``layer_id`` s.
+#: Saving always writes v4.
+FORMAT_VERSION = 4
+_SUPPORTED_VERSIONS = (1, 2, 3, 4)
 FILE_SUFFIX = ".pixproj"
 
 #: Hard cap on a decoded pixel payload (bytes) — a full 8K RGBA layer plus slack.
@@ -127,8 +135,76 @@ def _serialise_tag(tag: FrameTag) -> Dict[str, Any]:
     }
 
 
+def _encode_u32(array: np.ndarray) -> str:
+    """Encode a uint32 array (little-endian) as zlib+base64 (native cell data)."""
+    raw = np.ascontiguousarray(array, dtype="<u4").tobytes()
+    return base64.b64encode(zlib.compress(raw, PROJECT_ZLIB_LEVEL)).decode("ascii")
+
+
+def _serialise_tileset(tileset: Tileset) -> Dict[str, Any]:
+    """Serialise a :class:`Tileset` (source-image ref + slicing config)."""
+    source = tileset.source
+    return {
+        "name": tileset.name,
+        "mode": source.mode.value,
+        "source_width": source.width,
+        "source_height": source.height,
+        "source": _encode_buffer(source),
+        "tile_width": tileset.tile_width,
+        "tile_height": tileset.tile_height,
+        "margin": tileset.margin,
+        "spacing": tileset.spacing,
+        "first_gid": tileset.first_gid,
+    }
+
+
+def _serialise_tilemap_layer(layer: TilemapLayer) -> Dict[str, Any]:
+    """Serialise one tilemap layer (display + logical chunks; auto-tile ruleset)."""
+    out: Dict[str, Any] = {
+        "name": layer.name,
+        "visible": layer.visible,
+        "opacity": layer.opacity,
+        "display_chunks": [
+            {"cx": cx, "cy": cy, "data": _encode_u32(chunk)}
+            for (cx, cy), chunk in layer._display_chunk_items()
+        ],
+    }
+    if layer.autotile is not None:
+        out["autotile"] = {
+            "terrain_gid": layer.autotile.terrain_gid,
+            "frame_gids": list(layer.autotile.frame_gids),
+        }
+        out["logical_chunks"] = [
+            {"cx": cx, "cy": cy, "data": _encode_u32(chunk)}
+            for (cx, cy), chunk in layer._logical_chunk_items()
+        ]
+    return out
+
+
+def _serialise_tilemap(
+    tilemap: Tilemap, tileset_index: Dict[int, int]
+) -> Dict[str, Any]:
+    """Serialise a :class:`Tilemap` (tileset refs by document index + layers)."""
+    refs: List[int] = []
+    for tileset in tilemap.tilesets:
+        idx = tileset_index.get(id(tileset))
+        if idx is None:
+            raise ProjectIOError(
+                "tilemap references a tileset not attached to the document"
+            )
+        refs.append(idx)
+    return {
+        "name": tilemap.name,
+        "infinite": tilemap.infinite,
+        "tile_width": tilemap.tile_width,
+        "tile_height": tilemap.tile_height,
+        "tilesets": refs,
+        "layers": [_serialise_tilemap_layer(layer) for layer in tilemap.layers],
+    }
+
+
 def serialize(document: Document) -> Dict[str, Any]:
-    """Serialise a :class:`Document` to a plain JSON-ready dict (schema v3)."""
+    """Serialise a :class:`Document` to a plain JSON-ready dict (schema v4)."""
     frames_out: List[Dict[str, Any]] = []
     for frame in document.frames:
         paths = _node_paths(frame.layers)
@@ -138,6 +214,7 @@ def serialize(document: Document) -> Dict[str, Any]:
                 "layers": [_serialise_node(node, paths) for node in frame.layers],
             }
         )
+    tileset_index = {id(ts): i for i, ts in enumerate(document.tilesets)}
     return {
         "format": FORMAT_NAME,
         "version": FORMAT_VERSION,
@@ -150,6 +227,8 @@ def serialize(document: Document) -> Dict[str, Any]:
         "metadata": dict(document.metadata),
         "frames": frames_out,
         "frame_tags": [_serialise_tag(tag) for tag in document.frame_tags],
+        "tilesets": [_serialise_tileset(ts) for ts in document.tilesets],
+        "tilemaps": [_serialise_tilemap(tm, tileset_index) for tm in document.tilemaps],
     }
 
 
@@ -461,6 +540,171 @@ def _assign_loaded_ids(document: Document) -> None:
         document._assign_ids(frame.layers)
 
 
+def _decode_u32(encoded: str, count: int) -> np.ndarray:
+    """Decode a native zlib+base64 uint32 chunk payload (defensive)."""
+    _require(isinstance(encoded, str), "chunk data must be a base64 string")
+    try:
+        raw = zlib.decompress(
+            base64.b64decode(encoded, validate=True), bufsize=count * 4
+        )
+    except (ValueError, TypeError, zlib.error) as exc:
+        raise ProjectIOError(f"corrupt chunk data: {exc}") from exc
+    _require(len(raw) == count * 4, f"chunk payload is {len(raw)} bytes")
+    return np.frombuffer(raw, dtype="<u4").copy()
+
+
+def _parse_tileset(data: Any) -> Tileset:
+    """Parse and validate one v4 tileset object (defensive, bounds-checked)."""
+    _require(isinstance(data, dict), "each tileset must be a JSON object")
+    name = data.get("name", "Tileset")
+    _require(isinstance(name, str), "tileset name must be a string")
+    mode_name = _get(data, "mode", str)
+    try:
+        mode = ColorMode(mode_name)
+    except ValueError as exc:
+        raise ProjectIOError(f"unknown tileset mode {mode_name!r}") from exc
+    width = _get(data, "source_width", int)
+    height = _get(data, "source_height", int)
+    _require(
+        1 <= width <= MAX_CANVAS_WIDTH and 1 <= height <= MAX_CANVAS_HEIGHT,
+        f"tileset source {width}x{height} outside bounds",
+    )
+    source = _decode_buffer(_get(data, "source", str), width, height, mode)
+    for key in ("tile_width", "tile_height"):
+        value = _get(data, key, int)
+        _require(
+            1 <= value <= MAX_TILE_DIMENSION,
+            f"tileset {key} {value} outside 1..{MAX_TILE_DIMENSION}",
+        )
+    margin = _get(data, "margin", int)
+    spacing = _get(data, "spacing", int)
+    _require(margin >= 0 and spacing >= 0, "tileset margin/spacing must be >= 0")
+    first_gid = _get(data, "first_gid", int)
+    _require(first_gid >= 1, "tileset first_gid must be >= 1")
+    try:
+        return Tileset(
+            source,
+            tile_width=data["tile_width"],
+            tile_height=data["tile_height"],
+            margin=margin,
+            spacing=spacing,
+            name=name,
+            first_gid=first_gid,
+        )
+    except ValueError as exc:  # TilesetError subclasses ValueError
+        raise ProjectIOError(f"invalid tileset: {exc}") from exc
+
+
+def _parse_autotile(data: Any) -> AutotileRuleset:
+    _require(isinstance(data, dict), "autotile must be a JSON object")
+    terrain = _get(data, "terrain_gid", int)
+    frames = _get(data, "frame_gids", list)
+    _require(
+        len(frames) == BLOB_TILE_COUNT,
+        f"autotile frame_gids must hold {BLOB_TILE_COUNT} entries",
+    )
+    for gid in frames:
+        _require(
+            isinstance(gid, int) and not isinstance(gid, bool) and gid >= 0,
+            "autotile frame gid must be a non-negative int",
+        )
+    try:
+        return AutotileRuleset(terrain, frames)
+    except ValueError as exc:  # AutotileError subclasses ValueError
+        raise ProjectIOError(f"invalid autotile ruleset: {exc}") from exc
+
+
+def _apply_chunks(grid: Any, chunk_entries: Any) -> None:
+    """Decode chunk entries onto a ``_ChunkGrid`` (defensive, coord-bounded)."""
+    _require(isinstance(chunk_entries, list), "chunks must be a list")
+    cell_count = TILEMAP_CHUNK_SIZE * TILEMAP_CHUNK_SIZE
+    for chunk in chunk_entries:
+        _require(isinstance(chunk, dict), "each chunk must be a JSON object")
+        cx = _get(chunk, "cx", int)
+        cy = _get(chunk, "cy", int)
+        origin_x = cx * TILEMAP_CHUNK_SIZE
+        origin_y = cy * TILEMAP_CHUNK_SIZE
+        _require(
+            abs(origin_x) <= MAX_TILEMAP_COORD and abs(origin_y) <= MAX_TILEMAP_COORD,
+            "chunk origin exceeds MAX_TILEMAP_COORD",
+        )
+        values = _decode_u32(_get(chunk, "data", str), cell_count).reshape(
+            (TILEMAP_CHUNK_SIZE, TILEMAP_CHUNK_SIZE)
+        )
+        for row, col in np.argwhere(values != 0):
+            grid.set(origin_x + int(col), origin_y + int(row), int(values[row, col]))
+
+
+def _parse_tilemap_layer(data: Any) -> TilemapLayer:
+    _require(isinstance(data, dict), "each tilemap layer must be a JSON object")
+    name = data.get("name", "Layer")
+    _require(isinstance(name, str), "layer name must be a string")
+    visible = data.get("visible", True)
+    _require(isinstance(visible, bool), "layer visible must be a bool")
+    opacity = data.get("opacity", 1.0)
+    _require(
+        isinstance(opacity, (int, float)) and not isinstance(opacity, bool),
+        "layer opacity must be a number",
+    )
+    _require(0.0 <= float(opacity) <= 1.0, "layer opacity out of range 0.0..1.0")
+    autotile_raw = data.get("autotile")
+    ruleset = _parse_autotile(autotile_raw) if autotile_raw is not None else None
+    layer = TilemapLayer(
+        name, visible=visible, opacity=float(opacity), autotile=ruleset
+    )
+    _apply_chunks(layer._display, data.get("display_chunks", []))
+    if ruleset is not None:
+        _apply_chunks(layer._logical, data.get("logical_chunks", []))
+    return layer
+
+
+def _parse_tilemap(data: Any, tilesets: List[Tileset]) -> Tilemap:
+    _require(isinstance(data, dict), "each tilemap must be a JSON object")
+    name = data.get("name", "Tilemap")
+    _require(isinstance(name, str), "tilemap name must be a string")
+    infinite = data.get("infinite", True)
+    _require(isinstance(infinite, bool), "tilemap infinite must be a bool")
+    for key in ("tile_width", "tile_height"):
+        value = _get(data, key, int)
+        _require(
+            1 <= value <= MAX_TILE_DIMENSION,
+            f"tilemap {key} {value} outside 1..{MAX_TILE_DIMENSION}",
+        )
+    tilemap = Tilemap(
+        name=name,
+        infinite=infinite,
+        tile_width=data["tile_width"],
+        tile_height=data["tile_height"],
+    )
+    refs = _get(data, "tilesets", list)
+    for ref in refs:
+        _require(
+            isinstance(ref, int)
+            and not isinstance(ref, bool)
+            and 0 <= ref < len(tilesets),
+            "tilemap tileset reference out of range",
+        )
+        tilemap.tilesets.append(tilesets[ref])
+    layers_raw = _get(data, "layers", list)
+    _require(
+        len(layers_raw) <= MAX_TILEMAP_LAYERS,
+        f"tilemap exceeds MAX_TILEMAP_LAYERS ({MAX_TILEMAP_LAYERS})",
+    )
+    for layer_data in layers_raw:
+        tilemap.layers.append(_parse_tilemap_layer(layer_data))
+    return tilemap
+
+
+def _parse_tilesets(raw: Any) -> List[Tileset]:
+    _require(isinstance(raw, list), "tilesets must be a list")
+    return [_parse_tileset(entry) for entry in raw]
+
+
+def _parse_tilemaps(raw: Any, tilesets: List[Tileset]) -> List[Tilemap]:
+    _require(isinstance(raw, list), "tilemaps must be a list")
+    return [_parse_tilemap(entry, tilesets) for entry in raw]
+
+
 def deserialize(payload: Dict[str, Any]) -> Document:
     """Reconstruct a :class:`Document` from a parsed ``.pixproj`` dict.
 
@@ -510,6 +754,9 @@ def deserialize(payload: Dict[str, Any]) -> Document:
     document.frame_tags = _parse_tags(
         payload.get("frame_tags", []), len(document.frames)
     )
+    # v4 tileset/tilemap collections; v1/v2/v3 omit them -> empty (back-compat).
+    document.tilesets = _parse_tilesets(payload.get("tilesets", []))
+    document.tilemaps = _parse_tilemaps(payload.get("tilemaps", []), document.tilesets)
     return document
 
 
