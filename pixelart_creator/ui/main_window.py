@@ -109,6 +109,10 @@ from pixelart_creator.logic.transform import (
     TransformError,
     scale_nearest,
 )
+from pixelart_creator.ui.asset_library_actions import Asset_Library_Session
+from pixelart_creator.ui.asset_library_panel import Asset_Library_Panel
+from pixelart_creator.ui.asset_search_panel import Asset_Search_Panel
+from pixelart_creator.ui.asset_tagging_panel import Asset_Tagging_Panel
 from pixelart_creator.ui.automation_worker import (
     Automation_Controller,
     make_dispatch_job,
@@ -696,6 +700,35 @@ class Main_Window(QMainWindow):
         self._branching_panel.set_session(self._branching_session)
         self._branching_dock = self._add_workflow_dock(self._branching_panel)
 
+        # Phase-11 Slice 1 asset library (REQ-P11-UI-001/-002/-003): browse the
+        # catalog, tag assets, and search/filter — three docked panels bound to one
+        # Asset_Library_Session that holds the shared in-memory AssetCatalog and the
+        # shared undo stack the tag QUndoCommands push onto (PL11-D3). Every Slice-1
+        # library op (enumerate, filter, tag) is a PURELY SYNCHRONOUS in-memory call
+        # over the immutable catalog value — no network, no I/O, no off-GUI-thread
+        # worker / timer / poller (the Slice-B Shared_Projects_Panel precedent), so
+        # shutdown_prewarm is unchanged and no worker survives into GC. Only tag
+        # add/remove is undoable; adding/removing a catalog entry is library state and
+        # pushes NO QUndoCommand. The tag stack joins the undo group so the global
+        # Undo/Redo actions reach it. The search panel drives the pure query on the
+        # library panel; the library selection drives the tagging panel.
+        self._asset_session = Asset_Library_Session(self)
+        self._undo_group.addStack(self._asset_session.undo_stack())
+        self._asset_library_panel = Asset_Library_Panel(self)
+        self._asset_library_panel.set_session(self._asset_session)
+        self._asset_tagging_panel = Asset_Tagging_Panel(self)
+        self._asset_tagging_panel.set_session(self._asset_session)
+        self._asset_search_panel = Asset_Search_Panel(self)
+        self._asset_library_panel.assetSelected.connect(
+            self._asset_tagging_panel.set_asset
+        )
+        self._asset_search_panel.queryChanged.connect(
+            self._asset_library_panel.set_query
+        )
+        self._asset_library_dock = self._add_workflow_dock(self._asset_library_panel)
+        self._asset_search_dock = self._add_workflow_dock(self._asset_search_panel)
+        self._asset_tagging_dock = self._add_workflow_dock(self._asset_tagging_panel)
+
         self._build_actions()
         self._build_toolbar()
         self._build_menu()
@@ -1092,6 +1125,14 @@ class Main_Window(QMainWindow):
         self._cloud_menu.addAction(self._realtime_disconnect_action)
         self._cloud_menu.addAction(self._live_cursors_action)
         self._cloud_menu.addAction(self._branching_dock.toggleViewAction())
+
+        # Library menu (Phase-11 Slice 1): consistent with the existing menu bar; the
+        # asset-library / search / tagging dock toggles (UI-001/-002/-003), each
+        # discoverable + keyboard-reachable.
+        self._library_menu = bar.addMenu("")
+        self._library_menu.addAction(self._asset_library_dock.toggleViewAction())
+        self._library_menu.addAction(self._asset_search_dock.toggleViewAction())
+        self._library_menu.addAction(self._asset_tagging_dock.toggleViewAction())
 
         self._theme_menu = bar.addMenu("")
         self._theme_menu.addAction(self._theme_light_action)
@@ -3100,6 +3141,9 @@ class Main_Window(QMainWindow):
         self._comments_dock.setWindowTitle(self.tr("Comments"))
         self._presence_dock.setWindowTitle(self.tr("Presence"))
         self._branching_dock.setWindowTitle(self.tr("Branching"))
+        self._asset_library_dock.setWindowTitle(self.tr("Asset Library"))
+        self._asset_search_dock.setWindowTitle(self.tr("Asset Search"))
+        self._asset_tagging_dock.setWindowTitle(self.tr("Asset Tagging"))
         # Phase-9 aid docks: without a windowTitle their Aids-menu toggleViewAction
         # renders blank and never retranslates. Reuse each widget's own catalogue
         # title ("Real-Size Preview" / "Timelapse") so the toggles are labelled.
@@ -3214,6 +3258,7 @@ class Main_Window(QMainWindow):
         self._tilemap_menu.setTitle(self.tr("Tile&map"))
         self._automation_menu.setTitle(self.tr("&Automation"))
         self._cloud_menu.setTitle(self.tr("&Cloud"))
+        self._library_menu.setTitle(self.tr("&Library"))
         self._theme_menu.setTitle(self.tr("&Theme"))
         self._language_menu.setTitle(self.tr("&Language"))
         self._help_menu.setTitle(self.tr("&Help"))

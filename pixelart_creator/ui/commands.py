@@ -34,11 +34,17 @@ from typing import Callable, Optional
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QUndoCommand
 
+from pixelart_creator.logic.asset_catalog import AssetDescriptor
+from pixelart_creator.logic.asset_tags import TagOp
 from pixelart_creator.logic.history import Command, PixelEdit
 
 #: Called with the dirty rect (scene/pixel coords) after every apply/revert so
 #: the view can repaint only the affected region (D5).
 RefreshCallback = Callable[[QRectF], None]
+
+#: Called with the descriptor produced by a tag do/undo so the library session
+#: can swap it into the in-memory catalog and notify the panels (PL11-D3).
+ApplyDescriptorCallback = Callable[[AssetDescriptor], None]
 
 #: Called (no args) on both redo and undo of a pixel edit to drop the LayerGroup
 #: flatten caches so a stale composite can never be served after the edit (D4;
@@ -337,3 +343,66 @@ class TilemapCommand(LogicCommand):
     ) -> None:
         """Bridge an unapplied tilemap command to one ``QUndoCommand``."""
         super().__init__(command, refresh, text, parent)
+
+
+class _AssetTagCommand(QUndoCommand):
+    """Bridge a pure asset-tag do/undo pair to one ``QUndoCommand`` (Phase 11).
+
+    The one new undoable Phase-11 operation (PL11-D3, REQ-P11-UI-002): a tag
+    add / remove. The reversible maths lives entirely in the Qt-free
+    :mod:`pixelart_creator.logic.asset_tags` builder, which returns a
+    :data:`~pixelart_creator.logic.asset_tags.TagOp` — a ``(do, undo)`` pair of
+    no-argument callables each returning the resulting
+    :class:`~pixelart_creator.logic.asset_catalog.AssetDescriptor`. This bridge
+    holds **no** domain logic (Article I / S11): ``redo()`` applies ``do`` on
+    push (and on every later redo) and ``undo()`` applies ``undo``, and both hand
+    the produced descriptor to ``apply`` so the library session swaps it into the
+    in-memory catalog and notifies the panels. Bound-exceeding tag input is
+    rejected by the ``asset_tags`` factory *before* the command is built (so it
+    never enters the stack); this bridge only sequences an already-valid op.
+
+    Args:
+        tag_op: The ``(do, undo)`` pair from ``make_add_tag`` / ``make_remove_tag``.
+        apply: Callback given the descriptor produced by ``do`` / ``undo``; it
+            replaces the entry in the catalog and refreshes the bound panels.
+        text: Undo-menu label (translatable, supplied by the panel).
+        parent: Optional parent command (macro support).
+    """
+
+    def __init__(
+        self,
+        tag_op: TagOp,
+        apply: ApplyDescriptorCallback,
+        text: str = "",
+        parent: Optional[QUndoCommand] = None,
+    ) -> None:
+        """Capture the tag do/undo pair and the catalog-apply callback."""
+        super().__init__(text, parent)
+        self._do, self._undo = tag_op
+        self._apply = apply
+
+    def redo(self) -> None:
+        """Apply (or re-apply) the tag op, then swap the new descriptor in."""
+        self._apply(self._do())
+
+    def undo(self) -> None:
+        """Restore the prior descriptor exactly, then swap it back in."""
+        self._apply(self._undo())
+
+
+class AddTagCommand(_AssetTagCommand):
+    """One ``QUndoCommand`` adding a tag to an asset (REQ-P11-UI-002 / PL11-D3).
+
+    Wraps the :func:`~pixelart_creator.logic.asset_tags.make_add_tag` do/undo
+    pair; ``redo()`` reinstates the tag, ``undo()`` restores the exact prior tag
+    set. See :class:`_AssetTagCommand` for the sequencing contract.
+    """
+
+
+class RemoveTagCommand(_AssetTagCommand):
+    """One ``QUndoCommand`` removing a tag from an asset (REQ-P11-UI-002 / PL11-D3).
+
+    Wraps the :func:`~pixelart_creator.logic.asset_tags.make_remove_tag` do/undo
+    pair; ``redo()`` removes the tag, ``undo()`` restores it. See
+    :class:`_AssetTagCommand` for the sequencing contract.
+    """
