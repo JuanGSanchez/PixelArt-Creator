@@ -7,6 +7,20 @@
 #   Python (zero Qt, no ui/data imports); data/ is I/O only (zero Qt, no ui
 #   import). The only Qt-dependent file permitted outside ui/ is ui/commands.py
 #   (which is inside ui/, so always allowed).
+#   PHASE-10 (cloud & collaboration): the real-time sync backend is a NEW
+#   first-class top-level package `sync_backend/` that sits OUTSIDE the three
+#   layers (ADR-0027). It is governed by a dedicated rule (below): it must not
+#   import ui/, data/, or Qt — it stays headless and never touches the client's
+#   OS-keyring tokens or provider adapters — but it MAY reuse the pure, Qt-free
+#   `logic/` convergence + validation code. Reciprocally, no client layer
+#   (logic/data/ui) may import the backend package: the desktop client reaches
+#   the backend only over the zero-Qt `data/cloud/` transport port at run time
+#   (REQ-P10-DATA-010), never by a Python import. `data/cloud/` itself is a
+#   normal `data/` subpackage and is already governed by the `data` rule
+#   (zero Qt, no ui/ import) — no provider SDK/transport type leaks above it.
+#   Run twice for full coverage:
+#     python scripts/check_layering.py --root pixelart_creator   # client 3 layers
+#     python scripts/check_layering.py --root .                  # governs sync_backend/
 # FLAVOUR: standalone
 # LOCATION: scripts/check_layering.py  (CONVENTIONS standalone-script location)
 # INVOKED BY: AGT-01 Architecture (pre-flight + sdd-analyze gate); AGT-09 CI.
@@ -43,12 +57,27 @@ import json
 import os
 import sys
 
-# Import-name prefixes forbidden per layer. Keys are the layer directory names.
+# Import-name prefixes forbidden per layer. Keys are the layer directory names
+# (parts[0] of the module path relative to --root).
 QT = ("PySide6", "PySide2", "PyQt6", "PyQt5", "shiboken6", "shiboken2")
+
+# Phase-10: the sync backend is a separate top-level package outside the three
+# layers (ADR-0027). Client layers must never import it; the backend must never
+# import ui/, data/, or Qt (it may reuse pure logic/).
+BACKEND_PKG = "sync_backend"
+
 FORBIDDEN = {
-    "logic": QT + ("pixelart_creator.ui", "pixelart_creator.data", "..ui", "..data"),
-    "data": QT + ("pixelart_creator.ui", "..ui"),
-    # ui/ has no forbidden imports (may use logic, data, Qt).
+    "logic": QT
+    + ("pixelart_creator.ui", "pixelart_creator.data", "..ui", "..data", BACKEND_PKG),
+    "data": QT + ("pixelart_creator.ui", "..ui", BACKEND_PKG),
+    # ui/ may use logic, data, and Qt — but not the out-of-process sync backend
+    # (it reaches the backend only via the data/cloud transport port at runtime).
+    "ui": (BACKEND_PKG,),
+    # The sync backend (scanned via `--root .`, parts[0] == "sync_backend"):
+    # headless, no Qt, no ui/, no data/ (never touches client tokens/providers);
+    # MAY reuse pure logic/ (convergence + cloud_validation). ADR-0027.
+    BACKEND_PKG: QT
+    + ("pixelart_creator.ui", "pixelart_creator.data", "..ui", "..data"),
 }
 
 
