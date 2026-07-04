@@ -41,6 +41,7 @@ from pixelart_creator.ui.multi_view import Document_View  # noqa: E402
 from pixelart_creator.ui.real_size_preview_window import (  # noqa: E402
     Real_Size_Preview_Window,
 )
+from pixelart_creator.ui.recovery_prompt import Recovery_Prompt  # noqa: E402
 from pixelart_creator.ui.reference_board import Reference_Board  # noqa: E402
 from pixelart_creator.ui.theme import (  # noqa: E402
     THEME_DARK,
@@ -51,6 +52,9 @@ from pixelart_creator.ui.theme import (  # noqa: E402
 from pixelart_creator.ui.tilemap_canvas import Tilemap_Canvas  # noqa: E402
 from pixelart_creator.ui.timelapse_controls import Timelapse_Controls  # noqa: E402
 from pixelart_creator.ui.tools import PencilTool  # noqa: E402
+from pixelart_creator.ui.version_history_browser import (  # noqa: E402
+    Version_History_Browser,
+)
 
 #: A tiny deterministic palette used across the suite.
 STARTER = [
@@ -127,6 +131,19 @@ _PHASE9_DISPOSABLE = (
     Real_Size_Preview_Window,
     Reference_Board,
     Document_View,
+    # Phase-10 Slice A cloud dialogs (AGT-06). Both are parented ``QDialog``s that
+    # own NO worker thread (the off-thread cloud work lives in ``Cloud_Controller``,
+    # which is drained via ``Main_Window.shutdown_prewarm`` — see the drain fixture
+    # below). But a test may build either dialog directly (parent-less, or over the
+    # shared document scene), and headless (offscreen, no running event loop) its
+    # ``deleteLater`` never fires, so ``QApplication`` keeps it in
+    # ``topLevelWidgets()`` and it survives the test. Registering them here disposes
+    # them SYNCHRONOUSLY (``shiboken6.delete``) at teardown exactly like the Phase-9
+    # aids, so no cloud dialog accumulates across the 2450+ test suite and none
+    # outlives the ``Main_Window`` whose controller was drained (the Phase-5/6/9
+    # cross-thread-GC-of-Qt-C++ segfault-hygiene contract).
+    Version_History_Browser,
+    Recovery_Prompt,
 )
 
 
