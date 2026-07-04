@@ -36,13 +36,18 @@ from pixelart_creator.logic.document import Document  # noqa: E402
 from pixelart_creator.logic.palette import Palette  # noqa: E402
 from pixelart_creator.ui.canvas_scene import CanvasScene  # noqa: E402
 from pixelart_creator.ui.canvas_view import Canvas_View  # noqa: E402
+from pixelart_creator.ui.comments_panel import Comments_Panel  # noqa: E402
 from pixelart_creator.ui.main_window import Main_Window  # noqa: E402
 from pixelart_creator.ui.multi_view import Document_View  # noqa: E402
+from pixelart_creator.ui.presence_panel import Presence_Panel  # noqa: E402
 from pixelart_creator.ui.real_size_preview_window import (  # noqa: E402
     Real_Size_Preview_Window,
 )
 from pixelart_creator.ui.recovery_prompt import Recovery_Prompt  # noqa: E402
 from pixelart_creator.ui.reference_board import Reference_Board  # noqa: E402
+from pixelart_creator.ui.shared_projects_panel import (  # noqa: E402
+    Shared_Projects_Panel,
+)
 from pixelart_creator.ui.theme import (  # noqa: E402
     THEME_DARK,
     THEME_LIGHT,
@@ -144,6 +149,21 @@ _PHASE9_DISPOSABLE = (
     # cross-thread-GC-of-Qt-C++ segfault-hygiene contract).
     Version_History_Browser,
     Recovery_Prompt,
+    # Phase-10 Slice B collaboration panels (AGT-06). The three new dock panels are
+    # top-level ``QWidget``s bound to a synchronous, worker-free
+    # ``Collaboration_Session`` (Slice B is synchronous over the loopback adapter —
+    # AGT-05 introduced NO off-thread worker, so there is no new drain/teardown
+    # wiring). STILL, a test may build a panel directly (parent-less) + register it
+    # with ``qtbot.addWidget``; headless (offscreen, no running event loop) that
+    # widget's ``deleteLater`` never fires, so ``QApplication`` keeps it in
+    # ``topLevelWidgets()`` and it survives the test. Registering them here disposes
+    # them SYNCHRONOUSLY (``shiboken6.delete``) at teardown exactly like the Phase-9
+    # aids + the Slice-A cloud dialogs, so no collaboration panel accumulates across
+    # the suite under ``pytest -n auto`` (the Phase-5/6/9 disposal-hygiene contract,
+    # here a regression guard even though no worker was added).
+    Shared_Projects_Panel,
+    Comments_Panel,
+    Presence_Panel,
 )
 
 
