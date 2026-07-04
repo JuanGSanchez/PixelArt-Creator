@@ -615,14 +615,19 @@
 | `tests/ui/**` | AGT-06 | pytest-qt, headless offscreen, both themes, a11y — one test per SC-UI-* (planned). |
 | `tests/data/cloud/**`, `tests/backend/**` | AGT-04 | Phase-10 cloud/backend headless tests (fake adapter + loopback transport + in-process backend); `cloud_live` marker = out-of-CI (planned). |
 
-## `pixelart_creator/logic/` — Phase-10 cloud & collaboration — PLANNED (Slices 10A/10B/10C)
+## `pixelart_creator/logic/` — Phase-10 cloud & collaboration — Slices 10A/10B BUILT; 10C PLANNED
 
 > New Qt-free `logic/` models frozen by AGT-01 (`interface-contract`, plan §5) BEFORE implementation.
+> **Slice 10A (`sync_state`/`autosave`/`version_history`) + Slice 10B (`cloud_validation`/`convergence`)
+> are SHIPPED and green** (`check_layering --root pixelart_creator` exit 0 / 139 modules; `check_cycles`
+> exit 0 / 140 modules; both verified 2026-07-04). `realtime_apply` (10C) remains PLANNED.
 > Exceptions subclass `ValueError` (Phase-1 convention); `SyncState` + the CRDT message vocabulary are
 > module-local (ADR-0001). New constants (`constants.py`, plan §8, Article II/BF-1/BF-3):
 > `AUTOSAVE_INTERVAL_MS`, `MAX_CLOUD_VERSIONS`, `MAX_CLOUD_PROJECT_BYTES`, `CLOUD_RETRY_LIMIT`,
 > `MAX_SHARED_MEMBERS`, `MAX_COMMENT_BYTES`, `MAX_COMMENTS_PER_PROJECT`, `MAX_CRDT_UPDATE_BYTES`,
-> `CRDT_TILE_SIZE_PX` (all names distinct from shipped). pycrdt/NumPy are third-party pure deps (no Qt).
+> `CRDT_TILE_SIZE_PX` (all names distinct from shipped). pycrdt/NumPy are third-party pure deps (no Qt) —
+> `convergence.py` imports `numpy` + `pycrdt` (`Doc`, `Map`), a legitimate pure third-party edge (like the
+> shipped NumPy usage), verified NOT a layering violation by `check_layering` exit 0.
 
 | Module | Responsibility | Public surface | REQ | Slice |
 | --- | --- | --- | --- | --- |
@@ -630,14 +635,18 @@
 | `autosave.py` | Pure autosave decision fn (elapsed as input, no clock). | `should_autosave`, `AutosaveError` | LOGIC-002 | 10A |
 | `version_history.py` | Ordered, immutable cloud version history (≤ `MAX_CLOUD_VERSIONS`). | `CloudVersion`, `VersionHistory`, `VersionHistoryError` | LOGIC-003 | 10A |
 | `cloud_validation.py` | Pure untrusted-input validators + CRDT message vocabulary (schema + size/depth/byte caps; no eval/exec). **Shared by `data/cloud/` AND `sync_backend/`.** | `validate_crdt_update`, `validate_comment`, `validate_membership`, `validate_presence`, `CloudValidationError` | DATA-009/-010, BACKEND-002 | 10B/10C |
-| `convergence.py` | HYBRID convergence: pycrdt tree/sequence CRDT (structure) + pure tile/region-LWW (raster); logical-clock+site-id; deterministic, 8K-scalable. | `converge`, `ConvergenceError` | LOGIC-006 | 10B |
+| `convergence.py` | HYBRID convergence: pycrdt tree/sequence CRDT (structure) + pure tile/region-LWW (raster); logical-clock+site-id; deterministic, 8K-scalable (ADR-0028). | `converge`, `structured_sidecar`, `make_raster_op`, `MetadataOp`, `LayerAttrOp`, `LayerOrderOp`, `RasterOp`, `ConvergenceError` | LOGIC-006 | 10B |
 | `realtime_apply.py` | Real-time apply of remote CRDT/OT updates + git-like branch/merge. **Per-frame flagged (AGT-10).** | `apply_remote`, `branch`, `merge`, `RealtimeError` | LOGIC-007 | 10C |
 
-## `pixelart_creator/data/cloud/` — Phase-10 cloud port + adapters — PLANNED (Slices 10A/10B/10C)
+## `pixelart_creator/data/cloud/` — Phase-10 cloud port + adapters — Slices 10A/10B BUILT; 10C PLANNED
 
-> New ZERO-Qt `data/` subpackage (governed by the `data` layer rule). No provider SDK/transport type
-> leaks above the port; tokens live only here via the OS keyring. `CloudDataError` subclasses
-> `ProjectIOError` (PIO-1 family). Provider SDKs imported only in `providers/*`.
+> New ZERO-Qt `data/` subpackage (governed by the `data` layer rule). **Slice 10A (`port`/`fake_adapter`/
+> `auth`/`token_store`/`providers`) + Slice 10B (`shared_adapter`) are SHIPPED and green.** `shared_adapter.py`
+> imports downward only (`data/cloud/fake_adapter`, `data/cloud/port`, `logic/cloud_validation`,
+> `logic/constants`) — ZERO Qt, no provider/backend leak, verified by `check_layering` exit 0. `transport`
+> family (10C) remains PLANNED. No provider SDK/transport type leaks above the port; tokens live only here
+> via the OS keyring. `CloudDataError` subclasses `ProjectIOError` (PIO-1 family). Provider SDKs imported
+> only in `providers/*`.
 
 | Module | Responsibility | Binds to | REQ | Slice |
 | --- | --- | --- | --- | --- |
@@ -646,7 +655,7 @@
 | `auth.py` | Pure PKCE (`S256`) + loopback (RFC 8252) + token exchange + Device Grant (RFC 8628). | `token_store`, `constants` | DATA-008 | 10A |
 | `token_store.py` | OS-keyring token isolation (`keyring`), keyed `pixelart-creator:cloud:{provider}`. | `constants` | DATA-008 | 10A |
 | `providers/{drive,onedrive,dropbox}.py` | Real adapters behind the same port; **credential-gated / out-of-CI**. | `port`, `auth` | DATA-001, 007, 008 | 10A |
-| `shared_adapter.py` | Shared-project storage + membership behind the port family (fake impl in CI). | `port`, `logic/cloud_validation` | DATA-009 | 10B |
+| `shared_adapter.py` | Shared-project storage + membership + validated comments/presence behind the port family (fake impl in CI). | `port`, `fake_adapter`, `logic/cloud_validation`, `logic/constants` | DATA-009 | 10B |
 | `transport.py` / `loopback_transport.py` / `ws_transport.py` | Client `TransportPort` for CRDT+presence; loopback (CI) + WebSocket (out-of-CI). | `logic/cloud_validation`, `constants` | DATA-010 | 10C |
 
 ## `sync_backend/` — Phase-10 real-time sync backend — PLANNED (Slice 10C; OUTSIDE the three layers, ADR-0027)
@@ -661,10 +670,15 @@
 | `server.py` | asyncio WebSocket relay of CRDT updates + awareness/presence; spin-up API for CI; validates every payload (no eval/exec); never receives/stores tokens. | `logic/{cloud_validation, convergence}`, `constants`, `websockets` | BACKEND-001, 002 | 10C |
 | `store.py` | Per-`document_id` ordered update-log + latest-presence persistence (in-memory CI; file-backed running). | `logic/constants` | BACKEND-001 | 10C |
 
-## `pixelart_creator/ui/` — Phase-10 cloud & collaboration UI — PLANNED (Slices 10A/10B/10C)
+## `pixelart_creator/ui/` — Phase-10 cloud & collaboration UI — Slices 10A/10B BUILT; 10C PLANNED
 
-> Qt only. Cloud ops run off the GUI thread (`cloud_worker.py`). No `ui/commands.py` change (cloud/collab/
-> real-time are sync/session state, not undoable). Slice-C real-time cursor draw is per-frame flagged (AGT-10).
+> Qt only. **Slice 10A + Slice 10B UI (`shared_projects_panel`/`comments_panel`/`presence_panel` +
+> `collaboration_actions` session facade) are SHIPPED and green** — each imports only PySide6 (Qt, allowed
+> in `ui/`), `data/cloud` abstractions, `logic/` abstractions, and the `collaboration_actions` session
+> facade; NO direct provider/backend import (reaches the backend only via the transport port at run time).
+> `branching_panel`/`realtime_cursors_overlay` (10C) remain PLANNED. Cloud ops run off the GUI thread
+> (`cloud_worker.py`). No `ui/commands.py` change (cloud/collab/real-time are sync/session state, not
+> undoable). Slice-C real-time cursor draw is per-frame flagged (AGT-10).
 
 | Module | Responsibility | Binds to | REQ | Slice |
 | --- | --- | --- | --- | --- |
