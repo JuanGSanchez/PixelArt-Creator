@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Callable, List, Optional
 
 import numpy as np
-from PySide6.QtCore import QEvent, QRectF, QStandardPaths, Qt
+from PySide6.QtCore import QEvent, QRectF, QStandardPaths, Qt, QTimer
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QGraphicsScene,
     QGridLayout,
+    QInputDialog,
     QLabel,
     QListWidget,
     QListWidgetItem,
@@ -72,8 +73,10 @@ from pixelart_creator.data.project_io import (
     save_project,
 )
 from pixelart_creator.logic import history, transform
+from pixelart_creator.logic.autosave import should_autosave
 from pixelart_creator.logic.color import BLACK, RGBA, TRANSPARENT, to_hex
 from pixelart_creator.logic.constants import (
+    AUTOSAVE_INTERVAL_MS,
     DEFAULT_CANVAS_HEIGHT,
     DEFAULT_CANVAS_WIDTH,
 )
@@ -115,6 +118,15 @@ from pixelart_creator.ui.batch_export_panel import Batch_Export_Panel
 from pixelart_creator.ui.batch_recolour_panel import Batch_Recolour_Panel
 from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.canvas_view import Canvas_View
+from pixelart_creator.ui.cloud_actions import (
+    Cloud_Session,
+    make_autosave_job,
+    make_list_versions_job,
+    make_recover_job,
+    make_restore_job,
+    make_save_job,
+)
+from pixelart_creator.ui.cloud_worker import Cloud_Controller
 from pixelart_creator.ui.colour_cycling_panel import Colour_Cycling_Panel
 from pixelart_creator.ui.colour_hub_menu import Colour_Hub_Menu
 from pixelart_creator.ui.commands import (
@@ -149,6 +161,7 @@ from pixelart_creator.ui.plugin_manager_panel import Plugin_Manager_Panel
 from pixelart_creator.ui.prewarm_indicator import Prewarm_Indicator
 from pixelart_creator.ui.procgen_panel import Procgen_Panel
 from pixelart_creator.ui.real_size_preview_window import Real_Size_Preview_Window
+from pixelart_creator.ui.recovery_prompt import Recovery_Prompt
 from pixelart_creator.ui.reference_board import Reference_Board
 from pixelart_creator.ui.rotsprite_dialog import RotSprite_Dialog
 from pixelart_creator.ui.script_runner_panel import Script_Runner_Panel
@@ -189,6 +202,11 @@ from pixelart_creator.ui.tools.dither_tool import (
     MODE_ORDERED,
 )
 from pixelart_creator.ui.transform_dialog import Scale_Dialog
+from pixelart_creator.ui.version_history_browser import Version_History_Browser
+
+#: Stable cloud recovery-slot key for the working document when no named cloud
+#: project is active (presentation-only identifier, not a domain tuning value).
+_RECOVERY_PROJECT_ID = "working"
 
 #: A sensible starter palette for a new document (usability, not a spec value).
 _STARTER_PALETTE: List[RGBA] = [
@@ -570,6 +588,38 @@ class Main_Window(QMainWindow):
         ):
             self._automation_controller.busyChanged.connect(panel.set_busy)
 
+        # Phase-10 Slice A cloud (REQ-P10-UI-001..008): a window-owned
+        # Cloud_Controller runs the Qt-free data/cloud port (put/get/list/autosave)
+        # off the GUI thread with cancel + result marshalling (UI-005); the worker
+        # constructs no Qt object off-thread and hands back a Qt-free result (a
+        # CloudVersion / bytes / version tuple / a defensively-decoded Document),
+        # which THIS window consumes on the GUI thread. Its deterministic teardown
+        # is folded into shutdown_prewarm so no worker / carrier survives GC (the
+        # Phase-5/6/9 xdist-segfault guard). Cloud/sync is session state and pushes
+        # NO QUndoCommand (PL10-D13; ui/commands.py untouched). The Cloud_Session is
+        # the provider-agnostic connect/disconnect seam (UI-004) — ui/ never sees a
+        # provider type or token (DATA-007/-008). No eval/exec: the open path decodes
+        # untrusted bytes through the shipped defensive PIO-1 path (DATA-006).
+        self._cloud_controller = Cloud_Controller(self)
+        self._cloud_controller.operationSucceeded.connect(self._on_cloud_succeeded)
+        self._cloud_controller.operationFailed.connect(self._on_cloud_failed)
+        self._cloud_session = Cloud_Session(parent=self)
+        self._cloud_session.connectionChanged.connect(self._on_cloud_connection_changed)
+        #: The cloud project id last saved to / opened from (drives version browse).
+        self._cloud_project_id: Optional[str] = None
+        # Autosave timer (UI-003 support): every AUTOSAVE_INTERVAL_MS it asks the
+        # PURE logic.autosave.should_autosave policy (elapsed as an INPUT, no clock
+        # read here) whether to write the working document to the port's recovery
+        # slot. The slot is distinct from explicit version history, so an autosave
+        # never clobbers the last explicit save (DATA-004). Stopped in teardown so
+        # no tick fires after the controller is shut down.
+        self._autosave_elapsed_ms = 0
+        self._autosave_last_marker = 0
+        self._autosave_timer = QTimer(self)
+        self._autosave_timer.setInterval(AUTOSAVE_INTERVAL_MS)
+        self._autosave_timer.timeout.connect(self._on_autosave_tick)
+        self._autosave_timer.start()
+
         self._build_actions()
         self._build_toolbar()
         self._build_menu()
@@ -580,6 +630,12 @@ class Main_Window(QMainWindow):
 
         self.new_document()
         self._retranslate()
+
+        # Offer autosave recovery once the event loop is running (UI-003). Deferred
+        # via a zero-timer so it never blocks construction (a modal dialog in
+        # __init__ would stall headless tests); it is a no-op when disconnected /
+        # nothing to recover, so a fresh in-memory session simply skips it.
+        QTimer.singleShot(0, self._maybe_prompt_recovery)
 
     # -- actions / toolbar / menu ----------------------------------------
 
@@ -641,6 +697,26 @@ class Main_Window(QMainWindow):
             Qt.Modifier.CTRL | Qt.Modifier.SHIFT | Qt.Key.Key_E
         )
         self._export_action.triggered.connect(self._on_export)
+
+        # Phase-10 Slice A cloud actions (REQ-P10-UI-001..004). Every cloud op runs
+        # off the GUI thread via the Cloud_Controller; connect/disconnect drives the
+        # provider-agnostic Cloud_Session (no provider named, no token in ui/).
+        self._cloud_connect_action = QAction(self)
+        self._cloud_connect_action.triggered.connect(self._on_cloud_connect)
+        self._cloud_disconnect_action = QAction(self)
+        self._cloud_disconnect_action.setEnabled(False)
+        self._cloud_disconnect_action.triggered.connect(self._on_cloud_disconnect)
+        # Save/open/version-browse are gated on a live connection (disabled until
+        # connect; _on_cloud_connection_changed toggles them).
+        self._cloud_save_action = QAction(self)
+        self._cloud_save_action.setEnabled(False)
+        self._cloud_save_action.triggered.connect(self._on_cloud_save)
+        self._cloud_open_action = QAction(self)
+        self._cloud_open_action.setEnabled(False)
+        self._cloud_open_action.triggered.connect(self._on_cloud_open)
+        self._cloud_versions_action = QAction(self)
+        self._cloud_versions_action.setEnabled(False)
+        self._cloud_versions_action.triggered.connect(self._on_cloud_versions)
 
         self._zoom_in_action = QAction(self)
         self._zoom_in_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_Plus)
@@ -897,6 +973,17 @@ class Main_Window(QMainWindow):
         self._automation_menu.addAction(self._plugin_dock.toggleViewAction())
         self._automation_menu.addAction(self._batch_recolour_dock.toggleViewAction())
         self._automation_menu.addAction(self._procgen_dock.toggleViewAction())
+
+        # Cloud menu (Phase-10 Slice A): consistent with the existing menu bar; the
+        # cloud save/load + version history + provider connect surfaces (UI-001..004).
+        self._cloud_menu = bar.addMenu("")
+        self._cloud_menu.addAction(self._cloud_connect_action)
+        self._cloud_menu.addAction(self._cloud_disconnect_action)
+        self._cloud_menu.addSeparator()
+        self._cloud_menu.addAction(self._cloud_save_action)
+        self._cloud_menu.addAction(self._cloud_open_action)
+        self._cloud_menu.addSeparator()
+        self._cloud_menu.addAction(self._cloud_versions_action)
 
         self._theme_menu = bar.addMenu("")
         self._theme_menu.addAction(self._theme_light_action)
@@ -1356,6 +1443,14 @@ class Main_Window(QMainWindow):
         # Idempotent, event-loop-free — no automation worker or signal carrier
         # survives into a later GC cycle (the Phase-5 xdist-segfault guard).
         self._automation_controller.shutdown()
+        # The Phase-10 cloud worker pool + carrier is likewise a single window-level
+        # resource; stop the autosave timer FIRST (so no tick submits a job after
+        # teardown) then tear the controller down here so closeEvent covers it too
+        # (REQ-P10-UI-005). Idempotent, event-loop-free — no cloud worker or signal
+        # carrier survives into a later GC cycle (the Phase-5/6/9 xdist-segfault
+        # guard). The Cloud_Session holds only a Qt-free port reference (no thread).
+        self._autosave_timer.stop()
+        self._cloud_controller.shutdown()
         # Phase-9 aids own no worker threads (non-destructive view state), but their
         # separate top-level windows must not outlive the shell: close the extra
         # document views and the reference board deterministically (idempotent).
@@ -1959,6 +2054,213 @@ class Main_Window(QMainWindow):
         )
         if path:
             self.save_document(path)
+
+    # -- cloud (REQ-P10-UI-001..005; Phase-10 Slice A) -------------------
+
+    def _prompt_cloud_project(self, title: str) -> Optional[str]:
+        """Prompt for a cloud project name; ``None`` if cancelled/empty."""
+        text, ok = QInputDialog.getText(self, title, self.tr("Cloud project name:"))
+        if not ok:
+            return None
+        project_id = text.strip()
+        if not project_id:
+            QMessageBox.warning(self, title, self.tr("Enter a project name."))
+            return None
+        return project_id
+
+    def _cloud_requires_connection(self, title: str) -> bool:
+        """Return ``True`` if connected; otherwise show a graceful notice."""
+        if self._cloud_session.is_connected():
+            return True
+        QMessageBox.information(
+            self, title, self.tr("Connect to a cloud provider first.")
+        )
+        return False
+
+    def _on_cloud_connect(self) -> None:
+        """Connect through the provider-agnostic session (no provider named)."""
+        self._cloud_session.connect_provider()
+
+    def _on_cloud_disconnect(self) -> None:
+        """Disconnect (release the port); cloud actions gate off connection state."""
+        self._cloud_session.disconnect_provider()
+
+    def _on_cloud_connection_changed(self, connected: bool) -> None:
+        """Reflect connection state in the cloud action enablement."""
+        self._cloud_connect_action.setEnabled(not connected)
+        self._cloud_disconnect_action.setEnabled(connected)
+        self._cloud_save_action.setEnabled(connected)
+        self._cloud_open_action.setEnabled(connected)
+        self._cloud_versions_action.setEnabled(connected)
+
+    def _on_cloud_save(self) -> None:
+        """Save the active document to the cloud as a new version (off-thread)."""
+        title = self.tr("Save to Cloud")
+        if not self._cloud_requires_connection(title):
+            return
+        record = self.active_tab()
+        if record is None:
+            QMessageBox.information(self, title, self.tr("Open a document first."))
+            return
+        project_id = self._prompt_cloud_project(title)
+        if project_id is None:
+            return
+        port = self._cloud_session.port()
+        if port is None:
+            return
+        self._cloud_project_id = project_id
+        # Serialise + put run off the GUI thread; the stack is marked clean on the
+        # succeeded slot (GUI thread), mirroring save_document's dirty-guard reset.
+        self._cloud_controller.submit(
+            "save", make_save_job(port, project_id, record.document)
+        )
+
+    def _on_cloud_open(self) -> None:
+        """Open the latest cloud version of a named project into a new tab."""
+        title = self.tr("Open from Cloud")
+        if not self._cloud_requires_connection(title):
+            return
+        project_id = self._prompt_cloud_project(title)
+        if project_id is None:
+            return
+        port = self._cloud_session.port()
+        if port is None:
+            return
+        self._cloud_project_id = project_id
+        # list_versions off-thread; the succeeded slot opens the version browser so
+        # the user picks a version (the browser drives the actual restore).
+        self._cloud_controller.submit(
+            "open_list", make_list_versions_job(port, project_id)
+        )
+
+    def _on_cloud_versions(self) -> None:
+        """Browse the version history of the last-used cloud project (off-thread)."""
+        title = self.tr("Cloud Version History")
+        if not self._cloud_requires_connection(title):
+            return
+        project_id = self._cloud_project_id
+        if project_id is None:
+            project_id = self._prompt_cloud_project(title)
+            if project_id is None:
+                return
+            self._cloud_project_id = project_id
+        port = self._cloud_session.port()
+        if port is None:
+            return
+        self._cloud_controller.submit(
+            "versions", make_list_versions_job(port, project_id)
+        )
+
+    def _on_autosave_tick(self) -> None:
+        """Ask the pure autosave policy whether to write the recovery slot.
+
+        Elapsed time is accumulated here and passed as an INPUT to the Qt-free
+        :func:`~pixelart_creator.logic.autosave.should_autosave` (REQ-P10-LOGIC-002)
+        — the policy reads no clock. On a positive decision the working document is
+        written to the port's recovery slot off the GUI thread (distinct from the
+        explicit version history, so the last explicit save is never clobbered,
+        REQ-P10-DATA-004).
+        """
+        self._autosave_elapsed_ms += AUTOSAVE_INTERVAL_MS
+        record = self.active_tab()
+        if record is None:
+            return
+        dirty = not record.stack.isClean()
+        if not should_autosave(
+            dirty, self._autosave_elapsed_ms, self._autosave_last_marker
+        ):
+            return
+        self._autosave_last_marker = self._autosave_elapsed_ms
+        if not self._cloud_session.is_connected():
+            return
+        port = self._cloud_session.port()
+        if port is None:
+            return
+        project_id = self._cloud_project_id or _RECOVERY_PROJECT_ID
+        self._cloud_controller.submit(
+            "autosave", make_autosave_job(port, project_id, record.document)
+        )
+
+    def _maybe_prompt_recovery(self) -> None:
+        """On startup, offer to restore a discovered recovery slot (REQ-P10-UI-003).
+
+        Only runs when connected and a recovery blob is present; the fetch + decode
+        of the recovered document is submitted off the GUI thread on Recover, and
+        the reconstructed document opens in a NEW tab (last explicit save intact).
+        """
+        if not self._cloud_session.is_connected():
+            return
+        port = self._cloud_session.port()
+        if port is None:
+            return
+        project_id = self._cloud_project_id or _RECOVERY_PROJECT_ID
+        try:
+            recovery = port.get_recovery(project_id)
+        except (
+            Exception
+        ):  # noqa: BLE001 - a broken recovery slot must not crash startup
+            return
+        if recovery is None:
+            return
+        prompt = Recovery_Prompt(self)
+        prompt.exec()
+        if not prompt.chose_recover():
+            return
+        # Re-open the autosaved working copy from the RECOVERY SLOT (read via
+        # get_recovery, not a version fetch) with the same defensive decode.
+        self._cloud_controller.submit("recover", make_recover_job(port, project_id))
+
+    def _on_cloud_succeeded(self, kind: str, result: object) -> None:
+        """Consume an off-thread cloud result on the GUI thread (token-filtered)."""
+        if kind == "save":
+            record = self.active_tab()
+            if record is not None:
+                record.stack.setClean()
+            self.statusBar().showMessage(self.tr("Saved to cloud."), 4000)
+        elif kind in ("open_list", "versions"):
+            self._show_version_browser(result, restore_on_pick=(kind == "open_list"))
+        elif kind in ("restore", "recover"):
+            if isinstance(result, Document):
+                title = (
+                    self.tr("Cloud Project")
+                    if kind == "restore"
+                    else self.tr("Recovered")
+                )
+                self._add_document_tab(result, title)
+                self.statusBar().showMessage(self.tr("Restored from cloud."), 4000)
+
+    def _show_version_browser(self, result: object, *, restore_on_pick: bool) -> None:
+        """Open the version browser over an off-thread-fetched version list."""
+        if not isinstance(result, (tuple, list)):
+            return
+        versions = tuple(result)
+        if not versions:
+            QMessageBox.information(
+                self,
+                self.tr("Cloud Version History"),
+                self.tr("No versions found for this project."),
+            )
+            return
+        browser = Version_History_Browser(versions, self)
+        if browser.exec() != QDialog.DialogCode.Accepted:
+            return
+        chosen = browser.selected_version()
+        if chosen is None:
+            return
+        port = self._cloud_session.port()
+        project_id = self._cloud_project_id
+        if port is None or project_id is None:
+            return
+        # Restore is a fresh off-thread get + defensive decode → NEW tab (current
+        # unsaved state protected). restore_on_pick distinguishes the open flow's
+        # implicit browse from an explicit version browse (both restore identically).
+        self._cloud_controller.submit(
+            "restore", make_restore_job(port, project_id, chosen.version_id)
+        )
+
+    def _on_cloud_failed(self, kind: str, message: str) -> None:
+        """Surface a cloud-op failure to the user (never a crash)."""
+        QMessageBox.warning(self, self.tr("Cloud"), message)
 
     def _on_zoom_in(self) -> None:
         record = self.active_tab()
@@ -2588,6 +2890,12 @@ class Main_Window(QMainWindow):
         self._save_as_action.setText(self.tr("Save &As…"))
         self._export_action.setText(self.tr("&Export…"))
         self._close_action.setText(self.tr("&Close"))
+
+        self._cloud_connect_action.setText(self.tr("&Connect…"))
+        self._cloud_disconnect_action.setText(self.tr("&Disconnect"))
+        self._cloud_save_action.setText(self.tr("&Save to Cloud…"))
+        self._cloud_open_action.setText(self.tr("&Open from Cloud…"))
+        self._cloud_versions_action.setText(self.tr("&Version History…"))
         self._zoom_in_action.setText(self.tr("Zoom &In"))
         self._zoom_out_action.setText(self.tr("Zoom &Out"))
         self._fit_action.setText(self.tr("&Fit to View"))
@@ -2657,6 +2965,7 @@ class Main_Window(QMainWindow):
         self._palette_menu.setTitle(self.tr("&Palette"))
         self._tilemap_menu.setTitle(self.tr("Tile&map"))
         self._automation_menu.setTitle(self.tr("&Automation"))
+        self._cloud_menu.setTitle(self.tr("&Cloud"))
         self._theme_menu.setTitle(self.tr("&Theme"))
         self._language_menu.setTitle(self.tr("&Language"))
 
