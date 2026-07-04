@@ -209,6 +209,7 @@ from pixelart_creator.ui.tools.dither_tool import (
     MODE_ORDERED,
 )
 from pixelart_creator.ui.transform_dialog import Scale_Dialog
+from pixelart_creator.ui.user_guide import User_Guide_Dialog
 from pixelart_creator.ui.version_history_browser import Version_History_Browser
 
 #: Stable cloud recovery-slot key for the working document when no named cloud
@@ -363,6 +364,11 @@ class Main_Window(QMainWindow):
         self._active_view: Optional[Canvas_View] = None
         self._float_active = False
         self._float_copy = False
+        # In-app User Guide (REQ-UG-UI-001..011): a read-only, offline viewer built
+        # lazily on first open. Content loads synchronously from the committed
+        # bundle — NO off-thread worker/timer — so there is no teardown wiring; the
+        # dialog is parented to this window, so it is disposed with it.
+        self._user_guide_dialog: Optional[User_Guide_Dialog] = None
 
         self._rectangle_tool = RectangleTool()
         self._ellipse_tool = EllipseTool()
@@ -905,6 +911,12 @@ class Main_Window(QMainWindow):
         self._theme_group.addAction(self._theme_light_action)
         self._theme_group.addAction(self._theme_dark_action)
 
+        # Help ▸ User Guide + F1 (REQ-UG-UI-001/-002). F1 is the platform Help
+        # convention (CL-4); shown on the action so it is discoverable.
+        self._user_guide_action = QAction(self)
+        self._user_guide_action.setShortcut(QKeySequence(Qt.Key.Key_F1))
+        self._user_guide_action.triggered.connect(self._on_user_guide)
+
         # Phase-6 tilemap actions (REQ-P6-UI-005..012). Stamp/erase/fill are a
         # mutually exclusive tool group driving the tilemap canvas; the flip/rotate
         # actions map the active stamp to the GID flag transform (view state).
@@ -1091,6 +1103,11 @@ class Main_Window(QMainWindow):
             action.setData(code)
             action.triggered.connect(self._on_language_action)
             self._language_menu.addAction(action)
+
+        # Help menu (REQ-UG-UI-001): hosts the User Guide entry, consistent with the
+        # existing menu structure (added last, the conventional trailing menu).
+        self._help_menu = bar.addMenu("")
+        self._help_menu.addAction(self._user_guide_action)
 
     # -- Phase-9 visual aids (REQ-P9-UI-001..010) ------------------------
 
@@ -2714,6 +2731,25 @@ class Main_Window(QMainWindow):
 
     # -- theme ------------------------------------------------------------
 
+    def _on_user_guide(self) -> None:
+        """Open (or raise) the in-app User Guide (REQ-UG-UI-001/-002).
+
+        The viewer is built lazily on first open and reused thereafter. It binds to
+        the pure logic/data guide model + defensive reader and requests the active
+        UI locale from the LanguageManager, so localised content follows the UI
+        language (falling back to the default locale — REQ-UG-UI-011 / CL-3). It is
+        parented to this window (disposed with it) and non-modal so the user can keep
+        editing while reading.
+        """
+        if self._user_guide_dialog is None:
+            self._user_guide_dialog = User_Guide_Dialog(
+                self, locale_provider=self._language_manager.current_language
+            )
+        dialog = self._user_guide_dialog
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
     def set_theme(self, name: str) -> None:
         """Switch the theme at runtime and repaint canvas roles (025)."""
         self._theme = name
@@ -3180,6 +3216,8 @@ class Main_Window(QMainWindow):
         self._cloud_menu.setTitle(self.tr("&Cloud"))
         self._theme_menu.setTitle(self.tr("&Theme"))
         self._language_menu.setTitle(self.tr("&Language"))
+        self._help_menu.setTitle(self.tr("&Help"))
+        self._user_guide_action.setText(self.tr("&User Guide"))
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
         if event.type() == QEvent.Type.LanguageChange:
