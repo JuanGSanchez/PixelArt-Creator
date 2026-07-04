@@ -50,12 +50,21 @@ def test_sc_ui_001_save_round_trips_through_port_off_thread(qtbot):
     controller = Cloud_Controller()
     try:
         doc = _doc()
-        with qtbot.waitSignal(controller.operationSucceeded, timeout=5000) as blocker:
+        # Record the succeeded outcome, but BLOCK on the terminal ``operationFinished``
+        # (fired off the finally-run ``done``) before asserting idle — so the idle
+        # check is robust to GUI-thread scheduling instead of assuming the succeeded
+        # relay has already cleared busy by the time we look. This still asserts the
+        # real behaviour: succeeded carries the CloudVersion, and once the terminal
+        # signal is delivered the controller is idle.
+        outcomes: list = []
+        controller.operationSucceeded.connect(lambda k, r: outcomes.append((k, r)))
+        with qtbot.waitSignal(controller.operationFinished, timeout=5000):
             controller.submit("save", make_save_job(port, "proj-a", doc))
-        kind, result = blocker.args
+        assert len(outcomes) == 1  # succeeded fired before the terminal
+        kind, result = outcomes[0]
         assert kind == "save"
         assert isinstance(result, CloudVersion)
-        assert controller.is_busy() is False  # done fired -> idle
+        assert controller.is_busy() is False  # terminal delivered -> idle
 
         # Re-fetch and defensively decode: an equivalent Document round-trips.
         fetched = deserialize_project(port.get("proj-a", result.version_id))
