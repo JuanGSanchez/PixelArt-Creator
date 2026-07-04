@@ -71,9 +71,18 @@ def test_sc_ui_005_failure_surfaces_via_signal_not_crash(qtbot):
     port = session.port()
     controller = Cloud_Controller()
     try:
-        with qtbot.waitSignal(controller.operationFailed, timeout=5000) as blocker:
+        # Record the failed outcome, but BLOCK on the terminal ``operationFinished``
+        # (fired off the finally-run ``done``) before asserting idle — so the idle
+        # check is robust to GUI-thread scheduling instead of assuming the failed
+        # relay has already cleared busy by the time we look. Still asserts the real
+        # behaviour: the error surfaces on ``operationFailed`` and, once the terminal
+        # signal is delivered, the UI is not stranded on "Working…".
+        failures: list = []
+        controller.operationFailed.connect(lambda k, m: failures.append((k, m)))
+        with qtbot.waitSignal(controller.operationFinished, timeout=5000):
             controller.submit("save", make_save_job(port, "proj", _doc()))
-        kind, message = blocker.args
+        assert len(failures) == 1  # failed fired before the terminal
+        kind, message = failures[0]
         assert kind == "save"
         assert "simulated provider outage" in message
         # Busy cleared via the terminal done -> the UI is not stranded on "Working…".
