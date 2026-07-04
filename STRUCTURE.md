@@ -397,7 +397,7 @@
 | `logic/guide_search.py` | built | Pure `query(model, term)` → ordered matching topics over indexed text (title+keywords+summary); case-insensitive; empty term → full set; capped. Zero Qt. | `query` | LOGIC-003 |
 | `logic/constants.py` | extend | +3 guide numerics (leaf); names distinct from every shipped constant. | `GUIDE_SEARCH_RESULT_CAP`, `GUIDE_MAX_CONTENT_BYTES`, `GUIDE_MAX_TOC_DEPTH` | LOGIC (Art. II) |
 | `data/guide_content.py` | built | Offline bundled-content reader over `importlib.resources.files("pixelart_creator")/"userguide_content"`; defensive manifest parse (returns the **logic-homed** `Manifest`); bundle-root path guard; size guard; domain errors; no network; no `eval`/`exec`; portable paths. Imports `Manifest` from `logic/` (one-way `data → logic`). Zero Qt. | `load_manifest`, `read_content`, `bundle_root`, `available_locales`, `BUNDLE_PACKAGE`, `GuideContentError` | DATA-001, 002, 003 |
-| `userguide_content/` | built (data) | Committed shippable content bundle: `manifest.json` + `content/en/*.md` (**15 topics / 11 sections**). Package data — **AGT-09 T-UG-09 must wire `pyproject` package-data so it ships in the wheel** (pending). Authored/organised by AGT-08 (mirrors editorial source of the private `docs/site`; no runtime dep on it). | `manifest.json`, `content/en/*.md` (15) | DATA-002, LOGIC-005 |
+| `userguide_content/` | built (data) | Committed shippable content bundle: `manifest.json` + `content/en/*.md` (**16 topics / 12 sections** — Phase-11 `asset-library` topic added, coverage contract green). Package data — **AGT-09 T-UG-09 must wire `pyproject` package-data so it ships in the wheel** (pending). Authored/organised by AGT-08 (mirrors editorial source of the private `docs/site`; no runtime dep on it). | `manifest.json`, `content/en/*.md` (15) | DATA-002, LOGIC-005 |
 | `ui/user_guide.py` | built | `User_Guide_Dialog`/`_Panel`: ToC tree from `GuideModel` + `QTextBrowser` content pane (`setMarkdown`, in-guide links only) + search box → `guide_search`. Calls model/reader; no hard-coded ToC; `tr()`+`changeEvent`; role colours (both themes); a11y. | `User_Guide_Dialog` | UI-003..011 |
 | `ui/main_window.py` | extend | Help ▸ User Guide `QAction` + F1 shortcut opening the viewer. `tr()` label. No `commands.py` change. | Help menu + User Guide action | UI-001, 002 |
 
@@ -744,4 +744,75 @@
 | `live_cursors_overlay.py` | `Live_Cursors_Overlay` — live ephemeral collaborator cursors/selection, roster bounded by `MAX_SHARED_MEMBERS`, never persisted (per-frame, AGT-10-cleared). | `logic/constants` | UI-013 | 10C |
 | `realtime_worker.py` | Off-GUI-thread worker driving the `TransportPort` (join/poll/send); clean teardown (segfault gate PASS). | `data/cloud/transport` | UI-013 (support) | 10C |
 | `realtime_actions.py` | Real-time session facade: wires transport/worker → apply/branch/presence dispatch on the GUI. | `logic/sync_protocol`, `logic/cloud_validation`, `logic/convergence`, `logic/document`, `logic/realtime_apply`, `ui/realtime_worker` | UI-012/013 (support) | 10C |
+
+## `pixelart_creator/logic/` — Phase-11 team & asset management — Slice 1 BUILT · Slices 2/3 PLANNED
+
+> **Slice 1 (`content_hash` / `asset_catalog` / `asset_tags` / `asset_query`) is SHIPPED and green**
+> (`check_layering --root pixelart_creator` + `--root .` exit 0, 169 modules; `check_cycles` exit 0, no
+> cycles; verified 2026-07-05). Slice-2 (`dependency_graph`, `break_detection`) and Slice-3
+> (`asset_version`) rows below are **RESERVED / not-built** — traced to REQs, dependency-gated on Slice 1/2.
+> New Qt-free models frozen by AGT-01 (`interface-contract`, plan §5) BEFORE implementation. Exceptions
+> subclass `ValueError` (Phase-1 convention). `AssetKind` is **module-local** enumerated vocabulary
+> (ADR-0001). New constants live in `constants.py` (Article II, plan §8): `MAX_CATALOG_ASSETS=65536`,
+> `MAX_TAGS_PER_ASSET=64`, `MAX_TAG_BYTES=128`, `MAX_METADATA_BYTES=4096`, `MAX_DEPENDENCY_DEPTH=64`,
+> `MAX_ASSET_VERSIONS=256`, `MAX_BLOB_BYTES=268435456` — **names DISTINCT from every shipped constant**
+> (`MAX_ASSET_VERSIONS` ≠ the shipped `MAX_CLOUD_VERSIONS`). **Honesty ruling (ADR-0030):** Phase 11
+> *introduces* the content-hash + CAS primitives (none exist in Phase 10 — `version_history` keys by an
+> opaque id); it reuses the Phase-10 immutable-ordered-history *shape*, not a pre-existing hasher. All new
+> modules are pure leaves over `constants`(+`content_hash`) — no `logic → data`, no cycle.
+
+| Module | Responsibility | Key public surface | REQ | Slice |
+| --- | --- | --- | --- | --- |
+| `content_hash.py` | Deterministic content hash over canonicalized asset bytes (stdlib `hashlib` SHA-256); change-detector + CAS key. | `content_hash`, `same_content`, `ContentHashError` | DATA-004, LOGIC-006 | 1 |
+| `asset_catalog.py` | Pure catalog model: `AssetKind` (module-local enum), `AssetDescriptor` (id/kind/name/tags/metadata/content_hash/path), `AssetCatalog` (add/remove/get/entries). | `AssetKind`, `AssetDescriptor`, `AssetCatalog`, `AssetCatalogModelError` | DATA-001, LOGIC-001 | 1 |
+| `asset_tags.py` | Reversible tag ops (do/undo pair, HIS-1 pattern; idempotent; bounded). | `make_add_tag`, `make_remove_tag`, `AssetTagError` | LOGIC-002, DATA-003 | 1 |
+| `asset_query.py` | Pure deterministic search/filter over the catalog (name AND tag AND kind; stable order). | `query`, `AssetQueryError` | LOGIC-003 | 1 |
+| `dependency_graph.py` | Queryable directed DAG of `AssetId` nodes + hash-pinned edges; depends-on/dependents-of; cycle-safe + depth-bounded. | `DependencyEdge`, `DependencyGraph`, `DependencyGraphError` | LOGIC-004 | 2 |
+| `break_detection.py` | Pure content-hash-gated reference-validation pass → per-edge BROKEN flags; pull-based. | `BrokenReference`, `find_broken`, `BreakDetectionError` | LOGIC-005 | 2 |
+| `asset_version.py` | Ordered, immutable, content-hash-addressed revision DAG at asset granularity + hash comparison. | `AssetRevision`, `AssetVersionHistory`, `AssetVersionError` | LOGIC-006 | 3 |
+
+## `pixelart_creator/data/` — Phase-11 asset stores — Slice 1 BUILT · Slices 2/3 PLANNED
+
+> **Slice 1 (`asset_storage` / `asset_cas` / `asset_catalog_io`) is SHIPPED and green** (both roots exit 0,
+> verified 2026-07-05). Slice-3 (`asset_revision_store`, `asset_shared_backend`, `asset_export`) rows are
+> **RESERVED / not-built**. Qt-free I/O + persistence. `AssetCatalogError`/`AssetExportError` subclass `ProjectIOError` (PIO-1
+> family). Composes the shipped PIO-1 (`data/project_io`) for payloads — **no new payload serialiser**
+> (Article I / DATA-007). The optional cloud backing composes the shipped `data/cloud/` shared storage
+> behind a `BlobBackend` port — **no provider type above the port** (ADR-0032). All edges point down; no
+> `data → ui`/Qt, no cycle. **No new layering rule needed** (everything inside the three layers).
+
+| Module | Responsibility | Binds to | REQ | Slice |
+| --- | --- | --- | --- | --- |
+| `asset_storage.py` | `BlobBackend` ABC (`put_blob`/`get_blob`/`has_blob` by content_hash) + `LocalBlobBackend` (offline default); the local-vs-cloud seam. | `logic/constants` | DATA-006 | 1 |
+| `asset_cas.py` | Content-addressable store over a `BlobBackend`; write-once dedup; `MAX_BLOB_BYTES` cap; hash-verified fetch. | `logic/content_hash`, `logic/constants`, `data/asset_storage` | DATA-004, 005 | 1 |
+| `asset_catalog_io.py` | Catalog + per-asset sidecar persistence (stable `AssetId`); composes PIO-1; schema+caps validation; path-traversal guard; no eval/exec. | `data/project_io`, `logic/asset_catalog`, `logic/constants` | DATA-001, 002, 003, 007 | 1 |
+| `asset_revision_store.py` | Append-only content-addressable revision store over `asset_cas`; immutable descriptors; hash-verified fetch; NOT via CRDT. | `data/asset_cas`, `logic/asset_version`, `logic/constants` | DATA-004 | 3 |
+| `asset_shared_backend.py` | `SharedBlobBackend(BlobBackend)` composing Phase-10 `data/cloud/` shared storage — optional cloud backing; hash-verified fetch; no provider type above the port. | `data/cloud/*`, `data/asset_storage`, `logic/content_hash`, `logic/constants` | DATA-006 | 3 |
+| `asset_export.py` | Resolve a project's reference set → bundle exactly the referenced CAS blobs (self-contained); import defence. | `data/asset_cas`, `data/asset_catalog_io`, `logic/constants` | DATA-005 | 3 |
+
+## `pixelart_creator/ui/` — Phase-11 asset-management UI — Slice 1 BUILT · Slices 2/3 PLANNED
+
+> **Slice 1 UI (`asset_library_panel` / `asset_tagging_panel` / `asset_search_panel` /
+> `asset_library_actions` + `commands.py` tag-undo) is SHIPPED and green** (QA SHIP, both themes + a11y +
+> i18n verified 2026-07-05). Slice-2 (`dependency_graph_view`) and Slice-3 (`asset_version_browser`,
+> `asset_reuse_panel`) rows are **RESERVED / not-built**. Qt only. Each widget binds to `logic/`+`data/`,
+> holds no domain logic, wraps user-visible strings in `tr()`/`translate()`, and retranslates on
+> `QEvent.LanguageChange` (UI-010); a11y (UI-008) + both themes (UI-009) apply. Tag add/remove is the one
+> new undoable op → `ui/commands.py` gains `AddTagCommand`/`RemoveTagCommand` over the pure
+> `logic/asset_tags` do/undo pair (PL11-D3). **Slice-1 note (PL11 shipped divergence):** the planned
+> `asset_worker.py` was **not needed** for the bounded local Slice-1 catalog — stays-responsive (UI-011)
+> was met without an off-thread worker (QA-verified, no freeze); a controller `asset_library_actions.py`
+> ships instead. A worker is deferred to when heavier ops (Slice-2 graph query) warrant it. No per-frame
+> re-entry (Article VI); a large-catalog graph render is the only conditional AGT-10 flag (DEP-3).
+
+| Module | Responsibility | Binds to | REQ | Slice |
+| --- | --- | --- | --- | --- |
+| `asset_library_actions.py` | Slice-1 controller for catalog scan/build + query wiring (stays-responsive without a worker for the bounded local catalog; worker deferred to Slice 2). | `logic/asset_catalog`, `logic/asset_query` | UI-011 | 1 |
+| `asset_library_panel.py` | `Asset_Library_Panel` — browse catalog entries (kind/name/tags); updates on change. | `logic/asset_catalog`, `data/asset_catalog_io` | UI-001 | 1 |
+| `asset_tagging_panel.py` | `Asset_Tagging_Panel` — add/remove tags (undoable via `ui/commands.py`). | `logic/asset_tags`, `ui/commands` | UI-002 | 1 |
+| `asset_search_panel.py` | `Asset_Search_Panel` — search (name) + filter (tag/kind) driving the pure query. | `logic/asset_query` | UI-003 | 1 |
+| `dependency_graph_view.py` | `Dependency_Graph_View` — visualise depends-on/dependents + passive break indicator (refreshes on catalog change). | `logic/dependency_graph`, `logic/break_detection` | UI-005, 006 | 2 |
+| `asset_version_browser.py` | `Asset_Version_Browser` — list/inspect/restore revisions (restore = new head, append-only). | `logic/asset_version`, `data/asset_revision_store` | UI-004 | 3 |
+| `asset_reuse_panel.py` | `Asset_Reuse_Panel` — reference a shared asset into a project (reference, not copy); mark shared. | `data/asset_cas`, `data/asset_export`, `logic/asset_catalog` | UI-007 | 3 |
+| `commands.py` *(extend)* | `AddTagCommand`/`RemoveTagCommand` — QUndoCommand wrappers over the pure `logic/asset_tags` do/undo pair. | `logic/asset_tags` | UI-002 | 1 |
 </content>
