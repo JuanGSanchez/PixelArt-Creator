@@ -41,6 +41,36 @@ def test_document_accepts_palette_and_metadata():
     assert doc.metadata["author"] == "x"
 
 
+def test_document_ppi_defaults_to_constant():
+    # REQ-P9-LOGIC-007 / BF-3 (ADR-0025 §1): default ppi is the named constant.
+    doc = Document(4, 4)
+    assert doc.ppi == constants.DEFAULT_DOCUMENT_PPI
+    assert constants.DEFAULT_DOCUMENT_PPI == 72.0
+    assert isinstance(doc.ppi, float)
+
+
+def test_document_ppi_threaded_through_construction():
+    doc = Document(4, 4, ppi=300)
+    assert doc.ppi == 300.0
+    assert isinstance(doc.ppi, float)
+
+
+@pytest.mark.parametrize(
+    "bad", [0, -1, 0.0, -72.5, float("nan"), float("inf"), "x", True]
+)
+def test_document_ppi_rejects_non_positive_or_invalid(bad):
+    with pytest.raises(DocumentError):
+        Document(4, 4, ppi=bad)  # type: ignore[arg-type]
+
+
+def test_document_from_buffer_carries_ppi():
+    buf = PixelBuffer(3, 2)
+    doc = Document.from_buffer(buf, ppi=150.0)
+    assert doc.ppi == 150.0
+    # And defaults to the constant when omitted.
+    assert Document.from_buffer(PixelBuffer(2, 2)).ppi == constants.DEFAULT_DOCUMENT_PPI
+
+
 def test_layer_opacity_validation():
     layer = Layer(PixelBuffer(2, 2))
     layer.opacity = 0.5

@@ -77,9 +77,11 @@ def test_save_keeps_existing_suffix(tmp_path):
 def test_serialize_shape():
     payload = pio.serialize(Document(2, 2))
     assert payload["format"] == "pixproj"
-    # Schema is now v4 (Phase-6 tilesets/tilemaps, ADR-0016); v1/v2/v3 still
-    # load (back-compat).
-    assert payload["version"] == 4
+    # Schema tracks the FORMAT_VERSION constant, not a literal (v5 adds
+    # Document.ppi, ADR-0025; earlier versions still load back-compat). Pinning
+    # to the constant stops this assertion going stale on the next bump.
+    assert payload["version"] == pio.FORMAT_VERSION
+    assert pio.FORMAT_VERSION == 5
     assert payload["canvas"] == {"width": 2, "height": 2, "mode": "rgba"}
 
 

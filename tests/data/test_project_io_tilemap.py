@@ -62,9 +62,11 @@ def _document_with_tilemap() -> Document:
 # --------------------------------------------------------------------------- #
 
 
-def test_format_version_is_4():
-    assert pio.FORMAT_VERSION == 4
-    assert pio._SUPPORTED_VERSIONS == (1, 2, 3, 4)
+def test_format_version_supports_v4_tilemaps():
+    # v4 (tilesets/tilemaps, ADR-0016) remains a supported load version after the
+    # v5 ppi bump; pin to the constant, not a literal, so it survives future bumps.
+    assert 4 in pio._SUPPORTED_VERSIONS
+    assert pio.FORMAT_VERSION >= 4
 
 
 # --------------------------------------------------------------------------- #
