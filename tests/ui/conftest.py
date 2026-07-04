@@ -34,15 +34,20 @@ QLocale.system = staticmethod(  # type: ignore[method-assign]
 
 from pixelart_creator.logic.document import Document  # noqa: E402
 from pixelart_creator.logic.palette import Palette  # noqa: E402
+from pixelart_creator.ui.branching_panel import Branching_Panel  # noqa: E402
 from pixelart_creator.ui.canvas_scene import CanvasScene  # noqa: E402
 from pixelart_creator.ui.canvas_view import Canvas_View  # noqa: E402
 from pixelart_creator.ui.comments_panel import Comments_Panel  # noqa: E402
+from pixelart_creator.ui.live_cursors_overlay import (  # noqa: E402
+    Live_Cursors_Overlay,
+)
 from pixelart_creator.ui.main_window import Main_Window  # noqa: E402
 from pixelart_creator.ui.multi_view import Document_View  # noqa: E402
 from pixelart_creator.ui.presence_panel import Presence_Panel  # noqa: E402
 from pixelart_creator.ui.real_size_preview_window import (  # noqa: E402
     Real_Size_Preview_Window,
 )
+from pixelart_creator.ui.realtime_actions import Realtime_Session  # noqa: E402
 from pixelart_creator.ui.recovery_prompt import Recovery_Prompt  # noqa: E402
 from pixelart_creator.ui.reference_board import Reference_Board  # noqa: E402
 from pixelart_creator.ui.shared_projects_panel import (  # noqa: E402
@@ -164,6 +169,21 @@ _PHASE9_DISPOSABLE = (
     Shared_Projects_Panel,
     Comments_Panel,
     Presence_Panel,
+    # Phase-10 Slice C real-time + branching disposables (AGT-06). ``Branching_Panel``
+    # is a top-level ``QWidget`` and ``Live_Cursors_Overlay`` is a per-tab
+    # ``QGraphicsItem`` on the shared scene; a test may build either directly (a
+    # parent-less panel, or an overlay not yet added to a tracked window's scene), and
+    # headless (offscreen, no running event loop) its ``deleteLater`` never fires, so it
+    # survives the test (a panel lingers in ``topLevelWidgets()``; a standalone overlay
+    # is never collected). Registering them here disposes them SYNCHRONOUSLY
+    # (``shiboken6.delete``, ``isValid``-guarded so a window-owned overlay already freed
+    # by its scene is skipped) at teardown exactly like the Phase-9 aids + Slice-A/-B
+    # surfaces — so no branching panel or cursor overlay accumulates across the suite
+    # under ``pytest -n auto`` (the Phase-5/6/9 disposal-hygiene contract). Neither owns
+    # a worker thread; the off-GUI-thread real-time worker lives in ``Realtime_Session``
+    # (drained separately below, FIRST, exactly as ``Main_Window.shutdown_prewarm`` does).
+    Branching_Panel,
+    Live_Cursors_Overlay,
 )
 
 
@@ -182,7 +202,26 @@ def _register_on_init(cls: type) -> None:
     cls.__init__ = _wrapped  # type: ignore[method-assign]
 
 
-for _tracked_cls in (Main_Window, CanvasScene, Tilemap_Canvas, *_PHASE9_DISPOSABLE):
+#: Phase-10 Slice C: the real-time session owns the ONLY off-GUI-thread network worker
+#: added this slice (a ``data/cloud`` ``TransportPort`` poll loop on a
+#: ``threading.Thread`` + a GUI-thread-affine carrier). A window-owned session is drained
+#: by ``Main_Window.shutdown_prewarm`` (which calls ``_realtime_session.shutdown()``
+#: FIRST — see main_window.py), but a test may build a STANDALONE ``Realtime_Session``
+#: (over an injected loopback factory) and connect it; if its worker thread or connected
+#: carrier survives into a later test's GC it triggers the recurring PySide6 cross-thread
+#: GC-of-Qt-C++ xdist native segfault (worse here with a live socket). Tracking it here so
+#: the drain fixture calls the idempotent, event-loop-free ``shutdown()`` on every live
+#: session — joining the worker (bounded) + releasing the carrier — BEFORE any disposal.
+_REALTIME_DISPOSABLE = (Realtime_Session,)
+
+
+for _tracked_cls in (
+    Main_Window,
+    CanvasScene,
+    Tilemap_Canvas,
+    *_PHASE9_DISPOSABLE,
+    *_REALTIME_DISPOSABLE,
+):
     _register_on_init(_tracked_cls)
 
 
@@ -258,6 +297,17 @@ def _drain_prewarm_after_test():
     # tabs' scenes AND its shared tilemap canvas via ``shutdown_prewarm``; a
     # standalone ``CanvasScene`` / ``Tilemap_Canvas`` is drained directly.
     tracked = list(_LIVE_UI_INSTANCES)
+    # Drain the real-time worker(s) FIRST — mirroring ``Main_Window.shutdown_prewarm``,
+    # which stops/joins the network worker + releases the carrier before every dependent
+    # teardown (the live-socket segfault guard). ``shutdown()`` is idempotent + event-
+    # loop-free, so a window-owned session (already drained by its window's
+    # ``shutdown_prewarm`` if that ran) and a standalone one both drain safely here.
+    for obj in tracked:
+        if isinstance(obj, Realtime_Session):
+            try:
+                obj.shutdown()
+            except (RuntimeError, AttributeError):
+                pass
     for obj in tracked:
         try:
             if isinstance(obj, (Main_Window, CanvasScene)):
@@ -300,7 +350,10 @@ def _drain_prewarm_after_test():
     import shiboken6
 
     for obj in tracked:
-        if isinstance(obj, (Main_Window, Tilemap_Canvas, *_PHASE9_DISPOSABLE)):
+        if isinstance(
+            obj,
+            (Main_Window, Tilemap_Canvas, *_PHASE9_DISPOSABLE, *_REALTIME_DISPOSABLE),
+        ):
             try:
                 if shiboken6.isValid(obj):
                     shiboken6.delete(obj)
