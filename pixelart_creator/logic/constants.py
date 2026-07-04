@@ -468,3 +468,41 @@ zoom-out blowup AGT-10 measured), so it never flakes on a noisy 2-core CI runner
 yet always catches a catastrophic overlay-render regression. AGT-09 wires ci.yml to
 pass this value as ``perf_profile.py --overlay --budget-ms``.
 (AGT-10 overlay-perf directive; S12 single-source.)"""
+
+# --- Phase-10 Slice-A cloud/sync tuning (phase-10 T10A-01; Article II) ------------
+# Named bounds/defaults consumed by the new zero-Qt cloud/sync models
+# (logic/sync_state.py, logic/autosave.py, logic/version_history.py) and the
+# data/cloud/ port + fake adapter. BF-1 (plan §8 / ADR-0026): every name is DISTINCT
+# from every shipped constant. The SyncState enum is module-local enumerated
+# vocabulary and lives in logic/sync_state.py, NOT here (ADR-0001 / BF-2, the
+# BlendMode/PlaybackMode precedent). This module stays a leaf (no intra-package
+# imports). Slice-B/C cloud constants (MAX_SHARED_MEMBERS, MAX_COMMENT_BYTES,
+# MAX_COMMENTS_PER_PROJECT, CRDT_TILE_SIZE_PX, MAX_CRDT_UPDATE_BYTES) land with
+# their slices (plan §8), not here.
+
+AUTOSAVE_INTERVAL_MS: int = 120000
+"""Autosave cadence, ms — 2 minutes, the editor norm. Consumed by
+:func:`pixelart_creator.logic.autosave.should_autosave` as the default elapsed
+threshold between autosaves (BF-1; Researcher §3.2; plan §8; spec REQ-P10-LOGIC-002;
+SC-L002-1)."""
+
+MAX_CLOUD_VERSIONS: int = 100
+"""Version-history retention cap — the maximum number of ordered
+:class:`~pixelart_creator.logic.version_history.CloudVersion` entries a
+:class:`~pixelart_creator.logic.version_history.VersionHistory` may hold before
+``append`` raises ``VersionHistoryError``. Aligns the Dropbox 100-revision limit
+(Researcher §1.2). Retention *policy* beyond the bound is an AGT-01 HOW (plan §8;
+spec REQ-P10-DATA-003/LOGIC-003/005; SC-L003-1)."""
+
+MAX_CLOUD_PROJECT_BYTES: int = 268435456
+"""Defensive ceiling, bytes, on a cloud-fetched ``.pixproj`` / version / recovery
+blob — 256 MiB (an 8K RGBA layer resident is ~126 MB; this leaves headroom for
+multi-layer/animation payloads). A blob exceeding this is rejected with
+``CloudDataError`` *before* it is decoded, so a tampered/oversized cloud file can
+never exhaust memory or reach ``eval``/``exec`` (Article VII untrusted-input cap;
+plan §8; spec REQ-P10-DATA-006; SC-D006-1)."""
+
+CLOUD_RETRY_LIMIT: int = 3
+"""Ceiling on transient-failure retries for a single cloud operation before it
+fails to the caller (BF-1; bounds a provider adapter's retry loop; the fake adapter
+never fails transiently) (plan §8; spec REQ-P10-LOGIC-005; SC-L005-1)."""
