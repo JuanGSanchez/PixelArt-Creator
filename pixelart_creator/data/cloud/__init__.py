@@ -20,6 +20,13 @@ from pixelart_creator.data.cloud.port import (
     deserialize_project,
     serialize_project,
 )
+from pixelart_creator.data.cloud.shared_adapter import (
+    PresenceEntry,
+    ProjectComment,
+    RemoteMember,
+    SharedProjectAdapter,
+    SharedProjectError,
+)
 
 __all__ = [
     "CloudPort",
@@ -31,4 +38,9 @@ __all__ = [
     "serialize_project",
     "deserialize_project",
     "FakeCloudAdapter",
+    "SharedProjectAdapter",
+    "SharedProjectError",
+    "RemoteMember",
+    "ProjectComment",
+    "PresenceEntry",
 ]
