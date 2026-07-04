@@ -289,6 +289,84 @@
 | `commands.py` | extend | One grouped `QUndoCommand` per automation edit delegating to the returned `history.Command`(s); recording/enable/selection push none. No domain math. | `history` + 8A–8D ops | UI-009 |
 | `main_window.py` | extend | Add the Automation menu + dock the panels; hold active document + parameters (view state); wire the worker. | `document`, the new automation UI | UI-001, 005, 009 |
 
+## `pixelart_creator/logic/` — Phase-9 visual aids & UX — PLANNED (Slices 9A/9B/9C)
+
+> New Qt-free `logic/grids.py` + `logic/guides.py` + `logic/preview.py` + `logic/timelapse.py` +
+> additive `constants.py`/`document.py` extensions, frozen by AGT-01 (`interface-contract`, plan §5)
+> BEFORE implementation so Slices 9E–9H bind to a stable contract. **Tested geometry is central
+> (Article I + P2):** the entire snap/transform/scale/timelapse-model engine is **pure, deterministic,
+> zero-Qt, unit-testable** — the SAME function the overlays call is the one AGT-04 property-tests (the
+> ROADMAP "compute snap points from tested geometry logic"; the 10 `[GEO]` scenarios). Documented
+> deterministic tie-breaks: round-half-up (iso vertex), lowest-VP-index (perspective), lowest-position
+> (guides). Domain grounded by `docs/research-phase-9-visual-aids-20260704.md` (2:1-dimetric iso;
+> direction-lock perspective; doc-coord guides + screen-px÷zoom tolerance; real-size = screen_DPI/doc_PPI
+> with Qt applying DPR). **PL9-D3 (cycle-free):** `grids`/`guides`/`preview` are pure leaves over
+> `constants`; `timelapse` imports downward (`document`/`blend`/`history`); none imports Qt/`ui` or `data`
+> → acyclic. New numerics → `constants.py` (`DEFAULT_ISO_GRID_RATIO=2.0`, `DEFAULT_SNAP_TOLERANCE_PX=8`,
+> `MIN_GRID_SPACING=2`, `MAX_GRID_SPACING=1024`, `MAX_GUIDES=256`, `MAX_PERSPECTIVE_VANISHING_POINTS=3`,
+> `MAX_REFERENCE_IMAGES=256`, `MAX_TIMELAPSE_FRAMES=4096`, `MAX_DOCUMENT_VIEWS=8`, `DEFAULT_DOCUMENT_PPI=72.0`).
+> `GuideOrientation` + the timelapse `schema_version` string stay module-local (ADR-0001/BF-2). Geometry
+> model in **ADR-0023**; architecture/multi-view/timelapse/reference-board/DATA-prefix/layering in
+> **ADR-0024**; `.pixproj` v5 + PPI + persistence formats in **ADR-0025**. New `GridError`/`GuideError`/
+> `PreviewError`/`TimelapseError(ValueError)`. Phase 9 adds **no** `ui/commands.py` logic (aids
+> non-destructive).
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `constants.py` | extend | +10 visual-aids numerics (leaf); names distinct from every shipped constant. | `DEFAULT_ISO_GRID_RATIO`, `DEFAULT_SNAP_TOLERANCE_PX`, `MIN_GRID_SPACING`, `MAX_GRID_SPACING`, `MAX_GUIDES`, `MAX_PERSPECTIVE_VANISHING_POINTS`, `MAX_REFERENCE_IMAGES`, `MAX_TIMELAPSE_FRAMES`, `MAX_DOCUMENT_VIEWS`, `DEFAULT_DOCUMENT_PPI` | LOGIC-011 |
+| `grids.py` | **new** | Isometric 2:1-dimetric diamond transform (invertible) + snap-to-nearest-vertex; perspective guide-line construction + direction-lock snap-to-nearest-VP within tolerance (1-/2-/3-point). Clamps spacing; `MAX_PERSPECTIVE_VANISHING_POINTS`. Deterministic tie-breaks. **Zero Qt.** | `IsoGridConfig`, `iso_world_to_screen`, `iso_screen_to_world`, `iso_snap_vertex`, `VanishingPoint`, `PerspectiveConfig`, `GuideLine`, `perspective_guide_lines`, `perspective_snap`, `GridError` | LOGIC-001, 002, 003, 004, 008, 009, 011 |
+| `guides.py` | **new** | Doc-coord guide snap (per-axis, within `screen-px÷zoom` tolerance) + nice-number `{1,2,5}·10ⁿ` ruler ticks + coordinate readout (locale-independent). `GuideOrientation` module-local; `MAX_GUIDES`. **Zero Qt.** | `GuideOrientation`, `Guide`, `screen_tolerance_to_doc`, `snap_guides`, `RulerTick`, `ruler_ticks`, `coordinate_readout`, `GuideError` | LOGIC-005, 006, 008, 009, 011 |
+| `preview.py` | **new** | `real_size_scale(doc_ppi, screen_dpi)=screen_dpi/doc_ppi` — pure, deterministic; **no DPR math** (Qt applies it). **Zero Qt.** | `real_size_scale`, `PreviewError` | LOGIC-007, 008, 009 |
+| `timelapse.py` | **new** | Reproducible per-committed-command session model (`{index, command_id}` manifest, not inline pixels) + deterministic `replay` re-rendering each state via `composite_stack` (CO-4) over the HIS-1 history; `MAX_TIMELAPSE_FRAMES`; `schema_version` module-local. **Zero Qt.** | `TimelapseFrame`, `TimelapseSession`, `record_frame`, `replay`, `TimelapseError` | LOGIC-008, 009, 010, 011 |
+| `document.py` | extend | Add first-class `ppi: float` field (default `DEFAULT_DOCUMENT_PPI`, validated) for real-size scale (BF-3); no other change. | `Document.ppi` | LOGIC-007, 012 |
+
+## `pixelart_creator/data/` — Phase-9 visual-aids persistence + `.pixproj` v5 — PLANNED (Slice 9E)
+
+> New Qt-free `data/timelapse_io.py` + `data/reference_board_io.py` (defensive `eval`-free IO-3
+> serialisers) + a `.pixproj` **v5** extension of `data/project_io.py` (persist `Document.ppi`). **DEP-4
+> RATIFIED — `REQ-P9-DATA-*` prefix ALLOCATED** (unlike Phase 8's folded single serialiser): two distinct
+> serialisers/formats → **REQ-P9-DATA-001** (timelapse session) + **REQ-P9-DATA-002** (reference board),
+> each formalising a persistence contract already fixed under REQ-P9-LOGIC-010 / REQ-P9-UI-006 (not
+> acceptance-changing; ADR-0024 §4). `TimelapseIOError`/`ReferenceBoardIOError` subclass `ProjectIOError`
+> (IO-3). The `.pixproj` v5 PPI persistence is a schema extension of the **shipped** `project_io` grounded
+> by REQ-P9-LOGIC-007 (v1–v4 load unchanged → `DEFAULT_DOCUMENT_PPI`) — **not** a DATA REQ (ADR-0025 §1).
+> `data/` may import `logic/`+`data/`, never `ui/`/Qt. Zero Qt.
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `timelapse_io.py` | **new** | Defensive `eval`-free (de)serialise a `.pixtimelapse` manifest (`schema_version` + `{index, command_id}`, not inline pixels) via IO-3 (type/bounds-check; malformed/unknown-version → `TimelapseIOError`; never `eval`/`exec`; portable paths); round-trip → identical replay. | `save_session`, `load_session`, `TimelapseIOError` | DATA-001 |
+| `reference_board_io.py` | **new** | Defensive `eval`-free (de)serialise a `.pixboard` layout (`schema_version` + pan/zoom + `{image path-or-embedded, transform, crop, z_order}` ≤ `MAX_REFERENCE_IMAGES`) via IO-3 (malformed → `ReferenceBoardIOError` user-facing; never `eval`/`exec`); non-destructive round-trip. Pure `data/` dataclasses (no Qt). | `ReferenceImageEntry`, `ReferenceBoardLayout`, `save_board`, `load_board`, `ReferenceBoardIOError` | DATA-002 |
+| `project_io.py` | extend | `.pixproj` **v5**: persist `Document.ppi`; v1–v4 load unchanged (absent → `DEFAULT_DOCUMENT_PPI`); out-of-range → `ProjectIOError`; `_SUPPORTED_VERSIONS` += 5. | `save_project`/`load_project` (v5) | LOGIC-007 |
+
+## `pixelart_creator/ui/` — Phase-9 visual aids & UX — PLANNED (Slices 9F/9G/9H)
+
+> Binds to Slice-9A/9B/9C/9E logic+data; Qt lives here only. The real-size preview window / guides-rulers
+> overlay / iso + perspective grid overlays / reference board / multi-view viewports / timelapse controls
+> are `ui/`; they **render + call the pure `logic/` geometry** and re-implement **none** of it (Article I).
+> **Phase 9 adds NO `ui/commands.py` logic** — visual aids are non-destructive (REQ-P9-UI-010): enabling a
+> grid, creating a guide, adding a reference, opening a view, or starting recording pushes **no**
+> `QUndoCommand`; only the shipped HIS-1 drawing edits are undoable. **Multi-view** = N `QGraphicsView`s on
+> the **one shared** document scene (`scene.changed` auto-repaints all — research §5), builds on MC-4,
+> distinct from Phase-4 isolated multi-canvas tabs. **Real-size DPI (HIGHEST-RISK, research §4.2):** the Qt
+> DPI query (`QScreen.physicalDotsPerInch()`) + manual on-screen-ruler calibration live in the preview
+> window; **DPR is applied by Qt — the window must NOT multiply it** (device-independent coords), recompute
+> on `screenChanged`. **Performance (REQ-P9-UI-011, DEP-3): the 16 ms `FRAME_BUDGET_MS` APPLIES** (overlays
+> + views are on the per-frame render loop, unlike Phase-7/8 batch work) — cache-backed overlays
+> (`DeviceCoordinateCache`), `MinimalViewportUpdate`, tile-cull + dirty-rect per view; AGT-10 owns the
+> strategy, AGT-05 implements; budget never relaxed. Both themes (role-based overlay/guide colours legible
+> over artwork), a11y, `tr()`-wrapped strings (AGT-06/AGT-07).
+
+| Module | Change | Responsibility | Binds to (logic/data) | REQ |
+| --- | --- | --- | --- | --- |
+| `real_size_preview_window.py` | **new** | `Real_Size_Preview_Window(QWidget)`: render composited doc (CO-4) at `preview.real_size_scale` (no scaling math of its own); mirror edits live (shared doc, read-only); Qt DPI query + manual calibration here; recompute on `screenChanged`; **no DPR mult**. `tr()` + `changeEvent`. | `preview`, `blend`, `document` | UI-001, 002 |
+| `guides_rulers_overlay.py` | **new** | `Guides_Rulers_Overlay`: create/move/remove guides; rulers show `coordinate_readout`+`ruler_ticks`; cursor snaps via `guides.snap_guides` (no snap math itself). Role-based colours; `tr()`. | `guides` | UI-003 |
+| `iso_grid_overlay.py` | **new** | `Iso_Grid_Overlay`: render iso grid from `grids.iso_world_to_screen`; snap to nearest vertex via `grids.iso_snap_vertex`; `DeviceCoordinateCache`. `tr()`. | `grids` | UI-004 |
+| `perspective_grid_overlay.py` | **new** | `Perspective_Grid_Overlay`: render guide lines from `grids.perspective_guide_lines`; snap to nearest guide within tolerance via `grids.perspective_snap`; configurable VPs (≤3); `DeviceCoordinateCache`. `tr()`. | `grids` | UI-005 |
+| `reference_board.py` | **new** | `Reference_Board(QWidget)` over a **separate** `QGraphicsScene` of `QGraphicsPixmapItem`s: add/arrange/zoom/crop references; **non-destructive**; persist via `data/reference_board_io` (malformed → user-facing error); `MAX_REFERENCE_IMAGES`. `tr()` + `changeEvent`. | `data/reference_board_io` | UI-006 |
+| `multi_view.py` | **new** | `Multi_View`: open extra `QGraphicsView`(s) on the **shared** document scene (≤`MAX_DOCUMENT_VIEWS`); per-view independent zoom/pan; `scene.changed` auto-syncs all views + preview. Builds on MC-4. `tr()`. | `document` (shared scene) | UI-007, 008 |
+| `timelapse_controls.py` | **new** | `Timelapse_Controls(QWidget)`: start/stop recording (view/session state, no undo); record one frame per committed command via `timelapse.record_frame`; save/load session via `data/timelapse_io`; failed record → user-facing error. `tr()` + units + `changeEvent`. | `timelapse`, `data/timelapse_io` | UI-009 |
+| `main_window.py` | extend | Add the View-Aids menu + dock/toggle the overlays, preview, reference board, extra views, timelapse controls; hold each view's local zoom/pan + aid config (view state). **No `ui/commands.py` change** (aids non-destructive). | `document`, the new visual-aids UI | UI-001, 003, 010 |
+
 ## `pixelart_creator/data/` — Phase-6 Tiled JSON I/O + `.pixproj` v4 — BUILT (Slice 6D)
 
 > New Qt-free `data/tiled_io.py` (Tiled 1.12.2 JSON export/import) + `data/project_io.py` v4 extension.
