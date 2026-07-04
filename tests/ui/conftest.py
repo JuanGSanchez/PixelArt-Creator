@@ -62,6 +62,7 @@ from pixelart_creator.ui.theme import (  # noqa: E402
 from pixelart_creator.ui.tilemap_canvas import Tilemap_Canvas  # noqa: E402
 from pixelart_creator.ui.timelapse_controls import Timelapse_Controls  # noqa: E402
 from pixelart_creator.ui.tools import PencilTool  # noqa: E402
+from pixelart_creator.ui.user_guide import User_Guide_Dialog  # noqa: E402
 from pixelart_creator.ui.version_history_browser import (  # noqa: E402
     Version_History_Browser,
 )
@@ -184,6 +185,20 @@ _PHASE9_DISPOSABLE = (
     # (drained separately below, FIRST, exactly as ``Main_Window.shutdown_prewarm`` does).
     Branching_Panel,
     Live_Cursors_Overlay,
+    # User Guide (AGT-06, REQ-UG-UI-*). ``User_Guide_Dialog`` is a read-only,
+    # fully-offline ``QDialog`` that loads its content SYNCHRONOUSLY from the
+    # committed ``userguide_content/`` bundle — AGT-05 introduced NO off-thread
+    # worker, timer, or network client, so there is NO new drain/teardown wiring
+    # (disposal only, no ``shutdown_*`` call). When opened from the Help menu it is
+    # parented to ``Main_Window`` (disposed with it), but a guide test may build one
+    # STANDALONE (parent-less, with an injected model/reader); headless (offscreen,
+    # no running event loop) its ``deleteLater`` never fires, so ``QApplication``
+    # keeps it in ``topLevelWidgets()`` and it survives the test. Registering it here
+    # disposes it SYNCHRONOUSLY (``shiboken6.delete``) at teardown exactly like the
+    # Phase-9 aids + the Slice-A/-B/-C surfaces — so no guide dialog accumulates
+    # across the suite under ``pytest -n auto`` (the disposal-hygiene contract; here a
+    # regression guard even though no worker was added).
+    User_Guide_Dialog,
 )
 
 
