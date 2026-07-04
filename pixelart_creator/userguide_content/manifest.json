@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "default_locale": "en",
+  "sections": [
+    {
+      "id": "app-basics",
+      "title": "Application Basics",
+      "topics": [
+        {
+          "id": "app-basics",
+          "title": "Getting started & the workspace",
+          "content": "app-basics",
+          "keywords": ["overview", "interface", "workspace", "menus", "menu bar", "getting started", "basics", "theme", "dark mode", "light mode", "language", "shortcuts", "keyboard", "undo", "redo", "documents"],
+          "summary": "Orientation to the PixelArt Creator workspace: the menu bar, panels, documents, undo/redo, themes, language, and keyboard shortcuts."
+        },
+        {
+          "id": "drag-drop-import",
+          "title": "Drag-and-drop import",
+          "content": "drag-drop-import",
+          "keywords": ["drag", "drop", "import", "open", "png", "jpg", "gif", "bmp", "pixproj", "palette", "gpl", "hex", "pal"],
+          "summary": "Drag files from your file explorer into the window: images open as new documents, projects open, and palettes load into the active document."
+        },
+        {
+          "id": "multi-canvas",
+          "title": "Multiple canvases (artboards)",
+          "content": "multi-canvas",
+          "keywords": ["tabs", "artboards", "multiple", "canvases", "documents", "isolated", "variants"],
+          "summary": "Work on several documents at once, each in its own isolated tab with its own layers, palette, and undo history."
+        }
+      ]
+    },
+    {
+      "id": "canvas-and-view",
+      "title": "Canvas & View",
+      "topics": [
+        {
+          "id": "canvas-and-view",
+          "title": "The canvas: zoom, pan & the grid",
+          "content": "canvas-and-view",
+          "keywords": ["canvas", "view", "zoom", "pan", "grid", "8k", "navigate", "snap", "paint", "right-click", "nearest-neighbour"],
+          "summary": "Working with the large 8K canvas: zoom, pan, the pixel grid and snapping, painting, and the right-click menu."
+        }
+      ]
+    },
+    {
+      "id": "colour-hub",
+      "title": "Colour Hub",
+      "topics": [
+        {
+          "id": "colour-hub",
+          "title": "The right-click colour hub",
+          "content": "colour-hub",
+          "keywords": ["colour", "color", "palette", "favourites", "harmony", "wheel", "swatch", "complementary", "analogous", "triadic", "shade", "tint", "hsv"],
+          "summary": "The contextual colour hub: favourites, the RGB colour wheel, and live colour-theory harmonies (complementary, analogous, triadic and more)."
+        }
+      ]
+    },
+    {
+      "id": "layers",
+      "title": "Layers",
+      "topics": [
+        {
+          "id": "layers",
+          "title": "The layer panel",
+          "content": "layers",
+          "keywords": ["layers", "layer panel", "groups", "opacity", "visibility", "lock", "mask", "reference layer", "smart layer", "non-destructive", "indexed", "reorder"],
+          "summary": "The non-destructive layer system: layers, groups, opacity, visibility, locks, masks, reference and smart layers, and colour-mode conversion."
+        },
+        {
+          "id": "blend-modes",
+          "title": "Blend modes",
+          "content": "blend-modes",
+          "keywords": ["blend modes", "normal", "multiply", "screen", "overlay", "darken", "lighten", "colour dodge", "colour burn", "hard light", "soft light", "difference", "exclusion", "composite"],
+          "summary": "The twelve blend modes and how the layer stack is composited bottom-to-top."
+        }
+      ]
+    },
+    {
+      "id": "selection-and-transform",
+      "title": "Selection & Transform",
+      "topics": [
+        {
+          "id": "selection-and-transform",
+          "title": "Selection & floating move/copy",
+          "content": "selection-and-transform",
+          "keywords": ["selection", "transform", "move", "copy", "scale", "rotate", "floating selection", "lasso", "magic wand", "rectangle", "ctrl", "add", "subtract"],
+          "summary": "Making selections and transforming them: the floating move/copy preview, add/subtract gestures, commit and cancel."
+        }
+      ]
+    },
+    {
+      "id": "animation-timeline",
+      "title": "Animation Timeline",
+      "topics": [
+        {
+          "id": "animation-timeline",
+          "title": "The animation timeline",
+          "content": "animation-timeline",
+          "keywords": ["animation", "timeline", "frames", "onion skinning", "playback", "loop", "ping-pong", "tags", "duration", "fps", "scrub"],
+          "summary": "The animation timeline: managing frames, per-frame duration, playback modes, onion skinning, and named frame tags."
+        }
+      ]
+    },
+    {
+      "id": "tileset-and-tilemap",
+      "title": "Tileset & Tilemap Editor",
+      "topics": [
+        {
+          "id": "tileset-and-tilemap",
+          "title": "Tilesets, tilemaps & auto-tiling",
+          "content": "tileset-and-tilemap",
+          "keywords": ["tileset", "tilemap", "tiles", "autotile", "blob-47", "level design", "stamp", "fill", "flip", "rotate", "tiled", "json", "infinite map", "chunks"],
+          "summary": "Slicing an image into a tileset, painting a multi-layer infinite tilemap, auto-tiling borders, and Tiled JSON import/export."
+        }
+      ]
+    },
+    {
+      "id": "export-and-pipeline",
+      "title": "Export & Pipeline",
+      "topics": [
+        {
+          "id": "export-and-pipeline",
+          "title": "Export & pipeline integration",
+          "content": "export-and-pipeline",
+          "keywords": ["export", "sprite sheet", "png", "gif", "atlas", "pipeline", "batch", "unity", "godot", "preset", "json", "cli", "pixelart-export", "byte-reproducible"],
+          "summary": "Exporting your work: PNG, animated GIF, sprite sheets, texture atlases, JSON metadata, Unity/Godot presets, batch export, and the CLI."
+        }
+      ]
+    },
+    {
+      "id": "automation-and-scripting",
+      "title": "Automation & Scripting",
+      "topics": [
+        {
+          "id": "automation-and-scripting",
+          "title": "Automation, macros, scripting & plugins",
+          "content": "automation-and-scripting",
+          "keywords": ["automation", "scripting", "macro", "pixmacro", "batch recolour", "plugins", "procedural", "procgen", "noise", "cli", "pixelart-run", "deterministic", "seed"],
+          "summary": "Automating tasks: recording and replaying macros, the scripting DSL, plugins, batch recolour, procedural generation, and the CLI."
+        }
+      ]
+    },
+    {
+      "id": "visual-aids",
+      "title": "Visual Aids",
+      "topics": [
+        {
+          "id": "visual-aids",
+          "title": "Visual aids & UX",
+          "content": "visual-aids",
+          "keywords": ["grids", "guides", "rulers", "real-size preview", "reference board", "timelapse", "multi-view", "isometric", "perspective", "vanishing point", "snap", "ppi"],
+          "summary": "Non-destructive visual aids: real-size preview, guides & rulers, isometric and perspective grids, reference board, multi-view, and timelapse."
+        }
+      ]
+    },
+    {
+      "id": "cloud-and-collaboration",
+      "title": "Cloud & Collaboration",
+      "topics": [
+        {
+          "id": "cloud-and-collaboration",
+          "title": "Cloud: save, versions, autosave & recovery",
+          "content": "cloud-and-collaboration",
+          "keywords": ["cloud", "connect", "provider", "google drive", "onedrive", "dropbox", "save", "open", "version history", "restore", "autosave", "recovery", "oauth"],
+          "summary": "Connecting a cloud provider, saving and opening projects, browsing version history, restoring, and autosave/crash recovery."
+        },
+        {
+          "id": "collaboration",
+          "title": "Shared projects, comments, presence & real-time",
+          "content": "collaboration",
+          "keywords": ["collaboration", "shared projects", "members", "roles", "comments", "presence", "real-time", "co-editing", "live cursors", "branching", "merge", "convergence"],
+          "summary": "Sharing a project with members, comments, presence, deterministic convergence, real-time co-editing with live cursors, and art branching."
+        }
+      ]
+    }
+  ]
+}
