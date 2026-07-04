@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import zlib
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -26,6 +27,7 @@ from pixelart_creator.logic.autotile import BLOB_TILE_COUNT, AutotileRuleset
 from pixelart_creator.logic.blend import BlendMode
 from pixelart_creator.logic.color import ColorError, from_hex, to_hex
 from pixelart_creator.logic.constants import (
+    DEFAULT_DOCUMENT_PPI,
     DEFAULT_FRAME_DURATION_MS,
     DEFAULT_LAYER_OPACITY,
     MAX_CANVAS_HEIGHT,
@@ -51,15 +53,16 @@ from pixelart_creator.logic.tilemap import Tilemap, TilemapLayer
 from pixelart_creator.logic.tileset import Tileset
 
 FORMAT_NAME = "pixproj"
-#: Current schema version (ADR-0016). v4 adds document-level ``tilesets`` +
-#: ``tilemaps`` (Phase-6 tileset/tilemap model — source-image ref + slicing;
-#: chunked-sparse layer stack + linked instances + auto-tile logical placement);
-#: v3 adds ``frame_tags`` + per-node ``layer_id``; v2 the richer layer model;
-#: v1 flat NORMAL layers. v1/v2/v3 load with empty tileset/tilemap collections
-#: (back-compat); v1/v2 also with an empty tag collection + minted ``layer_id`` s.
-#: Saving always writes v4.
-FORMAT_VERSION = 4
-_SUPPORTED_VERSIONS = (1, 2, 3, 4)
+#: Current schema version (ADR-0025). v5 adds the first-class ``Document.ppi`` field
+#: (real-size preview, BF-3); v4 adds document-level ``tilesets`` + ``tilemaps``
+#: (Phase-6 tileset/tilemap model — source-image ref + slicing; chunked-sparse layer
+#: stack + linked instances + auto-tile logical placement); v3 adds ``frame_tags`` +
+#: per-node ``layer_id``; v2 the richer layer model; v1 flat NORMAL layers.
+#: v1–v4 load unchanged: absent ``ppi`` -> :data:`DEFAULT_DOCUMENT_PPI`; v1/v2/v3
+#: also load with empty tileset/tilemap collections; v1/v2 with an empty tag
+#: collection + minted ``layer_id`` s. Saving always writes v5.
+FORMAT_VERSION = 5
+_SUPPORTED_VERSIONS = (1, 2, 3, 4, 5)
 FILE_SUFFIX = ".pixproj"
 
 #: Hard cap on a decoded pixel payload (bytes) — a full 8K RGBA layer plus slack.
@@ -223,6 +226,7 @@ def serialize(document: Document) -> Dict[str, Any]:
             "height": document.height,
             "mode": document.mode.value,
         },
+        "ppi": document.ppi,
         "palette": [to_hex(c) for c in document.palette],
         "metadata": dict(document.metadata),
         "frames": frames_out,
@@ -265,6 +269,23 @@ def _get(mapping: Any, key: str, expected: type) -> Any:
         f"key {key!r} must be {expected.__name__}",
     )
     return value
+
+
+def _parse_ppi(value: Any) -> float:
+    """Parse the optional ``ppi`` field defensively (v5; ADR-0025 §1).
+
+    An absent field (v1–v4 files) defaults to :data:`DEFAULT_DOCUMENT_PPI`; a
+    present value must be a finite number ``> 0`` — anything else (wrong type,
+    ``0``, negative, NaN, infinity) raises :class:`ProjectIOError` (IO-3).
+    """
+    if value is None:
+        return DEFAULT_DOCUMENT_PPI
+    _require(
+        isinstance(value, (int, float)) and not isinstance(value, bool),
+        "ppi must be a number",
+    )
+    _require(math.isfinite(value) and value > 0.0, "ppi must be finite and > 0")
+    return float(value)
 
 
 def _decode_buffer(
@@ -744,10 +765,14 @@ def deserialize(payload: Dict[str, Any]) -> Document:
     _require(isinstance(metadata_raw, dict), "metadata must be an object")
     metadata = {str(k): str(v) for k, v in metadata_raw.items()}
 
+    ppi = _parse_ppi(payload.get("ppi"))
+
     frames_raw = _get(payload, "frames", list)
     _require(len(frames_raw) >= 1, "project must have at least one frame")
 
-    document = Document(width, height, mode=mode, palette=palette, metadata=metadata)
+    document = Document(
+        width, height, mode=mode, palette=palette, metadata=metadata, ppi=ppi
+    )
     parse_frame = _parse_frame_v1 if version == 1 else _parse_frame_v2
     document.frames = [parse_frame(fdata, width, height, mode) for fdata in frames_raw]
     _assign_loaded_ids(document)
