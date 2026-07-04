@@ -80,6 +80,15 @@ include = ["pixelart_creator*"]
 # this is defence-in-depth so it never leaks into the wheel).
 exclude = ["tests*", "scripts*", "docs*", "sync_backend*"]
 
+# Non-Python package data shipped inside the wheel. The offline in-app User
+# Guide bundle (REQ-UG-DATA-001) lives under pixelart_creator/userguide_content/
+# and MUST ship so data/guide_content.py can locate it via importlib.resources.
+# The two globs cover manifest.json (userguide_content/*.json) and every
+# per-topic Markdown file at any depth (userguide_content/**/*.md, e.g.
+# content/en/*.md). No source build; no new dependency.
+[tool.setuptools.package-data]
+pixelart_creator = ["userguide_content/**/*.md", "userguide_content/*.json"]
+
 # ------------------------------- tool config ---------------------------------
 [tool.black]
 line-length = 88
