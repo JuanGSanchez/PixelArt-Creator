@@ -34,9 +34,23 @@ dependencies = [
     # manylinux x86_64 wheels (only anyio at runtime, no source build on
     # Linux/py3.12 CI). Ships py.typed, so it is NOT in mypy ignore_missing_imports.
     "pycrdt==0.14.1",
+    # Phase-10 Slice C: real-time sync wire protocol. CORE runtime dep — the
+    # sync_backend service, data/cloud/ws_transport.py, AND the in-CI backend
+    # tests (tests/backend/) all import it, so CI must install it unconditionally.
+    # PINNED to 16.0 (prebuilt py3.12 wheels; ships py.typed, so NOT in mypy
+    # ignore_missing_imports).
+    "websockets==16.0",
 ]
 
 [project.optional-dependencies]
+# Real live-provider credential access ONLY (out-of-CI, credential-gated —
+# CL-B2/CL-B3). NOT a core dep: the mocked provider tests monkeypatch
+# token_store, so CI must NOT require a real OS keyring backend. Installed
+# manually by users who exercise the real Drive/OneDrive/Dropbox adapters.
+cloud_live = [
+    "keyring==25.7.0",
+]
+
 # Dev/test dependencies — CI installs `.[dev]` so it runs exactly what tests import.
 dev = [
     "pytest>=8.0",
@@ -61,7 +75,10 @@ pixelart-run = "pixelart_creator.data.automation_cli:main"
 [tool.setuptools.packages.find]
 include = ["pixelart_creator*"]
 # Exclude non-shipped infra from the distributed package (scripts/ are dev tooling).
-exclude = ["tests*", "scripts*", "docs*"]
+# sync_backend is a SEPARATE real-time relay service, not part of the desktop
+# distributable — exclude it explicitly (the include whitelist already omits it,
+# this is defence-in-depth so it never leaks into the wheel).
+exclude = ["tests*", "scripts*", "docs*", "sync_backend*"]
 
 # ------------------------------- tool config ---------------------------------
 [tool.black]
@@ -95,6 +112,7 @@ markers = [
     "slow: long-running tests, deselected in the default gate",
     "gpu: tests needing a real GPU/display, deselected in headless CI",
     "integration: tests that reach outside the process, deselected by default",
+    "cloud_live: live credential-gated provider tests (real OAuth/keyring), deselected in CI",
 ]
 
 [tool.coverage.run]
