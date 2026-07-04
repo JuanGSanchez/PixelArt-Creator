@@ -129,6 +129,92 @@
 | `tilemap.py` | **new** | Canonical uint32 cell bit layout (Tiled masks, module-local); `TileInstance` (`base_gid`/`flip_h`/`flip_v`/`flip_d`); `TilemapLayer` (chunked-sparse `uint32` grid); `Tilemap` (ordered layers + tilesets + `infinite` + gid resolve). Reversible stamp/erase/fill + layer add/remove/move/visibility + attach-tileset (auto-tile re-resolution folded in, reversible). `render_region` resolves instances (flip) + blit (PB-1) + `composite_stack` (CO-4), non-destructive. Zero Qt; no `document` import. | `Tilemap`, `TilemapLayer`, `TileInstance`, `FLIPPED_*_FLAG`, `ROTATED_HEXAGONAL_120_FLAG`, `GID_MASK`, `resolve`, `make_stamp/erase/fill_rect_command`, `make_add/remove/move_layer_command`, `make_set_layer_visibility_command`, `make_attach_tileset_command`, `render_region` (vectorised, pixel-space), `chunk_version`, `tiled_passthrough`, `TilemapError` | LOGIC-005, 006, 007, 008, 009, 012, 013, 014 |
 | `document.py` | extend | Attach `tilesets`/`tilemaps` collections (`__slots__`, created empty) + reversible attach/detach commands. | `tilesets`, `tilemaps`, `make_add/remove_tileset_command`, `make_add/remove_tilemap_command` | LOGIC-012, DATA-004 (surface) |
 
+## `pixelart_creator/logic/` — Phase-7 export & pipeline integration — BUILT (Slices 7A/7B)
+
+> **Shipped modules:** `logic/export.py`, `logic/atlas.py` (both zero-Qt, verified by
+> `check_layering` exit 0 / 40 modules), `logic/constants.py` extended with the 8 export numerics.
+> Tests: `tests/logic/test_export.py` (53) + `tests/logic/test_atlas.py` (21). `MAX_ATLAS_DIMENSION`
+> aligned to the buildable 8K ceiling (`= MAX_CANVAS_WIDTH = 7680`, per-axis clamp in `atlas.py`).
+
+
+> New Qt-free `logic/export.py` + `logic/atlas.py` + additive `constants.py` extension, frozen by
+> AGT-01 (`interface-contract`, plan §4/§5) BEFORE implementation so Slices 7C/7D/7E bind to a stable
+> contract. Domain grounded by `docs/research-phase-7-export-20260704.md` (deterministic Pillow
+> PNG/GIF options, Aseprite/TexturePacker JSON landscape, Unity/Godot artifacts, APNG feasibility,
+> MaxRects rotation). **PL7-D3 (cycle-free):** new edges `export → atlas`, `export → blend`/`document`/
+> `quantize`/`animation`, `atlas → compactor`; neither `export` nor `atlas` imports `document` back or
+> imports Qt/`ui` — they are *consumers* of the shipped models (the `blend.py`/`animation.py`
+> precedent); the Aseprite-JSON metadata builder lives in `export.py` so `atlas → export` never appears
+> → acyclic, no `logic → data` edge. The atlas **delegates to `compactor.compact` (CP-1)** — packing is
+> never re-implemented; CP-1 has rotation disabled, so every region is axis-aligned and `rotated` is a
+> const `false`. New numerics → `constants.py` (`DEFAULT_SPRITE_SHEET_COLUMNS=8`, `DEFAULT_ATLAS_PADDING=0`,
+> `MAX_ATLAS_DIMENSION=8192`, `MAX_BATCH_TARGETS=256`, `MAX_EXPORT_FRAMES=4096`, `PNG_EXPORT_COMPRESS_LEVEL=6`
+> — DISTINCT from `PROJECT_ZLIB_LEVEL=9` — `GIF_DEFAULT_LOOP_COUNT=0`, `GIF_FRAME_DISPOSAL=2`). Pillow
+> enum/format strings, wire-format version strings, and the `ExportFormat`/`EnginePreset` enums stay
+> module-local (ADR-0001/BF-2). Canonical JSON schema in **ADR-0017**; engine presets in **ADR-0018**;
+> encoder options + byte-repro scope + APNG deferral in **ADR-0019**; export architecture/layering/CLI
+> in **ADR-0020**. New `ExportError`/`AtlasError(ValueError)`.
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `constants.py` | extend | +8 export numerics (leaf); names distinct from every shipped constant. | `DEFAULT_SPRITE_SHEET_COLUMNS`, `DEFAULT_ATLAS_PADDING`, `MAX_ATLAS_DIMENSION`, `MAX_BATCH_TARGETS`, `MAX_EXPORT_FRAMES`, `PNG_EXPORT_COMPRESS_LEVEL`, `GIF_DEFAULT_LOOP_COUNT`, `GIF_FRAME_DISPOSAL` | LOGIC-012 |
+| `export.py` | **new** | Export model + deterministic pipeline: flatten via `composite_stack` (CO-4, non-destructive); byte-reproducible PNG/GIF encode → bytes (Pillow, ADR-0019; GIF fixed shared palette via `quantize.median_cut`); deterministic row-major sprite-sheet; Aseprite-Array JSON metadata (ADR-0017); the shared `export_document` orchestrator + `run_batch`. Zero Qt. | `ExportFormat`, `EnginePreset`, `SpriteRect`, `SheetMetadata`, `ExportRequest`, `ExportResult`, `flatten_frame`, `encode_png`, `encode_gif`, `build_sprite_sheet`, `build_metadata_json`, `export_document`, `run_batch`, `ExportError` | LOGIC-001..005, 008, 009, 010, 011, 012 |
+| `atlas.py` | **new** | Texture-atlas layout by **delegating to `compactor.compact` (CP-1)** — non-overlapping, within bounds, axis-aligned (rotation disabled); blit each sprite at its `Placement`; unfit → `AtlasError` wrapping `CompactionError`. Packing NOT re-implemented. Zero Qt; no `document` import. | `pack_atlas`, `AtlasResult`, `AtlasError` | LOGIC-006, 007 |
+
+## `pixelart_creator/data/` — Phase-7 export I/O + headless CLI — BUILT (Slice 7C)
+
+> **Shipped modules:** `data/export_io.py`, `data/export_cli.py` (both zero-Qt, verified by
+> `check_layering` exit 0). `export_cli.py` confirmed under `data/` (NOT a new top-level `cli/`
+> package — the `check_layering` blind-spot ADR-0020 warns of); imports downward only
+> (`data → data`, `data → logic`; no `logic → data`, no Qt, no `ui`). Tests:
+> `tests/data/test_export_io.py` (14) + `tests/data/test_export_cli.py` (15). CLI console_script
+> `pixelart-export = pixelart_creator.data.export_cli:main` is AGT-09's `pyproject` edit (T7C-07).
+
+
+> New Qt-free `data/export_io.py` (write exact engine bytes + JSON + engine-preset artifacts) +
+> `data/export_cli.py` (headless CLI driver). **ADR-0020:** the CLI lives in `data/` — not a new `cli/`
+> package — *specifically* because `check_layering.py` only enforces Qt-freedom on `logic/`/`data/`
+> top-level dirs; a `cli/` sibling would be an unscanned Qt blind spot. `data/` may import `logic/` +
+> `data/`, never `ui/`/Qt. Engine artifacts (Unity `.meta` 2022.3 / Godot `SpriteFrames.tres` 4.2) are
+> built+serialised here over the `logic/`-computed layout (the Phase-6 `tiled_io.py` precedent);
+> version strings module-local (ADR-0001). CLI input reuses `project_io.load_project` (IO-3 defensive).
+> The `pyproject` `[project.scripts]` entry `pixelart-export = pixelart_creator.data.export_cli:main`
+> is an **AGT-09** edit (Article IX). Zero Qt.
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `export_io.py` | **new** | Write the **exact** engine bytes + JSON to portable paths (`pathlib`, `path_portability_check`) with NO re-encode (byte-reproducibility preserved); build + write Unity `.meta` (2022.3) + Godot `SpriteFrames.tres` (4.2) engine artifacts from the `logic/` layout (ADR-0018). | `write_export`, `write_engine_preset` | DATA-001, 002, 004 |
+| `export_cli.py` | **new** | Headless Qt-free driver: `argparse` (`--input/--format/--preset/--output/--columns/--padding/--loop/--tag/--json`); load `.pixproj` via `project_io.load_project` (IO-3 → `ProjectIOError`); drive the SAME `logic/export`+`data/export_io` (CLI==GUI byte-identity); exit 0/1/2. | `main(argv) -> int` | DATA-003, LOGIC-013 |
+
+## `pixelart_creator/ui/` — Phase-7 export & pipeline integration — BUILT (Slices 7D/7E)
+
+> **Shipped modules:** `ui/export_dialog.py`, `ui/batch_export_panel.py`, `ui/export_worker.py`
+> (`Export_Worker`/`Export_Controller` — the only new Qt importers, off-thread runner), and
+> `ui/export_actions.py`; `ui/main_window.py` extended with the Export menu + a window-owned
+> `Export_Controller`. Deterministic teardown chain: `Export_Controller.shutdown()` ←
+> `MainWindow.shutdown_prewarm()` ← `closeEvent()` (no segfault under `-n auto`, QA-proven).
+> **No `ui/commands.py` change** — export is non-destructive (0 export refs, verified). Tests: the
+> 8 `tests/ui/test_export_*.py` modules (76, both themes).
+
+
+> Binds to Slice-7A/7B/7C logic+data; Qt lives here only. The export dialog / options / engine-preset
+> selector / batch panel / export actions / off-GUI-thread export worker are `ui/`. Export is
+> **read-only / non-destructive** — it pushes NO `QUndoCommand` and adds NOTHING to `ui/commands.py`
+> (ADR-0020, CL-12). The GUI adds no encode/layout logic — it calls the identical `logic/`+`data/`
+> functions the CLI calls (REQ-P7-UI-007, byte-identity). Responsiveness (REQ-P7-UI-010, DEP-3): the
+> `Export_Worker` runs the Qt-free engine on a window-owned `QThreadPool` with progress/cancel over
+> queued GUI-thread signals (no Qt off-thread; Phase-5/6 warmer precedent) — NOT the 16 ms canvas
+> budget (export is batch IO). AGT-10 owns any responsiveness directive; AGT-05 implements. Both themes,
+> a11y, `tr()`-wrapped strings (AGT-06/AGT-07).
+
+| Module | Change | Responsibility | Binds to (logic/data) | REQ |
+| --- | --- | --- | --- | --- |
+| `export_dialog.py` | **new** | `Export_Dialog(QDialog)`: format picker + per-format options (GIF frame-source/loop; sheet columns/rows/padding; atlas padding/max-dim + JSON toggle; defaults from constants, reject OOR); engine-preset selector; portable destination chooser; `tr()` + `changeEvent`. | `export`, `data/export_io`, `constants` | UI-001..004, 006, 008, 012, 013 |
+| `batch_export_panel.py` | **new** | `Batch_Export_Panel(QWidget)`: multi-target/format one-action export via `export.run_batch` on the worker; per-target progress; per-target failure isolated. | `export.run_batch`, `export_worker` | UI-005, 010, 013 |
+| `export_worker.py` | **new** | `Export_Worker(QRunnable)` + signals: run the Qt-free `logic/export`+`data/export_io` off the GUI thread; progress/result/error over queued signals; cooperative cancel; no Qt off-thread (DEP-3). | `export`, `data/export_io` | UI-010 |
+| `export_actions.py` | **new** | Export menu/toolbar actions; surface `ExportError`/`AtlasError`/`ProjectIOError`/unwritable-path as user-facing errors (no crash, no partial file left as valid). `tr()` strings. | `export_dialog`, `batch_export_panel` | UI-001, 007, 008, 013 |
+| `main_window.py` | extend | Add the Export menu + actions; hold active document + parameters (view state); wire dialog/batch panel/worker. **No `ui/commands.py` change** (export non-destructive). | `document`, the new export UI | UI-001, 005, 009 |
+
 ## `pixelart_creator/data/` — Phase-6 Tiled JSON I/O + `.pixproj` v4 — BUILT (Slice 6D)
 
 > New Qt-free `data/tiled_io.py` (Tiled 1.12.2 JSON export/import) + `data/project_io.py` v4 extension.
