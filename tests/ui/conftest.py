@@ -267,6 +267,30 @@ def make_document():
 
 
 @pytest.fixture
+def export_controller():
+    """Yield a standalone :class:`Export_Controller`, torn down deterministically.
+
+    Phase-7 export tests that drive the worker directly build an
+    :class:`~pixelart_creator.ui.export_worker.Export_Controller` that is NOT
+    parented to a ``Main_Window``, so it is not reached by the ``_LIVE_UI_INSTANCES``
+    drain fixture (which tracks ``Main_Window`` / ``CanvasScene`` / ``Tilemap_Canvas``
+    only — a ``Main_Window``'s own controller IS drained via ``shutdown_prewarm``).
+    This fixture guarantees the standalone controller's window-owned
+    ``QThreadPool`` + signal carrier are drained + released via the idempotent,
+    event-loop-free ``shutdown()`` even if the test body asserts and fails — so no
+    export worker thread / connected carrier survives into a later test's GC (the
+    Phase-5 cross-thread-GC-of-Qt-C++ segfault guard, under ``pytest -n auto``).
+    """
+    from pixelart_creator.ui.export_worker import Export_Controller
+
+    controller = Export_Controller()
+    try:
+        yield controller
+    finally:
+        controller.shutdown()
+
+
+@pytest.fixture
 def make_scene(make_document, theme):
     """Factory building a :class:`CanvasScene` with theme-correct canvas roles."""
 
