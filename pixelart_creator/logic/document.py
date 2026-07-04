@@ -9,6 +9,7 @@ reshaping it.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 from pixelart_creator.logic import palette_ops
@@ -22,6 +23,7 @@ from pixelart_creator.logic.animation import (
 from pixelart_creator.logic.blend import BlendMode, composite_stack
 from pixelart_creator.logic.color import ColorError, from_hex
 from pixelart_creator.logic.constants import (
+    DEFAULT_DOCUMENT_PPI,
     DEFAULT_FRAME_DURATION_MS,
     DEFAULT_LAYER_OPACITY,
     MAX_FRAMES,
@@ -77,6 +79,19 @@ def _validate_blend_mode(value: BlendMode) -> BlendMode:
     if not isinstance(value, BlendMode):
         raise DocumentError(f"blend_mode must be a BlendMode, got {value!r}")
     return value
+
+
+def _validate_ppi(value: float) -> float:
+    """Validate and coerce a document PPI to a finite ``float`` ``> 0`` (BF-3).
+
+    Real-size preview needs a positive, finite pixels-per-inch (ADR-0025 §1;
+    REQ-P9-LOGIC-007); ``0``, negative, NaN or infinity is rejected.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise DocumentError(f"ppi must be a number, got {value!r}")
+    if not math.isfinite(value) or value <= 0.0:
+        raise DocumentError(f"ppi must be finite and > 0, got {value}")
+    return float(value)
 
 
 class Layer:
@@ -349,6 +364,7 @@ class Document:
         "frame_tags",
         "tilesets",
         "tilemaps",
+        "ppi",
         "_next_layer_id",
     )
 
@@ -360,14 +376,23 @@ class Document:
         mode: ColorMode = ColorMode.RGBA,
         palette: Optional[Palette] = None,
         metadata: Optional[Dict[str, str]] = None,
+        ppi: float = DEFAULT_DOCUMENT_PPI,
     ) -> None:
-        """Create a document with one frame holding one empty background layer."""
+        """Create a document with one frame holding one empty background layer.
+
+        ``ppi`` is the document's real-size pixels-per-inch (BF-3, ADR-0025 §1;
+        default :data:`DEFAULT_DOCUMENT_PPI`), validated ``> 0``/finite; it is a
+        first-class document property consumed by ``logic/preview.real_size_scale``
+        and persisted in ``.pixproj`` v5.
+        """
         base = PixelBuffer(width, height, mode)
         self.width = base.width
         self.height = base.height
         self.mode = mode
         self.palette = palette if palette is not None else Palette()
         self.metadata: Dict[str, str] = dict(metadata) if metadata else {}
+        #: Real-size document resolution, pixels-per-inch (BF-3; REQ-P9-LOGIC-007).
+        self.ppi: float = _validate_ppi(ppi)
         #: Ordered document-level frame tags (named animations, REQ-P5-LOGIC-009).
         self.frame_tags: List[FrameTag] = []
         #: Phase-6 tileset/tilemap collections (ADR-0016; empty by default so
@@ -386,6 +411,7 @@ class Document:
         *,
         palette: Optional[Palette] = None,
         name: str = "Imported",
+        ppi: float = DEFAULT_DOCUMENT_PPI,
     ) -> "Document":
         """Build a single-frame RGBA document seeded by an existing buffer.
 
@@ -399,6 +425,7 @@ class Document:
             buffer: The RGBA source buffer; its geometry sizes the document.
             palette: Optional palette for the new document (empty if omitted).
             name: The name of the seeded background layer.
+            ppi: Real-size pixels-per-inch (default :data:`DEFAULT_DOCUMENT_PPI`).
 
         Returns:
             A new :class:`Document` sized to ``buffer``.
@@ -414,7 +441,11 @@ class Document:
                 f"from_buffer requires an RGBA buffer, got {buffer.mode.value}"
             )
         document = cls(
-            buffer.width, buffer.height, mode=ColorMode.RGBA, palette=palette
+            buffer.width,
+            buffer.height,
+            mode=ColorMode.RGBA,
+            palette=palette,
+            ppi=ppi,
         )
         document.frames = [Frame([Layer(buffer, name)])]
         document._assign_ids(document.frames[0].layers)

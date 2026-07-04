@@ -24,6 +24,14 @@ GRID_MIN_PIXEL_EDGE_PX: int = 8
 """Per-pixel grid overlay is drawn only when a pixel's on-screen edge is at
 least this many device px (render-strategy §10; CL-4)."""
 
+ISO_GRID_MIN_ON_SCREEN_EDGE_PX: int = 32
+"""Isometric analogue of :data:`GRID_MIN_PIXEL_EDGE_PX`: the LOD threshold for
+the isometric grid overlay. When a tile's on-screen edge (``tile_width * zoom``)
+falls below this many device px, the iso grid overlay skips painting — preventing
+the 722 ms fine-grid zoom-out blowup AGT-10 measured. Larger than the per-pixel
+grid floor (=8) because an iso tile carries far more overlay geometry per cell
+(AGT-10 overlay-perf directive; DIR-1)."""
+
 OPENGL_VIEWPORT_ENABLED: bool = True
 """Use a QOpenGLWidget viewport for the canvas; raster fallback applies when
 OpenGL is unavailable/headless (render-strategy §10; D6)."""
@@ -380,3 +388,83 @@ buildable 8K ceiling (``= MAX_CANVAS_WIDTH``; the ADR-0020 atlas-clamp precedent
 DEFAULT_PROCGEN_SEED: int = 0
 """Deterministic default seed for procedural generation (P2; parallels the shipped
 :data:`KMEANS_SEED` = 0) (plan §8; spec REQ-P8-LOGIC-012; SC-L012-1)."""
+
+# --- Phase-9 visual-aids tuning (phase-9 T9A-01; Article II single-source) --------
+# Named bounds/defaults consumed by the new pure-geometry logic modules
+# (logic/grids.py, logic/guides.py, logic/preview.py, logic/timelapse.py) and the
+# document-PPI field. BF-1 (plan §8 / ADR-0023/0024): every name is DISTINCT from
+# every shipped constant — notably DISTINCT from the shipped GRID_MIN_PIXEL_EDGE_PX
+# (=8, the per-pixel grid-overlay device-px threshold — a rendering concern), from
+# TILE_SIZE (=64, the viewport-cull edge) and DEFAULT_TILE_WIDTH/HEIGHT (=16, the
+# tileset tile dimension). GuideOrientation and the timelapse-session
+# schema_version string are module-local enumerated vocabulary / format-intrinsic
+# and live in their modules, NOT here (ADR-0001 / BF-2, the BlendMode/PlaybackMode
+# precedent). This module stays a leaf (no intra-package imports).
+
+DEFAULT_ISO_GRID_RATIO: float = 2.0
+"""Default isometric tile aspect ratio W:H — 2:1 dimetric (26.565° = ``atan(0.5)``),
+the pixel-art standard (integer math, crisp grid lines). True-isometric (30°) stays
+a configurable ratio, not the default; the invertible transform contract is
+ratio-independent (ADR-0023 §1; research §1.1; spec REQ-P9-LOGIC-001; SC-L001-1)."""
+
+DEFAULT_SNAP_TOLERANCE_PX: int = 8
+"""Default snap "stickiness" in *screen* px; divided by zoom to act in document
+space so perceived stickiness is constant at every zoom (research §3.3 6–8 px)
+(ADR-0023 §3; spec REQ-P9-LOGIC-004/005; SC-L004-1/SC-L005-1)."""
+
+MIN_GRID_SPACING: int = 2
+"""Minimum isometric tile width, px — avoids sub-pixel grids; ``grids`` clamps
+``tile_width`` to ``[MIN_GRID_SPACING, MAX_GRID_SPACING]`` (ADR-0024; spec
+REQ-P9-LOGIC-008/011; SC-L011-1)."""
+
+MAX_GRID_SPACING: int = 1024
+"""Maximum isometric tile width, px — bounded config, ``grids`` clamps to this
+(ADR-0024; spec REQ-P9-LOGIC-008/011; SC-L011-1)."""
+
+MAX_GUIDES: int = 256
+"""Defensive cap on the number of guides considered in one snap (Article VII;
+parallels the shipped :data:`MAX_BATCH_RECOLOUR_TARGETS` = 256) (ADR-0024; spec
+REQ-P9-LOGIC-005/011; SC-L011-1)."""
+
+MAX_PERSPECTIVE_VANISHING_POINTS: int = 3
+"""Maximum simultaneous vanishing points — 1-/2-/3-point perspective (ADR-0023 §2;
+spec REQ-P9-LOGIC-003/004/011; SC-L003-1/SC-L004-1)."""
+
+MAX_REFERENCE_IMAGES: int = 256
+"""Defensive cap on the number of reference images in one board (Article VII;
+parallels :data:`MAX_GUIDES`) (ADR-0024; spec REQ-P9-DATA-002; SC-UI-006-1)."""
+
+MAX_TIMELAPSE_FRAMES: int = 4096
+"""Defensive cap on the number of frames in one timelapse session (Article VII;
+parallels the shipped :data:`MAX_FRAMES` / :data:`MAX_MACRO_STEPS` = 4096)
+(ADR-0024; spec REQ-P9-LOGIC-010/011; SC-L010-1)."""
+
+MAX_DOCUMENT_VIEWS: int = 8
+"""Defensive cap on simultaneous views of one shared document (bounded UI
+resource; parallels :data:`MAX_ONION_SKIN_FRAMES` = 8) (ADR-0024; spec
+REQ-P9-LOGIC-012/UI-007; SC-UI-007-1)."""
+
+DEFAULT_DOCUMENT_PPI: float = 72.0
+"""Default document pixels-per-inch for real-size preview — the screen/print
+baseline (BF-3). Real-size is a *document* property: ``real_size_scale`` sources
+``doc_ppi`` from this field. Validated ``> 0``/finite by the ``Document`` setter;
+persisted in ``.pixproj`` v5 (v1–v4 load with this default) (ADR-0023 §4; ADR-0025
+§1; spec REQ-P9-LOGIC-007; SC-L007-1)."""
+
+# --- Phase-9 overlay/multi-view performance-gate tuning (Article II single-source)
+# Ceiling for the Phase-9 overlay/multi-view frame perf gate. Consumed by
+# scripts/perf_profile.py --overlay (passed as --budget-ms by
+# .github/workflows/ci.yml, mirroring the FU-15 composite / tilemap-viewport gates).
+
+OVERLAY_FRAME_CEILING_MS: int = 48
+"""Catastrophic-regression ceiling for the Phase-9 overlay/multi-view frame path, ms.
+
+DISTINCT from :data:`FRAME_BUDGET_MS` (16 ms, the 60-fps interactive *render*
+budget): this is the deliberately *loose* CI ceiling for the ``--overlay`` frame
+perf gate. Like :data:`COMPOSITE_REGION_CEILING_MS` (FU-15) and
+:data:`TILEMAP_VIEWPORT_CEILING_MS`, it sits far above the correct overlay/multi-view
+p95 yet well below the O(full-canvas) fine-grid regression class (the 722 ms
+zoom-out blowup AGT-10 measured), so it never flakes on a noisy 2-core CI runner
+yet always catches a catastrophic overlay-render regression. AGT-09 wires ci.yml to
+pass this value as ``perf_profile.py --overlay --budget-ms``.
+(AGT-10 overlay-perf directive; S12 single-source.)"""
