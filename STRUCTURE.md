@@ -367,6 +367,40 @@
 | `timelapse_controls.py` | **new** | `Timelapse_Controls(QWidget)`: start/stop recording (view/session state, no undo); record one frame per committed command via `timelapse.record_frame`; save/load session via `data/timelapse_io`; failed record → user-facing error. `tr()` + units + `changeEvent`. | `timelapse`, `data/timelapse_io` | UI-009 |
 | `main_window.py` | extend | Add the View-Aids menu + dock/toggle the overlays, preview, reference board, extra views, timelapse controls; hold each view's local zoom/pan + aid config (view state). **No `ui/commands.py` change** (aids non-destructive). | `document`, the new visual-aids UI | UI-001, 003, 010 |
 
+## `pixelart_creator/` — cross-cutting **User Guide** (`user-guide`, `REQ-UG-*`) — BUILT
+
+> New Qt-free `logic/guide_model.py` + `logic/guide_search.py` + `data/guide_content.py` + a committed
+> package-data content bundle `pixelart_creator/userguide_content/` + `ui/user_guide.py` + a Help ▸ User
+> Guide action/F1 on `ui/main_window.py`, frozen by AGT-01 (`interface-contract`, plan §3) BEFORE
+> implementation. Content-source + bundling + layering ruled in **ADR-0029**: the shipped single source
+> is the **committed** `pixelart_creator/userguide_content/` package data (`manifest.json` + per-topic
+> Markdown) — **NOT** the gitignored/purged `docs/site` (S19). Discovered via
+> `importlib.resources`; ToC declared by `manifest.json`; adding a topic = adding a `.md` + a manifest
+> entry (data, no code — Article XI). Content rendered as text/markup via `QTextBrowser.setMarkdown`,
+> **never executed**; user-influenced paths validated within the bundle root (Article VII). New numerics
+> → `constants.py` (`GUIDE_SEARCH_RESULT_CAP=50`, `GUIDE_MAX_CONTENT_BYTES=1_048_576`,
+> `GUIDE_MAX_TOC_DEPTH=3`); `DEFAULT_GUIDE_LOCALE="en"` is a module-local string id (ADR-0001), not a
+> `constants.py` numeric. New `GuideModelError`/`GuideContentError(ValueError)`. Read-only → **no
+> `ui/commands.py` change**; not on the 16 ms loop → no AGT-10 directive.
+>
+> **Layering deviation (ratified, ADR-0029 §6 / `check_layering` exit 0).** The `Manifest` dataclass is
+> **homed in `logic/guide_model.py`**, NOT in `data/guide_content.py`. `data/guide_content.py` **imports**
+> `Manifest` from `logic/` and returns it from `load_manifest()`, preserving the one-way **`data → logic`**
+> dependency so `logic/` never imports `data/` (Article I). `build_model(manifest: Manifest)` therefore
+> stays a pure logic function over a logic-defined type. Verified 2026-07-04: `check_layering` clean on
+> **both roots** (`--root pixelart_creator` 158 modules; `--root .` 3 modules), `check_cycles` no cycles
+> (159 / 397), all exit 0.
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `logic/guide_model.py` | built | Ordered section→topic tree from the discovered manifest; deterministic ordering; locale resolution (localised-if-present else default); coverage/completeness contract. **Homes the `Manifest` dataclass** (so `data → logic` stays one-way). Zero Qt. | `GuideTopic`, `GuideSection`, `Manifest`, `GuideModel`, `build_model`, `resolve_content_ref`, `REQUIRED_AREAS`, `REQUIRED_AREA_TITLES`, `missing_required_areas`, `DEFAULT_GUIDE_LOCALE`, `content_ref_path`, `GuideModelError` | LOGIC-001, 002, 004, 005 |
+| `logic/guide_search.py` | built | Pure `query(model, term)` → ordered matching topics over indexed text (title+keywords+summary); case-insensitive; empty term → full set; capped. Zero Qt. | `query` | LOGIC-003 |
+| `logic/constants.py` | extend | +3 guide numerics (leaf); names distinct from every shipped constant. | `GUIDE_SEARCH_RESULT_CAP`, `GUIDE_MAX_CONTENT_BYTES`, `GUIDE_MAX_TOC_DEPTH` | LOGIC (Art. II) |
+| `data/guide_content.py` | built | Offline bundled-content reader over `importlib.resources.files("pixelart_creator")/"userguide_content"`; defensive manifest parse (returns the **logic-homed** `Manifest`); bundle-root path guard; size guard; domain errors; no network; no `eval`/`exec`; portable paths. Imports `Manifest` from `logic/` (one-way `data → logic`). Zero Qt. | `load_manifest`, `read_content`, `bundle_root`, `available_locales`, `BUNDLE_PACKAGE`, `GuideContentError` | DATA-001, 002, 003 |
+| `userguide_content/` | built (data) | Committed shippable content bundle: `manifest.json` + `content/en/*.md` (**15 topics / 11 sections**). Package data — **AGT-09 T-UG-09 must wire `pyproject` package-data so it ships in the wheel** (pending). Authored/organised by AGT-08 (mirrors editorial source of the private `docs/site`; no runtime dep on it). | `manifest.json`, `content/en/*.md` (15) | DATA-002, LOGIC-005 |
+| `ui/user_guide.py` | built | `User_Guide_Dialog`/`_Panel`: ToC tree from `GuideModel` + `QTextBrowser` content pane (`setMarkdown`, in-guide links only) + search box → `guide_search`. Calls model/reader; no hard-coded ToC; `tr()`+`changeEvent`; role colours (both themes); a11y. | `User_Guide_Dialog` | UI-003..011 |
+| `ui/main_window.py` | extend | Help ▸ User Guide `QAction` + F1 shortcut opening the viewer. `tr()` label. No `commands.py` change. | Help menu + User Guide action | UI-001, 002 |
+
 ## `pixelart_creator/data/` — Phase-6 Tiled JSON I/O + `.pixproj` v4 — BUILT (Slice 6D)
 
 > New Qt-free `data/tiled_io.py` (Tiled 1.12.2 JSON export/import) + `data/project_io.py` v4 extension.
