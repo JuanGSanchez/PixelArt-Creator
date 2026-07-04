@@ -10,6 +10,10 @@ type, HTTP/credential type, or provider-specific exception leaks above this pack
 """
 
 from pixelart_creator.data.cloud.fake_adapter import FakeCloudAdapter
+from pixelart_creator.data.cloud.loopback_transport import (
+    LoopbackHub,
+    LoopbackTransport,
+)
 from pixelart_creator.data.cloud.port import (
     CloudCapabilities,
     CloudDataError,
@@ -27,6 +31,8 @@ from pixelart_creator.data.cloud.shared_adapter import (
     SharedProjectAdapter,
     SharedProjectError,
 )
+from pixelart_creator.data.cloud.transport import TransportError, TransportPort
+from pixelart_creator.data.cloud.ws_transport import WebSocketTransport
 
 __all__ = [
     "CloudPort",
@@ -43,4 +49,9 @@ __all__ = [
     "RemoteMember",
     "ProjectComment",
     "PresenceEntry",
+    "TransportPort",
+    "TransportError",
+    "LoopbackHub",
+    "LoopbackTransport",
+    "WebSocketTransport",
 ]
