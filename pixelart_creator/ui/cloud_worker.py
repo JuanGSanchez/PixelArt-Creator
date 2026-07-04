@@ -238,16 +238,29 @@ class Cloud_Controller(QObject):
     @Slot(int, str, object)
     def _on_succeeded(self, token: int, kind: str, result: object) -> None:
         if token == self._token:
+            # Idle-before-terminal-emit contract: by the time any consumer sees a
+            # terminal signal, ``is_busy()`` is already False. Clear busy (and emit
+            # ``busyChanged(False)`` for UI enablement) FIRST, then re-emit the
+            # outcome. All on the GUI thread, so ordering is deterministic — no
+            # cross-thread race. ``operationFinished`` still fires on the later
+            # ``done`` (``_on_done``).
+            self._set_busy(False)
             self.operationSucceeded.emit(kind, result)
 
     @Slot(int, str, str)
     def _on_failed(self, token: int, kind: str, message: str) -> None:
         if token == self._token:
+            # Same idle-before-terminal-emit contract as ``_on_succeeded``.
+            self._set_busy(False)
             self.operationFailed.emit(kind, message)
 
     @Slot(int)
     def _on_done(self, token: int) -> None:
         if token == self._token:
+            # Terminal ``done`` fires on every exit path (incl. cancel, where
+            # neither succeeded nor failed emitted); clearing busy here is the
+            # authoritative clear for that path and an idempotent no-op after a
+            # succeeded/failed already cleared it.
             self._set_busy(False)
             self.operationFinished.emit()
 
