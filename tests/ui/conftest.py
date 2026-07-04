@@ -34,6 +34,9 @@ QLocale.system = staticmethod(  # type: ignore[method-assign]
 
 from pixelart_creator.logic.document import Document  # noqa: E402
 from pixelart_creator.logic.palette import Palette  # noqa: E402
+from pixelart_creator.ui.asset_library_panel import Asset_Library_Panel  # noqa: E402
+from pixelart_creator.ui.asset_search_panel import Asset_Search_Panel  # noqa: E402
+from pixelart_creator.ui.asset_tagging_panel import Asset_Tagging_Panel  # noqa: E402
 from pixelart_creator.ui.branching_panel import Branching_Panel  # noqa: E402
 from pixelart_creator.ui.canvas_scene import CanvasScene  # noqa: E402
 from pixelart_creator.ui.canvas_view import Canvas_View  # noqa: E402
@@ -199,6 +202,24 @@ _PHASE9_DISPOSABLE = (
     # across the suite under ``pytest -n auto`` (the disposal-hygiene contract; here a
     # regression guard even though no worker was added).
     User_Guide_Dialog,
+    # Phase-11 Slice 1 asset-library panels (AGT-06). The three new dock panels
+    # (asset library / tagging / search-filter) are top-level ``QWidget``s bound to a
+    # synchronous, worker-free ``Asset_Library_Session`` (Slice 1 browse/tag/search is
+    # purely in-memory over the immutable ``AssetCatalog`` value — AGT-05 introduced NO
+    # off-thread worker, timer, or poller, so there is NO new drain/shutdown wiring).
+    # STILL, a test may build a panel directly (parent-less) + register it with
+    # ``qtbot.addWidget``; headless (offscreen, no running event loop) that widget's
+    # ``deleteLater`` never fires, so ``QApplication`` keeps it in ``topLevelWidgets()``
+    # and it survives the test. Registering them here disposes them SYNCHRONOUSLY
+    # (``shiboken6.delete``) at teardown exactly like the Phase-9 aids + the
+    # Slice-A/-B/-C surfaces + the User Guide — so no asset panel accumulates across the
+    # suite under ``pytest -n auto`` (the Phase-5/6/9 disposal-hygiene contract; here a
+    # regression guard even though no worker was added). ``Asset_Library_Session`` is a
+    # parent-owned ``QObject`` (no widget, no worker) disposed with its parent — nothing
+    # to register.
+    Asset_Library_Panel,
+    Asset_Tagging_Panel,
+    Asset_Search_Panel,
 )
 
 
