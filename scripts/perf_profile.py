@@ -76,9 +76,23 @@ try:
     D_TILE, D_BUDGET = _c.TILE_SIZE, float(_c.FRAME_BUDGET_MS)
     D_FRAME_BUDGET = int(_c.FRAME_BUDGET_MS)
     D_CEILING = float(_c.COMPOSITE_REGION_CEILING_MS)
+    # Realtime apply sub-frame ceiling (Slice C, FLAG-PERFRAME). Distinct from
+    # FRAME_BUDGET_MS: apply_remote is only PART of the interactive frame (the
+    # dirty-rect redraw + live-cursor draw share the same 16 ms), so the apply
+    # gets a sub-budget partition. Falls back to 10 ms until AGT-01 lands
+    # REALTIME_APPLY_CEILING_MS in logic/constants.py (proposed = 10).
+    D_RT_CEILING = float(getattr(_c, "REALTIME_APPLY_CEILING_MS", 10.0))
+    # Live-cursor overlay roster bound (Slice C, REQ-P10-UI-013). The overlay
+    # draw is bounded by this many cursors (Article VII), so the worst-case
+    # per-frame paint profiles at MAX_SHARED_MEMBERS visible cursors.
+    D_MAX_CURSORS = int(getattr(_c, "MAX_SHARED_MEMBERS", 32))
+    D_OVERLAY_CEILING = int(getattr(_c, "OVERLAY_FRAME_CEILING_MS", 48))
 except Exception:  # pragma: no cover - fallback when package not on path
     D_W, D_H, D_TILE, D_BUDGET = 7680, 4320, 64, 16.0
     D_FRAME_BUDGET, D_CEILING = 16, 200.0
+    D_RT_CEILING = 10.0
+    D_MAX_CURSORS = 32
+    D_OVERLAY_CEILING = 48
 
 # Composite-mode defaults (AGT-10 directive §3a).
 D_LAYERS = 8
@@ -647,6 +661,27 @@ def _run_tilemap_cache(args):
 _OV_WARMUP = 2
 
 
+def _populate_cursors(item, n, ew, eh, with_selection, rect_cls):
+    """Seat ``n`` collaborator cursors on a grid inside the exposed rect (worst case).
+
+    All cursors are placed strictly inside ``(0, 0, ew, eh)`` so none are exposedRect-
+    culled (the maximum draw). ``item.set_cursor`` caps the roster at
+    MAX_SHARED_MEMBERS, so the drawn count is ``min(n, MAX_SHARED_MEMBERS)``. Each
+    cursor gets a small selection rect (intersecting the exposed rect) unless
+    ``with_selection`` is False, so the selection-fill path is on the critical path too.
+    """
+    import math
+
+    cols = max(1, int(math.ceil(math.sqrt(max(n, 1)))))
+    for i in range(n):
+        cxi = i % cols
+        cyi = i // cols
+        x = (cxi + 0.5) / cols * ew
+        y = (cyi + 0.5) / cols * eh
+        sel = rect_cls(x, y, 24.0, 24.0) if with_selection else None
+        item.set_cursor(f"peer-{i:02d}", x, y, sel)
+
+
 def _run_overlay(args):
     """Profile the Phase-9 visual-aids paint path vs FRAME_BUDGET_MS (16 ms).
 
@@ -659,6 +694,15 @@ def _run_overlay(args):
       combined  -> the worst active-edit frame: dirty-rect x (N views + preview)
         with the overlay caches WARM (config unchanged during an edit -> blits, not
         re-strokes), reported alongside the worst single overlay paint frame.
+      cursors   -> time the REAL shipped Live_Cursors_Overlay.paint() (Slice C,
+        REQ-P10-UI-013) with ``--ov-cursors`` collaborators (capped at
+        MAX_SHARED_MEMBERS) all inside the exposed rect (worst case: nothing culled),
+        each with a selection rect unless ``--ov-no-selection``. No item cache — the
+        faithful per-frame move-cursor redraw cost.
+      cursors-rt -> the COMBINED Slice-C interactive frame: one realtime_apply.
+        apply_remote (a remote CRDT patch folded onto the live 8K Document) PLUS the
+        live-cursor overlay paint(), timed together vs FRAME_BUDGET_MS (16 ms) — the
+        real per-frame cost when a peer edit + a peer cursor land in the same frame.
 
     Returns 0 (median <= budget), 1 (over budget), 2 (PySide6/construction error).
     """
@@ -810,6 +854,87 @@ def _run_overlay(args):
                 "dirty_rect": [dw, dh],
                 "preview_scale": pscale,
             }
+        elif kind in ("cursors", "cursors-rt"):
+            from PySide6.QtCore import QRectF as _QRectF
+
+            from pixelart_creator.ui.live_cursors_overlay import Live_Cursors_Overlay
+
+            n_req = args.ov_cursors
+            with_sel = not args.ov_no_selection
+            item = Live_Cursors_Overlay(scene_rect)
+            _populate_cursors(item, n_req, float(ew), float(eh), with_sel, _QRectF)
+            item.setVisible(True)
+            n_drawn = item.cursor_count()
+
+            if kind == "cursors":
+                samples = _time_item_paint(item)
+                extra = {
+                    "cursors_requested": n_req,
+                    "cursors_drawn": n_drawn,
+                    "with_selection": with_sel,
+                    "note": "worst case: all cursors inside exposed rect (no cull)",
+                }
+            else:  # cursors-rt — combined apply_remote + overlay paint frame
+                try:
+                    from pixelart_creator.logic.constants import CRDT_TILE_SIZE_PX
+                    from pixelart_creator.logic.convergence import RasterOp
+                    from pixelart_creator.logic.document import Document
+                    from pixelart_creator.logic.pixel_buffer import ColorMode
+                    from pixelart_creator.logic.realtime_apply import (
+                        RealtimeState,
+                        apply_remote,
+                        encode_update,
+                    )
+                except Exception as exc:
+                    sys.stderr.write("perf_profile: logic unavailable: %r\n" % exc)
+                    print(
+                        json.dumps({"error": "logic-unavailable", "detail": repr(exc)})
+                    )
+                    return 2
+                tsize = CRDT_TILE_SIZE_PX
+                document = Document(sw, sh, mode=ColorMode.RGBA)
+                bg_layer_id = document.frames[0].layers[0].layer_id
+                tile_bytes = bytes((i * 7 + 11) % 256 for i in range(tsize * tsize * 4))
+                blob = encode_update(
+                    [
+                        RasterOp(
+                            frame_index=0,
+                            layer_id=bg_layer_id,
+                            tile_x=0,
+                            tile_y=0,
+                            pixels=tile_bytes,
+                            tile_width=tsize,
+                            tile_height=tsize,
+                            logical_clock=1,
+                            site_id=0,
+                        )
+                    ]
+                )
+                img = QImage(vw, vh, QImage.Format.Format_ARGB32_Premultiplied)
+                opt = QStyleOptionGraphicsItem()
+                opt.exposedRect = exposed_rect
+
+                def _combined_frame():
+                    apply_remote(document, blob, site_id=0, state=RealtimeState())
+                    p = QPainter(img)
+                    p.scale(zoom, zoom)
+                    item.paint(p, opt, None)
+                    p.end()
+
+                for _ in range(_OV_WARMUP):
+                    _combined_frame()
+                samples = []
+                for _ in range(args.frames):
+                    t0 = time.perf_counter()
+                    _combined_frame()
+                    samples.append((time.perf_counter() - t0) * 1000.0)
+                extra = {
+                    "cursors_drawn": n_drawn,
+                    "with_selection": with_sel,
+                    "apply_tiles": 1,
+                    "blob_bytes": len(blob),
+                    "note": "combined apply_remote + overlay paint per frame",
+                }
         else:
             sys.stderr.write("perf_profile: unknown overlay kind %r.\n" % kind)
             print(json.dumps({"error": "unknown-kind"}))
@@ -849,6 +974,199 @@ def _run_overlay(args):
     sys.stderr.write(
         "perf_profile: overlay[%s] within budget (median %.3f ms <= %.1f ms).\n"
         % (kind, median, budget)
+    )
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# Realtime mode (Phase-10 Slice C, FLAG-PERFRAME) — Qt-FREE remote-patch apply  #
+# --------------------------------------------------------------------------- #
+# Article VI RE-ENTERS cloud scope in Slice C (ADR-0027 §7): a remote CRDT patch
+# is folded onto the LIVE Document on the interactive loop. This mode times a
+# SINGLE realtime_apply.apply_remote(document, blob, site_id=...) call — validate
+# + decode (eval-free, Article VII) + LWW stale-drop + dirty-region-scoped
+# apply_operations (NO 8K deep copy) — against FRAME_BUDGET_MS (16 ms, S12).
+# Qt-FREE: numpy + logic only (NO PySide6), so it runs headless in CI. The blob
+# is pre-encoded once (the transport hands the GUI thread bytes); each timed frame
+# applies it fresh (default RealtimeState => full work every frame, the faithful
+# per-apply cost). Distinct from the composite/tilemap/overlay modes: this
+# measures the logic-side remote-patch apply, NOT a render/blit.
+_RT_WARMUP = 2
+
+
+def _run_realtime(args):
+    """Profile a single ``realtime_apply.apply_remote`` vs FRAME_BUDGET_MS (Slice C).
+
+    Builds a document at ``args.rt_width`` x ``args.rt_height`` (default 8K) and a
+    CRDT-update blob carrying ``args.rt_meta`` metadata ops, ``args.rt_attrs`` layer-
+    attr ops, and ``args.rt_tiles`` raster tile ops (``CRDT_TILE_SIZE_PX`` tiles onto
+    the background layer). Times ``args.frames`` ``apply_remote`` calls and compares
+    the median to ``args.budget_ms`` (16 ms). The pre-encoded blob's byte size is
+    reported and rejected if it exceeds ``MAX_CRDT_UPDATE_BYTES`` (the trust cap the
+    transport/decoder enforce), so a scenario can never claim an apply the runtime
+    would reject at the boundary.
+
+    Returns 0 (median <= budget), 1 (over budget), 2 (construction error).
+    """
+    budget = args.rt_ceiling_ms
+    if args.frames <= 0 or args.rt_width <= 0 or args.rt_height <= 0:
+        sys.stderr.write("perf_profile: invalid realtime geometry/frames.\n")
+        print(json.dumps({"error": "invalid-input"}))
+        return 2
+    if args.rt_tiles < 0 or args.rt_meta < 0 or args.rt_attrs < 0:
+        sys.stderr.write("perf_profile: negative realtime op count.\n")
+        print(json.dumps({"error": "invalid-input"}))
+        return 2
+
+    # Qt-FREE imports: numpy + logic only (NO PySide6 on this branch).
+    try:
+        from pixelart_creator.logic.constants import (
+            CRDT_TILE_SIZE_PX,
+            MAX_CRDT_UPDATE_BYTES,
+        )
+        from pixelart_creator.logic.convergence import (
+            LayerAttrOp,
+            MetadataOp,
+            RasterOp,
+        )
+        from pixelart_creator.logic.document import Document
+        from pixelart_creator.logic.pixel_buffer import ColorMode
+        from pixelart_creator.logic.realtime_apply import (
+            RealtimeState,
+            apply_remote,
+            dirty_regions,
+            encode_update,
+        )
+    except Exception as exc:  # logic unavailable -> construction error, not Qt.
+        sys.stderr.write("perf_profile: logic package unavailable: %r\n" % exc)
+        print(json.dumps({"error": "logic-unavailable", "detail": repr(exc)}))
+        return 2
+
+    indexed = args.rt_mode == "indexed"
+    mode = ColorMode.INDEXED if indexed else ColorMode.RGBA
+    channels = 1 if indexed else 4
+    tsize = CRDT_TILE_SIZE_PX
+
+    try:
+        document = Document(args.rt_width, args.rt_height, mode=mode)
+        # Background layer minted id 1, frame 0 — the raster apply target.
+        bg_layer_id = document.frames[0].layers[0].layer_id
+
+        cols = max(1, args.rt_width // tsize)
+        rows = max(1, args.rt_height // tsize)
+        if args.rt_tiles > cols * rows:
+            sys.stderr.write(
+                "perf_profile: rt-tiles %d exceeds the %dx%d tile grid.\n"
+                % (args.rt_tiles, cols, rows)
+            )
+            print(json.dumps({"error": "too-many-tiles"}))
+            return 2
+
+        # Deterministic per-tile fill (P2 — no RNG); one full interior tile each.
+        tile_bytes = bytes((i * 7 + 11) % 256 for i in range(tsize * tsize * channels))
+
+        ops = []
+        for i in range(args.rt_meta):
+            ops.append(
+                MetadataOp(key=f"k{i}", value=f"v{i}", logical_clock=1, site_id=0)
+            )
+        for i in range(args.rt_attrs):
+            ops.append(
+                LayerAttrOp(
+                    frame_index=0,
+                    layer_id=bg_layer_id,
+                    attr="opacity",
+                    value=(i % 100) / 100.0,
+                    logical_clock=1 + i,
+                    site_id=0,
+                )
+            )
+        for i in range(args.rt_tiles):
+            tx = i % cols
+            ty = i // cols
+            ops.append(
+                RasterOp(
+                    frame_index=0,
+                    layer_id=bg_layer_id,
+                    tile_x=tx,
+                    tile_y=ty,
+                    pixels=tile_bytes,
+                    tile_width=tsize,
+                    tile_height=tsize,
+                    logical_clock=1,
+                    site_id=0,
+                )
+            )
+
+        blob = encode_update(ops)
+        blob_bytes = len(blob)
+        if blob_bytes > MAX_CRDT_UPDATE_BYTES:
+            sys.stderr.write(
+                "perf_profile: blob %d B exceeds MAX_CRDT_UPDATE_BYTES %d B — the "
+                "transport/decoder would reject this at the trust boundary.\n"
+                % (blob_bytes, MAX_CRDT_UPDATE_BYTES)
+            )
+            print(json.dumps({"error": "blob-over-cap", "blob_bytes": blob_bytes}))
+            return 2
+        n_regions = len(dirty_regions(blob))
+    except Exception as exc:
+        sys.stderr.write("perf_profile: realtime construction error: %r\n" % exc)
+        print(json.dumps({"error": repr(exc)}))
+        return 2
+
+    try:
+        # Warm-up (JIT / pycrdt-init / first-call) excluded, matching the tiler.
+        for _ in range(_RT_WARMUP):
+            apply_remote(document, blob, site_id=0, state=RealtimeState())
+        samples = []
+        for _ in range(args.frames):
+            t0 = time.perf_counter()
+            # Fresh state => the full patch applies every frame (faithful single-
+            # apply cost); a persistent-state session does the same accept() work.
+            apply_remote(document, blob, site_id=0, state=RealtimeState())
+            samples.append((time.perf_counter() - t0) * 1000.0)
+    except Exception as exc:
+        sys.stderr.write("perf_profile: realtime apply error: %r\n" % exc)
+        print(json.dumps({"error": repr(exc)}))
+        return 2
+
+    samples.sort()
+    median = _percentile(samples, 0.5)
+    p95 = _percentile(samples, 0.95)
+    worst = samples[-1] if samples else 0.0
+    within = median <= budget
+    report = {
+        "mode": "realtime",
+        "median_ms": round(median, 4),
+        "p95_ms": round(p95, 4),
+        "worst_ms": round(worst, 4),
+        "budget_ms": budget,
+        "frame_budget_ms": args.frame_budget_ms,
+        "within_budget": within,
+        "frames": args.frames,
+        "blob_bytes": blob_bytes,
+        "max_update_bytes": MAX_CRDT_UPDATE_BYTES,
+        "dirty_regions": n_regions,
+        "scenario": {
+            "doc": [args.rt_width, args.rt_height],
+            "mode": args.rt_mode,
+            "tiles": args.rt_tiles,
+            "meta_ops": args.rt_meta,
+            "attr_ops": args.rt_attrs,
+            "crdt_tile_px": tsize,
+        },
+    }
+    print(json.dumps(report, indent=2, sort_keys=True))
+    if not within:
+        sys.stderr.write(
+            "perf_profile: realtime OVER budget (median %.3f ms > %.1f ms).\n"
+            % (median, budget)
+        )
+        return 1
+    sys.stderr.write(
+        "perf_profile: realtime within budget (median %.3f ms <= %.1f ms; "
+        "p95 %.3f ms; blob %d B; %d dirty regions).\n"
+        % (median, budget, p95, blob_bytes, n_regions)
     )
     return 0
 
@@ -916,7 +1234,16 @@ def main():
     )
     ap.add_argument(
         "--ov-kind",
-        choices=["iso", "perspective", "guides", "multiview", "preview", "combined"],
+        choices=[
+            "iso",
+            "perspective",
+            "guides",
+            "multiview",
+            "preview",
+            "combined",
+            "cursors",
+            "cursors-rt",
+        ],
         default="iso",
     )
     ap.add_argument("--ov-scene", type=int, nargs=2, default=[D_W, D_H])
@@ -941,8 +1268,44 @@ def main():
     ap.add_argument("--ov-views", type=int, default=7)
     ap.add_argument("--ov-dirty", type=int, nargs=2, default=[64, 64])
     ap.add_argument("--ov-preview-scale", type=float, default=1.389)
+    ap.add_argument(
+        "--ov-cursors",
+        type=int,
+        default=D_MAX_CURSORS,
+        help="live-cursor count for --ov-kind cursors / cursors-rt "
+        "(capped at MAX_SHARED_MEMBERS by the overlay)",
+    )
+    ap.add_argument(
+        "--ov-no-selection",
+        action="store_true",
+        help="cursors kind: draw crosshair+label only (no selection rect fill)",
+    )
+    # --- Phase-10 Slice C realtime mode (FLAG-PERFRAME apply profiler) --------
+    ap.add_argument(
+        "--realtime",
+        action="store_true",
+        help="profile realtime_apply.apply_remote vs FRAME_BUDGET_MS (Qt-free)",
+    )
+    ap.add_argument("--rt-width", type=int, default=D_W)
+    ap.add_argument("--rt-height", type=int, default=D_H)
+    ap.add_argument(
+        "--rt-tiles", type=int, default=1, help="raster tile ops in the update"
+    )
+    ap.add_argument("--rt-meta", type=int, default=0, help="metadata ops in the update")
+    ap.add_argument(
+        "--rt-attrs", type=int, default=0, help="layer-attr ops in the update"
+    )
+    ap.add_argument("--rt-mode", choices=["rgba", "indexed"], default="rgba")
+    ap.add_argument(
+        "--rt-ceiling-ms",
+        type=float,
+        default=D_RT_CEILING,
+        help="realtime apply sub-frame ceiling ms (default REALTIME_APPLY_CEILING_MS)",
+    )
     args = ap.parse_args()
 
+    if args.realtime:
+        return _run_realtime(args)
     if args.overlay:
         return _run_overlay(args)
     if args.composite:
