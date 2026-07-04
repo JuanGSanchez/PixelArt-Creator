@@ -379,3 +379,85 @@ def make_blob_setup(make_tilemap_setup):
         return make_tilemap_setup(cols=7, rows=7, tile=tile, layers=layers)
 
     return _make
+
+
+# --------------------------------------------------------------------------- #
+# Phase-8 automation fixtures (AGT-06). The window-owned Automation_Controller  #
+# is already reached by the ``_drain_prewarm_after_test`` fixture above, since  #
+# ``Main_Window.shutdown_prewarm`` calls ``self._automation_controller`.        #
+# ``shutdown()`` (main_window.py) — so a window-owned controller drains and     #
+# releases its carrier at teardown exactly like the export controller. A        #
+# STANDALONE controller built directly in a test (responsiveness / teardown) is #
+# NOT parented to a tracked Main_Window, so it needs the dedicated fixture below #
+# (mirroring ``export_controller``) to guarantee its window-owned QThreadPool +  #
+# signal carrier are drained + released even if the test body asserts and fails #
+# — no automation worker thread / connected carrier survives into a later test's #
+# GC (the Phase-5 cross-thread-GC-of-Qt-C++ segfault guard, under pytest -n auto)#
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+def automation_controller():
+    """Yield a standalone :class:`Automation_Controller`, torn down deterministically."""
+    from pixelart_creator.ui.automation_worker import Automation_Controller
+
+    controller = Automation_Controller()
+    try:
+        yield controller
+    finally:
+        controller.shutdown()
+
+
+@pytest.fixture
+def mute_message_boxes(monkeypatch):
+    """Patch the blocking ``QMessageBox`` helpers so error surfacing never hangs.
+
+    Automation error/consent flows raise a modal ``QMessageBox`` (warning /
+    information / critical). Headless with no event loop these would block, so the
+    fixture records every call and returns immediately. ``question`` is left to the
+    individual test to control (the consent-gate assertion needs a definite answer).
+    Returns the recorded ``(kind, title, text)`` calls for assertion.
+    """
+    from PySide6.QtWidgets import QMessageBox
+
+    calls: list = []
+
+    def _record(kind):
+        def _fn(parent, title, text, *a, **k):
+            calls.append((kind, title, text))
+            return QMessageBox.StandardButton.Ok
+
+        return staticmethod(_fn)
+
+    monkeypatch.setattr(QMessageBox, "warning", _record("warning"))
+    monkeypatch.setattr(QMessageBox, "information", _record("information"))
+    monkeypatch.setattr(QMessageBox, "critical", _record("critical"))
+    return calls
+
+
+@pytest.fixture
+def plugin_isolation():
+    """Restore the process-global plugin/DSL registries after a plugin test.
+
+    ``logic.plugins._LOADED`` and ``logic.scripting._REGISTRY`` are module-global.
+    A plugin test that enables a plugin / registers an op must not leak that state
+    into a later test (or a parallel xdist worker's later test). This fixture
+    snapshots both, then on teardown disables any newly loaded plugin and
+    unregisters any op not present before the test — leaving the built-in ops
+    (``batch_recolour`` / ``procgen``) intact.
+    """
+    from pixelart_creator.logic import plugins, scripting
+
+    loaded_before = set(plugins._LOADED)
+    ops_before = set(scripting.registered_ops())
+    try:
+        yield
+    finally:
+        for name in list(plugins._LOADED):
+            if name not in loaded_before:
+                handle = plugins._LOADED.get(name)
+                if handle is not None:
+                    handle.disable()
+        for op in scripting.registered_ops():
+            if op not in ops_before:
+                scripting.unregister_command(op)
