@@ -603,3 +603,57 @@ shipped model is 2 levels (sections -> topics); ``build_model`` validates the
 achieved depth stays ``<= GUIDE_MAX_TOC_DEPTH`` so a future nested manifest cannot
 grow an unbounded tree (Article VII; Article XI extensibility bound) (ADR-0029 §6;
 plan §3.4; spec REQ-UG-LOGIC-001/002/NFR-6)."""
+# --- Phase-11 team & asset-management tuning (phase-11 T11-1-01; Article II) -------
+# Named bounds/defaults consumed by the new zero-Qt asset models
+# (logic/asset_catalog.py, logic/asset_tags.py, logic/asset_query.py) and the new
+# zero-Qt asset stores (data/asset_cas.py, data/asset_catalog_io.py). BF-1 (plan §8 /
+# ADR-0030 / ADR-0032): every name is DISTINCT from every shipped constant. The
+# AssetKind enum is a module-local enumerated *vocabulary* and lives in
+# logic/asset_catalog.py, NOT here (ADR-0001 / BF-2, the BlendMode/PlaybackMode/
+# SyncState precedent). MAX_DEPENDENCY_DEPTH (Slice 2) and MAX_ASSET_VERSIONS (Slice 3)
+# land with their slices (plan §8), not here. This module stays a leaf (no intra-package
+# imports).
+
+MAX_CATALOG_ASSETS: int = 65536
+"""Defensive cap on the number of asset entries in one catalog (Article VII).
+
+:meth:`~pixelart_creator.logic.asset_catalog.AssetCatalog.add` and the defensive catalog
+loader (:func:`~pixelart_creator.data.asset_catalog_io.load_catalog`) reject a catalog
+exceeding this, so a tampered/oversized index can never exhaust memory. Parallels the
+shipped :data:`MAX_TILESET_TILES` (=65536) local-id scale — a DISTINCT named concern
+(plan §8; spec REQ-P11-LOGIC-007; ADR-0030 §7)."""
+
+MAX_TAGS_PER_ASSET: int = 64
+"""Defensive cap on the number of tags attached to one asset (Article VII).
+
+A tag add that would exceed it raises ``AssetTagError`` rather than truncating silently
+(REQ-P11-DATA-003 acceptance). Parallels the shipped :data:`FAVOURITES_MAX` (=64), a
+DISTINCT named concern (plan §8; spec REQ-P11-LOGIC-002/-007; ADR-0030)."""
+
+MAX_TAG_BYTES: int = 128
+"""Defensive per-tag UTF-8 byte cap (Article VII) — a short label.
+
+Tag text is untrusted input; a tag whose encoded size exceeds this is rejected with
+``AssetTagError`` / ``AssetCatalogError`` before it is stored, so a tampered/oversized
+tag can never exhaust memory or reach ``eval``/``exec`` (plan §8; spec
+REQ-P11-DATA-003/LOGIC-002/-007)."""
+
+MAX_METADATA_BYTES: int = 4096
+"""Defensive per-asset metadata UTF-8 byte cap (Article VII).
+
+Measured over the canonical JSON encoding of the metadata mapping. Asset metadata is
+untrusted input; a metadata bag whose canonical size exceeds this is rejected before it
+is stored. Parallels the shipped :data:`MAX_COMMENT_BYTES` (=4096), a DISTINCT named
+concern (plan §8; spec REQ-P11-DATA-002/LOGIC-007)."""
+
+MAX_BLOB_BYTES: int = 268435456
+"""Defensive per-CAS-blob ceiling, bytes — 256 MiB (Article VII).
+
+A blob offered to :meth:`~pixelart_creator.data.asset_cas.ContentAddressableStore.put`
+whose size exceeds this is rejected with ``CasError`` *before* it is stored, and an
+oversized fetched blob is rejected before decode, so a tampered/oversized asset payload
+can never exhaust memory or reach ``eval``/``exec`` (an 8K RGBA layer resident is
+~126 MB; this leaves headroom for multi-layer/animation payloads). SHARES THE VALUE of
+the shipped :data:`MAX_CLOUD_PROJECT_BYTES` (=268435456) but is a DISTINCT named concern
+— the CAS blob ceiling, not the cloud project ceiling (plan §8; spec
+REQ-P11-DATA-004/-005/LOGIC-007; ADR-0030 §4)."""
