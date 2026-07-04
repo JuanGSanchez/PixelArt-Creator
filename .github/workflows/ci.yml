@@ -97,8 +97,14 @@ jobs:
         # hung test fails fast (naming itself) instead of hanging the whole run.
         # --durations=15: always surface the 15 slowest tests in the CI log so a
         # creeping suite-runtime regression is visible (FU-12 / FU-20).
+        # -m "not slow and not gpu and not cloud_live": cloud_live gates the
+        # live credential/OAuth provider tests (real OS keyring, out-of-CI,
+        # CL-B2/CL-B3) so they skip here; the MOCKED provider contract tests
+        # (tests/data/test_cloud_providers_*) carry NO marker and still run. The
+        # in-process real-time backend suite (tests/backend/) is collected via
+        # testpaths=["tests"] and runs with the mocked loopback/ws transports.
         run: |
-          pytest -n auto -m "not slow and not gpu" \
+          pytest -n auto -m "not slow and not gpu and not cloud_live" \
             --timeout=120 --timeout-method=thread --durations=15 \
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 
@@ -153,3 +159,31 @@ jobs:
         # dirty rect x views, not the 8K canvas x N). Guards the REQ-P9-UI-008
         # live-sync render loop against the same 48 ms OVERLAY_FRAME_CEILING_MS.
         run: python scripts/perf_profile.py --overlay --ov-kind combined --ov-views 7 --ov-dirty 64 64 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
+
+      - name: Visual-aids overlay perf gate — part 4 (Slice-C live cursors)
+        # Phase-10 Slice C (AGT-10 report §5, REQ-P10-UI-013). Times the REAL
+        # shipped Live_Cursors_Overlay.paint() with the worst case of
+        # MAX_SHARED_MEMBERS (32) collaborator cursors all inside the exposed rect
+        # (no cull) and exits non-zero if the median frame exceeds
+        # OVERLAY_FRAME_CEILING_MS (48 ms, passed via --budget-ms 48). Headless
+        # offscreen Qt via the job env (currently ~1.3 ms).
+        run: python scripts/perf_profile.py --overlay --ov-kind cursors --ov-cursors 32 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
+
+      - name: Visual-aids overlay perf gate — part 5 (Slice-C combined apply + cursors frame)
+        # Companion Slice-C gate: the COMBINED interactive frame — one
+        # realtime_apply.apply_remote plus the 32-cursor overlay paint — against
+        # the same 48 ms OVERLAY_FRAME_CEILING_MS. Guards the live-collab render
+        # loop end-to-end (apply + draw), distinct from the sub-frame apply-only
+        # --realtime gate below (currently ~1.6 ms).
+        run: python scripts/perf_profile.py --overlay --ov-kind cursors-rt --ov-cursors 32 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
+
+      - name: Realtime apply-remote perf gate (Slice-C, sub-frame ceiling)
+        # Phase-10 Slice C (AGT-10, REQ-P10-LOGIC — realtime_apply). Standalone
+        # Qt-free P11 gate: times a single realtime_apply.apply_remote of a 47-tile
+        # remote update on an 8K document and exits non-zero if the median exceeds
+        # REALTIME_APPLY_CEILING_MS (10 ms, logic/constants.py — the --rt-ceiling-ms
+        # default). This is a genuine sub-frame apply target (patch-apply must leave
+        # headroom under the 16 ms frame for the cursor overlay draw), NOT the
+        # per-frame overlay budget. numpy + pycrdt + logic only, no pytest marker,
+        # no Qt (currently ~6.9 ms).
+        run: python scripts/perf_profile.py --realtime --rt-tiles 47 --frames 30
