@@ -130,3 +130,26 @@ jobs:
         # render regression class distinct from the interactive budget above
         # (currently ~247 ms). numpy + logic only, no pytest marker, no Qt.
         run: python scripts/perf_profile.py --tilemap --tm-region 7680 4320 --tm-tile 16 --frames 8 --budget-ms 3000
+
+      - name: Visual-aids overlay perf gate — part 1 (worst-case iso overlay)
+        # Phase-9 (AGT-10/AGT-01, REQ-P9-UI-011). Times the REAL shipped iso-grid
+        # overlay item's paint() over the full-scene worst case (fine 2 px tiles,
+        # 1920x1080 viewport) and exits non-zero if the median frame exceeds
+        # OVERLAY_FRAME_CEILING_MS (48 ms, logic/constants.py — passed via
+        # --budget-ms 48). Article VI's per-frame budget APPLIES this phase because
+        # the overlays + multi-view are on the interactive render loop (unlike the
+        # Phase-7/8 batch work). Headless offscreen Qt via the job env.
+        run: python scripts/perf_profile.py --overlay --ov-kind iso --ov-tile 2 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
+
+      - name: Visual-aids overlay perf gate — part 2 (zoomed iso, exposed sub-rect)
+        # Companion iso gate at an interactive zoom (16x) over a small exposed
+        # sub-rect (120x67 px) — the culled-viewport draw the user actually pays
+        # for while editing. Same OVERLAY_FRAME_CEILING_MS (48 ms) ceiling.
+        run: python scripts/perf_profile.py --overlay --ov-kind iso --ov-tile 2 --ov-zoom 16 --ov-exposed 120 67 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
+
+      - name: Visual-aids overlay perf gate — part 3 (combined multi-view + preview)
+        # Combined dirty-rect composite: 7 extra views + the real-size preview each
+        # blit a 64x64 dirty sub-rect (MinimalViewportUpdate — cost scales with the
+        # dirty rect x views, not the 8K canvas x N). Guards the REQ-P9-UI-008
+        # live-sync render loop against the same 48 ms OVERLAY_FRAME_CEILING_MS.
+        run: python scripts/perf_profile.py --overlay --ov-kind combined --ov-views 7 --ov-dirty 64 64 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
