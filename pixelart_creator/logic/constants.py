@@ -275,3 +275,66 @@ class, so it never flakes on a noisy 2-core CI runner yet always catches a
 catastrophic viewport-render regression. AGT-09 wires ci.yml to pass this value as
 ``perf_profile.py --tilemap --budget-ms``.
 (AGT-10 rendering-performance re-profile / perf-gate spec; S12 single-source.)"""
+
+# --- Phase-7 export & pipeline tuning (phase-7 T7A-01; Article II single-source) --
+# Named bounds/defaults consumed by logic/export.py (raster/sprite-sheet pipeline)
+# and logic/atlas.py (MaxRects atlas over CP-1). BF-1 (plan §8 / ADR-0019): every
+# name is DISTINCT from every shipped constant — notably PNG_EXPORT_COMPRESS_LEVEL
+# (=6, Pillow's documented default, pinned) is DISTINCT from the shipped
+# PROJECT_ZLIB_LEVEL (=9, .pixproj pixel-data compression — a different concern).
+# The ExportFormat/EnginePreset enums are enumerated *vocabulary* (like BlendMode /
+# PlaybackMode) and live in logic/export.py, NOT here (BF-2). Pillow enum values
+# (Dither.NONE), format strings, and the Aseprite/Unity/Godot wire-format version
+# strings stay module-local to their module (ADR-0001). The atlas caller passes
+# MAX_ATLAS_DIMENSION explicitly to compactor.compact (CP-1 imports no constants).
+# This module stays a leaf (no intra-package imports).
+
+DEFAULT_SPRITE_SHEET_COLUMNS: int = 8
+"""Default sprite-sheet grid width, in frames (deterministic row-major layout)
+(CL-5; plan §8; spec REQ-P7-LOGIC-005/012; SC-L005-1/SC-L012-1)."""
+
+DEFAULT_ATLAS_PADDING: int = 0
+"""Default inter-sprite padding, px, on a sheet/atlas (no gap → lossless, exact
+coordinate/pixel round-trip) (CL-15; plan §8; spec REQ-P7-LOGIC-005/006/012)."""
+
+MAX_ATLAS_DIMENSION: int = MAX_CANVAS_WIDTH
+"""Defensive bound, px, on an atlas edge — passed explicitly to
+:func:`~pixelart_creator.logic.compactor.compact` (CP-1 imports no constants).
+
+ALIGNED TO THE PLATFORM 8K CEILING (Article VI). The packed atlas is built as a
+:class:`~pixelart_creator.logic.pixel_buffer.PixelBuffer`, whose buildable maximum
+is :data:`MAX_CANVAS_WIDTH` (=7680) x :data:`MAX_CANVAS_HEIGHT` (=4320). A former
+value of 8192 EXCEEDED that width ceiling, so a sheet packed wider/taller than the
+buildable buffer raised :class:`PixelBufferError` (a DIFFERENT class than
+:class:`~pixelart_creator.logic.atlas.AtlasError`) when the sheet was allocated —
+an inconsistency (S2 defect, found by AGT-10). Defining the atlas edge bound AS the
+canvas width ceiling makes the default un-exceedable by the buffer. Note the height
+axis is further clamped to :data:`MAX_CANVAS_HEIGHT` inside
+:func:`~pixelart_creator.logic.atlas.pack_atlas` (the buffer is not square), so the
+effective per-axis atlas ceiling is ``min(max_dimension, MAX_CANVAS_WIDTH)`` x
+``min(max_dimension, MAX_CANVAS_HEIGHT)`` — see that function. Article VII/VI;
+plan §8; spec REQ-P7-LOGIC-006/012; SC-L012-1; ADR-0017/0019."""
+
+MAX_BATCH_TARGETS: int = 256
+"""Defensive cap on the number of targets in one batch export (Article VII;
+parallels :data:`MAX_LAYERS_PER_FRAME`) (CL-10; plan §8; spec
+REQ-P7-LOGIC-010/012; SC-L010-1/SC-L012-1)."""
+
+MAX_EXPORT_FRAMES: int = 4096
+"""Defensive cap on frames per sprite-sheet / GIF (Article VII; parallels the
+shipped :data:`MAX_FRAMES`) (plan §8; spec REQ-P7-LOGIC-005/012; SC-L012-1)."""
+
+PNG_EXPORT_COMPRESS_LEVEL: int = 6
+"""ZLIB level for byte-reproducible PNG export, pinned to Pillow's documented
+default. DISTINCT from :data:`PROJECT_ZLIB_LEVEL` (=9, .pixproj pixel-data
+compression — a different concern) (ADR-0019; plan §8; spec REQ-P7-LOGIC-003;
+SC-L003-1)."""
+
+GIF_DEFAULT_LOOP_COUNT: int = 0
+"""Default GIF loop count; ``0`` = loop forever (Aseprite / GIF norm) (ADR-0019;
+plan §8; spec REQ-P7-LOGIC-004; SC-L004-1)."""
+
+GIF_FRAME_DISPOSAL: int = 2
+"""GIF per-frame disposal method; ``2`` = restore-to-background — the safe
+per-frame pixel-art default (ADR-0019; plan §8; spec REQ-P7-LOGIC-004;
+SC-L004-1)."""
