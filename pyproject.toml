@@ -30,6 +30,10 @@ dependencies = [
     "PySide6>=6.6",
     "numpy>=1.26",
     "Pillow>=10.0",
+    # Phase-10 Slice B: CRDT convergence core. PINNED — ships prebuilt cp312
+    # manylinux x86_64 wheels (only anyio at runtime, no source build on
+    # Linux/py3.12 CI). Ships py.typed, so it is NOT in mypy ignore_missing_imports.
+    "pycrdt==0.14.1",
 ]
 
 [project.optional-dependencies]
