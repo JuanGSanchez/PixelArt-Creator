@@ -93,9 +93,12 @@ def test_move_out_of_range_is_noop(qtbot, make_tilemap_setup):
     panel = Tilemap_Layer_Panel()
     qtbot.addWidget(panel)
     panel.set_context(tilemap, stack, None)
-    panel._on_add()  # 2 layers
-    panel._list.setCurrentRow(0)  # active_layer() -> 0 (index 0)
-    panel._on_move_down()  # target -1 -> out of range -> no-op
+    panel._on_add()  # 2 layers -> list shows 2 rows (reversed: top row = last layer)
+    panel._list.setCurrentRow(0)  # top row selected
+    # The panel resolves reorders in ROW space (the S2 reversed-list fix): moving the
+    # top row UP targets row -1, which is out of range, so the guard makes it a no-op
+    # and pushes no command. (Moving the top row DOWN would be a valid reorder.)
+    panel._on_move_up()  # target row -1 -> out of range -> no-op
     assert stack.index() == 1  # only the add; move was a no-op
 
 

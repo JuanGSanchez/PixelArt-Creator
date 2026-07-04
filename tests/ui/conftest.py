@@ -8,7 +8,9 @@ offscreen Qt platform is forced before any ``QApplication`` is created (F11).
 
 from __future__ import annotations
 
+import functools
 import os
+import weakref
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -59,6 +61,64 @@ CYAN = (0, 255, 255, 255)
 TRANSPARENT = (0, 0, 0, 0)
 
 
+# --------------------------------------------------------------------------- #
+# Off-thread-warm teardown registry (S1 blocker; Phase-6 CI-regression fix).    #
+#                                                                               #
+# Every test that builds a ``Main_Window`` / ``CanvasScene`` / ``Tilemap_Canvas`` #
+# must, on teardown, drain its off-thread warm pool + release its signal        #
+# carrier so no live worker / connected carrier survives into a later test's GC #
+# (the PySide6 cross-thread-GC-of-Qt-C++ segfault, Phase-5 contract) — AND the  #
+# instance itself must be DISPOSED, not merely dereferenced. Headless (offscreen,#
+# no running event loop) a standalone widget's ``deleteLater`` never fires, so   #
+# ``QApplication`` keeps it in ``topLevelWidgets()`` and it (plus its scene, its #
+# 128-MiB-capable chunk-pixmap cache, its ``QThreadPool`` and render buffers) is #
+# NEVER collected. Across 2452 tests those instances accumulate monotonically.  #
+#                                                                               #
+# The previous teardown walked ``gc.get_objects()`` (the WHOLE heap) on EVERY   #
+# test to find live instances, then ran a full ``gc.collect()``. Both costs     #
+# scale with the live-object count, so as the leaked instances piled up the     #
+# per-test teardown got progressively slower — the 6-11 min-per-3%-block tail   #
+# that cancelled CI run 28685252881 at the 75-min cap. Coverage instrumentation #
+# and two xdist workers amplified it.                                           #
+#                                                                               #
+# The fix: an EXPLICIT ``weakref.WeakSet`` registry populated at construction    #
+# (by wrapping each class's ``__init__`` once, here in test infra — no product   #
+# edit), so teardown iterates only the handful of instances that exist instead  #
+# of the whole heap; and each tracked instance is deterministically drained,    #
+# its chunk cache cleared, then ``deleteLater``-d with the deferred-delete queue #
+# flushed synchronously — so the heap (and process memory) stays BOUNDED and    #
+# the per-test teardown stays O(instances-this-test), i.e. flat. Draining before #
+# disposal preserves the event-loop-free Phase-5 safety contract: every pool is #
+# already drained and every carrier disconnected before anything is deleted, so #
+# no worker thread is live across the (synchronous, non-re-entrant) deferred-    #
+# delete flush.                                                                  #
+# --------------------------------------------------------------------------- #
+
+#: Live Main_Window / CanvasScene / Tilemap_Canvas instances awaiting teardown.
+#: A WeakSet so a collected instance drops out on its own — the registry can
+#: never itself pin an instance alive.
+_LIVE_UI_INSTANCES: "weakref.WeakSet" = weakref.WeakSet()
+
+
+def _register_on_init(cls: type) -> None:
+    """Wrap ``cls.__init__`` once so every new instance joins the teardown set."""
+    original = cls.__init__
+    if getattr(original, "_pac_registered", False):
+        return  # already wrapped (idempotent across re-imports)
+
+    @functools.wraps(original)
+    def _wrapped(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        _LIVE_UI_INSTANCES.add(self)
+
+    _wrapped._pac_registered = True  # type: ignore[attr-defined]
+    cls.__init__ = _wrapped  # type: ignore[method-assign]
+
+
+for _tracked_cls in (Main_Window, CanvasScene, Tilemap_Canvas):
+    _register_on_init(_tracked_cls)
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """Guarantee the offscreen platform even if imported indirectly (F11)."""
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -101,54 +161,90 @@ def _drain_prewarm_after_test():
     28663849512 at
     ``test_lazy_perf.py::test_lazy_analytics_new_document_with_hidden_dock_no_scan[dark]``).
 
-    This autouse teardown runs after **every** UI test — with no per-test opt-in
-    — and calls the deterministic, event-loop-free
-    :meth:`CanvasScene.shutdown_prewarm` / :meth:`Main_Window.shutdown_prewarm`
-    (AGT-05, uncommitted product fix) on **every** live scene and window still
-    reachable, then forces a collection while all pools are drained and all
-    carriers are disconnected. A ``Main_Window`` drains its own tabs' scenes and
-    a scene reached both via its window and directly is drained twice; both APIs
-    are idempotent, so that is safe. This covers the ``make_scene`` / ``make_view``
-    factories AND the ~33 modules that build a ``CanvasScene`` / ``Main_Window``
-    directly (e.g. ``test_lazy_perf.py`` line ~136) without editing any of them.
+    Phase-6 added the same hazard class to the tilemap canvas (a scene-owned
+    :class:`~PySide6.QtCore.QThreadPool` chunk warmer + a
+    ``TilemapChunkWarmSignals`` carrier) plus a 128-MiB-capable chunk-pixmap cache.
+
+    This autouse teardown runs after **every** UI test — with no per-test opt-in —
+    and, walking ONLY the ``_LIVE_UI_INSTANCES`` registry (never ``gc.get_objects()``;
+    see that registry's rationale), calls the deterministic, event-loop-free
+    :meth:`CanvasScene.shutdown_prewarm` / :meth:`Main_Window.shutdown_prewarm` /
+    :meth:`Tilemap_Canvas.shutdown_warm` on every instance the test created, releases
+    each tilemap chunk cache, then deletes the tracked widgets and forces a single
+    collection — all while every pool is drained and every carrier disconnected. A
+    ``Main_Window`` drains its own tabs' scenes AND its shared tilemap canvas, so a
+    scene reached both via its window and directly is drained twice; every API is
+    idempotent, so that is safe. The registry is populated at construction, so this
+    covers the ``make_scene`` / ``make_view`` / tilemap factories AND the modules that
+    build a ``CanvasScene`` / ``Main_Window`` / ``Tilemap_Canvas`` directly (e.g.
+    ``test_lazy_perf.py``) without editing any of them.
     """
     yield
 
     import gc
 
-    # gc.get_objects() is the only net that reaches EVERY live instance,
-    # however it was constructed (fixture, factory, or bare constructor),
-    # without each test opting in. Idempotent + guarded, so double/partial
-    # drains are harmless.
-    #
-    # Phase-6 (AGT-06): the tilemap canvas owns its OWN off-thread chunk warmer
-    # (``_Tilemap_Scene`` QThreadPool + ``TilemapChunkWarmSignals`` carrier) — the
-    # same PySide6 cross-thread-GC-of-Qt-C++ segfault class as the Phase-5 prewarm.
-    # A ``Main_Window``'s tilemap canvas is drained by its ``shutdown_prewarm``
-    # (it calls ``self._tilemap_canvas.shutdown_warm()``), so the Main_Window branch
-    # already covers it. A test that builds a **standalone** ``Tilemap_Canvas`` (no
-    # window) is NOT reached that way, so it is drained explicitly here via
-    # ``shutdown_warm``. This makes the tilemap tests xdist-safe (``-n auto``) with
-    # no per-test opt-in — no worker thread / connected carrier survives into a
-    # later worker-process test's GC.
-    for obj in gc.get_objects():
-        if isinstance(obj, (Main_Window, CanvasScene)):
-            try:
+    # Iterate ONLY the tracked instances (the WeakSet registry), never the whole
+    # heap: ``list(...)`` snapshots them so disposal below can mutate the set. Each
+    # instance is drained first (pool cleared + carrier released) — idempotent and
+    # guarded, so a double/partial drain is harmless — mirroring the Phase-5
+    # deterministic, event-loop-free contract. A ``Main_Window`` drains its own
+    # tabs' scenes AND its shared tilemap canvas via ``shutdown_prewarm``; a
+    # standalone ``CanvasScene`` / ``Tilemap_Canvas`` is drained directly.
+    tracked = list(_LIVE_UI_INSTANCES)
+    for obj in tracked:
+        try:
+            if isinstance(obj, (Main_Window, CanvasScene)):
                 obj.shutdown_prewarm()
-            except (RuntimeError, AttributeError):
-                # RuntimeError: underlying Qt C++ object already deleted.
-                # AttributeError: instance from a __init__ that raised before
-                # the warm attributes existed -> nothing live to drain.
-                pass
-        elif isinstance(obj, Tilemap_Canvas):
-            try:
+            elif isinstance(obj, Tilemap_Canvas):
                 obj.shutdown_warm()
+        except (RuntimeError, AttributeError):
+            # RuntimeError: underlying Qt C++ object already deleted.
+            # AttributeError: instance from a __init__ that raised before the warm
+            # attributes existed -> nothing live to drain.
+            pass
+
+    # Release the tilemap chunk-pixmap caches (up to 128 MiB of QPixmaps each) NOW,
+    # while we still hold each canvas (the resident tileset/pixel data is untouched —
+    # only derived pixmaps are dropped, Article VI §3).
+    for obj in tracked:
+        try:
+            if isinstance(obj, Tilemap_Canvas):
+                obj._scene._chunk_cache.clear()
+        except (RuntimeError, AttributeError):
+            pass
+
+    # DISPOSE the tracked widgets deterministically. Headless (offscreen, no running
+    # event loop) a widget's ``deleteLater`` never fires, so QApplication keeps every
+    # standalone widget in ``topLevelWidgets()`` and it — plus its scene, its
+    # QThreadPool and (for a tilemap) its chunk cache — is NEVER collected. Across
+    # 2452 tests those instances pile up monotonically, and BOTH the per-test
+    # ``gc.collect()`` (which walks every live container) and — before this fix — the
+    # whole-heap ``gc.get_objects()`` sweep scale with that pile, producing the
+    # progressive teardown-cost tail that cancelled CI at the 75-min cap.
+    #
+    # ``shiboken6.delete`` deletes the underlying C++ object SYNCHRONOUSLY and — being
+    # scoped to exactly the tracked instances — never disturbs qtbot's own widgets or
+    # any object still in flight (a whole-app ``sendPostedEvents(DeferredDelete)``
+    # flush is NOT event-loop-free and could delete an object another fixture still
+    # holds — observed to crash the worker natively). Deleting a parent deletes its
+    # children, so a Main_Window-owned tilemap canvas may already be gone by the time
+    # the loop reaches it; ``isValid`` guards that. Pools were drained + carriers
+    # disconnected above, so nothing live is torn across the delete.
+    import shiboken6
+
+    for obj in tracked:
+        if isinstance(obj, (Main_Window, Tilemap_Canvas)):
+            try:
+                if shiboken6.isValid(obj):
+                    shiboken6.delete(obj)
             except (RuntimeError, AttributeError):
                 pass
 
-    # Collect NOW, while every pool is drained and every carrier disconnected,
-    # so no worker thread / connected carrier survives into a later test where
-    # the cross-thread GC-of-Qt-C++ segfault would otherwise fire.
+    # Collect NOW, while every pool is drained and every carrier disconnected, so no
+    # worker thread / connected carrier survives into a later test where the Phase-5
+    # cross-thread-GC-of-Qt-C++ segfault would otherwise fire. With the tracked widgets
+    # deleted and the caches released, the heap stays bounded, so this collect stays
+    # cheap and the per-test teardown cost stays flat across the 2452-test suite.
     gc.collect()
 
 

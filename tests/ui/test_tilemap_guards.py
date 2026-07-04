@@ -156,7 +156,11 @@ def test_layer_factory_errors_surface_warnings(qtbot, monkeypatch, make_tilemap_
     _tileset, tilemap = make_tilemap_setup(layers=1)
     panel, stack = _panel(qtbot, tilemap)
     panel._on_add()  # 2 layers so remove/move have a valid selection
-    panel._list.setCurrentRow(0)
+    # Select the BOTTOM row so _on_move_up targets an in-range row (row 0): the panel
+    # guards reorders in ROW space (the S2 reversed-list fix), so a top-row move-up
+    # would be an out-of-range no-op that returns BEFORE reaching the factory. From
+    # the bottom row all three ops reach their (monkeypatched) factory and warn.
+    panel._list.setCurrentRow(1)
     warnings = []
     monkeypatch.setattr(
         tlp_module.QMessageBox, "warning", lambda *a, **k: warnings.append(a)
