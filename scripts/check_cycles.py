@@ -7,6 +7,11 @@
 # FLAVOUR: standalone
 # LOCATION: scripts/check_cycles.py
 # INVOKED BY: AGT-01 Architecture (pre-flight + sdd-analyze gate); AGT-09 CI.
+#   PHASE-10: run a second time over the sync backend so its internal graph is
+#   also cycle-checked (the backend is a separate top-level package, ADR-0027;
+#   the check is generic over --root, so no rule change is needed):
+#     python scripts/check_cycles.py --root pixelart_creator   # client package
+#     python scripts/check_cycles.py --root sync_backend        # backend package
 # RUNTIME: Python 3.8+ (CPython, stdlib only: ast, os, sys, json, argparse).
 # ENTRYPOINT: python scripts/check_cycles.py [--root pixelart_creator] [--json]
 # INPUTS:
