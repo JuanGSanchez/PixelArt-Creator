@@ -215,6 +215,80 @@
 | `export_actions.py` | **new** | Export menu/toolbar actions; surface `ExportError`/`AtlasError`/`ProjectIOError`/unwritable-path as user-facing errors (no crash, no partial file left as valid). `tr()` strings. | `export_dialog`, `batch_export_panel` | UI-001, 007, 008, 013 |
 | `main_window.py` | extend | Add the Export menu + actions; hold active document + parameters (view state); wire dialog/batch panel/worker. **No `ui/commands.py` change** (export non-destructive). | `document`, the new export UI | UI-001, 005, 009 |
 
+## `pixelart_creator/logic/` — Phase-8 automation & extensibility — BUILT (Slices 8A/8B/8C)
+
+> New Qt-free `logic/scripting.py` + `logic/macro.py` + `logic/plugins.py` + `logic/procgen.py` +
+> `logic/batch_ops.py` + additive `constants.py` extension, frozen by AGT-01 (`interface-contract`,
+> plan §5) BEFORE implementation so Slices 8D/8E bind to a stable contract. **Security is central
+> (Article VII):** the scripting surface is a **data-driven command DSL** replayed by a **trusted
+> dispatcher** over the shipped `history` reversible commands — **ZERO `eval`/`exec`** on any path
+> (the engine executes data, not a language; ADR-0021). Plugins are **trusted-with-consent,
+> default-deny, no-auto-run** and may only register/invoke DSL commands (ADR-0021). Domain grounded by
+> `docs/research-phase-8-automation-20260704.md` (pysandbox/RestrictedPython settled-unsafe; Option A
+> DSL; `importlib.metadata` discovery; OpenSimplex procgen). **PL8-D3 (cycle-free):** `plugins →
+> scripting` is the ONLY inbound edge to `scripting` (the command registry lives in `scripting`);
+> `scripting` never imports `plugins`; `macro` never imports `scripting` (the dispatcher imports
+> `macro`); none imports `document` back or Qt/`ui` → acyclic, no `logic → data` edge. Batch recolour
+> **composes `palette_ops` (PS-1)** — recolour maths not re-implemented (Article I). New numerics →
+> `constants.py` (`MAX_MACRO_STEPS=4096`, `MAX_SCRIPT_OPS=100000`, `MAX_PLUGINS_LOADED=64`,
+> `MAX_BATCH_RECOLOUR_TARGETS=256` — DISTINCT from Phase-7 `MAX_BATCH_TARGETS=256` —
+> `MAX_PROCGEN_DIMENSION=7680`, `DEFAULT_PROCGEN_SEED=0`). DSL op-name vocabulary, macro
+> `schema_version` string, and the plugin `Capability` enum stay module-local (ADR-0001/BF-2). Security
+> model in **ADR-0021**; macro format / plugin discovery / CLI placement / procgen-batch scope /
+> layering in **ADR-0022**. New `ScriptError`/`MacroError`/`PluginError`/`ProcgenError`/`BatchError(ValueError)`.
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `constants.py` | extend | +6 automation numerics (leaf); names distinct from every shipped constant. | `MAX_MACRO_STEPS`, `MAX_SCRIPT_OPS`, `MAX_PLUGINS_LOADED`, `MAX_BATCH_RECOLOUR_TARGETS`, `MAX_PROCGEN_DIMENSION`, `DEFAULT_PROCGEN_SEED` | LOGIC-013 |
+| `scripting.py` | **new** | Command registry (op-name → trusted `history.Command` factory + param schema) + trusted dispatcher (validate + construct + push; one grouped undoable `Command`; `MAX_SCRIPT_OPS`); scripting API. **No `eval`/`exec`.** Zero Qt. | `Op`, `register_command`, `dispatch`, `ScriptError` | LOGIC-001, 002, 003, 013 |
+| `macro.py` | **new** | Macro model: `record` an ordered `{op, params, seed}` list (resolved inputs + stable ids + seed, not a pixel diff; `MAX_MACRO_STEPS`); `replay` deterministically via the dispatcher → one grouped undoable `Command`. No `scripting` import (no back-edge). Zero Qt. | `Macro`, `record`, `replay`, `MacroError` | LOGIC-004, 005, 006 |
+| `plugins.py` | **new** | Plugin host: `entry_points` discovery (inert); defensive manifest validation; module-local `Capability` vocabulary; capability object exposing only the DSL API; **deny-by-default**; `MAX_PLUGINS_LOADED`. Imports `scripting` one-way. Zero Qt. | `Capability`, `PluginManifest`, `discover`, `enable`, `PluginError` | LOGIC-008, 009, 010, 013 |
+| `procgen.py` | **new** | Seeded generators — OpenSimplex + value/gradient noise + cellular automata + dithered gradients (reuse `dither`); deterministic `(params, seed)`; write via reversible command over `PixelBuffer` (PB-1), composite via CO-4; `MAX_PROCGEN_DIMENSION` per-axis clamp. Zero Qt. | `make_procgen_command`, `ProcgenError` | LOGIC-012, 013 |
+| `batch_ops.py` | **new** | Batch recolour: compose `palette_ops` (PS-1) across many targets as ONE transactional reversible command; each output == single op; per-target failure isolated; `MAX_BATCH_RECOLOUR_TARGETS`. Zero Qt. | `make_batch_recolour_command`, `BatchError` | LOGIC-011, 013 |
+
+## `pixelart_creator/data/` — Phase-8 automation persistence + headless CLI — BUILT (Slices 8B/8D)
+
+> New Qt-free `data/macro_io.py` (defensive `eval`-free (de)serialise of macros/plugin manifests/script
+> inputs, IO-3) + `data/automation_cli.py` (headless CLI driver). **ADR-0022:** the CLI lives in
+> `data/` — not a new `cli/` package — *specifically* because `check_layering.py` only enforces
+> Qt-freedom on `logic/`/`data/` top-level dirs; a `cli/` sibling is an unscanned Qt blind spot (the
+> Phase-7 `export_cli` lesson). `data/` may import `logic/` + `data/`, never `ui/`/Qt. **DEP-4 ratified:**
+> the macro/plugin/script serialiser stays folded under REQ-P8-LOGIC-007 — **no `REQ-P8-DATA-*` prefix
+> allocated** (not acceptance-changing; ADR-0022 §4). CLI input reuses `project_io.load_project` (IO-3
+> defensive). The `pyproject` `[project.scripts]` entry `pixelart-run =
+> pixelart_creator.data.automation_cli:main` is an **AGT-09** edit (Article IX). Zero Qt.
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `macro_io.py` | **new** | Defensive `eval`-free (de)serialise a `.pixmacro` (DSL list + versions + seeds) + plugin manifests + script inputs via IO-3 (type/bounds-check; malformed/unknown-version → `MacroIOError`; never `eval`/`exec`; portable paths); round-trip-identical. | `save_macro`, `load_macro`, `load_manifest`, `MacroIOError` | LOGIC-007 (folded) |
+| `automation_cli.py` | **new** | Headless Qt-free driver: `argparse` (`--input/--macro/--output/--seed/--param`); load `.pixproj` via `project_io.load_project` (IO-3 → `ProjectIOError`) + `macro_io.load_macro`; replay via the SAME `logic/scripting` dispatcher (CLI==GUI state-identity); write OUT; exit 0/1/2. | `main(argv) -> int` | LOGIC-014 |
+
+## `pixelart_creator/ui/` — Phase-8 automation & extensibility — BUILT (Slice 8E)
+
+> Binds to Slice-8A/8B/8C/8D logic+data; Qt lives here only. The macro controls / script runner /
+> plugin manager / batch-recolour + procgen panels / off-GUI-thread automation worker are `ui/`; the
+> sole Qt undo-bridge stays `ui/commands.py` — one grouped `QUndoCommand` per automation **edit**
+> (script/macro/batch/procgen), while **recording, plugin-enable/disable, and selection are
+> view/session state and push no command** (CL-8, REQ-P8-UI-009). The GUI adds no engine logic — it
+> replays the identical DSL through the identical `logic/scripting` dispatcher the CLI drives
+> (REQ-P8-UI-010, state-identity). Responsiveness (REQ-P8-UI-011, DEP-3): `Automation_Worker` runs the
+> Qt-free engine on a window-owned `QThreadPool` with progress/cancel over queued GUI-thread signals
+> (no Qt off-thread; Phase-5/6/7 warmer precedent) — NOT the 16 ms canvas budget (automation is batch
+> work). AGT-10 owns any responsiveness directive; AGT-05 implements. The plugin manager **shows a
+> plugin's declared permissions before enable** (REQ-P8-UI-005, informed grant). Both themes, a11y,
+> `tr()`-wrapped strings (AGT-06/AGT-07).
+
+| Module | Change | Responsibility | Binds to (logic/data) | REQ |
+| --- | --- | --- | --- | --- |
+| `macro_controls.py` | **new** | `Macro_Controls(QWidget)`: start/stop record (view state); run/replay (one undoable grouped command); save/load/list via `data/macro_io` (malformed → graceful error); `tr()` + `changeEvent`. | `macro`, `data/macro_io`, `ui/commands` | UI-001, 002, 003 |
+| `script_runner_panel.py` | **new** | `Script_Runner_Panel(QWidget)`: run a DSL script over `scripting` on the worker; edits undoable; failing script → graceful error. | `scripting`, `automation_worker`, `ui/commands` | UI-004 |
+| `plugin_manager_panel.py` | **new** | `Plugin_Manager_Panel(QWidget)`: install/enable/disable/list; **permissions shown before enable**; sandboxed run; denied/failed → user-facing error. Enable/disable = view state. | `plugins`, `data/macro_io` | UI-005, 008 |
+| `batch_recolour_panel.py` | **new** | `Batch_Recolour_Panel(QWidget)`: recolour a target set as ONE undoable action via `batch_ops` on the worker; per-target progress/failure isolation. | `batch_ops`, `automation_worker`, `ui/commands` | UI-006 |
+| `procgen_panel.py` | **new** | `Procgen_Panel(QWidget)`: parameters + seed; generate via `procgen` (one undoable command); same seed → same output; reject OOR sizes; `tr()` + units + `changeEvent`. | `procgen`, `ui/commands` | UI-007 |
+| `automation_worker.py` | **new** | `Automation_Worker(QRunnable)` + signals on a window-owned `QThreadPool`: run the Qt-free engine off the GUI thread; progress/result/error over queued signals; cooperative cancel; no Qt off-thread (DEP-3). | `scripting`, `macro`, `batch_ops`, `procgen` | UI-011 |
+| `commands.py` | extend | One grouped `QUndoCommand` per automation edit delegating to the returned `history.Command`(s); recording/enable/selection push none. No domain math. | `history` + 8A–8D ops | UI-009 |
+| `main_window.py` | extend | Add the Automation menu + dock the panels; hold active document + parameters (view state); wire the worker. | `document`, the new automation UI | UI-001, 005, 009 |
+
 ## `pixelart_creator/data/` — Phase-6 Tiled JSON I/O + `.pixproj` v4 — BUILT (Slice 6D)
 
 > New Qt-free `data/tiled_io.py` (Tiled 1.12.2 JSON export/import) + `data/project_io.py` v4 extension.
