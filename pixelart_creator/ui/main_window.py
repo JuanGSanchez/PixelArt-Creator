@@ -39,6 +39,8 @@ from PySide6.QtWidgets import (
     QDialog,
     QDockWidget,
     QFileDialog,
+    QGraphicsScene,
+    QGridLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
@@ -76,6 +78,11 @@ from pixelart_creator.logic.constants import (
     DEFAULT_CANVAS_WIDTH,
 )
 from pixelart_creator.logic.document import Document, DocumentError, Layer
+from pixelart_creator.logic.grids import (
+    IsoGridConfig,
+    PerspectiveConfig,
+    VanishingPoint,
+)
 from pixelart_creator.logic.history import Command
 from pixelart_creator.logic.macro import Macro, Op
 from pixelart_creator.logic.palette import Palette, PaletteError
@@ -121,10 +128,13 @@ from pixelart_creator.ui.export_actions import run_export_dialog
 from pixelart_creator.ui.export_worker import Export_Controller
 from pixelart_creator.ui.extract_palette_dialog import Extract_Palette_Dialog
 from pixelart_creator.ui.frame_tags_panel import Frame_Tags_Panel
+from pixelart_creator.ui.guides_rulers_overlay import Guides_Rulers_Overlay
 from pixelart_creator.ui.i18n import LanguageManager
 from pixelart_creator.ui.image_import import decode_image
+from pixelart_creator.ui.iso_grid_overlay import Iso_Grid_Overlay
 from pixelart_creator.ui.layer_panel import Layer_Panel
 from pixelart_creator.ui.macro_controls import Macro_Controls
+from pixelart_creator.ui.multi_view import Multi_View
 from pixelart_creator.ui.onion_skin_controls import Onion_Skin_Controls, OnionSettings
 from pixelart_creator.ui.palette_analytics_view import Palette_Analytics_View
 from pixelart_creator.ui.palette_constraint_panel import (
@@ -133,10 +143,13 @@ from pixelart_creator.ui.palette_constraint_panel import (
 )
 from pixelart_creator.ui.palette_editor_panel import Palette_Editor_Panel
 from pixelart_creator.ui.palette_swap_dialog import Palette_Swap_Dialog
+from pixelart_creator.ui.perspective_grid_overlay import Perspective_Grid_Overlay
 from pixelart_creator.ui.playback_controls import Playback_Controls
 from pixelart_creator.ui.plugin_manager_panel import Plugin_Manager_Panel
 from pixelart_creator.ui.prewarm_indicator import Prewarm_Indicator
 from pixelart_creator.ui.procgen_panel import Procgen_Panel
+from pixelart_creator.ui.real_size_preview_window import Real_Size_Preview_Window
+from pixelart_creator.ui.reference_board import Reference_Board
 from pixelart_creator.ui.rotsprite_dialog import RotSprite_Dialog
 from pixelart_creator.ui.script_runner_panel import Script_Runner_Panel
 from pixelart_creator.ui.shade_ramp_picker import Shade_Ramp_Picker
@@ -155,6 +168,7 @@ from pixelart_creator.ui.tilemap_io_actions import (
 )
 from pixelart_creator.ui.tilemap_layer_panel import Tilemap_Layer_Panel
 from pixelart_creator.ui.tileset_editor_panel import Tileset_Editor_Panel
+from pixelart_creator.ui.timelapse_controls import Timelapse_Controls
 from pixelart_creator.ui.timeline_panel import Timeline_Panel
 from pixelart_creator.ui.tools import (
     DitherTool,
@@ -205,6 +219,11 @@ class _DocTab:
     scene: CanvasScene
     view: Canvas_View
     stack: QUndoStack
+    # Phase-9 per-tab visual aids (non-destructive view state; created with the
+    # tab, toggled from the Aids menu). ``None`` until the aids are attached.
+    guides_rulers: Optional[Guides_Rulers_Overlay] = None
+    iso_overlay: Optional[Iso_Grid_Overlay] = None
+    perspective_overlay: Optional[Perspective_Grid_Overlay] = None
 
 
 class Palette_Panel(QWidget):
@@ -554,6 +573,7 @@ class Main_Window(QMainWindow):
         self._build_actions()
         self._build_toolbar()
         self._build_menu()
+        self._init_visual_aids()
 
         apply_theme(self._app, self._theme)
         self._language_manager.install_from_locale()
@@ -889,6 +909,164 @@ class Main_Window(QMainWindow):
             action.triggered.connect(self._on_language_action)
             self._language_menu.addAction(action)
 
+    # -- Phase-9 visual aids (REQ-P9-UI-001..010) ------------------------
+
+    def _init_visual_aids(self) -> None:
+        """Build the shell-level Phase-9 aid windows, controller and Aids menu.
+
+        The real-size preview + timelapse controls are single shell widgets rebound
+        to the active tab; the reference board is a separate always-on-top-capable
+        window; the multi-view controller opens extra views on the active shared
+        scene. Every aid is **non-destructive** view/session state — none pushes a
+        ``QUndoCommand`` (REQ-P9-UI-010)."""
+        # A placeholder scene until the first document tab rebinds the preview.
+        self._preview_window = Real_Size_Preview_Window(QGraphicsScene(self))
+        self._preview_dock = QDockWidget(self)
+        self._preview_dock.setWidget(self._preview_window)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._preview_dock)
+        self.tabifyDockWidget(self._palette_dock, self._preview_dock)
+        self._preview_dock.hide()
+
+        # Timelapse controls: one shell widget; the active tab's undo stack is bound
+        # on tab switch so a committed command records one frame (per-command cadence).
+        self._timelapse_controls = Timelapse_Controls(self)
+        self._timelapse_dock = self._add_workflow_dock(self._timelapse_controls)
+        self._timelapse_dock.hide()
+
+        # Reference board: a separate window (PureRef-style; optional always-on-top).
+        self._reference_board = Reference_Board()
+        self._reference_board.setWindowFlag(Qt.WindowType.Window, True)
+
+        # Multi-view of ONE document: extra views on the active tab's shared scene.
+        self._multi_view = Multi_View(QGraphicsScene(self))
+
+        # Aids menu (checkable per-tab overlays + window/dock toggles).
+        bar = self.menuBar()
+        self._aids_menu = bar.addMenu("")
+        self._preview_aid_action = self._preview_dock.toggleViewAction()
+        self._aids_menu.addAction(self._preview_aid_action)
+        self._guides_action = QAction(self)
+        self._guides_action.setCheckable(True)
+        self._guides_action.toggled.connect(self._on_guides_toggled)
+        self._aids_menu.addAction(self._guides_action)
+        self._iso_action = QAction(self)
+        self._iso_action.setCheckable(True)
+        self._iso_action.toggled.connect(self._on_iso_toggled)
+        self._aids_menu.addAction(self._iso_action)
+        self._perspective_action = QAction(self)
+        self._perspective_action.setCheckable(True)
+        self._perspective_action.toggled.connect(self._on_perspective_toggled)
+        self._aids_menu.addAction(self._perspective_action)
+        self._aids_menu.addSeparator()
+        self._new_view_action = QAction(self)
+        self._new_view_action.triggered.connect(self._on_new_view)
+        self._aids_menu.addAction(self._new_view_action)
+        self._reference_board_action = QAction(self)
+        self._reference_board_action.triggered.connect(self._on_show_reference_board)
+        self._aids_menu.addAction(self._reference_board_action)
+        self._aids_menu.addAction(self._timelapse_dock.toggleViewAction())
+
+    def _create_tab_aids(self, record: "_DocTab") -> QWidget:
+        """Create this tab's overlays + rulers, returning the ruler-wrapped view.
+
+        The iso/perspective grid overlays + the doc-space guide overlay are added to
+        the tab's scene (culled, cache-backed); the ruler strips wrap the view in a
+        grid so the whole tab shows rulers when the guides aid is on. All snap/tick
+        maths stays in ``logic/`` (Article I)."""
+        scene_rect = QRectF(0, 0, record.document.width, record.document.height)
+        record.iso_overlay = Iso_Grid_Overlay(scene_rect, IsoGridConfig(tile_width=32))
+        record.scene.addItem(record.iso_overlay)
+        record.perspective_overlay = Perspective_Grid_Overlay(
+            scene_rect, self._default_perspective(record.document)
+        )
+        record.scene.addItem(record.perspective_overlay)
+        record.guides_rulers = Guides_Rulers_Overlay(
+            record.view, record.scene, scene_rect
+        )
+        self._apply_aid_theme(record)
+
+        # Wrap the view with the ruler strips (top + left) in a grid container.
+        container = QWidget()
+        grid = QGridLayout(container)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(0)
+        grid.addWidget(record.guides_rulers.horizontal_ruler(), 0, 1)
+        grid.addWidget(record.guides_rulers.vertical_ruler(), 1, 0)
+        grid.addWidget(record.view, 1, 1)
+        return container
+
+    @staticmethod
+    def _default_perspective(document: Document) -> PerspectiveConfig:
+        """A sensible 2-point default (VPs on a mid-canvas horizon)."""
+        w, h = document.width, document.height
+        horizon = h / 2.0
+        return PerspectiveConfig(
+            mode=2,
+            vanishing_points=(
+                VanishingPoint(position=(-w, horizon)),
+                VanishingPoint(position=(2.0 * w, horizon)),
+            ),
+            horizon_y=horizon,
+        )
+
+    def _apply_aid_theme(self, record: "_DocTab") -> None:
+        """Push role-based colours to a tab's overlays (both themes legible, 025)."""
+        _checker_light, _checker_dark, grid = canvas_roles(self._theme)
+        if record.iso_overlay is not None:
+            record.iso_overlay.set_line_color(grid)
+        if record.perspective_overlay is not None:
+            record.perspective_overlay.set_colors(grid, grid)
+        if record.guides_rulers is not None:
+            record.guides_rulers.set_colors(grid, _checker_dark, _checker_light)
+
+    def _bind_visual_aids_to_active(self) -> None:
+        """Rebind the shell aids to the active tab + sync the Aids-menu state."""
+        record = self.active_tab()
+        if record is None:
+            return
+        self._preview_window.set_scene(record.scene)
+        self._preview_window.set_document_ppi(record.document.ppi)
+        self._multi_view.set_scene(record.scene)
+        self._timelapse_controls.bind_undo_stack(record.stack)
+        # Reflect this tab's overlay visibility without re-triggering the toggles.
+        for action, overlay in (
+            (self._guides_action, record.guides_rulers),
+            (self._iso_action, record.iso_overlay),
+            (self._perspective_action, record.perspective_overlay),
+        ):
+            action.blockSignals(True)
+            visible = (
+                overlay.is_enabled()
+                if isinstance(overlay, Guides_Rulers_Overlay)
+                else (overlay.isVisible() if overlay is not None else False)
+            )
+            action.setChecked(bool(visible))
+            action.blockSignals(False)
+
+    def _on_guides_toggled(self, enabled: bool) -> None:
+        record = self.active_tab()
+        if record is not None and record.guides_rulers is not None:
+            record.guides_rulers.set_enabled(enabled)
+
+    def _on_iso_toggled(self, enabled: bool) -> None:
+        record = self.active_tab()
+        if record is not None and record.iso_overlay is not None:
+            record.iso_overlay.setVisible(enabled)
+
+    def _on_perspective_toggled(self, enabled: bool) -> None:
+        record = self.active_tab()
+        if record is not None and record.perspective_overlay is not None:
+            record.perspective_overlay.setVisible(enabled)
+
+    def _on_new_view(self) -> None:
+        view = self._multi_view.open_view()
+        if view is not None:
+            view.show()
+
+    def _on_show_reference_board(self) -> None:
+        self._reference_board.show()
+        self._reference_board.raise_()
+
     # -- document lifecycle ----------------------------------------------
 
     def new_document(
@@ -934,7 +1112,10 @@ class Main_Window(QMainWindow):
         view.set_menu_hook(self._open_colour_hub)
         record = _DocTab(document, scene, view, stack)
         self._tabs_data.append(record)
-        index = self._tab_widget.addTab(view, title)
+        # Attach this tab's Phase-9 visual aids and wrap the view with rulers before
+        # the tab is shown (setCurrentIndex fires _on_tab_changed, which binds them).
+        container = self._create_tab_aids(record)
+        index = self._tab_widget.addTab(container, title)
         self._tab_widget.setCurrentIndex(index)
         self._apply_theme_to_scene(scene)
         view.set_tool(self._tools[self._active_tool_id])
@@ -1142,6 +1323,9 @@ class Main_Window(QMainWindow):
         # Stop any playback so the timer never advances a closed document.
         self._playback_controls.stop()
         record = self._tabs_data.pop(index)
+        # Close any extra views onto this document's scene before it is dropped
+        # (they share the closing scene; a stale view must not outlive it).
+        self._multi_view.close_all()
         # Tear down the scene's off-thread warm pool before dropping it (D2).
         record.scene.shutdown_prewarm()
         self._undo_group.removeStack(record.stack)
@@ -1172,6 +1356,11 @@ class Main_Window(QMainWindow):
         # Idempotent, event-loop-free — no automation worker or signal carrier
         # survives into a later GC cycle (the Phase-5 xdist-segfault guard).
         self._automation_controller.shutdown()
+        # Phase-9 aids own no worker threads (non-destructive view state), but their
+        # separate top-level windows must not outlive the shell: close the extra
+        # document views and the reference board deterministically (idempotent).
+        self._multi_view.close_all()
+        self._reference_board.close()
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt override)
         """Tear down every scene's off-thread warm pool before the window closes.
@@ -1378,6 +1567,9 @@ class Main_Window(QMainWindow):
         record.view.set_active_index(self._active_index)
         self._apply_modes_to(record)
         self._bind_palette_workflows(record)
+        # Rebind the Phase-9 aids (preview/multi-view/timelapse) to this tab and
+        # sync the Aids-menu checkmarks to this tab's overlay state.
+        self._bind_visual_aids_to_active()
         # Lazy: defer the buffer scan unless the analytics dock is visible.
         self._analytics_view.request_refresh()
 
@@ -2021,6 +2213,7 @@ class Main_Window(QMainWindow):
         apply_theme(self._app, name)
         for record in self._tabs_data:
             self._apply_theme_to_scene(record.scene)
+            self._apply_aid_theme(record)
         self._tilemap_canvas.set_theme_colors(*canvas_roles(self._theme))
 
     def _apply_theme_to_scene(self, scene: CanvasScene) -> None:
@@ -2360,6 +2553,11 @@ class Main_Window(QMainWindow):
         self._plugin_dock.setWindowTitle(self.tr("Plugins"))
         self._batch_recolour_dock.setWindowTitle(self.tr("Batch Recolour"))
         self._procgen_dock.setWindowTitle(self.tr("Procedural Generation"))
+        # Phase-9 aid docks: without a windowTitle their Aids-menu toggleViewAction
+        # renders blank and never retranslates. Reuse each widget's own catalogue
+        # title ("Real-Size Preview" / "Timelapse") so the toggles are labelled.
+        self._preview_dock.setWindowTitle(self.tr("Real-Size Preview"))
+        self._timelapse_dock.setWindowTitle(self.tr("Timelapse"))
         self._tab_widget.setAccessibleName(self.tr("Open documents"))
         self._float_hint.setAccessibleName(self.tr("Floating selection status"))
         self._update_float_hint()
@@ -2444,11 +2642,18 @@ class Main_Window(QMainWindow):
         self._scale_action.setText(self.tr("&Scale…"))
         self._rotsprite_action.setText(self.tr("&Rotate (RotSprite)…"))
 
+        self._guides_action.setText(self.tr("Guides && &Rulers"))
+        self._iso_action.setText(self.tr("&Isometric Grid"))
+        self._perspective_action.setText(self.tr("&Perspective Grid"))
+        self._new_view_action.setText(self.tr("&New View"))
+        self._reference_board_action.setText(self.tr("Reference &Board"))
+
         self._file_menu.setTitle(self.tr("&File"))
         self._edit_menu.setTitle(self.tr("&Edit"))
         self._select_menu.setTitle(self.tr("&Select"))
         self._image_menu.setTitle(self.tr("&Image"))
         self._view_menu.setTitle(self.tr("&View"))
+        self._aids_menu.setTitle(self.tr("&Aids"))
         self._palette_menu.setTitle(self.tr("&Palette"))
         self._tilemap_menu.setTitle(self.tr("Tile&map"))
         self._automation_menu.setTitle(self.tr("&Automation"))
