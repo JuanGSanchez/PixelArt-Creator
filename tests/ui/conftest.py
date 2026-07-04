@@ -37,6 +37,11 @@ from pixelart_creator.logic.palette import Palette  # noqa: E402
 from pixelart_creator.ui.canvas_scene import CanvasScene  # noqa: E402
 from pixelart_creator.ui.canvas_view import Canvas_View  # noqa: E402
 from pixelart_creator.ui.main_window import Main_Window  # noqa: E402
+from pixelart_creator.ui.multi_view import Document_View  # noqa: E402
+from pixelart_creator.ui.real_size_preview_window import (  # noqa: E402
+    Real_Size_Preview_Window,
+)
+from pixelart_creator.ui.reference_board import Reference_Board  # noqa: E402
 from pixelart_creator.ui.theme import (  # noqa: E402
     THEME_DARK,
     THEME_LIGHT,
@@ -44,6 +49,7 @@ from pixelart_creator.ui.theme import (  # noqa: E402
     canvas_roles,
 )
 from pixelart_creator.ui.tilemap_canvas import Tilemap_Canvas  # noqa: E402
+from pixelart_creator.ui.timelapse_controls import Timelapse_Controls  # noqa: E402
 from pixelart_creator.ui.tools import PencilTool  # noqa: E402
 
 #: A tiny deterministic palette used across the suite.
@@ -99,6 +105,30 @@ TRANSPARENT = (0, 0, 0, 0)
 #: never itself pin an instance alive.
 _LIVE_UI_INSTANCES: "weakref.WeakSet" = weakref.WeakSet()
 
+#: Phase-9 standalone top-level widgets a test builds directly (and
+#: ``qtbot.addWidget``-registers) that either connect to a **parent-less** QObject
+#: the test owns — ``Timelapse_Controls.bind_undo_stack`` connects to a local test
+#: ``QUndoStack`` — or hold a ``QGraphicsView`` on the shared document scene
+#: (``Real_Size_Preview_Window`` / ``Document_View`` / ``Reference_Board``). Headless
+#: (offscreen, no running event loop) qtbot's teardown ``deleteLater`` NEVER fires, so
+#: such a widget survives the test with that connection still live; the orphan QObject
+#: it bound is then GC-deleted (parent-less, no other ref) while the widget's C++
+#: object is still alive, leaving a DANGLING connection. The next test that spins an
+#: event loop (e.g. an automation ``qtbot.waitSignal``) flushes every accumulated
+#: ``DeferredDelete`` at once and dereferences that freed sender — the PySide6
+#: cross-thread/GC-of-Qt-C++ native segfault (CI run 28702019804, gw1, on
+#: ``test_automation_errors.py::…multiop_script_failure_is_atomic[dark]``). Disposing
+#: these SYNCHRONOUSLY (``shiboken6.delete``) BEFORE the per-test ``gc.collect`` below
+#: removes the connection cleanly (deleting the receiver disconnects it), so the orphan
+#: QObject is collected with no live receiver — the Phase-9 extension of the
+#: ``Main_Window`` / ``Tilemap_Canvas`` disposal contract (the Phase-5 lesson).
+_PHASE9_DISPOSABLE = (
+    Timelapse_Controls,
+    Real_Size_Preview_Window,
+    Reference_Board,
+    Document_View,
+)
+
 
 def _register_on_init(cls: type) -> None:
     """Wrap ``cls.__init__`` once so every new instance joins the teardown set."""
@@ -115,7 +145,7 @@ def _register_on_init(cls: type) -> None:
     cls.__init__ = _wrapped  # type: ignore[method-assign]
 
 
-for _tracked_cls in (Main_Window, CanvasScene, Tilemap_Canvas):
+for _tracked_cls in (Main_Window, CanvasScene, Tilemap_Canvas, *_PHASE9_DISPOSABLE):
     _register_on_init(_tracked_cls)
 
 
@@ -233,7 +263,7 @@ def _drain_prewarm_after_test():
     import shiboken6
 
     for obj in tracked:
-        if isinstance(obj, (Main_Window, Tilemap_Canvas)):
+        if isinstance(obj, (Main_Window, Tilemap_Canvas, *_PHASE9_DISPOSABLE)):
             try:
                 if shiboken6.isValid(obj):
                     shiboken6.delete(obj)
