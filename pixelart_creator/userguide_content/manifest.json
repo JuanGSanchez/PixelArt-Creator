@@ -172,6 +172,19 @@
           "summary": "Sharing a project with members, comments, presence, deterministic convergence, real-time co-editing with live cursors, and art branching."
         }
       ]
+    },
+    {
+      "id": "asset-library",
+      "title": "Asset Library",
+      "topics": [
+        {
+          "id": "asset-library",
+          "title": "The asset library: browse, tag & search",
+          "content": "asset-library",
+          "keywords": ["asset", "asset library", "catalog", "tags", "tagging", "search", "filter", "kind", "sprite", "tileset", "palette", "content-addressable", "dedup", "stable id", "library menu"],
+          "summary": "Cataloguing sprites, animations, tilesets, tilemaps and palettes as named assets; tagging them; and finding them by name, tag and kind via the Library menu."
+        }
+      ]
     }
   ]
 }
