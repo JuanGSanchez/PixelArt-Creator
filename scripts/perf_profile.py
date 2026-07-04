@@ -634,6 +634,225 @@ def _run_tilemap_cache(args):
     return 0
 
 
+# --------------------------------------------------------------------------- #
+# Overlay mode (Phase-9 REQ-P9-UI-011) — visual-aids per-frame paint profiler  #
+# --------------------------------------------------------------------------- #
+# Article VI APPLIES to Phase 9: the iso/perspective/guide overlays, the N
+# multi-views, and the real-size preview mirror are on the per-frame render loop.
+# This mode times the REAL shipped overlay classes' paint() over a configurable
+# exposedRect (the faithful cost paid whenever DeviceCoordinateCache is invalid —
+# i.e. a zoom / config change / first paint), and models the dirty-rect per-view
+# and preview repaint cost of an active edit. Needs PySide6 (offscreen) -> exit 2
+# if absent. AGT-10 render-perf profiling; the report feeds AGT-05 directives.
+_OV_WARMUP = 2
+
+
+def _run_overlay(args):
+    """Profile the Phase-9 visual-aids paint path vs FRAME_BUDGET_MS (16 ms).
+
+    Kinds:
+      iso/perspective/guides -> time the REAL overlay item's ``paint()`` over the
+        exposed rect at the given density (the cache-miss / zoom frame cost).
+      multiview -> time an active-edit dirty-rect composite blit repeated across
+        N views (the shipped MinimalViewportUpdate per-view slice).
+      preview   -> the real-size preview dirty-rect mirror blit (scaled).
+      combined  -> the worst active-edit frame: dirty-rect x (N views + preview)
+        with the overlay caches WARM (config unchanged during an edit -> blits, not
+        re-strokes), reported alongside the worst single overlay paint frame.
+
+    Returns 0 (median <= budget), 1 (over budget), 2 (PySide6/construction error).
+    """
+    budget = args.budget_ms
+    if args.frames <= 0:
+        sys.stderr.write("perf_profile: invalid frames.\n")
+        print(json.dumps({"error": "invalid-input"}))
+        return 2
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    try:
+        from PySide6.QtCore import QRectF
+        from PySide6.QtGui import QImage, QPainter
+        from PySide6.QtWidgets import (
+            QApplication,
+            QStyleOptionGraphicsItem,
+        )
+    except Exception as exc:  # PySide6 absent -> BLOCKED, not a crash.
+        sys.stderr.write("perf_profile: PySide6 unavailable: %r\n" % exc)
+        print(json.dumps({"error": "pyside6-unavailable", "detail": repr(exc)}))
+        return 2
+
+    app = QApplication.instance() or QApplication([])  # noqa: F841 (keep alive)
+
+    sw, sh = args.ov_scene
+    ew, eh = args.ov_exposed if args.ov_exposed else (sw, sh)
+    vw, vh = args.ov_viewport
+    # Zoom that fits the exposed rect into the viewport (worst case: full canvas
+    # zoomed out -> the densest visible-line count for the iso grid).
+    zoom = min(vw / max(ew, 1), vh / max(eh, 1)) if args.ov_zoom <= 0 else args.ov_zoom
+    scene_rect = QRectF(0.0, 0.0, float(sw), float(sh))
+    exposed_rect = QRectF(0.0, 0.0, float(ew), float(eh))
+
+    def _time_item_paint(item):
+        """Time item.paint() over the exposed rect at ``zoom`` into a vw x vh image."""
+        img = QImage(vw, vh, QImage.Format.Format_ARGB32_Premultiplied)
+        opt = QStyleOptionGraphicsItem()
+        opt.exposedRect = exposed_rect
+        # Warm-up (JIT / first-paint) excluded.
+        for _ in range(_OV_WARMUP):
+            p = QPainter(img)
+            p.scale(zoom, zoom)
+            item.paint(p, opt, None)
+            p.end()
+        samples = []
+        for _ in range(args.frames):
+            p = QPainter(img)
+            p.scale(zoom, zoom)
+            t0 = time.perf_counter()
+            item.paint(p, opt, None)
+            t1 = time.perf_counter()
+            p.end()
+            samples.append((t1 - t0) * 1000.0)
+        return samples
+
+    kind = args.ov_kind
+    extra = {}
+    try:
+        if kind == "iso":
+            from pixelart_creator.logic.grids import IsoGridConfig
+            from pixelart_creator.ui.iso_grid_overlay import Iso_Grid_Overlay
+
+            cfg = IsoGridConfig(origin=(0.0, 0.0), tile_width=args.ov_tile, ratio=2.0)
+            item = Iso_Grid_Overlay(scene_rect, cfg)
+            item.setVisible(True)
+            samples = _time_item_paint(item)
+            extra = {"tile_width": args.ov_tile}
+        elif kind == "perspective":
+            from pixelart_creator.logic.grids import (
+                PerspectiveConfig,
+                VanishingPoint,
+            )
+            from pixelart_creator.ui.perspective_grid_overlay import (
+                Perspective_Grid_Overlay,
+            )
+
+            vps = tuple(
+                VanishingPoint(position=(sw * (k + 1) / 4.0, sh * 0.4))
+                for k in range(min(3, args.ov_vps))
+            )
+            cfg = PerspectiveConfig(
+                mode=min(3, args.ov_vps),
+                vanishing_points=vps,
+                horizon_y=sh * 0.4,
+            )
+            item = Perspective_Grid_Overlay(scene_rect, cfg, samples=args.ov_samples)
+            item.setVisible(True)
+            samples = _time_item_paint(item)
+            extra = {"vps": len(vps), "samples": args.ov_samples}
+        elif kind == "guides":
+            from pixelart_creator.logic.guides import GuideOrientation
+            from pixelart_creator.ui.guides_rulers_overlay import Guides_Overlay
+
+            item = Guides_Overlay(scene_rect)
+            n = args.ov_guides
+            for gi in range(n):
+                if gi % 2 == 0:
+                    item.add_guide(GuideOrientation.VERTICAL, (gi / n) * sw)
+                else:
+                    item.add_guide(GuideOrientation.HORIZONTAL, (gi / n) * sh)
+            item.setVisible(True)
+            samples = _time_item_paint(item)
+            # Rulers: the tick-generation cost (the only per-frame logic call) +
+            # note the drawText count is nice-number bounded (small).
+            from pixelart_creator.logic.guides import ruler_ticks
+
+            t0 = time.perf_counter()
+            ticks = ruler_ticks(float(vw), zoom, 0.0, axis_pixels=vw)
+            t1 = time.perf_counter()
+            extra = {
+                "guides": n,
+                "ruler_ticks_count": len(ticks),
+                "ruler_ticks_ms": round((t1 - t0) * 1000.0, 5),
+            }
+        elif kind in ("multiview", "preview", "combined"):
+            # Model an active-edit dirty-rect composite. MinimalViewportUpdate means
+            # each view repaints only the dirty sub-rect (not the full 8K), so cost
+            # scales with dirty-rect area x (views + preview), NOT canvas x N.
+            dw, dh = args.ov_dirty
+            n_views = args.ov_views if kind != "preview" else 0
+            has_preview = kind in ("preview", "combined")
+            pscale = args.ov_preview_scale
+            # A resident buffer sub-region (the dirty rect) as a premultiplied image.
+            src = QImage(dw, dh, QImage.Format.Format_ARGB32_Premultiplied)
+            src.fill(0x8033AAFF)
+            target = QImage(vw, vh, QImage.Format.Format_ARGB32_Premultiplied)
+
+            def _one_frame():
+                p = QPainter(target)
+                # Primary + N extra views each blit the dirty sub-rect (1:1).
+                for _v in range(n_views + 1):
+                    p.drawImage(0, 0, src)
+                # Preview mirrors the same dirty rect scaled by real_size_scale.
+                if has_preview:
+                    p.scale(pscale, pscale)
+                    p.drawImage(0, 0, src)
+                p.end()
+
+            for _ in range(_OV_WARMUP):
+                _one_frame()
+            samples = []
+            for _ in range(args.frames):
+                t0 = time.perf_counter()
+                _one_frame()
+                samples.append((time.perf_counter() - t0) * 1000.0)
+            extra = {
+                "views": n_views + 1,
+                "preview": has_preview,
+                "dirty_rect": [dw, dh],
+                "preview_scale": pscale,
+            }
+        else:
+            sys.stderr.write("perf_profile: unknown overlay kind %r.\n" % kind)
+            print(json.dumps({"error": "unknown-kind"}))
+            return 2
+    except Exception as exc:  # construction/paint failure
+        sys.stderr.write("perf_profile: overlay error: %r\n" % exc)
+        print(json.dumps({"error": repr(exc)}))
+        return 2
+
+    samples.sort()
+    median = _percentile(samples, 0.5)
+    p95 = _percentile(samples, 0.95)
+    within = median <= budget
+    report = {
+        "mode": "overlay",
+        "kind": kind,
+        "median_ms": round(median, 4),
+        "p95_ms": round(p95, 4),
+        "budget_ms": budget,
+        "within_budget": within,
+        "frames": args.frames,
+        "scenario": {
+            "scene": [sw, sh],
+            "exposed": [ew, eh],
+            "viewport": [vw, vh],
+            "zoom": round(zoom, 5),
+            **extra,
+        },
+    }
+    print(json.dumps(report, indent=2, sort_keys=True))
+    if not within:
+        sys.stderr.write(
+            "perf_profile: overlay[%s] OVER budget (median %.3f ms > %.1f ms).\n"
+            % (kind, median, budget)
+        )
+        return 1
+    sys.stderr.write(
+        "perf_profile: overlay[%s] within budget (median %.3f ms <= %.1f ms).\n"
+        % (kind, median, budget)
+    )
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description="Headless frame-budget profiler (S12).")
     ap.add_argument("--width", type=int, default=D_W)
@@ -689,8 +908,43 @@ def main():
         help="cached-chunk pixmap blits per frame (Qt, guarded)",
     )
     ap.add_argument("--tm-sync-budget", type=int, default=8)
+    # --- Phase-9 overlay mode (visual-aids per-frame paint profiler) ---------
+    ap.add_argument(
+        "--overlay",
+        action="store_true",
+        help="profile the Phase-9 visual-aids paint path vs FRAME_BUDGET_MS",
+    )
+    ap.add_argument(
+        "--ov-kind",
+        choices=["iso", "perspective", "guides", "multiview", "preview", "combined"],
+        default="iso",
+    )
+    ap.add_argument("--ov-scene", type=int, nargs=2, default=[D_W, D_H])
+    ap.add_argument(
+        "--ov-exposed",
+        type=int,
+        nargs=2,
+        default=None,
+        help="exposed rect px (default: full scene = worst case)",
+    )
+    ap.add_argument("--ov-viewport", type=int, nargs=2, default=[1920, 1080])
+    ap.add_argument(
+        "--ov-zoom",
+        type=float,
+        default=0.0,
+        help="paint zoom; <=0 => fit exposed rect into viewport",
+    )
+    ap.add_argument("--ov-tile", type=int, default=2, help="iso tile_width (px)")
+    ap.add_argument("--ov-samples", type=int, default=12)
+    ap.add_argument("--ov-vps", type=int, default=3)
+    ap.add_argument("--ov-guides", type=int, default=256)
+    ap.add_argument("--ov-views", type=int, default=7)
+    ap.add_argument("--ov-dirty", type=int, nargs=2, default=[64, 64])
+    ap.add_argument("--ov-preview-scale", type=float, default=1.389)
     args = ap.parse_args()
 
+    if args.overlay:
+        return _run_overlay(args)
     if args.composite:
         return _run_composite(args)
     if args.tm_cache:
