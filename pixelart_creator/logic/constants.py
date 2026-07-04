@@ -506,3 +506,55 @@ CLOUD_RETRY_LIMIT: int = 3
 """Ceiling on transient-failure retries for a single cloud operation before it
 fails to the caller (BF-1; bounds a provider adapter's retry loop; the fake adapter
 never fails transiently) (plan §8; spec REQ-P10-LOGIC-005; SC-L005-1)."""
+
+# --- Phase-10 Slice-B/C collaboration tuning (phase-10 T10B-01/T10C-01; Article II)
+# Named bounds/defaults consumed by the new zero-Qt collaboration models
+# (logic/cloud_validation.py, logic/convergence.py) and the data/cloud/ shared
+# adapter — and, in Slice C, by the client transport port and the sync_backend/
+# validation caps (which reuse these SAME named bounds, ADR-0027 §6 / ADR-0028 §5).
+# BF-3 (plan §8 / ADR-0028 §5): every name is DISTINCT from every shipped constant —
+# notably CRDT_TILE_SIZE_PX is DISTINCT from the shipped TILE_SIZE (=64, the
+# viewport-culling *render* edge) and DEFAULT_TILE_WIDTH/HEIGHT (=16, the tileset
+# tile dimension): it is the raster tile/region-LWW *partition* edge (LOGIC-006).
+# The CRDT message-kind vocabulary is module-local enumerated vocabulary and lives in
+# logic/cloud_validation.py, NOT here (ADR-0001 / BF-2, the BlendMode/PlaybackMode
+# precedent). This module stays a leaf (no intra-package imports).
+
+MAX_SHARED_MEMBERS: int = 32
+"""Defensive ceiling on the number of members of one shared project (Article VII;
+BF-3 — generous for a collaborating pixel-art team). A membership payload exceeding
+this is rejected with a defensive error before it can exhaust memory
+(plan §8; spec REQ-P10-DATA-009; SC-D009-1)."""
+
+MAX_COMMENT_BYTES: int = 4096
+"""Defensive per-comment UTF-8 byte cap (Article VII). Comment text is untrusted
+input; a comment whose encoded size exceeds this is rejected before decode, so a
+tampered/oversized payload can never exhaust memory or reach ``eval``/``exec``
+(plan §8; spec REQ-P10-DATA-009/UI-010; SC-D009-1)."""
+
+MAX_COMMENTS_PER_PROJECT: int = 1024
+"""Defensive ceiling on the number of comments stored against one shared project
+(Article VII; BF-3 — parallels the shipped 1024-scale bounds). Exceeding it raises a
+defensive error rather than degrading silently (plan §8; spec REQ-P10-DATA-009;
+SC-D009-1)."""
+
+MAX_CRDT_UPDATE_BYTES: int = 1048576
+"""Defensive ceiling, bytes, on a single CRDT-update blob — 1 MiB (Article VII).
+A CRDT update is untrusted input on both the client ``data/cloud/`` transport and the
+``sync_backend/`` relay (which reuse this SAME named bound); a blob exceeding it is
+rejected *before* any decode, so a malicious/broken client cannot exhaust memory or
+reach ``eval``/``exec`` (plan §8; spec REQ-P10-DATA-010/BACKEND-002/LOGIC-006/-007;
+SC-D010-1/SC-BK-002-1)."""
+
+CRDT_TILE_SIZE_PX: int = 64
+"""Raster tile/region last-writer-wins partition edge, px (REQ-P10-LOGIC-006).
+
+The hybrid convergence model (ADR-0028 §2) partitions a layer's raster buffer into
+``CRDT_TILE_SIZE_PX`` x ``CRDT_TILE_SIZE_PX`` tiles, each an LWW-Register keyed by
+``(logical_clock, site_id)`` — concurrent edits to *different* tiles both survive,
+same-tile edits resolve by the tiebreak. Tile partitioning (not per-pixel CRDT
+metadata) is what makes the model **8K-scalable** (spec REQ-P10-LOGIC-006). DISTINCT
+from the shipped :data:`TILE_SIZE` (=64, the viewport-cull *render* edge — a different
+concern that happens to share the value) and from :data:`DEFAULT_TILE_WIDTH` /
+:data:`DEFAULT_TILE_HEIGHT` (=16, the tileset tile dimension) (plan §8; ADR-0028 §5;
+BF-3)."""
