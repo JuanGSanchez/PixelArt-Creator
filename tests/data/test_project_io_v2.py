@@ -60,8 +60,9 @@ def _rich_document() -> Document:
 def test_serialize_declares_version_2():
     payload = pio.serialize(Document(2, 2))
     assert payload["format"] == "pixproj"
-    # Saving always writes the current schema (v4, ADR-0016); v2 still loads.
-    assert payload["version"] == 4
+    # Saving always writes the current schema (the FORMAT_VERSION constant, not a
+    # literal); v2 still loads back-compat.
+    assert payload["version"] == pio.FORMAT_VERSION
     node = payload["frames"][0]["layers"][0]
     assert node["type"] == "layer"
     assert node["blend_mode"] == "normal"
