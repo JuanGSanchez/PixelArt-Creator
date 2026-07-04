@@ -558,3 +558,20 @@ from the shipped :data:`TILE_SIZE` (=64, the viewport-cull *render* edge — a d
 concern that happens to share the value) and from :data:`DEFAULT_TILE_WIDTH` /
 :data:`DEFAULT_TILE_HEIGHT` (=16, the tileset tile dimension) (plan §8; ADR-0028 §5;
 BF-3)."""
+
+REALTIME_APPLY_CEILING_MS: int = 10
+"""Sub-frame ceiling, ms, for applying one inbound real-time CRDT patch
+(REQ-P10-LOGIC-007; Article VI split, plan §7 / ADR-0027 §7).
+
+Slice C real-time remote-patch application RE-ENTERS the 16 ms per-frame budget
+(:data:`FRAME_BUDGET_MS`), unlike the batch Slice-A/B sync path. This is the
+DELIBERATELY TIGHTER per-patch sub-budget AGT-10 specified for the ``--realtime`` CI
+perf gate: applying a single remote patch (validate + converge) must finish inside
+``REALTIME_APPLY_CEILING_MS`` so that patch-apply plus the live-cursor overlay draw
+(REQ-P10-UI-013) still leave headroom within the 16 ms frame. Sourced by
+``scripts/perf_profile.py --realtime`` (passed as ``--budget-ms`` by
+``.github/workflows/ci.yml``) — DISTINCT from :data:`FRAME_BUDGET_MS` (the whole-frame
+render budget) and from the loose catastrophic-regression ceilings
+(:data:`COMPOSITE_REGION_CEILING_MS` / :data:`TILEMAP_VIEWPORT_CEILING_MS` /
+:data:`OVERLAY_FRAME_CEILING_MS`): this one is a genuine sub-frame apply target, not an
+order-of-magnitude catch-all. (AGT-10 FLAG-PERFRAME / DEP-3; S12 single-source.)"""
