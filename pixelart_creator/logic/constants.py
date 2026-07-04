@@ -575,3 +575,31 @@ render budget) and from the loose catastrophic-regression ceilings
 (:data:`COMPOSITE_REGION_CEILING_MS` / :data:`TILEMAP_VIEWPORT_CEILING_MS` /
 :data:`OVERLAY_FRAME_CEILING_MS`): this one is a genuine sub-frame apply target, not an
 order-of-magnitude catch-all. (AGT-10 FLAG-PERFRAME / DEP-3; S12 single-source.)"""
+
+# --- In-app User Guide tuning (user-guide T-UG-03; Article II single-source) ------
+# Named numerics consumed by logic/guide_model.py, logic/guide_search.py and
+# data/guide_content.py (the offline bundled-content User Guide). BF (plan §3.4 /
+# ADR-0029 §1): every name is DISTINCT from every shipped constant. Section/topic
+# ids and locale codes (e.g. DEFAULT_GUIDE_LOCALE) are STRING identifiers, NOT
+# numeric tuning values (Article II governs numerics) — they are homed module-local
+# in guide_model.py, NOT here (ADR-0001; spec §9). This module stays a leaf.
+
+GUIDE_SEARCH_RESULT_CAP: int = 50
+"""Maximum number of topics one :func:`pixelart_creator.logic.guide_search.query`
+call returns — a defensive bound on the in-guide search result list (Article VII;
+a filter that narrows, generous for the shipped ToC) (ADR-0029 §6; plan §3.2/§3.4;
+spec REQ-UG-LOGIC-003/NFR-6; SC-L003-1..3)."""
+
+GUIDE_MAX_CONTENT_BYTES: int = 1048576
+"""Defensive per-topic content-size ceiling, bytes — 1 MiB. A bundled Markdown
+resource whose byte length exceeds this is rejected with ``GuideContentError``
+*before* decode, so a malformed/oversized file can never exhaust memory (Article VII
+defensive-load posture, the PIO-1 / MAX_CLOUD_PROJECT_BYTES precedent) (ADR-0029 §5;
+plan §3.3/§3.4; spec REQ-UG-DATA-001/003/NFR-4; SC-D001-2)."""
+
+GUIDE_MAX_TOC_DEPTH: int = 3
+"""Ceiling on the discovered ToC tree depth (section -> topic -> sub-topic). The
+shipped model is 2 levels (sections -> topics); ``build_model`` validates the
+achieved depth stays ``<= GUIDE_MAX_TOC_DEPTH`` so a future nested manifest cannot
+grow an unbounded tree (Article VII; Article XI extensibility bound) (ADR-0029 §6;
+plan §3.4; spec REQ-UG-LOGIC-001/002/NFR-6)."""
