@@ -127,6 +127,7 @@ from pixelart_creator.ui.cloud_actions import (
     make_save_job,
 )
 from pixelart_creator.ui.cloud_worker import Cloud_Controller
+from pixelart_creator.ui.collaboration_actions import Collaboration_Session
 from pixelart_creator.ui.colour_cycling_panel import Colour_Cycling_Panel
 from pixelart_creator.ui.colour_hub_menu import Colour_Hub_Menu
 from pixelart_creator.ui.commands import (
@@ -136,6 +137,7 @@ from pixelart_creator.ui.commands import (
     TilemapCommand,
     TilesetCommand,
 )
+from pixelart_creator.ui.comments_panel import Comments_Panel
 from pixelart_creator.ui.export_actions import run_export_dialog
 from pixelart_creator.ui.export_worker import Export_Controller
 from pixelart_creator.ui.extract_palette_dialog import Extract_Palette_Dialog
@@ -158,6 +160,7 @@ from pixelart_creator.ui.palette_swap_dialog import Palette_Swap_Dialog
 from pixelart_creator.ui.perspective_grid_overlay import Perspective_Grid_Overlay
 from pixelart_creator.ui.playback_controls import Playback_Controls
 from pixelart_creator.ui.plugin_manager_panel import Plugin_Manager_Panel
+from pixelart_creator.ui.presence_panel import Presence_Panel
 from pixelart_creator.ui.prewarm_indicator import Prewarm_Indicator
 from pixelart_creator.ui.procgen_panel import Procgen_Panel
 from pixelart_creator.ui.real_size_preview_window import Real_Size_Preview_Window
@@ -166,6 +169,7 @@ from pixelart_creator.ui.reference_board import Reference_Board
 from pixelart_creator.ui.rotsprite_dialog import RotSprite_Dialog
 from pixelart_creator.ui.script_runner_panel import Script_Runner_Panel
 from pixelart_creator.ui.shade_ramp_picker import Shade_Ramp_Picker
+from pixelart_creator.ui.shared_projects_panel import Shared_Projects_Panel
 from pixelart_creator.ui.symmetry_panel import Symmetry_Panel
 from pixelart_creator.ui.theme import (
     THEME_DARK,
@@ -620,6 +624,29 @@ class Main_Window(QMainWindow):
         self._autosave_timer.timeout.connect(self._on_autosave_tick)
         self._autosave_timer.start()
 
+        # Phase-10 Slice B collaboration (REQ-P10-UI-009/-010/-011): shared projects
+        # + comments + presence, driven by a provider-agnostic Collaboration_Session
+        # over the Qt-free data/cloud SharedProjectAdapter (composed in-memory over the
+        # loopback FakeCloudAdapter). Every Slice-B op is a PURELY SYNCHRONOUS in-memory
+        # call — no network, no I/O — so NO off-GUI-thread worker / timer / poller is
+        # introduced (the real sync backend + live push is Slice C, out of scope); the
+        # session owns nothing to tear down beyond ordinary Qt parent ownership, so
+        # shutdown_prewarm is unchanged. Collaboration is session state and pushes NO
+        # QUndoCommand (PL10-D13; ui/commands.py untouched). Payloads are validated by
+        # the pure logic/cloud_validation layer inside the adapter (Article VII); no
+        # eval/exec. Presence shows WHO is present (UI-011) — NOT live cursors (UI-013,
+        # Slice C). The three panels dock alongside the existing workflow docks.
+        self._collab_session = Collaboration_Session(parent=self)
+        self._shared_projects_panel = Shared_Projects_Panel(self)
+        self._shared_projects_panel.set_session(self._collab_session)
+        self._shared_dock = self._add_workflow_dock(self._shared_projects_panel)
+        self._comments_panel = Comments_Panel(self)
+        self._comments_panel.set_session(self._collab_session)
+        self._comments_dock = self._add_workflow_dock(self._comments_panel)
+        self._presence_panel = Presence_Panel(self)
+        self._presence_panel.set_session(self._collab_session)
+        self._presence_dock = self._add_workflow_dock(self._presence_panel)
+
         self._build_actions()
         self._build_toolbar()
         self._build_menu()
@@ -984,6 +1011,13 @@ class Main_Window(QMainWindow):
         self._cloud_menu.addAction(self._cloud_open_action)
         self._cloud_menu.addSeparator()
         self._cloud_menu.addAction(self._cloud_versions_action)
+        # Slice-B collaboration surfaces, consistent with the existing Cloud menu:
+        # dock-toggle actions for shared projects, comments, and presence (UI-009/
+        # -010/-011).
+        self._cloud_menu.addSeparator()
+        self._cloud_menu.addAction(self._shared_dock.toggleViewAction())
+        self._cloud_menu.addAction(self._comments_dock.toggleViewAction())
+        self._cloud_menu.addAction(self._presence_dock.toggleViewAction())
 
         self._theme_menu = bar.addMenu("")
         self._theme_menu.addAction(self._theme_light_action)
@@ -2855,6 +2889,9 @@ class Main_Window(QMainWindow):
         self._plugin_dock.setWindowTitle(self.tr("Plugins"))
         self._batch_recolour_dock.setWindowTitle(self.tr("Batch Recolour"))
         self._procgen_dock.setWindowTitle(self.tr("Procedural Generation"))
+        self._shared_dock.setWindowTitle(self.tr("Shared Projects"))
+        self._comments_dock.setWindowTitle(self.tr("Comments"))
+        self._presence_dock.setWindowTitle(self.tr("Presence"))
         # Phase-9 aid docks: without a windowTitle their Aids-menu toggleViewAction
         # renders blank and never retranslates. Reuse each widget's own catalogue
         # title ("Real-Size Preview" / "Timelapse") so the toggles are labelled.
