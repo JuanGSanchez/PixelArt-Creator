@@ -338,3 +338,45 @@ GIF_FRAME_DISPOSAL: int = 2
 """GIF per-frame disposal method; ``2`` = restore-to-background — the safe
 per-frame pixel-art default (ADR-0019; plan §8; spec REQ-P7-LOGIC-004;
 SC-L004-1)."""
+
+# --- Phase-8 automation & extensibility tuning (phase-8 T8A-01; Article II) ------
+# Named bounds/defaults consumed by logic/scripting.py (DSL dispatcher),
+# logic/macro.py (record/replay), logic/plugins.py (plugin host), logic/procgen.py
+# (seeded generators) and logic/batch_ops.py (batch recolour). BF-1 (plan §8 /
+# ADR-0022): every name is DISTINCT from every shipped constant — notably
+# MAX_BATCH_RECOLOUR_TARGETS is DISTINCT from the shipped Phase-7 MAX_BATCH_TARGETS
+# (=256, batch *export* — a different concern). The DSL op-name vocabulary, the
+# macro schema_version string, and the plugin Capability enum are module-local
+# enumerated vocabulary / format-intrinsic and live in their modules, NOT here
+# (ADR-0001 / BF-2, the BlendMode/PlaybackMode precedent). This module stays a
+# leaf (no intra-package imports).
+
+MAX_MACRO_STEPS: int = 4096
+"""Defensive cap on the number of ordered steps in one recorded macro
+(Article VII; parallels the shipped :data:`MAX_FRAMES` / :data:`MAX_EXPORT_FRAMES`
+= 4096) (plan §8; spec REQ-P8-LOGIC-004/013; SC-L004-1/SC-L013-1)."""
+
+MAX_SCRIPT_OPS: int = 100000
+"""Defensive per-run op ceiling for the DSL dispatcher — a runaway script fails
+safely before resource exhaustion (Article VII; CL-16) (plan §8; spec
+REQ-P8-LOGIC-001/003/013; SC-L001-1/SC-L013-1)."""
+
+MAX_PLUGINS_LOADED: int = 64
+"""Defensive cap on concurrently loaded plugins (Article VII; parallels the
+shipped :data:`FAVOURITES_MAX` = 64) (plan §8; spec REQ-P8-LOGIC-010/013;
+SC-L010-1/SC-L013-1)."""
+
+MAX_BATCH_RECOLOUR_TARGETS: int = 256
+"""Defensive cap on the number of targets in one batch recolour (Article VII;
+parallels :data:`MAX_LAYERS_PER_FRAME`). DISTINCT from the Phase-7
+:data:`MAX_BATCH_TARGETS` (=256, batch *export* — a different concern) (plan §8;
+spec REQ-P8-LOGIC-011/013; SC-L011-1/SC-L013-1)."""
+
+MAX_PROCGEN_DIMENSION: int = 7680
+"""Per-axis output bound, px, for procedural generation — aligned to the
+buildable 8K ceiling (``= MAX_CANVAS_WIDTH``; the ADR-0020 atlas-clamp precedent)
+(Article VII/VI) (plan §8; spec REQ-P8-LOGIC-012/013; SC-L012-1/SC-L013-1)."""
+
+DEFAULT_PROCGEN_SEED: int = 0
+"""Deterministic default seed for procedural generation (P2; parallels the shipped
+:data:`KMEANS_SEED` = 0) (plan §8; spec REQ-P8-LOGIC-012; SC-L012-1)."""

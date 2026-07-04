@@ -79,6 +79,48 @@ class FunctionCommand(Command):
         self._undo()
 
 
+class GroupCommand(Command):
+    """A composite of ordered sub-commands applied/reverted as one unit.
+
+    ``execute`` runs each child's :meth:`Command.execute` in order;
+    ``undo`` runs each child's :meth:`Command.undo` in reverse order — so the
+    whole group is a single reversible step (``apply ∘ undo = identity`` when
+    every child is). This is the grouping primitive the Phase-8 DSL dispatcher
+    (``logic/scripting.dispatch``) and batch recolour (``logic/batch_ops``)
+    return so ``ui/commands.py`` can wrap an entire automation edit — a script
+    run, a macro replay, a batch — as one ``QUndoCommand`` (REQ-P8-UI-009), and
+    so the CLI applies it headlessly identically (REQ-P8-LOGIC-006/-014).
+    """
+
+    __slots__ = ("_commands", "label")
+
+    def __init__(
+        self, commands: "List[Command]", label: str = "grouped command"
+    ) -> None:
+        """Wrap an ordered list of sub-commands as one reversible unit."""
+        self._commands = list(commands)
+        self.label = label
+
+    def __len__(self) -> int:
+        """Return the number of sub-commands in the group."""
+        return len(self._commands)
+
+    @property
+    def commands(self) -> "Tuple[Command, ...]":
+        """Return the ordered sub-commands as a read-only tuple view."""
+        return tuple(self._commands)
+
+    def execute(self) -> None:
+        """Run each sub-command's :meth:`Command.execute` in order."""
+        for command in self._commands:
+            command.execute()
+
+    def undo(self) -> None:
+        """Run each sub-command's :meth:`Command.undo` in reverse order."""
+        for command in reversed(self._commands):
+            command.undo()
+
+
 class History:
     """A bounded undo/redo stack of :class:`Command` objects."""
 
