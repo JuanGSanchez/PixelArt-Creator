@@ -259,6 +259,48 @@ class TilesetCommand(LogicCommand):
         super().__init__(command, refresh, text, parent)
 
 
+class AutomationCommand(LogicCommand):
+    """One ``QUndoCommand`` per automation **edit** (T8E-06, REQ-P8-UI-009).
+
+    Wraps the single reversible :class:`~pixelart_creator.logic.history.Command`
+    an automation run produces — a script run / macro replay (a
+    :class:`~pixelart_creator.logic.history.GroupCommand` from
+    ``logic.scripting.dispatch`` / ``logic.macro.replay``), a batch recolour
+    (``logic.batch_ops``), or a procedural generation (``logic.procgen``) — so the
+    **whole** automation edit lands on the active document's undo stack as exactly
+    **one** undoable step whose inverse restores the exact pre-run state
+    (REQ-P8-UI-009). The engine runs off the GUI thread on
+    :class:`~pixelart_creator.ui.automation_worker.Automation_Controller`, which
+    leaves the live document in its original state and marshals the **unapplied**
+    command back; this bridge then applies it on the GUI thread on ``push``
+    (``redo()`` → ``command.execute()``) and reverts it exactly on ``undo()``, so
+    the observable mutation is strictly GUI-thread (Qt model affinity).
+
+    Recording a macro, enabling/disabling a plugin, and script/panel selection are
+    view/session state and create **no** ``AutomationCommand`` (CL-8). No domain
+    maths lives here (Article I / S11): the reversible logic is entirely the
+    wrapped engine command.
+
+    Args:
+        command: The unapplied reversible automation command to bridge.
+        rebind: Callback (no args) recompositing / rebinding the canvas + panels
+            after apply or revert (a whole-document automation edit can touch any
+            layer, so callers pass a full refresh).
+        text: Undo-menu label; defaults to the command's own label.
+        parent: Optional parent command.
+    """
+
+    def __init__(
+        self,
+        command: Command,
+        rebind: RebindCallback,
+        text: str = "",
+        parent: Optional[QUndoCommand] = None,
+    ) -> None:
+        """Bridge an unapplied automation command to one ``QUndoCommand``."""
+        super().__init__(command, rebind, text, parent)
+
+
 class TilemapCommand(LogicCommand):
     """One ``QUndoCommand`` per tilemap edit (T6F-02/-03/-04, REQ-P6-UI-005..008).
 

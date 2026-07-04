@@ -76,6 +76,8 @@ from pixelart_creator.logic.constants import (
     DEFAULT_CANVAS_WIDTH,
 )
 from pixelart_creator.logic.document import Document, DocumentError, Layer
+from pixelart_creator.logic.history import Command
+from pixelart_creator.logic.macro import Macro, Op
 from pixelart_creator.logic.palette import Palette, PaletteError
 from pixelart_creator.logic.palette_ops import (
     IndexedModeError,
@@ -97,12 +99,19 @@ from pixelart_creator.logic.transform import (
     TransformError,
     scale_nearest,
 )
+from pixelart_creator.ui.automation_worker import (
+    Automation_Controller,
+    make_dispatch_job,
+    make_replay_job,
+)
 from pixelart_creator.ui.batch_export_panel import Batch_Export_Panel
+from pixelart_creator.ui.batch_recolour_panel import Batch_Recolour_Panel
 from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.canvas_view import Canvas_View
 from pixelart_creator.ui.colour_cycling_panel import Colour_Cycling_Panel
 from pixelart_creator.ui.colour_hub_menu import Colour_Hub_Menu
 from pixelart_creator.ui.commands import (
+    AutomationCommand,
     LogicCommand,
     PaintCommand,
     TilemapCommand,
@@ -115,6 +124,7 @@ from pixelart_creator.ui.frame_tags_panel import Frame_Tags_Panel
 from pixelart_creator.ui.i18n import LanguageManager
 from pixelart_creator.ui.image_import import decode_image
 from pixelart_creator.ui.layer_panel import Layer_Panel
+from pixelart_creator.ui.macro_controls import Macro_Controls
 from pixelart_creator.ui.onion_skin_controls import Onion_Skin_Controls, OnionSettings
 from pixelart_creator.ui.palette_analytics_view import Palette_Analytics_View
 from pixelart_creator.ui.palette_constraint_panel import (
@@ -124,8 +134,11 @@ from pixelart_creator.ui.palette_constraint_panel import (
 from pixelart_creator.ui.palette_editor_panel import Palette_Editor_Panel
 from pixelart_creator.ui.palette_swap_dialog import Palette_Swap_Dialog
 from pixelart_creator.ui.playback_controls import Playback_Controls
+from pixelart_creator.ui.plugin_manager_panel import Plugin_Manager_Panel
 from pixelart_creator.ui.prewarm_indicator import Prewarm_Indicator
+from pixelart_creator.ui.procgen_panel import Procgen_Panel
 from pixelart_creator.ui.rotsprite_dialog import RotSprite_Dialog
+from pixelart_creator.ui.script_runner_panel import Script_Runner_Panel
 from pixelart_creator.ui.shade_ramp_picker import Shade_Ramp_Picker
 from pixelart_creator.ui.symmetry_panel import Symmetry_Panel
 from pixelart_creator.ui.theme import (
@@ -493,6 +506,51 @@ class Main_Window(QMainWindow):
         )
         self._batch_dock = self._add_workflow_dock(self._batch_export_panel)
 
+        # Phase-8 automation (REQ-P8-UI-001..011): a window-owned
+        # Automation_Controller runs the Qt-free scripting/macro/procgen/batch
+        # engine off the GUI thread with cancel + result marshalling (UI-011); the
+        # worker leaves the document unmutated and hands back one unapplied
+        # reversible command, which THIS window pushes onto the active tab's undo
+        # stack as one AutomationCommand — so every automation EDIT is one undoable
+        # step and the observable mutation is strictly GUI-thread (UI-009). Its
+        # deterministic teardown is folded into shutdown_prewarm so no worker /
+        # carrier survives GC (the Phase-5 xdist-segfault guard). Recording,
+        # plugin-enable/disable and selection are view state and push no command
+        # (CL-8). No eval/exec is ever performed in ui/ — the panels emit inert DSL
+        # ops that the trusted logic dispatcher validates against its allow-list.
+        self._automation_controller = Automation_Controller(self)
+        self._automation_controller.resultReady.connect(self._on_automation_result)
+        self._automation_controller.failed.connect(self._on_automation_failed)
+        self._automation_controller.busyChanged.connect(self._on_automation_busy)
+        #: The DSL ops of the in-flight automation run (recorded into a macro on
+        #: success if recording is active); ``None`` for a macro replay (a replay
+        #: is not itself re-recorded).
+        self._pending_automation_ops: Optional[List[Op]] = None
+        self._pending_automation_label = ""
+
+        self._macro_controls = Macro_Controls(self)
+        self._macro_controls.replayRequested.connect(self._on_replay_requested)
+        self._macro_dock = self._add_workflow_dock(self._macro_controls)
+        self._script_runner_panel = Script_Runner_Panel(self)
+        self._script_runner_panel.automationRequested.connect(self._run_automation_ops)
+        self._script_dock = self._add_workflow_dock(self._script_runner_panel)
+        self._plugin_manager_panel = Plugin_Manager_Panel(self)
+        self._plugin_dock = self._add_workflow_dock(self._plugin_manager_panel)
+        self._batch_recolour_panel = Batch_Recolour_Panel(self)
+        self._batch_recolour_panel.automationRequested.connect(self._run_automation_ops)
+        self._batch_recolour_dock = self._add_workflow_dock(self._batch_recolour_panel)
+        self._procgen_panel = Procgen_Panel(self)
+        self._procgen_panel.automationRequested.connect(self._run_automation_ops)
+        self._procgen_dock = self._add_workflow_dock(self._procgen_panel)
+        # Disable each automation control while a run is in flight (busyChanged).
+        for panel in (
+            self._macro_controls,
+            self._script_runner_panel,
+            self._batch_recolour_panel,
+            self._procgen_panel,
+        ):
+            self._automation_controller.busyChanged.connect(panel.set_busy)
+
         self._build_actions()
         self._build_toolbar()
         self._build_menu()
@@ -810,6 +868,16 @@ class Main_Window(QMainWindow):
         self._tilemap_menu.addAction(self._tilemap_layer_dock.toggleViewAction())
         self._tilemap_menu.addAction(self._tilemap_dock.toggleViewAction())
 
+        # Automation & extensibility (Phase 8): the panels are docks; the menu
+        # surfaces their toggles so every automation surface is discoverable +
+        # keyboard-reachable (REQ-P8-UI-012).
+        self._automation_menu = bar.addMenu("")
+        self._automation_menu.addAction(self._macro_dock.toggleViewAction())
+        self._automation_menu.addAction(self._script_dock.toggleViewAction())
+        self._automation_menu.addAction(self._plugin_dock.toggleViewAction())
+        self._automation_menu.addAction(self._batch_recolour_dock.toggleViewAction())
+        self._automation_menu.addAction(self._procgen_dock.toggleViewAction())
+
         self._theme_menu = bar.addMenu("")
         self._theme_menu.addAction(self._theme_light_action)
         self._theme_menu.addAction(self._theme_dark_action)
@@ -909,6 +977,7 @@ class Main_Window(QMainWindow):
         )
         self._bind_animation(record)
         self._bind_tilemap(record)
+        self._bind_automation(record)
         self._refresh_mode_ui()
 
     def _bind_animation(self, record: "_DocTab") -> None:
@@ -1098,6 +1167,11 @@ class Main_Window(QMainWindow):
         # down here so closeEvent covers it too (REQ-P7-UI-010). Idempotent, event-
         # loop-free — no export worker or signal carrier survives into GC.
         self._export_controller.shutdown()
+        # The automation worker pool + carrier is likewise a single window-level
+        # resource; tear it down here so closeEvent covers it too (REQ-P8-UI-011).
+        # Idempotent, event-loop-free — no automation worker or signal carrier
+        # survives into a later GC cycle (the Phase-5 xdist-segfault guard).
+        self._automation_controller.shutdown()
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt override)
         """Tear down every scene's off-thread warm pool before the window closes.
@@ -2173,6 +2247,94 @@ class Main_Window(QMainWindow):
                 _DROP_NOTICE_MS,
             )
 
+    # -- automation (REQ-P8-UI-001..011) ----------------------------------
+
+    def _run_automation_ops(self, ops: List[Op], label: str) -> None:
+        """Dispatch DSL ``ops`` on the active document off-thread (UI-004/-006/-007).
+
+        The trusted engine runs on the worker; the resulting reversible command is
+        marshalled back to :meth:`_on_automation_result`, which pushes it onto the
+        active tab's undo stack as one :class:`AutomationCommand` (the observable
+        mutation is strictly GUI-thread). The panels emit inert DSL ops — this
+        window never interprets script/plugin content and performs **no**
+        ``eval``/``exec`` (Article VII).
+        """
+        document = self.active_document()
+        if document is None or not ops:
+            return
+        self._pending_automation_ops = list(ops)
+        self._pending_automation_label = label
+        self._automation_controller.submit(make_dispatch_job(document, list(ops)))
+
+    def _on_replay_requested(self, macro: Macro, label: str) -> None:
+        """Replay ``macro`` on the active document as one undoable command (UI-002).
+
+        A replay runs through the same trusted dispatcher and lands on the undo
+        stack exactly like a script run; it is not itself re-recorded, so the
+        pending-op capture is cleared.
+        """
+        document = self.active_document()
+        if document is None:
+            return
+        self._pending_automation_ops = None
+        self._pending_automation_label = label
+        self._automation_controller.submit(make_replay_job(document, macro))
+
+    def _on_automation_result(self, command: Command) -> None:
+        """Push a completed automation edit onto the active undo stack (UI-009).
+
+        The worker returns one **unapplied** reversible command with the document
+        restored to its pre-run state; wrapping it in a single
+        :class:`AutomationCommand` and pushing it applies it on the GUI thread as
+        exactly one undoable step. If a recording is active and this run was a
+        script / batch / procgen (not a replay), its DSL ops are captured into the
+        recording (REQ-P8-LOGIC-004).
+        """
+        record = self.active_tab()
+        if record is None or command is None:
+            return
+        label = self._pending_automation_label or self.tr("Automation")
+        record.stack.push(AutomationCommand(command, record.scene.refresh_all, label))
+        if self._macro_controls.is_recording() and self._pending_automation_ops:
+            self._macro_controls.add_recorded_ops(self._pending_automation_ops)
+        self._pending_automation_ops = None
+
+    def _on_automation_failed(self, message: str) -> None:
+        """Surface a failed / denied / bounded automation run gracefully (UI-008).
+
+        No command is pushed, so the document is left uncorrupted from the undo
+        stack's perspective (the worker restores the document before returning; a
+        failing dispatch returns no command). A malformed input never executes.
+        """
+        self._pending_automation_ops = None
+        QMessageBox.warning(self, self.tr("Automation Error"), message)
+
+    def _on_automation_busy(self, busy: bool) -> None:
+        """Guard the undo stack + surface run status while an automation is live.
+
+        Undo / redo are disabled during the brief off-thread run so the GUI thread
+        cannot mutate the document concurrently with the worker; a non-blocking
+        status message reflects the run.
+        """
+        self._undo_action.setEnabled(not busy and self._can_undo())
+        self._redo_action.setEnabled(not busy and self._can_redo())
+        if busy:
+            self.statusBar().showMessage(self.tr("Running automation…"))
+        else:
+            self.statusBar().clearMessage()
+
+    def _can_undo(self) -> bool:
+        record = self.active_tab()
+        return record is not None and record.stack.canUndo()
+
+    def _can_redo(self) -> bool:
+        record = self.active_tab()
+        return record is not None and record.stack.canRedo()
+
+    def _bind_automation(self, record: "_DocTab") -> None:
+        """Point the procgen / batch panels at the active document (view state)."""
+        self._batch_recolour_panel.set_frame_count(len(record.document.frames))
+
     # -- i18n -------------------------------------------------------------
 
     def _retranslate(self) -> None:
@@ -2193,6 +2355,11 @@ class Main_Window(QMainWindow):
         self._tilemap_layer_dock.setWindowTitle(self.tr("Tilemap Layers"))
         self._tilemap_dock.setWindowTitle(self.tr("Tilemap Canvas"))
         self._batch_dock.setWindowTitle(self.tr("Batch Export"))
+        self._macro_dock.setWindowTitle(self.tr("Macros"))
+        self._script_dock.setWindowTitle(self.tr("Script Runner"))
+        self._plugin_dock.setWindowTitle(self.tr("Plugins"))
+        self._batch_recolour_dock.setWindowTitle(self.tr("Batch Recolour"))
+        self._procgen_dock.setWindowTitle(self.tr("Procedural Generation"))
         self._tab_widget.setAccessibleName(self.tr("Open documents"))
         self._float_hint.setAccessibleName(self.tr("Floating selection status"))
         self._update_float_hint()
@@ -2284,6 +2451,7 @@ class Main_Window(QMainWindow):
         self._view_menu.setTitle(self.tr("&View"))
         self._palette_menu.setTitle(self.tr("&Palette"))
         self._tilemap_menu.setTitle(self.tr("Tile&map"))
+        self._automation_menu.setTitle(self.tr("&Automation"))
         self._theme_menu.setTitle(self.tr("&Theme"))
         self._language_menu.setTitle(self.tr("&Language"))
 
