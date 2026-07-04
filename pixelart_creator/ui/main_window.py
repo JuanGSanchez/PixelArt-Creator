@@ -97,6 +97,7 @@ from pixelart_creator.logic.transform import (
     TransformError,
     scale_nearest,
 )
+from pixelart_creator.ui.batch_export_panel import Batch_Export_Panel
 from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.canvas_view import Canvas_View
 from pixelart_creator.ui.colour_cycling_panel import Colour_Cycling_Panel
@@ -107,6 +108,8 @@ from pixelart_creator.ui.commands import (
     TilemapCommand,
     TilesetCommand,
 )
+from pixelart_creator.ui.export_actions import run_export_dialog
+from pixelart_creator.ui.export_worker import Export_Controller
 from pixelart_creator.ui.extract_palette_dialog import Extract_Palette_Dialog
 from pixelart_creator.ui.frame_tags_panel import Frame_Tags_Panel
 from pixelart_creator.ui.i18n import LanguageManager
@@ -468,6 +471,28 @@ class Main_Window(QMainWindow):
         self._float_hint.setVisible(False)
         self.statusBar().addPermanentWidget(self._float_hint)
 
+        # Phase-7 export (REQ-P7-UI-001..013): a window-owned Export_Controller runs
+        # the Qt-free logic/export + data/export_io engine off the GUI thread with
+        # progress/cancel (UI-010); its worker continues past a failing target
+        # (continue-on-failure, UI-005/-008). Export is read-only — no QUndoCommand
+        # (UI-009). Its deterministic teardown is folded into shutdown_prewarm so no
+        # worker/carrier survives GC (the Phase-5 xdist-segfault guard, D2/D4). This
+        # window is the single place that surfaces a run's result (a QMessageBox on
+        # failure); the batch panel reflects per-row progress from the same signals.
+        self._export_controller = Export_Controller(self)
+        self._export_controller.progress.connect(self._on_export_progress)
+        self._export_controller.targetSucceeded.connect(self._on_export_target_ok)
+        self._export_controller.targetFailed.connect(self._on_export_target_failed)
+        self._export_controller.batchFinished.connect(self._on_export_finished)
+        self._export_controller.busyChanged.connect(self._on_export_busy)
+        self._export_run_failures: List[str] = []
+        self._export_run_ok = 0
+        self._batch_export_panel = Batch_Export_Panel(self)
+        self._batch_export_panel.set_context(
+            self._export_controller, self.active_document
+        )
+        self._batch_dock = self._add_workflow_dock(self._batch_export_panel)
+
         self._build_actions()
         self._build_toolbar()
         self._build_menu()
@@ -531,6 +556,13 @@ class Main_Window(QMainWindow):
         self._close_action.triggered.connect(
             lambda: self.close_document(self._tab_widget.currentIndex())
         )
+        # Export action (REQ-P7-UI-001): opens the export dialog. Ctrl+Shift+E is
+        # free (the tool key E is unmodified; Ctrl+Shift+A is the only other combo).
+        self._export_action = QAction(self)
+        self._export_action.setShortcut(
+            Qt.Modifier.CTRL | Qt.Modifier.SHIFT | Qt.Key.Key_E
+        )
+        self._export_action.triggered.connect(self._on_export)
 
         self._zoom_in_action = QAction(self)
         self._zoom_in_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_Plus)
@@ -701,6 +733,8 @@ class Main_Window(QMainWindow):
         self._file_menu.addAction(self._save_action)
         self._file_menu.addAction(self._save_as_action)
         self._file_menu.addSeparator()
+        self._file_menu.addAction(self._export_action)
+        self._file_menu.addSeparator()
         self._file_menu.addAction(self._close_action)
 
         self._edit_menu = bar.addMenu("")
@@ -742,6 +776,7 @@ class Main_Window(QMainWindow):
         self._view_menu.addAction(self._timeline_dock.toggleViewAction())
         self._view_menu.addAction(self._onion_dock.toggleViewAction())
         self._view_menu.addAction(self._tags_dock.toggleViewAction())
+        self._view_menu.addAction(self._batch_dock.toggleViewAction())
 
         self._palette_menu = bar.addMenu("")
         self._palette_menu.addAction(self._extract_action)
@@ -1047,9 +1082,10 @@ class Main_Window(QMainWindow):
         """Deterministically tear down every off-thread warm in the window (D2/D4).
 
         A window-level, idempotent shutdown that drains and releases each tab's
-        canvas pre-warm pool + signal carrier AND the shared tilemap canvas's
-        off-thread chunk-warm pool + carrier. It does not rely on the Qt event loop,
-        so it is safe to call directly — from :meth:`closeEvent`, and by tests in a
+        canvas pre-warm pool + signal carrier, the shared tilemap canvas's
+        off-thread chunk-warm pool + carrier, AND the export controller's worker
+        pool + carrier (REQ-P7-UI-010). It does not rely on the Qt event loop, so
+        it is safe to call directly — from :meth:`closeEvent`, and by tests in a
         teardown fixture to guarantee no worker thread or connected carrier survives
         a :class:`MainWindow` past its use.
         """
@@ -1058,6 +1094,10 @@ class Main_Window(QMainWindow):
         # The tilemap canvas is a single window-level widget (not per-tab); tear its
         # off-thread chunk warm down here so closeEvent covers it too (D4).
         self._tilemap_canvas.shutdown_warm()
+        # The export worker pool + carrier is a single window-level resource; tear it
+        # down here so closeEvent covers it too (REQ-P7-UI-010). Idempotent, event-
+        # loop-free — no export worker or signal carrier survives into GC.
+        self._export_controller.shutdown()
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (Qt override)
         """Tear down every scene's off-thread warm pool before the window closes.
@@ -2074,6 +2114,65 @@ class Main_Window(QMainWindow):
             return
         export_tilemap_dialog(self, self._active_tilemap)
 
+    # -- export (REQ-P7-UI-001, -005, -008, -009, -010) -------------------
+
+    def _on_export(self) -> None:
+        """Open the export dialog for the active document (non-destructive).
+
+        Delegates to :func:`~pixelart_creator.ui.export_actions.run_export_dialog`,
+        which submits one target to the off-thread export controller. Export is
+        read-only — no ``QUndoCommand`` is pushed and ``ui/commands.py`` is
+        untouched (REQ-P7-UI-009).
+        """
+        run_export_dialog(self, self.active_document(), self._export_controller)
+
+    def _on_export_busy(self, busy: bool) -> None:
+        """Reset the per-run result accumulators when a run starts (busyChanged)."""
+        if busy:
+            self._export_run_failures = []
+            self._export_run_ok = 0
+            self.statusBar().showMessage(self.tr("Exporting…"))
+
+    def _on_export_progress(self, done: int, total: int, _label: str) -> None:
+        """Show non-blocking export progress in the status bar (UI-010)."""
+        self.statusBar().showMessage(
+            self.tr("Exporting %1 of %2…")
+            .replace("%1", str(min(done + 1, total)))
+            .replace("%2", str(total))
+        )
+
+    def _on_export_target_ok(self, _index: int, _result: object) -> None:
+        """Count a successful export target (summarised at run end)."""
+        self._export_run_ok += 1
+
+    def _on_export_target_failed(self, _index: int, message: str) -> None:
+        """Collect a failed target's message (summarised at run end, UI-008)."""
+        self._export_run_failures.append(message)
+
+    def _on_export_finished(self) -> None:
+        """Summarise a finished export run: a QMessageBox on any failure (UI-008).
+
+        A single user-facing dialog reports all failed targets (never one popup per
+        target and never a crash); a clean run shows a non-blocking status message.
+        """
+        if self._export_run_failures:
+            detail = "\n".join(self._export_run_failures)
+            QMessageBox.warning(
+                self,
+                self.tr("Export Failed"),
+                self.tr("%1 export target(s) failed:\n%2")
+                .replace("%1", str(len(self._export_run_failures)))
+                .replace("%2", detail),
+            )
+            self.statusBar().clearMessage()
+        else:
+            self.statusBar().showMessage(
+                self.tr("Export complete (%1 file(s)).").replace(
+                    "%1", str(self._export_run_ok)
+                ),
+                _DROP_NOTICE_MS,
+            )
+
     # -- i18n -------------------------------------------------------------
 
     def _retranslate(self) -> None:
@@ -2093,6 +2192,7 @@ class Main_Window(QMainWindow):
         self._tileset_dock.setWindowTitle(self.tr("Tileset Editor"))
         self._tilemap_layer_dock.setWindowTitle(self.tr("Tilemap Layers"))
         self._tilemap_dock.setWindowTitle(self.tr("Tilemap Canvas"))
+        self._batch_dock.setWindowTitle(self.tr("Batch Export"))
         self._tab_widget.setAccessibleName(self.tr("Open documents"))
         self._float_hint.setAccessibleName(self.tr("Floating selection status"))
         self._update_float_hint()
@@ -2121,6 +2221,7 @@ class Main_Window(QMainWindow):
         self._open_action.setText(self.tr("&Open…"))
         self._save_action.setText(self.tr("&Save"))
         self._save_as_action.setText(self.tr("Save &As…"))
+        self._export_action.setText(self.tr("&Export…"))
         self._close_action.setText(self.tr("&Close"))
         self._zoom_in_action.setText(self.tr("Zoom &In"))
         self._zoom_out_action.setText(self.tr("Zoom &Out"))
