@@ -48,6 +48,10 @@ dev = [
     "pydocstyle>=6.3",
 ]
 
+# Console entry points (installed on `pip install`). T7C-07 (REQ-P7-DATA-004).
+[project.scripts]
+pixelart-export = "pixelart_creator.data.export_cli:main"
+
 [tool.setuptools.packages.find]
 include = ["pixelart_creator*"]
 # Exclude non-shipped infra from the distributed package (scripts/ are dev tooling).
