@@ -59,6 +59,7 @@ __all__ = [
     "Operation",
     "LAYER_ATTRS",
     "converge",
+    "apply_operations",
     "make_raster_op",
     "structured_sidecar",
 ]
@@ -394,10 +395,21 @@ def _apply_structured(result: Document, blob: bytes) -> None:
     """Materialise the decoded structured winners onto ``result`` (deterministic)."""
     decoded = _decode_structured(blob)
     # metadata first, then attrs, then order — deterministic key sort within each kind.
+    meta_written = False
     for key in sorted(decoded):
         value = decoded[key]
         if key.startswith("meta:"):
             result.metadata[key[len("meta:") :]] = str(value)
+            meta_written = True
+    if meta_written:
+        # Canonicalise the metadata key order (sorted) so the serialised ``.pixproj``
+        # is byte-identical no matter how the ops were chunked across apply calls. The
+        # batch :func:`converge` inserts every winning key in one sorted pass, but the
+        # Slice-C realtime path (:mod:`realtime_apply`) folds patches one at a time,
+        # appending new keys in arrival order; re-sorting the whole dict here (subset-
+        # invariant and idempotent) makes the incremental path converge byte-identically
+        # to the batch path (byte-level SEC, not just logical-state convergence).
+        result.metadata = {k: result.metadata[k] for k in sorted(result.metadata)}
     for key in sorted(decoded):
         if not key.startswith("attr:"):
             continue
@@ -468,6 +480,47 @@ def _apply_raster(result: Document, ops: Sequence[RasterOp]) -> None:
         arr[y0 : y0 + op.tile_height, x0 : x0 + op.tile_width] = tile
 
 
+def apply_operations(document: Document, ops: Sequence[Operation]) -> None:
+    """Apply a set of operations onto ``document`` **in place** (no deep copy).
+
+    This is the deterministic core :func:`converge` runs after cloning ``base``,
+    exposed as a public seam so the Slice-C real-time apply layer
+    (:mod:`pixelart_creator.logic.realtime_apply`) can fold an inbound patch onto
+    the **live** ``Document`` without the (8K-scale, ~126 MB) deep copy — Article VI
+    per-frame re-entry (ADR-0027 §7). Only the tiles/nodes named in ``ops`` are
+    touched (the hybrid model is dirty-region-scoped by construction), so a single
+    remote-patch apply is bounded by the size of the patch, not the canvas.
+
+    The winner resolution is identical to :func:`converge`: structured LWW registers
+    resolve by the total ``(logical_clock, site_id)`` order, and each raster tile
+    resolves to the same winner regardless of order — so applying a batch here is
+    order-independent (strong eventual consistency).
+
+    Args:
+        document: The document to mutate in place (must be a ``Document``).
+        ops: The operations to apply (any order).
+
+    Raises:
+        ConvergenceError: If ``document`` is not a ``Document`` or an op cannot be
+            applied (e.g. a raster op targets a missing / non-leaf layer).
+    """
+    if not isinstance(document, Document):
+        raise ConvergenceError(f"document must be a Document, got {document!r}")
+
+    raster_ops: List[RasterOp] = []
+    structured_ops: List[Operation] = []
+    for op in ops:
+        if isinstance(op, RasterOp):
+            raster_ops.append(op)
+        elif isinstance(op, (MetadataOp, LayerAttrOp, LayerOrderOp)):
+            structured_ops.append(op)
+        else:
+            raise ConvergenceError(f"unknown operation type: {op!r}")
+
+    _apply_structured(document, structured_sidecar(structured_ops))
+    _apply_raster(document, raster_ops)
+
+
 def converge(base: Document, ops: Sequence[Operation], *, site_id: int) -> Document:
     """Converge a set of concurrent operations onto ``base`` deterministically.
 
@@ -503,17 +556,5 @@ def converge(base: Document, ops: Sequence[Operation], *, site_id: int) -> Docum
     _require_nonneg_int(site_id, "site_id")
 
     result: Document = copy.deepcopy(base)
-
-    raster_ops: List[RasterOp] = []
-    structured_ops: List[Operation] = []
-    for op in ops:
-        if isinstance(op, RasterOp):
-            raster_ops.append(op)
-        elif isinstance(op, (MetadataOp, LayerAttrOp, LayerOrderOp)):
-            structured_ops.append(op)
-        else:
-            raise ConvergenceError(f"unknown operation type: {op!r}")
-
-    _apply_structured(result, structured_sidecar(structured_ops))
-    _apply_raster(result, raster_ops)
+    apply_operations(result, ops)
     return result
