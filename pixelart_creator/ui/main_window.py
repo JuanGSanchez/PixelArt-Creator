@@ -116,6 +116,7 @@ from pixelart_creator.ui.automation_worker import (
 )
 from pixelart_creator.ui.batch_export_panel import Batch_Export_Panel
 from pixelart_creator.ui.batch_recolour_panel import Batch_Recolour_Panel
+from pixelart_creator.ui.branching_panel import Branching_Panel, Branching_Session
 from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.canvas_view import Canvas_View
 from pixelart_creator.ui.cloud_actions import (
@@ -147,6 +148,7 @@ from pixelart_creator.ui.i18n import LanguageManager
 from pixelart_creator.ui.image_import import decode_image
 from pixelart_creator.ui.iso_grid_overlay import Iso_Grid_Overlay
 from pixelart_creator.ui.layer_panel import Layer_Panel
+from pixelart_creator.ui.live_cursors_overlay import Live_Cursors_Overlay
 from pixelart_creator.ui.macro_controls import Macro_Controls
 from pixelart_creator.ui.multi_view import Multi_View
 from pixelart_creator.ui.onion_skin_controls import Onion_Skin_Controls, OnionSettings
@@ -164,6 +166,7 @@ from pixelart_creator.ui.presence_panel import Presence_Panel
 from pixelart_creator.ui.prewarm_indicator import Prewarm_Indicator
 from pixelart_creator.ui.procgen_panel import Procgen_Panel
 from pixelart_creator.ui.real_size_preview_window import Real_Size_Preview_Window
+from pixelart_creator.ui.realtime_actions import Realtime_Session
 from pixelart_creator.ui.recovery_prompt import Recovery_Prompt
 from pixelart_creator.ui.reference_board import Reference_Board
 from pixelart_creator.ui.rotsprite_dialog import RotSprite_Dialog
@@ -245,6 +248,9 @@ class _DocTab:
     # tab, toggled from the Aids menu). ``None`` until the aids are attached.
     guides_rulers: Optional[Guides_Rulers_Overlay] = None
     iso_overlay: Optional[Iso_Grid_Overlay] = None
+    # Phase-10 Slice C: the ephemeral live-cursor overlay for this tab's scene
+    # (other collaborators' cursors; never persisted). ``None`` until aids attach.
+    live_cursors: Optional[Live_Cursors_Overlay] = None
     perspective_overlay: Optional[Perspective_Grid_Overlay] = None
 
 
@@ -647,6 +653,43 @@ class Main_Window(QMainWindow):
         self._presence_panel.set_session(self._collab_session)
         self._presence_dock = self._add_workflow_dock(self._presence_panel)
 
+        # Phase-10 Slice C real-time + branching (REQ-P10-UI-012/-013). The
+        # Realtime_Session owns an OFF-GUI-THREAD worker (data/cloud TransportPort over
+        # the loopback in CI, WebSocket out of CI) that polls/writes the relay; it hands
+        # inbound framed bytes back over a queued signal and THIS session decodes +
+        # applies them onto the live Document ON THE GUI THREAD (apply_remote is
+        # dirty-region scoped — the Article VI re-entry AGT-10 profiles). Its worker has
+        # an idempotent, event-loop-free shutdown (shutdown()) wired FIRST into
+        # shutdown_prewarm so no worker thread / socket survives into GC (the recurring
+        # PySide6 cross-thread xdist segfault — the highest-risk teardown this slice).
+        # Real-time is session state and pushes NO QUndoCommand (PL10-D13). ui/ never
+        # sees a provider type or token (DATA-007/-008). No eval/exec: inbound frames
+        # are decoded/validated by the pure logic/sync_protocol layer (Article VII).
+        self._realtime_session = Realtime_Session(parent=self)
+        self._realtime_session.remoteUpdateApplied.connect(
+            self._on_remote_update_applied
+        )
+        self._realtime_session.presenceReceived.connect(self._on_presence_received)
+        self._realtime_session.connectionChanged.connect(
+            self._on_realtime_connection_changed
+        )
+        self._realtime_session.errorOccurred.connect(self._on_realtime_error)
+        #: Live-cursor overlays are per-tab (attached in _create_tab_aids); toggled on
+        #: connect. The local member id broadcast with presence (never a token).
+        self._realtime_member_id = ""
+
+        # Branching (REQ-P10-UI-012): a git-like branch/switch/merge session over the
+        # pure logic/realtime_apply model (conflict-free merge; no manual conflict UI).
+        # Branching is session state and pushes NO QUndoCommand (PL10-D13). The merged /
+        # switched/merged Document is loaded into the active tab by the slot below.
+        self._branching_session = Branching_Session(parent=self)
+        self._branching_session.documentSwitched.connect(
+            self._on_branch_document_switched
+        )
+        self._branching_panel = Branching_Panel(self)
+        self._branching_panel.set_session(self._branching_session)
+        self._branching_dock = self._add_workflow_dock(self._branching_panel)
+
         self._build_actions()
         self._build_toolbar()
         self._build_menu()
@@ -744,6 +787,17 @@ class Main_Window(QMainWindow):
         self._cloud_versions_action = QAction(self)
         self._cloud_versions_action.setEnabled(False)
         self._cloud_versions_action.triggered.connect(self._on_cloud_versions)
+        # Phase-10 Slice C: real-time connect/disconnect + a live-cursor overlay toggle.
+        # Connect joins the active document's real-time relay; disconnect leaves it
+        # (reconnectable). The overlay toggle is checkable, per-tab visibility.
+        self._realtime_connect_action = QAction(self)
+        self._realtime_connect_action.triggered.connect(self._on_realtime_connect)
+        self._realtime_disconnect_action = QAction(self)
+        self._realtime_disconnect_action.setEnabled(False)
+        self._realtime_disconnect_action.triggered.connect(self._on_realtime_disconnect)
+        self._live_cursors_action = QAction(self)
+        self._live_cursors_action.setCheckable(True)
+        self._live_cursors_action.toggled.connect(self._on_live_cursors_toggled)
 
         self._zoom_in_action = QAction(self)
         self._zoom_in_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_Plus)
@@ -1018,6 +1072,14 @@ class Main_Window(QMainWindow):
         self._cloud_menu.addAction(self._shared_dock.toggleViewAction())
         self._cloud_menu.addAction(self._comments_dock.toggleViewAction())
         self._cloud_menu.addAction(self._presence_dock.toggleViewAction())
+        # Slice-C real-time + branching surfaces, consistent with the Cloud menu:
+        # connect/disconnect the live session, toggle the live-cursor overlay, and the
+        # branching dock (UI-012/-013).
+        self._cloud_menu.addSeparator()
+        self._cloud_menu.addAction(self._realtime_connect_action)
+        self._cloud_menu.addAction(self._realtime_disconnect_action)
+        self._cloud_menu.addAction(self._live_cursors_action)
+        self._cloud_menu.addAction(self._branching_dock.toggleViewAction())
 
         self._theme_menu = bar.addMenu("")
         self._theme_menu.addAction(self._theme_light_action)
@@ -1104,6 +1166,11 @@ class Main_Window(QMainWindow):
         record.guides_rulers = Guides_Rulers_Overlay(
             record.view, record.scene, scene_rect
         )
+        # Phase-10 Slice C: the ephemeral live-cursor overlay (other collaborators'
+        # cursors, REQ-P10-UI-013). Above the aids (z ~9); hidden until real-time is
+        # connected. No item cache — cursors move per frame (AGT-10 will profile).
+        record.live_cursors = Live_Cursors_Overlay(scene_rect)
+        record.scene.addItem(record.live_cursors)
         self._apply_aid_theme(record)
 
         # Wrap the view with the ruler strips (top + left) in a grid container.
@@ -1149,6 +1216,13 @@ class Main_Window(QMainWindow):
         self._preview_window.set_document_ppi(record.document.ppi)
         self._multi_view.set_scene(record.scene)
         self._timelapse_controls.bind_undo_stack(record.stack)
+        # Phase-10 Slice C: rebind the real-time session + branching base to this tab's
+        # document, and reflect this tab's live-cursor overlay visibility on the toggle.
+        self._realtime_session.set_document(record.document)
+        self._branching_session.set_base_document(record.document)
+        if record.live_cursors is not None:
+            record.live_cursors.set_local_member(self._realtime_member_id)
+            record.live_cursors.setVisible(self._live_cursors_action.isChecked())
         # Reflect this tab's overlay visibility without re-triggering the toggles.
         for action, overlay in (
             (self._guides_action, record.guides_rulers),
@@ -1463,6 +1537,15 @@ class Main_Window(QMainWindow):
         teardown fixture to guarantee no worker thread or connected carrier survives
         a :class:`MainWindow` past its use.
         """
+        # Phase-10 Slice C: stop the real-time worker FIRST — it is the ONLY off-GUI-
+        # thread network worker in the window (a live transport + poll loop), and it
+        # must be stopped, its connection closed on the worker thread, and the thread
+        # joined (bounded) BEFORE the dependent live-cursor overlays / scenes are torn
+        # down. Its shutdown() is idempotent + event-loop-free and releases the carrier,
+        # so no worker thread or socket survives into a later GC cycle (the recurring
+        # PySide6 cross-thread GC-of-Qt-C++ xdist native segfault — worse here with a
+        # live socket). Ordered before every dependent teardown below.
+        self._realtime_session.shutdown()
         for record in self._tabs_data:
             record.scene.shutdown_prewarm()
         # The tilemap canvas is a single window-level widget (not per-tab); tear its
@@ -2126,6 +2209,94 @@ class Main_Window(QMainWindow):
         self._cloud_save_action.setEnabled(connected)
         self._cloud_open_action.setEnabled(connected)
         self._cloud_versions_action.setEnabled(connected)
+
+    # -- Phase-10 Slice C: real-time + branching (REQ-P10-UI-012/-013) ----
+
+    def _on_realtime_connect(self) -> None:
+        """Join the active document's real-time relay (member id prompted once)."""
+        title = self.tr("Real-time")
+        record = self.active_tab()
+        if record is None:
+            QMessageBox.information(self, title, self.tr("Open a document first."))
+            return
+        member_id, ok = QInputDialog.getText(self, title, self.tr("Your member id:"))
+        member_id = member_id.strip()
+        if not ok or not member_id:
+            return
+        self._realtime_member_id = member_id
+        if record.live_cursors is not None:
+            record.live_cursors.set_local_member(member_id)
+        self._realtime_session.set_document(record.document)
+        # The shared-document id is the active shared project when one is open, else a
+        # local id derived from the tab (still hermetic over the loopback transport).
+        document_id = self._collab_session.active_project_id() or "local"
+        self._realtime_session.connect_realtime(document_id, member_id)
+
+    def _on_realtime_disconnect(self) -> None:
+        """Leave the real-time relay (reconnectable; clears the live cursors)."""
+        self._realtime_session.disconnect_realtime()
+        record = self.active_tab()
+        if record is not None and record.live_cursors is not None:
+            record.live_cursors.clear()
+
+    def _on_realtime_connection_changed(self, connected: bool) -> None:
+        """Reflect the real-time connection state in the action enablement."""
+        self._realtime_connect_action.setEnabled(not connected)
+        self._realtime_disconnect_action.setEnabled(connected)
+        if connected:
+            # Auto-show the live-cursor overlay on connect.
+            self._live_cursors_action.setChecked(True)
+
+    def _on_realtime_error(self, message: str) -> None:
+        """Surface a rejected/failed real-time frame (never a crash — Article VII)."""
+        self.statusBar().showMessage(self.tr("Real-time: {msg}").format(msg=message))
+
+    def _on_remote_update_applied(self, regions: object) -> None:
+        """Repaint ONLY the tiles a remote CRDT update touched (dirty-rect redraw).
+
+        The document was already mutated in place on the GUI thread by the session
+        (:func:`~pixelart_creator.logic.realtime_apply.apply_remote`); here we repaint
+        just the reported :class:`~pixelart_creator.logic.realtime_apply.DirtyRegion`
+        rects on the active scene (Article VI, ADR-0027 §7 — never a full-scene redraw).
+        """
+        record = self.active_tab()
+        if record is None or not isinstance(regions, (tuple, list)):
+            return
+        if not regions:
+            record.scene.refresh_all()
+            return
+        for region in regions:
+            rect = QRectF(region.x, region.y, region.width, region.height)
+            record.scene.refresh_rect(rect)
+
+    def _on_presence_received(self, payload: object) -> None:
+        """Route an ephemeral presence payload to the active tab's cursor overlay."""
+        record = self.active_tab()
+        if record is None or record.live_cursors is None:
+            return
+        if isinstance(payload, dict):
+            record.live_cursors.apply_presence(payload)
+
+    def _on_live_cursors_toggled(self, enabled: bool) -> None:
+        """Show/hide the active tab's live-cursor overlay (per-tab view state)."""
+        record = self.active_tab()
+        if record is not None and record.live_cursors is not None:
+            record.live_cursors.setVisible(enabled)
+
+    def _on_branch_document_switched(self, document: object) -> None:
+        """Load a switched/merged branch document into the active tab (REQ-P10-UI-012).
+
+        Branching composes whole Qt-free documents (no QUndoCommand, PL10-D13); the
+        materialised/merged document is bound to the active scene + rebinds the
+        real-time session so later remote updates apply to it.
+        """
+        record = self.active_tab()
+        if record is None or not isinstance(document, Document):
+            return
+        record.document = document
+        record.scene.set_document(document)
+        record.scene.refresh_all()
+        self._realtime_session.set_document(document)
 
     def _on_cloud_save(self) -> None:
         """Save the active document to the cloud as a new version (off-thread)."""
@@ -2892,6 +3063,7 @@ class Main_Window(QMainWindow):
         self._shared_dock.setWindowTitle(self.tr("Shared Projects"))
         self._comments_dock.setWindowTitle(self.tr("Comments"))
         self._presence_dock.setWindowTitle(self.tr("Presence"))
+        self._branching_dock.setWindowTitle(self.tr("Branching"))
         # Phase-9 aid docks: without a windowTitle their Aids-menu toggleViewAction
         # renders blank and never retranslates. Reuse each widget's own catalogue
         # title ("Real-Size Preview" / "Timelapse") so the toggles are labelled.
@@ -2933,6 +3105,9 @@ class Main_Window(QMainWindow):
         self._cloud_save_action.setText(self.tr("&Save to Cloud…"))
         self._cloud_open_action.setText(self.tr("&Open from Cloud…"))
         self._cloud_versions_action.setText(self.tr("&Version History…"))
+        self._realtime_connect_action.setText(self.tr("Start &Real-time…"))
+        self._realtime_disconnect_action.setText(self.tr("Stop Real-&time"))
+        self._live_cursors_action.setText(self.tr("Show &Live Cursors"))
         self._zoom_in_action.setText(self.tr("Zoom &In"))
         self._zoom_out_action.setText(self.tr("Zoom &Out"))
         self._fit_action.setText(self.tr("&Fit to View"))
