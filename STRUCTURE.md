@@ -745,11 +745,12 @@
 | `realtime_worker.py` | Off-GUI-thread worker driving the `TransportPort` (join/poll/send); clean teardown (segfault gate PASS). | `data/cloud/transport` | UI-013 (support) | 10C |
 | `realtime_actions.py` | Real-time session facade: wires transport/worker → apply/branch/presence dispatch on the GUI. | `logic/sync_protocol`, `logic/cloud_validation`, `logic/convergence`, `logic/document`, `logic/realtime_apply`, `ui/realtime_worker` | UI-012/013 (support) | 10C |
 
-## `pixelart_creator/logic/` — Phase-11 team & asset management — Slice 1 BUILT · Slices 2/3 PLANNED
+## `pixelart_creator/logic/` — Phase-11 team & asset management — Slices 1–2 BUILT · Slice 3 PLANNED
 
-> **Slice 1 (`content_hash` / `asset_catalog` / `asset_tags` / `asset_query`) is SHIPPED and green**
-> (`check_layering --root pixelart_creator` + `--root .` exit 0, 169 modules; `check_cycles` exit 0, no
-> cycles; verified 2026-07-05). Slice-2 (`dependency_graph`, `break_detection`) and Slice-3
+> **Slices 1–2 (`content_hash` / `asset_catalog` / `asset_tags` / `asset_query` /
+> `dependency_graph` / `break_detection`) are SHIPPED and green**
+> (`check_layering --root pixelart_creator` exit 0, 172 modules; `--root .` exit 0, 3 modules;
+> `check_cycles` exit 0, no cycles, 173 modules; Slice-2 gate verified 2026-07-06). Slice-3
 > (`asset_version`) rows below are **RESERVED / not-built** — traced to REQs, dependency-gated on Slice 1/2.
 > New Qt-free models frozen by AGT-01 (`interface-contract`, plan §5) BEFORE implementation. Exceptions
 > subclass `ValueError` (Phase-1 convention). `AssetKind` is **module-local** enumerated vocabulary
@@ -768,7 +769,7 @@
 | `asset_tags.py` | Reversible tag ops (do/undo pair, HIS-1 pattern; idempotent; bounded). | `make_add_tag`, `make_remove_tag`, `AssetTagError` | LOGIC-002, DATA-003 | 1 |
 | `asset_query.py` | Pure deterministic search/filter over the catalog (name AND tag AND kind; stable order). | `query`, `AssetQueryError` | LOGIC-003 | 1 |
 | `dependency_graph.py` | Queryable directed DAG of `AssetId` nodes + hash-pinned edges; depends-on/dependents-of; cycle-safe + depth-bounded. | `DependencyEdge`, `DependencyGraph`, `DependencyGraphError` | LOGIC-004 | 2 |
-| `break_detection.py` | Pure content-hash-gated reference-validation pass → per-edge BROKEN flags; pull-based. | `BrokenReference`, `find_broken`, `BreakDetectionError` | LOGIC-005 | 2 |
+| `break_detection.py` | Pure content-hash-gated reference-validation pass → per-edge BROKEN flags; pull-based; optional `changed_ids` gating via `dependents_of`. | `BrokenReference`, `find_broken`, `REASON_MISSING`, `REASON_HASH_MISMATCH`, `BreakDetectionError` | LOGIC-005 | 2 |
 | `asset_version.py` | Ordered, immutable, content-hash-addressed revision DAG at asset granularity + hash comparison. | `AssetRevision`, `AssetVersionHistory`, `AssetVersionError` | LOGIC-006 | 3 |
 
 ## `pixelart_creator/data/` — Phase-11 asset stores — Slice 1 BUILT · Slices 2/3 PLANNED
@@ -790,28 +791,38 @@
 | `asset_shared_backend.py` | `SharedBlobBackend(BlobBackend)` composing Phase-10 `data/cloud/` shared storage — optional cloud backing; hash-verified fetch; no provider type above the port. | `data/cloud/*`, `data/asset_storage`, `logic/content_hash`, `logic/constants` | DATA-006 | 3 |
 | `asset_export.py` | Resolve a project's reference set → bundle exactly the referenced CAS blobs (self-contained); import defence. | `data/asset_cas`, `data/asset_catalog_io`, `logic/constants` | DATA-005 | 3 |
 
-## `pixelart_creator/ui/` — Phase-11 asset-management UI — Slice 1 BUILT · Slices 2/3 PLANNED
+## `pixelart_creator/ui/` — Phase-11 asset-management UI — Slices 1–2 BUILT · Slice 3 PLANNED
 
-> **Slice 1 UI (`asset_library_panel` / `asset_tagging_panel` / `asset_search_panel` /
-> `asset_library_actions` + `commands.py` tag-undo) is SHIPPED and green** (QA SHIP, both themes + a11y +
-> i18n verified 2026-07-05). Slice-2 (`dependency_graph_view`) and Slice-3 (`asset_version_browser`,
-> `asset_reuse_panel`) rows are **RESERVED / not-built**. Qt only. Each widget binds to `logic/`+`data/`,
+> **Slices 1–2 UI (`asset_library_panel` / `asset_tagging_panel` / `asset_search_panel` /
+> `asset_library_actions` + `commands.py` tag-undo; `dependency_graph_view` + passive break surface)
+> are SHIPPED and green** (QA SHIP, both themes + a11y + i18n; Slice-2 gate verified 2026-07-06).
+> Slice-3 (`asset_version_browser`, `asset_reuse_panel`) rows are **RESERVED / not-built**. Qt only.
+> Each widget binds to `logic/`+`data/`,
 > holds no domain logic, wraps user-visible strings in `tr()`/`translate()`, and retranslates on
 > `QEvent.LanguageChange` (UI-010); a11y (UI-008) + both themes (UI-009) apply. Tag add/remove is the one
 > new undoable op → `ui/commands.py` gains `AddTagCommand`/`RemoveTagCommand` over the pure
-> `logic/asset_tags` do/undo pair (PL11-D3). **Slice-1 note (PL11 shipped divergence):** the planned
-> `asset_worker.py` was **not needed** for the bounded local Slice-1 catalog — stays-responsive (UI-011)
-> was met without an off-thread worker (QA-verified, no freeze); a controller `asset_library_actions.py`
-> ships instead. A worker is deferred to when heavier ops (Slice-2 graph query) warrant it. No per-frame
-> re-entry (Article VI); a large-catalog graph render is the only conditional AGT-10 flag (DEP-3).
+> `logic/asset_tags` do/undo pair (PL11-D3).
+>
+> **Asset subsystem is SYNCHRONOUS-BY-DESIGN — no `asset_worker.py` (as-built reconciliation, AGT-01
+> 2026-07-06).** `tasks.md` T11-1-12 (Slice 1) and T11-2-05 (Slice 2) named a planned
+> `ui/asset_worker.py` off-GUI-thread runner, but **it was never built and does not exist**: Slice-1
+> catalog scan/query and Slice-2 graph/break queries are pure `logic` calls over immutable in-memory
+> values (microsecond, bounded by `MAX_CATALOG_ASSETS` / `MAX_DEPENDENCY_DEPTH`), so they run
+> synchronously on the GUI thread. Stays-responsive (**UI-011**) is met **without** a worker
+> (QA-verified, no freeze in either slice); the `Asset_Library_Session` controller
+> (`asset_library_actions.py`) owns catalog + graph state instead. The stale `asset_worker` task text is
+> retained in `tasks.md` as history (not rewritten); this note records the as-built reality. A worker
+> stays a FUTURE option only if a genuinely heavy op appears. No per-frame re-entry (Article VI); a
+> large-catalog graph *render* is the only conditional AGT-10 flag (DEP-3, T11-2-08 — assessed not
+> triggered, see below).
 
 | Module | Responsibility | Binds to | REQ | Slice |
 | --- | --- | --- | --- | --- |
-| `asset_library_actions.py` | Slice-1 controller for catalog scan/build + query wiring (stays-responsive without a worker for the bounded local catalog; worker deferred to Slice 2). | `logic/asset_catalog`, `logic/asset_query` | UI-011 | 1 |
-| `asset_library_panel.py` | `Asset_Library_Panel` — browse catalog entries (kind/name/tags); updates on change. | `logic/asset_catalog`, `data/asset_catalog_io` | UI-001 | 1 |
+| `asset_library_actions.py` | `Asset_Library_Session` — single source of catalog **and** dependency graph; synchronous, no worker. Slice-2 adds `graph()` / `set_graph()` + `graphChanged` signal alongside `catalog()`/`set_catalog()`/`catalogChanged`; owns the shared undo stack. | `logic/asset_catalog`, `logic/asset_query`, `logic/dependency_graph` | UI-011 | 1–2 |
+| `asset_library_panel.py` | `Asset_Library_Panel` — browse catalog entries (kind/name/tags); updates on change. Slice-2 adds a passive break **Status** column + `broken_source_ids()` (pull over `find_broken`), refreshing on `catalogChanged`/`graphChanged`. | `logic/asset_catalog`, `logic/asset_query`, `logic/break_detection`, `data/asset_catalog_io` | UI-001, 006 | 1–2 |
 | `asset_tagging_panel.py` | `Asset_Tagging_Panel` — add/remove tags (undoable via `ui/commands.py`). | `logic/asset_tags`, `ui/commands` | UI-002 | 1 |
 | `asset_search_panel.py` | `Asset_Search_Panel` — search (name) + filter (tag/kind) driving the pure query. | `logic/asset_query` | UI-003 | 1 |
-| `dependency_graph_view.py` | `Dependency_Graph_View` — visualise depends-on/dependents + passive break indicator (refreshes on catalog change). | `logic/dependency_graph`, `logic/break_detection` | UI-005, 006 | 2 |
+| `dependency_graph_view.py` | `Dependency_Graph_View` — visualise depends-on/dependents for the whole catalog or the selected asset + passive break surface; a reported cycle is shown passively (label), never walked/hung; renders only direct-neighbour queries. Binds the shared `Asset_Library_Session`; refreshes on `catalogChanged`/`graphChanged`. Public seams: `set_session`, `set_asset`, `show_edges`, `broken_references`, `scope_asset_id`. | `logic/dependency_graph`, `logic/break_detection`, `logic/asset_catalog`, `ui/asset_library_actions` | UI-005, 006 | 2 |
 | `asset_version_browser.py` | `Asset_Version_Browser` — list/inspect/restore revisions (restore = new head, append-only). | `logic/asset_version`, `data/asset_revision_store` | UI-004 | 3 |
 | `asset_reuse_panel.py` | `Asset_Reuse_Panel` — reference a shared asset into a project (reference, not copy); mark shared. | `data/asset_cas`, `data/asset_export`, `logic/asset_catalog` | UI-007 | 3 |
 | `commands.py` *(extend)* | `AddTagCommand`/`RemoveTagCommand` — QUndoCommand wrappers over the pure `logic/asset_tags` do/undo pair. | `logic/asset_tags` | UI-002 | 1 |
