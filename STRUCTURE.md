@@ -745,14 +745,14 @@
 | `realtime_worker.py` | Off-GUI-thread worker driving the `TransportPort` (join/poll/send); clean teardown (segfault gate PASS). | `data/cloud/transport` | UI-013 (support) | 10C |
 | `realtime_actions.py` | Real-time session facade: wires transport/worker → apply/branch/presence dispatch on the GUI. | `logic/sync_protocol`, `logic/cloud_validation`, `logic/convergence`, `logic/document`, `logic/realtime_apply`, `ui/realtime_worker` | UI-012/013 (support) | 10C |
 
-## `pixelart_creator/logic/` — Phase-11 team & asset management — Slices 1–2 BUILT · Slice 3 PLANNED
+## `pixelart_creator/logic/` — Phase-11 team & asset management — Slices 1–3 BUILT (Phase 11 COMPLETE)
 
-> **Slices 1–2 (`content_hash` / `asset_catalog` / `asset_tags` / `asset_query` /
-> `dependency_graph` / `break_detection`) are SHIPPED and green**
-> (`check_layering --root pixelart_creator` exit 0, 172 modules; `--root .` exit 0, 3 modules;
-> `check_cycles` exit 0, no cycles, 173 modules; Slice-2 gate verified 2026-07-06). Slice-3
-> (`asset_version`) rows below are **RESERVED / not-built** — traced to REQs, dependency-gated on Slice 1/2.
-> New Qt-free models frozen by AGT-01 (`interface-contract`, plan §5) BEFORE implementation. Exceptions
+> **Slices 1–3 (`content_hash` / `asset_catalog` / `asset_tags` / `asset_query` /
+> `dependency_graph` / `break_detection` / `asset_version`) are SHIPPED and green**
+> (`check_layering --root pixelart_creator` exit 0, 178 modules; `--root .` exit 0, 3 modules;
+> `check_cycles` exit 0, no cycles, 179 modules; Slice-3 FINAL / Phase-11 completion gate verified
+> 2026-07-07). Slice-3 (`asset_version`) is **BUILT** — a pure content-hash-addressed revision DAG leaf
+> over `constants` (no `data/` import). New Qt-free models frozen by AGT-01 (`interface-contract`, plan §5) BEFORE implementation. Exceptions
 > subclass `ValueError` (Phase-1 convention). `AssetKind` is **module-local** enumerated vocabulary
 > (ADR-0001). New constants live in `constants.py` (Article II, plan §8): `MAX_CATALOG_ASSETS=65536`,
 > `MAX_TAGS_PER_ASSET=64`, `MAX_TAG_BYTES=128`, `MAX_METADATA_BYTES=4096`, `MAX_DEPENDENCY_DEPTH=64`,
@@ -772,11 +772,13 @@
 | `break_detection.py` | Pure content-hash-gated reference-validation pass → per-edge BROKEN flags; pull-based; optional `changed_ids` gating via `dependents_of`. | `BrokenReference`, `find_broken`, `REASON_MISSING`, `REASON_HASH_MISMATCH`, `BreakDetectionError` | LOGIC-005 | 2 |
 | `asset_version.py` | Ordered, immutable, content-hash-addressed revision DAG at asset granularity + hash comparison. | `AssetRevision`, `AssetVersionHistory`, `AssetVersionError` | LOGIC-006 | 3 |
 
-## `pixelart_creator/data/` — Phase-11 asset stores — Slice 1 BUILT · Slices 2/3 PLANNED
+## `pixelart_creator/data/` — Phase-11 asset stores — Slices 1–3 BUILT (Phase 11 COMPLETE)
 
-> **Slice 1 (`asset_storage` / `asset_cas` / `asset_catalog_io`) is SHIPPED and green** (both roots exit 0,
-> verified 2026-07-05). Slice-3 (`asset_revision_store`, `asset_shared_backend`, `asset_export`) rows are
-> **RESERVED / not-built**. Qt-free I/O + persistence. `AssetCatalogError`/`AssetExportError` subclass `ProjectIOError` (PIO-1
+> **Slices 1 & 3 (`asset_storage` / `asset_cas` / `asset_catalog_io`; `asset_revision_store` /
+> `asset_shared_backend` / `asset_export`) are SHIPPED and green** (both roots exit 0, Slice-3 FINAL gate
+> verified 2026-07-07). `asset_shared_backend` is the **only** Phase-11 module importing `data/cloud/`;
+> `asset_revision_store` composes `logic/asset_version` + `data/asset_cas`; `asset_export` composes
+> `data/asset_cas` + `data/asset_catalog_io`. Qt-free I/O + persistence. `AssetCatalogError`/`AssetExportError` subclass `ProjectIOError` (PIO-1
 > family). Composes the shipped PIO-1 (`data/project_io`) for payloads — **no new payload serialiser**
 > (Article I / DATA-007). The optional cloud backing composes the shipped `data/cloud/` shared storage
 > behind a `BlobBackend` port — **no provider type above the port** (ADR-0032). All edges point down; no
@@ -791,12 +793,16 @@
 | `asset_shared_backend.py` | `SharedBlobBackend(BlobBackend)` composing Phase-10 `data/cloud/` shared storage — optional cloud backing; hash-verified fetch; no provider type above the port. | `data/cloud/*`, `data/asset_storage`, `logic/content_hash`, `logic/constants` | DATA-006 | 3 |
 | `asset_export.py` | Resolve a project's reference set → bundle exactly the referenced CAS blobs (self-contained); import defence. | `data/asset_cas`, `data/asset_catalog_io`, `logic/constants` | DATA-005 | 3 |
 
-## `pixelart_creator/ui/` — Phase-11 asset-management UI — Slices 1–2 BUILT · Slice 3 PLANNED
+## `pixelart_creator/ui/` — Phase-11 asset-management UI — Slices 1–3 BUILT (Phase 11 COMPLETE)
 
-> **Slices 1–2 UI (`asset_library_panel` / `asset_tagging_panel` / `asset_search_panel` /
-> `asset_library_actions` + `commands.py` tag-undo; `dependency_graph_view` + passive break surface)
-> are SHIPPED and green** (QA SHIP, both themes + a11y + i18n; Slice-2 gate verified 2026-07-06).
-> Slice-3 (`asset_version_browser`, `asset_reuse_panel`) rows are **RESERVED / not-built**. Qt only.
+> **Slices 1–3 UI (`asset_library_panel` / `asset_tagging_panel` / `asset_search_panel` /
+> `asset_library_actions` + `commands.py` tag-undo; `dependency_graph_view` + passive break surface;
+> `asset_version_browser` / `asset_reuse_panel`) are SHIPPED and green** (QA SHIP, both themes + a11y +
+> i18n; Slice-3 FINAL gate verified 2026-07-07). Slice-3 `asset_version_browser` / `asset_reuse_panel`
+> are **BUILT** — presentation-only, synchronous (no worker/timer/poller), bound to the shared
+> `Asset_Library_Session`; both are registered in the `tests/ui/conftest.py` `_PHASE9_DISPOSABLE` drain.
+> `main_window.py` gains the shared `ContentAddressableStore` + `AssetRevisionStore`, two docks (Asset
+> Versions / Asset Reuse) and their `&Library`-menu toggle actions. Qt only.
 > Each widget binds to `logic/`+`data/`,
 > holds no domain logic, wraps user-visible strings in `tr()`/`translate()`, and retranslates on
 > `QEvent.LanguageChange` (UI-010); a11y (UI-008) + both themes (UI-009) apply. Tag add/remove is the one
@@ -823,7 +829,7 @@
 | `asset_tagging_panel.py` | `Asset_Tagging_Panel` — add/remove tags (undoable via `ui/commands.py`). | `logic/asset_tags`, `ui/commands` | UI-002 | 1 |
 | `asset_search_panel.py` | `Asset_Search_Panel` — search (name) + filter (tag/kind) driving the pure query. | `logic/asset_query` | UI-003 | 1 |
 | `dependency_graph_view.py` | `Dependency_Graph_View` — visualise depends-on/dependents for the whole catalog or the selected asset + passive break surface; a reported cycle is shown passively (label), never walked/hung; renders only direct-neighbour queries. Binds the shared `Asset_Library_Session`; refreshes on `catalogChanged`/`graphChanged`. Public seams: `set_session`, `set_asset`, `show_edges`, `broken_references`, `scope_asset_id`. | `logic/dependency_graph`, `logic/break_detection`, `logic/asset_catalog`, `ui/asset_library_actions` | UI-005, 006 | 2 |
-| `asset_version_browser.py` | `Asset_Version_Browser` — list/inspect/restore revisions (restore = new head, append-only). | `logic/asset_version`, `data/asset_revision_store` | UI-004 | 3 |
-| `asset_reuse_panel.py` | `Asset_Reuse_Panel` — reference a shared asset into a project (reference, not copy); mark shared. | `data/asset_cas`, `data/asset_export`, `logic/asset_catalog` | UI-007 | 3 |
+| `asset_version_browser.py` | `Asset_Version_Browser` — list/inspect/restore revisions (restore re-records verified bytes = new head, append-only); reflects the reinstated head into the session catalog via `replace_descriptor`. Public seams: `set_session`, `set_store`, `set_asset`, `current_asset_id`, `selected_revision_hash`, `revisionRestored` signal. | `data/asset_revision_store`, `logic/asset_version`, `logic/asset_catalog`, `ui/asset_library_actions` | UI-004 | 3 |
+| `asset_reuse_panel.py` | `Asset_Reuse_Panel` — reference a shared asset into a project (reference-not-copy; only `has()`-checks the CAS, never `put()`); marks an asset shared when >1 project references it. Public seams: `set_session`, `set_content_store`, `add_project`, `current_project`, `current_asset_id`, `reference_count`, `is_shared`, `project_references`, `assetReferenced` signal. | `data/asset_cas`, `logic/asset_catalog`, `ui/asset_library_actions` | UI-007 | 3 |
 | `commands.py` *(extend)* | `AddTagCommand`/`RemoveTagCommand` — QUndoCommand wrappers over the pure `logic/asset_tags` do/undo pair. | `logic/asset_tags` | UI-002 | 1 |
 </content>

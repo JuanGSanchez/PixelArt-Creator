@@ -190,6 +190,13 @@
           "content": "asset-dependencies",
           "keywords": ["dependency", "dependencies", "dependency graph", "depends on", "referenced by", "reference", "break", "break detection", "broken", "missing", "hash mismatch", "acyclic", "cycle", "graph view", "status"],
           "summary": "The dependency graph — depends-on and referenced-by relations between assets — and the passive break indicator that flags (never blocks) a reference broken by a missing or changed asset."
+        },
+        {
+          "id": "asset-versioning",
+          "title": "Asset versioning & cross-project reuse",
+          "content": "asset-versioning",
+          "keywords": ["version", "versioning", "version history", "revision", "revisions", "append-only", "restore", "inspect", "reuse", "cross-project", "reference-not-copy", "shared", "export", "import", "bundle", "cloud backing", "offline", "content hash", "dedup"],
+          "summary": "Append-only per-asset version history (inspect and restore, where restore adds a new head), reference-not-copy reuse across projects, export/import of a project's referenced assets as a self-contained bundle, and optional cloud backing while still working fully offline."
         }
       ]
     }
