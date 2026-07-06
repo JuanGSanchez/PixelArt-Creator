@@ -54,6 +54,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from pixelart_creator.data.asset_cas import ContentAddressableStore
+from pixelart_creator.data.asset_revision_store import AssetRevisionStore
 from pixelart_creator.data.favourites_io import (
     FavouritesIOError,
     load_favourites,
@@ -111,8 +113,10 @@ from pixelart_creator.logic.transform import (
 )
 from pixelart_creator.ui.asset_library_actions import Asset_Library_Session
 from pixelart_creator.ui.asset_library_panel import Asset_Library_Panel
+from pixelart_creator.ui.asset_reuse_panel import Asset_Reuse_Panel
 from pixelart_creator.ui.asset_search_panel import Asset_Search_Panel
 from pixelart_creator.ui.asset_tagging_panel import Asset_Tagging_Panel
+from pixelart_creator.ui.asset_version_browser import Asset_Version_Browser
 from pixelart_creator.ui.automation_worker import (
     Automation_Controller,
     make_dispatch_job,
@@ -745,6 +749,34 @@ class Main_Window(QMainWindow):
         )
         self._dependency_dock = self._add_workflow_dock(self._dependency_graph_view)
 
+        # Phase-11 Slice 3 version browser + cross-project reuse
+        # (REQ-P11-UI-004/-007): browse an asset's revisions and restore one
+        # append-only; reference a shared asset into a project without copying its
+        # bytes. Both bind to the SAME Asset_Library_Session (single source of the
+        # catalog) and follow the library selection. The append-only revision store
+        # and the shared content-addressable store are Qt-free data/ objects held here
+        # and shared so bytes are stored ONCE (a reference adds no blob): the version
+        # browser records/fetches through the revision store (CAS-backed), and the
+        # reuse panel only has()-checks the CAS on a reference — it never put()s, so
+        # the CAS blob count is unchanged (reference-not-copy). Every op is a
+        # SYNCHRONOUS CAS/in-memory call — no worker / timer / poller (the Slice-1/2
+        # precedent), so shutdown_prewarm is unchanged and nothing survives into GC.
+        self._asset_content_store = ContentAddressableStore()
+        self._asset_revision_store = AssetRevisionStore(self._asset_content_store)
+        self._asset_version_browser = Asset_Version_Browser(self)
+        self._asset_version_browser.set_session(self._asset_session)
+        self._asset_version_browser.set_store(self._asset_revision_store)
+        self._asset_library_panel.assetSelected.connect(
+            self._asset_version_browser.set_asset
+        )
+        self._version_browser_dock = self._add_workflow_dock(
+            self._asset_version_browser
+        )
+        self._asset_reuse_panel = Asset_Reuse_Panel(self)
+        self._asset_reuse_panel.set_session(self._asset_session)
+        self._asset_reuse_panel.set_content_store(self._asset_content_store)
+        self._reuse_dock = self._add_workflow_dock(self._asset_reuse_panel)
+
         self._build_actions()
         self._build_toolbar()
         self._build_menu()
@@ -1150,6 +1182,8 @@ class Main_Window(QMainWindow):
         self._library_menu.addAction(self._asset_search_dock.toggleViewAction())
         self._library_menu.addAction(self._asset_tagging_dock.toggleViewAction())
         self._library_menu.addAction(self._dependency_dock.toggleViewAction())
+        self._library_menu.addAction(self._version_browser_dock.toggleViewAction())
+        self._library_menu.addAction(self._reuse_dock.toggleViewAction())
 
         self._theme_menu = bar.addMenu("")
         self._theme_menu.addAction(self._theme_light_action)
@@ -3162,6 +3196,8 @@ class Main_Window(QMainWindow):
         self._asset_search_dock.setWindowTitle(self.tr("Asset Search"))
         self._asset_tagging_dock.setWindowTitle(self.tr("Asset Tagging"))
         self._dependency_dock.setWindowTitle(self.tr("Dependency Graph"))
+        self._version_browser_dock.setWindowTitle(self.tr("Asset Versions"))
+        self._reuse_dock.setWindowTitle(self.tr("Asset Reuse"))
         # Phase-9 aid docks: without a windowTitle their Aids-menu toggleViewAction
         # renders blank and never retranslates. Reuse each widget's own catalogue
         # title ("Real-Size Preview" / "Timelapse") so the toggles are labelled.
