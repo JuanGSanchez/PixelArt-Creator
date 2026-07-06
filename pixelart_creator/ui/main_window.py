@@ -143,6 +143,7 @@ from pixelart_creator.ui.commands import (
     TilesetCommand,
 )
 from pixelart_creator.ui.comments_panel import Comments_Panel
+from pixelart_creator.ui.dependency_graph_view import Dependency_Graph_View
 from pixelart_creator.ui.export_actions import run_export_dialog
 from pixelart_creator.ui.export_worker import Export_Controller
 from pixelart_creator.ui.extract_palette_dialog import Extract_Palette_Dialog
@@ -729,6 +730,21 @@ class Main_Window(QMainWindow):
         self._asset_search_dock = self._add_workflow_dock(self._asset_search_panel)
         self._asset_tagging_dock = self._add_workflow_dock(self._asset_tagging_panel)
 
+        # Phase-11 Slice 2 dependency-graph view + passive break surface
+        # (REQ-P11-UI-005/-006): visualise depends-on / dependents for the whole
+        # catalog or the selected asset, and flag broken references passively. It
+        # binds to the SAME Asset_Library_Session (single source of catalog + graph)
+        # and follows the library selection. Every query is a pure, cycle-safe,
+        # microsecond-fast in-memory call over the immutable graph value — SYNCHRONOUS
+        # on the GUI thread, no worker / timer / poller (the Slice-1 precedent), so
+        # shutdown_prewarm is unchanged and nothing survives into GC.
+        self._dependency_graph_view = Dependency_Graph_View(self)
+        self._dependency_graph_view.set_session(self._asset_session)
+        self._asset_library_panel.assetSelected.connect(
+            self._dependency_graph_view.set_asset
+        )
+        self._dependency_dock = self._add_workflow_dock(self._dependency_graph_view)
+
         self._build_actions()
         self._build_toolbar()
         self._build_menu()
@@ -1133,6 +1149,7 @@ class Main_Window(QMainWindow):
         self._library_menu.addAction(self._asset_library_dock.toggleViewAction())
         self._library_menu.addAction(self._asset_search_dock.toggleViewAction())
         self._library_menu.addAction(self._asset_tagging_dock.toggleViewAction())
+        self._library_menu.addAction(self._dependency_dock.toggleViewAction())
 
         self._theme_menu = bar.addMenu("")
         self._theme_menu.addAction(self._theme_light_action)
@@ -3144,6 +3161,7 @@ class Main_Window(QMainWindow):
         self._asset_library_dock.setWindowTitle(self.tr("Asset Library"))
         self._asset_search_dock.setWindowTitle(self.tr("Asset Search"))
         self._asset_tagging_dock.setWindowTitle(self.tr("Asset Tagging"))
+        self._dependency_dock.setWindowTitle(self.tr("Dependency Graph"))
         # Phase-9 aid docks: without a windowTitle their Aids-menu toggleViewAction
         # renders blank and never retranslates. Reuse each widget's own catalogue
         # title ("Real-Size Preview" / "Timelapse") so the toggles are labelled.

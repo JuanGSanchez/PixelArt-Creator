@@ -15,16 +15,24 @@ the full catalog. Selecting a row emits :data:`~Asset_Library_Panel.assetSelecte
 the entry's stable ``asset_id`` (or ``""`` when the selection clears) so the tagging
 panel can follow the selection.
 
+Slice 2 adds a **passive break surface** (REQ-P11-UI-006, CL-4): a Status column that
+flags any listed asset whose outgoing reference is broken, reflecting the pure
+:func:`~pixelart_creator.logic.break_detection.find_broken` reference-validation pass
+over the session's dependency graph + catalog. It **refreshes on catalog change** (and
+graph change) via ``catalogChanged`` / ``graphChanged`` and raises **no** push
+notification / dialog — an asset with a broken reference shows the flag, one with only
+valid references shows none.
+
 Every user-visible string is ``tr()``-wrapped with a ``changeEvent`` retranslate (F5 /
 REQ-P11-UI-010); every interactive control carries an accessible name and is
 keyboard-reachable (REQ-P11-UI-008); colours come from the active QSS theme by role, so
 both themes render correctly with no per-widget colour (REQ-P11-UI-009). All work is
-synchronous over the in-memory catalog — no worker thread / timer (Slice 1).
+synchronous over the in-memory catalog / graph — no worker thread / timer (Slice 1/2).
 """
 
 from __future__ import annotations
 
-from typing import Optional, Sequence, Tuple
+from typing import FrozenSet, Optional, Sequence, Tuple
 
 from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtWidgets import (
@@ -37,11 +45,13 @@ from PySide6.QtWidgets import (
 
 from pixelart_creator.logic.asset_catalog import AssetDescriptor, AssetKind
 from pixelart_creator.logic.asset_query import query
+from pixelart_creator.logic.break_detection import find_broken
 from pixelart_creator.ui.asset_library_actions import Asset_Library_Session
 
 _COL_NAME = 0
 _COL_KIND = 1
 _COL_TAGS = 2
+_COL_STATUS = 3
 
 
 class Asset_Library_Panel(QWidget):
@@ -60,7 +70,7 @@ class Asset_Library_Panel(QWidget):
         self._kind: Optional[AssetKind] = None
 
         self._tree = QTreeWidget(self)
-        self._tree.setColumnCount(3)
+        self._tree.setColumnCount(4)
         self._tree.setRootIsDecorated(False)
         self._tree.setUniformRowHeights(True)
         self._tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -77,6 +87,8 @@ class Asset_Library_Panel(QWidget):
         """Bind the panel to a :class:`Asset_Library_Session` and refresh the view."""
         self._session = session
         session.catalogChanged.connect(self._refresh)
+        # The passive break surface (Slice 2) refreshes on a graph change too.
+        session.graphChanged.connect(self._refresh)
         self._refresh()
 
     # -- search/filter (driven by Asset_Search_Panel) ---------------------
@@ -120,24 +132,45 @@ class Asset_Library_Panel(QWidget):
             tags=list(self._tags),
             kind=self._kind,
         )
+        broken_sources = self.broken_source_ids()
         restored: Optional[QTreeWidgetItem] = None
         for descriptor in results:
-            item = self._make_item(descriptor)
+            item = self._make_item(descriptor, broken_sources)
             self._tree.addTopLevelItem(item)
             if descriptor.asset_id == selected:
                 restored = item
         if restored is not None:
             self._tree.setCurrentItem(restored)
 
-    def _make_item(self, descriptor: AssetDescriptor) -> QTreeWidgetItem:
+    def broken_source_ids(self) -> FrozenSet[str]:
+        """Return the ids whose outgoing reference is flagged by the validation pass.
+
+        Pure pull over :func:`find_broken` for the session graph + catalog (empty when
+        unbound); the panel marks these rows passively (REQ-P11-UI-006).
+        """
+        if self._session is None:
+            return frozenset()
+        refs = find_broken(self._session.graph(), self._session.catalog())
+        return frozenset(ref.source_id for ref in refs)
+
+    def _make_item(
+        self, descriptor: AssetDescriptor, broken_sources: FrozenSet[str]
+    ) -> QTreeWidgetItem:
+        status = (
+            self.tr("Broken reference") if descriptor.asset_id in broken_sources else ""
+        )
         item = QTreeWidgetItem(
             [
                 descriptor.name,
                 self._kind_text(descriptor.kind),
                 ", ".join(sorted(descriptor.tags)),
+                status,
             ]
         )
         item.setData(_COL_NAME, Qt.ItemDataRole.UserRole, descriptor.asset_id)
+        if status:
+            item.setToolTip(_COL_STATUS, status)
+            item.setToolTip(_COL_NAME, status)
         return item
 
     def _on_current_changed(self) -> None:
@@ -158,7 +191,9 @@ class Asset_Library_Panel(QWidget):
 
     def _retranslate(self) -> None:
         self.setAccessibleName(self.tr("Asset library"))
-        self._tree.setHeaderLabels([self.tr("Name"), self.tr("Kind"), self.tr("Tags")])
+        self._tree.setHeaderLabels(
+            [self.tr("Name"), self.tr("Kind"), self.tr("Tags"), self.tr("Status")]
+        )
         self._tree.setAccessibleName(self.tr("Catalog assets"))
         # Re-render the kind column labels already in the tree.
         self._refresh()
