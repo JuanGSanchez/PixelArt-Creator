@@ -350,10 +350,11 @@ def store_asset(
     """Store ``document``'s PIO-1 bytes in the CAS and catalog its descriptor.
 
     Stores the payload bytes in the content-addressable store and adds the resulting
-    descriptor to ``catalog``. Composes ``data/project_io`` (PIO-1) for the payload — the canonical bytes are the
-    PIO-1 serialisation encoded by :func:`canonical_json_bytes` — and adds no second
-    serialiser (REQ-P11-DATA-007). The bytes are stored once (dedup) and addressed by
-    their content hash, which becomes the descriptor's ``content_hash``.
+    descriptor to ``catalog``. Composes ``data/project_io`` (PIO-1) for the payload
+    — the canonical bytes are the PIO-1 serialisation encoded by
+    :func:`canonical_json_bytes` — and adds no second serialiser (REQ-P11-DATA-007).
+    The bytes are stored once (dedup) and addressed by their content hash, which
+    becomes the descriptor's ``content_hash``.
 
     Returns:
         A ``(new_catalog, descriptor)`` tuple (the catalog is a new value; the input is
