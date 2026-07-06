@@ -41,6 +41,9 @@ from pixelart_creator.ui.branching_panel import Branching_Panel  # noqa: E402
 from pixelart_creator.ui.canvas_scene import CanvasScene  # noqa: E402
 from pixelart_creator.ui.canvas_view import Canvas_View  # noqa: E402
 from pixelart_creator.ui.comments_panel import Comments_Panel  # noqa: E402
+from pixelart_creator.ui.dependency_graph_view import (  # noqa: E402
+    Dependency_Graph_View,
+)
 from pixelart_creator.ui.live_cursors_overlay import (  # noqa: E402
     Live_Cursors_Overlay,
 )
@@ -220,6 +223,23 @@ _PHASE9_DISPOSABLE = (
     Asset_Library_Panel,
     Asset_Tagging_Panel,
     Asset_Search_Panel,
+    # Phase-11 Slice 2 dependency-graph view (AGT-06). ``Dependency_Graph_View`` is a
+    # top-level ``QWidget`` bound to the SAME synchronous, worker-free
+    # ``Asset_Library_Session`` — but on ``set_session`` it connects to the session's
+    # ``catalogChanged`` AND ``graphChanged`` signals (its passive break surface refreshes
+    # on both). No off-GUI-thread worker, timer, or poller is added (Slice-2 graph/break
+    # queries are microsecond in-memory calls over the immutable graph value — AGT-05
+    # kept them synchronous), so there is NO new drain/shutdown wiring. STILL, a test may
+    # build the view directly (parent-less) + register it with ``qtbot.addWidget``;
+    # headless (offscreen, no running event loop) its ``deleteLater`` never fires, so
+    # ``QApplication`` keeps it in ``topLevelWidgets()`` and it survives the test with its
+    # session signal connections live. Registering it here disposes it SYNCHRONOUSLY
+    # (``shiboken6.delete``) at teardown exactly like the Slice-1 asset panels — deleting
+    # the receiver drops its ``catalogChanged`` / ``graphChanged`` connections cleanly, so
+    # no dangling connection survives into a later test's event loop (the recurring
+    # PySide6 cross-thread/GC-of-Qt-C++ xdist native-segfault guard; Phase-5/6/9 disposal
+    # contract, here a regression guard even though no worker was added).
+    Dependency_Graph_View,
 )
 
 
