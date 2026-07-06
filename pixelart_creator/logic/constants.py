@@ -680,3 +680,25 @@ or malformed graph can never spin unbounded (the graph is kept acyclic by ``add_
 but the depth bound backstops any deep legitimate chain). Parallels the shipped
 ``1024``/``256``-scale defensive bounds; a DISTINCT named concern from the layer-nesting
 ``MAX_GROUP_NESTING_DEPTH`` (=8) (plan §8; spec REQ-P11-LOGIC-004/-007; ADR-0031 §2)."""
+
+# --- Phase-11 Slice-3 asset-version tuning (phase-11 T11-3-01; Article II) ---------
+# Named bound consumed by the new zero-Qt asset-version model
+# (logic/asset_version.py) and, through it, the append-only revision store
+# (data/asset_revision_store.py). BF-1 (plan §8 / ADR-0030 §6): the name is DISTINCT
+# from every shipped constant — most pointedly from MAX_CLOUD_VERSIONS (=100, the
+# Phase-10 cloud project-version retention cap, a DIFFERENT concern). This is the
+# per-asset revision-history cap of the content-hash-addressed asset-revision DAG. The
+# reason/marker vocabulary of the version model lives module-local (ADR-0001 / BF-2).
+# This module stays a leaf (no intra-package imports).
+
+MAX_ASSET_VERSIONS: int = 256
+"""Defensive cap on the revisions in one asset's version history (Article VII).
+
+:meth:`~pixelart_creator.logic.asset_version.AssetVersionHistory.append` raises
+``AssetVersionError`` when appending would exceed this many revisions, so a
+tampered/oversized revision history can never exhaust memory. DISTINCT from the shipped
+:data:`MAX_CLOUD_VERSIONS` (=100, the Phase-10 cloud project-version retention cap) — a
+separate concern: this bounds the per-asset content-hash-addressed revision DAG, not a
+cloud project's version history. Parallels the shipped ``256``-scale defensive bounds
+(e.g. :data:`MAX_LAYERS_PER_FRAME`) (plan §8; spec REQ-P11-LOGIC-006/-007;
+ADR-0030 §6)."""
