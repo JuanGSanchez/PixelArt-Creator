@@ -657,3 +657,26 @@ can never exhaust memory or reach ``eval``/``exec`` (an 8K RGBA layer resident i
 the shipped :data:`MAX_CLOUD_PROJECT_BYTES` (=268435456) but is a DISTINCT named concern
 — the CAS blob ceiling, not the cloud project ceiling (plan §8; spec
 REQ-P11-DATA-004/-005/LOGIC-007; ADR-0030 §4)."""
+
+# --- Phase-11 Slice-2 dependency-graph tuning (phase-11 T11-2-01; Article II) -----
+# Named bound consumed by the new zero-Qt dependency-graph model
+# (logic/dependency_graph.py) and, through it, the break-detection pass
+# (logic/break_detection.py). BF-1 (plan §8 / ADR-0031): the name is DISTINCT from
+# every shipped constant — notably from MAX_GROUP_NESTING_DEPTH (=8, the layer-group
+# nesting cap) and GUIDE_MAX_TOC_DEPTH (=3, the User-Guide ToC depth) — this is the
+# asset-dependency *traversal* depth guard. The reason-string vocabulary of the break
+# pass ("missing" / "hash-mismatch") is module-local enumerated vocabulary and lives in
+# break_detection.py, NOT here (ADR-0001 / BF-2, the BlendMode/PlaybackMode precedent).
+# This module stays a leaf (no intra-package imports).
+
+MAX_DEPENDENCY_DEPTH: int = 64
+"""Defensive cap on asset-dependency transitive-traversal depth (Article VII).
+
+:meth:`~pixelart_creator.logic.dependency_graph.DependencyGraph.dependencies_of` /
+:meth:`~pixelart_creator.logic.dependency_graph.DependencyGraph.dependents_of` raise
+``DependencyGraphError`` when a transitive walk would exceed this many levels — a
+belt-and-braces guard alongside the white/grey/black cycle rejection so a pathological
+or malformed graph can never spin unbounded (the graph is kept acyclic by ``add_edge``,
+but the depth bound backstops any deep legitimate chain). Parallels the shipped
+``1024``/``256``-scale defensive bounds; a DISTINCT named concern from the layer-nesting
+``MAX_GROUP_NESTING_DEPTH`` (=8) (plan §8; spec REQ-P11-LOGIC-004/-007; ADR-0031 §2)."""
