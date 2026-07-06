@@ -145,6 +145,7 @@ REQUIRED_AREAS: tuple[str, ...] = (
     "automation-and-scripting",
     "visual-aids",
     "cloud-and-collaboration",
+    "asset-library",
 )
 
 #: Default human-readable titles for the required areas (used only to seed the
@@ -162,6 +163,7 @@ REQUIRED_AREA_TITLES: dict[str, str] = {
     "automation-and-scripting": "Automation & Scripting",
     "visual-aids": "Visual Aids",
     "cloud-and-collaboration": "Cloud & Collaboration",
+    "asset-library": "Asset Library",
 }
 
 

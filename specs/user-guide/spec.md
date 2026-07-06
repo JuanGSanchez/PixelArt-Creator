@@ -72,7 +72,7 @@ bundling** decision is explicitly **flagged for AGT-01 / AGT-08 coordination** (
 - A **guide content model** — an **ordered tree** of **sections → topics** organised **by window /
   functionality** (canvas & view, colour hub, layers, selection/transform, animation timeline,
   tileset/tilemap editor, export & pipeline, automation/scripting, visual aids, cloud &
-  collaboration, app-wide basics). Each topic exposes an id, a title, a content reference, and
+  collaboration, asset library, app-wide basics). Each topic exposes an id, a title, a content reference, and
   searchable metadata (keywords/summary). Pure, deterministic. *(REQ-UG-LOGIC-001.)*
 - **Content discovery / extensibility**: the model **discovers** the available guide content from the
   bundled doc set (single-sourced from `docs/site`) and derives the ToC from the discovered set plus
@@ -208,7 +208,8 @@ reference** (to its bundled source), and **searchable metadata** (keywords/summa
 covers: **canvas & view**, **colour hub**, **layers**, **selection/transform**, **animation
 timeline**, **tileset/tilemap editor**, **export & pipeline**, **automation/scripting**, **visual
 aids** (grids/guides/preview/multi-view/timelapse/reference board), **cloud & collaboration**
-(connect/manage, shared projects, comments, presence, branching), and **app-wide basics**. The model
+(connect/manage, shared projects, comments, presence, branching), **asset library** (asset catalogue,
+tagging, search — Phase 11), and **app-wide basics**. The model
 imports **zero Qt** and is exercised directly by unit tests. It does not render — it only structures.
 
 #### REQ-UG-LOGIC-002 — Content discovery & per-phase extensibility (no code change to add content)
@@ -241,7 +242,9 @@ particular translated content existing yet.
 `traces:` S6, Article X; user request (cover the ENTIRE platform incl. cloud/collab)
 The model guarantees a section/topic exists for **every** major functionality area (the enumerated set
 in REQ-UG-LOGIC-001), **including cloud & collaboration** — connect/manage, shared projects, comments,
-presence, branching. "Content present for each area" is therefore a **checkable property of the
+presence, branching — and, from **Phase 11**, the **asset library** (asset catalogue, tagging, search).
+The enumerated set grows per-phase (Article XI); this requirement's intent is unchanged — the guide MUST
+cover every platform area. "Content present for each area" is therefore a **checkable property of the
 discovered content set**, not an assumption. A missing required area is a detectable gap (feeds the
 acceptance in REQ-UG-UI-008 and the AGT-06 checklist). *(Authoring the cloud/collab content is gated on
 Phase 10 shipping — DEP-1 — but the required-area contract is fixed now.)*
@@ -509,7 +512,7 @@ Scenario: SC-L001-1 the model builds an ordered section->topic tree organised by
 Scenario: SC-L001-2 the section set covers every enumerated functionality area
   Then the sections include canvas & view, colour hub, layers, selection/transform, animation,
        tileset/tilemap, export & pipeline, automation/scripting, visual aids, cloud & collaboration,
-       and app-wide basics
+       asset library, and app-wide basics
 
 Scenario: SC-L001-3 the model imports zero Qt (Article I) [spec-only, check_layering]
 ```

@@ -19,7 +19,7 @@ Hypothesis); UI → `tests/ui/test_<widget>.py` (pytest-qt, both themes, headles
 | REQ-UG-LOGIC-002 | request (extensibility, Ph11–12); S6; Art. XI | `logic/guide_model.py` (discovery + ordering manifest) | §4.1, §11 | SC-L002-1..2 | `tests/logic/test_guide_model.py` (fixture-bundle discovery) | spec |
 | REQ-UG-LOGIC-003 | request (search/filter); S6 | `logic/guide_search.py` `query()` | §4.1, §11 | SC-L003-1..3 | `tests/logic/test_guide_search.py` (+ Hypothesis) | spec |
 | REQ-UG-LOGIC-004 | request (localisable); Art. V §2, Art. XI | `logic/guide_model.py` locale resolution | §4.1, §11 | SC-L004-1..2 | `tests/logic/test_guide_locale.py` | spec |
-| REQ-UG-LOGIC-005 | request (cover ENTIRE platform incl. cloud/collab); S6; Art. X | `logic/guide_model.py` coverage contract | §4.1, §11 | SC-L005-1..2 | `tests/logic/test_guide_coverage.py` | spec |
+| REQ-UG-LOGIC-005 | request (cover ENTIRE platform incl. cloud/collab **and asset library, Phase 11**); S6; Art. X | `logic/guide_model.py` coverage contract (`REQUIRED_AREAS` incl. `asset-library`) | §4.1, §11 | SC-L005-1..2 | `tests/logic/test_guide_coverage.py` ; **asset-library area evidence:** `tests/logic/test_guide_model.py::test_shipped_scaffold_builds_and_is_complete` (asserts every `REQUIRED_AREA` — incl. `asset-library` — is covered by ≥ 1 topic) | spec |
 
 ## 2. Data layer (`REQ-UG-DATA-001..003`) — owner AGT-03 (impl) / AGT-04 (tests)
 
@@ -61,6 +61,13 @@ Hypothesis); UI → `tests/ui/test_<widget>.py` (pytest-qt, both themes, headles
   (SC-U004-1); search finds a topic (SC-U006-2, SC-L003-1); both themes (SC-U010-1); keyboard-only
   (SC-U009-1); offline/no network (SC-U007-1, SC-D001-1); content for each area incl. cloud/collab
   (SC-U008-1..2, SC-L005-1).
+- **Per-phase required-area growth (Article XI, REQ-UG-LOGIC-005):** the enumerated required-area set in
+  REQ-UG-LOGIC-001 grows per phase; **Phase 11** adds `asset-library` (Asset Library — asset catalogue,
+  tagging, search) after `cloud-and-collaboration`, keeping the coverage contract's intent unchanged.
+  This area is covered by the shipped
+  `tests/logic/test_guide_model.py::test_shipped_scaffold_builds_and_is_complete`, which asserts every
+  `REQUIRED_AREA` (now incl. `asset-library`) maps to ≥ 1 topic — so spec, `REQUIRED_AREAS`, and the
+  committed bundle stay verifiably aligned with no artifact drift.
 - **Single-source acceptance** (no drift): SC-D002-1..2. **Extensibility** (no-code-change growth):
   SC-L002-1. **Safe content** (no exec / path guard): SC-D003-1..2, SC-U005-1.
 
