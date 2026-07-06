@@ -35,8 +35,12 @@ QLocale.system = staticmethod(  # type: ignore[method-assign]
 from pixelart_creator.logic.document import Document  # noqa: E402
 from pixelart_creator.logic.palette import Palette  # noqa: E402
 from pixelart_creator.ui.asset_library_panel import Asset_Library_Panel  # noqa: E402
+from pixelart_creator.ui.asset_reuse_panel import Asset_Reuse_Panel  # noqa: E402
 from pixelart_creator.ui.asset_search_panel import Asset_Search_Panel  # noqa: E402
 from pixelart_creator.ui.asset_tagging_panel import Asset_Tagging_Panel  # noqa: E402
+from pixelart_creator.ui.asset_version_browser import (  # noqa: E402
+    Asset_Version_Browser,
+)
 from pixelart_creator.ui.branching_panel import Branching_Panel  # noqa: E402
 from pixelart_creator.ui.canvas_scene import CanvasScene  # noqa: E402
 from pixelart_creator.ui.canvas_view import Canvas_View  # noqa: E402
@@ -240,6 +244,25 @@ _PHASE9_DISPOSABLE = (
     # PySide6 cross-thread/GC-of-Qt-C++ xdist native-segfault guard; Phase-5/6/9 disposal
     # contract, here a regression guard even though no worker was added).
     Dependency_Graph_View,
+    # Phase-11 Slice 3 version-browser + reuse panels (AGT-06). ``Asset_Version_Browser``
+    # and ``Asset_Reuse_Panel`` are top-level ``QWidget``s bound to the SAME synchronous,
+    # worker-free ``Asset_Library_Session`` (Slice-3 revision read/record + reference-not-
+    # copy are microsecond in-memory / CAS calls — AGT-05 added NO off-thread worker,
+    # timer, or poller, so there is NO new drain/shutdown wiring). On ``set_session`` the
+    # version browser connects to the session's ``catalogChanged`` signal (so a restore's
+    # ``replace_descriptor`` reflection reaches the other panels), and the reuse panel
+    # connects to ``catalogChanged`` (its shared-asset list refreshes on catalog change).
+    # A test may build either widget directly (parent-less) + register it with
+    # ``qtbot.addWidget``; headless (offscreen, no running event loop) its ``deleteLater``
+    # never fires, so ``QApplication`` keeps it in ``topLevelWidgets()`` and it survives
+    # the test with its session signal connections live. Registering them here disposes
+    # them SYNCHRONOUSLY (``shiboken6.delete``) at teardown exactly like the Slice-1/2
+    # asset panels — deleting the receiver drops its ``catalogChanged`` connection cleanly,
+    # so no dangling connection survives into a later test's event loop (the recurring
+    # PySide6 cross-thread/GC-of-Qt-C++ xdist native-segfault guard; Phase-5/6/9 disposal
+    # contract, here a regression guard even though no worker was added).
+    Asset_Version_Browser,
+    Asset_Reuse_Panel,
 )
 
 
