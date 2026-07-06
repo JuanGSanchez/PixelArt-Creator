@@ -315,7 +315,7 @@ def test_missing_areas_reported_in_required_order():
 
 
 def test_shipped_scaffold_builds_and_is_complete():
-    """The committed bundle builds 11 sections and satisfies the coverage contract."""
+    """Committed bundle builds one section per required area and stays complete."""
     from pixelart_creator.data.guide_content import load_manifest
 
     model = build_model(load_manifest())
