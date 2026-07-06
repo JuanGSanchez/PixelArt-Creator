@@ -23,6 +23,14 @@ is a ``data/asset_catalog_io`` concern the caller drives and feeds in via
 
 Only **tag add / remove** is undoable (PL11-D3); adding or removing a whole catalog
 entry is library/session state and pushes **no** ``QUndoCommand``.
+
+Slice 2 adds the shared, immutable
+:class:`~pixelart_creator.logic.dependency_graph.DependencyGraph` (asset→asset
+references) alongside the catalog so the dependency-graph view and the passive
+break surface read one source of truth: :meth:`set_graph` swaps the graph and emits
+:data:`graphChanged`; the graph is a pure ``logic`` value (cycle-rejecting, acyclic by
+construction), so — like the catalog — the session runs **synchronously on the GUI
+thread with no worker / timer** and has nothing to tear down.
 """
 
 from __future__ import annotations
@@ -33,6 +41,7 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QUndoStack
 
 from pixelart_creator.logic.asset_catalog import AssetCatalog, AssetDescriptor
+from pixelart_creator.logic.dependency_graph import DependencyGraph
 
 
 class Asset_Library_Session(QObject):
@@ -47,14 +56,20 @@ class Asset_Library_Session(QObject):
     #: bound panels re-read and repaint. No payload — panels pull the fresh catalog.
     catalogChanged = Signal()
 
+    #: Emitted after the dependency graph is replaced (Slice 2) so the dependency-graph
+    #: view and the passive break surface re-read and repaint. No payload.
+    graphChanged = Signal()
+
     def __init__(
         self,
         parent: Optional[QObject] = None,
         catalog: Optional[AssetCatalog] = None,
+        graph: Optional[DependencyGraph] = None,
     ) -> None:
-        """Create the session over ``catalog`` (empty default) with an undo stack."""
+        """Create the session over ``catalog`` / ``graph`` (empty defaults)."""
         super().__init__(parent)
         self._catalog: AssetCatalog = catalog if catalog is not None else AssetCatalog()
+        self._graph: DependencyGraph = graph if graph is not None else DependencyGraph()
         #: The shared undo stack the tag commands push onto (REQ-P11-UI-002).
         self._undo_stack = QUndoStack(self)
 
@@ -63,6 +78,10 @@ class Asset_Library_Session(QObject):
     def catalog(self) -> AssetCatalog:
         """Return the current in-memory, immutable catalog value."""
         return self._catalog
+
+    def graph(self) -> DependencyGraph:
+        """Return the current in-memory, immutable dependency graph value (Slice 2)."""
+        return self._graph
 
     def undo_stack(self) -> QUndoStack:
         """Return the shared undo stack the tag commands are pushed onto."""
@@ -83,6 +102,25 @@ class Asset_Library_Session(QObject):
             raise TypeError(f"expected an AssetCatalog, got {catalog!r}")
         self._catalog = catalog
         self.catalogChanged.emit()
+
+    def set_graph(self, graph: DependencyGraph) -> None:
+        """Replace the whole dependency graph and notify (Slice 2, library state).
+
+        The supplied graph is a pure ``logic`` value that is **acyclic by
+        construction** (:class:`DependencyGraph` rejects a cycle-inducing edge set at
+        build time), so no cycle can enter the UI here. No ``QUndoCommand`` is pushed —
+        the dependency graph is library/session state, not an editing operation.
+
+        Args:
+            graph: The dependency graph to adopt.
+
+        Raises:
+            TypeError: If ``graph`` is not a :class:`DependencyGraph`.
+        """
+        if not isinstance(graph, DependencyGraph):
+            raise TypeError(f"expected a DependencyGraph, got {graph!r}")
+        self._graph = graph
+        self.graphChanged.emit()
 
     def add_descriptor(self, descriptor: AssetDescriptor) -> None:
         """Add ``descriptor`` to the catalog and notify (library state, not undoable).
