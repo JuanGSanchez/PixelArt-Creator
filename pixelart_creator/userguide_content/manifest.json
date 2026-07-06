@@ -183,6 +183,13 @@
           "content": "asset-library",
           "keywords": ["asset", "asset library", "catalog", "tags", "tagging", "search", "filter", "kind", "sprite", "tileset", "palette", "content-addressable", "dedup", "stable id", "library menu"],
           "summary": "Cataloguing sprites, animations, tilesets, tilemaps and palettes as named assets; tagging them; and finding them by name, tag and kind via the Library menu."
+        },
+        {
+          "id": "asset-dependencies",
+          "title": "Asset dependencies & break detection",
+          "content": "asset-dependencies",
+          "keywords": ["dependency", "dependencies", "dependency graph", "depends on", "referenced by", "reference", "break", "break detection", "broken", "missing", "hash mismatch", "acyclic", "cycle", "graph view", "status"],
+          "summary": "The dependency graph — depends-on and referenced-by relations between assets — and the passive break indicator that flags (never blocks) a reference broken by a missing or changed asset."
         }
       ]
     }

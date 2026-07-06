@@ -99,11 +99,11 @@ Behind the panels, the library keeps a **catalog** of asset entries and a
 ## What is not covered yet
 
 The asset library ships in slices. This release delivers the **catalog, tagging and
-search/filter**. Arriving in later slices:
+search/filter**, plus **dependency tracking and break detection** (see
+[Asset dependencies & break detection](asset-dependencies.md) — a queryable graph of how
+assets reference one another, and a passive warning when changing one asset breaks another
+that references it). Arriving in later slices:
 
-- **Dependency tracking** — a queryable graph of how assets reference one another (a
-  sprite feeds an animation feeds a tileset feeds a tilemap) and a passive warning when
-  changing one asset breaks another that references it.
 - **Version history** — an append-only record of each asset's revisions, with the ability
   to inspect and restore an earlier revision.
 - **Cross-project reuse** — referencing one shared asset from several projects without
