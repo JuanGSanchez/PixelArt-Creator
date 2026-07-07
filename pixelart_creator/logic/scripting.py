@@ -49,6 +49,7 @@ __all__ = [
     "unregister_command",
     "is_registered",
     "registered_ops",
+    "schema_for",
     "dispatch",
     "OP_BATCH_RECOLOUR",
     "OP_PROCGEN",
@@ -185,6 +186,30 @@ def is_registered(name: str) -> bool:
 def registered_ops() -> Tuple[str, ...]:
     """Return the sorted tuple of currently registered op-names (introspection)."""
     return tuple(sorted(_REGISTRY))
+
+
+def schema_for(name: str) -> ParamSchema:
+    """Return the :class:`ParamSchema` of a registered op (read-only introspection).
+
+    The public schema-introspection seam paired with :func:`registered_ops` /
+    :func:`is_registered`: it exposes an op's declared param contract without
+    reaching into the allow-list registry. It mutates nothing and adds no
+    registration path — the returned :class:`ParamSchema` is frozen, and
+    :func:`dispatch` remains the sole authority that validates + applies ops.
+
+    Args:
+        name: A DSL op-name (as returned by :func:`registered_ops`).
+
+    Returns:
+        The op's shipped defensive :class:`ParamSchema`.
+
+    Raises:
+        ScriptError: If ``name`` is not in the allow-list registry.
+    """
+    registered = _REGISTRY.get(name)
+    if registered is None:
+        raise ScriptError(f"op {name!r} is not registered")
+    return registered.schema
 
 
 def dispatch(document: Document, ops: Sequence[Op]) -> Command:
