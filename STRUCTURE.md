@@ -832,4 +832,46 @@
 | `asset_version_browser.py` | `Asset_Version_Browser` — list/inspect/restore revisions (restore re-records verified bytes = new head, append-only); reflects the reinstated head into the session catalog via `replace_descriptor`. Public seams: `set_session`, `set_store`, `set_asset`, `current_asset_id`, `selected_revision_hash`, `revisionRestored` signal. | `data/asset_revision_store`, `logic/asset_version`, `logic/asset_catalog`, `ui/asset_library_actions` | UI-004 | 3 |
 | `asset_reuse_panel.py` | `Asset_Reuse_Panel` — reference a shared asset into a project (reference-not-copy; only `has()`-checks the CAS, never `put()`); marks an asset shared when >1 project references it. Public seams: `set_session`, `set_content_store`, `add_project`, `current_project`, `current_asset_id`, `reference_count`, `is_shared`, `project_references`, `assetReferenced` signal. | `data/asset_cas`, `logic/asset_catalog`, `ui/asset_library_actions` | UI-007 | 3 |
 | `commands.py` *(extend)* | `AddTagCommand`/`RemoveTagCommand` — QUndoCommand wrappers over the pure `logic/asset_tags` do/undo pair. | `logic/asset_tags` | UI-002 | 1 |
+
+## `pixelart_creator/` — Phase-12 performance & scalability — Slice A BUILT; Slices B/F PLANNED
+
+> **NFR + doc-hygiene hardening finale — adds NO new module, NO new import edge, NO `data/` work; the
+> module count is UNCHANGED (178 layering / 179 cycles, exit 0 — re-confirmed post-Slice-A).**
+> **Slice A SHIPPED (2026-07-07):** the full-frame flatten optimisation is on disk and green —
+> `logic/blend.py` `composite_stack(region=None)` now runs a disjoint-tiled + thread-fanned working set
+> with the exact clear/opaque NORMAL fast-paths (all genuine alpha blending stays on the frozen float64
+> path per ADR-0033 *as amended*); `logic/constants.py` gained the three Slice-A tuning names
+> (`COMPOSITE_FULL_CEILING_MS`, `FLATTEN_TILE_EDGE_PX`, `FLATTEN_MAX_WORKERS`); `scripts/perf_profile.py`
+> gained the `--full-frame` gate. Byte-exactness (`REQ-P12-LOGIC-002`) is pinned by
+> `tests/logic/test_blend_fullframe.py` (58 byte-exact/tiling/threading/property tests). `blend.py` stays
+> a pure zero-Qt logic leaf (`concurrent.futures` threads only, no Qt, no `document` import, no
+> `logic→data` edge). Slices B/F remain PLANNED. It **hardens** two shipped,
+> effectively-ungated compositor hotspots **in place** under a **byte-exact output invariant** (the
+> flattened / recomposited bytes must not change vs the current build — NORMAL + all 11 separable modes,
+> zero tolerance) and reconciles the C3 requirement-artifact + docstring leftovers. Strategy in
+> **ADR-0033** (full-frame flatten: uint8 source-over fast-path + blocked/tiled working set + dirty-tile
+> reuse) and **ADR-0034** (opacity drag: split-cache + downsampled-LOD preview holding 16 ms + byte-exact
+> full-resolution commit). **Article VI:** the two optimisations are batch / on-demand paths bounded by
+> **loose named ceilings** (`COMPOSITE_FULL_CEILING_MS`, `VIEWPORT_RECOMPOSITE_CEILING_MS`), NOT the 16 ms
+> budget and NOT asserted against it; the **only** per-frame path (the drag preview) **holds** 16 ms — the
+> budget is never relaxed. No `ui/commands.py` change (no new undoable op). The two ceiling values are
+> AGT-01/ADR candidates, **RE-PROFILE-confirmed by AGT-10** before AGT-09 wires CI.
+
+| Layer | Module | Change | Responsibility added | REQ | Slice |
+| --- | --- | --- | --- | --- | --- |
+| `logic/` | `constants.py` | **Slice A BUILT** / *extend* | **BUILT (Slice A):** 3 leaf tuning names — `COMPOSITE_FULL_CEILING_MS` (**15000**, finalised by AGT-10 RE-PROFILE against the realistic 2-core-runner cost; the ADR-0033 §5 ≈3000 candidate was too tight and would flake), `FLATTEN_TILE_EDGE_PX` (1024, disjoint working-tile edge), `FLATTEN_MAX_WORKERS` (8, fan-out cap). **Slice B (planned):** `VIEWPORT_RECOMPOSITE_CEILING_MS` (≈2000). **Names DISTINCT from every shipped ceiling.** | LOGIC-001, -003, -005 | A/B |
+| `logic/` | `blend.py` | **Slice A BUILT** / *extend* | **BUILT (Slice A):** `composite_stack(region=None)` optimised in place — disjoint `FLATTEN_TILE_EDGE_PX` tiling + `ThreadPoolExecutor` fan-out (`min(FLATTEN_MAX_WORKERS, os.cpu_count(), tiles)`) driving the same bit-exact `_composite_region`, plus the exact clear-skip / opaque-copy NORMAL fast-paths (`_composite_full_frame` / `_iter_tiles`). **Byte-exact vs the single-shot composite for NORMAL + all 11 separable modes** (`REQ-P12-LOGIC-002`); public signature preserved; `document`-free (PL-D2); zero Qt (stdlib threads). Per ADR-0033 *as amended*, the uint8 fast-path was NOT adopted for non-trivial blends (≤1 LSB drift vs float64) — genuine alpha blending stays on the frozen float64 path. **Slice B (planned):** pure split-cache seam + nearest-neighbour LOD downsample helper. | LOGIC-001, -002, -004 | A/B |
+| `ui/` | `layer_panel.py` | *extend* | Opacity-slider drag lifecycle: drag-start captures the split-cache; per tick renders the downsampled-LOD preview (holds 16 ms, throttled via Phase-4 D3); commit applies the full-resolution byte-exact recomposite. No compositing maths in the widget. | UI-001 | B |
+| `ui/` | `composite_warmer.py` / `frame_cache.py` | *reuse* | Off-GUI-thread commit recomposite / optional flatten (progress/cancel; deterministic teardown) + LRU backing the split-cache + preview. | UI-001, LOGIC-001 | A/B |
+| `ui/` | `canvas_scene.py` / `canvas_view.py` | *reuse* | Display the preview during drag / the full-res result on commit through the existing dirty-rect blit path (no new render policy). | UI-001 | B |
+| `ui/` | `palette_analytics_view.py` | *extend (OPTIONAL/LOW)* | *If adopted:* off-thread analytics recompute (result unchanged; not a frame path). Deferrable — if not built, FU-18 stays a documented descope. | UI-002 (opt) | (opt) |
+| *(tooling)* | `scripts/perf_profile.py` | **Slice A BUILT** / *extend* | **BUILT (Slice A):** `--full-frame` (`region=None`) whole-canvas flatten gate — Qt-free (numpy + `logic/`), reads `COMPOSITE_FULL_CEILING_MS` as its default ceiling (single-source), and profiles both content models: `--content realistic` (sparse, mostly-NORMAL) is GATED; `--content dense` (pathological, every-pixel-every-layer non-normal) is profiled-but-NOT-gated (accepted off-thread cold cost, `REQ-P12-LOGIC-001`). **Slice B (planned):** `--composite` viewport-scale scenario (≥1080², 12L). **(AGT-10; not layer-governed.)** | LOGIC-001, -003, -005 | A/B |
+| *(tooling)* | `.github/workflows/ci.yml` | *extend* | Two new perf-gate steps at the named ceilings (no literal). **(AGT-09.)** | LOGIC-003, -005 | A/B |
+
+> **Slice F (artifact + docstring hygiene, no runtime change, no new module):** FU-2 — reconcile Phase-1
+> `plan.md` §9 `REQ-P1-LOGIC-004` grounding to S7 + **S2** (matching the shipped spec/traceability); FU-17
+> — give Phase-1/Phase-4 `SC-UI-*` scenarios phase-unique ids (`SC-P1-UI-*`/`SC-P4-UI-*`); FU-16 label
+> collision — distinct ids (`FU-16a` cache-invalidation / `FU-16b` opacity-drag recomposite); FU-4 —
+> complete residual `logic/` docstrings (pydocstyle D101/D102/D105/D107, AGT-08). Artifact/source text only
+> under `specs/**` + `logic/` docstrings; **never `docs/**`** by the SDD artifacts.
 </content>

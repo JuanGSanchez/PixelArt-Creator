@@ -187,3 +187,16 @@ jobs:
         # per-frame overlay budget. numpy + pycrdt + logic only, no pytest marker,
         # no Qt (currently ~6.9 ms).
         run: python scripts/perf_profile.py --realtime --rt-tiles 47 --frames 30
+
+      - name: Full-frame flatten perf gate (Slice-A, realistic-content ceiling)
+        # Phase-12 Slice A (AGT-10 RE-PROFILE, REQ-P12-LOGIC-001/-002/-003).
+        # Standalone, Qt-free P11 gate: times the OPTIMISED cold full-frame flatten
+        # — blend.composite_stack(region=None) over an 8K, 8-layer realistic stack
+        # (sparse, predominantly NORMAL — the tiled + threaded fast-path the Slice-A
+        # work targets) — and exits non-zero if the median exceeds the loose
+        # catastrophic-regression ceiling COMPOSITE_FULL_CEILING_MS (15000 ms,
+        # logic/constants.py). The ceiling is the single source of truth: the
+        # scenario resolves it as the --full-frame default, so it is NOT hard-coded
+        # here. This is the cold flatten regression class, NOT the 16 ms frame
+        # budget. numpy + logic only, no pytest marker, no Qt.
+        run: python scripts/perf_profile.py --full-frame --content realistic --layers 8 --frames 3
