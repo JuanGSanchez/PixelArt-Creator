@@ -43,8 +43,12 @@ The two confirmed items are **batch / on-demand paths** (flatten, export, merge-
 recomposite on commit) that were **never 60-fps paths** — so the 16 ms budget does not *govern* them, and
 their acceptance is a **loose catastrophic-regression ceiling** (a named constant, sized above the
 optimised cost with headroom for the slow CI runner), **not** a 16 ms bound. The **one** per-frame path
-Phase 12 introduces — the *downsampled preview* shown *during* an opacity drag — **does** hold the 16 ms
-budget, exactly as Article VI requires. See §5.
+Phase 12 introduces — the *downsampled preview* shown *during* an opacity drag — is held to a
+**responsiveness / no-freeze contract**: it **eliminates the old multi-second freeze** (a ~90–140× win)
+and **holds the 16 ms budget up to ~1080–1280² viewports**, then **degrades gracefully to interactive
+frame rates (~25–40 fps)** at the largest (~1920²) viewport — **not** a hard 16 ms wall at every viewport
+size (a hard wall everywhere would need a dependency/GPU, declined for portability per the Slice-A
+decision). The Article VI budget DEFINITION (16 ms) is **unchanged and never relaxed**. See §5.
 
 **The FU-15 loose-ceiling caution is honoured throughout.** All baseline numbers come from an 8-core
 desktop; the GitHub CI runner is 2-core and memory-bandwidth-constrained (**~1.5–2.5× slower** on
@@ -66,7 +70,10 @@ hold**.
 - **Slice B — whole-viewport / low-zoom multi-layer recomposite + live opacity-slider drag (`logic/` +
   `ui/`, FU-16 — the *opacity-drag/attr-op recomposite* follow-up, disambiguated in §2c).** Keep the
   interaction **responsive** during a drag (measured **2.2 s–7.0 s** for 12 layers today): a
-  **downsampled preview during the drag holds the 16 ms budget**, and on **commit** (mouse-release) the
+  **downsampled preview during the drag eliminates the multi-second freeze** and **holds the 16 ms budget
+  up to ~1080–1280² viewports, degrading gracefully to interactive frame rates (~25–40 fps) at the largest
+  (~1920²) viewport** (a responsiveness/no-freeze contract, not a hard 16 ms wall everywhere — a hard wall
+  would need a dependency/GPU, declined for portability per the Slice-A decision), and on **commit** (mouse-release) the
   **full-resolution recomposite produces the exact same final pixels as today**. Bring the
   full-resolution viewport-scale recomposite under a **loose viewport-scale ceiling** and add a
   **viewport-scale recomposite perf gate** (REQ-P12-LOGIC-004, REQ-P12-UI-001, REQ-P12-LOGIC-005).
@@ -155,7 +162,7 @@ artifacts consistent + regression-gated. **No story has an open clarification.**
 | Label | Definition | Phase | Status |
 | --- | --- | --- | --- |
 | `fast-flatten` | Cold full-frame 8K multi-layer flatten bounded by a loose ceiling; output byte-exact. | 12 | drafted |
-| `responsive-drag` | Whole-viewport recomposite + opacity drag: preview holds 16 ms, commit output unchanged. | 12 | drafted |
+| `responsive-drag` | Whole-viewport recomposite + opacity drag: preview eliminates the multi-second freeze, holds 16 ms up to ~1080–1280² and degrades gracefully (~25–40 fps) at the largest viewports, commit output unchanged. | 12 | drafted |
 | `perf-gate` | Loose catastrophic-regression CI ceilings on the two previously-ungated compositor hotspots. | 12 | drafted |
 | `doc-hygiene` | Requirement-artifact consistency (FU-2/-17/-16-collision) + residual `logic/` docstrings (FU-4). | 12 | drafted |
 | `responsive-batch` | OPTIONAL off-thread analytics compute so a worst-case recompute never freezes the GUI (FU-18). | 12 | drafted (OPTIONAL/LOW) |
@@ -270,20 +277,40 @@ dragged layer, and dirty-region culling to the true exposed rect, live in `logic
 result is **byte-exact** vs the current compositor over the same inputs; the recomposite path imports no
 Qt (`check_layering` passes); it is not asserted against the 16 ms per-frame budget.
 
-#### REQ-P12-UI-001 — Live opacity-slider drag stays interactive (preview holds 16 ms; commit output unchanged) *(NFR, Article VI — per-frame preview + stays-responsive)*
-`traces:` REQ-P12-LOGIC-004, Article VI (§1 — the preview *is* on the per-frame loop, so 16 ms **applies**), Article V, S1, baseline §3 FU-16 (LOD-during-drag; full-res on release), FU-16 (b), Phase-4 D3 (opacity-drag debounce)
+#### REQ-P12-UI-001 — Live opacity-slider drag stays interactive/responsive — eliminates the multi-second freeze; preview holds 16 ms up to ~1080–1280², degrades gracefully at the largest viewports; commit output unchanged *(NFR, Article VI — per-frame preview, responsiveness/no-freeze contract)*
+`traces:` REQ-P12-LOGIC-004, Article VI (§1 — the preview *is* on the per-frame loop; the 16 ms budget is **held in the in-budget viewport range** and the path **degrades gracefully** above it — the budget DEFINITION is unchanged and never relaxed), Article V, S1, baseline §3 FU-16 + Slice-B RE-PROFILE (AGT-10; LOD-during-drag; full-res on release), FU-16 (b), Phase-4 D3 (opacity-drag debounce), Slice-A portability decision (dependency/GPU declined)
 While the user **drags** a layer's opacity slider on a low-zoom, many-layer document, the canvas gives
-**responsive per-tick feedback** — a **downsampled preview** recomposite that **holds the 16 ms
-`FRAME_BUDGET_MS`** (this feedback **is** on the per-frame render loop, so Article VI's budget **applies**
-and is **held**, not relaxed). The UI **never stalls for seconds** during the drag. On **commit**
-(mouse-release / drag-end) the **full-resolution** recomposite (REQ-P12-LOGIC-004) is applied and the
-**final on-screen pixels are identical to the current build**. Whether the preview uses a downsampled LOD
-+ split-cache + throttle/off-thread is a HOW (AGT-05/AGT-10, §8); this REQ fixes the observable
-**preview-holds-16 ms + stays-responsive + commit-output-unchanged** contract.
-**Acceptance:** during an opacity-slider drag on a low-zoom ≥ 12-layer 8K document, per-tick preview
-feedback holds the 16 ms budget and the UI stays responsive (no multi-second freeze); on release the
+**responsive per-tick feedback** — a **downsampled preview** recomposite that **eliminates the old
+multi-second freeze** (measured 2.2 s–7.0 s @ 12 layers before → interactive after; a **~90–140× win** per
+AGT-10's Slice-B RE-PROFILE). This is a **responsiveness / no-freeze contract**, **not** a hard 16 ms wall
+at every viewport size. Concretely: the per-tick preview **holds the 16 ms `FRAME_BUDGET_MS`** up to
+**~1080–1280² viewports** on the 2-core CI runner, and above that **degrades GRACEFULLY to interactive
+frame rates (~25–40 fps)** at the largest (~1920²) viewport — the UI **never stalls for seconds** at any
+viewport size. On **commit** (mouse-release / drag-end) the **full-resolution** recomposite
+(REQ-P12-LOGIC-004) is applied and the **final on-screen pixels are identical to the current build**.
+Whether the preview uses a downsampled LOD + split-cache + throttle/off-thread is a HOW (AGT-05/AGT-10,
+§8); this REQ fixes the observable **eliminates-multi-second-freeze + holds-16 ms-in-the-in-budget-range +
+degrades-gracefully-above-it + commit-output-unchanged** contract.
+
+**Rationale (why not a hard 16 ms at every viewport).** The preview's floor is set by the byte-exact
+re-blend math (a **float64 re-blend floor**, inherited from the same separable-blend determinism that pins
+REQ-P12-LOGIC-002/-004) plus an **upsample cost that scales with viewport area** — so at the largest
+viewports the per-tick cost exceeds 16 ms even downsampled. Holding a **hard 16 ms everywhere** would
+require a **new dependency / GPU acceleration**, which the **user DECLINED for portability** (the same
+standing decision as Slice A / REQ-P12-LOGIC-001, preserving a dependency-free build for the Phase-13
+cross-platform + mobile targets). The chosen resolution maximises the in-budget range and degrades
+gracefully beyond it: the preview downsample cap is a **single-source named constant
+`OPACITY_PREVIEW_MAX_PX` = 16384** (Article II) — **lowered to 16384** to maximise the viewport range that
+stays in the 16 ms budget; beyond that range the **low-zoom Slice-A handoff** (the same
+flatten/recomposite substrate) governs. The value/wiring of `OPACITY_PREVIEW_MAX_PX` is an AGT-05/AGT-10
+HOW (§8 DEP-4).
+**Acceptance:** during an opacity-slider drag on a low-zoom ≥ 12-layer 8K document, the interaction is
+**responsive with NO multi-second freeze** at every viewport size (the old 2.2 s–7.0 s stall is
+eliminated); the per-tick preview **holds the 16 ms `FRAME_BUDGET_MS` up to ~1080–1280² viewports** and
+**degrades gracefully to interactive frame rates (~25–40 fps) at the largest (~1920²) viewport** — this is
+a responsiveness/no-freeze criterion, **not** a hard 16 ms wall at every viewport; on release the
 full-resolution recomposite is applied and the committed pixels match the current build (byte-exact per
-REQ-P12-LOGIC-004); both light and dark themes behave identically.
+REQ-P12-LOGIC-004, **unchanged**); both light and dark themes behave identically.
 
 #### REQ-P12-LOGIC-005 — Viewport-scale recomposite perf gate *(NFR, Article VI verification / FU-15 loose-gate)*
 `traces:` S12, Article VI (§2), Article II, baseline §1 (effectively ungated) + §6 FU-16, FU-15, FU-16 (b)
@@ -355,13 +382,21 @@ Phase 12 is **entirely** NFR + hygiene; the requirements above are the NFRs. Cro
   **batch / on-demand** paths (full-frame flatten; full-resolution recomposite on commit) that were
   **never 60-fps paths**, so they are bounded by **loose catastrophic-regression ceilings**
   (`COMPOSITE_FULL_CEILING_MS`, `VIEWPORT_RECOMPOSITE_CEILING_MS`) — **not** by 16 ms. The **only**
-  per-frame path introduced (the *preview during* an opacity drag, REQ-P12-UI-001) **holds** the 16 ms
-  budget exactly as Article VI requires. No requirement here weakens a gate (Article VIII §3).
+  per-frame path introduced (the *preview during* an opacity drag, REQ-P12-UI-001) is held to a
+  **responsiveness / no-freeze contract**: it eliminates the old multi-second freeze and **holds** the
+  16 ms budget up to **~1080–1280² viewports**, then **degrades gracefully to interactive frame rates
+  (~25–40 fps)** at the largest (~1920²) viewport — the Article VI budget DEFINITION (16 ms) is itself
+  **unchanged and never relaxed** (a hard 16 ms wall at every viewport would need a dependency/GPU,
+  declined for portability per the Slice-A decision; the `OPACITY_PREVIEW_MAX_PX` = 16384 named constant
+  maximises the in-budget range, low-zoom Slice-A handoff beyond it). No requirement here weakens a gate
+  (Article VIII §3).
 - **FU-15 loose-ceiling caution (honoured):** all baseline numbers are 8-core desktop; the 2-core CI
   runner is ~1.5–2.5× slower on numpy/raster paths. Every new ceiling is a **loose** bound sized above
   the optimised cost with runner headroom; targets are **not tighter than the 2-core runner can hold**.
-- **Article II (bounded numerics):** `COMPOSITE_FULL_CEILING_MS` and `VIEWPORT_RECOMPOSITE_CEILING_MS`
-  are **single-source named constants** (values = AGT-01/ADR HOW, §8); no literal at any call/gate site.
+- **Article II (bounded numerics):** `COMPOSITE_FULL_CEILING_MS`, `VIEWPORT_RECOMPOSITE_CEILING_MS`, and
+  the opacity-drag preview downsample cap `OPACITY_PREVIEW_MAX_PX` (= 16384, lowered to maximise the
+  in-budget viewport range) are **single-source named constants** (ceiling values / cap = AGT-01/AGT-05/
+  AGT-10 HOW, §8); no literal at any call/gate site.
 - **Article I (three-layer purity):** the compositor optimisations stay Qt-free `logic/`; the only Qt is
   `ui/` (opacity-drag preview; optional off-thread analytics). No new `data/` work.
 - **Article IV (testing):** the byte-exactness constraints (REQ-P12-LOGIC-002, -004) and the perf gates
@@ -418,6 +453,11 @@ Phase 12 is **entirely** NFR + hygiene; the requirements above are the NFRs. Cro
   FU-P9 iso raster-fallback line-budget gate (§2b).
 - **DEP-4 (AGT-05 / AGT-10 — drag preview HOW):** the downsampled-LOD preview + throttle/off-thread of
   opacity-drag ticks (REQ-P12-UI-001), reusing the Phase-4 D3 debounce and Phase-5 off-thread substrate.
+  Includes the `OPACITY_PREVIEW_MAX_PX` value (= 16384 per AGT-10's Slice-B RE-PROFILE, sized to maximise
+  the viewport range that stays in the 16 ms budget) and the low-zoom Slice-A handoff beyond that range.
+  The preview is a **responsiveness/no-freeze** path (holds 16 ms up to ~1080–1280², degrades gracefully
+  to ~25–40 fps at ~1920²), **not** a hard 16 ms wall — a hard wall everywhere would need a dependency/GPU
+  the user declined for portability (Slice-A decision).
 - **DEP-5 (AGT-01 / AGT-02 / AGT-08 — Slice F edits):** the FU-2/-17/-16-collision reconciliations
   (plan/spec/traceability text) and the FU-4 docstring pass (`logic/` source). Artifact/source text only,
   no runtime change, no `docs/**` touched by this spec.

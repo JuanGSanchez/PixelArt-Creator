@@ -200,3 +200,18 @@ jobs:
         # here. This is the cold flatten regression class, NOT the 16 ms frame
         # budget. numpy + logic only, no pytest marker, no Qt.
         run: python scripts/perf_profile.py --full-frame --content realistic --layers 8 --frames 3
+
+      - name: Viewport-recomposite commit perf gate (Slice-B, opacity-drag)
+        # Phase-12 Slice B (AGT-10 RE-PROFILE, REQ-P12-LOGIC-004/-005 + UI-001).
+        # Standalone, Qt-free P11 gate: times the opacity-drag split-cache COMMIT
+        # path — blend.composite_range suffix re-blend over the worst-case culled
+        # viewport (1920x1920 px, 12-layer stack) — and exits non-zero if the
+        # median exceeds VIEWPORT_RECOMPOSITE_CEILING_MS (3000 ms,
+        # logic/constants.py). The scenario resolves that ceiling as its default
+        # single source of truth (S12), so it is NOT hard-coded here; the gate is
+        # also byte-exact-guarded (exit 2 if the committed suffix re-blend diverges
+        # from a full recomposite). This is the interactive opacity-drag COMMIT
+        # regression class, distinct from the Slice-A cold full-frame flatten and
+        # from the record-only naive --composite witness. numpy + logic only, no
+        # pytest marker, no Qt.
+        run: python scripts/perf_profile.py --viewport-recomposite --vp-region-size 1920 --vp-layers 12
