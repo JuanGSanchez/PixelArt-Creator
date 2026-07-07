@@ -314,12 +314,12 @@ REQ-P12-LOGIC-004, **unchanged**); both light and dark themes behave identically
 
 #### REQ-P12-LOGIC-005 — Viewport-scale recomposite perf gate *(NFR, Article VI verification / FU-15 loose-gate)*
 `traces:` S12, Article VI (§2), Article II, baseline §1 (effectively ungated) + §6 FU-16, FU-15, FU-16 (b)
-The shipped `perf_profile --composite` gate is **extended** with a **viewport-scale scenario** (region
+A **new `perf_profile --viewport-recomposite` gate** exercises the viewport-scale split-cache COMMIT path (region
 1080² and/or 1920², 12 layers) at a **loose `VIEWPORT_RECOMPOSITE_CEILING_MS`** ceiling, so the
-whole-viewport recomposite blow-up the current **16-px** `--composite` gate cannot catch (baseline §1) is
+whole-viewport recomposite blow-up the shipped **16-px** `--composite` gate cannot catch (baseline §1) is
 guarded. Ceiling is a single-source named constant (Article II); value + scenario + CI wiring are
 AGT-01/AGT-10/AGT-09 HOW (§8). Loose catastrophic bound, not 16 ms (FU-15).
-**Acceptance:** a `perf_profile` viewport-scale composite scenario (≥ 1080², 12 layers) exists and, in CI,
+**Acceptance:** a `perf_profile --viewport-recomposite` scenario (≥ 1080², 12 layers) exists and, in CI,
 passes at/under `VIEWPORT_RECOMPOSITE_CEILING_MS` and **fails** on a regression toward the 2–7 s cost;
 the ceiling resolves to a named constant.
 
@@ -448,7 +448,7 @@ Phase 12 is **entirely** NFR + hygiene; the requirements above are the NFRs. Cro
   `composite(below)`/`composite(above)` around the dragged layer + viewport dirty-region culling + LOD
   preview (Slice B). All must preserve byte-exact output (REQ-P12-LOGIC-002, -004).
 - **DEP-3 (AGT-10 — perf scenarios) + (AGT-09 — CI wiring):** author the `perf_profile` `--full-frame`
-  (region=None) scenario and the viewport-scale `--composite` scenario; wire both into CI at the loose
+  (region=None) scenario and the dedicated `--viewport-recomposite` viewport-scale scenario; wire both into CI at the loose
   named ceilings; also (optional, non-blocking) the FU-8 loose-regression tiling gate (≈40–48 ms) and the
   FU-P9 iso raster-fallback line-budget gate (§2b).
 - **DEP-4 (AGT-05 / AGT-10 — drag preview HOW):** the downsampled-LOD preview + throttle/off-thread of

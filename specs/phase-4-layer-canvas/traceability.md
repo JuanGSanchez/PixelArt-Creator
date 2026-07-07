@@ -42,24 +42,24 @@ Status legend:
 
 | REQ-ID | Traces (S-id / F / inherited) | Spec § | Scenario(s) | Test id(s) | Status |
 | --- | --- | --- | --- | --- | --- |
-| REQ-P4-UI-001 | **REV-5**, S6 | §4, §11 | SC-UI-001-1 | `tests/ui/test_layer_panel.py`, `test_ui_branches.py` | covered |
-| REQ-P4-UI-002 | **REV-5** (`Layer.opacity`→UI) | §4, §11 | SC-UI-002-1 | `tests/ui/test_layer_panel.py` | covered |
-| REQ-P4-UI-003 | **REV-5** (`Layer.visible`→UI) | §4, §11 | SC-UI-003-1 | `tests/ui/test_layer_panel.py` | covered |
-| REQ-P4-UI-004 | **REV-5** (`Layer.locked`→UI) | §4, §11 | SC-UI-004-1 | `tests/ui/test_layer_panel.py` | covered |
-| REQ-P4-UI-005 | REQ-P4-LOGIC-001, Phase-4 cap | §4, §11 | SC-UI-005-1 | `tests/ui/test_layer_panel.py` (12-mode dropdown) | covered |
-| REQ-P4-UI-006 | REQ-P4-LOGIC-009, S6 | §4, §11 | SC-UI-006-1 | `tests/ui/test_layer_panel.py` | covered |
-| REQ-P4-UI-007 | REQ-P4-LOGIC-009 | §4, §11 | SC-UI-007-1 | `tests/ui/test_layer_panel.py` | covered |
-| REQ-P4-UI-008 | REQ-P4-LOGIC-011 | §4, §11 | SC-UI-008-1 | `tests/ui/test_layer_panel.py` | covered |
-| REQ-P4-UI-009 | REQ-P4-LOGIC-012 | §4, §11 | SC-UI-009-1 | `tests/ui/test_layer_panel.py`, `test_ui_branches.py` | covered |
-| REQ-P4-UI-010 | REQ-P4-LOGIC-013 | §4, §11 | SC-UI-010-1 | `tests/ui/test_layer_panel.py`, `test_ui_branches.py` | covered |
-| REQ-P4-UI-011 | REQ-P4-LOGIC-014 | §4, §11 | SC-UI-011-1 | `tests/ui/test_layer_panel.py`, `test_ui_branches.py` | covered |
-| REQ-P4-UI-012 | S1, S7, REQ-P4-LOGIC-004 | §4, §11 | SC-UI-012-1, SC-UI-012-2 | `tests/ui/test_canvas_scene.py`, `test_layer_panel.py`, `test_ui_branches.py` | covered |
-| REQ-P4-UI-013 | S7, C1, F1, REQ-P4-LOGIC-008/-009 | §4, §11 | SC-UI-013-1 | `tests/ui/test_layer_panel.py` (one QUndoCommand per op) | covered |
-| REQ-P4-UI-014 | S1, S6, S7 (extends REQ-P1-UI-020) | §4, §11 | SC-UI-014-1, SC-UI-014-2 | `tests/ui/test_layer_panel.py`, `test_main_window.py` (tab isolation) | covered |
-| REQ-P4-UI-015 (NFR) | S1, S12, F2, F7, Art. VI, DEP-2 | §5, §11 | SC-UI-015-1 | AGT-10 `perf_profile --composite` (region path; **re-profile open** per T13) + region-contract asserted in `tests/logic/test_blend.py` | covered (perf re-profile open) |
-| REQ-P4-UI-016 (NFR) | Art. V §1 | §5, §11 | SC-UI-016-1 | `tests/ui/test_layer_panel.py` (a11y: names/keyboard/focus) | covered |
-| REQ-P4-UI-017 (NFR) | Art. V §3 | §5, §11 | SC-UI-017-1 (+ every UI scenario in both themes) | `tests/ui/test_layer_panel.py` (both themes) | covered |
-| REQ-P4-UI-018 (NFR) | Art. V §2, F6 | §5, §11 | SC-UI-018-1 | AGT-07 `string_audit_check` + `tests/ui/test_layer_panel.py` (`changeEvent` retranslate) | covered |
+| REQ-P4-UI-001 | **REV-5**, S6 | §4, §11 | SC-P4-UI-001-1 | `tests/ui/test_layer_panel.py`, `test_ui_branches.py` | covered |
+| REQ-P4-UI-002 | **REV-5** (`Layer.opacity`→UI) | §4, §11 | SC-P4-UI-002-1 | `tests/ui/test_layer_panel.py` | covered |
+| REQ-P4-UI-003 | **REV-5** (`Layer.visible`→UI) | §4, §11 | SC-P4-UI-003-1 | `tests/ui/test_layer_panel.py` | covered |
+| REQ-P4-UI-004 | **REV-5** (`Layer.locked`→UI) | §4, §11 | SC-P4-UI-004-1 | `tests/ui/test_layer_panel.py` | covered |
+| REQ-P4-UI-005 | REQ-P4-LOGIC-001, Phase-4 cap | §4, §11 | SC-P4-UI-005-1 | `tests/ui/test_layer_panel.py` (12-mode dropdown) | covered |
+| REQ-P4-UI-006 | REQ-P4-LOGIC-009, S6 | §4, §11 | SC-P4-UI-006-1 | `tests/ui/test_layer_panel.py` | covered |
+| REQ-P4-UI-007 | REQ-P4-LOGIC-009 | §4, §11 | SC-P4-UI-007-1 | `tests/ui/test_layer_panel.py` | covered |
+| REQ-P4-UI-008 | REQ-P4-LOGIC-011 | §4, §11 | SC-P4-UI-008-1 | `tests/ui/test_layer_panel.py` | covered |
+| REQ-P4-UI-009 | REQ-P4-LOGIC-012 | §4, §11 | SC-P4-UI-009-1 | `tests/ui/test_layer_panel.py`, `test_ui_branches.py` | covered |
+| REQ-P4-UI-010 | REQ-P4-LOGIC-013 | §4, §11 | SC-P4-UI-010-1 | `tests/ui/test_layer_panel.py`, `test_ui_branches.py` | covered |
+| REQ-P4-UI-011 | REQ-P4-LOGIC-014 | §4, §11 | SC-P4-UI-011-1 | `tests/ui/test_layer_panel.py`, `test_ui_branches.py` | covered |
+| REQ-P4-UI-012 | S1, S7, REQ-P4-LOGIC-004 | §4, §11 | SC-P4-UI-012-1, SC-P4-UI-012-2 | `tests/ui/test_canvas_scene.py`, `test_layer_panel.py`, `test_ui_branches.py` | covered |
+| REQ-P4-UI-013 | S7, C1, F1, REQ-P4-LOGIC-008/-009 | §4, §11 | SC-P4-UI-013-1 | `tests/ui/test_layer_panel.py` (one QUndoCommand per op) | covered |
+| REQ-P4-UI-014 | S1, S6, S7 (extends REQ-P1-UI-020) | §4, §11 | SC-P4-UI-014-1, SC-P4-UI-014-2 | `tests/ui/test_layer_panel.py`, `test_main_window.py` (tab isolation) | covered |
+| REQ-P4-UI-015 (NFR) | S1, S12, F2, F7, Art. VI, DEP-2 | §5, §11 | SC-P4-UI-015-1 | AGT-10 `perf_profile --composite` (region path; **re-profile open** per T13) + region-contract asserted in `tests/logic/test_blend.py` | covered (perf re-profile open) |
+| REQ-P4-UI-016 (NFR) | Art. V §1 | §5, §11 | SC-P4-UI-016-1 | `tests/ui/test_layer_panel.py` (a11y: names/keyboard/focus) | covered |
+| REQ-P4-UI-017 (NFR) | Art. V §3 | §5, §11 | SC-P4-UI-017-1 (+ every UI scenario in both themes) | `tests/ui/test_layer_panel.py` (both themes) | covered |
+| REQ-P4-UI-018 (NFR) | Art. V §2, F6 | §5, §11 | SC-P4-UI-018-1 | AGT-07 `string_audit_check` + `tests/ui/test_layer_panel.py` (`changeEvent` retranslate) | covered |
 
 ## DATA requirements (`.pixproj` v2 — allocated by plan §7, ADR-0006)
 
@@ -120,7 +120,7 @@ The prompt directs Phase 4 to formally inherit two Phase-1 primitives forward:
 - **DEP-1 (Researcher).** `docs/research-blend-modes.md` grounds the per-mode formulas for
   REQ-P4-LOGIC-002 / SC-L002-1 — **not yet present**; the file's reference values fill the
   SC-L002-1 outline's `expected` column. AGT-01 must not invent the maths.
-- **DEP-2 (AGT-10).** Dirty-rect recomposite strategy for REQ-P4-UI-015 / SC-UI-015-1 — a
+- **DEP-2 (AGT-10).** Dirty-rect recomposite strategy for REQ-P4-UI-015 / SC-P4-UI-015-1 — a
   full-canvas recomposite per edit will exceed `FRAME_BUDGET_MS` at 8K; a dirty-rect
   recomposite (and likely cached group buffers) is expected. Plan-level.
 - **DEP-3 (AGT-01 / DATA).** `.pixproj` persistence of the new layer model (blend_mode,

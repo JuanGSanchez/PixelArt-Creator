@@ -50,7 +50,7 @@ exit 0 at each slice boundary (Decision A1-D3; exit 2 → BLOCKED, A1-E3).
   - **D1 — no full-canvas allocation on the region path.** `region=None` returns a full-canvas
     `PixelBuffer(width,height)`; **`region=(x,y,w,h)` returns a REGION-SIZED `PixelBuffer(w,h)`**
     (shape `(h,w,4)`, implied scene origin `(x,y)`) and allocates only `(h,w,4)` — NOT the 126 MB
-    full-canvas buffer that caused the ~140 ms / ~9× over-budget floor (SC-UI-015-1). Region in scene
+    full-canvas buffer that caused the ~140 ms / ~9× over-budget floor (SC-P4-UI-015-1). Region in scene
     space, must lie fully within `(0,0,width,height)` with `w≥1,h≥1`; out-of-bounds/degenerate →
     `BlendError` (validate, do not silently clamp). See plan §6.1 for the exact coordinate contract.
   - **D5 — float32, not float64.** Use `np.float32` as the blend working dtype (ADR-0005 §Compliance
@@ -60,7 +60,7 @@ exit 0 at each slice boundary (Decision A1-D3; exit 2 → BLOCKED, A1-E3).
     enforced in `document.py` (T3). Optionally cache the below-layer backdrop for partial-stack recomposite.
 - **REQ/acceptance:** REQ-P4-LOGIC-001 (SC-L001-1), -002 (SC-L002-1 known-values, -002 determinism),
   -003 (SC-L003-1), -004 (SC-L004-1..3), -005 (SC-L005-1), -006 (SC-L006-1), -007 (SC-L007-1/-2),
-  compositor side of -011 (SC-L011-1/-2), -012 (SC-L012-1/-2); **SC-UI-015-1 (region-path budget, T13 D1/D5)**.
+  compositor side of -011 (SC-L011-1/-2), -012 (SC-L012-1/-2); **SC-P4-UI-015-1 (region-path budget, T13 D1/D5)**.
 - **Status:** todo
 
 ### T3 — `logic/document.py` extension (blend-mode attr + groups + masks + reference + smart + reversible ops + guards + bounds)
@@ -84,7 +84,7 @@ exit 0 at each slice boundary (Decision A1-D3; exit 2 → BLOCKED, A1-E3).
   any child edit / attribute / order / mask change on a node **invalidates the flattened cache of
   its `LayerGroup` and of every ancestor group up the whole chain** (a stale cache renders a wrong
   composite). The cache-invalidation hook fires from every reversible op above and its undo. Asserted
-  by AGT-06 (SC-UI-012-2, composite-updates-on-edit).
+  by AGT-06 (SC-P4-UI-012-2, composite-updates-on-edit).
 - **REQ/acceptance:** REQ-P4-LOGIC-008 (SC-L008-1/-2), -009 (SC-L009-1..4), -010 (SC-L010-1),
   node side of -011 (SC-L011-3 depth), -012 (SC-L012-3), -013 (SC-L013-1), -014 (SC-L014-1),
   -015 (SC-L015-1/-2).
@@ -170,8 +170,8 @@ exit 0 at each slice boundary (Decision A1-D3; exit 2 → BLOCKED, A1-E3).
   (UI-013, via T12). `tr()`-wrapped strings + `changeEvent` retranslate (UI-018); accessible
   name/description + logical tab order + visible focus (UI-016); role-based colours, both themes
   (UI-017). No domain logic in the widget (Article I).
-- **REQ/acceptance:** REQ-P4-UI-001 (SC-UI-001-1), -002 (SC-UI-002-1), -003 (SC-UI-003-1),
-  -004 (SC-UI-004-1), -005 (SC-UI-005-1), -006 (SC-UI-006-1), -007 (SC-UI-007-1), -008 (SC-UI-008-1),
+- **REQ/acceptance:** REQ-P4-UI-001 (SC-P4-UI-001-1), -002 (SC-P4-UI-002-1), -003 (SC-P4-UI-003-1),
+  -004 (SC-P4-UI-004-1), -005 (SC-P4-UI-005-1), -006 (SC-P4-UI-006-1), -007 (SC-P4-UI-007-1), -008 (SC-P4-UI-008-1),
   -016/-017/-018 (build-time; verified T13/T15).
 - **Status:** todo
 
@@ -184,7 +184,7 @@ exit 0 at each slice boundary (Decision A1-D3; exit 2 → BLOCKED, A1-E3).
   layer from a selected source; it mirrors the source, its own pixels are not directly editable.
   Each attach/remove/flag/create is **one** `QUndoCommand` (via T12). `tr()` + `changeEvent`,
   keyboard-reachable, both themes.
-- **REQ/acceptance:** REQ-P4-UI-009 (SC-UI-009-1), -010 (SC-UI-010-1), -011 (SC-UI-011-1).
+- **REQ/acceptance:** REQ-P4-UI-009 (SC-P4-UI-009-1), -010 (SC-P4-UI-010-1), -011 (SC-P4-UI-011-1).
 - **Status:** todo
 
 ### T11 — Canvas compositing + multi-canvas / artboard tabs
@@ -204,7 +204,7 @@ exit 0 at each slice boundary (Decision A1-D3; exit 2 → BLOCKED, A1-E3).
   **Multi-canvas** (UI-014, CL-15): extend the Phase-1 document tabs so each
   tab owns its own layer tree + palette + `QUndoStack` + composite + scene rect; switching a tab
   makes it the active context; a layer op / undo in one tab never affects another (state isolation).
-- **REQ/acceptance:** REQ-P4-UI-012 (SC-UI-012-1/-2), -014 (SC-UI-014-1/-2).
+- **REQ/acceptance:** REQ-P4-UI-012 (SC-P4-UI-012-1/-2), -014 (SC-P4-UI-014-1/-2).
 - **Status:** todo
 
 ### T12 — `ui/commands.py` wrappers (one QUndoCommand per layer op)
@@ -214,7 +214,7 @@ exit 0 at each slice boundary (Decision A1-D3; exit 2 → BLOCKED, A1-E3).
   **delegating to the `history.Command`** the `document` op returns (no domain math — Article I);
   push exactly one command onto the active document's `QUndoStack`; undo restores the exact prior
   tree state. Supplies only the Qt shell + dirty-rect recomposite signalling.
-- **REQ/acceptance:** REQ-P4-UI-013 (SC-UI-013-1).
+- **REQ/acceptance:** REQ-P4-UI-013 (SC-P4-UI-013-1).
 - **Status:** todo
 
 ### T13 — Recomposite frame-profile + conditional dirty-rect directive (AGT-10)
@@ -222,7 +222,7 @@ exit 0 at each slice boundary (Decision A1-D3; exit 2 → BLOCKED, A1-E3).
   `perf_profile` · **Predecessor:** T11
 - **Do:** Run `perf_profile` on the **8K multi-layer recomposite** path (7680×4320, several layers,
   single-pixel edit → region recomposite). Assert ≤ `FRAME_BUDGET_MS = 16` recompositing only the
-  dirty region (SC-UI-015-1). If over budget: issue an AGT-10 directive AGT-05 implements
+  dirty region (SC-P4-UI-015-1). If over budget: issue an AGT-10 directive AGT-05 implements
   (dirty-rect scope, cached flattened group buffers per ADR-0007, `QOpenGLWidget` viewport,
   `setBspTreeDepth`) — budget **never** relaxed (Article VI §2). In-budget → closes no-op. Decision
   A1: conditional on an over-budget path.
@@ -232,25 +232,25 @@ exit 0 at each slice boundary (Decision A1-D3; exit 2 → BLOCKED, A1-E3).
   sized return (AGT-03), **D5** float32 (AGT-03), **D4** mandatory group cache + invalidation (AGT-03);
   **D2/D3** viewport-scoped attribute recomposite + opacity-drag debounce (AGT-05); **D6/D7**
   (QOpenGLWidget, setBspTreeDepth) DEFERRED. **RE-PROFILE required after D1 lands** to confirm a
-  brush-sized dirty rect ≤ 16 ms (do NOT close SC-UI-015-1 until median ≤ 16 ms). AGT-10 also asks
+  brush-sized dirty rect ≤ 16 ms (do NOT close SC-P4-UI-015-1 until median ≤ 16 ms). AGT-10 also asks
   AGT-09/CI to extend `perf_profile` with a `--composite` mode (it currently profiles only `drawBackground`).
-- **REQ/acceptance:** REQ-P4-UI-015 (SC-UI-015-1); Article VI; DEP-2; ADR-0007 (amended).
+- **REQ/acceptance:** REQ-P4-UI-015 (SC-P4-UI-015-1); Article VI; DEP-2; ADR-0007 (amended).
 - **Status:** doing (directive issued; re-profile pending D1/D4/D5 + D2/D3)
 
 ### T14 — UI tests (pytest-qt, both themes, a11y, headless)
 - **Owner:** AGT-06 · **Target:** `tests/ui/test_layer_panel.py`, `test_layer_masks.py`,
   `test_layer_reference_smart.py`, `test_canvas_composite.py`, `test_multi_canvas.py`,
   `test_layer_undo.py` · **Predecessor:** T9, T10, T11, T12
-- **Do:** One pytest-qt test per SC-UI-001..014 scenario; qtbot; wait on signals; **both themes**;
-  a11y (accessible name, keyboard reachability, focus visibility — SC-UI-016-1) via `a11y-audit`;
-  headless (`QT_QPA_PLATFORM=offscreen`). Assert: panel lists top-to-bottom (SC-UI-001-1); each
-  control sets the attribute + recomposites + pushes **exactly one** command (SC-UI-002..005);
-  drag-reorder recomposites (SC-UI-006-1); add/remove/duplicate + last-layer refusal (SC-UI-007-1);
-  group/ungroup reversible (SC-UI-008-1); mask/reference/smart affordances (SC-UI-009..011); canvas
-  shows the **composite not one layer** (SC-UI-012-1) + edit updates it (SC-UI-012-2); **one
-  undoable command per op** + exact undo (SC-UI-013-1); **multi-canvas isolation** (SC-UI-014-1/-2).
+- **Do:** One pytest-qt test per SC-P4-UI-001..014 scenario; qtbot; wait on signals; **both themes**;
+  a11y (accessible name, keyboard reachability, focus visibility — SC-P4-UI-016-1) via `a11y-audit`;
+  headless (`QT_QPA_PLATFORM=offscreen`). Assert: panel lists top-to-bottom (SC-P4-UI-001-1); each
+  control sets the attribute + recomposites + pushes **exactly one** command (SC-P4-UI-002..005);
+  drag-reorder recomposites (SC-P4-UI-006-1); add/remove/duplicate + last-layer refusal (SC-P4-UI-007-1);
+  group/ungroup reversible (SC-P4-UI-008-1); mask/reference/smart affordances (SC-P4-UI-009..011); canvas
+  shows the **composite not one layer** (SC-P4-UI-012-1) + edit updates it (SC-P4-UI-012-2); **one
+  undoable command per op** + exact undo (SC-P4-UI-013-1); **multi-canvas isolation** (SC-P4-UI-014-1/-2).
   Coverage ≥90/80; invoke `coverage_gate`.
-- **REQ/acceptance:** Article IV + V; SC-UI-001..014, SC-UI-016-1, SC-UI-017-1.
+- **REQ/acceptance:** Article IV + V; SC-P4-UI-001..014, SC-P4-UI-016-1, SC-P4-UI-017-1.
 - **Status:** todo
 
 ### T15 — i18n for Phase-4 strings
@@ -259,7 +259,7 @@ exit 0 at each slice boundary (Decision A1-D3; exit 2 → BLOCKED, A1-E3).
   `pyside6-lupdate`; compile `.qm` with `lrelease`; confirm `changeEvent` retranslate on the layer
   panel + affordances + **blend-mode dropdown labels** (F5/F6). An unwrapped user-visible string is a
   blocking finding.
-- **REQ/acceptance:** REQ-P4-UI-018 (SC-UI-018-1); Article V §2.
+- **REQ/acceptance:** REQ-P4-UI-018 (SC-P4-UI-018-1); Article V §2.
 - **Status:** todo
 
 ### T16 — Slice-4C layering/cycle gate (AGT-01)

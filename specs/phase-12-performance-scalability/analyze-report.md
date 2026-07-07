@@ -51,7 +51,7 @@ map to Articles).
 
 | REQ-ID | Plan | Impl task(s) | Verify task(s) | Acceptance |
 | --- | --- | --- | --- | --- |
-| REQ-P12-LOGIC-001 | §4.1/§9 Slice A, ADR-0033 | T12-A-02 | T12-A-05, T12-A-07 | SC-P12-LOGIC-001-1/-2 |
+| REQ-P12-LOGIC-001 | §4.1/§9 Slice A, ADR-0033 | T12-A-02 | T12-A-05, T12-A-07 | SC-P12-LOGIC-001-1/-2/-3 |
 | REQ-P12-LOGIC-002 | §2(a)/§5, ADR-0033 §4 | T12-A-02 | T12-A-03 | SC-P12-LOGIC-002-1/-2 |
 | REQ-P12-LOGIC-003 | §4.3/§8, ADR-0033 §5 | T12-A-01, T12-A-04, T12-A-06 | T12-A-05 | SC-P12-LOGIC-003-1 |
 | REQ-P12-LOGIC-004 | §4.1/§9 Slice B, ADR-0034 | T12-B-02 | T12-B-03, T12-B-09 | SC-P12-LOGIC-004-1/-2 |
@@ -76,3 +76,32 @@ tasks/ADRs. AN-D1 Branch A (unresolved list empty) → **PASS**.
 STRUCTURE.md updated with the PLANNED Phase-12 touch-points; layering/cycle baseline clean (exit 0).
 **Implementation is UNBLOCKED** (Article VIII); the orchestrator may dispatch Slice A → B → F per the
 per-slice performance flow.
+
+## 7. Post-Slice-F re-verification (C1 re-run, 2026-07-07)
+
+Re-run after the Slice-F artifact edits landed (FU-2 → S7+S2 in Phase-1 `plan.md`; FU-17 phase-unique
+`SC-P1-UI-*`/`SC-P4-UI-*` renames across Phase-1/Phase-4 `spec.md`/`traceability.md`; FU-16 (a)/(b)
+distinct ids across all Phase-12 artifacts; T12-A-03 test named `tests/logic/test_blend_fullframe.py`;
+LOGIC-005 gate flag `--viewport-recomposite`). Re-checked cross-artifact:
+
+- **REQ set (LOGIC-001..007, UI-001..002) coverage — CONFIRMED.** All 9 REQ trace to an S-id/article/FU +
+  ≥ 1 acceptance scenario present in `acceptance.md` (LOGIC-001 → -1/-2/-3; -002 → -1/-2; -003 → -1;
+  -004 → -1/-2; -005 → -1; -006 → -1; -007 → -1/-2/-3; UI-001 → -1/-2; UI-002 → -1/-2). The §4 coverage
+  table LOGIC-001 acceptance cell corrected to `-1/-2/-3` to match `acceptance.md`/`traceability.md`.
+- **FU-2 (LOGIC-007-1) — CONSISTENT.** Phase-1 `plan.md` §9, `spec.md`, `traceability.md` all trace
+  REQ-P1-LOGIC-004 to the single S-id set **S7 (palette nearest) + S2 (flood-fill tolerance)**.
+- **FU-17 (LOGIC-007-2) — COLLISION-FREE.** Phase-1/Phase-4 canonical scenario-defining artifacts
+  (`spec.md`/`traceability.md`) carry only phase-unique `SC-P1-UI-*`/`SC-P4-UI-*` ids; no bare
+  `SC-UI-0NN` denotes two scenarios across the two phases (residual bare refs live only in Phase-1
+  `render-strategy.md` (AGT-10-owned) and Phase-4 `analyze-report.md` (historical), each unambiguous by
+  elimination — no cross-phase overlap).
+- **FU-16 (LOGIC-007-3) — DISTINCT.** `FU-16 (a)` (cache-invalidation) / `FU-16 (b)` (opacity-drag
+  recomposite) carry distinct ids across all 5 Phase-12 artifacts.
+- **LOGIC-005 — CONSISTENT.** The viewport-scale gate is uniformly `--viewport-recomposite` across
+  plan/tasks/spec/acceptance/traceability; the remaining `--composite` mentions are the legitimate 16-px
+  shipped-gate witnesses (the honesty ruling), not stray viewport-scale refs.
+- **Scripts — exit 0.** `check_layering`/`check_cycles` (`--root pixelart_creator`) both exit 0; the
+  Slice-F change is prose/ids + `logic/` docstrings only, no structural change.
+
+**Verdict unchanged: C1 PASS — zero unresolved cross-artifact findings. Slice F is cleared; AGT-09 may
+commit the Slice-F edit-set.**

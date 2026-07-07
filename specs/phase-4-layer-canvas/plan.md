@@ -354,7 +354,7 @@ Task T13 (AGT-10) is the profiling gate + conditional directive.
 
 **T13 AMENDMENT (2026-07-02 — AGT-10 profile
 `subagent-report-agt-10-rendering-performance-a4b1282f`; ADR-0007 §Amendment).** The T13 profile
-found the region path was **~140 ms (~9× over budget) FAILING SC-UI-015-1**, and that the cost was
+found the region path was **~140 ms (~9× over budget) FAILING SC-P4-UI-015-1**, and that the cost was
 NOT the blend (a brush-sized dirty rect blends in ~1.5 ms) but a **mandatory full-canvas 126 MB
 `PixelBuffer(width,height)` allocation+fill inside `composite_stack` on every call, regardless of
 `region`** — defeating ADR-0007's own dirty-rect intent. Three architecture revisions (frozen here):
@@ -368,7 +368,7 @@ NOT the blend (a brush-sized dirty rect blends in ~1.5 ms) but a **mandatory ful
 - **D4 (AGT-03) — cached group buffers + partial-stack recomposite are now MANDATORY, not optional.**
   Each `LayerGroup`'s flattened intermediate is cached and reused while its subtree is unchanged; any
   child edit / attribute / order / mask change **invalidates the group cache up the whole ancestor
-  chain** (invalidation contract, asserted by SC-UI-012-2). Partial-stack recomposite: cache the
+  chain** (invalidation contract, asserted by SC-P4-UI-012-2). Partial-stack recomposite: cache the
   backdrop of layers below the changed layer so an attribute change on layer *k* re-blends only *k..top*.
 - **D2/D3 are UI directives owned by AGT-05** (viewport-scoped attribute recomposite; opacity-drag
   debounce — AGT-10 report §4 D2/D3). **D6/D7 (QOpenGLWidget viewport; `setBspTreeDepth`) remain
