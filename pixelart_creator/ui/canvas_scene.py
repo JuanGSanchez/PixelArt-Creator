@@ -1323,8 +1323,11 @@ class CanvasScene(QGraphicsScene):
     # -- document binding -------------------------------------------------
 
     def active_buffer(self) -> PixelBuffer:
-        """Return the buffer paint tools mutate: the active layer's pixels, or
-        its mask while a mask is the active edit target (REQ-P4-UI-009)."""
+        """Return the buffer paint tools mutate.
+
+        This is the active layer's pixels, or its mask while a mask is the
+        active edit target (REQ-P4-UI-009).
+        """
         if self._mask_edit and self._active_layer.mask is not None:
             return self._active_layer.mask
         return self._active_layer.buffer
@@ -1351,8 +1354,10 @@ class CanvasScene(QGraphicsScene):
             self._item.set_buffer(self.active_buffer(), self._document.palette.colors())
 
     def set_mask_edit(self, enabled: bool) -> None:
-        """Route paint to the active layer's mask buffer, not its pixels
-        (REQ-P4-UI-009). No-op unless the active layer carries a mask."""
+        """Route paint to the active layer's mask buffer, not its pixels.
+
+        No-op unless the active layer carries a mask (REQ-P4-UI-009).
+        """
         self._mask_edit = bool(enabled) and self._active_layer.mask is not None
 
     def is_mask_edit(self) -> bool:
