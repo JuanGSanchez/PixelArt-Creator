@@ -186,6 +186,7 @@ from pixelart_creator.ui.symmetry_panel import Symmetry_Panel
 from pixelart_creator.ui.theme import (
     THEME_DARK,
     THEME_LIGHT,
+    apply_font_fallbacks,
     apply_theme,
     canvas_roles,
 )
@@ -784,6 +785,10 @@ class Main_Window(QMainWindow):
         self._build_menu()
         self._init_visual_aids()
 
+        # Register the cross-OS UI-font fallback chain once, before any widget
+        # paints, so a single-OS family (Segoe UI / .AppleSystemUIFont / …) never
+        # yields .notdef boxes on another OS (REQ-P13-UI-001).
+        apply_font_fallbacks()
         apply_theme(self._app, self._theme)
         self._language_manager.install_from_locale()
 

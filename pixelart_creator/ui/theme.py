@@ -12,11 +12,48 @@ from __future__ import annotations
 from typing import Dict, List, Tuple
 
 from PySide6.QtCore import QCoreApplication
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import QApplication
 
 THEME_LIGHT = "light"
 THEME_DARK = "dark"
+
+#: Cross-OS UI-font fallback chain (REQ-P13-UI-001, Researcher Q5). Defined
+#: **once, by role** here (never per-widget): the UI names no specific family (the
+#: QSS below carries no ``font-family`` and the app sets no :class:`QFont`), so each
+#: OS already resolves its own default system UI font. This map is the belt-and-
+#: braces guard for the single-OS families that a platform default *reports* as its
+#: name (e.g. Windows "Segoe UI", macOS ".AppleSystemUIFont"/"Helvetica Neue"): if
+#: such a family is ever requested on an OS that lacks it (a cross-OS project theme,
+#: a future stylesheet, a canvas glyph label), Qt substitutes the first available
+#: entry instead of rendering ``.notdef`` boxes. Where the named family exists (its
+#: native OS) Qt uses it directly, so this changes nothing on the platform that owns
+#: the font — it only adds a resolvable fallback on the others. The tail generics
+#: are resolved by the Qt platform plugin to a present family on every OS.
+_UI_FONT_FALLBACKS: Dict[str, List[str]] = {
+    "Segoe UI": [
+        "Helvetica Neue",
+        "Cantarell",
+        "Noto Sans",
+        "DejaVu Sans",
+        "sans-serif",
+    ],
+    ".AppleSystemUIFont": [
+        "Segoe UI",
+        "Cantarell",
+        "Noto Sans",
+        "DejaVu Sans",
+        "sans-serif",
+    ],
+    "SF Pro Text": ["Segoe UI", "Cantarell", "Noto Sans", "DejaVu Sans", "sans-serif"],
+    "Helvetica Neue": [
+        "Segoe UI",
+        "Cantarell",
+        "Noto Sans",
+        "DejaVu Sans",
+        "sans-serif",
+    ],
+}
 
 #: Role palette per theme. Every role key exists in both themes (QT-D1) so no
 #: widget ever needs a single-theme literal.
@@ -124,6 +161,25 @@ def _roles(name: str) -> Dict[str, str]:
 def build_qss(name: str) -> str:
     """Return the QSS stylesheet for theme ``name`` (roles substituted once)."""
     return _QSS_TEMPLATE.format(**_roles(name))
+
+
+def apply_font_fallbacks() -> None:
+    """Register the cross-OS UI-font fallback chain once (REQ-P13-UI-001).
+
+    Installs :meth:`QFont.insertSubstitutions` for each single-OS family in
+    :data:`_UI_FONT_FALLBACKS`, so a family that is absent on the running OS
+    (Windows "Segoe UI" on Linux, macOS ".AppleSystemUIFont" on Windows, …)
+    degrades to the first resolvable entry rather than to ``.notdef`` boxes.
+    This is the phase's **single, role-based** font-fallback seam (not a
+    per-widget font): the app hard-codes no :class:`QFont` and the QSS names no
+    ``font-family``, so on each OS Qt still resolves its own default system UI
+    font — this only adds a portable fallback for the cross-OS case. Idempotent
+    for practical purposes (called once at shell start, before the theme is
+    applied); adds no absolute font size, so it leaves layout and the render
+    budget untouched (Article VI).
+    """
+    for family, fallbacks in _UI_FONT_FALLBACKS.items():
+        QFont.insertSubstitutions(family, fallbacks)
 
 
 def apply_theme(app: QApplication, name: str) -> None:
