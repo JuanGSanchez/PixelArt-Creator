@@ -139,6 +139,17 @@ source = ["pixelart_creator"]
 show_missing = true
 # Gate is enforced by scripts/coverage_gate.py (>=90 line / >=80 branch, S13),
 # not by fail_under here, so the verdict is a single P11 script (per-package).
+# Lines/idioms excluded from coverage measurement project-wide. NOTE: setting
+# exclude_lines OVERRIDES coverage.py's built-in default of ["pragma: no cover"],
+# so that entry MUST be kept here or every inline `# pragma: no cover` in the
+# tree would silently start counting again. The `if __name__ == .__main__.:`
+# regex is the standard coverage.py idiom for module entry guards (e.g.
+# pixelart_creator/__main__.py's `python -m` launch shim), which only execute in
+# a subprocess as __main__ and are therefore uncoverable by the in-process suite.
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]
 
 [tool.flake8]
 # flake8 reads setup.cfg/.flake8 natively; this block documents intent. The
