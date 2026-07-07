@@ -300,7 +300,8 @@ class Palette_Panel(QWidget):
         """Return the palette index of the selected swatch, or ``None`` (P3-UI-014).
 
         The list is populated in palette index order, so the current row is the
-        palette index (the paint-by-index value for an indexed buffer)."""
+        palette index (the paint-by-index value for an indexed buffer).
+        """
         row = self._list.currentRow()
         return row if 0 <= row < self._list.count() else None
 
@@ -348,6 +349,7 @@ class Palette_Panel(QWidget):
         self._mode_label.setText(text)
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-translate the palette-panel strings on a language change (F5)."""
         if event.type() == QEvent.Type.LanguageChange:
             self._retranslate()
         super().changeEvent(event)
@@ -1210,7 +1212,8 @@ class Main_Window(QMainWindow):
         to the active tab; the reference board is a separate always-on-top-capable
         window; the multi-view controller opens extra views on the active shared
         scene. Every aid is **non-destructive** view/session state — none pushes a
-        ``QUndoCommand`` (REQ-P9-UI-010)."""
+        ``QUndoCommand`` (REQ-P9-UI-010).
+        """
         # A placeholder scene until the first document tab rebinds the preview.
         self._preview_window = Real_Size_Preview_Window(QGraphicsScene(self))
         self._preview_dock = QDockWidget(self)
@@ -1264,7 +1267,8 @@ class Main_Window(QMainWindow):
         The iso/perspective grid overlays + the doc-space guide overlay are added to
         the tab's scene (culled, cache-backed); the ruler strips wrap the view in a
         grid so the whole tab shows rulers when the guides aid is on. All snap/tick
-        maths stays in ``logic/`` (Article I)."""
+        maths stays in ``logic/`` (Article I).
+        """
         scene_rect = QRectF(0, 0, record.document.width, record.document.height)
         record.iso_overlay = Iso_Grid_Overlay(scene_rect, IsoGridConfig(tile_width=32))
         record.scene.addItem(record.iso_overlay)
@@ -1294,7 +1298,7 @@ class Main_Window(QMainWindow):
 
     @staticmethod
     def _default_perspective(document: Document) -> PerspectiveConfig:
-        """A sensible 2-point default (VPs on a mid-canvas horizon)."""
+        """Build a sensible 2-point default (VPs on a mid-canvas horizon)."""
         w, h = document.width, document.height
         horizon = h / 2.0
         return PerspectiveConfig(
@@ -1506,7 +1510,7 @@ class Main_Window(QMainWindow):
     # -- animation slots (REQ-P5-UI-002/-008/-011/-014, CL-13) -----------
 
     def _on_frame_selected(self, index: int) -> None:
-        """A timeline click selects the active (canvas-displayed) frame (no undo)."""
+        """Select the active (canvas-displayed) frame on a timeline click (no undo)."""
         record = self.active_tab()
         if record is None:
             return
@@ -1517,7 +1521,7 @@ class Main_Window(QMainWindow):
         record.view.viewport().update()
 
     def _on_frame_scrubbed(self, index: int) -> None:
-        """A timeline drag scrubs — show the frame under the cursor (fast, no undo)."""
+        """Scrub on a timeline drag, showing the frame under the cursor (no undo)."""
         record = self.active_tab()
         if record is None:
             return
@@ -1526,7 +1530,7 @@ class Main_Window(QMainWindow):
         record.view.viewport().update()
 
     def _on_frame_advanced(self, index: int) -> None:
-        """A playback tick advances the displayed frame (scrub-fast, onion off).
+        """Advance the displayed frame on a playback tick (scrub-fast, onion off).
 
         On a cold frame the scene holds the display and warms it off-thread (D1/D2);
         the transport waits and this slot only advances the timeline/view once the
@@ -1593,7 +1597,7 @@ class Main_Window(QMainWindow):
             self._playback_controls.play_tag(tag)
 
     def _on_timeline_frames_changed(self) -> None:
-        """FrameCommand follow-up after a structural frame op (add/remove/etc.).
+        """Handle the ``FrameCommand`` follow-up after a structural frame op.
 
         Invalidate the per-frame composite cache + recomposite the active frame,
         and re-sync the layer panel's frame index. The timeline rebuilds itself.
@@ -1608,7 +1612,7 @@ class Main_Window(QMainWindow):
         record.view.viewport().update()
 
     def _on_timeline_tags_changed(self) -> None:
-        """FrameCommand follow-up after a tag op: re-render the timeline tag spans."""
+        """Handle the ``FrameCommand`` follow-up after a tag op (re-render spans)."""
         self._timeline_panel.rebuild()
 
     def _apply_modes_to(self, record: _DocTab) -> None:
@@ -1968,10 +1972,11 @@ class Main_Window(QMainWindow):
     # -- layer panel (REQ-P4-UI-001, -009) -------------------------------
 
     def _on_active_node_changed(self, node: object) -> None:
-        """The layer panel selected a node → retarget paint at the active leaf.
+        """Retarget paint at the active leaf when the layer panel selects a node.
 
         A leaf :class:`Layer` becomes the scene's paint/transform target; a group
-        selection leaves the paint target unchanged (groups hold no pixels)."""
+        selection leaves the paint target unchanged (groups hold no pixels).
+        """
         record = self.active_tab()
         if record is None:
             return
@@ -1979,8 +1984,10 @@ class Main_Window(QMainWindow):
             record.scene.set_active_layer(node)
 
     def _on_mask_edit_toggled(self, enabled: bool) -> None:
-        """Route paint to the active layer's mask buffer when editing a mask
-        (REQ-P4-UI-009); the canvas recomposites with the mask modulating alpha."""
+        """Route paint to the active layer's mask buffer when editing a mask.
+
+        The canvas recomposites with the mask modulating alpha (REQ-P4-UI-009).
+        """
         record = self.active_tab()
         if record is not None:
             record.scene.set_mask_edit(enabled)
@@ -1988,7 +1995,7 @@ class Main_Window(QMainWindow):
     # -- palette workflows (REQ-P3-UI-001/-007..-013) --------------------
 
     def _on_palette_selected_rgba(self, color: RGBA) -> None:
-        """A pick in the editor list sets the active colour."""
+        """Set the active colour from a pick in the editor list."""
         self._set_active_color(color)
         self._palette_panel.select_color(color)
 
@@ -2009,7 +2016,7 @@ class Main_Window(QMainWindow):
         self._analytics_view.request_refresh()
 
     def _on_ramp_picked(self, color: RGBA) -> None:
-        """A ramp swatch applies to the active colour (REQ-P3-UI-007)."""
+        """Apply a ramp swatch to the active colour (REQ-P3-UI-007)."""
         self._set_active_color(color)
         self._palette_panel.select_color(color)
 
@@ -2242,7 +2249,8 @@ class Main_Window(QMainWindow):
 
         Anchoring off the buffer pixel (mapped through the active view) — rather
         than the mouse cursor — makes the hub open in the right place for BOTH a
-        right-click and a keyboard Menu-key request (A11Y-COLHUB-1)."""
+        right-click and a keyboard Menu-key request (A11Y-COLHUB-1).
+        """
         self._colour_hub.set_color(self._active_color)
         record = self.active_tab()
         if record is not None:
@@ -2252,7 +2260,7 @@ class Main_Window(QMainWindow):
         self._colour_hub.popup_at(global_pos)
 
     def _on_hub_color_applied(self, color: RGBA) -> None:
-        """A hub pick applies immediately to the active swatch (SC-U006-1)."""
+        """Apply a hub pick immediately to the active swatch (SC-U006-1)."""
         self._set_active_color(color)
         self._palette_panel.select_color(color)
 
@@ -3320,6 +3328,7 @@ class Main_Window(QMainWindow):
         self._user_guide_action.setText(self.tr("&User Guide"))
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-translate the main-window strings on a language change (F5)."""
         if event.type() == QEvent.Type.LanguageChange:
             self._retranslate()
         super().changeEvent(event)

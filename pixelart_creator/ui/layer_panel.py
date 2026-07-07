@@ -285,6 +285,7 @@ class Layer_Panel(QWidget):
     maskEditToggled = Signal(bool)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
+        """Initialise the layer/group tree panel with no bound document."""
         super().__init__(parent)
         self._document: Optional[Document] = None
         self._frame_index = 0
@@ -834,6 +835,7 @@ class Layer_Panel(QWidget):
         self._update_actions()
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-translate the layer-panel strings on a language change (F5)."""
         if event.type() == QEvent.Type.LanguageChange:
             self._retranslate()
             if self._document is not None:
