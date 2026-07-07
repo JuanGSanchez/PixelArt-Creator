@@ -24,7 +24,8 @@ from __future__ import annotations
 
 import math
 import threading
-from typing import List, Optional, Sequence, Set, Tuple
+from dataclasses import dataclass
+from typing import Callable, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 from PySide6.QtCore import (
@@ -61,11 +62,20 @@ from PySide6.QtWidgets import (
 )
 
 from pixelart_creator.logic.animation import AnimationError, onion_overlay
-from pixelart_creator.logic.blend import BlendError, composite_stack
+from pixelart_creator.logic.blend import (
+    BlendError,
+    BlendMode,
+    blend_arrays,
+    composite_range,
+    composite_stack,
+    downsample_nn,
+    upsample_nn,
+)
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.constants import (
     FRAME_BUDGET_MS,
     GRID_MIN_PIXEL_EDGE_PX,
+    OPACITY_PREVIEW_MAX_PX,
     TILE_BUFFER,
     TILE_SIZE,
     TILED_PREVIEW_REPEAT,
@@ -114,6 +124,41 @@ _COMPOSITE_CACHE_BUDGET_BYTES = 512 * 1024 * 1024
 #: quit before the pool is torn down. A single flatten is uninterruptible, so a
 #: close mid-warm may wait up to one frame's flatten; new frames never start.
 _WARM_SHUTDOWN_WAIT_MS = 5000
+
+
+@dataclass
+class _OpacityDragCache:
+    """Drag-scoped split-cache for a live opacity-slider drag (Phase-12 Slice B).
+
+    Built once at drag-start over the culled viewport rect ``(x, y, w, h)`` for a
+    fixed top-level dragged index ``k`` and LOD factor ``factor`` (ADR-0034 §2 /
+    the AGT-10 Slice-B directive §1). Holds the three **downsampled** inputs so
+    each throttled tick re-blends ≈2 low-resolution buffers (holding the 16 ms
+    ``FRAME_BUDGET_MS``) instead of recompositing the whole stack. It is discarded
+    on commit / drag-end and invalidated on any non-opacity op, edit, pan/zoom,
+    frame switch or geometry change (§2.3). It caches only DERIVED preview buffers;
+    the resident per-layer source buffers are never touched (Article VI §3, F7).
+
+    All compositing maths that produced these buffers live in ``logic/blend``
+    (:func:`composite_range` / :func:`downsample_nn`); this record is presentation
+    state only (the culled region + LOD inputs), holding no Qt objects, timers or
+    threads — so it needs no teardown wiring (it is plain GC-able state).
+    """
+
+    #: Top-level index of the dragged node within the frame's sibling list.
+    k: int
+    #: Culled viewport region (scene space) the preview + commit operate over.
+    region: Tuple[int, int, int, int]
+    #: Integer nearest-neighbour LOD factor (>= 1) bounding the preview working set.
+    factor: int
+    #: NN-downsample of ``composite(siblings[:k])`` over the region (the backdrop).
+    below_lod: np.ndarray
+    #: NN-downsample of ``composite(siblings[k+1:])`` over the region (above stack).
+    above_lod: np.ndarray
+    #: NN-downsample of the dragged node's own contribution (captured at opacity 1).
+    layer_lod: np.ndarray
+    #: The dragged node's active blend mode (held constant during the drag).
+    blend_mode: BlendMode
 
 
 class _BufferPixmapItem(QGraphicsPixmapItem):
@@ -662,6 +707,14 @@ class CanvasScene(QGraphicsScene):
         self._live_timer.setInterval(FRAME_BUDGET_MS)
         self._live_timer.timeout.connect(self._flush_live_recomposite)
         self._live_pending = False
+        # Phase-12 Slice B (FU-16b / ADR-0034): the throttled per-tick action.
+        # Normally the D2 viewport recomposite (refresh_visible); during a live
+        # opacity drag it is REBOUND to the split-cache LOD preview and restored on
+        # commit/cancel. No new timer/thread — the shipped 16 ms _live_timer above
+        # drives it, so teardown is unchanged (the timer is already parent-owned).
+        self._live_recomposite_fn: Callable[[], None] = self.refresh_visible
+        #: Drag-scoped opacity split-cache (None when no drag is live).
+        self._opacity_drag: Optional[_OpacityDragCache] = None
         # Per-frame flattened-composite cache (FU-19 / ADR-0011): scrub and
         # playback switch between pre-flattened frame buffers (a blit) instead of
         # re-flattening every layer per tick. ``self._composite`` is always the
@@ -853,6 +906,7 @@ class CanvasScene(QGraphicsScene):
         have changed, so every cached flatten is suspect) and re-registers the
         freshly recomposited active frame as its cache entry (FU-19 / ADR-0011).
         """
+        self.cancel_opacity_drag()  # geometry change invalidates the drag cache (§2.3).
         self._compositing = self._document.mode is ColorMode.RGBA
         self._frame_cache.clear()
         if self._frame_index >= len(self._document.frames):
@@ -899,6 +953,7 @@ class CanvasScene(QGraphicsScene):
         """
         if not 0 <= index < len(self._document.frames):
             return False
+        self.cancel_opacity_drag()  # a frame switch invalidates the drag cache (§2.3).
         if index == self._frame_index:
             # Re-selecting the current frame: nothing to switch, but a settled
             # selection may still need the onion overlay refreshed.
@@ -1116,7 +1171,13 @@ class CanvasScene(QGraphicsScene):
         A single flatten is uninterruptible, so a close mid-warm may wait up to
         one frame's flatten. Safe to call repeatedly (subsequent calls are a
         cheap no-op once the carrier is released).
+
+        The Phase-12 opacity-drag split-cache is also dropped here: it is plain
+        GC-able numpy/state (no Qt object, timer or thread — it reuses the shipped
+        ``_live_timer``), so this needs no event-loop spin; it just releases the
+        cached preview buffers deterministically on teardown.
         """
+        self.cancel_opacity_drag()
         self._warm_token += 1
         self._warm_cancel.set()
         self._warm_pool.clear()
@@ -1149,6 +1210,7 @@ class CanvasScene(QGraphicsScene):
         so its indices and results are stale.
         """
         self.cancel_prewarm()
+        self.cancel_opacity_drag()  # a frame op invalidates the drag cache (§2.3).
         if index is not None and 0 <= index < len(self._document.frames):
             self._frame_index = index
         self._active_layer = self._default_active_layer()
@@ -1383,6 +1445,7 @@ class CanvasScene(QGraphicsScene):
         buffer, so any in-flight warm reading it is cancelled (D2 no-race).
         """
         self.cancel_prewarm()
+        self.cancel_opacity_drag()  # a pixel edit invalidates the drag cache (§2.3).
         if self._compositing:
             self._recomposite_region(rect)
         self._item.sync_region(rect)
@@ -1399,6 +1462,7 @@ class CanvasScene(QGraphicsScene):
         warm is cancelled (D2 no-race).
         """
         self.cancel_prewarm()
+        self.cancel_opacity_drag()  # a structural op invalidates the drag cache (§2.3).
         if self._compositing:
             self._recomposite_all()
         self._item.sync_region(self._item.boundingRect())
@@ -1437,7 +1501,17 @@ class CanvasScene(QGraphicsScene):
         The resident per-layer buffers are never culled (Article VI §3, F7). An
         attribute change alters the composite, so any in-flight warm is cancelled
         (D2 no-race).
+
+        Phase-12 Slice B: when this is the **commit** of a live opacity drag (the
+        one attribute op pushed on slider release, whose ``LayerCommand`` redo calls
+        this), it takes the byte-exact split-cache suffix re-blend
+        (:meth:`_commit_opacity_drag`) instead of the naive full-stack region
+        recomposite — the committed pixels are byte-identical either way (ADR-0034
+        §3), the split-cache path is just the bounded one.
         """
+        if self._opacity_drag is not None:
+            self._commit_opacity_drag()
+            return
         self.cancel_prewarm()
         if not self._compositing:
             self._item.sync_region(self._item.boundingRect())
@@ -1468,6 +1542,9 @@ class CanvasScene(QGraphicsScene):
         attribute change becomes correct on pan without a full-canvas recomposite.
         A cheap no-op when nothing is stale.
         """
+        # A pan/zoom changes the culled region V, invalidating the drag cache (§2.3);
+        # the rest of the drag then uses the naive byte-exact path.
+        self.cancel_opacity_drag()
         if not self._compositing or self._stale.isEmpty():
             return
         visible = self._visible_scene_rect()
@@ -1488,24 +1565,217 @@ class CanvasScene(QGraphicsScene):
         """Coalesce a live opacity-drag to at most one recomposite per frame (D3).
 
         A slider drag emits a value change per pixel of travel; throttling routes
-        them to one :meth:`refresh_visible` per :data:`FRAME_BUDGET_MS` frame
-        (leading edge shows immediately, a trailing flush picks up the last value
-        mid-frame). The authoritative final value still commits as exactly one
-        ``QUndoCommand`` on slider release, whose redo takes the immediate
-        :meth:`refresh_visible`.
+        them to one per-tick action per :data:`FRAME_BUDGET_MS` frame (leading edge
+        shows immediately, a trailing flush picks up the last value mid-frame). The
+        per-tick action is :attr:`_live_recomposite_fn`: the D2
+        :meth:`refresh_visible` normally, or the Phase-12 Slice-B split-cache LOD
+        preview while an opacity drag is live (ADR-0034 §3.1 — same shipped timer,
+        rebound action). The authoritative final value still commits as exactly one
+        ``QUndoCommand`` on slider release, whose redo recomposites full-resolution
+        + byte-exact (:meth:`refresh_visible`).
         """
         if self._live_timer.isActive():
             self._live_pending = True
             return
-        self.refresh_visible()
+        self._live_recomposite_fn()
         self._live_timer.start()
 
     def _flush_live_recomposite(self) -> None:
         """Trailing-edge flush of a coalesced live drag (D3)."""
         if self._live_pending:
             self._live_pending = False
-            self.refresh_visible()
+            self._live_recomposite_fn()
             self._live_timer.start()
+
+    # -- live opacity-drag split-cache preview + byte-exact commit -------
+    #    (Phase-12 Slice B / FU-16b / ADR-0034; AGT-10 Slice-B directive §1-§4)
+
+    def _lod_factor(self, w: int, h: int) -> int:
+        """NN LOD factor bounding the preview to :data:`OPACITY_PREVIEW_MAX_PX` px.
+
+        ``D = max(1, ceil(sqrt(area / OPACITY_PREVIEW_MAX_PX)))`` (ADR-0034 §1.3):
+        the per-tick preview re-blend then runs over ``<= OPACITY_PREVIEW_MAX_PX``
+        px regardless of viewport size, so it holds the 16 ms budget with 2-core
+        headroom. Presentation-only LOD policy — the pixel budget itself is the
+        single-source logic constant (Article II); no compositing maths here.
+        """
+        area = max(1, int(w) * int(h))
+        return max(1, int(math.ceil(math.sqrt(area / OPACITY_PREVIEW_MAX_PX))))
+
+    def _clamp_visible_region(self) -> Optional[Tuple[int, int, int, int]]:
+        """Exposed viewport ∩ canvas as an integer ``(x, y, w, h)`` region.
+
+        ``None`` when no live viewport is attached or the intersection is
+        degenerate (the caller then falls back to a whole-canvas path). Mirrors the
+        clamping in :meth:`_recomposite_region` so the compositor's bounds check
+        never raises.
+        """
+        visible = self._visible_scene_rect()
+        if visible.isEmpty():
+            return None
+        w, h = self._document.width, self._document.height
+        x0 = max(0, int(math.floor(visible.left())))
+        y0 = max(0, int(math.floor(visible.top())))
+        x1 = min(w, int(math.ceil(visible.right())))
+        y1 = min(h, int(math.ceil(visible.bottom())))
+        if x1 <= x0 or y1 <= y0:
+            return None
+        return (x0, y0, x1 - x0, y1 - y0)
+
+    def begin_opacity_drag(self, path: Sequence[int]) -> bool:
+        """Build the drag-scoped split-cache for a live opacity drag (ADR-0034 §2).
+
+        Called on ``sliderPressed`` from the layer panel with the dragged node's
+        logic index ``path``. Returns ``True`` when the split-cache LOD preview is
+        engaged (top-level node, compositing document, a live viewport); ``False``
+        when not applicable (indexed doc, a nested node, or no viewport), in which
+        case the caller keeps the shipped naive throttled recomposite — both give a
+        byte-exact commit, only the during-drag feedback differs. Never raises into
+        the GUI: any compositor error falls back to the naive path.
+
+        Only a **top-level** dragged node is split here: the seam splits one flat
+        sibling list and the scene composites the top-level node list. A node nested
+        in a group changes the group's flattened output (the group is one node in
+        the top-level list), which the single-level split does not isolate — those
+        keep the naive viewport recomposite (still byte-exact on commit).
+        """
+        self.cancel_opacity_drag()
+        if not self._compositing or self._composite is None:
+            return False
+        if len(path) != 1:
+            return False
+        nodes = self._nodes()
+        k = int(path[0])
+        if not (0 <= k < len(nodes)):
+            return False
+        region = self._clamp_visible_region()
+        if region is None:
+            return False
+        _, _, w, h = region
+        factor = self._lod_factor(w, h)
+        node = nodes[k]
+        cw, ch = self._document.width, self._document.height
+        try:
+            below = composite_range(nodes, cw, ch, 0, k, region=region)
+            above = composite_range(nodes, cw, ch, k + 1, len(nodes), region=region)
+            # Capture the dragged node's own contribution at opacity 1 so each tick
+            # can scale it by the live opacity; the opacity is restored at once.
+            saved = node.opacity
+            node.opacity = 1.0
+            try:
+                layer = composite_range(nodes, cw, ch, k, k + 1, region=region)
+            finally:
+                node.opacity = saved
+            self._opacity_drag = _OpacityDragCache(
+                k=k,
+                region=region,
+                factor=factor,
+                below_lod=downsample_nn(below.data, factor),
+                above_lod=downsample_nn(above.data, factor),
+                layer_lod=downsample_nn(layer.data, factor),
+                blend_mode=node.blend_mode,
+            )
+        except BlendError:
+            self._opacity_drag = None
+            return False
+        self._live_recomposite_fn = self._preview_opacity_drag
+        return True
+
+    def _preview_opacity_drag(self) -> None:
+        """Render one LOD preview tick from the split-cache (ADR-0034 §1; 16 ms).
+
+        Two low-resolution blends via the ``logic/blend`` seam —
+        ``preview = above_lod OVER (layer_lod · o [node mode] below_lod)`` — over
+        the bounded ``<= OPACITY_PREVIEW_MAX_PX`` working set, upsampled
+        nearest-neighbour and blitted through the existing dirty-rect path. The
+        transient low-res approximation living in the resident composite during the
+        drag is acceptable because commit overwrites it byte-exact. No compositing
+        maths here — every blend / scale is a logic-seam call.
+        """
+        cache = self._opacity_drag
+        if cache is None or self._composite is None:
+            return
+        nodes = self._nodes()
+        if not (0 <= cache.k < len(nodes)):
+            self.cancel_opacity_drag()
+            return
+        opacity = float(nodes[cache.k].opacity)
+        x, y, w, h = cache.region
+        lit = blend_arrays(
+            cache.blend_mode, cache.layer_lod, cache.below_lod, opacity=opacity
+        )
+        preview_lod = blend_arrays(BlendMode.NORMAL, cache.above_lod, lit)
+        preview = upsample_nn(preview_lod, cache.factor, out_shape=(h, w))
+        self._composite.data[y : y + h, x : x + w, :] = preview
+        rect = QRectF(x, y, w, h)
+        self._item.sync_region(rect)
+        self._item.update(rect)
+        self._mark_tiled_dirty()
+
+    def _commit_opacity_drag(self) -> None:
+        """Byte-exact full-resolution commit of the opacity drag (ADR-0034 §3).
+
+        Runs from :meth:`refresh_visible` when the opacity ``LayerCommand`` redo
+        fires on slider release. Uses the ALWAYS-correct suffix re-blend over the
+        culled region — ``commit = composite_range(nodes, k, N, base=below_full)``
+        with ``below_full = composite_range(nodes, 0, k)`` — which is byte-identical
+        to ``composite_stack`` over the region for NORMAL *and* all 11 separable
+        modes (the exact prefix substituted by its exact cache). This is **not** the
+        ``above``-pre-flatten fast path (that can diverge ``<= 2`` LSB on
+        partial-alpha content); the commit is a batch path, not asserted against the
+        16 ms budget. The drag cache is then discarded and the throttled action
+        restored to the naive path.
+        """
+        self._live_pending = False
+        cache = self._opacity_drag
+        self._opacity_drag = None
+        self._live_recomposite_fn = self.refresh_visible
+        if self._composite is None or cache is None:
+            return
+        self.cancel_prewarm()
+        nodes = self._nodes()
+        k = cache.k
+        region = self._clamp_visible_region()
+        if region is None or not (0 <= k < len(nodes)):
+            # No live viewport (rare) — keep the whole composite correct, byte-exact.
+            self._recomposite_all()
+            self._item.sync_region(self._item.boundingRect())
+            self._item.update()
+            self._mark_tiled_dirty()
+            return
+        x, y, w, h = region
+        cw, ch = self._document.width, self._document.height
+        try:
+            below_full = composite_range(nodes, cw, ch, 0, k, region=region)
+            result = composite_range(
+                nodes, cw, ch, k, len(nodes), region=region, base=below_full.data
+            )
+        except BlendError:
+            # Any seam error → the naive region recomposite (also byte-exact).
+            self._recomposite_region(QRectF(x, y, w, h))
+        else:
+            self._composite.data[y : y + h, x : x + w, :] = result.data
+        visible_rect = QRectF(x, y, w, h)
+        self._item.sync_region(visible_rect)
+        self._item.update(visible_rect)
+        canvas = QRect(0, 0, cw, ch)
+        self._stale = QRegion(canvas).subtracted(QRegion(visible_rect.toAlignedRect()))
+        self._mark_tiled_dirty()
+
+    def cancel_opacity_drag(self) -> None:
+        """Discard the drag split-cache without committing (idempotent, §2.3).
+
+        Called on any op that invalidates the drag-scoped cache — a pixel edit, a
+        structural / geometry op, a frame switch, or a pan/zoom that changes the
+        culled region. Restores the naive throttled action; the invalidating op does
+        its own recomposite and any subsequent commit falls back to the naive
+        byte-exact path. A cheap no-op when no drag is live.
+        """
+        if self._opacity_drag is None:
+            return
+        self._opacity_drag = None
+        self._live_pending = False
+        self._live_recomposite_fn = self.refresh_visible
 
     def invalidate_group_caches(self) -> None:
         """Drop the frame's LayerGroup flatten caches after a pixel edit (D4 hook).

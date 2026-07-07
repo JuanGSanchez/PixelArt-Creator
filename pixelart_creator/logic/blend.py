@@ -60,6 +60,10 @@ __all__ = [
     "blend_pixels",
     "blend_arrays",
     "composite_stack",
+    "composite_range",
+    "is_range_source_over",
+    "downsample_nn",
+    "upsample_nn",
 ]
 
 #: A dirty-rect region ``(x, y, width, height)`` in pixel coordinates.
@@ -521,8 +525,9 @@ def _flatten_group(
     return flattened
 
 
-def _composite_region(
+def _reduce_nodes(
     nodes: Sequence[CompositeNode],
+    acc: npt.NDArray[np.uint8],
     width: int,
     height: int,
     x: int,
@@ -530,15 +535,23 @@ def _composite_region(
     w: int,
     h: int,
 ) -> npt.NDArray[np.uint8]:
-    """Composite ``nodes`` bottom-to-top over a transparent ``(h, w, 4)`` rect.
+    """Fold ``nodes`` bottom-to-top over the initial accumulator ``acc`` (D1).
+
+    The **single ordered reduction** shared by :func:`_composite_region` (which
+    seeds ``acc`` with a transparent rect) and the Slice-B :func:`composite_range`
+    seam (which seeds ``acc`` with a cached ``below`` backdrop). Extracting the
+    loop guarantees the two callers apply the *identical* per-node
+    :func:`blend_arrays` sequence, so a contiguous sub-range reduction is
+    **byte-identical** to the corresponding slice of the full composite — the
+    Slice-B split-cache byte-exact invariant (REQ-P12-LOGIC-004; ADR-0034 §1/§3).
 
     Each leaf/group is sampled at **scene coordinates** — region element
     ``(row i, col j)`` maps to scene pixel ``(x + j, y + i)`` (nodes read
-    ``buffer.data[y:y+h, x:x+w]``), so the returned rect can be blitted into the
-    resident scene buffer at origin ``(x, y)`` (D1). Group subtrees reuse their
-    cached flattened intermediate via :func:`_flatten_group` (D4).
+    ``buffer.data[y:y+h, x:x+w]``). Group subtrees reuse their cached flattened
+    intermediate via :func:`_flatten_group` (D4). Never mutates the caller's
+    ``acc`` in place — it rebinds on every contributing node — so a backdrop passed
+    by :func:`composite_range` is left untouched.
     """
-    acc = np.zeros((h, w, 4), dtype=np.uint8)
     for node in nodes:
         if not node.visible:
             continue  # hidden node / group subtree contributes nothing (LOGIC-006/011)
@@ -577,6 +590,26 @@ def _composite_region(
             node.blend_mode, src, acc, opacity=node.opacity, mask=mask_arr
         )
     return acc
+
+
+def _composite_region(
+    nodes: Sequence[CompositeNode],
+    width: int,
+    height: int,
+    x: int,
+    y: int,
+    w: int,
+    h: int,
+) -> npt.NDArray[np.uint8]:
+    """Composite ``nodes`` bottom-to-top over a transparent ``(h, w, 4)`` rect.
+
+    Seeds a fresh transparent accumulator and folds ``nodes`` through the shared
+    :func:`_reduce_nodes` reduction. The returned rect can be blitted into the
+    resident scene buffer at origin ``(x, y)`` (D1); group subtrees reuse their
+    cached flattened intermediate via :func:`_flatten_group` (D4).
+    """
+    acc = np.zeros((h, w, 4), dtype=np.uint8)
+    return _reduce_nodes(nodes, acc, width, height, x, y, w, h)
 
 
 def _iter_tiles(
@@ -690,3 +723,223 @@ def composite_stack(
     result = PixelBuffer(w, h, ColorMode.RGBA)
     result.data[:, :] = _composite_region(nodes, width, height, x, y, w, h)
     return result
+
+
+# --------------------------------------------------------------------------- #
+# Phase-12 Slice-B — contiguous-range composite seam + NN LOD helpers          #
+# (opacity-drag split-cache; ADR-0034 / AGT-10 Slice-B directive §6.1)         #
+# --------------------------------------------------------------------------- #
+
+
+def composite_range(
+    nodes: Sequence[CompositeNode],
+    width: int,
+    height: int,
+    start: int,
+    stop: int,
+    *,
+    region: Optional[Region] = None,
+    base: Optional[npt.NDArray[np.uint8]] = None,
+) -> PixelBuffer:
+    """Composite the contiguous sub-range ``nodes[start:stop]`` over a backdrop.
+
+    The Slice-B split-cache seam (REQ-P12-LOGIC-004; ADR-0034 §1). It reuses the
+    **exact same ordered reduction** as :func:`composite_stack` (via the shared
+    :func:`_reduce_nodes`), folding only the half-open sub-range ``nodes[start:stop]``
+    bottom-to-top, optionally seeded by a cached backdrop ``base``. This lets a
+    caller build the three drag-scoped caches around a dragged index ``k`` and a
+    byte-exact commit, all over the culled viewport ``region``:
+
+    - ``below  = composite_range(nodes, W, H, 0,   k,   region=V)`` — the exact
+      prefix accumulator after siblings ``[0..k-1]``.
+    - ``above  = composite_range(nodes, W, H, k+1, n,   region=V)`` — the suffix
+      pre-flattened over transparent (see the byte-exactness caveat below).
+    - **byte-exact commit** =
+      ``composite_range(nodes, W, H, k, n, region=V, base=below.data)`` — re-blends
+      the dragged layer then the suffix over the cached ``below``, in order.
+
+    **Byte-exact invariant (the always-correct commit path, ADR-0034 §3).** Because
+    ``base`` (``below``) is byte-identical to the corresponding prefix of the full
+    composite (same ``blend_arrays`` calls, stopped at ``start``) and the range is
+    folded through the *identical* :func:`_reduce_nodes` reduction, the result of
+    ``composite_range(nodes, ..., start=k, stop=n, base=below)`` is
+    **byte-identical** to ``composite_stack(nodes, ...)`` over the same ``region``
+    for NORMAL *and* all 11 separable modes — the prefix is merely substituted by
+    its exact cache. This is exactness *by construction*, not associativity: the
+    seam supports the always-correct commit (re-blend the suffix over ``below``),
+    which is byte-exact regardless of the above layers' blend modes.
+
+    **Caveat on the ``above`` pre-flatten fast path.** Pre-flattening the *above*
+    sub-range over transparent and then compositing it as a single source-over
+    buffer (``above OVER (layer·o OVER below)``) is a *bounded-cost* commit
+    optimisation whose exactness is *conditional* — see :func:`is_range_source_over`
+    and ADR-0034 §2.2. It is always admissible for the deliberately-approximate
+    during-drag preview; on commit it is only safe under the predicate (and even
+    then callers must confirm byte-exactness — intermediate uint8 quantisation of the
+    pre-flattened ``above`` matches the in-line re-blend byte-for-byte ONLY for
+    hard-edged content (alpha in ``{0, 255}``, the pixel-art norm); on **partial-alpha**
+    (anti-aliased / semi-transparent) content it can diverge by ``<= 2`` LSB even under
+    the predicate — measured). The always-byte-exact commit for *all* content is the
+    ``base=below`` suffix re-blend above.
+
+    Args:
+        nodes: The ordered sibling list (bottom-to-top); the sub-range is sliced
+            from it. Groups/leaves are read through the :class:`CompositeNode`
+            structural protocol (no ``document`` import, PL-D2).
+        width, height: The canvas geometry (the node buffers' full size).
+        start, stop: Half-open sub-range bounds; ``0 <= start <= stop <= len(nodes)``.
+        region: Scene-space ``(x, y, w, h)`` viewport rect, or ``None`` for the whole
+            canvas (single-shot, byte-exact vs the tiled full-frame path). Must lie
+            fully within ``(0, 0, width, height)`` with ``w >= 1, h >= 1``.
+        base: Optional ``(h, w, 4)`` uint8 backdrop accumulator matching the region
+            size — the cached ``below`` composite to fold the range over. ``None``
+            folds over a transparent rect. Never mutated.
+
+    Returns:
+        A region-sized (or full-canvas) RGBA :class:`PixelBuffer`.
+
+    Raises:
+        BlendError: If ``start``/``stop`` are out of order or out of range, if
+            ``region`` is malformed/degenerate/out of bounds, or if ``base`` does
+            not match the region geometry.
+    """
+    n = len(nodes)
+    if not (0 <= start <= stop <= n):
+        raise BlendError(
+            f"composite_range needs 0 <= start <= stop <= {n}, got "
+            f"start={start}, stop={stop}"
+        )
+    if region is None:
+        x, y, w, h = 0, 0, width, height
+    else:
+        x, y, w, h = _validate_region(region, width, height)
+
+    if base is None:
+        acc = np.zeros((h, w, 4), dtype=np.uint8)
+    else:
+        base_arr = np.asarray(base)
+        if base_arr.shape != (h, w, 4) or base_arr.dtype != np.uint8:
+            raise BlendError(
+                f"base must be a uint8 {(h, w, 4)} backdrop, got "
+                f"{base_arr.shape} / {base_arr.dtype}"
+            )
+        acc = base_arr.copy()  # defensive: never fold over the caller's array
+
+    result = PixelBuffer(w, h, ColorMode.RGBA)
+    result.data[:, :] = _reduce_nodes(nodes[start:stop], acc, width, height, x, y, w, h)
+    return result
+
+
+def is_range_source_over(nodes: Sequence[CompositeNode]) -> bool:
+    """Report whether every *contributing* node in ``nodes`` is plain source-over.
+
+    A node contributes as **plain source-over** when it is ``BlendMode.NORMAL`` at
+    ``opacity == 1.0`` with **no mask** — i.e. its only effect is a straight-alpha
+    ``over`` of its own source. Hidden nodes (``visible == False``) contribute
+    nothing and are skipped: an invisible non-normal layer never composites, so it
+    cannot break the source-over associativity this predicate guards.
+
+    This is the cheap, provable guard for the ADR-0034 §2.2 ``above``-pre-flatten
+    commit fast path: pre-flattening the *above* sub-range over transparent and
+    compositing it as one source-over buffer is associativity-admissible **only when
+    every above layer is source-over** (Porter-Duff ``over`` is associative). If any
+    above node uses a non-normal separable blend mode (it blends against its
+    *immediate* backdrop, which includes the dragged layer), the pre-flatten
+    diverges and the caller must fall back to the always-byte-exact suffix re-blend
+    (``composite_range(base=below)``). NOTE (ADR-0034 §2.2 caveat): even when this
+    returns ``True``, intermediate uint8 quantisation of the pre-flattened ``above``
+    can differ by ≤ 1 LSB from the in-line re-blend on partial-alpha content, so the
+    zero-tolerance commit path is the ``base=below`` suffix re-blend; this predicate
+    gates only *whether the bounded fast path is eligible*. (Measured: under this
+    predicate the fast path is byte-exact for hard-edged content, alpha in
+    ``{0, 255}``, but diverges by ``<= 2`` LSB on partial-alpha content.)
+
+    Deterministic (P2); reads only the structural :class:`CompositeNode` attributes
+    (no ``document`` import, PL-D2). An empty range returns ``True`` (vacuously
+    source-over).
+
+    Args:
+        nodes: The sub-range to test (e.g. ``siblings[k+1:]``, the *above* stack).
+
+    Returns:
+        ``True`` iff every visible node is ``NORMAL`` / ``opacity == 1.0`` / unmasked.
+    """
+    for node in nodes:
+        if not node.visible:
+            continue
+        if node.mask is not None:
+            return False
+        if node.blend_mode is not BlendMode.NORMAL:
+            return False
+        if float(node.opacity) != 1.0:
+            return False
+    return True
+
+
+def downsample_nn(arr: npt.NDArray[np.uint8], factor: int) -> npt.NDArray[np.uint8]:
+    """Nearest-neighbour downsample an ``(H, W, ...)`` array by an integer ``factor``.
+
+    Pure-numpy **stride subsample** (``arr[::factor, ::factor]``) — the top-left
+    sample of each ``factor × factor`` block, no interpolation and no averaging, so
+    it preserves pixel-art fidelity and is exactly reproducible run-to-run (P2). Used
+    to build the bounded
+    :data:`~pixelart_creator.logic.constants.OPACITY_PREVIEW_MAX_PX`
+    working set for the during-drag opacity preview (REQ-P12-UI-001; ADR-0034 §2).
+    The result is a **contiguous copy** (safe to blend as a ``src``). ``factor == 1``
+    returns an unshrunk copy. This is a **preview-only** approximation — the commit
+    path is full-resolution and byte-exact (:func:`composite_range`).
+
+    Args:
+        arr: An ``(H, W)`` or ``(H, W, C)`` array (RGBA uint8 in the preview path).
+        factor: The integer subsample stride, ``>= 1``.
+
+    Returns:
+        The subsampled array, shape ``(ceil(H/factor), ceil(W/factor), ...)``.
+
+    Raises:
+        BlendError: If ``factor < 1``.
+    """
+    if int(factor) < 1:
+        raise BlendError(f"downsample factor must be >= 1, got {factor}")
+    step = int(factor)
+    return np.ascontiguousarray(arr[::step, ::step])
+
+
+def upsample_nn(
+    arr: npt.NDArray[np.uint8],
+    factor: int,
+    out_shape: Optional[Tuple[int, int]] = None,
+) -> npt.NDArray[np.uint8]:
+    """Nearest-neighbour upsample an ``(H, W, ...)`` array by an integer ``factor``.
+
+    Pure-numpy **pixel replication** (``np.repeat`` on the first two axes) — each
+    source pixel is repeated ``factor × factor`` times, no interpolation (pixel-art
+    fidelity, deterministic P2). The inverse display step of :func:`downsample_nn`:
+    it scales the low-resolution ``preview_lod`` back to the viewport's pixel size for
+    the dirty-rect blit (ADR-0034 §1.2; REQ-P12-UI-001). Because ``factor`` is derived
+    by *ceiling* division, replication can overshoot the exact viewport size, so
+    ``out_shape`` crops the result to the true ``(height, width)`` of the region.
+
+    Args:
+        arr: An ``(H, W)`` or ``(H, W, C)`` array (the downsampled preview buffer).
+        factor: The integer replication factor, ``>= 1``.
+        out_shape: Optional exact ``(height, width)`` to crop the replicated result
+            to (the region's true pixel size). ``None`` returns the full
+            ``factor``-replicated array uncropped.
+
+    Returns:
+        The upsampled (and optionally cropped) array.
+
+    Raises:
+        BlendError: If ``factor < 1`` or ``out_shape`` is degenerate.
+    """
+    if int(factor) < 1:
+        raise BlendError(f"upsample factor must be >= 1, got {factor}")
+    step = int(factor)
+    up = np.repeat(np.repeat(arr, step, axis=0), step, axis=1)
+    if out_shape is not None:
+        oh, ow = int(out_shape[0]), int(out_shape[1])
+        if oh < 1 or ow < 1:
+            raise BlendError(f"out_shape must be >= 1x1, got {out_shape!r}")
+        up = up[:oh, :ow]
+    return np.ascontiguousarray(up)

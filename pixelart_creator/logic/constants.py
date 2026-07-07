@@ -763,3 +763,70 @@ order-independent, so the result stays deterministic and byte-exact, ADR-0033 §
 Bounding by ``os.cpu_count()`` avoids oversubscription on small hosts; the cap
 matches the 8-way parallelism the baseline measured on (baseline §environment;
 plan §3; spec REQ-P12-LOGIC-001)."""
+
+# --- Phase-12 Slice-B opacity-drag / viewport-recomposite tuning (phase-12 T12-B;
+# Article II single-source) -------------------------------------------------------
+# Named ceiling + preview LOD budget consumed by the Slice-B split-cache seam in
+# logic/blend.py (composite_range + the NN LOD helpers) and by
+# scripts/perf_profile.py --viewport-recomposite (passed as --budget-ms by
+# .github/workflows/ci.yml, mirroring the FU-15 composite / full-frame gates).
+# BF (AGT-10 Slice-B directive §6.1 / ADR-0034): both names are DISTINCT from every
+# shipped ceiling (COMPOSITE_REGION_CEILING_MS / TILEMAP_VIEWPORT_CEILING_MS /
+# OVERLAY_FRAME_CEILING_MS / REALTIME_APPLY_CEILING_MS / COMPOSITE_FULL_CEILING_MS)
+# and from every shipped working-set/pixel constant. This module stays a leaf (no
+# intra-package imports).
+
+VIEWPORT_RECOMPOSITE_CEILING_MS: int = 3000
+"""LOOSE catastrophic-regression ceiling for the whole-viewport recomposite / opacity
+-drag COMMIT path on the 2-core CI runner, ms — NOT a per-frame budget.
+
+DISTINCT from :data:`FRAME_BUDGET_MS` (16 ms, the 60-fps interactive *render* budget)
+and from every other shipped ceiling. The full-resolution whole-viewport recomposite
+that a live opacity-slider drag commits on release (up to ~1920², ≥ 12 layers) is a
+**batch / on-commit** op — **not** the per-frame render loop — so Article VI's 16 ms
+budget does not govern it and is neither applied nor relaxed here (spec §5; ADR-0034
+§3/§4; FU-15). Only the *during-drag downsampled preview* (REQ-P12-UI-001) holds the
+16 ms budget; this ceiling gates the *commit*.
+
+**AGT-10 RAISED the plan's candidate 2000 ms to 3000 ms** (Slice-B directive §5.1): the
+naive full 12-layer recomposite is already measured **2191 ms @ 1080²** and ~7000 ms @
+1920² on a fast 8-core desktop, and the 2-core CI runner is ~1.5–2.5× slower — so a
+2000 ms bound is **unmeetable** and would flake on healthy code (the FU-15 loose-ceiling
+caution / failure mode). The split-cache commit (2–3 full-resolution blends over the
+culled viewport for realistic predominantly-NORMAL content) is sub-second to ~1 s on
+8-core → ~1–2.5 s on 2-core; a loose 3000 ms clears that with headroom yet sits far
+below the ~7 s (8-core) / ~14–17 s (2-core) naive-recomposite catastrophe it must catch
+— exactly the Slice-A precedent (:data:`COMPOSITE_FULL_CEILING_MS` was likewise raised
+from a too-tight mirror to a loose RE-PROFILE-confirmed bound). The value is a candidate
+until AGT-10's RE-PROFILE ship gate measures the optimised 2-core split-cache commit and
+finalises it; it must stay well below the catastrophe so the gate still bites. AGT-09
+wires ci.yml to pass this value as
+``perf_profile.py --viewport-recomposite --budget-ms`` (AGT-10 Slice-B directive §5.1;
+ADR-0034 §4; FU-15; plan §8; spec REQ-P12-LOGIC-004/-005; S12 single-source)."""
+
+OPACITY_PREVIEW_MAX_PX: int = 16384
+"""Bounded per-tick working-pixel budget for the opacity-drag downsampled LOD preview.
+
+The during-drag preview must hold :data:`FRAME_BUDGET_MS` (16 ms) with 2-core headroom
+(REQ-P12-UI-001; Article VI §1 — the budget APPLIES to this one per-frame path and is
+held, not relaxed). Rather than hard-code a downsample factor (Article II), the factor
+is *derived* from this single-source pixel budget over the culled viewport rect ``V``:
+``D = max(1, ceil(sqrt(area(V) / OPACITY_PREVIEW_MAX_PX)))``. Halving the working set
+(a 128×128 set) halves the downsampled re-blend + upsample cost, so the ~2-blend
+preview holds the 16 ms budget up to a LARGER viewport before the low-zoom Slice-A
+handoff. Grounded in AGT-10's on-box measurement (≈183 ms/layer/1080²): a 2-blend
+re-blend over ≤16 384 px costs ≈ few ms per tick and holds 16 ms up to ~1080–1280²
+viewports on the 2-core runner, degrading gracefully beyond (the low-zoom Slice-A
+handoff).
+
+The value was LOWERED 65536 → 16384 by AGT-10's Slice-B RE-PROFILE (directive §1.3):
+the former 65 536-px working set held 16 ms at 1080² but exceeded it at 1920² (the
+float64 re-blend floor over the preview budget + upsample cost); halving the
+downsampled working set restores 16 ms headroom up to ~1080–1280² on the 2-core runner.
+This ONLY affects PREVIEW fidelity/speed — the preview is already a deliberately
+*approximate* during-drag LOD view — and does NOT affect the byte-exact COMMIT
+recomposite (REQ-P12-LOGIC-004; ADR-0034 §3). DISTINCT from every shipped pixel/edge
+constant (:data:`FLATTEN_TILE_EDGE_PX`, :data:`TILE_SIZE`, the MAX_*_DIMENSION bounds)
+— this is the *preview LOD working-set budget*, a different concern (AGT-10 Slice-B
+RE-PROFILE / directive §1.3; ADR-0034 §2; FU-15; plan §8; spec REQ-P12-UI-001;
+S12 single-source)."""
