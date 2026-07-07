@@ -98,6 +98,10 @@ try:
     # Full-frame flatten loose catastrophic ceiling (Slice A, FU-P5-PERF).
     # Falls back to 3000 ms until AGT-01 lands/tunes COMPOSITE_FULL_CEILING_MS.
     D_FULL_CEILING = float(getattr(_c, "COMPOSITE_FULL_CEILING_MS", 3000))
+    # Viewport-recomposite / opacity-drag COMMIT loose catastrophic ceiling
+    # (Slice B, FU-16b / ADR-0034 §4). Falls back to 3000 ms until AGT-01 lands
+    # VIEWPORT_RECOMPOSITE_CEILING_MS in logic/constants.py (single-source, S12).
+    D_VP_CEILING = float(getattr(_c, "VIEWPORT_RECOMPOSITE_CEILING_MS", 3000))
 except Exception:  # pragma: no cover - fallback when package not on path
     D_W, D_H, D_TILE, D_BUDGET = 7680, 4320, 64, 16.0
     D_FRAME_BUDGET, D_CEILING = 16, 200.0
@@ -105,6 +109,12 @@ except Exception:  # pragma: no cover - fallback when package not on path
     D_MAX_CURSORS = 32
     D_OVERLAY_CEILING = 48
     D_FULL_CEILING = 3000.0
+    D_VP_CEILING = 3000.0
+
+# Viewport-recomposite (Slice B split-cache COMMIT) gate defaults (ADR-0034 §4/§5).
+D_VP_LAYERS = 12
+D_VP_REGION_SIZE = 1920
+D_VP_NONNORMAL = 1
 
 # Composite-mode defaults (AGT-10 directive §3a).
 D_LAYERS = 8
@@ -1390,6 +1400,237 @@ def _run_realtime(args):
     return 0
 
 
+# --------------------------------------------------------------------------- #
+# Viewport-recomposite mode (Slice B, FU-16b / ADR-0034 §4) — Qt-FREE opacity-  #
+# drag COMMIT gate over the culled viewport                                     #
+# --------------------------------------------------------------------------- #
+# Times the SHIPPED byte-exact opacity-drag COMMIT — NOT the naive full
+# recomposite — the path ui/canvas_scene._commit_opacity_drag runs on slider
+# release (ADR-0034 §3, amendment 2026-07-07):
+#     below_full = composite_range(nodes, 0, k, region=V)
+#     result     = composite_range(nodes, k, N, region=V, base=below_full.data)
+# i.e. the exact suffix re-blend over the cached ``below`` prefix, which is
+# byte-identical to composite_stack(region=V) for NORMAL and all 11 separable
+# modes (verified inline via the ``byte_exact`` report field). Qt-FREE: numpy +
+# pixelart_creator.logic only, NO PySide6.
+#
+# Content models (mirroring the Slice-A --full-frame realistic/dense split):
+#   * realistic (the GATE): a finished pixel-art viewport — one full OPAQUE
+#     background + full-cover OPAQUE NORMAL fills (uint8 ``acc = src.copy()``
+#     fast path over V) + content-OUTSIDE-V layers (alpha-0 over V -> skipped
+#     byte-exactly) + a MINORITY (``--vp-nonnormal``, default 1) of non-normal
+#     separable layers PRESENT over V (the one/few float32 passes). This is the
+#     honest fast-path-dominant realistic commit; it clears VIEWPORT_RECOMPOSITE
+#     _CEILING_MS with comfortable 2-core margin (measured ~0.6 s @ 1920² / 12
+#     layers on 8-core -> ~1.3-1.6 s on 2-core, vs the 3000 ms ceiling), yet a
+#     regression that reverts the split-cache/fast-path to the naive all-float
+#     recomposite balloons to ~6-7 s (8-core) / ~14-17 s (2-core) and TRIPS it.
+#     NOTE (why the region path is content-sensitive): the region commit is a
+#     SINGLE-SHOT composite (NOT tile-fanned like --full-frame), so a layer that
+#     only PARTIALLY covers V takes the float path over the whole region -> such
+#     content is the pathological witness, not the gate config.
+#   * mixed (record, NOT gated): every layer full-cover partial-alpha + a
+#     non-normal separable mode -> every layer hits the float32 path (the
+#     catastrophe the split-cache avoids). Profiled with --vp-content mixed for
+#     the record; it is deliberately NOT the CI gate config.
+_VP_WARMUP = 2
+
+
+def _run_viewport_recomposite(args):
+    """Run the Slice-B opacity-drag split-cache COMMIT perf gate (Qt-free).
+
+    Builds ``args.vp_layers`` full-canvas RGBA leaves per ``--vp-content``, picks
+    a mid-stack dragged index ``k`` (``--vp-index``, default ``layers // 2``), and
+    times ``args.frames`` byte-exact commits — ``below = composite_range(0, k)``
+    then ``composite_range(k, N, base=below)`` — over a square viewport region of
+    edge ``args.vp_region_size``. Verifies the commit is byte-identical to
+    ``composite_stack(region=V)`` (the ADR-0034 invariant) and compares the median
+    to ``args.ceiling_ms`` (the loose ``VIEWPORT_RECOMPOSITE_CEILING_MS``, NOT 16 ms).
+
+    Returns 0 (median <= ceiling), 1 (over ceiling), 2 (construction/geometry/
+    byte-exactness error).
+    """
+    width, height = args.width, args.height
+    layers = args.vp_layers
+    rsize = args.vp_region_size
+    nonnormal = args.vp_nonnormal
+    ceiling = args.ceiling_ms
+    content = args.vp_content
+    k = args.vp_index if args.vp_index is not None else layers // 2
+
+    if layers < 1 or rsize < 1 or width <= 0 or height <= 0 or args.frames <= 0:
+        sys.stderr.write("perf_profile: invalid viewport-recomposite geometry.\n")
+        print(json.dumps({"error": "invalid-input"}))
+        return 2
+    if rsize > width or rsize > height:
+        sys.stderr.write("perf_profile: region-size exceeds canvas.\n")
+        print(json.dumps({"error": "region-larger-than-canvas"}))
+        return 2
+    if not (0 <= k < layers) or nonnormal < 0 or nonnormal > layers:
+        sys.stderr.write("perf_profile: invalid vp-index/vp-nonnormal.\n")
+        print(json.dumps({"error": "invalid-input"}))
+        return 2
+
+    # Qt-FREE imports: numpy + logic only (NO PySide6 on this branch).
+    try:
+        from pixelart_creator.logic.blend import (
+            BlendMode,
+            composite_range,
+            composite_stack,
+        )
+        from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+    except Exception as exc:  # logic unavailable -> construction error, not Qt.
+        sys.stderr.write("perf_profile: logic package unavailable: %r\n" % exc)
+        print(json.dumps({"error": "logic-unavailable", "detail": repr(exc)}))
+        return 2
+
+    # Fixed viewport origin (deterministic); centred-ish, in bounds.
+    vx = min(max(0, (width - rsize) // 2), width - rsize)
+    vy = min(max(0, (height - rsize) // 2), height - rsize)
+    region = (vx, vy, rsize, rsize)
+    non_modes = [BlendMode.MULTIPLY, BlendMode.SCREEN, BlendMode.OVERLAY]
+    mixed_cycle = [
+        BlendMode.NORMAL,
+        BlendMode.MULTIPLY,
+        BlendMode.SCREEN,
+        BlendMode.OVERLAY,
+        BlendMode.SOFT_LIGHT,
+        BlendMode.DIFFERENCE,
+        BlendMode.LIGHTEN,
+        BlendMode.COLOR_DODGE,
+    ]
+
+    try:
+        nodes = []
+        blend_modes = []
+        for i in range(layers):
+            base = (
+                (i * 40 + 20) % 256,
+                (i * 70 + 30) % 256,
+                (i * 110 + 60) % 256,
+            )
+            if content == "mixed":
+                # Pathological witness: every layer full-cover partial-alpha +
+                # a non-normal mode -> every layer takes the float32 path.
+                buffer = PixelBuffer(
+                    width, height, ColorMode.RGBA, fill=(base[0], base[1], base[2], 180)
+                )
+                mode = mixed_cycle[i % len(mixed_cycle)]
+            elif i >= layers - nonnormal:
+                # Realistic minority: a non-normal separable layer PRESENT over V
+                # (fully covering) — the one/few unavoidable float32 passes. Placed
+                # in the suffix (i >= k) so it exercises the suffix re-blend.
+                buffer = PixelBuffer(
+                    width, height, ColorMode.RGBA, fill=(base[0], base[1], base[2], 200)
+                )
+                mode = non_modes[i % len(non_modes)]
+            elif i == 0 or i % 2 == 0:
+                # Full-cover OPAQUE NORMAL fill -> uint8 ``acc = src.copy()`` over V.
+                buffer = PixelBuffer(
+                    width, height, ColorMode.RGBA, fill=(base[0], base[1], base[2], 255)
+                )
+                mode = BlendMode.NORMAL
+            else:
+                # OPAQUE content placed OUTSIDE V -> transparent over V -> skipped
+                # byte-exactly (the ``clear`` fast path). Deterministic band origin.
+                buffer = PixelBuffer(width, height, ColorMode.RGBA)  # transparent
+                oy = (vy + rsize + 200 + i * 50) % max(1, height - 300)
+                buffer.data[oy : oy + 100, :] = (base[0], base[1], base[2], 255)
+                mode = BlendMode.NORMAL
+            nodes.append(_Leaf(buffer, mode))
+            blend_modes.append(mode.value)
+    except Exception as exc:
+        sys.stderr.write(
+            "perf_profile: viewport-recomposite construction error: %r\n" % exc
+        )
+        print(json.dumps({"error": repr(exc)}))
+        return 2
+
+    def _commit():
+        # The shipped byte-exact commit (ui/canvas_scene._commit_opacity_drag).
+        below_full = composite_range(nodes, width, height, 0, k, region=region)
+        return composite_range(
+            nodes, width, height, k, layers, region=region, base=below_full.data
+        )
+
+    try:
+        # Byte-exactness guard: the commit MUST equal composite_stack over V
+        # (ADR-0034 §3). A gate that passed on a wrong result would be worthless.
+        committed = _commit()
+        reference = composite_stack(nodes, width, height, region=region)
+        import numpy as _np
+
+        byte_exact = bool(_np.array_equal(committed.data, reference.data))
+        if not byte_exact:
+            sys.stderr.write(
+                "perf_profile: viewport-recomposite commit is NOT byte-exact vs "
+                "composite_stack — ADR-0034 §3 invariant violated.\n"
+            )
+            print(json.dumps({"error": "not-byte-exact"}))
+            return 2
+
+        for _ in range(_VP_WARMUP):
+            _commit()
+        samples = []
+        for _ in range(args.frames):
+            t0 = time.perf_counter()
+            _commit()
+            samples.append((time.perf_counter() - t0) * 1000.0)
+    except Exception as exc:
+        sys.stderr.write("perf_profile: viewport-recomposite commit error: %r\n" % exc)
+        print(json.dumps({"error": repr(exc)}))
+        return 2
+
+    samples.sort()
+    median = _percentile(samples, 0.5)
+    p95 = _percentile(samples, 0.95)
+    # Only the realistic content model gates in CI; mixed is profiled for record.
+    gated = content != "mixed"
+    within = (median <= ceiling) if gated else True
+    report = {
+        "mode": "viewport-recomposite",
+        "content": content,
+        "gated": gated,
+        "byte_exact": byte_exact,
+        "median_ms": round(median, 4),
+        "p95_ms": round(p95, 4),
+        "ceiling_ms": ceiling,
+        "frame_budget_ms": args.frame_budget_ms,
+        "within_ceiling": within,
+        "frames": args.frames,
+        "layers": layers,
+        "scenario": {
+            "width": width,
+            "height": height,
+            "layers": layers,
+            "drag_index": k,
+            "region": list(region),
+            "region_size": rsize,
+            "nonnormal_over_v": (layers if content == "mixed" else nonnormal),
+            "blend_modes": blend_modes,
+        },
+    }
+    print(json.dumps(report, indent=2, sort_keys=True))
+    if not gated:
+        sys.stderr.write(
+            "perf_profile: viewport-recomposite[mixed] median %.1f ms — pathological "
+            "witness, NOT gated against the ceiling (record only).\n" % median
+        )
+        return 0
+    if not within:
+        sys.stderr.write(
+            "perf_profile: viewport-recomposite OVER ceiling (median %.1f ms > %.1f "
+            "ms) — FU-16b split-cache commit regression.\n" % (median, ceiling)
+        )
+        return 1
+    sys.stderr.write(
+        "perf_profile: viewport-recomposite within ceiling (median %.1f ms <= %.1f "
+        "ms; byte-exact; %d layers, %d non-normal over V).\n"
+        % (median, ceiling, layers, nonnormal)
+    )
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description="Headless frame-budget profiler (S12).")
     ap.add_argument("--width", type=int, default=D_W)
@@ -1436,6 +1677,41 @@ def main():
         default=1,
         help="realistic content: how many of the layers take a non-normal "
         "separable blend mode (the minority; the rest are NORMAL)",
+    )
+    # --- Slice-B viewport-recomposite mode (opacity-drag split-cache COMMIT) --
+    ap.add_argument(
+        "--viewport-recomposite",
+        action="store_true",
+        help="run the Slice-B opacity-drag split-cache COMMIT gate "
+        "(composite_range suffix re-blend, Qt-free) vs "
+        "VIEWPORT_RECOMPOSITE_CEILING_MS",
+    )
+    ap.add_argument("--vp-layers", type=int, default=D_VP_LAYERS)
+    ap.add_argument(
+        "--vp-region-size",
+        type=int,
+        default=D_VP_REGION_SIZE,
+        help="square culled-viewport edge in px (default 1920 — worst Slice-B V)",
+    )
+    ap.add_argument(
+        "--vp-index",
+        type=int,
+        default=None,
+        help="dragged layer index k (default: layers // 2, mid-stack)",
+    )
+    ap.add_argument(
+        "--vp-nonnormal",
+        type=int,
+        default=D_VP_NONNORMAL,
+        help="realistic content: non-normal separable layers PRESENT over V "
+        "(the float32 minority; the rest are fast-path copies/skips)",
+    )
+    ap.add_argument(
+        "--vp-content",
+        choices=["realistic", "mixed"],
+        default="realistic",
+        help="viewport-recomposite content: realistic (fast-path-dominant — the "
+        "GATE) or mixed (every-layer float32 pathological witness — NOT gated)",
     )
     # --- DEP-3 tilemap mode (Qt-free render_region frame-budget profiler) ----
     ap.add_argument(
@@ -1562,6 +1838,15 @@ def main():
         if args.ceiling_ms == D_CEILING:
             args.ceiling_ms = D_FULL_CEILING
         return _run_full_frame(args)
+    if args.viewport_recomposite:
+        # --ceiling-ms shares the composite-region default (D_CEILING); when the
+        # caller does not override it, resolve to the Slice-B loose ceiling
+        # VIEWPORT_RECOMPOSITE_CEILING_MS (D_VP_CEILING) — single-source (S12), so
+        # AGT-09's CI step needs no literal: `--viewport-recomposite` alone gates
+        # against the constant.
+        if args.ceiling_ms == D_CEILING:
+            args.ceiling_ms = D_VP_CEILING
+        return _run_viewport_recomposite(args)
     if args.composite:
         return _run_composite(args)
     if args.tm_cache:
