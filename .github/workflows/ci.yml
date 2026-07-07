@@ -123,9 +123,16 @@ jobs:
 
       - name: Architecture layering + cycle checks (P11 scripts)
         if: runner.os == 'Linux'
+        # check_layering --root . dispatches every top-level package by parts[0]
+        # (pixelart_creator / sync_backend / web_viewer), so no per-package layering
+        # invocation is needed. check_cycles is per-package: run it over each
+        # top-level package's own intra-import graph. Phase-13 Slice 13E (T13E-G04)
+        # adds --root web_viewer alongside the existing client + backend roots.
         run: |
           python scripts/check_layering.py --root pixelart_creator
           python scripts/check_cycles.py --root pixelart_creator
+          python scripts/check_cycles.py --root sync_backend
+          python scripts/check_cycles.py --root web_viewer
 
       - name: Tests (pytest, headless, parallel, with coverage XML)
         # -n auto: pytest-xdist fans the suite across all runner cores, cutting
@@ -160,6 +167,25 @@ jobs:
       - name: Coverage gate (>=90 line / >=80 branch, S13)
         if: runner.os == 'Linux'
         run: python scripts/coverage_gate.py --xml coverage.xml --line 90 --branch 80
+
+      # ----- Web-viewer JS-unit gate (Phase-13 Slice 13E, T13E-G04, F11).
+      # Ubuntu-only: node is available on the ubuntu runner (absent on the local
+      # Windows host, where it is a documented SKIP). Frame-work-free, no bundler
+      # (ADR-0036 D3) — the .mjs test file carries its OWN assert-based runner and
+      # calls process.exit(1) on any failure, so it is run as a bare script
+      # (`node <file>`), NOT via `node --test`. It imports the DOM-free pure-logic
+      # module web_viewer/static/viewer_core.mjs and checks decode/LWW-accept/
+      # integer-scale + render-fidelity vs the shipped Python reference (+/-1 LSB).
+      # A distinct step: a JS-unit failure fails THIS leg. -----
+      - name: Set up Node.js (web-viewer JS-unit)
+        if: runner.os == 'Linux'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Web-viewer JS-unit tests (node, framework-free)
+        if: runner.os == 'Linux'
+        run: node web_viewer/tests/viewer_core.test.mjs
 
       # ----- Perf gates: Ubuntu-only. The ceilings are calibrated to the Ubuntu
       # GitHub runner; running them on Windows/macOS would compare against the

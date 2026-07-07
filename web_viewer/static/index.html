@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- Mobile viewport for iOS Safari + Android Chrome (WEB-003). No user-scalable
+       lock so the OS pinch-zoom accessibility gesture still works; the canvas has its
+       own integer zoom controls. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>PixelArt Creator — Shared Project Viewer</title>
+  <link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+  <a class="skip-link" href="#canvas">Skip to canvas</a>
+
+  <header class="topbar" role="banner">
+    <h1 class="title">Shared Project Viewer</h1>
+    <p id="status" class="status" role="status" aria-live="polite">Connecting…</p>
+  </header>
+
+  <div class="layout">
+    <!-- View-only side panel: layer visibility toggles + frame navigation. All
+         interaction is CLIENT-SIDE over already-received state; no control ever
+         mutates the shared project or emits an editing message (WEB-002). -->
+    <aside class="sidebar" aria-label="View controls">
+      <section class="panel" aria-labelledby="frames-heading">
+        <h2 id="frames-heading" class="panel-title">Frame</h2>
+        <div class="frame-nav">
+          <button id="frame-prev" type="button" aria-label="Previous frame">◀</button>
+          <span id="frame-label" class="frame-label" aria-live="polite">—</span>
+          <button id="frame-next" type="button" aria-label="Next frame">▶</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="zoom-heading">
+        <h2 id="zoom-heading" class="panel-title">Zoom</h2>
+        <div class="zoom-nav">
+          <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+          <span id="zoom-label" class="zoom-label" aria-live="polite">1×</span>
+          <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+          <button id="zoom-fit" type="button">Fit</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="layers-heading">
+        <h2 id="layers-heading" class="panel-title">Layers</h2>
+        <ul id="layer-list" class="layer-list" aria-label="Layer visibility"></ul>
+      </section>
+
+      <p class="viewonly-note">View-only. This viewer never edits the project.</p>
+    </aside>
+
+    <!-- Scroll container isolates canvas overflow so the page body never scrolls
+         horizontally; the canvas itself is nearest-neighbour upscaled (viewer.css). -->
+    <main class="stage" id="stage" tabindex="-1">
+      <canvas id="canvas" width="1" height="1" role="img"
+              aria-label="Rendered shared pixel-art project" tabindex="0">
+        Your browser does not support the HTML canvas element.
+      </canvas>
+    </main>
+  </div>
+
+  <div id="overlay" class="overlay" hidden>
+    <div class="overlay-card" role="alertdialog" aria-labelledby="overlay-title"
+         aria-describedby="overlay-msg">
+      <h2 id="overlay-title" class="overlay-title">Unable to open</h2>
+      <p id="overlay-msg" class="overlay-msg"></p>
+    </div>
+  </div>
+
+  <!-- Native ES module (no bundler/build step, D3): viewer.js imports the DOM-free
+       pure logic from viewer_core.mjs. type="module" is deferred, so the DOM is
+       parsed before the module top-level runs. -->
+  <script type="module" src="viewer.js"></script>
+</body>
+</html>

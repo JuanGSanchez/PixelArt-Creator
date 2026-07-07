@@ -124,7 +124,14 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-testpaths = ["tests"]
+# Phase-13 Slice 13E (T13E-G04): web_viewer is a SEPARATE package (its own
+# build/runtime, excluded from the desktop wheel) whose Python tests live under
+# web_viewer/tests — OUTSIDE the default "tests" root. Add it here so the DEFAULT
+# `pytest` invocation collects the 13E web_viewer suite (in-process SyncServer,
+# no docker/nginx — these carry NO `integration` marker, unlike the deploy/ VPS
+# tests). The marker deselection below (not slow/gpu/cloud_live/integration)
+# still applies uniformly across both roots.
+testpaths = ["tests", "web_viewer/tests"]
 addopts = "-ra"
 # Machine-agnostic default: heavy/host-sensitive tests are deselectable markers.
 markers = [

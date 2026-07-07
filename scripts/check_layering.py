@@ -126,6 +126,19 @@ def module_layer(path, root):
     return parts[0] if parts else ""
 
 
+def is_test_module(path, root):
+    # Test modules are EXEMPT from layering enforcement: the layering
+    # constitution governs PRODUCTION import edges only, not test-harness
+    # imports. A test legitimately crosses package/layer boundaries (e.g. a
+    # web_viewer handshake test must import sync_backend to spin an in-process
+    # SyncServer, and data/ for fixtures). This is why sync_backend's own tests
+    # live outside its package. Key strictly on a `tests` path component so
+    # production code (web_viewer/dev_server.py, web_viewer/__init__.py,
+    # web_viewer/static/**) stays fully governed.
+    rel = os.path.relpath(path, root).replace("\\", "/")
+    return "tests" in rel.split("/")
+
+
 def imports_of(path):
     with open(path, "r", encoding="utf-8") as fh:
         tree = ast.parse(fh.read(), filename=path)
@@ -158,6 +171,8 @@ def main():
                 if not name.endswith(".py"):
                     continue
                 path = os.path.join(dirpath, name)
+                if is_test_module(path, args.root):
+                    continue
                 layer = module_layer(path, args.root)
                 rules = FORBIDDEN.get(layer)
                 if not rules:
