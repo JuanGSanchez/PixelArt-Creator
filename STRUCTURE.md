@@ -895,7 +895,7 @@
 > complete residual `logic/` docstrings (pydocstyle D101/D102/D105/D107, AGT-08). Artifact/source text only
 > under `specs/**` + `logic/` docstrings; **never `docs/**`** by the SDD artifacts.
 
-## `pixelart_creator/` + `web_viewer/` — Phase-13 cross-platform compatibility — 13A code BUILT · Slices 13B–13E PLANNED
+## `pixelart_creator/` + `web_viewer/` — Phase-13 cross-platform compatibility — ALL SLICES 13A–13E BUILT (Phase 13 COMPLETE)
 
 > Cross-platform **hardening + distribution** phase over the shipped platform — adds **no new editing
 > capability**. Governed by `plan.md` + **ADR-0035** (`web_viewer/` placement) / **ADR-0036** (web viewer
@@ -903,44 +903,50 @@
 > are **NOT relaxed**: **Article I** (three-layer purity + the `BACKEND`/`BUILD`/`WEB` non-three-layer
 > components outside it) and **Article VII** (bundle import + web input are untrusted, path-traversal/
 > zip-slip-defended, capped, **`eval`/`exec`-free**; no committed secret). 16 ms `FRAME_BUDGET_MS` untouched
-> (Article VI); macOS signing credential-gated non-blocking (Article XI). **Baseline (2026-07-07, pre-code):**
-> `check_layering --root pixelart_creator` exit 0 (178 modules), `--root .` exit 0 (3), `check_cycles
-> --root pixelart_creator` exit 0 (179), `--root sync_backend` exit 0 (3) — all green; the new `web_viewer`
-> layering rule is **dormant-ready** until the package lands.
+> (Article VI); macOS signing credential-gated non-blocking (Article XI). **FINAL gate (2026-07-07, all
+> slices landed — T13-X01):** `check_layering --root pixelart_creator` exit 0 (180 modules), `--root .`
+> exit 0 (5 — governs `pixelart_creator`/`sync_backend`/`web_viewer` by `parts[0]`), `check_cycles --root
+> pixelart_creator` exit 0 (182), `--root sync_backend` exit 0 (3), `--root web_viewer` exit 0 (9) — all
+> five roots green; the `web_viewer` layering rule is now **ACTIVE** (the package landed).
 >
-> **Slice 13A code BUILT + tested (2026-07-07, AGT-01 slice gate PASS).** The only product-code
-> touch-points of 13A are `data/export_io.py` (`write_engine_preset` now writes both engine-preset
-> artifacts with `newline="\n"` → LF byte-faithful Unity `.meta` / Godot `.tres` on every OS, DATA-003)
-> and the `ui/` font seam (`theme.py` `+_UI_FONT_FALLBACKS` + `apply_font_fallbacks()`, called once from
-> `main_window.py` before `apply_theme`, UI-001). No structural change: no new module, no `logic → data`
-> edge, no Qt in `data/`. **Post-code re-run identical to baseline** — `check_layering --root
-> pixelart_creator` exit 0 (178), `--root .` exit 0 (3), `check_cycles` exit 0 (179). Tests green:
-> `tests/data/test_cross_platform.py` (14, DATA-001..005) + `tests/ui/test_portability_ui.py` (15 IDs × 2
-> themes = 30, UI-001/-002) — **44 passed**, OS-agnostic (assert bytes/mechanism, never a host-OS glyph or
-> device measure), so the **BUILD-001 3-OS CI matrix is meaningful**. **BUILD-001 test matrix + T13A-14
-> commit are AGT-09-pending** (the matrix is applied at commit time, not in this edit-set).
+> **ALL SLICES 13A–13E BUILT + tested (2026-07-07; Phase 13 COMPLETE).** Product-code touch-points:
+> **13A** — `data/export_io.py` (`write_engine_preset` writes both engine-preset artifacts with
+> `newline="\n"` → LF byte-faithful Unity `.meta` / Godot `.tres` on every OS, DATA-003) + the `ui/` font
+> seam (`theme.py` `+_UI_FONT_FALLBACKS` + `apply_font_fallbacks()`, called once from `main_window.py`
+> before `apply_theme`, UI-001). **13B** — `data/asset_export.py` bundle extension
+> (`export_project_bundle`/`import_project_bundle`) + 3 `logic/constants.py` caps. **13E** — new pure
+> `logic/share_token.py`, the `sync_backend/server.py` token-handshake extension, and the new top-level
+> `web_viewer/` package. **13C** (`deploy/` artifacts) + **13D** (`packaging/` specs + CI build matrix) are
+> ops/DevOps artifacts outside the three layers. No layer violation: no `logic → data` edge, no Qt in
+> `data/`/`logic/`/`web_viewer/`, no import cycle on any root. Tests green (landed under consolidated
+> filenames — see the traceability matrix): `tests/data/test_cross_platform.py` (DATA-001..005),
+> `tests/data/test_bundle_{export,cross_os,import_defence}.py` (DATA-006..008),
+> `tests/ui/test_portability_ui.py` (UI-001/-002), `tests/backend/test_{vps_localhost,nginx_wss_localhost,
+> hosting_default_unchanged}.py` (BACKEND-001..003), `web_viewer/tests/test_{render_fidelity,share_token,
+> view_scope}.py` + `viewer_core.test.mjs` (WEB-001..005); BUILD-001..005 are the `.github/workflows/ci.yml`
+> 3-OS test + build-installer matrices over `packaging/`.
 
 ### Three-layer touch-points (`data/`/`ui/`/`logic/`)
 
 | Layer | Module | Change | Responsibility (planned) | REQ | Slice |
 | --- | --- | --- | --- | --- | --- |
 | `data/` | `*` (all read/write sites); **13A code touch-point: `export_io.py`** | **harden — BUILT (13A)** | `pathlib` everywhere (no literal separator); **explicit `encoding="utf-8"`** at every text/JSON I/O; **LF** newline discipline for text artifacts; **case-sensitive** filename/asset/CAS lookups (Q5). Byte-faithful cross-OS round-trip (composed). **BUILT:** the only 13A code change is `export_io.write_engine_preset` pinning `newline="\n"` on the Unity `.meta` + Godot `.tres` writes (DATA-003 LF byte-faithful); DATA-001/-002/-004/-005 were verified to already hold on the shipped defensive `data/` modules (`project_io`, `asset_catalog_io`, `asset_cas`) by `tests/data/test_cross_platform.py` (14). | DATA-001..005 | 13A |
-| `data/` | `asset_export.py` | **extend** | `export_project_bundle` / `import_project_bundle` — a single-file deterministic `zipfile` bundle (POSIX-internal paths, UTF-8, `schema_version`) embedding the `.pixproj` payload + every referenced CAS blob (reuses shipped reference resolution — no re-implemented CAS); import is `resolve()`+containment (zip-slip), `MAX_BUNDLE_*`-capped, hash-verified, `json`-only, `eval`-free, user-facing `AssetExportError` on malformed (no partial write). ADR-0037. Zero Qt. | DATA-006..008 | 13B |
-| `logic/` | `constants.py` | **extend** | +4 leaf bounds: `MAX_BUNDLE_BYTES`, `MAX_BUNDLE_ENTRIES`, `MAX_BUNDLE_ENTRY_BYTES` (13B caps), `SHARE_TOKEN_MAX_TTL_S` (13E token TTL). **Names DISTINCT from every shipped constant.** Web-input size caps REUSE the shipped `sync_protocol`/`MAX_CRDT_UPDATE_BYTES` caps (no new constant). | DATA-008, WEB-005 | 13B/13E |
-| `logic/` | `share_token.py` | **new** | Pure `logic/` leaf (zero Qt/`data`; stdlib `hmac`/`hashlib`/`base64`/`json` — **no new dependency**): `mint(claims, secret)` / `verify(token, secret, *, expected_iss, expected_aud, now)` / `ShareTokenError`. HMAC-SHA256 signed share-link token; validate `alg`(never "none") + constant-time signature + `exp`(≤ TTL) + `iss` + `aud` + `project_id`/`scope`. No `eval`/`exec`; secret operator-provided, never committed. ADR-0036 §1. Imported by BOTH `sync_backend/` and `web_viewer/` glue (single-source, `sync_protocol` precedent). | WEB-005 | 13E |
+| `data/` | `asset_export.py` | **extend — BUILT (13B)** | `export_project_bundle` / `import_project_bundle` — a single-file deterministic `zipfile` bundle (POSIX-internal paths, UTF-8, `schema_version`) embedding the `.pixproj` payload + every referenced CAS blob (reuses shipped reference resolution — no re-implemented CAS); import is `resolve()`+containment (zip-slip), `MAX_BUNDLE_*`-capped, hash-verified, `json`-only, `eval`-free, user-facing `AssetExportError` on malformed (no partial write). ADR-0037 (+ its private Addendum: the bundle code also imports `logic.content_hash` + `logic.document` on the pre-existing allowed `data → logic` edge — no new layer edge/cycle). Zero Qt. Tests: `tests/data/test_bundle_{export,cross_os,import_defence}.py`. | DATA-006..008 | 13B |
+| `logic/` | `constants.py` | **extend — BUILT (13B/13E)** | +4 leaf bounds: `MAX_BUNDLE_BYTES`, `MAX_BUNDLE_ENTRIES`, `MAX_BUNDLE_ENTRY_BYTES` (13B caps), `SHARE_TOKEN_MAX_TTL_S` (13E token TTL). **Names DISTINCT from every shipped constant.** Web-input size caps REUSE the shipped `sync_protocol`/`MAX_CRDT_UPDATE_BYTES` caps (no new constant). | DATA-008, WEB-005 | 13B/13E |
+| `logic/` | `share_token.py` | **new — BUILT (13E)** | Pure `logic/` leaf (zero Qt/`data`; stdlib `hmac`/`hashlib`/`base64`/`json` — **no new dependency**): `mint(claims, secret)` / `verify(token, secret, *, expected_iss, expected_aud, now)` / `ShareTokenError`. HMAC-SHA256 signed share-link token; validate `alg`(never "none") + constant-time signature + `exp`(≤ TTL) + `iss` + `aud` + `project_id`/`scope`. No `eval`/`exec`; secret operator-provided, never committed. ADR-0036 §1. Imported by BOTH `sync_backend/server.py` (handshake) and the `web_viewer/` flow (single-source, `sync_protocol` precedent). Covered by `web_viewer/tests/test_share_token.py` + `test_view_scope.py`. | WEB-005 | 13E |
 | `ui/` | `theme.py` font seam + `main_window.py` bootstrap | **harden — BUILT (13A)** | UI-001: role-based **font fallback chain** defined once (no single-OS family per widget). UI-002: rely on Qt6 high-DPI, device-independent coords, **no manual DPR multiply** (Phase-9 discipline); 16 ms budget untouched (AGT-10 assessment). Both themes; `tr()`/`changeEvent` preserved. **BUILT:** `theme.py` `+_UI_FONT_FALLBACKS` (single-OS families → resolvable chain) + `apply_font_fallbacks()` (`QFont.insertSubstitutions`), called once from `main_window.py` **before `apply_theme`**; QSS names no `font-family`/`font-size`; no per-widget font, no domain logic. UI-002 is the unchanged shipped Phase-9 no-double-DPR discipline. Verified by `tests/ui/test_portability_ui.py` (30 runs). | UI-001, UI-002 | 13A |
 
 ### Non-three-layer components (outside `ui/`/`logic/`/`data/`, ADR-0027 model)
 
 | Component | Module / artifact | Change | Responsibility (planned) | REQ | Slice |
 | --- | --- | --- | --- | --- | --- |
-| `BACKEND` (`sync_backend/`) | `deploy/Dockerfile`, `deploy/pixelart-sync.service`, `deploy/nginx-sync.conf` | **new artifacts** | Run the **unchanged** `sync_backend/` on a VPS: bind `0.0.0.0`, `LimitNOFILE`/`--ulimit` ≥ 65535, ~10K conns/process (Q4); Nginx terminates TLS, proxies WSS→WS `Upgrade`/`Connection`, `proxy_read_timeout 86400`. **No backend code change; no new ADR.** Localhost-provable. Ops config (not scanned by `check_layering`). | BACKEND-001..003 | 13C |
-| `BACKEND` (`sync_backend/`) | `server.py` | **extend** *(13E, not 13C)* | Verify the share token in the `websockets` `process_request` handshake (reject expired/wrong-aud/bad-sig → 401/403, serve no data); **scope the connection to the token's `project_id`**; **reject any mutation frame on a `scope:"view"` connection** — reuses `logic/share_token` + `sync_protocol`/`cloud_validation` caps (untrusted, `eval`-free). Preserves editor-client convergence. **The one backend code change of Phase 13.** ADR-0036 §3. | WEB-002, WEB-005 | 13E |
-| `BUILD` (DevOps) | `.github/workflows/ci.yml` | **extend — AGT-09-PENDING** | 13A **test matrix** (`ubuntu`/`windows`/`macos`, headless offscreen, full suite + `path_portability_check` + cross-OS round-trip; concurrency guard + py3.12 pin preserved) — **BUILD-001 NOT YET APPLIED (AGT-09 task T13A-12, at commit time)**; the 13A tests are already OS-agnostic (bytes/mechanism, no host-OS measure) so the matrix is meaningful. 13D **build matrix** (build/tag trigger publishes all 3 installers); 13E adds `check_layering --root .` coverage of `web_viewer` + a Node JS-unit step + the Python web integration test. | BUILD-001, BUILD-005, WEB-004 | 13A/13D/13E |
-| `BUILD` (DevOps) | `packaging/pysidedeploy.spec` (per target), `pyproject.toml` | **new/extend** | `pyside6-deploy` (Nuitka, Qt-recommended) primary + PyInstaller fallback; Qt plugins bundled; Win exe/MSI, macOS .app/.dmg (unsigned/ad-hoc now; signing/notarization credential-gated NON-blocking, Article XI), Linux AppImage. `pyproject` excludes `web_viewer*` from the wheel (mirror `sync_backend*`). ADR-0038. | BUILD-002..005, WEB-004 | 13D/13E |
-| `WEB` (**NEW top-level `web_viewer/`**) | `web_viewer/static/{index.html,viewer.css,viewer.js}` | **new** | Vanilla HTML/CSS/JS client (no build step, D3): Canvas pixel-faithful renderer (`image-rendering: pixelated` + `imageSmoothingEnabled=false` + integer scale); WS client over the shipped `sync_backend`; presents the signed share-link token; **light interaction only** (layer toggle / frame nav / pan-zoom — NO editing). iOS Safari + Android Chrome. **MUST NOT import Qt/`ui`.** Owner: `agt-11-web-client` (generated). ADR-0035/0036. | WEB-001..003 | 13E |
-| `WEB` (`web_viewer/`) | `web_viewer/dev_server.py`, `__init__.py`, thin glue | **new** | stdlib `http.server` static serving — **LOCAL DEV ONLY** (production = 13C Nginx `location`); Qt-free glue reusing pure `logic/` seams; **NO new Python web dependency** (D1). Governed by the new `check_layering` `WEB_PKG = "web_viewer"` rule (forbids Qt/`ui`/`data`/`sync_backend`; MAY reuse pure `logic/`). | WEB-001, WEB-004 | 13E |
-| `WEB` (`web_viewer/`) | `web_viewer/tests/*` | **new** | Python web integration tests (token valid/expired/wrong-aud/bad-sig/cross-project + view-scope-mutation-reject + `eval`-free audit + no-new-dep) + render-fidelity/JS-unit + cross-browser (iOS Safari real-device) acceptance. AGT-04 + AGT-06 + agt-11-web-client. | WEB-001..005 | 13E |
+| `BACKEND` (`sync_backend/`) | `deploy/Dockerfile`, `deploy/pixelart-sync.service`, `deploy/nginx-sync.conf` (+ `deploy/run_sync_backend.py` launcher) | **new artifacts — BUILT (13C)** | Run the **unchanged** `sync_backend/` on a VPS: bind `0.0.0.0`, `LimitNOFILE`/`--ulimit` ≥ 65535, ~10K conns/process (Q4); Nginx terminates TLS, proxies WSS→WS `Upgrade`/`Connection`, `proxy_read_timeout 86400`. **No backend code change; no new ADR.** Localhost-provable. Ops config (not scanned by `check_layering`). | BACKEND-001..003 | 13C |
+| `BACKEND` (`sync_backend/`) | `server.py` | **extend — BUILT (13E, not 13C)** | Verify the share token in the `websockets` `process_request` handshake (reject expired/wrong-aud/bad-sig → 401/403, serve no data); **scope the connection to the token's `project_id`**; **reject any mutation frame on a `scope:"view"` connection** (`_dispatch`/`_scope` per-connection binding) — reuses `logic/share_token` + `sync_protocol`/`cloud_validation` caps (untrusted, `eval`-free). Preserves editor-client convergence. **The one backend code change of Phase 13.** ADR-0036 §3. | WEB-002, WEB-005 | 13E |
+| `BUILD` (DevOps) | `.github/workflows/ci.yml` | **extend — BUILT (13A/13D/13E)** | 13A **test matrix** (`ubuntu`/`windows`/`macos`, headless offscreen, full suite + `path_portability_check` + cross-OS round-trip; concurrency guard + py3.12 pin preserved). 13D **build-installers matrix** (build/tag trigger publishes all 3 installers per OS leg). 13E: `check_layering --root pixelart_creator` + `--root .` (governs `web_viewer` by `parts[0]`) + `check_cycles --root {pixelart_creator,sync_backend,web_viewer}`, a Node JS-unit step (`node web_viewer/tests/viewer_core.test.mjs`), the Python web integration test, and a dedicated `integration` job for the 13C Docker/nginx tests. | BUILD-001, BUILD-005, WEB-004 | 13A/13D/13E |
+| `BUILD` (DevOps) | `packaging/pysidedeploy-{windows,macos,linux}.spec`, `packaging/build_appimage.sh`, `packaging/README.md`, `pyproject.toml` | **new/extend — BUILT (13D)** | `pyside6-deploy` (Nuitka, Qt-recommended) per-target specs + `build_appimage.sh`; Qt plugins bundled; Win exe/MSI, macOS .app/.dmg (unsigned/ad-hoc; signing/notarization credential-gated NON-blocking, Article XI), Linux AppImage. `pyproject` excludes `web_viewer*`/`sync_backend*` from the wheel. ADR-0038. | BUILD-002..005, WEB-004 | 13D/13E |
+| `WEB` (**NEW top-level `web_viewer/`**) | `web_viewer/static/{index.html,viewer.css,viewer.js,viewer_core.mjs}` | **new — BUILT (13E)** | Vanilla HTML/CSS/JS client (no build step, D3): Canvas pixel-faithful renderer (`image-rendering: pixelated` + `imageSmoothingEnabled=false` + integer scale); WS client over the shipped `sync_backend`; presents the signed share-link token; **light interaction only** (layer toggle / frame nav / pan-zoom — NO editing). The `viewer_core.mjs` ES module holds the pure decode/LWW-accept render logic (unit-tested headless via `viewer_core.test.mjs`). iOS Safari + Android Chrome. **MUST NOT import Qt/`ui`.** Owner: `agt-11-web-client`. ADR-0035/0036. | WEB-001..003 | 13E |
+| `WEB` (`web_viewer/`) | `web_viewer/dev_server.py`, `__init__.py` | **new — BUILT (13E)** | stdlib `http.server` static serving — **LOCAL DEV ONLY** (production = 13C Nginx `location`); Qt-free, reuses pure `logic/` seams; **NO new Python web dependency** (D1). Governed by the now-ACTIVE `check_layering` `WEB_PKG = "web_viewer"` rule (forbids Qt/`ui`/`data`/`sync_backend`; MAY reuse pure `logic/`). | WEB-001, WEB-004 | 13E |
+| `WEB` (`web_viewer/`) | `web_viewer/tests/{test_share_token.py,test_view_scope.py,test_render_fidelity.py,viewer_core.test.mjs,audit_viewonly_a11y.py,generate_reference.py,_helpers.py,fidelity_fixture.json}` | **new — BUILT (13E)** | Python web integration tests (token valid/expired/wrong-aud/bad-sig/cross-project + view-scope-mutation-reject + `eval`-free audit + no-new-dep) + render-fidelity/JS-unit (`viewer_core.test.mjs`) + view-only a11y audit + cross-browser (iOS Safari real-device) acceptance. AGT-04 + AGT-06 + agt-11-web-client. | WEB-001..005 | 13E |
 
 ### New Claude assets (on-demand generation, `[[generate-assets-on-demand]]`; sequenced AFTER the ADR-0035/0036 freeze + the `check_layering` rule, BEFORE the frontend build)
 
@@ -956,6 +962,8 @@
 > `WEB_PKG = "web_viewer"` forbids Qt/`pixelart_creator.ui`/`pixelart_creator.data`/`sync_backend` (MAY reuse
 > pure `logic/`); `web_viewer` is added to the forbidden sets of `logic`/`data`/`ui` (reciprocal — no client
 > layer imports it) and of `sync_backend` (peer decoupling — the two deployables talk over the wire). CI
-> invocation shape unchanged: `--root pixelart_creator` + `--root .`; `check_cycles` gains `--root
-> web_viewer` once the package lands. Dormant-ready until then.
+> invocation: `check_layering --root pixelart_creator` + `--root .` (the latter dispatches
+> `pixelart_creator`/`sync_backend`/`web_viewer` by `parts[0]`); `check_cycles --root pixelart_creator`,
+> `--root sync_backend`, `--root web_viewer`. **The rule is now ACTIVE — `web_viewer/` has landed and all
+> five roots exit 0** (2026-07-07 final gate: 180 / 5 / 182 / 3 / 9 modules).
 </content>
