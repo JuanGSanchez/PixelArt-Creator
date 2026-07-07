@@ -145,10 +145,13 @@ jobs:
         # hung test fails fast (naming itself) instead of hanging the whole run.
         # --durations=15: always surface the 15 slowest tests in the CI log so a
         # creeping suite-runtime regression is visible (FU-12 / FU-20).
-        # -m "not slow and not gpu and not cloud_live": cloud_live gates the
-        # live credential/OAuth provider tests (real OS keyring, out-of-CI,
-        # CL-B2/CL-B3) so they skip here; the MOCKED provider contract tests
-        # (tests/data/test_cloud_providers_*) carry NO marker and still run. The
+        # -m "not slow and not gpu and not cloud_live and not assistant_live":
+        # cloud_live gates the live credential/OAuth provider tests (real OS
+        # keyring, out-of-CI, CL-B2/CL-B3) so they skip here; the MOCKED provider
+        # contract tests (tests/data/test_cloud_providers_*) carry NO marker and
+        # still run. assistant_live (Phase-14, ADR-0040 §5 / DEP-4) likewise gates
+        # the real external-LLM-provider path (14D, real key/credentials) so it
+        # skips here; the 14B fake-adapter tests carry NO marker and still run. The
         # in-process real-time backend suite (tests/backend/) is collected via
         # testpaths=["tests"] and runs with the mocked loopback/ws transports.
         # -m also deselects `integration` (Phase-13 13C, T13C-06): the deploy/ VPS
@@ -160,7 +163,7 @@ jobs:
         # default-gate deploy guard (test_hosting_default_unchanged.py) carries NO
         # integration marker and still runs here.
         run: |
-          pytest -n auto -m "not slow and not gpu and not cloud_live and not integration" \
+          pytest -n auto -m "not slow and not gpu and not cloud_live and not assistant_live and not integration" \
             --timeout=120 --timeout-method=thread --durations=15 \
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 

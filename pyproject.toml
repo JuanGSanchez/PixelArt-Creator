@@ -51,6 +51,18 @@ cloud_live = [
     "keyring==25.7.0",
 ]
 
+# Phase-14 Slice 14B (ADR-0040 §5, DEP-4): live-provider credential access for
+# the AI assistant ONLY (out-of-CI, credential-gated — REQ-P14-DATA-003/-006).
+# NOT a core dep: 14A–14C + the fake adapter monkeypatch token_store and import
+# keyring LAZILY, so CI must NOT require a real OS keyring backend. The real LLM
+# adapter (14D) is STDLIB-only (urllib — D4, no new hard dep), so keyring is the
+# SOLE live dep here (same pin as cloud_live). Kept as an INDEPENDENT, self-
+# describing extra (not folded into cloud_live) so the two credential surfaces
+# install/deselect separately (ADR-0040 alternatives; spec D5 names it explicitly).
+assistant_live = [
+    "keyring==25.7.0",
+]
+
 # Dev/test dependencies — CI installs `.[dev]` so it runs exactly what tests import.
 dev = [
     "pytest>=8.0",
@@ -118,6 +130,9 @@ module = ["pixelart_creator.logic.*", "pixelart_creator.data.*"]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
+# keyring.* is the optional live-credential dep shared by BOTH the cloud_live and
+# assistant_live extras (ADR-0040 §5); it ships no stubs and is imported lazily,
+# so ignore_missing_imports covers it for both surfaces consistently.
 [[tool.mypy.overrides]]
 module = ["PySide6.*", "keyring.*"]
 ignore_missing_imports = true
@@ -139,6 +154,7 @@ markers = [
     "gpu: tests needing a real GPU/display, deselected in headless CI",
     "integration: tests that reach outside the process, deselected by default",
     "cloud_live: live credential-gated provider tests (real OAuth/keyring), deselected in CI",
+    "assistant_live: requires a real external LLM provider + credentials; deselected in CI",
 ]
 
 [tool.coverage.run]
