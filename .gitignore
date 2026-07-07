@@ -12,6 +12,17 @@ dist/
 wheels/
 pip-wheel-metadata/
 
+# ---- Native-installer / local-CI build byproducts (pyside6-deploy + Nuitka) ----
+# The local-CI runner (external, outside the repo) and the pyside6-deploy build
+# leg may emit these into the repo working tree; they must never be committed.
+/dist/
+/build/
+*.dist/
+*.build/
+*.onefile-build/
+deployment.qmake
+.nuitka/
+
 # ---- Virtual environments ----
 .venv/
 venv/
