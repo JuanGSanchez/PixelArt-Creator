@@ -85,7 +85,10 @@ include = ["pixelart_creator*"]
 # sync_backend is a SEPARATE real-time relay service, not part of the desktop
 # distributable — exclude it explicitly (the include whitelist already omits it,
 # this is defence-in-depth so it never leaks into the wheel).
-exclude = ["tests*", "scripts*", "docs*", "sync_backend*"]
+# web_viewer is the SEPARATE Phase-13 13E web-client package (its own build/runtime,
+# not part of the desktop distributable) — excluded the same way as sync_backend for
+# defence-in-depth (ADR-0027/0035) so it never leaks into the desktop wheel.
+exclude = ["tests*", "scripts*", "docs*", "sync_backend*", "web_viewer*"]
 
 # Non-Python package data shipped inside the wheel. The offline in-app User
 # Guide bundle (REQ-UG-DATA-001) lives under pixelart_creator/userguide_content/
