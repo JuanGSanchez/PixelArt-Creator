@@ -966,4 +966,78 @@
 > `pixelart_creator`/`sync_backend`/`web_viewer` by `parts[0]`); `check_cycles --root pixelart_creator`,
 > `--root sync_backend`, `--root web_viewer`. **The rule is now ACTIVE — `web_viewer/` has landed and all
 > five roots exit 0** (2026-07-07 final gate: 180 / 5 / 182 / 3 / 9 modules).
+
+## `pixelart_creator/logic/` — Phase-14 AI assistant — PLANNED (Slices 14A/14C)
+
+> New Qt-free `logic/tool_catalog.py` + `logic/assistant.py` + additive `constants.py` extension, frozen by
+> AGT-01 (`interface-contract`, plan §5) BEFORE implementation so 14B/14C/14D/14E/14F bind to a stable
+> contract. **Security is central (Article VII by construction):** the assistant's action surface **IS** the
+> shipped Phase-8 allow-listed `scripting._REGISTRY` + trusted `dispatch` — the tool catalog only
+> *introspects* it (no new op, no registration back-door) and the loop only *drives* it; **ZERO
+> `eval`/`exec`** on any assistant path (ADR-0039/0041, inheriting ADR-0021/0022). **PL14-D2 (cycle-free +
+> layering bridge):** the loop lives in `logic/` but must reach the `LLMPort` in `data/llm/`; it does so via
+> a `logic`-side **`ChatBackend` Protocol** + **dependency injection** (the `macro.set_dispatcher` /
+> `blend.CompositeNode` precedent) — **no `logic → data` edge**; `tool_catalog → scripting/macro`,
+> `assistant → tool_catalog/scripting/macro/history`; none imports Qt/`data`/`ui` → acyclic. Grounded by
+> `docs/subagent-report-the-researcher-ad2616c7-20260707T220150.md` (action-selector pattern; untrusted
+> tool-results; OpenAI-compat wire; stdlib-urllib feasibility). New numerics → `constants.py`
+> (`MAX_ASSISTANT_TURNS`, `MAX_TOOL_CALLS_PER_TURN`, `MAX_TOOL_RESULT_BYTES`, `MAX_CONVERSATION_MESSAGES`,
+> `ASSISTANT_REQUEST_TIMEOUT_S` — DISTINCT from every shipped constant). `Role`/`Reversibility` are
+> module-local vocabulary (ADR-0001/BF-2). Tool-schema facade contract in **ADR-0039**; agentic loop +
+> tiered safety + injection defence in **ADR-0041**. New `AssistantError(ValueError)`;
+> `ScriptError`/`MacroError` reused.
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `constants.py` | extend | +5 assistant caps (leaf; names distinct from every shipped constant). | `MAX_ASSISTANT_TURNS`, `MAX_TOOL_CALLS_PER_TURN`, `MAX_TOOL_RESULT_BYTES`, `MAX_CONVERSATION_MESSAGES`, `ASSISTANT_REQUEST_TIMEOUT_S` | LOGIC-007 |
+| `tool_catalog.py` | **new** (14A) | Read-only introspection over `scripting._REGISTRY`: provider-neutral `ToolDescriptor`; faithful `ParamSchema`→JSON-schema projection (never widens `validate`); `ToolCall`→`macro.Op`→trusted `dispatch` (non-registered/invalid → `ScriptError`, doc byte-unchanged). No new op, no registration path. Zero Qt. | `ToolDescriptor`, `ToolCall`, `build_tool_catalog`, `param_schema_to_json_schema`, `to_op`, `execute_tool_call` | LOGIC-001, 002, 003 |
+| `assistant.py` | **new** (14C) | Value types (`Role`/`Message`/`Conversation`/`AssistantReply`) + the `ChatBackend` **Protocol** (the layering bridge); `Reversibility` + `REVERSIBLE_OPS` + `classify_op` tiered gate (default DESTRUCTIVE→confirm); bounded agentic loop (`run_turn`/`AssistantSession`) with tiered gate before dispatch + untrusted bounded tool-results + `MAX_*` halt → final message. Zero Qt, no `data/`. No `eval`/`exec`. | `Role`, `Message`, `Conversation`, `AssistantReply`, `ChatBackend`, `Reversibility`, `classify_op`, `AssistantSession`, `run_turn`, `AssistantError` | LOGIC-004, 005, 006, 007, 008 |
+
+## `pixelart_creator/data/llm/` + `data/` — Phase-14 LLM port + adapters + CLI — PLANNED (Slices 14B/14D/14F)
+
+> New Qt-free `data/llm/` subpackage (`port.py` + `fake_adapter.py` + `openai_compatible.py` +
+> `anthropic_translator.py` + `token_store.py`) + `data/assistant_cli.py`, mirroring `data/cloud/` and
+> `data/automation_cli.py`. **DEP-1 ratified — a normal `data/` subpackage, NOT a new top-level package**
+> (unlike `sync_backend`/`web_viewer`, which are out-of-process wire-reached deployables excluded from the
+> wheel): `data/llm/` is in-process, imported, ships in the wheel, governed by the existing `check_layering`
+> `data` rule — **no rule change, no new top-level package**. The port imports the `logic` value types
+> (`data → logic`, allowed) and `LLMPort` structurally satisfies `logic.assistant.ChatBackend`. Real
+> adapters are **stdlib-`urllib` only — NO new hard dependency**; the only live dep is optional `keyring`
+> behind the `assistant_live` extra (mirrors `cloud_live`), lazy-imported in `token_store.py` so 14A–14C +
+> the fake adapter run without it. `data/` may import `logic/`+`data/`, never `ui/`/Qt. `LLMPort` +
+> credential gating in **ADR-0040**. New `LLMError(ValueError)` family. **AGT-09** owns the `pyproject`
+> edits (`assistant_live` extra + marker + `pixelart-assistant` script).
+
+| Module | Change | Responsibility | Key public surface | REQ |
+| --- | --- | --- | --- | --- |
+| `data/llm/port.py` | **new** (14B) | The one `LLMPort(ABC)` — `respond(conversation, tools) -> AssistantReply` (satisfies `ChatBackend`), `is_configured()`; `LLMError` family; no provider/HTTP/credential type in signatures (mirrors `CloudPort`). Zero Qt. | `LLMPort`, `LLMError` | DATA-001, 007 |
+| `data/llm/fake_adapter.py` | **new** (14B) | Deterministic scripted `LLMPort` (reversible/destructive tool-calls, malicious-tool-result follow-ups, multi-step, OpenAI+Anthropic shape emulation); no network/key; reproducible → the CI credential-optional guarantee. | `FakeLLMAdapter` | DATA-002, 005 |
+| `data/llm/token_store.py` | **new** (14B) | OS-keyring isolation (lazy `keyring`; template `pixelart-creator:assistant:{provider}`); keys never leave `data/llm/`, never in `.pixproj`/logs. | `store_token`, `load_token`, `delete_token`, `is_keyring_available`, `service_name` | DATA-003, 006 |
+| `data/llm/openai_compatible.py` | **new** (14D) | Real stdlib-`urllib` OpenAI-compatible client (OpenAI/Gemini-compat/Ollama/llama.cpp); credential-gated/out-of-CI; no new hard dep. | `OpenAICompatibleAdapter` | DATA-004, 006, 007 |
+| `data/llm/anthropic_translator.py` | **new** (14D) | Real stdlib-`urllib` native-Anthropic translator (Messages/`tool_use`/`tool_result`, `input_schema`, `x-api-key`); same port; credential-gated. | `AnthropicAdapter` | DATA-005, 006, 007 |
+| `data/assistant_cli.py` | **new** (14F) | Headless Qt-free `pixelart-assistant` driver (mirrors `automation_cli.py`): load `.pixproj` (IO-3) → run the loop → save back; destructive op requires an explicit `--yes`/confirm affordance (never auto-run); fake adapter in CI; exit 0/1/2. Zero Qt; no `eval`/`exec`. | `main(argv) -> int`, `build_parser` | DATA-008 |
+
+## `pixelart_creator/ui/` — Phase-14 AI assistant — PLANNED (Slice 14E)
+
+> Binds to 14A/14B/14C logic+data; Qt lives here only; the sole Qt undo-bridge stays `ui/commands.py` (one
+> grouped `QUndoCommand` per assistant **edit**; a chat message / provider-connect / confirm-decision push
+> **none** — the Phase-8 CL-8 view/session-state precedent). The dock **drives the `logic/` loop via the
+> injected backend and NEVER talks to a provider directly** (no provider/HTTP type in `ui/`,
+> REQ-P14-DATA-007); `ui/` holds **no** raw key beyond entry (REQ-P14-UI-002, Article VII §3). **Tiered
+> confirm (REQ-P14-UI-003):** the dock renders the logic gate's decision — destructive → explicit
+> confirm/cancel naming the action; reversible → apply + visible + undoable — the UI never relaxes the
+> classification. **Responsiveness (DEP-5): the loop runs OFF the GUI thread on a window-owned `QThreadPool`
+> worker; the 16 ms `FRAME_BUDGET_MS` does NOT gate a model call (batch/off the per-frame loop) — no AGT-10
+> render directive required** (the assistant adds no new per-frame canvas work; its edits are the same
+> undoable `dispatch` ops). Both themes, a11y, `tr()`-wrapped strings + live retranslate (AGT-06/AGT-07).
+> New User-Guide **topic** under the existing `automation-and-scripting` section (`len(sections)==12`
+> preserved) + README (dock + CLI) — AGT-08. Embedding + docs surfaces in **ADR-0042**.
+
+| Module | Change | Responsibility | Binds to (logic/data) | REQ |
+| --- | --- | --- | --- | --- |
+| `assistant_dock.py` | **new** | `Assistant_Dock(QDockWidget)`: transcript + input/send; drives the loop via the injected backend; shows replies + undoable edits; errors surfaced; `tr()` + `changeEvent`. | `logic/assistant`, `assistant_worker`, `commands` | UI-001, 004, 005, 006, 007 |
+| `provider_config_dialog.py` | **new** | `Provider_Config_Dialog(QDialog)`: endpoint + key entry + select/connect; hands key to `data/llm/token_store`; retains no raw key; provider-agnostic; not-configured degrades; `tr()`. | `data/llm/token_store`, `data/llm/port` | UI-002, 005, 006, 007 |
+| `assistant_worker.py` | **new** | `Assistant_Worker(QRunnable)` + signals on a window-owned `QThreadPool`: run the Qt-free loop off the GUI thread; progress/result/error/cancel; no Qt off-thread. | `logic/assistant`, `data/llm/*` | UI-004 |
+| `commands.py` | extend | one grouped `QUndoCommand` per assistant edit delegating to the dispatch result; chat/connect/confirm push none; no domain math. | `history` + dispatch results | UI-001, 003 |
+| `main_window.py` | extend | Assistant menu + dock; hold active document + injected adapter; wire the worker + tiered-confirm surface. | the new assistant UI | UI-001, 003 |
 </content>
