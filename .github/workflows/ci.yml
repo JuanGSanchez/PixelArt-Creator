@@ -358,13 +358,18 @@ jobs:
   # THAT leg VISIBLY without cancelling the others (BUILD-005). Python 3.12 is
   # pinned.
   #
-  # OWN concurrency group (BUILD-005, ADR-0038): the build matrix uses a
-  # DISTINCT group (build-installers-<ref>) instead of inheriting the top-level
-  # ci-<ref> quality-gate guard. A routine quality-gate push to the ref therefore
-  # can no longer cancel an in-flight native-installer build (the Windows+Linux
-  # legs of run 28888610411 were cancelled mid-Nuitka-compile by exactly that
-  # shared-guard collision). cancel-in-progress stays true WITHIN this group so a
-  # NEW build dispatch still supersedes a stale installer build for the same ref.
+  # OWN, PER-OS concurrency group (BUILD-005, ADR-0038): the build matrix uses a
+  # DISTINCT group (build-installers-<ref>-<os>) instead of inheriting the
+  # top-level ci-<ref> quality-gate guard. A routine quality-gate push to the ref
+  # therefore can no longer cancel an in-flight native-installer build (the
+  # Windows+Linux legs of run 28888610411 were cancelled mid-Nuitka-compile by
+  # exactly that shared-guard collision). The group MUST include ${{ matrix.os }}:
+  # a job-level group that did not vary per leg would place all three matrix legs
+  # in ONE group and cancel-in-progress would make them cancel EACH OTHER (run
+  # 28891596191: the macos+ubuntu legs were cancelled at t=0 by the windows leg
+  # entering the same group). Per-OS groups keep cancel-in-progress:true useful —
+  # a NEW build dispatch's per-OS leg still supersedes a stale same-OS leg for the
+  # ref — while letting all three legs of one dispatch run concurrently.
   #
   # Deterministic smoke: PIXELART_SMOKE_EXIT_MS makes the packaged app boot the
   # full UI + bundled Qt plugins headless (QT_QPA_PLATFORM=offscreen, global env)
@@ -377,12 +382,13 @@ jobs:
     name: build-installers (${{ matrix.os }})
     # BUILD/TAG trigger only — never on a normal branch/PR push (ADR-0038 §3).
     if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') }}
-    # Isolated concurrency group (see job header): distinct from the top-level
-    # ci-<ref> quality-gate guard so a routine push to the ref cannot cancel an
-    # in-flight installer build. cancel-in-progress:true supersedes only a stale
-    # build in THIS same group for the same ref.
+    # Isolated PER-OS concurrency group (see job header): distinct from the
+    # top-level ci-<ref> quality-gate guard so a routine push to the ref cannot
+    # cancel an in-flight installer build, and varied by ${{ matrix.os }} so the
+    # three matrix legs do NOT share a group and cancel each other.
+    # cancel-in-progress:true supersedes only a stale same-OS leg for the ref.
     concurrency:
-      group: build-installers-${{ github.ref }}
+      group: build-installers-${{ github.ref }}-${{ matrix.os }}
       cancel-in-progress: true
     runs-on: ${{ matrix.os }}
     strategy:
