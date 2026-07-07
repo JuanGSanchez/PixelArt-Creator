@@ -309,10 +309,19 @@ jobs:
       # nginx: the opt-in real idle-past-60s WSS proxy test (self-skips unless
       # PIXELART_NGINX_IDLE_TEST=1). openssl: mints the self-signed loopback cert
       # for that proxy. The Docker daemon is preinstalled on ubuntu-latest.
-      - name: Install Nginx + OpenSSL (apt)
+      # The Qt runtime libs (libegl1/libgl1/xcb/...) are also required even though
+      # the deploy tests are Qt-free: the pytest-qt plugin (from [dev]) imports
+      # QtGui at pytest_configure, which needs libEGL.so.1 to load the offscreen
+      # platform plugin — without it pytest INTERNALERRORs before collecting.
+      # Mirrors the quality-gate Ubuntu leg (QT_QPA_PLATFORM=offscreen is global).
+      - name: Install Nginx + OpenSSL + Qt runtime OS libraries (apt)
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends nginx openssl
+          sudo apt-get install -y --no-install-recommends \
+            nginx openssl \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
 
       - name: Install project (runtime + dev) from manifest
         run: |
