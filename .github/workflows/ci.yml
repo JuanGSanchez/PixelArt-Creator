@@ -8,6 +8,18 @@
 # clean runner, then runs the full quality gate HEADLESS (QT_QPA_PLATFORM=
 # offscreen) with the OS libraries PySide6 needs. Python 3.12 pinned. A
 # single-run concurrency guard cancels superseded runs for the same ref.
+#
+# Phase-13 Slice 13A (REQ-P13-BUILD-001, T13A-12): the quality-gate job is a
+# 3-OS matrix — ubuntu-latest + windows-latest + macos-latest — each leg running
+# the FULL test suite headless (QT_QPA_PLATFORM=offscreen; the SAME pytest
+# invocation on every OS via `shell: bash`) so the platform is provably portable
+# (plan §3.1). The static/lint/type/coverage gates and the calibrated perf gates
+# stay Ubuntu-only (`if: runner.os == 'Linux'`) — the perf ceilings are tuned to
+# the Ubuntu runner and the source-lint results are OS-invariant. fail-fast is
+# OFF so a genuine Windows/macOS regression does not cancel the other legs (each
+# leg's result is captured). The Ubuntu Qt apt install is Linux-guarded; Windows
+# and macOS need no extra system libs for offscreen Qt. Concurrency guard +
+# Python-3.12 pin preserved.
 # =============================================================================
 name: ci
 
@@ -32,16 +44,29 @@ env:
 
 jobs:
   quality-gate:
-    runs-on: ubuntu-latest
+    name: quality-gate (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # fail-fast OFF: a genuine platform-specific regression on one leg must NOT
+      # cancel the other legs — we need every OS's result (13A discovery signal,
+      # BUILD-001). Windows/macOS surface the suite for the FIRST time here.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     # Job-level wall-clock cap: a hung/deadlocked test can no longer pin a runner
     # for ~6h. The full offscreen-Qt UI suite measures ~46-48 min on the 2-core
-    # GitHub runner (see run 28635312681, cancelled at 98% by an earlier 45-min
+    # Ubuntu runner (see run 28635312681, cancelled at 98% by an earlier 45-min
     # cap), so this is set comfortably above that with headroom for runner
-    # variance. The per-test --timeout below (120s, thread) is the fine-grained
-    # guard that fails fast and names a genuinely hung test; this job cap is only
-    # the coarse backstop (FU-12). A suite-runtime reduction (e.g. pytest-xdist)
-    # is tracked as follow-up FU-20.
+    # variance (Windows/macOS runners vary). The per-test --timeout below (120s,
+    # thread) is the fine-grained guard that fails fast and names a genuinely hung
+    # test; this job cap is only the coarse backstop (FU-12).
     timeout-minutes: 75
+    # Run every step under bash on ALL three OSes so the SAME pytest invocation
+    # (with `\` line continuations) executes identically — the Windows default
+    # shell (pwsh) would otherwise break the multi-line command (portability).
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -54,7 +79,10 @@ jobs:
 
       # OS-level libraries required to import/run PySide6 (Qt6) headless on a
       # clean Ubuntu runner (F11: xkbcommon, EGL/GL, dbus, X libs for offscreen).
-      - name: Install Qt runtime OS libraries
+      # Ubuntu-only: Windows/macOS GitHub runners need no extra system libs for
+      # offscreen Qt (plan §3.1).
+      - name: Install Qt runtime OS libraries (Ubuntu)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -67,21 +95,28 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
 
+      # ----- Static / lint / type gates: Ubuntu-only (OS-invariant source lints;
+      # keep the shipped Ubuntu gate as-is, plan §3.1). -----
       - name: Lint (flake8)
+        if: runner.os == 'Linux'
         run: flake8 pixelart_creator scripts
 
       - name: Format check (black + isort)
+        if: runner.os == 'Linux'
         run: |
           black --check pixelart_creator scripts
           isort --check-only pixelart_creator scripts
 
       - name: Type check (mypy)
+        if: runner.os == 'Linux'
         run: mypy pixelart_creator
 
       - name: Path-portability lint (P11 script)
+        if: runner.os == 'Linux'
         run: python scripts/path_portability_check.py --root .
 
       - name: Architecture layering + cycle checks (P11 scripts)
+        if: runner.os == 'Linux'
         run: |
           python scripts/check_layering.py --root pixelart_creator
           python scripts/check_cycles.py --root pixelart_creator
@@ -109,9 +144,14 @@ jobs:
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 
       - name: Coverage gate (>=90 line / >=80 branch, S13)
+        if: runner.os == 'Linux'
         run: python scripts/coverage_gate.py --xml coverage.xml --line 90 --branch 80
 
+      # ----- Perf gates: Ubuntu-only. The ceilings are calibrated to the Ubuntu
+      # GitHub runner; running them on Windows/macOS would compare against the
+      # wrong baseline (plan §6, invoker directive). -----
       - name: Compositor region-recomposite perf gate (FU-15)
+        if: runner.os == 'Linux'
         # Standalone, Qt-free P11 gate: times the region-recomposite path on an
         # 8K multi-layer document and exits non-zero if the median exceeds
         # COMPOSITE_REGION_CEILING_MS (200 ms, logic/constants.py). No pytest
@@ -120,6 +160,7 @@ jobs:
         run: python scripts/perf_profile.py --composite
 
       - name: Tilemap render_region perf gate — part 1 (interactive frame budget)
+        if: runner.os == 'Linux'
         # Standalone, Qt-free P11 gate (Phase-6, AGT-10/AGT-01). Times
         # logic/tilemap.render_region over a typical interactive viewport tile
         # (256x256 px @ 16 px tiles = 16x16 cells) and exits non-zero if the
@@ -129,6 +170,7 @@ jobs:
         run: python scripts/perf_profile.py --tilemap --tm-region 256 256 --tm-tile 16 --frames 30
 
       - name: Tilemap render_region perf gate — part 2 (catastrophic ceiling)
+        if: runner.os == 'Linux'
         # Companion catastrophic-ceiling gate: renders the full 8K region
         # (7680x4320 px @ 16 px tiles = 480x270 cells) and exits non-zero if the
         # median exceeds TILEMAP_VIEWPORT_CEILING_MS (3000 ms, logic/constants.py,
@@ -138,6 +180,7 @@ jobs:
         run: python scripts/perf_profile.py --tilemap --tm-region 7680 4320 --tm-tile 16 --frames 8 --budget-ms 3000
 
       - name: Visual-aids overlay perf gate — part 1 (worst-case iso overlay)
+        if: runner.os == 'Linux'
         # Phase-9 (AGT-10/AGT-01, REQ-P9-UI-011). Times the REAL shipped iso-grid
         # overlay item's paint() over the full-scene worst case (fine 2 px tiles,
         # 1920x1080 viewport) and exits non-zero if the median frame exceeds
@@ -148,12 +191,14 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind iso --ov-tile 2 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 2 (zoomed iso, exposed sub-rect)
+        if: runner.os == 'Linux'
         # Companion iso gate at an interactive zoom (16x) over a small exposed
         # sub-rect (120x67 px) — the culled-viewport draw the user actually pays
         # for while editing. Same OVERLAY_FRAME_CEILING_MS (48 ms) ceiling.
         run: python scripts/perf_profile.py --overlay --ov-kind iso --ov-tile 2 --ov-zoom 16 --ov-exposed 120 67 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 3 (combined multi-view + preview)
+        if: runner.os == 'Linux'
         # Combined dirty-rect composite: 7 extra views + the real-size preview each
         # blit a 64x64 dirty sub-rect (MinimalViewportUpdate — cost scales with the
         # dirty rect x views, not the 8K canvas x N). Guards the REQ-P9-UI-008
@@ -161,6 +206,7 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind combined --ov-views 7 --ov-dirty 64 64 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 4 (Slice-C live cursors)
+        if: runner.os == 'Linux'
         # Phase-10 Slice C (AGT-10 report §5, REQ-P10-UI-013). Times the REAL
         # shipped Live_Cursors_Overlay.paint() with the worst case of
         # MAX_SHARED_MEMBERS (32) collaborator cursors all inside the exposed rect
@@ -170,6 +216,7 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind cursors --ov-cursors 32 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 5 (Slice-C combined apply + cursors frame)
+        if: runner.os == 'Linux'
         # Companion Slice-C gate: the COMBINED interactive frame — one
         # realtime_apply.apply_remote plus the 32-cursor overlay paint — against
         # the same 48 ms OVERLAY_FRAME_CEILING_MS. Guards the live-collab render
@@ -178,6 +225,7 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind cursors-rt --ov-cursors 32 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Realtime apply-remote perf gate (Slice-C, sub-frame ceiling)
+        if: runner.os == 'Linux'
         # Phase-10 Slice C (AGT-10, REQ-P10-LOGIC — realtime_apply). Standalone
         # Qt-free P11 gate: times a single realtime_apply.apply_remote of a 47-tile
         # remote update on an 8K document and exits non-zero if the median exceeds
@@ -189,6 +237,7 @@ jobs:
         run: python scripts/perf_profile.py --realtime --rt-tiles 47 --frames 30
 
       - name: Full-frame flatten perf gate (Slice-A, realistic-content ceiling)
+        if: runner.os == 'Linux'
         # Phase-12 Slice A (AGT-10 RE-PROFILE, REQ-P12-LOGIC-001/-002/-003).
         # Standalone, Qt-free P11 gate: times the OPTIMISED cold full-frame flatten
         # — blend.composite_stack(region=None) over an 8K, 8-layer realistic stack
@@ -202,6 +251,7 @@ jobs:
         run: python scripts/perf_profile.py --full-frame --content realistic --layers 8 --frames 3
 
       - name: Viewport-recomposite commit perf gate (Slice-B, opacity-drag)
+        if: runner.os == 'Linux'
         # Phase-12 Slice B (AGT-10 RE-PROFILE, REQ-P12-LOGIC-004/-005 + UI-001).
         # Standalone, Qt-free P11 gate: times the opacity-drag split-cache COMMIT
         # path — blend.composite_range suffix re-blend over the worst-case culled
