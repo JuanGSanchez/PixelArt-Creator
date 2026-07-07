@@ -881,3 +881,47 @@ count per member and aborting the moment it is exceeded), so a member whose head
 under-reports its size (a zip bomb) cannot exhaust memory/disk (REQ-P13-DATA-008;
 ADR-0037 §2 — "enforced during streamed extraction so a lying header cannot exhaust
 memory/disk"; plan §8)."""
+
+# --- Phase-13 Slice-13E web-viewer share-token cap (phase-13 T13E-B01; Article II) --
+# Named lifetime cap consumed by the pure share-link-token seam
+# (logic/share_token.py) and, through it, the sync_backend/ handshake extension
+# (sync_backend/server.py process_request). BF (ADR-0036 §1 / plan §8): the name is
+# DISTINCT from every shipped constant — notably from AUTOSAVE_INTERVAL_MS and the
+# per-frame *_CEILING_MS / *_BUDGET_MS render ceilings (which are millisecond render
+# budgets, an unrelated concern) — this is a SECONDS token-lifetime bound. The
+# token header/scope/type string vocabulary ("HS256", "share+jwt", "view") is
+# format-intrinsic and lives module-local on share_token.py, NOT here (ADR-0001 /
+# BF-2, the sync_protocol/cloud_validation enumerated-vocabulary precedent). This
+# module stays a leaf (no intra-package imports).
+
+SHARE_TOKEN_MAX_TTL_S: int = 14400
+"""Maximum lifetime, seconds, of a signed web-viewer share-link token — 4 hours.
+
+The web viewer (ADR-0036, Phase-13 Slice-13E) is gated by a per-project **short-lived**
+signed share-link bearer token (spec §10 D2; researcher ``a4c7da21`` D2 — "short-lived
+signed bearer token over HTTPS"). :func:`~pixelart_creator.logic.share_token.verify`
+rejects a token whose ``exp - iat`` exceeds this bound (and any token whose ``exp`` is
+not in the future), so a token minted with an over-long lifetime can never be honoured
+and a leaked share link's exposure window stays bounded (ADR-0036 §1 lifetime clause;
+Addendum A.2 mitigation (4) — short TTL bounds query-string-token leak exposure). A few
+hours comfortably spans a review/viewing session while staying far below a login-session
+lifetime; the token model is a link-share view, **not** full OAuth (ADR-0036 §1;
+a4c7da21 D2). Article VII: the bound is validated on untrusted input before the token is
+trusted; the signing secret is operator-provided and never committed. DISTINCT SECONDS
+concern from every shipped millisecond render budget/ceiling (spec REQ-P13-WEB-005;
+SC-P13-WEB-005-1/-2; plan §8; ADR-0036 §1)."""
+
+SHARE_TOKEN_MAX_CHARS: int = 8192
+"""Defensive ceiling on the character length of a signed share-link token (Article VII).
+
+A share-link token is **untrusted input** presented on the WS handshake query string
+(ADR-0036 Addendum A.1). :func:`~pixelart_creator.logic.share_token.verify` rejects a
+token whose length exceeds this bound **before** any base64/JSON decode, so a hostile
+mega-string can never begin to exhaust CPU/memory or reach the parser (ADR-0036 §1
+"max-length cap before decode"; Addendum A.8). The value carries a legitimate compact
+``header.payload.sig`` token even when the ``project_id``/``sub`` claims approach the
+shipped id length (~1024 chars each, base64url ~1.33x JSON expansion) with generous
+headroom, while staying finite. DISTINCT named concern from the shipped byte caps
+(:data:`MAX_CRDT_UPDATE_BYTES`, :data:`MAX_COMMENT_BYTES`) — this bounds a *character*
+count of a compact bearer token before decode (spec REQ-P13-WEB-005; plan §8;
+ADR-0036 §1 / Addendum A.8)."""

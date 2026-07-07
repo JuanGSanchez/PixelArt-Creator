@@ -162,6 +162,21 @@ The launcher `deploy/run_sync_backend.py` binds via `PIXELART_SYNC_HOST` (defaul
 and `PIXELART_SYNC_PORT` (default `8765`). See the deployment guide for the full recipe,
 the connection-ceiling notes, and the localhost-provable acceptance run.
 
+### Web companion viewer
+
+A shared project can also be opened in a **browser** — on a phone or a desktop — through a
+short-lived, **signed share link**. The viewer is **view + light interaction only** (layer
+toggle, frame navigation, pan/zoom); it never edits the project. It is a vanilla
+HTML/CSS/JS client (no build step, no new dependency) served by the same sync backend + Nginx
+stack: the client loads from an Nginx `/viewer/` static location and connects back over the
+existing WSS relay, presenting the signed token. The token is short-lived, view-scoped, and
+verified-never-stored, so a link only ever grants a read-only window onto one project.
+
+The client lives in `web_viewer/` and the production serving block in
+`deploy/nginx-sync.conf`; the full operator recipe (share-link generation, serving, the
+token/security posture, and the cross-browser pixel-fidelity check) is in the (private)
+web-viewer guide.
+
 ## Documentation
 
 - **In-app User Guide** — the primary user documentation, available offline from
