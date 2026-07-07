@@ -1,25 +1,3 @@
-# =============================================================================
-# pyside6-deploy spec — WINDOWS native distributable (Slice 13D, ADR-0038 §2)
-# REQ-P13-BUILD-002 · SC-P13-BUILD-002-1 · owner AGT-09 (BUILD)
-#
-# Produces a self-contained, onefile .exe via pyside6-deploy (Nuitka backend),
-# with the required Qt plugins bundled automatically by the Nuitka PySide6
-# plugin. Run FROM THE REPO ROOT so the relative paths + the installed
-# `pixelart_creator` package resolve:
-#
-#     pyside6-deploy -c packaging/pysidedeploy-windows.spec --force \
-#                    --keep-deployment-files
-#
-# The build is reproducible from THIS committed config (every flag pinned here).
-# pyside6-deploy may rewrite computed values back into a copy at build time; the
-# committed file is the source of truth.
-#
-# PyInstaller fallback (ADR-0038 §1): if a Windows/plugin quirk blocks the
-# Nuitka path, build with the Qt-provided hooks instead —
-#     pyinstaller --noconfirm --onefile --windowed \
-#       --name PixelArtCreator --collect-all PySide6 pixelart_creator/__main__.py
-# =============================================================================
-
 [app]
 # Application title (drives the executable / bundle name).
 title = PixelArtCreator

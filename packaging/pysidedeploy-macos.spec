@@ -1,25 +1,3 @@
-# =============================================================================
-# pyside6-deploy spec — macOS native distributable (Slice 13D, ADR-0038 §2/§4)
-# REQ-P13-BUILD-003 · SC-P13-BUILD-003-1 · owner AGT-09 (BUILD)
-#
-# Produces a Nuitka STANDALONE .app bundle (Contents/MacOS + bundled Qt
-# plugins); the CI leg ad-hoc-signs it (`codesign --sign -`), smoke-launches it
-# offscreen, and wraps it in a .dmg via `hdiutil`. Developer-ID signing →
-# notarization (`notarytool`) → stapling is a SEPARATE, credential-gated,
-# NON-blocking CI step (ADR-0038 §4, Article XI) that runs ONLY when an Apple
-# Developer ID secret is supplied — its absence ships the unsigned/ad-hoc
-# artifact and does NOT fail the phase. NO credential is committed here or
-# anywhere; signing consumes GitHub secrets at CI time only.
-#
-# Run FROM THE REPO ROOT:
-#     pyside6-deploy -c packaging/pysidedeploy-macos.spec --force \
-#                    --keep-deployment-files
-#
-# PyInstaller fallback (ADR-0038 §1):
-#     pyinstaller --noconfirm --windowed --name PixelArtCreator \
-#       --collect-all PySide6 pixelart_creator/__main__.py    # produces a .app
-# =============================================================================
-
 [app]
 title = PixelArtCreator
 project_dir = .

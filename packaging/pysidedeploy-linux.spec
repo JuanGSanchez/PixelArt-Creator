@@ -1,25 +1,3 @@
-# =============================================================================
-# pyside6-deploy spec — LINUX native distributable (Slice 13D, ADR-0038 §2)
-# REQ-P13-BUILD-004 · SC-P13-BUILD-004-1 · owner AGT-09 (BUILD)
-#
-# Produces a Nuitka STANDALONE dist folder (dist/__main__.dist/, named after the
-# input-file stem `__main__`) with the Qt
-# plugins bundled; packaging/build_appimage.sh then wraps that folder into a
-# self-contained, distro-agnostic .AppImage (the BUILD-004 target). Run FROM
-# THE REPO ROOT:
-#
-#     pyside6-deploy -c packaging/pysidedeploy-linux.spec --force \
-#                    --keep-deployment-files
-#     bash packaging/build_appimage.sh
-#
-# Standalone (folder) mode is used rather than onefile because AppImage is built
-# from an AppDir tree; the folder maps straight into usr/bin/ of the AppDir.
-#
-# PyInstaller fallback (ADR-0038 §1):
-#     pyinstaller --noconfirm --onedir --name PixelArtCreator \
-#       --collect-all PySide6 pixelart_creator/__main__.py   # then wrap in AppImage
-# =============================================================================
-
 [app]
 title = PixelArtCreator
 project_dir = .
