@@ -138,8 +138,16 @@ jobs:
         # (tests/data/test_cloud_providers_*) carry NO marker and still run. The
         # in-process real-time backend suite (tests/backend/) is collected via
         # testpaths=["tests"] and runs with the mocked loopback/ws transports.
+        # -m also deselects `integration` (Phase-13 13C, T13C-06): the deploy/ VPS
+        # acceptance tests (tests/backend/test_vps_localhost.py,
+        # test_nginx_wss_localhost.py) reach outside the process (launcher subprocess
+        # / Docker / Nginx / real socket) and would need Docker+nginx that the
+        # Windows/macOS runners lack — they run ONLY in the dedicated `integration`
+        # job below, keeping this cross-OS matrix green without them. The
+        # default-gate deploy guard (test_hosting_default_unchanged.py) carries NO
+        # integration marker and still runs here.
         run: |
-          pytest -n auto -m "not slow and not gpu and not cloud_live" \
+          pytest -n auto -m "not slow and not gpu and not cloud_live and not integration" \
             --timeout=120 --timeout-method=thread --durations=15 \
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 
@@ -265,3 +273,59 @@ jobs:
         # from the record-only naive --composite witness. numpy + logic only, no
         # pytest marker, no Qt.
         run: python scripts/perf_profile.py --viewport-recomposite --vp-region-size 1920 --vp-layers 12
+
+  # ===========================================================================
+  # Phase-13 Slice 13C (REQ-P13-BACKEND-001/-002/-003, T13C-06): dedicated
+  # integration job for the deploy/ VPS self-hosting artifacts.
+  #
+  # SEPARATE from the cross-OS quality-gate matrix above (which deselects
+  # `integration` and stays green without Docker/nginx). Ubuntu-only because the
+  # Docker daemon + nginx these tests exercise are available on ubuntu-latest but
+  # not on the Windows/macOS GitHub runners. Proves — over localhost/loopback,
+  # with NO live external server and the sync_backend/ source byte-unmodified —
+  # that the shipped deploy/ artifacts run the relay: the launcher-subprocess &
+  # Docker-container multi-client convergence (BACKEND-001) and the Nginx TLS/WSS
+  # config + idle-survival tuning (BACKEND-002).
+  # ===========================================================================
+  integration:
+    name: integration (ubuntu-latest)
+    runs-on: ubuntu-latest
+    # Ample cap for a Docker image build (self-skips if the daemon is unusable)
+    # plus the fast launcher/socket/config tests; far under the 6h default.
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python 3.12 (pinned)
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # nginx: the opt-in real idle-past-60s WSS proxy test (self-skips unless
+      # PIXELART_NGINX_IDLE_TEST=1). openssl: mints the self-signed loopback cert
+      # for that proxy. The Docker daemon is preinstalled on ubuntu-latest.
+      - name: Install Nginx + OpenSSL (apt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends nginx openssl
+
+      - name: Install project (runtime + dev) from manifest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Integration tests (deploy/ launcher, Docker, Nginx WSS — localhost)
+        # Runs only the `integration`-marked deploy acceptance in tests/backend/.
+        # The fast tests (launcher-subprocess convergence, Nginx config assertions,
+        # short idle-survival) RUN and must pass. The Docker-container test builds
+        # the shipped deploy/Dockerfile on the ubuntu daemon (self-skips if the
+        # daemon is unusable). The SLOW real-nginx 60s+ idle test stays OPT-IN and
+        # self-skips because PIXELART_NGINX_IDLE_TEST is unset here (CI-time budget)
+        # — it is NOT forced on every push. No Qt libs needed: these tests import
+        # only the Qt-free data/logic layer.
+        run: pytest -m integration tests/backend/

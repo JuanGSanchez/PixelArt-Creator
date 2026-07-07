@@ -122,6 +122,27 @@ app.exec()
 The application runs on Windows, Linux and macOS wherever PySide6 (Qt 6) and Python 3.12+
 are available.
 
+### Hosting the real-time sync backend
+
+Real-time collaboration works out of the box with **no hosting setup** — the sync backend
+runs locally on the loopback interface by default. Hosting it elsewhere is **optional**, and
+there is **no forced default**: the relay can run **locally/loopback** (the default), behind
+the **cloud provider-adapter** path, or be **self-hosted on a VPS**. Adopting any option
+requires **no change** to the app or the backend code.
+
+For VPS self-hosting, the committed `deploy/` directory carries the artifacts to run the
+(unchanged) `sync_backend/` relay on your own server, each with inline setup instructions:
+
+- **`deploy/Dockerfile`** — a slim, Qt-free container image
+  (`docker build -f deploy/Dockerfile`; run with `--ulimit nofile=65535:65535 -p 8765:8765`).
+- **`deploy/pixelart-sync.service`** — a systemd unit (`LimitNOFILE=65535`).
+- **`deploy/nginx-sync.conf`** — an Nginx reverse proxy that terminates TLS and proxies
+  WSS → WS (with WebSocket-friendly timeouts).
+
+The launcher `deploy/run_sync_backend.py` binds via `PIXELART_SYNC_HOST` (default `0.0.0.0`)
+and `PIXELART_SYNC_PORT` (default `8765`). See the deployment guide for the full recipe,
+the connection-ceiling notes, and the localhost-provable acceptance run.
+
 ## Documentation
 
 - **In-app User Guide** — the primary user documentation, available offline from
