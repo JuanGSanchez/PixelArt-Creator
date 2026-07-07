@@ -18,10 +18,24 @@ mnemonics, and shortcuts are theme-invariant but the parity run is asserted for 
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 from PySide6.QtGui import QKeySequence
 
 from pixelart_creator.ui.main_window import Main_Window
+
+#: macOS (Aqua) intentionally strips ``&``-derived Alt mnemonics, so
+#: ``QKeySequence.mnemonic()`` returns an empty QKeySequence on darwin — Alt
+#: mnemonics are simply not a macOS UI concept. The mnemonic assertions below
+#: stay exact on Windows/Linux and are skipped only on darwin. Non-mnemonic a11y
+#: coverage (menu presence, checkable, named, shortcuts, distinct names) still
+#: runs on all three platforms.
+_skip_on_darwin_no_mnemonic = pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="macOS strips &-derived Alt mnemonics per Aqua HIG (QTBUG); "
+    "Alt mnemonics are not a macOS concept",
+)
 
 
 def _window(qtbot) -> Main_Window:
@@ -40,6 +54,7 @@ _VIEW_MENU_MNEMONICS = {
 }
 
 
+@_skip_on_darwin_no_mnemonic
 def test_view_menu_has_mnemonic_itself(qtbot):
     """The View menu is itself Alt-reachable (Alt+V), the prefix of every chord."""
     win = _window(qtbot)
@@ -58,10 +73,14 @@ def test_a11y_p2_1_drawing_mode_toggle_in_view_menu_with_mnemonic(
     # A toggle, operable from the keyboard.
     assert action.isCheckable()
     assert action.text() != ""  # tr()-wrapped accessible name
-    # Carries the expected Alt mnemonic (Alt+V, <letter>).
-    assert QKeySequence.mnemonic(action.text()) == QKeySequence(expected)
+    # Carries the expected Alt mnemonic (Alt+V, <letter>). macOS (Aqua) strips
+    # &-derived Alt mnemonics, so this check is Windows/Linux-only; the
+    # in-menu / checkable / named a11y assertions above still run on darwin.
+    if sys.platform != "darwin":
+        assert QKeySequence.mnemonic(action.text()) == QKeySequence(expected)
 
 
+@_skip_on_darwin_no_mnemonic
 def test_a11y_p2_1_view_menu_mnemonics_are_distinct(qtbot):
     """The View-menu drawing-mode mnemonics do not collide with each other."""
     win = _window(qtbot)
