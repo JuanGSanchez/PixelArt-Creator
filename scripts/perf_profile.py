@@ -12,6 +12,14 @@
 #     (200 ms, a loose catastrophic-regression bound, NOT the 16 ms frame
 #     budget). This branch is Qt-FREE: numpy + pixelart_creator.logic only, NO
 #     PySide6 import (per AGT-10 rendering-performance directive).
+#   --full-frame: Slice-A (FU-P5-PERF) cold full-frame flatten regression gate.
+#     Measure the WHOLE-CANVAS flatten path — blend.composite_stack(region=None)
+#     over the full (H, W, 4) 8K canvas — the path the 16-px --composite gate is
+#     structurally blind to. --content realistic (sparse, predominantly NORMAL —
+#     the CI gate) is compared to the loose COMPOSITE_FULL_CEILING_MS; --content
+#     dense (pathological, every-pixel-every-layer non-normal) is profiled for
+#     the record and is deliberately NOT gated (accepted off-thread cold cost,
+#     spec REQ-P12-LOGIC-001). Qt-FREE: numpy + logic only, NO PySide6.
 # FLAVOUR: standalone
 # LOCATION: scripts/perf_profile.py
 # INVOKED BY: AGT-10 Rendering & Performance (frame-budget profiling); the
@@ -87,12 +95,16 @@ try:
     # per-frame paint profiles at MAX_SHARED_MEMBERS visible cursors.
     D_MAX_CURSORS = int(getattr(_c, "MAX_SHARED_MEMBERS", 32))
     D_OVERLAY_CEILING = int(getattr(_c, "OVERLAY_FRAME_CEILING_MS", 48))
+    # Full-frame flatten loose catastrophic ceiling (Slice A, FU-P5-PERF).
+    # Falls back to 3000 ms until AGT-01 lands/tunes COMPOSITE_FULL_CEILING_MS.
+    D_FULL_CEILING = float(getattr(_c, "COMPOSITE_FULL_CEILING_MS", 3000))
 except Exception:  # pragma: no cover - fallback when package not on path
     D_W, D_H, D_TILE, D_BUDGET = 7680, 4320, 64, 16.0
     D_FRAME_BUDGET, D_CEILING = 16, 200.0
     D_RT_CEILING = 10.0
     D_MAX_CURSORS = 32
     D_OVERLAY_CEILING = 48
+    D_FULL_CEILING = 3000.0
 
 # Composite-mode defaults (AGT-10 directive §3a).
 D_LAYERS = 8
@@ -278,6 +290,213 @@ def _run_composite(args):
     sys.stderr.write(
         "perf_profile: within ceiling (median %.3f ms <= %.1f ms).\n"
         % (median, ceiling)
+    )
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# Full-frame mode (Slice A, FU-P5-PERF) — Qt-FREE cold full-canvas flatten gate #
+# --------------------------------------------------------------------------- #
+# Times the OPTIMISED full-frame flatten — blend.composite_stack(region=None) over
+# the whole (H, W, 4) canvas — the path today's 16-px --composite gate is
+# structurally blind to (it only composites a square sub-region). Qt-FREE: numpy +
+# pixelart_creator.logic only, NO PySide6. Compares the median to a LOOSE
+# catastrophic-regression ceiling (COMPOSITE_FULL_CEILING_MS), NOT the 16 ms frame
+# budget — the flatten is a batch / on-demand op, never a 60-fps path (spec §5).
+#
+# Two content models (spec REQ-P12-LOGIC-001 "realistic vs pathological"):
+#   * realistic (the GATE scenario): a typical finished pixel-art stack — one full
+#     OPAQUE background layer (alpha 255, NORMAL) + sparse OPAQUE content layers
+#     (a tile-aligned coverage band at alpha 255, the rest transparent) + a MINORITY
+#     of sparse non-normal separable layers. Every layer is opacity-1 / unmasked, so
+#     the uint8 fast-paths carry the majority byte-exactly: a fully-opaque tile takes
+#     the ``acc = src.copy()`` path; a fully-transparent (alpha-0) tile is skipped;
+#     only the one/few non-normal layers hit the float32 separable path. The band is
+#     aligned to the flatten tile edge so NORMAL layers produce NO mixed (part-alpha)
+#     tiles — the honest fast-path-dominant realistic cost. This passes the loose
+#     ceiling with comfortable margin yet still balloons to the old ~20–43 s if the
+#     Slice-A optimisation (tiling + fast-path + fan-out) is reverted, because
+#     without the fast-path every NORMAL layer costs a full-canvas float pass
+#     regardless of sparsity → the gate catches the regression.
+#   * dense (the pathological worst case — NOT gated): every pixel painted on every
+#     layer AND every layer in a non-normal separable mode → forces full-canvas
+#     float promotion across all 33 M px × every layer. Its cold cost is an ACCEPTED
+#     off-thread cost (spec REQ-P12-LOGIC-001), profiled here for the record only —
+#     it is deliberately run with --content dense and is NOT the CI gate config.
+_FF_WARMUP = 1  # one cold warm-up call excluded (numpy/thread-pool first-touch)
+
+
+def _run_full_frame(args):
+    """Run the Slice-A cold full-frame flatten perf gate (Qt-free).
+
+    Builds ``args.layers`` full-canvas RGBA leaves per the chosen ``--content``
+    model, then times ``args.frames`` cold ``composite_stack(region=None)`` calls
+    over the whole ``(height, width, 4)`` canvas and compares the median to
+    ``args.ceiling_ms`` (the loose ``COMPOSITE_FULL_CEILING_MS``, NOT 16 ms).
+
+    Returns the process exit code: 0 (median <= ceiling), 1 (over ceiling),
+    2 (construction/geometry/logic-import error).
+    """
+    width, height = args.width, args.height
+    layers = args.layers
+    ceiling = args.ceiling_ms
+    content = args.content
+    coverage = args.ff_coverage
+    nonnormal = args.ff_nonnormal
+
+    if layers < 1 or width <= 0 or height <= 0 or args.frames <= 0:
+        sys.stderr.write("perf_profile: invalid full-frame geometry/layers.\n")
+        print(json.dumps({"error": "invalid-input"}))
+        return 2
+    if not (0.0 < coverage <= 1.0) or nonnormal < 0 or nonnormal > layers:
+        sys.stderr.write("perf_profile: invalid full-frame coverage/nonnormal.\n")
+        print(json.dumps({"error": "invalid-input"}))
+        return 2
+
+    # Qt-FREE imports: numpy + logic only (NO PySide6 on this branch).
+    try:
+        import numpy as np  # noqa: F401 (used via PixelBuffer.data slicing)
+
+        from pixelart_creator.logic import blend as _blend
+        from pixelart_creator.logic.blend import BlendMode, composite_stack
+        from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+    except Exception as exc:  # logic unavailable -> construction error, not Qt.
+        sys.stderr.write("perf_profile: logic package unavailable: %r\n" % exc)
+        print(json.dumps({"error": "logic-unavailable", "detail": repr(exc)}))
+        return 2
+
+    # The eleven non-normal separable modes (NORMAL excluded — the fast path).
+    non_normal = [m for m in BlendMode if m is not BlendMode.NORMAL]
+
+    # Flatten tuning read from logic (single-source) — also used to align the
+    # realistic coverage band to the tile edge so NORMAL layers stay pure fast-path
+    # (no mixed part-alpha tiles), and to report the fan-out for 2-core reasoning.
+    cpu = os.cpu_count() or 1
+    max_workers = int(getattr(_blend, "FLATTEN_MAX_WORKERS", 8))
+    tile_edge = int(getattr(_blend, "FLATTEN_TILE_EDGE_PX", 1024))
+    tiles = ((width + tile_edge - 1) // tile_edge) * (
+        (height + tile_edge - 1) // tile_edge
+    )
+    effective_workers = min(max_workers, cpu, tiles)
+
+    def _tile_aligned_band(index, cov):
+        """A ``(y0, band)`` sparse band, tile-edge-aligned, covering ~``cov`` height.
+
+        Both the band height and its origin snap to ``tile_edge`` so a NORMAL layer
+        is fully opaque or fully transparent on every flatten tile (no mixed tiles →
+        pure uint8 fast-path). The origin steps per layer (deterministic, no RNG) so
+        layers sit at different bands (varied, realistic), staying in bounds.
+        """
+        rows = max(tile_edge, (int(round(height * cov)) // tile_edge) * tile_edge)
+        rows = min(rows, (height // tile_edge) * tile_edge or height)
+        free_tiles = max(1, (height - rows) // tile_edge + 1)
+        y0 = ((index * 2) % free_tiles) * tile_edge
+        return y0, rows
+
+    try:
+        nodes = []
+        blend_modes = []
+        for i in range(layers):
+            # Deterministic per-layer colour (P2 — no RNG at gate time).
+            base = (
+                (i * 40 + 20) % 256,
+                (i * 70 + 30) % 256,
+                (i * 110 + 60) % 256,
+            )
+            if content == "dense":
+                # Pathological: every pixel painted, every layer non-normal — full
+                # float promotion over all 33 M px × every layer (baseline #1b).
+                buffer = PixelBuffer(
+                    width, height, ColorMode.RGBA, fill=(base[0], base[1], base[2], 180)
+                )
+                mode = non_normal[i % len(non_normal)]
+            elif i == 0:
+                # Realistic: layer 0 is a full OPAQUE background (alpha 255, NORMAL).
+                # Fully opaque → every tile takes the ``acc = src.copy()`` fast path.
+                buffer = PixelBuffer(
+                    width, height, ColorMode.RGBA, fill=(base[0], base[1], base[2], 255)
+                )
+                mode = BlendMode.NORMAL
+            else:
+                # Realistic content / effects layer: a tile-aligned sparse OPAQUE
+                # band (alpha 255), the rest transparent. The last ``nonnormal``
+                # layers take a non-normal separable mode (the minority); the rest
+                # stay NORMAL (pure fast-path over their opaque/transparent tiles).
+                buffer = PixelBuffer(width, height, ColorMode.RGBA)  # transparent
+                y0, band = _tile_aligned_band(i, coverage)
+                buffer.data[y0 : y0 + band, :] = (base[0], base[1], base[2], 255)
+                if i >= layers - nonnormal:
+                    mode = non_normal[i % len(non_normal)]
+                else:
+                    mode = BlendMode.NORMAL
+            nodes.append(_Leaf(buffer, mode))
+            blend_modes.append(mode.value)
+    except Exception as exc:
+        sys.stderr.write("perf_profile: full-frame construction error: %r\n" % exc)
+        print(json.dumps({"error": repr(exc)}))
+        return 2
+
+    try:
+        for _ in range(_FF_WARMUP):
+            composite_stack(nodes, width, height, region=None)
+        samples = []
+        for _ in range(args.frames):
+            t0 = time.perf_counter()
+            composite_stack(nodes, width, height, region=None)
+            samples.append((time.perf_counter() - t0) * 1000.0)
+    except Exception as exc:
+        sys.stderr.write("perf_profile: full-frame flatten error: %r\n" % exc)
+        print(json.dumps({"error": repr(exc)}))
+        return 2
+
+    samples.sort()
+    median = _percentile(samples, 0.5)
+    p95 = _percentile(samples, 0.95)
+    # The pathological dense case is an ACCEPTED off-thread cold cost, NOT gated
+    # (spec REQ-P12-LOGIC-001). Only the realistic content model gates in CI.
+    gated = content != "dense"
+    within = (median <= ceiling) if gated else True
+    report = {
+        "mode": "full-frame",
+        "content": content,
+        "gated": gated,
+        "median_ms": round(median, 4),
+        "p95_ms": round(p95, 4),
+        "ceiling_ms": ceiling,
+        "frame_budget_ms": args.frame_budget_ms,
+        "within_ceiling": within,
+        "frames": args.frames,
+        "layers": layers,
+        "scenario": {
+            "width": width,
+            "height": height,
+            "layers": layers,
+            "coverage": coverage if content != "dense" else 1.0,
+            "nonnormal_layers": (layers if content == "dense" else nonnormal),
+            "blend_modes": blend_modes,
+            "flatten_tile_edge_px": tile_edge,
+            "flatten_tiles": tiles,
+            "cpu_count": cpu,
+            "flatten_max_workers": max_workers,
+            "effective_workers": effective_workers,
+        },
+    }
+    print(json.dumps(report, indent=2, sort_keys=True))
+    if not gated:
+        sys.stderr.write(
+            "perf_profile: full-frame[dense] median %.1f ms — ACCEPTED off-thread "
+            "cold cost, NOT gated against the ceiling (record only).\n" % median
+        )
+        return 0
+    if not within:
+        sys.stderr.write(
+            "perf_profile: full-frame OVER ceiling (median %.1f ms > %.1f ms) — "
+            "FU-P5-PERF cold full-frame flatten regression.\n" % (median, ceiling)
+        )
+        return 1
+    sys.stderr.write(
+        "perf_profile: full-frame within ceiling (median %.1f ms <= %.1f ms; "
+        "%d workers over %d tiles).\n" % (median, ceiling, effective_workers, tiles)
     )
     return 0
 
@@ -1190,6 +1409,34 @@ def main():
     ap.add_argument("--region-size", type=int, default=D_REGION_SIZE)
     ap.add_argument("--ceiling-ms", type=float, default=D_CEILING)
     ap.add_argument("--frame-budget-ms", type=int, default=D_FRAME_BUDGET)
+    # --- Slice-A full-frame mode (Qt-free cold full-canvas flatten gate) ------
+    ap.add_argument(
+        "--full-frame",
+        action="store_true",
+        help="run the Slice-A cold full-frame flatten gate "
+        "(composite_stack(region=None), Qt-free)",
+    )
+    ap.add_argument(
+        "--content",
+        choices=["realistic", "dense"],
+        default="realistic",
+        help="full-frame content model: realistic (sparse, mostly NORMAL — the "
+        "GATE) or dense (pathological worst case — profiled, NOT gated)",
+    )
+    ap.add_argument(
+        "--ff-coverage",
+        type=float,
+        default=0.6,
+        help="realistic content: fraction of canvas height painted per layer "
+        "(the rest is transparent, whole tiles skipped byte-exactly)",
+    )
+    ap.add_argument(
+        "--ff-nonnormal",
+        type=int,
+        default=1,
+        help="realistic content: how many of the layers take a non-normal "
+        "separable blend mode (the minority; the rest are NORMAL)",
+    )
     # --- DEP-3 tilemap mode (Qt-free render_region frame-budget profiler) ----
     ap.add_argument(
         "--tilemap",
@@ -1308,6 +1555,13 @@ def main():
         return _run_realtime(args)
     if args.overlay:
         return _run_overlay(args)
+    if args.full_frame:
+        # --ceiling-ms shares the composite-region default (D_CEILING); when the
+        # caller does not override it for the full-frame gate, resolve to the
+        # full-frame loose ceiling COMPOSITE_FULL_CEILING_MS (D_FULL_CEILING).
+        if args.ceiling_ms == D_CEILING:
+            args.ceiling_ms = D_FULL_CEILING
+        return _run_full_frame(args)
     if args.composite:
         return _run_composite(args)
     if args.tm_cache:
