@@ -112,12 +112,16 @@ def write_engine_preset(
         return
     if preset is EnginePreset.UNITY:
         path = Path(str(image_path) + ".meta")
-        path.write_text(_build_unity_meta(meta), encoding="utf-8")
+        # newline="\n": pin LF so the multi-line artifact is byte-identical on every
+        # OS (no Windows CRLF translation) — cross-OS determinism (REQ-P13-DATA-003).
+        path.write_text(_build_unity_meta(meta), encoding="utf-8", newline="\n")
         return
     if preset is EnginePreset.GODOT:
         path = Path(image_path).with_suffix(".tres")
         path.write_text(
-            _build_godot_tres(meta, Path(image_path).name), encoding="utf-8"
+            _build_godot_tres(meta, Path(image_path).name),
+            encoding="utf-8",
+            newline="\n",
         )
         return
     raise ExportWriteError(f"unknown engine preset {preset!r}")
