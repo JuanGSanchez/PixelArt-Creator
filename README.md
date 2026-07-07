@@ -105,22 +105,41 @@ pixelart-run --help
 
 ### Launching the desktop app
 
-The desktop editor is the `Main_Window` class in
-`pixelart_creator.ui.main_window`. It is a Qt window and is shown from a running
-`QApplication`:
+Launch the desktop editor with either canonical command:
 
-```python
-from PySide6.QtWidgets import QApplication
-from pixelart_creator.ui.main_window import Main_Window
+```sh
+# From a source checkout or any environment with the package installed
+python -m pixelart_creator
 
-app = QApplication([])
-window = Main_Window()
-window.show()
-app.exec()
+# After `pip install .` — the installed GUI launch command
+pixelart-creator
 ```
+
+Both start the same application: the `Main_Window` Qt window
+(`pixelart_creator.ui.main_window`), brought up by the launcher in
+`pixelart_creator.ui.app` (which get-or-creates the `QApplication`, applies the theme
+and font fallbacks, then runs the Qt event loop). `python -m pixelart_creator` is the
+module entry point; `pixelart-creator` is the installed GUI console command (declared in
+`pyproject.toml` under `[project.gui-scripts]`), available after `pip install .`.
 
 The application runs on Windows, Linux and macOS wherever PySide6 (Qt 6) and Python 3.12+
 are available.
+
+### Native installers
+
+For users without a Python environment, PixelArt Creator is also distributed as **native
+installers** built by the CI build matrix (triggered on a build/tag run) and downloadable
+from the build artifacts:
+
+- **Windows** — an `.exe` installer with the required Qt plugins bundled; install and
+  launch it like any desktop application.
+- **Linux** — a self-contained, distro-agnostic **AppImage**; make it executable
+  (`chmod +x`) and run it directly, with no system Python or distro package required.
+- **macOS** — a `.app` wrapped in a `.dmg`. The current build is **unsigned**, so on first
+  launch macOS Gatekeeper blocks it: **right-click the app ▸ Open** and confirm, or clear
+  the quarantine flag with
+  `xattr -dr com.apple.quarantine "/path/to/PixelArt Creator.app"`. Developer-ID signing
+  and notarization are a planned, credential-gated step and are not required to run the app.
 
 ### Hosting the real-time sync backend
 

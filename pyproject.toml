@@ -72,6 +72,13 @@ dev = [
 pixelart-export = "pixelart_creator.data.export_cli:main"
 pixelart-run = "pixelart_creator.data.automation_cli:main"
 
+# GUI entry point (installed on `pip install`). gui-scripts (NOT console-scripts)
+# so no console window pops up alongside the app on Windows (pythonw launcher).
+# Targets the SHIPPED launcher pixelart_creator.ui.app:main (T13D). Equivalent to
+# `python -m pixelart_creator` (pixelart_creator/__main__.py).
+[project.gui-scripts]
+pixelart-creator = "pixelart_creator.ui.app:main"
+
 [tool.setuptools.packages.find]
 include = ["pixelart_creator*"]
 # Exclude non-shipped infra from the distributed package (scripts/ are dev tooling).

@@ -26,8 +26,14 @@ name: ci
 on:
   push:
     branches: [main, "feat/**"]
+    # Phase-13 Slice 13D (ADR-0038 §3): a v* tag is the release BUILD trigger for
+    # the native-installer matrix below. Branch/PR pushes do NOT build installers
+    # (the build-installers job self-guards) so PR CI is not slowed.
+    tags: ["v*"]
   pull_request:
     branches: [main]
+  # Manual BUILD trigger for the native-installer matrix (ADR-0038 §3).
+  workflow_dispatch:
 
 # Single-run concurrency guard: a new run for the same ref cancels the older one
 # so two runs never contend for a shared runner (flaky-timeout avoidance, F11).
@@ -338,3 +344,214 @@ jobs:
         # — it is NOT forced on every push. No Qt libs needed: these tests import
         # only the Qt-free data/logic layer.
         run: pytest -m integration tests/backend/
+
+  # ===========================================================================
+  # Phase-13 Slice 13D (REQ-P13-BUILD-002/-003/-004/-005, ADR-0038): native
+  # installer BUILD matrix. SEPARATE from the always-on quality-gate TEST matrix
+  # so PR CI is not slowed by full packaging on every push. Runs ONLY on a
+  # build/tag trigger (ADR-0038 §3): `workflow_dispatch` (manual) or a `v*` tag
+  # push — the job-level `if` blocks it on ordinary branch/PR pushes.
+  #
+  # One matrix over ubuntu/windows/macos builds all three native distributables
+  # on their respective OS legs and publishes each as a downloadable artifact
+  # (actions/upload-artifact). fail-fast is OFF so a per-leg build failure fails
+  # THAT leg VISIBLY without cancelling the others (BUILD-005). Python 3.12 is
+  # pinned; the top-level single-run concurrency guard is inherited.
+  #
+  # Deterministic smoke: PIXELART_SMOKE_EXIT_MS makes the packaged app boot the
+  # full UI + bundled Qt plugins headless (QT_QPA_PLATFORM=offscreen, global env)
+  # then auto-quit with exit 0 — proving the frozen binary launches on a clean
+  # runner without a display (the shipped pixelart_creator/ui/app.py:main honours
+  # the env var). PIXELART_SMOKE_EXIT_MS is set at job env level below and is thus
+  # inherited by every smoke step; each smoke step asserts a zero exit explicitly.
+  # ===========================================================================
+  build-installers:
+    name: build-installers (${{ matrix.os }})
+    # BUILD/TAG trigger only — never on a normal branch/PR push (ADR-0038 §3).
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # fail-fast OFF: a per-leg packaging failure must fail THAT leg visibly
+      # without cancelling the other two legs (BUILD-005).
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    # Nuitka compile times can be long per leg (ADR-0038 negative/risk); ample
+    # cap, still far under the 6h default.
+    timeout-minutes: 90
+    env:
+      # Credential-gated macOS signing (ADR-0038 §4, Article XI). ABSENT by
+      # default → the signing step self-skips and the leg ships the unsigned/
+      # ad-hoc artifact; its absence does NOT fail the build. NEVER commit a
+      # credential — these read GitHub secrets at CI time only.
+      APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
+      APPLE_NOTARY_APPLE_ID: ${{ secrets.APPLE_NOTARY_APPLE_ID }}
+      APPLE_NOTARY_TEAM_ID: ${{ secrets.APPLE_NOTARY_TEAM_ID }}
+      APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
+      # Deterministic headless smoke-launch window (ms) — see job header.
+      PIXELART_SMOKE_EXIT_MS: "5000"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python 3.12 (pinned)
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # Ubuntu: the same Qt runtime libs the test matrix installs (needed for
+      # Nuitka to bundle Qt + for the offscreen smoke-launch) plus patchelf
+      # (Nuitka standalone RPATH fixups + AppImage packaging).
+      - name: Install Qt runtime OS libraries + patchelf (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+            patchelf
+
+      - name: Install project + packaging toolchain (pyside6-deploy / Nuitka)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install nuitka
+        # pyside6-deploy ships inside the PySide6 wheel (a project runtime dep);
+        # pre-installing Nuitka keeps the build non-interactive & reproducible.
+
+      # ---------------- Windows leg (T13D-02, BUILD-002): onefile .exe --------
+      - name: Build Windows .exe (pyside6-deploy / Nuitka onefile)
+        if: runner.os == 'Windows'
+        run: |
+          pyside6-deploy -c packaging/pysidedeploy-windows.spec --force --keep-deployment-files
+          mkdir -p artifact
+          cp dist/PixelArtCreator.exe "artifact/PixelArtCreator-windows.exe"
+
+      - name: Smoke-launch the Windows .exe (offscreen, auto-quit)
+        if: runner.os == 'Windows'
+        run: |
+          BIN="./artifact/PixelArtCreator-windows.exe"
+          echo "smoke binary: ${BIN}"
+          if "${BIN}"; then
+            echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"
+          else
+            rc=$?
+            echo "::error::Windows smoke-launch FAILED (exit ${rc})"
+            exit "${rc}"
+          fi
+        # Exit 0 proves the packaged onefile .exe started, loaded the offscreen
+        # platform plugin + full UI, and quit cleanly via PIXELART_SMOKE_EXIT_MS;
+        # any non-zero exit or crash fails this leg visibly.
+
+      - name: Upload Windows artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixelart-creator-windows
+          path: artifact/PixelArtCreator-windows.exe
+          if-no-files-found: error
+
+      # ---------------- Linux leg (T13D-03, BUILD-004): AppImage --------------
+      - name: Build Linux standalone (pyside6-deploy / Nuitka)
+        if: runner.os == 'Linux'
+        run: pyside6-deploy -c packaging/pysidedeploy-linux.spec --force --keep-deployment-files
+
+      - name: Smoke-launch the Linux standalone binary (offscreen, auto-quit)
+        if: runner.os == 'Linux'
+        run: |
+          # Nuitka standalone names the dist folder + binary after the input-file
+          # stem (pixelart_creator/__main__.py → `__main__`); see the linux spec.
+          BIN="dist/__main__.dist/__main__"
+          echo "smoke binary: ${BIN}"
+          if "${BIN}"; then
+            echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"
+          else
+            rc=$?
+            echo "::error::Linux standalone smoke-launch FAILED (exit ${rc})"
+            exit "${rc}"
+          fi
+
+      - name: Package Linux AppImage (appimagetool)
+        if: runner.os == 'Linux'
+        run: bash packaging/build_appimage.sh
+
+      - name: Smoke-launch the AppImage (offscreen, auto-quit)
+        if: runner.os == 'Linux'
+        run: |
+          chmod +x artifact/PixelArtCreator-x86_64.AppImage
+          # --appimage-extract-and-run is intercepted by the AppImage runtime
+          # (FUSE-free); AppRun then execs usr/bin/__main__, which self-exits via
+          # PIXELART_SMOKE_EXIT_MS.
+          if ./artifact/PixelArtCreator-x86_64.AppImage --appimage-extract-and-run; then
+            echo "smoke OK: AppImage launched offscreen and self-exited 0"
+          else
+            rc=$?
+            echo "::error::Linux AppImage smoke-launch FAILED (exit ${rc})"
+            exit "${rc}"
+          fi
+
+      - name: Upload Linux artifact
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixelart-creator-linux
+          path: artifact/PixelArtCreator-x86_64.AppImage
+          if-no-files-found: error
+
+      # ---------------- macOS leg (T13D-04, BUILD-003): .app in .dmg ----------
+      - name: Build macOS .app (pyside6-deploy / Nuitka standalone bundle)
+        if: runner.os == 'macOS'
+        run: pyside6-deploy -c packaging/pysidedeploy-macos.spec --force --keep-deployment-files
+
+      - name: Ad-hoc sign + smoke-launch + wrap .dmg (unsigned baseline)
+        if: runner.os == 'macOS'
+        run: |
+          APP="$(find dist -maxdepth 2 -type d -name '*.app' | head -n1)"
+          echo "app bundle: ${APP}"
+          # Ad-hoc sign so a local run of the unsigned build is permitted.
+          codesign --force --deep --sign - "${APP}"
+          # Smoke: launch the inner binary offscreen (auto-quits via env). The
+          # standalone .app's inner Mach-O is located inside the bundle, so the
+          # produced-artifact path is discovered via `find`, not a fixed stem.
+          BIN="$(find "${APP}/Contents/MacOS" -maxdepth 1 -type f -perm +111 | head -n1)"
+          echo "smoke binary: ${BIN}"
+          if "${BIN}"; then
+            echo "smoke OK: .app inner binary launched offscreen and self-exited 0"
+          else
+            rc=$?
+            echo "::error::macOS .app smoke-launch FAILED (exit ${rc})"
+            exit "${rc}"
+          fi
+          mkdir -p artifact
+          hdiutil create -volname "PixelArt Creator" -srcfolder "${APP}" \
+            -ov -format UDZO artifact/PixelArtCreator-macos.dmg
+
+      - name: Developer-ID sign + notarize + staple (credential-gated, NON-blocking)
+        # Runs ONLY when an Apple Developer ID secret is supplied (ADR-0038 §4,
+        # Article XI). Its ABSENCE self-skips this step and does NOT fail the leg
+        # — the unsigned/ad-hoc .dmg above is the accepted Phase-13 artifact.
+        if: ${{ runner.os == 'macOS' && env.APPLE_DEVELOPER_ID != '' }}
+        run: |
+          APP="$(find dist -maxdepth 2 -type d -name '*.app' | head -n1)"
+          codesign --force --deep --options=runtime --timestamp \
+            --sign "${APPLE_DEVELOPER_ID}" "${APP}"
+          hdiutil create -volname "PixelArt Creator" -srcfolder "${APP}" \
+            -ov -format UDZO artifact/PixelArtCreator-macos.dmg
+          xcrun notarytool submit artifact/PixelArtCreator-macos.dmg \
+            --apple-id "${APPLE_NOTARY_APPLE_ID}" \
+            --team-id "${APPLE_NOTARY_TEAM_ID}" \
+            --password "${APPLE_NOTARY_PASSWORD}" --wait
+          xcrun stapler staple artifact/PixelArtCreator-macos.dmg
+
+      - name: Upload macOS artifact
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixelart-creator-macos
+          path: artifact/PixelArtCreator-macos.dmg
+          if-no-files-found: error
