@@ -830,3 +830,54 @@ constant (:data:`FLATTEN_TILE_EDGE_PX`, :data:`TILE_SIZE`, the MAX_*_DIMENSION b
 — this is the *preview LOD working-set budget*, a different concern (AGT-10 Slice-B
 RE-PROFILE / directive §1.3; ADR-0034 §2; FU-15; plan §8; spec REQ-P12-UI-001;
 S12 single-source)."""
+
+# --- Phase-13 Slice-13B portable-bundle caps (phase-13 T13B-01; Article II) --------
+# Named defensive caps consumed by the single-file portable-bundle export/import
+# functions on data/asset_export.py (export_project_bundle / import_project_bundle).
+# BF (ADR-0037 §2 / plan §8): every name is DISTINCT from every shipped constant.
+# The .pixbundle is UNTRUSTED input on import (Article VII); these three caps are the
+# zip-bomb / oversized-archive defence — enforced against the zip header AND during
+# streamed extraction (a lying header must not exhaust memory/disk, ADR-0037 §2). The
+# bundle format marker + schema_version strings are format-intrinsic and live
+# module-local on asset_export.py, NOT here (ADR-0001 / BF-2, the PIO-1 FORMAT_NAME /
+# CATALOG_SCHEMA_VERSION precedent). This module stays a leaf (no intra-package
+# imports).
+
+MAX_BUNDLE_BYTES: int = MAX_BLOB_BYTES
+"""Defensive ceiling, bytes, on a whole ``.pixbundle`` archive file — 256 MiB.
+
+MIRRORS the shipped :data:`MAX_BLOB_BYTES` (=268435456) sizing (ADR-0037 §2 sanctions
+this) but is a DISTINCT named concern — the total on-disk size of the compressed
+single-file portable bundle, not a single CAS blob. The ``.pixbundle`` is untrusted
+input on import: :func:`~pixelart_creator.data.asset_export.import_project_bundle`
+rejects an archive whose on-disk size exceeds this *before* it opens/extracts anything,
+so an oversized/zip-bomb container can never begin to exhaust disk. Because bundle
+members are deflate-compressed, a 256 MiB compressed ceiling already carries a very
+large project + its referenced blobs (REQ-P13-DATA-006/-008; ADR-0037 §2; plan §8)."""
+
+MAX_BUNDLE_ENTRIES: int = 262144
+"""Defensive cap on the number of members in one ``.pixbundle`` archive (Article VII).
+
+A bundle embeds the project payload + a manifest + the catalog index + one sidecar and
+one CAS blob per referenced asset, so member count scales at ~2 per asset; this bound is
+4 × the shipped :data:`MAX_CATALOG_ASSETS` (=65536) asset ceiling, leaving generous
+headroom while staying finite.
+:func:`~pixelart_creator.data.asset_export.import_project_bundle` rejects an archive
+whose entry count exceeds this (checked against the zip directory) *before* streamed
+extraction, so a container padded with a colossal number of tiny members cannot exhaust
+memory/inodes. DISTINCT from every shipped count cap (REQ-P13-DATA-008; ADR-0037 §2;
+plan §8)."""
+
+MAX_BUNDLE_ENTRY_BYTES: int = MAX_BLOB_BYTES
+"""Ceiling, bytes, on a single **uncompressed** ``.pixbundle`` member — 256 MiB.
+
+MIRRORS the shipped :data:`MAX_BLOB_BYTES` (=268435456) because the largest legitimate
+member is a referenced CAS blob (already bounded by that same cap on
+:meth:`~pixelart_creator.data.asset_cas.ContentAddressableStore.put`) or the
+``.pixproj`` payload; a DISTINCT named concern — the per-member uncompressed ceiling.
+:func:`~pixelart_creator.data.asset_export.import_project_bundle` enforces this against
+the zip header **and** during streamed extraction (accumulating the decompressed byte
+count per member and aborting the moment it is exceeded), so a member whose header
+under-reports its size (a zip bomb) cannot exhaust memory/disk (REQ-P13-DATA-008;
+ADR-0037 §2 — "enforced during streamed extraction so a lying header cannot exhaust
+memory/disk"; plan §8)."""
