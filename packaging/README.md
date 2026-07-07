@@ -74,3 +74,78 @@ Every packaging numeric/flag lives in these committed files (Nuitka pin, mode,
 plugin list, exclusion flags). `pyside6-deploy -c <spec>` may rewrite computed
 values into a working copy at build time; the committed spec is the source of
 truth. Invoke every command **from the repo root**.
+
+## Spec files — purpose + key settings (moved out of the spec headers)
+
+`pyside6-deploy` parses each spec with Python's `configparser`, which raises
+`MissingSectionHeaderError` on any content **before** the first `[section]`
+header. The per-spec documentation banner that previously led each `.spec` file
+therefore lived before `[app]` and broke the parse — it has been moved here so
+each spec now starts directly with `[app]`. (Full-line `#` comments *after* the
+first section header are tolerated by `configparser` and are retained inside the
+Windows spec's sections as per-key notes.) The documented content:
+
+### `pysidedeploy-windows.spec` — Windows onefile `.exe` (REQ-P13-BUILD-002 · SC-P13-BUILD-002-1)
+
+Produces a self-contained, **onefile** `.exe` via `pyside6-deploy` (Nuitka
+backend), with the required Qt plugins bundled automatically by the Nuitka
+PySide6 plugin. Run **from the repo root** so the relative paths + the installed
+`pixelart_creator` package resolve:
+
+    pyside6-deploy -c packaging/pysidedeploy-windows.spec --force \
+                   --keep-deployment-files
+
+The build is reproducible from the committed config (every flag pinned).
+`pyside6-deploy` may rewrite computed values back into a copy at build time; the
+committed file is the source of truth. **PyInstaller fallback** (ADR-0038 §1) if
+a Windows/plugin quirk blocks the Nuitka path:
+
+    pyinstaller --noconfirm --onefile --windowed \
+      --name PixelArtCreator --collect-all PySide6 pixelart_creator/__main__.py
+
+### `pysidedeploy-linux.spec` — Linux Nuitka standalone folder → AppImage (REQ-P13-BUILD-004 · SC-P13-BUILD-004-1)
+
+Produces a Nuitka **standalone** dist folder (`dist/__main__.dist/`, named after
+the input-file stem `__main__`) with the Qt plugins bundled;
+`packaging/build_appimage.sh` then wraps that folder into a self-contained,
+distro-agnostic `.AppImage` (the BUILD-004 target). Standalone (folder) mode is
+used rather than onefile because AppImage is built from an AppDir tree; the
+folder maps straight into `usr/bin/` of the AppDir. Run **from the repo root**:
+
+    pyside6-deploy -c packaging/pysidedeploy-linux.spec --force \
+                   --keep-deployment-files
+    bash packaging/build_appimage.sh
+
+The Linux platform plugin is `xcb` (+ offscreen for the CI smoke); the Nuitka
+PySide6 plugin bundles it, listed explicitly as defence-in-depth.
+**PyInstaller fallback** (ADR-0038 §1):
+
+    pyinstaller --noconfirm --onedir --name PixelArtCreator \
+      --collect-all PySide6 pixelart_creator/__main__.py   # then wrap in AppImage
+
+### `pysidedeploy-macos.spec` — macOS standalone `.app` → `.dmg` (REQ-P13-BUILD-003 · SC-P13-BUILD-003-1)
+
+Produces a Nuitka **standalone** `.app` bundle (`Contents/MacOS` + bundled Qt
+plugins); the CI leg ad-hoc-signs it (`codesign --sign -`), smoke-launches it
+offscreen, and wraps it in a `.dmg` via `hdiutil`. Developer-ID signing →
+notarization (`notarytool`) → stapling is a **separate, credential-gated,
+non-blocking** CI step (ADR-0038 §4, Article XI) that runs **only** when an Apple
+Developer ID secret is supplied — its absence ships the unsigned / ad-hoc
+artifact and does **not** fail the phase. **No credential is committed** here or
+anywhere; signing consumes GitHub secrets at CI time only. The macOS platform
+plugin is `cocoa` (+ offscreen for the CI smoke). Run **from the repo root**:
+
+    pyside6-deploy -c packaging/pysidedeploy-macos.spec --force \
+                   --keep-deployment-files
+
+**PyInstaller fallback** (ADR-0038 §1):
+
+    pyinstaller --noconfirm --windowed --name PixelArtCreator \
+      --collect-all PySide6 pixelart_creator/__main__.py    # produces a .app
+
+### Shared settings (all three specs)
+
+- `[app] input_file = pixelart_creator/__main__.py` — the shipped GUI entry point.
+- `[python] packages = Nuitka==2.5.1` — pinned Nuitka backend for reproducibility.
+- `[qt] plugins = platforms,styles,imageformats,iconengines,platforminputcontexts` — bundled Qt plugins.
+- `[nuitka] extra_args` includes `--noinclude-qt-translations` (we ship our own `.qm`, Article V) and `--nofollow-import-to=` for `sync_backend`, `web_viewer`, `tests`, `scripts`, `docs`, `pytest`, `hypothesis` (defence-in-depth mirroring the pyproject wheel `exclude`).

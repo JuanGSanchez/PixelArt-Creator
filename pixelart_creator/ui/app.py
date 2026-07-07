@@ -57,7 +57,7 @@ def create_app(argv: Optional[List[str]] = None) -> Tuple[QApplication, Main_Win
         The running :class:`QApplication` and the shown :class:`Main_Window`.
     """
     app = QApplication.instance()
-    if app is None:
+    if not isinstance(app, QApplication):
         app = QApplication(sys.argv if argv is None else list(argv))
     app.setApplicationName(APPLICATION_NAME)
     app.setOrganizationName(ORGANIZATION_NAME)
