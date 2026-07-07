@@ -1459,6 +1459,7 @@ class Main_Window(QMainWindow):
             scene.refresh_all,
             scene.refresh_visible,
             scene.refresh_visible_throttled,
+            scene.begin_opacity_drag,
         )
         self._bind_animation(record)
         self._bind_tilemap(record)

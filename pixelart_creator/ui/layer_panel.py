@@ -24,7 +24,7 @@ by role, so both themes render correctly (UI-017).
 
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtGui import QAction, QDropEvent, QUndoStack
@@ -116,6 +116,7 @@ class _Node_Row(QWidget):
         # Connect AFTER seeding values so construction never pushes a command.
         self._vis.toggled.connect(self._on_visible)
         self._lock.toggled.connect(self._on_lock)
+        self._opacity.sliderPressed.connect(self._on_opacity_pressed)
         self._opacity.valueChanged.connect(self._on_opacity_changed)
         self._opacity.sliderReleased.connect(self._on_opacity_released)
         self._blend.currentIndexChanged.connect(self._on_blend)
@@ -192,6 +193,13 @@ class _Node_Row(QWidget):
             list(self._path), mode, frame_index=self._panel.frame_index
         )
         self._panel.push_attr(cmd, self.tr("Set Blend Mode"))
+
+    def _on_opacity_pressed(self) -> None:
+        # Phase-12 Slice B: ask the canvas to build the drag-scoped split-cache so
+        # the drag ticks render a 16 ms LOD preview (ADR-0034 §2 / FU-16b). A False
+        # return (nested node / no viewport / indexed doc) keeps the shipped naive
+        # throttled recomposite — the release commit is byte-exact either way.
+        self._panel.begin_opacity_drag(self._path)
 
     def _on_opacity_changed(self, value: int) -> None:
         # Live preview while dragging (recomposite, no command); a keyboard /
@@ -286,6 +294,10 @@ class Layer_Panel(QWidget):
         # stack; a live opacity drag is throttled to one recomposite/frame (D3).
         self._on_attr_changed: Optional[Callable[[], None]] = None
         self._on_live_recomposite: Optional[Callable[[], None]] = None
+        # Phase-12 Slice B (FU-16b): the canvas hook that builds the opacity-drag
+        # split-cache on ``sliderPressed`` (ADR-0034 §2); None disables the LOD
+        # preview optimisation (the naive throttled path stays correct).
+        self._on_opacity_drag_begin: Optional[Callable[[Sequence[int]], bool]] = None
         self._rows: List[_Node_Row] = []
         self._updating = False
 
@@ -322,6 +334,7 @@ class Layer_Panel(QWidget):
         on_tree_changed: Callable[[], None],
         on_attr_changed: Optional[Callable[[], None]] = None,
         on_live_recomposite: Optional[Callable[[], None]] = None,
+        on_opacity_drag_begin: Optional[Callable[[Sequence[int]], bool]] = None,
     ) -> None:
         """Bind the panel to a document + its undo stack + recomposite hooks.
 
@@ -331,9 +344,13 @@ class Layer_Panel(QWidget):
         after an attribute op (opacity/visibility/lock/blend-mode) — the D2
         viewport-scoped path, never the whole 33 Mpx canvas. ``on_live_recomposite``
         is the throttled hook a live opacity drag calls (one recomposite per
-        frame, D3). The latter two default to ``on_tree_changed`` /
-        ``on_attr_changed`` when omitted (backward-compatible). Called on document
-        open and on every tab switch (state isolation, UI-014).
+        frame, D3). ``on_opacity_drag_begin`` is the Phase-12 Slice-B hook that
+        builds the drag-scoped split-cache on ``sliderPressed`` so the drag ticks
+        render a 16 ms LOD preview (ADR-0034 §2); when omitted the naive throttled
+        recomposite is used (the release commit is byte-exact either way). The
+        optional hooks default to ``on_tree_changed`` / ``on_attr_changed`` / no-op
+        when omitted (backward-compatible). Called on document open and on every tab
+        switch (state isolation, UI-014).
         """
         self._document = document
         self._frame_index = 0
@@ -347,6 +364,7 @@ class Layer_Panel(QWidget):
             if on_live_recomposite is not None
             else self._on_attr_changed
         )
+        self._on_opacity_drag_begin = on_opacity_drag_begin
         self.rebuild()
 
     def set_frame_index(self, index: int) -> None:
@@ -538,6 +556,20 @@ class Layer_Panel(QWidget):
         """
         if self._on_live_recomposite is not None:
             self._on_live_recomposite()
+
+    def begin_opacity_drag(self, path: Path) -> bool:
+        """Ask the canvas to build the opacity-drag split-cache (Phase-12 Slice B).
+
+        Called on ``sliderPressed`` (ADR-0034 §2 / FU-16b). Pushes no command; the
+        final value still commits as one ``LayerCommand`` on release
+        (``_commit_opacity``), whose redo applies the byte-exact full-resolution
+        recomposite. Returns whether the LOD-preview path was engaged (``False``
+        when no hook is bound, or the canvas declines — nested node / no viewport /
+        indexed doc — in which case the naive throttled recomposite is used).
+        """
+        if self._on_opacity_drag_begin is not None:
+            return bool(self._on_opacity_drag_begin(path))
+        return False
 
     def _attr_refresh(self) -> None:
         # D2: attribute ops recomposite only the visible viewport, not the stack.
