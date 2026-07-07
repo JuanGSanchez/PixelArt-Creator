@@ -18,17 +18,38 @@ This module **never imports** :mod:`~pixelart_creator.logic.document`: the
 compositor consumes nodes through the structural :class:`CompositeNode`
 Protocol, keeping the import graph one-way and acyclic
 (``document -> blend -> color/constants/pixel_buffer``, PL-D2).
+
+The cold **full-frame** flatten (``composite_stack(region=None)`` over the whole
+8K canvas) is optimised in place (Phase-12 Slice A / ADR-0033) under a hard
+**byte-exact** invariant (REQ-P12-LOGIC-002): the canvas is split into disjoint
+:data:`~pixelart_creator.logic.constants.FLATTEN_TILE_EDGE_PX` blocks, each
+composited by the *same* bit-exact region compositor (:func:`_composite_region`)
+and blitted at its origin, and the tiles are fanned across a thread pool (NumPy
+releases the GIL inside the vectorised blend). Because the blend primitives are
+strictly per-pixel (no cross-tile / neighbour state) and the tiles are disjoint,
+the tiled, threaded result is **byte-identical** to the single-shot whole-canvas
+composite for NORMAL *and* all 11 separable modes — tiling only bounds the working
+set (cache locality) and enables multi-core fan-out; it changes no produced pixel.
+A fully-transparent NORMAL / opacity-1 / unmasked contribution is skipped (its
+exact ``clear`` early-return returns the backdrop unchanged byte-for-byte), so the
+common opaque/alpha case pays less without any float-rounding drift.
 """
 
 from __future__ import annotations
 
 import enum
-from typing import Optional, Protocol, Sequence, Tuple, runtime_checkable
+import os
+from concurrent.futures import ThreadPoolExecutor
+from typing import Iterator, Optional, Protocol, Sequence, Tuple, runtime_checkable
 
 import numpy as np
 import numpy.typing as npt
 
 from pixelart_creator.logic.color import RGBA, blend_over
+from pixelart_creator.logic.constants import (
+    FLATTEN_MAX_WORKERS,
+    FLATTEN_TILE_EDGE_PX,
+)
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 
 __all__ = [
@@ -526,6 +547,29 @@ def _composite_region(
             src = _flatten_group(node, children, width, height, x, y, w, h)
         else:
             src = _node_source_region(node, x, y, w, h, width, height)
+        # Byte-exact fast-paths (ADR-0033 §1) for the common NORMAL / opacity-1.0 /
+        # unmasked "opaque or alpha" case, admissible ONLY because that base case
+        # has EXACT dst-/src-preserving early-return branches in
+        # :func:`_blend_over_arrays` (no float rounding is involved):
+        #   * fully transparent over this region (all src-alpha == 0): the ``clear``
+        #     (a_s == 0) branch returns the backdrop RGBA unchanged byte-for-byte,
+        #     so skipping the layer is bit-identical to blending it.
+        #   * fully opaque over this region (all src-alpha == 255): the ``opaque``
+        #     (a_s >= 1) branch returns ``src`` for every pixel, so the backdrop is
+        #     replaced by a copy of ``src`` byte-for-byte (no float composite).
+        # Non-normal / masked / partial-opacity layers keep the exact float path
+        # unconditionally (correctness dominates speed).
+        if (
+            node.mask is None
+            and node.blend_mode is BlendMode.NORMAL
+            and float(node.opacity) == 1.0
+        ):
+            src_alpha = src[:, :, 3]
+            if not src_alpha.any():
+                continue
+            if bool((src_alpha == 255).all()):
+                acc = src.copy()
+                continue
         mask_arr = None
         if node.mask is not None:
             mask_arr = node.mask.data[y : y + h, x : x + w]
@@ -533,6 +577,75 @@ def _composite_region(
             node.blend_mode, src, acc, opacity=node.opacity, mask=mask_arr
         )
     return acc
+
+
+def _iter_tiles(
+    width: int, height: int, edge: int
+) -> Iterator[Tuple[int, int, int, int]]:
+    """Yield disjoint, canvas-covering ``(x, y, w, h)`` tiles of edge ``edge``.
+
+    Row-major over the canvas; edge tiles are clipped to the canvas bounds so the
+    union of tiles is exactly ``(0, 0, width, height)`` with no overlap. Each tile
+    is a valid region for :func:`_composite_region` (``w >= 1, h >= 1``, in bounds).
+    """
+    for ty in range(0, height, edge):
+        th = min(edge, height - ty)
+        for tx in range(0, width, edge):
+            tw = min(edge, width - tx)
+            yield (tx, ty, tw, th)
+
+
+def _composite_full_frame(
+    nodes: Sequence[CompositeNode], width: int, height: int
+) -> PixelBuffer:
+    """Flatten the whole canvas via a blocked, thread-fanned working set (ADR-0033).
+
+    The canvas is split into disjoint
+    :data:`~pixelart_creator.logic.constants.FLATTEN_TILE_EDGE_PX` tiles; each tile
+    is composited by the *same* bit-exact :func:`_composite_region` and blitted at
+    its scene origin by the calling thread. Because the tiles are disjoint and the
+    blend is strictly per-pixel (no cross-tile state), the result is **byte-identical**
+    to the single-shot ``_composite_region(0, 0, width, height)`` for NORMAL and all
+    11 separable modes (REQ-P12-LOGIC-002) — tiling only bounds the per-tile working
+    set and enables multi-core fan-out. Small canvases (≤ one tile) take the direct
+    single-shot path; larger ones fan the tiles across up to
+    ``min(FLATTEN_MAX_WORKERS, os.cpu_count(), tile_count)`` threads (NumPy releases
+    the GIL inside the vectorised blend). The per-tile computation is independent of
+    scheduling order, so the flatten stays deterministic (P2).
+    """
+    result = PixelBuffer(width, height, ColorMode.RGBA)
+    dst = result.data
+    edge = FLATTEN_TILE_EDGE_PX
+    if width <= edge and height <= edge:
+        # Single tile: no tiling/threading overhead — direct single-shot composite.
+        dst[:, :] = _composite_region(nodes, width, height, 0, 0, width, height)
+        return result
+
+    tiles = list(_iter_tiles(width, height, edge))
+    workers = min(FLATTEN_MAX_WORKERS, os.cpu_count() or 1, len(tiles))
+    if workers <= 1:
+        for tx, ty, tw, th in tiles:
+            dst[ty : ty + th, tx : tx + tw] = _composite_region(
+                nodes, width, height, tx, ty, tw, th
+            )
+        return result
+
+    # Disjoint tiles → each worker computes an independent region array; the main
+    # thread blits it into a disjoint slice of ``dst`` (no concurrent writes to the
+    # result). Deterministic and byte-exact regardless of completion order.
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        future_to_box = {
+            pool.submit(_composite_region, nodes, width, height, tx, ty, tw, th): (
+                tx,
+                ty,
+                tw,
+                th,
+            )
+            for tx, ty, tw, th in tiles
+        }
+        for future, (tx, ty, tw, th) in future_to_box.items():
+            dst[ty : ty + th, tx : tx + tw] = future.result()
+    return result
 
 
 def composite_stack(
@@ -570,9 +683,9 @@ def composite_stack(
             ``region`` is malformed, degenerate, or out of bounds.
     """
     if region is None:
-        result = PixelBuffer(width, height, ColorMode.RGBA)
-        result.data[:, :] = _composite_region(nodes, width, height, 0, 0, width, height)
-        return result
+        # Full-frame flatten: blocked/tiled + thread-fanned working set, byte-exact
+        # vs the single-shot whole-canvas composite (Phase-12 Slice A, ADR-0033).
+        return _composite_full_frame(nodes, width, height)
     x, y, w, h = _validate_region(region, width, height)
     result = PixelBuffer(w, h, ColorMode.RGBA)
     result.data[:, :] = _composite_region(nodes, width, height, x, y, w, h)

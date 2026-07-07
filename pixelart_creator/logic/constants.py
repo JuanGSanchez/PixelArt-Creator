@@ -702,3 +702,64 @@ separate concern: this bounds the per-asset content-hash-addressed revision DAG,
 cloud project's version history. Parallels the shipped ``256``-scale defensive bounds
 (e.g. :data:`MAX_LAYERS_PER_FRAME`) (plan §8; spec REQ-P11-LOGIC-006/-007;
 ADR-0030 §6)."""
+
+# --- Phase-12 Slice-A full-frame flatten tuning (phase-12 T12-A-01; Article II) ---
+# Named ceiling + working-set tuning consumed by the optimised full-frame flatten
+# path in logic/blend.py (composite_stack(region=None)) and by
+# scripts/perf_profile.py --full-frame (passed as --budget-ms by
+# .github/workflows/ci.yml, mirroring the FU-15 composite / tilemap-viewport gates).
+# BF (plan §8 / ADR-0033 §5): every name is DISTINCT from every shipped ceiling
+# (COMPOSITE_REGION_CEILING_MS / TILEMAP_VIEWPORT_CEILING_MS / OVERLAY_FRAME_CEILING_MS
+# / REALTIME_APPLY_CEILING_MS). This module stays a leaf (no intra-package imports).
+
+COMPOSITE_FULL_CEILING_MS: int = 15000
+"""LOOSE catastrophic-regression ceiling for the realistic-content full-frame
+8K flatten gate on the 2-core CI runner, ms — NOT a per-frame budget.
+
+DISTINCT from :data:`FRAME_BUDGET_MS` (16 ms, the 60-fps interactive *render*
+budget) and from every other shipped ceiling. The cold full-frame
+``blend.composite_stack(region=None)`` over the full ``(4320, 7680, 4)`` canvas is
+a **batch / on-demand** op (flatten, export, merge-visible), **not** a per-frame
+render path — so Article VI's 16 ms budget does not govern it and is neither
+applied nor relaxed here (spec §5; ADR-0033 §5; FU-15). This is a deliberately
+*loose* order-of-magnitude bound RE-PROFILE-confirmed by AGT-10 against the
+**realistic-content 8-layer** flatten (≈2.7 s on a fast desktop; ≈5–8 s on the
+slow 2-core CI runner). The former 3000 ms mirror of the full-8K
+:data:`TILEMAP_VIEWPORT_CEILING_MS` was too tight for that realistic gate and
+would flake on healthy code on the 2-core runner (the FU-15 loose-ceiling
+caution / failure mode). 15000 ms gives ~1.85–2.5x margin over realistic content
+while staying ~2.5–4x **below** the ~38–63 s catastrophic-regression cost it must
+catch (the measured 20 244 ms (4L) / 42 669 ms (8L) class scales worse on the
+2-core runner). AGT-09 wires ci.yml to pass this value as
+``perf_profile.py --full-frame --budget-ms`` (the ``--full-frame`` gate already
+reads this constant as its default ceiling)
+(AGT-10 RE-PROFILE + FU-15 loose-ceiling caution; plan §8;
+spec REQ-P12-LOGIC-001/-003; ADR-0033; baseline §6; S12 single-source)."""
+
+FLATTEN_TILE_EDGE_PX: int = 1024
+"""Edge, px, of a disjoint working tile for the blocked full-frame flatten.
+
+The optimised full-frame ``composite_stack(region=None)`` splits the canvas into
+disjoint ``FLATTEN_TILE_EDGE_PX`` x ``FLATTEN_TILE_EDGE_PX`` blocks and composites
+each block through the existing bit-exact region compositor, blitting the result at
+the tile origin. Because the tiles are disjoint and the blend primitives are
+strictly per-pixel (no cross-tile state), the tiled result is **byte-identical** to
+the single-shot whole-canvas composite (REQ-P12-LOGIC-002; ADR-0033 §2). The edge
+bounds each block's working set (an 8K frame = 8x5 = 40 tiles at this edge), cutting
+the full-canvas temporary churn that dominates the cold flatten while leaving enough
+tiles to fan across a thread pool. A power-of-two edge below the 8K axes
+(:data:`MAX_CANVAS_WIDTH` / :data:`MAX_CANVAS_HEIGHT`) (ADR-0033 §2; plan §3;
+spec REQ-P12-LOGIC-001)."""
+
+FLATTEN_MAX_WORKERS: int = 8
+"""Upper bound on worker threads for the blocked full-frame flatten.
+
+The disjoint tiles are fanned across at most
+``min(FLATTEN_MAX_WORKERS, os.cpu_count(), tile_count)`` threads; NumPy releases the
+GIL inside the vectorised blend, so disjoint-tile fan-out yields multi-core speedup
+without perturbing the output (each tile is composited by the same bit-exact region
+compositor and blitted by the main thread into a disjoint slice — the reduction is
+order-independent, so the result stays deterministic and byte-exact, ADR-0033 §2).
+Bounding by ``os.cpu_count()`` avoids oversubscription on small hosts; the cap
+matches the 8-way parallelism the baseline measured on (baseline §environment;
+plan §3; spec REQ-P12-LOGIC-001)."""
