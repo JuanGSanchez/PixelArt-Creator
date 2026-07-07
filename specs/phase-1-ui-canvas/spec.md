@@ -428,32 +428,32 @@ are authored later by AGT-06 (currently `pending`).
 
 ### Feature: Canvas render (REQ-P1-UI-001..003)
 ```gherkin
-Scenario: SC-UI-001-1 a buffer pixel is rendered nearest-neighbour, no AA
+Scenario: SC-P1-UI-001-1 a buffer pixel is rendered nearest-neighbour, no AA
   Given a document whose active layer buffer has pixel (3,3) set to RED
   When the canvas scene renders at any zoom
   Then the scene cell for buffer pixel (3,3) shows exactly RED with no anti-aliased edge
 
-Scenario: SC-UI-001-2 magnified pixel is a crisp square
+Scenario: SC-P1-UI-001-2 magnified pixel is a crisp square
   Given the view is zoomed to 3200%
   When one buffer pixel is painted
   Then its on-screen region is a solid square (no interpolation/blur)
 
-Scenario: SC-UI-002-1 scene rect matches the document size at init
+Scenario: SC-P1-UI-002-1 scene rect matches the document size at init
   Given a new 64x64 document
   When the scene is created
   Then sceneRect() equals (0,0,64,64)
 
-Scenario: SC-UI-002-2 resizing the document updates the scene rect
+Scenario: SC-P1-UI-002-2 resizing the document updates the scene rect
   Given an open document
   When Document.resize_canvas(128,96) is applied
   Then sceneRect() equals (0,0,128,96)
 
-Scenario: SC-UI-003-1 drawBackground repaints only the exposed rect
+Scenario: SC-P1-UI-003-1 drawBackground repaints only the exposed rect
   Given an 8K-sized scene
   When drawBackground(painter, rect) is invoked with a small exposed rect
   Then only cells intersecting that rect are painted (no full-scene fill)
 
-Scenario Outline: SC-UI-003-2 background tiles on TILE_SIZE
+Scenario Outline: SC-P1-UI-003-2 background tiles on TILE_SIZE
   Given the tile background
   When it is painted over an exposed rect
   Then tile boundaries fall on multiples of TILE_SIZE (64)
@@ -462,37 +462,37 @@ Scenario Outline: SC-UI-003-2 background tiles on TILE_SIZE
 
 ### Feature: Zoom / pan / grid (REQ-P1-UI-004..007)
 ```gherkin
-Scenario: SC-UI-004-1 zoom is clamped to the configured range
+Scenario: SC-P1-UI-004-1 zoom is clamped to the configured range
   Given the fit-to-view minimum and the 6400% maximum
   When the user zooms past either bound
   Then the zoom is clamped to that bound (never below fit, never above 6400%)
 
-Scenario: SC-UI-004-2 a wheel notch scales by the SCALE_FACTOR step
+Scenario: SC-P1-UI-004-2 a wheel notch scales by the SCALE_FACTOR step
   Given the current zoom Z
   When the user scrolls one notch to zoom in
   Then the new zoom equals Z scaled by the SCALE_FACTOR-derived step, anchored on the cursor
 
-Scenario: SC-UI-005-1 middle-drag pans without painting
+Scenario: SC-P1-UI-005-1 middle-drag pans without painting
   Given an active pencil tool
   When the user middle-drags across the canvas
   Then the view scrolls and buffer pixels are unchanged and no undo command is pushed
 
-Scenario: SC-UI-005-2 space+left-drag pans without painting
+Scenario: SC-P1-UI-005-2 space+left-drag pans without painting
   Given Space is held
   When the user left-drags across the canvas
   Then the view pans and no pixel is painted
 
-Scenario: SC-UI-007-1 grid overlay is off by default
+Scenario: SC-P1-UI-007-1 grid overlay is off by default
   Given a freshly opened canvas
   When it is displayed
   Then the per-pixel grid overlay is not shown
 
-Scenario: SC-UI-007-2 grid overlay appears past the zoom threshold when enabled
+Scenario: SC-P1-UI-007-2 grid overlay appears past the zoom threshold when enabled
   Given the grid overlay is toggled on
   When zoom crosses the legibility threshold (pixel edge >= 8 device px)
   Then the grid overlay becomes visible (and hides again below the threshold)
 
-Scenario: SC-UI-007-3 snapping constrains tool coordinates to whole pixels
+Scenario: SC-P1-UI-007-3 snapping constrains tool coordinates to whole pixels
   Given snapping is on
   When a tool interaction occurs at a sub-pixel scene point
   Then the resolved coordinate is the floored integer pixel
@@ -500,17 +500,17 @@ Scenario: SC-UI-007-3 snapping constrains tool coordinates to whole pixels
 
 ### Feature: Left-click paint (REQ-P1-UI-006)
 ```gherkin
-Scenario: SC-UI-006-1 left-click paints the target pixel and pushes one command
+Scenario: SC-P1-UI-006-1 left-click paints the target pixel and pushes one command
   Given the pencil tool and active colour = BLUE
   When the user left-clicks at the scene point mapping to buffer pixel (10,7)
   Then buffer[10,7] == BLUE and exactly one command is on the QUndoStack
 
-Scenario: SC-UI-006-2 a drag paints all covered pixels as one command
+Scenario: SC-P1-UI-006-2 a drag paints all covered pixels as one command
   Given the pencil tool
   When the user left-drags across pixels (0,0)->(3,0)
   Then pixels (0,0),(1,0),(2,0),(3,0) are painted and the QUndoStack depth increased by exactly 1
 
-Scenario: SC-UI-006-3 clicking outside the buffer is a no-op
+Scenario: SC-P1-UI-006-3 clicking outside the buffer is a no-op
   Given a 64x64 document
   When the user left-clicks at a scene point outside (0,0,64,64)
   Then no pixel changes and no command is pushed
@@ -518,23 +518,23 @@ Scenario: SC-UI-006-3 clicking outside the buffer is a no-op
 
 ### Feature: Undo / redo bridge (REQ-P1-UI-009..010)
 ```gherkin
-Scenario: SC-UI-010-1 undo reverts exactly the painted pixel(s)
+Scenario: SC-P1-UI-010-1 undo reverts exactly the painted pixel(s)
   Given a pencil click set buffer[10,7] to BLUE over prior TRANSPARENT
   When the user triggers Undo
   Then buffer[10,7] returns to TRANSPARENT and no other pixel changed
 
-Scenario: SC-UI-010-2 redo re-applies the reverted edit
+Scenario: SC-P1-UI-010-2 redo re-applies the reverted edit
   Given the edit above was undone
   When the user triggers Redo
   Then buffer[10,7] is BLUE again
 
-Scenario: SC-UI-010-3 undo/redo actions enable-state tracks the stack
+Scenario: SC-P1-UI-010-3 undo/redo actions enable-state tracks the stack
   Given an empty QUndoStack
   Then Undo is disabled and Redo is disabled
   And after one paint Undo is enabled
   And after undo Redo is enabled
 
-Scenario: SC-UI-009-1 the command delegates to logic/history (no domain math in ui)
+Scenario: SC-P1-UI-009-1 the command delegates to logic/history (no domain math in ui)
   Given a paint command
   When it is undone and redone
   Then the pixel changes are exactly those recorded by the logic PixelEdit/record_edit diff
@@ -542,37 +542,37 @@ Scenario: SC-UI-009-1 the command delegates to logic/history (no domain math in 
 
 ### Feature: Tool controllers (REQ-P1-UI-011..016)
 ```gherkin
-Scenario: SC-UI-011-1 exactly one tool is active at a time
+Scenario: SC-P1-UI-011-1 exactly one tool is active at a time
   Given the pencil is active
   When the user selects the eraser
   Then the eraser is active and the pencil is not
 
-Scenario: SC-UI-012-1 pencil paints with the active colour (one command per stroke)
+Scenario: SC-P1-UI-012-1 pencil paints with the active colour (one command per stroke)
   Given pencil active, active colour GREEN
   When the user clicks pixel (2,2)
   Then buffer[2,2] == GREEN and QUndoStack depth increased by 1
 
-Scenario: SC-UI-013-1 eraser clears to the buffer default (one command)
+Scenario: SC-P1-UI-013-1 eraser clears to the buffer default (one command)
   Given eraser active on an RGBA buffer, pixel (2,2) currently RED
   When the user clicks pixel (2,2)
   Then buffer[2,2] == TRANSPARENT and one undoable command was pushed
 
-Scenario: SC-UI-014-1 flood-fill fills the contiguous region as one command
+Scenario: SC-P1-UI-014-1 flood-fill fills the contiguous region as one command
   Given flood-fill active, active colour YELLOW, a contiguous TRANSPARENT region
   When the user clicks inside the region
   Then the whole contiguous region becomes YELLOW via one command
 
-Scenario: SC-UI-014-2 flood-fill on an already-matching region is a no-op
+Scenario: SC-P1-UI-014-2 flood-fill on an already-matching region is a no-op
   Given flood-fill active with active colour equal to the seed pixel colour
   When the user clicks the seed
   Then no pixel changes and no command is pushed
 
-Scenario: SC-UI-015-1 line tool previews on drag and commits one command on release
+Scenario: SC-P1-UI-015-1 line tool previews on drag and commits one command on release
   Given the line tool, active colour BLACK
   When the user presses at (0,0), drags to (4,0), and releases
   Then during drag no command exists, and on release the Bresenham line (0,0)->(4,0) is painted as exactly one command
 
-Scenario: SC-UI-016-1 colour-picker sets the active colour and pushes no command
+Scenario: SC-P1-UI-016-1 colour-picker sets the active colour and pushes no command
   Given pixel (5,5) is CYAN and the picker tool is active
   When the user clicks (5,5)
   Then the active colour/active swatch becomes CYAN, the buffer is unchanged, and no command is pushed
@@ -580,37 +580,37 @@ Scenario: SC-UI-016-1 colour-picker sets the active colour and pushes no command
 
 ### Feature: Main window — toolbar / palette / tabs / actions (REQ-P1-UI-017..020)
 ```gherkin
-Scenario: SC-UI-017-1 the toolbar selects the active tool
+Scenario: SC-P1-UI-017-1 the toolbar selects the active tool
   Given the tool toolbar
   When the user activates the "flood-fill" action
   Then the flood-fill controller becomes the active tool and its action is checked
 
-Scenario: SC-UI-018-1 the palette panel shows the document palette in index order
+Scenario: SC-P1-UI-018-1 the palette panel shows the document palette in index order
   Given a document with palette [RED, GREEN, BLUE]
   When the palette panel is shown
   Then it displays three swatches in the order RED, GREEN, BLUE
 
-Scenario: SC-UI-018-2 selecting a swatch sets the active colour (single-select)
+Scenario: SC-P1-UI-018-2 selecting a swatch sets the active colour (single-select)
   Given the palette panel shows [RED, GREEN, BLUE]
   When the user selects the GREEN swatch
   Then the active colour/active swatch is GREEN and only that swatch is selected
 
-Scenario: SC-UI-019-1 undo/redo actions are wired to the active document's stack
+Scenario: SC-P1-UI-019-1 undo/redo actions are wired to the active document's stack
   Given an open document with one paint command
   When the user triggers the Edit>Undo menu action
   Then that document's QUndoStack undoes one command
 
-Scenario: SC-UI-020-1 a new document defaults to 64x64
+Scenario: SC-P1-UI-020-1 a new document defaults to 64x64
   Given the app
   When the user creates a new document with defaults
   Then a 64x64 RGBA document opens in a new tab and becomes active
 
-Scenario: SC-UI-020-2 an 8K document is supported
+Scenario: SC-P1-UI-020-2 an 8K document is supported
   Given the app
   When the user creates a document at 7680x4320
   Then it opens successfully and its scene rect is (0,0,7680,4320)
 
-Scenario: SC-UI-020-3 switching tabs switches the active document context
+Scenario: SC-P1-UI-020-3 switching tabs switches the active document context
   Given two open documents A and B in tabs
   When the user selects tab B
   Then B's buffer, palette and QUndoStack become the active context
@@ -618,17 +618,17 @@ Scenario: SC-UI-020-3 switching tabs switches the active document context
 
 ### Feature: Internationalisation (REQ-P1-UI-021..022, -026)
 ```gherkin
-Scenario: SC-UI-021-1 the LanguageManager installs a translator by locale
+Scenario: SC-P1-UI-021-1 the LanguageManager installs a translator by locale
   Given the system QLocale is a supported language
   When the app starts
   Then the LanguageManager installs the matching QTranslator (falling back to English)
 
-Scenario: SC-UI-022-1 changeEvent re-translates visible labels on LanguageChange
+Scenario: SC-P1-UI-022-1 changeEvent re-translates visible labels on LanguageChange
   Given the main window is showing menu/tool labels
   When the language is switched at runtime (a QEvent.LanguageChange is delivered)
   Then every visible label/tooltip/menu item is re-set to the new language without restart
 
-Scenario: SC-UI-026-1 no user-visible string is a bare literal
+Scenario: SC-P1-UI-026-1 no user-visible string is a bare literal
   Given the ui/ sources
   When string_audit_check runs
   Then it reports zero unwrapped user-visible strings
@@ -636,17 +636,17 @@ Scenario: SC-UI-026-1 no user-visible string is a bare literal
 
 ### Feature: Accessibility & theming (REQ-P1-UI-024..025)
 ```gherkin
-Scenario: SC-UI-024-1 interactive widgets expose accessible names
+Scenario: SC-P1-UI-024-1 interactive widgets expose accessible names
   Given the main window is shown
   When each interactive widget (tool actions, palette swatches, tabs, undo/redo, canvas) is inspected
   Then each has a non-empty accessible name
 
-Scenario: SC-UI-024-2 every control is keyboard reachable with visible focus
+Scenario: SC-P1-UI-024-2 every control is keyboard reachable with visible focus
   Given the main window is shown
   When the user tabs through the controls
   Then focus reaches every interactive control in a logical order and the focused control shows a visible focus indicator
 
-Scenario: SC-UI-025-1 the UI is correct in both themes
+Scenario: SC-P1-UI-025-1 the UI is correct in both themes
   Given the app
   When it is rendered under the light theme and under the dark theme
   Then all widgets and the canvas checkerboard/grid render legibly with role-based colours (no hard-coded per-widget colour)
@@ -654,12 +654,12 @@ Scenario: SC-UI-025-1 the UI is correct in both themes
 
 ### Feature: Right-click seam (REQ-P1-UI-008)
 ```gherkin
-Scenario: SC-UI-008-1 right-click dispatches to the menu hook with the coordinate
+Scenario: SC-P1-UI-008-1 right-click dispatches to the menu hook with the coordinate
   Given the canvas view with a registered menu hook
   When the user right-clicks at the scene point mapping to buffer pixel (9,9)
   Then the hook is invoked exactly once with buffer coordinate (9,9)
 
-Scenario: SC-UI-008-2 the Phase-1 hook shows only a placeholder (no colour hub)
+Scenario: SC-P1-UI-008-2 the Phase-1 hook shows only a placeholder (no colour hub)
   Given the default Phase-1 menu hook
   When it is invoked
   Then it shows a placeholder/no-op menu and does not open a colour wheel or favourites list
@@ -667,14 +667,14 @@ Scenario: SC-UI-008-2 the Phase-1 hook shows only a placeholder (no colour hub)
 
 ### Feature: Performance (REQ-P1-UI-023) — profiled by AGT-10
 ```gherkin
-Scenario: SC-UI-023-1 a paint redraw at 8K stays within the frame budget
+Scenario: SC-P1-UI-023-1 a paint redraw at 8K stays within the frame budget
   Given a 7680x4320 document displayed
   When a single-pixel paint triggers a redraw
   Then the measured per-frame render time is <= FRAME_BUDGET_MS (16 ms)
   # Measured headless by AGT-10 (perf_profile / frame-profile); an over-budget result
   # yields an AGT-10 optimisation directive, not a budget relaxation.
 
-Scenario: SC-UI-023-2 panning the 8K canvas culls off-screen tiles
+Scenario: SC-P1-UI-023-2 panning the 8K canvas culls off-screen tiles
   Given a 7680x4320 document
   When the view pans
   Then only tiles intersecting the exposed rect are painted (background cull holds) and the resident buffer is not culled

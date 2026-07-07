@@ -93,7 +93,7 @@ substrate + `ui/frame_cache.py` LRU and the Phase-4 D3 opacity-drag debounce.
 | **Slice B — split-cache** | At drag-start cache `composite(below)` and `composite(above)` the dragged layer **once**; per tick blend only `below ⊕ (layer·opacity) ⊕ above` (≈2–3 blends, not 12). Pure `logic/blend.py`; byte-exact on commit. | REQ-P12-LOGIC-004; baseline §3 FU-16 #1; ADR-0034 |
 | **Slice B — LOD preview during drag** | Recomposite a **downsampled** (nearest-neighbour, pure-numpy) preview that holds 16 ms per tick; full-resolution byte-exact recomposite on mouse-release/commit. Cull to the true exposed viewport rect + dirty region; throttle/off-thread ticks (Phase-4 D3 debounce + Phase-5 warmer). | REQ-P12-UI-001, REQ-P12-LOGIC-004; baseline §3 FU-16 #2/#3/#4; ADR-0034 |
 | **Perf ceilings** | Two **single-source named constants** in `logic/constants.py` (§8): `COMPOSITE_FULL_CEILING_MS`, `VIEWPORT_RECOMPOSITE_CEILING_MS`. Loose catastrophic bounds (FU-15), **not** 16 ms. Values = AGT-01/ADR candidates, AGT-10-RE-PROFILE-confirmed. | REQ-P12-LOGIC-003/-005; Article II; baseline §6; DEP-1 |
-| **Perf scenarios + gates** | New `perf_profile` `--full-frame` (`region=None`) scenario; **extend** `--composite` with a viewport-scale scenario (region 1080²/1920², 12L). Wired into CI at the loose named ceilings. Scenario = AGT-10 HOW; CI wiring = AGT-09 HOW. | REQ-P12-LOGIC-003/-005; baseline §6; DEP-3 |
+| **Perf scenarios + gates** | New `perf_profile` `--full-frame` (`region=None`) scenario; new dedicated `perf_profile --viewport-recomposite` viewport-scale COMMIT scenario (region 1080²/1920², 12L) — a distinct flag from the shipped 16-px `--composite` gate (the shipped `scripts/perf_profile.py` implements `--viewport-recomposite`). Wired into CI at the loose named ceilings. Scenario = AGT-10 HOW; CI wiring = AGT-09 HOW. | REQ-P12-LOGIC-003/-005; baseline §6; DEP-3 |
 | **Slice F — artifact hygiene** | FU-2 (Phase-1 `plan.md` §9 `REQ-P1-LOGIC-004` S-id mismatch), FU-17 (Phase-1↔Phase-4 `SC-UI-*` scenario-number collision), FU-16 label collision (§2c disambiguation), FU-4 (residual `logic/` docstrings). Artifact/source text only; **no runtime change; no `docs/**`** touched by the SDD artifacts. | REQ-P12-LOGIC-006/-007; spec §2c; DEP-5 |
 | Testing | pytest (logic byte-exact regression per mode + determinism; the two `perf_profile` gates), pytest-qt both themes (opacity-drag responsiveness + commit byte-exactness), pydocstyle (FU-4), `sdd-analyze` (FU-2/-17/-16). Headless, deterministic, portable. | Article IV; spec §5 |
 | Quality | Black + isort + flake8 + mypy (strict for `logic/`) | Article III |
@@ -139,8 +139,8 @@ both themes apply to the opacity-drag interaction (AGT-06 verifies). **No new `u
 
 | File | Change | Owner | REQ |
 | --- | --- | --- | --- |
-| `scripts/perf_profile.py` *(extend)* | Add a `--full-frame` (`region=None`) full-canvas flatten scenario; extend `--composite` with a viewport-scale scenario (region ≥ 1080², 12L). Qt-free numpy + `logic/` only, mirroring the existing `--composite` gate. | AGT-10 | LOGIC-003, -005 |
-| `.github/workflows/ci.yml` *(extend)* | Two new perf-gate steps: `--full-frame` at `COMPOSITE_FULL_CEILING_MS`; the viewport-scale `--composite` at `VIEWPORT_RECOMPOSITE_CEILING_MS`. Ceilings passed from the named constants (no literal). | AGT-09 | LOGIC-003, -005 |
+| `scripts/perf_profile.py` *(extend)* | Add a `--full-frame` (`region=None`) full-canvas flatten scenario; add a dedicated `--viewport-recomposite` viewport-scale COMMIT scenario (region ≥ 1080², 12L). Qt-free numpy + `logic/` only, mirroring the existing `--composite` gate. **(Shipped script implements `--viewport-recomposite` as its own flag, not a `--composite` extension.)** | AGT-10 | LOGIC-003, -005 |
+| `.github/workflows/ci.yml` *(extend)* | Two new perf-gate steps: `--full-frame` at `COMPOSITE_FULL_CEILING_MS`; `--viewport-recomposite` at `VIEWPORT_RECOMPOSITE_CEILING_MS`. Ceilings passed from the named constants (no literal). | AGT-09 | LOGIC-003, -005 |
 
 ### 4.4 Layering — no new rule, no new module, no new edge
 
@@ -253,7 +253,7 @@ runner) → AGT-01 final gate → AGT-08 docs → AGT-07 i18n if strings → AGT
   split-cache/LOD/cull directive → AGT-03 `constants` (`VIEWPORT_RECOMPOSITE_CEILING_MS`) + `blend`
   split-cache seam + LOD downsample helper (byte-exact commit) → AGT-05 `layer_panel` drag lifecycle
   (preview holds 16 ms; commit full-res) reusing `composite_warmer`/`frame_cache`/D3 → AGT-04 recomposite
-  byte-exact + AGT-06 opacity-drag responsiveness both themes → AGT-10 viewport-scale `--composite`
+  byte-exact + AGT-06 opacity-drag responsiveness both themes → AGT-10 `--viewport-recomposite`
   scenario + RE-PROFILE → AGT-01 gate → AGT-07 i18n (only if new strings) → AGT-09 CI wiring.
   REQ-P12-LOGIC-004/-005, REQ-P12-UI-001.
 - **Slice F — artifact + docstring hygiene:** AGT-01 (plan/S-id/follow-up-id reconciliation) + AGT-02

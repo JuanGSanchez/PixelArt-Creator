@@ -87,7 +87,7 @@ Feature: Whole-viewport recomposite + live opacity-slider drag (Slice B, FU-16 (
     And both light and dark themes behave identically
 
   Scenario: SC-P12-LOGIC-005-1 A viewport-scale perf gate guards the recomposite in CI
-    Given perf_profile --composite extended with a viewport-scale scenario (>= 1080 by 1080, 12 layers)
+    Given perf_profile --viewport-recomposite (viewport-scale split-cache commit gate, >= 1080 by 1080, 12 layers)
     When the recomposite is at or under VIEWPORT_RECOMPOSITE_CEILING_MS
     Then the gate passes
     And it fails on a regression toward the 2-7 s cost

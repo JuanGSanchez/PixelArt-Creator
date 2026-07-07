@@ -49,7 +49,7 @@ plan-level HOW the spec deferred:
 | **D1** | Present the active layer buffer as **one** `QGraphicsPixmapItem` (whole-buffer image), **not** tiled pixmap items. Nearest-neighbour, AA disabled at every zoom (REQ-P1-UI-001). Buffer stays fully resident (F7). | `canvas_scene.py` |
 | **D2** | Draw checkerboard **and** optional per-pixel grid inside `drawBackground(painter, rect)` using **only** the exposed `rect`; tile on `TILE_SIZE`(64) + `TILE_BUFFER`(1) ring; never iterate the 8K scene (REQ-P1-UI-003, -007). Checker/grid colours are role-based (REQ-P1-UI-025). | `canvas_scene.py` |
 | **D3** | `setSceneRect(0,0,W,H)` **once** at scene `__init__` from doc dims; re-set (never accumulate) on `Document.resize_canvas` (REQ-P1-UI-002). | `canvas_scene.py` |
-| **D4** | `view.setViewportUpdateMode(MinimalViewportUpdate)`; rely on exposed-rect painting to cull *rendering*; never cull the resident buffer (REQ-P1-UI-023 / SC-UI-023-2). | `canvas_view.py` |
+| **D4** | `view.setViewportUpdateMode(MinimalViewportUpdate)`; rely on exposed-rect painting to cull *rendering*; never cull the resident buffer (REQ-P1-UI-023 / SC-P1-UI-023-2). | `canvas_view.py` |
 | **D5** | On a paint edit, `item.update(QRectF)` over **only** the changed-coords bounding rect (from the primitive's returned coords); never a no-arg `scene.update()`. Line-tool preview updates/clears only its bounding rect (REQ-P1-UI-006, -015, -023). | `canvas_view.py`, tools |
 | **D6** | `QOpenGLWidget` viewport gated behind `OPENGL_VIEWPORT_ENABLED`; raster fallback when the toggle is off or a GL context is unavailable (headless CI). Read the constant; never hard-code the choice (REQ-P1-UI-004). | `canvas_view.py` |
 | **D7** | Leave BSP depth at **auto**; set `scene.setItemIndexMethod(NoIndex)` for the single-item scene. Introduce **no** `BSP_TREE_DEPTH` constant unless profiling (§9 of render-strategy) proves a win. | `canvas_scene.py` |
@@ -65,21 +65,21 @@ The plan binds every CL-default as a fixed behaviour:
 
 | CL | Contract encoded in the plan |
 | --- | --- |
-| CL-1 | Zoom range **fit-to-view (min) … `ZOOM_MAX`=64.0 (6400 %) (max)**; clamp to both bounds (SC-UI-004-1). |
+| CL-1 | Zoom range **fit-to-view (min) … `ZOOM_MAX`=64.0 (6400 %) (max)**; clamp to both bounds (SC-P1-UI-004-1). |
 | CL-2 | Wheel zoom = geometric step `1.0 + SCALE_FACTOR` (≈×1.15) per notch; keyboard zoom snaps to `ZOOM_PRESET_STOPS` (100..6400 %). **BF-3 resolved: reuse `SCALE_FACTOR`** for the step; add `ZOOM_MAX` + `ZOOM_PRESET_STOPS` as new named constants. |
-| CL-3 | Pan = **middle-drag** and **Space+left-drag**; scrollbars as fallback; pan never paints (SC-UI-005-1/-2). |
-| CL-4 | Grid overlay **off by default**; auto-shown only when on-screen pixel edge ≥ `GRID_MIN_PIXEL_EDGE_PX`(8) **and** toggled on (SC-UI-007-1/-2). |
+| CL-3 | Pan = **middle-drag** and **Space+left-drag**; scrollbars as fallback; pan never paints (SC-P1-UI-005-1/-2). |
+| CL-4 | Grid overlay **off by default**; auto-shown only when on-screen pixel edge ≥ `GRID_MIN_PIXEL_EDGE_PX`(8) **and** toggled on (SC-P1-UI-007-1/-2). |
 | CL-5 | Exactly five tools: pencil, eraser, flood-fill, line, colour-picker. |
-| CL-6 | Palette panel is **single-select** (one active swatch) (SC-UI-018-2). |
-| CL-7 | New document default **64×64 RGBA** (`DEFAULT_CANVAS_WIDTH`/`_HEIGHT`); arbitrary sizes up to `MAX_CANVAS_*` (SC-UI-020-1/-2). |
-| CL-8 | Right-click = dispatch **seam** to a replaceable menu hook; Phase-1 hook shows a placeholder; colour hub deferred to Phase 3 (SC-UI-008-1/-2). |
-| CL-9 | **One `QUndoCommand` per completed stroke** (drag coalesces) (SC-UI-006-2). |
-| CL-10 | Active colour set by **palette panel** and **colour-picker** (SC-UI-016-1, -018-2). |
-| CL-11 | Line tool: live preview during drag, **commit one command on release** (SC-UI-015-1). |
-| CL-12 | Scene point **floored** to integer pixel; off-buffer click is a **no-op** (no command) (SC-UI-006-3). |
+| CL-6 | Palette panel is **single-select** (one active swatch) (SC-P1-UI-018-2). |
+| CL-7 | New document default **64×64 RGBA** (`DEFAULT_CANVAS_WIDTH`/`_HEIGHT`); arbitrary sizes up to `MAX_CANVAS_*` (SC-P1-UI-020-1/-2). |
+| CL-8 | Right-click = dispatch **seam** to a replaceable menu hook; Phase-1 hook shows a placeholder; colour hub deferred to Phase 3 (SC-P1-UI-008-1/-2). |
+| CL-9 | **One `QUndoCommand` per completed stroke** (drag coalesces) (SC-P1-UI-006-2). |
+| CL-10 | Active colour set by **palette panel** and **colour-picker** (SC-P1-UI-016-1, -018-2). |
+| CL-11 | Line tool: live preview during drag, **commit one command on release** (SC-P1-UI-015-1). |
+| CL-12 | Scene point **floored** to integer pixel; off-buffer click is a **no-op** (no command) (SC-P1-UI-006-3). |
 | CL-13 | Ship light + dark; default follows OS/light; runtime switch (REQ-P1-UI-025). |
-| CL-14 | Language from system `QLocale`; fallback **English** (SC-UI-021-1). |
-| CL-15 | Zoom anchors on the **cursor** (view-centre for keyboard zoom) (SC-UI-004-2). |
+| CL-14 | Language from system `QLocale`; fallback **English** (SC-P1-UI-021-1). |
+| CL-15 | Zoom anchors on the **cursor** (view-centre for keyboard zoom) (SC-P1-UI-004-2). |
 | CL-16 | Culling tile size `TILE_SIZE`=64, `TILE_BUFFER`=1 (existing constants). |
 
 ### 1.4 Data flow

@@ -713,42 +713,42 @@ Scenario: SC-L015-2 a new layer defaults to DEFAULT_LAYER_OPACITY and NORMAL
 
 ### Feature: Layer panel controls (REQ-P4-UI-001..008)
 ```gherkin
-Scenario: SC-UI-001-1 the panel lists layers top-to-bottom in z-order
+Scenario: SC-P4-UI-001-1 the panel lists layers top-to-bottom in z-order
   Given a frame with layers [Background(bottom), Sketch, Ink(top)]
   When the layer panel is shown
   Then the rows read top-to-bottom Ink, Sketch, Background
 
-Scenario: SC-UI-002-1 the opacity slider sets layer opacity as one command
+Scenario: SC-P4-UI-002-1 the opacity slider sets layer opacity as one command
   Given a selected layer at 100%
   When the user drags its opacity slider to 40% and releases
   Then Layer.opacity == 0.4, the canvas recomposites, and exactly one command is on the stack
 
-Scenario: SC-UI-003-1 the visibility toggle hides the layer from the composite
+Scenario: SC-P4-UI-003-1 the visibility toggle hides the layer from the composite
   Given a visible top layer contributing to the composite
   When the user toggles its visibility off
   Then the layer disappears from the composited canvas and one command is pushed
 
-Scenario: SC-UI-004-1 the lock toggle makes paint a no-op
+Scenario: SC-P4-UI-004-1 the lock toggle makes paint a no-op
   Given a selected layer
   When the user toggles lock on and then paints on the canvas
   Then no pixel changes on that layer and one lock command was pushed
 
-Scenario: SC-UI-005-1 the blend-mode dropdown lists 12 modes and sets the mode
+Scenario: SC-P4-UI-005-1 the blend-mode dropdown lists 12 modes and sets the mode
   Given a selected layer's blend-mode dropdown
   Then it offers exactly the 12 BlendMode members with translatable labels
   And selecting MULTIPLY sets Layer.blend_mode to MULTIPLY, recomposites, and pushes one command
 
-Scenario: SC-UI-006-1 drag-reorder changes z-order and recomposites
+Scenario: SC-P4-UI-006-1 drag-reorder changes z-order and recomposites
   Given layers [A(bottom), B(top)] with A and B opaque
   When the user drags A above B
   Then the composited canvas now shows A on top and one command is pushed
 
-Scenario: SC-UI-007-1 add / remove / duplicate each push one command
+Scenario: SC-P4-UI-007-1 add / remove / duplicate each push one command
   Given a 2-layer frame
   When the user adds, then duplicates, then removes a layer
   Then each action changes the tree and pushes exactly one command; removing the last layer is refused
 
-Scenario: SC-UI-008-1 group / ungroup preserve children and are reversible
+Scenario: SC-P4-UI-008-1 group / ungroup preserve children and are reversible
   Given two selected layers
   When the user groups them and then ungroups
   Then grouping wraps them in a group node (composite unchanged with default attrs) and ungroup restores them; each is one command
@@ -756,17 +756,17 @@ Scenario: SC-UI-008-1 group / ungroup preserve children and are reversible
 
 ### Feature: Mask / reference / smart affordances (REQ-P4-UI-009..011)
 ```gherkin
-Scenario: SC-UI-009-1 attaching a mask and painting it modulates the composite
+Scenario: SC-P4-UI-009-1 attaching a mask and painting it modulates the composite
   Given a selected layer
   When the user adds a mask, selects it, and paints zero into the right half
   Then the composite shows the layer masked on the right; the layer pixels are unchanged; attach is one command
 
-Scenario: SC-UI-010-1 a reference layer is visible but rejects paint
+Scenario: SC-P4-UI-010-1 a reference layer is visible but rejects paint
   Given the user marks a layer as reference
   When the user tries to paint on it
   Then it remains visible in the composite, no pixel changes, and the flag toggle was one command
 
-Scenario: SC-UI-011-1 a smart layer mirrors its source in the panel
+Scenario: SC-P4-UI-011-1 a smart layer mirrors its source in the panel
   Given the user creates a smart layer from a source layer
   When the source is edited
   Then the smart layer's composite contribution updates and its own pixels are not directly editable; creation is one command
@@ -774,27 +774,27 @@ Scenario: SC-UI-011-1 a smart layer mirrors its source in the panel
 
 ### Feature: Canvas compositing & multi-canvas (REQ-P4-UI-012..014)
 ```gherkin
-Scenario: SC-UI-012-1 the canvas renders the composited stack, not one layer
+Scenario: SC-P4-UI-012-1 the canvas renders the composited stack, not one layer
   Given a document with two visible layers (RED bottom, half-alpha BLUE top)
   When the canvas renders
   Then it shows the composited BLUE-over-RED result, not just the active layer
 
-Scenario: SC-UI-012-2 editing any layer updates the on-canvas composite
+Scenario: SC-P4-UI-012-2 editing any layer updates the on-canvas composite
   Given a multi-layer canvas
   When the user paints on the active layer
   Then the composited canvas updates in the edited region
 
-Scenario: SC-UI-013-1 every layer op is exactly one undoable command
+Scenario: SC-P4-UI-013-1 every layer op is exactly one undoable command
   Given the layer panel
   When any layer op (opacity/visibility/lock/mode/add/remove/duplicate/reorder/group/ungroup/mask/reference/smart) is performed
   Then exactly one QUndoCommand is pushed and undo restores the exact prior tree state
 
-Scenario: SC-UI-014-1 multiple canvases open as isolated tabs
+Scenario: SC-P4-UI-014-1 multiple canvases open as isolated tabs
   Given two documents A and B open in tabs
   When a layer op is performed and undone in A
   Then B's layer tree, composite and undo stack are unaffected
 
-Scenario: SC-UI-014-2 switching tabs switches the active layer context
+Scenario: SC-P4-UI-014-2 switching tabs switches the active layer context
   Given tabs A and B
   When the user selects tab B
   Then B's layer tree, palette, QUndoStack and composite become the active context
@@ -802,24 +802,24 @@ Scenario: SC-UI-014-2 switching tabs switches the active layer context
 
 ### Feature: Performance / a11y / theming / i18n (REQ-P4-UI-015..018) — NFR
 ```gherkin
-Scenario: SC-UI-015-1 an 8K multi-layer edit recomposites within the frame budget
+Scenario: SC-P4-UI-015-1 an 8K multi-layer edit recomposites within the frame budget
   Given a 7680x4320 document with several layers
   When a single-pixel paint triggers a recomposite
   Then the measured per-frame time is <= FRAME_BUDGET_MS (16 ms) recompositing only the dirty region
   # Measured headless by AGT-10 (perf_profile / frame-profile); over-budget yields an
   # AGT-10 dirty-rect optimisation directive, not a budget relaxation.
 
-Scenario: SC-UI-016-1 layer-panel controls expose accessible names and keyboard focus
+Scenario: SC-P4-UI-016-1 layer-panel controls expose accessible names and keyboard focus
   Given the layer panel is shown
   When each control (row, sliders, toggles, dropdown, actions) is inspected and tabbed through
   Then each has a non-empty accessible name, is keyboard reachable in a logical order, and shows a visible focus indicator
 
-Scenario: SC-UI-017-1 the layer panel and composite render correctly in both themes
+Scenario: SC-P4-UI-017-1 the layer panel and composite render correctly in both themes
   Given the app
   When rendered under the light theme and the dark theme
   Then the panel and composited canvas render legibly with role-based colours (no hard-coded per-widget colour)
 
-Scenario: SC-UI-018-1 no Phase-4 user-visible string is a bare literal
+Scenario: SC-P4-UI-018-1 no Phase-4 user-visible string is a bare literal
   Given the Phase-4 ui/ sources
   When string_audit_check runs
   Then it reports zero unwrapped user-visible strings (blend-mode labels, layer names, tooltips, actions)

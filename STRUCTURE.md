@@ -833,7 +833,7 @@
 | `asset_reuse_panel.py` | `Asset_Reuse_Panel` — reference a shared asset into a project (reference-not-copy; only `has()`-checks the CAS, never `put()`); marks an asset shared when >1 project references it. Public seams: `set_session`, `set_content_store`, `add_project`, `current_project`, `current_asset_id`, `reference_count`, `is_shared`, `project_references`, `assetReferenced` signal. | `data/asset_cas`, `logic/asset_catalog`, `ui/asset_library_actions` | UI-007 | 3 |
 | `commands.py` *(extend)* | `AddTagCommand`/`RemoveTagCommand` — QUndoCommand wrappers over the pure `logic/asset_tags` do/undo pair. | `logic/asset_tags` | UI-002 | 1 |
 
-## `pixelart_creator/` — Phase-12 performance & scalability — Slice A BUILT; Slices B/F PLANNED
+## `pixelart_creator/` — Phase-12 performance & scalability — Slices A & B BUILT; Slice F BUILT (artifact/doc hygiene)
 
 > **NFR + doc-hygiene hardening finale — adds NO new module, NO new import edge, NO `data/` work; the
 > module count is UNCHANGED (178 layering / 179 cycles, exit 0 — re-confirmed post-Slice-A).**
@@ -845,8 +845,9 @@
 > gained the `--full-frame` gate. Byte-exactness (`REQ-P12-LOGIC-002`) is pinned by
 > `tests/logic/test_blend_fullframe.py` (58 byte-exact/tiling/threading/property tests). `blend.py` stays
 > a pure zero-Qt logic leaf (`concurrent.futures` threads only, no Qt, no `document` import, no
-> `logic→data` edge). **Slice B SHIPPED (2026-07-07)** — see the Slice-B banner below; Slice F remains
-> PLANNED. It **hardens** two shipped,
+> `logic→data` edge). **Slice B SHIPPED (2026-07-07)** — see the Slice-B banner below. **Slice F COMPLETE
+> (2026-07-07)** — the artifact/doc-hygiene edit-set landed (FU-2/-17/-16/-4; see the Slice-F banner
+> below); C1 re-verified PASS post-Slice-F (`analyze-report.md` §7). It **hardens** two shipped,
 > effectively-ungated compositor hotspots **in place** under a **byte-exact output invariant** (the
 > flattened / recomposited bytes must not change vs the current build — NORMAL + all 11 separable modes,
 > zero tolerance) and reconciles the C3 requirement-artifact + docstring leftovers. Strategy in

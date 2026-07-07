@@ -87,7 +87,7 @@ points, so REQ-P1-LOGIC-003 and REQ-P1-LOGIC-004 are **not** forward-only. This 
 from AGT-02's current matrix and is handed back in §9 (AGT-01 flags; AGT-02 owns the
 edit). It also bears on the analyze-time Article X "no S-id" finding for -004 (spec
 traceability "Notes for sdd-analyze"): -004 traces to its Phase-1 consumers' S-ids
-(S1 via drawing, S7 via palette) rather than being untraced.
+(S7 via palette-nearest, S2 via flood-fill tolerance) rather than being untraced.
 
 ## 5. Data model — `.pixproj` (REQ-P1-DATA-001, S7, Article VII)
 
@@ -190,8 +190,10 @@ Qt, so both must remain exit 0 after implementation; AGT-01 re-runs them before
 
 1. **REQ-P1-LOGIC-004** currently traces "(none / Ph3)". Actual: consumed in Phase-1 by
    `palette.nearest_index` and `drawing.flood_fill` tolerance. Retrace to its Phase-1
-   consumers' S-ids (S7 palette / S1 drawing); this also closes the Article X "no S-id"
-   analyze finding for -004 without inventing an S-id.
+   consumers' S-ids (S7 palette-nearest / S2 flood-fill tolerance); this also closes the
+   Article X "no S-id" analyze finding for -004 without inventing an S-id. **(FU-2, applied:
+   the shipped spec.md §REQ-P1-LOGIC-004 + traceability.md already trace S7 + S2; this plan
+   text is reconciled from the earlier "S1 drawing" wording to match.)**
 2. **REQ-P1-LOGIC-003** currently "S7 (indirect) + forward Phase-4". The
    alpha-compositing **capability** is consumed in Phase-1 by `blit(blend=True)` → add a
    Phase-1 consumption trace; keep the layer-blend-mode semantics forward → Phase 4.
