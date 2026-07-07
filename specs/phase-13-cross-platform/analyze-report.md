@@ -4,12 +4,17 @@
 | --- | --- |
 | Feature | `phase-13-cross-platform` |
 | Author | Claude (AGT-01, Architecture) via `sdd-analyze` |
-| Date | 2026-07-07 |
+| Gate | **T13-X01 — FINAL analyze gate (post-landing), re-run after ALL slices 13A–13E landed** |
+| Date | 2026-07-07 (final re-run) |
 | Artifacts analyzed | `constitution.md`, `specs/phase-13-cross-platform/spec.md`, `plan.md`, `tasks.md`, `traceability.md`, `acceptance.md` |
 | Scope | All **23** REQ-P13 across slices **13A–13E** (DATA-001..008, UI-001..002, BUILD-001..005, BACKEND-001..003, WEB-001..005) |
-| **VERDICT** | **C1 PASS — zero unresolved cross-artifact findings.** The implement gate is **OPEN**; 13A implementation is UNBLOCKED. (13E build additionally waits on the in-`tasks.md` contract-freeze + asset-generation sequence.) |
+| **VERDICT** | **C1 PASS (FINAL) — zero unresolved cross-artifact findings.** All 23 REQs are **implemented + traced to a landed test**; no dangling/contradictory reference; all five `check_layering`/`check_cycles` roots exit 0. **Phase 13 is COMPLETE.** Only purely-editorial traceability/tasks-status drift was found (the tasks table read all-`todo`; the traceability Test column named early "(future)" placeholder filenames) — **fixed in this pass** (specs are AGT-01-owned). **No CODE gap: no REQ lacks an implementation or a test.** |
 
 ---
+
+> **This is the T13-X01 final gate**, superseding the earlier pre-implementation C1 pass (which reported the
+> gate "OPEN" for dispatch). Sections 1–6 remain valid; §7 (layering) and §8 (verdict) are updated to the
+> post-landing five-root run, and §9 records the editorial reconciliation performed this pass.
 
 ## 1. Gate precondition (AN-E1)
 
@@ -116,27 +121,51 @@ layering-rule are correctly ordered **BEFORE** metaprompter generation. **OK**
   container/nginx binary the default runner may lack — kept behind the `integration` marker + a dedicated
   13C job; the default cross-OS matrix stays green without them (plan §3.3).
 
-## 7. Layering / cycle baseline (Article I §4)
+## 7. Layering / cycle FINAL run (Article I §4) — all five roots, post-landing
 
-Run by AGT-01 this session (no product code changed — `.md`/ADR/spec artifacts only):
+Re-run by AGT-01 this pass (T13-X01), now that `web_viewer/` + `logic/share_token.py` + the `asset_export`
+bundle extension + the `sync_backend/server.py` handshake extension have all landed:
 
 | Check | Root | Result |
 | --- | --- | --- |
-| `check_layering.py` | `pixelart_creator` | **exit 0** (178 modules) |
-| `check_layering.py` | `.` | **exit 0** (3 modules — governs `sync_backend/`; `web_viewer/` rule dormant-ready) |
-| `check_cycles.py` | `pixelart_creator` | **exit 0** (179 modules) |
+| `check_layering.py` | `pixelart_creator` | **exit 0** (180 modules) |
+| `check_layering.py` | `.` | **exit 0** (5 modules — dispatches `pixelart_creator`/`sync_backend`/`web_viewer` by `parts[0]`) |
+| `check_cycles.py` | `pixelart_creator` | **exit 0** (182 modules) |
 | `check_cycles.py` | `sync_backend` | **exit 0** (3 modules) |
+| `check_cycles.py` | `web_viewer` | **exit 0** (9 modules) |
 
-All green. The new `WEB_PKG = "web_viewer"` rule (ADR-0035 §3, task T13E-P02) is dormant-ready and will gate
-`web_viewer/` when it lands.
+**All five roots exit 0.** The `WEB_PKG = "web_viewer"` rule (ADR-0035 §3) is now **ACTIVE** and proves
+`web_viewer/` imports no Qt/`ui`/`data`/`sync_backend` (MAY reuse pure `logic/`). The 13B bundle extension
+imports `logic.content_hash` + `logic.document` on the pre-existing allowed `data → logic` edge — **no new
+layer edge, no cycle** (recorded in the private ADR-0037 Addendum A).
 
-## 8. Verdict (AN-D1)
+## 8. Verdict (AN-D1) — FINAL
 
-The unresolved-findings list is **EMPTY** → **C1 PASS**. Spec conforms to the constitution; plan is faithful
-to spec; tasks cover every REQ with ≥1 impl + ≥1 test/verify task; the 13E asset-generation is baked in and
-correctly sequenced after the contract freeze; no cross-artifact contradiction remains (O-1/O-2 reconciled);
-all layering/cycle roots exit 0.
+The unresolved-findings list is **EMPTY** → **C1 PASS (FINAL)**. Spec conforms to the constitution; plan is
+faithful to spec; **every one of the 23 REQs is implemented and covered by ≥1 landed test** (see §4 map +
+the traceability Test column, reconciled this pass); no cross-artifact contradiction remains (O-1/O-2
+reconciled); all five layering/cycle roots exit 0. **No CODE gap was found** — nothing to route.
 
-**The implement gate is OPEN. Slice 13A is UNBLOCKED for dispatch.** (13B/13C/13D follow in order; 13E build
-proceeds only after `T13E-P01` [done] + `T13E-P02/P03` + The Metaprompter's `T13E-G01..G04`, per `tasks.md`.)
+**Phase 13 is COMPLETE.** The only remaining Phase-13 task is `T13-X03` (the Phase-13 `CHANGELOG` entry,
+AGT-08) — a docs task outside this gate.
+
+## 9. Editorial reconciliation performed this pass (specs are AGT-01-owned)
+
+Purely-editorial drift found once slices landed, and fixed here (no code touched):
+
+1. **`tasks.md` status column** read all-`todo` while every engineering task had landed → flipped every
+   landed 13A–13E task to `done`; added a "Status: ALL SLICES LANDED" banner; left `T13-X03` (CHANGELOG,
+   AGT-08) `todo`.
+2. **`traceability.md` Test column** named early "(future)" placeholder filenames that were never separate
+   files — the real tests landed under **consolidated** names. Reconciled to the actual landed files:
+   DATA-001..005 → `tests/data/test_cross_platform.py`; UI-001/-002 → `tests/ui/test_portability_ui.py`;
+   WEB-002 → `web_viewer/tests/test_view_scope.py`; BUILD-002..005 → the `ci.yml` `build-installers` legs +
+   `packaging/*.spec`; plus each Status flipped `DRAFTED` → `IMPLEMENTED`. (DATA-006..008, BACKEND-001..003,
+   WEB-001/-003/-004/-005 already named their actual files.)
+3. **`STRUCTURE.md`** (T13-X02) updated from PLANNED touch-points to BUILT for `web_viewer/`,
+   `logic/share_token.py`, the `asset_export` bundle extension, and the `sync_backend` handshake extension;
+   baseline script counts refreshed to the five-root final run.
+
+None of these are cross-artifact *findings* against the gate — they are the expected specs-catch-up after a
+multi-slice landing, and AGT-01 owns `specs/**` + `STRUCTURE.md`. The gate stays PASS.
 </content>
