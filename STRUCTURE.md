@@ -965,9 +965,11 @@
 > invocation: `check_layering --root pixelart_creator` + `--root .` (the latter dispatches
 > `pixelart_creator`/`sync_backend`/`web_viewer` by `parts[0]`); `check_cycles --root pixelart_creator`,
 > `--root sync_backend`, `--root web_viewer`. **The rule is now ACTIVE — `web_viewer/` has landed and all
-> five roots exit 0** (2026-07-07 final gate: 180 / 5 / 182 / 3 / 9 modules).
+> five roots exit 0** (2026-07-08 Phase-14 final gate: 194 / 5 / 196 / 3 / 9 modules;
+> was 180 / 5 / 182 / 3 / 9 at the 2026-07-07 web_viewer gate — +14 `pixelart_creator` modules for
+> Phase-14 AI assistant, no new top-level package, no forbidden edge).
 
-## `pixelart_creator/logic/` — Phase-14 AI assistant — PLANNED (Slices 14A/14C)
+## `pixelart_creator/logic/` — Phase-14 AI assistant — BUILT (Slices 14A/14C)
 
 > New Qt-free `logic/tool_catalog.py` + `logic/assistant.py` + additive `constants.py` extension, frozen by
 > AGT-01 (`interface-contract`, plan §5) BEFORE implementation so 14B/14C/14D/14E/14F bind to a stable
@@ -991,12 +993,13 @@
 | --- | --- | --- | --- | --- |
 | `constants.py` | extend | +5 assistant caps (leaf; names distinct from every shipped constant). | `MAX_ASSISTANT_TURNS`, `MAX_TOOL_CALLS_PER_TURN`, `MAX_TOOL_RESULT_BYTES`, `MAX_CONVERSATION_MESSAGES`, `ASSISTANT_REQUEST_TIMEOUT_S` | LOGIC-007 |
 | `tool_catalog.py` | **new** (14A) | Read-only introspection over `scripting._REGISTRY`: provider-neutral `ToolDescriptor`; faithful `ParamSchema`→JSON-schema projection (never widens `validate`); `ToolCall`→`macro.Op`→trusted `dispatch` (non-registered/invalid → `ScriptError`, doc byte-unchanged). No new op, no registration path. Zero Qt. | `ToolDescriptor`, `ToolCall`, `build_tool_catalog`, `param_schema_to_json_schema`, `to_op`, `execute_tool_call` | LOGIC-001, 002, 003 |
-| `assistant.py` | **new** (14C) | Value types (`Role`/`Message`/`Conversation`/`AssistantReply`) + the `ChatBackend` **Protocol** (the layering bridge); `Reversibility` + `REVERSIBLE_OPS` + `classify_op` tiered gate (default DESTRUCTIVE→confirm); bounded agentic loop (`run_turn`/`AssistantSession`) with tiered gate before dispatch + untrusted bounded tool-results + `MAX_*` halt → final message. Zero Qt, no `data/`. No `eval`/`exec`. | `Role`, `Message`, `Conversation`, `AssistantReply`, `ChatBackend`, `Reversibility`, `classify_op`, `AssistantSession`, `run_turn`, `AssistantError` | LOGIC-004, 005, 006, 007, 008 |
+| `assistant.py` | **new** (14B value types + `ChatBackend` Protocol; 14C loop/gate) | Value types (`Role`/`Message`/`Conversation`/`AssistantReply`) + the `ChatBackend` **Protocol** (the layering bridge, frozen in 14B); `Reversibility` + `REVERSIBLE_OPS` + `classify_op` tiered gate (default DESTRUCTIVE→confirm); bounded agentic loop (`run_turn`/`AssistantSession`) with tiered gate before dispatch + untrusted bounded tool-results + `MAX_*` halt → final message. **Turn-atomicity on a mid-turn error: `AssistantError.applied_commands` exposes the ordered applied commands so the UI/CLI revert to a byte-identical document; a non-`AssistantError` cause is wrapped with `__cause__` preserved (SC-L005-3).** Zero Qt, no `data/`. No `eval`/`exec`. | `Role`, `Message`, `Conversation`, `AssistantReply`, `ChatBackend`, `Reversibility`, `classify_op`, `AssistantSession`, `run_turn`, `AssistantError` (`.applied_commands`) | LOGIC-004, 005, 006, 007, 008 |
 
-## `pixelart_creator/data/llm/` + `data/` — Phase-14 LLM port + adapters + CLI — PLANNED (Slices 14B/14D/14F)
+## `pixelart_creator/data/llm/` + `data/` — Phase-14 LLM port + adapters + CLI — BUILT (Slices 14B/14D/14F)
 
-> New Qt-free `data/llm/` subpackage (`port.py` + `fake_adapter.py` + `openai_compatible.py` +
-> `anthropic_translator.py` + `token_store.py`) + `data/assistant_cli.py`, mirroring `data/cloud/` and
+> New Qt-free `data/llm/` subpackage (`port.py` + `fake_adapter.py` + `token_store.py` +
+> `openai_compatible.py` + `anthropic_translator.py` + the module-private `_base.py` + `_http.py`
+> shared-adapter helpers) + `data/assistant_cli.py`, mirroring `data/cloud/` and
 > `data/automation_cli.py`. **DEP-1 ratified — a normal `data/` subpackage, NOT a new top-level package**
 > (unlike `sync_backend`/`web_viewer`, which are out-of-process wire-reached deployables excluded from the
 > wheel): `data/llm/` is in-process, imported, ships in the wheel, governed by the existing `check_layering`
@@ -1015,9 +1018,11 @@
 | `data/llm/token_store.py` | **new** (14B) | OS-keyring isolation (lazy `keyring`; template `pixelart-creator:assistant:{provider}`); keys never leave `data/llm/`, never in `.pixproj`/logs. | `store_token`, `load_token`, `delete_token`, `is_keyring_available`, `service_name` | DATA-003, 006 |
 | `data/llm/openai_compatible.py` | **new** (14D) | Real stdlib-`urllib` OpenAI-compatible client (OpenAI/Gemini-compat/Ollama/llama.cpp); credential-gated/out-of-CI; no new hard dep. | `OpenAICompatibleAdapter` | DATA-004, 006, 007 |
 | `data/llm/anthropic_translator.py` | **new** (14D) | Real stdlib-`urllib` native-Anthropic translator (Messages/`tool_use`/`tool_result`, `input_schema`, `x-api-key`); same port; credential-gated. | `AnthropicAdapter` | DATA-005, 006, 007 |
+| `data/llm/_base.py` | **new** (14D, private) | Shared credential-gating + non-secret config base for the two real adapters: `_HTTPLLMAdapter(LLMPort)` pulls the key from `token_store` **lazily at request time** (never at import/construct → no key/network to import `data/llm`); `is_configured` = key+endpoint; a missing key degrades to not-configured (never crashes). Key never logged / never above the port. | `_HTTPLLMAdapter` (module-private) | DATA-006, 007 |
+| `data/llm/_http.py` | **new** (14D, private) | The single stdlib-`urllib` JSON-POST + bounded-retry transport seam both real adapters share: endpoint scheme/host validation (TLS-only off loopback), retry within `ASSISTANT_REQUEST_TIMEOUT_S`, and normalization of every transport/HTTP/parse failure into `LLMResponseError` (no raw `urllib`/`json` type leaks above the port). Stdlib only — no new dep; auth headers opaque, never rendered into errors. | `validate_endpoint`, `post_json` (module-private) | DATA-004, 007 |
 | `data/assistant_cli.py` | **new** (14F) | Headless Qt-free `pixelart-assistant` driver (mirrors `automation_cli.py`): load `.pixproj` (IO-3) → run the loop → save back; destructive op requires an explicit `--yes`/confirm affordance (never auto-run); fake adapter in CI; exit 0/1/2. Zero Qt; no `eval`/`exec`. | `main(argv) -> int`, `build_parser` | DATA-008 |
 
-## `pixelart_creator/ui/` — Phase-14 AI assistant — PLANNED (Slice 14E)
+## `pixelart_creator/ui/` — Phase-14 AI assistant — BUILT (Slice 14E)
 
 > Binds to 14A/14B/14C logic+data; Qt lives here only; the sole Qt undo-bridge stays `ui/commands.py` (one
 > grouped `QUndoCommand` per assistant **edit**; a chat message / provider-connect / confirm-decision push

@@ -6,7 +6,8 @@
 | Author | Claude (AGT-01, Architecture) via `sdd-tasks` |
 | Date | 2026-07-08 |
 | Over | `plan.md` + ADR-0039/0040/0041/0042; spec/acceptance/traceability |
-| Gate | Article VIII — **no implement dispatch until `analyze-report.md` (C1) passes.** This tasks list is C1-analysed. |
+| Status | **ALL SIX SLICES SHIPPED (14A–14F) + phase-final T14-X01/T14-X02 done — Phase 14 COMPLETE (2026-07-08).** Every task below is DONE (see §Post-implementation status). |
+| Gate | Article VIII — no implement dispatch until `analyze-report.md` (C1) passed. The forward C1 opened the gate; the **final** C1 (`analyze-report.md`, T14-X01) confirms every REQ implemented + traced to a landed test, five script roots exit 0. |
 | CI note | Remote GitHub Actions is billing-blocked; **the LOCAL gate is authoritative** — each task/slice must leave `check_layering` + `check_cycles` (both roots) exit 0, Black/isort/flake8/mypy clean, pytest + `coverage_gate` (≥90 line / ≥80 branch) green, `string_audit_check` clean (UI), and `path_portability_check` clean. |
 
 ## Dependency order (slice-by-slice — each an independently gate-green shippable increment)
@@ -24,6 +25,29 @@
 14B (fake adapter) and are otherwise independent. Owners: **AGT-03** logic/data, **AGT-05** ui,
 **AGT-04** logic/data tests, **AGT-06** ui/a11y tests, **AGT-07** i18n, **AGT-08** docs, **AGT-09**
 pyproject/CI/commits. Every task carries its REQ + acceptance-scenario (SC-…) link.
+
+---
+
+## Post-implementation status (2026-07-08) — ALL TASKS DONE
+
+Every task in the tables below is **DONE** and landed under the local gate. Summary per slice:
+
+| Slice | Tasks | State | Landed evidence |
+| --- | --- | --- | --- |
+| 14A | T14A-01..05 | **DONE** | `logic/tool_catalog.py`; `tests/logic/test_tool_catalog.py` |
+| 14B | T14B-01..07 | **DONE** | `logic/assistant.py` (types + `ChatBackend`), `data/llm/{port,fake_adapter,token_store}.py`; `pyproject` `assistant_live` extra + marker; `tests/data/test_llm_{port,fake_adapter,token_store}.py`, `tests/logic/test_assistant.py` |
+| 14C | T14C-01..06 | **DONE** | `logic/constants.py` (+5 caps), `logic/assistant.py` (gate + loop + turn-atomicity); `tests/logic/test_assistant_loop.py` (+ no-eval audits) |
+| 14D | T14D-01..04 | **DONE** | `data/llm/{openai_compatible,anthropic_translator,_base,_http}.py`; `tests/data/test_llm_{openai_compatible,anthropic_translator,adapter_parity,http}.py` (+ `[assistant_live]` live smokes, deselected) |
+| 14F | T14F-01..04 | **DONE** | `data/assistant_cli.py`; `pyproject` `pixelart-assistant` entry point; `tests/data/test_assistant_cli.py` |
+| 14E | T14E-01..10 | **DONE** | `ui/{assistant_dock,assistant_worker,provider_config_dialog}.py` + `ui/commands.py` `AssistantCommand` + `ui/main_window.py` wiring; i18n `.ts`/`.qm`; `content/en/ai-assistant.md` + manifest topic; `tests/ui/test_assistant_dock.py`, `tests/logic/test_guide_model.py`, `tests/data/test_guide_content.py` |
+| — | T14-X01 | **DONE** | Final analyze gate — `analyze-report.md` C1 **PASS** |
+| — | T14-X02 | **DONE** | `STRUCTURE.md` Phase-14 sections flipped PLANNED → BUILT |
+
+> **Test-layout note (drift resolved):** the "Target file(s)" test paths in the tables below were **forward
+> predictions**. The shipped suite consolidated them — 14A → `tests/logic/test_tool_catalog.py`; 14C →
+> `tests/logic/test_assistant_loop.py` (+ `test_assistant.py`); the `data/llm` tests **flat** under
+> `tests/data/test_llm_*.py`; the whole 14E UI surface → `tests/ui/test_assistant_dock.py`. Coverage is
+> unchanged; the authoritative REQ↔landed-test map is `traceability.md` (all rows `covered (landed)`).
 
 ---
 
