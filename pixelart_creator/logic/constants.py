@@ -1002,3 +1002,35 @@ Consumed by the Slice-14D stdlib-``urllib`` OpenAI-compatible + Anthropic adapte
 and the fake adapter make no network call, so this does not gate them. DISTINCT SECONDS
 concern from SHARE_TOKEN_MAX_TTL_S (=14400, a token lifetime) and from every millisecond
 render budget/ceiling (spec REQ-P14-LOGIC-007 / REQ-P14-DATA-004..007; ADR-0041 §4)."""
+
+# --- Phase-14 Slice-14D real-adapter transport tuning (phase-14 T14D-01; Article II) --
+# Named bounds consumed ONLY by the Slice-14D real stdlib-``urllib`` provider adapters
+# (data/llm/openai_compatible.py + data/llm/anthropic_translator.py). BF-1: both names
+# are DISTINCT from every shipped constant. The pure loop and the fake adapter make no
+# network call, so neither gates them. This module stays a leaf (no intra-package
+# imports).
+
+ASSISTANT_REQUEST_MAX_RETRIES: int = 2
+"""Bounded transient-failure retry count for one real provider round-trip.
+
+The stdlib-``urllib`` adapters hand-roll a bounded retry (``urllib`` gives no retry
+niceties, Researcher ``ad2616c7`` R4.1): a request is attempted at most
+``ASSISTANT_REQUEST_MAX_RETRIES + 1`` times (this many *retries* after the first try) on
+a timeout / transient transport error / retryable 5xx, each attempt bounded by
+:data:`ASSISTANT_REQUEST_TIMEOUT_S`; on exhaustion the adapter raises
+``LLMResponseError`` rather than hanging or looping. DISTINCT named concern from the
+Phase-10 :data:`CLOUD_RETRY_LIMIT` (=3, a cloud-sync op's retry ceiling — a different
+transport surface): this bounds ONE assistant provider HTTP request (spec
+REQ-P14-DATA-004/-005/-007; Researcher ``ad2616c7`` R4.1)."""
+
+ASSISTANT_MAX_OUTPUT_TOKENS: int = 4096
+"""Default ``max_tokens`` request ceiling for the native-Anthropic Messages adapter.
+
+Anthropic's ``/v1/messages`` wire REQUIRES a ``max_tokens`` field (unlike the
+OpenAI-compatible ``/v1/chat/completions`` wire, where it is optional) — this is the
+default the :class:`~pixelart_creator.data.llm.anthropic_translator.AnthropicTranslator`
+sends when the caller supplies none (a caller may override per-construction). It bounds
+one reply's generated length so a single round-trip cannot run away. DISTINCT named
+concern from every shipped constant — it is an output-token count, not a byte cap
+(cf. :data:`MAX_TOOL_RESULT_BYTES`) nor a message/turn count (spec REQ-P14-DATA-005;
+Researcher ``ad2616c7`` R1.4)."""
