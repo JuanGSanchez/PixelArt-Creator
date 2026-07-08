@@ -925,3 +925,80 @@ headroom, while staying finite. DISTINCT named concern from the shipped byte cap
 (:data:`MAX_CRDT_UPDATE_BYTES`, :data:`MAX_COMMENT_BYTES`) — this bounds a *character*
 count of a compact bearer token before decode (spec REQ-P13-WEB-005; plan §8;
 ADR-0036 §1 / Addendum A.8)."""
+
+# --- Phase-14 Slice-14C assistant agentic-loop caps (phase-14 T14C-01; Article II) --
+# Named bounds consumed by the pure-``logic`` agentic conversation loop + tiered-safety
+# gate + prompt-injection / untrusted-tool-result defence (logic/assistant.py, ADR-0041
+# §4). BF-1 (ADR-0041 §4 / plan §8): every name below is DISTINCT from every shipped
+# constant — most pointedly MAX_TOOL_RESULT_BYTES is a DIFFERENT concern from the
+# shipped
+# byte caps (MAX_CLOUD_PROJECT_BYTES=268435456, MAX_BLOB_BYTES=268435456,
+# MAX_CRDT_UPDATE_BYTES=1048576, MAX_COMMENT_BYTES=4096,
+# GUIDE_MAX_CONTENT_BYTES=1048576):
+# it bounds ONE untrusted *tool-result* fed back to the model, not a project/blob/CRDT/
+# comment/guide payload. ASSISTANT_REQUEST_TIMEOUT_S is a SECONDS network-request
+# timeout,
+# DISTINCT from SHARE_TOKEN_MAX_TTL_S (=14400, a token lifetime) and from every
+# millisecond render budget/ceiling (*_BUDGET_MS / *_CEILING_MS). These reuse the
+# ``cloud_validation``-style size/count bounding rationale (ADR-0026 §6, CLD-1) — a
+# breach raises a domain error (AssistantError) rather than degrading silently or
+# looping
+# unbounded. This module stays a leaf (no intra-package imports).
+
+MAX_ASSISTANT_TURNS: int = 16
+"""Ceiling on model round-trips (turns) in one bounded agentic run (Article II/VII).
+
+The agentic loop (:func:`~pixelart_creator.logic.assistant.run_turn`, ADR-0041 §1)
+iterates model→tool→model until a final assistant message; this bounds that iteration so
+a run-away or adversarial loop that never emits a final message HALTS with an
+:class:`~pixelart_creator.logic.assistant.AssistantError` rather than looping forever
+(bounded-halt — SC-L005-2). 16 comfortably spans a legitimate multi-step creative task
+(select→recolour→procgen→summarise) while capping run-away cost. DISTINCT named concern
+from every shipped constant (spec REQ-P14-LOGIC-005/-007; ADR-0041 §4; SC-L005-2)."""
+
+MAX_TOOL_CALLS_PER_TURN: int = 8
+"""Ceiling on tool-calls the model may request in a SINGLE turn (Article II/VII).
+
+Supports parallel/multi-tool turns (Researcher ``ad2616c7`` R2.3) while bounding one
+turn's fan-out; the loop rejects a turn requesting more with an
+:class:`~pixelart_creator.logic.assistant.AssistantError` (bounded-halt). Each call in a
+permitted turn still re-runs the full validate + tiered-safety gate independently — this
+is a *count* bound, not an authority grant. DISTINCT named concern from every shipped
+constant (spec REQ-P14-LOGIC-005/-006/-007; ADR-0041 §4; SC-L006-*)."""
+
+MAX_TOOL_RESULT_BYTES: int = 65536
+"""Defensive ceiling, bytes (64 KiB), on ONE untrusted tool-result fed back to the
+model.
+
+A tool-result (a dispatched op's summary, an error string, or any content carried back
+as
+a ``Role.TOOL`` message) is **untrusted input** — the prompt-injection surface (OWASP
+LLM
+2026 #1; Researcher ``ad2616c7`` R5.2).
+:func:`~pixelart_creator.logic.assistant.bound_tool_result`
+truncates any result exceeding this bound to a UTF-8-safe prefix **before** it re-enters
+the conversation, so a malicious/oversized result cannot exhaust memory/context
+(SC-L006-3). Bounding is the *secondary* defence; the primary is structural — a result
+is
+inert data and can never invoke a non-whitelisted op or bypass the tiered gate (§2/§3).
+DISTINCT named byte concern from the shipped MAX_CLOUD_PROJECT_BYTES / MAX_BLOB_BYTES
+(=268435456), MAX_CRDT_UPDATE_BYTES (=1048576), GUIDE_MAX_CONTENT_BYTES (=1048576) and
+MAX_COMMENT_BYTES (=4096) — this bounds one tool-result, reusing the ADR-0026 §6 / CLD-1
+untrusted-size posture (spec REQ-P14-LOGIC-006/-007; ADR-0041 §3/§4; SC-L006-3)."""
+
+MAX_CONVERSATION_MESSAGES: int = 256
+"""Ceiling on the total messages in one assistant :class:`Conversation` transcript.
+
+Bounds the growing transcript (user + assistant + tool-result messages) across a bounded
+run; the loop raises :class:`~pixelart_creator.logic.assistant.AssistantError` if a turn
+would push the transcript past this bound (bounded-halt — SC-L005-2). DISTINCT named
+concern from every shipped constant (spec REQ-P14-LOGIC-005/-007; ADR-0041 §4)."""
+
+ASSISTANT_REQUEST_TIMEOUT_S: int = 60
+"""Per-request network timeout, seconds, for a real provider adapter round-trip.
+
+Consumed by the Slice-14D stdlib-``urllib`` OpenAI-compatible + Anthropic adapters
+(``data/llm/``) so a hung provider connection cannot block indefinitely; the pure loop
+and the fake adapter make no network call, so this does not gate them. DISTINCT SECONDS
+concern from SHARE_TOKEN_MAX_TTL_S (=14400, a token lifetime) and from every millisecond
+render budget/ceiling (spec REQ-P14-LOGIC-007 / REQ-P14-DATA-004..007; ADR-0041 §4)."""
