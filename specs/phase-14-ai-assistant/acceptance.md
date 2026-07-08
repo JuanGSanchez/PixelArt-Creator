@@ -118,6 +118,17 @@ Scenario: SC-L005-2 The loop halts at the bounded step limit
   When the agentic loop runs
   Then the loop stops at the bound and raises/returns a bounded-halt result
   And it never loops unbounded
+
+@logic @invariant
+Scenario: SC-L005-3 [TURN-ATOMICITY] A mid-turn error after a partial apply exposes the applied commands for a byte-identical revert
+  Given the fake adapter is scripted to emit a reversible tool-call that applies as one undoable command
+  And the turn then fails mid-turn (a bounded-halt breach, a transcript overflow, or an LLMError from the backend after the apply)
+  When the agentic loop runs the turn
+  Then the failure surfaces as an AssistantError whose applied_commands holds the ordered, already-applied commands
+  And when the mid-turn cause was not an AssistantError it is wrapped, preserving the original exception on __cause__ (one type to catch, one attribute to read)
+  And the loop does NOT auto-revert — it only exposes the handle, and the caller may revert the commands in reverse (apply-then-undo = identity) to leave the document byte-identical, or record them as one undo step
+  And no orphaned partial mutation persists — the turn is atomic on the error path exactly as a single rejected tool-call is (SC-L006-1)
+  And when no command had applied there is nothing to revert (applied_commands is the empty tuple / the original error propagates unchanged)
 ```
 
 ### REQ-P14-LOGIC-006 — Tool-results are untrusted, bounded input; they cannot escalate (prompt-injection defence)

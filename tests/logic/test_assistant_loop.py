@@ -41,6 +41,7 @@ from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from pixelart_creator.data.llm.fake_adapter import FakeLLMAdapter
+from pixelart_creator.data.llm.port import LLMError
 from pixelart_creator.logic import assistant as assistant_mod
 from pixelart_creator.logic.assistant import (
     REVERSIBLE_OPS,
@@ -53,6 +54,7 @@ from pixelart_creator.logic.assistant import (
     Reversibility,
     Role,
     ToolCall,
+    TurnResult,
     bound_tool_result,
     classify_op,
     deny_all,
@@ -694,3 +696,231 @@ def test_assistant_loop_has_no_eval_exec_compile_import_call():
     # path is the allow-listed trusted dispatch. An AST audit proves no eval/exec/
     # compile/__import__ CALL anywhere in assistant.py.
     assert _forbidden_calls(assistant_mod) == []
+
+
+# =========================================================================== #
+# SC-L005-3 — TURN ATOMICITY ON A MID-TURN ERROR (error-path partial-apply)     #
+#                                                                               #
+# ADR-0041 §1 amendment: a turn that errors AFTER applying >=1 reversible        #
+# tool-call is as recoverable as a single rejected call. run_turn surfaces the   #
+# already-applied commands on AssistantError.applied_commands (wrapping a non-    #
+# AssistantError cause, preserving it as __cause__) so the caller can revert     #
+# (apply o undo = identity -> byte-identical) or record them as one undo step.   #
+# With NO prior apply the raw error propagates unchanged (behaviour-neutral).    #
+# =========================================================================== #
+
+
+class _RaisingBackend:
+    """A deterministic ``ChatBackend``: emit scripted replies, then raise mid-turn.
+
+    Stands in for a backend whose ``respond`` fails partway through a turn — the
+    real-world case the atomicity contract addresses (a transport/rate-limit/500
+    failure normalized by an ``LLMPort`` into an :class:`LLMError`). It returns the
+    scripted replies one-per-call (driving >=0 reversible applies), then raises the
+    injected error on the NEXT ``respond`` — so a test controls exactly when the
+    mid-turn failure lands relative to the applied commands. No network, no clock, no
+    randomness (the ``FakeLLMAdapter`` determinism contract).
+    """
+
+    def __init__(self, script, error: BaseException) -> None:
+        self._script = tuple(script)
+        self._error = error
+        self._cursor = 0
+        self.calls: list[Conversation] = []
+
+    def respond(self, conversation, tools):
+        self.calls.append(conversation)
+        if self._cursor >= len(self._script):
+            raise self._error
+        reply = self._script[self._cursor]
+        self._cursor += 1
+        return reply
+
+    def is_configured(self) -> bool:
+        return True
+
+
+def _revert(commands) -> None:
+    """Revert applied commands the way the atomicity contract prescribes: reversed."""
+    for command in reversed(commands):
+        command.undo()
+
+
+def test_mid_turn_llm_error_after_apply_wraps_and_exposes_applied_commands():
+    # SC-L005-3 [MID-TURN LLMError WRAP]: a turn applies >=1 REVERSIBLE tool-call, then
+    # the next backend.respond raises an LLMError. run_turn re-raises as a SINGLE
+    # AssistantError whose .applied_commands holds the ordered already-applied commands
+    # and whose .__cause__ IS the original LLMError — the caller has one type to catch
+    # and one attribute to read, and can revert the turn to byte-identical.
+    doc = _rgba_doc()
+    buf = _leaf_buffer(doc)
+    before = _doc_bytes(doc)
+    cause = LLMError("upstream 503: rate limited mid-turn")
+    # One turn requesting TWO reversible ops (transparent -> red -> blue): both apply,
+    # THEN respond is called again and raises. Two commands prove ordering matters.
+    backend = _RaisingBackend(
+        [AssistantReply.calling(_recolour(TRANSPARENT, RED), _recolour(RED, BLUE))],
+        cause,
+    )
+
+    with pytest.raises(AssistantError) as excinfo:
+        run_turn(doc, _user("recolour then die"), backend)
+
+    error = excinfo.value
+    # The original LLMError is preserved as the cause (raise ... from cause).
+    assert error.__cause__ is cause
+    assert isinstance(error.__cause__, LLMError)
+    # The applied commands are exposed, in application order, as undoable Commands.
+    assert len(error.applied_commands) == 2
+    assert all(isinstance(c, Command) for c in error.applied_commands)
+    # The ops genuinely applied (the loop does NOT auto-revert — it exposes the handle).
+    assert tuple(buf.data[0, 0]) == BLUE
+    assert _doc_bytes(doc) != before
+
+    # (b) The caller reverts reversed(applied_commands) -> document byte-identical.
+    _revert(error.applied_commands)
+    assert _doc_bytes(doc) == before
+
+
+@given(n=st.integers(min_value=1, max_value=MAX_TOOL_CALLS_PER_TURN))
+def test_mid_turn_error_exposes_all_applied_commands_property(n):
+    # SC-L005-3 property: for ANY number of reversible ops applied (1..cap) before a
+    # mid-turn LLMError, applied_commands has exactly that many entries, __cause__ is
+    # the LLMError, and reverting reversed(applied_commands) restores byte-identity.
+    doc = _rgba_doc()
+    before = _doc_bytes(doc)
+    cause = LLMError("mid-turn transport failure")
+    calls = tuple(ToolCall(OP_BATCH_RECOLOUR, {"color_map": []}) for _ in range(n))
+    backend = _RaisingBackend([AssistantReply.calling(*calls)], cause)
+
+    with pytest.raises(AssistantError) as excinfo:
+        run_turn(doc, _user("apply then fail"), backend)
+
+    error = excinfo.value
+    assert error.__cause__ is cause
+    assert len(error.applied_commands) == n
+    _revert(error.applied_commands)
+    assert _doc_bytes(doc) == before
+
+
+def test_bound_breach_after_apply_annotates_applied_commands():
+    # SC-L005-3 [BOUND-BREACH ANNOTATE]: a turn applies >=1 command, then a LATER turn
+    # breaches MAX_TOOL_CALLS_PER_TURN. The bounded-halt AssistantError still carries
+    # .applied_commands from the earlier apply (no cause to wrap — it is our own domain
+    # breach), so the caller can revert the whole turn to byte-identical.
+    doc = _rgba_doc()
+    buf = _leaf_buffer(doc)
+    before = _doc_bytes(doc)
+    over = tuple(
+        _recolour(TRANSPARENT, RED) for _ in range(MAX_TOOL_CALLS_PER_TURN + 1)
+    )
+    fake = FakeLLMAdapter(
+        [
+            AssistantReply.calling(_recolour(TRANSPARENT, RED)),  # turn 0: applies one
+            AssistantReply.calling(*over),  # turn 1: breaches the per-turn cap
+        ]
+    )
+
+    with pytest.raises(AssistantError) as excinfo:
+        run_turn(doc, _user("apply then breach"), fake)
+
+    error = excinfo.value
+    # A pure bounded-halt: no wrapped cause, but the earlier apply is annotated.
+    assert error.__cause__ is None
+    assert len(error.applied_commands) == 1
+    assert isinstance(error.applied_commands[0], Command)
+    # The over-budget turn 1 applied NOTHING (the cap check precedes dispatch): only
+    # the single turn-0 command exists, and reverting it restores byte-identity.
+    assert tuple(buf.data[0, 0]) == RED
+    _revert(error.applied_commands)
+    assert _doc_bytes(doc) == before
+
+
+def test_no_apply_llm_error_propagates_raw_unwrapped():
+    # SC-L005-3 [NO-APPLY RAW PROPAGATION]: an error BEFORE any command is applied (the
+    # very first respond raises) propagates UNCHANGED — not wrapped in AssistantError —
+    # so the pre-fix error type/behaviour is preserved. Nothing was applied; the
+    # document is byte-identical (there is nothing to revert).
+    doc = _rgba_doc()
+    before = _doc_bytes(doc)
+    cause = LLMError("upstream down before any tool ran")
+    backend = _RaisingBackend([], cause)  # first respond raises immediately
+
+    with pytest.raises(LLMError) as excinfo:
+        run_turn(doc, _user("dies immediately"), backend)
+
+    # Raw propagation: it is the SAME LLMError object, NOT an AssistantError wrapper.
+    assert excinfo.value is cause
+    assert not isinstance(excinfo.value, AssistantError)
+    assert not hasattr(excinfo.value, "applied_commands")
+    assert _doc_bytes(doc) == before
+
+
+def test_no_apply_bound_breach_has_empty_applied_commands():
+    # SC-L005-3 [NO-APPLY, DOMAIN BREACH]: a bound breach with NO prior apply (the
+    # first turn over-requests tool-calls) raises AssistantError whose applied_commands
+    # is the empty tuple (default) — nothing applied, nothing to revert, byte-identical.
+    doc = _rgba_doc()
+    before = _doc_bytes(doc)
+    calls = tuple(
+        _recolour(TRANSPARENT, RED) for _ in range(MAX_TOOL_CALLS_PER_TURN + 1)
+    )
+    fake = FakeLLMAdapter([AssistantReply.calling(*calls)])
+
+    with pytest.raises(AssistantError) as excinfo:
+        run_turn(doc, _user("too many, nothing applied"), fake)
+
+    assert excinfo.value.applied_commands == ()
+    assert _doc_bytes(doc) == before
+
+
+def test_session_conversation_not_advanced_after_mid_turn_error():
+    # SC-L005-3 [SESSION NOT ADVANCED]: after a mid-turn error, AssistantSession state
+    # is not left half-updated — its conversation stays at the pre-turn transcript (the
+    # failed user turn is not committed). The applied commands still ride on the raised
+    # AssistantError so the caller can revert the document to byte-identical.
+    doc = _rgba_doc()
+    before_doc = _doc_bytes(doc)
+    cause = LLMError("mid-turn failure inside a session")
+    backend = _RaisingBackend(
+        [AssistantReply.calling(_recolour(TRANSPARENT, RED))], cause
+    )
+    session = AssistantSession(backend, system_prompt="be safe")
+    before_convo = session.conversation
+    assert [m.role for m in before_convo.messages] == [Role.SYSTEM]
+
+    with pytest.raises(AssistantError) as excinfo:
+        session.send(doc, "recolour then die")
+
+    # The session transcript is NOT advanced (no half-committed user/assistant/tool).
+    assert session.conversation is before_convo
+    assert [m.role for m in session.conversation.messages] == [Role.SYSTEM]
+    # The document did mutate (no auto-revert), but the error hands back the commands
+    # to make the turn atomic -> reverting restores byte-identity.
+    assert _doc_bytes(doc) != before_doc
+    _revert(excinfo.value.applied_commands)
+    assert _doc_bytes(doc) == before_doc
+
+
+def test_success_path_regression_commands_ride_on_turn_result():
+    # SC-L005-3 [SUCCESS REGRESSION]: the success fork is unchanged by the error-path
+    # handling — a turn that reaches a final message returns a TurnResult carrying the
+    # ordered applied commands (never an AssistantError), and applied_commands is
+    # irrelevant on success (the commands live on TurnResult).
+    doc = _rgba_doc()
+    buf = _leaf_buffer(doc)
+    fake = FakeLLMAdapter(
+        [
+            AssistantReply.calling(_recolour(TRANSPARENT, RED), _recolour(RED, BLUE)),
+            AssistantReply.final("recoloured cleanly"),
+        ]
+    )
+
+    result = run_turn(doc, _user("recolour to blue"), fake)
+
+    assert isinstance(result, TurnResult)
+    assert len(result.commands) == 2
+    assert all(isinstance(c, Command) for c in result.commands)
+    assert tuple(buf.data[0, 0]) == BLUE
+    assert result.reply.content == "recoloured cleanly"
+    assert result.conversation.messages[-1] == result.reply

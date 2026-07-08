@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Sequence, cast
 
 import numpy as np
 from PySide6.QtCore import QEvent, QRectF, QStandardPaths, Qt, QTimer
@@ -75,6 +75,7 @@ from pixelart_creator.data.project_io import (
     save_project,
 )
 from pixelart_creator.logic import history, transform
+from pixelart_creator.logic.assistant import ChatBackend
 from pixelart_creator.logic.autosave import should_autosave
 from pixelart_creator.logic.color import BLACK, RGBA, TRANSPARENT, to_hex
 from pixelart_creator.logic.constants import (
@@ -117,6 +118,8 @@ from pixelart_creator.ui.asset_reuse_panel import Asset_Reuse_Panel
 from pixelart_creator.ui.asset_search_panel import Asset_Search_Panel
 from pixelart_creator.ui.asset_tagging_panel import Asset_Tagging_Panel
 from pixelart_creator.ui.asset_version_browser import Asset_Version_Browser
+from pixelart_creator.ui.assistant_dock import Assistant_Dock
+from pixelart_creator.ui.assistant_worker import Assistant_Controller
 from pixelart_creator.ui.automation_worker import (
     Automation_Controller,
     make_dispatch_job,
@@ -140,6 +143,7 @@ from pixelart_creator.ui.collaboration_actions import Collaboration_Session
 from pixelart_creator.ui.colour_cycling_panel import Colour_Cycling_Panel
 from pixelart_creator.ui.colour_hub_menu import Colour_Hub_Menu
 from pixelart_creator.ui.commands import (
+    AssistantCommand,
     AutomationCommand,
     LogicCommand,
     PaintCommand,
@@ -174,6 +178,10 @@ from pixelart_creator.ui.plugin_manager_panel import Plugin_Manager_Panel
 from pixelart_creator.ui.presence_panel import Presence_Panel
 from pixelart_creator.ui.prewarm_indicator import Prewarm_Indicator
 from pixelart_creator.ui.procgen_panel import Procgen_Panel
+from pixelart_creator.ui.provider_config_dialog import (
+    build_backend,
+    load_config,
+)
 from pixelart_creator.ui.real_size_preview_window import Real_Size_Preview_Window
 from pixelart_creator.ui.realtime_actions import Realtime_Session
 from pixelart_creator.ui.recovery_prompt import Recovery_Prompt
@@ -607,6 +615,30 @@ class Main_Window(QMainWindow):
         self._procgen_panel = Procgen_Panel(self)
         self._procgen_panel.automationRequested.connect(self._run_automation_ops)
         self._procgen_dock = self._add_workflow_dock(self._procgen_panel)
+
+        # Phase-14 AI assistant (REQ-P14-UI-001..004): a window-owned
+        # Assistant_Controller runs the Qt-free agentic loop (logic.assistant.run_turn)
+        # off the GUI thread (network + dispatch), marshalling the tiered-safety
+        # confirmation to the GUI thread and leaving the live document byte-identical;
+        # THIS window pushes the turn's commands onto the active tab's undo stack as
+        # one AssistantCommand (the observable mutation is strictly GUI-thread, UI-004).
+        # The dock drives the loop through an injected data/llm backend built from the
+        # persisted, provider-agnostic config — ui/ never names a provider or holds a
+        # key (REQ-P14-DATA-007). Deterministic teardown is folded into
+        # shutdown_prewarm so no worker / carrier survives GC (the xdist-segfault
+        # guard). No eval/exec: model output is data mapped onto the trusted dispatch.
+        self._assistant_controller = Assistant_Controller(self)
+        self._assistant_dock_widget = Assistant_Dock(
+            self._assistant_controller,
+            self.active_document,
+            self._assistant_backend,
+            self,
+        )
+        self._assistant_dock_widget.editsReady.connect(self._on_assistant_edits)
+        self.addDockWidget(
+            Qt.DockWidgetArea.RightDockWidgetArea, self._assistant_dock_widget
+        )
+        self.tabifyDockWidget(self._palette_dock, self._assistant_dock_widget)
         # Disable each automation control while a run is in flight (busyChanged).
         for panel in (
             self._macro_controls,
@@ -1207,6 +1239,10 @@ class Main_Window(QMainWindow):
         # existing menu structure (added last, the conventional trailing menu).
         self._help_menu = bar.addMenu("")
         self._help_menu.addAction(self._user_guide_action)
+        # AI assistant (Phase-14): the chat dock toggle, discoverable + keyboard-
+        # reachable from Help (the action text tracks the dock's translated title).
+        self._help_menu.addSeparator()
+        self._help_menu.addAction(self._assistant_dock_widget.toggleViewAction())
 
     # -- Phase-9 visual aids (REQ-P9-UI-001..010) ------------------------
 
@@ -1687,6 +1723,13 @@ class Main_Window(QMainWindow):
         # guard). The Cloud_Session holds only a Qt-free port reference (no thread).
         self._autosave_timer.stop()
         self._cloud_controller.shutdown()
+        # The Phase-14 assistant controller is likewise a single window-level worker
+        # pool + carrier; tear it down here so closeEvent covers it too
+        # (REQ-P14-UI-004). Idempotent, event-loop-free — it releases any worker
+        # blocked on a pending tiered-safety confirmation (deny) and joins the thread,
+        # so no assistant worker or signal carrier survives into a later GC cycle (the
+        # recurring xdist-segfault guard).
+        self._assistant_controller.shutdown()
         # Phase-9 aids own no worker threads (non-destructive view state), but their
         # separate top-level windows must not outlive the shell: close the extra
         # document views and the reference board deterministically (idempotent).
@@ -3176,6 +3219,42 @@ class Main_Window(QMainWindow):
     def _bind_automation(self, record: "_DocTab") -> None:
         """Point the procgen / batch panels at the active document (view state)."""
         self._batch_recolour_panel.set_frame_count(len(record.document.frames))
+
+    # -- AI assistant (REQ-P14-UI-001..004) -------------------------------
+
+    def _assistant_backend(self) -> Optional[ChatBackend]:
+        """Build the current assistant backend from the persisted config (or ``None``).
+
+        Probed fresh by the dock on each send so a configuration change takes effect
+        immediately. Returns a provider-agnostic ``data/llm`` adapter (an
+        :class:`~pixelart_creator.logic.assistant.ChatBackend`) or ``None`` when no
+        provider is configured — the dock degrades to a clear "not configured" state.
+        No provider is named here and no key is handled: construction is cheap and the
+        key is read lazily from the OS keyring inside ``data/llm`` at request time
+        (REQ-P14-DATA-006/-007).
+        """
+        config = load_config()
+        if config is None:
+            return None
+        return build_backend(config)
+
+    def _on_assistant_edits(self, commands: object, label: str) -> None:
+        """Push one assistant turn's edits onto the active undo stack (UI-003).
+
+        The worker restored the live document and marshalled back the turn's ordered
+        **unapplied** commands; wrapping them in a single :class:`AssistantCommand` and
+        pushing it applies them on the GUI thread as exactly one undoable step (the
+        observable mutation is strictly GUI-thread). A chat-only turn produces no
+        command and reaches here with an empty sequence (nothing is pushed).
+        """
+        record = self.active_tab()
+        if record is None or not commands:
+            return
+        text = label or self.tr("Assistant edit")
+        turn_commands = tuple(cast(Sequence[Command], commands))
+        record.stack.push(
+            AssistantCommand(turn_commands, record.scene.refresh_all, text)
+        )
 
     # -- i18n -------------------------------------------------------------
 

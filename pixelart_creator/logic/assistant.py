@@ -233,7 +233,41 @@ class AssistantError(ValueError):
     op with invalid args, or a destructive op the caller declined is surfaced as a
     ``Role.TOOL`` result message (data) fed back into the conversation, and the loop
     continues (the document is left byte/state-identical for a rejected op, SC-L006-1).
+
+    **Turn atomicity — the error-path partial-apply contract (ADR-0041 §1 amendment).**
+    A turn is atomic: on error it must be as revertable as a single rejected tool-call
+    (which already leaves the document byte-identical, SC-L006-1). If a turn applies
+    ≥1 reversible tool-call command and *then* fails mid-turn — a later bound breach, a
+    transcript overflow, an ``LLMError`` from the injected backend, or any other error
+    raised after a partial apply — :func:`run_turn` guarantees the failure surfaces as
+    an ``AssistantError`` whose :attr:`applied_commands` holds the **ordered tuple of
+    already-applied** :class:`~pixelart_creator.logic.history.Command` objects. This is
+    the SINGLE, consistent handle the caller uses to make the turn atomic: revert them
+    in reverse (``apply ∘ undo = identity`` → byte-identical), or record them as one
+    undo step. :func:`run_turn` does **not** auto-revert — it only exposes the handle;
+    the caller decides revert-vs-record. When a non-``AssistantError`` (e.g. an
+    ``LLMError``) is raised mid-turn *after* a partial apply, it is wrapped in an
+    ``AssistantError`` carrying both the original cause (``__cause__``, via ``raise …
+    from``) and :attr:`applied_commands`, so the caller has exactly one error type to
+    catch and one attribute to read. :attr:`applied_commands` defaults to the empty
+    tuple — for a breach with no prior apply (and thus nothing to revert), and on the
+    success path it is irrelevant (:class:`TurnResult` carries the commands instead).
     """
+
+    def __init__(
+        self, *args: object, applied_commands: Tuple[Command, ...] = ()
+    ) -> None:
+        """Build the error, optionally carrying the turn's applied commands.
+
+        Args:
+            *args: The usual ``ValueError`` message args.
+            applied_commands: The ordered, already-applied undoable commands the failing
+                turn produced before it errored (empty when nothing had been applied).
+        """
+        super().__init__(*args)
+        #: The ordered tuple of undoable commands applied before the turn failed; the
+        #: caller reverts/records these to keep the turn atomic (see class docstring).
+        self.applied_commands: Tuple[Command, ...] = tuple(applied_commands)
 
 
 # ------------------------------------------------------------------------------------------
@@ -541,48 +575,85 @@ def run_turn(
             tool-calls,
             or a transcript past
             :data:`~pixelart_creator.logic.constants.MAX_CONVERSATION_MESSAGES`
-            (bounded-halt — SC-L005-2).
+            (bounded-halt — SC-L005-2). **Error-path atomicity contract (ADR-0041 §1
+            amendment):** if ≥1 reversible tool-call command was applied before the turn
+            failed — for ANY reason, including a bound breach, a transcript overflow, or
+            an ``LLMError`` propagated from ``backend.respond`` — the raised error is an
+            ``AssistantError`` whose :attr:`AssistantError.applied_commands` holds the
+            ordered tuple of already-applied
+            :class:`~pixelart_creator.logic.history.Command` objects, so the caller can
+            revert them (restore byte-identical) or record them as one undo step. A
+            non-``AssistantError`` cause is wrapped (its original exception preserved as
+            ``__cause__``) so the caller has ONE type to catch and ONE attribute to
+            read. This function never auto-reverts — it only guarantees the handle is
+            exposed; the caller decides revert-vs-record. When NO command had applied,
+            the original error propagates unchanged (behaviour-neutral) and there is
+            nothing to revert. The success path is unaffected (commands ride on
+            :class:`TurnResult`, not the error).
     """
     catalog: Tuple[ToolDescriptor, ...] = (
         build_tool_catalog() if tools is None else tuple(tools)
     )
     commands: List[Command] = []
 
-    for _turn in range(MAX_ASSISTANT_TURNS):
-        _guard_transcript(conversation)
-        reply = backend.respond(conversation, catalog)
-
-        assistant_msg = reply.message or Message(
-            role=Role.ASSISTANT, content="", tool_calls=reply.tool_calls
-        )
-        conversation = conversation.append(assistant_msg)
-        _guard_transcript(conversation)
-
-        if reply.is_final:
-            return TurnResult(
-                conversation=conversation,
-                reply=assistant_msg,
-                commands=tuple(commands),
-            )
-
-        calls = reply.tool_calls
-        if len(calls) > MAX_TOOL_CALLS_PER_TURN:
-            raise AssistantError(
-                "tool-call budget exceeded "
-                f"({len(calls)} > {MAX_TOOL_CALLS_PER_TURN})"
-            )
-
-        for call in calls:
-            result_msg, command = _handle_tool_call(document, call, confirm)
-            conversation = conversation.append(result_msg)
+    try:
+        for _turn in range(MAX_ASSISTANT_TURNS):
             _guard_transcript(conversation)
-            if command is not None:
-                commands.append(command)
+            reply = backend.respond(conversation, catalog)
 
-    raise AssistantError(
-        f"assistant turn budget exceeded ({MAX_ASSISTANT_TURNS} turns without a "
-        "final reply)"
-    )
+            assistant_msg = reply.message or Message(
+                role=Role.ASSISTANT, content="", tool_calls=reply.tool_calls
+            )
+            conversation = conversation.append(assistant_msg)
+            _guard_transcript(conversation)
+
+            if reply.is_final:
+                return TurnResult(
+                    conversation=conversation,
+                    reply=assistant_msg,
+                    commands=tuple(commands),
+                )
+
+            calls = reply.tool_calls
+            if len(calls) > MAX_TOOL_CALLS_PER_TURN:
+                raise AssistantError(
+                    "tool-call budget exceeded "
+                    f"({len(calls)} > {MAX_TOOL_CALLS_PER_TURN})"
+                )
+
+            for call in calls:
+                result_msg, command = _handle_tool_call(document, call, confirm)
+                conversation = conversation.append(result_msg)
+                _guard_transcript(conversation)
+                if command is not None:
+                    commands.append(command)
+
+        raise AssistantError(
+            f"assistant turn budget exceeded ({MAX_ASSISTANT_TURNS} turns without a "
+            "final reply)"
+        )
+    except AssistantError as exc:
+        # A bounded-halt (our own domain breach). If ops already applied this turn,
+        # attach them so the caller can revert/record and keep the turn atomic
+        # (ADR-0041 §1 amendment); the success return above is never reached here.
+        if commands:
+            exc.applied_commands = tuple(commands)
+        raise
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 - surface partial apply on ANY mid-turn error
+        # A non-AssistantError raised mid-turn (e.g. an LLMError from backend.respond,
+        # or any unexpected error after a tool-call applied). When ops already applied,
+        # wrap in the single AssistantError type the caller catches, preserving the
+        # original cause (__cause__) and exposing applied_commands so the turn stays
+        # atomic. With nothing applied there is nothing to revert — propagate raw
+        # (behaviour-neutral: the pre-fix error and type are unchanged).
+        if commands:
+            raise AssistantError(
+                str(exc) or type(exc).__name__,
+                applied_commands=tuple(commands),
+            ) from exc
+        raise
 
 
 class AssistantSession:
@@ -661,7 +732,13 @@ class AssistantSession:
             its transcript.
 
         Raises:
-            AssistantError: On a bounded breach (see :func:`run_turn`).
+            AssistantError: On a bounded breach or any mid-turn failure (see
+                :func:`run_turn`). Per the error-path atomicity contract, if the turn
+                had applied ≥1 command before failing, the raised ``AssistantError``
+                exposes them via :attr:`AssistantError.applied_commands` for the caller
+                to revert/record. On error the session's :attr:`conversation` is **not**
+                advanced (it stays at the pre-turn transcript), mirroring the document's
+                revert-to-clean atomicity.
         """
         conversation = self._conversation.append(
             Message(role=Role.USER, content=user_text)
