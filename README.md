@@ -94,19 +94,27 @@ pip install ".[dev]"
 
 ### Command-line entry points
 
-Installing the package provides two console commands (declared in
+Installing the package provides three console commands (declared in
 `pyproject.toml` under `[project.scripts]`):
 
 - **`pixelart-export`** — the headless export pipeline (PNG / GIF / sprite sheet / atlas,
   metadata and engine presets, batch export).
 - **`pixelart-run`** — the headless automation runner (macros and DSL scripts), producing
   results identical to running the same automation in the GUI.
+- **`pixelart-assistant`** — the headless AI assistant: runs the same model-agnostic
+  assistant as the in-app dock over a project non-interactively, e.g.
+  `pixelart-assistant --input in.pixproj --output out.pixproj --prompt "..."`
+  (`--provider` / `--base-url` / `--model` select the provider; the API key is read from
+  the **OS keyring**, never passed on the command line). It uses the same tiered safety —
+  reversible edits apply automatically, while **destructive actions are declined unless you
+  opt in with `--approve-destructive` (alias `--yes`)**.
 
-Run either with `--help` to see its options:
+Run any with `--help` to see its options:
 
 ```sh
 pixelart-export --help
 pixelart-run --help
+pixelart-assistant --help
 ```
 
 ### Launching the desktop app

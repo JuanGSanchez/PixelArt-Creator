@@ -83,6 +83,7 @@ dev = [
 [project.scripts]
 pixelart-export = "pixelart_creator.data.export_cli:main"
 pixelart-run = "pixelart_creator.data.automation_cli:main"
+pixelart-assistant = "pixelart_creator.data.assistant_cli:main"
 
 # GUI entry point (installed on `pip install`). gui-scripts (NOT console-scripts)
 # so no console window pops up alongside the app on Windows (pythonw launcher).
