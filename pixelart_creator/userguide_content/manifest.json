@@ -137,6 +137,13 @@
           "content": "automation-and-scripting",
           "keywords": ["automation", "scripting", "macro", "pixmacro", "batch recolour", "plugins", "procedural", "procgen", "noise", "cli", "pixelart-run", "deterministic", "seed"],
           "summary": "Automating tasks: recording and replaying macros, the scripting DSL, plugins, batch recolour, procedural generation, and the CLI."
+        },
+        {
+          "id": "ai-assistant",
+          "title": "The AI assistant: chat to drive the editor",
+          "content": "ai-assistant",
+          "keywords": ["ai", "assistant", "chat", "chatbot", "natural language", "prompt", "llm", "model", "provider", "openai", "anthropic", "claude", "gemini", "ollama", "base url", "endpoint", "api key", "keyring", "credential-optional", "model-agnostic", "tiered safety", "reversible", "destructive", "confirm", "undo", "assistant menu", "dock"],
+          "summary": "The in-app, model-agnostic AI assistant: opening the chat dock, configuring a provider (OpenAI-compatible or Anthropic) with a base URL, model and API key stored in the OS keyring, chatting in natural language to drive the workflow over the safe automation layer, and the tiered safety (reversible edits auto-apply and are undoable; destructive actions ask for confirmation)."
         }
       ]
     },

@@ -307,6 +307,67 @@ class AutomationCommand(LogicCommand):
         super().__init__(command, rebind, text, parent)
 
 
+class AssistantCommand(QUndoCommand):
+    """One grouped ``QUndoCommand`` per AI-assistant turn (REQ-P14-UI-003, T14E-04).
+
+    A single agentic turn (``logic.assistant.run_turn``) may apply **several**
+    allow-listed DSL ops — each already a reversible
+    :class:`~pixelart_creator.logic.history.Command` (a ``GroupCommand`` from the
+    trusted ``scripting.dispatch``). This wrapper composes the whole turn's ordered
+    commands into **one** undoable step so the user undoes an entire assistant edit
+    in a single action.
+
+    Like :class:`AutomationCommand`, the off-GUI-thread worker
+    (:mod:`~pixelart_creator.ui.assistant_worker`) leaves the live document in its
+    **original** state and marshals back the ordered **unapplied** commands; this
+    bridge then applies them on the GUI thread on ``push`` (``redo()`` →
+    ``command.execute()`` in order) and reverts them exactly on ``undo()`` (in
+    reverse order), so the observable mutation is strictly GUI-thread (Qt model
+    affinity) and ``apply ∘ undo = identity`` for the whole turn.
+
+    The wrapper renders the outcome of the **logic-level** tiered gate; it never
+    relaxes it. A reversible tool-call auto-ran (no confirm) and a destructive one
+    only ran after the caller's explicit confirmation
+    (:class:`~pixelart_creator.logic.assistant.ConfirmationRequest`); either way the
+    resulting edit is captured here as one undoable step. A chat-only turn, a
+    connect/config action, or a confirm/deny produces **no** command and therefore
+    **no** ``AssistantCommand`` (the caller pushes nothing). No domain maths lives
+    here (Article I / S11): the reversible logic is entirely the wrapped commands.
+
+    Args:
+        commands: The turn's ordered, unapplied reversible logic commands.
+        rebind: Callback (no args) recompositing / rebinding the canvas + panels
+            after apply or revert (an assistant edit can touch any layer, so
+            callers pass a full refresh).
+        text: Undo-menu label; the caller supplies a translatable label.
+        parent: Optional parent command.
+    """
+
+    def __init__(
+        self,
+        commands: "tuple[Command, ...]",
+        rebind: RebindCallback,
+        text: str = "",
+        parent: Optional[QUndoCommand] = None,
+    ) -> None:
+        """Bridge one turn's ordered unapplied commands to a single ``QUndoCommand``."""
+        super().__init__(text, parent)
+        self._commands = tuple(commands)
+        self._rebind = rebind
+
+    def redo(self) -> None:
+        """Apply (or re-apply) every command in order, then repaint/rebind."""
+        for command in self._commands:
+            command.execute()
+        self._rebind()
+
+    def undo(self) -> None:
+        """Revert every command in reverse order, then repaint/rebind."""
+        for command in reversed(self._commands):
+            command.undo()
+        self._rebind()
+
+
 class TilemapCommand(LogicCommand):
     """One ``QUndoCommand`` per tilemap edit (T6F-02/-03/-04, REQ-P6-UI-005..008).
 

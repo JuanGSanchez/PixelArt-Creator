@@ -48,6 +48,12 @@ The platform has been built in phases; the capabilities below are **shipped**.
   dependency graph with a passive break indicator; an append-only per-asset version history;
   reference-not-copy reuse across projects; export/import of a project's referenced assets;
   and optional cloud backing of shared blobs.
+- **AI assistant** — an in-app, **model-agnostic** chat dock that drives the editor in plain
+  language over the same safe, `eval`-free automation layer. You supply any **OpenAI-compatible**
+  or **Anthropic** provider (base URL, model and key); it is **credential-optional** and your key
+  is stored in the **OS keyring**, never in the project file. Actions are tiered for safety —
+  reversible edits apply automatically and stay undoable, while destructive actions ask for
+  confirmation first.
 - **In-app User Guide** — a complete, offline, searchable guide covering every functionality
   area, opened from **Help ▸ User Guide** or **F1**.
 
