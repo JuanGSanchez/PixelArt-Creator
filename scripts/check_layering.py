@@ -7,6 +7,28 @@
 #   Python (zero Qt, no ui/data imports); data/ is I/O only (zero Qt, no ui
 #   import). The only Qt-dependent file permitted outside ui/ is ui/commands.py
 #   (which is inside ui/, so always allowed).
+#   PHASE-10 (cloud & collaboration): the real-time sync backend is a NEW
+#   first-class top-level package `sync_backend/` that sits OUTSIDE the three
+#   layers (ADR-0027). It is governed by a dedicated rule (below): it must not
+#   import ui/, data/, or Qt — it stays headless and never touches the client's
+#   OS-keyring tokens or provider adapters — but it MAY reuse the pure, Qt-free
+#   `logic/` convergence + validation code. Reciprocally, no client layer
+#   (logic/data/ui) may import the backend package: the desktop client reaches
+#   the backend only over the zero-Qt `data/cloud/` transport port at run time
+#   (REQ-P10-DATA-010), never by a Python import. `data/cloud/` itself is a
+#   normal `data/` subpackage and is already governed by the `data` rule
+#   (zero Qt, no ui/ import) — no provider SDK/transport type leaks above it.
+#   PHASE-13 (cross-platform, Slice 13E): the web companion viewer is a SECOND
+#   first-class top-level package `web_viewer/` outside the three layers
+#   (ADR-0035, mirroring ADR-0027). Same shape as the backend rule: it must not
+#   import Qt, ui/, data/, or `sync_backend` (it reaches the backend over the
+#   wire (WS) at run time, never by import) but MAY reuse pure `logic/`.
+#   Reciprocally no client layer (logic/data/ui) nor the backend imports it
+#   (leaf consumer). It is governed by the same `--root .` run via parts[0] and
+#   stays DORMANT until the `web_viewer/` package lands.
+#   Run twice for full coverage:
+#     python scripts/check_layering.py --root pixelart_creator   # client 3 layers
+#     python scripts/check_layering.py --root .           # sync_backend/ + web_viewer/
 # FLAVOUR: standalone
 # LOCATION: scripts/check_layering.py  (CONVENTIONS standalone-script location)
 # INVOKED BY: AGT-01 Architecture (pre-flight + sdd-analyze gate); AGT-09 CI.
@@ -43,12 +65,58 @@ import json
 import os
 import sys
 
-# Import-name prefixes forbidden per layer. Keys are the layer directory names.
+# Import-name prefixes forbidden per layer. Keys are the layer directory names
+# (parts[0] of the module path relative to --root).
 QT = ("PySide6", "PySide2", "PyQt6", "PyQt5", "shiboken6", "shiboken2")
+
+# Phase-10: the sync backend is a separate top-level package outside the three
+# layers (ADR-0027). Client layers must never import it; the backend must never
+# import ui/, data/, or Qt (it may reuse pure logic/).
+BACKEND_PKG = "sync_backend"
+
+# Phase-13 (Slice 13E): the web companion viewer is a NEW first-class top-level
+# package outside the three layers (ADR-0035, mirroring ADR-0027). It is headless
+# and MUST NOT import Qt, ui/, data/, or the sync backend (it reaches the backend
+# over the wire — WS — at run time, never by Python import); it MAY reuse pure,
+# Qt-free logic/ (share_token / sync_protocol / cloud_validation) so the wire +
+# token contract is single-sourced with the backend. Reciprocally, no client
+# layer (logic/data/ui) and not the backend may import it: web_viewer is a leaf
+# consumer, so nothing in the shipped packages imports it. Governed via `--root .`
+# (parts[0] == "web_viewer"); DORMANT until the package lands.
+WEB_PKG = "web_viewer"
+
 FORBIDDEN = {
-    "logic": QT + ("pixelart_creator.ui", "pixelart_creator.data", "..ui", "..data"),
-    "data": QT + ("pixelart_creator.ui", "..ui"),
-    # ui/ has no forbidden imports (may use logic, data, Qt).
+    "logic": QT
+    + (
+        "pixelart_creator.ui",
+        "pixelart_creator.data",
+        "..ui",
+        "..data",
+        BACKEND_PKG,
+        WEB_PKG,
+    ),
+    "data": QT + ("pixelart_creator.ui", "..ui", BACKEND_PKG, WEB_PKG),
+    # ui/ may use logic, data, and Qt — but not the out-of-process sync backend
+    # (it reaches the backend only via the data/cloud transport port at runtime)
+    # and not the web viewer (a leaf top-level deployable — ADR-0035).
+    "ui": (BACKEND_PKG, WEB_PKG),
+    # The sync backend (scanned via `--root .`, parts[0] == "sync_backend"):
+    # headless, no Qt, no ui/, no data/ (never touches client tokens/providers);
+    # MAY reuse pure logic/ (convergence + cloud_validation). ADR-0027. It also
+    # must not import the web viewer — the two non-three-layer deployables
+    # communicate over the wire, not by Python import (ADR-0035 §3 peer decoupling).
+    BACKEND_PKG: QT
+    + ("pixelart_creator.ui", "pixelart_creator.data", "..ui", "..data", WEB_PKG),
+    # The web viewer (scanned via `--root .`, parts[0] == "web_viewer"): headless,
+    # no Qt, no ui/, no data/, no sync_backend; MAY reuse pure logic/. ADR-0035.
+    WEB_PKG: QT
+    + (
+        "pixelart_creator.ui",
+        "pixelart_creator.data",
+        "..ui",
+        "..data",
+        BACKEND_PKG,
+    ),
 }
 
 
@@ -56,6 +124,19 @@ def module_layer(path, root):
     rel = os.path.relpath(path, root).replace("\\", "/")
     parts = rel.split("/")
     return parts[0] if parts else ""
+
+
+def is_test_module(path, root):
+    # Test modules are EXEMPT from layering enforcement: the layering
+    # constitution governs PRODUCTION import edges only, not test-harness
+    # imports. A test legitimately crosses package/layer boundaries (e.g. a
+    # web_viewer handshake test must import sync_backend to spin an in-process
+    # SyncServer, and data/ for fixtures). This is why sync_backend's own tests
+    # live outside its package. Key strictly on a `tests` path component so
+    # production code (web_viewer/dev_server.py, web_viewer/__init__.py,
+    # web_viewer/static/**) stays fully governed.
+    rel = os.path.relpath(path, root).replace("\\", "/")
+    return "tests" in rel.split("/")
 
 
 def imports_of(path):
@@ -90,6 +171,8 @@ def main():
                 if not name.endswith(".py"):
                     continue
                 path = os.path.join(dirpath, name)
+                if is_test_module(path, args.root):
+                    continue
                 layer = module_layer(path, args.root)
                 rules = FORBIDDEN.get(layer)
                 if not rules:

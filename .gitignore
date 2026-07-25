@@ -12,6 +12,17 @@ dist/
 wheels/
 pip-wheel-metadata/
 
+# ---- Native-installer / local-CI build byproducts (pyside6-deploy + Nuitka) ----
+# The local-CI runner (external, outside the repo) and the pyside6-deploy build
+# leg may emit these into the repo working tree; they must never be committed.
+/dist/
+/build/
+*.dist/
+*.build/
+*.onefile-build/
+deployment.qmake
+.nuitka/
+
 # ---- Virtual environments ----
 .venv/
 venv/
@@ -24,6 +35,7 @@ ENV/
 .ruff_cache/
 .coverage
 .coverage.*
+*.coverage
 coverage.xml
 htmlcov/
 .tox/
@@ -46,6 +58,10 @@ Thumbs.db
 docs/gather-*
 docs/checkpoint-*
 docs/subagent-report-*
+
+# ---- Stray orchestration artifacts written to repo root ----
+subagent-report-*.md
+claude-checkpoint-*.md
 
 # ---- PRIVATE build/design artifacts (S19) — gitignored AND purged from git
 #      history. These files are intentionally absent from the repository:

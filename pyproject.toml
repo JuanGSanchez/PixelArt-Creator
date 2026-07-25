@@ -30,14 +30,46 @@ dependencies = [
     "PySide6>=6.6",
     "numpy>=1.26",
     "Pillow>=10.0",
+    # Phase-10 Slice B: CRDT convergence core. PINNED — ships prebuilt cp312
+    # manylinux x86_64 wheels (only anyio at runtime, no source build on
+    # Linux/py3.12 CI). Ships py.typed, so it is NOT in mypy ignore_missing_imports.
+    "pycrdt==0.14.1",
+    # Phase-10 Slice C: real-time sync wire protocol. CORE runtime dep — the
+    # sync_backend service, data/cloud/ws_transport.py, AND the in-CI backend
+    # tests (tests/backend/) all import it, so CI must install it unconditionally.
+    # PINNED to 16.0 (prebuilt py3.12 wheels; ships py.typed, so NOT in mypy
+    # ignore_missing_imports).
+    "websockets==16.0",
 ]
 
 [project.optional-dependencies]
+# Real live-provider credential access ONLY (out-of-CI, credential-gated —
+# CL-B2/CL-B3). NOT a core dep: the mocked provider tests monkeypatch
+# token_store, so CI must NOT require a real OS keyring backend. Installed
+# manually by users who exercise the real Drive/OneDrive/Dropbox adapters.
+cloud_live = [
+    "keyring==25.7.0",
+]
+
+# Phase-14 Slice 14B (ADR-0040 §5, DEP-4): live-provider credential access for
+# the AI assistant ONLY (out-of-CI, credential-gated — REQ-P14-DATA-003/-006).
+# NOT a core dep: 14A–14C + the fake adapter monkeypatch token_store and import
+# keyring LAZILY, so CI must NOT require a real OS keyring backend. The real LLM
+# adapter (14D) is STDLIB-only (urllib — D4, no new hard dep), so keyring is the
+# SOLE live dep here (same pin as cloud_live). Kept as an INDEPENDENT, self-
+# describing extra (not folded into cloud_live) so the two credential surfaces
+# install/deselect separately (ADR-0040 alternatives; spec D5 names it explicitly).
+assistant_live = [
+    "keyring==25.7.0",
+]
+
 # Dev/test dependencies — CI installs `.[dev]` so it runs exactly what tests import.
 dev = [
     "pytest>=8.0",
     "pytest-qt>=4.4",
     "pytest-cov>=5.0",
+    "pytest-timeout>=2.3",
+    "pytest-xdist>=3.6",
     "hypothesis>=6.100",
     "black>=24.0",
     "isort>=5.13",
@@ -46,10 +78,39 @@ dev = [
     "pydocstyle>=6.3",
 ]
 
+# Console entry points (installed on `pip install`). T7C-07 (REQ-P7-DATA-004);
+# pixelart-run added by T8D-04 (Phase-8 automation CLI).
+[project.scripts]
+pixelart-export = "pixelart_creator.data.export_cli:main"
+pixelart-run = "pixelart_creator.data.automation_cli:main"
+pixelart-assistant = "pixelart_creator.data.assistant_cli:main"
+
+# GUI entry point (installed on `pip install`). gui-scripts (NOT console-scripts)
+# so no console window pops up alongside the app on Windows (pythonw launcher).
+# Targets the SHIPPED launcher pixelart_creator.ui.app:main (T13D). Equivalent to
+# `python -m pixelart_creator` (pixelart_creator/__main__.py).
+[project.gui-scripts]
+pixelart-creator = "pixelart_creator.ui.app:main"
+
 [tool.setuptools.packages.find]
 include = ["pixelart_creator*"]
 # Exclude non-shipped infra from the distributed package (scripts/ are dev tooling).
-exclude = ["tests*", "scripts*", "docs*"]
+# sync_backend is a SEPARATE real-time relay service, not part of the desktop
+# distributable — exclude it explicitly (the include whitelist already omits it,
+# this is defence-in-depth so it never leaks into the wheel).
+# web_viewer is the SEPARATE Phase-13 13E web-client package (its own build/runtime,
+# not part of the desktop distributable) — excluded the same way as sync_backend for
+# defence-in-depth (ADR-0027/0035) so it never leaks into the desktop wheel.
+exclude = ["tests*", "scripts*", "docs*", "sync_backend*", "web_viewer*"]
+
+# Non-Python package data shipped inside the wheel. The offline in-app User
+# Guide bundle (REQ-UG-DATA-001) lives under pixelart_creator/userguide_content/
+# and MUST ship so data/guide_content.py can locate it via importlib.resources.
+# The two globs cover manifest.json (userguide_content/*.json) and every
+# per-topic Markdown file at any depth (userguide_content/**/*.md, e.g.
+# content/en/*.md). No source build; no new dependency.
+[tool.setuptools.package-data]
+pixelart_creator = ["userguide_content/**/*.md", "userguide_content/*.json"]
 
 # ------------------------------- tool config ---------------------------------
 [tool.black]
@@ -70,19 +131,31 @@ module = ["pixelart_creator.logic.*", "pixelart_creator.data.*"]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
+# keyring.* is the optional live-credential dep shared by BOTH the cloud_live and
+# assistant_live extras (ADR-0040 §5); it ships no stubs and is imported lazily,
+# so ignore_missing_imports covers it for both surfaces consistently.
 [[tool.mypy.overrides]]
-module = ["PySide6.*"]
+module = ["PySide6.*", "keyring.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-testpaths = ["tests"]
+# Phase-13 Slice 13E (T13E-G04): web_viewer is a SEPARATE package (its own
+# build/runtime, excluded from the desktop wheel) whose Python tests live under
+# web_viewer/tests — OUTSIDE the default "tests" root. Add it here so the DEFAULT
+# `pytest` invocation collects the 13E web_viewer suite (in-process SyncServer,
+# no docker/nginx — these carry NO `integration` marker, unlike the deploy/ VPS
+# tests). The marker deselection below (not slow/gpu/cloud_live/integration)
+# still applies uniformly across both roots.
+testpaths = ["tests", "web_viewer/tests"]
 addopts = "-ra"
 # Machine-agnostic default: heavy/host-sensitive tests are deselectable markers.
 markers = [
     "slow: long-running tests, deselected in the default gate",
     "gpu: tests needing a real GPU/display, deselected in headless CI",
     "integration: tests that reach outside the process, deselected by default",
+    "cloud_live: live credential-gated provider tests (real OAuth/keyring), deselected in CI",
+    "assistant_live: requires a real external LLM provider + credentials; deselected in CI",
 ]
 
 [tool.coverage.run]
@@ -93,6 +166,17 @@ source = ["pixelart_creator"]
 show_missing = true
 # Gate is enforced by scripts/coverage_gate.py (>=90 line / >=80 branch, S13),
 # not by fail_under here, so the verdict is a single P11 script (per-package).
+# Lines/idioms excluded from coverage measurement project-wide. NOTE: setting
+# exclude_lines OVERRIDES coverage.py's built-in default of ["pragma: no cover"],
+# so that entry MUST be kept here or every inline `# pragma: no cover` in the
+# tree would silently start counting again. The `if __name__ == .__main__.:`
+# regex is the standard coverage.py idiom for module entry guards (e.g.
+# pixelart_creator/__main__.py's `python -m` launch shim), which only execute in
+# a subprocess as __main__ and are therefore uncoverable by the in-process suite.
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]
 
 [tool.flake8]
 # flake8 reads setup.cfg/.flake8 natively; this block documents intent. The

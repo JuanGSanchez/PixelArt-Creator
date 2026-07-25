@@ -1,0 +1,61 @@
+# systemd unit for the shipped sync_backend/ asyncio-websockets relay.
+# Phase-13 Slice 13C (REQ-P13-BACKEND-001, Researcher Q4). Launches the EXISTING,
+# UNMODIFIED sync_backend/ via the deploy/ launcher on a generic VPS — NO backend
+# source change (artifacts only).
+#
+# OPERATOR SETUP (values marked OPERATOR are substituted for your host):
+#   1. Deploy the repo source to /opt/pixelart-creator (contains pixelart_creator/,
+#      sync_backend/, deploy/). sync_backend/ stays byte-identical.
+#   2. Create a dedicated, unprivileged service user + group:
+#        sudo useradd --system --no-create-home --shell /usr/sbin/nologin pixelart-sync
+#   3. Create a Qt-free virtualenv and install ONLY the backend's runtime dep:
+#        python3.12 -m venv /opt/pixelart-creator/.venv
+#        /opt/pixelart-creator/.venv/bin/pip install "websockets==16.0"
+#      (Do NOT install PySide6/numpy/Pillow/pycrdt — the relay import chain needs none.)
+#   4. Install this unit:  sudo cp deploy/pixelart-sync.service /etc/systemd/system/
+#        sudo systemctl daemon-reload && sudo systemctl enable --now pixelart-sync
+
+[Unit]
+Description=PixelArt Creator sync-backend (asyncio-websockets CRDT relay)
+Documentation=https://github.com/JuanGSanchez/PixelArt-Creator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# Dedicated, unprivileged service user (least privilege). See OPERATOR SETUP step 2.
+User=pixelart-sync
+Group=pixelart-sync
+
+WorkingDirectory=/opt/pixelart-creator
+
+# Repo root on PYTHONPATH so `sync_backend` + `pixelart_creator` resolve.
+Environment=PYTHONPATH=/opt/pixelart-creator
+Environment=PYTHONUNBUFFERED=1
+
+# VPS-facing bind + default port (Q4: bind 0.0.0.0, not localhost). The relay serves
+# plain WS; TLS is terminated by the Nginx reverse proxy (deploy/nginx-sync.conf).
+Environment=PIXELART_SYNC_HOST=0.0.0.0
+Environment=PIXELART_SYNC_PORT=8765
+
+ExecStart=/opt/pixelart-creator/.venv/bin/python /opt/pixelart-creator/deploy/run_sync_backend.py
+
+# File-descriptor ceiling (Q4 scaling floor): each live WebSocket client holds an fd, so
+# the ~10K-connections/process ceiling needs a raised nofile limit of at least 65535.
+LimitNOFILE=65535
+
+# Restart on crash; the launcher handles SIGTERM -> stop() so `systemctl stop` is clean.
+Restart=on-failure
+RestartSec=2
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+# Hardening (safe for a stdlib+websockets relay that needs no filesystem writes).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
