@@ -1,10 +1,59 @@
-# ---- Python ----
+# =============================================================================
+# PixelArt Creator — generated .gitignore
+# Layered per orchestrator-design `references/project-structure.md` §5.
+# Layers (a)-(d) are the constant doctrine; layer (e) is this project's stack.
+#
+# NOTE: under the container standard (project-structure.md §1) the orchestration
+# system lives OUTSIDE this repository, beside it in the container:
+#     PixelArt-Creator/            <- container (not a repo)
+#     |-- .claude/  design-docs/  memory/  scripts/
+#     |-- CLAUDE.md  STRUCTURE.md  DEPLOYMENT.md  constitution.md
+#     `-- main/                    <- THIS REPOSITORY
+# The layer (a) entries below are belt-and-suspenders for any session launched
+# inside this folder, where a stray write would otherwise land in the repo.
+# =============================================================================
+
+# ---- (a) AI-constitution and system files -----------------------------------
+constitution.md
+DEPLOYMENT.md
+STRUCTURE.md
+ROADMAP.md
+design-docs/
+memory/
+.claude/
+
+# ---- (b) Agent artifacts ----------------------------------------------------
+subagent-report-*.md
+checkpoint-*.md
+claude-checkpoint-*.md
+gather-*
+loop-state-*.json
+swarm-state-*.json
+*.superseded
+dev-docs/
+
+# ---- (c) Memory-graph derived files (rebuildable from the JSONL logs) -------
+memory/graph/index.db
+memory/graph/index.db-wal
+memory/graph/index.db-shm
+memory/graph/scan-state.json
+graph-view.html
+
+# ---- (d) Tooling and caches -------------------------------------------------
+.vscode/
+.idea/
 __pycache__/
+node_modules/
+.claude/worktrees/
+coverage/
+
+# ---- (e) Python / PySide6 stack ---------------------------------------------
+# Python bytecode & extensions
 *.py[cod]
 *$py.class
 *.so
 
-# ---- Packaging / build ----
+# Packaging / build
 build/
 dist/
 *.egg-info/
@@ -12,9 +61,7 @@ dist/
 wheels/
 pip-wheel-metadata/
 
-# ---- Native-installer / local-CI build byproducts (pyside6-deploy + Nuitka) ----
-# The local-CI runner (external, outside the repo) and the pyside6-deploy build
-# leg may emit these into the repo working tree; they must never be committed.
+# Native-installer / local-CI build byproducts (pyside6-deploy + Nuitka)
 /dist/
 /build/
 *.dist/
@@ -23,16 +70,17 @@ pip-wheel-metadata/
 deployment.qmake
 .nuitka/
 
-# ---- Virtual environments ----
+# Virtual environments
 .venv/
 venv/
 env/
 ENV/
 
-# ---- Test / coverage / type-check caches ----
+# Test / coverage / type-check caches
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.hypothesis/
 .coverage
 .coverage.*
 *.coverage
@@ -40,32 +88,14 @@ coverage.xml
 htmlcov/
 .tox/
 
-# ---- Editors / OS ----
-.idea/
-.vscode/
+# ---- Editors / OS -----------------------------------------------------------
 *.swp
 .DS_Store
 Thumbs.db
 
-# ---- PixelArt Creator scratch / runtime ----
+# ---- PixelArt Creator runtime scratch ---------------------------------------
 *.pixproj
-.claude/hooks/.cbstate-*.json
-.claude/hooks/.gleanerstate-*.json
-.claude/hooks/.subagent-report-state-*.json
-.claude/hooks/.*-debug.log
 
-# ---- Runtime temporal files under docs/ ----
-docs/gather-*
-docs/checkpoint-*
-docs/subagent-report-*
-
-# ---- Stray orchestration artifacts written to repo root ----
-subagent-report-*.md
-claude-checkpoint-*.md
-
-# ---- PRIVATE build/design artifacts (S19) — gitignored AND purged from git
-#      history. These files are intentionally absent from the repository:
-#      the design dossier/manifest/inventory/delivery, the 5 mandatory docs,
-#      and DEPLOYMENT.md are internal-only. They remain on disk locally. ----
+# ---- Project documentation kept private (S19) -------------------------------
+# docs/ holds the project's own documentation; it is intentionally local-only.
 docs/
-DEPLOYMENT.md
