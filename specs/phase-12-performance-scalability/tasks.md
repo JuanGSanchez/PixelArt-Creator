@@ -48,7 +48,7 @@ paths bounded by loose named ceilings, **not** asserted vs 16 ms (Article VI; bu
 | T12-B-02 | Add the pure `logic/blend.py` Slice-B support seam (Qt-free, additive, `document`-free): split-cache helper for `composite(below idx)` / `composite(above idx)` around a target index (byte-exact when re-composed on commit) + a pure nearest-neighbour **LOD downsample** helper for the preview. No public signature break. | AGT-03 | `logic/blend.py` | T12-B-01 | LOGIC-004 / "recomposite path imports no Qt", byte-exact | todo |
 | T12-B-03 | Byte-exact recomposite regression tests (headless): the full-resolution whole-viewport recomposite (up to 1920², ≥ 12 layers) via the split-cache commit path is **byte-equal** to the current compositor over the same inputs (NORMAL + 11 modes, no tolerance); the recomposite path imports no Qt (`check_layering`); not asserted vs 16 ms. | AGT-04 | `tests/logic/test_blend_range.py` (**verified present + read**; the invariant is covered there, the *scale* clause is not — see the note under this table), `scripts/*` (invoke) | T12-B-02 | LOGIC-004 / SC-P12-LOGIC-004-1/-2 | todo |
 | T12-B-04 | Opacity-slider **drag lifecycle** in `ui/layer_panel.py`: on drag-start capture the split-cache; per tick render the downsampled-LOD preview (throttled via the Phase-4 D3 debounce; off-thread via `composite_warmer`, cached in `frame_cache`); on release/commit apply the full-resolution byte-exact recomposite and display it through the existing dirty-rect path. **No compositing maths in the widget** (calls `logic/blend`). `tr()` + `changeEvent` preserved; both themes identical. | AGT-05 | `ui/layer_panel.py`, `ui/composite_warmer.py`, `ui/frame_cache.py`, `ui/canvas_scene.py`/`ui/canvas_view.py` | T12-B-02 | UI-001 / SC-P12-UI-001-1/-2 | todo |
-| T12-B-05 | pytest-qt tests (both themes, offscreen): during an opacity drag on a low-zoom ≥ 12-layer 8K document, each per-tick downsampled preview **holds the 16 ms `FRAME_BUDGET_MS`** and the UI stays responsive (no multi-second freeze); on release the full-resolution recomposite is applied and the committed pixels match the current build (byte-exact per T12-B-03); light and dark behave identically; a11y (focus/keyboard) on the slider preserved. | AGT-06 | `tests/ui/test_opacity_drag_responsive.py` | T12-B-04 | UI-001 / SC-P12-UI-001-1/-2 | todo |
+| T12-B-05 | pytest-qt tests (both themes, offscreen): during an opacity drag on a low-zoom ≥ 12-layer 8K document, each per-tick downsampled preview **holds the 16 ms `FRAME_BUDGET_MS`** and the UI stays responsive (no multi-second freeze); on release the full-resolution recomposite is applied and the committed pixels match the current build (byte-exact per T12-B-03); light and dark behave identically; a11y (focus/keyboard) on the slider preserved. | AGT-06 | `tests/ui/test_opacity_drag.py` (**verified present + read**; the drag-lifecycle, byte-exact-commit, both-theme and a11y clauses are covered there — the *8K-document scale* and the *tight 16 ms wall-clock* clauses are **not**, see the note under this table) | T12-B-04 | UI-001 / SC-P12-UI-001-1/-2 | todo |
 | T12-B-06 | Author the dedicated `perf_profile --viewport-recomposite` **viewport-scale split-cache COMMIT gate** scenario (region ≥ 1080²/1920², 12 layers) at `VIEWPORT_RECOMPOSITE_CEILING_MS` (a distinct flag from the shipped 16-px `--composite` gate — the shipped `scripts/perf_profile.py` implements `--viewport-recomposite`, not a `--composite` extension); **AGT-10 RE-PROFILE ship gate:** measure the optimised commit recomposite on the CI-class runner, confirm at/under the ceiling (2–7 s catastrophe eliminated), confirm/tighten the constant + the gate scenario (feed back to T12-B-01). Not asserted vs 16 ms. | AGT-10 | `scripts/perf_profile.py`, re-profile report → AGT-01/AGT-03 | T12-B-02 | LOGIC-005 / SC-P12-LOGIC-005-1 | todo |
 | T12-B-07 | Wire the `--viewport-recomposite` gate into CI at `VIEWPORT_RECOMPOSITE_CEILING_MS` (passed from the named constant, no literal). | AGT-09 | `.github/workflows/ci.yml` | T12-B-06 | LOGIC-005 / SC-P12-LOGIC-005-1 | todo |
 | T12-B-08 | String audit (`string_audit_check`) on `ui/layer_panel.py` **only if** the drag lifecycle adds any new user-visible string (e.g. a "preview" status); wrap in `tr()` + `changeEvent` retranslate. Skipped if no new string. | AGT-07 | `ui/layer_panel.py` | T12-B-04 | UI-001 (Article V) | todo |
@@ -91,10 +91,62 @@ byte-exactness to AGT-04's logic tests). **No test asserts commit byte-exactness
 belongs to AGT-04/AGT-06, is recorded here rather than declared satisfied, and this correction does not
 close it.
 
-**Unrepaired sibling in this same table (reported, not fixed — out of this correction's scope).**
-T12-B-05 cites `tests/ui/test_opacity_drag_responsive.py`; the file on disk is
-`tests/ui/test_opacity_drag.py`. That is a **third** dangling stem in this family. It is left untouched
-because this correction was authorised for T12-B-03 only; it needs its own ruling.
+**T12-B-05 correction (2026-07-30) — RESOLVED; was the third dangling stem in this family.** The
+Target-file cell previously read *"`tests/ui/test_opacity_drag_responsive.py`"* — **no file of that name
+exists anywhere in the repository**; `tests/ui/` holds `test_opacity_drag.py` (the `*_responsive.py`
+modules in that directory belong to other features: `test_automation_responsive.py`,
+`test_cloud_responsive.py`, `test_export_responsive.py`). This was flagged here as unrepaired when
+T12-B-03 was corrected, then authorised and fixed in the same session. Family history:
+(1) `test_viewport_recomposite_perf` in `traceability.md` (M-8/M-9); (2) T12-B-03's
+`test_viewport_recomposite_byte_exact.py`; (3) this one. Common cause: rows authored against *intended*
+filenames that later consolidated, never reconciled.
+
+**What genuinely covers T12-B-05.** `tests/ui/test_opacity_drag.py` — **opened and read before being cited**
+(468 lines; docstring: *"Opacity-drag preview + byte-exact commit UI acceptance tests (Phase-12 Slice B) …
+one pytest-qt test per acceptance criterion of the FU-16b opacity-drag / low-zoom viewport recomposite
+interaction … REQ-P12-UI-001"*). It is the **only** module in the tree that exercises
+`begin_opacity_drag`. Clause-by-clause against T12-B-05:
+
+- **pytest-qt, offscreen, both themes** — covered: real `qtbot` + `Layer_Panel`/`CanvasScene`/`Canvas_View`
+  widgets; `tests/ui/conftest.py` forces `QT_QPA_PLATFORM=offscreen` before any `QApplication`, and its
+  `theme` fixture is `@pytest.fixture(params=[THEME_LIGHT, THEME_DARK], autouse=True)`, so **every** test in
+  the module runs twice, once per theme.
+- **≥ 12 layers, low-zoom whole-viewport drag** — covered structurally: `_LAYERS = 12`, and the viewport is
+  sized so `_clamp_visible_region() == (0, 0, _W, _H)` (the whole canvas is the culled region), whose area
+  exceeds `OPACITY_PREVIEW_MAX_PX` and so forces a genuine LOD factor `> 1` — the branch "low zoom" exists
+  to reach. Literal zoom is `1.0`, not `< 1`.
+- **UI stays responsive / no multi-second freeze** — covered: `test_preview_uses_bounded_lod_path_not_full_recomposite`
+  asserts the per-tick mechanism (throttled action rebound to `_preview_opacity_drag`, `cache.factor > 1`,
+  each cached working set `<= OPACITY_PREVIEW_MAX_PX`) plus a wall-clock ceiling.
+- **Commit applies the full-resolution byte-exact recomposite** — covered, incl. end-to-end through the real
+  `QSlider` signals: `test_commit_byte_exact_realistic_all_normal`,
+  `test_commit_byte_exact_partial_alpha_non_normal_above` (also proves the commit is *not* the divergent
+  above-pre-flatten fast path), `test_commit_byte_exact_driven_by_slider_signals` (press → preview →
+  release ⇒ exactly one `LayerCommand`), `test_commit_is_deterministic`,
+  `test_preview_approximate_then_commit_exact_transition`, plus four cache-invalidation tests
+  (commit / pan-zoom / edit / frame-op) — all `np.array_equal` against `composite_stack`, no tolerance.
+- **Light and dark behave identically** — covered: `test_opacity_drag_both_themes_commit_identically`
+  asserts the same byte-exact invariant under each theme against a theme-agnostic reference.
+- **a11y (focus/keyboard) on the slider** — covered: `test_opacity_slider_accessible_and_keyboard_reachable`
+  (`accessibleName() == "Opacity"`, `TabFocus`, enabled, a `:focus` rule present in the installed theme QSS).
+
+**Coverage is PARTIAL, stated rather than implied — two clauses are NOT covered.**
+(1) **"8K document"** — the module runs at `_W = _H = 300`, not 8192². The 300² size is a deliberate choice
+to cross the `OPACITY_PREVIEW_MAX_PX` threshold and exercise the LOD branch, but no opacity-drag test runs
+on an 8K canvas. (2) **"holds the 16 ms `FRAME_BUDGET_MS`"** — this is **not asserted as a 16 ms bound**;
+the only wall-clock assertion is `elapsed_ms < FRAME_BUDGET_MS * 60`, self-described in the test as a
+*"loose gross-freeze ceiling, not 16 ms"*. The 16 ms claim rests on the bounded-working-set **mechanism**,
+not on a measurement. Both residuals belong to AGT-06/AGT-10 (the RE-PROFILE ship gate T12-B-06 is the
+natural home of the timing evidence); they are recorded here, **not** declared satisfied, and this
+correction does not close them.
+
+**Family sweep (AGT-01, 2026-07-30) — every test path cited in this file was resolved on disk.** Resolves:
+`tests/logic/test_blend_fullframe.py` (T12-A-03), `tests/logic/test_blend_range.py` (T12-B-03),
+`tests/ui/test_opacity_drag.py` (T12-B-05, as corrected above). Not on disk but **legitimately
+forward-looking**, not dangling: `tests/ui/test_analytics_offthread.py` (T12-U2-02 — an OPTIONAL/LOW task
+gated on orchestrator adoption; the nearest shipped module is `tests/ui/test_palette_analytics_view.py`).
+`tests/ui/*` (TG-05) and `scripts/*` (invoke) are directory globs and resolve. No further dangling test stem
+remains in this table.
 
 ## Slice F — requirement-artifact + docstring hygiene (C3 leftovers; DEP-5)
 

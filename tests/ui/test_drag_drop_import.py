@@ -1,9 +1,9 @@
-"""Drag-and-drop import UI acceptance tests (REQ-P7-UI-001..009).
+"""Drag-and-drop import UI acceptance tests (REQ-DDI-UI-001..009).
 
 One pytest-qt test per acceptance criterion of the ``drag-drop-import`` feature
 (Slice A-B), driving the shipped :class:`Main_Window` drop handlers headlessly
 (``QT_QPA_PLATFORM=offscreen``). Every test also runs under **both** the light
-and dark themes via the autouse ``theme`` fixture in ``conftest.py`` (REQ-P7-UI-009).
+and dark themes via the autouse ``theme`` fixture in ``conftest.py`` (REQ-DDI-UI-009).
 
 Test seams (per the AGT-05 A-B report):
     * drive ``dragEnterEvent`` / ``dropEvent`` with synthetic Qt drag events, or
@@ -181,7 +181,7 @@ PAL_B = [(200, 100, 50, 255), (5, 15, 25, 255), (99, 88, 77, 255)]
 
 
 # --------------------------------------------------------------------------- #
-# REQ-P7-UI-001 — accept file-URL drops                                       #
+# REQ-DDI-UI-001 — accept file-URL drops                                      #
 # --------------------------------------------------------------------------- #
 
 
@@ -236,7 +236,7 @@ def test_ui001_drop_delivers_paths_to_router(win, monkeypatch, tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# REQ-P7-UI-002 — route by file type, not drop location                       #
+# REQ-DDI-UI-002 — route by file type, not drop location                      #
 # --------------------------------------------------------------------------- #
 
 
@@ -268,7 +268,7 @@ def test_ui002_each_type_dispatched_to_its_branch(win, monkeypatch, tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# REQ-P7-UI-003 — image drop → NEW document tab (not a layer)                  #
+# REQ-DDI-UI-003 — image drop → NEW document tab (not a layer)                #
 # --------------------------------------------------------------------------- #
 
 
@@ -334,7 +334,7 @@ def test_ui003_source_file_not_modified_on_disk(win, tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# REQ-P7-UI-004 — .pixproj drop → open with dirty save prompt                  #
+# REQ-DDI-UI-004 — .pixproj drop → open with dirty save prompt                #
 # --------------------------------------------------------------------------- #
 
 
@@ -440,7 +440,7 @@ def test_ui004_discard_opens_without_saving(win, tmp_path, monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
-# REQ-P7-UI-005 — palette drop → replace as ONE undoable command              #
+# REQ-DDI-UI-005 — palette drop → replace as ONE undoable command             #
 # --------------------------------------------------------------------------- #
 
 
@@ -491,7 +491,7 @@ def test_ui005_no_open_document_is_graceful_noop_with_notice(win, tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# REQ-P7-UI-006 — unknown/unsupported type → graceful ignore + notice          #
+# REQ-DDI-UI-006 — unknown/unsupported type → graceful ignore + notice        #
 # --------------------------------------------------------------------------- #
 
 
@@ -510,7 +510,7 @@ def test_ui006_unknown_type_ignored_with_notice_no_crash(win, tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# REQ-P7-UI-007 — corrupt/oversized → error notice, not a crash                #
+# REQ-DDI-UI-007 — corrupt/oversized → error notice, not a crash              #
 # --------------------------------------------------------------------------- #
 
 
@@ -592,7 +592,7 @@ def test_ui007_invalid_pixproj_shows_error_no_document_opened(
 
 
 # --------------------------------------------------------------------------- #
-# REQ-P7-UI-008 — multi-file drop routing                                     #
+# REQ-DDI-UI-008 — multi-file drop routing                                    #
 # --------------------------------------------------------------------------- #
 
 
@@ -666,7 +666,7 @@ def test_ui008_zero_file_drop_is_noop(win):
 
 
 # --------------------------------------------------------------------------- #
-# REQ-P7-UI-009 — a11y / i18n / both themes                                   #
+# REQ-DDI-UI-009 — a11y / i18n / both themes                                  #
 # --------------------------------------------------------------------------- #
 
 
@@ -674,7 +674,7 @@ def test_ui009_notice_strings_are_translatable_and_rendered(win, tmp_path):
     """SC-U009-1/-3: drop notices are non-empty (tr-wrapped) and shown in-theme.
 
     Runs under both themes via the autouse ``theme`` fixture, so the notice is
-    exercised on both the light and dark stylesheet (REQ-P7-UI-009).
+    exercised on both the light and dark stylesheet (REQ-DDI-UI-009).
     """
     unknown = tmp_path / "thing.dat"
     unknown.write_text("x", encoding="utf-8")

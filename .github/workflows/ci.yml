@@ -9,6 +9,16 @@
 # offscreen) with the OS libraries PySide6 needs. Python 3.12 pinned. A
 # single-run concurrency guard cancels superseded runs for the same ref.
 #
+# REPRODUCIBILITY (R-11, constraints.txt): every `pip install -e ...` step
+# below also passes `-c constraints.txt` — a committed, regenerable pip
+# constraints file pinning the FULL resolved dependency closure (direct +
+# transitive, 53 packages) so every CI run and every developer installs the
+# SAME versions instead of re-resolving pyproject.toml's floors against
+# whatever is newest on PyPI that day. pyproject.toml's public `dependencies`
+# floors are UNCHANGED by this — see constraints.txt's own header for the
+# mechanism, the exact regeneration command, and why one file safely serves
+# all three OS legs of the matrix below.
+#
 # Phase-13 Slice 13A (REQ-P13-BUILD-001, T13A-12): the quality-gate job is a
 # 3-OS matrix — ubuntu-latest + windows-latest + macos-latest — each leg running
 # the FULL test suite headless (QT_QPA_PLATFORM=offscreen; the SAME pytest
@@ -97,9 +107,13 @@ jobs:
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
 
       - name: Install project (runtime + dev) from manifest
+        # -c constraints.txt: reproducibility lock (R-11) — pins the full
+        # resolved dependency closure (direct + transitive) so this install
+        # matches every other CI run and any developer's local environment.
+        # Regenerate command + rationale: constraints.txt's own header.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
+          python -m pip install -c constraints.txt -e ".[dev]"
 
       # ----- Static / lint / type gates: Ubuntu-only (OS-invariant source lints;
       # keep the shipped Ubuntu gate as-is, plan §3.1). -----
@@ -271,36 +285,18 @@ jobs:
           # this CI artefact can never be committed by accident.
           python -m coverage xml --omit="*/tests/*" -o coverage/nonclient.xml
 
-      - name: Coverage gate — non-client packages [TIME-BOXED EXCEPTION, expires 2026-08-31]
+      - name: Coverage gate — non-client packages (>=90 line / >=80 branch, S13)
         if: runner.os == 'Linux'
-        # HONEST MEASUREMENT, EXPLICIT EXCEPTION. The gate below is the SAME
-        # constitutional 90/80 — it is NOT lowered, and the packages are NOT
-        # excluded. What is time-boxed is only the BLOCKING of the merge on the
-        # KNOWN, RECORDED shortfall, so that discovering it does not freeze every
-        # unrelated change while it is repaid.
-        #
-        # Real numbers measured 2026-07-29 (local, py3.13, same test selection):
-        #   sync_backend  line 93.57%  branch 76.00%  -> FAILS on branch (need 80)
-        #                 (line 80.12% / branch 56.00% when tests/backend runs alone)
-        #   web_viewer    line  5.56%  branch  0.00%  -> FAILS both; dev_server.py
-        #                 is at 0% — it has no test at all.
-        # The redness is TRUE, not a tooling artefact. Raising it is owed work and
-        # belongs to AGT-04 (tests), not to this workflow.
-        #
-        # The time-box is SELF-ENFORCING, not a comment: past EXPIRY this step
-        # starts failing the build. It cannot rot into a permanent exemption.
-        run: |
-          EXPIRY=2026-08-31
-          if python scripts/coverage_gate.py --xml coverage/nonclient.xml --line 90 --branch 80; then
-            echo "non-client packages meet the constitutional 90/80 gate"
-            exit 0
-          fi
-          TODAY="$(date -u +%F)"
-          if [[ "${TODAY}" > "${EXPIRY}" ]]; then
-            echo "::error::Time-boxed non-client coverage exception EXPIRED on ${EXPIRY}. sync_backend/web_viewer are still below the constitutional >=90 line / >=80 branch gate (real numbers above). This now BLOCKS: raise the coverage (AGT-04) — do not extend the box without an explicit decision."
-            exit 1
-          fi
-          echo "::warning::sync_backend / web_viewer are below the constitutional >=90 line / >=80 branch gate. KNOWN and time-boxed until ${EXPIRY} (owner AGT-04); the real per-package numbers are in the JSON above. This step BLOCKS the build after ${EXPIRY}."
+        # Formerly a time-boxed exception (expired scaffolding removed
+        # 2026-07-30): sync_backend/web_viewer measured below the
+        # constitutional 90/80 on 2026-07-29 (sync_backend 93.57%/76.00%,
+        # web_viewer 5.56%/0.00%). 33 new tests closed that gap; re-measured
+        # 2026-07-30 at sync_backend 100.00%/100.00% and web_viewer
+        # 100.00%/100.00%, gate exit 0. The debt is repaid, so this is now a
+        # plain, unconditional gate at the constitutional 90/80 — same shape
+        # as the client-coverage gate above. Thresholds are NOT lowered and
+        # the packages are NOT excluded.
+        run: python scripts/coverage_gate.py --xml coverage/nonclient.xml --line 90 --branch 80
 
       # ----- Web-viewer JS-unit gate (Phase-13 Slice 13E, T13E-G04, F11).
       # Ubuntu-only: node is available on the ubuntu runner (absent on the local
@@ -490,9 +486,13 @@ jobs:
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
 
       - name: Install project (runtime + dev) from manifest
+        # -c constraints.txt: reproducibility lock (R-11) — pins the full
+        # resolved dependency closure (direct + transitive) so this install
+        # matches every other CI run and any developer's local environment.
+        # Regenerate command + rationale: constraints.txt's own header.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
+          python -m pip install -c constraints.txt -e ".[dev]"
 
       - name: Integration tests (deploy/ launcher, Docker, Nginx WSS — localhost)
         # Runs only the `integration`-marked deploy acceptance in tests/backend/.
@@ -598,9 +598,15 @@ jobs:
             patchelf
 
       - name: Install project + packaging toolchain (pyside6-deploy / Nuitka)
+        # -c constraints.txt on the project install only (R-11): pins the
+        # same runtime-dependency versions as the quality-gate/integration
+        # jobs so a packaged installer is built from the SAME resolved
+        # numpy/Pillow/PySide6/pycrdt/websockets versions the test matrix
+        # verified. Nuitka itself is a build-toolchain dep, not part of the
+        # project's dependency closure, so it is left unconstrained.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .
+          python -m pip install -c constraints.txt -e .
           python -m pip install nuitka
         # pyside6-deploy ships inside the PySide6 wheel (a project runtime dep);
         # pre-installing Nuitka keeps the build non-interactive & reproducible.

@@ -28,10 +28,22 @@ Scope note (AGT-06): these are UI/integration tests. The pure-logic byte-exactne
 of ``composite_range`` across all modes + the perf gate are AGT-04's logic tests;
 here we assert the *wired UI lifecycle* (preview path engaged + bounded, commit
 byte-exact from the panel, cache invalidation, a11y) — one per acceptance criterion.
+
+T12-B-03 scale note (AGT-06, 2026-07-30): T12-B-03 requires byte-exact viewport
+recomposite "up to 1920x1920, >= 12 layers". Every byte-exact test above this note
+runs at 300x300/12 layers (a mechanism proof, not the clause's own scale). The
+clause's literal ceiling is covered by ONE opt-in, ``slow``-marked test further
+down (``test_commit_byte_exact_at_1920_scale_12_layers_opt_in``) — env-gated by
+``PIXELART_OPACITY_SCALE_TEST=1`` and deselected by CI's default
+``-m "not slow and ..."`` gate, the same double-gate convention already used by
+``tests/backend/test_nginx_wss_localhost.py`` / ``test_vps_localhost.py``, because
+a full 1920x1920x12-layer commit costs tens of seconds of vectorised NumPy work
+per theme instance — too slow to run on every default invocation of this file.
 """
 
 from __future__ import annotations
 
+import os
 import time
 from types import SimpleNamespace
 
@@ -65,6 +77,16 @@ _H = 300
 #: Many-layer stack (>= 12) — the FU-16b modelled case (baseline 2.2-7 s cache-cold).
 _LAYERS = 12
 
+#: T12-B-03's own scale ceiling ("byte-exact viewport recomposite up to 1920x1920,
+#: >= 12 layers"). Measured at ~50-90 s for the two theme-parametrised invocations
+#: (see test docstring below), so it is opt-in (env-gated + ``slow``-marked, the
+#: SAME double-gate convention as ``tests/backend/test_nginx_wss_localhost.py`` and
+#: ``tests/backend/test_vps_localhost.py``) rather than part of the default gate.
+_SCALE_ENV_VAR = "PIXELART_OPACITY_SCALE_TEST"
+_SCALE_W = 1920
+_SCALE_H = 1920
+_SCALE_LAYERS = 12
+
 
 def _fill_layers(nodes, *, partial_alpha: bool, seed: int) -> None:
     """Fill each layer buffer with deterministic distinct RGBA content.
@@ -96,6 +118,9 @@ def _make_env(
     seed: int = 11,
     non_normal_above: bool = False,
     k: int = 6,
+    width: int = _W,
+    height: int = _H,
+    show: bool = False,
 ):
     """Wire a ``CanvasScene`` + full-canvas viewport + ``Layer_Panel`` for a drag.
 
@@ -104,9 +129,18 @@ def _make_env(
     live drag calls the throttled preview, and the release commit pushes one
     ``LayerCommand`` whose redo recomposites byte-exact. The view is resized so the
     whole canvas is the culled viewport region ``V`` (a genuine LOD factor > 1).
+    ``width``/``height`` default to the module's ``_W``/``_H`` (300x300) so every
+    existing call site is unaffected; a caller may pass a larger canvas (e.g. the
+    T12-B-03 opt-in scale test) without changing the default env for any other test.
+    ``show`` defaults to ``False`` (existing behaviour, unshown widget): an UNSHOWN
+    ``QGraphicsView``'s viewport keeps a fixed initial layout size on this Qt build
+    (observed 624x464 under the offscreen platform) regardless of ``resize()``, which
+    silently under-covers a canvas larger than that — harmless at the 300x300 default
+    (well within 624x464) but wrong at 1920x1920, so the scale test passes
+    ``show=True`` to force the real layout pass; every other call site is unaffected.
     Returns a namespace ``(doc, scene, view, stack, panel, nodes, k)``.
     """
-    doc = Document(_W, _H, palette=Palette(STARTER))
+    doc = Document(width, height, palette=Palette(STARTER))
     for i in range(layers - 1):
         doc.add_layer(f"L{i + 1}")
     nodes = doc.frames[0].layers
@@ -126,7 +160,9 @@ def _make_env(
     view.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
     view.resetTransform()
     view._zoom = 1.0
-    view.resize(_W + 60, _H + 60)
+    view.resize(width + 60, height + 60)
+    if show:
+        view.show()
     view.horizontalScrollBar().setValue(0)
     view.verticalScrollBar().setValue(0)
 
@@ -148,19 +184,23 @@ def _make_env(
     )
     scene._ensure_composite()
     # Precondition for the whole feature: a live viewport spanning the canvas.
-    assert scene._clamp_visible_region() == (0, 0, _W, _H)
+    assert scene._clamp_visible_region() == (0, 0, width, height)
     return SimpleNamespace(
         doc=doc, scene=scene, view=view, stack=stack, panel=panel, nodes=nodes, k=k
     )
 
 
-def _region_ref(nodes, region=(0, 0, _W, _H)) -> np.ndarray:
+def _region_ref(
+    nodes, region=(0, 0, _W, _H), *, width: int = _W, height: int = _H
+) -> np.ndarray:
     """Authoritative "current build" composite over ``region`` (byte-exact target).
 
     ``composite_stack(region=...)`` is the shipped compositor the commit must match
-    byte-for-byte (REQ-P12-LOGIC-004 / ADR-0034 §3).
+    byte-for-byte (REQ-P12-LOGIC-004 / ADR-0034 §3). ``width``/``height`` default to
+    the module's ``_W``/``_H`` (300x300, matching every existing call site's default
+    ``region``); the T12-B-03 scale test passes its own 1920x1920 canvas size.
     """
-    return composite_stack(nodes, _W, _H, region=region).data
+    return composite_stack(nodes, width, height, region=region).data
 
 
 def _top_row(panel: Layer_Panel, k: int):
@@ -325,6 +365,74 @@ def test_commit_is_deterministic(qtbot, theme):
     second = scene._composite.data
 
     assert np.array_equal(first, second)
+
+
+# --------------------------------------------------------------------------- #
+# T12-B-03 — byte-exact commit at the task's OWN scale ceiling (opt-in, slow)  #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.slow
+def test_commit_byte_exact_at_1920_scale_12_layers_opt_in(qtbot, theme):
+    """T12-B-03: byte-exact viewport recomposite AT its own stated scale.
+
+    Every other byte-exact test in this module runs at 300x300/12 layers — a
+    correctness proof of the *mechanism*, not of the ``T12-B-03`` clause itself
+    ("byte-exact viewport recomposite up to 1920x1920, >= 12 layers"). This test
+    exercises the identical commit path
+    (``begin_opacity_drag`` -> live opacity change -> ``refresh_visible`` commit)
+    at the task's own literal ceiling and asserts the committed pixels equal
+    ``composite_stack`` byte-for-byte over the full 1920x1920 region, with 12
+    layers, hard-edged (pixel-art-norm) alpha, all-NORMAL blend mode.
+
+    Opt-in (env var + ``slow`` marker, deselected by CI's default
+    ``-m "not slow and ..."`` gate, mirroring
+    ``tests/backend/test_nginx_wss_localhost.py``'s idle-past-60s test and
+    ``tests/backend/test_vps_localhost.py``'s Docker path): a single commit
+    at this scale costs several seconds of vectorised NumPy work (measured
+    locally, Python 3.13.13 / PySide6 6.11.1 / offscreen: ~24 s per theme
+    instance, ~48 s for both together — see AGT-06's report for the exact
+    command + output), and this suite runs under both light AND dark automatically (the
+    autouse ``theme`` fixture) — a bad trade for the DEFAULT gate to pay on
+    every run just to prove one documentation clause. It is genuinely GREEN
+    when opted in, so the clause is verified at scale on demand, not merely
+    claimed.
+
+    Set ``PIXELART_OPACITY_SCALE_TEST=1`` to run it:
+        QT_QPA_PLATFORM=offscreen PIXELART_OPACITY_SCALE_TEST=1 \\
+            python -m pytest tests/ui/test_opacity_drag.py \\
+            -k test_commit_byte_exact_at_1920_scale_12_layers_opt_in -m slow -q
+    """
+    if os.environ.get(_SCALE_ENV_VAR) != "1":
+        pytest.skip(f"opt-in slow test; set {_SCALE_ENV_VAR}=1 to run it")
+
+    env = _make_env(
+        qtbot,
+        theme,
+        layers=_SCALE_LAYERS,
+        partial_alpha=False,
+        non_normal_above=False,
+        width=_SCALE_W,
+        height=_SCALE_H,
+        show=True,  # force the real viewport layout at 1920x1920 (see _make_env)
+    )
+    scene, nodes, k = env.scene, env.nodes, env.k
+
+    assert scene.begin_opacity_drag([k]) is True
+    nodes[k].opacity = 0.5
+    # Commit directly (skip the LOD preview tick — already proven at 300x300 by
+    # test_preview_uses_bounded_lod_path_not_full_recomposite; this test's only
+    # job is the commit's byte-exactness AT SCALE, not the preview mechanism).
+    scene.refresh_visible()
+
+    assert scene._opacity_drag is None  # cache discarded on commit
+    ref = _region_ref(
+        nodes,
+        region=(0, 0, _SCALE_W, _SCALE_H),
+        width=_SCALE_W,
+        height=_SCALE_H,
+    )
+    assert np.array_equal(scene._composite.data, ref)
 
 
 # --------------------------------------------------------------------------- #
