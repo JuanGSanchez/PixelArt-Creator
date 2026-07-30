@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-8-automation` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-05 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VI, **VII**, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — no scripting engine (`logic/scripting.py`), macro model (`logic/macro.py`), plugin host (`logic/plugins.py`), procedural-generation / batch-recolour automation modules, automation CLI, or automation UI exists yet. The `logic/history.py` reversible-command pattern (`Command` / `FunctionCommand` / `History` / `PixelEdit`), the `Document` tree, `PixelBuffer`, `blend.composite_stack`, the shipped recolour / palette-swap logic (`logic/palette_ops.py`), the defensive `data/project_io.py` load pattern, and the Phase-7 **Qt-free headless CLI** precedent (`data/export_cli.py`) are **already shipped** and are reused, not re-authored. This spec defines the WHAT/WHY Phase 8 realises. |
@@ -849,4 +849,3 @@ Scenario: SC-UI-014-1 no Phase-8 user-visible string is a bare literal
   Tests authored later by AGT-04 (logic/data, incl. security tests) / AGT-06 (UI, both themes),
   `pending`.
 - **STATUS: COMPLETED.**
-</content>

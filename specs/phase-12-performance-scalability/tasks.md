@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-12-performance-scalability` |
-| Author | Claude (AGT-01, Architecture) via `sdd-tasks` |
+| Author | AGT-01 (Architecture) via `sdd-tasks` |
 | Date | 2026-07-07 |
 | Over | `plan.md` + `docs/adr/0033-*` (flatten strategy) + `docs/adr/0034-*` (drag preview) — **slice-by-slice**, each an independently gate-green, CI-green shippable increment. Slice A (full-frame flatten fast-path + tiling + dirty-tile + `--full-frame` gate) → Slice B (viewport recomposite split-cache + opacity-drag LOD preview + viewport-scale gate) → Slice F (artifact + docstring hygiene). |
 | Gate | Dispatch only after `sdd-analyze` C1 passes (Article VIII). **NO implementation begins until C1 is green — this gate is the blocker.** Each task leaves the gate green (Article IX). |
@@ -46,13 +46,55 @@ paths bounded by loose named ceilings, **not** asserted vs 16 ms (Article VI; bu
 | T12-B-00 | **AGT-10 directive:** confirm the dependency-free Slice-B strategy (baseline §3/§5, ADR-0034): split-cache `composite(below)`/`composite(above)` around the dragged layer (≈2–3 blends, not 12); downsampled-LOD preview holding 16 ms during drag; cull to the exposed viewport rect + dirty region; throttle/off-thread ticks (Phase-4 D3 + Phase-5 warmer); full-resolution byte-exact recomposite on commit. | AGT-10 | perf directive → AGT-03/AGT-05 | analyze C1 | LOGIC-004, UI-001 / baseline §3 FU-16 | todo |
 | T12-B-01 | Add `VIEWPORT_RECOMPOSITE_CEILING_MS = 2000` (loose viewport-scale catastrophic ceiling) with a citation docstring. **Name DISTINCT from every shipped ceiling.** Value AGT-10-RE-PROFILE-confirmed at T12-B-06. | AGT-03 | `logic/constants.py` | T12-B-00 | LOGIC-005 / plan §8, ADR-0034 §4 | todo |
 | T12-B-02 | Add the pure `logic/blend.py` Slice-B support seam (Qt-free, additive, `document`-free): split-cache helper for `composite(below idx)` / `composite(above idx)` around a target index (byte-exact when re-composed on commit) + a pure nearest-neighbour **LOD downsample** helper for the preview. No public signature break. | AGT-03 | `logic/blend.py` | T12-B-01 | LOGIC-004 / "recomposite path imports no Qt", byte-exact | todo |
-| T12-B-03 | Byte-exact recomposite regression tests (headless): the full-resolution whole-viewport recomposite (up to 1920², ≥ 12 layers) via the split-cache commit path is **byte-equal** to the current compositor over the same inputs (NORMAL + 11 modes, no tolerance); the recomposite path imports no Qt (`check_layering`); not asserted vs 16 ms. | AGT-04 | `tests/logic/test_viewport_recomposite_byte_exact.py`, `scripts/*` (invoke) | T12-B-02 | LOGIC-004 / SC-P12-LOGIC-004-1/-2 | todo |
+| T12-B-03 | Byte-exact recomposite regression tests (headless): the full-resolution whole-viewport recomposite (up to 1920², ≥ 12 layers) via the split-cache commit path is **byte-equal** to the current compositor over the same inputs (NORMAL + 11 modes, no tolerance); the recomposite path imports no Qt (`check_layering`); not asserted vs 16 ms. | AGT-04 | `tests/logic/test_blend_range.py` (**verified present + read**; the invariant is covered there, the *scale* clause is not — see the note under this table), `scripts/*` (invoke) | T12-B-02 | LOGIC-004 / SC-P12-LOGIC-004-1/-2 | todo |
 | T12-B-04 | Opacity-slider **drag lifecycle** in `ui/layer_panel.py`: on drag-start capture the split-cache; per tick render the downsampled-LOD preview (throttled via the Phase-4 D3 debounce; off-thread via `composite_warmer`, cached in `frame_cache`); on release/commit apply the full-resolution byte-exact recomposite and display it through the existing dirty-rect path. **No compositing maths in the widget** (calls `logic/blend`). `tr()` + `changeEvent` preserved; both themes identical. | AGT-05 | `ui/layer_panel.py`, `ui/composite_warmer.py`, `ui/frame_cache.py`, `ui/canvas_scene.py`/`ui/canvas_view.py` | T12-B-02 | UI-001 / SC-P12-UI-001-1/-2 | todo |
 | T12-B-05 | pytest-qt tests (both themes, offscreen): during an opacity drag on a low-zoom ≥ 12-layer 8K document, each per-tick downsampled preview **holds the 16 ms `FRAME_BUDGET_MS`** and the UI stays responsive (no multi-second freeze); on release the full-resolution recomposite is applied and the committed pixels match the current build (byte-exact per T12-B-03); light and dark behave identically; a11y (focus/keyboard) on the slider preserved. | AGT-06 | `tests/ui/test_opacity_drag_responsive.py` | T12-B-04 | UI-001 / SC-P12-UI-001-1/-2 | todo |
 | T12-B-06 | Author the dedicated `perf_profile --viewport-recomposite` **viewport-scale split-cache COMMIT gate** scenario (region ≥ 1080²/1920², 12 layers) at `VIEWPORT_RECOMPOSITE_CEILING_MS` (a distinct flag from the shipped 16-px `--composite` gate — the shipped `scripts/perf_profile.py` implements `--viewport-recomposite`, not a `--composite` extension); **AGT-10 RE-PROFILE ship gate:** measure the optimised commit recomposite on the CI-class runner, confirm at/under the ceiling (2–7 s catastrophe eliminated), confirm/tighten the constant + the gate scenario (feed back to T12-B-01). Not asserted vs 16 ms. | AGT-10 | `scripts/perf_profile.py`, re-profile report → AGT-01/AGT-03 | T12-B-02 | LOGIC-005 / SC-P12-LOGIC-005-1 | todo |
 | T12-B-07 | Wire the `--viewport-recomposite` gate into CI at `VIEWPORT_RECOMPOSITE_CEILING_MS` (passed from the named constant, no literal). | AGT-09 | `.github/workflows/ci.yml` | T12-B-06 | LOGIC-005 / SC-P12-LOGIC-005-1 | todo |
 | T12-B-08 | String audit (`string_audit_check`) on `ui/layer_panel.py` **only if** the drag lifecycle adds any new user-visible string (e.g. a "preview" status); wrap in `tr()` + `changeEvent` retranslate. Skipped if no new string. | AGT-07 | `ui/layer_panel.py` | T12-B-04 | UI-001 (Article V) | todo |
 | T12-B-09 | Re-run `check_layering` + `check_cycles`: confirm the split-cache/LOD seam adds no Qt to `logic/`, no new module/edge/cycle; module count unchanged. Must exit 0. | AGT-03 | `scripts/*` (invoke) | T12-B-02 | LOGIC-004 / Article I / plan §11 | todo |
+
+**T12-B-03 correction (2026-07-30) — this task cited a test file that does not exist.** The Target-file
+cell previously read: *"`tests/logic/test_viewport_recomposite_byte_exact.py`, `scripts/*` (invoke)"*.
+**That was wrong:** there is no file of that name anywhere in the repository — no
+`*byte_exact*` test module exists at all (the only `byte-exact` filenames in the tree are the two ADRs
+`docs/adr/0033-…-byte-exact.md` and `docs/adr/0034-…-byte-exact-commit.md`), and `tests/logic/` contains no
+`recomposite`- or `viewport`-stemmed module. This is the **sibling** of the `test_viewport_recomposite_perf`
+dangling stem corrected in `traceability.md` earlier today (M-8/M-9); that correction predicted this one.
+
+**What genuinely covers the obligation.** `tests/logic/test_blend_range.py` — **opened and read before being
+cited here** (596 lines; module docstring: *"Byte-exactness + helper tests for the Phase-12 Slice-B
+`composite_range` seam"*, and *"REQ-P12-LOGIC-004 makes the commit byte-exactness a HARD acceptance
+criterion"*). It asserts exactly T12-B-03's byte-equality contract against the same oracle the task names
+(*"the current compositor"* = the shipped `composite_stack`), with **no tolerance** (`np.array_equal`), via
+the helper `_assert_commit_byte_exact(nodes, w, h, region)` which walks **every** split `k` in
+`range(0, N+1)`:
+
+- `test_commit_byte_exact_each_mode_hard_edged` and
+  `test_commit_byte_exact_each_mode_partial_alpha_non_normal_above` — both parametrised over
+  `ALL_MODES` (pinned at 12 = NORMAL + 11 separable by `test_separable_mode_count_is_eleven`), each across
+  three regions (`None`, full-rect, sub-rect). This is the **NORMAL + 11 modes, no tolerance** clause.
+- `test_commit_byte_exact_representative_mixed_stack`, `test_commit_byte_exact_with_nested_group_above`,
+  `test_commit_base_is_not_mutated`.
+- `test_property_split_cache_commit_byte_exact_and_deterministic` — a Hypothesis property over random
+  bounded stacks (modes / opacity / masks / visibility / partial alpha) and a random split `k`.
+- Qt-freeness of the path is inherent (this module imports no Qt) and is separately gated by T12-B-09.
+
+**Scope shortfall stated honestly, not papered over.** T12-B-03's **scale** clause — *"up to 1920², ≥ 12
+layers"* — is **NOT** covered by `test_blend_range.py`: its byte-exact-commit stacks are 3–7 layers on
+canvases from 24×22 up to 30×33 (largest dimension anywhere in the module: 33 px),
+and the Hypothesis strategy is bounded to `max_value=9` per dimension and `max_value=6` layers. The
+byte-exactness *invariant* is mode- and split-exhaustive but small-canvas only. The largest byte-exact
+commit assertion in the tree is in `tests/ui/test_opacity_drag.py` (also read: `_W = _H = 300`,
+`_LAYERS = 12` — so `≥ 12 layers` is met, `1920²` is **not**, and that file's own docstring assigns pure
+byte-exactness to AGT-04's logic tests). **No test asserts commit byte-exactness at 1920².** That residual
+belongs to AGT-04/AGT-06, is recorded here rather than declared satisfied, and this correction does not
+close it.
+
+**Unrepaired sibling in this same table (reported, not fixed — out of this correction's scope).**
+T12-B-05 cites `tests/ui/test_opacity_drag_responsive.py`; the file on disk is
+`tests/ui/test_opacity_drag.py`. That is a **third** dangling stem in this family. It is left untouched
+because this correction was authorised for T12-B-03 only; it needs its own ruling.
 
 ## Slice F — requirement-artifact + docstring hygiene (C3 leftovers; DEP-5)
 

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-11-team-asset-management` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-04 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VI, **VII**, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION — COMPLETE (clarify ADJUDICATED).** No asset catalog, tagging, search/filter, asset-version-control, dependency-graph, or cross-project-reuse capability exists yet. The **tracked entities are already shipped and are REUSED, not re-authored**: Phase 5 `Frame` / `FrameTag` / named animations (`logic/animation.py`), Phase 6 `Tileset` / `Tilemap` (`logic/tileset.py`, `logic/tilemap.py`), the Phase 1 `Document` tree + `PixelBuffer` (DOC-1), the Phase 1/4/6 `data/project_io.py` defensive `.pixproj` serialiser (PIO-1), and the Phase 10 cloud/version-history/CRDT + `data/cloud/` storage backbone. This spec fixes the WHAT/WHY for **all 26 requirements in full**. The **four acceptance-changing scope questions (CL-P11-1..4)** that were SUSPENDED at first authoring have been **ADJUDICATED by the orchestrator, grounded in the Researcher report** (`docs/subagent-report-the-researcher-a37ee154-20260704T204011.md`); the answers are recorded in §10 and encoded into the eight previously-PENDING REQs (full acceptance + Gherkin + traceability). No requirement remains PENDING/BLOCKED. |
@@ -74,12 +74,16 @@ remains downstream (AGT-01 plan/ADR, grounded by the landed Researcher report, �
 - **Pure models + bounded numerics + batch posture (`logic/`).** The asset descriptor model
   (REQ-P11-LOGIC-001), the tag model (REQ-P11-LOGIC-002), the search/filter query (REQ-P11-LOGIC-003),
   the dependency-graph model (REQ-P11-LOGIC-004), named bounds in `logic/constants.py`
-  (REQ-P11-LOGIC-007), and the **off-the-interactive-loop / batch** posture (REQ-P11-LOGIC-008, Article
-  VI — asset ops are batch like Phases 7/8/10-A).
+  (REQ-P11-LOGIC-007), and the **pure + bounded + not-on-the-per-frame-loop** posture (REQ-P11-LOGIC-008,
+  Article VI). *(T11-X02: this line previously read "the **off-the-interactive-loop / batch** posture
+  (REQ-P11-LOGIC-008, Article VI — asset ops are batch like Phases 7/8/10-A)" — wrong; unlike Phases
+  7/8/10-A, Phase 11 shipped **no** worker and calls logic synchronously. See the correction note under
+  REQ-P11-LOGIC-008.)*
 - **`ui/` surfaces — fully drafted.** An **asset-library panel** (browse the catalog — REQ-P11-UI-001), a
   **tagging** UI (REQ-P11-UI-002), a **search/filter** UI (REQ-P11-UI-003), a **dependency-graph view**
   (visualise `sprite → animation → tileset` — REQ-P11-UI-005), and the a11y / both-themes / i18n /
-  stays-responsive gates (REQ-P11-UI-008/-009/-010/-011).
+  synchronous-completion gates (REQ-P11-UI-008/-009/-010/-011). *(T11-X02: the last gate previously read
+  "stays-responsive" — see the correction note under REQ-P11-UI-011.)*
 
 **In scope now (WHAT) — fully drafted (§10-adjudicated):**
 
@@ -129,9 +133,14 @@ Feature-label taxonomy in §3.2. **All stories are drafted; the four formerly-ga
   catalogs treated as **untrusted input** — schema-validated, `eval`-free, path-traversal-safe — so a
   tampered catalog can never execute code or escape the project directory. → REQ-P11-DATA-002 ·
   `untrusted-metadata` · P11
-- **US-6 (Any user / responsive-and-batch).** As a user, I want asset operations (catalog scan, search,
-  graph query) to run as **batch work off the interactive loop** and keep the UI responsive. →
-  REQ-P11-LOGIC-008, REQ-P11-UI-011 · `responsive-batch` · P11
+- **US-6 (Any user / bounded-and-immediate).** As a user, I want asset operations (catalog scan, search,
+  graph query) to be **bounded** and to **finish and show their result immediately when I trigger them**,
+  with no half-finished state to manage. → REQ-P11-LOGIC-008, REQ-P11-UI-011 · `responsive-batch` · P11
+  *(T11-X02, 2026-07-30: this story previously read "**US-6 (Any user / responsive-and-batch).** As a user,
+  I want asset operations (catalog scan, search, graph query) to run as **batch work off the interactive
+  loop** and keep the UI responsive." That described a worker mechanism Phase 11 never built — see the
+  correction note under REQ-P11-LOGIC-008. The feature label `responsive-batch` is **retained verbatim**
+  because it is part of the shared taxonomy other artifacts index on; it is now a misnomer, not a claim.)*
 - **US-7 (Any user / a11y-theme-i18n).** As a keyboard / dark-mode / non-English user, I want the asset
   panels **keyboard-reachable, correct in both themes, fully translatable**. → REQ-P11-UI-008, -009, -010
   · `a11y`, `theming`, `i18n` · P11
@@ -285,16 +294,57 @@ silently; no numeric literals appear in `logic/`/`data/`/`ui/`. **Concrete value
 **Acceptance:** every Phase-11 tuning value is a named constant in `logic/constants.py` (grep finds no
 literal at call sites); exceeding any bound raises a domain error.
 
-#### REQ-P11-LOGIC-008 — Asset operations are batch, off the interactive render loop (Article VI)
+#### REQ-P11-LOGIC-008 — Asset operations are pure, bounded, and off the per-frame render loop (Article VI)
 `traces:` Article VI, S1, S12
-Catalog scan/build, search/filter, tagging, and dependency-graph query are **batch/background** operations
-**not on the per-frame render loop** — like Phase-7 export, Phase-8 automation, and Phase-10 Slice-A cloud
-sync, the 16 ms `FRAME_BUDGET_MS` does **not** gate the operation itself; instead the contract is that
-these operations keep the **UI responsive** (REQ-P11-UI-011). *(No Phase-11 requirement re-enters the
-per-frame budget — unlike Phase-10 Slice-C real-time; if a large-catalog dependency-graph **render** ever
-needs per-frame assessment, that is an AGT-10 flag, §8 DEP-3, not a Phase-11 acceptance change.)*
-**Acceptance:** a catalog/search/graph operation over a large catalog does not block the GUI thread; no
-Phase-11 operation is asserted against the 16 ms per-frame budget.
+
+> **T11-X02 RE-ADJUDICATION (2026-07-30) — this requirement previously over-promised a mechanism that
+> does not exist in the product.** Following the analyze-gate retrofit precedent
+> (`specs/phase-1-ui-canvas/traceability.md` §"Notes for `sdd-analyze`"), it is **corrected in place, not
+> deleted**, so the history stays auditable.
+>
+> **Its previous title read:** *"Asset operations are batch, off the interactive render loop (Article VI)"*.
+> **Its previous statement read:**
+> *"Catalog scan/build, search/filter, tagging, and dependency-graph query are **batch/background**
+> operations **not on the per-frame render loop** — like Phase-7 export, Phase-8 automation, and Phase-10
+> Slice-A cloud sync, the 16 ms `FRAME_BUDGET_MS` does **not** gate the operation itself; instead the
+> contract is that these operations keep the **UI responsive** (REQ-P11-UI-011)."*
+> **Its previous acceptance read:** *"a catalog/search/graph operation over a large catalog does not block
+> the GUI thread; no Phase-11 operation is asserted against the 16 ms per-frame budget."*
+>
+> **Why that was wrong.** The words *"batch/background"* and *"does not block the GUI thread"* assert an
+> off-GUI-thread execution mechanism. **No such mechanism was ever built for Phase 11.** A search for
+> `QThread`, `QThreadPool`, `QRunnable`, `threading` and `concurrent.futures` across
+> `pixelart_creator/` returns **zero** hits in any Phase-11 asset or dependency module. The pattern is not
+> missing from the project — the same search finds worker modules for other phases
+> (`ui/export_worker.py`, `ui/automation_worker.py`, `ui/cloud_worker.py`, `ui/realtime_worker.py`,
+> `ui/assistant_worker.py`) — Phase 11 simply calls into `logic`/`data` **synchronously**, and its own
+> module docstrings say so outright: `ui/asset_library_actions.py` ("they run **synchronously on the GUI
+> thread with no worker thread, timer, or poller**"), `ui/asset_library_panel.py` /
+> `ui/asset_search_panel.py` / `ui/asset_tagging_panel.py` / `ui/dependency_graph_view.py` /
+> `ui/asset_reuse_panel.py` ("All work is synchronous over the in-memory catalog — no worker thread /
+> timer"). The `ui/asset_worker.py` module that `plan.md` §7 names **does not exist on disk**.
+> The requirement is therefore restated to the behaviour that actually shipped. It is **weakened, and that
+> is deliberate**: an artifact promising a mechanism the code does not have is worse than a weaker true one.
+>
+> **The off-GUI-thread ambition is not abandoned — it is reclassified as FUTURE WORK, not a Phase-11
+> requirement.** See §6 "Non-goals" (FW-P11-1) below; it needs a new REQ-ID in a future phase, a measured
+> latency justification, and a worker module. Nothing in this correction authorises dropping it.
+
+Catalog scan/build, search/filter, tagging, and dependency-graph query are **pure, deterministic,
+Qt-free** operations in `logic/`/`data/`, invoked **synchronously by the caller** and **bounded by named
+constants** in `logic/constants.py` — `MAX_CATALOG_ASSETS` (65536), `MAX_TAGS_PER_ASSET` (64),
+`MAX_DEPENDENCY_DEPTH` (64) — so every one of them terminates in finite work over an immutable in-memory
+value; exceeding a bound raises a domain error rather than degrading or running unbounded. They are **not
+invoked from the per-frame render path**: each runs only in response to a user action, and Phase 11 adds
+no timer, poller or paint-path call site. The 16 ms `FRAME_BUDGET_MS` therefore does **not** gate them, and
+**no per-frame time threshold is asserted here** — no such measurement was ever taken for Phase 11, so
+stating one would be an invented number. *(If a large-catalog dependency-graph **render** ever needs
+per-frame assessment, that is an AGT-10 flag, §8 DEP-3, not a Phase-11 acceptance change.)*
+**Acceptance:** every Phase-11 asset/graph operation is pure and deterministic (identical input ⇒
+byte-identical result), imports no Qt (`check_layering` passes), and raises a domain error rather than
+proceeding once a named bound (`MAX_CATALOG_ASSETS` / `MAX_TAGS_PER_ASSET` / `MAX_DEPENDENCY_DEPTH`) is
+exceeded; no Phase-11 operation is invoked from a paint/timer path, and none is asserted against the 16 ms
+per-frame budget.
 
 ### `ui/` — asset library, tagging, search, dependency view (new; only Qt)
 
@@ -357,15 +407,47 @@ literal. Hand-built widgets re-set text on `QEvent.LanguageChange`. Verified by 
 (AGT-07); an unwrapped string is blocking.
 **Acceptance:** `string_audit_check` finds no unwrapped user-visible string in the Phase-11 `ui/` files.
 
-#### REQ-P11-UI-011 — Asset operations keep the UI responsive *(NFR, Article VI posture)*
+#### REQ-P11-UI-011 — Asset operations complete synchronously on the GUI thread, with no worker to manage *(NFR, Article VI posture)*
 `traces:` REQ-P11-LOGIC-008, Article VI, S1
-A catalog scan/build, search, tagging, or dependency-graph query **does not freeze the UI** — it runs off
-the GUI thread where the work is non-trivial and the app stays responsive (progress/cancel where a long
-operation warrants it). Whether it runs on a worker thread/executor is an AGT-01/AGT-10 HOW; this REQ
-fixes the observable **stays-responsive** contract. Asset work is batch, off the per-frame loop
-(REQ-P11-LOGIC-008).
-**Acceptance:** a catalog/search/graph operation over a large catalog leaves the UI responsive (no
-freeze); the operation is not gated by the 16 ms per-frame budget.
+
+> **T11-X02 RE-ADJUDICATION (2026-07-30) — this requirement previously over-promised a mechanism that
+> does not exist in the product.** Corrected in place, not deleted (same precedent and same evidence as
+> REQ-P11-LOGIC-008 above; read that correction note for the full search result).
+>
+> **Its previous title read:** *"Asset operations keep the UI responsive (NFR, Article VI posture)"*.
+> **Its previous statement read:**
+> *"A catalog scan/build, search, tagging, or dependency-graph query **does not freeze the UI** — it runs
+> off the GUI thread where the work is non-trivial and the app stays responsive (progress/cancel where a
+> long operation warrants it). Whether it runs on a worker thread/executor is an AGT-01/AGT-10 HOW; this
+> REQ fixes the observable **stays-responsive** contract."*
+> **Its previous acceptance read:** *"a catalog/search/graph operation over a large catalog leaves the UI
+> responsive (no freeze); the operation is not gated by the 16 ms per-frame budget."*
+>
+> **Why that was wrong.** Three claims in it are false of the shipped code: nothing "runs off the GUI
+> thread" (no `QThread`/`QThreadPool`/`QRunnable`/`threading`/`concurrent.futures` anywhere in the
+> Phase-11 asset and dependency modules), **no progress or cancel affordance was built**, and therefore no
+> "does not freeze / stays responsive" guarantee exists to verify. What shipped is the opposite posture,
+> stated in the modules' own docstrings: every library / tagging / search / graph / version / reuse
+> operation is a synchronous in-memory call on the GUI thread with no worker, timer or poller.
+> This requirement is **weakened deliberately**; the off-GUI-thread capability is recorded as **future
+> work (FW-P11-1, §6)** and still needs its own REQ-ID, a measurement, and a worker module.
+
+A catalog scan/build, search, tagging, dependency-graph, version or reuse operation is invoked
+**synchronously on the GUI thread** and **completes within that single call**, before control returns to
+the Qt event loop: the panel re-reads and repaints from the returned immutable value, so there is no
+intermediate/partial state, no progress or cancel affordance, and **nothing to tear down** — no Phase-11
+panel or session owns a worker thread, timer or poller, and none needs a `shutdown_*` path (which is also
+why the cross-thread GC-of-Qt-C++ teardown hazard cannot arise on this surface). The work each call
+performs is bounded by the named constants in REQ-P11-LOGIC-008. **Stated plainly and as the accepted
+consequence:** because the call is synchronous, an operation over a catalog at the upper end of
+`MAX_CATALOG_ASSETS` blocks the GUI thread for its duration. **No responsiveness threshold and no latency
+figure is asserted here** — none was ever measured for Phase 11, and an unmeasured number is an open
+question, not a requirement.
+**Acceptance:** the result of a Phase-11 panel operation is observable in the same call — a test asserts
+the updated panel state immediately after the triggering input, with no `waitSignal`/`qWait`; no Phase-11
+asset panel or session references `QThread`/`QThreadPool`/`QRunnable`/`threading`/`concurrent.futures` or
+exposes a `shutdown_*` teardown path; and a window owning the asset panels disposes cleanly with no worker
+shutdown step. The operation is not gated by the 16 ms per-frame budget.
 
 ## 4b. Functional requirements — §10-ADJUDICATED (finalised: full acceptance + Gherkin + trace)
 
@@ -493,15 +575,27 @@ translatable and both themes render correctly.
 ## 5. Non-functional requirements (constitution-tied acceptance)
 
 Captured inline in §4: REQ-P11-DATA-002 (security / untrusted metadata + path-traversal, Article VII),
-REQ-P11-LOGIC-007 (bounded numerics, Article II), REQ-P11-LOGIC-008 (off the interactive loop / batch,
-Article VI), REQ-P11-UI-008 (a11y, Article V), REQ-P11-UI-009 (both themes, Article V), REQ-P11-UI-010
-(i18n, Article V), REQ-P11-UI-011 (stays-responsive). Article I (three-layer purity) governs the whole
+REQ-P11-LOGIC-007 (bounded numerics, Article II), REQ-P11-LOGIC-008 (pure + bounded + off the per-frame
+loop, Article VI — **re-adjudicated T11-X02**; it previously read *"off the interactive loop / batch"*),
+REQ-P11-UI-008 (a11y, Article V), REQ-P11-UI-009 (both themes, Article V), REQ-P11-UI-010
+(i18n, Article V), REQ-P11-UI-011 (synchronous-on-the-GUI-thread, no worker to manage — **re-adjudicated
+T11-X02**; it previously read *"stays-responsive"*). Article I (three-layer purity) governs the whole
 phase: catalog/version/reuse stores are Qt-free `data/`; models are Qt-free `logic/`; the only Qt is
 `ui/` (+ `ui/commands.py` for the tag-undo wrapper). Article IV (testing) and Article X (traceability)
 apply per the matrix.
 
 ## 6. Non-goals (explicit; deferred)
 
+- **FW-P11-1 — off-GUI-thread asset operations, with progress + cancel (FUTURE WORK, added by the T11-X02
+  re-adjudication, 2026-07-30).** Phase 11 ships every asset operation **synchronously on the GUI thread**
+  (REQ-P11-LOGIC-008 / REQ-P11-UI-011, as corrected). Moving catalog scan/build, search, dependency-graph
+  query and the break-detection pass onto a worker (the `ui/export_worker.py` / `ui/automation_worker.py` /
+  `ui/cloud_worker.py` / `ui/realtime_worker.py` / `ui/assistant_worker.py` precedent this project already
+  uses elsewhere), with a progress + cancel affordance, is **recorded here as future work so the ambition
+  is not lost** — it is explicitly **not** a Phase-11 requirement and was never built. Whoever takes it up
+  must mint a **new REQ-ID in the owning future phase** (do not re-widen these two ids), and must first
+  **measure** the synchronous latency at `MAX_CATALOG_ASSETS` — Phase 11 has no such measurement, so the
+  threshold that would justify the work does not yet exist.
 - **Re-authoring the tracked entities** (Phase 5 animation, Phase 6 tileset/tilemap, Phase 1
   `Document`/`PixelBuffer`) or the `.pixproj` serialiser (PIO-1) — Phase 11 **catalogs and references**
   them; it does not fork them (Article I).
@@ -525,8 +619,11 @@ apply per the matrix.
 - **Researcher grounding LANDED** (`docs/subagent-report-the-researcher-a37ee154-20260704T204011.md`). It
   grounded the orchestrator's §10 adjudications (stable-id catalog, dependency DAG, content-hash/CAS,
   reference-not-copy, path-traversal defence) and carries the HOW vocabulary into AGT-01's plan (§8 DEP-R).
-- **Article VI posture:** all Phase-11 operations are **batch/off-loop** (REQ-P11-LOGIC-008); no
-  requirement re-enters the per-frame budget (unlike Phase-10 Slice-C).
+- **Article VI posture:** all Phase-11 operations are **pure, bounded and synchronous, and none is invoked
+  from the per-frame render path** (REQ-P11-LOGIC-008); no requirement re-enters the per-frame budget
+  (unlike Phase-10 Slice-C). *(T11-X02, 2026-07-30: this line previously read "all Phase-11 operations are
+  **batch/off-loop** (REQ-P11-LOGIC-008)". "Batch/off-loop" was read as off-GUI-thread and no such
+  mechanism shipped — see the correction note under REQ-P11-LOGIC-008.)*
 
 ## 8. Behaviours flagged for AGT-01 / AGT-10 / Researcher (not blockers)
 
@@ -542,7 +639,9 @@ apply per the matrix.
   ADR (e.g. asset identity/hashing, graph model).
 - **DEP-2 (AGT-01):** concrete constant values for REQ-P11-LOGIC-007.
 - **DEP-3 (AGT-10, conditional):** only if a large-catalog dependency-graph **render** proves heavy —
-  Phase-11 domain ops are off-loop (REQ-P11-LOGIC-008); this is a UI-render flag, not an acceptance change.
+  Phase-11 domain ops are not on the per-frame path (REQ-P11-LOGIC-008, as corrected by T11-X02: *not on
+  the per-frame path*, **not** "off-loop" in the off-GUI-thread sense); this is a UI-render flag, not an
+  acceptance change.
 
 ## 9. Traceability
 

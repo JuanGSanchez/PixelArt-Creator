@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-13-cross-platform` |
-| Author | Claude (AGT-01, Architecture) via `sdd-analyze` |
+| Author | AGT-01 (Architecture) via `sdd-analyze` |
 | Gate | **T13-X01 — FINAL analyze gate (post-landing), re-run after ALL slices 13A–13E landed** |
 | Date | 2026-07-07 (final re-run) |
 | Artifacts analyzed | `constitution.md`, `specs/phase-13-cross-platform/spec.md`, `plan.md`, `tasks.md`, `traceability.md`, `acceptance.md` |
@@ -168,4 +168,3 @@ Purely-editorial drift found once slices landed, and fixed here (no code touched
 
 None of these are cross-artifact *findings* against the gate — they are the expected specs-catch-up after a
 multi-slice landing, and AGT-01 owns `specs/**` + `STRUCTURE.md`. The gate stays PASS.
-</content>

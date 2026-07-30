@@ -167,4 +167,3 @@ The prompt directs Phase 7 to formally reflect what it inherits forward vs. buil
   choices do not change acceptance.
 - **Three named dependencies** (DEP-1 Researcher grounding, DEP-2 AGT-01 plan/ADR, DEP-3 AGT-01/AGT-10
   responsiveness) must be resolved/allocated before/within the plan — none blocks this spec.
-</content>

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-1-ui-canvas` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-02 |
 | SDD phase | `plan` (HOW) over the approved `spec.md` + `clarify` defaults §10 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, V, VI, VIII, X) |
@@ -161,5 +161,3 @@ right-click **seam** (008).
 - Module map (§2) + constant additions (§3) defined; STRUCTURE.md updated.
 - Feeds `sdd-tasks` (`tasks.md`) then `sdd-analyze` (C1 gate).
 - **STATUS: COMPLETED.**
-</content>
-</invoke>

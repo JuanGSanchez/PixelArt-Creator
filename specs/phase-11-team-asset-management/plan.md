@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-11-team-asset-management` |
-| Author | Claude (AGT-01, Architecture) via `sdd-plan` |
+| Author | AGT-01 (Architecture) via `sdd-plan` |
 | Date | 2026-07-04 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, V, **VI**, **VII**, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — the HOW for Phase 11 before any `logic/{content_hash,asset_catalog,asset_tags,asset_query,dependency_graph,break_detection,asset_version}.py`, `data/{asset_storage,asset_cas,asset_catalog_io,asset_revision_store,asset_shared_backend,asset_export}.py`, or asset-management UI exists. The **shipped** tracked entities are **REUSED, not re-authored**: Phase-1 `logic/document.py` (`Document`/`PixelBuffer`, DOC-1) + `data/project_io.py` (PIO-1), Phase-5 `logic/animation.py` (`Frame`/`FrameTag`/named animations), Phase-6 `logic/tileset.py` + `logic/tilemap.py` (`Tileset`/`Tilemap`), and Phase-10 `data/cloud/` shared storage + `logic/version_history.py` (the *shape* precedent). |
@@ -73,11 +73,33 @@ layers.
 | Break detection | pure **content-hash-gated reference-validation pass** → per-edge BROKEN flag (missing id or hash mismatch); **pull-based**, recomputed on catalog change; no push | REQ-P11-LOGIC-005; ADR-0031 §3; Researcher §2.2/§2.3; CL-4 |
 | Storage substrate | **local-first, cloud optional**: one `BlobBackend` port; `LocalBlobBackend` default (offline); `SharedBlobBackend` composes Phase-10 `data/cloud/` when a provider is connected; nothing above the port names a provider | REQ-P11-DATA-006; ADR-0032; CL-3; Researcher §4.2/§6 |
 | Untrusted input | catalog/sidecar/reference schema+caps validation; path-traversal defence (`resolve()`+containment); **never `eval`/`exec`**; content-hash-verify fetched blobs | REQ-P11-DATA-002; ADR-0030 §5/ADR-0032 §3; Researcher §5 |
-| Responsiveness | asset ops batch/off the GUI thread (a `ui/asset_worker.py`, the Phase-7/8/10 worker precedent); progress/cancel where warranted | REQ-P11-UI-011; Article VI |
+| Responsiveness | **CORRECTED — see note under this table.** Asset ops are invoked **synchronously by the caller on the GUI thread**, bounded by named `logic/constants.py` caps; **no worker module was built**. Off-thread execution + progress/cancel = future work **FW-P11-1** | REQ-P11-UI-011 (as corrected); Article VI |
 | **Article VI** | **all Phase-11 domain ops off the per-frame loop** (batch); 16 ms `FRAME_BUDGET_MS` does not gate them; **NO AGT-10 per-frame directive required** — a large-catalog graph *render* is a conditional UI-only flag (DEP-3) | REQ-P11-LOGIC-008, REQ-P11-UI-011; spec §8 DEP-3 |
 | Bounds | 7 named constants in `logic/constants.py`; exceeding → domain error | REQ-P11-LOGIC-007; Article II/VII; §8 |
 | Testing | pytest + Hypothesis (logic/data headless — CAS dedup, canonical-hash determinism, graph queries, break pass, tag do/undo, query determinism; property tests over permuted inputs), pytest-qt both themes (UI); local core needs **no** network/creds | S8, Article IV; Researcher §6 |
 | Quality | Black + isort + flake8 + mypy (strict for `logic/`+`data/`) | Article III |
+
+> **CORRECTION (2026-07-30, T11-X02 follow-through) — hit 1 of 4. The Responsiveness row above promised a
+> module that was never built.**
+> **It previously read:** *"asset ops batch/off the GUI thread (a `ui/asset_worker.py`, the Phase-7/8/10
+> worker precedent); progress/cancel where warranted"*.
+>
+> **Why that was wrong.** Both halves are false of the shipped product. There is **no off-thread mechanism
+> in Phase 11 at all**: a search for `QThread`, `QThreadPool`, `QRunnable`, `threading` and
+> `concurrent.futures` across every Phase-11 asset and dependency module returns **zero** hits
+> (`ui/asset_library_panel.py`, `ui/asset_library_actions.py`, `ui/asset_tagging_panel.py`,
+> `ui/asset_search_panel.py`, `ui/dependency_graph_view.py`, `ui/asset_version_browser.py`,
+> `ui/asset_reuse_panel.py`). And **`pixelart_creator/ui/asset_worker.py` does not exist on disk** — it was
+> planned here, never written, and nothing was ever added in its place. No progress or cancel affordance
+> shipped either. The pattern is not absent from the project (`ui/export_worker.py`,
+> `ui/automation_worker.py`, `ui/cloud_worker.py`, `ui/realtime_worker.py`, `ui/assistant_worker.py` all
+> exist for other phases) — Phase 11 simply did not use it.
+>
+> **Where the ambition went.** Off-GUI-thread asset operations with progress + cancel are recorded as
+> **future work `FW-P11-1`** in `spec.md` §6. They are **not** a Phase-11 requirement; taking the work up
+> requires a new REQ-ID in the owning future phase plus a latency measurement at `MAX_CATALOG_ASSETS` that
+> Phase 11 never took. The three other hits of this correction are in §4.3 (the module-table row), §7 (the
+> Article VI posture) and §9 (the Slice-1 UI scope line).
 
 No Phase-11 logic/data decision places Qt in `logic/`/`data/` (**PL11-D2 → Branch B held**). All asset
 UI lives in `ui/`; the sole Qt file outside `ui/` remains `ui/commands.py` — extended this phase with a
@@ -129,11 +151,26 @@ either). All `data/` edges point **down** into `logic/` + `data/` siblings (+ th
 | `asset_tagging_panel.py` **(new)** | `Asset_Tagging_Panel` — add/remove tags; **undoable** via the shared undo stack (wraps `logic/asset_tags` do/undo through `ui/commands.py`); bound-exceeded → translatable error. | UI-002 | 1 |
 | `asset_search_panel.py` **(new)** | `Asset_Search_Panel` — search (name) + filter (tag/kind) driving the pure query; clearing restores full list. | UI-003 | 1 |
 | `commands.py` *(extend)* | Add `AddTagCommand`/`RemoveTagCommand` `QUndoCommand` wrappers over the pure `logic/asset_tags` do/undo pair (the one new undoable op; PL11-D3). | UI-002 | 1 |
-| `asset_worker.py` **(new)** | Off-GUI-thread runner for catalog scan/build, search, graph query so the UI never freezes (Phase-7/8/10 worker precedent). | UI-011 | 1 |
+| ~~`asset_worker.py`~~ **(PLANNED, NEVER BUILT — row retained deliberately; see note under this table)** | ~~Off-GUI-thread runner for catalog scan/build, search, graph query so the UI never freezes (Phase-7/8/10 worker precedent).~~ **Not on disk.** Catalog scan/build, search and graph query ship as **synchronous** calls from the panels/actions listed above. Off-thread execution → **FW-P11-1**. | UI-011 (as corrected) | — (not shipped) |
 | `dependency_graph_view.py` **(new)** | `Dependency_Graph_View` — visualise depends-on/dependents for a selected asset; cycle shown without hang. | UI-005 | 2 |
 | `break_warning_surface` (in `dependency_graph_view.py` / `asset_library_panel.py`) | Passive break indicator reflecting the validation pass; refreshes on catalog change; no push. | UI-006 | 2 |
 | `asset_version_browser.py` **(new)** | `Asset_Version_Browser` — list revisions (ordered, metadata); inspect + **restore** (reinstates as a new head; append-only). | UI-004 | 3 |
 | `asset_reuse_panel.py` **(new)** | `Asset_Reuse_Panel` — reference a shared asset into a project (reference, not copy); mark shared/referenced assets. | UI-007 | 3 |
+
+> **CORRECTION (2026-07-30, T11-X02 follow-through) — hit 2 of 4. This table declared a new module that
+> does not exist.**
+> **The row previously read:** *"| `asset_worker.py` **(new)** | Off-GUI-thread runner for catalog
+> scan/build, search, graph query so the UI never freezes (Phase-7/8/10 worker precedent). | UI-011 | 1 |"*
+>
+> **Why that was wrong.** `pixelart_creator/ui/asset_worker.py` was **never written** — confirmed absent
+> from disk — and no replacement module took its duty. The row is **struck through rather than deleted** so
+> a future auditor can see that this plan declared a module as "new" in Slice 1 which was never built, and
+> is not misled into thinking the module was renamed, merged, or moved: **nothing happened to it, it simply
+> never existed.** What shipped instead: the seven Phase-11 UI modules call `logic/`/`data/`
+> **synchronously on the GUI thread** (their own docstrings say so), and the off-thread runner is future
+> work **`FW-P11-1`** (`spec.md` §6). One shipped Phase-11 UI module is **absent from this table
+> altogether** — `ui/asset_library_actions.py`; that gap is noted here, not repaired, because this
+> correction is scoped to the four off-thread claims.
 
 Every `ui/` module wraps user-visible strings in `tr()`/`translate()` and overrides `changeEvent()` to
 retranslate on `QEvent.LanguageChange` (REQ-P11-UI-010); a11y names/focus (UI-008) and both-theme
@@ -272,10 +309,35 @@ def export_project_assets(reference_ids: Sequence[str], catalog: AssetCatalog,
 
 ## 7. Performance / render budget — Article VI posture (no per-frame re-entry)
 
-- **All Phase-11 domain ops are batch / off the interactive per-frame loop** (REQ-P11-LOGIC-008): catalog
-  scan/build, search/filter, tagging, dependency-graph query, break-detection pass, revision record, and
-  export run off the GUI thread (`ui/asset_worker.py`); the 16 ms `FRAME_BUDGET_MS` does **not** gate
-  them. The contract is **stays-responsive** (REQ-P11-UI-011), verified behaviourally (no freeze).
+- **All Phase-11 domain ops are off the interactive per-frame loop** (REQ-P11-LOGIC-008, as corrected):
+  catalog scan/build, search/filter, tagging, dependency-graph query, break-detection pass, revision
+  record and export are invoked **only in response to a user action** — Phase 11 adds no timer, poller or
+  paint-path call site — so the 16 ms `FRAME_BUDGET_MS` does **not** gate them. They run
+  **synchronously on the GUI thread**, terminating in finite work because each is bounded by a named
+  constant in `logic/constants.py` (`MAX_CATALOG_ASSETS` 65536, `MAX_TAGS_PER_ASSET` 64,
+  `MAX_DEPENDENCY_DEPTH` 64). **There is no measured latency for any of them.**
+
+  > **CORRECTION (2026-07-30, T11-X02 follow-through) — hit 3 of 4. This bullet claimed an execution
+  > mechanism that does not exist.**
+  > **It previously read:** *"**All Phase-11 domain ops are batch / off the interactive per-frame loop**
+  > (REQ-P11-LOGIC-008): catalog scan/build, search/filter, tagging, dependency-graph query,
+  > break-detection pass, revision record, and export run off the GUI thread (`ui/asset_worker.py`); the
+  > 16 ms `FRAME_BUDGET_MS` does **not** gate them. The contract is **stays-responsive**
+  > (REQ-P11-UI-011), verified behaviourally (no freeze)."*
+  >
+  > **Why that was wrong.** Two distinct claims failed. (a) *"run off the GUI thread
+  > (`ui/asset_worker.py`)"* — nothing runs off the GUI thread in Phase 11; there is **no off-thread
+  > mechanism of any kind** (zero `QThread`/`QThreadPool`/`QRunnable`/`threading`/`concurrent.futures` hits
+  > across every Phase-11 asset and dependency module) and the named module **does not exist on disk**.
+  > (b) *"verified behaviourally (no freeze)"* — no such verification exists; there is no non-freeze test
+  > and no latency measurement for any Phase-11 operation. Only the *"`FRAME_BUDGET_MS` does not gate
+  > them"* half survives, and it survives for a **different reason than the one given**: not because the
+  > work was moved off-thread, but because no Phase-11 operation is reachable from the per-frame render
+  > path. The word *"batch"* is dropped because here it implied off-thread scheduling.
+  >
+  > **Where the ambition went.** Off-GUI-thread operation with progress + cancel is future work
+  > **`FW-P11-1`** (`spec.md` §6) — a new REQ-ID and a latency measurement at `MAX_CATALOG_ASSETS` are
+  > prerequisites. Nothing in this correction authorises dropping it.
 - **No REQUIRED AGT-10 directive** (contrast Phase-10 Slice C). **Conditional flag (DEP-3):** *only if* a
   large-catalog dependency-graph **render** (the `Dependency_Graph_View` paint path) proves heavy
   interactively does AGT-10 assess it with `frame-profile` — a UI-render concern, not a Phase-11
@@ -317,7 +379,21 @@ AGT-09 commit.**
   - **1 (data):** `asset_storage` (`BlobBackend`+`LocalBlobBackend`) + `asset_cas` + `asset_catalog_io`.
     REQ-P11-DATA-001/-002/-003/-005(dedup/reference core)/-006(local)/-007.
   - **1 (ui):** `asset_library_panel` + `asset_tagging_panel` (+ `ui/commands.py` tag undo) +
-    `asset_search_panel` + `asset_worker`. REQ-P11-UI-001/-002/-003/-008/-009/-010/-011.
+    `asset_search_panel`. REQ-P11-UI-001/-002/-003/-008/-009/-010/-011.
+
+    > **CORRECTION (2026-07-30, T11-X02 follow-through) — hit 4 of 4. This slice scope listed a module that
+    > was never built.**
+    > **It previously read:** *"**1 (ui):** `asset_library_panel` + `asset_tagging_panel` (+
+    > `ui/commands.py` tag undo) + `asset_search_panel` + `asset_worker`.
+    > REQ-P11-UI-001/-002/-003/-008/-009/-010/-011."*
+    >
+    > **Why that was wrong.** `asset_worker` was scoped into Slice 1 and **never built** —
+    > `pixelart_creator/ui/asset_worker.py` is absent from disk (see the §4.3 note, where the row is
+    > retained struck-through). Slice 1 shipped without it, so it is removed from the *shipped* scope here
+    > and reclassified as future work **`FW-P11-1`** (`spec.md` §6). The REQ list is left **unchanged**:
+    > `REQ-P11-UI-011` is still delivered by this slice, but by its **corrected** synchronous wording, not
+    > by a worker. The shipped `ui/asset_library_actions.py` is likewise part of this slice and was never
+    > listed in this plan; recorded, not repaired (out of this correction's scope).
   - **Ship gate 1:** CAS dedup + canonical-hash determinism + catalog round-trip (PIO-1) + tag
     persist/undo + query determinism green in CI; layering/cycles exit 0; a11y + both themes + i18n
     green. → **cleared to AGT-03/AGT-04.**

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-9-visual-aids` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-04 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, **VI**, VII, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — the HOW for Phase 9 before any `logic/grids.py`, `logic/guides.py`, `logic/preview.py`, `logic/timelapse.py`, `data/timelapse_io.py`, `data/reference_board_io.py`, `.pixproj` v5 PPI extension, or visual-aids UI exists. The `Document` tree + stable `layer_id` (DOC-1), `PixelBuffer` (PB-1), `logic/history.py` reversible-command path (HIS-1), `blend.composite_stack` (CO-4), the Phase-4 multiple-canvas / artboard viewport/tab system (MC-4), and the defensive `data/project_io.py` load (IO-3) are **shipped** and reused, not re-authored. |
@@ -440,4 +440,3 @@ the C1 verdict.
 | PL9-D12 | Multi-view sync | one shared `Document` + one scene + N views | Qt shared-scene multi-view is free (`scene.changed` auto-repaint, research §5.1); builds on MC-4; no per-view copy (REQ-P9-LOGIC-012; ADR-0024 §1). |
 | PL9-D13 | Performance (DEP-3) | route to AGT-10/AGT-05; **16 ms APPLIES** | Overlays + views on the per-frame render loop (unlike 7–8); cache-backed overlays + dirty-rect views; budget never relaxed (ADR-0024 §6). |
 | PL9-D14 | Reversibility (CL-12) | aids push no `QUndoCommand`; no `ui/commands.py` change | Visual aids are view/session state; only HIS-1 drawing edits are undoable (mirrors Phase-4/5/6/8 view state). |
-</content>

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-8-automation` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-04 |
 | Over | `plan.md` (Slices 8A command-DSL/dispatcher/macro → 8B plugin host/persistence → 8C batch/procgen → 8D headless CLI → 8E automation UI) |
 | Gate | Dispatch only after `sdd-analyze` C1 passes (Article VIII); each task leaves the gate green (Article IX). |
@@ -78,4 +78,3 @@ deterministic sub-steps name their script. Every REQ maps to ≥1 impl + ≥1 te
 | TG-05 | String audit (`string_audit_check`): zero unwrapped user-visible strings (macro/script/plugin labels + tooltips, permission text, batch/procgen option labels + units, progress text, dialog titles, error messages); `changeEvent` retranslate on hand-built widgets. | AGT-07 | `ui/*.py` | T8E-06 | UI-014 / SC-UI-014-1 | todo |
 | TG-06 | CHANGELOG (`Unreleased`) entries for Phase-8 features tied to REQ-IDs. | AGT-08 | `docs/CHANGELOG.md` | 8A/8B/8C/8D/8E done | Article IX | todo |
 | TG-07 | `sdd-checklist` before ship: every REQ has a passing test; the 6 [SEC] invariants green; CLI==GUI + deterministic replay + round-trip green; both themes + a11y + i18n gates green. | AGT-06 | checklist report | all impl+test done | Article IV/V | todo |
-</content>

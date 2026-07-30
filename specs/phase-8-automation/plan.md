@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-8-automation` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-04 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VI, **VII**, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — the HOW for Phase 8 before any `logic/scripting.py`, `logic/macro.py`, `logic/plugins.py`, `logic/procgen.py`, `logic/batch_ops.py`, `data/macro_io.py`, `data/automation_cli.py`, or automation UI exists. The `logic/history.py` reversible-command path (`Command`/`FunctionCommand`/`History`/`PixelEdit` — HIS-1), the `Document` tree + stable `layer_id` (DOC-1), `PixelBuffer` (PB-1), `blend.composite_stack` (CO-4), `palette_ops` recolour/swap/cycle (PS-1), `logic/dither` (ordered + Floyd–Steinberg), the defensive `data/project_io.py` load (IO-3), and the Phase-7 Qt-free headless CLI precedent (`data/export_cli.py`, CLI-1) are **shipped** and reused, not re-authored. |
@@ -378,4 +378,3 @@ and gate the C1 analyze (Article I §4, VIII). See `analyze-report.md` for the C
 | PL8-D9 | `REQ-P8-DATA-*` prefix (DEP-4) | **Ratify fold under REQ-P8-LOGIC-007; no DATA prefix** | Contract already fixed + testable under LOGIC-007; `data/tiled_io` precedent; not acceptance-changing (ADR-0022 §4). |
 | PL8-D10 | Responsiveness (DEP-3) | route to AGT-10/AGT-05 | Off-GUI-thread worker over the Qt-free engine (Phase-5/6/7 warmer precedent); progress/cancel; NOT the 16 ms budget (automation is batch work); budget never relaxed. |
 | PL8-D11 | Reversibility (CL-8) | one grouped `QUndoCommand` per edit; recording/enable/selection not undoable | Every automation edit is a reversible command (HIS-1); view/session state is not (mirrors Phase-4/5/6). |
-</content>

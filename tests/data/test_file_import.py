@@ -1,6 +1,6 @@
 """Tests for pixelart_creator.data.file_import (classify + error family).
 
-Covers REQ-P7-DATA-003 (file-type classification) and REQ-P7-DATA-005 (the
+Covers REQ-DDI-DATA-003 (file-type classification) and REQ-DDI-DATA-005 (the
 shared, defensive import-error family) for the drag-drop import feature. Maps to
 Gherkin SC-D003-1/-2 (extension routing, case-insensitivity), SC-D004-1 (.pixproj
 routes to PROJECT) and SC-D005-2/-3 (one catchable base, no eval/exec).

@@ -4,7 +4,7 @@ A pure, Qt-free helper for the drag-drop import feature (REQ-NEW-A). It answers
 one question — *what kind of file is this path?* — by (case-insensitive) file
 extension, and it homes the shared :class:`FileImportError` family so every
 importer (palette here, image in ``ui/image_import``) rejects bad input with one
-catchable base (REQ-P7-DATA-005, ADR-0010).
+catchable base (REQ-DDI-DATA-005, ADR-0010).
 
 ``classify`` is a **pure predicate over the path string**: it performs no disk
 I/O and imports only the standard library (plan §1.1). The extension sets are
@@ -58,7 +58,7 @@ class FileType(enum.Enum):
 
 
 class FileImportError(ValueError):
-    """Base for every drag-drop import rejection (REQ-P7-DATA-005).
+    """Base for every drag-drop import rejection (REQ-DDI-DATA-005).
 
     The UI router catches this single family (plus the shipped
     ``ProjectIOError``) so one bad file surfaces a notice and never aborts the
@@ -86,7 +86,7 @@ def classify(path: Union[str, "Path"]) -> FileType:
 
     Pure and deterministic — no disk access. An extension outside the known
     image / project / palette sets returns :data:`FileType.UNKNOWN` (the UI
-    surfaces a non-blocking notice rather than raising, REQ-P7-UI-006).
+    surfaces a non-blocking notice rather than raising, REQ-DDI-UI-006).
 
     Args:
         path: A filesystem path (``str`` or :class:`pathlib.Path`).

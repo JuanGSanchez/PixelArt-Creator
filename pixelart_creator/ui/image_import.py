@@ -13,7 +13,7 @@ strip 32-bit scanline padding), bounds-checks the dimensions, and hands a plain
 Every load / format / bounds failure is raised as
 :class:`~pixelart_creator.data.file_import.ImageImportError` (defined Qt-free in
 ``data/`` so the whole import-error family shares one base the UI router catches —
-REQ-P7-DATA-005, ADR-0010).
+REQ-DDI-DATA-005, ADR-0010).
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ _RGBA_BYTES = 4
 
 
 def decode_image(path: Union[str, Path]) -> PixelBuffer:
-    """Decode an image file into an RGBA :class:`PixelBuffer` (REQ-P7-DATA-002).
+    """Decode an image file into an RGBA :class:`PixelBuffer` (REQ-DDI-DATA-002).
 
     Reads ``path`` with :class:`QImage`, converts to packed
     ``QImage.Format.Format_RGBA8888`` (deterministic R, G, B, A byte order across

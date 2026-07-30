@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-13-cross-platform` |
-| Author | Claude (AGT-01, Architecture) via `sdd-tasks` |
+| Author | AGT-01 (Architecture) via `sdd-tasks` |
 | Date | 2026-07-07 |
 | Over | `plan.md` + `docs/adr/0035` (web_viewer placement) + `0036` (web viewer wire+token contract) + `0037` (portable bundle) + `0038` (packaging) — **dependency-ordered, slice-by-slice**, each an independently gate-green, CI-green shippable increment. **13A → 13B → 13C → 13D → 13E** (by dependency/risk). |
 | Gate | Dispatch only after `sdd-analyze` C1 passes (Article VIII). **NO implementation begins until C1 is green.** Each task leaves the gate green (Article IX). |
@@ -144,4 +144,3 @@ non-three-layer components outside it; `check_layering`/`check_cycles` exit 0 on
 - **13E asset-generation (baked in, sequenced):** the contract freeze (T13E-P01, done) + the layering rule
   (T13E-P02/P03) precede The Metaprompter's generation of `agt-11-web-client` + the `web-viewer` skill + the
   3 modifies (T13E-G01..G04), which precede the frontend build (T13E-B04+). One owner per task.
-</content>

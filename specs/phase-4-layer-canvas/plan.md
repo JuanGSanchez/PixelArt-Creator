@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-4-layer-canvas` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-02 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, V, VI, VII, VIII, X) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — the HOW for Phase 4 before any `logic/blend.py` or layer UI exists |
@@ -412,5 +412,3 @@ AGT-01 never asserts layering clean on an unrun check.
 - ADR-0005 / ADR-0006 / ADR-0007 filed under `docs/adr/`.
 - `sdd-analyze` C1 gate run over constitution/spec/plan/tasks (see `analyze-report.md`).
 - **STATUS: COMPLETED.**
-</content>
-</invoke>

@@ -11,7 +11,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pixelart-creator"
-version = "0.1.0"
+version = "0.2.0"
 description = "Unified pixel-art platform: 8K editable grid, colour tools, layers, GPU render pipeline."
 readme = "NOTICE"
 requires-python = ">=3.12"
@@ -76,6 +76,12 @@ dev = [
     "flake8>=7.0",
     "mypy>=1.10",
     "pydocstyle>=6.3",
+    # REMEDIATION 2026-07-30: `mkdocs build --strict` (main/docs/site/mkdocs.yml,
+    # AGT-08's mkdocs-site skill) was runnable locally but NEVER declared as a
+    # project dependency, so a clean CI runner installing only `.[dev]` did not
+    # have it — the docs-build gate could not have passed in CI even though it
+    # passes here. Declared so the new CI step actually has the tool it invokes.
+    "mkdocs>=1.6",
 ]
 
 # Console entry points (installed on `pip install`). T7C-07 (REQ-P7-DATA-004);
@@ -177,6 +183,26 @@ exclude_lines = [
     "pragma: no cover",
     "if __name__ == .__main__.:",
 ]
+
+# pydocstyle: the docstring-discipline gate (F14, mkdocs-site skill, REMEDIATION
+# 2026-07-30). convention="pep257" is chosen deliberately, NOT left implicit,
+# because it is the ONLY convention that matches what this codebase already
+# does: logic-scaffold (AGT-03's owned skill) mandates "module + function
+# docstrings (PEP 257)" project-wide — there is no Google-style Args/Returns
+# section discipline and no NumPy-style underlined-section discipline anywhere
+# in pixelart_creator/. Selecting "google" or "numpy" here would not reveal a
+# real gap; it would MANUFACTURE hundreds of new D4xx section-formatting
+# findings against a formatting style the project never adopted (explicitly
+# rejected per the remediation directive). pep257 is ALSO pydocstyle's
+# built-in default when no convention is configured, so writing it out here
+# changes nothing about what is enforced today — it only makes the
+# previously-implicit ruleset explicit, durable, and immune to a future
+# pydocstyle major-version default change. NO add-ignore/add-select: the 102
+# real findings this convention surfaces (D101/D102/D105/D107/D209/D301/D401/
+# D402) are genuine gaps, not convention noise, and are gated (with a
+# time-boxed exception) in ci.yml rather than suppressed here.
+[tool.pydocstyle]
+convention = "pep257"
 
 [tool.flake8]
 # flake8 reads setup.cfg/.flake8 natively; this block documents intent. The

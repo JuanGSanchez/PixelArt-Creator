@@ -1,6 +1,6 @@
 """Tests for pixelart_creator.logic.document.Document.from_buffer.
 
-Covers the image-import factory (REQ-P7-DATA-002 / REQ-P7-UI-003, plan §5): a
+Covers the image-import factory (REQ-DDI-DATA-002 / REQ-DDI-UI-003, plan §5): a
 decoded RGBA PixelBuffer becomes a single-frame, single-layer Document sized to
 the buffer, seeding the background layer by *identity* (not a copy) so ui/ never
 reaches into the layer tree. Maps to Gherkin SC-D002-1 (RGBA buffer -> document

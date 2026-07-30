@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-02 |
 | Source | `plan.md` (HOW) over approved `spec.md` (REQ-P1-UI-001..026) + `render-strategy.md` (D1–D7) |
 | SDD phase | `tasks` → consumed by `sdd-analyze` (C1 gate) then orchestrator dispatch |
@@ -137,4 +137,3 @@ both themes (Article IV/V). Commits are AGT-09, gate-green, REQ-tagged (Article 
   + verification/docs/commit. Every REQ-P1-UI-* maps to ≥1 task.
 - Feeds `sdd-analyze` (C1 gate).
 - **STATUS: COMPLETED.**
-</content>

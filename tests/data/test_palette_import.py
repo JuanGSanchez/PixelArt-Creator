@@ -1,6 +1,6 @@
 """Tests for pixelart_creator.data.palette_import (load_palette).
 
-Covers REQ-P7-DATA-001 (palette-file parser) and REQ-P7-DATA-005 (defensive
+Covers REQ-DDI-DATA-001 (palette-file parser) and REQ-DDI-DATA-005 (defensive
 error contract) for the drag-drop import feature. Maps to Gherkin SC-D001-1..5:
 valid ``.gpl`` / ``.hex`` / ``.pal`` parse to an ordered Palette (file order,
 correct channels), and every failure mode (unknown extension, malformed content,

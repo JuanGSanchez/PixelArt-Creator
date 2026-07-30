@@ -157,4 +157,3 @@ The prompt directs Phase 6 to formally reflect what it inherits forward vs. buil
   suspended, and the observable contracts are fixed.
 - **Three named dependencies** (DEP-1 Researcher grounding, DEP-2 AGT-01 plan/ADR, DEP-3 AGT-10
   recomposite) must be resolved/allocated before/within the plan — none blocks this spec.
-</content>

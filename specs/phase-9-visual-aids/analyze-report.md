@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-9-visual-aids` |
-| Author | Claude (AGT-01, Architecture) via `sdd-analyze` |
+| Author | AGT-01 (Architecture) via `sdd-analyze` |
 | Date | 2026-07-04 |
 | Artifacts | `constitution.md`, `specs/phase-9-visual-aids/spec.md`, `plan.md`, `tasks.md` (all present) |
 | Gate | **C1 — cross-artifact consistency + coverage** (Article VIII; defaults closed) |
@@ -131,4 +131,3 @@ AGT-04/AGT-06, `pending`). The 10 `[GEO]` tested-geometry contracts (the ROADMAP
 bound to a dedicated headless test and must be green before ship (TG-08 `sdd-checklist`); the real-size
 DPR risk (ADR-0023 §4) and the 16 ms overlay + multi-view budget (REQ-P9-UI-011, AGT-10 DEP-3) are the
 two ship-gating watch items.
-</content>

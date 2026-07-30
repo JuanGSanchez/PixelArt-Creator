@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-8-automation` |
-| Author | Claude (AGT-01, Architecture) via `sdd-analyze` |
+| Author | AGT-01 (Architecture) via `sdd-analyze` |
 | Date | 2026-07-04 |
 | Artifacts | `constitution.md`, `specs/phase-8-automation/spec.md`, `plan.md`, `tasks.md` (all present) |
 | Gate | **C1 — cross-artifact consistency + coverage** (Article VIII; defaults closed) |
@@ -108,4 +108,3 @@ cites its governing article/gate and is a legitimate cross-cutting task, **not**
 gate is **open** for Phase 8 — the orchestrator may proceed to dispatch Slices 8A→8E (tests authored
 by AGT-04/AGT-06, `pending`). The security-sensitive [SEC] invariants (Article VII) are each bound to
 a dedicated test and must be green before ship (TG-07 `sdd-checklist`).
-</content>

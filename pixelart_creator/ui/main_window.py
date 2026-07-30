@@ -414,7 +414,7 @@ class Main_Window(QMainWindow):
         self._tiled = False
         self._snap = False
 
-        # Accept OS file-URL drops onto the window (REQ-P7-UI-001). Drag/drop is
+        # Accept OS file-URL drops onto the window (REQ-DDI-UI-001). Drag/drop is
         # routed by file TYPE, not drop location (CL-A1) — see dropEvent /
         # _route_dropped_files. Enabled on the main window so a drop anywhere over
         # the shell reaches the router.
@@ -1437,7 +1437,7 @@ class Main_Window(QMainWindow):
         """Save the active document via ``data/project_io`` (020).
 
         Marks the tab's undo stack **clean** at the saved state so the drag-drop
-        dirty guard (REQ-P7-UI-004) can trust ``QUndoStack.isClean()`` — a saved,
+        dirty guard (REQ-DDI-UI-004) can trust ``QUndoStack.isClean()`` — a saved,
         un-edited document no longer prompts on a ``.pixproj`` drop.
         """
         record = self.active_tab()
@@ -1758,7 +1758,7 @@ class Main_Window(QMainWindow):
         record = self.active_tab()
         return record.document if record is not None else None
 
-    # -- drag-and-drop import (REQ-P7-UI-001..008) -----------------------
+    # -- drag-and-drop import (REQ-DDI-UI-001..008) -----------------------
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802
         """Accept a drag that carries at least one local file URL (UI-001)."""
@@ -1782,9 +1782,9 @@ class Main_Window(QMainWindow):
     def _route_dropped_files(self, paths: List[str]) -> None:
         """Route each dropped path by classified TYPE, in stable order (UI-002/-008).
 
-        Routing is by file TYPE (REQ-P7-DATA-003), never by drop location (CL-A1).
+        Routing is by file TYPE (REQ-DDI-DATA-003), never by drop location (CL-A1).
         Each file is guarded so one bad file surfaces a notice and never aborts the
-        batch or crashes the app (REQ-P7-UI-006/-007, NFR-9). Multiple palettes
+        batch or crashes the app (REQ-DDI-UI-006/-007, NFR-9). Multiple palettes
         replace sequentially — the last dropped palette wins (CL-A2).
         """
         for path in paths:
@@ -1800,7 +1800,7 @@ class Main_Window(QMainWindow):
                     self._notify_unsupported(path)
             except (FileImportError, ProjectIOError) as exc:
                 # Corrupt / malformed / oversized / invalid project → error notice,
-                # state left intact, batch continues (REQ-P7-UI-007, SC-U008-3).
+                # state left intact, batch continues (REQ-DDI-UI-007, SC-U008-3).
                 self._notify_import_error(path, exc)
 
     def _import_image_drop(self, path: str) -> None:
@@ -1879,7 +1879,7 @@ class Main_Window(QMainWindow):
         Prompts for a path (the shipped Save-As flow) and saves via
         :meth:`save_document` (which marks the stack clean). Returns ``False`` when
         the user cancels the file dialog, so the caller can abort the open rather
-        than silently discard unsaved work (REQ-P7-UI-004, Save branch).
+        than silently discard unsaved work (REQ-DDI-UI-004, Save branch).
         """
         if self.active_tab() is None:
             return True

@@ -419,7 +419,7 @@ class Document:
         buffer **is** ``buffer`` (same object, not a copy) — the factory the
         image-import path uses so a decoded RGBA :class:`PixelBuffer` (produced
         in ``ui/image_import``) becomes a new canvas tab without ``ui/`` reaching
-        into the layer tree (plan §5, REQ-P7-UI-003). Qt-free.
+        into the layer tree (plan §5, REQ-DDI-UI-003). Qt-free.
 
         Args:
             buffer: The RGBA source buffer; its geometry sizes the document.

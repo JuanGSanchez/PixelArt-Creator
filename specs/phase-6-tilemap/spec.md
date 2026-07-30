@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-6-tilemap` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-03 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VI, VII, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — no `logic/tileset.py`, `logic/tilemap.py`, tilemap UI, or Tiled-JSON I/O exists yet. The `PixelBuffer` (region/blit) core, `ColorMode`, the `history` command pattern, `blend.composite_stack`, and the defensive `data/project_io.py` load pattern are **already shipped** and are reused, not re-authored. This spec defines the WHAT/WHY Phase 6 realises. |
@@ -877,5 +877,3 @@ Scenario: SC-D004-1 tilesets/tilemaps round-trip in .pixproj; tilemap-less proje
   `traceability.md` (0 uncovered). Tests authored later by AGT-04 (logic/data) / AGT-06 (UI),
   `pending`.
 - **STATUS: COMPLETED.**
-</content>
-</invoke>

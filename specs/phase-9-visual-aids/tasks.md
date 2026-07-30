@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-9-visual-aids` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-04 |
 | Over | `plan.md` (Slices 9A iso+perspective geometry → 9B guides/rulers+real-size+PPI → 9C timelapse model → 9D purity/determinism/single-source → 9E persistence → 9F preview+overlays UI → 9G reference board+multi-view+timelapse UI → 9H render performance) |
 | Gate | Dispatch only after `sdd-analyze` C1 passes (Article VIII); each task leaves the gate green (Article IX). |
@@ -101,4 +101,3 @@ deterministic sub-steps name their script. Every REQ maps to ≥1 impl + ≥1 te
 | TG-06 | String audit (`string_audit_check`): zero unwrapped user-visible strings (grid/guide/ruler labels + tooltips, perspective config labels, reference-board labels, view titles, timelapse control text + units, dialog titles, error messages); `changeEvent` retranslate on hand-built widgets. | AGT-07 | `ui/*.py` | T9G-04 | UI-014 / SC-UI-014-1 | todo |
 | TG-07 | CHANGELOG (`Unreleased`) entries for Phase-9 features tied to REQ-IDs. | AGT-08 | `docs/CHANGELOG.md` | 9A/9B/9C/9E/9F/9G done | Article IX | todo |
 | TG-08 | `sdd-checklist` before ship: every REQ has a passing test; the 10 `[GEO]` geometry contracts green; reproducible-timelapse + real-size + round-trip green; both themes + a11y + i18n gates green; the 16 ms overlay+multi-view budget green. | AGT-06 | checklist report | all impl+test done | Article IV/V/VI | todo |
-</content>

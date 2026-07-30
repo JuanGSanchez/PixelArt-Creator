@@ -126,7 +126,7 @@ class Palette:
         Mutates *this* palette object rather than rebinding a new one, so the
         scene / palette panel / editor references stay valid — the pattern the
         drag-drop palette load relies on for a reversible ``apply ∘ undo =
-        identity`` step (plan §6, REQ-P7-UI-005). Validation is done up front on
+        identity`` step (plan §6, REQ-DDI-UI-005). Validation is done up front on
         a staged list, so an invalid colour or an oversized palette raises
         **before** any mutation: on failure this palette is left untouched
         (atomic replace).

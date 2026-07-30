@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-7-export` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-04 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VI, VII, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — no export engine (`logic/export.py`, `logic/atlas.py`), export UI, engine-preset writers, or CLI export entrypoint exists yet. The `PixelBuffer` (source pixels), `blend.composite_stack` (per-frame layer flatten), the `Document → frames` tree, the deterministic `logic/compactor.py` MaxRects packer, and the defensive `data/project_io.py` load pattern are **already shipped** and are reused, not re-authored. This spec defines the WHAT/WHY Phase 7 realises. |
@@ -796,5 +796,3 @@ Scenario: SC-D004-1 the written JSON is valid and re-importable; coordinates rou
   `traceability.md` (0 uncovered). Tests authored later by AGT-04 (logic/data) / AGT-06 (UI),
   `pending`.
 - **STATUS: COMPLETED.**
-</content>
-</invoke>

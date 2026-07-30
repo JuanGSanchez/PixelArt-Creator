@@ -175,4 +175,3 @@ The prompt directs Phase 8 to formally reflect what it inherits forward vs. buil
   `REQ-P8-DATA-*` prefix) must be resolved/allocated before/within the plan — none blocks this spec.
 - **Security-sensitive phase:** Article VII is central. The six [SEC] / [SEC-facing] scenarios must
   each map to a dedicated AGT-04 / AGT-06 security test at ship.
-</content>

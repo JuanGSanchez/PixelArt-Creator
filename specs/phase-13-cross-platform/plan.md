@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-13-cross-platform` |
-| Author | Claude (AGT-01, Architecture) via `sdd-plan` |
+| Author | AGT-01 (Architecture) via `sdd-plan` |
 | Date | 2026-07-07 |
 | Governed by | `constitution.md` (Articles **I**, **II**, III, **IV**, V, VI, **VII**, **VIII**, IX, **X**, **XI**) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — the HOW for the cross-platform hardening + distribution phase over the approved, clarification-clean spec (23 REQ across 13A–13E). Phase 13 adds **no new editing capability**: it makes the *shipped* platform **provably portable** (13A), **bundleable** (13B), **VPS-deployable** (13C), **installable as native packages** (13D), and **viewable in a mobile browser** (13E). Two invariants are load-bearing and are **NOT relaxed**: Article I (three-layer purity + the two non-three-layer components placed outside it) and Article VII (no `eval`/`exec`; untrusted-input defence). |
@@ -369,4 +369,3 @@ the viewer is a consumer of the same relay).
   `logic/cloud_validation.py`, `logic/sync_protocol.py`, `scripts/{check_layering,check_cycles,
   path_portability_check}.py`, `.github/workflows/ci.yml`, `pyproject.toml`, `STRUCTURE.md`.
 - ADRs authored this phase: `docs/adr/0035`, `0036`, `0037`, `0038`.
-</content>

@@ -1,6 +1,6 @@
 """Tests for pixelart_creator.logic.palette.Palette.replace (atomic bulk set).
 
-Covers the drag-drop palette-load substrate (REQ-P7-DATA-001 / REQ-P7-UI-005,
+Covers the drag-drop palette-load substrate (REQ-DDI-DATA-001 / REQ-DDI-UI-005,
 plan §6): ``replace`` swaps all colours in place, keeping the same Palette object
 so scene/panel/editor references stay valid, and validates up front so a bad or
 oversized input leaves the palette untouched (atomicity). Maps to reversibility

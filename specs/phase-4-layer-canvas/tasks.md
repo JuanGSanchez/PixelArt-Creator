@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-4-layer-canvas` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-02 |
 | Derived from | `specs/phase-4-layer-canvas/plan.md` §3–§10 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, V, VI, VII, VIII, X) |
@@ -355,4 +355,3 @@ docs T17 (Art. III); commits T18 (Art. IX); `sdd-analyze` this session (Art. VII
   plan §7; owner AGT-04, tests `pending`). No LOGIC/UI REQ delta.
 - **AGT-04:** the soft-light `D(Cb)` **W3C-variant** known-value test (plan §5) is acceptance-critical
   for T2/T4 (the most common blend bug); embed the research §3 reference values.
-</content>

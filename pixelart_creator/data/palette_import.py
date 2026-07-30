@@ -12,7 +12,7 @@ that parser.
 Every failure mode — unreadable path, non-UTF-8 bytes, unknown extension,
 malformed/oversized content, or an empty (zero-colour) result — is normalised to
 :class:`~pixelart_creator.data.file_import.PaletteImportError` so the UI catches
-one family (REQ-P7-DATA-001, -005; ADR-0010).
+one family (REQ-DDI-DATA-001, -005; ADR-0010).
 """
 
 from __future__ import annotations
