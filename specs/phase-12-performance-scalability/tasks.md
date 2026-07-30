@@ -8,7 +8,10 @@
 | Over | `plan.md` + `docs/adr/0033-*` (flatten strategy) + `docs/adr/0034-*` (drag preview) — **slice-by-slice**, each an independently gate-green, CI-green shippable increment. Slice A (full-frame flatten fast-path + tiling + dirty-tile + `--full-frame` gate) → Slice B (viewport recomposite split-cache + opacity-drag LOD preview + viewport-scale gate) → Slice F (artifact + docstring hygiene). |
 | Gate | Dispatch only after `sdd-analyze` C1 passes (Article VIII). **NO implementation begins until C1 is green — this gate is the blocker.** Each task leaves the gate green (Article IX). |
 
-Status legend: `todo` | `doing` | `done`. Owners per the delegation table: **AGT-10** perf directive +
+Status legend: `todo` | `doing` | `done` — plus, from 2026-07-30, a **qualified** `done — …` for a task
+whose obligation is met by evidence the **default CI gate does not run**; the qualifier names that limit and
+is never shorthand for continuous verification. (The legend previously read simply *"`todo` | `doing` |
+`done`"*; see the T12-B-03 scale-clause update under the Slice-B table.) Owners per the delegation table: **AGT-10** perf directive +
 scenario + RE-PROFILE ship gate; **AGT-03** logic code; **AGT-05** UI code; **AGT-04** logic regression +
 correctness + perf-probe tests; **AGT-06** UI/a11y/both-theme tests; **AGT-07** string audit/i18n;
 **AGT-08** docs + FU-4 docstrings; **AGT-09** ci.yml + commits; **AGT-01** architecture/analyze/gate +
@@ -46,7 +49,7 @@ paths bounded by loose named ceilings, **not** asserted vs 16 ms (Article VI; bu
 | T12-B-00 | **AGT-10 directive:** confirm the dependency-free Slice-B strategy (baseline §3/§5, ADR-0034): split-cache `composite(below)`/`composite(above)` around the dragged layer (≈2–3 blends, not 12); downsampled-LOD preview holding 16 ms during drag; cull to the exposed viewport rect + dirty region; throttle/off-thread ticks (Phase-4 D3 + Phase-5 warmer); full-resolution byte-exact recomposite on commit. | AGT-10 | perf directive → AGT-03/AGT-05 | analyze C1 | LOGIC-004, UI-001 / baseline §3 FU-16 | todo |
 | T12-B-01 | Add `VIEWPORT_RECOMPOSITE_CEILING_MS = 2000` (loose viewport-scale catastrophic ceiling) with a citation docstring. **Name DISTINCT from every shipped ceiling.** Value AGT-10-RE-PROFILE-confirmed at T12-B-06. | AGT-03 | `logic/constants.py` | T12-B-00 | LOGIC-005 / plan §8, ADR-0034 §4 | todo |
 | T12-B-02 | Add the pure `logic/blend.py` Slice-B support seam (Qt-free, additive, `document`-free): split-cache helper for `composite(below idx)` / `composite(above idx)` around a target index (byte-exact when re-composed on commit) + a pure nearest-neighbour **LOD downsample** helper for the preview. No public signature break. | AGT-03 | `logic/blend.py` | T12-B-01 | LOGIC-004 / "recomposite path imports no Qt", byte-exact | todo |
-| T12-B-03 | Byte-exact recomposite regression tests (headless): the full-resolution whole-viewport recomposite (up to 1920², ≥ 12 layers) via the split-cache commit path is **byte-equal** to the current compositor over the same inputs (NORMAL + 11 modes, no tolerance); the recomposite path imports no Qt (`check_layering`); not asserted vs 16 ms. | AGT-04 | `tests/logic/test_blend_range.py` (**verified present + read**; the invariant is covered there, the *scale* clause is not — see the note under this table), `scripts/*` (invoke) | T12-B-02 | LOGIC-004 / SC-P12-LOGIC-004-1/-2 | todo |
+| T12-B-03 | Byte-exact recomposite regression tests (headless): the full-resolution whole-viewport recomposite (up to 1920², ≥ 12 layers) via the split-cache commit path is **byte-equal** to the current compositor over the same inputs (NORMAL + 11 modes, no tolerance); the recomposite path imports no Qt (`check_layering`); not asserted vs 16 ms. | AGT-04 | `tests/logic/test_blend_range.py` (**verified present + read**; covers the NORMAL + 11-mode, no-tolerance invariant, small-canvas only) **+ the *scale* clause: `tests/ui/test_opacity_drag.py::test_commit_byte_exact_at_1920_scale_12_layers_opt_in`** (1920²/12 layers, both themes — **OPT-IN**: requires `PIXELART_OPACITY_SCALE_TEST=1` *and* carries `@pytest.mark.slow`; see the scale-clause update under this table), `scripts/*` (invoke) | T12-B-02 | LOGIC-004 / SC-P12-LOGIC-004-1/-2 | **done — scale clause verified OPT-IN ONLY**: passes at 1920²/12 layers in both themes, but `PIXELART_OPACITY_SCALE_TEST=1` + `@pytest.mark.slow` keep it **out of CI's default gate** (on demand, not continuous) |
 | T12-B-04 | Opacity-slider **drag lifecycle** in `ui/layer_panel.py`: on drag-start capture the split-cache; per tick render the downsampled-LOD preview (throttled via the Phase-4 D3 debounce; off-thread via `composite_warmer`, cached in `frame_cache`); on release/commit apply the full-resolution byte-exact recomposite and display it through the existing dirty-rect path. **No compositing maths in the widget** (calls `logic/blend`). `tr()` + `changeEvent` preserved; both themes identical. | AGT-05 | `ui/layer_panel.py`, `ui/composite_warmer.py`, `ui/frame_cache.py`, `ui/canvas_scene.py`/`ui/canvas_view.py` | T12-B-02 | UI-001 / SC-P12-UI-001-1/-2 | todo |
 | T12-B-05 | pytest-qt tests (both themes, offscreen): during an opacity drag on a low-zoom ≥ 12-layer 8K document, each per-tick downsampled preview **holds the 16 ms `FRAME_BUDGET_MS`** and the UI stays responsive (no multi-second freeze); on release the full-resolution recomposite is applied and the committed pixels match the current build (byte-exact per T12-B-03); light and dark behave identically; a11y (focus/keyboard) on the slider preserved. | AGT-06 | `tests/ui/test_opacity_drag.py` (**verified present + read**; the drag-lifecycle, byte-exact-commit, both-theme and a11y clauses are covered there — the *8K-document scale* and the *tight 16 ms wall-clock* clauses are **not**, see the note under this table) | T12-B-04 | UI-001 / SC-P12-UI-001-1/-2 | todo |
 | T12-B-06 | Author the dedicated `perf_profile --viewport-recomposite` **viewport-scale split-cache COMMIT gate** scenario (region ≥ 1080²/1920², 12 layers) at `VIEWPORT_RECOMPOSITE_CEILING_MS` (a distinct flag from the shipped 16-px `--composite` gate — the shipped `scripts/perf_profile.py` implements `--viewport-recomposite`, not a `--composite` extension); **AGT-10 RE-PROFILE ship gate:** measure the optimised commit recomposite on the CI-class runner, confirm at/under the ceiling (2–7 s catastrophe eliminated), confirm/tighten the constant + the gate scenario (feed back to T12-B-01). Not asserted vs 16 ms. | AGT-10 | `scripts/perf_profile.py`, re-profile report → AGT-01/AGT-03 | T12-B-02 | LOGIC-005 / SC-P12-LOGIC-005-1 | todo |
@@ -84,12 +87,45 @@ the helper `_assert_commit_byte_exact(nodes, w, h, region)` which walks **every*
 layers"* — is **NOT** covered by `test_blend_range.py`: its byte-exact-commit stacks are 3–7 layers on
 canvases from 24×22 up to 30×33 (largest dimension anywhere in the module: 33 px),
 and the Hypothesis strategy is bounded to `max_value=9` per dimension and `max_value=6` layers. The
-byte-exactness *invariant* is mode- and split-exhaustive but small-canvas only. The largest byte-exact
-commit assertion in the tree is in `tests/ui/test_opacity_drag.py` (also read: `_W = _H = 300`,
-`_LAYERS = 12` — so `≥ 12 layers` is met, `1920²` is **not**, and that file's own docstring assigns pure
-byte-exactness to AGT-04's logic tests). **No test asserts commit byte-exactness at 1920².** That residual
-belongs to AGT-04/AGT-06, is recorded here rather than declared satisfied, and this correction does not
-close it.
+byte-exactness *invariant* is mode- and split-exhaustive but small-canvas only.
+
+**SUPERSEDED (2026-07-30, same day) — the scale residual this note recorded is now CLOSED.** The paragraph
+above previously ended: *"The largest byte-exact commit assertion in the tree is in
+`tests/ui/test_opacity_drag.py` (also read: `_W = _H = 300`, `_LAYERS = 12` — so `≥ 12 layers` is met,
+`1920²` is **not**, and that file's own docstring assigns pure byte-exactness to AGT-04's logic tests).
+**No test asserts commit byte-exactness at 1920².** That residual belongs to AGT-04/AGT-06, is recorded
+here rather than declared satisfied, and this correction does not close it."* **Both of those claims are
+now false**: a 1920²/12-layer byte-exact commit test exists and passes (next note). What is **not**
+retracted: `test_blend_range.py` itself still asserts byte-exactness only on 24×22–30×33 canvases with 3–7
+layers, so the `logic/` module carries no 1920² assertion — the scale evidence lives in the `ui/` module,
+and it is opt-in.
+
+**T12-B-03 scale-clause update (2026-07-30) — the *scale* clause is SATISFIED, and satisfied OPT-IN.**
+Both halves are load-bearing; neither may be read without the other.
+
+- **It exists and it passes.** `tests/ui/test_opacity_drag.py::test_commit_byte_exact_at_1920_scale_12_layers_opt_in`
+  drives the real commit path (`begin_opacity_drag` → opacity change → `refresh_visible`) on a **1920×1920,
+  12-layer** document and asserts the committed pixels equal `composite_stack` **byte-for-byte over the full
+  region** (`np.array_equal`, no tolerance). Run directly by the orchestrator: **both themes PASS**
+  (23.70 s and 23.51 s). This is T12-B-03's own literal ceiling — *"up to 1920², ≥ 12 layers"* — met.
+- **CI never runs it.** The test is double-gated: `@pytest.mark.slow` **and** an in-body skip unless the
+  environment variable **`PIXELART_OPACITY_SCALE_TEST=1`** is set. The default gate deselects `slow`
+  (`-m "not slow and not gpu and not cloud_live and not assistant_live and not integration"`, `ci.yml`, job
+  `quality-gate`) and **no job overrides it** — the default run of that module is 24 passed, 2 skipped.
+  The pattern mirrors this repository's existing docker/nginx acceptance tests. A 1920² byte-exactness
+  regression is therefore **detectable on demand, not detected automatically**.
+- **How to run it** (no hunting required):
+  `QT_QPA_PLATFORM=offscreen PIXELART_OPACITY_SCALE_TEST=1 python -m pytest tests/ui/test_opacity_drag.py -k test_commit_byte_exact_at_1920_scale_12_layers_opt_in -m slow -q`
+- **Row edits this note records.** The Status cell previously read *"`todo`"* and now reads
+  *"**done — scale clause verified OPT-IN ONLY** …"*; the Target-file cell previously read
+  *"`tests/logic/test_blend_range.py` (**verified present + read**; the invariant is covered there, the
+  *scale* clause is not — see the note under this table), `scripts/*` (invoke)"* and now additionally cites
+  the opt-in scale test **with its env var and marker**. No requirement id, task id, dependency or
+  acceptance link changed (T12-B-03 / LOGIC-004 / SC-P12-LOGIC-004-1/-2 / dep T12-B-02 are untouched).
+- **Agreement with `traceability.md`.** That matrix (AGT-02's artifact, corrected earlier today, **not**
+  touched by this edit) records REQ-P12-LOGIC-004's T12-B-03 scale clause as *satisfied via opt-in* and
+  flags it as the one clause whose coverage is **not continuous**. This row now says the same thing; the
+  task list no longer contradicts the matrix.
 
 **T12-B-05 correction (2026-07-30) — RESOLVED; was the third dangling stem in this family.** The
 Target-file cell previously read *"`tests/ui/test_opacity_drag_responsive.py`"* — **no file of that name
