@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `drag-drop-import` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-03 |
 | SDD phase | `plan` (this document) → `sdd-tasks` → `sdd-analyze` (C1 gate) |
 | Governed by | `constitution.md` (Articles I three-layer/S11, II constants/S12, IV coverage, V a11y/i18n, VII validated I/O) |
@@ -75,9 +75,9 @@ No `logic/`→Qt edge, no `data/`→Qt edge, no `*/`→`ui/` edge, no cycle. The
 
 ---
 
-## 2. Data-layer plan (Slice A-A) — `REQ-P7-DATA-001..005`
+## 2. Data-layer plan (Slice A-A) — `REQ-DDI-DATA-001..005`
 
-### 2.1 `data/file_import.py` — classifier + error base (`REQ-P7-DATA-003`, `-005`)
+### 2.1 `data/file_import.py` — classifier + error base (`REQ-DDI-DATA-003`, `-005`)
 
 ```python
 # Qt-free, pure.
@@ -102,7 +102,7 @@ def classify(path: str | pathlib.Path) -> FileType:
 - **Extension-set home (spec §9):** the extension sets are **format identifiers**, not numeric tuning values — per the 2026-07-02 intrinsic-literal exemption (ADR-0001) they stay **module-local** here, not in `constants.py`. No new numeric constant is introduced by this feature (image bounds reuse `MAX_CANVAS_WIDTH/HEIGHT`; palette ceiling reuses `MAX_PALETTE_SIZE`).
 - **`ImageImportError` is defined here (Qt-free) but raised from `ui/`.** An exception class carries no Qt; putting the whole family in one Qt-free `data/` module lets the UI catch a single base (DATA-005) and keeps the error model out of `ui/`. `ui/` importing this class is a legal downward edge.
 
-### 2.2 `data/palette_import.py` — palette path loader (`REQ-P7-DATA-001`)
+### 2.2 `data/palette_import.py` — palette path loader (`REQ-DDI-DATA-001`)
 
 ```python
 def load_palette(path: str | pathlib.Path) -> logic.palette.Palette:
@@ -117,22 +117,22 @@ def load_palette(path: str | pathlib.Path) -> logic.palette.Palette:
 - **Reuses the shipped parser** (`logic/palette_io.decode`) verbatim — no re-implementation of the `.gpl`/`.pal`/`hex` grammars. The research grammars are already honoured by the shipped parser (GIMP header, JASC header+count, hex 6/8-digit via `from_hex`). Bounds to `MAX_PALETTE_SIZE` and no-eval/exec are inherited from `palette_io`.
 - **Error normalisation:** `OSError` (unreadable) and `logic.palette_io.PaletteIOError` (malformed/oversized) are wrapped as `PaletteImportError` so the UI catches one family.
 
-### 2.3 Image decoder placement (`REQ-P7-DATA-002`) — see §4 (RULED into `ui/`).
+### 2.3 Image decoder placement (`REQ-DDI-DATA-002`) — see §4 (RULED into `ui/`).
 
-### 2.4 `.pixproj` reuse (`REQ-P7-DATA-004`)
+### 2.4 `.pixproj` reuse (`REQ-DDI-DATA-004`)
 
-No new code. The PROJECT branch calls the shipped `data/project_io.load_project(path) -> Document`; its `ProjectIOError` is surfaced by the UI error handler (REQ-P7-UI-007). Recorded as a reuse trace only.
+No new code. The PROJECT branch calls the shipped `data/project_io.load_project(path) -> Document`; its `ProjectIOError` is surfaced by the UI error handler (REQ-DDI-UI-007). Recorded as a reuse trace only.
 
-### 2.5 Error contract (`REQ-P7-DATA-005`)
+### 2.5 Error contract (`REQ-DDI-DATA-005`)
 
 - **Shared base `FileImportError(ValueError)`** in `data/file_import.py`; `PaletteImportError` and `ImageImportError` subclass it. The UI router catches `(FileImportError, ProjectIOError)` — one new family plus the shipped project family (which predates this feature and keeps its own Article VII guarantees; it is not re-parented to avoid touching shipped code).
 - Every importer **validates before use**; no imported content is passed to `eval`/`exec` (inherited from `palette_io`/`project_io`; the QImage decoder does binary decode only).
 
 ---
 
-## 3. UI-layer plan (Slice A-B) — `REQ-P7-UI-001..009`
+## 3. UI-layer plan (Slice A-B) — `REQ-DDI-UI-001..009`
 
-### 3.1 `ui/image_import.py` — QImage decode (`REQ-P7-UI-003` decode side / `REQ-P7-DATA-002` realised)
+### 3.1 `ui/image_import.py` — QImage decode (`REQ-DDI-UI-003` decode side / `REQ-DDI-DATA-002` realised)
 
 ```python
 def decode_image(path: str | pathlib.Path) -> logic.pixel_buffer.PixelBuffer:
@@ -147,7 +147,7 @@ def decode_image(path: str | pathlib.Path) -> logic.pixel_buffer.PixelBuffer:
     """
 ```
 
-### 3.2 `ui/main_window.py` (extend) — drop events, router, prompt, notices (`REQ-P7-UI-001..009`)
+### 3.2 `ui/main_window.py` (extend) — drop events, router, prompt, notices (`REQ-DDI-UI-001..009`)
 
 - **Accept drops (UI-001):** `setAcceptDrops(True)`; `dragEnterEvent` accepts when `event.mimeData().hasUrls()`; `dropEvent` extracts local paths from `mimeData().urls()` (`QUrl.toLocalFile()`), filters empties, and calls the router.
 - **Route by type (UI-002, UI-008):** iterate paths in **delivered (stable) order**; `classify(path)` → dispatch. Each file wrapped in its own `try/except (FileImportError, ProjectIOError)` → error notice, **continue** (one bad file never aborts the batch). Zero files = no-op.
@@ -175,11 +175,11 @@ def decode_image(path: str | pathlib.Path) -> logic.pixel_buffer.PixelBuffer:
 - Bounds are checked on `width()/height()` **before** buffer construction (reject > `MAX_CANVAS_WIDTH`/`MAX_CANVAS_HEIGHT` with `ImageImportError`).
 - Multi-frame GIF → **first frame only** (CL-A3). Paletted/indexed sources → QImage expands to RGBA on `convertToFormat` (CL-A3).
 
-**ADR:** this placement + the rejected Pillow-in-logic alternative + the RGBA8888/stride boundary contract + the shared error model are recorded in **`docs/adr/0010-drag-drop-import-decode-placement-and-error-model.md`** (immutable; traced to REQ-P7-DATA-002/-005 and the research report). Because we choose QImage (no new dependency), **no dependency sign-off is required**; the ADR documents the choice so a future Pillow reversal is a conscious, traceable decision.
+**ADR:** this placement + the rejected Pillow-in-logic alternative + the RGBA8888/stride boundary contract + the shared error model are recorded in **`docs/adr/0010-drag-drop-import-decode-placement-and-error-model.md`** (immutable; traced to REQ-DDI-DATA-002/-005 and the research report). Because we choose QImage (no new dependency), **no dependency sign-off is required**; the ADR documents the choice so a future Pillow reversal is a conscious, traceable decision.
 
 ---
 
-## 5. Image → new document (`REQ-P7-UI-003`, reuse boundary)
+## 5. Image → new document (`REQ-DDI-UI-003`, reuse boundary)
 
 Shipped `new_document()` builds a `Document` with an **empty** background layer, so it cannot seed image pixels. Two clean options; ruled option B (keeps `ui/` from poking layer internals):
 
@@ -188,7 +188,7 @@ Shipped `new_document()` builds a `Document` with an **empty** background layer,
 
 ---
 
-## 6. Palette replace-in-place (`REQ-P7-UI-005`, reversibility)
+## 6. Palette replace-in-place (`REQ-DDI-UI-005`, reversibility)
 
 The active palette (`record.document.palette`) is referenced by the scene, palette panel and editor, so a drop must **mutate it in place** (not rebind a new object) to keep those references valid — exactly the shipped palette-editor "import" pattern (`commands.py`). `Palette` currently exposes no bulk replace, so:
 
@@ -197,7 +197,7 @@ The active palette (`record.document.palette`) is referenced by the scene, palet
 
 ---
 
-## 7. `.pixproj` drop — dirty guard + open semantics (`REQ-P7-UI-004`)
+## 7. `.pixproj` drop — dirty guard + open semantics (`REQ-DDI-UI-004`)
 
 - **Dirty-state source (ruled):** `record.stack.isClean()` (the tab's `QUndoStack`). "Dirty" = `active_tab() is not None and not active_tab().stack.isClean()`. **Required AGT-05 wiring:** `save_document()` must call `stack.setClean()` after a successful save so `isClean()` is meaningful (shipped `save_document` does not yet). This is part of UI-004.
 - **Open semantics (ruled): REPLACE the active document.** Rationale: US-A2 frames the guard as "before losing unsaved work" and the user chose a real Save/**Discard**/Cancel — semantics only meaningful if opening can lose the current doc. Realisation reuses shipped methods: on Save/Discard, call `open_document(path)` (adds the loaded project tab) then `close_document(previous_active_index)`. When **no** document is open, just `open_document(path)` (no prompt). The exact tab-swap mechanism is AGT-05's within this frozen semantic: *guard the active dirty doc, three-way choice, Cancel leaves everything unchanged.*

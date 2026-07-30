@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-04 |
 | Consumes | `plan.md` + ADR-0029 + `spec.md` + `traceability.md` |
 | Gate | `sdd-analyze` (C1) must PASS before any implement task starts (Article VIII). |
@@ -45,8 +45,21 @@ T-UG-01 (contract) ──┼─► [C1 GATE] ─► T-UG-02 (AGT-08 content, par
 
 ---
 
-> The tasks below start ONLY after the C1 `sdd-analyze` gate PASSES (Article VIII). Verdict: **PASS**
-> (see `sdd-analyze` report / EXIT below) → implementation is **CLEARED**.
+> The tasks below start ONLY after the C1 `sdd-analyze` gate PASSES (Article VIII).
+> Verdict: **PASS (retrospective)** — see **`specs/user-guide/analyze-report.md`**
+> (AGT-01, 2026-07-30): zero unresolved cross-artifact findings, 4 advisory observations
+> (2 handed to AGT-02); `check_layering` clean (194) / `check_cycles` no cycles (196), both
+> exit 0; the 3 `GUIDE_*` constants verified in `logic/constants.py`; the coverage contract
+> verified against the real shipped bundle; 150 guide tests passed headless.
+>
+> **CORRECTION (2026-07-30).** This block previously read *"Verdict: **PASS** (see
+> `sdd-analyze` report / EXIT below) → implementation is **CLEARED**"* — a **dangling
+> citation: neither that report nor that EXIT block existed anywhere on disk.** The gate
+> outcome was asserted here without a persisted artifact to back it, so "ran but was not
+> persisted" and "never ran" could not be told apart from the artifacts. The analyze report
+> now cited **genuinely exists**, but it was authored on **2026-07-30, after this feature
+> shipped** — it is a retrofit, not the contemporaneous clearance the original wording
+> implied. Corrected rather than deleted so the history stays auditable.
 
 ### T-UG-02 — Author + organise the committed guide CONTENT (AGT-08) — [may run in parallel with T-UG-03]
 - **Files:** `pixelart_creator/userguide_content/manifest.json`,

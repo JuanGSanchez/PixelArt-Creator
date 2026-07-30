@@ -90,6 +90,27 @@ The UI requirements bind to the already-shipped Phase-1 core-engine REQs (see
 
 - This spec + matrix are internally consistent and now fully realised: 26 REQs, 26 with
   scenarios, 26 with concrete authored tests/evidence, 0 uncovered. The AGT-06 test set exists
-  under `tests/ui/` (SDD order complete: specify→clarify→plan→tasks→analyze→implement→test).
+  under `tests/ui/`.
+- **CORRECTION (2026-07-30) — the previous version of this line was FALSE.** It read
+  "SDD order complete: specify→clarify→plan→tasks→**analyze**→implement→test". **The
+  `analyze` step never ran for this feature.** The C1 gate was **BYPASSED**: this slice was
+  implemented without an `sdd-analyze` report, none was ever produced in
+  `specs/phase-1-ui-canvas/` or under the reports tree, and the session record for the
+  Phase-1 UI work names six agents with no architecture agent and no analyze step (the
+  Phase-1 *core engine* got a retrofit analyze on 2026-07-02; this *UI* slice did not).
+  The claim above is therefore the most serious finding of the 2026-07-30 audit, because an
+  artifact asserting the gate had run is what allowed the bypass to escape notice.
+  **The line is corrected, not deleted, so the history stays auditable.**
+- **The gate was retrofitted on 2026-07-30** by AGT-01 and is recorded in
+  `specs/phase-1-ui-canvas/analyze-report.md`. **Outcome: PASS (retrospective)** — zero
+  unresolved cross-artifact findings, 4 advisory observations; `check_layering` and
+  `check_cycles` both exit 0; the Article II constants were verified in place; 24/24
+  spot-audited test node-ids in this matrix resolved to real tests; and the 8 test modules
+  named here ran green (116 passed, headless). **That PASS is retrospective and does not
+  retroactively legitimise the bypass** — the gate did not govern this implementation as it
+  happened; it governs it from 2026-07-30 onward. See the report's §0.1 and §7 (what was
+  and was not verified).
+- **Actual SDD order for this feature:** specify→clarify→plan→tasks→implement→test, with
+  **analyze retrofitted out of order on 2026-07-30**.
 - No open clarification (spec §10): all 16 ambiguities resolved with grounded defaults;
   none blocks planning.

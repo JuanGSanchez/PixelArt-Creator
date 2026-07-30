@@ -53,7 +53,7 @@ No divergence found between the three artefacts.
 
 **14 REQ-IDs → 14 with ≥1 impl → 14 with ≥1 test → 0 uncovered.**
 
-### Data layer (`REQ-P7-DATA-001..005`)
+### Data layer (`REQ-DDI-DATA-001..005`)
 
 | REQ | Impl | Test |
 | --- | --- | --- |
@@ -63,7 +63,7 @@ No divergence found between the three artefacts.
 | DATA-004 `.pixproj` (REUSE) | `data/project_io.load_project` via `main_window` | existing `tests/data/test_project_io.py` + `test_ui004_*` |
 | DATA-005 shared error base | `data/file_import` `FileImportError`/`PaletteImportError`/`ImageImportError` | `tests/data/test_file_import.py` + `tests/data/test_palette_import.py` |
 
-### UI layer (`REQ-P7-UI-001..009`) — all impl `ui/main_window.py` (+ `ui/image_import.py`), tests `tests/ui/test_drag_drop_import.py`
+### UI layer (`REQ-DDI-UI-001..009`) — all impl `ui/main_window.py` (+ `ui/image_import.py`), tests `tests/ui/test_drag_drop_import.py`
 
 | REQ | Impl seam | Test group |
 | --- | --- | --- |

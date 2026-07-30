@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `drag-drop-import` (REQ-NEW-A) |
-| Slice | A-B (UI, `REQ-P7-UI-001..009`) |
+| Slice | A-B (UI, `REQ-DDI-UI-001..009`) |
 | Run by | AGT-06 (QA/Accessibility) |
 | Date | 2026-07-03 |
 | Spec | `specs/drag-drop-import/spec.md` §11 (SC-U001..U009) |
@@ -12,7 +12,7 @@
 
 ## Scope note
 This run covers the **UI** slice (A-B). The DATA-layer criteria (SC-D001..D005,
-`REQ-P7-DATA-001..005`) are AGT-04's pytest/Hypothesis tests (Slice A-A) and are
+`REQ-DDI-DATA-001..005`) are AGT-04's pytest/Hypothesis tests (Slice A-A) and are
 **out of AGT-06 scope** — their verdict comes from AGT-04's own checklist run.
 
 ## Per-criterion checklist (UI)
@@ -54,7 +54,7 @@ This run covers the **UI** slice (A-B). The DATA-layer criteria (SC-D001..D005,
 | Item | Evidence | Verdict |
 | --- | --- | --- |
 | Both themes (light + dark) | autouse `theme` fixture (conftest.py) runs every test ×2 → 74 tests | PASS |
-| a11y (REQ-P7-UI-009) | a11y-audit: accessible name, keyboard + default button, focus visibility, both-theme contrast — all dimensions PASS; 0 findings for AGT-05 | PASS |
+| a11y (REQ-DDI-UI-009) | a11y-audit: accessible name, keyboard + default button, focus visibility, both-theme contrast — all dimensions PASS; 0 findings for AGT-05 | PASS |
 | i18n / string audit | `scripts/string_audit_check.py` on `main_window.py` + `image_import.py` → clean, exit 0 | PASS |
 | Coverage gate `pixelart_creator.ui` (S13) | `scripts/coverage_gate.py` exit 0 — line 94.05% (≥90), branch 81.13% (≥80); tools 96.71/83.33 | PASS |
 | Full `tests/ui` suite (no regression) | `pytest tests/ui -n auto` → 768 passed, 0 failed | PASS |

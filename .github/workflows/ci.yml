@@ -123,16 +123,83 @@ jobs:
 
       - name: Architecture layering + cycle checks (P11 scripts)
         if: runner.os == 'Linux'
-        # check_layering --root . dispatches every top-level package by parts[0]
-        # (pixelart_creator / sync_backend / web_viewer), so no per-package layering
-        # invocation is needed. check_cycles is per-package: run it over each
-        # top-level package's own intra-import graph. Phase-13 Slice 13E (T13E-G04)
-        # adds --root web_viewer alongside the existing client + backend roots.
+        # check_layering is run over BOTH roots, because ONE root is not enough:
+        #   --root pixelart_creator  enforces the three client layers (ui/logic/
+        #                            data), whose rules key on parts[0] RELATIVE
+        #                            to that root.
+        #   --root .                 enforces the two non-three-layer top-level
+        #                            packages (sync_backend/, web_viewer/), whose
+        #                            rules key on parts[0] relative to the REPO
+        #                            root — and, since the fail-closed fix, also
+        #                            FAILS on any unregistered new top-level
+        #                            package (a future mobile/VPS-host package is
+        #                            guarded from its first commit instead of
+        #                            being silently skipped while CI stayed green).
+        # The `--root .` invocation was previously MISSING even though the comment
+        # here claimed it dispatched everything, so sync_backend/ and web_viewer/
+        # had ZERO layering enforcement. Both roots now run; neither is optional.
+        # check_cycles stays per-package: it walks each top-level package's own
+        # intra-import graph, so it needs one invocation per root.
         run: |
           python scripts/check_layering.py --root pixelart_creator
+          python scripts/check_layering.py --root .
           python scripts/check_cycles.py --root pixelart_creator
           python scripts/check_cycles.py --root sync_backend
           python scripts/check_cycles.py --root web_viewer
+
+      # ----- Docs gates (REMEDIATION 2026-07-30, F14): neither gate below had
+      # ever run in CI before this change — mkdocs build --strict and
+      # pydocstyle both existed as tools the project used locally but were
+      # never wired, so a red docs build or a docstring regression could never
+      # have blocked a merge. Ubuntu-only, same as the other static gates. -----
+      - name: Docs build (mkdocs --strict, F14)
+        if: runner.os == 'Linux'
+        # main/docs/site/mkdocs.yml (AGT-08 mkdocs-site skill). --strict turns
+        # every warning (broken internal link, a nav entry with no matching
+        # page, etc.) into a build failure so the published User Guide can
+        # never drift silently out of sync with docs_dir. Measured 2026-07-30:
+        # PASSES — exit 0, 16 pages, zero warnings. Gates immediately, no
+        # exception needed.
+        run: mkdocs build -f docs/site/mkdocs.yml --strict
+
+      - name: Docstring lint (pydocstyle, PEP 257) [TIME-BOXED EXCEPTION, expires 2026-08-31]
+        if: runner.os == 'Linux'
+        # Ruleset: [tool.pydocstyle] convention="pep257" in pyproject.toml (see
+        # that file's comment for why pep257 — the project's own documented
+        # docstring discipline — and not google/numpy, which would manufacture
+        # section-formatting findings against a style never adopted here).
+        #
+        # HONEST MEASUREMENT, EXPLICIT EXCEPTION — same pattern as the
+        # non-client coverage gate above. This is the REAL pep257 check; it is
+        # NOT weakened (no add-ignore/add-select) and pixelart_creator is NOT
+        # excluded.
+        #
+        # Real numbers measured 2026-07-30 (local, py3.13, convention=pep257,
+        # no add-ignore): 102 findings across 41 files — D102 x48 (missing
+        # public-method docstring), D107 x16 (missing __init__ docstring),
+        # D401 x13 (first line not imperative mood), D105 x11 (missing
+        # magic-method docstring), plus D101/D209/D301/D402 (minor,
+        # single-digit each). Concentrated in Phase 1-3 modules; this
+        # redness is TRUE, not a tooling artefact — the gate simply never ran
+        # before. Clearing the findings is AGT-08's job (docs content), not
+        # this workflow's.
+        #
+        # The time-box is SELF-ENFORCING, not a comment: past EXPIRY this step
+        # starts failing the build unconditionally. Same 2026-08-31 milestone
+        # as the non-client coverage exception above, so both known gaps are
+        # repaid on one shared deadline instead of drifting independently.
+        run: |
+          EXPIRY=2026-08-31
+          if pydocstyle pixelart_creator; then
+            echo "pixelart_creator meets the pep257 docstring gate"
+            exit 0
+          fi
+          TODAY="$(date -u +%F)"
+          if [[ "${TODAY}" > "${EXPIRY}" ]]; then
+            echo "::error::Time-boxed pydocstyle exception EXPIRED on ${EXPIRY}. pixelart_creator still fails the pep257 docstring gate (see step log above for current findings). This now BLOCKS: clear the findings (AGT-08) -- do not extend the box without an explicit decision."
+            exit 1
+          fi
+          echo "::warning::pixelart_creator fails the pep257 docstring gate (102 findings measured 2026-07-30; D102/D107/D401/D105 dominant -- see pyproject.toml [tool.pydocstyle] for the ruleset and the step comment for the full breakdown). KNOWN and time-boxed until ${EXPIRY} (owner AGT-08). This step BLOCKS the build after ${EXPIRY}."
 
       - name: Tests (pytest, headless, parallel, with coverage XML)
         # -n auto: pytest-xdist fans the suite across all runner cores, cutting
@@ -167,9 +234,73 @@ jobs:
             --timeout=120 --timeout-method=thread --durations=15 \
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 
-      - name: Coverage gate (>=90 line / >=80 branch, S13)
+      - name: Coverage gate — client package (>=90 line / >=80 branch, S13)
         if: runner.os == 'Linux'
+        # SCOPE (made explicit): this gate reads the coverage.xml produced by the
+        # pytest step above, which measures `--cov=pixelart_creator` ONLY. It
+        # therefore says NOTHING about the two shipped non-three-layer packages
+        # sync_backend/ and web_viewer/ — those are measured and gated by the two
+        # steps that follow. Neither gate is optional and neither subsumes the
+        # other. Thresholds are the constitutional 90/80 and are NOT lowered.
         run: python scripts/coverage_gate.py --xml coverage.xml --line 90 --branch 80
+
+      # ----- Non-client coverage: sync_backend/ + web_viewer/ ------------------
+      # WHY A SECOND MEASUREMENT: `--cov=pixelart_creator` above excludes both
+      # shipped non-client packages, so until now they were entirely UNMEASURED
+      # while CI reported green. They are measured here by the tests that
+      # actually exercise them (tests/backend/ + web_viewer/tests/), in their own
+      # coverage data file so the client run above is untouched. The XML is then
+      # regenerated with `coverage xml --omit="*/tests/*"` — a SEPARATE report
+      # invocation, not a second `--cov` source on the main run, because passing
+      # several `--cov` roots to one pytest run makes pytest-cov relativise every
+      # file to its own source root: `pixelart_creator/__init__.py`,
+      # `sync_backend/__init__.py` and `web_viewer/__init__.py` then all collapse
+      # into one Cobertura package "." with COLLIDING filenames, silently losing
+      # files. The omit drops the test modules themselves from the measurement so
+      # only shipped code is graded.
+      - name: Measure non-client coverage (sync_backend + web_viewer)
+        if: runner.os == 'Linux'
+        env:
+          COVERAGE_FILE: .coverage.nonclient
+        run: |
+          pytest -m "not slow and not gpu and not cloud_live and not assistant_live and not integration" \
+            tests/backend web_viewer/tests \
+            --timeout=120 --timeout-method=thread \
+            --cov=sync_backend --cov=web_viewer --cov-branch --cov-report=term
+          # Written under coverage/ because that path is ALREADY gitignored, so
+          # this CI artefact can never be committed by accident.
+          python -m coverage xml --omit="*/tests/*" -o coverage/nonclient.xml
+
+      - name: Coverage gate — non-client packages [TIME-BOXED EXCEPTION, expires 2026-08-31]
+        if: runner.os == 'Linux'
+        # HONEST MEASUREMENT, EXPLICIT EXCEPTION. The gate below is the SAME
+        # constitutional 90/80 — it is NOT lowered, and the packages are NOT
+        # excluded. What is time-boxed is only the BLOCKING of the merge on the
+        # KNOWN, RECORDED shortfall, so that discovering it does not freeze every
+        # unrelated change while it is repaid.
+        #
+        # Real numbers measured 2026-07-29 (local, py3.13, same test selection):
+        #   sync_backend  line 93.57%  branch 76.00%  -> FAILS on branch (need 80)
+        #                 (line 80.12% / branch 56.00% when tests/backend runs alone)
+        #   web_viewer    line  5.56%  branch  0.00%  -> FAILS both; dev_server.py
+        #                 is at 0% — it has no test at all.
+        # The redness is TRUE, not a tooling artefact. Raising it is owed work and
+        # belongs to AGT-04 (tests), not to this workflow.
+        #
+        # The time-box is SELF-ENFORCING, not a comment: past EXPIRY this step
+        # starts failing the build. It cannot rot into a permanent exemption.
+        run: |
+          EXPIRY=2026-08-31
+          if python scripts/coverage_gate.py --xml coverage/nonclient.xml --line 90 --branch 80; then
+            echo "non-client packages meet the constitutional 90/80 gate"
+            exit 0
+          fi
+          TODAY="$(date -u +%F)"
+          if [[ "${TODAY}" > "${EXPIRY}" ]]; then
+            echo "::error::Time-boxed non-client coverage exception EXPIRED on ${EXPIRY}. sync_backend/web_viewer are still below the constitutional >=90 line / >=80 branch gate (real numbers above). This now BLOCKS: raise the coverage (AGT-04) — do not extend the box without an explicit decision."
+            exit 1
+          fi
+          echo "::warning::sync_backend / web_viewer are below the constitutional >=90 line / >=80 branch gate. KNOWN and time-boxed until ${EXPIRY} (owner AGT-04); the real per-package numbers are in the JSON above. This step BLOCKS the build after ${EXPIRY}."
 
       # ----- Web-viewer JS-unit gate (Phase-13 Slice 13E, T13E-G04, F11).
       # Ubuntu-only: node is available on the ubuntu runner (absent on the local

@@ -26,9 +26,13 @@
 #   Reciprocally no client layer (logic/data/ui) nor the backend imports it
 #   (leaf consumer). It is governed by the same `--root .` run via parts[0] and
 #   stays DORMANT until the `web_viewer/` package lands.
-#   Run twice for full coverage:
+#   Run twice for full coverage (CI runs BOTH — .github/workflows/ci.yml):
 #     python scripts/check_layering.py --root pixelart_creator   # client 3 layers
 #     python scripts/check_layering.py --root .           # sync_backend/ + web_viewer/
+#   FAIL-CLOSED (2026-07-29): a top-level name that is not registered in
+#   FORBIDDEN / DELEGATED_TOPLEVEL / UNGOVERNED_TOPLEVEL is a hard FAILURE
+#   (exit 1), never a silent skip. See the registry block below for the defect
+#   this replaces.
 # FLAVOUR: standalone
 # LOCATION: scripts/check_layering.py  (CONVENTIONS standalone-script location)
 # INVOKED BY: AGT-01 Architecture (pre-flight + sdd-analyze gate); AGT-09 CI.
@@ -39,10 +43,14 @@
 #   --root  (CLI arg, optional, default "pixelart_creator"): package root to scan.
 #   --json  (CLI flag, optional): force JSON output even when clean.
 # OUTPUTS:
-#   stdout: JSON {"violations":[{file,layer,imports,rule}], "scanned":N} (structured).
+#   stdout: JSON {"violations":[{file,layer,imports,rule}], "scanned":N,
+#     "unregistered":[{top_level,modules,example}], "exempt":{name:{modules,
+#     reason,kind}}, "root_modules":[...]} (structured). Printed whenever there
+#     is a violation OR an unregistered package, or on --json.
 #   stderr: human-readable summary lines.
 #   exit code (see EXIT CODES).
-# EXIT CODES: 0 clean -> COMPLETED ; 1 violations found -> FAILED ;
+# EXIT CODES: 0 clean -> COMPLETED ; 1 violations found OR an UNREGISTERED
+#   top-level package found (fail-closed) -> FAILED ;
 #   2 invalid input / unreadable root -> BLOCKED.
 # PRECONDITIONS: --root exists and contains .py files.
 # DETERMINISM NOTE: fully deterministic given the file tree; files and findings
@@ -85,6 +93,71 @@ BACKEND_PKG = "sync_backend"
 # (parts[0] == "web_viewer"); DORMANT until the package lands.
 WEB_PKG = "web_viewer"
 
+# --- FAIL-CLOSED top-level registry (CI-integrity fix, 2026-07-29) -----------
+# WHY: this script used to `continue` silently on any top-level name absent from
+# FORBIDDEN, and it did so BEFORE incrementing `scanned`. An unrecognised
+# top-level package was therefore neither ENFORCED nor COUNTED, and the gate
+# still printed "clean" — i.e. it failed OPEN. A brand-new top-level package
+# (a mobile client, a VPS-host package, …) would have been unguarded from its
+# first commit while CI stayed green, and the module count would not have moved
+# to betray it. Enforcement is now fail-CLOSED: every top-level name a scan
+# meets MUST appear in exactly one of the three tables below, or the run FAILS
+# and names it. Registering a new package is thus a deliberate, reviewed act by
+# the layering owner (AGT-01), not an accident of `os.walk`.
+#
+#   FORBIDDEN            -> governed HERE by an explicit import rule (enforced).
+#   DELEGATED_TOPLEVEL   -> governed, but by a DIFFERENT dedicated --root run.
+#   UNGOVERNED_TOPLEVEL  -> deliberately outside the layering constitution; the
+#                           reason is the dict value and is printed in --json.
+DELEGATED_TOPLEVEL = {
+    "pixelart_creator": (
+        "the three-layer client; governed by its own dedicated run: "
+        "check_layering.py --root pixelart_creator (CI runs both roots)"
+    ),
+}
+
+UNGOVERNED_TOPLEVEL = {
+    "tests": "test harness — exempt via is_test_module(); crosses layers by design",
+    "scripts": "standalone P11 dev/CI scripts — not shipped, not in the import graph",
+    "deploy": "VPS self-hosting artifacts — the launcher IS the backend entrypoint",
+    "packaging": "pyside6-deploy / Nuitka specs + build helpers — build-time only",
+    "docs": "product documentation — no shipped import graph",
+    "specs": "SDD artifacts — no shipped import graph",
+    "i18n": "Qt translation catalogues (.ts/.qm) — no shipped import graph",
+}
+
+# Directories that are never walked: VCS/tooling/build artefacts and virtualenvs.
+# They hold no first-party source, and pruning them is what keeps the
+# fail-closed rule above USABLE on a developer machine — an un-pruned local
+# `.venv/` or `build/` would otherwise be reported as an unregistered top-level
+# package. This set is itself part of the registry: adding a name to it is a
+# deliberate act with the same review weight as UNGOVERNED_TOPLEVEL.
+PRUNE_DIRS = frozenset(
+    {
+        ".git",
+        ".github",
+        ".hg",
+        ".svn",
+        ".idea",
+        ".vscode",
+        ".venv",
+        "venv",
+        ".env",
+        ".tox",
+        ".nox",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        "__pycache__",
+        "node_modules",
+        "build",
+        "dist",
+        ".eggs",
+        "htmlcov",
+        "site-packages",
+    }
+)
+
 FORBIDDEN = {
     "logic": QT
     + (
@@ -118,6 +191,11 @@ FORBIDDEN = {
         BACKEND_PKG,
     ),
 }
+
+
+def is_pruned_dir(name):
+    """True for a tooling/build/VCS directory that must never be walked."""
+    return name in PRUNE_DIRS or name.endswith(".egg-info")
 
 
 def module_layer(path, root):
@@ -164,18 +242,43 @@ def main():
         return 2
 
     violations = []
+    # top-level name -> {"modules": N, "example": first file seen}. NON-EMPTY
+    # means an unregistered top-level package exists: the gate FAILS (exit 1).
+    unregistered = {}
+    # Modules sitting directly in the scan root (e.g. pixelart_creator/__init__.py
+    # under --root pixelart_creator): they belong to NO layer, so no layer rule
+    # can apply. They are exempt, but they are now COUNTED AND REPORTED instead
+    # of being silently dropped.
+    root_modules = []
+    exempt = {}
     scanned = 0
     try:
-        for dirpath, _dirs, files in os.walk(args.root):
+        for dirpath, dirs, files in os.walk(args.root):
+            # Prune in place so os.walk never descends into tooling/build trees.
+            dirs[:] = sorted(d for d in dirs if not is_pruned_dir(d))
             for name in sorted(files):
                 if not name.endswith(".py"):
                     continue
                 path = os.path.join(dirpath, name)
                 if is_test_module(path, args.root):
                     continue
+                rel = os.path.relpath(path, args.root).replace("\\", "/")
                 layer = module_layer(path, args.root)
                 rules = FORBIDDEN.get(layer)
-                if not rules:
+                if rules is None:
+                    # FAIL CLOSED. Every unrecognised top-level name is either an
+                    # explicitly registered exemption or a hard error — never a
+                    # silent skip (that was the fail-open defect).
+                    if rel == layer:
+                        # A module directly in the scan root: no layer to apply.
+                        root_modules.append(rel)
+                    elif layer in DELEGATED_TOPLEVEL or layer in UNGOVERNED_TOPLEVEL:
+                        exempt[layer] = exempt.get(layer, 0) + 1
+                    else:
+                        entry = unregistered.setdefault(
+                            layer, {"modules": 0, "example": rel}
+                        )
+                        entry["modules"] += 1
                     continue
                 scanned += 1
                 mods = imports_of(path)
@@ -209,15 +312,50 @@ def main():
         return 2
 
     violations.sort(key=lambda v: v["file"])
-    result = {"violations": violations, "scanned": scanned}
-    if violations or args.json:
+    unregistered_list = [
+        {"top_level": k, "modules": v["modules"], "example": v["example"]}
+        for k, v in sorted(unregistered.items())
+    ]
+    result = {
+        "violations": violations,
+        "scanned": scanned,
+        "unregistered": unregistered_list,
+        "exempt": {
+            k: {
+                "modules": exempt[k],
+                "reason": DELEGATED_TOPLEVEL.get(k) or UNGOVERNED_TOPLEVEL.get(k),
+                "kind": "delegated" if k in DELEGATED_TOPLEVEL else "ungoverned",
+            }
+            for k in sorted(exempt)
+        },
+        "root_modules": sorted(root_modules),
+    }
+    if violations or unregistered_list or args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
+    if unregistered_list:
+        # FAIL CLOSED: an unrecognised top-level package is a gate FAILURE, not
+        # a silent skip. Registering it is a deliberate act (see the registry).
+        for item in unregistered_list:
+            sys.stderr.write(
+                "check_layering: UNREGISTERED top-level package %r "
+                "(%d module(s), e.g. %s) — it is enforced by NOTHING.\n"
+                % (item["top_level"], item["modules"], item["example"])
+            )
+        sys.stderr.write(
+            "check_layering: register it in FORBIDDEN (give it an import rule), "
+            "DELEGATED_TOPLEVEL (its own --root run) or UNGOVERNED_TOPLEVEL "
+            "(with a reason) in scripts/check_layering.py.\n"
+        )
     if violations:
         sys.stderr.write(
             "check_layering: %d layering violation(s).\n" % len(violations)
         )
+    if violations or unregistered_list:
         return 1
-    sys.stderr.write("check_layering: clean (%d modules).\n" % scanned)
+    sys.stderr.write(
+        "check_layering: clean (%d modules; %d root module(s), %d exempt top-level "
+        "package(s), 0 unregistered).\n" % (scanned, len(root_modules), len(exempt))
+    )
     return 0
 
 
