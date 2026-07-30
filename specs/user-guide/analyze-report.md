@@ -151,10 +151,17 @@ original text implied. **RESOLVED.**
    `test_missing_required_areas_reports_absent_area`). The matrix explicitly labelled these
    targets "indicative", so the deviation is sanctioned; the artifacts should nonetheless be
    updated to the real filenames.
-3. **OBS-3 (Article IX §4, pre-existing, repo-wide).** Sibling `main/specs/**` artifacts
-   carry `Author | Claude (…)` in committed file headers, which Article IX §4 forbids
-   anywhere in the repository including file headers. This report uses
-   `AGT-01 (Architecture)` and adds no new instance. Separate, broader remediation.
+3. **OBS-3 (Article IX §4, pre-existing, repo-wide — REMEDIATED).** Sibling
+   `main/specs/**` artifacts carried an attribution row in their committed header tables
+   naming the AI vendor's assistant product as author rather than the authoring agent role,
+   which Article IX §4 forbids anywhere in the repository including file headers. This
+   report uses the agent-role form `AGT-01 (Architecture)` and added no new instance — the
+   reason it was already compliant. **Disposition: REMEDIATED 2026-07-30**, after this
+   report was authored: **67 attribution rows** across the tracked `specs/**` artifacts
+   (64 author + 3 analyst) plus the **42 rows** in the private `docs/**` ADR set were
+   rewritten to the agent-role form, and a full-tree sweep the same day — untracked files
+   included — finds none remaining. Described in prose, not quoted, so this record does not
+   itself reproduce the string it reports. **RESOLVED.**
 4. **OBS-4 (DEP-1 sequencing, closed).** The spec sequenced this feature "after Phase 10 so
    cloud/collab docs exist". Phase 10 has shipped and `cloud-and-collaboration.md` is in the
    bundle. DEP-1 is satisfied; no action.

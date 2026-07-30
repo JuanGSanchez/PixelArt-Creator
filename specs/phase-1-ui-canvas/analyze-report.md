@@ -133,12 +133,20 @@ preserved deliberately so a future auditor can see that this happened. **RESOLVE
    calls the tests "`pending` in the matrix", while the code and 116 passing tests have
    shipped and `traceability.md` is in REALISED mode. Defensible as an authoring-time
    historical record, but it reads as drift against the realised matrix.
-3. **OBS-3 (Article IX §4, pre-existing, repo-wide).** Sibling analyze reports in
-   `main/specs/**` carry `Author | Claude (AGT-01, Architecture)` in a committed file
-   header. Article IX §4 forbids Claude/Anthropic authorship **anywhere in the repository,
-   including file headers**. This report deliberately uses `AGT-01 (Architecture)` and adds
-   no new instance. The pre-existing headers are a separate, broader remediation — flagged,
-   not touched.
+3. **OBS-3 (Article IX §4, pre-existing, repo-wide — REMEDIATED).** Sibling analyze
+   reports and other SDD artifacts under `main/specs/**` carried, in their committed header
+   tables, an attribution row naming the AI vendor's assistant product as author instead of
+   the authoring agent role. Article IX §4 forbids that authorship **anywhere in the
+   repository, including file headers**. This report deliberately uses the agent-role form,
+   `AGT-01 (Architecture)`, and added no new instance — which is why it was already
+   compliant. **Disposition: REMEDIATED 2026-07-30**, after this report was authored:
+   **67 attribution rows** across the tracked `specs/**` artifacts (64 author rows +
+   3 analyst rows) were rewritten to the agent-role form, together with the **42 rows** in
+   the ADR set under the private `docs/**` tree. A full-tree sweep the same day — untracked
+   files included, not `git grep`, which cannot see the gitignored ADR surface — finds no
+   such row remaining anywhere under the repository. The offending row is described here in
+   prose rather than quoted, so that the record of the violation does not itself reproduce
+   it. **RESOLVED.**
 4. **OBS-4 (naming ruling, informational).** `Main_Window`/`Canvas_View`/`Palette_Panel`
    use the `_Window` analog for the top-level shell — an explicit Architecture ruling
    recorded at plan §2 and honoured in code. Consistent; no action.
