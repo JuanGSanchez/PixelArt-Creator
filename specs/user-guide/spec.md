@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `user-guide` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-04 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VII, VIII, X, **XI**) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — no in-app guide viewer, no guide content model/loader, and no Help ▸ User Guide menu entry exist yet. The durable user docs under `docs/site/pages/` (mkdocs source) and the built `docs/site/_build/` HTML site are **already authored/shipped** (Phases 1–9 usage pages) and are **REUSED as the single source of truth**, not re-authored. This spec defines the WHAT/WHY of the in-app guide that surfaces that documentation. |

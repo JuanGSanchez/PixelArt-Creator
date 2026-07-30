@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-1-core-engine` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-02 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, VII, VIII, X) |
 | Mode | **RETROACTIVE** — HOW for already-shipped, tested logic/data (code is ground truth), plus the S12 remediation slice this plan authorises |

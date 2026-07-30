@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-2-floating-selection` |
-| Author | Claude (AGT-01, Architecture) via `sdd-tasks` |
+| Author | AGT-01 (Architecture) via `sdd-tasks` |
 | Date | 2026-07-03 |
 | Derived from | `plan.md` (§4 logic contract, §5 UI seam, §6 perf, §7 strategy); `spec.md`; `traceability.md` |
 | Slices | **F-A logic** (AGT-03 impl / AGT-04 tests) → **F-B UI** (AGT-05 impl / AGT-06 tests). F-B depends on F-A's frozen contract. |

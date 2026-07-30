@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-2-floating-selection` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-03 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VI, VIII, X) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — extends shipped Phase-2 selection; no code exists for the floating-preview model yet |

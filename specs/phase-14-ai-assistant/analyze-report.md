@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-14-ai-assistant` |
-| Author | Claude (AGT-01, Architecture) via `sdd-analyze` |
+| Author | AGT-01 (Architecture) via `sdd-analyze` |
 | Date | 2026-07-08 |
 | Pass | **FINAL / POST-IMPLEMENTATION** (T14-X01 — all six slices 14A–14F SHIPPED; supersedes the 2026-07-08 forward/pre-implementation C1) |
 | Artifacts | `constitution.md`, `specs/phase-14-ai-assistant/{spec.md, acceptance.md, traceability.md, plan.md, tasks.md}` + ADR-0039/0040/0041/0042 (private) + the landed `pixelart_creator/{logic,data,ui}` modules and `tests/` |

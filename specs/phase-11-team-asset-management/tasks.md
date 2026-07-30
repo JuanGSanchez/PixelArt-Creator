@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-11-team-asset-management` |
-| Author | Claude (AGT-01, Architecture) via `sdd-tasks` |
+| Author | AGT-01 (Architecture) via `sdd-tasks` |
 | Date | 2026-07-04 |
 | Over | `plan.md` — **slice-by-slice**, each an independently gate-green, CI-green shippable increment. Slice 1 (content-hash + CAS/dedup + catalog(stable-id+sidecar) + tagging + search/filter + library/tagging/search UI) → Slice 2 (dependency graph + break-detection + graph view + break surface) → Slice 3 (version control + cross-project reuse/export + optional cloud backing + version-browser + reuse UI). |
 | Gate | Dispatch only after `sdd-analyze` C1 passes (Article VIII). **NO implementation begins until C1 is green — this gate is the blocker.** Each task leaves the gate green (Article IX). |

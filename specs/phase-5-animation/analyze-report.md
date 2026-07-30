@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-5-animation` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-03 |
 | Artifacts | `constitution.md`, `specs/phase-5-animation/spec.md`, `plan.md`, `tasks.md` (all present) |
 | Scripts | `check_layering.py` exit **0** (clean, 32 modules); `check_cycles.py` exit **0** (no cycles, 78 modules) — re-run at pre-commit 2026-07-03 |

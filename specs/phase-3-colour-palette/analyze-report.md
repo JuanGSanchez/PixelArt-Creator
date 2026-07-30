@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-3-colour-palette` |
-| Analyst | Claude (AGT-01, Architecture) via `sdd-analyze` |
+| Analyst | AGT-01 (Architecture) via `sdd-analyze` |
 | Date | 2026-07-02 |
 | Artifacts | `constitution.md` · `spec.md` · `plan.md` · `tasks.md` (all present) |
 | Gate | Article VIII / C1 — pre-implement; defaults **closed** |

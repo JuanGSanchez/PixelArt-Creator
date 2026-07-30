@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-3-colour-palette` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-02 |
 | Derived from | `specs/phase-3-colour-palette/plan.md` §3–§10 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, V, VI, VII, VIII, X) |

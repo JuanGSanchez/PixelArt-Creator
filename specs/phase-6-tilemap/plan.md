@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-6-tilemap` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-03 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, V, VI, VII, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — the HOW for Phase 6 before any `logic/tileset.py`, `logic/tilemap.py`, `logic/autotile.py`, `data/tiled_io.py`, tilemap UI, or `.pixproj` tilemap persistence exists. The `PixelBuffer.region`/`.blit` primitive, `ColorMode`, the `history` command pattern, `blend.composite_stack`, the `Document` tree, and the defensive `data/project_io.py` load pattern are **shipped** and reused, not re-authored. |

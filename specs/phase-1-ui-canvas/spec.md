@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-1-ui-canvas` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-02 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VI, VIII, X) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — no `ui/` code exists yet; this spec defines the WHAT/WHY the UI increment must realise |

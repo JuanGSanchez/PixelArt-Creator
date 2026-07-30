@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-5-animation` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-03 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, V, VI, VII, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — the HOW for Phase 5 before any `logic/animation.py`, timeline UI, or `.pixproj` tag persistence exists. The `Frame` tree, `Frame.duration_ms`, `DEFAULT_FRAME_DURATION_MS`, `blend.composite_stack`, `history` command pattern, and v2 `.pixproj` frame/layer/`duration_ms` serialisation are **shipped** and reused, not re-authored. |

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-12-performance-scalability` |
-| Author | Claude (AGT-01, Architecture) via `sdd-analyze` |
+| Author | AGT-01 (Architecture) via `sdd-analyze` |
 | Date | 2026-07-07 |
 | Artifacts checked | `constitution.md` · `specs/phase-12-performance-scalability/spec.md` · `plan.md` · `tasks.md` (all four present — gate satisfied) |
 | Scripts (baseline) | `check_layering --root pixelart_creator` → **clean (178 modules), exit 0**; `check_cycles --root pixelart_creator` → **no cycles (179 modules), exit 0** |

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-5-animation` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-03 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VI, VII, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — no `logic/animation.py`, timeline UI, or frame-tag persistence exists yet; the `Frame` tree + `Frame.duration_ms` + `blend.composite_stack` + `.pixproj` v2 frame/layer serialisation are **already shipped** and are reused, not re-authored. This spec defines the WHAT/WHY Phase 5 realises. |

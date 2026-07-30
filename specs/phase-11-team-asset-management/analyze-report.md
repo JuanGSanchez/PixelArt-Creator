@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-11-team-asset-management` |
-| Author | Claude (AGT-01, Architecture) via `sdd-analyze` |
+| Author | AGT-01 (Architecture) via `sdd-analyze` |
 | Date | 2026-07-04 |
 | Gate | **C1 — cross-artifact consistency + coverage before implement (Article VIII).** Defaults *closed*; opens only on **zero unresolved findings**. |
 | Artifacts checked | `constitution.md`, `specs/phase-11-team-asset-management/{spec.md, acceptance.md, traceability.md}`, `plan.md`, `tasks.md`, ADR-0030/0031/0032. |

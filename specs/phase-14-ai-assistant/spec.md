@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-14-ai-assistant` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-08 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, V, VI, **VII**, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION — COMPLETE.** No AI assistant, no LLM port (`data/llm/`), no tool-schema/introspection facade over the DSL registry, no agentic conversation loop, no tiered-safety classifier, no chat dock, and no `pixelart-assistant` CLI exists yet. The shipped **Phase-8 safe automation surface** is the action surface and is **REUSED, not re-authored**: `logic/scripting.py` (the allow-listed `_REGISTRY`, `ParamSchema`, `register_command`, `registered_ops`, and the single trusted `dispatch()` — **zero `eval`/`exec`, everything undo-backed via `history.GroupCommand`**), `logic/macro.py` (`Op`/`Macro` DSL data types), and `logic/plugins.py` (consent-gated capability model). The shipped **Phase-10 `cloud_live` credential-gating pattern** is the model for this phase's credential gating and is **REUSED**: `data/cloud/token_store.py` (lazy/optional OS-keyring isolation), the `cloud_live` optional-dependency extra + the `cloud_live` pytest marker deselected in CI, and the port + fake-adapter + real-adapter-behind-the-same-interface shape of `data/cloud/`. All product-direction decisions are **FROZEN** (§10.1); no open clarifications remain. |

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-10-cloud-collaboration` |
-| Author | Claude (AGT-01, Architecture) via `sdd-analyze` |
+| Author | AGT-01 (Architecture) via `sdd-analyze` |
 | Date | 2026-07-04 |
 | Artifacts | `constitution.md`, `specs/phase-10-cloud-collaboration/spec.md`, `plan.md`, `tasks.md` (all present) |
 | Gate | **C1 — cross-artifact consistency + coverage** (Article VIII; defaults closed) |

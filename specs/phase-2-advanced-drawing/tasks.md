@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-2-advanced-drawing` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-02 |
 | Derived from | `specs/phase-2-advanced-drawing/plan.md` §3–§8 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, V, VI, VIII, X) |

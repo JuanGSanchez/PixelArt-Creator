@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-2-floating-selection` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-03 |
 | SDD phase | `plan` (this doc) — over approved `spec.md` + `traceability.md` (AGT-02) |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VI, VIII, X) |

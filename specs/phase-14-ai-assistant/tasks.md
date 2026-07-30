@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-14-ai-assistant` |
-| Author | Claude (AGT-01, Architecture) via `sdd-tasks` |
+| Author | AGT-01 (Architecture) via `sdd-tasks` |
 | Date | 2026-07-08 |
 | Over | `plan.md` + ADR-0039/0040/0041/0042; spec/acceptance/traceability |
 | Status | **ALL SIX SLICES SHIPPED (14A–14F) + phase-final T14-X01/T14-X02 done — Phase 14 COMPLETE (2026-07-08).** Every task below is DONE (see §Post-implementation status). |

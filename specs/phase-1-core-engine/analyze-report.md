@@ -4,7 +4,7 @@
 | --- | --- |
 | Feature | `phase-1-core-engine` |
 | Phase | `sdd-analyze` (Article VIII gate, C1) — task T8 |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-02 |
 | Artifacts | `constitution.md` · `spec.md` + `traceability.md` · `plan.md` + `tasks.md` · `docs/adr/0001-*.md` · remediated `logic/**` + `data/**` |
 | Verdict | **PASS** — zero unresolved cross-artifact findings |

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-13-cross-platform` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-07 |
 | Governed by | `constitution.md` (Articles **I**, **II**, IV, VI, **VII**, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION — COMPLETED (clarification-clean).** The original 12-phase roadmap is **SHIPPED**; Phase 13 is a **cross-platform hardening + distribution phase**, grounded in The Researcher's cited facts (`docs/subagent-report-the-researcher-acaae022-20260707T093800.md`, and the D1/D2/D3 grounding research `a4c7da21`) and the shipped architecture. **All 23 requirements across slices 13A–13E are now FULLY specified and clarification-clean** (measurable REQs, full acceptance + Gherkin + trace). **Slice 13E (web companion viewer) was PARTIAL by design** — its three sub-decisions (D1 web-serving stack / dependency; D2 viewer auth model; D3 vanilla client vs SPA) were `[NEEDS CLARIFICATION]`; the **USER DECIDED all three on 2026-07-07** (D1 = reuse existing stack, NO new dependency; D2 = signed share-link token; D3 = vanilla HTML/CSS/JS). Those decisions are now recorded in §10 as **decided** and encoded into REQ-P13-WEB-001..005, whose acceptance is now complete and measurable. **No `[NEEDS CLARIFICATION]` marker remains.** |

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-3-colour-palette` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-02 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VI, VIII, X) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — defines the WHAT/WHY for Phase 3 before any Phase-3 code exists |

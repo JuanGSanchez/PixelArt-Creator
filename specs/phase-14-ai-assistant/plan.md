@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-14-ai-assistant` |
-| Author | Claude (AGT-01, Architecture) via `sdd-plan` |
+| Author | AGT-01 (Architecture) via `sdd-plan` |
 | Date | 2026-07-08 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, V, **VI**, **VII**, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — the HOW before any `logic/{tool_catalog,assistant}.py`, `data/llm/{port,fake_adapter,openai_compatible,anthropic_translator,token_store}.py`, `data/assistant_cli.py`, or assistant `ui/` exists. The **shipped** Phase-8 safe action surface (`logic/scripting.py` SCR-1, `logic/macro.py` MAC-1, `logic/plugins.py` PLG-1), the Phase-1 undo stack (`logic/history.py` HIS-1), and the Phase-10 `cloud_live` credential-gating pattern (`data/cloud/` CLD-1) are **REUSED, not re-authored**. |

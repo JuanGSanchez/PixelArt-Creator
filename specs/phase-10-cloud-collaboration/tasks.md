@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-10-cloud-collaboration` |
-| Author | Claude (AGT-01, Architecture) via `sdd-tasks` |
+| Author | AGT-01 (Architecture) via `sdd-tasks` |
 | Date | 2026-07-04 |
 | Over | `plan.md` — **slice-by-slice A → B → C**, each an independently gate-green, CI-green shippable increment. Slice A (port + fake adapter + `.pixproj` round-trip + version history + autosave/recovery) → Slice B (shared projects + comments + presence + hybrid convergence) → Slice C (real-time + branching + the sync backend). |
 | Gate | Dispatch only after `sdd-analyze` C1 passes (Article VIII). **NO implementation begins until C1 is green — this gate is the blocker.** Each task leaves the gate green (Article IX). |

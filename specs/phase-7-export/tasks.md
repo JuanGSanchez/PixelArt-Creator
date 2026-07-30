@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-7-export` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-04 |
 | Over | `plan.md` (Slices 7A raster → 7B sheet/atlas → 7C presets/batch/CLI → 7D UI dialog → 7E batch UI/parity/perf) |
 | Gate | Dispatch only after `sdd-analyze` C1 passes (Article VIII); each task leaves the gate green (Article IX). |

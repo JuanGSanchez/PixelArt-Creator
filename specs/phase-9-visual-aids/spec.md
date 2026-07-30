@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-9-visual-aids` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-04 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, **VI**, VII, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — no snap/geometry logic (`logic/grids.py`, `logic/guides.py`, `logic/preview.py`, `logic/timelapse.py`), no real-size preview window, guides/rulers overlay, isometric/perspective grid overlay, reference board, multi-view editing, or timelapse UI exists yet. The `Document` tree, `PixelBuffer`, the `logic/history.py` reversible-command path, Phase 4 `blend.composite_stack`, the Phase-4 multiple-canvas / artboard tab system, and the defensive `data/project_io.py` load pattern are **already shipped** and are reused, not re-authored. This spec defines the WHAT/WHY Phase 9 realises. |

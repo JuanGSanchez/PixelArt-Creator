@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-1-core-engine` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-02 |
 | Derived from | `specs/phase-1-core-engine/plan.md` §6–§7 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, VIII, X) |

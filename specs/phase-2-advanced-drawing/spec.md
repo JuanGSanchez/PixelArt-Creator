@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-2-advanced-drawing` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-02 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VI, VIII, X) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — defines the WHAT/WHY for Phase 2 before any Phase-2 code exists |

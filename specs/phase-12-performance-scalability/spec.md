@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-12-performance-scalability` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-07 |
 | Governed by | `constitution.md` (Articles **I**, **II**, **IV**, **VI**, **VIII**, **X**, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION — COMPLETE (no open clarifications, no SUSPEND).** Phase 12 is the **roadmap finale**: it is a **performance-NFR + doc-hygiene hardening phase, NOT a new-feature phase**. Every product behaviour it touches already ships (Phases 1–11). The spec is grounded **measure-first** in AGT-10's baseline `docs/perf/phase12-baseline.md` (measured on HEAD `f73b1a5`, 2026-07-07); it invents **no numbers** — every target is the baseline's measured cost + AGT-10's recommended loose ceiling. The two genuinely-breaching hotspots are scoped for **real optimisation work** (Slice A full-frame flatten; Slice B whole-viewport recomposite / opacity drag); three measured-in-budget / edge-only hotspots are **documented as descoped ("verified, no action")** with their evidence; one optional LOW off-thread item is **flagged, not forced**; and the C3 traceability + docstring leftovers are reconciled (Slice F). |

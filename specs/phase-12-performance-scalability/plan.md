@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-12-performance-scalability` |
-| Author | Claude (AGT-01, Architecture) via `sdd-plan` |
+| Author | AGT-01 (Architecture) via `sdd-plan` |
 | Date | 2026-07-07 |
 | Governed by | `constitution.md` (Articles **I**, **II**, **III**, **IV**, **VI**, **VIII**, **X**, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — the HOW for the roadmap-finale **NFR + doc-hygiene hardening** phase. It authors **no new product entity, no new module, no `data/` work**: it **hardens the measured cost** of two shipped, effectively-ungated compositor hotspots and **reconciles the C3 requirement-artifact leftovers**. Every product behaviour it touches already ships (Phases 1–11); the flattened/recomposited **bytes must not change** (byte-exact). |

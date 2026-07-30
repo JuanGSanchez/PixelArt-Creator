@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-1-core-engine` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-01 |
 | Governed by | `constitution.md` (Articles I, II, IV, VII, X) |
 | Mode | **RETROACTIVE** — reconstructs the requirements realised by already-shipped, tested code (code is ground truth) |

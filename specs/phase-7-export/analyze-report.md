@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-7-export` |
-| Author | Claude (AGT-01, Architecture) via `sdd-analyze` |
+| Author | AGT-01 (Architecture) via `sdd-analyze` |
 | Date | 2026-07-04 |
 | Artifacts | `constitution.md`, `specs/phase-7-export/spec.md`, `specs/phase-7-export/plan.md`, `specs/phase-7-export/tasks.md` (all four present — gate satisfied) |
 | Gate | **Article VIII (C1)** — no implement dispatch until this passes with zero unresolved findings |

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-7-export` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-04 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, V, VI, VII, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — the HOW for Phase 7 before any `logic/export.py`, `logic/atlas.py`, `data/export_io.py`, `data/export_cli.py`, or export UI exists. The `PixelBuffer` source pixels (PB-1), `blend.composite_stack` (CO-4), the `Document → frames` tree + `Frame.duration_ms` (FR-1), the deterministic `logic/compactor.py` MaxRects packer (CP-1, rotation disabled), the shipped deterministic `logic/quantize.median_cut`, and the defensive `data/project_io.py` load (IO-3) are **shipped** and reused, not re-authored. |

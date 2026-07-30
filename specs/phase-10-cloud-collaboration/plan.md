@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-10-cloud-collaboration` |
-| Author | Claude (AGT-01, Architecture) via `sdd-plan` |
+| Author | AGT-01 (Architecture) via `sdd-plan` |
 | Date | 2026-07-04 |
 | Governed by | `constitution.md` (Articles I, II, III, IV, V, **VI**, **VII**, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — the HOW for Phase 10 before any `data/cloud/*`, `logic/{sync_state,autosave,version_history,convergence,realtime_apply,cloud_validation}.py`, `sync_backend/*`, or cloud/collab UI exists. The **shipped** `data/project_io.py` (PIO-1: defensive `eval`-free `.pixproj`, `ProjectIOError`, `_SUPPORTED_VERSIONS=1..5`, zlib+base64, `pathlib`), the `Document` tree (DOC-1), and `logic/history.py` (HIS-1) are **reused, not re-authored**. |

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-6-tilemap` |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-03 |
 | Artifacts | `constitution.md`, `specs/phase-6-tilemap/spec.md`, `plan.md`, `tasks.md` (all present) |
 | Scripts | `check_layering.py` exit **0** (clean, 32 modules); `check_cycles.py` exit **0** (no cycles, 78 modules) — run at plan time 2026-07-03 |

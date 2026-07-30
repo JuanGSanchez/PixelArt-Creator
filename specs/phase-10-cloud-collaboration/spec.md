@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-10-cloud-collaboration` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-04 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VI, **VII**, VIII, X, XI) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION — COMPLETE.** No cloud port (`data/cloud/`), no provider adapters, no version-history / autosave-recovery model, and no collaboration (shared projects / comments / presence / conflict resolution / branching / real-time) exists yet. The shipped `data/project_io.py` `.pixproj` serialiser (defensive load, `ProjectIOError`, `_SUPPORTED_VERSIONS = (1..5)`, zlib+base64, `pathlib`, **no `eval`**) is the **sync unit** and is REUSED, not re-authored; the `Document` tree and the `logic/history.py` reversible-command path are shipped and reused. This spec fixes the WHAT/WHY for **all three slices**: **Slice A** (cloud port + testable local/fake adapter + `.pixproj` cloud round-trip + version history + autosave/recovery), **Slice B** (shared projects + comments + presence + deterministic hybrid convergence), and **Slice C** (real-time CRDT/OT + a first-class sync **backend** component + art branching). The previously-SUSPENDED §10.2 scope questions (CL-B1..CL-B5) have been **ADJUDICATED by the user** (§10.2) and are encoded below; no PENDING markers remain. |

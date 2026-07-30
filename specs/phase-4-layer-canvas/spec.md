@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `phase-4-layer-canvas` |
-| Author | Claude (AGT-02, Requirements) |
+| Author | AGT-02 (Requirements) |
 | Date | 2026-07-02 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VI, VII, VIII, X) |
 | Mode | **FORWARD / PRE-IMPLEMENTATION** — no `logic/blend.py` or layer UI exists yet; this spec defines the WHAT/WHY Phase 4 must realise |

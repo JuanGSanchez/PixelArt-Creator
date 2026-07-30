@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | `user-guide` (cross-cutting, not a single roadmap phase) |
-| Author | Claude (AGT-01, Architecture) |
+| Author | AGT-01 (Architecture) |
 | Date | 2026-07-04 |
 | Governed by | `constitution.md` (Articles I, II, IV, V, VII, VIII, X, XI) |
 | Consumes | `specs/user-guide/spec.md` (COMPLETE, clarified CL-1..6) + `traceability.md` (19 REQ, 0 uncovered) |
