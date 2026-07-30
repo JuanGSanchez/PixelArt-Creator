@@ -1,21 +1,21 @@
-"""Shared config for the sync-backend integration tests (localhost, no Qt).
+"""Shared launcher harness for the deployment-acceptance tests (localhost, no Qt).
 
-These tests spin up :class:`~sync_backend.server.SyncServer` in-process on an ephemeral
-loopback port (REQ-P10-BACKEND-001) and drive it with the blocking ``websockets`` sync
-client from an executor thread (per AGT-03's harness note), so the server's asyncio
-event loop stays free on the main thread. Every scenario runs under a single
-``asyncio.run`` and stops the server in a ``finally`` block, and every client poll has a
-bounded deadline, so no event loop, asyncio task, or listening socket leaks between
-tests — safe under ``pytest -n auto``.
+Moved here from ``tests/backend/conftest.py`` by ADR-0043: every symbol in this
+module is deployment-acceptance machinery (AGT-09), used **only** by
+``test_vps_localhost.py`` and ``test_nginx_wss_localhost.py``. No test remaining
+under ``tests/backend/`` referenced it, so the split leaves both directories
+self-contained.
 
-Phase-13 Slice 13C additions (REQ-P13-BACKEND-001/-002). The VPS artifacts are proven
-by **launching the shipped, unmodified** ``sync_backend/`` the way a container / systemd
+Phase-13 Slice 13C (REQ-P13-BACKEND-001/-002). The VPS artifacts are proven by
+**launching the shipped, unmodified** ``sync_backend/`` the way a container / systemd
 unit does — through the ``deploy/run_sync_backend.py`` launcher as a *subprocess* bound
 to an ephemeral loopback port (``PIXELART_SYNC_PORT=0``). The helpers below spawn that
 launcher, parse its "listening on ws://host:port" line, and tear it down; the
 ``launched_backend_uri`` fixture yields a ``ws://`` URI (or skips with a clear reason if
-a launcher subprocess is not viable in the environment). These paths are only exercised
-by ``@pytest.mark.integration`` tests, deselected in the default gate.
+a launcher subprocess is not viable in the environment). Every scenario has a bounded
+deadline and tears the child down in a ``finally``, so no process or listening socket
+leaks between tests. These paths are only exercised by ``@pytest.mark.integration``
+tests, deselected in the default gate.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from typing import List, Optional, Tuple
 
 import pytest
 
-#: Repo root: tests/backend/conftest.py -> parents[2] is the working tree root.
+#: Repo root: tests/deploy/conftest.py -> parents[2] is the working tree root.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 #: The Phase-13 Slice 13C persistent launcher (deploy/, outside sync_backend/).
 LAUNCHER = REPO_ROOT / "deploy" / "run_sync_backend.py"
