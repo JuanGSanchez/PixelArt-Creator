@@ -32,7 +32,10 @@ import { dirname, join } from "node:path";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CORE_URL = new URL("../static/viewer_core.mjs", import.meta.url);
 const FIXTURE = join(HERE, "fidelity_fixture.json");
-const TOLERANCE_LSB = 1;
+// ADR-0044: pixel fidelity is byte-exact (0 LSB); the prior +/-1 LSB tolerance is
+// withdrawn. Kept as a named constant (not a bare 0) so the failure message below
+// still quotes the measured maxDiff against an explicit contract value.
+const TOLERANCE_LSB = 0;
 
 let core;
 try {
@@ -162,9 +165,10 @@ test("A.6 integer-scale/DPR block math (source px -> S x DPR device block)", () 
 });
 
 // --------------------------------------------------------------------------- //
-// 4. Render-fidelity vs the shipped Python reference (+/-1 LSB, A.4/A.6).
+// 4. Render-fidelity vs the shipped Python reference (byte-exact, 0 LSB — ADR-0044,
+//    refining A.4/A.6).
 // --------------------------------------------------------------------------- //
-test("composited RGBA matches the shipped reference within +/-1 LSB", () => {
+test("composited RGBA matches the shipped reference byte-exact (0 LSB)", () => {
   if (typeof core.composite !== "function") {
     console.log("    (note) core.composite (pure, DOM-free) not exported — the " +
       "extraction must expose a canvas-free composite; fidelity sub-check pending.");
@@ -190,7 +194,7 @@ test("composited RGBA matches the shipped reference within +/-1 LSB", () => {
   }
   assert.ok(
     maxDiff <= TOLERANCE_LSB,
-    `render fidelity max diff ${maxDiff} LSB exceeds +/-${TOLERANCE_LSB}`
+    `render fidelity max diff ${maxDiff} LSB != ${TOLERANCE_LSB} (ADR-0044: byte-exact)`
   );
 });
 

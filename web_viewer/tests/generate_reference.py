@@ -1,9 +1,10 @@
 """Render-fidelity reference generator for the web viewer (T13E-B07).
 
-Owned by AGT-06 (QA). This is a **test helper**, not product code and not part of
-the default pytest suite (``pyproject.toml`` pins ``testpaths = ["tests"]``, so
-``web_viewer/tests`` is never auto-collected). It has two jobs, both grounded in
-the shipped pure logic the JS mirror must match (ADR-0036 Addendum A.4/A.6):
+Owned by AGT-06 (QA). This is a **test helper**, not product code, and it IS part
+of the default pytest suite: ``pyproject.toml`` pins
+``testpaths = ["tests", "web_viewer/tests"]``, so ``web_viewer/tests`` runs on
+every push, not separately from it. It has two jobs, both grounded in the shipped
+pure logic the JS mirror must match (ADR-0044, refining ADR-0036 Addendum A.4/A.6):
 
 1. Build a small, known project state as a wire op-log, run it through the
    **shipped** ``sync_protocol`` + ``realtime_apply`` + ``convergence`` +
@@ -12,8 +13,13 @@ the shipped pure logic the JS mirror must match (ADR-0036 Addendum A.4/A.6):
 2. Independently replay the SAME op-log through a faithful **Python mirror of
    viewer.js** (``decodeMessage`` -> ``decodeUpdate`` -> ``RealtimeState.accept``
    LWW -> ``blendTile`` source-over with ``Uint8ClampedArray`` round-half-to-even),
-   and assert the mirror equals the shipped reference within a **+/-1 LSB**
-   tolerance (the frontend-flagged Uint8ClampedArray-vs-numpy rounding margin).
+   and assert the mirror equals the shipped reference **byte-exact (0 LSB per
+   channel)** — ADR-0044. A prior +/-1 LSB tolerance here was withdrawn: it was
+   justified as covering "the frontend-flagged Uint8ClampedArray-vs-numpy rounding
+   margin", but ``_u8_clamp``'s own docstring below states the two rounding modes
+   already agree (both round-half-to-even), so that justification was self-refuting
+   — no margin was ever needed, and measurement confirms 0 LSB is met with room to
+   spare.
 
 It also emits ``fidelity_fixture.json`` — the exact wire frames a browser would
 receive plus the expected composited RGBA — so the node ``*.mjs`` unit tests
@@ -23,7 +29,7 @@ interpreter from the repo root::
 
     python web_viewer/tests/generate_reference.py
 
-Exit code 0 = the Python mirror matches the shipped reference within tolerance.
+Exit code 0 = the Python mirror matches the shipped reference byte-exact (0 LSB).
 """
 
 from __future__ import annotations
@@ -278,7 +284,7 @@ def _wire_frames(ops: List[Operation]) -> List[str]:
 
 
 def main() -> int:
-    """Generate the reference, run the +/-1 LSB parity check, write the fixture."""
+    """Generate the reference, run the byte-exact (0 LSB) parity check, write the fixture."""
     ops = _build_ops()
     reference = _reference_rgba(ops)
     mirror = _mirror_render(ops)
@@ -293,7 +299,9 @@ def main() -> int:
     total = reference.shape[0] * reference.shape[1]
 
     print(f"reference/mirror shape : {reference.shape}")
-    print(f"max abs channel diff   : {max_diff} LSB (tolerance +/-1)")
+    print(
+        f"max abs channel diff   : {max_diff} LSB (contract: byte-exact, 0 LSB, ADR-0044)"
+    )
     print(f"exact-match pixels     : {exact}/{total}")
 
     fixture = {
@@ -302,7 +310,7 @@ def main() -> int:
         "width": int(reference.shape[1]),
         "height": int(reference.shape[0]),
         "frame_index": 0,
-        "tolerance_lsb": 1,
+        "tolerance_lsb": 0,
         "wire_frames": _wire_frames(ops),
         "expected_rgba_b64": base64.b64encode(reference.tobytes()).decode("ascii"),
     }
@@ -310,10 +318,12 @@ def main() -> int:
         json.dump(fixture, fh, indent=2, sort_keys=True)
     print(f"wrote fixture          : {FIXTURE_PATH}")
 
-    if max_diff > 1:
-        print("FAIL: Python mirror diverges from shipped reference by > 1 LSB")
+    if max_diff != 0:
+        print(
+            "FAIL: Python mirror diverges from shipped reference (ADR-0044 requires 0 LSB)"
+        )
         return 1
-    print("PASS: Python mirror matches shipped reference within +/-1 LSB")
+    print("PASS: Python mirror matches shipped reference byte-exact (0 LSB, ADR-0044)")
     return 0
 
 
