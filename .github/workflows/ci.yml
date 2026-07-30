@@ -42,8 +42,20 @@ on:
     tags: ["v*"]
   pull_request:
     branches: [main]
-  # Manual BUILD trigger for the native-installer matrix (ADR-0038 §3).
+  # Manual trigger, shared by two independent on-demand jobs below (each reads
+  # this input and self-guards; the input decides WHICH runs, so an ordinary
+  # manual dispatch does not pay for both):
+  #   - build-installers (ADR-0038 §3): the native-installer matrix.
+  #   - regenerate-constraints (#31, R-11 residual): the Linux constraints
+  #     regeneration review job.
   workflow_dispatch:
+    inputs:
+      target:
+        description: "Which on-demand job to run"
+        required: true
+        default: "build-installers"
+        type: choice
+        options: ["build-installers", "regenerate-constraints"]
 
 # Single-run concurrency guard: a new run for the same ref cancels the older one
 # so two runs never contend for a shared runner (flaky-timeout avoidance, F11).
@@ -234,14 +246,18 @@ jobs:
         # the real external-LLM-provider path (14D, real key/credentials) so it
         # skips here; the 14B fake-adapter tests carry NO marker and still run. The
         # in-process real-time backend suite (tests/backend/) is collected via
-        # testpaths=["tests"] and runs with the mocked loopback/ws transports.
+        # testpaths=["tests", "web_viewer/tests"] and runs with the mocked
+        # loopback/ws transports.
         # -m also deselects `integration` (Phase-13 13C, T13C-06): the deploy/ VPS
-        # acceptance tests (tests/backend/test_vps_localhost.py,
-        # test_nginx_wss_localhost.py) reach outside the process (launcher subprocess
-        # / Docker / Nginx / real socket) and would need Docker+nginx that the
-        # Windows/macOS runners lack — they run ONLY in the dedicated `integration`
-        # job below, keeping this cross-OS matrix green without them. The
-        # default-gate deploy guard (test_hosting_default_unchanged.py) carries NO
+        # acceptance tests — since ADR-0043 in their OWN root tests/deploy/
+        # (test_vps_localhost.py, test_nginx_wss_localhost.py) — reach outside the
+        # process (launcher subprocess / Docker / Nginx / real socket) and would need
+        # Docker+nginx that the Windows/macOS runners lack; they run ONLY in the
+        # dedicated `integration` job below, keeping this cross-OS matrix green
+        # without them. tests/deploy/ needs no new path here: it sits UNDER the
+        # existing "tests" testpaths root, so this bare `pytest` collects it (and
+        # then deselects it by marker) with no manifest change. The default-gate
+        # deploy guard (tests/backend/test_hosting_default_unchanged.py) carries NO
         # integration marker and still runs here.
         run: |
           pytest -n auto -m "not slow and not gpu and not cloud_live and not assistant_live and not integration" \
@@ -278,7 +294,7 @@ jobs:
           COVERAGE_FILE: .coverage.nonclient
         run: |
           pytest -m "not slow and not gpu and not cloud_live and not assistant_live and not integration" \
-            tests/backend web_viewer/tests \
+            tests/backend tests/deploy web_viewer/tests \
             --timeout=120 --timeout-method=thread \
             --cov=sync_backend --cov=web_viewer --cov-branch --cov-report=term
           # Written under coverage/ because that path is ALREADY gitignored, so
@@ -495,7 +511,17 @@ jobs:
           python -m pip install -c constraints.txt -e ".[dev]"
 
       - name: Integration tests (deploy/ launcher, Docker, Nginx WSS — localhost)
-        # Runs only the `integration`-marked deploy acceptance in tests/backend/.
+        # Runs the `integration`-marked deployment acceptance, which ADR-0043 moved
+        # out of tests/backend/ into its OWN root tests/deploy/ (AGT-09 owns
+        # deployment; the sync-backend service agent owns tests/backend/).
+        # BOTH roots are named on purpose. tests/deploy/ holds all 9 integration
+        # tests today; tests/backend/ holds none. Naming only tests/deploy/ would
+        # silently stop running any integration test a future backend change adds
+        # under tests/backend/ — the exact "moved file CI no longer names" failure
+        # this ADR was written to avoid. Naming both is also what keeps this step
+        # off pytest's exit-code 5 (NO_TESTS_COLLECTED): after the move,
+        # `pytest -m integration tests/backend/` collects 0 and exits 5, failing
+        # the job. Verified locally: 9 collected across the two roots.
         # The fast tests (launcher-subprocess convergence, Nginx config assertions,
         # short idle-survival) RUN and must pass. The Docker-container test builds
         # the shipped deploy/Dockerfile on the ubuntu daemon (self-skips if the
@@ -503,7 +529,68 @@ jobs:
         # self-skips because PIXELART_NGINX_IDLE_TEST is unset here (CI-time budget)
         # — it is NOT forced on every push. No Qt libs needed: these tests import
         # only the Qt-free data/logic layer.
-        run: pytest -m integration tests/backend/
+        run: pytest -m integration tests/deploy/ tests/backend/
+
+  # ===========================================================================
+  # R-11 residual (#31, 2026-07-31): constraints.txt closure gap on Linux/macOS.
+  # constraints.txt was generated on Windows (its own header explains the
+  # implication in full) — a package resolved ONLY on Linux or macOS by a
+  # `sys_platform` marker this project's graph does not currently exhibit would
+  # be silently absent from that file. This job closes the gap by resolving on
+  # the REAL Linux target and publishing the result for a human to diff and
+  # decide whether to commit — it deliberately does NOT commit on its own:
+  # auto-committing regenerated dependency pins without a human reviewing the
+  # diff is a decision for this file's owner (AGT-09), not something CI should
+  # do unattended. Manual trigger only (workflow_dispatch) — this is a review
+  # tool run on demand when a manifest dependency changes or the lock needs a
+  # refresh, not a gate on every push.
+  # ===========================================================================
+  regenerate-constraints:
+    name: regenerate-constraints (ubuntu-latest, manual)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'regenerate-constraints' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python 3.12 (pinned, matches ci.yml + constraints.txt)
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Deliberately a CLEAN venv, not the runner's system/cached pip
+      # environment, so the freeze reflects only this project's own resolved
+      # closure — mirrors the POSIX command constraints.txt's own header
+      # documents as the regeneration procedure.
+      - name: Resolve the full dependency closure on Linux (clean venv)
+        run: |
+          python -m venv venv-lock
+          venv-lock/bin/python -m pip install --upgrade pip
+          venv-lock/bin/python -m pip install -e ".[dev]"
+          venv-lock/bin/python -m pip freeze | grep -v '^-e ' > constraints.linux.txt
+
+      - name: Diff against the committed (Windows-generated) constraints.txt
+        # Informational only (never fails the job): surfaces exactly what a
+        # Linux resolution adds/changes/removes relative to the committed
+        # file, so the human reviewer sees the real delta at a glance instead
+        # of having to diff the two artifacts by hand.
+        run: |
+          echo "--- diff constraints.txt (committed, Windows) vs constraints.linux.txt (this run, Linux) ---"
+          diff -u constraints.txt constraints.linux.txt || true
+
+      # Uploaded as an artifact, NOT committed or pushed — the human reviewer
+      # downloads it, reviews the diff above, and decides whether/how to merge
+      # it into the committed constraints.txt (C1: no unattended commit).
+      - name: Upload the Linux-resolved constraints file for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: constraints-linux
+          path: constraints.linux.txt
+          if-no-files-found: error
 
   # ===========================================================================
   # Phase-13 Slice 13D (REQ-P13-BUILD-002/-003/-004/-005, ADR-0038): native
@@ -541,7 +628,7 @@ jobs:
   build-installers:
     name: build-installers (${{ matrix.os }})
     # BUILD/TAG trigger only — never on a normal branch/PR push (ADR-0038 §3).
-    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.target == 'build-installers') || startsWith(github.ref, 'refs/tags/v') }}
     # Isolated PER-OS concurrency group (see job header): distinct from the
     # top-level ci-<ref> quality-gate guard so a routine push to the ref cannot
     # cancel an in-flight installer build, and varied by ${{ matrix.os }} so the

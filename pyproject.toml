@@ -14,6 +14,19 @@ name = "pixelart-creator"
 version = "0.2.0"
 description = "Unified pixel-art platform: 8K editable grid, colour tools, layers, GPU render pipeline."
 readme = "NOTICE"
+# LOCAL/CI PYTHON ALIGNMENT (#31, 2026-07-31): this floor (">=3.12") is the
+# public install contract, but ci.yml pins the EXACT minor "3.12" on every job
+# (quality-gate/integration/build-installers) and constraints.txt is generated
+# from a clean Python 3.12.0 venv. A machine running a newer interpreter (e.g.
+# 3.13.x) can still satisfy this floor and pass locally while never exercising
+# what CI actually gates. The repo-root `.python-version` file pins "3.12" as
+# the intended DEVELOPMENT interpreter (read by pyenv/pyenv-win/uv/asdf and
+# most IDE Python-version pickers) so the divergence is discoverable instead of
+# silent. This does not change the public floor here, and this project does
+# NOT claim 3.13 support via a classifier — the suite is only exercised on
+# 3.12 in CI. Switching the actual local interpreter to 3.12.x is a manual,
+# machine-level step (e.g. `pyenv install 3.12.x && pyenv local 3.12.x`, or the
+# platform equivalent) that this repository cannot perform for the developer.
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Juan Garcia Sanchez" }]
@@ -161,6 +174,15 @@ minversion = "8.0"
 # no docker/nginx — these carry NO `integration` marker, unlike the deploy/ VPS
 # tests). The marker deselection below (not slow/gpu/cloud_live/integration)
 # still applies uniformly across both roots.
+#
+# ADR-0043 (tests/deploy split): NO entry is needed here for the new
+# `tests/deploy/` root — it is a subdirectory of the existing "tests" root, so a
+# bare `pytest` recurses into it. Verified by collection, not by inspection:
+# before the move `pytest --collect-only -q` reported 5656 tests with
+# tests/backend at 49; after the move it reports the SAME 5656 with
+# tests/backend at 40 and tests/deploy at 9. A NEW TOP-LEVEL test root (a
+# sibling of "tests", as web_viewer/tests is) WOULD have to be added here or it
+# would never be collected.
 testpaths = ["tests", "web_viewer/tests"]
 addopts = "-ra"
 # Machine-agnostic default: heavy/host-sensitive tests are deselectable markers.

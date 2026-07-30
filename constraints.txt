@@ -1,5 +1,34 @@
 # =============================================================================
 # Dependency constraints (reproducibility lock) — PixelArt Creator
+#
+# GENERATED ON: Windows (this file's own "COMMAND THAT GENERATED THIS FILE"
+# below is a Windows py-launcher/venv session — `py -3.12`, `venv-lock\Scripts\
+# python.exe`). WHAT THAT IMPLIES: every package the Windows resolver actually
+# INSTALLED is pinned here (including the one Windows-conditional transitive
+# package this graph has, `colorama`, pulled in by click's own `sys_platform ==
+# "win32"` marker). A package that is pulled in ONLY on Linux or ONLY on macOS
+# (a `sys_platform == "linux"`/`"darwin"` conditional transitive dependency)
+# would NOT have been installed by this Windows resolution and is therefore
+# ABSENT from this file — not floor-pinned, not exact-pinned, simply not
+# resolved here. `pip install -c constraints.txt` does not fail on an absent
+# entry (constraints only apply to packages actually needed), so this is a
+# silent reproducibility gap on those two platforms, not a hard error — do NOT
+# read a clean CI/install run on Linux/macOS as proof this file has no such
+# gap. No Linux/macOS-only conditional package has been IDENTIFIED in this
+# project's current dependency graph (see the "WHY ONE FILE CAN SERVE ALL 3 CI
+# RUNNERS" note below), but that is an observation about today's graph, not a
+# guarantee about tomorrow's. The `regenerate-constraints` CI job added to
+# ci.yml (workflow_dispatch, ubuntu-latest) closes this permanently by
+# resolving on the real Linux target and publishing the result as a build
+# artifact for human review — it does NOT auto-commit (a deliberate scope
+# limit: committing regenerated dependency pins without a human diff review is
+# a decision this file's owner should make explicitly, not something CI does
+# unattended). A Linux-generated constraints.txt (or a merged
+# Windows+Linux+macOS union, if a genuinely platform-conditional package is
+# ever found) is the actual closure of R-11; until that regeneration is run
+# and its diff reviewed, treat this file as a WINDOWS-VERIFIED lock, not a
+# cross-platform one.
+#
 # Owner: AGT-09 GitHub/DevOps. Addresses R-11 (dependency-reproducibility gap):
 # pyproject.toml's `dependencies` intentionally FLOOR-pins the public install
 # contract (PySide6>=6.6, numpy>=1.26, Pillow>=10.0) plus exact-pins two
@@ -65,9 +94,15 @@
 # editable self-reference (`-e git+...#egg=pixelart_creator`), which must
 # never appear in its own constraints file.
 #
-# REGENERATE THIS FILE (the one command set above, from main/, with a clean
-# Python 3.12 venv active) whenever a manifest dependency changes or the
-# transitive graph needs a refresh. Do not hand-edit version numbers.
+# REGENERATE THIS FILE either LOCALLY (the one command set above, from main/,
+# with a clean Python 3.12 venv active — reproduces a WINDOWS-verified lock
+# only, per the platform note at the top of this file) OR on the real Linux CI
+# target via the `regenerate-constraints` workflow_dispatch job in ci.yml,
+# which runs the POSIX equivalent of the same command set on ubuntu-latest and
+# uploads the result as a downloadable build artifact for review (it does not
+# commit automatically — see that job's own comments in ci.yml). Whenever a
+# manifest dependency changes or the transitive graph needs a refresh. Do not
+# hand-edit version numbers.
 #
 # A DEVELOPER MATCHES CI'S ENVIRONMENT WITH ONE COMMAND (run from main/):
 #   pip install -c constraints.txt -e ".[dev]"
