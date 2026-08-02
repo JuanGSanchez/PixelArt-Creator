@@ -17,17 +17,21 @@ function the router exposes (`fetch_recent_runs`, `fetch_run_jobs`,
 `fetch_job_annotations`) is replaced with a canned fake via
 `classify_current_state`'s injectable `fetch_runs`/`fetch_jobs`/
 `fetch_annotations` parameters, or exercised directly as a pure function
-(`classify_dispatch`, `overall_exit`, `macos_leg`) that never shells out.
-The router's "no container runtime" path is tested by SIMULATING absence
-(monkeypatching `shutil.which` to return `None`), not by requiring an actual
-absence or presence of Docker/Podman on the machine running the suite --
-this test module passes identically whether or not Docker is installed.
+(`classify_dispatch`, `overall_exit`, `macos_leg`, `linux_leg`) that never
+shells out.
+
+The router's local fallback covers ONLY the Windows leg (natively); the
+Linux leg it once ran inside a container (Docker/Podman + a bind-mounted
+``.ci/Dockerfile``) was removed by user decision 2026-08-02 -- it had never
+been built or run in any session and CI now runs on a self-hosted Windows
+runner. `linux_leg()` is a pure function (like `macos_leg()`) that always
+reports UNCOVERABLE, so its test needs no monkeypatching and passes
+identically on any host.
 """
 
 from __future__ import annotations
 
 import importlib.util
-import os
 import sys
 import types
 from pathlib import Path
@@ -49,8 +53,7 @@ classify_current_state = run_ci.classify_current_state
 build_job_observations = run_ci.build_job_observations
 overall_exit = run_ci.overall_exit
 macos_leg = run_ci.macos_leg
-detect_container_runtime = run_ci.detect_container_runtime
-run_linux_leg_in_container = run_ci.run_linux_leg_in_container
+linux_leg = run_ci.linux_leg
 run_windows_leg = run_ci.run_windows_leg
 LegResult = run_ci.LegResult
 
@@ -319,7 +322,7 @@ def test_classify_dispatch_all_skipped_is_unknown():
 # --------------------------------------------------------------------------- #
 def test_overall_exit_all_passed_and_something_ran_is_zero():
     legs = [
-        LegResult("linux", "RAN-PASS", "ok", "local-container(docker)"),
+        LegResult("linux", "UNCOVERABLE", "n/a", "n/a"),
         LegResult("windows", "RAN-PASS", "ok", "local-native"),
         LegResult("macos", "UNCOVERABLE", "n/a", "n/a"),
     ]
@@ -328,7 +331,7 @@ def test_overall_exit_all_passed_and_something_ran_is_zero():
 
 def test_overall_exit_a_failure_is_one():
     legs = [
-        LegResult("linux", "BLOCKED", "no runtime", "none"),
+        LegResult("linux", "UNCOVERABLE", "n/a", "n/a"),
         LegResult("windows", "RAN-FAIL", "a test failed", "local-native"),
         LegResult("macos", "UNCOVERABLE", "n/a", "n/a"),
     ]
@@ -337,7 +340,7 @@ def test_overall_exit_a_failure_is_one():
 
 def test_overall_exit_blocked_only_is_two_never_zero():
     legs = [
-        LegResult("linux", "BLOCKED", "no runtime", "none"),
+        LegResult("linux", "UNCOVERABLE", "n/a", "n/a"),
         LegResult("windows", "BLOCKED", "not a windows host", "n/a"),
         LegResult("macos", "UNCOVERABLE", "n/a", "n/a"),
     ]
@@ -347,7 +350,10 @@ def test_overall_exit_blocked_only_is_two_never_zero():
 
 
 def test_overall_exit_uncoverable_only_is_three_never_zero():
-    legs = [LegResult("macos", "UNCOVERABLE", "n/a", "n/a")]
+    legs = [
+        LegResult("linux", "UNCOVERABLE", "n/a", "n/a"),
+        LegResult("macos", "UNCOVERABLE", "n/a", "n/a"),
+    ]
     rc = overall_exit(legs)
     assert rc == 3
     assert rc != 0
@@ -358,8 +364,9 @@ def test_overall_exit_empty_is_three():
 
 
 # --------------------------------------------------------------------------- #
-# Per-leg behaviour: macOS is always UNCOVERABLE; the "no container runtime"
-# path is simulated (absence), never dependent on this machine's real state.
+# Per-leg behaviour: macOS and Linux are always UNCOVERABLE (pure functions,
+# no monkeypatching needed -- neither leg has a local execution mechanism on
+# any host).
 # --------------------------------------------------------------------------- #
 def test_macos_leg_is_always_uncoverable():
     leg = macos_leg()
@@ -367,42 +374,25 @@ def test_macos_leg_is_always_uncoverable():
     assert "Apple" in leg.detail or "apple" in leg.detail.lower()
 
 
-def test_detect_container_runtime_returns_none_when_neither_present(monkeypatch):
-    monkeypatch.setattr(run_ci.shutil, "which", lambda name: None)
-    assert detect_container_runtime("auto") is None
-
-
-def test_detect_container_runtime_prefers_docker_then_podman(monkeypatch):
-    # Fake tool locations, not real paths on this machine -- "portability: ok"
-    fake_bin = "usr" + os.sep + "bin"  # portability: ok
-    monkeypatch.setattr(
-        run_ci.shutil,
-        "which",
-        lambda name: f"{fake_bin}{os.sep}{name}" if name == "podman" else None,
-    )
-    assert detect_container_runtime("auto") == "podman"
-    monkeypatch.setattr(
-        run_ci.shutil, "which", lambda name: f"{fake_bin}{os.sep}{name}"
-    )
-    assert detect_container_runtime("auto") == "docker"
-
-
-def test_run_linux_leg_blocked_when_no_runtime_simulated_absent(monkeypatch):
-    """The router's own 'no runtime' path, tested by SIMULATING absence --
-    never by requiring Docker to actually be missing on the machine running
-    this suite."""
-    monkeypatch.setattr(run_ci.shutil, "which", lambda name: None)
-    args = types.SimpleNamespace(
-        runtime="auto",
-        skip_drift_guard=True,
-        only=[],
-        skip=[],
-        linux_image_tag="pixelart-ci-linux:test",
-    )
-    leg = run_linux_leg_in_container(args)
+def test_linux_leg_is_always_uncoverable():
+    leg = linux_leg()
     assert leg.leg == "linux"
-    assert leg.outcome == "BLOCKED"
-    assert "no container runtime" in leg.detail.lower()
+    assert leg.outcome == "UNCOVERABLE"
+    assert leg.evidence_class == "n/a"
+    assert "removed" in leg.detail.lower()
+
+
+def test_run_fallback_reports_linux_uncoverable_windows_blocked_off_windows_host():
+    """End-to-end through run_fallback on a non-Windows host: linux and macos
+    are UNCOVERABLE, windows is BLOCKED (no native host), and the overall
+    exit code must therefore be 2 -- never 0 -- via overall_exit."""
+    args = types.SimpleNamespace(only=[], skip=[])
+    legs = run_ci.run_fallback(args, "Linux")
+    by_leg = {leg.leg: leg for leg in legs}
+    assert by_leg["linux"].outcome == "UNCOVERABLE"
+    assert by_leg["macos"].outcome == "UNCOVERABLE"
+    assert by_leg["windows"].outcome == "BLOCKED"
+    assert overall_exit(legs) == 2
 
 
 def test_run_windows_leg_blocked_on_non_windows_host():

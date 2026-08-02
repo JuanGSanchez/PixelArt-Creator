@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Accepted** (amended 2026-08-02 — billing block lifted, recurrence expected; see Amendment below) |
+| Status | **Accepted** (amended 2026-08-02, twice, same day — first: billing block lifted, recurrence expected; second: the container Linux leg removed, never having been built or run; see both Amendments below) |
 | Date | 2026-08-02 |
-| Amended | 2026-08-02 (same-day) — the hosted-runner billing block recorded below as current fact was measured lifting later the same session; supersedes the Context/Decision/Consequences framing that Actions "cannot execute" this project's gates, and re-scopes the router from primary CI path to fallback + recurrence detector |
+| Amended | 2026-08-02 (same-day, first) — the hosted-runner billing block recorded below as current fact was measured lifting later the same session; supersedes the Context/Decision/Consequences framing that Actions "cannot execute" this project's gates, and re-scopes the router from primary CI path to fallback + recurrence detector. 2026-08-02 (same-day, second) — `main/.ci/Dockerfile`, the `.ci/` directory, `scripts/check_ci_docker_drift.py` and its test module were deleted (never built, never run; CI now runs on a self-hosted Windows runner); the dispatch classifier and the Windows-native local leg survive; the `ubuntu-latest` local-fallback leg is reclassified from `BLOCKED` to `UNCOVERABLE` (macOS's category). |
 | Author | AGT-09 (GitHub / DevOps) |
 | Feature | CI-execution fallback + local feedback loop (extends ADR-0045) |
 | Supersedes | — |
@@ -49,6 +49,50 @@ covers the macOS leg, which no local fallback can ever cover (see the per-OS cov
 unchanged). Everywhere the Decision or Consequences sections below describe the router's local fallback as
 the *only* available path, read that as true for the 2026-07-30 window and **expected to become true again**
 at the next quota exhaustion, not as a standing description of how CI runs today.
+
+### Amendment (2026-08-02, second, same day) — the container Linux leg removed, never having been built or run
+
+*Immutable-append. The Decision, Per-OS coverage table, and Consequences text below describing
+`main/.ci/Dockerfile` and `scripts/check_ci_docker_drift.py` as present-but-`BLOCKED` artifacts is
+retained verbatim as the record of what was built and what was true earlier this same day. This
+subsection supersedes that framing as a **current** description of the repository: those two
+artifacts, and the drift-guard's test module, no longer exist.*
+
+By user decision (2026-08-02), the Docker-based Linux CI fallback was removed: `main/.ci/Dockerfile`,
+the `main/.ci/` directory that held it, `scripts/check_ci_docker_drift.py` (the apt-list drift guard
+described below), and that guard's test module are all deleted. **None of the three was ever built or
+run in any session** — this is not a removal of something that failed; it is the removal of an
+authored-but-untried approach, made unnecessary now that CI executes on a self-hosted Windows runner
+(see the first Amendment above on the router's fallback/detector role). Nothing here should be read as
+"the container approach failed" — it was never tried.
+
+What survives from this ADR's router, and why:
+
+- **The dispatch classifier** (`HEALTHY` / `BLOCKED_AT_JOB_START` / `NO_RUNS` / `UNKNOWN`, described in
+  Decision below) is unchanged and kept deliberately: it regains value the moment this repository goes
+  public and resumes consuming metered hosted minutes, at which point the billing-block signature this
+  ADR documents can recur.
+- **The Windows-native local leg** is unchanged: it still delegates to ADR-0045's
+  `scripts/run_ci_locally.py --job quality-gate`, per the "ADR-0045 is preserved and extended" ruling
+  below, which this removal does not touch.
+- **The container-runtime detection, the bind-mount invocation into `main/.ci/Dockerfile`, and the "no
+  runtime found" `BLOCKED` result are gone**, along with the Dockerfile and the drift guard themselves.
+- **The `ubuntu-latest` local-fallback leg moves category: from `BLOCKED` (meaning "needs a container
+  runtime this host doesn't have yet") to `UNCOVERABLE`** — the same category the `macos-latest` leg
+  already occupied in the Per-OS coverage table below — because no local mechanism for it exists any
+  more, not merely an uninstalled one. The coverage table's `ubuntu-latest` row, printed further down
+  as "container — requires a container runtime not installed yet," is stale in exactly this way: read it
+  as history, not as the router's present classification.
+- **The exit-code contract is unchanged and was re-proven after the removal**: `0` at least one leg ran
+  and every attempted leg passed; `1` a leg that ran failed; `2` `BLOCKED`; `3` NO SIGNAL. An
+  uncoverable-only run still exits `3`, never `0` — verified against the router as it stands post-removal,
+  not assumed to still hold from before the change.
+- **Verification obtained by the agent that made this removal** (recorded here, not independently
+  re-verified in this documentation pass, and not claimed as more than what is listed): the
+  `tests/deploy/` suite went from 30 passed before the removal to 20 passed after, with the delta fully
+  accounted for by the deleted drift-guard test module; a full-suite collect-only run reported 5676 tests
+  with zero import errors; `flake8`/`black`/`isort`/`mypy` were clean on the changed files; and the
+  classifier still returns a real classification when run against the live repository.
 
 ### The blocked signature is narrower than ADR-0045 recorded
 
@@ -111,13 +155,17 @@ artifacts were built, all already implemented and present on disk:
   verbatim from `ci.yml`'s own "Install Qt runtime OS libraries (Ubuntu)"
   step and sets `QT_QPA_PLATFORM=offscreen`; project source is **bind-mounted
   at run time**, never baked into the image, so the container always tests
-  the real, current working tree.
+  the real, current working tree. **(Amended 2026-08-02, second — this file
+  and the `main/.ci/` directory holding it were deleted the same day, never
+  having been built or run; see the second Amendment above.)**
 - `main/scripts/check_ci_docker_drift.py` — a guard that parses both
   `ci.yml`'s Qt-libraries step and the Dockerfile's `apt-get install` block
   and fails closed (exit 1) the moment the two package lists disagree. It is
   wired into `run_ci.py`'s Linux-leg build path (a stale image is refused
   rather than silently built) but is **not** wired into `ci.yml` itself —
-  recorded below as a known gap, not an oversight.
+  recorded below as a known gap, not an oversight. **(Amended 2026-08-02,
+  second — this script and its test module were deleted the same day, never
+  having been run in any session; see the second Amendment above.)**
 
 ### ADR-0045 is preserved and extended, not overturned
 
@@ -150,6 +198,13 @@ of what runtime is eventually installed, because of the macOS leg alone.
 macOS, which is exactly the coverage this local table says can never be
 reproduced locally. That is the reason Actions, not this router, is the
 primary CI path — see the Amendment at the top of Context.)**
+
+**(Amended 2026-08-02, second — the table's `ubuntu-latest` row above is now
+history, not current classification. The container fallback it describes was
+removed the same day, never having been built or run; the local fallback for
+`ubuntu-latest` is reclassified `UNCOVERABLE`, joining `macos-latest` in that
+category, rather than `BLOCKED` pending a runtime install. See the second
+Amendment at the top of Context for the full account.)**
 
 ## Alternatives Considered
 
@@ -232,7 +287,11 @@ primary CI path — see the Amendment at the top of Context.)**
   but this session's host has no Docker, no Podman, and no WSL2, so nothing
   exercised it. The router reports this leg as `BLOCKED`, never as a pass —
   this is stated plainly here and must not be softened in any later
-  reference to this work.
+  reference to this work. **(Amended 2026-08-02, second — this bullet is
+  retained verbatim as history. The Linux container leg was removed the same
+  day, still never having been built or run in any session; it is no longer
+  `BLOCKED`, it is `UNCOVERABLE` — see the second Amendment at the top of
+  Context.)**
 - A full-matrix green result is unobtainable locally, permanently, because of
   the macOS leg (see the coverage table above) — no future local tooling
   change closes that gap.
@@ -267,7 +326,10 @@ place of them.*
 - **The Linux container leg is unchanged: it has never been built or run.** This amendment does not soften
   that — no container runtime is installed on this host today, hosted Actions' own `ubuntu-latest` leg is a
   distinct execution path from `main/.ci/Dockerfile`, and the local container leg's `BLOCKED` status is
-  exactly as unverified now as when this ADR was first accepted.
+  exactly as unverified now as when this ADR was first accepted. **(Amended 2026-08-02, second, later the
+  same day — `main/.ci/Dockerfile` and the drift guard were deleted, still never having been built or run;
+  the leg's local-fallback status changed from `BLOCKED` to `UNCOVERABLE`, the same category `macos-latest`
+  already occupied. See the second Amendment at the top of Context.)**
 - **The router's ongoing value is as a fallback plus an automatic detector for a recurrence of the
   billing-block signature described in Context**, not as a superseded artifact to be retired. Because the
   cause of the 2026-08-02 recovery was a **monthly included-minutes window reset** rather than a fix, the
@@ -286,6 +348,10 @@ something was `BLOCKED` before any leg could be attempted; `3` — NO SIGNAL,
 nothing executed at all (every leg `BLOCKED` and/or `UNCOVERABLE`, or
 classification came back `HEALTHY` with neither `--dispatch` nor `--local`
 given). A run whose only legs were blocked or uncoverable must not exit `0`.
+**(Amended 2026-08-02, second — this contract is unchanged by the container-leg
+removal and was re-proven afterward: an uncoverable-only run (Linux now
+`UNCOVERABLE` alongside macOS) still exits `3`, never `0`. See the second
+Amendment at the top of Context.)**
 
 **Obligations created (tracked here, not discharged by this ADR).**
 
@@ -311,7 +377,16 @@ given). A run whose only legs were blocked or uncoverable must not exit `0`.
 4. Install a container runtime (Docker or Podman) on a project host and
    actually build/run `.ci/Dockerfile` at least once, so the Linux leg's
    `BLOCKED` status can be replaced with a real, observed pass or fail rather
-   than remaining permanently unverified.
+   than remaining permanently unverified. **(Superseded 2026-08-02, second,
+   same day — by user decision, `main/.ci/Dockerfile` was deleted, never
+   having been built or run, now that CI runs on a self-hosted Windows
+   runner. This obligation is discharged by removal, not by completion: there
+   is no longer a Dockerfile to build or run. See the second Amendment at the
+   top of Context.)**
 5. Wire `scripts/check_ci_docker_drift.py` into `.github/workflows/ci.yml`
    itself, if and when editing that workflow is in scope for a future task —
-   not done here.
+   not done here. **(Superseded 2026-08-02, second, same day — the script and
+   its test module were deleted the same day this obligation was recorded,
+   never having been wired into `ci.yml` or exercised in any session. This
+   obligation is discharged by removal, not by completion. See the second
+   Amendment at the top of Context.)**

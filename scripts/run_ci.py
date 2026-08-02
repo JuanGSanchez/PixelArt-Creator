@@ -4,12 +4,15 @@
 # =============================================================================
 # PURPOSE: THE ROUTER. Decide, per invocation, whether GitHub Actions can
 #   actually execute a run for this repo/branch/HEAD, and act accordingly:
-#     - HEALTHY            -> report it; hand off to Actions only if --dispatch
-#                              is explicitly given (never silently).
-#     - BLOCKED_AT_JOB_START -> run the same checks LOCALLY: the Linux leg
-#       / NO_RUNS / UNKNOWN   inside a container (Docker or Podman), the
-#                              Windows leg natively, and report the macOS leg
-#                              as permanently UNCOVERABLE on this host shape.
+#     - HEALTHY              -> report it; hand off to Actions only if
+#                                --dispatch is explicitly given (never
+#                                silently).
+#     - BLOCKED_AT_JOB_START  -> run the same checks LOCALLY: the Windows leg
+#       / NO_RUNS / UNKNOWN     natively (ADR-0045's scripts/
+#                                run_ci_locally.py), and report BOTH the
+#                                Linux and macOS legs as permanently
+#                                UNCOVERABLE on this host shape -- there is
+#                                no local execution mechanism for either.
 #   This is the fallback layer the user asked for on top of
 #   docs/adr/0045-local-ci-execution-strategy.md's `scripts/run_ci_locally.py`
 #   (which this script calls, never re-implements -- see CRITICAL DESIGN
@@ -18,16 +21,12 @@
 # LOCATION: scripts/run_ci.py
 # INVOKED BY: AGT-09 GitHub/DevOps; any developer who wants "just make CI run,
 #   whichever way is actually available right now."
-# RUNTIME: Python 3.10+ (CPython, stdlib only for THIS script -- `gh` CLI
-#   (authenticated) and `git` on PATH for classification; `docker` or `podman`
-#   on PATH only for the Linux-container fallback leg, which is BLOCKED
-#   (not skipped, not faked) when neither is present).
+# RUNTIME: Python 3.10+ (CPython, stdlib only -- `gh` CLI (authenticated) and
+#   `git` on PATH for classification and for the Windows leg).
 # ENTRYPOINT: python scripts/run_ci.py [--repo OWNER/NAME] [--branch NAME]
 #             [--head-sha SHA] [--gh-limit N] [--classify-only]
 #             [--dispatch [--dispatch-target {build-installers,regenerate-constraints}]]
 #             [--local] [--only SUBSTRING ...] [--skip SUBSTRING ...]
-#             [--runtime {auto,docker,podman}] [--linux-image-tag TAG]
-#             [--skip-drift-guard]
 # INPUTS:
 #   --repo        (CLI, optional): "owner/name". Default: resolved via
 #                 `gh repo view --json nameWithOwner`.
@@ -79,21 +78,10 @@
 #                 without spending hosted minutes). Fallback already runs
 #                 automatically for BLOCKED_AT_JOB_START / NO_RUNS / UNKNOWN --
 #                 this flag only matters for the HEALTHY case.
-#   --only/--skip (CLI, repeatable): forwarded verbatim to every
-#                 `run_ci_locally.py` invocation this script makes (both the
-#                 Windows leg and the Linux-container leg), to filter which
-#                 steps of the `quality-gate` job actually execute.
-#   --runtime     (CLI, default "auto"): which container runtime to prefer for
-#                 the Linux leg ("docker" or "podman" -- never hard-coded to
-#                 one; Podman is Apache-2.0, needs no account, so it is a
-#                 legitimate account-free choice here per this session's
-#                 research). "auto" tries docker then podman.
-#   --linux-image-tag (CLI, default "pixelart-ci-linux:local"): tag used for
-#                 the locally built .ci/Dockerfile image.
-#   --skip-drift-guard (CLI flag, dangerous): skip the apt-list drift check
-#                 (scripts/check_ci_docker_drift.py) before building the Linux
-#                 image. Off by default -- a stale image is worse than a
-#                 blocked leg.
+#   --only/--skip (CLI, repeatable): forwarded verbatim to the
+#                 `run_ci_locally.py` invocation this script makes for the
+#                 Windows leg, to filter which steps of the `quality-gate`
+#                 job actually execute.
 # OUTPUTS:
 #   stdout: the classification (status + evidence + which run/job it came
 #     from), then, when the fallback runs, a live stream per leg and a final
@@ -105,10 +93,12 @@
 #   1  at least one leg that ran FAILED.
 #   2  BLOCKED before any leg could even be attempted: no `gh`/no git/parse
 #      error/classification could not be determined, OR (in --dispatch mode)
-#      the dispatch itself could not be issued.
-#   3  NO SIGNAL: nothing executed at all (e.g. every leg was BLOCKED or
-#      UNCOVERABLE, or classification came back HEALTHY with neither
-#      --dispatch nor --local given, so nothing was attempted on purpose).
+#      the dispatch itself could not be issued, OR the only coverable leg
+#      (Windows) was itself BLOCKED (e.g. this invocation is not on a
+#      Windows host).
+#   3  NO SIGNAL: nothing executed at all (e.g. classification came back
+#      HEALTHY with neither --dispatch nor --local given, so nothing was
+#      attempted on purpose, or every leg reported this run was UNCOVERABLE).
 #   A run whose only "covered" legs were BLOCKED and/or UNCOVERABLE must NOT
 #   exit 0 -- see overall_exit().
 # PRECONDITIONS: run from (or given paths pointing at) a checkout of this
@@ -117,38 +107,39 @@
 #   this script NEVER calls a git/gh WRITE operation except the one explicit,
 #   opt-in `gh workflow run` inside do_dispatch()).
 # DETERMINISM NOTE: NOT deterministic -- see run_ci_locally.py's own note,
-#   which applies identically to every local leg this script drives. The
+#   which applies identically to the Windows leg this script drives. The
 #   classification step additionally depends on GitHub's current billing/
 #   dispatch state, which can change between two invocations seconds apart.
 #
 # HONESTY, STATED PLAINLY (do not weaken this in a future edit):
-#   This script was authored and tested on a Windows 11 Home host with NO
-#   Docker, NO Podman, and NO WSL2 installed (verified this session: `docker`
-#   not found, `podman` not found, `wsl` reports the subsystem is not
-#   installed). The Linux-container fallback leg (run_linux_leg_in_container)
-#   is therefore CODE THAT COULD NOT BE EXECUTED IN THIS SESSION. It is
-#   correctly structured against the documented Docker/Podman CLI surface and
-#   against ci.yml's own committed apt package list (see
-#   scripts/check_ci_docker_drift.py), but it is UNVERIFIED, not "should
-#   work" -- never report a pass for it that this session did not actually
-#   observe. The Windows leg and the classification logic ARE verified on
-#   this host. The macOS leg has no local fallback on ANY host, ever --
-#   see macos_leg().
+#   The Windows leg and the classification logic are verified on a Windows
+#   11 Home host (ADR-0045). Linux and macOS have NO local fallback
+#   mechanism on this host, or on any host: a prior version of this script
+#   carried a Linux-container leg (Docker/Podman + a bind-mounted
+#   `.ci/Dockerfile`, plus an apt-list drift guard) that was authored and
+#   never once built or run in any session. It was removed by explicit user
+#   decision on 2026-08-02, once CI moved to a self-hosted Windows runner and
+#   the never-exercised container path stopped being worth maintaining. Say
+#   so plainly: Linux is UNCOVERABLE here now, the same category macOS has
+#   always been in -- not "blocked, needs a runtime" -- because there is
+#   deliberately no local mechanism for it any more, not a missing one
+#   waiting to be installed.
 #
 # CRITICAL DESIGN CONSTRAINT (inherited from ADR-0045, ci-author skill): this
 # script contains NO hand-written list of pytest/flake8/mypy/etc invocations.
-# Every local leg (Windows native, Linux container) delegates to
-# `scripts/run_ci_locally.py --job quality-gate`, which is the ONE place that
-# parses ci.yml and runs its `run:` blocks. Duplicating that parsing here
-# would recreate the exact "two independent authorships of the same intent"
-# defect class ADR-0045 was written to close.
+# The Windows leg delegates to `scripts/run_ci_locally.py --job
+# quality-gate`, which is the ONE place that parses ci.yml and runs its
+# `run:` blocks. Duplicating that parsing here would recreate the exact "two
+# independent authorships of the same intent" defect class ADR-0045 was
+# written to close.
 #
 # ## Principles Applied
 # Inherited: P1 (the blocked-dispatch signature is the one measured this
-#   session, not invented; the container path is labelled unverified, not
-#   assumed working), P6, P9 (one job: route to Actions or to the honest local
-#   fallback), P10 (four distinct exit codes so "nothing ran" and "everything
-#   attempted passed" can never be confused), P11.
+#   session, not invented; Linux/macOS are stated UNCOVERABLE rather than
+#   assumed coverable or silently dropped), P6, P9 (one job: route to Actions
+#   or to the honest local fallback), P10 (four distinct exit codes so
+#   "nothing ran" and "everything attempted passed" can never be confused),
+#   P11.
 # Custom: read-only by default with respect to GitHub (C1: dispatching is an
 #   irreversible, outward-facing action and stays behind an explicit flag,
 #   never inferred).
@@ -161,15 +152,18 @@
 #   copied from a report; docs/adr/0045-local-ci-execution-strategy.md;
 #   design-docs/research/research-local-ci-github-docker.md (E2: `gh run
 #   list`/REST `GET /repos/{owner}/{repo}/actions/runs` is the correct,
-#   official mechanism for this); design-docs/research/
-#   research-docker-ci-viability.md; scripts/run_ci_locally.py (reused, not
-#   duplicated).
+#   official mechanism for this); scripts/run_ci_locally.py (reused, not
+#   duplicated). The Linux-container leg this file once carried (and the
+#   `.ci/Dockerfile` + `scripts/check_ci_docker_drift.py` it depended on) was
+#   removed by user decision 2026-08-02; the removal's own report records
+#   what was deleted and why. docs/adr/0046-ci-router-actions-first-local-
+#   fallback.md's amendment trail is owned/amended elsewhere, not by this
+#   edit.
 # =============================================================================
 from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import subprocess
 import sys
 import time
@@ -180,9 +174,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RUN_CI_LOCALLY = REPO_ROOT / "scripts" / "run_ci_locally.py"
-DRIFT_GUARD = REPO_ROOT / "scripts" / "check_ci_docker_drift.py"
-DEFAULT_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
-DEFAULT_DOCKERFILE = REPO_ROOT / ".ci" / "Dockerfile"
 
 SUPERVISION_BANNER = (
     "=" * 78
@@ -607,7 +598,12 @@ def do_dispatch(repo: str, args: argparse.Namespace) -> int:
 
 
 # --------------------------------------------------------------------------
-# The local fallback: Linux in a container, Windows natively, macOS never.
+# The local fallback: Windows natively; Linux and macOS UNCOVERABLE. There
+# used to be a Linux-container leg here (Docker/Podman + a bind-mounted
+# .ci/Dockerfile); it was never built or run in any session and was removed
+# by user decision 2026-08-02 once CI moved to a self-hosted Windows runner.
+# Linux now sits in the same UNCOVERABLE category macOS has always been in --
+# see linux_leg()/macos_leg() below.
 # --------------------------------------------------------------------------
 @dataclass
 class LegResult:
@@ -624,16 +620,6 @@ def _passthrough_filters(args: argparse.Namespace) -> List[str]:
     for s in getattr(args, "skip", []) or []:
         flags += ["--skip", s]
     return flags
-
-
-def detect_container_runtime(preferred: str = "auto") -> Optional[str]:
-    """Accept `docker` OR `podman` -- never hard-coded to one (Podman is
-    Apache-2.0, needs no account, per this session's research)."""
-    order = [preferred] if preferred in ("docker", "podman") else ["docker", "podman"]
-    for name in order:
-        if shutil.which(name):
-            return name
-    return None
 
 
 def run_windows_leg(args: argparse.Namespace, local_os: str) -> LegResult:
@@ -681,111 +667,26 @@ def run_windows_leg(args: argparse.Namespace, local_os: str) -> LegResult:
     )
 
 
-def run_linux_leg_in_container(args: argparse.Namespace) -> LegResult:
-    runtime = detect_container_runtime(args.runtime)
-    if runtime is None:
-        return LegResult(
-            "linux",
-            "BLOCKED",
-            "no container runtime found on PATH (checked: docker, podman). "
-            "The Linux leg cannot run in a container without one.",
-            "none",
-        )
-
-    if not args.skip_drift_guard:
-        drift = subprocess.run(
-            [
-                sys.executable,
-                str(DRIFT_GUARD),
-                "--ci-workflow",
-                str(DEFAULT_WORKFLOW),
-                "--dockerfile",
-                str(DEFAULT_DOCKERFILE),
-            ]
-        )
-        if drift.returncode != 0:
-            return LegResult(
-                "linux",
-                "BLOCKED",
-                f"apt-list drift guard failed (exit {drift.returncode}) -- "
-                ".ci/Dockerfile and ci.yml's Ubuntu apt list disagree (or one "
-                "could not be read); refusing to build a possibly-stale image. "
-                "Run scripts/check_ci_docker_drift.py directly for the diff.",
-                runtime,
-            )
-
-    if not DEFAULT_DOCKERFILE.is_file():
-        return LegResult("linux", "BLOCKED", f"{DEFAULT_DOCKERFILE} not found", runtime)
-
-    build = subprocess.run(
-        [
-            runtime,
-            "build",
-            "-f",
-            str(DEFAULT_DOCKERFILE),
-            "-t",
-            args.linux_image_tag,
-            str(REPO_ROOT),
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if build.returncode != 0:
-        return LegResult(
-            "linux",
-            "BLOCKED",
-            f"{runtime} build failed (exit {build.returncode}): "
-            + (build.stderr or build.stdout)[-800:],
-            runtime,
-        )
-
-    only_skip = " ".join(_passthrough_filters(args))
-    # Source is bind-mounted (never baked into the image, see .ci/Dockerfile's
-    # own header): install the project's own resolved dependency closure
-    # against the mounted working tree, then delegate to run_ci_locally.py --
-    # same single-source-of-truth discipline as the Windows leg above.
-    inner = (
-        "python -m pip install --upgrade pip && "
-        "python -m pip install -c constraints.txt -e '.[dev]' && "
-        f"python scripts/run_ci_locally.py --job quality-gate {only_skip}"
-    ).strip()
-    run = subprocess.run(
-        [
-            runtime,
-            "run",
-            "--rm",
-            "-v",
-            f"{REPO_ROOT}:/workspace",
-            "-w",
-            "/workspace",
-            "-e",
-            "QT_QPA_PLATFORM=offscreen",
-            args.linux_image_tag,
-            "bash",
-            "-lc",
-            inner,
-        ]
-    )
-    rc = run.returncode
-    if rc == 0:
-        return LegResult(
-            "linux",
-            "RAN-PASS",
-            f"{runtime} run exited 0",
-            f"local-container({runtime})",
-        )
-    if rc == 1:
-        return LegResult(
-            "linux",
-            "RAN-FAIL",
-            f"{runtime} run exited 1: an executed step failed",
-            f"local-container({runtime})",
-        )
+def linux_leg() -> LegResult:
+    """UNCOVERABLE, deliberately, not "blocked, needs a runtime": a prior
+    version of this script ran the Linux leg inside a container (Docker or
+    Podman, building `.ci/Dockerfile`), but that path was authored, never
+    once built or run in any session, and removed by explicit user decision
+    on 2026-08-02 once CI moved to a self-hosted Windows runner. There is now
+    no local execution mechanism for the Linux leg on ANY host, the same
+    category macOS has always been in -- see macos_leg()."""
     return LegResult(
         "linux",
-        "BLOCKED",
-        f"{runtime} run exited {rc}: no clean pass/fail signal",
-        f"local-container({runtime})",
+        "UNCOVERABLE",
+        "no local execution mechanism exists for the Linux leg on any host "
+        "shape. A prior Linux-container leg (Docker/Podman + a bind-mounted "
+        ".ci/Dockerfile, plus an apt-list drift guard) was removed by user "
+        "decision 2026-08-02 -- it had never been built or run in any "
+        "session and CI now runs on a self-hosted Windows runner. Coverage "
+        "requires hosted GitHub Actions' own ubuntu-latest runner (once "
+        "dispatch is unblocked) or a self-hosted Linux runner; there is "
+        "deliberately no local fallback mechanism for it any more.",
+        "n/a",
     )
 
 
@@ -807,7 +708,7 @@ def macos_leg() -> LegResult:
 
 def run_fallback(args: argparse.Namespace, local_os: str) -> List[LegResult]:
     return [
-        run_linux_leg_in_container(args),
+        linux_leg(),
         run_windows_leg(args, local_os),
         macos_leg(),
     ]
@@ -851,9 +752,9 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         description=(
             "Try GitHub Actions dispatch first (read-only classification); "
-            "fall back to running the same checks locally -- Linux in a "
-            "container, Windows natively, macOS never (UNCOVERABLE) -- when "
-            "Actions cannot actually execute a run."
+            "fall back to running the same checks locally -- Windows "
+            "natively, Linux and macOS UNCOVERABLE -- when Actions cannot "
+            "actually execute a run."
         )
     )
     ap.add_argument("--repo", default=None, help="owner/name (default: `gh repo view`)")
@@ -879,14 +780,6 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     ap.add_argument("--only", action="append", default=[], metavar="SUBSTRING")
     ap.add_argument("--skip", action="append", default=[], metavar="SUBSTRING")
-    ap.add_argument("--runtime", choices=["auto", "docker", "podman"], default="auto")
-    ap.add_argument("--linux-image-tag", default="pixelart-ci-linux:local")
-    ap.add_argument(
-        "--skip-drift-guard",
-        action="store_true",
-        help="dangerous: skip the .ci/Dockerfile vs ci.yml apt-list drift "
-        "check before building",
-    )
     return ap.parse_args(argv)
 
 
