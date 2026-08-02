@@ -48,6 +48,11 @@
 #     would mean nothing measured on a developer laptop.
 #   - `build-installers` and `regenerate-constraints` are untouched and still
 #     target hosted runners (see the metered-minutes note on each).
+#   - The `push` trigger's `branches: [main, "feat-*", "fix-*"]` filter (below)
+#     is a PERMANENT branch-naming convention (2026-08-02), independent of
+#     this self-hosted scoping — it outlives the arrangement this block
+#     describes and is NOT one of the four revert steps above. Do not fold it
+#     into the revert; it stays exactly as-is when the repository goes public.
 #
 # Delete this block once the revert above is complete — it describes a
 # temporary state, not a permanent one.
@@ -90,7 +95,28 @@ name: ci
 
 on:
   push:
-    branches: [main, "feat/**"]
+    # Branch-naming convention, user decision 2026-08-02: dev branches are
+    # named `feat-<something>` / `fix-<something>` — HYPHEN, not slash. The
+    # container directory is its own git repository versioning the
+    # orchestration system separately, and branch worktrees are created as
+    # sibling folders of `main/`; a branch named `feat/foo` would produce a
+    # NESTED `feat/foo` directory that a top-level ignore pattern cannot
+    # exclude cleanly, whereas `feat-foo` is one flat folder. This filter is
+    # PERMANENT (see the "LEFT UNCHANGED" note in the temporary-scoping block
+    # above) — it is not undone when the repository goes public.
+    #
+    # Deliberately `feat-*` / `fix-*`, NOT `feat-**` / `fix-**`: in GitHub's
+    # branch-filter glob syntax, `*` does not match `/`, while `**` does. Using
+    # the single star means this CI filter itself refuses to match a nested
+    # name like `feat-foo/bar` — a second, independent enforcement of the
+    # flatness rule on top of the container's own naming gate. Do NOT
+    # "generalise" this to `**` in a future edit; that would silently remove
+    # this guarantee.
+    #
+    # No migration needed: verified this session, the repository has exactly
+    # one local branch (`main`) and exactly one remote branch (`origin/main`)
+    # — no `feat/` branch exists anywhere, so this change strands nothing.
+    branches: [main, "feat-*", "fix-*"]
     # Phase-13 Slice 13D (ADR-0038 §3): a v* tag is the release BUILD trigger for
     # the native-installer matrix below. Branch/PR pushes do NOT build installers
     # (the build-installers job self-guards) so PR CI is not slowed.
