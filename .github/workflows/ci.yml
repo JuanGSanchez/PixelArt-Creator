@@ -1,4 +1,59 @@
 # =============================================================================
+# *** TEMPORARY: CI SCOPED TO SELF-HOSTED WINDOWS ONLY — READ BEFORE EDITING ***
+# User decision, 2026-08-02: the repository is private and Included Actions
+# minutes (metered, Free plan) were exhausted once already; self-hosted
+# minutes are free. Until the repository goes PUBLIC, quality-gate runs ONLY
+# on the windows-selfhosted leg and the integration job does not run at all,
+# so this workflow consumes ZERO GitHub-hosted minutes. The quality gate is
+# kept REAL (not gutted): the twelve OS-invariant static/coverage/JS-unit
+# checks below were un-gated from `if: runner.os == 'Linux'` so they still run
+# on the Windows leg, instead of collapsing to "checkout + install + pytest".
+#
+# REVERT — do all four steps together, when the repository goes public
+# (cross-reference the PUBLIC-REPO HAZARD comment on the windows-selfhosted
+# matrix entry below for WHY step 3 is mandatory, not optional):
+#   1. In quality-gate's `strategy.matrix.include`, UNCOMMENT the commented-out
+#      `ubuntu-latest` and `macos-latest` entries verbatim (remove the leading
+#      "# " from every line of both blocks — nothing was deleted).
+#   2. UNCOMMENT the entire `integration` job verbatim (remove the leading "# "
+#      from every line, from `integration:` through its last step — nothing
+#      was deleted).
+#   3. REMOVE the `windows-selfhosted` matrix entry and its
+#      `runs_on: [self-hosted, Windows, X64]` target ENTIRELY (do NOT keep it,
+#      even commented) — GitHub documents self-hosted runners as compromisable
+#      by any pull request against a public repository.
+#   4. RESTORE `if: runner.os == 'Linux'` immediately under each step's `name:`
+#      line for these twelve steps in quality-gate (each currently has NO
+#      condition), so the 3-OS matrix stops paying for the same lint/type/
+#      coverage/docs/JS-unit work three times over:
+#        - Lint (flake8)
+#        - Format check (black + isort)
+#        - Type check (mypy)
+#        - Path-portability lint (P11 script)
+#        - Architecture layering + cycle checks (P11 scripts)
+#        - Docs build (mkdocs --strict, F14)
+#        - Docstring lint (pydocstyle, PEP 257) [TIME-BOXED EXCEPTION, expires 2026-08-31]
+#        - Coverage gate — client package (>=90 line / >=80 branch, S13)
+#        - Measure non-client coverage (sync_backend + web_viewer)
+#        - Coverage gate — non-client packages (>=90 line / >=80 branch, S13)
+#        - Set up Node.js (web-viewer JS-unit)
+#        - Web-viewer JS-unit tests (node, framework-free)
+#
+# LEFT UNCHANGED by this temporary scoping — do NOT touch these on revert:
+#   - `Install Qt runtime OS libraries (Ubuntu)` stays Linux-gated (apt-only,
+#     Ubuntu-specific by nature, not a cost-avoidance gate).
+#   - All eleven perf gates (compositor, tilemap x2, visual-aids x5, realtime
+#     apply-remote, full-frame flatten, viewport-recomposite) stay Linux-gated
+#     — their ceilings are calibrated to the 2-core Ubuntu hosted runner and
+#     would mean nothing measured on a developer laptop.
+#   - `build-installers` and `regenerate-constraints` are untouched and still
+#     target hosted runners (see the metered-minutes note on each).
+#
+# Delete this block once the revert above is complete — it describes a
+# temporary state, not a permanent one.
+# =============================================================================
+
+# =============================================================================
 # CI pipeline (GitHub Actions) — PixelArt Creator
 # Owner: AGT-09 GitHub/DevOps. Grounded by F11 (headless PySide6 CI) + F14
 # (pyproject manifest). Mandatory software-dev extension (spec-driven-development
@@ -139,9 +194,12 @@ jobs:
         # raise this value against a NEW measurement, same as this one — do
         # not reflexively raise it back to 75.
         include:
-          - os: ubuntu-latest
-            runs_on: ubuntu-latest
-            timeout: 75
+          # DISABLED (see the TEMPORARY revert block at the top of this file):
+          # hosted Ubuntu leg commented out verbatim, ZERO hosted minutes
+          # while this is in effect. Uncomment to restore.
+          # - os: ubuntu-latest
+          #   runs_on: ubuntu-latest
+          #   timeout: 75
           - os: windows-selfhosted
             # PUBLIC-REPO HAZARD — READ BEFORE MAKING THIS REPOSITORY PUBLIC:
             # GitHub's own documentation says self-hosted runners "should
@@ -156,9 +214,12 @@ jobs:
             # repo.
             runs_on: [self-hosted, Windows, X64]
             timeout: 45
-          - os: macos-latest
-            runs_on: macos-latest
-            timeout: 75
+          # DISABLED (see the TEMPORARY revert block at the top of this file):
+          # hosted macOS leg commented out verbatim, ZERO hosted minutes
+          # while this is in effect. Uncomment to restore.
+          # - os: macos-latest
+          #   runs_on: macos-latest
+          #   timeout: 75
     # Job-level wall-clock cap: a hung/deadlocked test can no longer pin a runner
     # for ~6h. The full offscreen-Qt UI suite measures ~46-48 min on the 2-core
     # Ubuntu runner (see run 28635312681, cancelled at 98% by an earlier 45-min
@@ -253,25 +314,27 @@ jobs:
       # ----- Static / lint / type gates: Ubuntu-only (OS-invariant source lints;
       # keep the shipped Ubuntu gate as-is, plan §3.1). -----
       - name: Lint (flake8)
-        if: runner.os == 'Linux'
+        # UN-GATED (temporary, see revert block at top of file): this check is
+        # OS-invariant and was only Linux-gated to avoid paying for it three
+        # times across the hosted matrix, not because it needs Linux.
         run: flake8 pixelart_creator scripts
 
       - name: Format check (black + isort)
-        if: runner.os == 'Linux'
+        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
         run: |
           black --check pixelart_creator scripts
           isort --check-only pixelart_creator scripts
 
       - name: Type check (mypy)
-        if: runner.os == 'Linux'
+        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
         run: mypy pixelart_creator
 
       - name: Path-portability lint (P11 script)
-        if: runner.os == 'Linux'
+        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
         run: python scripts/path_portability_check.py --root .
 
       - name: Architecture layering + cycle checks (P11 scripts)
-        if: runner.os == 'Linux'
+        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
         # check_layering is run over BOTH roots, because ONE root is not enough:
         #   --root pixelart_creator  enforces the three client layers (ui/logic/
         #                            data), whose rules key on parts[0] RELATIVE
@@ -302,7 +365,7 @@ jobs:
       # never wired, so a red docs build or a docstring regression could never
       # have blocked a merge. Ubuntu-only, same as the other static gates. -----
       - name: Docs build (mkdocs --strict, F14)
-        if: runner.os == 'Linux'
+        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
         # main/docs/site/mkdocs.yml (AGT-08 mkdocs-site skill). --strict turns
         # every warning (broken internal link, a nav entry with no matching
         # page, etc.) into a build failure so the published User Guide can
@@ -312,7 +375,7 @@ jobs:
         run: mkdocs build -f docs/site/mkdocs.yml --strict
 
       - name: Docstring lint (pydocstyle, PEP 257) [TIME-BOXED EXCEPTION, expires 2026-08-31]
-        if: runner.os == 'Linux'
+        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
         # Ruleset: [tool.pydocstyle] convention="pep257" in pyproject.toml (see
         # that file's comment for why pep257 — the project's own documented
         # docstring discipline — and not google/numpy, which would manufacture
@@ -388,7 +451,7 @@ jobs:
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 
       - name: Coverage gate — client package (>=90 line / >=80 branch, S13)
-        if: runner.os == 'Linux'
+        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
         # SCOPE (made explicit): this gate reads the coverage.xml produced by the
         # pytest step above, which measures `--cov=pixelart_creator` ONLY. It
         # therefore says NOTHING about the two shipped non-three-layer packages
@@ -412,7 +475,7 @@ jobs:
       # files. The omit drops the test modules themselves from the measurement so
       # only shipped code is graded.
       - name: Measure non-client coverage (sync_backend + web_viewer)
-        if: runner.os == 'Linux'
+        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
         env:
           COVERAGE_FILE: .coverage.nonclient
         run: |
@@ -425,7 +488,7 @@ jobs:
           python -m coverage xml --omit="*/tests/*" -o coverage/nonclient.xml
 
       - name: Coverage gate — non-client packages (>=90 line / >=80 branch, S13)
-        if: runner.os == 'Linux'
+        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
         # Formerly a time-boxed exception (expired scaffolding removed
         # 2026-07-30): sync_backend/web_viewer measured below the
         # constitutional 90/80 on 2026-07-29 (sync_backend 93.57%/76.00%,
@@ -447,13 +510,15 @@ jobs:
       # integer-scale + render-fidelity vs the shipped Python reference (+/-1 LSB).
       # A distinct step: a JS-unit failure fails THIS leg. -----
       - name: Set up Node.js (web-viewer JS-unit)
-        if: runner.os == 'Linux'
+        # UN-GATED (temporary, see revert block at top of file): OS-invariant
+        # (Node runs fine on the self-hosted Windows leg; setup-node installs
+        # its own toolchain rather than relying on a pre-provisioned one).
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
       - name: Web-viewer JS-unit tests (node, framework-free)
-        if: runner.os == 'Linux'
+        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
         run: node web_viewer/tests/viewer_core.test.mjs
 
       # ----- Perf gates: Ubuntu-only. The ceilings are calibrated to the Ubuntu
@@ -588,71 +653,75 @@ jobs:
   # Docker-container multi-client convergence (BACKEND-001) and the Nginx TLS/WSS
   # config + idle-survival tuning (BACKEND-002).
   # ===========================================================================
-  integration:
-    name: integration (ubuntu-latest)
-    runs-on: ubuntu-latest
-    # Ample cap for a Docker image build (self-skips if the daemon is unusable)
-    # plus the fast launcher/socket/config tests; far under the 6h default.
-    timeout-minutes: 30
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Set up Python 3.12 (pinned)
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      # nginx: the opt-in real idle-past-60s WSS proxy test (self-skips unless
-      # PIXELART_NGINX_IDLE_TEST=1). openssl: mints the self-signed loopback cert
-      # for that proxy. The Docker daemon is preinstalled on ubuntu-latest.
-      # The Qt runtime libs (libegl1/libgl1/xcb/...) are also required even though
-      # the deploy tests are Qt-free: the pytest-qt plugin (from [dev]) imports
-      # QtGui at pytest_configure, which needs libEGL.so.1 to load the offscreen
-      # platform plugin — without it pytest INTERNALERRORs before collecting.
-      # Mirrors the quality-gate Ubuntu leg (QT_QPA_PLATFORM=offscreen is global).
-      - name: Install Nginx + OpenSSL + Qt runtime OS libraries (apt)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            nginx openssl \
-            libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
-            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
-            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
-
-      - name: Install project (runtime + dev) from manifest
-        # -c constraints.txt: reproducibility lock (R-11) — pins the full
-        # resolved dependency closure (direct + transitive) so this install
-        # matches every other CI run and any developer's local environment.
-        # Regenerate command + rationale: constraints.txt's own header.
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -c constraints.txt -e ".[dev]"
-
-      - name: Integration tests (deploy/ launcher, Docker, Nginx WSS — localhost)
-        # Runs the `integration`-marked deployment acceptance, which ADR-0043 moved
-        # out of tests/backend/ into its OWN root tests/deploy/ (AGT-09 owns
-        # deployment; the sync-backend service agent owns tests/backend/).
-        # BOTH roots are named on purpose. tests/deploy/ holds all 9 integration
-        # tests today; tests/backend/ holds none. Naming only tests/deploy/ would
-        # silently stop running any integration test a future backend change adds
-        # under tests/backend/ — the exact "moved file CI no longer names" failure
-        # this ADR was written to avoid. Naming both is also what keeps this step
-        # off pytest's exit-code 5 (NO_TESTS_COLLECTED): after the move,
-        # `pytest -m integration tests/backend/` collects 0 and exits 5, failing
-        # the job. Verified locally: 9 collected across the two roots.
-        # The fast tests (launcher-subprocess convergence, Nginx config assertions,
-        # short idle-survival) RUN and must pass. The Docker-container test builds
-        # the shipped deploy/Dockerfile on the ubuntu daemon (self-skips if the
-        # daemon is unusable). The SLOW real-nginx 60s+ idle test stays OPT-IN and
-        # self-skips because PIXELART_NGINX_IDLE_TEST is unset here (CI-time budget)
-        # — it is NOT forced on every push. No Qt libs needed: these tests import
-        # only the Qt-free data/logic layer.
-        run: pytest -m integration tests/deploy/ tests/backend/
+  # DISABLED (see the TEMPORARY revert block at the top of this file): this
+  # entire job is commented out verbatim, ZERO hosted minutes while this is in
+  # effect (it is runs-on: ubuntu-latest, hosted, unconditionally). Uncomment
+  # every line below (remove the leading "# ") to restore.
+  # integration:
+  #   name: integration (ubuntu-latest)
+  #   runs-on: ubuntu-latest
+  #   # Ample cap for a Docker image build (self-skips if the daemon is unusable)
+  #   # plus the fast launcher/socket/config tests; far under the 6h default.
+  #   timeout-minutes: 30
+  #   defaults:
+  #     run:
+  #       shell: bash
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v5
+  #
+  #     - name: Set up Python 3.12 (pinned)
+  #       uses: actions/setup-python@v6
+  #       with:
+  #         python-version: "3.12"
+  #         cache: pip
+  #
+  #     # nginx: the opt-in real idle-past-60s WSS proxy test (self-skips unless
+  #     # PIXELART_NGINX_IDLE_TEST=1). openssl: mints the self-signed loopback cert
+  #     # for that proxy. The Docker daemon is preinstalled on ubuntu-latest.
+  #     # The Qt runtime libs (libegl1/libgl1/xcb/...) are also required even though
+  #     # the deploy tests are Qt-free: the pytest-qt plugin (from [dev]) imports
+  #     # QtGui at pytest_configure, which needs libEGL.so.1 to load the offscreen
+  #     # platform plugin — without it pytest INTERNALERRORs before collecting.
+  #     # Mirrors the quality-gate Ubuntu leg (QT_QPA_PLATFORM=offscreen is global).
+  #     - name: Install Nginx + OpenSSL + Qt runtime OS libraries (apt)
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y --no-install-recommends \
+  #           nginx openssl \
+  #           libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
+  #           libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+  #           libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
+  #
+  #     - name: Install project (runtime + dev) from manifest
+  #       # -c constraints.txt: reproducibility lock (R-11) — pins the full
+  #       # resolved dependency closure (direct + transitive) so this install
+  #       # matches every other CI run and any developer's local environment.
+  #       # Regenerate command + rationale: constraints.txt's own header.
+  #       run: |
+  #         python -m pip install --upgrade pip
+  #         python -m pip install -c constraints.txt -e ".[dev]"
+  #
+  #     - name: Integration tests (deploy/ launcher, Docker, Nginx WSS — localhost)
+  #       # Runs the `integration`-marked deployment acceptance, which ADR-0043 moved
+  #       # out of tests/backend/ into its OWN root tests/deploy/ (AGT-09 owns
+  #       # deployment; the sync-backend service agent owns tests/backend/).
+  #       # BOTH roots are named on purpose. tests/deploy/ holds all 9 integration
+  #       # tests today; tests/backend/ holds none. Naming only tests/deploy/ would
+  #       # silently stop running any integration test a future backend change adds
+  #       # under tests/backend/ — the exact "moved file CI no longer names" failure
+  #       # this ADR was written to avoid. Naming both is also what keeps this step
+  #       # off pytest's exit-code 5 (NO_TESTS_COLLECTED): after the move,
+  #       # `pytest -m integration tests/backend/` collects 0 and exits 5, failing
+  #       # the job. Verified locally: 9 collected across the two roots.
+  #       # The fast tests (launcher-subprocess convergence, Nginx config assertions,
+  #       # short idle-survival) RUN and must pass. The Docker-container test builds
+  #       # the shipped deploy/Dockerfile on the ubuntu daemon (self-skips if the
+  #       # daemon is unusable). The SLOW real-nginx 60s+ idle test stays OPT-IN and
+  #       # self-skips because PIXELART_NGINX_IDLE_TEST is unset here (CI-time budget)
+  #       # — it is NOT forced on every push. No Qt libs needed: these tests import
+  #       # only the Qt-free data/logic layer.
+  #       run: pytest -m integration tests/deploy/ tests/backend/
 
   # ===========================================================================
   # R-11 residual (#31, 2026-07-31): constraints.txt closure gap on Linux/macOS.
@@ -668,6 +737,12 @@ jobs:
   # tool run on demand when a manifest dependency changes or the lock needs a
   # refresh, not a gate on every push.
   # ===========================================================================
+  # NOTE (2026-08-02, cost-avoidance change): left FUNCTIONAL, NOT disabled —
+  # this still targets a hosted ubuntu-latest runner and WILL consume metered
+  # hosted minutes if manually dispatched with target=regenerate-constraints.
+  # It is workflow_dispatch-only, so it only bills on a deliberate manual act,
+  # not on every push. Not touched because tagging/manual-dispatch is a
+  # deliberate act, unlike the always-on quality-gate matrix above.
   regenerate-constraints:
     name: regenerate-constraints (ubuntu-latest, manual)
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'regenerate-constraints' }}
@@ -748,6 +823,12 @@ jobs:
   # the env var). PIXELART_SMOKE_EXIT_MS is set at job env level below and is thus
   # inherited by every smoke step; each smoke step asserts a zero exit explicitly.
   # ===========================================================================
+  # NOTE (2026-08-02, cost-avoidance change): left FUNCTIONAL, NOT disabled —
+  # this matrix still targets three HOSTED runners (ubuntu/windows/macos-latest)
+  # and WILL consume metered hosted minutes (macOS at ~10x, Windows at ~1.67x
+  # the Linux minute) if a `v*` tag is pushed or workflow_dispatch selects
+  # target=build-installers. Not touched because tagging/manual-dispatch is a
+  # deliberate act, unlike the always-on quality-gate matrix above.
   build-installers:
     name: build-installers (${{ matrix.os }})
     # BUILD/TAG trigger only — never on a normal branch/PR push (ADR-0038 §3).
