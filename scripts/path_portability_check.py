@@ -47,9 +47,66 @@ POSIX_ABS = re.compile(r"^/(?:home|usr|var|tmp|Users|opt|mnt)/")
 BACKSLASH_SEP = re.compile(r"[A-Za-z0-9_.\-]+\\[A-Za-z0-9_.\-]+")
 SKIP_MARK = "portability: ok"
 
+# Adjudicated 2026-08-02 (false-positive narrowing, NOT a blanket exclusion):
+# a regex PATTERN string legitimately contains backslash escapes for its own
+# metacharacters (`\-` inside a character class, `\.`, `\s`, `\d`, ...) that
+# have nothing to do with filesystem path separators -- e.g. this project's
+# own `scripts/run_ci_locally.py:145` `_TOKEN_RE = re.compile(r"""...
+# [A-Za-z0-9_\-]...""", re.VERBOSE)` tripped BACKSLASH_SEP on the escaped
+# hyphen `A-Za-z0-9_\-` inside a bracket expression, which reads exactly like
+# `word` + backslash + `word` to that regex. The exemption below is scoped as
+# narrowly as the false positive itself: only the literal PASSED AS THE
+# PATTERN ARGUMENT to a `re.<func>(...)` call is exempted (by AST parent
+# link, not by content-sniffing for "looks like a regex"), so a genuine
+# hardcoded backslash path elsewhere in the same file, or in any string that
+# is NOT a `re.*` pattern argument, is still caught -- see
+# tests/deploy/test_path_portability_check.py for both directions (the real
+# ci.yml-line-145 false positive going quiet, and a planted hardcoded
+# `"C:\\Users\\bob\\logs"`-shaped violation still firing).
+_RE_PATTERN_FUNCS = {
+    "compile",
+    "match",
+    "fullmatch",
+    "search",
+    "sub",
+    "subn",
+    "split",
+    "findall",
+    "finditer",
+}
+
 
 def looks_like_path(s):
     return ("/" in s or "\\" in s) and " " not in s.strip()[:3] and len(s) <= 200
+
+
+def _build_parent_map(tree):
+    """Map every AST node to its immediate parent (stdlib `ast` does not track
+    this itself) so `_is_regex_pattern_arg` can look one level up from a
+    string Constant to the Call it is an argument of."""
+    parents = {}
+    for node in ast.walk(tree):
+        for child in ast.iter_child_nodes(node):
+            parents[child] = node
+    return parents
+
+
+def _is_regex_pattern_arg(node, parents):
+    """True iff `node` (a string Constant) is the `pattern` argument -- first
+    positional arg or `pattern=` keyword -- of a call whose function name is
+    one of `_RE_PATTERN_FUNCS` (`re.compile(...)`, `re.match(...)`, a bare
+    `compile(...)` from `from re import compile`, etc). Narrow by AST
+    position, not by guessing from the string's own content."""
+    call = parents.get(node)
+    if not isinstance(call, ast.Call):
+        return False
+    func = call.func
+    name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+    if name not in _RE_PATTERN_FUNCS:
+        return False
+    if call.args and call.args[0] is node:
+        return True
+    return any(kw.arg == "pattern" and kw.value is node for kw in call.keywords)
 
 
 def scan_source(path, rel):
@@ -58,11 +115,14 @@ def scan_source(path, rel):
         src = fh.read()
     marked = {i + 1 for i, ln in enumerate(src.splitlines()) if SKIP_MARK in ln}
     tree = ast.parse(src, filename=path)
+    parents = _build_parent_map(tree)
     for node in ast.walk(tree):
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             val = node.value
             line = getattr(node, "lineno", 0)
             if line in marked or not val:
+                continue
+            if _is_regex_pattern_arg(node, parents):
                 continue
             kind = None
             if DRIVE_ABS.match(val):
