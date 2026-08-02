@@ -72,29 +72,152 @@ env:
 
 jobs:
   quality-gate:
+    # Display name deliberately interpolates matrix.os, NOT matrix.runs_on: the
+    # self-hosted leg's os label is windows-selfhosted (see the matrix below),
+    # so this still resolves to three distinct, readable leg names in the UI —
+    # "quality-gate (ubuntu-latest)", "quality-gate (windows-selfhosted)",
+    # "quality-gate (macos-latest)" — instead of collapsing the renamed leg
+    # back to a bare "windows-latest" a reader could mistake for the hosted
+    # runner it replaces.
     name: quality-gate (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runs_on }}
     strategy:
       # fail-fast OFF: a genuine platform-specific regression on one leg must NOT
       # cancel the other legs — we need every OS's result (13A discovery signal,
       # BUILD-001). Windows/macOS surface the suite for the FIRST time here.
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # SELF-HOSTED WINDOWS LEG (user decision, 2026-08-02): GitHub Actions
+        # resumed billing against the Free-plan 2,000 included minutes/month on
+        # 2026-08-02 (monthly reset) after this same matrix exhausted them
+        # before; macOS bills at ~10x and Windows at ~1.67x the Linux minute,
+        # so the window will exhaust again on an unchanged matrix. Self-hosted
+        # runner minutes are FREE and unmetered per GitHub's own billing
+        # reference, and exactly ONE self-hosted runner exists right now:
+        # `pixelart-local-probe` (labels: self-hosted, Windows, X64,
+        # selfhosted-probe) — a Windows x64 machine. There is no Linux and no
+        # macOS self-hosted runner, and none can be created on this host (no
+        # Docker/Podman, no WSL, Windows 11 Home has no Hyper-V so no Windows
+        # containers either, and macOS cannot be virtualised on non-Apple
+        # hardware at all) — so ONLY the Windows leg moves. ubuntu-latest and
+        # macos-latest stay hosted, unchanged, on purpose: this is
+        # additive/substitutive ONLY where possible, not a wholesale switch
+        # (user directive, verbatim: "state self-hosted runner for GitHub
+        # Actions for the legs that are possible, and the rest leave them as
+        # they are now").
+        #
+        # `include:` (rather than a flat `os:` list) is used because the
+        # self-hosted leg's runs-on target must be a LABEL ARRAY
+        # ([self-hosted, Windows, X64]), not a hosted-runner string, so `os`
+        # (the identity/display label — unchanged in meaning for the ubuntu and
+        # macos legs) and `runs_on` (the literal runs-on target) are split into
+        # two matrix keys. `os: windows-selfhosted` (not `windows-latest`) is
+        # deliberate — see the job `name:` comment above.
+        #
+        # `timeout` is a PER-LEG matrix key (see `timeout-minutes:` below):
+        # applying the shared 75-minute job cap to a runner that may not be
+        # online turns a dead/offline self-hosted runner into a worst-case
+        # 75-minute hang once a runner does pick the job up (a job that is
+        # never picked up at all queues under GitHub's own ~24h queued-job
+        # ceiling, which nothing in this file can shorten). The self-hosted leg
+        # gets a much shorter cap instead — 45 minutes, MEASURED, not a guess:
+        # run 30749285915 (the last all-hosted run before this change) timed
+        # the hosted `windows-latest` leg at 15 min wall-clock, WARM (Python
+        # already in the hosted tool cache, pip mostly cache-hit, git
+        # pre-provisioned). 45 min is 3x that 15-min measured figure —
+        # headroom sized for what a warm run does NOT pay for but a genuinely
+        # COLD first run on this bare runner does: (a) actions/setup-python
+        # downloading and installing CPython 3.12 from the
+        # actions/python-versions release instead of hitting a pre-populated
+        # tool cache, (b) `pip install -c constraints.txt -e ".[dev]"`
+        # resolving/downloading the full runtime+dev closure with no local
+        # wheel cache, and (c) the first-ever `actions/checkout` on this
+        # machine. 25 min (the earlier, unmeasured value) gave only 10 min of
+        # headroom over the same 15-min figure — too tight to survive a cold
+        # run's extra cost without the cold run itself looking like a timeout
+        # defect. If genuine warm runs start approaching or exceeding 45 min,
+        # raise this value against a NEW measurement, same as this one — do
+        # not reflexively raise it back to 75.
+        include:
+          - os: ubuntu-latest
+            runs_on: ubuntu-latest
+            timeout: 75
+          - os: windows-selfhosted
+            # PUBLIC-REPO HAZARD — READ BEFORE MAKING THIS REPOSITORY PUBLIC:
+            # GitHub's own documentation says self-hosted runners "should
+            # almost never be used for public repositories... because any user
+            # can open pull requests against the repository and compromise the
+            # environment." THIS LEG MUST BE REVERTED to a hosted
+            # `windows-latest` runner (collapse `os`/`runs_on` back into a flat
+            # `os: [ubuntu-latest, windows-latest, macos-latest]` list, restore
+            # `runs-on: ${{ matrix.os }}` and the original `name:` /
+            # `timeout-minutes: 75`) BEFORE this repository's visibility
+            # changes to public. Do not carry this configuration into a public
+            # repo.
+            runs_on: [self-hosted, Windows, X64]
+            timeout: 45
+          - os: macos-latest
+            runs_on: macos-latest
+            timeout: 75
     # Job-level wall-clock cap: a hung/deadlocked test can no longer pin a runner
     # for ~6h. The full offscreen-Qt UI suite measures ~46-48 min on the 2-core
     # Ubuntu runner (see run 28635312681, cancelled at 98% by an earlier 45-min
-    # cap), so this is set comfortably above that with headroom for runner
-    # variance (Windows/macOS runners vary). The per-test --timeout below (120s,
-    # thread) is the fine-grained guard that fails fast and names a genuinely hung
-    # test; this job cap is only the coarse backstop (FU-12).
-    timeout-minutes: 75
-    # Run every step under bash on ALL three OSes so the SAME pytest invocation
+    # cap), so the two hosted legs (75 min, via matrix.timeout above) are set
+    # comfortably above that with headroom for runner variance. The self-hosted
+    # Windows leg uses a distinct, shorter 45-minute cap instead — MEASURED
+    # against run 30749285915's 15-min warm hosted `windows-latest` figure (3x
+    # headroom for a cold first run's extra setup-python/pip/checkout cost);
+    # see the matrix comment above for the full rationale and tradeoff. The
+    # per-test --timeout below (120s, thread) is the fine-grained guard that
+    # fails fast and names a genuinely hung test; this job cap is only the
+    # coarse backstop (FU-12).
+    timeout-minutes: ${{ matrix.timeout }}
+    # Run every step under bash on ALL three legs so the SAME pytest invocation
     # (with `\` line continuations) executes identically — the Windows default
     # shell (pwsh) would otherwise break the multi-line command (portability).
+    # This still applies to the self-hosted Windows leg: `shell: bash` needs a
+    # bash executable on PATH, which Git for Windows (commonly present on a dev
+    # machine such as this one) provides — EXPECTED to work but not yet
+    # exercised as an actual Actions job step on this runner, so treat as
+    # UNVERIFIED alongside the other self-hosted assumptions below.
     defaults:
       run:
         shell: bash
+    # SELF-HOSTED WINDOWS LEG — per-`uses:` compatibility assessment (this leg
+    # only; the ubuntu-latest and macos-latest legs are unchanged hosted
+    # runners and none of this applies to them):
+    #   actions/checkout@v5      - needs a `git` executable on PATH. This
+    #                              machine already has git (it is the dev
+    #                              checkout of this very repository), so this
+    #                              is EXPECTED to work but has never actually
+    #                              been exercised as an Actions job step on
+    #                              this runner — UNVERIFIED.
+    #   actions/setup-python@v6  - hosted runners ship Python 3.12 in a
+    #     (cache: pip)             pre-populated tool cache; this bare runner
+    #                              does not, so the action will most likely
+    #                              DOWNLOAD and install CPython 3.12 from the
+    #                              actions/python-versions release the first
+    #                              time it runs here (slower, needs network
+    #                              egress) rather than hitting a local cache.
+    #                              `cache: pip` itself keys off GitHub's remote
+    #                              Actions cache service (not local disk), so it
+    #                              should behave the same as on a hosted runner
+    #                              PROVIDED this runner has outbound network
+    #                              access to that service — UNVERIFIED here.
+    #                              Because the runner process is currently a
+    #                              foreground temp-dir process, not an
+    #                              installed service (see the risk comment on
+    #                              the matrix above), even a locally-populated
+    #                              tool cache would not reliably survive
+    #                              between sessions.
+    #   actions/setup-node@v4    - Linux-gated (`if: runner.os == 'Linux'`), so
+    #                              it never runs on this leg — not a
+    #                              self-hosted concern here.
+    # CONCURRENCY: exactly one self-hosted runner is registered against this
+    # repository, so this leg now SERIALISES against any other job/run that
+    # also targets [self-hosted, Windows, X64] — two pushes in flight, or a
+    # future job added to the same label set, will queue behind one another
+    # instead of running in parallel the way two hosted-runner jobs would.
     steps:
       - name: Checkout
         uses: actions/checkout@v5
