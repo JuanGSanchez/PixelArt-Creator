@@ -1,0 +1,30 @@
+site_name: PixelArt Creator — User Guide
+site_description: Usage documentation for the PixelArt Creator pixel-art editor.
+docs_dir: pages
+site_dir: _build
+use_directory_urls: false
+
+nav:
+  - Home: index.md
+  - Usage:
+      - Layer panel: usage/layers.md
+      - Blend modes: usage/blend-modes.md
+      - Multiple canvases: usage/multi-canvas.md
+      - Floating selection: usage/floating-selection.md
+      - Drag-and-drop import: usage/drag-drop-import.md
+      - Animation timeline: usage/animation.md
+      - Tilemap & level design: usage/tilemap.md
+      - Export & pipeline integration: usage/export.md
+      - Automation & extensibility: usage/automation.md
+      - Visual aids & UX: usage/visual-aids.md
+      - Cloud, versions & recovery: usage/cloud.md
+      - Shared projects & comments: usage/collaboration.md
+      - Asset library: usage/asset-library.md
+      - Asset dependencies & break detection: usage/dependency-graph.md
+      - Asset versioning & cross-project reuse: usage/asset-versioning.md
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
