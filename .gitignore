@@ -19,8 +19,19 @@ DEPLOYMENT.md
 STRUCTURE.md
 ROADMAP.md
 design-docs/
-memory/
 .claude/
+
+# ---- (a2) the orchestration system's half of this repository's own store ----
+# `memory/` as a whole was class (a) while this repository had no store. It
+# has one now, and a repository that ignores its whole store commits NO map:
+# the Repo and History views come up empty on any clone and store-role.json is
+# invisible to everyone but the machine that created it. Only the SEMANTIC
+# half stays out — lessons belong to the orchestration system and reach the
+# container's store through promotion on merge.
+memory/insight/
+memory/cards/
+memory/promotions.jsonl
+memory/archive/
 
 # ---- (b) Agent artifacts ----------------------------------------------------
 subagent-report-*.md
