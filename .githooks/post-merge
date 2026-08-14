@@ -22,7 +22,7 @@ case "$branch" in
 esac
 
 # Locate the container: nearest ancestor holding scripts/check_branch_naming.py
-# (1 level up for a branch worktree, 2 for an invariant-11a product).
+# (1 level up for a single-product branch folder, 3 for a multi-product one).
 container=$(dirname "$repo_root")
 container_found=
 for _ in 1 2 3 4; do
@@ -96,6 +96,16 @@ if [ -f "$repo_root/memory/store-role.json" ]; then
             echo "$HOOK:   memory_graph.py refresh --store $repo_root/memory" >&2
         }
     fi
+elif [ -d "$repo_root/memory" ]; then
+    # A store WITHOUT its role marker. This used to fall through in silence,
+    # and silence is indistinguishable from success: measured on a delivered
+    # system, the marker had never existed, so every commit it ever made
+    # skipped the refresh and its map described the tree as it stood months
+    # earlier. Note the asymmetry this repairs — a MISSING SCRIPT was already
+    # reported, while a missing marker, which disables the same duty just as
+    # completely, said nothing at all.
+    echo "$HOOK: $repo_root/memory has no store-role.json, so the store was NOT refreshed" >&2
+    echo "$HOOK:   memory_graph.py init --store $repo_root/memory --role container" >&2
 fi
 
 if [ -n "$(git status --porcelain -- memory 2>/dev/null)" ]; then
