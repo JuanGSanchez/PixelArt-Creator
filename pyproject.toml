@@ -11,7 +11,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pixelart-creator"
-version = "0.2.0"
+version = "0.2.1"
 description = "Unified pixel-art platform: 8K editable grid, colour tools, layers, GPU render pipeline."
 readme = "NOTICE"
 # LOCAL/CI PYTHON ALIGNMENT (#31, 2026-07-31): this floor (">=3.12") is the
