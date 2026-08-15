@@ -1,6 +1,12 @@
 #!/bin/sh
 # memory-view.sh — open THIS store's memory viewer.
 #
+# ON WINDOWS, USE memory-view.cmd INSTEAD. A .sh file has no execute
+# association there, so clicking this one only ever offers to OPEN it in an
+# editor — that is Windows working as intended, not a broken launcher. This
+# file is for Linux and macOS, where it is tracked with its execute bit set so
+# a fresh clone can run it without chmod.
+#
 # Run it (or double-click where your desktop allows). It refreshes this
 # repository's own map, starts the viewer for THIS store only, and opens a
 # browser on it.

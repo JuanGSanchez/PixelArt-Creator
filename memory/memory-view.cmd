@@ -1,6 +1,10 @@
 @echo off
 REM memory-view.cmd - open THIS store's memory viewer.
 REM
+REM THIS is the file to click on Windows. memory-view.sh beside it is the same
+REM launcher for Linux and macOS; Windows has no execute association for .sh,
+REM so clicking that one only offers to open it in an editor.
+REM
 REM Double-click it. It refreshes this repository's own map, starts the viewer
 REM for THIS store only, and opens a browser on it.
 REM

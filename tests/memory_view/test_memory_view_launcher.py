@@ -66,6 +66,33 @@ def test_the_launcher_is_tracked_not_ignored(name):
     assert done.returncode != 0, "%s is gitignored; it must ship" % name
 
 
+def test_the_shell_launcher_is_executable_in_git():
+    """REGRESSION. git records the execute bit in the blob mode, and it was
+    recorded as 100644: every Linux and macOS clone got a `memory-view.sh` that
+    answers "Permission denied", with nothing on the file to explain why. The
+    bit has to be in the INDEX -- a chmod in one working tree ships nothing."""
+    done = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "ls-files", "-s", "--", "memory/memory-view.sh"],
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 0 and done.stdout, "the launcher is not tracked"
+    mode = done.stdout.split()[0]
+    assert mode == "100755", (
+        "memory-view.sh is recorded as %s; a clone cannot execute it" % mode
+    )
+
+
+def test_each_platform_is_told_which_file_is_its_own():
+    """A .sh has no execute association on Windows, so clicking it offers to
+    open it in an editor -- correct behaviour that reads as a broken launcher.
+    Each file names the other and says which platform it belongs to."""
+    sh = (STORE / "memory-view.sh").read_text("utf-8", errors="replace")
+    cmd = (STORE / "memory-view.cmd").read_text("utf-8", errors="replace")
+    assert "memory-view.cmd" in sh, "the shell launcher never names the Windows one"
+    assert "memory-view.sh" in cmd, "the Windows launcher never names the shell one"
+
+
 @pytest.mark.parametrize("name", LAUNCHERS)
 def test_the_launcher_carries_no_absolute_path(name):
     """It must resolve its own store from its own location. An absolute path
