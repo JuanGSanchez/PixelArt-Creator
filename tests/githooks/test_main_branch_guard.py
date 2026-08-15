@@ -5,32 +5,49 @@ here imports it: every case builds a throwaway repository, installs the real
 hooks into it, and drives an actual `git commit`. A test that reasoned about
 the script's text instead would pass against a hook git never runs.
 
-WHY THIS SUITE EXISTS. The gate used to decide "is this bookkeeping?" purely
-from the SHAPE of the staged set — every path under `.githooks/`,
-`.gitattributes` or `memory/` and the commit was waved through. The staged set
-says what a commit touches; it cannot say who decided to make it. On
-2026-08-15 six commits went onto the default branch that way, by an agent that
-had simply staged nothing else, and the gate reported each one as "the
-arrangement, not development". The rule the project actually holds is narrower:
-the default branch takes the repository's creation commit and merges, and
-everything else arrives through a pull request.
+WHY THIS SUITE EXISTS, and the correction it carries. The gate decides "is this
+bookkeeping?" from the SHAPE of the staged set: a commit whose every path is
+orchestration furniture — `.githooks/`, `.gitattributes`, `memory/` — is the
+arrangement rather than development, and is admitted. On 2026-08-15 six such
+commits were observed on the default branch and read as a hole in the gate. The
+suite was written to close it, by requiring bookkeeping to be DECLARED through a
+`PIXELART_MAIN_BOOKKEEPING=1` marker.
 
-So bookkeeping now has to be DECLARED (`PIXELART_MAIN_BOOKKEEPING=1`), which
-`post-merge` does for its own refresh commit and a human does deliberately for
-maintenance. The gate cannot stop someone who means it — no gate can, which is
-the same bargain `--no-verify` offers — but it can stop someone who did not
-notice which branch they were on.
+That was wrong, and the tests encoding it were wrong with it. Classifying those
+six commits showed two of them were `post-merge` committing the refreshed map,
+which the arrangement REQUIRES on the default branch — a merge that a hook then
+fails is worse than a map committed by hand — and the remaining four were an
+agent hand-committing on main. The gate had behaved as designed; the discipline
+failure was upstream of it. Worse, the marker was a second source of truth
+beside `FURNITURE`, and the canonical generator is explicit that the exemption
+is "derived, never a second list: an exemption that drifted from the pathspec
+would refuse the commit that installs the very files the pathspec protects."
 
-The matrix below is the point: every route to the default branch, and the two
-that are legitimate.
+So the marker was withdrawn and these tests now assert the canonical rule. What
+keeps work off the default branch is the branch-and-pull-request discipline the
+refusal message names, not a variable a caller can set — the gate stops someone
+who did not notice which branch they were on, and no gate has ever stopped
+someone who meant it.
+
+The matrix below is the point: every route to the default branch, and the three
+that are legitimate — the creation commit, a merge, and the arrangement itself.
 """
 
 import subprocess
-import textwrap
 
 import pytest
 
 CONTAINER_STUBS = ("check_branch_naming.py", "check_names.py")
+
+# The three roots the generator treats as the arrangement rather than the work.
+# Kept here as data so a change to the set fails a test rather than passing
+# silently — this is the mirror of `container_repo.py`'s FURNITURE.
+# `.githooks/post-merge` stands for the `.githooks/` root rather than
+# `pre-commit`: overwriting the hook that is currently running makes git fail
+# with "cannot spawn", which is indistinguishable from a refusal. The previous
+# version of this suite asserted a non-zero exit here and was green for exactly
+# that wrong reason.
+FURNITURE = ("memory/graph/nodes.jsonl", ".githooks/post-merge", ".gitattributes")
 
 
 def git(repo, *args, env=None, check=True):
@@ -57,6 +74,11 @@ def repo(tmp_path, request):
     run without them — deliberately, so an unrunnable gate is never a silent
     pass. The stubs stand in for those two checks only; the branch rule under
     test is the hook's own code, untouched.
+
+    The hooks are copied from THIS repository's `.githooks/`, which is the
+    scope a product suite can own: it proves the gate this clone actually
+    ships. Whether that gate still matches what the container would generate
+    is the container's question, and is checked there.
     """
     container = tmp_path / "container"
     (container / "scripts").mkdir(parents=True)
@@ -110,12 +132,8 @@ def touch(repo, rel, text="x\n"):
     return path
 
 
-def bookkeeping_env(monkeypatch=None):
-    import os
-
-    env = dict(os.environ)
-    env["PIXELART_MAIN_BOOKKEEPING"] = "1"
-    return env
+def head(repo):
+    return git(repo, "rev-parse", "HEAD").stdout.strip()
 
 
 # --- the creation commit ----------------------------------------------------
@@ -139,54 +157,60 @@ def test_development_on_main_is_refused(repo):
 
 def test_the_refusal_names_the_route_out(repo):
     """A gate that refuses without saying what to do instead is an obstacle,
-    not a guard."""
+    not a guard. With the marker withdrawn, the named route IS the guard."""
     touch(repo, "app.py")
     done = commit(repo, "feat: add a thing")
     assert "start-branch" in done.stderr or "switch -c" in done.stderr
 
 
-# --- bookkeeping: possible, but only when declared --------------------------
+# --- the arrangement: admitted, and it has to be ----------------------------
 
 
-def test_a_store_only_commit_without_the_marker_is_refused(repo):
-    """THE REGRESSION. This is exactly the shape that put six commits on the
-    default branch: stage nothing but the store, and the old gate waved it
-    through as "the arrangement, not development"."""
+def test_a_store_only_commit_is_admitted_as_the_arrangement(repo):
+    """It has to be POSSIBLE, and this is why: `post-merge` commits the
+    refreshed map on the default branch after every merge, because a map left
+    dirty makes the NEXT merge refuse. A gate that blocked this would fail
+    merges with their own bookkeeping."""
+    before = head(repo)
     touch(repo, "memory/graph/nodes.jsonl", '{"kind":"node"}\n')
     done = commit(repo, "chore(memory): refresh")
-    assert (
-        done.returncode != 0
-    ), "a store-only commit landed on main with nothing declaring it"
-    assert "REFUSED" in done.stderr
-    assert (
-        "PIXELART_MAIN_BOOKKEEPING=1" in done.stderr
-    ), "the refusal must name the deliberate route"
-
-
-def test_a_store_only_commit_with_the_marker_is_allowed(repo):
-    """Maintenance has to remain possible: compaction is only legal on the
-    default branch, so refusing it outright would strand the store."""
-    touch(repo, "memory/graph/nodes.jsonl", '{"kind":"node"}\n')
-    done = commit(repo, "chore(memory): compact", env=bookkeeping_env())
     assert done.returncode == 0, done.stdout + done.stderr
-    assert "allowed" in done.stderr
+    assert "arrangement, not development" in done.stderr
+    assert head(repo) != before, "the commit was reported allowed but never made"
 
 
-@pytest.mark.parametrize(
-    "rel", ["memory/graph/nodes.jsonl", ".githooks/pre-commit", ".gitattributes"]
-)
-def test_every_furniture_path_needs_the_marker(repo, rel):
-    """One allowed path proves one path; the CLASS is what must hold."""
+@pytest.mark.parametrize("rel", FURNITURE)
+def test_every_furniture_path_is_admitted_alone(repo, rel):
+    """One admitted path proves one path; the CLASS is what must hold. The
+    exemption is derived from one list in the generator, so all three roots
+    stand or fall together."""
     touch(repo, rel, "# changed\n")
-    assert commit(repo, "chore: furniture").returncode != 0
+    done = commit(repo, "chore: furniture")
+    assert done.returncode == 0, done.stdout + done.stderr
 
 
-def test_furniture_mixed_with_product_code_is_refused_even_declared(repo):
-    """All-or-nothing. Otherwise the marker becomes a way to smuggle a source
-    change onto the default branch beside a store update."""
+def test_a_marker_variable_no_longer_governs_anything(repo):
+    """REGRESSION, in the direction the mistake actually ran. The withdrawn
+    `PIXELART_MAIN_BOOKKEEPING` must not come back as a second source of truth
+    beside FURNITURE: an unset marker may not change the verdict, and neither
+    may a set one."""
+    import os
+
+    declared = dict(os.environ)
+    declared["PIXELART_MAIN_BOOKKEEPING"] = "1"
+
+    touch(repo, "app.py", "print('hello')\n")
+    assert (
+        commit(repo, "feat: a thing", env=declared).returncode != 0
+    ), "a marker variable re-opened the default branch to development"
+
+
+def test_furniture_mixed_with_product_code_is_refused(repo):
+    """All-or-nothing. Otherwise the arrangement becomes a way to smuggle a
+    source change onto the default branch beside a store update."""
     touch(repo, "memory/graph/nodes.jsonl", '{"kind":"node"}\n')
     touch(repo, "app.py", "print('smuggled')\n")
-    done = commit(repo, "chore(memory): refresh", env=bookkeeping_env())
+    done = commit(repo, "chore(memory): refresh")
     assert done.returncode != 0, "product code rode in on a bookkeeping commit"
     assert "development on 'main' is refused" in done.stderr
 
@@ -194,7 +218,7 @@ def test_furniture_mixed_with_product_code_is_refused_even_declared(repo):
 # --- merges: the way work is meant to arrive --------------------------------
 
 
-def test_a_merge_commit_is_allowed_without_any_marker(repo):
+def test_a_merge_commit_is_allowed(repo):
     """The path a pull request takes. If this broke, nothing could ever reach
     the default branch at all — which is why it is tested and not assumed."""
     git(repo, "checkout", "-q", "-b", "feat-thing")
@@ -208,13 +232,33 @@ def test_a_merge_commit_is_allowed_without_any_marker(repo):
     assert (repo / "app.py").is_file()
 
 
-def test_post_merge_declares_its_own_bookkeeping(repo, request):
-    """The automated half of the bargain: the hook that makes the commit is
-    the thing that declares it, so a merge is never failed by its own map."""
-    text = (request.config.rootpath / ".githooks" / "post-merge").read_text(
-        encoding="utf-8", errors="replace"
+def test_a_merge_is_not_failed_by_the_map_it_leaves_behind(repo):
+    """`post-merge` cannot run here — it needs the container's real modules,
+    and the fixture's container is a stub — so this drives the sequence it
+    performs: merge, then commit the refreshed store on the default branch.
+    Both halves must pass the gate, or every merge ends with a dirty map."""
+    git(repo, "checkout", "-q", "-b", "feat-thing")
+    touch(repo, "app.py", "print('from the branch')\n")
+    assert commit(repo, "feat: add a thing").returncode == 0
+    git(repo, "checkout", "-q", "main")
+    assert (
+        git(
+            repo,
+            "merge",
+            "--no-ff",
+            "-m",
+            "Merge feat-thing",
+            "feat-thing",
+            check=False,
+        ).returncode
+        == 0
     )
-    assert "PIXELART_MAIN_BOOKKEEPING=1" in text
+
+    before = head(repo)
+    touch(repo, "memory/graph/nodes.jsonl", '{"kind":"node","after":"merge"}\n')
+    done = commit(repo, "chore(memory): refresh the map after the merge")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert head(repo) != before
 
 
 # --- branches: unaffected ---------------------------------------------------
@@ -222,14 +266,14 @@ def test_post_merge_declares_its_own_bookkeeping(repo, request):
 
 @pytest.mark.parametrize("branch", ["feat-thing", "fix-thing"])
 def test_development_on_a_branch_is_untouched(repo, branch):
-    """The guard is about the default branch. Tightening it must not make
-    ordinary work harder anywhere else."""
+    """The guard is about the default branch. It must not make ordinary work
+    harder anywhere else."""
     git(repo, "checkout", "-q", "-b", branch)
     touch(repo, "app.py", "print('fine here')\n")
     assert commit(repo, "feat: add a thing").returncode == 0
 
 
-def test_a_store_only_commit_on_a_branch_needs_no_marker(repo):
+def test_a_store_only_commit_on_a_branch_is_ordinary(repo):
     git(repo, "checkout", "-q", "-b", "feat-thing")
     touch(repo, "memory/graph/nodes.jsonl", '{"kind":"node"}\n')
     assert commit(repo, "chore(memory): refresh").returncode == 0
