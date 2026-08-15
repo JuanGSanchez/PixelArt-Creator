@@ -57,10 +57,12 @@ just COMPLETED) -- the exact property this tranche exists to establish.
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 
 import pytest
 
-from .conftest import run_script
+from .conftest import REPO_ROOT, run_script
 
 SCRIPT = "perf_profile.py"
 
@@ -71,6 +73,46 @@ def _pyside6_available() -> bool:
     except Exception:
         return False
     return True
+
+
+def _logic_available() -> bool:
+    """Composite mode is Qt-free but NOT dependency-free: it imports
+    ``pixelart_creator.logic``. The package is editable-installed for the
+    default-branch checkout, so a freshly created branch worktree can run this
+    suite without it and the script correctly answers exit 2,
+    ``logic-unavailable`` -- an environment gap, not a defect. Asserting 0/1
+    there turns a stated BLOCKED into a false FAILED.
+
+    PROBED IN A SUBPROCESS WITHOUT THE WORKING DIRECTORY ON ``sys.path``, and
+    both halves of that are load-bearing. A plain ``import`` here answers for
+    the PYTEST process, where the rootdir is on ``sys.path`` and the package
+    always resolves. A subprocess launched with ``-c`` is no better: ``-c``
+    prepends the working directory, so the repository's own source tree
+    answers. ``run_script`` invokes ``python scripts/<name>.py``, which
+    prepends ``scripts/`` INSTEAD -- so the script sees only what is genuinely
+    installed. Popping ``sys.path[0]`` reproduces that, and nothing else does.
+
+    Both weaker probes were written and both reported "available" while the
+    script under test was still exiting 2.
+    """
+    done = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; sys.path.pop(0); import pixelart_creator.logic",
+        ],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+    )
+    return done.returncode == 0
+
+
+_LOGIC_SKIP = (
+    "pixelart_creator.logic not importable in this test environment -- the "
+    "composite mode genuinely cannot run here (the script maps this to exit 2, "
+    "'logic-unavailable'); SKIP states this rather than reporting an "
+    "environment gap as a budget failure (Directive 12)."
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -114,6 +156,7 @@ def test_composite_region_larger_than_canvas_exits_2():
 # Composite mode (Qt-FREE): the budget-comparison essential pair, rigged
 # deterministic via an absurd ceiling in each direction.
 # --------------------------------------------------------------------------- #
+@pytest.mark.skipif(not _logic_available(), reason=_LOGIC_SKIP)
 def test_composite_huge_ceiling_is_always_within_exits_0():
     result = run_script(
         SCRIPT,
@@ -151,6 +194,7 @@ def test_composite_huge_ceiling_is_always_within_exits_0():
     }
 
 
+@pytest.mark.skipif(not _logic_available(), reason=_LOGIC_SKIP)
 def test_composite_negative_ceiling_is_always_over_exits_1():
     """A measured duration can never be negative, so a negative ceiling makes
     the FAILED path deterministic without depending on this run's CPU load --
@@ -177,6 +221,39 @@ def test_composite_negative_ceiling_is_always_over_exits_1():
     assert result.returncode == 1, result.stderr
     assert payload["within_ceiling"] is False
     assert payload["ceiling_ms"] == -1.0
+
+
+def test_composite_without_the_logic_package_takes_the_documented_exit_2():
+    """A companion to the two skipifs above: if the logic package genuinely is
+    unavailable, prove the script takes its documented exit-2/'logic-
+    unavailable' path rather than the two skipped tests simply going quiet.
+    Between them, exactly one of these three runs in any environment."""
+    if _logic_available():
+        pytest.skip(
+            "pixelart_creator.logic IS importable here, so the unavailable "
+            "path cannot be exercised without faking it; the two composite "
+            "tests above ran instead."
+        )
+    result = run_script(
+        SCRIPT,
+        [
+            "--composite",
+            "--layers",
+            "2",
+            "--region-size",
+            "4",
+            "--width",
+            "64",
+            "--height",
+            "64",
+            "--frames",
+            "2",
+            "--ceiling-ms",
+            "1000",
+        ],
+    )
+    assert result.returncode == 2, result.stderr
+    assert json.loads(result.stdout)["error"] == "logic-unavailable"
 
 
 # --------------------------------------------------------------------------- #

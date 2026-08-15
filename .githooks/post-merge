@@ -110,14 +110,6 @@ fi
 
 if [ -n "$(git status --porcelain -- memory 2>/dev/null)" ]; then
     git add -- memory >/dev/null 2>&1 || true
-    # DECLARE the commit as bookkeeping. Since 2026-08-15 the pre-commit gate
-    # refuses a store-only commit on the default branch unless the caller says
-    # that is what it is — the staged set says what a commit touches, never who
-    # decided to make it, and the default branch takes the creation commit and
-    # merges only. This is the automated half of that bargain: the hook that
-    # makes the commit is the thing that declares it. Exported for the child
-    # process alone, so nothing later in this shell inherits an open door.
-    PIXELART_MAIN_BOOKKEEPING=1 \
     git commit -m "chore(memory): refresh the map after the merge" \
         >/dev/null 2>&1 || {
         echo "post-merge: the refreshed map could not be committed; commit" >&2
