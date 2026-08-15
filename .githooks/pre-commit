@@ -114,17 +114,51 @@ case "$branch" in
       staged=$(git diff --cached --name-only)
       # The arrangement is not development. A commit whose EVERY staged path
       # is orchestration furniture — the gate, the merge-driver request, the
-      # store — is bookkeeping, and it has to be possible: those files are
+      # store — is bookkeeping, and it has to remain POSSIBLE: those files are
       # untracked in any product whose gate was installed after its creation
       # commit, and while they stay untracked the first branch commits them
       # and the merge back into main aborts on "untracked working tree files
       # would be overwritten". main could then never receive a pull request.
-      # All-or-nothing: one product path in the same commit and it is
-      # development again.
+      # `post-merge` also commits the refreshed map after every merge, and a
+      # merge that a hook then fails is worse than a map committed by hand.
+      #
+      # But POSSIBLE is not OPEN. Until 2026-08-15 the shape of the staged set
+      # was the whole test, so anyone — an agent included — could put six
+      # commits on main just by staging only `memory/`, and did. The staged set
+      # says what a commit touches; it cannot say who decided to make it, and
+      # that second question is the one this branch exists to answer. main
+      # takes the creation commit and merges; everything else arrives through
+      # a pull request.
+      #
+      # So bookkeeping is now admitted only when the caller SAYS it is
+      # bookkeeping, by setting PIXELART_MAIN_BOOKKEEPING=1. `post-merge` sets
+      # it around its own commit, which is the automated path. A human doing
+      # memory maintenance sets it deliberately and visibly on the command
+      # line — the same bargain `--no-verify` offers, and for the same reason:
+      # the gate cannot stop someone who means it, only someone who did not
+      # notice they were on main. All-or-nothing still applies: one product
+      # path in the same commit and it is development again, marker or not.
       if [ -n "$staged" ] && ! printf '%s\n' "$staged" | grep -qvE '^(\.githooks|\.gitattributes|memory)(/|$)'; then
-        echo "pre-commit: bookkeeping-only commit on '$branch' (the gate, the" >&2
-        echo "pre-commit: merge-driver request, the memory map) — allowed:" >&2
-        echo "pre-commit: this is the arrangement, not development." >&2
+        if [ "${PIXELART_MAIN_BOOKKEEPING:-}" = "1" ]; then
+          echo "pre-commit: bookkeeping-only commit on '$branch' (the gate, the" >&2
+          echo "pre-commit: merge-driver request, the memory map), declared by" >&2
+          echo "pre-commit: PIXELART_MAIN_BOOKKEEPING=1 — allowed: this is the" >&2
+          echo "pre-commit: arrangement, not development." >&2
+        else
+          echo "pre-commit: bookkeeping-only commit on '$branch' is REFUSED:" >&2
+          echo "pre-commit: the staged set is orchestration furniture, but" >&2
+          echo "pre-commit: nothing declared this as bookkeeping." >&2
+          echo "pre-commit:" >&2
+          echo "pre-commit: '$branch' takes the creation commit and merges." >&2
+          echo "pre-commit: Everything else reaches it through a pull request." >&2
+          echo "pre-commit:" >&2
+          echo "pre-commit: If this really is store maintenance — a compaction," >&2
+          echo "pre-commit: a map refresh — say so, deliberately and visibly:" >&2
+          echo "pre-commit:   PIXELART_MAIN_BOOKKEEPING=1 git commit ..." >&2
+          echo "pre-commit: post-merge sets it for its own refresh commit, so" >&2
+          echo "pre-commit: merges are unaffected." >&2
+          exit 1
+        fi
       else
         echo "pre-commit: development on '$branch' is refused: '$branch' takes" >&2
         echo "pre-commit: the repository's creation commit and merges, nothing" >&2
