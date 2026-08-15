@@ -30,9 +30,9 @@ Status legend:
 | REQ-P7-LOGIC-006 | **CP-1** (`compactor.compact` MaxRects, F8), Phase-7 cap, P2 | §4, §11 | SC-L006-1 | `tests/logic/test_atlas.py` (non-overlap via CP-1; unfit → AtlasError wrapping CompactionError; 8K-ceiling guard) | covered (shipped) |
 | REQ-P7-LOGIC-007 | **CP-1**, Phase-7 cap, P2 | §4, §11 | SC-L007-1 | `tests/logic/test_atlas.py` (JSON coords ↔ packed-image pixel round-trip) | covered (shipped) |
 | REQ-P7-LOGIC-008 | **IO-3**, P2, Phase-7 cap | §4, §11 | SC-L008-1 | `tests/logic/test_export.py` (metadata deterministic + complete) | covered (shipped) |
-| REQ-P7-LOGIC-009 | Article I, S11, Phase-7 cap | §4, §11 | SC-L009-1 | `tests/logic/test_export.py` + `tests/ui/test_export_parity.py` + `check_layering`/`check_cycles` exit 0 (Qt-free; no event loop) | covered (shipped) |
+| REQ-P7-LOGIC-009 | Article I, S11, Phase-7 cap | §4, §11 | SC-L009-1 | CLI==GUI substrate: `test_export_parity.py::test_sc_ui_007_gui_export_is_byte_identical_to_cli`, `test_export_cli.py::test_cli_output_is_byte_identical_to_direct_export`, `::test_cli_png_export_succeeds`, `::test_cli_sprite_sheet_with_options`, `::test_cli_gif_with_loop`. The Qt-free / no-event-loop half stays script-gated by `check_layering`/`check_cycles` (exit 0). | covered (shipped) |
 | REQ-P7-LOGIC-010 | Phase-7 cap (batch), P2, S6 | §4, §11 | SC-L010-1 | `tests/logic/test_export.py` (`run_batch`: each batch output == single export) | covered (shipped) |
-| REQ-P7-LOGIC-011 | Phase-7 cap (presets), F8 landscape, S6 | §4, §11 | SC-L011-1 | `tests/logic/test_export.py` layout + `tests/data/test_export_io.py` (Unity/Godot engine-ready) | covered (shipped) |
+| REQ-P7-LOGIC-011 | Phase-7 cap (presets), F8 landscape, S6 | §4, §11 | SC-L011-1 | engine-ready layout asserted at the artifact: `test_export_io.py::test_write_unity_meta_structure` (Multiple-mode, Point filter, ppu=100), `::test_write_godot_tres_structure` (valid SpriteFrames with AtlasTextures), `::test_write_godot_tres_groups_by_tag`, `::test_write_godot_tres_synthetic_default_animation`, `::test_write_engine_preset_none_writes_nothing`, `::test_write_engine_preset_unknown_raises`, `test_export_cli.py::test_cli_engine_preset_writes_artifact`, `test_export.py::test_export_document_rejects_bad_preset` | covered (shipped) |
 | REQ-P7-LOGIC-012 | Article II, Article VII, S12 | §4, §11 | SC-L012-1 | `tests/logic/test_export.py` + `tests/logic/test_atlas.py` (bounds enforced; defaults from constants; MAX_ATLAS_DIMENSION per-axis clamp) | covered (shipped) |
 | REQ-P7-LOGIC-013 | **IO-3**, **DOC-1**, Phase-7 cap (CLI), P2, S11 | §4, §11 | SC-L013-1 | `tests/data/test_export_cli.py` + `tests/ui/test_export_parity.py` (CLI==GUI byte-identity for a fixed .pixproj) | covered (shipped) |
 
@@ -41,18 +41,18 @@ Status legend:
 | REQ-ID | Traces (S-id / F / inherited) | Spec § | Scenario(s) | Test id(s) | Status |
 | --- | --- | --- | --- | --- | --- |
 | REQ-P7-UI-001 | REQ-P7-LOGIC-001, -003 | §4, §11 | SC-UI-001-1 | `tests/ui/test_export_dialog.py` + `tests/ui/test_export_actions.py` (format/options/destination) | covered (shipped) |
-| REQ-P7-UI-002 | REQ-P7-LOGIC-004 | §4, §11 | SC-UI-002-1 | `tests/ui/test_export_dialog.py` (GIF frame-source/loop; durations honoured) | covered (shipped) |
-| REQ-P7-UI-003 | REQ-P7-LOGIC-005 | §4, §11 | SC-UI-003-1 | `tests/ui/test_export_dialog.py` (sheet columns/rows/padding; reject OOR) | covered (shipped) |
-| REQ-P7-UI-004 | REQ-P7-LOGIC-006, -007, REQ-P7-DATA-004 | §4, §11 | SC-UI-004-1 | `tests/ui/test_export_dialog.py` (atlas padding/max-dim + metadata toggle) | covered (shipped) |
+| REQ-P7-UI-002 | REQ-P7-LOGIC-004 | §4, §11 | SC-UI-002-1 | `test_export_dialog.py::test_sc_ui_002_gif_options_frame_source_and_loop` + engine legs `test_export.py::test_gif_decodes_with_frame_count_and_durations`, `::test_encode_gif_loop_override`, `::test_named_tag_selects_its_range` | covered (shipped) |
+| REQ-P7-UI-003 | REQ-P7-LOGIC-005 | §4, §11 | SC-UI-003-1 | `test_export_dialog.py::test_sc_ui_003_sheet_options_defaults_and_out_of_range_rejected` + engine legs `test_export.py::test_build_sprite_sheet_row_major_layout`, `::test_build_sprite_sheet_with_padding`, `::test_sprite_sheet_default_columns_and_padding`, `::test_build_sprite_sheet_validation` | covered (shipped) |
+| REQ-P7-UI-004 | REQ-P7-LOGIC-006, -007, REQ-P7-DATA-004 | §4, §11 | SC-UI-004-1 | `test_export_dialog.py::test_sc_ui_004_atlas_options_padding_maxdim_and_json_toggle` + engine legs `test_export.py::test_export_atlas_coord_pixel_round_trip`, `::test_export_atlas_cannot_fit_raises_atlas_error`, `::test_export_atlas_no_json_when_disabled` | covered (shipped) |
 | REQ-P7-UI-005 | REQ-P7-LOGIC-010 | §4, §11 | SC-UI-005-1 | `tests/ui/test_export_batch_ui.py` (multi-target one action; per-target progress/failure) | covered (shipped) |
-| REQ-P7-UI-006 | REQ-P7-LOGIC-011, REQ-P7-DATA-002 | §4, §11 | SC-UI-006-1 | `tests/ui/test_export_dialog.py` (Unity/Godot preset selection) | covered (shipped) |
+| REQ-P7-UI-006 | REQ-P7-LOGIC-011, REQ-P7-DATA-002 | §4, §11 | SC-UI-006-1 | `test_export_dialog.py::test_sc_ui_006_engine_preset_selection` + `test_export_cli.py::test_cli_engine_preset_writes_artifact` | covered (shipped) |
 | REQ-P7-UI-007 | REQ-P7-LOGIC-009, -013, P2 | §4, §11 | SC-UI-007-1 | `tests/ui/test_export_parity.py` (GUI export == CLI export byte-for-byte) | covered (shipped) |
 | REQ-P7-UI-008 | Article VII, REQ-P7-LOGIC-006 | §4, §11 | SC-UI-008-1 | `tests/ui/test_export_actions.py` + `tests/ui/test_export_dialog.py` (unfit atlas / unwritable path → graceful error) | covered (shipped) |
-| REQ-P7-UI-009 | S7, C1, CL-12 | §4, §11 | SC-UI-009-1 | `tests/ui/test_export_actions.py` (non-destructive; no QUndoCommand — verified 0 export refs in `ui/commands.py`) | covered (shipped) |
+| REQ-P7-UI-009 | S7, C1, CL-12 | §4, §11 | SC-UI-009-1 | `test_export_dialog.py::test_sc_ui_009_export_is_non_destructive` (exporting mutates neither the document buffers nor any tag) + `test_export_actions.py::test_dialog_rejected_is_a_noop`, `::test_no_document_shows_notice_and_does_not_submit`, `::test_accepted_without_path_warns` + `test_export.py::test_flatten_frame_is_non_destructive` | covered (shipped) |
 | REQ-P7-UI-010 (NFR) | S1, S12, Article VI, DEP-3 | §5, §11 | SC-UI-010-1 | `tests/ui/test_export_responsive.py` + `tests/ui/test_export_worker_invariant.py` + `tests/ui/test_export_teardown.py` (off-thread; cancel; deterministic teardown, no segfault under -n auto) | covered (shipped) |
 | REQ-P7-UI-011 (NFR) | Article V §1 | §5, §11 | SC-UI-011-1 | `tests/ui/test_export_a11y.py` (accessible names / keyboard / focus) | covered (shipped) |
 | REQ-P7-UI-012 (NFR) | Article V §3 | §5, §11 | SC-UI-012-1 (+ every UI scenario in both themes) | both-theme `[light]`/`[dark]` fixtures across the 8 `tests/ui/test_export_*.py` modules | covered (shipped) |
-| REQ-P7-UI-013 (NFR) | Article V §2, F6 | §5, §11 | SC-UI-013-1 | tr()-wrapped export UI + `changeEvent` retranslate (across `tests/ui/test_export_*.py`); AGT-07 `string_audit_check` clean; `i18n/es.qm` (509) | covered (shipped) |
+| REQ-P7-UI-013 | Article V §2, F6 (NFR) | §5, §11 | SC-UI-013-1 | **retranslate clause:** `test_export_dialog.py::test_sc_ui_013_dialog_retranslates_on_language_change` (the dialog re-sets its user-visible text on `LanguageChange`). **The "no bare literal / every string `tr()`-wrapped" clause is script-gated** by AGT-07 `string_audit_check` (clean; `i18n/es.qm`, 509 strings), not asserted by any test. | covered (retranslate); wrapping script-gated |
 
 ## DATA requirements (`data/` output/artifact serialisation + CLI input load)
 
@@ -68,7 +68,7 @@ Status legend:
 | REQ-P7-DATA-001 | **IO-3** (`project_io` pattern), Article VII §2, Phase-7 cap | §4, §11 | SC-D001-1 | `tests/data/test_export_io.py` (portable write of exact engine bytes + JSON; no re-encode) | covered (shipped) |
 | REQ-P7-DATA-002 | REQ-P7-LOGIC-011, **IO-3**, Phase-7 cap | §4, §11 | SC-D002-1 | `tests/data/test_export_io.py` (Unity/Godot artifacts: deterministic, portable) | covered (shipped) |
 | REQ-P7-DATA-003 | Article VII, **IO-3**, **DOC-1** | §4, §11 | SC-D003-1 | `tests/data/test_export_cli.py` (defensive .pixproj load; malformed → ProjectIOError; == GUI Document) | covered (shipped) |
-| REQ-P7-DATA-004 | REQ-P7-LOGIC-007, -008, **IO-3**, P2 | §4, §11 | SC-D004-1 | `tests/data/test_export_io.py` (written JSON valid + re-importable; coord/pixel round-trip) | covered (shipped) |
+| REQ-P7-DATA-004 | REQ-P7-LOGIC-007, -008, **IO-3**, P2 | §4, §11 | SC-D004-1 | `test_export.py::test_export_atlas_coord_pixel_round_trip` (cropping each JSON rect returns the source frame pixels — the re-importability proof), `::test_metadata_json_is_deterministic_and_complete`, `::test_metadata_json_uses_compact_sorted_separators`, `::test_metadata_json_without_tags`, `::test_sheet_maps_document_tags_with_directions`, `::test_named_tag_maps_to_zero_based_span_in_sheet` + `test_export_io.py::test_write_export_writes_image_and_json_verbatim`, `::test_write_export_png_has_no_json` | covered (shipped) |
 
 ## Coverage summary
 

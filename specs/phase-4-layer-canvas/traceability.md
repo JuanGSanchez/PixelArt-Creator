@@ -8,11 +8,16 @@ acceptance scenario **and** ≥1 landed test. AGT-04 authored the logic tests (p
 AGT-06 authored the UI tests (pytest-qt, both themes). The two script-gated NFRs (REQ-P4-UI-015 perf,
 REQ-P4-UI-018 string audit) are evidenced by AGT-10 `perf_profile` and AGT-07 `string_audit_check`.
 
-> **AGT-01 note (T16 gate).** The `Test id(s)` column below is filled with the test **module(s)**
-> that cover each REQ, not per-scenario `SC` node ids. Reason: the Phase-4 `SC-UI-*` scenario numbers
-> collide with the Phase-1 `SC-UI-*` numbers across separate test files, so a per-scenario-id mapping is
-> a matrix-ownership refinement that belongs to **AGT-02** (flagged, non-blocking). The module mapping
-> is exact and verified against the tree at gate time.
+> **AGT-01 note (T16 gate) — RESOLVED by AGT-02, 2026-08-15.** The `Test id(s)` column was
+> previously filled with the test **module(s)** covering each REQ. AGT-01 flagged the per-test-id
+> refinement as an AGT-02 matrix-ownership item (non-blocking); the PA-08 audit then measured its
+> cost — `scripts/build_matrix.py` joins on `file.py::test_name` pairs, so a module-only cell
+> recorded no coverage and all 25 of these REQs were reported as gaps despite being fully tested.
+> The column now names the exact test **functions**, resolved against the tree on 2026-08-15 and
+> verified by `build_matrix` (a named test that does not exist is reported as a phantom, so every
+> id below is proven present). The `SC-UI-*` collision AGT-01 cited is a non-issue at function
+> granularity: the Phase-4 tests live in `tests/ui/test_layer_panel.py` and the Phase-1 ones in
+> `tests/ui/test_main_window.py`, and the file qualifies the name.
 
 Status legend:
 - **covered** — has ≥1 Gherkin acceptance scenario **and** ≥1 landed test module.
@@ -22,44 +27,44 @@ Status legend:
 
 | REQ-ID | Traces (S-id / F / inherited) | Spec § | Scenario(s) | Test id(s) | Status |
 | --- | --- | --- | --- | --- | --- |
-| REQ-P4-LOGIC-001 | S6, Phase-4 cap | §4, §11 | SC-L001-1 | `tests/logic/test_blend.py` | covered |
-| REQ-P4-LOGIC-002 | Phase-4 cap, **F-blend (DEP-1)** | §4, §11 | SC-L002-1, SC-L002-2 | `tests/logic/test_blend.py` (soft-light D(Cb) known-value + Hypothesis determinism) | covered |
-| REQ-P4-LOGIC-003 | **FU-3** (`color.blend_over`→normal), S7 | §4, §11 | SC-L003-1 | `tests/logic/test_blend.py` (NORMAL == `color.blend_over`) | covered |
-| REQ-P4-LOGIC-004 | S7, Phase-4 cap | §4, §11 | SC-L004-1, SC-L004-2, SC-L004-3 | `tests/logic/test_blend.py` | covered |
-| REQ-P4-LOGIC-005 | **REV-5** (`Layer.opacity`) | §4, §11 | SC-L005-1 | `tests/logic/test_blend.py` | covered |
-| REQ-P4-LOGIC-006 | **REV-5** (`Layer.visible`) | §4, §11 | SC-L006-1 | `tests/logic/test_blend.py` | covered |
-| REQ-P4-LOGIC-007 | Phase-4 cap, REQ-P4-LOGIC-001..003 | §4, §11 | SC-L007-1, SC-L007-2 | `tests/logic/test_blend.py` (+ Hypothesis N-NORMAL fold) | covered |
-| REQ-P4-LOGIC-008 | **REV-5**, S7 | §4, §11 | SC-L008-1, SC-L008-2 | `tests/logic/test_document_layers.py` | covered |
-| REQ-P4-LOGIC-009 | S7, Phase-4 cap | §4, §11 | SC-L009-1, SC-L009-2, SC-L009-3, SC-L009-4 | `tests/logic/test_document_layers.py` | covered |
-| REQ-P4-LOGIC-010 | **REV-5** (`Layer.locked`), S7, Art. VII | §4, §11 | SC-L010-1 | `tests/logic/test_document_layers.py` | covered |
-| REQ-P4-LOGIC-011 | Phase-4 cap (groups), S7 | §4, §11 | SC-L011-1, SC-L011-2, SC-L011-3 | `tests/logic/test_blend.py`, `tests/logic/test_document_layers.py` | covered |
-| REQ-P4-LOGIC-012 | Phase-4 cap (masks), S7 | §4, §11 | SC-L012-1, SC-L012-2, SC-L012-3 | `tests/logic/test_blend.py`, `tests/logic/test_document_layers.py` | covered |
-| REQ-P4-LOGIC-013 | Phase-4 cap (reference layers) | §4, §11 | SC-L013-1 | `tests/logic/test_document_layers.py` | covered |
-| REQ-P4-LOGIC-014 | Phase-4 cap (smart, minimal), S6 | §4, §11 | SC-L014-1 | `tests/logic/test_document_layers.py` | covered |
-| REQ-P4-LOGIC-015 | Art. II, Art. VII, S12 | §4, §11 | SC-L015-1, SC-L015-2 | `tests/logic/test_document_layers.py` | covered |
+| REQ-P4-LOGIC-001 | S6, Phase-4 cap | §4, §11 | SC-L001-1 | `test_blend.py::test_enum_matches_grounded_w3c_separable_set`, `test_blend_fullframe.py::test_separable_mode_count_is_eleven` | covered |
+| REQ-P4-LOGIC-002 | Phase-4 cap, **F-blend (DEP-1)** | §4, §11 | SC-L002-1, SC-L002-2 | `test_blend.py::test_blend_channel_documented_known_values`, `::test_blend_channel_matches_w3c_oracle`, `::test_soft_light_cubic_branch_cb_le_quarter`, `::test_soft_light_sqrt_branch_cb_gt_quarter` | covered |
+| REQ-P4-LOGIC-003 | **FU-3** (`color.blend_over`→normal), S7 | §4, §11 | SC-L003-1 | `test_blend.py::test_blend_pixels_normal_delegates_to_blend_over_exactly`, `::test_blend_pixels_normal_equals_blend_over_property`, `::test_blend_arrays_normal_base_case_equals_blend_over_exactly` | covered |
+| REQ-P4-LOGIC-004 | S7, Phase-4 cap | §4, §11 | SC-L004-1, SC-L004-2, SC-L004-3 | `test_blend.py::test_composite_bottom_to_top_order`, `::test_blend_arrays_never_mutates_inputs`, `::test_composite_rejects_wrong_geometry` | covered |
+| REQ-P4-LOGIC-005 | **REV-5** (`Layer.opacity`) | §4, §11 | SC-L005-1 | `test_blend.py::test_composite_respects_opacity`, `::test_blend_arrays_opacity_scales_effective_source_alpha`, `::test_blend_arrays_opacity_out_of_range_raises` | covered |
+| REQ-P4-LOGIC-006 | **REV-5** (`Layer.visible`) | §4, §11 | SC-L006-1 | `test_blend.py::test_composite_hidden_layer_is_a_noop`, `test_blend_fullframe.py::test_hidden_layer_excluded_from_full_frame` | covered |
+| REQ-P4-LOGIC-007 | Phase-4 cap, REQ-P4-LOGIC-001..003 | §4, §11 | SC-L007-1, SC-L007-2 | `test_blend.py::test_composite_respects_blend_mode`, `::test_blend_arrays_normal_base_case_equals_blend_over_property` | covered |
+| REQ-P4-LOGIC-008 | **REV-5**, S7 | §4, §11 | SC-L008-1, SC-L008-2 | `test_document_layers.py::test_attribute_command_reversible`, `::test_set_opacity_validates_before_command`, `::test_set_blend_mode_validates_before_command` | covered |
+| REQ-P4-LOGIC-009 | S7, Phase-4 cap | §4, §11 | SC-L009-1, SC-L009-2, SC-L009-3, SC-L009-4 | `test_document_layers.py::test_add_layer_command_reversible`, `::test_add_layer_command_above_ref`, `::test_remove_layer_command_restores_index_and_contents`, `::test_remove_last_top_level_layer_refused`, `::test_move_layer_command_reversible`, `::test_duplicate_layer_command_reversible_and_independent` | covered |
+| REQ-P4-LOGIC-010 | **REV-5** (`Layer.locked`), S7, Art. VII | §4, §11 | SC-L010-1 | `test_document_layers.py::test_ensure_editable_raises_on_locked`, `::test_locked_layer_attributes_still_changeable`, `::test_ensure_editable_passes_for_plain_layer` | covered |
+| REQ-P4-LOGIC-011 | Phase-4 cap (groups), S7 | §4, §11 | SC-L011-1, SC-L011-2, SC-L011-3 | `test_blend.py::test_composite_group_flattened_then_blended_as_one`, `::test_composite_hidden_group_is_a_noop`, `test_document_layers.py::test_group_command_reversible`, `::test_ungroup_command_reversible`, `::test_iter_layers_walks_leaves_through_nested_groups` | covered |
+| REQ-P4-LOGIC-012 | Phase-4 cap (masks), S7 | §4, §11 | SC-L012-1, SC-L012-2, SC-L012-3 | `test_blend.py::test_composite_mask_modulates_layer`, `::test_blend_arrays_mask_forms_modulate`, `::test_blend_arrays_mask_wrong_geometry_raises`, `test_document_layers.py::test_attach_and_detach_mask_reversible`, `::test_attach_mask_geometry_and_type_guards` | covered |
+| REQ-P4-LOGIC-013 | Phase-4 cap (reference layers) | §4, §11 | SC-L013-1 | `test_document_layers.py::test_set_reference_command_reversible`, `::test_ensure_editable_raises_on_reference` | covered |
+| REQ-P4-LOGIC-014 | Phase-4 cap (smart, minimal), S6 | §4, §11 | SC-L014-1 | `test_document_layers.py::test_smart_layer_effective_buffer_mirrors_source`, `::test_smart_layer_command_reversible_and_mirrors_source`, `::test_smart_layer_source_must_be_leaf` | covered |
+| REQ-P4-LOGIC-015 | Art. II, Art. VII, S12 | §4, §11 | SC-L015-1, SC-L015-2 | `test_document_layers.py::test_add_layer_at_max_layers_raises`, `::test_duplicate_at_max_layers_raises`, `::test_smart_layer_at_max_layers_raises`, `::test_group_command_over_depth_raises`, `::test_move_over_depth_raises`, `::test_layer_defaults_and_effective_buffer` | covered |
 
 ## UI requirements
 
 | REQ-ID | Traces (S-id / F / inherited) | Spec § | Scenario(s) | Test id(s) | Status |
 | --- | --- | --- | --- | --- | --- |
-| REQ-P4-UI-001 | **REV-5**, S6 | §4, §11 | SC-P4-UI-001-1 | `tests/ui/test_layer_panel.py`, `test_ui_branches.py` | covered |
-| REQ-P4-UI-002 | **REV-5** (`Layer.opacity`→UI) | §4, §11 | SC-P4-UI-002-1 | `tests/ui/test_layer_panel.py` | covered |
-| REQ-P4-UI-003 | **REV-5** (`Layer.visible`→UI) | §4, §11 | SC-P4-UI-003-1 | `tests/ui/test_layer_panel.py` | covered |
-| REQ-P4-UI-004 | **REV-5** (`Layer.locked`→UI) | §4, §11 | SC-P4-UI-004-1 | `tests/ui/test_layer_panel.py` | covered |
-| REQ-P4-UI-005 | REQ-P4-LOGIC-001, Phase-4 cap | §4, §11 | SC-P4-UI-005-1 | `tests/ui/test_layer_panel.py` (12-mode dropdown) | covered |
-| REQ-P4-UI-006 | REQ-P4-LOGIC-009, S6 | §4, §11 | SC-P4-UI-006-1 | `tests/ui/test_layer_panel.py` | covered |
-| REQ-P4-UI-007 | REQ-P4-LOGIC-009 | §4, §11 | SC-P4-UI-007-1 | `tests/ui/test_layer_panel.py` | covered |
-| REQ-P4-UI-008 | REQ-P4-LOGIC-011 | §4, §11 | SC-P4-UI-008-1 | `tests/ui/test_layer_panel.py` | covered |
-| REQ-P4-UI-009 | REQ-P4-LOGIC-012 | §4, §11 | SC-P4-UI-009-1 | `tests/ui/test_layer_panel.py`, `test_ui_branches.py` | covered |
-| REQ-P4-UI-010 | REQ-P4-LOGIC-013 | §4, §11 | SC-P4-UI-010-1 | `tests/ui/test_layer_panel.py`, `test_ui_branches.py` | covered |
-| REQ-P4-UI-011 | REQ-P4-LOGIC-014 | §4, §11 | SC-P4-UI-011-1 | `tests/ui/test_layer_panel.py`, `test_ui_branches.py` | covered |
-| REQ-P4-UI-012 | S1, S7, REQ-P4-LOGIC-004 | §4, §11 | SC-P4-UI-012-1, SC-P4-UI-012-2 | `tests/ui/test_canvas_scene.py`, `test_layer_panel.py`, `test_ui_branches.py` | covered |
-| REQ-P4-UI-013 | S7, C1, F1, REQ-P4-LOGIC-008/-009 | §4, §11 | SC-P4-UI-013-1 | `tests/ui/test_layer_panel.py` (one QUndoCommand per op) | covered |
-| REQ-P4-UI-014 | S1, S6, S7 (extends REQ-P1-UI-020) | §4, §11 | SC-P4-UI-014-1, SC-P4-UI-014-2 | `tests/ui/test_layer_panel.py`, `test_main_window.py` (tab isolation) | covered |
-| REQ-P4-UI-015 (NFR) | S1, S12, F2, F7, Art. VI, DEP-2 | §5, §11 | SC-P4-UI-015-1 | AGT-10 `perf_profile --composite` (region path; **re-profile open** per T13) + region-contract asserted in `tests/logic/test_blend.py` | covered (perf re-profile open) |
-| REQ-P4-UI-016 (NFR) | Art. V §1 | §5, §11 | SC-P4-UI-016-1 | `tests/ui/test_layer_panel.py` (a11y: names/keyboard/focus) | covered |
-| REQ-P4-UI-017 (NFR) | Art. V §3 | §5, §11 | SC-P4-UI-017-1 (+ every UI scenario in both themes) | `tests/ui/test_layer_panel.py` (both themes) | covered |
-| REQ-P4-UI-018 (NFR) | Art. V §2, F6 | §5, §11 | SC-P4-UI-018-1 | AGT-07 `string_audit_check` + `tests/ui/test_layer_panel.py` (`changeEvent` retranslate) | covered |
+| REQ-P4-UI-001 | **REV-5**, S6 | §4, §11 | SC-P4-UI-001-1 | `test_layer_panel.py::test_sc_ui_001_1_panel_lists_layers_top_to_bottom` | covered |
+| REQ-P4-UI-002 | **REV-5** (`Layer.opacity`→UI) | §4, §11 | SC-P4-UI-002-1 | `test_layer_panel.py::test_sc_ui_002_1_opacity_slider_sets_opacity_one_command`, `::test_req_b_locked_layer_opacity_still_changeable` | covered |
+| REQ-P4-UI-003 | **REV-5** (`Layer.visible`→UI) | §4, §11 | SC-P4-UI-003-1 | `test_layer_panel.py::test_sc_ui_003_1_visibility_toggle_hides_from_composite`, `::test_req_b_locked_layer_visibility_still_toggleable`, `::test_req_b_hidden_layer_can_be_refocused_and_reshown` | covered |
+| REQ-P4-UI-004 | **REV-5** (`Layer.locked`→UI) | §4, §11 | SC-P4-UI-004-1 | `test_layer_panel.py::test_sc_ui_004_1_lock_toggle_makes_paint_noop`, `::test_req_b_locked_layer_can_be_focused` | covered |
+| REQ-P4-UI-005 | REQ-P4-LOGIC-001, Phase-4 cap | §4, §11 | SC-P4-UI-005-1 | `test_layer_panel.py::test_sc_ui_005_1_blend_dropdown_lists_twelve_and_sets_mode` | covered |
+| REQ-P4-UI-006 | REQ-P4-LOGIC-009, S6 | §4, §11 | SC-P4-UI-006-1 | `test_layer_panel.py::test_sc_ui_006_1_drag_reorder_changes_zorder` | covered |
+| REQ-P4-UI-007 | REQ-P4-LOGIC-009 | §4, §11 | SC-P4-UI-007-1 | `test_layer_panel.py::test_sc_ui_007_1_add_duplicate_remove_each_one_command`, `::test_sc_ui_007_1_last_layer_removal_refused` | covered |
+| REQ-P4-UI-008 | REQ-P4-LOGIC-011 | §4, §11 | SC-P4-UI-008-1 | `test_layer_panel.py::test_sc_ui_008_1_group_then_ungroup_reversible` | covered |
+| REQ-P4-UI-009 | REQ-P4-LOGIC-012 | §4, §11 | SC-P4-UI-009-1 | `test_layer_panel.py::test_sc_ui_009_1_mask_attach_paint_modulates_layer_unchanged` | covered |
+| REQ-P4-UI-010 | REQ-P4-LOGIC-013 | §4, §11 | SC-P4-UI-010-1 | `test_layer_panel.py::test_sc_ui_010_1_reference_layer_visible_but_rejects_paint` | covered |
+| REQ-P4-UI-011 | REQ-P4-LOGIC-014 | §4, §11 | SC-P4-UI-011-1 | `test_layer_panel.py::test_sc_ui_011_1_smart_layer_mirrors_source` | covered |
+| REQ-P4-UI-012 | S1, S7, REQ-P4-LOGIC-004 | §4, §11 | SC-P4-UI-012-1, SC-P4-UI-012-2 | `test_layer_panel.py::test_sc_ui_012_1_canvas_renders_composite_not_one_layer`, `::test_sc_ui_012_2_edit_in_group_updates_composite_no_stale_cache` | covered |
+| REQ-P4-UI-013 | S7, C1, F1, REQ-P4-LOGIC-008/-009 | §4, §11 | SC-P4-UI-013-1 | `test_layer_panel.py::test_sc_ui_013_1_each_layer_op_is_one_command_undo_restores` | covered |
+| REQ-P4-UI-014 | S1, S6, S7 (extends REQ-P1-UI-020) | §4, §11 | SC-P4-UI-014-1, SC-P4-UI-014-2 | `test_layer_panel.py::test_sc_ui_014_1_and_2_multi_canvas_isolation`, `test_main_window.py::test_sc_ui_020_3_tab_switch_changes_active_context` | covered |
+| REQ-P4-UI-015 | S1, S12, F2, F7, Art. VI, DEP-2 (NFR) | §5, §11 | SC-P4-UI-015-1 | **dirty-rect clause only:** `test_blend.py::test_composite_region_scopes_recomposite`, `::test_composite_region_never_allocates_full_canvas`, `::test_composite_region_equals_full_canvas_when_region_is_whole_canvas`. **The ≤ `FRAME_BUDGET_MS` clause has NO assertion in the test tree** — it is script-gated by AGT-10 `perf_profile --composite` (re-profile open per T13), which `build_matrix` does not scan. | covered (dirty-rect); budget script-gated |
+| REQ-P4-UI-016 | Art. V §1 (NFR) | §5, §11 | SC-P4-UI-016-1 | `test_layer_panel.py::test_sc_ui_016_1_layer_panel_accessible_and_keyboard_reachable` | covered |
+| REQ-P4-UI-017 | Art. V §3 (NFR) | §5, §11 | SC-P4-UI-017-1 (+ every UI scenario in both themes) | `test_layer_panel.py::test_sc_ui_017_1_panel_and_composite_render_in_active_theme` (autouse `theme` fixture runs the whole module in both) | covered |
+| REQ-P4-UI-018 | Art. V §2, F6 (NFR) | §5, §11 | SC-P4-UI-018-1 | `test_layer_panel.py::test_sc_ui_018_1_blend_labels_translatable_and_retranslate` + AGT-07 `string_audit_check` | covered |
 
 ## DATA requirements (`.pixproj` v2 — allocated by plan §7, ADR-0006)
 

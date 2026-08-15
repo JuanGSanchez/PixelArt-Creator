@@ -19,41 +19,41 @@ Status legend:
 | REQ-ID | Traces (S-id / F / inherited) | Spec § | Scenario(s) | Test id(s) | Status |
 | --- | --- | --- | --- | --- | --- |
 | REQ-P6-LOGIC-001 | S6, Phase-6 cap | §4, §11 | SC-L001-1, SC-L001-2 | `test_tileset.py` (slice grid + invalid params) | covered |
-| REQ-P6-LOGIC-002 | **PB-1** (`region`/`blit`), Phase-6 cap | §4, §11 | SC-L002-1 | `test_tileset.py` (tile derives from `region`; ColorMode inherit) | covered |
-| REQ-P6-LOGIC-003 | Phase-6 cap, S6, P2 | §4, §11 | SC-L003-1, SC-L003-2 | `test_tileset.py` (row-major ids; global gid / first-gid) | covered |
-| REQ-P6-LOGIC-004 | **PB-1**, Phase-6 cap, S7 | §4, §11 | SC-L004-1 | `test_tileset.py` (reversible source-tile edit seen by all readers) | covered |
+| REQ-P6-LOGIC-002 | **PB-1** (`region`/`blit`), Phase-6 cap | §4, §11 | SC-L002-1 | `test_tileset.py::test_sc_l002_1_tile_pixels_derive_from_source_region_and_inherit_mode`, `::test_tile_pixels_inherit_indexed_mode` | covered |
+| REQ-P6-LOGIC-003 | Phase-6 cap, S6, P2 | §4, §11 | SC-L003-1, SC-L003-2 | `test_tileset.py::test_sc_l003_1_ids_are_row_major_and_region_is_total`, `::test_global_gid_space_first_gid_offset`, `::test_region_of_rejects_out_of_range_id`, `::test_local_id_for_foreign_gid_raises` | covered |
+| REQ-P6-LOGIC-004 | **PB-1**, Phase-6 cap, S7 | §4, §11 | SC-L004-1 | `test_tileset.py::test_sc_l004_1_edit_tile_is_reversible_and_seen_by_all_readers`, `::test_edit_tile_rejects_wrong_geometry_and_mode` | covered |
 | REQ-P6-LOGIC-005 | S6, Phase-6 cap | §4, §11 | SC-L005-1 | `test_tilemap.py` (linked instance: gid + flip, no pixel copy; empty = gid 0) | covered |
 | REQ-P6-LOGIC-006 | **PB-1**, Phase-6 cap (tile-linking), S6 | §4, §11 | SC-L006-1 | `test_tilemap.py` (source-tile edit propagates to all instances) | covered |
-| REQ-P6-LOGIC-007 | **HIS-1** (command pattern), S7 | §4, §11 | SC-L007-1, SC-L007-2 | `test_tilemap.py` (reversible stamp/erase/fill; unknown-gid reject) | covered |
-| REQ-P6-LOGIC-008 | S6, Phase-6 cap, S7 | §4, §11 | SC-L008-1 | `test_tilemap.py` (reversible layer add/remove/reorder/visibility; MAX bound) | covered |
-| REQ-P6-LOGIC-009 | S6, Phase-6 cap, Art. VII | §4, §11 | SC-L009-1 | `test_tilemap.py` (arbitrary/negative coords, sparse, empty read) | covered |
+| REQ-P6-LOGIC-007 | **HIS-1** (command pattern), S7 | §4, §11 | SC-L007-1, SC-L007-2 | `test_tilemap.py::test_sc_l007_1_stamp_is_reversible_and_stores_gid_plus_flip`, `::test_sc_l007_1_erase_and_fill_reversible`, `::test_sc_l007_2_stamp_unknown_gid_rejected`, `::test_empty_gid_stamp_allowed_and_clears`, `::test_fill_rejects_bad_size_and_layer` | covered |
+| REQ-P6-LOGIC-008 | S6, Phase-6 cap, S7 | §4, §11 | SC-L008-1 | `test_tilemap.py::test_sc_l008_1_layer_add_remove_reorder_visibility_reversible`, `::test_add_layer_at_index`, `::test_add_layer_over_max_raises`, `::test_add_layer_bad_index_and_move_out_of_range` | covered |
+| REQ-P6-LOGIC-009 | S6, Phase-6 cap, Art. VII | §4, §11 | SC-L009-1 | `test_tilemap.py::test_sc_l009_1_arbitrary_negative_coords_sparse`, `::test_coord_out_of_range_rejected` | covered |
 | REQ-P6-LOGIC-010 | Phase-6 cap (auto-tiling), **F-tilemap (DEP-1)**, P2 | §4, §11 | SC-L010-1 | `test_autotile.py` (deterministic 256→47 LUT resolution) | covered |
 | REQ-P6-LOGIC-011 | Phase-6 cap (auto-tiling), S7, P2 | §4, §11 | SC-L011-1 | `test_autotile.py` + `test_tilemap.py` (auto-tile reversible; logical placement preserved, neighbour re-resolve captured) | covered |
 | REQ-P6-LOGIC-012 | **HIS-1**, S7, C1 | §4, §11 | SC-L012-1 | `test_tilemap.py` + `test_document_tilemap.py` (all mutations + attach/detach do/undo; view state not reversible) | covered |
-| REQ-P6-LOGIC-013 | **PB-1**, **CO-4** (`composite_stack`), S7 | §4, §11 | SC-L013-1 | `test_tilemap.py` + `test_tilemap_render_vectorised.py` (resolve instances + composite via CO-4; vectorised, non-destructive) | covered |
-| REQ-P6-LOGIC-014 | Art. II, Art. VII, S12 | §4, §11 | SC-L014-1, SC-L014-2 | `test_tileset.py` / `test_tilemap.py` (bounds enforced; defaults from constants; ≠ TILE_SIZE) | covered |
+| REQ-P6-LOGIC-013 | **PB-1**, **CO-4** (`composite_stack`), S7 | §4, §11 | SC-L013-1 | `test_tilemap.py::test_sc_l013_1_render_resolves_instances_and_composites`, `::test_render_applies_flip_orientation`, `::test_render_is_non_destructive`, `::test_render_hidden_layer_skipped`, `::test_render_indexed_source_rejected`, `::test_render_region_size_validation` (+ `tests/logic/test_tilemap_render_vectorised.py`, vectorised parity) | covered |
+| REQ-P6-LOGIC-014 | Art. II, Art. VII, S12 | §4, §11 | SC-L014-1, SC-L014-2 | `test_tileset.py::test_sc_l014_1_tile_count_over_max_is_rejected`, `::test_sc_l014_2_defaults_from_constants_distinct_from_tile_size`, `test_tilemap.py::test_add_layer_over_max_raises`, `::test_coord_out_of_range_rejected` | covered |
 
 ## UI requirements (`ui/` tileset editor / tilemap canvas / tools / layers / auto-tile / I/O actions)
 
 | REQ-ID | Traces (S-id / F / inherited) | Spec § | Scenario(s) | Test id(s) | Status |
 | --- | --- | --- | --- | --- | --- |
 | REQ-P6-UI-001 | REQ-P6-LOGIC-001, -003 | §4, §11 | SC-UI-001-1 | `test_tileset_editor.py` (slice display + select) | covered |
-| REQ-P6-UI-002 | REQ-P6-LOGIC-001, -014 | §4, §11 | SC-UI-002-1 | `test_tileset_editor.py` (slicing config re-slice + reject) | covered |
+| REQ-P6-UI-002 | REQ-P6-LOGIC-001, -014 | §4, §11 | SC-UI-002-1 | `test_tileset_editor.py::test_sc_ui_002_1_reslice_is_one_undoable_command`, `::test_sc_ui_002_1_out_of_range_slice_is_rejected` | covered |
 | REQ-P6-UI-003 | REQ-P6-LOGIC-004, -006 | §4, §11 | SC-UI-003-1 | `test_tileset_editor.py` + `test_tileset_pixel_editor.py` (edit source tile → instances update; one command) | covered |
 | REQ-P6-UI-004 | REQ-P6-LOGIC-013, S1 | §4, §11 | SC-UI-004-1 | `test_tilemap_canvas.py` (composited layer stack render) | covered |
 | REQ-P6-UI-005 | REQ-P6-LOGIC-005, -007 | §4, §11 | SC-UI-005-1 | `test_tilemap_canvas.py` + `test_tilemap_canvas_interaction.py` (stamp = one command, linked instance) | covered |
-| REQ-P6-UI-006 | REQ-P6-LOGIC-007 | §4, §11 | SC-UI-006-1 | `test_tilemap_canvas_interaction.py` (erase = one command; undo restores) | covered |
-| REQ-P6-UI-007 | REQ-P6-LOGIC-007 | §4, §11 | SC-UI-007-1 | `test_tilemap_canvas_interaction.py` + `test_tilemap_paint_edges.py` (rectangle-fill = one command) | covered |
+| REQ-P6-UI-006 | REQ-P6-LOGIC-007 | §4, §11 | SC-UI-006-1 | `test_tilemap_canvas.py::test_sc_ui_006_1_erase_is_one_command_and_restores`, `test_tilemap_canvas_interaction.py::test_mouse_erase_and_fill_paths`, `test_tilemap_guards.py::test_edits_with_no_tilemap_return_early` | covered |
+| REQ-P6-UI-007 | REQ-P6-LOGIC-007 | §4, §11 | SC-UI-007-1 | `test_tilemap_canvas.py::test_sc_ui_007_1_rectangle_fill_is_one_command`, `test_tilemap_canvas_interaction.py::test_mouse_erase_and_fill_paths`, `test_tilemap_guards.py::test_stamp_and_fill_unknown_gid_warn_without_crash` | covered |
 | REQ-P6-UI-008 | REQ-P6-LOGIC-008 | §4, §11 | SC-UI-008-1 | `test_tilemap_layers.py` (layer add/remove/reorder/hide, one command each) | covered |
-| REQ-P6-UI-009 | REQ-P6-LOGIC-010, -011 | §4, §11 | SC-UI-009-1 | `test_tilemap_canvas.py` (auto-tile on stamp; single undoable command) | covered |
-| REQ-P6-UI-010 | REQ-P6-LOGIC-009 | §4, §11 | SC-UI-010-1 | `test_tilemap_canvas.py` (pan into empty space + stamp; nav no command) | covered |
+| REQ-P6-UI-009 | REQ-P6-LOGIC-010, -011 | §4, §11 | SC-UI-009-1 | `test_tilemap_canvas.py::test_sc_ui_009_1_autotile_resolves_and_undoes_as_one_command`, `test_tilemap_canvas_interaction.py::test_autotile_toggle_refused_without_full_atlas`, `test_tilemap_guards.py::test_autotile_disable_clears_ruleset`, `test_tilemap_paint_edges.py::test_autotile_checkbox_toggle_emits` | covered |
+| REQ-P6-UI-010 | REQ-P6-LOGIC-009 | §4, §11 | SC-UI-010-1 | `test_tilemap_canvas.py::test_sc_ui_010_1_infinite_map_stamp_and_view_ops_push_no_command`, `test_tilemap_canvas_interaction.py::test_middle_button_pan_moves_scrollbars`, `::test_space_then_left_drag_pans` | covered |
 | REQ-P6-UI-011 | REQ-P6-DATA-001 | §4, §11 | SC-UI-011-1 | `test_tilemap_io_actions.py` (export writes Tiled JSON, portable path) | covered |
-| REQ-P6-UI-012 | REQ-P6-DATA-002, -003 | §4, §11 | SC-UI-012-1 | `test_tilemap_io_actions.py` (import reconstructs; malformed → graceful error) | covered |
-| REQ-P6-UI-013 | S7, C1, F1, REQ-P6-LOGIC-007/-008/-012 | §4, §11 | SC-UI-013-1 | `test_tilemap_canvas.py` + `test_tilemap_guards.py` + `test_tilemap_trivial_guards.py` (one command per edit; view ops none) | covered |
+| REQ-P6-UI-012 | REQ-P6-DATA-002, -003 | §4, §11 | SC-UI-012-1 | `test_tilemap_io_actions.py::test_sc_ui_012_1_export_import_round_trip_is_equivalent`, `::test_sc_ui_012_1_typed_load_errors_surface_without_crash`, `::test_sc_ui_012_1_malformed_json_surfaces_without_crash`, `::test_cancelled_dialogs_return_none` | covered |
+| REQ-P6-UI-013 | S7, C1, F1, REQ-P6-LOGIC-007/-008/-012 | §4, §11 | SC-UI-013-1 | `test_tilemap_canvas.py::test_sc_ui_010_1_infinite_map_stamp_and_view_ops_push_no_command` (view ops push no command), `test_tilemap_canvas_interaction.py::test_mouse_stamp_drag_pushes_commands`, `::test_middle_button_pan_moves_scrollbars`, `::test_wheel_zoom`, `test_tilemap_guards.py::test_stamp_with_empty_brush_is_noop`, `::test_visibility_unchanged_pushes_no_command`, `::test_layer_ops_with_no_tilemap_are_noops`, `test_tilemap_paint_edges.py::test_move_out_of_range_is_noop` | covered |
 | REQ-P6-UI-014 (NFR) | S1, S12, F2, F7, Art. VI, DEP-3 | §5, §11 | SC-UI-014-1 | `test_tilemap_chunk_cache.py` + `test_tilemap_teardown.py` (per-chunk cache/`chunk_version` viewport redraw + deterministic warm teardown); AGT-10 `perf_profile --tilemap` two-part gate (loop-back CLOSED ≤16 ms) | covered |
 | REQ-P6-UI-015 (NFR) | Art. V §1 | §5, §11 | SC-UI-015-1 | `test_tileset_editor.py` / `test_tilemap_canvas.py` (accessible names / keyboard / focus) | covered |
 | REQ-P6-UI-016 (NFR) | Art. V §3 | §5, §11 | SC-UI-016-1 (+ every UI scenario in both themes) | both-theme fixtures across the UI test modules | covered |
-| REQ-P6-UI-017 (NFR) | Art. V §2, F6 | §5, §11 | SC-UI-017-1 | tr()-wrapped panels + `changeEvent` retranslate; AGT-07 `string_audit_check` (i18n done) | covered |
+| REQ-P6-UI-017 | Art. V §2, F6 (NFR) | §5, §11 | SC-UI-017-1 | **No test in the tree exercises this.** Searched 2026-08-15 (PA-08): no Phase-6 UI test module sends `QEvent.LanguageChange` or asserts a tileset/tilemap label is `tr()`-wrapped; `tests/ui/test_i18n.py` covers only the Phase-1 mechanism (REQ-P1-UI-021/-022). Evidence today is AGT-07's `string_audit_check` script, which `build_matrix` does not scan. **Test owed → AGT-06**, modelled on the Phase-4 blend-label retranslate test in `tests/ui/test_layer_panel.py` (name omitted here on purpose: `build_matrix` reads any `file.py`-colon-colon-`test_name` token on this line as a coverage claim for this REQ). | **uncovered — test owed (AGT-06)** |
 
 ## DATA requirements (`data/` Tiled JSON I/O + native `.pixproj` persistence)
 
@@ -66,7 +66,7 @@ Status legend:
 | --- | --- | --- | --- | --- | --- |
 | REQ-P6-DATA-001 | **IO-3** (`project_io` pattern), S6/S7, Phase-6 cap | §4, §11 | SC-D001-1 | `test_tiled_io.py` (valid Tiled JSON export) | covered |
 | REQ-P6-DATA-002 | **IO-3**, S7, Phase-6 cap, P2 | §4, §11 | SC-D002-1 | `test_tiled_io.py` (export→import lossless round-trip) | covered |
-| REQ-P6-DATA-003 | Art. VII, **IO-3** | §4, §11 | SC-D003-1 | `test_tiled_io.py` (defensive load: bounds/gid/size/orientation → `ProjectIOError`) | covered |
+| REQ-P6-DATA-003 | Art. VII, **IO-3** | §4, §11 | SC-D003-1 | `test_tiled_io.py::test_import_rejects_out_of_range_gid`, `::test_import_rejects_bad_tile_dimension`, `::test_import_rejects_wrong_csv_length`, `::test_import_rejects_non_orthogonal_orientation`, `::test_import_rejects_oversized_tileset_image`, `::test_import_rejects_bad_opacity`, `::test_import_rejects_zstd_compression`, `::test_import_rejects_external_tsx`, `::test_import_rejects_corrupt_base64`, `::test_import_rejects_non_dict`, `::test_read_tiled_json_malformed_file_raises`, `::test_read_tiled_json_missing_file_raises`, `::test_external_tsj_without_base_dir_rejected` | covered |
 | REQ-P6-DATA-004 | **IO-3**, **DOC-1**, S7, Phase-6 cap | §4, §11 | SC-D004-1 | `test_project_io_tilemap.py` (native round-trip + tilemap-less back-compat) | covered |
 
 ## Coverage summary
