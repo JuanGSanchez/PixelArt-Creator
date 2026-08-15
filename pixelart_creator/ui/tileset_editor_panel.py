@@ -210,10 +210,18 @@ class Tileset_Editor_Panel(QWidget):
         self._active_color: RGBA = (0, 0, 0, 255)
         self._active_index: int = 0
 
-        self._width_spin = self._make_dim_spin(DEFAULT_TILE_WIDTH, minimum=1)
-        self._height_spin = self._make_dim_spin(DEFAULT_TILE_HEIGHT, minimum=1)
-        self._margin_spin = self._make_dim_spin(DEFAULT_TILE_MARGIN, minimum=0)
-        self._spacing_spin = self._make_dim_spin(DEFAULT_TILE_SPACING, minimum=0)
+        self._width_spin = self._make_dim_spin(
+            DEFAULT_TILE_WIDTH, minimum=1, accessible_name=self.tr("Tile width")
+        )
+        self._height_spin = self._make_dim_spin(
+            DEFAULT_TILE_HEIGHT, minimum=1, accessible_name=self.tr("Tile height")
+        )
+        self._margin_spin = self._make_dim_spin(
+            DEFAULT_TILE_MARGIN, minimum=0, accessible_name=self.tr("Tile margin")
+        )
+        self._spacing_spin = self._make_dim_spin(
+            DEFAULT_TILE_SPACING, minimum=0, accessible_name=self.tr("Tile spacing")
+        )
 
         self._form = QFormLayout()
         self._width_label = QLabel(self)
@@ -319,10 +327,17 @@ class Tileset_Editor_Panel(QWidget):
 
     # -- actions ----------------------------------------------------------
 
-    def _make_dim_spin(self, value: int, *, minimum: int) -> QSpinBox:
+    def _make_dim_spin(
+        self, value: int, *, minimum: int, accessible_name: str
+    ) -> QSpinBox:
         spin = QSpinBox(self)
         spin.setRange(minimum, MAX_TILE_DIMENSION)
         spin.setValue(value)
+        # Named at construction (not only in `_retranslate`) so the control is
+        # never briefly unnamed, and so the name travels with the widget through
+        # this shared factory rather than depending on the caller remembering
+        # to add it elsewhere. `_retranslate` re-sets it on a language change.
+        spin.setAccessibleName(accessible_name)
         return spin
 
     def _push(self, command: Command, label: str) -> None:
@@ -384,13 +399,13 @@ class Tileset_Editor_Panel(QWidget):
         has_sel = self.active_gid() is not None
         self._apply_button.setEnabled(has_tileset)
         self._edit_button.setEnabled(has_sel)
-        for spin in (
+        for dim_spin in (
             self._width_spin,
             self._height_spin,
             self._margin_spin,
             self._spacing_spin,
         ):
-            spin.setEnabled(has_tileset)
+            dim_spin.setEnabled(has_tileset)
 
     # -- i18n / a11y ------------------------------------------------------
 

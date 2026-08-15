@@ -1,0 +1,22 @@
+# Byte fidelity is load-bearing: container scripts and viewer assets are
+# byte-identical copies of skill originals, verified by a copy_fidelity
+# check that compares CONTENT. Git for Windows sets core.autocrlf=true at
+# the system level; a checkout that silently rewrote every line ending
+# would break that check everywhere at once and look like tampering.
+* -text
+
+# The memory logs are append-only. Two branches that both appended have no
+# conflict to resolve — they have two sets of facts, and the merge is their
+# union in clock order. Git's default text driver cannot know that: it sees
+# two additions at the same end of a file and writes a conflict marker INTO
+# a log every other verb parses as JSON.
+#
+# `orchmem` is defined per clone (it names a local interpreter and an
+# absolute path), so a fresh clone must run `container_repo.py
+# install-hooks` — the same requirement core.hooksPath already carries.
+# Without it git falls back to the text driver and conflicts loudly, which
+# is the failure to prefer.
+memory/graph/*.jsonl merge=orchmem
+memory/insight/*.jsonl merge=orchmem
+memory/**/graph/*.jsonl merge=orchmem
+memory/**/insight/*.jsonl merge=orchmem

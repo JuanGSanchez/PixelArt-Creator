@@ -112,6 +112,9 @@ class Real_Size_Calibration_Dialog(QDialog):
             )
         )
         self._length_label.setText(self.tr("Measured length"))
+        self._length_spin.setAccessibleName(
+            self.tr("Measured calibration bar length in millimetres")
+        )
         self._bar.setAccessibleName(self.tr("Calibration bar"))
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
@@ -145,7 +148,13 @@ class Real_Size_Preview_Window(QWidget):
         self._view = QGraphicsView(scene, self)
         self._view.setInteractive(False)
         self._view.setDragMode(QGraphicsView.DragMode.NoDrag)
-        self._view.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # Read-only (no item interaction, no drag), but NOT decorative: both
+        # scrollbars are ScrollBarAsNeeded, so a real-size document that
+        # exceeds the viewport is genuinely scrollable (QAbstractScrollArea's
+        # built-in arrow/Page Up/Page Down/Home/End handling), which is real
+        # keyboard interaction and must stay reachable — Qt.NoFocus would take
+        # it out of the tab order entirely.
+        self._view.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._view.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         self._view.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
         self._view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)

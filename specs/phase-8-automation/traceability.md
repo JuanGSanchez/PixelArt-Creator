@@ -19,7 +19,7 @@ Status legend:
 | REQ-ID | Traces (S-id / F / inherited) | Spec § | Scenario(s) | Test id(s) (shipped) | Status |
 | --- | --- | --- | --- | --- | --- |
 | REQ-P8-LOGIC-001 **[SEC]** | **HIS-1** (`history` command pattern), **DOC-1**, S7, C1 | §4, §11 | SC-L001-1 | `tests/logic/test_scripting.py` (scripted edit == Command on History; undoable; no back-door mutation) | covered (shipped) |
-| REQ-P8-LOGIC-002 | Article I, S11, Phase-8 cap | §4, §11 | SC-L002-1 | `tests/logic/test_scripting.py` + `check_layering`/`check_cycles` exit 0 (Qt-free; no event loop) | covered (shipped) |
+| REQ-P8-LOGIC-002 | Article I, S11, Phase-8 cap | §4, §11 | SC-L002-1 | headless-drivable is demonstrated by the pure-logic suite itself (no QApplication anywhere in it): `test_scripting.py::test_dispatch_valid_multiop_is_one_reversible_group_single_undo`, `::test_dispatch_group_with_seeded_procgen_replays_identically`, `::test_dispatch_atomic_invalid_last_op_leaves_document_identical`, `::test_dispatch_atomic_midapplication_factory_failure_rolls_back`, `::test_procgen_op_applies_reversibly`. The Qt-free / no-event-loop half stays script-gated by `check_layering`/`check_cycles` (exit 0). | covered (shipped) |
 | REQ-P8-LOGIC-003 **[SEC]** | **Article VII §1**, **IO-3**, S7 | §4, §11 | SC-L003-1 | `tests/logic/test_scripting_security.py` (no untrusted input → eval/exec; defensive reject) | covered (shipped) |
 | REQ-P8-LOGIC-004 | **HIS-1**, Phase-8 cap (macro record), S7 | §4, §11 | SC-L004-1 | `tests/logic/test_macro.py` (record = ordered reversible ops, not pixel diff) | covered (shipped) |
 | REQ-P8-LOGIC-005 **[SEC]** | P2, Phase-8 cap (macro replay), S6, S7 | §4, §11 | SC-L005-1 | `tests/logic/test_macro.py` (deterministic replay == original run; no time/random/locale) | covered (shipped) |
@@ -38,7 +38,7 @@ Status legend:
 | REQ-ID | Traces (S-id / F / inherited) | Spec § | Scenario(s) | Test id(s) (shipped) | Status |
 | --- | --- | --- | --- | --- | --- |
 | REQ-P8-UI-001 | REQ-P8-LOGIC-004 | §4, §11 | SC-UI-001-1 | `tests/ui/test_macro_controls.py` (start/stop record; recording not undoable) | covered (shipped) |
-| REQ-P8-UI-002 | REQ-P8-LOGIC-005, -006 | §4, §11 | SC-UI-002-1 | `tests/ui/test_macro_controls.py` (replay == recording; one undo reverts) | covered (shipped) |
+| REQ-P8-UI-002 | REQ-P8-LOGIC-005, -006 | §4, §11 | SC-UI-002-1 | `test_macro_controls.py::test_sc_ui_002_replay_is_one_undoable_action_that_reverts_exactly`, `::test_sc_ui_002_replay_is_deterministic_same_seed` | covered (shipped) |
 | REQ-P8-UI-003 | REQ-P8-LOGIC-007 | §4, §11 | SC-UI-003-1 | `tests/ui/test_macro_manager.py` (save/load/list; malformed → graceful error) | covered (shipped) |
 | REQ-P8-UI-004 | REQ-P8-LOGIC-001, -002, -003 | §4, §11 | SC-UI-004-1 | `tests/ui/test_script_runner.py` (scripted edits undoable; failing script → error) | covered (shipped) |
 | REQ-P8-UI-005 **[SEC-facing]** | REQ-P8-LOGIC-008, -009, -010 | §4, §11 | SC-UI-005-1 | `tests/ui/test_plugin_manager.py` (permissions shown before enable; sandboxed run; denied → error) | covered (shipped) |
@@ -48,9 +48,9 @@ Status legend:
 | REQ-P8-UI-009 | S7, C1, F1, REQ-P8-LOGIC-001, -006 | §4, §11 | SC-UI-009-1 | `tests/ui/test_automation_undo.py` (one grouped QUndoCommand per edit; view/session ops none) | covered (shipped) |
 | REQ-P8-UI-010 | REQ-P8-LOGIC-002, -014, P2 | §4, §11 | SC-UI-010-1 | `tests/ui/test_automation_parity.py` (GUI == CLI result; GUI adds no engine logic) | covered (shipped) |
 | REQ-P8-UI-011 (NFR) | S1, S12, Article VI, DEP-3 | §5, §11 | SC-UI-011-1 | `tests/ui/test_automation_responsive.py` (event processing / cancel during long automation) | covered (shipped) |
-| REQ-P8-UI-012 (NFR) | Article V §1 | §5, §11 | SC-UI-012-1 | `tests/ui/test_automation_a11y.py` (accessible names / keyboard / focus); AGT-06 `a11y-audit` | covered (shipped) |
+| REQ-P8-UI-012 | Article V §1 (NFR) | §5, §11 | SC-UI-012-1 | `test_automation_a11y.py::test_sc_ui_012_macro_controls_expose_accessible_names`, `::test_sc_ui_012_script_runner_exposes_accessible_names`, `::test_sc_ui_012_plugin_manager_exposes_accessible_names`, `::test_sc_ui_012_batch_recolour_exposes_accessible_names`, `::test_sc_ui_012_procgen_exposes_accessible_names_and_units`, `::test_sc_ui_012_controls_are_keyboard_focusable`, `::test_sc_ui_012_automation_menu_is_populated`; AGT-06 `a11y-audit` | covered (shipped) |
 | REQ-P8-UI-013 (NFR) | Article V §3 | §5, §11 | SC-UI-013-1 (+ every UI scenario in both themes) | both-theme `[light]`/`[dark]` fixtures across the `tests/ui/test_*.py` automation modules | covered (shipped) |
-| REQ-P8-UI-014 (NFR) | Article V §2, F6 | §5, §11 | SC-UI-014-1 | tr()-wrapped automation UI + `changeEvent` retranslate; AGT-07 `string_audit_check` | covered (shipped) |
+| REQ-P8-UI-014 | Article V §2, F6 (NFR) | §5, §11 | SC-UI-014-1 | **retranslate clause (partial):** `test_automation_panels_edges.py` → `test_procgen_retranslate_branch` (written in prose, not as a parseable test id, because it does NOT cover this REQ — recording it would close the question falsely) — the ONLY Phase-8 retranslate assertion found (PA-08 search, 2026-08-15); it covers the procgen panel alone, not the macro / script-runner / plugin-manager / batch-recolour panels. **The "no bare literal / every string `tr()`-wrapped" clause is script-gated** by AGT-07 `string_audit_check`. **Test owed → AGT-06:** extend the `LanguageChange` assertion to the remaining four automation panels. | covered (procgen only); **retranslate test owed (AGT-06)** |
 
 ## DATA requirements — none reserved (see PREFIX-NOTE)
 

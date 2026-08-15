@@ -23,7 +23,7 @@
 #      even commented) — GitHub documents self-hosted runners as compromisable
 #      by any pull request against a public repository.
 #   4. RESTORE `if: runner.os == 'Linux'` immediately under each step's `name:`
-#      line for these twelve steps in quality-gate (each currently has NO
+#      line for these THIRTEEN steps in quality-gate (each currently has NO
 #      condition), so the 3-OS matrix stops paying for the same lint/type/
 #      coverage/docs/JS-unit work three times over:
 #        - Lint (flake8)
@@ -31,6 +31,7 @@
 #        - Type check (mypy)
 #        - Path-portability lint (P11 script)
 #        - Architecture layering + cycle checks (P11 scripts)
+#        - I18n string audit (report, P11 script; AGT-07)
 #        - Docs build (mkdocs --strict, F14)
 #        - Docstring lint (pydocstyle, PEP 257) [TIME-BOXED EXCEPTION, expires 2026-08-31]
 #        - Coverage gate — client package (>=90 line / >=80 branch, S13)
@@ -384,6 +385,37 @@ jobs:
           python scripts/check_cycles.py --root pixelart_creator
           python scripts/check_cycles.py --root sync_backend
           python scripts/check_cycles.py --root web_viewer
+
+      - name: I18n string audit (report, P11 script; AGT-07)
+        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
+        # This gate EXISTED and was invoked by nothing: zero mentions of
+        # string_audit_check.py anywhere in this workflow, while its own header
+        # declares `INVOKED BY: AGT-07`. An i18n gate that no pipeline runs
+        # reports to nobody.
+        #
+        # REPORT, not fail, and that is the script's own declared contract:
+        #   0 clean    -> COMPLETED
+        #   1 findings -> reported to AGT-07 (a REPORT, not a build failure —
+        #                 the script is explicitly report-not-fix, and AGT-05
+        #                 owns the wrapping it would ask for)
+        #   2 error    -> BLOCKED, which SHOULD fail the step: an audit that
+        #                 could not run is not an audit that found nothing.
+        # So exit 1 is swallowed deliberately and exit 2 is not. Anything else
+        # would either turn a translator's backlog into a red build or let a
+        # broken gate report "clean" — the two failure modes worth avoiding.
+        run: |
+          set +e
+          python scripts/string_audit_check.py --root pixelart_creator/ui
+          rc=$?
+          set -e
+          if [ "$rc" -eq 2 ]; then
+            echo "::error::string_audit_check could not run (exit 2)"
+            exit 2
+          fi
+          if [ "$rc" -eq 1 ]; then
+            echo "::warning::string_audit_check reported findings for AGT-07"
+          fi
+          exit 0
 
       # ----- Docs gates (REMEDIATION 2026-07-30, F14): neither gate below had
       # ever run in CI before this change — mkdocs build --strict and

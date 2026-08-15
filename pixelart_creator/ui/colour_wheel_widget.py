@@ -280,12 +280,24 @@ class Colour_Wheel_Widget(QWidget):
         self._value_slider.valueChanged.connect(self._on_value_changed)
         self._value_label = QLabel(self)
 
-        self._spin_r = self._make_spin(CHANNEL_MAX, self._on_rgb_changed)
-        self._spin_g = self._make_spin(CHANNEL_MAX, self._on_rgb_changed)
-        self._spin_b = self._make_spin(CHANNEL_MAX, self._on_rgb_changed)
-        self._spin_h = self._make_spin(int(_HUE_CIRCLE_DEG) - 1, self._on_hsv_changed)
-        self._spin_s = self._make_spin(CHANNEL_MAX, self._on_hsv_changed)
-        self._spin_v = self._make_spin(CHANNEL_MAX, self._on_hsv_changed)
+        self._spin_r = self._make_spin(
+            CHANNEL_MAX, self._on_rgb_changed, self.tr("Red channel")
+        )
+        self._spin_g = self._make_spin(
+            CHANNEL_MAX, self._on_rgb_changed, self.tr("Green channel")
+        )
+        self._spin_b = self._make_spin(
+            CHANNEL_MAX, self._on_rgb_changed, self.tr("Blue channel")
+        )
+        self._spin_h = self._make_spin(
+            int(_HUE_CIRCLE_DEG) - 1, self._on_hsv_changed, self.tr("Hue")
+        )
+        self._spin_s = self._make_spin(
+            CHANNEL_MAX, self._on_hsv_changed, self.tr("Saturation")
+        )
+        self._spin_v = self._make_spin(
+            CHANNEL_MAX, self._on_hsv_changed, self.tr("Value")
+        )
 
         self._preview = QLabel(self)
         self._hex_label = QLabel(self)
@@ -311,10 +323,15 @@ class Colour_Wheel_Widget(QWidget):
 
     # -- construction helpers --------------------------------------------
 
-    def _make_spin(self, maximum: int, slot) -> QSpinBox:
+    def _make_spin(self, maximum: int, slot, accessible_name: str) -> QSpinBox:
         spin = QSpinBox(self)
         spin.setRange(0, maximum)
         spin.valueChanged.connect(slot)
+        # Named at construction (not only in `_retranslate`) so the control is
+        # never briefly unnamed, and so the name travels with the widget through
+        # this shared factory rather than depending on the caller remembering
+        # to add it elsewhere. `_retranslate` re-sets it on a language change.
+        spin.setAccessibleName(accessible_name)
         return spin
 
     def _make_swatches(self, count: int) -> List[_SwatchButton]:

@@ -11,7 +11,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pixelart-creator"
-version = "0.2.0"
+version = "0.2.1"
 description = "Unified pixel-art platform: 8K editable grid, colour tools, layers, GPU render pipeline."
 readme = "NOTICE"
 # LOCAL/CI PYTHON ALIGNMENT (#31, 2026-07-31): this floor (">=3.12") is the
@@ -45,21 +45,20 @@ dependencies = [
     "Pillow>=10.0",
     # Phase-10 Slice B: CRDT convergence core. PINNED — ships prebuilt wheels
     # for BOTH cp312 and cp313 across manylinux x86_64, manylinux aarch64, and
-    # macOS (universal2, covering x86_64+arm64) — confirmed 2026-07-30 from the
-    # PyPI file listing for this exact pinned version (design-docs/research/
-    # research-python313-wheel-availability.md §1; no source build on
+    # macOS (universal2, covering x86_64+arm64) — confirmed 2026-07-30 against
+    # the PyPI file listing for this exact pinned version (no source build on
     # Linux/py3.12 CI, only anyio at runtime). pycrdt ships NO abi3 wheel — its
     # wheel matrix is per-CPython-version and must be re-checked on any future
-    # pin or Python-version change (same source §3). Ships py.typed, so it is
-    # NOT in mypy ignore_missing_imports.
+    # pin or Python-version change. Ships py.typed, so it is NOT in mypy
+    # ignore_missing_imports. Re-verify at the source rather than trusting this
+    # note: the research record behind it is kept outside this repository.
     "pycrdt==0.14.1",
     # Phase-10 Slice C: real-time sync wire protocol. CORE runtime dep — the
     # sync_backend service, data/cloud/ws_transport.py, AND the in-CI backend
     # tests (tests/backend/) all import it, so CI must install it unconditionally.
     # PINNED to 16.0 — confirmed 2026-07-30 installing cleanly with its own
-    # compiled speedups extension under BOTH cp312 and cp313 (design-docs/
-    # reports/subagent-report-agt-09-github-devops-inv31e5f6-20260730T120000Z.md
-    # §4); ships py.typed, so NOT in mypy ignore_missing_imports.
+    # compiled speedups extension under BOTH cp312 and cp313; ships py.typed,
+    # so NOT in mypy ignore_missing_imports.
     "websockets==16.0",
 ]
 
