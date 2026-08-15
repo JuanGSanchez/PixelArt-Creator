@@ -49,7 +49,9 @@ py -3 -c "import sys" >nul 2>&1 && set "PY=py -3"
 if not defined PY python -c "import sys" >nul 2>&1 && set "PY=python"
 if not defined PY (
   echo memory-view: no working Python found ^(tried: py -3, python^).
-  echo memory-view: the rendered snapshot is still readable beside this file:
+  echo memory-view: graph-view.html beside this file is a TEMPLATE and holds
+  echo memory-view: no records: it fills itself from this viewer once the
+  echo memory-view: viewer runs. Without Python there is nothing to read yet:
   echo memory-view:   %STORE%\graph-view.html
   pause
   exit /b 2

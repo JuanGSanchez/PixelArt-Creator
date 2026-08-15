@@ -37,7 +37,10 @@ if [ -z "$found" ]; then
     echo "memory-view: could not find scripts/memory_views.py above $STORE." >&2
     echo "memory-view: this store's viewer is served by the orchestration" >&2
     echo "memory-view: container that sits above this repository. Without it" >&2
-    echo "memory-view: there is still a rendered snapshot beside this file:" >&2
+    echo "memory-view: there is no viewer to serve this store, and" >&2
+    echo "memory-view: graph-view.html beside this file will stay empty --" >&2
+    echo "memory-view: it is a TEMPLATE that fills itself from a running" >&2
+    echo "memory-view: viewer, and holds no records of its own:" >&2
     echo "memory-view:   $STORE/graph-view.html" >&2
     exit 2
 fi
@@ -54,7 +57,9 @@ for cand in "py -3" python3 python; do
 done
 if [ -z "$PY" ]; then
     echo "memory-view: no working Python found (tried: py -3, python3, python)." >&2
-    echo "memory-view: the rendered snapshot is still readable beside this file:" >&2
+    echo "memory-view: graph-view.html beside this file is a TEMPLATE and holds" >&2
+    echo "memory-view: no records: it fills itself from this viewer once the" >&2
+    echo "memory-view: viewer runs. Without Python there is nothing to read yet:" >&2
     echo "memory-view:   $STORE/graph-view.html" >&2
     exit 2
 fi

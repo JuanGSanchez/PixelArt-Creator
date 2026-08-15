@@ -17,12 +17,22 @@ own history, independent of the orchestration container's store above it. The
 store was already complete and correct. What was missing was any way to *open*
 it from here.
 
-The viewer is served, not opened from disk, and for a reason that cannot be
-engineered around: `graph-view.html` is a snapshot with the whole graph and
-commit history substituted in at render time, because a page opened off disk is
-a `file://` page and browsers forbid a `file://` page from reading local files.
-It can neither re-read `nodes.jsonl` nor run `git log`. Served over loopback,
-the same page is rebuilt from the logs and from `git log` on every request.
+The viewer is served rather than read off disk, because a page opened off disk
+is a `file://` page: it can neither re-read `nodes.jsonl` nor run `git log`,
+having no access to local files. Served over loopback, the page is built from
+the logs and from `git log` on every request.
+
+**A correction, made before this ADR was merged.** An earlier draft of this
+paragraph went on to conclude that `graph-view.html` must therefore carry the
+whole graph and commit history substituted in at render time, "for a reason
+that cannot be engineered around". That does not follow, and the file it
+justified reached 12 MB. *No access to local files* is not *no access to the
+network*: a `file://` page may fetch across origins when the other end allows
+it, and the viewer server sends `Access-Control-Allow-Origin: *`. The rendered
+page now carries **no records at all** — it scans the port range for the live
+viewer serving its own store, fetches `data.json` from it and renders in place,
+and says what to run when no viewer is up. It is a template, not a photograph,
+and it is ~9 KB.
 
 **The defect.** The program that starts that server lived in the orchestration
 container's `scripts/` directory — a repository with **no remote**. So the one
@@ -37,10 +47,12 @@ had never been built.
 repository.
 
 **2. The distinction that governs what is tracked.** `graph-view.html` and the
-two assets beside it are **derived** — regenerated from the logs on demand — and
-stay gitignored; committing them would put a multi-megabyte rewrite into the
-history every time the map moved. The **launcher is source**: written,
-reviewable, and shipped.
+two assets beside it are **derived** — regenerated on demand — and stay
+gitignored. The **launcher is source**: written, reviewable, and shipped.
+
+That the page is now ~9 KB rather than 12 MB does not change this. It is still
+generated output, and tracking generated output means every regeneration is a
+diff nobody wrote.
 
 **3. It carries no copy of the server.** It resolves its own store from its own
 location, walks up for the container's `memory_views.py` — the same mechanism
