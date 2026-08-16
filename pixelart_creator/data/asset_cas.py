@@ -29,6 +29,7 @@ from pixelart_creator.data.asset_storage import (
     AssetStorageError,
     BlobBackend,
     LocalBlobBackend,
+    default_asset_root,
 )
 from pixelart_creator.logic.constants import MAX_BLOB_BYTES
 from pixelart_creator.logic.content_hash import content_hash, is_valid_hash
@@ -36,6 +37,7 @@ from pixelart_creator.logic.content_hash import content_hash, is_valid_hash
 __all__ = [
     "CasError",
     "ContentAddressableStore",
+    "default_content_store",
 ]
 
 
@@ -125,3 +127,24 @@ class ContentAddressableStore:
         if not is_valid_hash(content_hash_key):
             return False
         return self._backend.has_blob(content_hash_key)
+
+
+def default_content_store() -> ContentAddressableStore:
+    """Return the app's default, DURABLE asset store (D-26 / CF-119).
+
+    ``ContentAddressableStore()`` (the bare constructor) keeps defaulting to an
+    in-memory backend on purpose — many headless tests and transient-session
+    callers rely on that ephemeral, disk-free construction, and changing it would
+    make every such caller write real files to the host filesystem as a side
+    effect (never acceptable for a test run). This factory is the SEPARATE,
+    explicit "app default": a filesystem-backed store rooted at
+    :func:`~pixelart_creator.data.asset_storage.default_asset_root`, so an asset
+    put through it survives a restart instead of ending with the session.
+
+    Production wiring (construction-time, ui-side — REQ-P11-DATA-006/-007):
+    ``ui/main_window.py`` should construct its asset store via this factory (or
+    an equivalent filesystem-rooted backend, e.g. a ``QStandardPaths``-resolved
+    root per the Favourites precedent, ADR-0004) instead of the bare
+    ``ContentAddressableStore()`` it uses today.
+    """
+    return ContentAddressableStore(LocalBlobBackend(default_asset_root()))
