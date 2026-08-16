@@ -11,8 +11,11 @@ Maps to REQ-P4-LOGIC-008..014 (and -015 bounds).
 
 from __future__ import annotations
 
+import inspect
+
 import pytest
 
+from pixelart_creator.logic import document as document_module
 from pixelart_creator.logic.blend import BlendMode, composite_stack
 from pixelart_creator.logic.constants import (
     MAX_GROUP_NESTING_DEPTH,
@@ -619,3 +622,102 @@ def test_stale_cache_never_serves_wrong_composite_through_document():
     doc.invalidate_caches([1, 0, 0])  # pixel-edit hook clears the ancestor chain
     updated = composite_stack(doc.frames[0].layers, 4, 4, region=(0, 0, 2, 2))
     assert updated.get_pixel(0, 0) == (0, 255, 0, 255)
+
+
+# --------------------------------------------------------------------------- #
+# D-25 — single owner of the last-layer / last-frame invariants (CF-89)       #
+# --------------------------------------------------------------------------- #
+#
+# Before the refactor, "cannot remove the last layer of a frame" and "cannot
+# remove the last frame" were each raised from TWO sites: the raw mutator
+# (remove_layer / remove_frame) and the reversible factory
+# (make_remove_layer_command / make_remove_frame_command) duplicated the same
+# guard independently. The refactor collapses each invariant to one owning
+# private method (_ensure_layer_removable / _ensure_frame_removable) that
+# both paths call. These tests assert the PROPERTY (one owner per invariant),
+# not incidental line numbers: a source-level "exactly one raise site" check,
+# plus a behavioural check that both the direct method and the reversible
+# factory actually route through the same guard call.
+
+
+def test_last_layer_invariant_raised_from_exactly_one_site():
+    """D-25: the last-layer message appears in exactly one ``raise`` in the
+    module source — collapsing the former remove_layer / make_remove_layer_
+    command duplication to a single owning site."""
+    source = inspect.getsource(document_module)
+    needle = 'raise DocumentError("cannot remove the last layer of a frame")'
+    assert source.count(needle) == 1
+
+
+def test_last_frame_invariant_raised_from_exactly_one_site():
+    """D-25: the last-frame message appears in exactly one ``raise`` in the
+    module source — collapsing the former remove_frame / make_remove_frame_
+    command duplication to a single owning site."""
+    source = inspect.getsource(document_module)
+    needle = 'raise DocumentError("cannot remove the last frame")'
+    assert source.count(needle) == 1
+
+
+def test_remove_layer_direct_and_factory_both_route_through_shared_guard(
+    monkeypatch,
+):
+    """D-25: both ``remove_layer`` (direct mutator) and
+    ``make_remove_layer_command`` (reversible factory) call the single shared
+    ``_ensure_layer_removable`` guard — not two independent checks."""
+    doc = _doc(layers=1)
+    calls = []
+    original = Document._ensure_layer_removable
+
+    def spy(self, frame):
+        calls.append(frame)
+        return original(self, frame)
+
+    monkeypatch.setattr(Document, "_ensure_layer_removable", spy)
+
+    with pytest.raises(DocumentError, match="cannot remove the last layer"):
+        doc.remove_layer(0)
+    assert len(calls) == 1
+
+    with pytest.raises(DocumentError, match="cannot remove the last layer"):
+        doc.make_remove_layer_command([0])
+    assert len(calls) == 2
+
+
+def test_remove_frame_direct_and_factory_both_route_through_shared_guard(
+    monkeypatch,
+):
+    """D-25: both ``remove_frame`` (direct mutator) and
+    ``make_remove_frame_command`` (reversible factory) call the single shared
+    ``_ensure_frame_removable`` guard — not two independent checks."""
+    doc = Document(4, 4)  # single frame by construction
+    calls = []
+    original = Document._ensure_frame_removable
+
+    def spy(self):
+        calls.append(True)
+        return original(self)
+
+    monkeypatch.setattr(Document, "_ensure_frame_removable", spy)
+
+    with pytest.raises(DocumentError, match="cannot remove the last frame"):
+        doc.remove_frame(0)
+    assert len(calls) == 1
+
+    with pytest.raises(DocumentError, match="cannot remove the last frame"):
+        doc.make_remove_frame_command(0)
+    assert len(calls) == 2
+
+
+def test_last_layer_guard_does_not_block_removal_when_more_than_one_remains():
+    """D-25 sanity: the shared guard only blocks the LAST layer — both paths
+    still permit removal when >= 2 layers remain."""
+    doc = _doc(layers=2)
+    doc.remove_layer(0)  # direct path: one layer left is fine to reach
+    assert len(doc.frames[0].layers) == 1
+
+    doc2 = _doc(layers=2)
+    cmd = doc2.make_remove_layer_command([0])  # factory path
+    cmd.execute()
+    assert len(doc2.frames[0].layers) == 1
+    cmd.undo()
+    assert len(doc2.frames[0].layers) == 2

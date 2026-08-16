@@ -17,6 +17,15 @@ once to a file named by its ``content_hash``. It requires no cloud, no network, 
 credentials, so Slice 1 ships and CI-tests fully headless. The optional
 ``SharedBlobBackend`` (Slice 3) implements the *same* port over Phase-10 shared storage.
 
+:func:`default_asset_root` is the data layer's stdlib-only (no Qt) durable-by-default
+location for the filesystem-mode backend (D-26 / CF-119): a bare ``LocalBlobBackend()``
+still defaults to in-memory (unchanged — many existing tests and callers rely on that
+ephemeral, disk-free construction), but a **production** construction should pass
+``LocalBlobBackend(default_asset_root())`` (or a UI-resolved, platform-conventional
+path — e.g. ``QStandardPaths``, the :mod:`pixelart_creator.ui.main_window` Favourites
+precedent, ADR-0004) so the asset library survives a restart instead of the session
+ending its blobs.
+
 The backend is a dumb keyed store: it does **not** hash or verify (that is the CAS's
 job,
 ADR-0030 §4). It *does* defend its filesystem: a ``content_hash`` used as a filename is
@@ -37,14 +46,44 @@ __all__ = [
     "AssetStorageError",
     "BlobBackend",
     "LocalBlobBackend",
+    "default_asset_root",
 ]
 
 #: The filename suffix a filesystem-backed blob is stored under.
 _BLOB_SUFFIX = ".blob"
 
+#: The per-user application directory name under the home directory (stdlib-only,
+#: no Qt), used only by :func:`default_asset_root` — mirrors the app-config
+#: directory name the UI layer already falls back to (``main_window.py``'s
+#: Favourites path, ADR-0004) when a platform ``QStandardPaths`` location is
+#: unavailable.
+_APP_DIR_NAME = ".pixelart_creator"
+
+#: The asset-blob subdirectory name under :data:`_APP_DIR_NAME`.
+_ASSET_DIR_NAME = "assets"
+
 
 class AssetStorageError(ValueError):
     """Raised when a blob cannot be stored/fetched (missing key / bad key / I/O)."""
+
+
+def default_asset_root() -> Path:
+    """Return the data layer's default on-disk root for :class:`LocalBlobBackend`.
+
+    A stdlib-only (zero Qt, S11), stable, per-user location —
+    ``~/.pixelart_creator/assets`` — so a production caller can select durable,
+    filesystem-mode asset storage (D-26 / CF-119) with no path logic of its own:
+    ``LocalBlobBackend(default_asset_root())``. This function only *computes* the
+    path; it never creates the directory or touches the filesystem (creation is
+    deferred to :meth:`LocalBlobBackend.put_blob`, on first write).
+
+    Neither :class:`LocalBlobBackend`'s nor
+    :class:`~pixelart_creator.data.asset_cas.ContentAddressableStore`'s own bare
+    constructor calls this automatically — both keep defaulting to the in-memory
+    backend, so existing headless tests and any transient-session caller are
+    unaffected. A caller that wants the durable default must pass it explicitly.
+    """
+    return Path.home() / _APP_DIR_NAME / _ASSET_DIR_NAME
 
 
 def _require_valid_key(content_hash: str) -> None:

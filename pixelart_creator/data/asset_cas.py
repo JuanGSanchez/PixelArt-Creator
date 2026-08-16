@@ -23,12 +23,14 @@ the whole store is CI-testable headless with no network/credentials.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 from pixelart_creator.data.asset_storage import (
     AssetStorageError,
     BlobBackend,
     LocalBlobBackend,
+    default_asset_root,
 )
 from pixelart_creator.logic.constants import MAX_BLOB_BYTES
 from pixelart_creator.logic.content_hash import content_hash, is_valid_hash
@@ -36,6 +38,7 @@ from pixelart_creator.logic.content_hash import content_hash, is_valid_hash
 __all__ = [
     "CasError",
     "ContentAddressableStore",
+    "default_content_store",
 ]
 
 
@@ -125,3 +128,37 @@ class ContentAddressableStore:
         if not is_valid_hash(content_hash_key):
             return False
         return self._backend.has_blob(content_hash_key)
+
+
+def default_content_store(root: Optional[Path] = None) -> ContentAddressableStore:
+    """Return the app's default, DURABLE asset store (D-26 / CF-119).
+
+    ``ContentAddressableStore()`` (the bare constructor) keeps defaulting to an
+    in-memory backend on purpose — many headless tests and transient-session
+    callers rely on that ephemeral, disk-free construction, and changing it would
+    make every such caller write real files to the host filesystem as a side
+    effect (never acceptable for a test run). This factory is the SEPARATE,
+    explicit "app default": a filesystem-backed store, so an asset put through it
+    survives a restart instead of ending with the session.
+
+    Args:
+        root: The filesystem root the store's :class:`LocalBlobBackend` is
+            rooted at. When omitted (``None``), defaults to
+            :func:`~pixelart_creator.data.asset_storage.default_asset_root` —
+            today's behaviour is unchanged. Pass an explicit root to build the
+            store over a different location (e.g. a ``ui``-resolved
+            ``QStandardPaths`` directory injected as a :class:`pathlib.Path`,
+            per the D-26 placement ruling: this factory computes nothing Qt and
+            performs no ``mkdir`` itself — directory creation stays deferred to
+            :meth:`~pixelart_creator.data.asset_storage.LocalBlobBackend.put_blob`,
+            on first write).
+
+    Production wiring (construction-time, ui-side — REQ-P11-DATA-006/-007):
+    ``ui/main_window.py`` should construct its asset store via this factory,
+    passing a ``QStandardPaths``-resolved root (the Favourites precedent,
+    ADR-0004) instead of the bare ``ContentAddressableStore()`` it uses today —
+    never by composing ``ContentAddressableStore(LocalBlobBackend(path))``
+    directly in ``ui/``.
+    """
+    resolved_root = root if root is not None else default_asset_root()
+    return ContentAddressableStore(LocalBlobBackend(resolved_root))
