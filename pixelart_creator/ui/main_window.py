@@ -2807,12 +2807,13 @@ class Main_Window(QMainWindow):
             return
         new_w, new_h = dialog.target_size()
         layer: Layer = record.scene.active_layer()
+        mask = record.view.active_selection()
 
         def fn(buffer: PixelBuffer) -> PixelBuffer:
             return scale_nearest(buffer, new_w, new_h)
 
         try:
-            command = transform.make_transform_command(layer, fn, None)
+            command = transform.make_transform_command(layer, fn, mask)
         except TransformError as exc:
             QMessageBox.warning(self, self.tr("Scale Canvas"), str(exc))
             return
