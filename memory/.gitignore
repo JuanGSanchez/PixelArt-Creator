@@ -3,10 +3,10 @@ graph/index.db-wal
 graph/index.db-shm
 graph/scan-state.json
 graph/.lock
-graph-view.html
-graph-view.css
-graph-view.js
 insight/
 cards/
 promotions.jsonl
 archive/
+graph-view.html
+graph-view.css
+graph-view.js

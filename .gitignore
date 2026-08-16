@@ -48,7 +48,6 @@ memory/graph/index.db
 memory/graph/index.db-wal
 memory/graph/index.db-shm
 memory/graph/scan-state.json
-graph-view.html
 
 # ---- (d) Tooling and caches -------------------------------------------------
 .vscode/
