@@ -167,6 +167,7 @@ class Extract_Palette_Dialog(QDialog):
         self._method_combo.setItemText(1, self.tr("K-means (higher quality)"))
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-translate on QEvent.LanguageChange (F5); delegate otherwise."""
         if event.type() == QEvent.Type.LanguageChange:
             self._retranslate()
         super().changeEvent(event)

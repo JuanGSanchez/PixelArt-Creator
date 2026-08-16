@@ -19,11 +19,11 @@ class EraserTool(PencilTool):
     tool_id = "eraser"
 
     def label(self) -> str:
-        """Translated undo-menu label for an eraser stroke."""
+        """Return the translated undo-menu label for an eraser stroke."""
         return QCoreApplication.translate("tools", "Eraser")
 
     def value(self, ctx: ToolContext) -> PixelValue:
-        """The erase value for the active buffer's colour mode."""
+        """Return the erase value for the active buffer's colour mode."""
         if ctx.buffer.mode is ColorMode.RGBA:
             return TRANSPARENT
         return _INDEXED_ERASE_VALUE

@@ -57,6 +57,7 @@ class LanguageManager(QObject):
         translations_dir: Optional[Path] = None,
         parent: Optional[QObject] = None,
     ) -> None:
+        """Bind to `app` and resolve the translations dir, starting untranslated."""
         super().__init__(parent)
         self._app = app
         self._dir = (

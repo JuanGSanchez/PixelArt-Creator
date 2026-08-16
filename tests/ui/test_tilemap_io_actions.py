@@ -88,6 +88,70 @@ def test_sc_ui_012_1_export_import_round_trip_is_equivalent(
         assert imported.layers[0].get(x, y) == gid  # gid incl. flip nibble preserved
 
 
+# --------------------------------------------------------------------------- #
+# T-23 (AGT-06 audit, regression for C-02) — window-level import is ONE macro #
+# --------------------------------------------------------------------------- #
+
+
+def test_t23_window_import_tiled_is_one_undo_removing_everything(
+    qtbot, monkeypatch, tmp_path, make_tilemap_setup
+):
+    """T-23 (regression for C-02): ``Main_Window._on_import_tiled`` pushes the
+    imported tileset attach(es) + the tilemap add as ONE undo macro — a single
+    undo removes the imported tilemap AND detaches every imported tileset
+    (CF-15). Builds a genuine standalone imported ``Tilemap`` via a real
+    export -> import round trip (not a hand-built stub) so the tileset list
+    reflects what the loader actually returns."""
+    # Regression test for C-02 — proven by reversion in the commit pass.
+    from pixelart_creator.ui import main_window as main_window_module
+    from pixelart_creator.ui import tilemap_io_actions as io_actions
+
+    parent = QWidget()
+    qtbot.addWidget(parent)
+    _tileset, tilemap = _stamped_map(make_tilemap_setup)
+    out = tmp_path / "t23_import.tmj"
+    monkeypatch.setattr(
+        io_actions.QFileDialog,
+        "getSaveFileName",
+        staticmethod(lambda *a, **k: (str(out), "")),
+    )
+    monkeypatch.setattr(
+        io_actions.QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **k: (str(out), "")),
+    )
+    assert io_actions.export_tilemap_dialog(parent, tilemap) is not None
+    imported = io_actions.import_tilemap_dialog(parent)
+    assert imported is not None
+    assert len(imported.tilesets) >= 1
+
+    from pixelart_creator.ui.main_window import Main_Window
+
+    win = Main_Window()
+    qtbot.addWidget(win)
+    record = win.active_tab()
+    tilesets_before = len(record.document.tilesets)
+    tilemaps_before = len(record.document.tilemaps)
+    stack_count_before = record.stack.count()
+
+    monkeypatch.setattr(
+        main_window_module, "import_tilemap_dialog", lambda parent: imported
+    )
+    win._on_import_tiled()
+
+    # Exactly ONE macro command for the whole import (attaches + add).
+    assert record.stack.count() == stack_count_before + 1
+    assert len(record.document.tilesets) == tilesets_before + len(imported.tilesets)
+    assert len(record.document.tilemaps) == tilemaps_before + 1
+
+    record.stack.undo()
+
+    # A SINGLE undo removes the imported tilemap AND detaches every imported
+    # tileset — the C-02 fix (a ``beginMacro``/``endMacro`` around both pushes).
+    assert len(record.document.tilesets) == tilesets_before
+    assert len(record.document.tilemaps) == tilemaps_before
+
+
 def _write(tmp_path, name, payload):
     path = tmp_path / name
     path.write_text(json.dumps(payload), encoding="utf-8")

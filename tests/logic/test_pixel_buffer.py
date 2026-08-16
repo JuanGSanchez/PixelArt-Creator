@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from pixelart_creator.logic.constants import MAX_CANVAS_WIDTH
 from pixelart_creator.logic.pixel_buffer import (
@@ -188,3 +190,76 @@ def test_in_bounds():
     buf = PixelBuffer(2, 2)
     assert buf.in_bounds(0, 0) and buf.in_bounds(1, 1)
     assert not buf.in_bounds(2, 0) and not buf.in_bounds(0, 2)
+
+
+# --------------------------------------------------------------------------- #
+# Casuistics (M) — Hypothesis: blit / resize round-trip + bounds              #
+# --------------------------------------------------------------------------- #
+
+_dim = st.integers(min_value=1, max_value=10)
+_chan = st.integers(min_value=0, max_value=255)
+_rgba = st.tuples(_chan, _chan, _chan, _chan)
+
+
+@given(w=_dim, h=_dim, color=_rgba)
+def test_property_region_of_a_filled_buffer_round_trips(w, h, color):
+    """A filled buffer's own full-extent region() equals a copy() of itself --
+    the blit source-of-truth never drifts from a plain fill+read round-trip."""
+    buf = PixelBuffer(w, h, fill=color)
+    assert np.array_equal(buf.region(0, 0, w, h).data, buf.copy().data)
+
+
+@given(w=_dim, h=_dim, color=_rgba, dx=st.integers(-5, 5), dy=st.integers(-5, 5))
+def test_property_blit_then_region_recovers_the_source_within_bounds(
+    w, h, color, dx, dy
+):
+    """blit(source, dx, dy) then reading back the overlapping region equals the
+    source pixels that actually landed in bounds (blit never corrupts data it
+    places, and never touches pixels outside the destination)."""
+    dest = PixelBuffer(w, h, fill=(0, 0, 0, 0))
+    source = PixelBuffer(w, h, fill=color)
+    before = dest.data.copy()
+    dest.blit(source, dx, dy)
+
+    sx0, sy0 = max(0, -dx), max(0, -dy)
+    sx1, sy1 = min(w, w - dx), min(h, h - dy)
+    if sx0 < sx1 and sy0 < sy1:
+        dx0, dy0, dx1, dy1 = dx + sx0, dy + sy0, dx + sx1, dy + sy1
+        pasted = dest.region(dx0, dy0, dx1 - dx0, dy1 - dy0)
+        assert np.array_equal(
+            pasted.data, np.full((dy1 - dy0, dx1 - dx0, 4), color, dtype=np.uint8)
+        )
+    else:
+        # Fully off-canvas: nothing changed.
+        assert np.array_equal(dest.data, before)
+
+
+@given(
+    w=_dim,
+    h=_dim,
+    color=_rgba,
+    nw=_dim,
+    nh=_dim,
+    ox=st.integers(-3, 3),
+    oy=st.integers(-3, 3),
+)
+def test_property_resize_preserves_the_overlapping_content(w, h, color, nw, nh, ox, oy):
+    """resize() places the old content at (offset_x, offset_y) in a NEW buffer
+    of the requested size -- the result dimensions match the request exactly,
+    and it never mutates the original."""
+    original = PixelBuffer(w, h, fill=color)
+    before = original.data.copy()
+    resized = original.resize(nw, nh, offset_x=ox, offset_y=oy)
+    assert (resized.width, resized.height) == (nw, nh)
+    assert np.array_equal(original.data, before)  # non-destructive
+
+
+@given(w=_dim, h=_dim)
+def test_property_region_out_of_bounds_always_raises(w, h):
+    """A region that starts (or ends) outside the buffer always raises, for
+    every size/coordinate combination -- never clamped, never silently cropped."""
+    buf = PixelBuffer(w, h)
+    with pytest.raises(PixelBufferError):
+        buf.region(w, 0, 1, 1)  # starts exactly one past the right edge
+    with pytest.raises(PixelBufferError):
+        buf.region(0, h, 1, 1)  # starts exactly one past the bottom edge

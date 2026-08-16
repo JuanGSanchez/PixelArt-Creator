@@ -92,6 +92,48 @@ def test_sc_u009_2_scale_nearest_no_new_colours(qtbot, monkeypatch):
     assert record.scene.active_buffer().width == src_w
 
 
+def test_t16_scale_with_active_selection_affects_only_the_selection(qtbot, monkeypatch):
+    """T-16 (AGT-06 audit, pairs with CF-07): scaling with an active selection
+    affects only the selected region, per the ``logic/transform`` mask contract
+    (``make_transform_command`` routes to ``_masked_transform_changes`` when a
+    mask is supplied) — driven through the shipped UI action
+    ``Main_Window._on_scale``, which now forwards ``record.view.active_selection()``
+    (CF-07). The whole-buffer dimensions are UNCHANGED (a masked transform never
+    resizes the canvas); pixels outside the selection are byte-identical.
+    """
+    from pixelart_creator.logic.selection import rect_mask
+    from tests.ui._ui_helpers import prepare_for_click
+
+    win = _window(qtbot)
+    record = win.active_tab()
+    buf = record.scene.active_buffer()
+    w, h = buf.width, buf.height
+
+    # A distinctive 4x4 block inside the selection, and a sentinel pixel outside.
+    for y in range(2, 6):
+        for x in range(2, 6):
+            buf.set_pixel(x, y, RED)
+    buf.set_pixel(20, 20, GREEN)  # outside the selection — must stay untouched
+    outside_before = buf.get_pixel(20, 20)
+
+    prepare_for_click(record.view)
+    record.view.set_selection(rect_mask(w, h, 2, 2, 5, 5))
+
+    monkeypatch.setattr(Scale_Dialog, "exec", lambda self: QDialog.DialogCode.Accepted)
+    monkeypatch.setattr(Scale_Dialog, "target_size", lambda self: (w * 2, h * 2))
+    win._on_scale()
+
+    assert record.stack.count() == 1
+    out = record.scene.active_buffer()
+    # A masked scale never changes the whole-buffer dimensions (SC-L010-1 —
+    # only the selected sub-region is re-stamped in place).
+    assert (out.width, out.height) == (w, h)
+    assert out.get_pixel(20, 20) == outside_before  # untouched outside the mask
+
+    record.stack.undo()
+    assert record.scene.active_buffer().get_pixel(20, 20) == outside_before
+
+
 def test_sc_u009_3_actions_translatable_and_reachable(qtbot):
     """SC-U009-3: the transform actions are tr()-wrapped and menu/keyboard operable."""
     win = _window(qtbot)

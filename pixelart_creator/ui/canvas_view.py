@@ -16,11 +16,14 @@ painting to the tool controllers (Article I).
 from __future__ import annotations
 
 import math
-from typing import Callable, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt, Signal
 from PySide6.QtGui import (
     QContextMenuEvent,
+    QDragEnterEvent,
+    QDragMoveEvent,
+    QDropEvent,
     QGuiApplication,
     QKeyEvent,
     QMouseEvent,
@@ -83,6 +86,14 @@ class Canvas_View(QGraphicsView):
         self._pan_origin = QPoint()
         self._ctx: Optional[ToolContext] = None
         self._menu_hook: Optional[Callable[[int, int], None]] = None
+        # File-drop routing seam (CF: T-12) — a real drag/drop delivered to
+        # QGraphicsView's viewport is otherwise translated into a
+        # QGraphicsSceneDragDropEvent and swallowed by the scene (no item
+        # accepts it), so it never reaches Main_Window.dropEvent. Only a
+        # URL-carrying drag is taken over here and handed to this router; every
+        # other drag keeps QGraphicsView's own scene-forwarding behaviour.
+        self._drop_router: Optional[Callable[[List[str]], None]] = None
+        self.setAcceptDrops(True)
         # One floating move/copy controller per view (REQ-P2-UI-030..034); it
         # owns the active float so release / Enter / tool-switch can all commit it.
         self._floating_controller = FloatingMoveController()
@@ -175,6 +186,16 @@ class Canvas_View(QGraphicsView):
         """Register a replaceable right-click menu hook (Phase-3 seam, CL-8)."""
         self._menu_hook = hook
 
+    def set_drop_router(self, router: Optional[Callable[[List[str]], None]]) -> None:
+        """Register the window's dropped-file router (CF: T-12, REQ-DDI-UI-001).
+
+        ``router`` receives the local file paths of a URL drag delivered to
+        THIS viewport — the same routing ``Main_Window.dropEvent`` uses, so a
+        drop landing on the canvas is handled identically to one landing
+        anywhere else on the window.
+        """
+        self._drop_router = router
+
     def set_grid_enabled(self, enabled: bool) -> None:
         """Toggle the per-pixel grid overlay (delegates to the scene, CL-4)."""
         self._scene.set_grid_enabled(enabled)
@@ -202,7 +223,7 @@ class Canvas_View(QGraphicsView):
         self._snap = bool(enabled)
 
     def reassert_no_antialiasing(self) -> None:
-        """Re-lock the AA-off render hints (REQ-P2-UI-014; CL-15).
+        """Re-lock the AA-off render hints (REQ-P2-UI-014; REQ-P1-UI-001).
 
         The canvas is nearest-neighbour with anti-aliasing and smooth-pixmap
         transform disabled at every zoom. This re-asserts that guarantee (the
@@ -311,6 +332,7 @@ class Canvas_View(QGraphicsView):
     # -- keyboard (Space pan modifier) -----------------------------------
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 (Qt override)
+        """Commit/cancel a floating move on Enter/Escape; else track Space-pan."""
         # A live floating move commits on Enter/Return and cancels on Escape
         # (REQ-P2-UI-033/-034); these keys are inert when no float is active.
         if self._floating_controller.is_active():
@@ -329,6 +351,7 @@ class Canvas_View(QGraphicsView):
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event: QKeyEvent) -> None:  # noqa: N802 (Qt override)
+        """Clear the Space-pan modifier and restore the cursor on Space release."""
         if event.key() == Qt.Key.Key_Space and not event.isAutoRepeat():
             self._space_held = False
             self.viewport().unsetCursor()
@@ -363,6 +386,7 @@ class Canvas_View(QGraphicsView):
         self.colorPicked.emit(color)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        """Start a pan, open the right-click menu, or start a paint stroke."""
         button = event.button()
         if button == Qt.MouseButton.MiddleButton or (
             button == Qt.MouseButton.LeftButton and self._space_held
@@ -392,6 +416,7 @@ class Canvas_View(QGraphicsView):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        """Continue an active pan or an active paint drag, tracking the cursor."""
         if self._panning:
             delta = event.position().toPoint() - self._pan_origin
             self._pan_origin = event.position().toPoint()
@@ -412,6 +437,7 @@ class Canvas_View(QGraphicsView):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        """End an active pan, or commit the active paint stroke on release."""
         if self._panning and event.button() in (
             Qt.MouseButton.MiddleButton,
             Qt.MouseButton.LeftButton,
@@ -461,7 +487,8 @@ class Canvas_View(QGraphicsView):
         right-clicks are already handled in :meth:`mousePressEvent`, so only the
         keyboard-triggered request is serviced here to avoid a double menu. With no
         cursor to anchor to, the hub opens at the viewport centre; the seam hook
-        maps the buffer pixel back to a screen position (device-independent)."""
+        maps the buffer pixel back to a screen position (device-independent).
+        """
         if event.reason() != QContextMenuEvent.Reason.Keyboard:
             super().contextMenuEvent(event)
             return
@@ -480,9 +507,59 @@ class Canvas_View(QGraphicsView):
         view_point = self.mapFromScene(QPointF(x + 0.5, y + 0.5))
         return self.viewport().mapToGlobal(view_point)
 
+    # -- file-drop routing (CF: T-12, REQ-DDI-UI-001) ---------------------
+
+    @staticmethod
+    def _is_url_drag(event: QDragEnterEvent | QDragMoveEvent | QDropEvent) -> bool:
+        mime = event.mimeData()
+        return mime.hasUrls() and any(url.isLocalFile() for url in mime.urls())
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802
+        """Take over a URL drag; leave every other drag to the scene (D4/D5/D6).
+
+        Without this override, ``QGraphicsView`` translates the event into a
+        ``QGraphicsSceneDragDropEvent`` for the scene, which has no item that
+        accepts it — the drag is then rejected and never reaches
+        ``Main_Window`` on drop.
+        """
+        if self._is_url_drag(event):
+            event.acceptProposedAction()
+            return
+        super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:  # noqa: N802
+        """Keep accepting a URL drag as it moves; delegate everything else."""
+        if self._is_url_drag(event):
+            event.acceptProposedAction()
+            return
+        super().dragMoveEvent(event)
+
+    def dropEvent(self, event: QDropEvent) -> None:  # noqa: N802
+        """Route a URL drop through the window's file-drop handling (T-12).
+
+        A drop delivered straight to this viewport used to be silently
+        swallowed by the scene (no import, no notice, no crash) — this closes
+        that gap by calling the same router ``Main_Window.dropEvent`` uses, so
+        a drop landing on the canvas behaves identically to one landing
+        anywhere else on the window. A missing router (view constructed
+        without one) or a non-URL drag both fall back to the prior
+        scene-forwarding behaviour.
+        """
+        if self._is_url_drag(event) and self._drop_router is not None:
+            paths = [
+                url.toLocalFile()
+                for url in event.mimeData().urls()
+                if url.isLocalFile()
+            ]
+            event.acceptProposedAction()
+            self._drop_router(paths)
+            return
+        super().dropEvent(event)
+
     # -- i18n -------------------------------------------------------------
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-set the accessible name/description on QEvent.LanguageChange (F5)."""
         if event.type() == QEvent.Type.LanguageChange:
             self.setAccessibleName(self.tr("Canvas"))
             self.setAccessibleDescription(

@@ -19,6 +19,7 @@ from pixelart_creator.logic import constants
 from pixelart_creator.logic.color import TRANSPARENT
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 from pixelart_creator.logic.rotsprite import (
+    _offset_search,
     _upscale,
     make_rotsprite_command,
     rotsprite,
@@ -118,6 +119,41 @@ def test_sc_l013_5_upscale_factor_from_constants():
     )
     assert big.shape[0] == 4 * constants.ROTSPRITE_UPSCALE_FACTOR
     assert big.shape[1] == 4 * constants.ROTSPRITE_UPSCALE_FACTOR
+
+
+# --- T-02: the three unasserted ADR-0002 RotSprite pins --------------------
+
+
+def test_rotsprite_similarity_threshold_is_100_by_identity():
+    # ADR-0002: the shipped ROTSPRITE_SIMILARITY_THRESHOLD is pinned at 100.
+    assert constants.ROTSPRITE_SIMILARITY_THRESHOLD == 100
+
+
+def test_rotsprite_default_pivot_equals_explicit_grid_centre():
+    # ADR-0002 #2: pivot=None defaults to exactly ((W-1)/2, (H-1)/2).
+    buf = _sprite(6, 4)
+    w, h = buf.width, buf.height
+    default = rotsprite(buf, 40.0)
+    explicit = rotsprite(buf, 40.0, pivot=((w - 1) / 2.0, (h - 1) / 2.0))
+    assert default == explicit
+
+
+def test_offset_search_lexicographic_minimum_on_a_constructed_tie():
+    # ADR-0002 #3: _offset_search resolves a tie to the lexicographically
+    # smallest (dx, dy). Constructed so offsets (0,0) AND (1,1) both cost 0
+    # (the tie), while (0,1) and (1,0) cost strictly more -- proving the first
+    # (lexicographically smallest) minimum is kept, not overwritten by the
+    # later-found equal-cost (1,1).
+    big = np.array(
+        [
+            [10, 99, 10, 1],
+            [50, 20, 5, 20],
+            [10, 99, 10, 1],
+            [50, 20, 5, 20],
+        ],
+        dtype=np.uint8,
+    )
+    assert _offset_search(big, factor=2) == (0, 0)
 
 
 # --- output geometry / options --------------------------------------------

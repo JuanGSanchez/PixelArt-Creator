@@ -82,6 +82,7 @@ from pixelart_creator.logic.constants import (
     AUTOSAVE_INTERVAL_MS,
     DEFAULT_CANVAS_HEIGHT,
     DEFAULT_CANVAS_WIDTH,
+    UI_NOTICE_DURATION_MS,
 )
 from pixelart_creator.logic.document import Document, DocumentError, Layer
 from pixelart_creator.logic.grids import (
@@ -250,9 +251,9 @@ _SWATCH_PX = 24
 #: Filename of the app-level Favourites store under AppConfigLocation (ADR-0004).
 _FAVOURITES_FILE = "favourites.json"
 
-#: Auto-clear delay for a non-blocking status-bar drop notice, ms (presentation-
-#: only timing, not a domain tuning value — cf. _SWATCH_PX).
-_DROP_NOTICE_MS = 6000
+#: Longest edge of a RotSprite preview thumbnail, px (presentation-only sizing,
+#: not a domain tuning value — cf. _SWATCH_PX).
+_PREVIEW_MAX_EDGE_PX = 128
 
 
 @dataclass
@@ -603,6 +604,9 @@ class Main_Window(QMainWindow):
 
         self._macro_controls = Macro_Controls(self)
         self._macro_controls.replayRequested.connect(self._on_replay_requested)
+        # Reachable Cancel affordance (C-07): relayed straight to the controller's
+        # cooperative cancel; the button itself is enabled only while busy.
+        self._macro_controls.cancelRequested.connect(self._automation_controller.cancel)
         self._macro_dock = self._add_workflow_dock(self._macro_controls)
         self._script_runner_panel = Script_Runner_Panel(self)
         self._script_runner_panel.automationRequested.connect(self._run_automation_ops)
@@ -1459,6 +1463,9 @@ class Main_Window(QMainWindow):
         view.colorPicked.connect(self._on_color_picked)
         view.floatingStateChanged.connect(self._on_floating_state_changed)
         view.set_menu_hook(self._open_colour_hub)
+        # T-12: a drop delivered straight to the canvas viewport is routed
+        # through the same handler as Main_Window.dropEvent (REQ-DDI-UI-001).
+        view.set_drop_router(self._route_dropped_files)
         record = _DocTab(document, scene, view, stack)
         self._tabs_data.append(record)
         # Attach this tab's Phase-9 visual aids and wrap the view with rulers before
@@ -1898,14 +1905,14 @@ class Main_Window(QMainWindow):
         """Non-blocking notice that a dropped file's type is unsupported (UI-006)."""
         self.statusBar().showMessage(
             self.tr("Unsupported file type: %1").replace("%1", Path(path).name),
-            _DROP_NOTICE_MS,
+            UI_NOTICE_DURATION_MS,
         )
 
     def _notify_no_document(self) -> None:
         """Non-blocking notice that a palette drop needs an open document (UI-005)."""
         self.statusBar().showMessage(
             self.tr("Open a document before loading a palette."),
-            _DROP_NOTICE_MS,
+            UI_NOTICE_DURATION_MS,
         )
 
     def _notify_import_error(self, path: str, exc: Exception) -> None:
@@ -2807,12 +2814,13 @@ class Main_Window(QMainWindow):
             return
         new_w, new_h = dialog.target_size()
         layer: Layer = record.scene.active_layer()
+        mask = record.view.active_selection()
 
         def fn(buffer: PixelBuffer) -> PixelBuffer:
             return scale_nearest(buffer, new_w, new_h)
 
         try:
-            command = transform.make_transform_command(layer, fn, None)
+            command = transform.make_transform_command(layer, fn, mask)
         except TransformError as exc:
             QMessageBox.warning(self, self.tr("Scale Canvas"), str(exc))
             return
@@ -2846,7 +2854,7 @@ class Main_Window(QMainWindow):
     @staticmethod
     def _preview_thumbnail(buffer: PixelBuffer) -> PixelBuffer:
         """Down-scale a buffer to a small preview thumbnail (nearest-neighbour)."""
-        max_edge = 128
+        max_edge = _PREVIEW_MAX_EDGE_PX
         longest = max(buffer.width, buffer.height)
         if longest <= max_edge:
             return buffer
@@ -3049,16 +3057,29 @@ class Main_Window(QMainWindow):
         if tilemap is None:
             return
         # Native .pixproj references a tilemap's tilesets by index into the
-        # document collection, so register the imported tilesets first.
-        for tileset in tilemap.tilesets:
-            record.document.make_add_tileset_command(tileset).execute()
-        record.stack.push(
-            TilemapCommand(
-                record.document.make_add_tilemap_command(tilemap),
-                self._rebind_active_tilemap,
-                self.tr("Import Tilemap"),
+        # document collection, so register the imported tilesets first. The
+        # attach(es) and the tilemap add are one undo unit (CF-15): a single
+        # undo removes the imported tilemap AND detaches the imported tilesets.
+        label = self.tr("Import Tilemap")
+        record.stack.beginMacro(label)
+        try:
+            for tileset in tilemap.tilesets:
+                record.stack.push(
+                    TilesetCommand(
+                        record.document.make_add_tileset_command(tileset),
+                        self._rebind_active_tilemap,
+                        self.tr("Attach Tileset"),
+                    )
+                )
+            record.stack.push(
+                TilemapCommand(
+                    record.document.make_add_tilemap_command(tilemap),
+                    self._rebind_active_tilemap,
+                    label,
+                )
             )
-        )
+        finally:
+            record.stack.endMacro()
         self._active_tilemap = tilemap
         self._bind_tilemap(record)
 
@@ -3081,9 +3102,15 @@ class Main_Window(QMainWindow):
         Delegates to :func:`~pixelart_creator.ui.export_actions.run_export_dialog`,
         which submits one target to the off-thread export controller. Export is
         read-only — no ``QUndoCommand`` is pushed and ``ui/commands.py`` is
-        untouched (REQ-P7-UI-009).
+        untouched (REQ-P7-UI-009). The tracked active frame is forwarded so a
+        PNG export honours it instead of always frame 0 (CF-18).
         """
-        run_export_dialog(self, self.active_document(), self._export_controller)
+        run_export_dialog(
+            self,
+            self.active_document(),
+            self._export_controller,
+            frame_index=self._active_frame,
+        )
 
     def _on_export_busy(self, busy: bool) -> None:
         """Reset the per-run result accumulators when a run starts (busyChanged)."""
@@ -3129,7 +3156,7 @@ class Main_Window(QMainWindow):
                 self.tr("Export complete (%1 file(s)).").replace(
                     "%1", str(self._export_run_ok)
                 ),
-                _DROP_NOTICE_MS,
+                UI_NOTICE_DURATION_MS,
             )
 
     # -- automation (REQ-P8-UI-001..011) ----------------------------------

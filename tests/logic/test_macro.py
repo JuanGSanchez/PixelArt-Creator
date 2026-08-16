@@ -85,6 +85,8 @@ def test_op_equality_supports_round_trip_identity():
 
 
 def test_record_captures_ordered_ops():
+    # REQ-P8-LOGIC-004 / SC-L004-1 (R-29): record captures ordered reversible
+    # ops -- not a pixel diff.
     ops = [Op("procgen", {"algorithm": "value_noise"}, seed=1), Op("batch_recolour")]
     macro = record(ops)
     assert macro.ops == tuple(ops)
@@ -122,6 +124,7 @@ def test_dispatcher_is_wired_by_scripting_import():
 
 
 def test_replay_returns_one_undoable_group_command():
+    # REQ-P8-LOGIC-006 / SC-L006-1 (R-29): replay is one undoable grouped command.
     doc = _doc()
     buf = _leaf(doc)
     before = buf.data.copy()

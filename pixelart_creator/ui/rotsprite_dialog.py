@@ -105,6 +105,7 @@ class RotSprite_Dialog(QDialog):
         self._angle_label.setText(self.tr("Angle (deg)"))
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-translate on QEvent.LanguageChange (F5); delegate otherwise."""
         if event.type() == QEvent.Type.LanguageChange:
             self._retranslate()
         super().changeEvent(event)

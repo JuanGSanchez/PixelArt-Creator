@@ -89,14 +89,9 @@ ALL_MODES = list(BlendMode)
 
 
 def test_enum_matches_grounded_w3c_separable_set():
-    # REQ-P4-LOGIC-001. FLAG (AGT-03/AGT-02): the spec (line 129 "13-mode enum",
-    # line 32 "the twelve non-normal modes") and AGT-03's report both claim
-    # *13* members, but the authoritative research (docs/research-blend-modes.md
-    # §3) grounds exactly 12 separable modes (NORMAL + 11 non-normal); the four
-    # non-separable hue/sat/color/luminosity modes are explicitly out of scope.
-    # The implementation correctly ships 12 — the "13"/"twelve non-normal" count
-    # in the spec and report is off by one and needs reconciling. This test
-    # asserts the research-grounded reality.
+    # REQ-P4-LOGIC-001: 12 separable W3C modes (NORMAL + 11 non-normal), grounded
+    # in docs/research-blend-modes.md §3 (R-23: the stale "13-member enum" FLAG
+    # comment is resolved — the implementation's 12 members are correct).
     assert len(BlendMode) == 12
     assert BlendMode.NORMAL.value == "normal"
     # Value strings are the stable .pixproj tokens.

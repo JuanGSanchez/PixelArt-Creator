@@ -36,20 +36,22 @@ class PencilTool(Tool):
     tool_id = "pencil"
 
     def __init__(self) -> None:
+        """Start with no active stroke, no last point, and no collected raw path."""
         self._stroke: Optional[Stroke] = None
         self._last: Optional[Coord] = None
         self._raw: List[Coord] = []
         self._collect = False
 
     def label(self) -> str:
-        """Translated undo-menu label for a pencil stroke."""
+        """Return the translated undo-menu label for a pencil stroke."""
         return QCoreApplication.translate("tools", "Pencil")
 
     def value(self, ctx: ToolContext) -> PixelValue:
-        """The value plotted (overridden by the eraser).
+        """Return the value plotted (overridden by the eraser).
 
         Resolves to the active palette index on an indexed buffer and the active
-        RGBA colour on an RGBA buffer (paint-by-index, REQ-P3-UI-014)."""
+        RGBA colour on an RGBA buffer (paint-by-index, REQ-P3-UI-014).
+        """
         return ctx.paint_value()
 
     def _plot_segment(self, coords: List[Coord], ctx: ToolContext) -> None:
@@ -63,6 +65,7 @@ class PencilTool(Tool):
                     self._raw.append(c)
 
     def on_press(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Start a new stroke at (x, y), plotting the first pixel."""
         self._stroke = Stroke(ctx.buffer)
         self._collect = ctx.pixel_perfect or ctx.tiled
         self._raw = []
@@ -76,6 +79,7 @@ class PencilTool(Tool):
         ctx.scene.refresh_rect(bounding_rect({(x, y)}))
 
     def on_move(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Plot the segment from the last point to (x, y), continuing the stroke."""
         if self._stroke is None or self._last is None:
             return
         lx, ly = self._last
@@ -113,6 +117,7 @@ class PencilTool(Tool):
         ctx.scene.refresh_rect(bounding_rect(set(wrapped)))
 
     def on_release(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Commit the stroke as one undoable command, in the active drawing mode."""
         if self._stroke is None:
             return
         if ctx.tiled:

@@ -183,7 +183,12 @@ def apply_font_fallbacks() -> None:
 
 
 def apply_theme(app: QApplication, name: str) -> None:
-    """Apply theme ``name`` to the whole application (runtime switch, CL-13)."""
+    """Apply theme ``name`` to the whole application (runtime switch, CL-13).
+
+    This single app-wide role-based stylesheet is also how every Phase-8
+    automation panel renders correctly in both themes — none of them carries
+    a per-widget colour override (REQ-P8-UI-013).
+    """
     app.setStyleSheet(build_qss(name))
 
 

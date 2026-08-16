@@ -243,7 +243,8 @@ def test_dispatch_rejects_unknown_op():
 
 
 def test_dispatch_enforces_max_script_ops(monkeypatch):
-    # REQ-P8-LOGIC-013: the per-run bound comes from logic.constants.
+    # REQ-P8-LOGIC-013 / SC-L013-1 (R-29): the per-run bound comes from
+    # logic.constants.
     monkeypatch.setattr(scripting, "MAX_SCRIPT_OPS", 2)
     doc = _rgba_doc()
     ops = [Op("batch_recolour", {"color_map": []})] * 3
@@ -561,6 +562,8 @@ def test_dispatch_atomic_midapplication_execute_failure_rolls_back_reverse(
 
 
 def test_dispatch_valid_multiop_is_one_reversible_group_single_undo():
+    # REQ-P8-LOGIC-002 / SC-L002-1 (R-29): this whole suite is headless-drivable
+    # -- no QApplication / Qt import anywhere in this module (Article I, S11).
     # SUCCESS path: a fully-valid multi-op script applies as ONE reversible group.
     # A SINGLE undo reverts ALL ops; redo re-applies all — whole-document assertion.
     doc = _rgba_doc()

@@ -61,6 +61,7 @@ class Palette_Constraint_Panel(QWidget):
         self._gb_button.setText(self.tr("Constrain to Game Boy"))
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-translate on QEvent.LanguageChange (F5); delegate otherwise."""
         if event.type() == QEvent.Type.LanguageChange:
             self._retranslate()
         super().changeEvent(event)

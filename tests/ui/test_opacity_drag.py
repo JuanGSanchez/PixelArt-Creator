@@ -70,8 +70,9 @@ from pixelart_creator.ui.theme import canvas_roles
 STARTER = [(0, 0, 0, 255), (255, 255, 255, 255), (230, 30, 30, 255)]
 
 #: Canvas size chosen so the fully-visible viewport region (area 300*300 = 90 000 px)
-#: exceeds OPACITY_PREVIEW_MAX_PX (65 536), forcing an LOD factor > 1 — a GENUINE
-#: downsample branch, distinguishing the bounded-LOD preview from a full recomposite.
+#: exceeds OPACITY_PREVIEW_MAX_PX (16 384, R-37 correction — was mis-stated as
+#: 65 536 here), forcing an LOD factor > 1 — a GENUINE downsample branch,
+#: distinguishing the bounded-LOD preview from a full recomposite.
 _W = 300
 _H = 300
 #: Many-layer stack (>= 12) — the FU-16b modelled case (baseline 2.2-7 s cache-cold).
@@ -436,6 +437,74 @@ def test_commit_byte_exact_at_1920_scale_12_layers_opt_in(qtbot, theme):
 
 
 # --------------------------------------------------------------------------- #
+# T-30 (AGT-06 audit) — 16 ms per-tick preview assertion AT >= 1080^2 (opt-in) #
+# --------------------------------------------------------------------------- #
+
+#: T-30's own scale floor ("16 ms per-tick opacity-drag preview ... at >= 1080^2").
+#: OPACITY_PREVIEW_MAX_PX's own docstring grounds the preview holding 16 ms "up
+#: to ~1080-1280^2 viewports on the 2-core runner" — this test exercises that
+#: literal floor. Same double-gate opt-in convention as
+#: ``test_commit_byte_exact_at_1920_scale_12_layers_opt_in`` above: a shared CI
+#: runner is too noisy for an UNCONDITIONAL tight 16 ms assertion to hold without
+#: flaking, so this is deliberately NOT part of the default gate.
+_TICK_ENV_VAR = "PIXELART_OPACITY_TICK_TEST"
+_TICK_EDGE = 1080
+
+
+@pytest.mark.slow
+def test_per_tick_preview_holds_16ms_at_1080_squared_opt_in(qtbot, theme):
+    """T-30: a single throttled preview tick, at the literal >= 1080^2 floor,
+    holds ``FRAME_BUDGET_MS`` (16 ms).
+
+    **Two-tier model (provisional, pending ruling D-21).** ``FRAME_BUDGET_MS``
+    is the correct INTERACTIVE budget for this exact path (``OPACITY_PREVIEW_MAX_PX``
+    was sized precisely so the bounded-LOD preview holds it up to ~1080-1280^2 —
+    see that constant's docstring); asserting the tight 16 ms bound (rather than
+    a loose CI-gate constant like ``COMPOSITE_REGION_CEILING_MS``) is deliberate
+    here because that IS this path's own designed contract. It is still opt-in
+    (env var + ``slow`` marker) because a single tick on a shared, noisy 2-core CI
+    runner is not the dedicated frame-profile harness (AGT-10 owns that
+    measurement) and a bare per-test wall-clock assertion at exactly the design
+    edge would flake there; run explicitly to verify the contract on demand.
+
+    Set ``PIXELART_OPACITY_TICK_TEST=1`` to run it:
+        QT_QPA_PLATFORM=offscreen PIXELART_OPACITY_TICK_TEST=1 \\
+            python -m pytest tests/ui/test_opacity_drag.py \\
+            -k test_per_tick_preview_holds_16ms_at_1080_squared_opt_in -m slow -q
+    """
+    if os.environ.get(_TICK_ENV_VAR) != "1":
+        pytest.skip(f"opt-in slow test; set {_TICK_ENV_VAR}=1 to run it")
+
+    env = _make_env(
+        qtbot,
+        theme,
+        layers=_LAYERS,
+        partial_alpha=False,
+        non_normal_above=False,
+        width=_TICK_EDGE,
+        height=_TICK_EDGE,
+        show=True,
+    )
+    scene, nodes, k = env.scene, env.nodes, env.k
+
+    assert scene.begin_opacity_drag([k]) is True
+    cache = scene._opacity_drag
+    assert cache is not None
+    for buf in (cache.below_lod, cache.above_lod, cache.layer_lod):
+        assert int(buf.shape[0]) * int(buf.shape[1]) <= OPACITY_PREVIEW_MAX_PX
+
+    nodes[k].opacity = 0.42
+    # Warm-up tick excluded (first-call overhead), mirroring perf_profile.py.
+    scene.refresh_visible_throttled()
+    nodes[k].opacity = 0.43
+    start = time.perf_counter()
+    scene.refresh_visible_throttled()
+    elapsed_ms = (time.perf_counter() - start) * 1000.0
+
+    assert elapsed_ms < FRAME_BUDGET_MS
+
+
+# --------------------------------------------------------------------------- #
 # Preview-vs-commit transition — approximate during drag, exact on commit      #
 # --------------------------------------------------------------------------- #
 
@@ -506,7 +575,7 @@ def test_drag_cache_invalidated_on_pan_zoom(qtbot, theme):
 def test_drag_cache_invalidated_on_edit(qtbot, theme):
     """A pixel edit (refresh_rect) invalidates the drag cache (ADR-0034 §2.3)."""
     env = _make_env(qtbot, theme)
-    scene, nodes, k = env.scene, env.nodes, env.k
+    scene, k = env.scene, env.k
     scene.begin_opacity_drag([k])
     assert scene._opacity_drag is not None
     from PySide6.QtCore import QRectF

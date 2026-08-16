@@ -4,8 +4,10 @@ The GUI automation controls drive the SAME trusted ``logic.scripting`` dispatche
 (via ``logic.macro.replay``) as the headless ``data.automation_cli`` — so a fixed
 macro on a fixed document yields a STATE-IDENTICAL result whether run via the GUI
 worker or the CLI. The CLI is called in-process (the ``pixelart-run`` console
-script is intentionally not relied upon — it is not wired yet). Headless; both
-themes.
+script IS wired — R-28 correction, AGT-06 audit; ``pyproject.toml``
+``[project.scripts]`` maps it to ``pixelart_creator.data.automation_cli:main`` —
+this test calls the same ``main`` in process rather than shelling out, for
+speed). Headless; both themes.
 """
 
 from __future__ import annotations

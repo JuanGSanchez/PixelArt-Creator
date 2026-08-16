@@ -96,6 +96,41 @@ def test_sc_l030_5_non_floatmode_raises_selection_error():
         lift_selection(buf, _block_mask(), "move")  # type: ignore[arg-type]
 
 
+# --- T-10: REQ-P2-LOGIC-036 -- single-buffer / mask-source contract --------
+# (traceability.md names test_sc_l036_1_.../test_sc_l036_2_... directly; those
+# names already existed further below under "FA-T7 / SC-L036" (missed by the
+# initial grep, which searched product/design-docs but not this test file
+# itself) -- F811 caught the collision. The two pairs' bodies differ (this
+# pair checks a non-empty lifted mask.count() for every builder and the
+# dimension-mismatch error MESSAGE; the pre-existing pair checks
+# floating.mask() == mask exactly and a different mismatched size/mode), so
+# both are kept under distinct, truthful names rather than merged/deleted.)
+
+
+def test_lift_accepts_a_mask_from_every_shipped_builder():
+    """SC-L036-1 (additional angle): the float lifts from a mask produced by
+    rect/lasso/wand builders (CL-F4) -- any :class:`SelectionMask`-shaped mask
+    is accepted and yields a non-empty lifted mask."""
+    buf = _block_buffer()
+    for mask in (
+        rect_mask(6, 6, 1, 1, 2, 2),
+        lasso_mask(6, 6, [(1, 1), (2, 1), (2, 2), (1, 2)]),
+        wand_mask(buf, 1, 1),
+    ):
+        floating = lift_selection(buf, mask, FloatMode.MOVE)
+        assert floating.mask().count() > 0
+
+
+def test_dimension_mismatch_error_message_names_dimensions():
+    """SC-L036-2 (additional angle): the float never spans more than one
+    buffer -- a mask sized differently from the source buffer is rejected
+    with an error message that names the dimension mismatch, not silently
+    clipped."""
+    buf = _block_buffer(6, 6)
+    with pytest.raises(SelectionError, match="dimensions"):
+        lift_selection(buf, rect_mask(8, 8, 0, 0, 1, 1), FloatMode.MOVE)
+
+
 def test_floating_selection_set_offset_validates_ints():
     floating = lift_selection(_block_buffer(), _block_mask(), FloatMode.MOVE)
     floating.set_offset(3, -2)

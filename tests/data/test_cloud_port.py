@@ -219,6 +219,8 @@ def test_capabilities_fields():
 
 
 # --- CloudPort ABC contract ------------------------------------------------- #
+# REQ-P10-DATA-001 (R-25): the ONE cloud storage port -- a provider-agnostic
+# put/get slot; every provider detail sits behind this ABC.
 
 
 def test_cloud_port_is_abstract():

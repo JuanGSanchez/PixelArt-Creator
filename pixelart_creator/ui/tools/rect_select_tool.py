@@ -21,11 +21,13 @@ class RectSelectTool(SelectionTool):
         return QCoreApplication.translate("tools", "Rectangle Select")
 
     def begin(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Show the initial zero-size dashed rectangle preview at (x, y)."""
         ctx.scene.show_shape_preview(
             "rectangle", x, y, x, y, ctx.active_color, dashed=True
         )
 
     def update(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Update the dashed rectangle preview to the current cursor position."""
         sx, sy = self._start if self._start else (x, y)
         ctx.scene.show_shape_preview(
             "rectangle", sx, sy, x, y, ctx.active_color, dashed=True
@@ -34,4 +36,5 @@ class RectSelectTool(SelectionTool):
     def build(
         self, sx: int, sy: int, x: int, y: int, ctx: ToolContext
     ) -> Optional[SelectionMask]:
+        """Build the rectangle mask spanning the drag."""
         return rect_mask(ctx.buffer.width, ctx.buffer.height, sx, sy, x, y)

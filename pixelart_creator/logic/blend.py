@@ -7,8 +7,10 @@ functions, and :func:`composite_stack`, which flattens an ordered layer/group
 tree into a single RGBA :class:`~pixelart_creator.logic.pixel_buffer.PixelBuffer`.
 
 All blend maths follow *W3C Compositing and Blending Level 1*
-(``docs/research-blend-modes.md``): work in **float32 normalised 0..1, straight
-(non-premultiplied) alpha** (ADR-0005). ``uint8`` enters via ``/255`` and leaves
+(pins recorded in docs/adr/0005-blend-working-space-and-alpha-convention.md;
+original research record lives outside this repository): work in **float32
+normalised 0..1, straight (non-premultiplied) alpha** (ADR-0005). ``uint8``
+enters via ``/255`` and leaves
 via ``clip(round(x*255), 0, 255)``. The formula magic numbers (``0.5``,
 ``0.25``, the ``16/12/4`` Horner cubic, the ``2*Cs`` factors) are *intrinsic* to
 the W3C algorithm and stay module-local here (ADR-0001); only tuning scalars

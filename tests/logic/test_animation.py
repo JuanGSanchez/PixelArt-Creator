@@ -209,6 +209,7 @@ def test_sequence_stays_in_range(lo, span, mode, steps):
 
 
 def test_playback_steps_pairs_index_with_duration():
+    # REQ-P5-LOGIC-011 (R-25): playback_steps yields (index, duration) pairs.
     durations = [100, 500, 100]
     steps = list(itertools.islice(playback_steps(durations, PlaybackMode.LOOP), 5))
     assert steps == [(0, 100), (1, 500), (2, 100), (0, 100), (1, 500)]
@@ -275,6 +276,27 @@ def _layer_stack(color, *, visible=True):
     buf = PixelBuffer(2, 2)
     buf.fill(color)
     return [Layer(buf, "L", visible=visible)]
+
+
+# --------------------------------------------------------------------------- #
+# REQ-P5-LOGIC-013 (T-05) — SC-L013-1, literal: per-frame render ==             #
+# composite_stack of that frame's (stack's) layers, not re-implemented.        #
+# --------------------------------------------------------------------------- #
+
+
+def test_sc_l013_1_onion_composite_delegates_to_composite_stack_on_the_stack():
+    """SC-L013-1: onion_overlay's per-frame render is literally composite_stack
+    called on that frame's own layer stack (CO-4 reuse, no independent
+    compositing maths, REQ-P5-LOGIC-013)."""
+    from unittest.mock import patch
+
+    from pixelart_creator.logic import animation as anim_mod
+    from pixelart_creator.logic.animation import composite_stack as _real
+
+    stack = _layer_stack(WHITE)
+    with patch.object(anim_mod, "composite_stack", wraps=_real) as spy:
+        onion_overlay([stack], [], 2, 2)
+    spy.assert_called_once_with(stack, 2, 2, region=None)
 
 
 def test_onion_overlay_tints_prev_toward_prev_tint_and_next_toward_next():
@@ -373,6 +395,30 @@ def test_frame_tag_defaults():
     assert tag.color == "#ff0000ff"
 
 
+# Regression test for C-06 — proven by reversion in the commit pass
+def test_frame_tag_construction_validates_range_via_post_init():
+    """FrameTag("x", 5, 2) raises AnimationError AT CONSTRUCTION time.
+
+    Before the fix, an inverted (from_frame > to_frame) FrameTag could be built
+    with no validation and would only fail later, elsewhere, in a confusing way.
+    __post_init__ now delegates to validate_tag_range immediately.
+    """
+    with pytest.raises(AnimationError):
+        FrameTag("x", 5, 2)
+
+
+def test_frame_tag_construction_rejects_negative_from_frame():
+    """Regression test for C-06 — proven by reversion in the commit pass."""
+    with pytest.raises(AnimationError):
+        FrameTag("x", -1, 2)
+
+
+def test_frame_tag_construction_accepts_a_valid_range():
+    """Regression test for C-06 — proven by reversion in the commit pass."""
+    tag = FrameTag("x", 2, 5)  # no raise
+    assert (tag.from_frame, tag.to_frame) == (2, 5)
+
+
 def test_validate_tag_range_accepts_valid():
     validate_tag_range(1, 4, 6)  # no raise
 
@@ -423,7 +469,18 @@ def test_clamp_tag_range_rejects_zero_frame_count():
     hi=st.integers(min_value=-10, max_value=40),
 )
 def test_clamp_tag_range_always_produces_valid_range(frame_count, lo, hi):
-    clamped = clamp_tag_range(FrameTag("t", lo, hi), frame_count)
+    # Repaired for C-06: FrameTag.__post_init__ now validates its OWN range
+    # (validate_tag_range) at construction, so an inverted/negative (lo, hi)
+    # pair can no longer be built via the constructor directly. Build a valid
+    # tag first, then set the raw (possibly out-of-range) bounds by attribute
+    # assignment — FrameTag is a plain (non-frozen) dataclass, so this bypasses
+    # __post_init__ and still exercises clamp_tag_range's own defensive
+    # handling of an arbitrary (lo, hi) pair, preserving the original property:
+    # clamp_tag_range always produces a range valid_tag_range accepts.
+    tag = FrameTag("t", 0, 0)
+    tag.from_frame = lo
+    tag.to_frame = hi
+    clamped = clamp_tag_range(tag, frame_count)
     validate_tag_range(clamped.from_frame, clamped.to_frame, frame_count)
 
 

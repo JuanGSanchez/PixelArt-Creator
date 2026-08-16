@@ -42,16 +42,34 @@ a test that cannot run must SAY so, never pass silently) rather than being
 omitted or asserting a fabricated result.
 
 NOT covered by this module, and said plainly rather than silently skipped:
-the ``--full-frame``, ``--tilemap``, ``--tm-cache``, ``--overlay``,
-``--realtime`` and ``--viewport-recomposite`` modes. Each is a large,
-independently-scoped profiling surface (multiple hundred lines apiece) with
-its own construction fixtures; covering all of them is out of this tranche's
-scope (ADR-0047's remit is "the four remaining gate scripts", not an
-exhaustive enumeration of every ``perf_profile.py`` flag). The tiling and
-composite modes were chosen because they are the two the header lists first
-under ENTRYPOINT, and because between them they prove both the
-PySide6/headless path and the Qt-free path can each still report FAILED (not
-just COMPLETED) -- the exact property this tranche exists to establish.
+the ``--tilemap``, ``--tm-cache``, ``--overlay`` and ``--realtime`` modes.
+Each is a large, independently-scoped profiling surface (multiple hundred
+lines apiece) with its own construction fixtures; covering all of them is out
+of this tranche's scope (ADR-0047's remit is "the four remaining gate
+scripts", not an exhaustive enumeration of every ``perf_profile.py`` flag).
+The tiling and composite modes were chosen because they are the two the
+header lists first under ENTRYPOINT, and because between them they prove
+both the PySide6/headless path and the Qt-free path can each still report
+FAILED (not just COMPLETED) -- the exact property this tranche exists to
+establish.
+
+The ``--full-frame`` and ``--viewport-recomposite`` modes ARE covered, added
+in the C-08/T-35 follow-up pass: their basic invalid-input / huge-vs-negative-
+ceiling / exit-code contract (the same shape as the composite-mode pair
+above), PLUS a dedicated assertion that each mode's ``ceiling_ms`` in the
+JSON report is resolved from the real, imported ``pixelart_creator.logic.
+constants`` module -- never a fallback literal. That resolution assertion is
+the regression proof for C-08: ``scripts/perf_profile.py`` used to read these
+two ceilings (and three others) via ``getattr(_c, "<NAME>", <literal>)``, and
+the ``VIEWPORT_RECOMPOSITE_CEILING_MS`` fallback literal (3000) happened to
+EQUAL the real shipped constant -- so a constants.py regression that dropped
+the attribute would have left the gate passing at a coincidentally-identical
+number, Article II silently defeated. The module-missing-attribute half of
+that proof (``test_missing_ceiling_constant_is_loud_not_silent``) doctors a
+``PYTHONPATH`` shim whose ``pixelart_creator.logic.constants`` is otherwise
+complete but missing exactly one required ceiling constant, and asserts the
+script now exits 2 with a named, actionable error instead of quietly
+computing a fallback-literal-based verdict.
 """
 
 from __future__ import annotations
@@ -364,3 +382,294 @@ def test_pyside6_availability_is_reported_honestly_if_absent():
     assert result.returncode == 2, result.stderr
     payload = json.loads(result.stdout)
     assert payload["error"] == "pyside6-unavailable"
+
+
+# --------------------------------------------------------------------------- #
+# --full-frame mode (Slice-A, Qt-FREE): the same invalid-input / huge-vs-
+# negative-ceiling / exit-code contract already proven for --composite above,
+# PLUS the C-08 ceiling-resolves-from-constants assertion.
+# --------------------------------------------------------------------------- #
+def _real_constants_value(name: str):
+    """Read ``name`` off the REAL, imported ``pixelart_creator.logic.constants``
+    -- this test PROCESS's own environment, never a duplicated literal -- so
+    assertions compare against the single source of truth (S12)."""
+    from pixelart_creator.logic import constants as _c
+
+    return getattr(_c, name)
+
+
+def test_full_frame_invalid_geometry_exits_2():
+    result = run_script(
+        SCRIPT, ["--full-frame", "--width", "0", "--layers", "2", "--frames", "1"]
+    )
+    assert result.returncode == 2, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["error"] == "invalid-input"
+
+
+@pytest.mark.skipif(not _logic_available(), reason=_LOGIC_SKIP)
+def test_full_frame_huge_ceiling_is_always_within_exits_0():
+    result = run_script(
+        SCRIPT,
+        [
+            "--full-frame",
+            "--width",
+            "256",
+            "--height",
+            "256",
+            "--layers",
+            "2",
+            "--frames",
+            "1",
+            "--ceiling-ms",
+            "1000000000",
+        ],
+    )
+    payload = json.loads(result.stdout)
+    assert result.returncode == 0, result.stderr
+    assert payload["mode"] == "full-frame"
+    assert payload["gated"] is True
+    assert payload["within_ceiling"] is True
+    assert payload["ceiling_ms"] == 1000000000.0
+
+
+@pytest.mark.skipif(not _logic_available(), reason=_LOGIC_SKIP)
+def test_full_frame_negative_ceiling_is_always_over_exits_1():
+    result = run_script(
+        SCRIPT,
+        [
+            "--full-frame",
+            "--width",
+            "256",
+            "--height",
+            "256",
+            "--layers",
+            "2",
+            "--frames",
+            "1",
+            "--ceiling-ms",
+            "-1",
+        ],
+    )
+    payload = json.loads(result.stdout)
+    assert result.returncode == 1, result.stderr
+    assert payload["within_ceiling"] is False
+    assert payload["ceiling_ms"] == -1.0
+
+
+@pytest.mark.skipif(not _logic_available(), reason=_LOGIC_SKIP)
+def test_full_frame_ceiling_resolves_from_constants_not_fallback():
+    """No ``--ceiling-ms`` override -> the script must resolve the real
+    ``COMPOSITE_FULL_CEILING_MS`` from ``logic/constants.py`` (C-08): the
+    fallback-literal code path this used to fall through to no longer
+    exists, and this proves the resolved number matches the single source of
+    truth rather than a stand-in."""
+    result = run_script(
+        SCRIPT,
+        [
+            "--full-frame",
+            "--width",
+            "256",
+            "--height",
+            "256",
+            "--layers",
+            "2",
+            "--frames",
+            "1",
+        ],
+    )
+    assert result.returncode in (0, 1), result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["mode"] == "full-frame"
+    assert payload["ceiling_ms"] == _real_constants_value("COMPOSITE_FULL_CEILING_MS")
+
+
+# --------------------------------------------------------------------------- #
+# --viewport-recomposite mode (Slice-B, Qt-FREE): same shape as --full-frame.
+# --------------------------------------------------------------------------- #
+def test_viewport_recomposite_invalid_geometry_exits_2():
+    result = run_script(
+        SCRIPT,
+        ["--viewport-recomposite", "--width", "0", "--vp-layers", "2", "--frames", "1"],
+    )
+    assert result.returncode == 2, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["error"] == "invalid-input"
+
+
+@pytest.mark.skipif(not _logic_available(), reason=_LOGIC_SKIP)
+def test_viewport_recomposite_huge_ceiling_is_always_within_exits_0():
+    result = run_script(
+        SCRIPT,
+        [
+            "--viewport-recomposite",
+            "--width",
+            "256",
+            "--height",
+            "256",
+            "--vp-layers",
+            "2",
+            "--vp-region-size",
+            "32",
+            "--frames",
+            "1",
+            "--ceiling-ms",
+            "1000000000",
+        ],
+    )
+    payload = json.loads(result.stdout)
+    assert result.returncode == 0, result.stderr
+    assert payload["mode"] == "viewport-recomposite"
+    assert payload["gated"] is True
+    assert payload["within_ceiling"] is True
+    assert payload["byte_exact"] is True
+    assert payload["ceiling_ms"] == 1000000000.0
+
+
+@pytest.mark.skipif(not _logic_available(), reason=_LOGIC_SKIP)
+def test_viewport_recomposite_negative_ceiling_is_always_over_exits_1():
+    result = run_script(
+        SCRIPT,
+        [
+            "--viewport-recomposite",
+            "--width",
+            "256",
+            "--height",
+            "256",
+            "--vp-layers",
+            "2",
+            "--vp-region-size",
+            "32",
+            "--frames",
+            "1",
+            "--ceiling-ms",
+            "-1",
+        ],
+    )
+    payload = json.loads(result.stdout)
+    assert result.returncode == 1, result.stderr
+    assert payload["within_ceiling"] is False
+    assert payload["ceiling_ms"] == -1.0
+
+
+@pytest.mark.skipif(not _logic_available(), reason=_LOGIC_SKIP)
+def test_viewport_recomposite_ceiling_resolves_from_constants_not_fallback():
+    """No ``--ceiling-ms`` override -> the script must resolve the real
+    ``VIEWPORT_RECOMPOSITE_CEILING_MS`` from ``logic/constants.py`` (C-08).
+    This is the exact constant whose OLD fallback literal (3000) happened to
+    equal the real shipped value -- the coincidence that made the missing-
+    attribute case silently pass before this fix."""
+    result = run_script(
+        SCRIPT,
+        [
+            "--viewport-recomposite",
+            "--width",
+            "256",
+            "--height",
+            "256",
+            "--vp-layers",
+            "2",
+            "--vp-region-size",
+            "32",
+            "--frames",
+            "1",
+        ],
+    )
+    assert result.returncode in (0, 1), result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["mode"] == "viewport-recomposite"
+    assert payload["ceiling_ms"] == _real_constants_value(
+        "VIEWPORT_RECOMPOSITE_CEILING_MS"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# C-08 regression: a logic.constants module that IS importable but is missing
+# a required ceiling constant must fail LOUDLY (named, actionable, exit 2),
+# never silently compute a verdict off a guessed fallback literal.
+#
+# Regression test for C-08 -- proven by reversion in the commit pass.
+# --------------------------------------------------------------------------- #
+_SHIM_ALL_REQUIRED_CONSTANTS = {
+    "MAX_CANVAS_WIDTH": 7680,
+    "MAX_CANVAS_HEIGHT": 4320,
+    "TILE_SIZE": 64,
+    "FRAME_BUDGET_MS": 16,
+    "COMPOSITE_REGION_CEILING_MS": 200,
+    "REALTIME_APPLY_CEILING_MS": 10,
+    "MAX_SHARED_MEMBERS": 32,
+    "OVERLAY_FRAME_CEILING_MS": 48,
+    "COMPOSITE_FULL_CEILING_MS": 15000,
+    "VIEWPORT_RECOMPOSITE_CEILING_MS": 3000,
+}
+
+
+def _write_constants_shim_missing(tmp_path, missing_name: str) -> str:
+    """Build a doctored ``pixelart_creator.logic.constants`` package under
+    ``tmp_path`` that is otherwise complete but missing exactly
+    ``missing_name`` -- an importable module that has REGRESSED, distinct
+    from the "package absent from PYTHONPATH" environment gap the script's
+    ``except Exception`` fallback branch legitimately covers. Returns the
+    shim root as a ``str`` suitable for a ``PYTHONPATH`` entry.
+
+    NOTE ON INVOCATION SHAPE (load-bearing): this shim only shadows the real,
+    editable-installed ``pixelart_creator`` when the target script is run as
+    ``python scripts/perf_profile.py`` (``sys.path[0]`` becomes the
+    ``scripts/`` directory, which holds no ``pixelart_creator``, so the
+    PYTHONPATH-prepended shim is found first) -- exactly what ``run_script``
+    does. A ``python -c`` invocation would NOT reproduce this: ``-c`` inserts
+    the current working directory (the repo root, which itself contains the
+    real ``pixelart_creator`` package) as ``sys.path[0]``, ahead of
+    ``PYTHONPATH``, so the real module would win instead. Verified by hand
+    before writing this fixture.
+    """
+    assert missing_name in _SHIM_ALL_REQUIRED_CONSTANTS
+    pkg_root = tmp_path / "constants_shim"
+    logic_dir = pkg_root / "pixelart_creator" / "logic"
+    logic_dir.mkdir(parents=True)
+    (pkg_root / "pixelart_creator" / "__init__.py").write_text("", encoding="utf-8")
+    (logic_dir / "__init__.py").write_text("", encoding="utf-8")
+    lines = [
+        f"{name} = {value}"
+        for name, value in _SHIM_ALL_REQUIRED_CONSTANTS.items()
+        if name != missing_name
+    ]
+    lines.append(f"# {missing_name} intentionally OMITTED (C-08 regression shim).")
+    (logic_dir / "constants.py").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return str(pkg_root)
+
+
+@pytest.mark.parametrize(
+    "mode_flag, missing_name",
+    [
+        pytest.param(
+            "--viewport-recomposite",
+            "VIEWPORT_RECOMPOSITE_CEILING_MS",
+            id="viewport-recomposite",
+        ),
+        pytest.param("--full-frame", "COMPOSITE_FULL_CEILING_MS", id="full-frame"),
+    ],
+)
+def test_missing_ceiling_constant_is_loud_not_silent(tmp_path, mode_flag, missing_name):
+    """Regression test for C-08 -- proven by reversion in the commit pass.
+
+    With the pre-fix ``getattr(_c, "<NAME>", <literal>)`` code, this exact
+    scenario (module imports fine, one required ceiling constant absent)
+    would have silently resolved to the hard-coded fallback and, for
+    ``VIEWPORT_RECOMPOSITE_CEILING_MS`` specifically, produced the EXACT same
+    number (3000) as the real constant -- a gate that looks healthy while
+    the constants import is actually broken. The fixed script must instead
+    exit 2 with a JSON ``error`` naming the missing constant, before
+    argparse or any timing work ever runs.
+    """
+    shim_root = _write_constants_shim_missing(tmp_path, missing_name)
+    result = run_script(
+        SCRIPT,
+        [mode_flag, "--width", "64", "--height", "64", "--frames", "1"],
+        env={"PYTHONPATH": shim_root},
+    )
+    assert result.returncode == 2, (result.stdout, result.stderr)
+    payload = json.loads(result.stdout)
+    assert payload["error"] == "missing-constants"
+    assert payload["missing"] == [missing_name]
+    assert missing_name in result.stderr

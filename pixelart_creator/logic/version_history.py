@@ -113,6 +113,8 @@ class VersionHistory:
     Attributes:
         versions: Ordered :class:`CloudVersion` records with strictly ascending
             ``ordinal`` and unique ``version_id``; ``<= MAX_CLOUD_VERSIONS``.
+
+    REQ-P10-LOGIC-003.
     """
 
     versions: Tuple[CloudVersion, ...] = field(default_factory=tuple)

@@ -348,8 +348,12 @@ def _export_tile_layer(
         width, height = (0, 0) if bounds is None else (bounds[2] + 1, bounds[3] + 1)
         grid = np.zeros((max(height, 0), max(width, 0)), dtype=_LE_U32)
         for x, y, gid in layer.cells():
-            if 0 <= x < width and 0 <= y < height:
-                grid[y, x] = gid
+            if not (0 <= x < width and 0 <= y < height):
+                raise ProjectIOError(
+                    f"layer {layer.name!r} has a cell at ({x}, {y}) outside the "
+                    f"fixed map bounds [0, {width}) x [0, {height})"
+                )
+            grid[y, x] = gid
         obj["width"] = width
         obj["height"] = height
         obj["data"] = _encode_gids(grid, encoding, compression)

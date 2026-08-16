@@ -412,6 +412,28 @@ class FrameTag:
     repeat: int = 0
     color: str = "#ff0000ff"
 
+    def __post_init__(self) -> None:
+        """Validate the tag's own range shape (types, non-negative, ordered).
+
+        Delegates to :func:`validate_tag_range` with a ``frame_count`` derived
+        from ``to_frame`` itself, so this checks the tag's OWN well-formedness
+        (both bounds are ints, ``0 <= from_frame <= to_frame``) without needing
+        the document's actual frame count — validating a range against the real
+        frame count stays the :class:`~pixelart_creator.logic.document.Document`
+        builder's job (ADR-0011: this module never imports ``document``, a
+        one-way edge).
+
+        Raises:
+            AnimationError: If either bound is not an int, or the range is
+                inverted or negative.
+        """
+        frame_count = (
+            self.to_frame + 1
+            if isinstance(self.to_frame, int) and not isinstance(self.to_frame, bool)
+            else 1
+        )
+        validate_tag_range(self.from_frame, self.to_frame, frame_count)
+
 
 def validate_tag_range(from_frame: int, to_frame: int, frame_count: int) -> None:
     """Validate an inclusive tag range against a frame count.

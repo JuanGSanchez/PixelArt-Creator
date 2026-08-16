@@ -19,23 +19,27 @@ class LineTool(Tool):
     tool_id = "line"
 
     def __init__(self) -> None:
+        """Start with no active drag."""
         self._start: Optional[Tuple[int, int]] = None
 
     def label(self) -> str:
-        """Translated undo-menu label for a line."""
+        """Return the translated undo-menu label for a line."""
         return QCoreApplication.translate("tools", "Line")
 
     def on_press(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Record the line's start point and show the initial zero-length preview."""
         self._start = (x, y)
         ctx.scene.show_line_preview(x, y, x, y, ctx.active_color)
 
     def on_move(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Update the live line preview to the current cursor position."""
         if self._start is None:
             return
         sx, sy = self._start
         ctx.scene.show_line_preview(sx, sy, x, y, ctx.active_color)
 
     def on_release(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Commit the dragged line as one undoable stroke command."""
         if self._start is None:
             return
         sx, sy = self._start

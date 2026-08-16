@@ -116,7 +116,7 @@ class SelectionMask:
         return bool(self._data[y, x])
 
     def count(self) -> int:
-        """Number of selected pixels."""
+        """Return the number of selected pixels."""
         return int(self._data.sum())
 
     def bounds(self) -> Optional[Tuple[int, int, int, int]]:
@@ -137,14 +137,17 @@ class SelectionMask:
         return out
 
     def __eq__(self, other: object) -> bool:
+        """Return True if `other` is a SelectionMask with the same selected pixels."""
         if not isinstance(other, SelectionMask):
             return NotImplemented
         return np.array_equal(self._data, other._data)
 
     def __hash__(self) -> None:  # type: ignore[override]
+        """Return None: SelectionMask is a mutable value type and is not hashable."""
         return None  # mutable value type; not hashable
 
     def __repr__(self) -> str:
+        """Return a repr showing dimensions and the current selected-pixel count."""
         return f"SelectionMask({self.width}x{self.height}, {self.count()} selected)"
 
     # -- ops (return new masks) ------------------------------------------

@@ -38,6 +38,7 @@ class DitherTool(Tool):
     tool_id = "dither"
 
     def __init__(self) -> None:
+        """Start in ordered-dither mode with no bound palette and no active drag."""
         self._mode = MODE_ORDERED
         self._palette: Optional[Palette] = None
         self._start: Optional[Coord] = None
@@ -58,15 +59,17 @@ class DitherTool(Tool):
         self._palette = palette
 
     def label(self) -> str:
-        """Translated undo-menu label for a dither commit."""
+        """Return the translated undo-menu label for a dither commit."""
         return QCoreApplication.translate("tools", "Dither")
 
     # -- interaction ------------------------------------------------------
 
     def on_press(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Record the drag's start corner."""
         self._start = (x, y)
 
     def on_move(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Show a live dashed rectangle preview of the dither region."""
         if self._start is None:
             return
         sx, sy = self._start
@@ -75,6 +78,7 @@ class DitherTool(Tool):
         )
 
     def on_release(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Dither the dragged region onto the active palette as one command."""
         if self._start is None:
             return
         sx, sy = self._start

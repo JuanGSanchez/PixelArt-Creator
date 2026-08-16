@@ -54,17 +54,22 @@ class CompactionError(ValueError):
     """Raised when packing cannot proceed. `reason` is a stable machine token."""
 
     def __init__(self, message: str, reason: str = "invalid-input"):
+        """Store `reason`, the stable machine token, alongside the ValueError text."""
         super().__init__(message)
         self.reason = reason
 
 
 class Rect(NamedTuple):
+    """An input sprite rectangle: a stable `id` plus its width/height in pixels."""
+
     id: str
     w: int
     h: int
 
 
 class Placement(NamedTuple):
+    """A packed `Rect`'s position and size within the atlas."""
+
     id: str
     x: int
     y: int
@@ -73,6 +78,8 @@ class Placement(NamedTuple):
 
 
 class Packing(NamedTuple):
+    """The compaction result: every `Placement` plus the atlas `width`/`height`."""
+
     placements: List[Placement]
     width: int
     height: int

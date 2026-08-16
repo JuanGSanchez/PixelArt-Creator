@@ -15,8 +15,10 @@ Three capabilities over the Phase-1 buffer/palette model:
 :func:`make_constraint_command` captures a constraint application as a reversible
 :class:`~pixelart_creator.logic.history.PixelEdit` (REQ-P3-LOGIC-017).
 
-Grounding: median-cut (Heckbert 1980) and k-means++ / Lab clustering are from
-``docs/research-phase3-colour.md`` Topic 3 (F9). Only ``PALETTE_EXTRACT_DEFAULT_N``
+Grounding: median-cut (Heckbert 1980) and k-means++ / Lab clustering
+(pins recorded in docs/adr/0003-hardware-palette-data-placement.md and
+docs/adr/0001-s12-governs-tuning-not-intrinsic-constants.md; original research
+record lives outside this repository), Topic 3 (F9). Only ``PALETTE_EXTRACT_DEFAULT_N``
 and ``KMEANS_SEED`` are tuning scalars in
 :mod:`~pixelart_creator.logic.constants`. REQ-P3-LOGIC-009, -010, -011.
 """

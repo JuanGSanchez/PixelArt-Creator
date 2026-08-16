@@ -20,6 +20,7 @@ class MagicWandTool(SelectionTool):
     _allow_move = False
 
     def __init__(self) -> None:
+        """Start with the default exact-match colour tolerance (CL-1)."""
         super().__init__()
         #: Colour tolerance; default exact match (CL-1). Set by the shell control.
         self.tolerance: int = MAGIC_WAND_DEFAULT_TOLERANCE
@@ -35,4 +36,5 @@ class MagicWandTool(SelectionTool):
     def build(
         self, sx: int, sy: int, x: int, y: int, ctx: ToolContext
     ) -> Optional[SelectionMask]:
+        """Build the mask of pixels contiguous with (x, y) within the tolerance."""
         return wand_mask(ctx.buffer, x, y, tolerance=self.tolerance)

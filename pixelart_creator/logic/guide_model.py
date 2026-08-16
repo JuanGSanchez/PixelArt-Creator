@@ -193,7 +193,7 @@ class GuideModel:
 
     @property
     def sections(self) -> tuple[GuideSection, ...]:
-        """The ordered sections (the ToC backbone)."""
+        """Return the ordered sections that form the table-of-contents backbone."""
         return self._sections
 
     def topics(self) -> tuple[GuideTopic, ...]:

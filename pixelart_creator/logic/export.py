@@ -113,7 +113,10 @@ class ExportFormat(enum.Enum):
 
 
 class EnginePreset(enum.Enum):
-    """The supported engine presets (module-local vocabulary, BF-2)."""
+    """The supported engine presets (module-local vocabulary, BF-2).
+
+    REQ-P7-LOGIC-011.
+    """
 
     NONE = "none"
     UNITY = "unity"
@@ -157,7 +160,10 @@ class TagInfo:
 
 @dataclass(frozen=True)
 class SheetMetadata:
-    """Structured sprite-sheet / atlas metadata (fed to the engine-preset writers)."""
+    """Structured sprite-sheet / atlas metadata (fed to the engine-preset writers).
+
+    REQ-P7-LOGIC-011.
+    """
 
     image_name: str
     width: int
@@ -178,6 +184,7 @@ class ExportRequest:
     loop: int = GIF_DEFAULT_LOOP_COUNT
     tag: Optional[str] = None
     emit_json: bool = True
+    frame_index: int = 0
 
 
 @dataclass(frozen=True)
@@ -429,6 +436,8 @@ def build_metadata_json(meta: SheetMetadata) -> str:
     Serialised with ``json.dumps(..., sort_keys=True, ensure_ascii=False,
     separators=(",", ":"))`` over integer coordinates and a fixed ``version`` — no
     timestamp — so it is byte-reproducible (REQ-P7-LOGIC-007/-008).
+
+    REQ-P7-DATA-004.
     """
     frames_out = [
         {
@@ -529,20 +538,27 @@ def export_document(document: Document, request: ExportRequest) -> ExportResult:
     byte-identical (REQ-P7-LOGIC-009/-013). It flattens (CO-4) → encodes/lays out
     → builds metadata, all deterministically (REQ-P7-LOGIC-002).
 
-    - **PNG:** the first frame, composited flat (CL-13).
+    - **PNG:** ``document.frames[request.frame_index]`` (default ``0``, the first
+      frame, preserving single-frame output byte-for-byte), composited flat (CL-13).
     - **GIF:** the selected frame sequence honouring per-frame durations.
     - **SPRITE_SHEET:** a deterministic row-major grid + Aseprite JSON.
     - **ATLAS:** MaxRects-packed sprites (CP-1) + Aseprite JSON with matching coords.
 
     Raises:
-        ExportError: On an invalid request, a bound breach, or an unknown tag.
+        ExportError: On an invalid request, a bound breach, an out-of-range
+            ``frame_index``, or an unknown tag.
         AtlasError: If an atlas cannot be packed (REQ-P7-LOGIC-006).
     """
     _validate_request(request)
     width, height = document.width, document.height
 
     if request.fmt is ExportFormat.PNG:
-        image = flatten_frame(document.frames[0], width, height)
+        if not 0 <= request.frame_index < len(document.frames):
+            raise ExportError(
+                f"frame_index {request.frame_index!r} out of range for "
+                f"{len(document.frames)} frame(s)"
+            )
+        image = flatten_frame(document.frames[request.frame_index], width, height)
         return ExportResult(encode_png(image), _IMAGE_NAME_PNG, None, None)
 
     if request.fmt is ExportFormat.GIF:

@@ -94,20 +94,25 @@ class Favourites:
         return list(self._colors)
 
     def __contains__(self, color: object) -> bool:
+        """Return True if `color` is a valid RGBA tuple already in the favourites."""
         return is_rgba(color) and rgba(*color) in self._colors  # type: ignore[misc]
 
     def __len__(self) -> int:
+        """Return the number of favourite colours."""
         return len(self._colors)
 
     def __iter__(self) -> Iterator[RGBA]:
+        """Iterate the favourite colours in order."""
         return iter(self._colors)
 
     def __eq__(self, other: object) -> bool:
+        """Return True if `other` is a Favourites with the same colours, same order."""
         if not isinstance(other, Favourites):
             return NotImplemented
         return self._colors == other._colors
 
     def __repr__(self) -> str:
+        """Return an eval-able repr showing the underlying colour list."""
         return f"Favourites({self._colors!r})"
 
     def to_serializable(self) -> List[str]:

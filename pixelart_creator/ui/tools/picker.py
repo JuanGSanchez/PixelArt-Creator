@@ -9,7 +9,7 @@ from pixelart_creator.ui.tools.base import Tool, ToolContext
 class PickerTool(Tool):
     """Reads the colour under the cursor and sets it as the active colour (S4).
 
-    Picking does not mutate the buffer and pushes no undo command (CL-16). For
+    Picking does not mutate the buffer and pushes no undo command (CL-10). For
     an RGBA buffer the picked value is an RGBA tuple set directly; an indexed
     pixel is resolved to its palette colour.
     """
@@ -17,6 +17,7 @@ class PickerTool(Tool):
     tool_id = "picker"
 
     def on_press(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Read the pixel at (x, y) and set it as the active colour; mutate nothing."""
         if not ctx.buffer.in_bounds(x, y):
             return
         value = drawing.pick_color(ctx.buffer, x, y)

@@ -59,10 +59,20 @@ _MAX_LOOP = 65535
 class Export_Dialog(QDialog):
     """Collect an :class:`ExportTarget` (format + options + destination path)."""
 
-    def __init__(self, document: Document, parent: Optional[QWidget] = None) -> None:
-        """Build the dialog bound to ``document`` (used only to list frame tags)."""
+    def __init__(
+        self,
+        document: Document,
+        parent: Optional[QWidget] = None,
+        frame_index: int = 0,
+    ) -> None:
+        """Build the dialog bound to ``document`` (used only to list frame tags).
+
+        ``frame_index`` is the caller's currently-active frame (CF-18); a PNG
+        export request is built against it instead of always frame 0.
+        """
         super().__init__(parent)
         self._document = document
+        self._frame_index = frame_index
 
         self._format_combo = QComboBox(self)
         # Value = the frozen ExportFormat enum member (module-local vocabulary).
@@ -223,7 +233,7 @@ class Export_Dialog(QDialog):
                 max_dimension=self._atlas_maxdim_spin.value(),
                 emit_json=self._atlas_json_check.isChecked(),
             )
-        return ExportRequest(fmt=fmt)
+        return ExportRequest(fmt=fmt, frame_index=self._frame_index)
 
     def destination_path(self) -> str:
         """Return the chosen destination path (trimmed; may be empty)."""

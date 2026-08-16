@@ -74,6 +74,8 @@ def write_export(result: ExportResult, out_path: PathLike) -> None:
     Raises:
         OSError: If the file(s) cannot be written (surfaced to the caller — the
             CLI maps it to a non-zero exit, the GUI to a user-facing message).
+
+    REQ-P7-DATA-004.
     """
     target = Path(out_path)
     if target.parent and not target.parent.exists():
@@ -150,7 +152,10 @@ def _sprite_file_id(base: str, name: str) -> int:
 
 
 def _build_unity_meta(meta: SheetMetadata) -> str:
-    """Build a deterministic Unity 2022.3 ``.meta`` YAML for a Multiple-mode sheet."""
+    """Build a deterministic Unity 2022.3 ``.meta`` YAML for a Multiple-mode sheet.
+
+    REQ-P7-LOGIC-011.
+    """
     guid = _content_hash(meta)
     sprite_ids = {r.name: _sprite_file_id(guid, r.name) for r in meta.frames}
 
@@ -218,7 +223,10 @@ def _godot_loop(direction: str) -> str:
 
 
 def _build_godot_tres(meta: SheetMetadata, image_filename: str) -> str:
-    """Build a deterministic Godot 4.2 ``SpriteFrames`` ``.tres`` for the sheet."""
+    """Build a deterministic Godot 4.2 ``SpriteFrames`` ``.tres`` for the sheet.
+
+    REQ-P7-LOGIC-011.
+    """
     uid = _content_hash(meta)
     ext_id = f"1_{uid[:8]}"
     sub_ids = {r.name: f"AtlasTexture_{r.name}" for r in meta.frames}

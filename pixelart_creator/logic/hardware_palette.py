@@ -11,9 +11,12 @@ Placement & sourcing (ADR-0003):
   ``_GAME_BOY_COLORS``) — reference *data*, not tuning scalars, so they live here
   rather than in ``constants.py`` (Article II) and are not runtime-loaded assets.
 * **Game Boy** = the community-standard DMG green LUT ``#9BBC0F / #8BAC0F /
-  #306230 / #0F380F`` (research ``docs/research-phase3-colour.md`` Topic 4.2;
-  Pan Docs define only 2-bit indices + a greenscale tint, so these hex triplets
-  are the widely-cited *rendering* of that tint — consensus).
+  #306230 / #0F380F`` (pins recorded in
+  docs/adr/0003-hardware-palette-data-placement.md and
+  docs/adr/0001-s12-governs-tuning-not-intrinsic-constants.md; original research
+  record lives outside this repository), Topic 4.2; Pan Docs define only 2-bit
+  indices + a greenscale tint, so these hex triplets are the widely-cited
+  *rendering* of that tint — consensus).
 * **NES** = the NESdev wiki-canonical ``2C02G_wiki.pal`` 64-entry composite
   decode (research Topic 4.1). The 2C02 emits an analog NTSC signal with **no
   single canonical RGB palette** (≈54 distinct colours across 64 indices); this

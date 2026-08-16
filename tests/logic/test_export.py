@@ -33,7 +33,6 @@ from pixelart_creator.logic.constants import (
 )
 from pixelart_creator.logic.document import Document
 from pixelart_creator.logic.export import (
-    EnginePreset,
     ExportError,
     ExportFormat,
     ExportRequest,
@@ -172,6 +171,48 @@ def test_encode_png_rejects_non_rgba() -> None:
     """REQ-P7-LOGIC-003: PNG export requires an RGBA buffer."""
     with pytest.raises(ExportError, match="RGBA"):
         encode_png(PixelBuffer(4, 4, ColorMode.INDEXED))
+
+
+# --------------------------------------------------------------------------- #
+# C-01 — ExportRequest.frame_index selects the PNG-exported frame              #
+# --------------------------------------------------------------------------- #
+# Regression test for C-01 — proven by reversion in the commit pass
+
+
+def test_export_png_frame_index_selects_that_frames_pixels() -> None:
+    """A 6-frame document exported at frame_index=5 decodes to frame 5's pixels,
+    not frame 0's (the pre-fix export always used frame 0)."""
+    colors = [RED, GREEN, BLUE, YELLOW, RED, GREEN]
+    doc = make_doc(colors)
+    assert len(doc.frames) == 6
+    result = export_document(doc, ExportRequest(fmt=ExportFormat.PNG, frame_index=5))
+    decoded = np.asarray(Image.open(BytesIO(result.image_bytes)).convert("RGBA"))
+    assert np.array_equal(decoded, np.full((4, 4, 4), GREEN, dtype=np.uint8))
+
+
+def test_export_png_frame_index_default_is_still_frame_zero() -> None:
+    """Regression test for C-01 — proven by reversion in the commit pass.
+
+    The default (unset) ``frame_index`` still selects frame 0, preserving
+    single-frame output byte-for-byte (no behaviour change for existing callers).
+    """
+    doc = make_doc([RED, GREEN, BLUE])
+    result = export_document(doc, ExportRequest(fmt=ExportFormat.PNG))
+    decoded = np.asarray(Image.open(BytesIO(result.image_bytes)).convert("RGBA"))
+    assert np.array_equal(decoded, np.full((4, 4, 4), RED, dtype=np.uint8))
+
+
+def test_export_png_frame_index_out_of_range_raises() -> None:
+    """Regression test for C-01 — proven by reversion in the commit pass.
+
+    An out-of-range ``frame_index`` raises ExportError instead of silently
+    falling back to frame 0 or crashing.
+    """
+    doc = make_doc([RED, GREEN, BLUE])
+    with pytest.raises(ExportError, match="frame_index"):
+        export_document(doc, ExportRequest(fmt=ExportFormat.PNG, frame_index=3))
+    with pytest.raises(ExportError, match="frame_index"):
+        export_document(doc, ExportRequest(fmt=ExportFormat.PNG, frame_index=-1))
 
 
 # --------------------------------------------------------------------------- #

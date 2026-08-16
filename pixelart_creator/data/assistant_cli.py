@@ -193,7 +193,7 @@ def _build_backend(
 
 
 def _approve_all(request: ConfirmationRequest) -> bool:  # noqa: ARG001 - protocol shape
-    """A :data:`ConfirmCallback` that approves every destructive action (``--yes``)."""
+    """Approve every destructive action; the :data:`ConfirmCallback` for ``--yes``."""
     return True
 
 

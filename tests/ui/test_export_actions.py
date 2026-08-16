@@ -73,3 +73,44 @@ def test_accepted_with_path_submits_to_controller(
     with qtbot.waitSignal(export_controller.batchFinished, timeout=5000):
         export_actions.run_export_dialog(_parent(qtbot), doc, export_controller)
     assert out.exists()
+
+
+def test_t24_undo_stack_unchanged_across_a_full_export_run(
+    qtbot, monkeypatch, tmp_path
+):
+    """T-24 (AGT-06 audit) — REQ-P7-UI-009 behavioural: a completed export run
+    pushes NO ``QUndoCommand``. Driven at the ``Main_Window`` level (through the
+    real ``_on_export`` -> off-thread ``Export_Controller`` -> ``batchFinished``
+    path a user actually exercises) rather than a bare submission-only check, so
+    the assertion covers the WHOLE run, not just the call into
+    ``run_export_dialog``."""
+    from pixelart_creator.ui.export_dialog import Export_Dialog
+    from pixelart_creator.ui.main_window import Main_Window
+
+    win = Main_Window()
+    qtbot.addWidget(win)
+    record = win.active_tab()
+    # A prior, unrelated undo entry so "unchanged" is a genuine before/after
+    # equality, not a vacuous 0 == 0.
+    record.scene.active_buffer().set_pixel(0, 0, (10, 20, 30, 255))
+    record.view.set_active_color((10, 20, 30, 255))
+    from tests.ui._ui_helpers import click_pixel, prepare_for_click
+
+    prepare_for_click(record.view)
+    click_pixel(record.view, 1, 1)
+    stack_count_before = record.stack.count()
+    assert stack_count_before >= 1
+
+    out = tmp_path / "t24_export.png"
+
+    def _fake_exec(self):
+        self._format_combo.setCurrentIndex(0)  # PNG
+        self._path_edit.setText(str(out))
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(Export_Dialog, "exec", _fake_exec)
+    with qtbot.waitSignal(win._export_controller.batchFinished, timeout=5000):
+        win._on_export()
+
+    assert out.exists()
+    assert record.stack.count() == stack_count_before  # export pushed NO command

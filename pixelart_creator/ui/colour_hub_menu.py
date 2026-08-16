@@ -167,6 +167,7 @@ class Favourites_Panel(QWidget):
         self._down_button.setText(self.tr("Move Down"))
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-translate on QEvent.LanguageChange (F5); delegate otherwise."""
         if event.type() == QEvent.Type.LanguageChange:
             self._retranslate()
         super().changeEvent(event)
@@ -212,7 +213,8 @@ class Colour_Hub_Menu(QDialog):
         Favourites list + reorder/remove buttons, then the wheel pad, value
         slider, numeric entries and harmony swatches, then the explicit
         Add-to-Favourites button — so keyboard focus walks the hub predictably
-        (A11Y-COLHUB-2)."""
+        (A11Y-COLHUB-2).
+        """
         ordered: List[QWidget] = [
             *self._favourites.focus_widgets(),
             *self._wheel.focus_widgets(),
@@ -267,6 +269,7 @@ class Colour_Hub_Menu(QDialog):
         self._add_button.setText(self.tr("Add to Favourites"))
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-translate on QEvent.LanguageChange (F5); delegate otherwise."""
         if event.type() == QEvent.Type.LanguageChange:
             self._retranslate()
         super().changeEvent(event)

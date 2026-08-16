@@ -69,6 +69,7 @@ class Stroke:
     """
 
     def __init__(self, buffer: PixelBuffer) -> None:
+        """Snapshot `buffer` so later diffs can build the minimal reversible edit."""
         self._buffer = buffer
         self._before = buffer.copy()
         self._touched: Set[Coord] = set()
@@ -196,6 +197,7 @@ class ToolContext:
         modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier,
         floating_controller: Optional["FloatingMoveController"] = None,
     ) -> None:
+        """Bind the buffer, colour/index, undo stack, scene, and interaction state."""
         self.buffer = buffer
         self.active_color = active_color
         self.active_index = active_index
@@ -217,7 +219,8 @@ class ToolContext:
 
         Indexed buffers are painted by the active palette *index* (paint-by-index,
         REQ-P3-UI-014); RGBA buffers are painted with the active RGBA colour. The
-        mode decision stays a thin binding — no colour maths lives here (S11)."""
+        mode decision stays a thin binding — no colour maths lives here (S11).
+        """
         if self.buffer.mode is ColorMode.INDEXED:
             return self.active_index
         return self.active_color

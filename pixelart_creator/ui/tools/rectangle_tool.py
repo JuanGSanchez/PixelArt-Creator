@@ -23,7 +23,7 @@ class RectangleTool(ShapeTool):
         return "rectangle"
 
     def label(self) -> str:
-        """Translated undo-menu label for a rectangle."""
+        """Return the translated undo-menu label for a rectangle."""
         return QCoreApplication.translate("tools", "Rectangle")
 
     def _draw_op(

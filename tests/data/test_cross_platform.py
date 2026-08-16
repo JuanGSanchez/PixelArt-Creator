@@ -128,11 +128,13 @@ def test_godot_tres_is_lf_only_no_crlf(tmp_path: Path) -> None:
 
 
 def test_pixproj_bytes_roundtrip_no_newline_translation(tmp_path: Path) -> None:
-    """REQ-P13-DATA-003/-005: a ``.pixproj`` re-reads + re-saves byte-identically.
+    """REQ-P13-DATA-003, REQ-P13-DATA-005 (R-41): a ``.pixproj`` re-reads +
+    re-saves byte-identically.
 
     The deterministic serialiser must not introduce CRLF and must produce a stable
     payload across a save → load → re-save cycle, so the on-disk bytes never differ
-    merely because of the authoring OS.
+    merely because of the authoring OS -- the cross-OS project round-trip headline
+    correctness claim of REQ-P13-DATA-005.
     """
     doc = Document(6, 4)
     doc.frames[0].layers[0].buffer.fill(RED)

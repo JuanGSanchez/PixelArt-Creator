@@ -187,7 +187,10 @@ def _serialise_tilemap_layer(layer: TilemapLayer) -> Dict[str, Any]:
 def _serialise_tilemap(
     tilemap: Tilemap, tileset_index: Dict[int, int]
 ) -> Dict[str, Any]:
-    """Serialise a :class:`Tilemap` (tileset refs by document index + layers)."""
+    """Serialise a :class:`Tilemap` (tileset refs by document index + layers).
+
+    REQ-P6-DATA-004.
+    """
     refs: List[int] = []
     for tileset in tilemap.tilesets:
         idx = tileset_index.get(id(tileset))
