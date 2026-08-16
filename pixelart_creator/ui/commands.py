@@ -88,6 +88,7 @@ class PaintCommand(QUndoCommand):
         *,
         invalidate: Optional[InvalidateCallback] = None,
     ) -> None:
+        """Bridge a pre-applied :class:`PixelEdit` to one ``QUndoCommand``."""
         super().__init__(text or edit.label, parent)
         self._edit = edit
         self._refresh = refresh
@@ -143,6 +144,7 @@ class LogicCommand(QUndoCommand):
         text: str = "",
         parent: Optional[QUndoCommand] = None,
     ) -> None:
+        """Bridge an unapplied logic :class:`Command` to one ``QUndoCommand``."""
         super().__init__(text or command.label, parent)
         self._command = command
         self._rebind = rebind
@@ -228,6 +230,7 @@ class LayerCommand(LogicCommand):
         text: str = "",
         parent: Optional[QUndoCommand] = None,
     ) -> None:
+        """Bridge an unapplied layer-tree command to one ``QUndoCommand``."""
         super().__init__(command, refresh, text, parent)
 
 

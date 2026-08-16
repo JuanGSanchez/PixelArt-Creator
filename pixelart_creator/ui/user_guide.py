@@ -408,6 +408,7 @@ class User_Guide_Dialog(QDialog):
             self._render_topic(self._current_topic_id)
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-translate on QEvent.LanguageChange (F5); delegate otherwise."""
         if event.type() == QEvent.Type.LanguageChange:
             self._retranslate()
         super().changeEvent(event)

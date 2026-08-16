@@ -266,9 +266,11 @@ class PixelBuffer:
     # -- comparison / serialisation --------------------------------------
 
     def __eq__(self, other: object) -> bool:
+        """Return True if `other` is a PixelBuffer with the same mode and pixel data."""
         if not isinstance(other, PixelBuffer):
             return NotImplemented
         return self._mode is other._mode and np.array_equal(self._data, other._data)
 
     def __repr__(self) -> str:
+        """Return a repr showing dimensions and colour mode."""
         return f"PixelBuffer({self.width}x{self.height}, {self._mode.value})"

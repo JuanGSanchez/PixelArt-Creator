@@ -26,6 +26,7 @@ class ShapeTool(Tool):
     """Abstract rectangle/ellipse controller (live preview, single-command commit)."""
 
     def __init__(self) -> None:
+        """Start with no active drag and outline mode (CL-17)."""
         self._start: Optional[Coord] = None
         #: Shared filled/outline mode; default outline (CL-17). Set by the shell.
         self.filled: bool = False
@@ -39,7 +40,7 @@ class ShapeTool(Tool):
     # -- subclass hooks --------------------------------------------------
 
     def kind(self) -> str:
-        """Return the preview kind (``"rectangle"`` / ``"ellipse"``)."""
+        """Return which shape this preview draws: ``"rectangle"`` or ``"ellipse"``."""
         raise NotImplementedError
 
     def label(self) -> str:
@@ -61,12 +62,14 @@ class ShapeTool(Tool):
     # -- interaction -----------------------------------------------------
 
     def on_press(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Record the drag's start corner and show the initial shape preview."""
         self._start = (x, y)
         ctx.scene.show_shape_preview(
             self.kind(), x, y, x, y, ctx.active_color, filled=self.filled
         )
 
     def on_move(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Update the live shape preview to the current cursor position."""
         if self._start is None:
             return
         sx, sy = self._start
@@ -75,6 +78,7 @@ class ShapeTool(Tool):
         )
 
     def on_release(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Commit the dragged shape as one undoable command, mask/symmetry-aware."""
         if self._start is None:
             return
         sx, sy = self._start

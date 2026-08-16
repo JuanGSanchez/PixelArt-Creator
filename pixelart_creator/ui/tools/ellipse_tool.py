@@ -23,7 +23,7 @@ class EllipseTool(ShapeTool):
         return "ellipse"
 
     def label(self) -> str:
-        """Translated undo-menu label for an ellipse."""
+        """Return the translated undo-menu label for an ellipse."""
         return QCoreApplication.translate("tools", "Ellipse")
 
     def _draw_op(

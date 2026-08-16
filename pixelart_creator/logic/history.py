@@ -44,18 +44,22 @@ class PixelEdit(Command):
         changes: List[PixelChange],
         label: str = "draw",
     ) -> None:
+        """Store the target `buffer`, the recorded `changes`, and the undo-menu `label`."""
         self._buffer = buffer
         self._changes = changes
         self.label = label
 
     def __len__(self) -> int:
+        """Return the number of recorded pixel changes."""
         return len(self._changes)
 
     def execute(self) -> None:
+        """Apply every recorded change's new value, in order."""
         for x, y, _old, new in self._changes:
             self._buffer.set_pixel(x, y, new)
 
     def undo(self) -> None:
+        """Restore every recorded change's old value, in reverse order."""
         for x, y, old, _new in reversed(self._changes):
             self._buffer.set_pixel(x, y, old)
 
@@ -68,14 +72,17 @@ class FunctionCommand(Command):
     def __init__(
         self, do: Callable[[], None], undo: Callable[[], None], label: str = "command"
     ) -> None:
+        """Store the `do`/`undo` callables and the undo-menu `label`."""
         self._do = do
         self._undo = undo
         self.label = label
 
     def execute(self) -> None:
+        """Invoke the wrapped `do` callable."""
         self._do()
 
     def undo(self) -> None:
+        """Invoke the wrapped `undo` callable."""
         self._undo()
 
 

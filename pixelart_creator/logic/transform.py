@@ -122,7 +122,7 @@ def _masked_transform_changes(
     transform: Callable[[PixelBuffer], PixelBuffer],
     mask: SelectionMask,
 ) -> List[history.PixelChange]:
-    """Changes for a transform constrained to a selection (only masked pixels).
+    """Compute the changes for a transform constrained to a selection (masked pixels only).
 
     The transform is applied to the mask's bounding-box sub-buffer; the result is
     written back only at originally-selected coordinates (unmasked pixels are

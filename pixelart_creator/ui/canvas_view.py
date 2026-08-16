@@ -332,6 +332,7 @@ class Canvas_View(QGraphicsView):
     # -- keyboard (Space pan modifier) -----------------------------------
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 (Qt override)
+        """Commit/cancel an active floating move on Enter/Escape; else track Space-pan."""
         # A live floating move commits on Enter/Return and cancels on Escape
         # (REQ-P2-UI-033/-034); these keys are inert when no float is active.
         if self._floating_controller.is_active():
@@ -350,6 +351,7 @@ class Canvas_View(QGraphicsView):
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event: QKeyEvent) -> None:  # noqa: N802 (Qt override)
+        """Clear the Space-pan modifier and restore the cursor on Space release."""
         if event.key() == Qt.Key.Key_Space and not event.isAutoRepeat():
             self._space_held = False
             self.viewport().unsetCursor()
@@ -384,6 +386,7 @@ class Canvas_View(QGraphicsView):
         self.colorPicked.emit(color)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        """Start pan (middle/Space+left), open the right-click menu, or start painting."""
         button = event.button()
         if button == Qt.MouseButton.MiddleButton or (
             button == Qt.MouseButton.LeftButton and self._space_held
@@ -413,6 +416,7 @@ class Canvas_View(QGraphicsView):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        """Continue an active pan or an active paint drag, tracking the cursor."""
         if self._panning:
             delta = event.position().toPoint() - self._pan_origin
             self._pan_origin = event.position().toPoint()
@@ -433,6 +437,7 @@ class Canvas_View(QGraphicsView):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        """End an active pan, or commit the active paint stroke on left-button release."""
         if self._panning and event.button() in (
             Qt.MouseButton.MiddleButton,
             Qt.MouseButton.LeftButton,
@@ -482,7 +487,8 @@ class Canvas_View(QGraphicsView):
         right-clicks are already handled in :meth:`mousePressEvent`, so only the
         keyboard-triggered request is serviced here to avoid a double menu. With no
         cursor to anchor to, the hub opens at the viewport centre; the seam hook
-        maps the buffer pixel back to a screen position (device-independent)."""
+        maps the buffer pixel back to a screen position (device-independent).
+        """
         if event.reason() != QContextMenuEvent.Reason.Keyboard:
             super().contextMenuEvent(event)
             return
@@ -553,6 +559,7 @@ class Canvas_View(QGraphicsView):
     # -- i18n -------------------------------------------------------------
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-set the accessible name/description on QEvent.LanguageChange (F5)."""
         if event.type() == QEvent.Type.LanguageChange:
             self.setAccessibleName(self.tr("Canvas"))
             self.setAccessibleDescription(

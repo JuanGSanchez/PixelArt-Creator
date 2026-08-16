@@ -135,7 +135,7 @@ class Message:
 
 @dataclass(frozen=True)
 class Conversation:
-    """An ordered, immutable sequence of :class:`Message`\\ s (provider-neutral).
+    r"""An ordered, immutable sequence of :class:`Message`\\ s (provider-neutral).
 
     The unit the port receives on every turn (:meth:`ChatBackend.respond`). Mutation
     returns a *new* ``Conversation`` (frozen — deterministic, safe to share), mirroring
@@ -361,7 +361,7 @@ ConfirmCallback = Callable[[ConfirmationRequest], bool]
 
 
 def deny_all(request: ConfirmationRequest) -> bool:  # noqa: ARG001 - protocol shape
-    """The default :data:`ConfirmCallback`: decline every destructive action.
+    """Decline every destructive action; the default :data:`ConfirmCallback`.
 
     The gate-defaults-closed default (Article VIII, ADR-0041 §2): a loop driven without
     an explicit confirm decision NEVER auto-runs a destructive op — it declines it
@@ -458,7 +458,7 @@ def _guard_transcript(conversation: Conversation) -> None:
 def _handle_tool_call(
     document: Document, call: ToolCall, confirm: ConfirmCallback
 ) -> Tuple[Message, Optional[Command]]:
-    """Validate + gate + (maybe) dispatch ONE tool-call; return (result-msg, command).
+    r"""Validate + gate + (maybe) dispatch ONE tool-call; return (result-msg, command).
 
     The full per-call gate (ADR-0041 §2/§3), in order:
 

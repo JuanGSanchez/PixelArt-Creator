@@ -253,6 +253,7 @@ class _WheelPad(QWidget):
         )
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-translate on QEvent.LanguageChange (F5); delegate otherwise."""
         if event.type() == QEvent.Type.LanguageChange:
             self._retranslate()
         super().changeEvent(event)
@@ -398,7 +399,8 @@ class Colour_Wheel_Widget(QWidget):
         """Return the interactive widgets in intended tab order (hub A11Y-COLHUB-2).
 
         The wheel pad first, then the value slider, the RGB/HSV numeric entries
-        (the keyboard-accessible pick path), then each harmony swatch group."""
+        (the keyboard-accessible pick path), then each harmony swatch group.
+        """
         widgets: List[QWidget] = [
             self._wheel,
             self._value_slider,
@@ -580,6 +582,7 @@ class Colour_Wheel_Widget(QWidget):
                 swatch.set_group(name)
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-translate on QEvent.LanguageChange (F5); delegate otherwise."""
         if event.type() == QEvent.Type.LanguageChange:
             self._retranslate()
         super().changeEvent(event)

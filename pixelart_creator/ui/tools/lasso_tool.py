@@ -19,6 +19,7 @@ class LassoTool(SelectionTool):
     tool_id = "select_lasso"
 
     def __init__(self) -> None:
+        """Start with no traced points."""
         super().__init__()
         self._points: List[Coord] = []
 
@@ -27,10 +28,12 @@ class LassoTool(SelectionTool):
         return QCoreApplication.translate("tools", "Lasso Select")
 
     def begin(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Start the freehand path at (x, y) and show its preview."""
         self._points = [(x, y)]
         ctx.scene.show_polygon_preview(self._points, ctx.active_color)
 
     def update(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Append (x, y) to the traced path if it moved, and refresh the preview."""
         if not self._points or self._points[-1] != (x, y):
             self._points.append((x, y))
             ctx.scene.show_polygon_preview(self._points, ctx.active_color)
@@ -38,6 +41,7 @@ class LassoTool(SelectionTool):
     def build(
         self, sx: int, sy: int, x: int, y: int, ctx: ToolContext
     ) -> Optional[SelectionMask]:
+        """Build the auto-closed lasso mask from the traced path (or a straight fallback)."""
         points = self._points if self._points else [(sx, sy), (x, y)]
         self._points = []
         return lasso_mask(ctx.buffer.width, ctx.buffer.height, points)

@@ -42,6 +42,7 @@ class SelectionTool(Tool):
     _allow_move = True
 
     def __init__(self) -> None:
+        """Start with no active drag and not mid a floating move."""
         self._start: Optional[Coord] = None
         self._moving = False
 
@@ -76,6 +77,7 @@ class SelectionTool(Tool):
     # -- interaction -----------------------------------------------------
 
     def on_press(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Start a floating move if inside the selection, else begin a new-mask preview."""
         self._start = (x, y)
         self._moving = False
         selection = ctx.selection
@@ -100,6 +102,7 @@ class SelectionTool(Tool):
         self.begin(x, y, ctx)
 
     def on_move(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Update the floating-move offset, or the new-mask preview, during the drag."""
         if self._start is None:
             return
         if self._moving:
@@ -111,6 +114,7 @@ class SelectionTool(Tool):
         self.update(x, y, ctx)
 
     def on_release(self, x: int, y: int, ctx: ToolContext) -> None:
+        """Commit the floating move, or combine the new mask into the selection."""
         if self._start is None:
             return
         sx, sy = self._start
