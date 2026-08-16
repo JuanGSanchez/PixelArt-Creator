@@ -691,19 +691,28 @@ def run_batch(document: Document, requests: Sequence[ExportRequest]) -> BatchRes
     order given (ADR-0019). A succeeding target's :class:`ExportResult` bytes
     equal the single one-at-a-time :func:`export_document` call for that same
     request; a failing target's :class:`ExportError`/:class:`AtlasError`/
-    :class:`~pixelart_creator.logic.pixel_buffer.PixelBufferError` is captured
+    :class:`~pixelart_creator.logic.pixel_buffer.PixelBufferError` — or ANY
+    other exception type raised while computing that one target — is captured
     as a :class:`BatchTargetResult` with ``error`` set — never raised past this
-    function. This is the single batch-loop implementation the UI/CLI batch
-    runner should consume instead of re-implementing its own per-target
-    try/except (Article I; supersedes the former abort-on-first-failure
-    contract).
+    function, and never abandoning the remaining targets. The three named
+    types are recorded as ``str(exc)`` (their existing representation,
+    unchanged); an unforeseen exception type is recorded distinguishably as
+    ``f"{type(exc).__name__}: {exc}"`` so a caller can tell "a known export
+    bound was hit" apart from "something unexpected happened" without
+    importing this module's exception types. This is the single batch-loop
+    implementation the UI/CLI batch runner should consume instead of
+    re-implementing its own per-target try/except (Article I; supersedes the
+    former abort-on-first-failure contract).
 
-    Bounded by :data:`MAX_BATCH_TARGETS`.
+    Bounded by :data:`MAX_BATCH_TARGETS`. ``KeyboardInterrupt``/``SystemExit``
+    are deliberately NOT caught (Python convention: only ``Exception``
+    subclasses are per-target failures, never a process-control signal).
 
     Raises:
         ExportError: Only if ``requests`` itself exceeds ``MAX_BATCH_TARGETS``;
-            individual target failures are captured in the returned
-            :class:`BatchResult`, never raised.
+            individual target failures — of any exception type derived from
+            ``Exception`` — are captured in the returned :class:`BatchResult`,
+            never raised.
     """
     if len(requests) > MAX_BATCH_TARGETS:
         raise ExportError(f"batch exceeds MAX_BATCH_TARGETS ({MAX_BATCH_TARGETS})")
@@ -713,6 +722,14 @@ def run_batch(document: Document, requests: Sequence[ExportRequest]) -> BatchRes
             result = export_document(document, request)
         except (ExportError, AtlasError, PixelBufferError) as exc:
             targets.append(BatchTargetResult(index=i, request=request, error=str(exc)))
+        except Exception as exc:  # noqa: BLE001 — intentional per-target backstop
+            targets.append(
+                BatchTargetResult(
+                    index=i,
+                    request=request,
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+            )
         else:
             targets.append(BatchTargetResult(index=i, request=request, result=result))
     return BatchResult(tuple(targets))
