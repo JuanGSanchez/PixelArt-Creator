@@ -27,10 +27,12 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QColorDialog,
     QComboBox,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QProgressBar,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -39,6 +41,7 @@ from PySide6.QtWidgets import (
 
 from pixelart_creator.logic.macro import Op
 from pixelart_creator.logic.scripting import OP_BATCH_RECOLOUR
+from pixelart_creator.ui.automation_worker import STAGE_COMPLETE, STAGE_RUNNING
 
 #: Combo indices for the mapping mode (module-local UI enumeration).
 _MODE_INDEX = 0
@@ -99,6 +102,21 @@ class Batch_Recolour_Panel(QWidget):
         self._apply_button = QPushButton(self)
         self._apply_button.clicked.connect(self._on_apply)
 
+        # Per-target automation progress (D-06): a dedicated QGroupBox keeps this
+        # a visually distinct region from the mapping controls above it (the
+        # user's "clear element boundaries" directive) with no widget-level
+        # colour override — the box chrome + text render from the app's
+        # role-based theme (qss-theming), same as every other control here.
+        self._progress_stage_token = ""
+        self._progress_group = QGroupBox(self)
+        self._progress_status = QLabel(self._progress_group)
+        self._progress_bar = QProgressBar(self._progress_group)
+        self._progress_bar.setRange(0, 1)
+        self._progress_bar.setValue(0)
+        progress_layout = QVBoxLayout(self._progress_group)
+        progress_layout.addWidget(self._progress_status)
+        progress_layout.addWidget(self._progress_bar)
+
         mode_row = QHBoxLayout()
         mode_row.addWidget(self._mode_label)
         mode_row.addWidget(self._mode_combo, 1)
@@ -123,9 +141,32 @@ class Batch_Recolour_Panel(QWidget):
         layout.addLayout(pair_row)
         layout.addWidget(self._list, 1)
         layout.addWidget(self._apply_button)
+        layout.addWidget(self._progress_group)
 
         self._retranslate()
         self._on_mode_changed()
+
+    # -- automation progress (D-06) ----------------------------------------
+
+    def set_target_progress(self, index: int, count: int, stage: str) -> None:
+        """Reflect the automation worker's per-target progress on the bar.
+
+        Bound (by the host) to ``Automation_Controller.targetProgress`` — this
+        panel computes no domain value; it only echoes ``index``/``count`` onto
+        the bar and maps the plain ``stage`` token to a translated label (S11).
+        """
+        total = max(1, int(count))
+        self._progress_bar.setRange(0, total)
+        self._progress_bar.setValue(max(0, min(int(index), total)))
+        self._progress_stage_token = stage
+        self._progress_status.setText(self._stage_text(stage))
+
+    def _stage_text(self, stage: str) -> str:
+        if stage == STAGE_RUNNING:
+            return self.tr("Running…")
+        if stage == STAGE_COMPLETE:
+            return self.tr("Done")
+        return self.tr("Idle")
 
     # -- context ----------------------------------------------------------
 
@@ -223,8 +264,18 @@ class Batch_Recolour_Panel(QWidget):
     # -- enablement -------------------------------------------------------
 
     def set_busy(self, busy: bool) -> None:
-        """Disable Apply while an automation run is in flight."""
+        """Disable Apply while an automation run is in flight.
+
+        Also resets the progress bar to idle when a run ends (D-06); while a run
+        starts, the bar is left at its pre-run state until the first
+        ``targetProgress`` signal arrives (deterministic — no estimate is drawn).
+        """
         self._apply_button.setEnabled(not busy)
+        if not busy:
+            self._progress_bar.setRange(0, 1)
+            self._progress_bar.setValue(0)
+            self._progress_stage_token = ""
+            self._progress_status.setText(self._stage_text(""))
 
     # -- i18n -------------------------------------------------------------
 
@@ -248,6 +299,9 @@ class Batch_Recolour_Panel(QWidget):
         self._add_button.setAccessibleName(self.tr("Add a recolour pair"))
         self._remove_button.setAccessibleName(self.tr("Remove the selected pair"))
         self._apply_button.setAccessibleName(self.tr("Apply the batch recolour"))
+        self._progress_group.setTitle(self.tr("Progress"))
+        self._progress_bar.setAccessibleName(self.tr("Batch recolour progress"))
+        self._progress_status.setText(self._stage_text(self._progress_stage_token))
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
         """Re-translate the batch-recolour strings on a language change (F5)."""
