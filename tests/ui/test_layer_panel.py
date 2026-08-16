@@ -384,6 +384,35 @@ def test_sc_ui_011_1_smart_layer_mirrors_source(layer_env):
     assert env.scene._composite.get_pixel(0, 0) == GREEN  # still the source colour
 
 
+def test_t19_paint_on_smart_layer_is_rejected(layer_env):
+    """T-19 (AGT-06 audit, regression for C-04): a paint tool driven at a smart
+    layer lands NO stroke and pushes NO undo entry — ``CanvasScene.is_active_editable``
+    now rejects a smart layer (``self._active_layer.smart_source is not None``)
+    exactly like a locked or reference layer (REQ-P4-UI-004/-010; the smart
+    layer's pixels are derived, not directly editable)."""
+    # Regression test for C-04 — proven by reversion in the commit pass.
+    env = layer_env(names=("Source",))
+    source = _top_level(env.doc)[0]
+    env.panel._select_path((0,))
+    env.panel._on_smart()
+    assert env.stack.count() == 1
+    smart = next(
+        n
+        for n in _top_level(env.doc)
+        if isinstance(n, Layer) and n.smart_source is source
+    )
+    before = smart.buffer.copy()
+    stack_count_before = env.stack.count()
+
+    env.scene.set_active_layer(smart)
+    assert env.scene.is_active_editable() is False
+
+    click_pixel(env.view, 5, 5)
+
+    assert smart.buffer == before  # no stroke landed
+    assert env.stack.count() == stack_count_before  # no undo entry pushed
+
+
 # --------------------------------------------------------------------------- #
 # SC-UI-012-1 — canvas renders the composited stack, not one layer            #
 # --------------------------------------------------------------------------- #

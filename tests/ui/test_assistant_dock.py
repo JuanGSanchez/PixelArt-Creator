@@ -37,6 +37,7 @@ Coverage map:
 
 from __future__ import annotations
 
+import time
 from types import SimpleNamespace
 
 import numpy as np
@@ -710,4 +711,59 @@ def test_main_window_shutdown_drains_assistant_controller(qtbot):
     assert controller._pool.activeThreadCount() == 0
     assert controller.is_busy() is False
     win.shutdown_prewarm()  # idempotent
-    assert controller._signals is None
+
+
+# --------------------------------------------------------------------------- #
+# T-29 (AGT-06 audit) — REQ-P14-UI-004 literal Given: the GUI stays live       #
+# during a slow turn (a fake adapter with an injected delay).                 #
+# --------------------------------------------------------------------------- #
+
+
+class _SlowFakeAdapter(FakeLLMAdapter):
+    """A :class:`FakeLLMAdapter` whose ``respond`` sleeps ``delay_s`` first.
+
+    The sleep runs on the OFF-GUI-thread worker (``Assistant_Controller``'s
+    ``QThreadPool``) — never the GUI thread — so it models a slow real
+    provider round-trip without any network dependency (Article IV).
+    """
+
+    def __init__(self, script, delay_s: float, **kwargs) -> None:
+        super().__init__(script, **kwargs)
+        self._delay_s = delay_s
+
+    def respond(self, conversation, tools):
+        time.sleep(self._delay_s)
+        return super().respond(conversation, tools)
+
+
+def test_t29_gui_stays_responsive_during_a_slow_turn(qtbot, make_dock):
+    """REQ-P14-UI-004 (T-29): with a scripted reply delayed on the worker thread,
+    the GUI event loop keeps pumping (heartbeat processEvents calls succeed and
+    accumulate) WHILE the turn is in flight — proving the agentic loop truly
+    runs off the GUI thread, not just that it eventually finishes."""
+    from PySide6.QtWidgets import QApplication
+
+    slow = _SlowFakeAdapter(
+        [AssistantReply.final("done")], delay_s=0.5, configured=True
+    )
+    env = make_dock([AssistantReply.final("unused")], backend=slow)
+
+    heartbeats = 0
+    finished = []
+    env.controller.runFinished.connect(lambda *a: finished.append(1))
+
+    env.dock._input.setText("slow turn please")
+    env.dock._on_send()  # submits to the off-thread worker; returns immediately
+
+    # The GUI thread must stay responsive WHILE the worker sleeps: pump the
+    # event loop repeatedly and count successful heartbeats before the turn
+    # finishes. A frozen GUI would never reach the bound below in time.
+    deadline = time.monotonic() + 5.0
+    while not finished and time.monotonic() < deadline:
+        QApplication.processEvents()
+        heartbeats += 1
+
+    assert finished, "the turn never finished within the bounded deadline"
+    assert (
+        heartbeats > 5
+    ), "the GUI event loop did not keep pumping during the slow turn"

@@ -5,6 +5,13 @@ enablement, ``changeEvent`` retranslate (F5), colour-picking, list add/remove
 guards, parse-error paths, and inert refresh/disable — so the Phase-8 automation
 UI modules meet the coverage gate (≥90 line / ≥80 branch) without worker-thread
 blind spots. Headless; both themes.
+
+REQ-P8-UI-014 (R-25, AGT-06 audit): the ``_lang_change(widget)`` calls above are
+bare smoke-only invocations (they prove ``changeEvent`` does not raise, never
+that a retranslated string is actually non-empty). The ``test_t25_*`` section
+below (T-25) supplies REAL post-condition assertions for the four automation
+panels that previously had none — closing REQ-P8-UI-014's i18n-retranslate gap
+for this UI family — including the new Cancel button's retranslation (C-07).
 """
 
 from __future__ import annotations
@@ -265,3 +272,67 @@ def test_procgen_retranslate_branch(qtbot):
     qtbot.addWidget(p)
     _lang_change(p)  # covers the changeEvent retranslate path
     assert p._generate_button.text() != ""
+
+
+# --------------------------------------------------------------------------- #
+# T-25 (AGT-06 audit) — REAL LanguageChange post-condition assertions, the     #
+# four automation panels that previously only had a bare smoke call above.    #
+# Labelled SC-UI-014-1 (REQ-P8-UI-014, R-25). Includes the new Cancel         #
+# button's retranslation (pairs with C-07).                                   #
+# --------------------------------------------------------------------------- #
+
+
+def test_sc_ui_014_1_macro_controls_retranslate_incl_cancel_button(qtbot):
+    """SC-UI-014-1: every persistent Macro_Controls string re-populates on a
+    real ``QEvent.LanguageChange`` — including the new Cancel button (C-07),
+    both its text AND its accessible name/description."""
+    c = Macro_Controls()
+    qtbot.addWidget(c)
+    _lang_change(c)
+    assert c.accessibleName() != ""
+    assert c._record_button.accessibleName() != ""
+    assert c._replay_button.accessibleName() != ""
+    assert c._save_button.text() != "" and c._save_button.accessibleName() != ""
+    assert c._load_button.text() != "" and c._load_button.accessibleName() != ""
+    assert c._remove_button.text() != "" and c._remove_button.accessibleName() != ""
+    assert c._cancel_button.text() != ""
+    assert c._cancel_button.accessibleName() != ""
+    assert c._cancel_button.accessibleDescription() != ""
+
+
+def test_sc_ui_014_1_script_runner_retranslates(qtbot):
+    """SC-UI-014-1: Script_Runner_Panel's label + run button re-populate."""
+    p = Script_Runner_Panel()
+    qtbot.addWidget(p)
+    _lang_change(p)
+    assert p.accessibleName() != ""
+    assert p._run_button.text() != ""
+    assert p._run_button.accessibleName() != ""
+    assert p._editor.accessibleName() != ""
+
+
+def test_sc_ui_014_1_batch_recolour_retranslates(qtbot):
+    """SC-UI-014-1: Batch_Recolour_Panel's editors + apply button re-populate."""
+    p = Batch_Recolour_Panel()
+    qtbot.addWidget(p)
+    _lang_change(p)
+    assert p.accessibleName() != ""
+    assert p._add_button.text() != "" and p._add_button.accessibleName() != ""
+    assert p._remove_button.text() != "" and p._remove_button.accessibleName() != ""
+    assert p._apply_button.text() != "" and p._apply_button.accessibleName() != ""
+    assert p._mode_combo.accessibleName() != ""
+
+
+def test_sc_ui_014_1_plugin_manager_retranslates(qtbot):
+    """SC-UI-014-1: Plugin_Manager_Panel's list/permissions/action strings
+    re-populate."""
+    p = Plugin_Manager_Panel()
+    qtbot.addWidget(p)
+    _lang_change(p)
+    assert p.accessibleName() != ""
+    assert p._refresh_button.text() != "" and p._refresh_button.accessibleName() != ""
+    assert p._install_button.text() != "" and p._install_button.accessibleName() != ""
+    assert p._enable_button.text() != "" and p._enable_button.accessibleName() != ""
+    assert p._disable_button.text() != "" and p._disable_button.accessibleName() != ""
+    assert p._list.accessibleName() != ""
+    assert p._permissions.accessibleName() != ""

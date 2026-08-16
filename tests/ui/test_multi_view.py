@@ -95,3 +95,35 @@ def test_sc_ui_008_1_set_scene_rebinds_all_views(qtbot, make_view):
     mv.set_scene(scene2)
     assert a.scene() is scene2
     mv.close_all()
+
+
+def test_t27_edit_through_primary_view_is_visible_via_the_other_view(qtbot, make_view):
+    """T-27 (AGT-06 audit) — REQ-P9-LOGIC-012, UI-level: an edit committed through
+    ONE view (the primary paint-capable ``Canvas_View``) is visible RENDERED
+    through the OTHER (extra ``Document_View``) — not merely proven by scene
+    identity, but by actually rasterising the second view's scene and reading
+    the painted pixel back, the strongest UI-level corroboration of "one shared
+    document is the source of truth for all views" (DOC-1)."""
+    from PySide6.QtCore import QRectF
+    from PySide6.QtGui import QImage, QPainter
+
+    view, scene, _stack = make_view(16, 16)
+    mv = Multi_View(scene)
+    other = mv.open_view()
+    qtbot.addWidget(other)
+    assert other.scene() is scene  # the substrate: one shared scene (REQ-P9-LOGIC-012)
+
+    view.set_active_color(BLUE)
+    click_pixel(view, 4, 4)
+
+    # Render the OTHER view's scene directly (no manual refresh call) and read
+    # the painted pixel back — proving the edit is visible via that view's own
+    # rendering path, not merely via a shared-object identity check.
+    image = QImage(16, 16, QImage.Format.Format_RGBA8888)
+    image.fill(0)
+    painter = QPainter(image)
+    other.scene().render(painter, QRectF(0, 0, 16, 16), QRectF(0, 0, 16, 16))
+    painter.end()
+    colour = image.pixelColor(4, 4)
+    assert (colour.red(), colour.green(), colour.blue(), colour.alpha()) == BLUE
+    mv.close_all()

@@ -31,7 +31,7 @@ from typing import List
 
 import pytest
 from PIL import Image
-from PySide6.QtCore import QMimeData, QPoint, QPointF, Qt, QUrl
+from PySide6.QtCore import QEvent, QMimeData, QPoint, QPointF, Qt, QUrl
 from PySide6.QtGui import (
     QColor,
     QDragEnterEvent,
@@ -716,3 +716,75 @@ def test_ui009_window_renders_after_drop_in_active_theme(win, tmp_path, theme):
     # A non-empty, role-based stylesheet is applied (both themes via fixture).
     assert QApplication.instance().styleSheet() != ""
     assert win.active_document() is not None
+
+
+# --------------------------------------------------------------------------- #
+# REQ-DDI-UI-009 (T-13, AGT-06 audit) — the three previously-unasserted        #
+# clauses: keyboard reachability, visible focus, LanguageChange retranslate.  #
+# --------------------------------------------------------------------------- #
+
+
+def test_ui009_error_notices_use_a_keyboard_operable_message_box(
+    win, tmp_path, monkeypatch
+):
+    """SC-U009-2 (T-13): every import error surfaces via ``QMessageBox`` — a
+    native, inherently keyboard-reachable dialog (Enter/Esc dismiss it; a
+    single default ``Ok`` button gets focus automatically) — for each of the
+    three error-notice call sites (corrupt image / malformed palette / invalid
+    project), not just the Save/Discard/Cancel dirty-guard already covered by
+    ``test_ui009_error_dialog_offers_keyboard_reachable_default``.
+    """
+    calls: List[tuple] = []
+
+    def _warn(parent, title, text, *a, **k):
+        calls.append((parent, title, text))
+        return QMessageBox.StandardButton.Ok
+
+    monkeypatch.setattr(QMessageBox, "warning", _warn)
+
+    bad_png = tmp_path / "broken.png"
+    bad_png.write_bytes(b"\x89PNG\r\n\x1a\n not a real png \x00\x01\x02")
+    _drop(win, [str(bad_png)])
+
+    bad_gpl = tmp_path / "broken.gpl"
+    bad_gpl.write_text("NOT A GIMP PALETTE\ngarbage row\n", encoding="utf-8")
+    _drop(win, [str(bad_gpl)])
+
+    bad_proj = tmp_path / f"broken{FILE_SUFFIX}"
+    bad_proj.write_text("{ not valid json", encoding="utf-8")
+    _drop(win, [str(bad_proj)])
+
+    # Each of the three error paths opened a real QMessageBox — keyboard
+    # operable by construction (a parent + title + text call signature, no
+    # custom non-focusable widget substituted).
+    assert len(calls) == 3
+    for parent, title, text in calls:
+        assert parent is win
+        assert title != ""
+        assert text != ""
+
+
+def test_ui009_visible_focus_indicator_themed(win, theme):
+    """SC-U009 (T-13): a visible-focus QSS rule is themed (both themes, autouse)."""
+    from PySide6.QtWidgets import QApplication
+
+    assert ":focus" in QApplication.instance().styleSheet()
+
+
+def test_ui009_notices_still_render_after_language_change(win, tmp_path):
+    """SC-U009 (T-13): a ``QEvent.LanguageChange`` does not break later drop
+    notices — ``Main_Window.changeEvent`` retranslates its own persistent
+    strings (existing 022 contract) and a drop-triggered notice generated
+    *after* the event is still a non-empty, correctly-populated ``tr()``
+    string (the notices are built fresh per call, so retranslation never
+    leaves a stale/blank message behind).
+    """
+    win.changeEvent(QEvent(QEvent.Type.LanguageChange))
+
+    unknown = tmp_path / "post_retranslate.dat"
+    unknown.write_text("x", encoding="utf-8")
+    _drop(win, [str(unknown)])
+
+    message = win.statusBar().currentMessage()
+    assert message != ""
+    assert "post_retranslate.dat" in message

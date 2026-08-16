@@ -58,3 +58,81 @@ def test_sc_u006_2_tolerance_changes_extent(make_view):
     wide = view.active_selection()
     assert wide is not None and wide.is_selected(4, 0)
     assert wide.count() > tight.count()
+
+
+def test_t17_press_inside_existing_mask_does_not_lift(make_view):
+    """T-17 (AGT-06 audit): a wand press inside an existing selection does NOT
+    start a floating move — it (re)selects, per the ratified ``_allow_move``
+    narrowing on :class:`~pixelart_creator.ui.tools.selection_base.SelectionTool`
+    (``MagicWandTool._allow_move = False``, documented: "the wand's click always
+    (re)selects rather than moving"). Contrast with the rect/lasso selection
+    tools, whose in-mask press DOES lift a float (``test_floating_selection.py``).
+    """
+    view, scene, _stack = make_view(16, 16)
+    buf = scene.active_buffer()
+    _fill_block(buf, 0, 0, 3, 3, RED)
+    view.set_tool(MagicWandTool())
+
+    # An existing selection covering the same block the wand will click inside.
+    from pixelart_creator.logic.selection import rect_mask
+
+    view.set_selection(rect_mask(16, 16, 0, 0, 3, 3))
+
+    controller = view.floating_controller()
+    click_pixel(view, 1, 1)  # press+release inside the existing mask
+
+    assert not controller.is_active()  # never lifted a float
+    mask = view.active_selection()
+    assert mask is not None
+    assert mask.is_selected(2, 2)  # the wand's own contiguous-region selection
+
+
+def test_t17_frame_select_commits_a_live_float(qtbot):
+    """T-17 (AGT-06 audit): switching the active (canvas-displayed) frame while a
+    floating selection is live commits it as one command first — the shipped
+    ``Main_Window._on_frame_selected`` calls ``record.view.commit_active_float()``
+    before switching frames (mirrors the tool-switch / tab-switch commit
+    triggers already proven in ``test_floating_selection.py`` FB-T4)."""
+    from PySide6.QtCore import QEvent, QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
+
+    from pixelart_creator.logic.document import Document
+    from pixelart_creator.logic.palette import Palette
+    from pixelart_creator.logic.selection import rect_mask
+    from pixelart_creator.ui.main_window import Main_Window
+    from pixelart_creator.ui.tools import RectSelectTool
+    from tests.ui._ui_helpers import prepare_for_click
+
+    win = Main_Window()
+    qtbot.addWidget(win)
+    document = win.active_document()
+    document.add_frame()  # a second frame to select into
+
+    record = win.active_tab()
+    view, scene, stack = record.view, record.scene, record.stack
+    prepare_for_click(view)
+    win._tool_actions[RectSelectTool.tool_id].trigger()
+    buf = scene.active_buffer()
+    buf.set_pixel(2, 2, RED)
+    view.set_selection(rect_mask(buf.width, buf.height, 2, 2, 4, 4))
+
+    def _mev(etype, x, y, button, buttons):
+        pt = QPointF(x + 0.2, y + 0.2)
+        return QMouseEvent(
+            etype, pt, pt, button, buttons, Qt.KeyboardModifier.NoModifier
+        )
+
+    left = Qt.MouseButton.LeftButton
+    view.mousePressEvent(_mev(QEvent.Type.MouseButtonPress, 3, 3, left, left))
+    view.mouseMoveEvent(
+        _mev(QEvent.Type.MouseMove, 7, 5, Qt.MouseButton.NoButton, left)
+    )  # offset (4, 2), no release — the float is live
+
+    controller = view.floating_controller()
+    assert controller.is_active()
+
+    win._on_frame_selected(1)  # switch frames -> must commit the live float first
+
+    assert not controller.is_active()
+    assert stack.count() == 1
+    assert buf.get_pixel(6, 4) == RED  # stamped at (2,2)+(4,2)

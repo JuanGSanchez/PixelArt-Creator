@@ -84,11 +84,49 @@ def test_sc_ui_002_1_scene_rect_matches_document(make_scene):
 
 
 def test_sc_ui_002_2_resize_updates_scene_rect(make_scene):
-    """SC-UI-002-2: resizing the document updates the scene rect."""
+    """SC-UI-002-2 (legacy seam): ``on_document_resized`` also updates the scene
+    rect, but this entry point is NOT called by any shipped UI action today —
+    ``grep`` finds no caller of ``CanvasScene.on_document_resized`` anywhere in
+    ``pixelart_creator/`` (AGT-06 audit, T-14). Kept as a direct-API regression
+    guard on the method itself; the criterion's SHIPPED coverage is
+    ``test_sc_ui_002_2_scale_via_shipped_on_scale_updates_scene_rect`` below,
+    which drives the real ``Main_Window._on_scale`` -> ``rebind_active`` ->
+    ``_apply_scene_rect`` path a user actually reaches.
+    """
     scene = make_scene(64, 64)
     scene._document.resize_canvas(128, 96)
     scene.on_document_resized(128, 96)
     assert scene.sceneRect() == QRectF(0, 0, 128, 96)
+
+
+def test_sc_ui_002_2_scale_via_shipped_on_scale_updates_scene_rect(qtbot, monkeypatch):
+    """SC-UI-002-2 (T-14, AGT-06 audit): the scene rect updates through the
+    SHIPPED, user-reachable resize path — ``Main_Window._on_scale`` accepting
+    the ``Scale_Dialog`` -> ``_apply_buffer_command`` (dims-changing) ->
+    ``CanvasScene.rebind_active`` -> ``CanvasScene._apply_scene_rect`` — not the
+    orphaned ``on_document_resized`` direct-API call the prior test exercises.
+    """
+    from PySide6.QtWidgets import QDialog
+
+    from pixelart_creator.ui.main_window import Main_Window
+    from pixelart_creator.ui.transform_dialog import Scale_Dialog
+
+    win = Main_Window()
+    qtbot.addWidget(win)
+    record = win.active_tab()
+    src_w, src_h = record.document.width, record.document.height
+    assert record.scene.sceneRect() == QRectF(0, 0, src_w, src_h)
+
+    monkeypatch.setattr(Scale_Dialog, "exec", lambda self: QDialog.DialogCode.Accepted)
+    monkeypatch.setattr(
+        Scale_Dialog, "target_size", lambda self: (src_w * 2, src_h * 2)
+    )
+    win._on_scale()
+
+    assert record.stack.count() == 1
+    assert record.scene.sceneRect() == QRectF(0, 0, src_w * 2, src_h * 2)
+    record.stack.undo()
+    assert record.scene.sceneRect() == QRectF(0, 0, src_w, src_h)
 
 
 # -- REQ-P1-UI-003 --------------------------------------------------------
