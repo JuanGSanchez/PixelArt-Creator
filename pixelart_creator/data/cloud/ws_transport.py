@@ -21,6 +21,8 @@ pure code (Article VII), so a malformed frame is rejected without ``eval``/``exe
 from __future__ import annotations
 
 import json
+import logging
+import re
 from collections import deque
 from typing import Any, Deque, Dict, Optional, Tuple
 
@@ -33,6 +35,40 @@ __all__ = ["WebSocketTransport"]
 #: Default receive-drain timeout, seconds — a short non-blocking poll window. Intrinsic
 #: to this out-of-CI transport (not a shared tuning value), so module-local.
 _POLL_TIMEOUT_S = 0.01
+
+#: Redacts a ``token=<value>`` query parameter from any log record emitted while
+#: connecting (ADR-0036 Addendum A.2: the CLIENT must not emit the raw share token in a
+#: logged request/response line either — mirrors
+#: :class:`sync_backend.server._TokenRedactingFilter`, reimplemented locally so this
+#: data-layer module stays independent of the backend component (no cross-import).
+_TOKEN_REDACTION_RE = re.compile(r"(token=)[^&\s\"']+")
+
+
+class _TokenRedactingFilter(logging.Filter):
+    """A logging filter that masks ``token=<value>`` in every emitted record.
+
+    Attached to a per-connection scoped ``websockets.client`` logger so the
+    query-string share token (Addendum A.1) never reaches a log sink verbatim —
+    including the library's DEBUG raw-request/response lines that echo the
+    connect URI (Addendum A.2).
+    """
+
+    @staticmethod
+    def _scrub(value: object) -> object:
+        if isinstance(value, str):
+            return _TOKEN_REDACTION_RE.sub(r"\1<redacted>", value)
+        return value
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = self._scrub(record.msg)
+        if record.args:
+            if isinstance(record.args, tuple):
+                record.args = tuple(self._scrub(arg) for arg in record.args)
+            elif isinstance(record.args, dict):
+                record.args = {
+                    key: self._scrub(val) for key, val in record.args.items()
+                }
+        return True
 
 
 class WebSocketTransport(TransportPort):
@@ -55,8 +91,12 @@ class WebSocketTransport(TransportPort):
             raise TransportError(
                 "the 'websockets' dependency is required for WebSocketTransport"
             ) from exc
+        logger = logging.getLogger(
+            f"pixelart_creator.data.cloud.ws_transport.{id(self):x}"
+        )
+        logger.addFilter(_TokenRedactingFilter())
         try:
-            self._conn = connect(uri)
+            self._conn = connect(uri, logger=logger)
         except OSError as exc:  # pragma: no cover - network-gated, out of CI
             raise TransportError(
                 f"cannot connect to sync backend at {uri}: {exc}"
