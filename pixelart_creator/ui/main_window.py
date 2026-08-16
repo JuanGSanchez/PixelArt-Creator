@@ -54,8 +54,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pixelart_creator.data.asset_cas import ContentAddressableStore
+from pixelart_creator.data.asset_cas import default_content_store
 from pixelart_creator.data.asset_revision_store import AssetRevisionStore
+from pixelart_creator.data.asset_storage import default_asset_root
 from pixelart_creator.data.favourites_io import (
     FavouritesIOError,
     load_favourites,
@@ -107,12 +108,14 @@ from pixelart_creator.logic.selection import (
     rect_mask,
 )
 from pixelart_creator.logic.symmetry import SymmetryAxis
+from pixelart_creator.logic.sync_state import SyncState, compute_sync_state
 from pixelart_creator.logic.tilemap import Tilemap
 from pixelart_creator.logic.tileset import Tileset, TilesetError
 from pixelart_creator.logic.transform import (
     TransformError,
     scale_nearest,
 )
+from pixelart_creator.logic.version_history import CloudVersion
 from pixelart_creator.ui.asset_library_actions import Asset_Library_Session
 from pixelart_creator.ui.asset_library_panel import Asset_Library_Panel
 from pixelart_creator.ui.asset_reuse_panel import Asset_Reuse_Panel
@@ -272,6 +275,11 @@ class _DocTab:
     # (other collaborators' cursors; never persisted). ``None`` until aids attach.
     live_cursors: Optional[Live_Cursors_Overlay] = None
     perspective_overlay: Optional[Perspective_Grid_Overlay] = None
+    # D-13: the remote CloudVersion.version_id this tab's document was last saved
+    # to / restored from, or None if it has no remote lineage yet. Feeds the
+    # read-only, Qt-free ``compute_sync_state`` for the Cloud menu / version
+    # browser status line — never computed here.
+    local_version_id: Optional[str] = None
 
 
 class Palette_Panel(QWidget):
@@ -672,6 +680,14 @@ class Main_Window(QMainWindow):
         self._cloud_session.connectionChanged.connect(self._on_cloud_connection_changed)
         #: The cloud project id last saved to / opened from (drives version browse).
         self._cloud_project_id: Optional[str] = None
+        #: D-13: the most recently fetched remote version list (cached from the last
+        #: "open_list"/"versions"/"save" result) — feeds the read-only
+        #: ``compute_sync_state`` for the Cloud menu status line and the version
+        #: browser, without a network round trip on every tab switch.
+        self._cloud_last_versions: tuple = ()
+        #: D-13: the version id of a restore/recover in flight, consumed once the
+        #: reconstructed document lands in its new tab (see ``_on_cloud_succeeded``).
+        self._pending_restore_version_id: Optional[str] = None
         # Autosave timer (UI-003 support): every AUTOSAVE_INTERVAL_MS it asks the
         # PURE logic.autosave.should_autosave policy (elapsed as an INPUT, no clock
         # read here) whether to write the working document to the port's recovery
@@ -801,7 +817,7 @@ class Main_Window(QMainWindow):
         # the CAS blob count is unchanged (reference-not-copy). Every op is a
         # SYNCHRONOUS CAS/in-memory call — no worker / timer / poller (the Slice-1/2
         # precedent), so shutdown_prewarm is unchanged and nothing survives into GC.
-        self._asset_content_store = ContentAddressableStore()
+        self._asset_content_store = default_content_store(self._asset_root())
         self._asset_revision_store = AssetRevisionStore(self._asset_content_store)
         self._asset_version_browser = Asset_Version_Browser(self)
         self._asset_version_browser.set_session(self._asset_session)
@@ -918,6 +934,12 @@ class Main_Window(QMainWindow):
         self._cloud_versions_action = QAction(self)
         self._cloud_versions_action.setEnabled(False)
         self._cloud_versions_action.triggered.connect(self._on_cloud_versions)
+        # D-13: a disabled, non-actionable status entry surfacing the active tab's
+        # ``compute_sync_state`` (read-only, Qt-free) — never computed here, only
+        # displayed. Its accessible name doubles as the a11y label since a disabled
+        # QAction still exposes its text through the menu's accessibility tree.
+        self._cloud_status_action = QAction(self)
+        self._cloud_status_action.setEnabled(False)
         # Phase-10 Slice C: real-time connect/disconnect + a live-cursor overlay toggle.
         # Connect joins the active document's real-time relay; disconnect leaves it
         # (reconnectable). The overlay toggle is checkable, per-tab visibility.
@@ -1202,6 +1224,7 @@ class Main_Window(QMainWindow):
         self._cloud_menu.addAction(self._cloud_open_action)
         self._cloud_menu.addSeparator()
         self._cloud_menu.addAction(self._cloud_versions_action)
+        self._cloud_menu.addAction(self._cloud_status_action)
         # Slice-B collaboration surfaces, consistent with the existing Cloud menu:
         # dock-toggle actions for shared projects, comments, and presence (UI-009/
         # -010/-011).
@@ -1953,6 +1976,7 @@ class Main_Window(QMainWindow):
         record = self.active_tab()
         if record is None:
             self._active_view = None
+            self._update_cloud_status()
             return
         self._active_view = record.view
         self._undo_group.setActiveStack(record.stack)
@@ -1966,6 +1990,7 @@ class Main_Window(QMainWindow):
         self._bind_visual_aids_to_active()
         # Lazy: defer the buffer scan unless the analytics dock is visible.
         self._analytics_view.request_refresh()
+        self._update_cloud_status()
 
     def _on_tool_action(self) -> None:
         action = self.sender()
@@ -2296,6 +2321,22 @@ class Main_Window(QMainWindow):
         directory.mkdir(parents=True, exist_ok=True)
         return directory / _FAVOURITES_FILE
 
+    def _asset_root(self) -> Path:
+        """Return the app asset-store root (``QStandardPaths``, ADR-0051).
+
+        Resolved here in ``ui/`` from ``AppLocalDataLocation`` — the
+        non-roaming bulk-data home, deliberately NOT ``AppConfigLocation``
+        (ADR-0051 diverges from the Favourites precedent because the CAS is a
+        bulk blob store, not a small preference). Falls back to the Qt-free
+        ``default_asset_root()`` when Qt names nothing. Side-effect-free: no
+        ``mkdir`` here — ``LocalBlobBackend.put_blob`` creates the directory on
+        first write, so launching the app never litters the disk.
+        """
+        base = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.AppLocalDataLocation
+        )
+        return Path(base) if base else default_asset_root()
+
     def _load_favourites(self):
         """Load the persisted Favourites (empty on first run or on error)."""
         try:
@@ -2395,6 +2436,35 @@ class Main_Window(QMainWindow):
         self._cloud_save_action.setEnabled(connected)
         self._cloud_open_action.setEnabled(connected)
         self._cloud_versions_action.setEnabled(connected)
+        if not connected:
+            self._cloud_last_versions = ()
+        self._update_cloud_status()
+
+    def _update_cloud_status(self) -> None:
+        """Refresh the Cloud-menu status entry from ``compute_sync_state`` (D-13).
+
+        Read-only: this widget performs no sync-state math, it only asks the
+        Qt-free :func:`~pixelart_creator.logic.sync_state.compute_sync_state`
+        for the active tab's ``local_version_id`` against the last cached remote
+        version list, then displays the tr()-wrapped result. Recomputed on tab
+        switch, connection change, and after every cloud save/open/restore.
+        """
+        record = self.active_tab()
+        if record is None or not self._cloud_session.is_connected():
+            self._cloud_status_action.setText(self.tr("Cloud status: —"))
+            return
+        state = compute_sync_state(record.local_version_id, self._cloud_last_versions)
+        self._cloud_status_action.setText(self._cloud_status_text(state))
+
+    def _cloud_status_text(self, state: SyncState) -> str:
+        """Return the tr()-wrapped Cloud-menu label for a computed sync state."""
+        if state is SyncState.UP_TO_DATE:
+            return self.tr("Cloud status: Up to date")
+        if state is SyncState.LOCAL_AHEAD:
+            return self.tr("Cloud status: Not yet saved to cloud")
+        if state is SyncState.REMOTE_AHEAD:
+            return self.tr("Cloud status: Newer version in cloud")
+        return self.tr("Cloud status: Diverged")
 
     # -- Phase-10 Slice C: real-time + branching (REQ-P10-UI-012/-013) ----
 
@@ -2607,7 +2677,14 @@ class Main_Window(QMainWindow):
             record = self.active_tab()
             if record is not None:
                 record.stack.setClean()
+                if isinstance(result, CloudVersion):
+                    # D-13: the just-saved version is both the local marker and,
+                    # trivially, the whole known remote state — computing sync
+                    # from it needs no extra fetch (compute_sync_state is pure).
+                    record.local_version_id = result.version_id
+                    self._cloud_last_versions = (result,)
             self.statusBar().showMessage(self.tr("Saved to cloud."), 4000)
+            self._update_cloud_status()
         elif kind in ("open_list", "versions"):
             self._show_version_browser(result, restore_on_pick=(kind == "open_list"))
         elif kind in ("restore", "recover"):
@@ -2618,13 +2695,21 @@ class Main_Window(QMainWindow):
                     else self.tr("Recovered")
                 )
                 self._add_document_tab(result, title)
+                if kind == "restore":
+                    restored = self.active_tab()
+                    if restored is not None:
+                        restored.local_version_id = self._pending_restore_version_id
+                self._pending_restore_version_id = None
                 self.statusBar().showMessage(self.tr("Restored from cloud."), 4000)
+                self._update_cloud_status()
 
     def _show_version_browser(self, result: object, *, restore_on_pick: bool) -> None:
         """Open the version browser over an off-thread-fetched version list."""
         if not isinstance(result, (tuple, list)):
             return
         versions = tuple(result)
+        self._cloud_last_versions = versions
+        self._update_cloud_status()
         if not versions:
             QMessageBox.information(
                 self,
@@ -2632,7 +2717,11 @@ class Main_Window(QMainWindow):
                 self.tr("No versions found for this project."),
             )
             return
-        browser = Version_History_Browser(versions, self)
+        active = self.active_tab()
+        local_version_id = active.local_version_id if active is not None else None
+        browser = Version_History_Browser(
+            versions, self, local_version_id=local_version_id
+        )
         if browser.exec() != QDialog.DialogCode.Accepted:
             return
         chosen = browser.selected_version()
@@ -2645,6 +2734,7 @@ class Main_Window(QMainWindow):
         # Restore is a fresh off-thread get + defensive decode → NEW tab (current
         # unsaved state protected). restore_on_pick distinguishes the open flow's
         # implicit browse from an explicit version browse (both restore identically).
+        self._pending_restore_version_id = chosen.version_id
         self._cloud_controller.submit(
             "restore", make_restore_job(port, project_id, chosen.version_id)
         )
@@ -3372,6 +3462,7 @@ class Main_Window(QMainWindow):
         self._cloud_save_action.setText(self.tr("&Save to Cloud…"))
         self._cloud_open_action.setText(self.tr("&Open from Cloud…"))
         self._cloud_versions_action.setText(self.tr("&Version History…"))
+        self._update_cloud_status()
         self._realtime_connect_action.setText(self.tr("Start &Real-time…"))
         self._realtime_disconnect_action.setText(self.tr("Stop Real-&time"))
         self._live_cursors_action.setText(self.tr("Show &Live Cursors"))
