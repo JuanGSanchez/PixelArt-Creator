@@ -7,10 +7,11 @@ so the same ``parents[2]`` expression resolves to the working-tree root.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Optional
 
 #: Repo root: tests/scripts/conftest.py -> parents[2] is the working tree root.
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -23,7 +24,9 @@ class ScriptRun(NamedTuple):
     stderr: str
 
 
-def run_script(script_name: str, args: List[str]) -> ScriptRun:
+def run_script(
+    script_name: str, args: List[str], env: Optional[dict] = None
+) -> ScriptRun:
     """Invoke ``scripts/<script_name>`` as a real subprocess, matching its own
     documented ``ENTRYPOINT`` (``python scripts/<script_name> [flags]``).
 
@@ -32,13 +35,24 @@ def run_script(script_name: str, args: List[str]) -> ScriptRun:
     ``argparse.parse_args()`` with no injectable parameter, so a subprocess is
     the only way to exercise the real CLI contract -- the entrypoint under
     test, not a private call shape.
+
+    ``env``, when given, is a MERGE on top of a copy of the current process
+    environment (never a replacement) -- so callers only need to state the
+    override (e.g. a doctored ``PYTHONPATH`` shim) and everything else (PATH,
+    QT_QPA_PLATFORM if already set, etc.) keeps working as it does for every
+    other ``run_script`` call.
     """
     script_path = SCRIPTS_DIR / script_name
+    run_env = None
+    if env is not None:
+        run_env = dict(os.environ)
+        run_env.update(env)
     completed = subprocess.run(
         [sys.executable, str(script_path), *args],
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
         timeout=60,
+        env=run_env,
     )
     return ScriptRun(completed.returncode, completed.stdout, completed.stderr)
