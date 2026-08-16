@@ -1,10 +1,12 @@
 /*
- * web_viewer/tests/viewer_core.test.mjs — framework-free node unit tests (T13E-B07).
+ * web_viewer/tests/test_viewer_core.mjs — framework-free node unit tests (T13E-B07).
+ * Renamed from viewer_core.test.mjs (R-42) so the citation/traceability matrix tool,
+ * which indexes only files whose NAME starts with `test_`, actually sees this suite.
  *
- * Owned by AGT-06 (QA). Plain `node:assert/strict` — NO test framework, NO bundler
- * (D3). Run with a bare node:
+ * Owned by AGT-13 (Web Verification). Plain `node:assert/strict` — NO test framework,
+ * NO bundler (D3). Run with a bare node:
  *
- *     node web_viewer/tests/viewer_core.test.mjs
+ *     node web_viewer/tests/test_viewer_core.mjs
  *
  * WHAT IT NEEDS TO RUN (see the AGT-06 report — "pure-logic extraction"):
  *   viewer.js today wraps ALL its pure logic (decodeMessage / decodeUpdate /
@@ -46,7 +48,11 @@ try {
       "      extraction from viewer.js is pending (frontend/agt-11-web-client).\n" +
       "      Reason: " + err.message
   );
-  process.exit(0);
+  // A6/C4 (node-esm-harness skill, "make a skip loud"): a skip is never a pass.
+  // Print the executed count anyway — EXECUTED 0 is the honest line — and exit
+  // non-zero so this state can never be misread as a green run.
+  console.log("executed 0 tests, 0 passed");
+  process.exit(1);
 }
 
 // --------------------------------------------------------------------------- //
@@ -202,7 +208,9 @@ test("composited RGBA matches the shipped reference byte-exact (0 LSB)", () => {
 // Run.
 // --------------------------------------------------------------------------- //
 let failed = 0;
+let executed = 0;
 for (const [name, fn] of tests) {
+  executed += 1;
   try {
     await fn();
     console.log(`PASS ${name}`);
@@ -211,5 +219,15 @@ for (const [name, fn] of tests) {
     console.error(`FAIL ${name}\n     ${err.message}`);
   }
 }
-console.log(`\n${tests.length - failed}/${tests.length} passed`);
+const passed = executed - failed;
+console.log(`\n${passed}/${tests.length} passed`);
+// A6/C4: the honest line the harness/agent read for the executed count. A run
+// that executed zero tests must never exit 0 (a skip is never a pass) — the
+// import-skip path above already exits 1 before reaching here, so this line
+// covers the case where the suite array itself is empty.
+console.log(`executed ${executed} tests, ${passed} passed`);
+if (executed === 0) {
+  console.error("FAIL: 0 tests executed — an empty suite is never a pass.");
+  process.exit(1);
+}
 process.exit(failed === 0 ? 0 : 1);
