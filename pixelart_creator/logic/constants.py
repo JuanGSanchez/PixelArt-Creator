@@ -1034,3 +1034,10 @@ one reply's generated length so a single round-trip cannot run away. DISTINCT na
 concern from every shipped constant — it is an output-token count, not a byte cap
 (cf. :data:`MAX_TOOL_RESULT_BYTES`) nor a message/turn count (spec REQ-P14-DATA-005;
 Researcher ``ad2616c7`` R1.4)."""
+
+UI_NOTICE_DURATION_MS: int = 6000
+"""Transient UI notice/toast display duration, ms (S12 single-source).
+
+Formerly an inline literal in the UI layer; centralised here so a change is made
+in exactly one place. Pure numeric tuning only — the UI widget that shows/hides
+the notice remains ui/'s concern (S11)."""

@@ -82,6 +82,7 @@ from pixelart_creator.logic.constants import (
     AUTOSAVE_INTERVAL_MS,
     DEFAULT_CANVAS_HEIGHT,
     DEFAULT_CANVAS_WIDTH,
+    UI_NOTICE_DURATION_MS,
 )
 from pixelart_creator.logic.document import Document, DocumentError, Layer
 from pixelart_creator.logic.grids import (
@@ -250,9 +251,9 @@ _SWATCH_PX = 24
 #: Filename of the app-level Favourites store under AppConfigLocation (ADR-0004).
 _FAVOURITES_FILE = "favourites.json"
 
-#: Auto-clear delay for a non-blocking status-bar drop notice, ms (presentation-
-#: only timing, not a domain tuning value — cf. _SWATCH_PX).
-_DROP_NOTICE_MS = 6000
+#: Longest edge of a RotSprite preview thumbnail, px (presentation-only sizing,
+#: not a domain tuning value — cf. _SWATCH_PX).
+_PREVIEW_MAX_EDGE_PX = 128
 
 
 @dataclass
@@ -1904,14 +1905,14 @@ class Main_Window(QMainWindow):
         """Non-blocking notice that a dropped file's type is unsupported (UI-006)."""
         self.statusBar().showMessage(
             self.tr("Unsupported file type: %1").replace("%1", Path(path).name),
-            _DROP_NOTICE_MS,
+            UI_NOTICE_DURATION_MS,
         )
 
     def _notify_no_document(self) -> None:
         """Non-blocking notice that a palette drop needs an open document (UI-005)."""
         self.statusBar().showMessage(
             self.tr("Open a document before loading a palette."),
-            _DROP_NOTICE_MS,
+            UI_NOTICE_DURATION_MS,
         )
 
     def _notify_import_error(self, path: str, exc: Exception) -> None:
@@ -2853,7 +2854,7 @@ class Main_Window(QMainWindow):
     @staticmethod
     def _preview_thumbnail(buffer: PixelBuffer) -> PixelBuffer:
         """Down-scale a buffer to a small preview thumbnail (nearest-neighbour)."""
-        max_edge = 128
+        max_edge = _PREVIEW_MAX_EDGE_PX
         longest = max(buffer.width, buffer.height)
         if longest <= max_edge:
             return buffer
@@ -3155,7 +3156,7 @@ class Main_Window(QMainWindow):
                 self.tr("Export complete (%1 file(s)).").replace(
                     "%1", str(self._export_run_ok)
                 ),
-                _DROP_NOTICE_MS,
+                UI_NOTICE_DURATION_MS,
             )
 
     # -- automation (REQ-P8-UI-001..011) ----------------------------------
