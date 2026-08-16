@@ -76,6 +76,24 @@ import os
 import sys
 import time
 
+# Ceiling/threshold constant names this profiler REQUIRES from the single
+# source of truth (S12) once the package is importable at all. C-08: a
+# missing attribute on an otherwise-importable ``logic.constants`` module
+# used to be silently patched over by a ``getattr(_c, "<NAME>", <literal>)``
+# fallback -- and for VIEWPORT_RECOMPOSITE_CEILING_MS that literal (3000)
+# happens to EQUAL the real shipped value, so a broken/regressed constants
+# import could leave that gate passing at a coincidentally-identical number
+# with Article II silently defeated. Below, each of these is read directly
+# off the imported module; if any is missing, the failure is loud (named,
+# actionable, non-zero exit) instead of a guessed literal standing in.
+_REQUIRED_CEILING_ATTRS = (
+    "REALTIME_APPLY_CEILING_MS",
+    "MAX_SHARED_MEMBERS",
+    "OVERLAY_FRAME_CEILING_MS",
+    "COMPOSITE_FULL_CEILING_MS",
+    "VIEWPORT_RECOMPOSITE_CEILING_MS",
+)
+
 # Defaults from the centralised constants (S12) when the package is importable.
 try:
     from pixelart_creator.logic import constants as _c
@@ -84,25 +102,42 @@ try:
     D_TILE, D_BUDGET = _c.TILE_SIZE, float(_c.FRAME_BUDGET_MS)
     D_FRAME_BUDGET = int(_c.FRAME_BUDGET_MS)
     D_CEILING = float(_c.COMPOSITE_REGION_CEILING_MS)
+
+    _missing = [name for name in _REQUIRED_CEILING_ATTRS if not hasattr(_c, name)]
+    if _missing:
+        # NOT the "package not on PYTHONPATH" case (that is the except-Exception
+        # branch below, with its documented literal fallbacks) -- this is a
+        # module that DID import but has regressed, or a stale/partial
+        # constants module shadowing the real one. Refuse to substitute a
+        # hard-coded literal that could coincidentally match (and therefore
+        # mask) the real value (C-08).
+        sys.stderr.write(
+            "perf_profile: logic.constants is importable but is missing the "
+            "following required ceiling constant(s): %s -- refusing to "
+            "silently fall back to a literal.\n" % ", ".join(_missing)
+        )
+        print(json.dumps({"error": "missing-constants", "missing": _missing}))
+        sys.exit(2)
+
     # Realtime apply sub-frame ceiling (Slice C, FLAG-PERFRAME). Distinct from
     # FRAME_BUDGET_MS: apply_remote is only PART of the interactive frame (the
     # dirty-rect redraw + live-cursor draw share the same 16 ms), so the apply
-    # gets a sub-budget partition. Falls back to 10 ms until AGT-01 lands
-    # REALTIME_APPLY_CEILING_MS in logic/constants.py (proposed = 10).
-    D_RT_CEILING = float(getattr(_c, "REALTIME_APPLY_CEILING_MS", 10.0))
+    # gets a sub-budget partition.
+    D_RT_CEILING = float(_c.REALTIME_APPLY_CEILING_MS)
     # Live-cursor overlay roster bound (Slice C, REQ-P10-UI-013). The overlay
     # draw is bounded by this many cursors (Article VII), so the worst-case
     # per-frame paint profiles at MAX_SHARED_MEMBERS visible cursors.
-    D_MAX_CURSORS = int(getattr(_c, "MAX_SHARED_MEMBERS", 32))
-    D_OVERLAY_CEILING = int(getattr(_c, "OVERLAY_FRAME_CEILING_MS", 48))
+    D_MAX_CURSORS = int(_c.MAX_SHARED_MEMBERS)
+    D_OVERLAY_CEILING = int(_c.OVERLAY_FRAME_CEILING_MS)
     # Full-frame flatten loose catastrophic ceiling (Slice A, FU-P5-PERF).
-    # Falls back to 3000 ms until AGT-01 lands/tunes COMPOSITE_FULL_CEILING_MS.
-    D_FULL_CEILING = float(getattr(_c, "COMPOSITE_FULL_CEILING_MS", 3000))
+    D_FULL_CEILING = float(_c.COMPOSITE_FULL_CEILING_MS)
     # Viewport-recomposite / opacity-drag COMMIT loose catastrophic ceiling
-    # (Slice B, FU-16b / ADR-0034 §4). Falls back to 3000 ms until AGT-01 lands
-    # VIEWPORT_RECOMPOSITE_CEILING_MS in logic/constants.py (single-source, S12).
-    D_VP_CEILING = float(getattr(_c, "VIEWPORT_RECOMPOSITE_CEILING_MS", 3000))
+    # (Slice B, FU-16b / ADR-0034 §4), single-source (S12).
+    D_VP_CEILING = float(_c.VIEWPORT_RECOMPOSITE_CEILING_MS)
 except Exception:  # pragma: no cover - fallback when package not on path
+    # SystemExit (raised by the loud sys.exit(2) above) is a BaseException, NOT
+    # an Exception, so it is never caught here -- the loud path always
+    # propagates instead of silently landing on these fallbacks (C-08).
     D_W, D_H, D_TILE, D_BUDGET = 7680, 4320, 64, 16.0
     D_FRAME_BUDGET, D_CEILING = 16, 200.0
     D_RT_CEILING = 10.0
