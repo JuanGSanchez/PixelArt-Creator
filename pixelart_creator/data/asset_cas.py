@@ -23,6 +23,7 @@ the whole store is CI-testable headless with no network/credentials.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 from pixelart_creator.data.asset_storage import (
@@ -129,7 +130,7 @@ class ContentAddressableStore:
         return self._backend.has_blob(content_hash_key)
 
 
-def default_content_store() -> ContentAddressableStore:
+def default_content_store(root: Optional[Path] = None) -> ContentAddressableStore:
     """Return the app's default, DURABLE asset store (D-26 / CF-119).
 
     ``ContentAddressableStore()`` (the bare constructor) keeps defaulting to an
@@ -137,14 +138,27 @@ def default_content_store() -> ContentAddressableStore:
     callers rely on that ephemeral, disk-free construction, and changing it would
     make every such caller write real files to the host filesystem as a side
     effect (never acceptable for a test run). This factory is the SEPARATE,
-    explicit "app default": a filesystem-backed store rooted at
-    :func:`~pixelart_creator.data.asset_storage.default_asset_root`, so an asset
-    put through it survives a restart instead of ending with the session.
+    explicit "app default": a filesystem-backed store, so an asset put through it
+    survives a restart instead of ending with the session.
+
+    Args:
+        root: The filesystem root the store's :class:`LocalBlobBackend` is
+            rooted at. When omitted (``None``), defaults to
+            :func:`~pixelart_creator.data.asset_storage.default_asset_root` —
+            today's behaviour is unchanged. Pass an explicit root to build the
+            store over a different location (e.g. a ``ui``-resolved
+            ``QStandardPaths`` directory injected as a :class:`pathlib.Path`,
+            per the D-26 placement ruling: this factory computes nothing Qt and
+            performs no ``mkdir`` itself — directory creation stays deferred to
+            :meth:`~pixelart_creator.data.asset_storage.LocalBlobBackend.put_blob`,
+            on first write).
 
     Production wiring (construction-time, ui-side — REQ-P11-DATA-006/-007):
-    ``ui/main_window.py`` should construct its asset store via this factory (or
-    an equivalent filesystem-rooted backend, e.g. a ``QStandardPaths``-resolved
-    root per the Favourites precedent, ADR-0004) instead of the bare
-    ``ContentAddressableStore()`` it uses today.
+    ``ui/main_window.py`` should construct its asset store via this factory,
+    passing a ``QStandardPaths``-resolved root (the Favourites precedent,
+    ADR-0004) instead of the bare ``ContentAddressableStore()`` it uses today —
+    never by composing ``ContentAddressableStore(LocalBlobBackend(path))``
+    directly in ``ui/``.
     """
-    return ContentAddressableStore(LocalBlobBackend(default_asset_root()))
+    resolved_root = root if root is not None else default_asset_root()
+    return ContentAddressableStore(LocalBlobBackend(resolved_root))
