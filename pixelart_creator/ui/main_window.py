@@ -1459,6 +1459,9 @@ class Main_Window(QMainWindow):
         view.colorPicked.connect(self._on_color_picked)
         view.floatingStateChanged.connect(self._on_floating_state_changed)
         view.set_menu_hook(self._open_colour_hub)
+        # T-12: a drop delivered straight to the canvas viewport is routed
+        # through the same handler as Main_Window.dropEvent (REQ-DDI-UI-001).
+        view.set_drop_router(self._route_dropped_files)
         record = _DocTab(document, scene, view, stack)
         self._tabs_data.append(record)
         # Attach this tab's Phase-9 visual aids and wrap the view with rulers before

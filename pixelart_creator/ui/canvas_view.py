@@ -16,11 +16,14 @@ painting to the tool controllers (Article I).
 from __future__ import annotations
 
 import math
-from typing import Callable, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt, Signal
 from PySide6.QtGui import (
     QContextMenuEvent,
+    QDragEnterEvent,
+    QDragMoveEvent,
+    QDropEvent,
     QGuiApplication,
     QKeyEvent,
     QMouseEvent,
@@ -83,6 +86,14 @@ class Canvas_View(QGraphicsView):
         self._pan_origin = QPoint()
         self._ctx: Optional[ToolContext] = None
         self._menu_hook: Optional[Callable[[int, int], None]] = None
+        # File-drop routing seam (CF: T-12) — a real drag/drop delivered to
+        # QGraphicsView's viewport is otherwise translated into a
+        # QGraphicsSceneDragDropEvent and swallowed by the scene (no item
+        # accepts it), so it never reaches Main_Window.dropEvent. Only a
+        # URL-carrying drag is taken over here and handed to this router; every
+        # other drag keeps QGraphicsView's own scene-forwarding behaviour.
+        self._drop_router: Optional[Callable[[List[str]], None]] = None
+        self.setAcceptDrops(True)
         # One floating move/copy controller per view (REQ-P2-UI-030..034); it
         # owns the active float so release / Enter / tool-switch can all commit it.
         self._floating_controller = FloatingMoveController()
@@ -174,6 +185,16 @@ class Canvas_View(QGraphicsView):
     def set_menu_hook(self, hook: Optional[Callable[[int, int], None]]) -> None:
         """Register a replaceable right-click menu hook (Phase-3 seam, CL-8)."""
         self._menu_hook = hook
+
+    def set_drop_router(self, router: Optional[Callable[[List[str]], None]]) -> None:
+        """Register the window's dropped-file router (CF: T-12, REQ-DDI-UI-001).
+
+        ``router`` receives the local file paths of a URL drag delivered to
+        THIS viewport — the same routing ``Main_Window.dropEvent`` uses, so a
+        drop landing on the canvas is handled identically to one landing
+        anywhere else on the window.
+        """
+        self._drop_router = router
 
     def set_grid_enabled(self, enabled: bool) -> None:
         """Toggle the per-pixel grid overlay (delegates to the scene, CL-4)."""
@@ -479,6 +500,55 @@ class Canvas_View(QGraphicsView):
         """Map a buffer pixel to a global screen point (hub anchor, any device)."""
         view_point = self.mapFromScene(QPointF(x + 0.5, y + 0.5))
         return self.viewport().mapToGlobal(view_point)
+
+    # -- file-drop routing (CF: T-12, REQ-DDI-UI-001) ---------------------
+
+    @staticmethod
+    def _is_url_drag(event: QDragEnterEvent | QDragMoveEvent | QDropEvent) -> bool:
+        mime = event.mimeData()
+        return mime.hasUrls() and any(url.isLocalFile() for url in mime.urls())
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802
+        """Take over a URL drag; leave every other drag to the scene (D4/D5/D6).
+
+        Without this override, ``QGraphicsView`` translates the event into a
+        ``QGraphicsSceneDragDropEvent`` for the scene, which has no item that
+        accepts it — the drag is then rejected and never reaches
+        ``Main_Window`` on drop.
+        """
+        if self._is_url_drag(event):
+            event.acceptProposedAction()
+            return
+        super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:  # noqa: N802
+        """Keep accepting a URL drag as it moves; delegate everything else."""
+        if self._is_url_drag(event):
+            event.acceptProposedAction()
+            return
+        super().dragMoveEvent(event)
+
+    def dropEvent(self, event: QDropEvent) -> None:  # noqa: N802
+        """Route a URL drop through the window's file-drop handling (T-12).
+
+        A drop delivered straight to this viewport used to be silently
+        swallowed by the scene (no import, no notice, no crash) — this closes
+        that gap by calling the same router ``Main_Window.dropEvent`` uses, so
+        a drop landing on the canvas behaves identically to one landing
+        anywhere else on the window. A missing router (view constructed
+        without one) or a non-URL drag both fall back to the prior
+        scene-forwarding behaviour.
+        """
+        if self._is_url_drag(event) and self._drop_router is not None:
+            paths = [
+                url.toLocalFile()
+                for url in event.mimeData().urls()
+                if url.isLocalFile()
+            ]
+            event.acceptProposedAction()
+            self._drop_router(paths)
+            return
+        super().dropEvent(event)
 
     # -- i18n -------------------------------------------------------------
 
