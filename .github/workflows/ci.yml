@@ -5,9 +5,19 @@
 # minutes are free. Until the repository goes PUBLIC, quality-gate runs ONLY
 # on the windows-selfhosted leg and the integration job does not run at all,
 # so this workflow consumes ZERO GitHub-hosted minutes. The quality gate is
-# kept REAL (not gutted): the twelve OS-invariant static/coverage/JS-unit
+# kept REAL (not gutted): the thirteen OS-invariant static/coverage/JS-unit
 # checks below were un-gated from `if: runner.os == 'Linux'` so they still run
 # on the Windows leg, instead of collapsing to "checkout + install + pytest".
+#
+# tests/deploy/'s @pytest.mark.integration tests (test_vps_localhost.py,
+# test_nginx_wss_localhost.py — ADR-0043) THEREFORE EXECUTE IN NO JOB AT ALL
+# while this scoping is in effect. This is not incidental: the quality-gate
+# job's own pytest invocation below explicitly deselects `integration` too
+# (see the `-m "... and not integration"` filter on the "Tests" step and its
+# "Measure non-client coverage" companion), so the commented-out
+# `integration` job is the ONLY place those tests are ever selected in this
+# workflow. Restoring step 2 below is what brings them back — nothing else
+# does.
 #
 # REVERT — do all four steps together, when the repository goes public
 # (cross-reference the PUBLIC-REPO HAZARD comment on the windows-selfhosted
@@ -454,6 +464,14 @@ jobs:
         # before. Clearing the findings is AGT-08's job (docs content), not
         # this workflow's.
         #
+        # DEBT REPAID: 0 findings measured 2026-08-16 (AGT-08, job
+        # 20260816-spec-audit-test-rebuild-docs-move; `pydocstyle
+        # pixelart_creator` exits 0). The 102-finding number above is now
+        # historical context, not the current state. The time-boxed
+        # exception scaffold below is left in place (unexercised while the
+        # gate stays green) rather than removed, so a future regression is
+        # still caught and self-expires on the same 2026-08-31 milestone.
+        #
         # The time-box is SELF-ENFORCING, not a comment: past EXPIRY this step
         # starts failing the build unconditionally. Same 2026-08-31 milestone
         # as the non-client coverage exception above, so both known gaps are
@@ -577,7 +595,7 @@ jobs:
 
       - name: Web-viewer JS-unit tests (node, framework-free)
         # UN-GATED (temporary, see revert block at top of file): OS-invariant.
-        run: node web_viewer/tests/viewer_core.test.mjs
+        run: node web_viewer/tests/test_viewer_core.mjs
 
       # ----- Perf gates: Ubuntu-only. The ceilings are calibrated to the Ubuntu
       # GitHub runner; running them on Windows/macOS would compare against the
