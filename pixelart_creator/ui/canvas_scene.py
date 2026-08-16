@@ -1368,15 +1368,18 @@ class CanvasScene(QGraphicsScene):
         """Whether a pixel-mutating paint on the active target is allowed.
 
         A locked, reference, or smart layer rejects paint (REQ-P4-UI-004/-010;
-        CF-11: a smart layer's pixels are derived, not directly editable); a
-        mask edit is always allowed (it modulates alpha, not the guarded pixels).
+        CF-11: a smart layer's pixels are derived, not directly editable). A
+        mask edit is rejected on a locked layer too (D-05: the REQ-P4-LOGIC-010
+        "mask edit" clause is enforced literally, superseding CL-11's permissive
+        reading) — it modulates alpha, but the layer is still locked against
+        mutation until explicitly unlocked (REQ-P4-UI-004).
         """
+        if self._active_layer.locked:
+            return False
         if self._mask_edit:
             return self._active_layer.mask is not None
         return not (
-            self._active_layer.locked
-            or self._active_layer.reference
-            or self._active_layer.smart_source is not None
+            self._active_layer.reference or self._active_layer.smart_source is not None
         )
 
     def set_display_palette(self, colors: List[RGBA]) -> None:

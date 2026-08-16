@@ -65,6 +65,9 @@ class Canvas_View(QGraphicsView):
     #: Emitted ``(is_active, is_copy)`` when a floating move/copy state changes
     #: (drives the shell's copy-mode status hint, REQ-P2-UI-032/-036).
     floatingStateChanged = Signal(bool, bool)
+    #: Emitted when a paint/mask-edit stroke is refused because the active
+    #: layer is locked (D-05); the shell surfaces a "layer is locked" notice.
+    lockedLayerEditRejected = Signal()
 
     def __init__(
         self,
@@ -402,8 +405,11 @@ class Canvas_View(QGraphicsView):
             return
         if button == Qt.MouseButton.LeftButton and self._tool is not None:
             # A locked or reference active layer rejects paint (P4-UI-004/-010);
-            # the guard lives in the scene (it knows the active layer/mask).
+            # the guard lives in the scene (it knows the active layer/mask). A
+            # rejection creates no undo entry — the tool is never armed below.
             if not self._scene.is_active_editable():
+                if self._scene.active_layer().locked:
+                    self.lockedLayerEditRejected.emit()
                 event.accept()
                 return
             self._ctx = self._make_context()

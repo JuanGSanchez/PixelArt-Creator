@@ -445,6 +445,7 @@ class Main_Window(QMainWindow):
         self._layer_panel = Layer_Panel(self)
         self._layer_panel.activeNodeChanged.connect(self._on_active_node_changed)
         self._layer_panel.maskEditToggled.connect(self._on_mask_edit_toggled)
+        self._layer_panel.lockedLayerEditRejected.connect(self._notify_layer_locked)
         self._layer_dock = QDockWidget(self)
         self._layer_dock.setWidget(self._layer_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._layer_dock)
@@ -1462,6 +1463,7 @@ class Main_Window(QMainWindow):
         view = Canvas_View(scene, stack)
         view.colorPicked.connect(self._on_color_picked)
         view.floatingStateChanged.connect(self._on_floating_state_changed)
+        view.lockedLayerEditRejected.connect(self._notify_layer_locked)
         view.set_menu_hook(self._open_colour_hub)
         # T-12: a drop delivered straight to the canvas viewport is routed
         # through the same handler as Main_Window.dropEvent (REQ-DDI-UI-001).
@@ -1905,6 +1907,17 @@ class Main_Window(QMainWindow):
         """Non-blocking notice that a dropped file's type is unsupported (UI-006)."""
         self.statusBar().showMessage(
             self.tr("Unsupported file type: %1").replace("%1", Path(path).name),
+            UI_NOTICE_DURATION_MS,
+        )
+
+    def _notify_layer_locked(self) -> None:
+        """Non-blocking notice that a mask attach/edit/remove was refused.
+
+        The target layer is locked (D-05, REQ-P4-LOGIC-010); unlock it from
+        its row's lock toggle (REQ-P4-UI-004) to edit it.
+        """
+        self.statusBar().showMessage(
+            self.tr("Layer is locked."),
             UI_NOTICE_DURATION_MS,
         )
 
