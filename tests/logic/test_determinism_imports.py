@@ -151,3 +151,74 @@ def test_no_paint_or_timer_event_file_imports_a_phase11_module():
         "ui/ file(s) with a paint/timer event import Phase-11 logic/data "
         f"module(s) (REQ-P11-LOGIC-008): {offenders}"
     )
+
+
+# --------------------------------------------------------------------------- #
+# C-05 -- UI_NOTICE_DURATION_MS single-sourced from logic/constants.py         #
+# (mirrors tests/data/test_project_io.py::                                    #
+# test_tuning_constants_single_sourced_from_constants' identity-check idiom,  #
+# combined with this module's own AST/static-scan idiom for T-07/T-08.)       #
+# --------------------------------------------------------------------------- #
+
+# Regression test for C-05 — proven by reversion in the commit pass
+
+
+def test_main_window_notice_duration_is_single_sourced_from_constants():
+    """main_window.py's drop/status notices are timed by the ONE named constant
+    UI_NOTICE_DURATION_MS (logic/constants.py) -- never a locally re-declared
+    magic number (before the fix: a module-local ``_DROP_NOTICE_MS = 6000``).
+
+    (a) main_window.py imports UI_NOTICE_DURATION_MS from logic.constants and
+        references it at its notice call sites (static scan -- no Qt import
+        here, this file stays Qt-free per S11).
+    (b) no bare literal 6000 appears as a notice-duration argument in that
+        file.
+    (c) constants.UI_NOTICE_DURATION_MS == 6000, by identity from the module
+        (a plain logic/ import -- Qt-free).
+    """
+    main_window_path = _PIXELART / "ui" / "main_window.py"
+    src = main_window_path.read_text(encoding="utf-8")
+    tree = ast.parse(src)
+
+    # (a) the module-level import.
+    imported = any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "pixelart_creator.logic.constants"
+        and any(alias.name == "UI_NOTICE_DURATION_MS" for alias in node.names)
+        for node in ast.walk(tree)
+    )
+    assert imported, (
+        "main_window.py does not import UI_NOTICE_DURATION_MS from "
+        "pixelart_creator.logic.constants"
+    )
+
+    # (a, continued) it is referenced (used as a Name) at least once -- i.e.
+    # actually consumed, not merely imported and left unused.
+    call_site_uses = sum(
+        1
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name) and node.id == "UI_NOTICE_DURATION_MS"
+    )
+    assert call_site_uses >= 1, (
+        "UI_NOTICE_DURATION_MS is imported but never referenced at a notice "
+        "call site in main_window.py"
+    )
+
+    # (b) no bare "6000" literal used as a notice-duration argument -- i.e. no
+    # raw Constant(6000) appears anywhere in the module (the sole legitimate
+    # home for that value is constants.py itself).
+    bare_6000_hits = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and node.value == 6000
+    ]
+    assert bare_6000_hits == [], (
+        "main_window.py contains a bare 6000 literal -- the notice duration "
+        "must come from UI_NOTICE_DURATION_MS, not a re-declared magic number"
+    )
+
+    # (c) the constant itself, by identity, straight from logic/constants.py
+    # (a plain Qt-free import -- mirrors test_project_io.py's own pattern).
+    from pixelart_creator.logic.constants import UI_NOTICE_DURATION_MS
+
+    assert UI_NOTICE_DURATION_MS == 6000
