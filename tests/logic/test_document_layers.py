@@ -3,7 +3,7 @@
 Covers the extended :class:`Layer` / :class:`LayerGroup`, node addressing
 (``resolve_layer`` / ``layer_count`` / ``iter_layers`` through nested groups),
 the reversible attribute + structural + mask/reference/smart commands
-(``apply ∘ undo == identity``), the editability guard, and the
+(``apply ∘ undo == identity``), and the
 ``MAX_LAYERS_PER_FRAME`` / ``MAX_GROUP_NESTING_DEPTH`` bounds.
 
 Maps to REQ-P4-LOGIC-008..014 (and -015 bounds).
@@ -23,7 +23,6 @@ from pixelart_creator.logic.document import (
     DocumentError,
     Layer,
     LayerGroup,
-    ensure_editable,
     iter_layers,
 )
 from pixelart_creator.logic.pixel_buffer import PixelBuffer
@@ -360,27 +359,6 @@ def test_smart_layer_source_must_be_leaf():
     doc.frames[0].layers.append(LayerGroup("G", [Layer(PixelBuffer(4, 4))]))
     with pytest.raises(DocumentError):
         doc.make_smart_layer_command(1)  # source is a group
-
-
-# --------------------------------------------------------------------------- #
-# ensure_editable guard (LOGIC-010/013).                                      #
-# --------------------------------------------------------------------------- #
-
-
-def test_ensure_editable_raises_on_locked():
-    layer = Layer(PixelBuffer(4, 4), locked=True)
-    with pytest.raises(DocumentError):
-        ensure_editable(layer)
-
-
-def test_ensure_editable_raises_on_reference():
-    layer = Layer(PixelBuffer(4, 4), reference=True)
-    with pytest.raises(DocumentError):
-        ensure_editable(layer)
-
-
-def test_ensure_editable_passes_for_plain_layer():
-    ensure_editable(Layer(PixelBuffer(4, 4)))  # no raise
 
 
 def test_locked_layer_attributes_still_changeable():

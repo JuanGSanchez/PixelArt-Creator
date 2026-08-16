@@ -52,7 +52,6 @@ __all__ = [
     "Document",
     "Tileset",
     "Tilemap",
-    "ensure_editable",
     "iter_layers",
 ]
 
@@ -1592,18 +1591,3 @@ def _container_depth(
             if found is not None:
                 return found
     return None
-
-
-def ensure_editable(layer: Layer) -> None:
-    """Guard a pixel-mutating op: raise if ``layer`` is locked or reference.
-
-    Visibility / opacity / mode / order stay changeable — this guards *pixel*
-    mutation only (LOGIC-010/013, CL-11).
-
-    Raises:
-        DocumentError: If ``layer.locked`` or ``layer.reference`` is set.
-    """
-    if layer.locked:
-        raise DocumentError(f"layer {layer.name!r} is locked")
-    if layer.reference:
-        raise DocumentError(f"layer {layer.name!r} is a reference layer")
