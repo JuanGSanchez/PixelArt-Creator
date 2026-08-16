@@ -3,9 +3,16 @@
 # SCRIPT: perf_profile  (standalone P11 script — PixelArt Creator system)
 # =============================================================================
 # PURPOSE: Two profiling modes over the 8K canvas, HEADLESS.
-#   (default) tiling: measure per-frame drawBackground tiling time vs
-#     FRAME_BUDGET_MS (16 ms => 60 fps, S12); the report AGT-10 uses to issue
-#     render directives (AGT-05 implements them). Requires PySide6.
+#   (default) tiling: measure per-frame render time of the REAL, SHIPPED
+#     ui.canvas_scene.CanvasScene.drawBackground (D-32, REQ-P1-UI-023) vs
+#     FRAME_BUDGET_MS (16 ms => 60 fps, S12, unrelaxed Tier-1 interactive
+#     budget); the report AGT-10 uses to issue render directives (AGT-05
+#     implements them). --width/--height build a real Document of that
+#     geometry and are LIVE: the exposed rect is intersected with the real
+#     scene's own sceneRect (what a QGraphicsView does), so tiles/frame
+#     tracks the scene geometry, not just the viewport (D-32 fixes the audit's
+#     CF-06 finding that these flags were previously inert — a 7680x4320 and a
+#     64x64 canvas both reported 510 tiles/frame). Requires PySide6.
 #   --composite: FU-15 compositor regression gate. Measure the region
 #     recomposite path — blend.composite_stack(region=(x, y, r, r)) — on an 8K
 #     multi-layer document, comparing median ms to COMPOSITE_REGION_CEILING_MS
@@ -51,9 +58,10 @@
 #   numpy + pixelart_creator.logic importable.
 # DETERMINISM NOTE: timings are inherently machine-dependent (NOT bit-reproducible)
 #   — this is a *measurement* script; the SCENARIO it measures is fully
-#   deterministic (fixed geometry, fixed tile fill, fixed frame count, median +
+#   deterministic (fixed geometry, fixed pan offsets, fixed frame count, median +
 #   p95 over a fixed sample). No random/network. Timing method is normalized to
-#   per-frame drawBackground of the exposed viewport rect.
+#   per-frame CanvasScene.drawBackground of the exposed viewport rect, clamped
+#   to the scene's own sceneRect (D-32).
 #
 # ## Principles Applied
 # Inherited: P1 (grounded F2/F3/F4/F7, FRAME_BUDGET_MS S12), P2 (deterministic
@@ -72,6 +80,7 @@
 # =============================================================================
 import argparse
 import json
+import math
 import os
 import sys
 import time
@@ -1666,6 +1675,160 @@ def _run_viewport_recomposite(args):
     return 0
 
 
+# --------------------------------------------------------------------------- #
+# Tiling mode (default; REQ-P1-UI-023, D-32) — the REAL CanvasScene.drawBackground #
+# --------------------------------------------------------------------------- #
+# Drives ui.canvas_scene.CanvasScene.drawBackground directly instead of a
+# parallel re-implementation of its checker loop (D-32 — the audit's CF-06
+# finding, "imports no product UI module", is the defect this fixes).
+# --width/--height now build a real Document of that geometry and are LIVE:
+# the exposed rect this function passes to drawBackground is intersected with
+# the real scene's own sceneRect (0, 0, W, H) — exactly what a QGraphicsView
+# does (it never asks the scene to paint background outside its own bounds) —
+# so a narrow/short document measurably shrinks tiles_per_frame relative to an
+# 8K one. CF-06's repro (7680x4320 and 64x64 both reporting 510 tiles/frame)
+# must no longer reproduce after this change. Tile geometry for the REPORTED
+# tiles_per_frame count is read from the same logic.constants.TILE_SIZE /
+# TILE_BUFFER the shipped drawBackground itself consumes (Article II single
+# source) and computed with the identical formula _paint_checker_tiles uses —
+# a read-only count for the record, not a second render pass. --tile is kept
+# for CLI-contract compatibility (existing callers/tests pass it) but no
+# longer drives real tiling since the shipped scene reads TILE_SIZE directly;
+# a mismatched --tile is noted on stderr, never silently honoured.
+_TILING_WARMUP = 1  # pays CanvasScene's deferred first-composite once (D1 guard)
+
+
+def _tile_count(rect, tile_size, tile_buffer):
+    """Count the checker cells the real ``_paint_checker_tiles`` would fill.
+
+    Same formula, same constants (``TILE_SIZE``/``TILE_BUFFER``) the shipped
+    ``CanvasScene`` uses — a read-only report of what the real call just did,
+    not a parallel render (D-32).
+    """
+    left = math.floor(rect.left() / tile_size) - tile_buffer
+    top = math.floor(rect.top() / tile_size) - tile_buffer
+    right = math.ceil(rect.right() / tile_size) + tile_buffer
+    bottom = math.ceil(rect.bottom() / tile_size) + tile_buffer
+    return max(0, bottom - top) * max(0, right - left)
+
+
+def _run_tiling(args):
+    """Profile the REAL ``CanvasScene.drawBackground`` vs ``FRAME_BUDGET_MS`` (D-32).
+
+    Builds a real ``Document``/``CanvasScene`` at ``args.width`` x
+    ``args.height`` and times ``args.frames`` ``drawBackground`` calls over an
+    exposed rect sized by ``args.viewport``/``args.zoom`` and panned a little
+    each frame (dirty-rect realism), clamped to the scene's own ``sceneRect``
+    (the live width/height effect, D-32). Compares the median to
+    ``args.budget_ms`` (``FRAME_BUDGET_MS`` by default, S12, unrelaxed Tier-1).
+
+    Returns 0 (median <= budget), 1 (over budget), 2 (PySide6/construction
+    error).
+    """
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    try:
+        from PySide6.QtCore import QRectF
+        from PySide6.QtGui import QImage, QPainter
+        from PySide6.QtWidgets import QApplication
+    except Exception as exc:  # PySide6 not installed -> BLOCKED, not a crash.
+        sys.stderr.write("perf_profile: PySide6 unavailable: %r\n" % exc)
+        print(json.dumps({"error": "pyside6-unavailable", "detail": repr(exc)}))
+        return 2
+
+    try:
+        from pixelart_creator.logic.constants import TILE_BUFFER, TILE_SIZE
+        from pixelart_creator.logic.document import Document
+        from pixelart_creator.ui.canvas_scene import CanvasScene
+    except Exception as exc:  # product UI/logic unavailable -> construction error.
+        sys.stderr.write("perf_profile: CanvasScene unavailable: %r\n" % exc)
+        print(json.dumps({"error": "canvas-scene-unavailable", "detail": repr(exc)}))
+        return 2
+
+    if args.tile != TILE_SIZE:
+        sys.stderr.write(
+            "perf_profile: --tile %d is IGNORED by the real CanvasScene -- "
+            "TILE_SIZE (%d, logic.constants) is single-sourced and drives the "
+            "shipped drawBackground (Article II); --tile is retained only for "
+            "CLI-contract compatibility.\n" % (args.tile, TILE_SIZE)
+        )
+
+    app = QApplication.instance() or QApplication([])  # noqa: F841 (keep alive)
+
+    vw, vh = args.viewport
+    # Exposed scene rect at this zoom (what a QGraphicsView would pass in).
+    scene_w = vw / max(args.zoom, 1e-6)
+    scene_h = vh / max(args.zoom, 1e-6)
+
+    try:
+        document = Document(args.width, args.height)
+        scene = CanvasScene(document)
+    except Exception as exc:
+        sys.stderr.write("perf_profile: CanvasScene construction error: %r\n" % exc)
+        print(json.dumps({"error": repr(exc)}))
+        return 2
+
+    scene_rect = scene.sceneRect()  # D3: fixed once at init from the document
+
+    try:
+        img = QImage(vw, vh, QImage.Format.Format_ARGB32_Premultiplied)
+        samples = []
+        tiles_per_frame = 0
+        # Warm-up: pays CanvasScene's deferred first full composite (D1 guard)
+        # once, plus any Qt JIT/first-paint cost, excluded from the timed sample.
+        for _ in range(_TILING_WARMUP):
+            painter = QPainter(img)
+            if args.zoom != 1.0:
+                painter.scale(args.zoom, args.zoom)
+            warm_rect = QRectF(0.0, 0.0, scene_w, scene_h).intersected(scene_rect)
+            scene.drawBackground(painter, warm_rect)
+            painter.end()
+        for i in range(args.frames):
+            offset = (i % 8) * TILE_SIZE  # pan a little each frame (dirty-rect realism)
+            rect = QRectF(offset, offset, scene_w, scene_h).intersected(scene_rect)
+            tiles_per_frame = _tile_count(rect, TILE_SIZE, TILE_BUFFER)
+            painter = QPainter(img)
+            if args.zoom != 1.0:
+                painter.scale(args.zoom, args.zoom)
+            t0 = time.perf_counter()
+            scene.drawBackground(painter, rect)
+            t1 = time.perf_counter()
+            painter.end()
+            samples.append((t1 - t0) * 1000.0)
+    except Exception as exc:
+        sys.stderr.write("perf_profile: render error: %r\n" % exc)
+        print(json.dumps({"error": repr(exc)}))
+        return 2
+
+    samples.sort()
+    median = _percentile(samples, 0.5)
+    p95 = _percentile(samples, 0.95)
+    within = median <= args.budget_ms
+    report = {
+        "median_ms": round(median, 4),
+        "p95_ms": round(p95, 4),
+        "budget_ms": args.budget_ms,
+        "frames": args.frames,
+        "tiles_per_frame": tiles_per_frame,
+        "within_budget": within,
+        "scenario": {
+            "width": args.width,
+            "height": args.height,
+            "tile": TILE_SIZE,
+            "zoom": args.zoom,
+            "viewport": [vw, vh],
+        },
+    }
+    print(json.dumps(report, indent=2, sort_keys=True))
+    if not within:
+        sys.stderr.write(
+            "perf_profile: OVER budget (median %.3f ms > %.1f ms).\n"
+            % (median, args.budget_ms)
+        )
+        return 1
+    sys.stderr.write("perf_profile: within budget (median %.3f ms).\n" % median)
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description="Headless frame-budget profiler (S12).")
     ap.add_argument("--width", type=int, default=D_W)
@@ -1894,92 +2057,7 @@ def main():
         print(json.dumps({"error": "invalid-input"}))
         return 2
 
-    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    try:
-        from PySide6.QtCore import QRectF
-        from PySide6.QtGui import QColor, QImage, QPainter
-    except Exception as exc:  # PySide6 not installed -> BLOCKED, not a crash.
-        sys.stderr.write("perf_profile: PySide6 unavailable: %r\n" % exc)
-        print(json.dumps({"error": "pyside6-unavailable", "detail": repr(exc)}))
-        return 2
-
-    vw, vh = args.viewport
-    # Exposed scene rect at this zoom (what drawBackground would receive).
-    scene_w = vw / max(args.zoom, 1e-6)
-    scene_h = vh / max(args.zoom, 1e-6)
-    tile = args.tile
-
-    def draw_background_tiles(painter, rect):
-        # Mirror the scene.drawBackground(painter, rect) tiling (F2): only the
-        # exposed tiles are painted (viewport culling), not the full 8K grid.
-        left = int(rect.left()) - (int(rect.left()) % tile)
-        top = int(rect.top()) - (int(rect.top()) % tile)
-        count = 0
-        y = top
-        c0 = QColor(40, 40, 40)
-        c1 = QColor(56, 56, 56)
-        while y < rect.bottom():
-            x = left
-            while x < rect.right():
-                painter.fillRect(
-                    QRectF(x, y, tile, tile),
-                    c0 if ((x // tile + y // tile) % 2 == 0) else c1,
-                )
-                x += tile
-                count += 1
-            y += tile
-        return count
-
-    try:
-        img = QImage(vw, vh, QImage.Format_ARGB32_Premultiplied)
-        samples = []
-        tiles_per_frame = 0
-        # Warm-up frame (JIT/first-paint costs excluded from the sample).
-        painter = QPainter(img)
-        draw_background_tiles(painter, QRectF(0, 0, scene_w, scene_h))
-        painter.end()
-        for i in range(args.frames):
-            offset = (i % 8) * tile  # pan a little each frame (dirty-rect realism)
-            rect = QRectF(offset, offset, scene_w, scene_h)
-            painter = QPainter(img)
-            t0 = time.perf_counter()
-            tiles_per_frame = draw_background_tiles(painter, rect)
-            t1 = time.perf_counter()
-            painter.end()
-            samples.append((t1 - t0) * 1000.0)
-    except Exception as exc:
-        sys.stderr.write("perf_profile: render error: %r\n" % exc)
-        print(json.dumps({"error": repr(exc)}))
-        return 2
-
-    samples.sort()
-    median = _percentile(samples, 0.5)
-    p95 = _percentile(samples, 0.95)
-    within = median <= args.budget_ms
-    report = {
-        "median_ms": round(median, 4),
-        "p95_ms": round(p95, 4),
-        "budget_ms": args.budget_ms,
-        "frames": args.frames,
-        "tiles_per_frame": tiles_per_frame,
-        "within_budget": within,
-        "scenario": {
-            "width": args.width,
-            "height": args.height,
-            "tile": tile,
-            "zoom": args.zoom,
-            "viewport": [vw, vh],
-        },
-    }
-    print(json.dumps(report, indent=2, sort_keys=True))
-    if not within:
-        sys.stderr.write(
-            "perf_profile: OVER budget (median %.3f ms > %.1f ms).\n"
-            % (median, args.budget_ms)
-        )
-        return 1
-    sys.stderr.write("perf_profile: within budget (median %.3f ms).\n" % median)
-    return 0
+    return _run_tiling(args)
 
 
 if __name__ == "__main__":
