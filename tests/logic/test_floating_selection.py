@@ -96,6 +96,33 @@ def test_sc_l030_5_non_floatmode_raises_selection_error():
         lift_selection(buf, _block_mask(), "move")  # type: ignore[arg-type]
 
 
+# --- T-10: REQ-P2-LOGIC-036 -- single-buffer / mask-source contract --------
+# (traceability.md names test_sc_l036_1_.../test_sc_l036_2_... directly; those
+# names did not exist -- this closes that citation gap with a direct
+# assertion under the correct SC-L036 labels.)
+
+
+def test_sc_l036_1_lift_from_rect_lasso_wand_masks():
+    """SC-L036-1: the float lifts from a mask produced by rect/lasso/wand
+    builders (CL-F4) -- any :class:`SelectionMask`-shaped mask is accepted."""
+    buf = _block_buffer()
+    for mask in (
+        rect_mask(6, 6, 1, 1, 2, 2),
+        lasso_mask(6, 6, [(1, 1), (2, 1), (2, 2), (1, 2)]),
+        wand_mask(buf, 1, 1),
+    ):
+        floating = lift_selection(buf, mask, FloatMode.MOVE)
+        assert floating.mask().count() > 0
+
+
+def test_sc_l036_2_dimension_mismatch_raises_selection_error():
+    """SC-L036-2: the float never spans more than one buffer -- a mask sized
+    differently from the source buffer is rejected, not silently clipped."""
+    buf = _block_buffer(6, 6)
+    with pytest.raises(SelectionError, match="dimensions"):
+        lift_selection(buf, rect_mask(8, 8, 0, 0, 1, 1), FloatMode.MOVE)
+
+
 def test_floating_selection_set_offset_validates_ints():
     floating = lift_selection(_block_buffer(), _block_mask(), FloatMode.MOVE)
     floating.set_offset(3, -2)

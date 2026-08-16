@@ -39,6 +39,7 @@ def _manifest_data(**overrides):
 
 
 def test_validate_manifest_valid():
+    # REQ-P8-LOGIC-008 / SC-L008-1 (R-29): versioned/declared-capability contract.
     manifest = validate_manifest(_manifest_data())
     assert isinstance(manifest, PluginManifest)
     assert manifest.name == "acme.tool"

@@ -211,3 +211,72 @@ def test_assistant_module_contains_no_eval_or_exec():
     src = __import__("inspect").getsource(mod)
     for forbidden in ("eval(", "exec(", "compile(", "os.system", "subprocess"):
         assert forbidden not in src, f"unexpected {forbidden!r} in assistant.py"
+
+
+# --------------------------------------------------------------------------- #
+# T-09 — widen the zero-eval/exec audit to every Phase-14 assistant-path       #
+# module (Article VII): source-text scan, no Qt ever imported (this file      #
+# stays pure ``logic``). The ui/ modules are located by file path and their   #
+# TEXT is scanned -- never imported, so no QApplication/widget is ever built. #
+# --------------------------------------------------------------------------- #
+
+import pathlib as _pathlib  # noqa: E402
+
+_REPO_ROOT = _pathlib.Path(__file__).resolve().parents[2] / "pixelart_creator"
+
+_ASSISTANT_PATH_MODULES = [
+    _REPO_ROOT / "logic" / "assistant.py",
+    _REPO_ROOT / "logic" / "tool_catalog.py",
+    _REPO_ROOT / "data" / "llm" / "_base.py",
+    _REPO_ROOT / "data" / "llm" / "_http.py",
+    _REPO_ROOT / "data" / "llm" / "anthropic_translator.py",
+    _REPO_ROOT / "data" / "llm" / "fake_adapter.py",
+    _REPO_ROOT / "data" / "llm" / "openai_compatible.py",
+    _REPO_ROOT / "data" / "llm" / "port.py",
+    _REPO_ROOT / "data" / "llm" / "token_store.py",
+    _REPO_ROOT / "data" / "assistant_cli.py",
+    _REPO_ROOT / "ui" / "assistant_dock.py",
+    _REPO_ROOT / "ui" / "assistant_worker.py",
+    _REPO_ROOT / "ui" / "provider_config_dialog.py",
+]
+
+# Bare-name calls only (no preceding '.', letter, digit or underscore) -- so a
+# Qt ``box.exec()`` (QDialog.exec, unrelated) is not a false positive, while a
+# bare ``exec(...)`` / ``eval(...)`` (the actual dangerous builtin call) is
+# still caught. Plain substring search (no regex, no backslash separators) so
+# the path-portability scan never mistakes a pattern for a path literal.
+_FORBIDDEN_EXECUTION_TOKENS = (
+    "eval(",
+    "exec(",
+    "compile(",
+    "os.system",
+    "subprocess",
+    "__import__(",
+)
+
+
+def _bare_token_hits(src: str, token: str) -> bool:
+    """Whether ``token`` occurs in ``src`` as a bare (non-attribute) call."""
+    start = 0
+    while True:
+        idx = src.find(token, start)
+        if idx == -1:
+            return False
+        prev = src[idx - 1] if idx > 0 else ""
+        if not (prev == "." or prev.isalnum() or prev == "_"):
+            return True
+        start = idx + 1
+
+
+@pytest.mark.parametrize(
+    "module_path", _ASSISTANT_PATH_MODULES, ids=lambda p: str(p.relative_to(_REPO_ROOT))
+)
+def test_assistant_path_module_contains_no_eval_or_exec(module_path):
+    """No assistant-path module (logic / data / ui) ever calls eval/exec/compile
+    or shells out -- Article VII, ADR-0040. Every path is present on disk."""
+    assert module_path.is_file(), f"missing assistant-path module: {module_path}"
+    src = module_path.read_text(encoding="utf-8")
+    for token in _FORBIDDEN_EXECUTION_TOKENS:
+        assert not _bare_token_hits(
+            src, token
+        ), f"unexpected bare {token!r} in {module_path.name}"

@@ -4,6 +4,12 @@ Covers the pure autosave-policy decision function :func:`should_autosave`
 (REQ-P10-LOGIC-002): the dirty + elapsed-interval decision, the default
 ``AUTOSAVE_INTERVAL_MS`` threshold, the monotonic-tick contract, and malformed
 inputs. Includes a Hypothesis property test pinning the exact decision rule.
+
+REQ-P10-LOGIC-004 (R-25): the autosave TIMER is a ``ui/`` caller concern (off
+the interactive loop) and out of this Qt-free package's scope; what this
+module proves is the pure decision function that caller drives -- a monotonic
+tick in, a bool out, with no wall-clock read of its own (the caller supplies
+``now_ms``).
 """
 
 from __future__ import annotations

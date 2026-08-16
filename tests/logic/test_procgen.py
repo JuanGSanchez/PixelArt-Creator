@@ -61,7 +61,8 @@ def test_algorithms_vocabulary():
 
 @pytest.mark.parametrize("algorithm", _STOCHASTIC)
 def test_command_is_reversible(algorithm):
-    # Content is written via a reversible command (apply ∘ undo = identity).
+    # REQ-P8-LOGIC-012 / SC-L012-1 (R-29): written via commands; content is
+    # written via a reversible command (apply ∘ undo = identity).
     doc = _doc()
     buf = _leaf(doc)
     before = buf.data.copy()

@@ -236,6 +236,7 @@ def test_main_write_error_returns_one(tmp_path):
 
 
 def test_cli_result_identical_to_in_process_replay(tmp_path):
+    # REQ-P8-LOGIC-014 / SC-L014-1 (R-29, data half): CLI==GUI result-identity.
     # Running the macro via automation_cli.main == running it via replay in-process.
     input_path, macro_path, output_path = _fixture(tmp_path, _OPS)
     rc = main(

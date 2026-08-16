@@ -318,6 +318,18 @@ def test_request_device_code_missing_device_code_raises():
         )
 
 
+def test_poll_device_token_default_max_attempts_is_cloud_retry_limit():
+    # REQ-P10-LOGIC-005 (R-25): retry never fails transiently -- the default
+    # bound on Device-Grant polling attempts IS constants.CLOUD_RETRY_LIMIT,
+    # by identity (S12: no duplicated magic number).
+    import inspect
+
+    from pixelart_creator.logic.constants import CLOUD_RETRY_LIMIT
+
+    default = inspect.signature(poll_device_token).parameters["max_attempts"].default
+    assert default is CLOUD_RETRY_LIMIT
+
+
 def test_poll_device_token_succeeds_after_pending():
     calls = {"n": 0}
 

@@ -221,3 +221,38 @@ def test_swap_reversibility_property(a, b):
     cmd.execute()
     cmd.undo()
     assert buf == before
+
+
+# --------------------------------------------------------------------------- #
+# T-04 — CYCLE_DEFAULT_FPS consumed by identity from constants                 #
+# --------------------------------------------------------------------------- #
+
+
+def test_cycle_default_fps_pinned_value():
+    """The live colour-cycle preview's default rate is CYCLE_DEFAULT_FPS (=10),
+    a named constant (S12) -- never an inlined magic number."""
+    from pixelart_creator.logic.constants import CYCLE_DEFAULT_FPS
+
+    assert CYCLE_DEFAULT_FPS == 10
+
+
+def test_colour_cycling_panel_consumes_the_constant_by_identity():
+    """The UI colour-cycling preview timer's tick interval is derived FROM
+    ``constants.CYCLE_DEFAULT_FPS`` (imported, not a duplicated literal).
+
+    ``ui/colour_cycling_panel.py`` is a Qt (QTimer) consumer and this package
+    stays Qt-free (S11), so the file is read as plain text (no import, no Qt
+    ever touched) to prove the module imports the named constant and derives
+    its tick interval from it rather than hardcoding the FPS value.
+    """
+    from pathlib import Path
+
+    panel_path = (
+        Path(__file__).resolve().parents[2]
+        / "pixelart_creator"
+        / "ui"
+        / "colour_cycling_panel.py"
+    )
+    src = panel_path.read_text(encoding="utf-8")
+    assert "from pixelart_creator.logic.constants import CYCLE_DEFAULT_FPS" in src
+    assert "1000 / CYCLE_DEFAULT_FPS" in src

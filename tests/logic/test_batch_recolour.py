@@ -56,6 +56,8 @@ def test_color_mapping_index_only_ok():
 
 
 def test_batch_returns_unapplied_group_command():
+    # REQ-P8-LOGIC-011 / SC-L011-1 (R-29): each batch output == single op;
+    # reversible; per-target failure isolated (see the isolation tests below).
     targets = [RecolourTarget(_rgba_buffer())]
     cmd = make_batch_recolour_command(targets, ColorMapping(color_map={RED: BLUE}))
     assert isinstance(cmd, GroupCommand)

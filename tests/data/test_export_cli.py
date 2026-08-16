@@ -82,6 +82,58 @@ def test_cli_gif_with_loop(tmp_path: Path) -> None:
     assert out.read_bytes()
 
 
+def test_cli_frame_flag_selects_that_frame(tmp_path: Path) -> None:
+    """Regression test for C-01 — proven by reversion in the commit pass.
+
+    The ``--frame`` CLI flag threads into ExportRequest.frame_index so the CLI
+    exports the requested frame, not always frame 0.
+    """
+    proj = make_project(tmp_path, colors=(RED, GREEN, BLUE))
+    out = tmp_path / "frame2.png"
+    code = main(
+        [
+            "--input",
+            str(proj),
+            "--format",
+            "png",
+            "--output",
+            str(out),
+            "--frame",
+            "2",
+        ]
+    )
+    assert code == 0
+    from io import BytesIO
+
+    import numpy as np
+    from PIL import Image
+
+    decoded = np.asarray(Image.open(BytesIO(out.read_bytes())).convert("RGBA"))
+    assert np.array_equal(decoded, np.full((4, 4, 4), BLUE, dtype=np.uint8))
+
+
+def test_cli_frame_flag_out_of_range_exits_1(tmp_path: Path) -> None:
+    """Regression test for C-01 — proven by reversion in the commit pass.
+
+    An out-of-range ``--frame`` maps to the export-error exit code (1), not a
+    silent frame-0 fallback or a crash.
+    """
+    proj = make_project(tmp_path, colors=(RED, GREEN))
+    code = main(
+        [
+            "--input",
+            str(proj),
+            "--format",
+            "png",
+            "--output",
+            str(tmp_path / "o.png"),
+            "--frame",
+            "9",
+        ]
+    )
+    assert code == 1
+
+
 def test_cli_engine_preset_writes_artifact(tmp_path: Path) -> None:
     """REQ-P7-DATA-002: --preset unity writes the .meta artifact beside the image."""
     proj = make_project(tmp_path)
@@ -132,6 +184,45 @@ def test_cli_output_is_byte_identical_to_direct_export(
             cli_out.with_suffix(".json").read_bytes()
             == direct_out.with_suffix(".json").read_bytes()
         )
+
+
+def test_cli_max_dimension_parity_non_default(tmp_path: Path) -> None:
+    """T-11: --max-dimension at a NON-default value is byte-identical CLI==GUI.
+
+    Pairs with C-09 (the --max-dimension flag exists). A larger atlas needs a
+    larger max-dimension bound, so this exercises a value that actually differs
+    from MAX_ATLAS_DIMENSION and would have failed to pack under the default.
+    """
+    proj = make_project(tmp_path, colors=(RED, GREEN, BLUE))
+    non_default = 64
+    cli_out = tmp_path / "cli_atlas.png"
+    code = main(
+        [
+            "--input",
+            str(proj),
+            "--format",
+            "atlas",
+            "--output",
+            str(cli_out),
+            "--max-dimension",
+            str(non_default),
+        ]
+    )
+    assert code == 0
+
+    doc = load_project(proj)
+    result = export_document(
+        doc,
+        ExportRequest(fmt=ExportFormat.ATLAS, max_dimension=non_default),
+    )
+    direct_out = tmp_path / "direct_atlas.png"
+    write_export(result, direct_out)
+
+    assert cli_out.read_bytes() == direct_out.read_bytes()
+    assert (
+        cli_out.with_suffix(".json").read_bytes()
+        == direct_out.with_suffix(".json").read_bytes()
+    )
 
 
 # --------------------------------------------------------------------------- #

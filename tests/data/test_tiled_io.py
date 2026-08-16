@@ -199,6 +199,46 @@ def test_write_and_read_roundtrip(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
+# C-03 — negative-coordinate cells on a non-infinite map raise ProjectIOError  #
+# --------------------------------------------------------------------------- #
+# Regression test for C-03 — proven by reversion in the commit pass
+
+
+def test_export_fixed_map_negative_cell_raises_naming_the_cell():
+    """A non-infinite map with a cell at (-1, 0) raises ProjectIOError naming it.
+
+    Before the fix a negative coordinate silently wrapped/aliased into the
+    dense grid via numpy negative indexing instead of being rejected.
+    """
+    tm = Tilemap(name="M", infinite=False, tile_width=16, tile_height=16)
+    ts = Tileset(
+        PixelBuffer(16, 16, ColorMode.RGBA), tile_width=16, tile_height=16, first_gid=1
+    )
+    tm.tilesets.append(ts)
+    tm.layers.append(TilemapLayer("ground"))
+    tm.make_stamp_command(0, -1, 0, 1).execute()
+    with pytest.raises(ProjectIOError, match=r"\(-1, 0\)"):
+        export_tilemap(tm)
+
+
+def test_export_infinite_map_negative_cell_still_roundtrips():
+    """T-06: the same negative-coordinate cell on an INFINITE map round-trips.
+
+    Infinite maps store per-chunk data (chunk coordinates may be negative), so
+    the bound check that rejects fixed maps must not reject infinite ones.
+    """
+    tm = Tilemap(name="M", infinite=True, tile_width=16, tile_height=16)
+    ts = Tileset(
+        PixelBuffer(16, 16, ColorMode.RGBA), tile_width=16, tile_height=16, first_gid=1
+    )
+    tm.tilesets.append(ts)
+    tm.layers.append(TilemapLayer("ground"))
+    tm.make_stamp_command(0, -1, 0, 1).execute()
+    back = import_tilemap(export_tilemap(tm))
+    assert _cells(back) == _cells(tm)
+
+
+# --------------------------------------------------------------------------- #
 # Unknown-field verbatim passthrough                                          #
 # --------------------------------------------------------------------------- #
 
