@@ -1280,45 +1280,30 @@ class CanvasScene(QGraphicsScene):
             return
         w, h = self._document.width, self._document.height
         try:
-            contributions = onion_overlay(prev_stacks, next_stacks, w, h)
+            # Single-source onion tint (D-33/R-24): the tint is applied inside
+            # ``onion_overlay`` itself (logic-side RGB replace + two-stage alpha
+            # scale), so the returned ``contribution.buffer`` is already the
+            # final tinted composite — no Qt-side recolour step remains (S11).
+            contributions = onion_overlay(
+                prev_stacks,
+                next_stacks,
+                w,
+                h,
+                tint_prev=self._onion_tint_prev,
+                tint_next=self._onion_tint_next,
+            )
         except (AnimationError, BlendError):
             self._onion_item.clear()
             return
-        prev_len = len(prev_stacks)
-        ordered: List[Tuple[int, QImage]] = []
-        for i, contribution in enumerate(contributions):
-            tint = self._onion_tint_prev if i < prev_len else self._onion_tint_next
-            image = self._recolor_silhouette(
-                self._preview_qimage(contribution.buffer), tint
-            )
-            ordered.append((contribution.z_order, image))
+        ordered: List[Tuple[int, QImage]] = [
+            (contribution.z_order, self._preview_qimage(contribution.buffer))
+            for contribution in contributions
+        ]
         # z_order is -distance; ascending order draws the farthest ghost first so
         # nearer ghosts render on top (matching the logic's z semantics).
         ordered.sort(key=lambda pair: pair[0])
         self._onion_item.set_ghosts([image for _z, image in ordered], w, h)
         self.update(self._onion_item.boundingRect())
-
-    @staticmethod
-    def _recolor_silhouette(image: QImage, tint: RGBA) -> QImage:
-        """Recolour an alpha silhouette to ``tint``, preserving per-pixel alpha.
-
-        Presentation-only styling — the same class of Qt-side visual choice as the
-        marching-ants colours or the tiled-preview dimming (``setOpacity``): an
-        onion ghost is an ephemeral view overlay that never becomes document
-        pixels, so its *display* tint is applied here in Qt while the composite,
-        distance-fade and z-order MATHS stay in ``logic.onion_overlay`` (S11). The
-        silhouette's alpha (already faded by distance) is kept; only its RGB is set
-        to the configured tint via ``CompositionMode_SourceIn`` (REQ-P5-UI-012).
-        """
-        base = image.convertToFormat(QImage.Format.Format_RGBA8888)
-        out = QImage(base.size(), QImage.Format.Format_RGBA8888)
-        out.fill(0)
-        painter = QPainter(out)
-        painter.drawImage(0, 0, base)
-        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-        painter.fillRect(out.rect(), QColor(*tint))
-        painter.end()
-        return out
 
     # -- document binding -------------------------------------------------
 
