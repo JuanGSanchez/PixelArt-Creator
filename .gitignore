@@ -144,3 +144,10 @@ docs/*
 # whole tree, so this narrows nothing else already private under docs/*
 # (docs/CHANGELOG.md, docs/module-map.md, etc. stay ignored, same as today).
 !docs/constitution-articles.md
+
+# mkdocs' own build OUTPUT directory (mkdocs build -f docs/site/mkdocs.yml
+# --strict writes here). docs/site/ is re-included above for its SOURCE
+# (nav config + docs_dir pages) so CI/local runs can build it -- the
+# generated HTML/CSS/JS this produces is a local artifact, never a checked-in
+# one, so it needs its own exclusion beneath that re-inclusion.
+docs/site/_build/
