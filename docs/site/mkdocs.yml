@@ -19,6 +19,7 @@ nav:
       - Visual aids & UX: usage/visual-aids.md
       - Cloud, versions & recovery: usage/cloud.md
       - Shared projects & comments: usage/collaboration.md
+      - Hosting the real-time relay: usage/hosting.md
       - Asset library: usage/asset-library.md
       - Asset dependencies & break detection: usage/dependency-graph.md
       - Asset versioning & cross-project reuse: usage/asset-versioning.md
