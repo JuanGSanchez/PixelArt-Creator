@@ -568,12 +568,27 @@ def test_export_document_rejects_bad_preset() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# SC-L010-1 — run_batch == single export; bounds; failure semantics            #
+# SC-L010-1 — run_batch == single export; bounds; continue-on-failure (D-15)   #
 # --------------------------------------------------------------------------- #
+#
+# D-15 (REQ-P7-UI-005, REQ-P7-LOGIC-010): run_batch's contract changed from
+# abort-on-first-failure (raise past the loop) to continue-on-failure (every
+# target attempted, per-target outcome captured in the returned BatchResult).
+# The three tests below REPLACE the old-contract pins that asserted the
+# now-superseded raising behaviour; each preserves its original intent under
+# the new shape (per-target output equality; the failing target's error
+# captured with its index; an atlas error captured, not propagated).
 
 
 def test_run_batch_each_output_equals_single_export() -> None:
-    """REQ-P7-LOGIC-010: each batch output is byte-identical to its single export."""
+    """REQ-P7-LOGIC-010: each batch output is byte-identical to its single export.
+
+    Rewritten for the BatchResult contract (D-15): the old pin asserted
+    ``len(batch) == 3`` and iterated ``batch`` directly (the old
+    ``Tuple[ExportResult, ...]`` shape); the new contract returns a
+    BatchResult whose ``.targets`` carries one BatchTargetResult per request,
+    each wrapping its ExportResult.
+    """
     doc = make_doc([RED, GREEN, BLUE])
     requests = [
         ExportRequest(fmt=ExportFormat.PNG),
@@ -581,38 +596,120 @@ def test_run_batch_each_output_equals_single_export() -> None:
         ExportRequest(fmt=ExportFormat.ATLAS),
     ]
     batch = run_batch(doc, requests)
-    assert len(batch) == 3
-    for req, result in zip(requests, batch):
+    assert len(batch.targets) == 3
+    assert batch.all_succeeded
+    for req, target in zip(requests, batch.targets):
+        assert target.success
         single = export_document(doc, req)
-        assert result.image_bytes == single.image_bytes
-        assert result.metadata_json == single.metadata_json
+        assert target.result.image_bytes == single.image_bytes
+        assert target.result.metadata_json == single.metadata_json
 
 
 def test_run_batch_exceeds_max_targets() -> None:
-    """REQ-P7-LOGIC-012: a batch above MAX_BATCH_TARGETS raises."""
+    """REQ-P7-LOGIC-012: a batch above MAX_BATCH_TARGETS still raises.
+
+    The one non-per-target condition (the batch itself is oversized) is
+    unaffected by D-15 and still raises before any target is attempted;
+    asserted against the named constant, never a literal.
+    """
     doc = make_doc([RED])
     requests = [ExportRequest(fmt=ExportFormat.PNG)] * (MAX_BATCH_TARGETS + 1)
     with pytest.raises(ExportError, match="MAX_BATCH_TARGETS"):
         run_batch(doc, requests)
 
 
-def test_run_batch_wraps_export_error_with_index() -> None:
-    """REQ-P7-LOGIC-010: a failing target raises, identifying its batch index."""
+def test_run_batch_captures_export_error_with_index() -> None:
+    """REQ-P7-LOGIC-010: a failing target's error is captured with its index,
+    not raised — continue-on-failure (D-15).
+
+    Rewritten for the BatchResult contract: the old pin
+    (``test_run_batch_wraps_export_error_with_index``) asserted the failure
+    RAISED with the index in the message; the new contract instead captures
+    the failure as ``BatchResult.targets[1]`` with ``.error`` set and
+    ``.index == 1`` — preserving the original intent (the failing target is
+    identified by its batch index) under the new continue-on-failure shape.
+    """
     doc = make_doc([RED, GREEN])
     requests = [
         ExportRequest(fmt=ExportFormat.PNG),
         ExportRequest(fmt=ExportFormat.GIF, tag="nope"),
     ]
-    with pytest.raises(ExportError, match="batch target 1 failed"):
-        run_batch(doc, requests)
+    batch = run_batch(doc, requests)
+    assert batch.targets[0].success
+    assert not batch.targets[1].success
+    assert batch.targets[1].index == 1
+    assert "nope" in batch.targets[1].error
+    assert not batch.all_succeeded
+    assert batch.failures == (batch.targets[1],)
 
 
-def test_run_batch_propagates_atlas_error() -> None:
-    """REQ-P7-LOGIC-010: a per-target AtlasError propagates from the batch."""
+def test_run_batch_captures_atlas_error_not_propagates() -> None:
+    """REQ-P7-LOGIC-010: a per-target AtlasError is captured, not propagated
+    (D-15 continue-on-failure).
+
+    Rewritten for the BatchResult contract: the old pin
+    (``test_run_batch_propagates_atlas_error``) asserted AtlasError raised
+    from run_batch; the new contract catches it per-target instead, alongside
+    ExportError/PixelBufferError (per the run_batch docstring).
+    """
     doc = make_doc([RED])
     requests = [ExportRequest(fmt=ExportFormat.ATLAS, max_dimension=2)]
-    with pytest.raises(AtlasError):
-        run_batch(doc, requests)
+    batch = run_batch(doc, requests)
+    assert len(batch.targets) == 1
+    assert not batch.targets[0].success
+    assert batch.targets[0].result is None
+    assert batch.targets[0].error  # the stringified AtlasError, not re-raised
+
+
+def test_run_batch_mixed_success_failure_preserves_order() -> None:
+    """D-15: a mixed batch attempts every target in request order regardless
+    of an earlier failure, and BatchResult.targets preserves that order."""
+    doc = make_doc([RED, GREEN, BLUE])
+    requests = [
+        ExportRequest(fmt=ExportFormat.PNG),  # succeeds
+        ExportRequest(fmt=ExportFormat.GIF, tag="nope"),  # fails
+        ExportRequest(fmt=ExportFormat.ATLAS, max_dimension=2),  # fails (AtlasError)
+        ExportRequest(fmt=ExportFormat.SPRITE_SHEET, columns=2),  # succeeds
+    ]
+    batch = run_batch(doc, requests)
+    assert [t.index for t in batch.targets] == [0, 1, 2, 3]
+    assert [t.success for t in batch.targets] == [True, False, False, True]
+    # order is stable across repeated runs (deterministic, ADR-0019)
+    batch_again = run_batch(doc, requests)
+    assert [t.success for t in batch_again.targets] == [True, False, False, True]
+
+
+def test_run_batch_all_succeeded_true_when_every_target_succeeds() -> None:
+    """D-15: BatchResult.all_succeeded / .successes / .failures aggregate views."""
+    doc = make_doc([RED, GREEN])
+    requests = [
+        ExportRequest(fmt=ExportFormat.PNG),
+        ExportRequest(fmt=ExportFormat.GIF),
+    ]
+    batch = run_batch(doc, requests)
+    assert batch.all_succeeded
+    assert len(batch.successes) == 2
+    assert batch.failures == ()
+
+
+def test_run_batch_all_succeeded_false_when_any_target_fails() -> None:
+    """D-15: a single failing target flips all_succeeded to False."""
+    doc = make_doc([RED])
+    requests = [
+        ExportRequest(fmt=ExportFormat.PNG),
+        ExportRequest(fmt=ExportFormat.GIF, tag="nope"),
+    ]
+    batch = run_batch(doc, requests)
+    assert not batch.all_succeeded
+    assert len(batch.successes) == 1
+    assert len(batch.failures) == 1
+
+
+# NOTE (follow-up, not written here): a "one implementation only" grep-gate
+# test over pixelart_creator/ui/export_worker.py — asserting it no longer
+# re-implements its own per-target try/except once AGT-05 rewires it to
+# consume run_batch's BatchResult — is deferred until that UI rewiring lands
+# (per the WP-4 dispatch). See the subagent report §5 follow-up note.
 
 
 # --------------------------------------------------------------------------- #
