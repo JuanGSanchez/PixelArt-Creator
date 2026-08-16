@@ -223,7 +223,7 @@ class Canvas_View(QGraphicsView):
         self._snap = bool(enabled)
 
     def reassert_no_antialiasing(self) -> None:
-        """Re-lock the AA-off render hints (REQ-P2-UI-014; CL-15).
+        """Re-lock the AA-off render hints (REQ-P2-UI-014; REQ-P1-UI-001).
 
         The canvas is nearest-neighbour with anti-aliasing and smooth-pixmap
         transform disabled at every zoom. This re-asserts that guarantee (the

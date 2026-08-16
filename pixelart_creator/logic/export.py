@@ -113,7 +113,10 @@ class ExportFormat(enum.Enum):
 
 
 class EnginePreset(enum.Enum):
-    """The supported engine presets (module-local vocabulary, BF-2)."""
+    """The supported engine presets (module-local vocabulary, BF-2).
+
+    REQ-P7-LOGIC-011.
+    """
 
     NONE = "none"
     UNITY = "unity"
@@ -157,7 +160,10 @@ class TagInfo:
 
 @dataclass(frozen=True)
 class SheetMetadata:
-    """Structured sprite-sheet / atlas metadata (fed to the engine-preset writers)."""
+    """Structured sprite-sheet / atlas metadata (fed to the engine-preset writers).
+
+    REQ-P7-LOGIC-011.
+    """
 
     image_name: str
     width: int
@@ -430,6 +436,8 @@ def build_metadata_json(meta: SheetMetadata) -> str:
     Serialised with ``json.dumps(..., sort_keys=True, ensure_ascii=False,
     separators=(",", ":"))`` over integer coordinates and a fixed ``version`` — no
     timestamp — so it is byte-reproducible (REQ-P7-LOGIC-007/-008).
+
+    REQ-P7-DATA-004.
     """
     frames_out = [
         {

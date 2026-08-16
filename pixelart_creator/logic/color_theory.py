@@ -5,8 +5,10 @@ type — the geometric substrate the colour-hub wheel and every hue-rotation
 harmony need. Conversions and harmonies are **not** built on ``QColor`` (CL-2);
 Qt lives in ``ui/`` only. All maths are deterministic and side-effect-free.
 
-Grounding: harmony hue rotations and the tint/shade/tone HSV formulas are taken
-from ``docs/research-phase3-colour.md`` Topic 1 (F9). The harmony *angles* are
+Grounding: harmony hue rotations and the tint/shade/tone HSV formulas
+(pins recorded in docs/adr/0003-hardware-palette-data-placement.md and
+docs/adr/0001-s12-governs-tuning-not-intrinsic-constants.md; original research
+record lives outside this repository), Topic 1 (F9). The harmony *angles* are
 tuning scalars in :mod:`~pixelart_creator.logic.constants` (Article II); the
 tint/shade/tone formulas are intrinsic to the HSV geometry and stay local here
 (ADR-0001). REQ-P3-LOGIC-001, -002, -003.

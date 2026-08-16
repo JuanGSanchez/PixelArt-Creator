@@ -5,8 +5,10 @@ nearest-palette match layered *on top of* the Phase-1 ``distance_sq`` baseline �
 an opt-in upgrade path, not a replacement (CL-10, PL-D6). Pure, deterministic,
 Qt-free.
 
-Grounding: the sRGB→XYZ(D65)→L*a*b* pipeline and the full ΔE00 equation are taken
-from ``docs/research-phase3-colour.md`` Topic 2 (Sharma, Wu & Dalal 2005; the
+Grounding: the sRGB→XYZ(D65)→L*a*b* pipeline and the full ΔE00 equation
+(pins recorded in docs/adr/0003-hardware-palette-data-placement.md and
+docs/adr/0001-s12-governs-tuning-not-intrinsic-constants.md; original research
+record lives outside this repository), Topic 2 (Sharma, Wu & Dalal 2005; the
 Wikipedia Color-difference article mirrors the same formulation). The D65 white
 point, sRGB linearisation coefficients, XYZ matrix, and the ΔE00 "magic" terms
 (0.17/0.24/0.32/0.20, 25⁷, 6°/30°/275°/25°/63°) are intrinsic to the CIELAB /

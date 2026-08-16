@@ -7,10 +7,11 @@ an application as a reversible :class:`~pixelart_creator.logic.history.PixelEdit
 so ``ui/commands.py`` can wrap it as one ``QUndoCommand`` (REQ-P3-LOGIC-017).
 
 Grounding: the Bayer recurrence and matrices, and the Floyd–Steinberg 7/3/5/1÷16
-weights, are from ``docs/research-phase3-colour.md`` Topic 5 (F9). Those matrix
-values and coefficients are intrinsic to the algorithms, so they stay **local**
-here (ADR-0001); only ``BAYER_MATRIX_SIZE`` (which size) is a tuning scalar in
-:mod:`~pixelart_creator.logic.constants`. REQ-P3-LOGIC-006, -007.
+weights (pins recorded in the docs/adr/0003-hardware-palette-data-placement.md
+family of ADRs; original research record lives outside this repository), Topic
+5 (F9). Those matrix values and coefficients are intrinsic to the algorithms, so
+they stay **local** here (ADR-0001); only ``BAYER_MATRIX_SIZE`` (which size) is a
+tuning scalar in :mod:`~pixelart_creator.logic.constants`. REQ-P3-LOGIC-006, -007.
 """
 
 from __future__ import annotations
