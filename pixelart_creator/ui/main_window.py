@@ -3049,16 +3049,29 @@ class Main_Window(QMainWindow):
         if tilemap is None:
             return
         # Native .pixproj references a tilemap's tilesets by index into the
-        # document collection, so register the imported tilesets first.
-        for tileset in tilemap.tilesets:
-            record.document.make_add_tileset_command(tileset).execute()
-        record.stack.push(
-            TilemapCommand(
-                record.document.make_add_tilemap_command(tilemap),
-                self._rebind_active_tilemap,
-                self.tr("Import Tilemap"),
+        # document collection, so register the imported tilesets first. The
+        # attach(es) and the tilemap add are one undo unit (CF-15): a single
+        # undo removes the imported tilemap AND detaches the imported tilesets.
+        label = self.tr("Import Tilemap")
+        record.stack.beginMacro(label)
+        try:
+            for tileset in tilemap.tilesets:
+                record.stack.push(
+                    TilesetCommand(
+                        record.document.make_add_tileset_command(tileset),
+                        self._rebind_active_tilemap,
+                        self.tr("Attach Tileset"),
+                    )
+                )
+            record.stack.push(
+                TilemapCommand(
+                    record.document.make_add_tilemap_command(tilemap),
+                    self._rebind_active_tilemap,
+                    label,
+                )
             )
-        )
+        finally:
+            record.stack.endMacro()
         self._active_tilemap = tilemap
         self._bind_tilemap(record)
 
