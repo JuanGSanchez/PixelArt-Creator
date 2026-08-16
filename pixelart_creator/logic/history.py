@@ -44,7 +44,7 @@ class PixelEdit(Command):
         changes: List[PixelChange],
         label: str = "draw",
     ) -> None:
-        """Store the target `buffer`, the recorded `changes`, and the undo-menu `label`."""
+        """Store the target `buffer`, the recorded `changes`, and the undo `label`."""
         self._buffer = buffer
         self._changes = changes
         self.label = label

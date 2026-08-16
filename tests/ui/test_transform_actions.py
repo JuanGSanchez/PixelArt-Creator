@@ -101,10 +101,7 @@ def test_t16_scale_with_active_selection_affects_only_the_selection(qtbot, monke
     (CF-07). The whole-buffer dimensions are UNCHANGED (a masked transform never
     resizes the canvas); pixels outside the selection are byte-identical.
     """
-    from PySide6.QtCore import QRectF
-
     from pixelart_creator.logic.selection import rect_mask
-    from pixelart_creator.ui.tools import RectSelectTool
     from tests.ui._ui_helpers import prepare_for_click
 
     win = _window(qtbot)

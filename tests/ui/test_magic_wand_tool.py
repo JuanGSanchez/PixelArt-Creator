@@ -96,8 +96,6 @@ def test_t17_frame_select_commits_a_live_float(qtbot):
     from PySide6.QtCore import QEvent, QPointF, Qt
     from PySide6.QtGui import QMouseEvent
 
-    from pixelart_creator.logic.document import Document
-    from pixelart_creator.logic.palette import Palette
     from pixelart_creator.logic.selection import rect_mask
     from pixelart_creator.ui.main_window import Main_Window
     from pixelart_creator.ui.tools import RectSelectTool

@@ -41,7 +41,7 @@ class LassoTool(SelectionTool):
     def build(
         self, sx: int, sy: int, x: int, y: int, ctx: ToolContext
     ) -> Optional[SelectionMask]:
-        """Build the auto-closed lasso mask from the traced path (or a straight fallback)."""
+        """Build the auto-closed lasso mask from the traced path (or a straight one)."""
         points = self._points if self._points else [(sx, sy), (x, y)]
         self._points = []
         return lasso_mask(ctx.buffer.width, ctx.buffer.height, points)

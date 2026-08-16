@@ -84,7 +84,7 @@ def _assert_sentinel_absent(sentinel: str, *haystacks) -> None:
 
 
 def _caplog_text(caplog) -> str:
-    """Every captured record's formatted message, joined (what a log sink would show)."""
+    """Every captured record's formatted message, joined (what a log sink shows)."""
     return "\n".join(record.getMessage() for record in caplog.records)
 
 

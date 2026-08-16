@@ -20,7 +20,6 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -39,7 +38,9 @@ NODE = shutil.which("node")
 
 pytestmark = pytest.mark.skipif(
     NODE is None,
-    reason="node runtime not found on PATH -- Node ESM suite reported unrun, not a pass",
+    reason=(
+        "node runtime not found on PATH -- Node ESM suite reported unrun, " "not a pass"
+    ),
 )
 
 

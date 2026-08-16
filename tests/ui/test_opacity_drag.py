@@ -575,7 +575,7 @@ def test_drag_cache_invalidated_on_pan_zoom(qtbot, theme):
 def test_drag_cache_invalidated_on_edit(qtbot, theme):
     """A pixel edit (refresh_rect) invalidates the drag cache (ADR-0034 §2.3)."""
     env = _make_env(qtbot, theme)
-    scene, nodes, k = env.scene, env.nodes, env.k
+    scene, k = env.scene, env.k
     scene.begin_opacity_drag([k])
     assert scene._opacity_drag is not None
     from PySide6.QtCore import QRectF

@@ -77,7 +77,7 @@ class SelectionTool(Tool):
     # -- interaction -----------------------------------------------------
 
     def on_press(self, x: int, y: int, ctx: ToolContext) -> None:
-        """Start a floating move if inside the selection, else begin a new-mask preview."""
+        """Start a floating move if inside the selection, else begin a mask preview."""
         self._start = (x, y)
         self._moving = False
         selection = ctx.selection

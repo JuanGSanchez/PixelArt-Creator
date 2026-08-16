@@ -31,7 +31,6 @@ from pixelart_creator.ui.procgen_panel import Procgen_Panel
 from pixelart_creator.ui.script_runner_panel import Script_Runner_Panel
 from tests.ui._automation_helpers import (
     GREEN,
-    RED,
     macro_of,
     procgen_op,
     write_manifest,
@@ -206,7 +205,8 @@ def test_plugin_manager_refresh_preserves_installed_manifest(qtbot):
 def test_plugin_manager_enable_failure_surfaces_error(
     qtbot, monkeypatch, tmp_path, mute_message_boxes, plugin_isolation
 ):
-    """A PluginError from enable surfaces a graceful warning; the plugin stays disabled."""
+    """A PluginError from enable surfaces a graceful warning; the plugin
+    stays disabled."""
     import pixelart_creator.ui.plugin_manager_panel as pmp
     from pixelart_creator.logic.plugins import PluginError
 

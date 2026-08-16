@@ -33,7 +33,6 @@ from pixelart_creator.logic.constants import (
 )
 from pixelart_creator.logic.document import Document
 from pixelart_creator.logic.export import (
-    EnginePreset,
     ExportError,
     ExportFormat,
     ExportRequest,

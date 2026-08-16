@@ -54,7 +54,7 @@ class CompactionError(ValueError):
     """Raised when packing cannot proceed. `reason` is a stable machine token."""
 
     def __init__(self, message: str, reason: str = "invalid-input"):
-        """Store `reason`, the stable machine token, alongside the ValueError message."""
+        """Store `reason`, the stable machine token, alongside the ValueError text."""
         super().__init__(message)
         self.reason = reason
 

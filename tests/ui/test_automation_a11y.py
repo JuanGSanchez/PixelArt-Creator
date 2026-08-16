@@ -83,7 +83,8 @@ def test_sc_ui_012_batch_recolour_exposes_accessible_names(qtbot):
 
 
 def test_sc_ui_012_procgen_exposes_accessible_names_and_units(qtbot):
-    """SC-UI-012-1: the procgen algorithm/seed/region fields expose names (+ px units)."""
+    """SC-UI-012-1: the procgen algorithm/seed/region fields expose names
+    (+ px units)."""
     p = _window(qtbot)._procgen_panel
     assert p.accessibleName() != ""
     for control in (
@@ -115,14 +116,16 @@ def test_sc_ui_012_controls_are_keyboard_focusable(qtbot):
 
 
 def test_sc_ui_012_automation_menu_is_populated(qtbot):
-    """SC-UI-012-1: the &Automation menu surfaces every automation dock (discoverable)."""
+    """SC-UI-012-1: the &Automation menu surfaces every automation dock
+    (discoverable)."""
     win = _window(qtbot)
     assert win._automation_menu.title() != ""
     assert len(win._automation_menu.actions()) >= 5
 
 
 def test_sc_ui_013_panels_render_role_based_in_both_themes(qtbot, theme):
-    """SC-UI-013-1: under each theme a non-empty role-based QSS applies; no per-widget colour."""
+    """SC-UI-013-1: under each theme a non-empty role-based QSS applies; no
+    per-widget colour."""
     win = _window(qtbot)
     assert QApplication.instance().styleSheet() != ""
     for panel in (

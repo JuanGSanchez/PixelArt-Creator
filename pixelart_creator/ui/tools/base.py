@@ -197,7 +197,7 @@ class ToolContext:
         modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier,
         floating_controller: Optional["FloatingMoveController"] = None,
     ) -> None:
-        """Bind the buffer, active colour/index, undo stack, scene and interaction state."""
+        """Bind the buffer, colour/index, undo stack, scene, and interaction state."""
         self.buffer = buffer
         self.active_color = active_color
         self.active_index = active_index

@@ -332,7 +332,7 @@ class Canvas_View(QGraphicsView):
     # -- keyboard (Space pan modifier) -----------------------------------
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 (Qt override)
-        """Commit/cancel an active floating move on Enter/Escape; else track Space-pan."""
+        """Commit/cancel a floating move on Enter/Escape; else track Space-pan."""
         # A live floating move commits on Enter/Return and cancels on Escape
         # (REQ-P2-UI-033/-034); these keys are inert when no float is active.
         if self._floating_controller.is_active():
@@ -386,7 +386,7 @@ class Canvas_View(QGraphicsView):
         self.colorPicked.emit(color)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
-        """Start pan (middle/Space+left), open the right-click menu, or start painting."""
+        """Start a pan, open the right-click menu, or start a paint stroke."""
         button = event.button()
         if button == Qt.MouseButton.MiddleButton or (
             button == Qt.MouseButton.LeftButton and self._space_held
@@ -437,7 +437,7 @@ class Canvas_View(QGraphicsView):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
-        """End an active pan, or commit the active paint stroke on left-button release."""
+        """End an active pan, or commit the active paint stroke on release."""
         if self._panning and event.button() in (
             Qt.MouseButton.MiddleButton,
             Qt.MouseButton.LeftButton,

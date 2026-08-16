@@ -98,13 +98,19 @@ def test_sc_l030_5_non_floatmode_raises_selection_error():
 
 # --- T-10: REQ-P2-LOGIC-036 -- single-buffer / mask-source contract --------
 # (traceability.md names test_sc_l036_1_.../test_sc_l036_2_... directly; those
-# names did not exist -- this closes that citation gap with a direct
-# assertion under the correct SC-L036 labels.)
+# names already existed further below under "FA-T7 / SC-L036" (missed by the
+# initial grep, which searched product/design-docs but not this test file
+# itself) -- F811 caught the collision. The two pairs' bodies differ (this
+# pair checks a non-empty lifted mask.count() for every builder and the
+# dimension-mismatch error MESSAGE; the pre-existing pair checks
+# floating.mask() == mask exactly and a different mismatched size/mode), so
+# both are kept under distinct, truthful names rather than merged/deleted.)
 
 
-def test_sc_l036_1_lift_from_rect_lasso_wand_masks():
-    """SC-L036-1: the float lifts from a mask produced by rect/lasso/wand
-    builders (CL-F4) -- any :class:`SelectionMask`-shaped mask is accepted."""
+def test_lift_accepts_a_mask_from_every_shipped_builder():
+    """SC-L036-1 (additional angle): the float lifts from a mask produced by
+    rect/lasso/wand builders (CL-F4) -- any :class:`SelectionMask`-shaped mask
+    is accepted and yields a non-empty lifted mask."""
     buf = _block_buffer()
     for mask in (
         rect_mask(6, 6, 1, 1, 2, 2),
@@ -115,9 +121,11 @@ def test_sc_l036_1_lift_from_rect_lasso_wand_masks():
         assert floating.mask().count() > 0
 
 
-def test_sc_l036_2_dimension_mismatch_raises_selection_error():
-    """SC-L036-2: the float never spans more than one buffer -- a mask sized
-    differently from the source buffer is rejected, not silently clipped."""
+def test_dimension_mismatch_error_message_names_dimensions():
+    """SC-L036-2 (additional angle): the float never spans more than one
+    buffer -- a mask sized differently from the source buffer is rejected
+    with an error message that names the dimension mismatch, not silently
+    clipped."""
     buf = _block_buffer(6, 6)
     with pytest.raises(SelectionError, match="dimensions"):
         lift_selection(buf, rect_mask(8, 8, 0, 0, 1, 1), FloatMode.MOVE)

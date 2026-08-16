@@ -106,7 +106,7 @@ class Favourites:
         return iter(self._colors)
 
     def __eq__(self, other: object) -> bool:
-        """Return True if `other` is a Favourites with the same colours in the same order."""
+        """Return True if `other` is a Favourites with the same colours, same order."""
         if not isinstance(other, Favourites):
             return NotImplemented
         return self._colors == other._colors
