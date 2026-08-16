@@ -171,3 +171,52 @@ is clarified: the commit's byte-exactness comes from the exact suffix re-blend (
 not from the `above`-pre-flatten associativity shortcut. Correctness was preserved in the shipped build
 throughout; this amendment corrects the ADR text so it does not mislead future work. **ADR-0033 (flatten
 byte-exact invariant) is untouched.**
+
+## Amendment (2026-08-16) — Ceiling finalised at 3000 ms (AGT-10 Slice-B RE-PROFILE)
+
+*Immutable-append, mirroring ADR-0033's "Ceiling finalised at 15000 ms" amendment (2026-07-07). The
+original Decision §4 and Consequences text above is retained unchanged; this note supersedes only the
+ceiling **figure**. Every `2000 ms` above is the **pre-RE-PROFILE candidate** value, retained as the
+record of what was planned at the time. The finalised single source of truth is `logic/constants.py`.*
+
+**Provenance.** The 2026-08-16 spec-verification audit
+`audit-spec-phase-12-performance-scalability-20260816.md` (FINDING 4) — consolidated as CF-122,
+remediation item R-36 — which found this ADR to be the one record of the change that was never
+amended, unlike its sibling ADR-0033.
+
+AGT-10's Phase-12 Slice-B directive §5.1 recommended **RAISING** the plan's candidate 2000 ms: the
+naive full 12-layer recomposite measures **2191 ms @ 1080²** (and ~7000 ms @ 1920²) on a fast 8-core
+desktop, and the 2-core CI runner is ~1.5–2.5× slower — so a 2000 ms bound is **unmeetable** and would
+flake on healthy code (the FU-15 loose-ceiling failure mode). The gate was therefore **loosened, not
+tightened**, the same direction as ADR-0033's. The finalised single-source value is:
+
+> **`logic/constants.py :: VIEWPORT_RECOMPOSITE_CEILING_MS = 3000`** (ms).
+
+3000 ms clears the split-cache commit — 2–3 full-resolution blends over the culled viewport for
+realistic predominantly-NORMAL content, sub-second to ~1 s on 8-core → ~1–2.5 s on 2-core — with
+headroom, while sitting far below the ~7 s (8-core) / ~14–17 s (2-core) naive-recomposite catastrophe
+the gate must catch.
+
+**Reader guidance.** Wherever Decision §4 names the "candidate **2000 ms**", read the finalised bound
+as **3000 ms**; the Consequences' caveat that the value "is a candidate until AGT-10's RE-PROFILE ship
+gate measures the optimised 2-core cost" is hereby **discharged**.
+
+The gate's **posture is unchanged**: a **loose catastrophic-regression bound** on the **commit** path
+only, explicitly **not** the 16 ms `FRAME_BUDGET_MS` — which still applies to, and is still held by,
+the during-drag downsampled-LOD preview (Decision §2, REQ-P12-UI-001). Nothing else changes: the
+split-cache seam, the byte-exact commit via `composite_range(nodes, k, N, base=below)` (Amendment
+2026-07-07), the public `composite_stack` signature, the Qt-free `logic/blend.py` posture and the
+`check_layering` / `check_cycles` exit-0 status all stand. **ADR-0033 is unaffected.**
+
+**Where the raise was already narrated** — this ADR was the only record missing it:
+
+- AGT-10's Phase-12 Slice-B directive §5.1, "recommend RAISING the candidate 2000 ms", with the
+  measured 2191 ms @ 1080² (a design-docs artifact, outside this repository);
+- the `VIEWPORT_RECOMPOSITE_CEILING_MS` docstring in `logic/constants.py` — "**AGT-10 RAISED the
+  plan's candidate 2000 ms to 3000 ms**", with the same measurement and the Slice-A precedent;
+- the Phase-12 Slice-B entry in `docs/CHANGELOG.md` (`VIEWPORT_RECOMPOSITE_CEILING_MS = 3000`);
+- the session log's single-sourced-constants note (a design-docs artifact, outside this repository).
+
+`specs/phase-12-performance-scalability/plan.md` §8 and tasks `T12-A-01` / `T12-B-01` still state the
+superseded candidates; their revision notes are a **separate open remediation item** and are not
+covered by this amendment.

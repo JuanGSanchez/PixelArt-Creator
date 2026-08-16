@@ -139,3 +139,39 @@ this session.
 - Research F2/F7 (exposed-rect draw, culling Qt not data) and the `render-strategy` /
   `frame-profile` skill ownership (AGT-10).
 - REQ-P4-LOGIC-011 (group composites children then blends as one — the cached intermediate).
+
+## Footnote (2026-08-16) — the NORMAL array path deliberately re-deviates to float64 (scope of D5)
+
+*Immutable-append. Neither the original Decision nor the T13 Amendment above is rewritten; this
+footnote records a deliberate, tested narrowing of **D5** so that the divergence between the ADR text
+and the shipped code reads as a recorded decision rather than as drift.*
+
+**Provenance.** The 2026-08-16 spec-verification audit `audit-spec-phase-4-layer-canvas-20260816.md`
+(F-5) — consolidated as CF-101(d), remediation item R-23.
+
+Amendment item **D5** above requires a **float32** blend working space (ADR-0005 compliance). The
+shipped `logic/blend.py` honours that for the **eleven separable non-NORMAL modes**, but the default
+**NORMAL** array path is deliberately **float64**: `_blend_over_arrays` is a float64 **replica** of
+`logic/color.blend_over` over the 0..255 range — reproducing that function's exact per-channel
+expression, its round-half-to-even-then-clip, and both early-return branches (`sa == 255` → `src`,
+`sa == 0` → `dst`) via `numpy.where` — rather than a literal delegation. Delegation is not available:
+`blend_over(src: RGBA, dst: RGBA) -> RGBA` is a per-pixel tuple function and cannot be applied to an
+`(H, W, 4)` array without a Python-level loop.
+
+**Why the re-deviation.** The float32 generic separable path diverged from `blend_over` by **≤ 1 LSB**
+at rounding boundaries. REQ-P4-LOGIC-003 / ADR-0005 freeze `blend_arrays(NORMAL)` as equal to
+`blend_over` applied elementwise **with zero tolerance**, so on the DEFAULT mode float32 is not merely
+slower to agree — it is non-compliant. Bit-exactness beats the float32 memory/time saving on this one
+path; the eleven non-NORMAL modes keep the float32 saving.
+
+**It is proven, not asserted.**
+`tests/logic/test_blend.py::test_blend_arrays_normal_base_case_equals_blend_over_exactly` and
+`::test_blend_arrays_normal_base_case_equals_blend_over_property` assert exact equality against the
+`blend_over` oracle with no tolerance, including the `sa == 0 & da == 0` sub-case. The rationale is
+also carried in the `_blend_over_arrays` docstring.
+
+**Scope.** D5's float32 mandate is hereby read as governing the **generic separable path (the eleven
+non-NORMAL modes)**; the **NORMAL** array path is float64 **by decision**. Nothing else in D5 or in the
+T13 Amendment changes — D1's region-sized return shape and D4's cache-invalidation contract stand, no
+public signature changes, no import is added, and `check_layering` / `check_cycles` are unaffected
+(this is a dtype choice inside one Qt-free `logic/` function).

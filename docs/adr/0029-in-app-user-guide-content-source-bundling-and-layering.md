@@ -191,3 +191,59 @@ coverage contract (REQ-UG-LOGIC-005) — a real authoring scope item (T-UG-02).
   `docs/site/mkdocs.yml` nav (12 usage pages incl. `cloud.md` + `collaboration.md` already authored);
   `check_layering`/`check_cycles` baseline clean. ADR-0025 (sidecar-vs-embedded precedent),
   ADR-0001 (module-local vocabulary), ADR-0020/0022 (CLI-under-`data/` layering-scan precedent).
+
+## Amendment (2026-08-16) — the S19 premise is stale; the decision stands on the wheel-exclusion ground
+
+*Immutable-append. The original Context, Decision, Alternatives and Consequences above are retained
+unchanged as the record of the 2026-07-04 reasoning; this note re-states the **justification** whose
+factual premise has since changed. The decision itself is **not superseded** — it is re-grounded.*
+
+**Provenance.** The 2026-08-16 spec-verification audit `audit-spec-user-guide-20260816.md` (F-5) —
+consolidated as CF-131, remediation item R-46; the measured divergence in §c is CF-41 / D-23.
+
+### a. What is no longer true
+
+The Context asserts that `docs/**` is "**gitignored AND purged from git history**" and that `docs/site`
+is consequently "**not committed** to the repository" and "**not present in the CI checkout**". **That
+premise no longer holds.** As of 2026-08-16:
+
+- `.gitignore` now reads `docs/*` with **`!docs/adr/` and `!docs/site/` re-included**; `git ls-files
+  docs/site` returns **17 tracked files**.
+- CI **builds** the site: `.github/workflows/ci.yml` runs `mkdocs build -f docs/site/mkdocs.yml
+  --strict`, so `docs/site` **is** present in the CI checkout.
+
+Two of the Context's three bullets are therefore **factually superseded**; the third is not, and it is
+the load-bearing one.
+
+### b. The ground that survives — the wheel cannot carry `docs/`
+
+The DECISION — the shipped runtime source is the **committed `pixelart_creator/userguide_content/`
+bundle**, never a read into `docs/site` — stands on an **independent and still-true** ground: the
+distributable does not contain `docs/`. `pyproject.toml`'s
+`[tool.setuptools.packages.find] exclude = ["tests*", "scripts*", "docs*", "sync_backend*",
+"web_viewer*"]` drops `docs*` from the wheel. A guide reading `docs/site` at runtime would still
+render **nothing** in a real install — the original third bullet, "**not present in the
+distributable**", is unchanged and is by itself sufficient (REQ-UG-DATA-001, REQ-UG-UI-007, offline
+first). Article I placement (§6), the manifest-driven loader (§3), locale fallback (§4) and the
+bundle-root guard (§5) are untouched.
+
+**Reader guidance.** Wherever the Context, the Alternatives ("violates S19 — `docs/**` gitignored +
+purged") or the Consequences ("because CI cannot see the private path") rest on `docs/site` being
+*absent from the repository or from CI*, read instead: `docs/site` is **tracked and CI-visible**, but
+is **excluded from the wheel**, which is why the shipped source must be the committed bundle. One
+consequence flips sign: a CI drift check against `docs/site` is **now technically possible**, so the
+no-drift item below is actionable rather than impossible.
+
+### c. No-drift is an OPEN item (D-23), not a resolved property
+
+The original text records no-drift as "preserved editorially through AGT-08's single authoring source"
+and reads SC-D002-1/-2 as holding. **Measured on 2026-08-16, that is not true at the byte level**: the
+committed bundle carries **19 topics** against **15** `docs/site` usage pages; the two sets share
+**8 stems**, of which **0 are byte-identical**; **11** are bundle-only and **7** docs-only. There is
+**no sync script and no CI gate**, `data/guide_content.py` has zero reference to `docs/site`, and
+SC-D002-1's literal claim has no test — so the property is **unverifiable from this repository**.
+
+This is recorded here as the **open item D-23** — author a drift gate or a sync script, or amend
+REQ-UG-DATA-002 to the editorial-level promise this ADR actually makes — and explicitly **not** as a
+resolved consequence. The runtime source is unaffected either way: the committed
+`pixelart_creator/userguide_content/` bundle remains the single shipped source.

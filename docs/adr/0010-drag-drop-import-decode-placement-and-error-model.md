@@ -55,3 +55,38 @@ now lives in `ui/`.
 - **Reversal path:** if a future need makes a Qt-free `logic/` decode worthwhile, adopting Pillow is
   a conscious, traceable change — supersede this ADR, add the MIT-CMU dependency with maintainer
   sign-off, and move the decoder to `logic/`.
+
+## Erratum (2026-08-16) — requirement ids: the `REQ-P7-*` citations predate the 2026-07-30 re-allocation
+
+*Immutable-append. The original text above is retained unchanged as the record of what was written on
+2026-07-03; this erratum corrects only the **requirement identifiers** it cites. No decision, no
+consequence and no layering ruling changes.*
+
+**Provenance.** The 2026-08-16 spec-verification audits — `audit-spec-drag-drop-import-20260816.md`
+(F-1, F-2) and `audit-spec-phase-7-export-20260816.md` (ERRATUM), which reach the finding
+independently; consolidated as CF-76, remediation item R-01.
+
+On **2026-07-30** this feature's own requirements were re-allocated **1:1** out of the `REQ-P7-*`
+range into its own `REQ-DDI-*` prefix — same order, requirement text unchanged
+(`specs/drag-drop-import/spec.md` §1, REQ-ID-range row: `REQ-DDI-DATA-001..005`,
+`REQ-DDI-UI-001..009`). `phase-7-export` **owns the `REQ-P7-*` range by name** and allocates
+`REQ-P7-DATA-001..004` only — it allocates **no `-005`**. Both ids cited above therefore mis-resolve
+today:
+
+| Cited in this ADR | What it resolves to now | Read instead |
+| --- | --- | --- |
+| `REQ-P7-DATA-002 (image decoder)` — Traces line | phase-7's **"Engine-preset artifacts are written (Unity / Godot)"** (`write_engine_preset`, 9 tests) — a *different, live* requirement | **`REQ-DDI-DATA-002`** |
+| `REQ-P7-DATA-005 (shared error contract)` — Traces line **and** Context §("A second concern") | **nothing** — phase-7's DATA range stops at `004`, so the id is unallocated anywhere | **`REQ-DDI-DATA-005`** |
+
+**Reader guidance.** Wherever this ADR says `REQ-P7-DATA-002`, read `REQ-DDI-DATA-002`; wherever it
+says `REQ-P7-DATA-005`, read `REQ-DDI-DATA-005`. This ADR cites **no** `REQ-P7-UI-*` id and **no**
+requirement range, so no further substitution applies. The spec's "cross-feature citations keep their
+original ids" clause does **not** rescue these two: they are drag-drop-import's *own* requirements,
+not citations of phase-7's.
+
+**Blast radius.** Documentation-only — no shipped code and no test resolves `REQ-P7-DATA-005`, and the
+`ui/image_import.py` decode placement, the `FileImportError` family in `data/file_import.py` and the
+Article I layering ruling are all unaffected. The parallel mis-citation in `docs/CHANGELOG.md` (the
+drag-drop entry attributing the feature to `REQ-P7-DATA-001..005` + `REQ-P7-UI-001..009`; correct:
+`REQ-DDI-DATA-001..005` + `REQ-DDI-UI-001..009`) is AGT-08's to correct and is **not** part of this
+erratum.
