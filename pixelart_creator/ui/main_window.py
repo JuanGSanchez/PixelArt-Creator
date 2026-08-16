@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Optional, Sequence, cast
+from typing import Callable, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 from PySide6.QtCore import QEvent, QRectF, QStandardPaths, Qt, QTimer
@@ -232,6 +232,7 @@ from pixelart_creator.ui.tools.dither_tool import (
 )
 from pixelart_creator.ui.transform_dialog import Scale_Dialog
 from pixelart_creator.ui.user_guide import User_Guide_Dialog
+from pixelart_creator.ui.vanishing_point_dialog import Vanishing_Point_Dialog
 from pixelart_creator.ui.version_history_browser import Version_History_Browser
 
 #: Stable cloud recovery-slot key for the working document when no named cloud
@@ -419,6 +420,9 @@ class Main_Window(QMainWindow):
         self._active_tool_id = PencilTool.tool_id
         # Per-view Phase-2 drawing modes (applied to each tab's view).
         self._symmetry_axis: SymmetryAxis = SymmetryAxis.NONE
+        #: Live mirror-centre override from the Symmetry_Panel (D-28/CF-93);
+        #: ``None`` keeps the shipped canvas-centre default.
+        self._symmetry_axis_pos: Optional[Tuple[int, int]] = None
         self._pixel_perfect = False
         self._tiled = False
         self._snap = False
@@ -443,6 +447,9 @@ class Main_Window(QMainWindow):
 
         self._symmetry_panel = Symmetry_Panel(self)
         self._symmetry_panel.axisChanged.connect(self._on_symmetry_axis_changed)
+        self._symmetry_panel.axisPositionChanged.connect(
+            self._on_symmetry_axis_position_changed
+        )
         self._symmetry_dock = QDockWidget(self)
         self._symmetry_dock.setWidget(self._symmetry_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._symmetry_dock)
@@ -660,6 +667,10 @@ class Main_Window(QMainWindow):
             self._procgen_panel,
         ):
             self._automation_controller.busyChanged.connect(panel.set_busy)
+            # D-06: live per-target progress on the same four panels' bars.
+            self._automation_controller.targetProgress.connect(
+                panel.set_target_progress
+            )
 
         # Phase-10 Slice A cloud (REQ-P10-UI-001..008): a window-owned
         # Cloud_Controller runs the Qt-free data/cloud port (put/get/list/autosave)
@@ -1321,6 +1332,13 @@ class Main_Window(QMainWindow):
         self._perspective_action.setCheckable(True)
         self._perspective_action.toggled.connect(self._on_perspective_toggled)
         self._aids_menu.addAction(self._perspective_action)
+        # D-09: the minimal vanishing-point configuration dialog entry point —
+        # the perspective aid's natural home (same menu, right after its toggle).
+        self._perspective_config_action = QAction(self)
+        self._perspective_config_action.triggered.connect(
+            self._on_configure_perspective
+        )
+        self._aids_menu.addAction(self._perspective_config_action)
         self._aids_menu.addSeparator()
         self._new_view_action = QAction(self)
         self._new_view_action.triggered.connect(self._on_new_view)
@@ -1348,6 +1366,12 @@ class Main_Window(QMainWindow):
         record.guides_rulers = Guides_Rulers_Overlay(
             record.view, record.scene, scene_rect
         )
+        # D-08: bind this tab's aids so the view's cursor snap (guides >
+        # perspective > iso > rectangular) can consult their visible+enabled
+        # state; rebound to the active tab on every switch, below.
+        record.view.set_guides_overlay(record.guides_rulers)
+        record.view.set_iso_overlay(record.iso_overlay)
+        record.view.set_perspective_overlay(record.perspective_overlay)
         # Phase-10 Slice C: the ephemeral live-cursor overlay (other collaborators'
         # cursors, REQ-P10-UI-013). Above the aids (z ~9); hidden until real-time is
         # connected. No item cache — cursors move per frame (AGT-10 will profile).
@@ -1435,6 +1459,15 @@ class Main_Window(QMainWindow):
         if record is not None and record.perspective_overlay is not None:
             record.perspective_overlay.setVisible(enabled)
 
+    def _on_configure_perspective(self) -> None:
+        """Open the vanishing-point dialog for the active tab (D-09)."""
+        record = self.active_tab()
+        if record is None or record.perspective_overlay is None:
+            return
+        dialog = Vanishing_Point_Dialog(record.perspective_overlay.config(), self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            record.perspective_overlay.set_config(dialog.perspective_config())
+
     def _on_new_view(self) -> None:
         view = self._multi_view.open_view()
         if view is not None:
@@ -1502,9 +1535,23 @@ class Main_Window(QMainWindow):
         view.set_tool(self._tools[self._active_tool_id])
         view.set_active_color(self._active_color)
         view.set_active_index(self._active_index)
+        self._bind_symmetry_panel(record)
         self._apply_modes_to(record)
         self._bind_palette_workflows(record)
         return document
+
+    def _bind_symmetry_panel(self, record: "_DocTab") -> None:
+        """Rebind the Symmetry_Panel's spinbox ranges to ``record``'s document (D-28).
+
+        A resize/tab-switch must never keep a stale, now out-of-bounds user
+        position (``Symmetry_Panel.set_canvas_size`` itself resets to the
+        unset/centre default); the shell's own tracked override is reset in
+        step so ``_apply_modes_to`` pushes the same fresh ``None``.
+        """
+        self._symmetry_panel.set_canvas_size(
+            record.document.width, record.document.height
+        )
+        self._symmetry_axis_pos = None
 
     def _add_workflow_dock(self, widget: QWidget) -> QDockWidget:
         """Add a Slice-3C workflow widget as a dock tabified with the palette."""
@@ -1692,6 +1739,7 @@ class Main_Window(QMainWindow):
         """Push the shell's Phase-2 drawing modes onto a tab's view/scene."""
         view = record.view
         view.set_symmetry_axis(self._symmetry_axis)
+        view.set_symmetry_pos(self._symmetry_axis_pos)
         view.set_pixel_perfect(self._pixel_perfect)
         view.set_snap_enabled(self._snap)
         view.set_grid_enabled(self._grid_action.isChecked())
@@ -1983,6 +2031,7 @@ class Main_Window(QMainWindow):
         record.view.set_tool(self._tools[self._active_tool_id])
         record.view.set_active_color(self._active_color)
         record.view.set_active_index(self._active_index)
+        self._bind_symmetry_panel(record)
         self._apply_modes_to(record)
         self._bind_palette_workflows(record)
         # Rebind the Phase-9 aids (preview/multi-view/timelapse) to this tab and
@@ -2797,6 +2846,12 @@ class Main_Window(QMainWindow):
         for record in self._tabs_data:
             record.view.set_symmetry_axis(axis)
 
+    def _on_symmetry_axis_position_changed(self, pos: object) -> None:
+        """Feed the panel's mirror-centre override to every tab's view (D-28)."""
+        self._symmetry_axis_pos = pos if isinstance(pos, tuple) else None
+        for record in self._tabs_data:
+            record.view.set_symmetry_pos(self._symmetry_axis_pos)
+
     # -- selection-op actions (REQ-P2-UI-008) ----------------------------
 
     def _on_select_all(self) -> None:
@@ -3523,6 +3578,7 @@ class Main_Window(QMainWindow):
         self._guides_action.setText(self.tr("Guides && &Rulers"))
         self._iso_action.setText(self.tr("&Isometric Grid"))
         self._perspective_action.setText(self.tr("&Perspective Grid"))
+        self._perspective_config_action.setText(self.tr("Configure &Perspective…"))
         self._new_view_action.setText(self.tr("&New View"))
         self._reference_board_action.setText(self.tr("Reference &Board"))
 
