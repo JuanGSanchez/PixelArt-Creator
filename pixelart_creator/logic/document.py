@@ -474,6 +474,29 @@ class Document:
             raise DocumentError(f"frame index {frame_index} out of range")
         return self.frames[frame_index]
 
+    def _ensure_layer_removable(self, frame: Frame) -> None:
+        """Raise unless ``frame`` has more than one top-level layer.
+
+        The single owner of the "never remove a frame's last layer" invariant
+        (CF-89 / D-25): both the raw mutator (:meth:`remove_layer`) and the
+        reversible factory (:meth:`make_remove_layer_command`) call this one
+        check, so a change to the rule cannot go caught by only one of their
+        test suites.
+        """
+        if len(frame.layers) <= 1:
+            raise DocumentError("cannot remove the last layer of a frame")
+
+    def _ensure_frame_removable(self) -> None:
+        """Raise unless the document has more than one frame.
+
+        The single owner of the "never remove the document's last frame"
+        invariant (CF-89 / D-25): both the raw mutator (:meth:`remove_frame`)
+        and the reversible factory (:meth:`make_remove_frame_command`) call
+        this one check.
+        """
+        if len(self.frames) <= 1:
+            raise DocumentError("cannot remove the last frame")
+
     def add_layer(self, name: str = "Layer", *, frame_index: int = 0) -> Layer:
         """Append a new empty layer to a frame and return it."""
         frame = self._check_frame(frame_index)
@@ -485,8 +508,7 @@ class Document:
     def remove_layer(self, layer_index: int, *, frame_index: int = 0) -> "LayerNode":
         """Remove and return a top-level node; refuses to remove the last one."""
         frame = self._check_frame(frame_index)
-        if len(frame.layers) <= 1:
-            raise DocumentError("cannot remove the last layer of a frame")
+        self._ensure_layer_removable(frame)
         if not 0 <= layer_index < len(frame.layers):
             raise DocumentError(f"layer index {layer_index} out of range")
         return frame.layers.pop(layer_index)
@@ -514,8 +536,7 @@ class Document:
 
     def remove_frame(self, frame_index: int) -> Frame:
         """Remove and return a frame; refuses to remove the last one."""
-        if len(self.frames) <= 1:
-            raise DocumentError("cannot remove the last frame")
+        self._ensure_frame_removable()
         self._check_frame(frame_index)
         return self.frames.pop(frame_index)
 
@@ -608,8 +629,7 @@ class Document:
             DocumentError: If only one frame remains, or ``frame_index`` is out of
                 range.
         """
-        if len(self.frames) <= 1:
-            raise DocumentError("cannot remove the last frame")
+        self._ensure_frame_removable()
         frame = self._check_frame(frame_index)
 
         def _do() -> None:
@@ -1168,8 +1188,8 @@ class Document:
         """
         frame = self._check_frame(frame_index)
         container, index, node = self._resolve(frame, ref)
-        if container is frame.layers and len(frame.layers) <= 1:
-            raise DocumentError("cannot remove the last layer of a frame")
+        if container is frame.layers:
+            self._ensure_layer_removable(frame)
 
         def _do() -> None:
             _remove_by_identity(container, node)
