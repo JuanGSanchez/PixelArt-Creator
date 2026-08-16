@@ -3081,9 +3081,15 @@ class Main_Window(QMainWindow):
         Delegates to :func:`~pixelart_creator.ui.export_actions.run_export_dialog`,
         which submits one target to the off-thread export controller. Export is
         read-only — no ``QUndoCommand`` is pushed and ``ui/commands.py`` is
-        untouched (REQ-P7-UI-009).
+        untouched (REQ-P7-UI-009). The tracked active frame is forwarded so a
+        PNG export honours it instead of always frame 0 (CF-18).
         """
-        run_export_dialog(self, self.active_document(), self._export_controller)
+        run_export_dialog(
+            self,
+            self.active_document(),
+            self._export_controller,
+            frame_index=self._active_frame,
+        )
 
     def _on_export_busy(self, busy: bool) -> None:
         """Reset the per-run result accumulators when a run starts (busyChanged)."""

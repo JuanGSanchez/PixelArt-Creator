@@ -71,6 +71,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--loop", type=int, help="GIF loop count (0 = forever)")
     parser.add_argument("--tag", help="frame tag name (default: whole document)")
     parser.add_argument(
+        "--frame",
+        type=int,
+        default=0,
+        help="frame index to export for PNG (default: 0, the first frame)",
+    )
+    parser.add_argument(
+        "--max-dimension",
+        type=int,
+        help="maximum atlas dimension, px (default: MAX_ATLAS_DIMENSION)",
+    )
+    parser.add_argument(
         "--json",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -83,7 +94,12 @@ def _build_request(args: argparse.Namespace) -> ExportRequest:
     """Assemble an :class:`ExportRequest` from parsed args (constants for defaults)."""
     fmt = _FORMAT_BY_ARG[args.format]
     preset = _PRESET_BY_ARG[args.preset]
-    fields: Dict[str, object] = {"fmt": fmt, "preset": preset, "emit_json": args.json}
+    fields: Dict[str, object] = {
+        "fmt": fmt,
+        "preset": preset,
+        "emit_json": args.json,
+        "frame_index": args.frame,
+    }
     if args.columns is not None:
         fields["columns"] = args.columns
     if args.padding is not None:
@@ -92,6 +108,8 @@ def _build_request(args: argparse.Namespace) -> ExportRequest:
         fields["loop"] = args.loop
     if args.tag is not None:
         fields["tag"] = args.tag
+    if args.max_dimension is not None:
+        fields["max_dimension"] = args.max_dimension
     return ExportRequest(**fields)  # type: ignore[arg-type]
 
 

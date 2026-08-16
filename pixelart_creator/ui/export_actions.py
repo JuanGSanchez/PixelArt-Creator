@@ -30,6 +30,7 @@ def run_export_dialog(
     parent: QWidget,
     document: Optional[Document],
     controller: Export_Controller,
+    frame_index: int = 0,
 ) -> None:
     """Open the export dialog and submit the configured target (REQ-P7-UI-001).
 
@@ -37,6 +38,8 @@ def run_export_dialog(
     without a destination path → a graceful notice. Otherwise the target is
     submitted to ``controller`` (off-thread); the controller's relay surfaces the
     result. This function performs **no** encoding / layout of its own.
+    ``frame_index`` is the caller's currently-active frame, forwarded to the
+    dialog so a PNG export honours it instead of always frame 0 (CF-18).
     """
     if document is None:
         QMessageBox.information(
@@ -45,7 +48,7 @@ def run_export_dialog(
             QCoreApplication.translate("export", "Open a document before exporting."),
         )
         return
-    dialog = Export_Dialog(document, parent)
+    dialog = Export_Dialog(document, parent, frame_index=frame_index)
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return
     target = dialog.export_target()
