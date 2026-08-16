@@ -603,6 +603,9 @@ class Main_Window(QMainWindow):
 
         self._macro_controls = Macro_Controls(self)
         self._macro_controls.replayRequested.connect(self._on_replay_requested)
+        # Reachable Cancel affordance (C-07): relayed straight to the controller's
+        # cooperative cancel; the button itself is enabled only while busy.
+        self._macro_controls.cancelRequested.connect(self._automation_controller.cancel)
         self._macro_dock = self._add_workflow_dock(self._macro_controls)
         self._script_runner_panel = Script_Runner_Panel(self)
         self._script_runner_panel.automationRequested.connect(self._run_automation_ops)

@@ -52,6 +52,9 @@ class Macro_Controls(QWidget):
     replayRequested = Signal(object, str)
     #: ``(recording,)`` — recording started / stopped (view state, not undoable).
     recordingToggled = Signal(bool)
+    #: The user asked to cancel the in-flight automation run (C-07); the host
+    #: relays this to ``Automation_Controller.cancel()``.
+    cancelRequested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """Build the record / replay / manage controls with an empty macro list."""
@@ -76,12 +79,18 @@ class Macro_Controls(QWidget):
         self._load_button.clicked.connect(self._on_load)
         self._remove_button = QPushButton(self)
         self._remove_button.clicked.connect(self._on_remove)
+        # Reachable Cancel affordance for an in-flight automation run (C-07):
+        # disabled while idle, enabled only while the host reports busy.
+        self._cancel_button = QPushButton(self)
+        self._cancel_button.setEnabled(False)
+        self._cancel_button.clicked.connect(self.cancelRequested)
 
         manage_row = QHBoxLayout()
         manage_row.addWidget(self._replay_button)
         manage_row.addWidget(self._save_button)
         manage_row.addWidget(self._load_button)
         manage_row.addWidget(self._remove_button)
+        manage_row.addWidget(self._cancel_button)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self._record_button)
@@ -215,9 +224,13 @@ class Macro_Controls(QWidget):
     # -- enablement -------------------------------------------------------
 
     def set_busy(self, busy: bool) -> None:
-        """Disable replay / recording while an automation run is in flight."""
+        """Disable replay / recording while an automation run is in flight.
+
+        The Cancel button is the mirror image: reachable ONLY while busy (C-07).
+        """
         self._record_button.setEnabled(not busy)
         self._replay_button.setEnabled(not busy)
+        self._cancel_button.setEnabled(busy)
 
     # -- i18n -------------------------------------------------------------
 
@@ -236,6 +249,7 @@ class Macro_Controls(QWidget):
         self._save_button.setText(self.tr("Save…"))
         self._load_button.setText(self.tr("Load…"))
         self._remove_button.setText(self.tr("Remove"))
+        self._cancel_button.setText(self.tr("Cancel"))
         self.setAccessibleName(self.tr("Macro controls"))
         self._record_button.setAccessibleName(self.tr("Record or stop a macro"))
         self._status.setAccessibleName(self.tr("Macro recording status"))
@@ -244,6 +258,10 @@ class Macro_Controls(QWidget):
         self._save_button.setAccessibleName(self.tr("Save the selected macro"))
         self._load_button.setAccessibleName(self.tr("Load a macro from a file"))
         self._remove_button.setAccessibleName(self.tr("Remove the selected macro"))
+        self._cancel_button.setAccessibleName(self.tr("Cancel the running automation"))
+        self._cancel_button.setAccessibleDescription(
+            self.tr("Stops the in-flight automation run; enabled only while busy.")
+        )
         self._update_status()
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
