@@ -108,52 +108,80 @@ def test_record_frame_rejects_when_at_capacity():
 
 
 # --------------------------------------------------------------------------- #
-# REQ-P9-LOGIC-010 — replay determinism (count + order)                        #
+# T15 (spec §8, plan R-2) — replay(session, provider, renderer) is genuinely   #
+# historical: a DocumentProvider places the document at each frame's own      #
+# recorded state; replay is FORBIDDEN to fall back to N renders of one        #
+# already-available document (REQ-P9-LOGIC-013, -014). Rewrite authorised in  #
+# advance; the other ten tests in this module are untouched (T15 done-when).  #
 # --------------------------------------------------------------------------- #
 
 
-def _counting_renderer():
-    """A pure-enough renderer emitting a distinct RGBA frame per call."""
-    calls = {"n": 0}
+def _history(n: int):
+    """``n`` distinct 1x1 RGBA "documents" — one per committed pixel-changing
+    command. A plain object stands in for ``Document`` here: ``replay`` never
+    inspects the document's type, it only threads ``provider(frame)`` through
+    the caller-supplied ``renderer`` (Article I: no Qt/Document coupling
+    needed to prove the historical contract). Indexed by ``command_id``,
+    which in this fixture is built equal to the frame's ordinal (plan §8.2
+    Ruling B: the port is keyed by the frame's own ``command_id``, never by
+    the ordinal — ``tests/logic/test_timelapse_replay.py`` exercises the
+    divergent case)."""
+    return [np.full((1, 1, 4), k + 1, dtype=np.uint8) for k in range(n)]
 
-    def render(_document):
-        n = calls["n"]
-        calls["n"] += 1
-        return np.full((1, 1, 4), n % 256, dtype=np.uint8)
 
-    return render
+def _history_provider(history):
+    """A ``DocumentProvider`` that places "the document" at its own recorded
+    state — the in-session substrate's idiom (a live history stepped to a
+    command position), stateless and re-buildable per replay call. Keyed by
+    the ``TimelapseFrame`` itself (plan §8.3): ``replay`` calls
+    ``provider(frame)``, never ``provider(frame.index)``."""
+
+    def provider(frame):
+        return history[frame.command_id]
+
+    return provider
+
+
+def _array_renderer(document):
+    """A pure ``Document -> ndarray`` renderer: the array *is* the state."""
+    return document.copy()
 
 
 def test_replay_frame_count_matches_manifest():
     session = new_session()
     for cid in range(5):
         session = record_frame(session, command_id=cid)
-    frames = replay(session, object(), _counting_renderer())
+    history = _history(5)
+    frames = replay(session, _history_provider(history), _array_renderer)
     assert len(frames) == 5
 
 
 def test_replay_is_deterministic_same_count_and_order():
-    # SC-L010-1: the same recorded session replayed twice yields the same seq.
+    # SC-L018-1: the same recorded session replayed twice yields the same seq.
     session = new_session()
     for cid in range(4):
         session = record_frame(session, command_id=cid)
-    first = replay(session, object(), _counting_renderer())
-    second = replay(session, object(), _counting_renderer())
+    history = _history(4)
+    first = replay(session, _history_provider(history), _array_renderer)
+    second = replay(session, _history_provider(history), _array_renderer)
     assert len(first) == len(second) == 4
     for a, b in zip(first, second):
         assert np.array_equal(a, b)
 
 
 def test_replay_empty_session_yields_no_frames():
-    assert replay(new_session(), object(), _counting_renderer()) == ()
+    assert replay(new_session(), _history_provider([]), _array_renderer) == ()
 
 
 def test_replay_rejects_non_callable_renderer():
+    # provider must itself be a valid callable so this isolates the renderer
+    # check (replay validates provider before renderer).
     with pytest.raises(TimelapseError):
-        replay(new_session(), object(), renderer=123)  # type: ignore[arg-type]
+        replay(new_session(), _history_provider([]), renderer=123)  # type: ignore[arg-type]
 
 
 def test_replay_does_not_mutate_session():
-    session = record_frame(new_session(), command_id=7)
-    replay(session, object(), _counting_renderer())
-    assert [f.command_id for f in session.frames] == [7]
+    session = record_frame(new_session(), command_id=0)
+    history = _history(1)
+    replay(session, _history_provider(history), _array_renderer)
+    assert [f.command_id for f in session.frames] == [0]
