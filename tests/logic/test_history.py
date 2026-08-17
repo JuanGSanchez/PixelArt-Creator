@@ -19,7 +19,7 @@ BLUE = (0, 0, 255, 255)
 
 def test_pixel_edit_execute_and_undo():
     buf = PixelBuffer(2, 2)
-    edit = PixelEdit(buf, [(0, 0, (0, 0, 0, 0), RED)])
+    edit = PixelEdit(buf, [(0, 0, (0, 0, 0, 0), RED)], target=None)
     edit.execute()
     assert buf.get_pixel(0, 0) == RED
     edit.undo()
@@ -41,7 +41,7 @@ def test_function_command():
 def test_history_push_execute_undo_redo():
     buf = PixelBuffer(2, 2)
     hist = History()
-    edit = PixelEdit(buf, [(0, 0, (0, 0, 0, 0), RED)])
+    edit = PixelEdit(buf, [(0, 0, (0, 0, 0, 0), RED)], target=None)
     hist.push(edit)
     assert buf.get_pixel(0, 0) == RED
     assert hist.can_undo and not hist.can_redo
@@ -56,7 +56,7 @@ def test_history_push_without_execute():
     buf = PixelBuffer(1, 1)
     buf.set_pixel(0, 0, RED)  # already applied
     hist = History()
-    edit = PixelEdit(buf, [(0, 0, (0, 0, 0, 0), RED)])
+    edit = PixelEdit(buf, [(0, 0, (0, 0, 0, 0), RED)], target=None)
     hist.push(edit, execute=False)
     assert buf.get_pixel(0, 0) == RED  # unchanged by push
     hist.undo()
@@ -66,10 +66,10 @@ def test_history_push_without_execute():
 def test_new_push_clears_redo():
     buf = PixelBuffer(1, 1)
     hist = History()
-    hist.push(PixelEdit(buf, [(0, 0, (0, 0, 0, 0), RED)]))
+    hist.push(PixelEdit(buf, [(0, 0, (0, 0, 0, 0), RED)], target=None))
     hist.undo()
     assert hist.can_redo
-    hist.push(PixelEdit(buf, [(0, 0, (0, 0, 0, 0), BLUE)]))
+    hist.push(PixelEdit(buf, [(0, 0, (0, 0, 0, 0), BLUE)], target=None))
     assert not hist.can_redo
 
 
@@ -83,7 +83,7 @@ def test_history_limit_drops_oldest():
     buf = PixelBuffer(1, 1)
     hist = History(limit=2)
     for _ in range(4):
-        hist.push(PixelEdit(buf, [(0, 0, (0, 0, 0, 0), RED)]))
+        hist.push(PixelEdit(buf, [(0, 0, (0, 0, 0, 0), RED)], target=None))
     assert hist.undo_depth == 2
 
 
@@ -97,7 +97,7 @@ def test_history_bad_limit():
 def test_clear():
     buf = PixelBuffer(1, 1)
     hist = History()
-    hist.push(PixelEdit(buf, [(0, 0, (0, 0, 0, 0), RED)]))
+    hist.push(PixelEdit(buf, [(0, 0, (0, 0, 0, 0), RED)], target=None))
     hist.undo()
     hist.clear()
     assert not hist.can_undo and not hist.can_redo
@@ -106,7 +106,9 @@ def test_clear():
 
 def test_record_edit_captures_drawing_op():
     buf = PixelBuffer(8, 8)
-    edit = record_edit(buf, lambda b: drawing.line(b, 0, 0, 3, 0, RED), label="line")
+    edit = record_edit(
+        buf, lambda b: drawing.line(b, 0, 0, 3, 0, RED), label="line", target=None
+    )
     assert buf.get_pixel(3, 0) == RED
     assert edit.label == "line"
     edit.undo()
@@ -116,14 +118,14 @@ def test_record_edit_captures_drawing_op():
 def test_record_edit_ignores_unchanged_pixels():
     buf = PixelBuffer(4, 4, fill=RED)
     # Drawing RED over RED changes nothing -> empty edit.
-    edit = record_edit(buf, lambda b: drawing.line(b, 0, 0, 3, 0, RED))
+    edit = record_edit(buf, lambda b: drawing.line(b, 0, 0, 3, 0, RED), target=None)
     assert len(edit) == 0
 
 
 def test_record_edit_roundtrip_via_history():
     buf = PixelBuffer(8, 8)
     hist = History()
-    edit = record_edit(buf, lambda b: drawing.flood_fill(b, 0, 0, BLUE))
+    edit = record_edit(buf, lambda b: drawing.flood_fill(b, 0, 0, BLUE), target=None)
     hist.push(edit, execute=False)
     assert buf.get_pixel(5, 5) == BLUE
     hist.undo()
