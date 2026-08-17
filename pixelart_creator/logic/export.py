@@ -55,7 +55,7 @@ from pixelart_creator.logic.constants import (
     PNG_EXPORT_COMPRESS_LEVEL,
 )
 from pixelart_creator.logic.document import Document, Frame
-from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer, PixelBufferError
 from pixelart_creator.logic.quantize import median_cut
 
 __all__ = [
@@ -67,6 +67,8 @@ __all__ = [
     "SheetMetadata",
     "ExportRequest",
     "ExportResult",
+    "BatchTargetResult",
+    "BatchResult",
     "flatten_frame",
     "encode_png",
     "encode_gif",
@@ -628,33 +630,106 @@ def export_document(document: Document, request: ExportRequest) -> ExportResult:
     raise ExportError(f"unsupported format {request.fmt!r}")  # pragma: no cover
 
 
-def run_batch(
-    document: Document, requests: Sequence[ExportRequest]
-) -> Tuple[ExportResult, ...]:
-    """Export several targets in order; each result equals its single export.
+@dataclass(frozen=True)
+class BatchTargetResult:
+    """One target's outcome within a continue-on-failure batch (REQ-P7-LOGIC-010).
 
-    A pure, ordered iteration over :func:`export_document` (no shared mutable
-    state), so each :class:`ExportResult`'s bytes are byte-identical to the
-    one-at-a-time export of that same request (REQ-P7-LOGIC-010). Bounded by
-    :data:`MAX_BATCH_TARGETS`. Because each target is computed independently, a
-    failing target never corrupts the others' bytes; the failure surfaces as an
-    :class:`ExportError`/:class:`AtlasError` identifying the target index (the
-    per-target *continue-on-failure* isolation is the batch UI/CLI's concern,
-    which calls :func:`export_document` per target).
+    Exactly one of ``result`` / ``error`` is set: a succeeding target carries its
+    :class:`ExportResult` (byte-identical to the single one-at-a-time export of
+    the same ``request``); a failing target carries the stringified exception so
+    a caller can report it without importing this module's exception types.
+    ``index`` is the target's position in the original ``requests`` sequence
+    (ADR-0019 deterministic order), so a caller can correlate a result back to
+    the request it built, even after filtering successes/failures apart.
+    """
+
+    index: int
+    request: ExportRequest
+    result: Optional[ExportResult] = None
+    error: Optional[str] = None
+
+    @property
+    def success(self) -> bool:
+        """Return whether this target exported successfully."""
+        return self.error is None
+
+
+@dataclass(frozen=True)
+class BatchResult:
+    """The aggregate, continue-on-failure outcome of :func:`run_batch`.
+
+    ``targets`` preserves the deterministic request order (ADR-0019).
+    ``successes`` / ``failures`` are the two views a batch UI/CLI needs to
+    render progress and per-target errors — consuming this aggregate is meant
+    to replace a caller's own per-target try/except loop (Article I: one
+    implementation).
+    """
+
+    targets: Tuple[BatchTargetResult, ...]
+
+    @property
+    def successes(self) -> Tuple[BatchTargetResult, ...]:
+        """Return the targets that exported successfully, in request order."""
+        return tuple(t for t in self.targets if t.success)
+
+    @property
+    def failures(self) -> Tuple[BatchTargetResult, ...]:
+        """Return the targets that failed, in request order."""
+        return tuple(t for t in self.targets if not t.success)
+
+    @property
+    def all_succeeded(self) -> bool:
+        """Return whether every target in the batch succeeded."""
+        return not self.failures
+
+
+def run_batch(document: Document, requests: Sequence[ExportRequest]) -> BatchResult:
+    """Export several targets in request order, isolating per-target failures.
+
+    **Continue-on-failure** (REQ-P7-UI-005, REQ-P7-LOGIC-010): every request is
+    attempted regardless of an earlier target's outcome, in the deterministic
+    order given (ADR-0019). A succeeding target's :class:`ExportResult` bytes
+    equal the single one-at-a-time :func:`export_document` call for that same
+    request; a failing target's :class:`ExportError`/:class:`AtlasError`/
+    :class:`~pixelart_creator.logic.pixel_buffer.PixelBufferError` — or ANY
+    other exception type raised while computing that one target — is captured
+    as a :class:`BatchTargetResult` with ``error`` set — never raised past this
+    function, and never abandoning the remaining targets. The three named
+    types are recorded as ``str(exc)`` (their existing representation,
+    unchanged); an unforeseen exception type is recorded distinguishably as
+    ``f"{type(exc).__name__}: {exc}"`` so a caller can tell "a known export
+    bound was hit" apart from "something unexpected happened" without
+    importing this module's exception types. This is the single batch-loop
+    implementation the UI/CLI batch runner should consume instead of
+    re-implementing its own per-target try/except (Article I; supersedes the
+    former abort-on-first-failure contract).
+
+    Bounded by :data:`MAX_BATCH_TARGETS`. ``KeyboardInterrupt``/``SystemExit``
+    are deliberately NOT caught (Python convention: only ``Exception``
+    subclasses are per-target failures, never a process-control signal).
 
     Raises:
-        ExportError: On too many targets, or wrapping a per-target failure with
-            its index.
-        AtlasError: If a target's atlas cannot be packed.
+        ExportError: Only if ``requests`` itself exceeds ``MAX_BATCH_TARGETS``;
+            individual target failures — of any exception type derived from
+            ``Exception`` — are captured in the returned :class:`BatchResult`,
+            never raised.
     """
     if len(requests) > MAX_BATCH_TARGETS:
         raise ExportError(f"batch exceeds MAX_BATCH_TARGETS ({MAX_BATCH_TARGETS})")
-    results: List[ExportResult] = []
+    targets: List[BatchTargetResult] = []
     for i, request in enumerate(requests):
         try:
-            results.append(export_document(document, request))
-        except AtlasError:
-            raise
-        except ExportError as exc:
-            raise ExportError(f"batch target {i} failed: {exc}") from exc
-    return tuple(results)
+            result = export_document(document, request)
+        except (ExportError, AtlasError, PixelBufferError) as exc:
+            targets.append(BatchTargetResult(index=i, request=request, error=str(exc)))
+        except Exception as exc:  # noqa: BLE001 — intentional per-target backstop
+            targets.append(
+                BatchTargetResult(
+                    index=i,
+                    request=request,
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+            )
+        else:
+            targets.append(BatchTargetResult(index=i, request=request, result=result))
+    return BatchResult(tuple(targets))

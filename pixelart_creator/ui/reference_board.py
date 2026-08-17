@@ -18,16 +18,20 @@ with a ``changeEvent`` retranslate (REQ-P9-UI-014).
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from PySide6.QtCore import QEvent, QRectF, Qt
+from PySide6.QtCore import QCoreApplication, QEvent, QPointF, QRectF, Qt
 from PySide6.QtGui import QPainter, QPixmap, QTransform, QWheelEvent
 from PySide6.QtWidgets import (
     QFileDialog,
     QGraphicsPixmapItem,
     QGraphicsScene,
+    QGraphicsSceneContextMenuEvent,
+    QGraphicsSceneHoverEvent,
+    QGraphicsSceneMouseEvent,
     QGraphicsView,
     QHBoxLayout,
+    QMenu,
     QMessageBox,
     QPushButton,
     QVBoxLayout,
@@ -45,10 +49,33 @@ from pixelart_creator.logic.constants import MAX_REFERENCE_IMAGES
 
 #: Per-wheel-notch board zoom step.
 _BOARD_ZOOM_STEP = 1.15
+#: Corner grab-handle edge, in item-local px (REQ-P9-UI-006 resize gesture).
+#: No matching UI-metric constant exists in ``logic/constants.py`` today (gap
+#: reported in this task's EXIT_STATUS); this module already keeps its own
+#: UI-only metrics locally (see ``_BOARD_ZOOM_STEP`` above), so the same
+#: convention is followed here rather than inlining a literal (S12).
+_RESIZE_HANDLE_SIZE = 10.0
+#: Minimum absolute scale factor a corner-drag resize may reach (guards
+#: against a degenerate/zero-size or inverted reference item).
+_MIN_REFERENCE_SCALE = 0.05
+
+#: Opposite-corner anchor used while resizing (the anchor stays fixed).
+_OPPOSITE_CORNER = {"tl": "br", "tr": "bl", "bl": "tr", "br": "tl"}
 
 
 class Reference_Item(QGraphicsPixmapItem):
-    """One movable/scalable reference image carrying its source path + crop."""
+    """One movable/scalable reference image carrying its source path + crop.
+
+    Two authoring gestures close REQ-P9-UI-006's move/**resize**/z-order clause
+    (CF-30 / D-10): a corner-drag resize (grab handles at the four corners,
+    free resize by default, Shift held preserves aspect — see the module
+    docstring rationale) and raise/lower context-menu actions. Both gestures
+    write to the same fields :meth:`Reference_Board.to_layout` already
+    persists: the resize updates :meth:`transform` (``item.transform()``,
+    read back into ``ReferenceImageEntry.transform``'s ``m11/m22`` scale
+    components) and the z-order actions update ``zValue()`` (read back into
+    ``ReferenceImageEntry.z_order``) — no new persisted field is needed.
+    """
 
     def __init__(self, image_ref: str, pixmap: QPixmap) -> None:
         """Build a movable/scalable item for ``pixmap`` from ``image_ref``."""
@@ -58,6 +85,11 @@ class Reference_Item(QGraphicsPixmapItem):
         self.setFlag(QGraphicsPixmapItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
+        self.setAcceptHoverEvents(True)
+        self._resize_corner: Optional[str] = None
+        self._resize_start_pos = QPointF()
+        self._resize_start_rect = QRectF()
+        self._resize_start_transform = QTransform()
 
     def image_ref(self) -> str:
         """Return the source path (or embedded ref) of this reference."""
@@ -70,6 +102,162 @@ class Reference_Item(QGraphicsPixmapItem):
     def set_crop_rect(self, crop: QRectF) -> None:
         """Set the visible crop and re-blit the sub-image (non-destructive)."""
         self._crop = QRectF(crop)
+
+    # -- corner-drag resize (REQ-P9-UI-006 / D-10) -------------------------
+
+    def _handle_rects(self) -> Dict[str, QRectF]:
+        """Return the four corner grab-handle rects, in item-local coords."""
+        rect = self.boundingRect()
+        size = _RESIZE_HANDLE_SIZE
+        return {
+            "tl": QRectF(rect.left(), rect.top(), size, size),
+            "tr": QRectF(rect.right() - size, rect.top(), size, size),
+            "bl": QRectF(rect.left(), rect.bottom() - size, size, size),
+            "br": QRectF(rect.right() - size, rect.bottom() - size, size, size),
+        }
+
+    def _corner_at(self, local_pos: QPointF) -> Optional[str]:
+        for name, handle in self._handle_rects().items():
+            if handle.contains(local_pos):
+                return name
+        return None
+
+    def hoverMoveEvent(  # noqa: N802 (Qt override)
+        self, event: QGraphicsSceneHoverEvent
+    ) -> None:
+        """Show a diagonal resize cursor over a corner handle (Qt override)."""
+        corner = self._corner_at(event.pos())
+        if corner in ("tl", "br"):
+            self.setCursor(Qt.CursorShape.SizeFDiagCursor)
+        elif corner in ("tr", "bl"):
+            self.setCursor(Qt.CursorShape.SizeBDiagCursor)
+        else:
+            self.unsetCursor()
+        super().hoverMoveEvent(event)
+
+    def hoverLeaveEvent(  # noqa: N802 (Qt override)
+        self, event: QGraphicsSceneHoverEvent
+    ) -> None:
+        """Restore the default cursor leaving the item (Qt override)."""
+        self.unsetCursor()
+        super().hoverLeaveEvent(event)
+
+    def mousePressEvent(  # noqa: N802 (Qt override)
+        self, event: QGraphicsSceneMouseEvent
+    ) -> None:
+        """Start a corner resize when pressed on a handle, else move (Qt override)."""
+        corner = self._corner_at(event.pos())
+        if corner is not None and event.button() == Qt.MouseButton.LeftButton:
+            self._resize_corner = corner
+            self._resize_start_pos = self.pos()
+            self._resize_start_rect = QRectF(self.boundingRect())
+            self._resize_start_transform = QTransform(self.transform())
+            # ItemIsMovable would otherwise fight the resize drag (F1/CL-8
+            # style single-responsibility gesture per press).
+            self.setFlag(QGraphicsPixmapItem.GraphicsItemFlag.ItemIsMovable, False)
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(  # noqa: N802 (Qt override)
+        self, event: QGraphicsSceneMouseEvent
+    ) -> None:
+        """Apply the live corner resize, or fall back to the move drag (Qt override)."""
+        if self._resize_corner is not None:
+            keep_aspect = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+            self._apply_resize(event.scenePos(), keep_aspect)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(  # noqa: N802 (Qt override)
+        self, event: QGraphicsSceneMouseEvent
+    ) -> None:
+        """End the resize drag and restore the move flag (Qt override)."""
+        if self._resize_corner is not None:
+            self._resize_corner = None
+            self.setFlag(QGraphicsPixmapItem.GraphicsItemFlag.ItemIsMovable, True)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def _apply_resize(self, scene_pos: QPointF, keep_aspect: bool) -> None:
+        """Scale the item so the dragged corner follows ``scene_pos``.
+
+        The opposite corner is the anchor and stays fixed in scene space
+        (PureRef/photo-editor convention). Free resize by default; holding
+        Shift preserves the drag start's aspect ratio — the codebase has no
+        prior corner-resize gesture to match (grep-verified, see the report),
+        so this follows the nearest analogous convention already in this same
+        file/codebase: Shift as a held-modifier gesture refinement (mirrors
+        ``ui/tools/selection_base.py``'s Shift-modifier pattern, applied here
+        to aspect lock rather than combine mode).
+        """
+        corner = self._resize_corner
+        if corner is None:
+            return
+        rect = self._resize_start_rect
+        local_points = {
+            "tl": QPointF(rect.left(), rect.top()),
+            "tr": QPointF(rect.right(), rect.top()),
+            "bl": QPointF(rect.left(), rect.bottom()),
+            "br": QPointF(rect.right(), rect.bottom()),
+        }
+        anchor_local = local_points[_OPPOSITE_CORNER[corner]]
+        drag_local = local_points[corner]
+        anchor_scene = self._resize_start_pos + self._resize_start_transform.map(
+            anchor_local
+        )
+        dx = drag_local.x() - anchor_local.x()
+        dy = drag_local.y() - anchor_local.y()
+        if dx == 0.0 or dy == 0.0:
+            return
+        scale_x = abs((scene_pos.x() - anchor_scene.x()) / dx)
+        scale_y = abs((scene_pos.y() - anchor_scene.y()) / dy)
+        if keep_aspect:
+            factor = (scale_x + scale_y) / 2.0
+            scale_x = scale_y = factor
+        scale_x = max(scale_x, _MIN_REFERENCE_SCALE)
+        scale_y = max(scale_y, _MIN_REFERENCE_SCALE)
+        new_pos = anchor_scene - QPointF(
+            scale_x * anchor_local.x(), scale_y * anchor_local.y()
+        )
+        self.setTransform(QTransform(scale_x, 0.0, 0.0, scale_y, 0.0, 0.0))
+        self.setPos(new_pos)
+
+    # -- raise/lower z-order (REQ-P9-UI-006 / D-10) ------------------------
+
+    def contextMenuEvent(  # noqa: N802 (Qt override)
+        self, event: QGraphicsSceneContextMenuEvent
+    ) -> None:
+        """Offer Raise/Lower z-order actions on the reference item (Qt override).
+
+        Built fresh per invocation (no persisted widget text to retranslate),
+        so ``QCoreApplication.translate`` is used exactly as the rest of this
+        codebase's non-QObject/module-level Qt code does (e.g.
+        ``ui/export_actions.py``, ``ui/tilemap_io_actions.py``) — a
+        :class:`QGraphicsPixmapItem` is not a ``QObject`` and has no ``tr()``.
+        """
+        menu = QMenu()
+        raise_action = menu.addAction(
+            QCoreApplication.translate("Reference_Item", "Raise")
+        )
+        lower_action = menu.addAction(
+            QCoreApplication.translate("Reference_Item", "Lower")
+        )
+        chosen = menu.exec(event.screenPos())
+        scene = self.scene()
+        if scene is None or chosen is None:
+            event.accept()
+            return
+        siblings = [it for it in scene.items() if isinstance(it, Reference_Item)]
+        if chosen is raise_action:
+            top = max((it.zValue() for it in siblings), default=self.zValue())
+            self.setZValue(top + 1.0)
+        elif chosen is lower_action:
+            bottom = min((it.zValue() for it in siblings), default=self.zValue())
+            self.setZValue(bottom - 1.0)
+        event.accept()
 
 
 class Reference_Board(QWidget):

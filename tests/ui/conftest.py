@@ -48,6 +48,7 @@ from pixelart_creator.ui.comments_panel import Comments_Panel  # noqa: E402
 from pixelart_creator.ui.dependency_graph_view import (  # noqa: E402
     Dependency_Graph_View,
 )
+from pixelart_creator.ui.guides_rulers_overlay import Ruler_Strip  # noqa: E402
 from pixelart_creator.ui.live_cursors_overlay import (  # noqa: E402
     Live_Cursors_Overlay,
 )
@@ -263,6 +264,30 @@ _PHASE9_DISPOSABLE = (
     # contract, here a regression guard even though no worker was added).
     Asset_Version_Browser,
     Asset_Reuse_Panel,
+    # Phase-9 guides/rulers overlay (AGT-06, decision-batch D-08/D-09/D-11/D-28
+    # test wave). ``Guides_Rulers_Overlay`` builds two standalone, parent-less
+    # top-level ``Ruler_Strip`` ``QWidget``s (``horizontal_ruler``/
+    # ``vertical_ruler``) — a test that constructs the overlay directly (over
+    # an injected view/scene, the shipped pattern in ``test_guides_rulers.py``
+    # / ``test_aids_edges.py`` and this wave's ``test_snap_precedence.py`` /
+    # ``test_guides_gestures.py``) never parents them to a tracked window.
+    # Headless (offscreen, no running event loop) their ``deleteLater`` never
+    # fires, so each survives in ``QApplication.topLevelWidgets()`` with a
+    # LIVE ``paintEvent`` override that dereferences the (possibly since-
+    # disposed) ``Canvas_View`` it was built over. Under ``pytest -n auto``,
+    # once enough of these accumulate on one xdist worker, a LATER unrelated
+    # test's ``qtbot``-driven ``app.processEvents()`` flushes a queued repaint
+    # on one of them and hits ``libshiboken: Internal C++ object (Canvas_View)
+    # already deleted`` — observed this session (82 scattered ``ERROR``s
+    # across unrelated files under ``-n auto`` once this wave's two new test
+    # modules added enough additional standalone overlays to cross the
+    # threshold; a baseline run without them showed ZERO such errors,
+    # isolating the cause). Registering ``Ruler_Strip`` here disposes both
+    # rulers SYNCHRONOUSLY (``shiboken6.delete``) at teardown exactly like the
+    # Phase-9/10/11 surfaces above — the same disposal-hygiene contract,
+    # applied to a widget class this test suite already constructed
+    # standalone before this wave, not a new pattern.
+    Ruler_Strip,
 )
 
 

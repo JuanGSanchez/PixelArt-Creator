@@ -10,9 +10,12 @@ into a *timeline*. This module owns the pure, deterministic animation domain:
   is the authoritative timing source (FR-2);
 * the **onion-skin** overlay computation (:func:`onion_overlay`) which composites
   each previous/next frame stack via
-  :func:`~pixelart_creator.logic.blend.composite_stack`, tints it toward
-  :data:`~pixelart_creator.logic.constants.ONION_TINT_PREV` / ``ONION_TINT_NEXT``
-  and fades it by distance;
+  :func:`~pixelart_creator.logic.blend.composite_stack`, recolours it toward a
+  tint (``tint_prev`` / ``tint_next``, defaulting to
+  :data:`~pixelart_creator.logic.constants.ONION_TINT_PREV` / ``ONION_TINT_NEXT``)
+  and fades it by distance — this is the **single source of onion-tint truth**
+  (D-33/R-24): the ghost's RGB is produced here, in ``logic/``, not
+  recoloured a second time on the display path;
 * the :class:`FrameTag` model (named animation range) plus range
   validation/clamp helpers.
 
@@ -298,24 +301,37 @@ def _linear_opacity(distance: int, count: int) -> float:
 
 
 def _tint_and_fade(buffer: PixelBuffer, tint: RGBA, opacity: float) -> PixelBuffer:
-    """Return a copy of ``buffer`` tinted toward ``tint`` and faded by ``opacity``.
+    """Return a copy of ``buffer`` recoloured to ``tint`` and faded by ``opacity``.
 
-    The tint's **alpha** channel is the mix strength ``t = tint_alpha / 255``:
-    each pixel's RGB is blended ``rgb * (1 - t) + tint_rgb * t`` (the default
-    fully-opaque tints yield a solid tint silhouette; a UI may pass a lower-alpha
-    tint for a partial recolour). The pixel's own alpha (already excluding hidden
-    layers, honouring CL-12) is scaled by ``opacity``. Never mutates ``buffer``.
+    Single-source onion-tint recolour (D-33/R-24). Every pixel's RGB is
+    **replaced outright** by ``tint``'s RGB — the ghost's own composited
+    colour is discarded, not blended. This reproduces, byte-for-byte, what the
+    former ``ui.canvas_scene._recolor_silhouette`` produced via
+    ``QPainter.CompositionMode_SourceIn`` (verified against a live Qt
+    ``QImage``/``QPainter`` round-trip): that composition mode masks the
+    *source* colour (the tint, painted as a solid fill) through the
+    *destination* alpha, so the resulting RGB is the tint's RGB regardless of
+    the underlying silhouette colour.
+
+    Alpha is computed in the same two stages the split implementation used:
+    first the distance ``opacity`` fade (``round(alpha * opacity)``, already
+    excluding hidden layers per CL-12), then ``tint``'s own alpha fraction
+    ``ta / 255`` (``round(faded_alpha * ta / 255)``) — this second rounding
+    matches Qt's premultiplied-alpha arithmetic for the alpha channel exactly
+    (sampled 500 random ``(alpha, tint_alpha)`` pairs against a live
+    ``CompositionMode_SourceIn`` render: 0 mismatches). A fully-opaque tint
+    (``ta == 255``, the default) makes the second stage a no-op, so existing
+    untinted callers are unaffected. Never mutates ``buffer``.
     """
     tr, tg, tb, ta = tint
-    t = ta / _UINT8_MAX
     out = buffer.copy()
     data = out.data
-    rgb = data[:, :, :3].astype(np.float64)
-    tint_rgb = np.array([tr, tg, tb], dtype=np.float64)
-    blended = rgb * (1.0 - t) + tint_rgb * t
-    data[:, :, :3] = np.clip(np.round(blended), 0, 255).astype(np.uint8)
-    alpha = data[:, :, 3].astype(np.float64) * float(opacity)
-    data[:, :, 3] = np.clip(np.round(alpha), 0, 255).astype(np.uint8)
+    data[:, :, 0] = tr
+    data[:, :, 1] = tg
+    data[:, :, 2] = tb
+    faded = np.clip(np.round(data[:, :, 3].astype(np.float64) * float(opacity)), 0, 255)
+    scaled = np.clip(np.round(faded * (ta / _UINT8_MAX)), 0, 255)
+    data[:, :, 3] = scaled.astype(np.uint8)
     return out
 
 
@@ -326,19 +342,28 @@ def onion_overlay(
     height: int,
     *,
     region: Optional[Tuple[int, int, int, int]] = None,
+    tint_prev: RGBA = ONION_TINT_PREV,
+    tint_next: RGBA = ONION_TINT_NEXT,
 ) -> List[OnionContribution]:
     """Compute the onion-skin ghost contributions around the active frame.
 
     ``prev_stacks[0]`` / ``next_stacks[0]`` are the **nearest** previous/next
     neighbour layer stacks; index grows with distance. Each stack is flattened
     via :func:`~pixelart_creator.logic.blend.composite_stack` (CO-4 reuse — no
-    compositing maths re-implemented, REQ-P5-LOGIC-013), tinted toward
-    :data:`~pixelart_creator.logic.constants.ONION_TINT_PREV` (previous) or
-    ``ONION_TINT_NEXT`` (next), and faded linearly from
+    compositing maths re-implemented, REQ-P5-LOGIC-013), recoloured to
+    ``tint_prev`` (previous) or ``tint_next`` (next) — RGB replaced outright,
+    alpha faded then scaled by the tint's own alpha, see :func:`_tint_and_fade`
+    — and faded linearly from
     :data:`~pixelart_creator.logic.constants.ONION_SKIN_OPACITY` (nearest) to
     ``ONION_SKIN_OPACITY_MIN`` (farthest). Hidden layers are already absent from
     each composite (CL-12). The active frame is not part of the set and is
     unchanged. Pure and Qt-free; **not** rendered during playback (CL-11).
+
+    This is the **single source of onion-tint truth** (D-33/R-24 ruling,
+    ``design-docs/specs/phase-5-animation/analyze-report.md`` §8): a caller
+    (e.g. ``ui/canvas_scene.py``) passes its own live tint colours through
+    ``tint_prev``/``tint_next`` and must not recolour the returned buffers
+    again — the RGB this function returns *is* the display colour.
 
     Both counts are bounded by
     :data:`~pixelart_creator.logic.constants.MAX_ONION_SKIN_FRAMES`.
@@ -350,6 +375,11 @@ def onion_overlay(
         region: Optional ``(x, y, w, h)`` scene-space region (passed straight to
             :func:`~pixelart_creator.logic.blend.composite_stack`); ``None``
             composites the full canvas.
+        tint_prev: Recolour target for previous-frame ghosts. Defaults to
+            :data:`~pixelart_creator.logic.constants.ONION_TINT_PREV` — passing
+            no argument reproduces the pre-D-33 default byte-for-byte.
+        tint_next: Recolour target for next-frame ghosts. Defaults to
+            :data:`~pixelart_creator.logic.constants.ONION_TINT_NEXT`.
 
     Returns:
         The list of :class:`OnionContribution` (previous ghosts then next ghosts).
@@ -374,13 +404,13 @@ def onion_overlay(
     for distance, stack in enumerate(prev_stacks, start=1):
         composite = composite_stack(stack, width, height, region=region)
         opacity = _linear_opacity(distance, prev_count)
-        ghost = _tint_and_fade(composite, ONION_TINT_PREV, opacity)
+        ghost = _tint_and_fade(composite, tint_prev, opacity)
         contributions.append(OnionContribution(ghost, -distance))
     next_count = len(next_stacks)
     for distance, stack in enumerate(next_stacks, start=1):
         composite = composite_stack(stack, width, height, region=region)
         opacity = _linear_opacity(distance, next_count)
-        ghost = _tint_and_fade(composite, ONION_TINT_NEXT, opacity)
+        ghost = _tint_and_fade(composite, tint_next, opacity)
         contributions.append(OnionContribution(ghost, -distance))
     return contributions
 

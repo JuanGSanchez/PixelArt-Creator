@@ -3,16 +3,35 @@
 Export runs on the window-owned single-thread ``QThreadPool`` off the GUI thread,
 so submitting a large/batch export never freezes the window: ``submit`` returns
 immediately and the GUI event loop keeps processing while the worker runs. Cancel
-is cooperative, checked BETWEEN targets, and returns the UI to idle. (Mid-encode
-cancel of a single huge target is a known FU-1 per AGT-10 §3/§6 — deliberately NOT
-asserted as a blocker here.) Headless, both themes (autouse ``theme`` fixture).
+is cooperative and returns the UI to idle. (Mid-encode cancel of a single huge
+target is a known FU-1 per AGT-10 §3/§6 — deliberately NOT asserted as a blocker
+here.) Headless, both themes (autouse ``theme`` fixture).
+
+**D-15 repair.** ``Export_Worker.run()`` no longer calls ``export_document``
+itself — it calls ``logic.export.run_batch`` once, which calls
+``export_document`` internally (fe311a6). Patching
+``export_worker.export_document`` (the old seam) now raises ``AttributeError``
+(that name is no longer imported into this module — confirmed against the
+shipped code this session); ``_gate_the_worker`` is repaired to patch the REAL
+seam ``run_batch`` calls: ``pixelart_creator.logic.export.export_document``.
+
+**Cancellation-window disclosure.** ``run_batch`` computes every target's
+bytes in ONE synchronous, uninterruptible loop with no cooperative cancel
+check of its own; ``Export_Worker.run()``'s own cancel check now only guards
+the WRITE step, after ``run_batch`` has already returned. Gating target 0 and
+calling ``cancel()`` before releasing the gate still proves ``written < 4``
+(the write loop's ``if self._cancel.is_set(): break`` fires on its very first
+iteration, since the flag is already set by the time ``run_batch`` returns) —
+the OBSERVABLE cancel contract this test asserts still holds, so this is not
+re-flagged as a new regression finding; it is a narrower cancel WINDOW
+(compute-stage cancellation is gone), which is out of scope for this repair.
 """
 
 from __future__ import annotations
 
 import threading
 
-import pixelart_creator.ui.export_worker as export_worker
+import pixelart_creator.logic.export as export_logic
 from pixelart_creator.logic.export import ExportFormat, ExportRequest
 from pixelart_creator.ui.export_worker import ExportTarget
 from tests.ui._export_helpers import single_frame_document
@@ -27,14 +46,15 @@ def _png_target(tmp_path, name):
 
 
 def _gate_the_worker(monkeypatch, gate: threading.Event):
-    """Patch the worker's ``export_document`` to block on ``gate`` before running."""
-    real = export_worker.export_document
+    """Patch the REAL seam ``run_batch`` calls (``logic.export.export_document``)
+    to block on ``gate`` before running — holds the WORKER thread, not the GUI."""
+    real = export_logic.export_document
 
     def _slow(document, request):
         gate.wait(timeout=5.0)  # hold the WORKER thread, not the GUI thread
         return real(document, request)
 
-    monkeypatch.setattr(export_worker, "export_document", _slow)
+    monkeypatch.setattr(export_logic, "export_document", _slow)
 
 
 def test_sc_ui_010_submit_is_non_blocking_gui_stays_live(

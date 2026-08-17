@@ -21,15 +21,22 @@ Phase-5 :mod:`pixelart_creator.ui.composite_warmer` /
   survives into a later GC cycle** (the Phase-5 cross-thread GC-of-Qt-C++
   segfault; do not reintroduce it). Wire it into ``MainWindow.shutdown_prewarm``.
 
-**Continue-on-failure (deviation #5).** ``logic.run_batch`` *raises* on the
-first failing target; the UI contract (REQ-P7-UI-005) is instead to continue
-past a failing target and report per-target success/failure. So the worker
-iterates the targets itself, wrapping each ``export_document`` +
-``write_export`` in a ``try`` and emitting :attr:`ExportWorkerSignals.targetFailed`
-rather than aborting — never calling ``logic.run_batch``. Single exports go
-through the identical path as a one-target batch, so the GUI export is
-byte-identical to the CLI export (REQ-P7-UI-007): both call the same
-``export_document`` + ``write_export`` engine, with no UI-side transformation.
+**Continue-on-failure (D-15).** ``logic.export.run_batch`` now performs the
+continue-on-failure loop itself (REQ-P7-UI-005 / REQ-P7-LOGIC-010) and returns
+a deterministic-order :class:`~pixelart_creator.logic.export.BatchResult`. The
+worker CONSUMES it — it builds the ``ExportRequest`` sequence, calls
+``run_batch(document, requests)`` once, then iterates the returned
+:class:`~pixelart_creator.logic.export.BatchResult.targets` in order, emitting
+:attr:`ExportWorkerSignals.targetSucceeded` / :attr:`ExportWorkerSignals.targetFailed`
+per :class:`~pixelart_creator.logic.export.BatchTargetResult.success`. This is
+the single batch-loop implementation (Article I); the worker's own per-target
+``try``/``except`` loop is gone. ``run_batch`` only builds bytes in memory —
+it never touches the filesystem — so ``write_export`` / ``write_engine_preset``
+stay in the worker, called only on the success branch, once per succeeding
+target. Single exports go through the identical one-target-batch path, so the
+GUI export is byte-identical to the CLI export (REQ-P7-UI-007): both call the
+same ``export_document`` (via ``run_batch``) + ``write_export`` engine, with no
+UI-side transformation.
 """
 
 from __future__ import annotations
@@ -45,15 +52,13 @@ from pixelart_creator.data.export_io import (
     write_engine_preset,
     write_export,
 )
-from pixelart_creator.logic.atlas import AtlasError
 from pixelart_creator.logic.document import Document
 from pixelart_creator.logic.export import (
     EnginePreset,
     ExportError,
     ExportRequest,
-    export_document,
+    run_batch,
 )
-from pixelart_creator.logic.pixel_buffer import PixelBufferError
 
 #: Bounded wait for a running export to finish on teardown, ms (presentation-only
 #: timing, not a domain tuning value — mirrors ``_WARM_SHUTDOWN_WAIT_MS``).
@@ -124,38 +129,63 @@ class Export_Worker(QRunnable):
         self.setAutoDelete(True)
 
     def run(self) -> None:  # noqa: D401 (QRunnable override)
-        """Export each target in order, isolating per-target failures.
+        """Run the batch via ``logic.export.run_batch``, then write the successes.
 
-        The terminal signal (``batchFinished`` + the full-progress tick) is emitted
-        from a ``finally`` block so it fires on EVERY exit path — clean completion,
-        cancel, or an unforeseen error escaping the per-target guards. The controller
-        clears its busy flag off that terminal signal, so the export UI can never be
-        stranded on "Exporting…" no matter what an export raises (REQ-P7-UI-008/-010).
+        ``run_batch`` performs the continue-on-failure loop and returns a
+        :class:`~pixelart_creator.logic.export.BatchResult` whose ``targets`` are in
+        the original, deterministic request order. This worker does not
+        re-implement that loop: it calls ``run_batch`` once, then walks the
+        returned targets, writing bytes to disk only for the ones that
+        succeeded. A write-stage failure (``ExportWriteError``/``OSError``) is
+        still reported as a per-target failure and does not abort the rest of
+        the batch. The terminal signal (``batchFinished`` + the full-progress
+        tick) is emitted from a ``finally`` block so it fires on EVERY exit
+        path — clean completion, cancel, or an unforeseen error escaping the
+        per-target write guard. The controller clears its busy flag off that
+        terminal signal, so the export UI can never be stranded on
+        "Exporting…" no matter what a target does (REQ-P7-UI-008/-010).
+
+        Cancellation is cooperative: it is checked between targets, both before
+        dispatching a progress tick and before writing a successful result to
+        disk, since ``run_batch`` itself has no cooperative interrupt point.
         """
         total = len(self._targets)
         try:
+            requests = [target.request for target in self._targets]
+            try:
+                batch_result = run_batch(self._document, requests)
+            except ExportError as exc:
+                # ``run_batch`` raises only when ``requests`` itself is too large
+                # (MAX_BATCH_TARGETS); every target is reported failed with the
+                # same message rather than stranding the UI with no signal at all.
+                for index in range(total):
+                    self._signals.progress.emit(self._token, index, total, "")
+                    self._signals.targetFailed.emit(self._token, index, str(exc))
+                return
             for index, target in enumerate(self._targets):
                 if self._cancel.is_set():
                     break
                 self._signals.progress.emit(self._token, index, total, target.label)
+                target_result = batch_result.targets[index]
+                if not target_result.success:
+                    # CONTINUE-ON-FAILURE (D-15): report the failure captured by
+                    # ``run_batch`` and move on; one bad target never aborts the
+                    # rest or crashes the app (REQ-P7-UI-005/-008).
+                    self._signals.targetFailed.emit(
+                        self._token, index, str(target_result.error)
+                    )
+                    continue
+                result = target_result.result
+                assert result is not None  # success implies result is set
                 try:
-                    result = export_document(self._document, target.request)
                     write_export(result, target.out_path)
                     preset = target.request.preset
                     if preset is not EnginePreset.NONE and result.metadata is not None:
                         write_engine_preset(preset, result.metadata, target.out_path)
-                except (
-                    ExportError,
-                    AtlasError,
-                    ExportWriteError,
-                    PixelBufferError,
-                    OSError,
-                ) as exc:
-                    # CONTINUE-ON-FAILURE (deviation #5): report the typed failure and
-                    # move on; one bad target never aborts the rest or crashes the app
-                    # (REQ-P7-UI-005/-008). ``PixelBufferError`` is caught here too — a
-                    # default atlas export can raise it, and it must be reported, not
-                    # left to strand the UI.
+                except (ExportWriteError, OSError) as exc:
+                    # A successful export can still fail to WRITE (disk full,
+                    # permissions, …); that too is a per-target failure, not a
+                    # batch abort (REQ-P7-UI-005/-008).
                     self._signals.targetFailed.emit(self._token, index, str(exc))
                     continue
                 except Exception as exc:  # noqa: BLE001 - deliberate UI backstop

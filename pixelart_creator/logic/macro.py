@@ -106,7 +106,11 @@ class Macro:
 
 #: The injected trusted dispatcher (set by ``logic.scripting`` at its import so
 #: ``macro`` never imports ``scripting`` — no ``macro → scripting`` back-edge).
-_Dispatch = Callable[[Document, Sequence[Op]], Command]
+#: The third positional parameter is the optional per-target progress callback
+#: (``on_target(index, total)``, additive) threaded through from :func:`replay`.
+_Dispatch = Callable[
+    [Document, Sequence[Op], Optional[Callable[[int, int], None]]], Command
+]
 _dispatcher: Optional[_Dispatch] = None
 
 
@@ -172,7 +176,11 @@ def record(ops: Iterable[Op]) -> Macro:
     )
 
 
-def replay(document: Document, macro: Macro) -> Command:
+def replay(
+    document: Document,
+    macro: Macro,
+    on_target: Optional[Callable[[int, int], None]] = None,
+) -> Command:
     """Deterministically replay ``macro`` on ``document`` via the trusted dispatcher.
 
     Pure function of ``(document, macro)``: dispatches the ordered ops through
@@ -187,6 +195,15 @@ def replay(document: Document, macro: Macro) -> Command:
     Args:
         document: The subject document (mutated in place by the applied commands).
         macro: The recorded/loaded DSL list to replay.
+        on_target: Optional per-target progress callback, additive and off by
+            default (``None`` preserves prior behaviour exactly). Threaded
+            through unchanged to :func:`~pixelart_creator.logic.scripting.dispatch`,
+            which invokes it as ``on_target(index, total)`` after each op of
+            ``macro.ops`` is applied (1-based ``index``, ``total == len(macro.ops)``).
+            A raising callback is caught and discarded by the dispatcher, never
+            propagated here and never treated as a replay failure — see
+            :func:`~pixelart_creator.logic.scripting.dispatch`'s ``on_target`` doc
+            for the suppress-not-propagate rationale.
 
     Returns:
         A grouped :class:`~pixelart_creator.logic.history.Command` for the whole
@@ -206,4 +223,4 @@ def replay(document: Document, macro: Macro) -> Command:
             f"supported: {SUPPORTED_SCHEMA_VERSIONS}"
         )
     dispatcher = get_dispatcher()
-    return dispatcher(document, macro.ops)
+    return dispatcher(document, macro.ops, on_target)
