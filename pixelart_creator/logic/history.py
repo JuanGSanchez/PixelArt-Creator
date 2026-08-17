@@ -12,6 +12,8 @@ import abc
 from typing import Callable, List, Optional, Tuple, Union
 
 from pixelart_creator.logic.color import RGBA
+from pixelart_creator.logic.constants import CRDT_TILE_SIZE_PX
+from pixelart_creator.logic.edit_trace import EditTrace, RasterTrace
 from pixelart_creator.logic.pixel_buffer import PixelBuffer, PixelValue
 
 #: One recorded pixel change: ``(x, y, old_value, new_value)``.
@@ -32,22 +34,61 @@ class Command(abc.ABC):
     def undo(self) -> None:
         """Revert the change applied by :meth:`execute`."""
 
+    def edit_trace(self) -> Tuple[EditTrace, ...]:
+        """Return the :class:`~pixelart_creator.logic.edit_trace.EditTrace` s this
+        command's last :meth:`execute` (or :meth:`undo`) produced.
+
+        Additive, **one new method on a shipped ABC** (``REQ-P10-UI-025``, plan
+        §3/§5 step 5): the default is an empty tuple, so every existing
+        ``Command`` subclass keeps working untouched. A command overrides this
+        only if it can describe its change as one of the four convergence op
+        classes (``logic/edit_trace.py``); the default ``()`` is the *honest*
+        default for a command that cannot — it is read downstream as
+        ``unaccounted`` by ``REQ-P10-LOGIC-009`` supervision rather than turned
+        into a plausible-looking wrong op (plan risk R-1).
+
+        This module stays a **leaf**: the only new import here is
+        :mod:`pixelart_creator.logic.edit_trace` (stdlib-only), never
+        :mod:`pixelart_creator.logic.convergence` — see that module's docstring
+        for the cycle this avoids.
+        """
+        return ()
+
 
 class PixelEdit(Command):
-    """A batch of pixel changes on one buffer, replayable both ways."""
+    """A batch of pixel changes on one buffer, replayable both ways.
 
-    __slots__ = ("_buffer", "_changes", "label")
+    ``frame_index``/``layer_id`` are **optional** and additive (``REQ-P10-UI-025``,
+    task T7): they default to ``0`` so every existing construction site (there
+    are a dozen across ``logic/`` and ``ui/tools/base.py``) keeps working
+    unmodified. A caller that knows the real target — the frame/layer this edit
+    actually landed on — should pass them so :meth:`edit_trace` reports the
+    correct tiles; **no task in this slice threads those real values through
+    the existing call sites**, which is recorded in the dispatch report as a
+    gap for AGT-01/AGT-05 rather than silently worked around here.
+    """
+
+    __slots__ = ("_buffer", "_changes", "label", "_frame_index", "_layer_id")
 
     def __init__(
         self,
         buffer: PixelBuffer,
         changes: List[PixelChange],
         label: str = "draw",
+        *,
+        frame_index: int = 0,
+        layer_id: int = 0,
     ) -> None:
-        """Store the target `buffer`, the recorded `changes`, and the undo `label`."""
+        """Store the target `buffer`, the recorded `changes`, and the undo `label`.
+
+        ``frame_index``/``layer_id`` name the edit's target for
+        :meth:`edit_trace` (default ``0``, see the class docstring).
+        """
         self._buffer = buffer
         self._changes = changes
         self.label = label
+        self._frame_index = frame_index
+        self._layer_id = layer_id
 
     def __len__(self) -> int:
         """Return the number of recorded pixel changes."""
@@ -62,6 +103,28 @@ class PixelEdit(Command):
         """Restore every recorded change's old value, in reverse order."""
         for x, y, old, _new in reversed(self._changes):
             self._buffer.set_pixel(x, y, old)
+
+    def edit_trace(self) -> Tuple[EditTrace, ...]:
+        """Return the tiles this edit's recorded extent covers, one :class:`RasterTrace`
+        per distinct ``(tile_x, tile_y)`` touched by ``changes`` (task T7).
+
+        Derived purely from the recorded ``(x, y)`` coordinates via
+        ``CRDT_TILE_SIZE_PX`` — no tile is invented that the recorded extent did
+        not touch, and no tile bytes travel in the trace (those are read from
+        the live buffer at op-minting time). Deterministic, sorted order.
+        """
+        tiles: set[Tuple[int, int]] = set()
+        for x, y, _old, _new in self._changes:
+            tiles.add((x // CRDT_TILE_SIZE_PX, y // CRDT_TILE_SIZE_PX))
+        return tuple(
+            RasterTrace(
+                frame_index=self._frame_index,
+                layer_id=self._layer_id,
+                tile_x=tile_x,
+                tile_y=tile_y,
+            )
+            for tile_x, tile_y in sorted(tiles)
+        )
 
 
 class FunctionCommand(Command):
