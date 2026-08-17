@@ -469,6 +469,34 @@ yet always catches a catastrophic overlay-render regression. AGT-09 wires ci.yml
 pass this value as ``perf_profile.py --overlay --budget-ms``.
 (AGT-10 overlay-perf directive; S12 single-source.)"""
 
+# --- Phase-9 8K iso-overlay cache-miss gate tuning (WP-6.4 D-29; Article II
+# single-source) ------------------------------------------------------------------
+# Ceiling for the missing literal-8K overlay-viewport CI scenario
+# (``--overlay --ov-viewport 7680 4320 --ov-tile 32``), distinct from the
+# 1920x1080 scenario every wired ``--overlay`` step exercises today (perf-model
+# governance record `design-docs/auxiliary/perf-model-governance-20260816.md`
+# §7, D-29). Consumed by scripts/perf_profile.py --overlay (passed as
+# --budget-ms by .github/workflows/ci.yml, mirroring the FU-15 overlay/tilemap
+# ceilings above).
+
+OVERLAY_8K_CEILING_MS: int = 2000
+"""Catastrophic-regression ceiling for the 8K iso-overlay CPU-raster cache-miss
+path, ms — NOT a per-frame budget.
+
+DISTINCT from :data:`FRAME_BUDGET_MS` (16 ms, the 60-fps interactive *render*
+budget) and from :data:`OVERLAY_FRAME_CEILING_MS` (48 ms, the FHD 1920x1080
+overlay scenario): this is the deliberately *loose* Tier-2 ceiling (perf-model
+governance §3) for the literal 8K overlay viewport
+(``--overlay --ov-viewport 7680 4320 --ov-tile 32``), the scenario the
+governance record's D-29 forward pointer names as missing entirely — no wired
+job exercised the CPU-raster fallback risk at 8K before this. Derived from
+AGT-10's 2026-08-16 measurement: worst local p95 297.5 ms, scaled for the
+2-core CI runner per the Phase-12 spec's CI-scaling factor to ~744 ms, leaving
+~2.7x headroom to this 2000 ms bound — loose enough to never flake on a noisy
+runner yet well below the O(full-canvas) regression class it must catch. AGT-09
+wires ci.yml to pass this value as ``perf_profile.py --overlay --budget-ms``.
+(AGT-10 D-29 measurement; perf-model governance §3 rule 3; S12 single-source.)"""
+
 # --- Phase-10 Slice-A cloud/sync tuning (phase-10 T10A-01; Article II) ------------
 # Named bounds/defaults consumed by the new zero-Qt cloud/sync models
 # (logic/sync_state.py, logic/autosave.py, logic/version_history.py) and the

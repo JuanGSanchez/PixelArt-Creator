@@ -3,21 +3,27 @@
 # User decision, 2026-08-02: the repository is private and Included Actions
 # minutes (metered, Free plan) were exhausted once already; self-hosted
 # minutes are free. Until the repository goes PUBLIC, quality-gate runs ONLY
-# on the windows-selfhosted leg and the integration job does not run at all,
-# so this workflow consumes ZERO GitHub-hosted minutes. The quality gate is
-# kept REAL (not gutted): the thirteen OS-invariant static/coverage/JS-unit
-# checks below were un-gated from `if: runner.os == 'Linux'` so they still run
-# on the Windows leg, instead of collapsing to "checkout + install + pytest".
+# on the windows-selfhosted leg and (as of WP-6.2, 2026-08-16, D-16/D-17) the
+# integration job ALSO runs on that same self-hosted label set instead of
+# being fully disabled — so this workflow still consumes ZERO GitHub-hosted
+# minutes, but the deployment-acceptance tests are no longer dark. The
+# quality gate is kept REAL (not gutted): the thirteen OS-invariant
+# static/coverage/JS-unit checks below were un-gated from
+# `if: runner.os == 'Linux'` so they still run on the Windows leg, instead of
+# collapsing to "checkout + install + pytest".
 #
 # tests/deploy/'s @pytest.mark.integration tests (test_vps_localhost.py,
-# test_nginx_wss_localhost.py — ADR-0043) THEREFORE EXECUTE IN NO JOB AT ALL
-# while this scoping is in effect. This is not incidental: the quality-gate
-# job's own pytest invocation below explicitly deselects `integration` too
-# (see the `-m "... and not integration"` filter on the "Tests" step and its
-# "Measure non-client coverage" companion), so the commented-out
-# `integration` job is the ONLY place those tests are ever selected in this
-# workflow. Restoring step 2 below is what brings them back — nothing else
-# does.
+# test_nginx_wss_localhost.py — ADR-0043) NOW EXECUTE on the self-hosted
+# Windows leg of the `integration` job below (WP-6.2): 9 tests collected,
+# all label-runnable; the Docker-container case and the opt-in real-Nginx
+# 60s+ idle case keep their existing, reasoned self-skips (no `docker`, and
+# no `nginx` + `PIXELART_NGINX_IDLE_TEST=1`, on this runner) rather than a
+# forced pass or a forced install. The quality-gate job's own pytest
+# invocation still explicitly deselects `integration` (see the
+# `-m "... and not integration"` filter on the "Tests" step and its
+# "Measure non-client coverage" companion) — the `integration` job below
+# remains the ONLY place those tests are selected; it is simply no longer
+# commented out.
 #
 # REVERT — do all four steps together, when the repository goes public
 # (cross-reference the PUBLIC-REPO HAZARD comment on the windows-selfhosted
@@ -25,9 +31,16 @@
 #   1. In quality-gate's `strategy.matrix.include`, UNCOMMENT the commented-out
 #      `ubuntu-latest` and `macos-latest` entries verbatim (remove the leading
 #      "# " from every line of both blocks — nothing was deleted).
-#   2. UNCOMMENT the entire `integration` job verbatim (remove the leading "# "
-#      from every line, from `integration:` through its last step — nothing
-#      was deleted).
+#   2. REPOINT the `integration` job (already active as of WP-6.2, 2026-08-16 —
+#      it is no longer commented out) from the self-hosted Windows label set
+#      back to a hosted `ubuntu-latest` runner: change its `runs-on:` from
+#      `[self-hosted, Windows, X64]` to `ubuntu-latest`; restore its
+#      Ubuntu-only "Install Nginx + OpenSSL + Qt runtime OS libraries (apt)"
+#      step (removed on the self-hosted leg — Windows has no apt and needs
+#      none of those); drop the PUBLIC-REPO HAZARD comment on its `runs-on:`
+#      (same hazard/reasoning as step 3 below); and restore its original
+#      30-minute `timeout-minutes` (the 45-minute value in the self-hosted
+#      form is a cold-runner allowance that a hosted runner does not need).
 #   3. REMOVE the `windows-selfhosted` matrix entry and its
 #      `runs_on: [self-hosted, Windows, X64]` target ENTIRELY (do NOT keep it,
 #      even commented) — GitHub documents self-hosted runners as compromisable
@@ -53,10 +66,21 @@
 # LEFT UNCHANGED by this temporary scoping — do NOT touch these on revert:
 #   - `Install Qt runtime OS libraries (Ubuntu)` stays Linux-gated (apt-only,
 #     Ubuntu-specific by nature, not a cost-avoidance gate).
-#   - All eleven perf gates (compositor, tilemap x2, visual-aids x5, realtime
-#     apply-remote, full-frame flatten, viewport-recomposite) stay Linux-gated
-#     — their ceilings are calibrated to the 2-core Ubuntu hosted runner and
-#     would mean nothing measured on a developer laptop.
+#   - All thirteen perf gates (8K paint/redraw D-32; compositor; tilemap x2;
+#     visual-aids x6 — the five FHD/zoomed/combined scenarios plus the D-29
+#     8K-overlay catastrophic ceiling; realtime apply-remote; full-frame
+#     flatten; viewport-recomposite) stay Linux-gated — their budgets/
+#     ceilings are calibrated to (or, for D-32's unrelaxed Tier-1 budget,
+#     simply measured against) the 2-core Ubuntu hosted runner and would mean
+#     nothing measured on a developer laptop. The two added 2026-08-16
+#     (WP-6.4, D-32/D-29) join the other eleven under the SAME
+#     `if: runner.os == 'Linux'` gate and therefore stay documented-unrun
+#     under the current self-hosted-Windows-only quality-gate leg — see the
+#     perf-model governance record's honest run-state phrasing
+#     (design-docs/auxiliary/perf-model-governance-20260816.md §5). They
+#     execute for the first time only once a self-hosted Linux runner exists
+#     (WP-6.3, WSL2 the candidate, user question Q-3) or the repository goes
+#     public and the hosted ubuntu-latest leg returns.
 #   - `build-installers` and `regenerate-constraints` are untouched and still
 #     target hosted runners (see the metered-minutes note on each).
 #   - The `push` trigger's `branches: [main, "feat-*", "fix-*"]` filter (below)
@@ -64,6 +88,22 @@
 #     this self-hosted scoping — it outlives the arrangement this block
 #     describes and is NOT one of the four revert steps above. Do not fold it
 #     into the revert; it stays exactly as-is when the repository goes public.
+#
+# WP-6.7 (2026-08-16) — summary for the eventual flip-to-hosted. GitHub-hosted
+# Actions minutes become FREE again the moment this repository's visibility
+# changes to PUBLIC (the Included-minutes metering above applies to private
+# repos only) — nothing else about the account or the workflow needs to
+# change for that. The pins that flip THEN are exactly the four REVERT steps
+# above: (1) uncomment the ubuntu-latest/macos-latest quality-gate matrix
+# entries, (2) repoint the integration job from self-hosted labels back to
+# ubuntu-latest, (3) delete the windows-selfhosted matrix entry entirely
+# (never merely comment it — the PUBLIC-REPO HAZARD reasoning on that entry
+# is why), (4) restore `if: runner.os == 'Linux'` on the thirteen
+# OS-invariant steps. No other workflow file, script, or `logic/constants.py`
+# value changes with visibility — D-22's string_audit_check blocking flip
+# (below) and the D-32/D-29 perf gates (WP-6.4, above) are UNAFFECTED by the
+# public flip: they stay exactly as authored, on whichever leg(s) end up
+# Linux-gated after the revert runs.
 #
 # Delete this block once the revert above is complete — it describes a
 # temporary state, not a permanent one.
@@ -397,35 +437,23 @@ jobs:
           python scripts/check_cycles.py --root web_viewer
 
       - name: I18n string audit (report, P11 script; AGT-07)
-        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
-        # This gate EXISTED and was invoked by nothing: zero mentions of
-        # string_audit_check.py anywhere in this workflow, while its own header
-        # declares `INVOKED BY: AGT-07`. An i18n gate that no pipeline runs
-        # reports to nobody.
+        # UN-GATED for OS (temporary, see revert block at top of file): the
+        # `if: runner.os == 'Linux'` guard removed here is OS-invariance
+        # scoping only, unrelated to the pass/fail flip below.
         #
-        # REPORT, not fail, and that is the script's own declared contract:
-        #   0 clean    -> COMPLETED
-        #   1 findings -> reported to AGT-07 (a REPORT, not a build failure —
-        #                 the script is explicitly report-not-fix, and AGT-05
-        #                 owns the wrapping it would ask for)
-        #   2 error    -> BLOCKED, which SHOULD fail the step: an audit that
-        #                 could not run is not an audit that found nothing.
-        # So exit 1 is swallowed deliberately and exit 2 is not. Anything else
-        # would either turn a translator's backlog into a red build or let a
-        # broken gate report "clean" — the two failure modes worth avoiding.
-        run: |
-          set +e
-          python scripts/string_audit_check.py --root pixelart_creator/ui
-          rc=$?
-          set -e
-          if [ "$rc" -eq 2 ]; then
-            echo "::error::string_audit_check could not run (exit 2)"
-            exit 2
-          fi
-          if [ "$rc" -eq 1 ]; then
-            echo "::warning::string_audit_check reported findings for AGT-07"
-          fi
-          exit 0
+        # BLOCKING (D-22, WP-6.5, decision batch 2026-08-16): this step was
+        # warn-and-continue (exit 1 findings swallowed to a `::warning::`,
+        # only exit 2 script-error failed the build) because the script's own
+        # contract is report-not-fix and pixelart_creator/ui carried findings.
+        # Re-measured this session: pixelart_creator/ui is CLEAN (0 findings,
+        # `string_audit_check.py --root pixelart_creator/ui` exits 0) — a
+        # clean surface makes blocking cost-free, so the swallow is removed.
+        # Exit codes, now both fatal to this step: 0 clean (pass); 1 findings
+        # (FAILS the build — a future unwrapped string is caught at commit
+        # time, AGT-07 clears it); 2 script error (FAILS the build, as
+        # before — an audit that could not run is not an audit that found
+        # nothing). No swallowing of any non-zero exit remains.
+        run: python scripts/string_audit_check.py --root pixelart_creator/ui
 
       # ----- Docs gates (REMEDIATION 2026-07-30, F14): neither gate below had
       # ever run in CI before this change — mkdocs build --strict and
@@ -600,6 +628,29 @@ jobs:
       # ----- Perf gates: Ubuntu-only. The ceilings are calibrated to the Ubuntu
       # GitHub runner; running them on Windows/macOS would compare against the
       # wrong baseline (plan §6, invoker directive). -----
+      - name: 8K paint/redraw perf gate (P-A scenario, D-32, REQ-P1-UI-023)
+        if: runner.os == 'Linux'
+        # Phase-1 (AGT-10 D-32 rebuild -> AGT-09 wiring, WP-6.4, decision
+        # batch 2026-08-16). The rebuilt scripts/perf_profile.py default
+        # (tiling) mode now imports and drives the REAL
+        # `ui.canvas_scene.CanvasScene.drawBackground` against a real
+        # `logic.document.Document` — replacing the self-described mirror
+        # (`draw_background_tiles`) that CF-06 found imported no product UI
+        # module. `--width`/`--height` are now LIVE: the exposed rect is
+        # intersected with the real scene's own `sceneRect()`, exactly as a
+        # QGraphicsView does. The invocation below is the **P-A scenario** —
+        # 8K full-view at fit zoom, the gating case named in
+        # design-docs/specs/phase-1-ui-canvas/render-strategy.md §9 — and
+        # exits non-zero if the median exceeds the UNRELAXED Tier-1
+        # FRAME_BUDGET_MS (16 ms, logic/constants.py, the --budget-ms
+        # default). Perf-model governance record
+        # design-docs/auxiliary/perf-model-governance-20260816.md §7
+        # forbids manufacturing a Tier-2 ceiling for this REQ to make the
+        # gate easier to pass — none is used here. Measured locally
+        # 2026-08-16 (AGT-10, this Windows host — host-dependent, not a CI
+        # result): 9.92 ms median, ~40% margin under budget.
+        run: python scripts/perf_profile.py --width 7680 --height 4320 --zoom 0.25 --viewport 1920 1080 --frames 60
+
       - name: Compositor region-recomposite perf gate (FU-15)
         if: runner.os == 'Linux'
         # Standalone, Qt-free P11 gate: times the region-recomposite path on an
@@ -674,6 +725,30 @@ jobs:
         # --realtime gate below (currently ~1.6 ms).
         run: python scripts/perf_profile.py --overlay --ov-kind cursors-rt --ov-cursors 32 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
+      - name: Visual-aids overlay perf gate — part 6 (D-29, 8K overlay catastrophic ceiling)
+        if: runner.os == 'Linux'
+        # Phase-9/Phase-12 (AGT-10 D-29 -> AGT-09 wiring, WP-6.4, decision
+        # batch 2026-08-16). The literal 8K overlay viewport
+        # (`--ov-viewport 7680 4320`) was missing entirely from every wired
+        # `--overlay` step above (all five run at 1920x1080), so no job
+        # exercised the iso-grid CPU-raster cache-miss fallback risk at the
+        # real canvas size. Gates at TIER 2 — OVERLAY_8K_CEILING_MS (2000 ms,
+        # logic/constants.py, passed via --budget-ms 2000) — NOT the Tier-1
+        # frame budget: this is a cache-miss-only catastrophic-cost edge case
+        # (the shipped Iso_Grid_Overlay.paint() carries only the binary
+        # paint-skip LOD gate; no line-budget LOD ships, confirmed by direct
+        # code inspection), not a steady-state per-frame path
+        # (DeviceCoordinateCache absorbs steady-state redraws; only
+        # zoom/config-change frames pay this cost). Ceiling value derived
+        # from AGT-10's 2026-08-16 measurement (worst local p95 297.5 ms
+        # across three runs; CI-scaled ~744 ms; ~2.7x headroom, consistent
+        # with the other Tier-2 ceilings' margin discipline) — perf-model
+        # governance record
+        # design-docs/auxiliary/perf-model-governance-20260816.md §3 rule 3
+        # (a ceiling's value is set by measurement, never invented to clear a
+        # scenario).
+        run: python scripts/perf_profile.py --overlay --ov-kind iso --ov-tile 32 --ov-viewport 7680 4320 --frames 30 --budget-ms 2000
+
       - name: Realtime apply-remote perf gate (Slice-C, sub-frame ceiling)
         if: runner.os == 'Linux'
         # Phase-10 Slice C (AGT-10, REQ-P10-LOGIC — realtime_apply). Standalone
@@ -721,83 +796,93 @@ jobs:
   # integration job for the deploy/ VPS self-hosting artifacts.
   #
   # SEPARATE from the cross-OS quality-gate matrix above (which deselects
-  # `integration` and stays green without Docker/nginx). Ubuntu-only because the
-  # Docker daemon + nginx these tests exercise are available on ubuntu-latest but
-  # not on the Windows/macOS GitHub runners. Proves — over localhost/loopback,
-  # with NO live external server and the sync_backend/ source byte-unmodified —
-  # that the shipped deploy/ artifacts run the relay: the launcher-subprocess &
-  # Docker-container multi-client convergence (BACKEND-001) and the Nginx TLS/WSS
-  # config + idle-survival tuning (BACKEND-002).
+  # `integration` and stays green without Docker/nginx). Proves — over
+  # localhost/loopback, with NO live external server and the sync_backend/
+  # source byte-unmodified — that the shipped deploy/ artifacts run the relay:
+  # the launcher-subprocess & Docker-container multi-client convergence
+  # (BACKEND-001) and the Nginx TLS/WSS config + idle-survival tuning
+  # (BACKEND-002).
   # ===========================================================================
-  # DISABLED (see the TEMPORARY revert block at the top of this file): this
-  # entire job is commented out verbatim, ZERO hosted minutes while this is in
-  # effect (it is runs-on: ubuntu-latest, hosted, unconditionally). Uncomment
-  # every line below (remove the leading "# ") to restore.
-  # integration:
-  #   name: integration (ubuntu-latest)
-  #   runs-on: ubuntu-latest
-  #   # Ample cap for a Docker image build (self-skips if the daemon is unusable)
-  #   # plus the fast launcher/socket/config tests; far under the 6h default.
-  #   timeout-minutes: 30
-  #   defaults:
-  #     run:
-  #       shell: bash
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v5
-  #
-  #     - name: Set up Python 3.12 (pinned)
-  #       uses: actions/setup-python@v6
-  #       with:
-  #         python-version: "3.12"
-  #         cache: pip
-  #
-  #     # nginx: the opt-in real idle-past-60s WSS proxy test (self-skips unless
-  #     # PIXELART_NGINX_IDLE_TEST=1). openssl: mints the self-signed loopback cert
-  #     # for that proxy. The Docker daemon is preinstalled on ubuntu-latest.
-  #     # The Qt runtime libs (libegl1/libgl1/xcb/...) are also required even though
-  #     # the deploy tests are Qt-free: the pytest-qt plugin (from [dev]) imports
-  #     # QtGui at pytest_configure, which needs libEGL.so.1 to load the offscreen
-  #     # platform plugin — without it pytest INTERNALERRORs before collecting.
-  #     # Mirrors the quality-gate Ubuntu leg (QT_QPA_PLATFORM=offscreen is global).
-  #     - name: Install Nginx + OpenSSL + Qt runtime OS libraries (apt)
-  #       run: |
-  #         sudo apt-get update
-  #         sudo apt-get install -y --no-install-recommends \
-  #           nginx openssl \
-  #           libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
-  #           libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
-  #           libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
-  #
-  #     - name: Install project (runtime + dev) from manifest
-  #       # -c constraints.txt: reproducibility lock (R-11) — pins the full
-  #       # resolved dependency closure (direct + transitive) so this install
-  #       # matches every other CI run and any developer's local environment.
-  #       # Regenerate command + rationale: constraints.txt's own header.
-  #       run: |
-  #         python -m pip install --upgrade pip
-  #         python -m pip install -c constraints.txt -e ".[dev]"
-  #
-  #     - name: Integration tests (deploy/ launcher, Docker, Nginx WSS — localhost)
-  #       # Runs the `integration`-marked deployment acceptance, which ADR-0043 moved
-  #       # out of tests/backend/ into its OWN root tests/deploy/ (AGT-09 owns
-  #       # deployment; the sync-backend service agent owns tests/backend/).
-  #       # BOTH roots are named on purpose. tests/deploy/ holds all 9 integration
-  #       # tests today; tests/backend/ holds none. Naming only tests/deploy/ would
-  #       # silently stop running any integration test a future backend change adds
-  #       # under tests/backend/ — the exact "moved file CI no longer names" failure
-  #       # this ADR was written to avoid. Naming both is also what keeps this step
-  #       # off pytest's exit-code 5 (NO_TESTS_COLLECTED): after the move,
-  #       # `pytest -m integration tests/backend/` collects 0 and exits 5, failing
-  #       # the job. Verified locally: 9 collected across the two roots.
-  #       # The fast tests (launcher-subprocess convergence, Nginx config assertions,
-  #       # short idle-survival) RUN and must pass. The Docker-container test builds
-  #       # the shipped deploy/Dockerfile on the ubuntu daemon (self-skips if the
-  #       # daemon is unusable). The SLOW real-nginx 60s+ idle test stays OPT-IN and
-  #       # self-skips because PIXELART_NGINX_IDLE_TEST is unset here (CI-time budget)
-  #       # — it is NOT forced on every push. No Qt libs needed: these tests import
-  #       # only the Qt-free data/logic layer.
-  #       run: pytest -m integration tests/deploy/ tests/backend/
+  # ACTIVE, SELF-HOSTED WINDOWS LEG (WP-6.2, D-16/D-17, re-enabled
+  # 2026-08-16 — see the TEMPORARY revert block at the top of this file,
+  # revert step 2): this job now targets the SAME self-hosted label set as
+  # the quality-gate windows-selfhosted leg, [self-hosted, Windows, X64] —
+  # ZERO GitHub-hosted minutes, the same hard constraint. It was originally
+  # authored for a hosted `ubuntu-latest` runner (Docker + nginx preinstalled
+  # there); on this Windows leg the Docker-container test and the opt-in
+  # real-Nginx 60s+ idle test both self-skip with a stated reason (no
+  # `docker` / no `nginx`+`openssl` on this runner's PATH) rather than fail —
+  # the SAME reasoned-skip contract those tests already carry for any
+  # environment lacking the binary, not a new exception carved out here. All
+  # 9 `integration`-marked tests under tests/deploy/ remain collected and
+  # runnable; only the two opt-in/Docker cases skip. The Ubuntu-only
+  # "Install Nginx + OpenSSL + Qt runtime OS libraries (apt)" step the hosted
+  # form used is REMOVED for this leg: apt does not exist on Windows, and
+  # Windows needs no extra system libs for offscreen Qt (same reasoning as
+  # the quality-gate job's own Ubuntu-only Qt-libs step) — nginx/openssl
+  # absence is exactly what makes the opt-in idle test self-skip, which is
+  # the intended, documented behaviour here, not a gap.
+  integration:
+    name: integration (windows-selfhosted)
+    # PUBLIC-REPO HAZARD — READ BEFORE MAKING THIS REPOSITORY PUBLIC: the same
+    # hazard as the quality-gate windows-selfhosted leg above (GitHub's own
+    # guidance: self-hosted runners "should almost never be used for public
+    # repositories... because any user can open pull requests against the
+    # repository and compromise the environment"). THIS JOB MUST BE REVERTED
+    # to a hosted `ubuntu-latest` runner (see revert step 2 at the top of
+    # this file) BEFORE this repository's visibility changes to public. Do
+    # not carry this configuration into a public repo.
+    runs-on: [self-hosted, Windows, X64]
+    # Cold-setup headroom: this job re-installs the project on the same bare
+    # runner as the quality-gate windows-selfhosted leg, so it pays the same
+    # cold actions/setup-python / pip-install cost the first time it runs
+    # here (see that leg's matrix comment for the full measured rationale).
+    # 30 min (the original hosted-Ubuntu cap) is under-provisioned for that
+    # cold path; 45 min matches the same measured/derived cap used there.
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python 3.12 (pinned)
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project (runtime + dev) from manifest
+        # -c constraints.txt: reproducibility lock (R-11) — pins the full
+        # resolved dependency closure (direct + transitive) so this install
+        # matches every other CI run and any developer's local environment.
+        # Regenerate command + rationale: constraints.txt's own header.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -c constraints.txt -e ".[dev]"
+
+      - name: Integration tests (deploy/ launcher, Docker, Nginx WSS — localhost)
+        # Runs the `integration`-marked deployment acceptance, which ADR-0043 moved
+        # out of tests/backend/ into its OWN root tests/deploy/ (AGT-09 owns
+        # deployment; the sync-backend service agent owns tests/backend/).
+        # BOTH roots are named on purpose. tests/deploy/ holds all 9 integration
+        # tests today; tests/backend/ holds none. Naming only tests/deploy/ would
+        # silently stop running any integration test a future backend change adds
+        # under tests/backend/ — the exact "moved file CI no longer names" failure
+        # this ADR was written to avoid. Naming both is also what keeps this step
+        # off pytest's exit-code 5 (NO_TESTS_COLLECTED): after the move,
+        # `pytest -m integration tests/backend/` collects 0 and exits 5, failing
+        # the job. Verified locally: 9 collected across the two roots. The fast
+        # tests (launcher-subprocess convergence, Nginx config assertions, short
+        # idle-survival) RUN and must pass on this leg. The Docker-container test
+        # self-skips (no `docker` on this runner's PATH). The SLOW real-nginx 60s+
+        # idle test stays OPT-IN and self-skips (PIXELART_NGINX_IDLE_TEST is unset
+        # here; nginx/openssl are not installed on this leg) — it is NOT forced on
+        # every push. No Qt-libs install needed on Windows: the PySide6 wheel
+        # bundles its own Qt binaries (mirrors the quality-gate windows-selfhosted
+        # leg, which needs none either).
+        run: pytest -m integration tests/deploy/ tests/backend/
 
   # ===========================================================================
   # R-11 residual (#31, 2026-07-31): constraints.txt closure gap on Linux/macOS.

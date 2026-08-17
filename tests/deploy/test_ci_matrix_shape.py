@@ -1,4 +1,6 @@
-"""CI-matrix SHAPE test for the ``quality-gate`` job (T-40, remediation register).
+"""CI-matrix SHAPE test for the ``quality-gate`` and ``integration`` jobs
+(T-40, remediation register; WP-6.6 extended it to ``integration``, decision
+batch 2026-08-16).
 
 Placed under ``tests/deploy/`` -- AGT-09's owned surface (ADR-0043 §1 covers
 the pipeline vehicles this agent runs; ``.github/workflows/ci.yml`` itself is
@@ -19,6 +21,16 @@ widens (someone uncomments a leg without updating this table, or the revert
 happens without anyone noticing this suite needed a matching update) should
 be REPORTED BY THE SUITE, not discovered later by manual audit of the
 workflow file.
+
+WP-6.2 (2026-08-16, D-16/D-17) re-enabled the ``integration`` job -- it was
+previously ENTIRELY commented out, so ``data["jobs"]`` never even had an
+``"integration"`` key and this file had nothing to assert about it. It now
+targets the same self-hosted Windows label set as the ``quality-gate``
+windows-selfhosted leg. The same silent-narrow/silent-widen risk applies here
+too (a future edit repointing it back to a hosted runner, or dropping either
+named test root from its ``pytest -m integration`` invocation, must fail this
+suite, not wait for a manual audit) -- ``EXPECTED_INTEGRATION_RUNS_ON`` and
+the two functions below cover it.
 """
 
 from __future__ import annotations
@@ -83,3 +95,51 @@ def test_quality_gate_strategy_fail_fast_is_false():
     catch, not just the leg table."""
     data = _load_ci_yaml()
     assert data["jobs"]["quality-gate"]["strategy"]["fail-fast"] is False
+
+
+# EXPECTATION for the `integration` job's runs-on target (WP-6.2, 2026-08-16,
+# D-16/D-17) -- same self-hosted label set as the quality-gate
+# windows-selfhosted leg above. *** WHEN THIS CHANGES (e.g. the eventual
+# public-repo revert to ubuntu-latest), UPDATE THIS CONSTANT IN THE SAME
+# COMMIT. ***
+EXPECTED_INTEGRATION_RUNS_ON = ["self-hosted", "Windows", "X64"]
+
+
+def test_integration_job_exists_and_is_not_commented_out():
+    """The ``integration`` job must be real YAML, not prose inside a comment
+    block. Before WP-6.2 the entire job was commented out, so
+    ``data["jobs"]`` never had an ``"integration"`` key at all -- this is the
+    exact silent-disable shape a future edit could reintroduce."""
+    data = _load_ci_yaml()
+    assert "integration" in data["jobs"], (
+        "the integration job is missing from the parsed workflow -- either it "
+        "was commented out again (WP-6.2 re-enabled it) or renamed; update "
+        "this test in the SAME commit if the rename/removal was deliberate"
+    )
+
+
+def test_integration_job_runs_on_self_hosted_windows_labels():
+    """Not just present: pinned to the self-hosted labels, matching the
+    zero-hosted-minutes hard constraint (D-16/D-17) -- a silent repoint back
+    to a hosted runner (or a widened/narrowed label set) is exactly the
+    PUBLIC-REPO HAZARD ci.yml's own comment warns against making by accident
+    before the repository is actually public."""
+    data = _load_ci_yaml()
+    assert data["jobs"]["integration"]["runs-on"] == EXPECTED_INTEGRATION_RUNS_ON
+
+
+def test_integration_job_names_both_test_roots():
+    """HARD RULE (ADR-0043 §3a): the integration job's pytest invocation must
+    name BOTH ``tests/deploy/`` and ``tests/backend/`` -- naming only one is
+    exactly how a suite silently stops running while the check stays green
+    (after the ADR-0043 move, ``pytest -m integration tests/backend/`` alone
+    collects 0 and exits 5). A read-only substring check on the step's own
+    command, so a future edit that drops either root fails here instead of
+    silently shrinking coverage."""
+    data = _load_ci_yaml()
+    steps = data["jobs"]["integration"]["steps"]
+    run_commands = " ".join(
+        step.get("run", "") for step in steps if isinstance(step, dict)
+    )
+    assert "tests/deploy/" in run_commands
+    assert "tests/backend/" in run_commands
