@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memory Graph</title>
+<script>
+/* ===================================================================
+   THEME RESOLUTION — RUNS BEFORE THE FIRST PAINT, ON PURPOSE.
+   The one deliberate inline exception: every other style lives in
+   ./graph-view.css and every other behaviour in ./graph-view.js. It is
+   inline in <head>, ahead of the stylesheet, so the resolved theme is
+   already on <html> when the first frame is painted. Doing it at the
+   end of the body (or on DOMContentLoaded) is what produces the white
+   flash a dark-mode reader sees on every reload.
+
+   Three modes, not two: system / light / dark. "System" has to stay
+   REACHABLE after an explicit choice, so the toggle cycles through it
+   rather than flipping between two states. The stored choice always
+   wins over the system preference; with nothing stored we follow the
+   system. Storage may throw (private mode, disabled storage) — the
+   page must still render, so every access is guarded.
+
+   Same three-mode contract, same storage discipline and the same
+   palette as the design viewer's page; only the storage key differs,
+   so choosing dark here does not silently re-theme that one.
+   =================================================================== */
+(function () {
+  "use strict";
+  var KEY = "memoryGraph.theme";
+  var MODES = ["system", "light", "dark"];
+  var root = document.documentElement;
+
+  function stored() {
+    try {
+      var v = window.localStorage.getItem(KEY);
+      return MODES.indexOf(v) === -1 ? null : v;
+    } catch (e) { return null; }
+  }
+  function remember(mode) {
+    try {
+      if (mode === "system") window.localStorage.removeItem(KEY);
+      else window.localStorage.setItem(KEY, mode);
+    } catch (e) { /* a page that cannot persist must still switch */ }
+  }
+  function query() {
+    return (window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)")) || null;
+  }
+  function systemIsDark() { var q = query(); return !!(q && q.matches); }
+  function resolve(mode) {
+    return mode === "dark" || (mode !== "light" && systemIsDark())
+      ? "dark" : "light";
+  }
+  function apply(mode) {
+    root.setAttribute("data-theme-mode", mode);
+    root.setAttribute("data-theme", resolve(mode));
+  }
+
+  var mode = stored() || "system";
+  apply(mode);
+
+  /* The rest of the page picks this up once the DOM exists: the button
+     cannot be wired here because it has not been parsed yet. */
+  window.viewerTheme = {
+    KEY: KEY, MODES: MODES, mode: mode, apply: apply, resolve: resolve,
+    remember: remember, query: query, systemIsDark: systemIsDark
+  };
+})();
+</script>
+<link rel="stylesheet" href="./graph-view.css">
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <h1>Memory Graph</h1>
+    <div id="toolbar" class="graph-only">
+      <button id="btnForce" class="active">Force</button>
+      <button id="btnDag">DAG</button>
+      <button id="btnFit">Fit</button>
+    </div>
+    <div id="toolbarRepo" class="repo-only">
+      <button id="btnRepoFit">Fit</button>
+    </div>
+    <div class="repo-only">
+      <h2>Colour by</h2>
+      <div id="repoModes"></div>
+    </div>
+    <div class="graph-only">
+      <h2>Search</h2>
+      <input id="search" type="search" placeholder="id / name / summary&hellip;">
+    </div>
+    <h2>Records</h2>
+    <label class="opt"><input id="cbInvalid" type="checkbox">
+      <span>Show invalidated</span></label>
+    <div id="invalidHint" class="hint"></div>
+    <div class="graph-only">
+      <h2>Node types</h2>
+      <div id="typeFilters"></div>
+      <h2>Edge types</h2>
+      <div id="edgeFilters"></div>
+    </div>
+    <div class="repo-only">
+      <h2 id="repoLegendTitle">File types</h2>
+      <div id="repoLegend"></div>
+      <div id="repoStats" class="hint"></div>
+    </div>
+    <div id="toolbarHistory" class="history-only">
+      <button id="btnHistoryFit">Fit</button>
+      <button id="btnHistoryHead">Now</button>
+    </div>
+    <div class="history-only">
+      <h2 id="historyLegendTitle">Lines changed</h2>
+      <div id="historyLegend"></div>
+      <div id="historyStats" class="hint"></div>
+    </div>
+    <div id="stats"></div>
+  </aside>
+  <main id="main">
+    <div id="tabs">
+      <button id="tabGraph" class="active">Graph</button>
+      <button id="tabRepo">Repo</button>
+      <button id="tabHistory">History</button>
+      <h2 id="frameTitle">Graph</h2>
+      <button type="button" class="theme-toggle" id="themeToggle" hidden>
+        <span class="t-icon" id="themeIcon" aria-hidden="true">◐</span>
+        <span class="t-name" id="themeName">System</span>
+        <span class="t-resolved" id="themeResolved"></span>
+      </button>
+      <span class="sr-only" role="status" aria-live="polite"
+            id="themeStatus"></span>
+    </div>
+    <div id="stageGraph" class="stage">
+      <svg id="svg"><defs id="defs"></defs><g id="viewport">
+        <g id="gEdges"></g><g id="gNodes"></g></g></svg>
+      <div id="banner" hidden><span id="bannerText"></span>
+        <button id="btnAllNodes">Lay out all nodes</button></div>
+      <div id="empty" hidden><p id="emptyText"></p></div>
+      <footer id="footer"></footer>
+    </div>
+    <div id="stageRepo" class="stage" hidden>
+      <svg id="svgRepo"><g id="viewportRepo"></g></svg>
+      <div id="repoEmpty" hidden><p id="repoEmptyText"></p></div>
+    </div>
+    <div id="stageHistory" class="stage" hidden>
+      <svg id="svgHistory"><g id="viewportHistory"></g></svg>
+      <div id="historyEmpty" hidden><p id="historyEmptyText"></p></div>
+    </div>
+  </main>
+  <aside id="detail">
+    <h1 class="node-detail">Node detail</h1>
+    <div id="detailBody" class="node-detail"><p class="muted">Select a node
+    (click, or Tab + Enter) to inspect its fields, card and linked
+    nodes.</p></div>
+    <h1 class="history-only">Commits</h1>
+    <div id="commitList" class="history-only"></div>
+  </aside>
+</div>
+<script type="application/json" id="graph-data">{"edges": [], "git": {"commits": [], "state": "off"}, "meta": {}, "nodes": []}</script>
+
+
+<div id="mv-offline-banner" style="position:fixed;left:0;right:0;top:0;
+ z-index:99999;font:13px/1.5 system-ui,sans-serif;padding:.5rem .9rem;
+ background:#3a2f00;color:#ffd970;border-bottom:1px solid #6b5600">
+  <b>Looking for the live viewer…</b>
+  <span id="mv-live"></span>
+</div>
+<script>
+(function () {
+  // THIS FILE CARRIES NO GRAPH. It is the frozen template with an empty
+  // payload; the records live in the store's logs and are read by the viewer
+  // server on request. Baking them in here produced a multi-megabyte file that
+  // was a lie the moment the next commit landed, and nothing regenerated it.
+  //
+  // So the page goes looking for the server instead. A file:// page may not
+  // read local files, but it MAY fetch across origins when the other end
+  // allows it, and the viewer sends `Access-Control-Allow-Origin: *` for
+  // exactly this. Found, the graph is fetched and rendered here, in place.
+  var banner = document.getElementById("mv-offline-banner");
+  var slot = document.getElementById("mv-live");
+  var slug = "main";
+  var first = 8765, span = 100;
+  document.body.style.paddingTop = "2.4rem";
+
+  function offline(why) {
+    banner.innerHTML = "<b>No live viewer is running.</b> This page holds no " +
+      "records of its own — start the viewer and it fills itself: run " +
+      "<code>memory-view.cmd</code> beside this file." +
+      (why ? " <span style='opacity:.7'>(" + why + ")</span>" : "");
+  }
+
+  // SCAN, and check identity. The viewer does not own a port number: another
+  // local server — the specifications viewer, the skill's own — may
+  // hold the first one, and the live viewer will then be one along. Pointing a
+  // reader at whatever answered first would send them somewhere else entirely,
+  // so each candidate has to say it is this service AND that it serves this
+  // store before it is believed.
+  function probe(i) {
+    if (i >= span) { offline("scanned " + first + "-" + (first + span - 1)); return; }
+    var base = "http://127.0.0.1:" + (first + i);
+    fetch(base + "/ping", {cache: "no-store", mode: "cors"})
+      .then(function (r) { return r.json(); })
+      .then(function (info) {
+        if (info.service !== "memory-views" || (info.stores || []).indexOf(slug) < 0) {
+          probe(i + 1);
+          return;
+        }
+        fill(base + "/s/" + slug + "/");
+      })
+      .catch(function () { probe(i + 1); });
+  }
+
+  function fill(live) {
+    fetch(live + "data.json", {cache: "no-store", mode: "cors"})
+      .then(function (r) {
+        if (!r.ok) { throw new Error("data.json: HTTP " + r.status); }
+        return r.text();
+      })
+      .then(function (text) {
+        document.getElementById("graph-data").textContent = text;
+        var s = document.createElement("script");
+        s.src = "./graph-view.js";
+        document.body.appendChild(s);
+        banner.style.background = "#0d2f1a";
+        banner.style.color = "#8ee9b0";
+        banner.style.borderBottomColor = "#1c5c36";
+        banner.innerHTML = "<b>Live</b> — read from the viewer on " +
+          live.split("/s/")[0] + " just now. " +
+          '<a style="color:#8ee9b0" href="' + live + '">Open the served view</a>' +
+          " to have it refresh by itself.";
+      })
+      // Directive 12: a page that fails to load its data must say so. Silence
+      // here would look exactly like an empty graph.
+      .catch(function (err) { offline((err && err.message) || err); });
+  }
+
+  probe(0);
+})();
+</script>
+</body>
+</html>

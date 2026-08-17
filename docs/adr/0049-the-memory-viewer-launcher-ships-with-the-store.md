@@ -97,3 +97,104 @@ probe, not the outcome, so it holds on any platform.
 
 **Both behaviours were proven, not assumed:** gitignoring the launcher and
 baking an absolute path into it each fail the tests that claim to catch them.
+
+## Amendment (2026-08-16) — the page assets ship with the launcher; only rebuildable artifacts stay untracked
+
+*Appended, never rewritten: this ADR is immutable by convention. This section
+amends **Decision §2** only. Decisions §1 and §3–§6, the Context and the
+Consequences stand exactly as written.*
+
+**What moved.** Decision §2 drew the tracking line at *source vs generated*: the
+launcher ships, the page beside it is output and stays ignored. The user's
+2026-08-16 ruling moves the line to *shipped vs rebuildable*, on the ground that
+a clone should carry **the whole viewer** and not a launcher for a page that is
+not there. The three page assets — `graph-view.html`, `graph-view.css`,
+`graph-view.js` — are now tracked files of this repository, beside the launcher
+and the store they open.
+
+**1. What is tracked.** `memory/memory-view.cmd` and `memory/memory-view.sh`
+(unchanged, Decision §1) **plus** `memory/graph-view.html`,
+`memory/graph-view.css`, `memory/graph-view.js`. Two ignore rules had to go, not
+one: the three lines in `memory/.gitignore`, and an unanchored `graph-view.html`
+pattern in `.gitignore`'s "(c) Memory-graph derived files" section. `git ls-files`
+confirmed no other file in the repository bears that name, so removing the root
+pattern narrows nothing else.
+
+**2. What stays untracked — and why the residue is exactly this.** Only
+artifacts a scan rebuilds from the logs, plus the halves of the store that are
+not this store's records: `graph/index.db`, `graph/index.db-wal`,
+`graph/index.db-shm`, `graph/scan-state.json`, `graph/.lock`, and `insight/`,
+`cards/`, `promotions.jsonl`, `archive/`. Nine lines; that is the whole of
+`memory/.gitignore` now.
+
+**3. No rendered snapshot is committed, and the live server is untouched.** The
+tracked `graph-view.html` is the **empty-payload template**, not a photograph of
+this store. The fidelity analysis run before the commit (byte-compare against the
+container's copy-fidelity originals under `scripts/memory-viewer/`, 2026-08-16)
+found `graph-view.css` (16,576 bytes) and `graph-view.js` (119,834 bytes)
+**SHA-256 identical** to their originals, and `graph-view.html` divergent from
+`template.html` (9,645 vs 6,142 bytes) for one fully accounted reason: the region
+up to the `/*__GRAPH_DATA__*/` placeholder is byte-identical to the template's
+prefix, and the placeholder carries exactly one substitution — an **empty**
+payload (`{"edges": [], "git": {"commits": [], "state": "off"}, "meta": {},
+"nodes": []}`) followed by the `OFFLINE_PAGE` probe/banner script defined
+verbatim in the container's `memory_views.py`. Not one node, edge or commit is
+baked in. The 12 MB page the Context paragraph above warns about is still
+refused; ~9 KB of template is not that page. The viewer **server** — the port
+walk, the per-request re-read of the logs and of `git log`, the auto-shutdown
+when the last tab closes — was not touched by any part of this change, and
+Decision §3 (one implementation, N wirings, no copy of the server here) is
+unaffected: tracking a byte-identical copy of an asset is a wiring, not a second
+implementation.
+
+**4. The no-container behaviour is unchanged, and was verified rather than
+assumed (2026-08-16).** A single-branch clone was taken to a temporary directory
+with no orchestration container within four levels above it, and the shell
+launcher was run there. It printed the documented message — naming
+`graph-view.html` beside it as "a TEMPLATE that fills itself from a running
+viewer, and holds no records of its own" — started **no** server, and exited
+**2**. Decision §5 holds verbatim. (The `.cmd` variant could not be driven
+non-interactively from that shell; its source was compared line-by-line against
+the `.sh` instead, and the two mirror each other.)
+
+**5. The store-ensure engine was aligned by a RECORDED container-side fork, not
+by a local workaround.** The container's `memory_graph.py` hard-coded the three
+`graph-view.*` names into the ignore lines every store receives, and
+`Store.ensure()` is append-only; because this repository's own `pre-commit` hook
+runs `memory_graph.py refresh` whenever a staged path falls outside `memory/`,
+the first WP-7 commit had the three lines re-appended **into it** by the hook.
+The engine now splits its base list: the five derived artifacts are shared by
+every store, the container list adds the three viewer assets, and the
+**product-role** list adds only the four store-half entries — so a product store
+no longer receives them at all. That divergence from the skill original is
+declared, not drift: it is recorded in the container's fork registry
+(`design-docs/system/redistribution-forks.json`) under the qualified requirement
+id **`20260816-decision-batch:R-10`**, carrying the forked and base SHA-256, the
+base version `2.4.0-20260804`, the grounding, and the re-port duty. `ensure()`
+stays append-only by design, so the lines already committed here were removed
+once more by hand; the read-back of the committed *and* post-commit working-tree
+`memory/.gitignore` (nine lines, byte-identical) is the proof that the engine no
+longer puts them back.
+
+**6. The guarding tests live in the `tests/memory_view/` root** (Decision §6
+unchanged). `test_viewer_assets_tracked.py` is a companion to the launcher
+module, not a duplicate: it covers the three page assets, and it checks with
+`git check-ignore --no-index` deliberately — the **default**, index-aware check
+reports a tracked path as *not ignored* however well a pattern matches it, and
+would therefore have missed the exact regression in §5. Both directions are
+exercised against a throwaway repository under `tmp_path`, so the checker's
+directionality is proved without mutating this repository at review time. The
+module also *parses* both launchers for the repo-relative files they name at run
+time and asserts each is tracked, rather than hardcoding the expected set. No
+test spawns a server.
+
+**What this costs, stated plainly.** Three more tracked files that a regeneration
+can turn into a diff nobody wrote — the objection Decision §2 raised, and it does
+not evaporate. It is bounded instead: the CSS and JS are byte-identical copies of
+container originals and move only when the original moves (copy fidelity governs
+them, and the check that compares content is what would catch it); the HTML holds
+no records, so it moves only when the template does. That bound is what made the
+line movable at all — the page stopped being a photograph before this amendment
+was possible.
+
+**Status: Accepted (amended 2026-08-16).**
