@@ -32,12 +32,78 @@ from dataclasses import dataclass
 from typing import Tuple, Union
 
 __all__ = [
+    "EditTraceError",
+    "EditTarget",
     "MetadataTrace",
     "LayerAttrTrace",
     "LayerOrderTrace",
     "RasterTrace",
     "EditTrace",
 ]
+
+
+class EditTraceError(ValueError):
+    """Raised by :class:`EditTarget` on an invalid frame/layer target.
+
+    Domain exception for this leaf module (``logic-scaffold`` convention). Kept
+    here rather than imported from :mod:`pixelart_creator.logic.convergence` —
+    this module is a stdlib-only leaf (module docstring) and must not import it.
+    """
+
+
+@dataclass(frozen=True)
+class EditTarget:
+    """Where an edit landed: the frame it was made in and the layer track it hit.
+
+    A **required** value object (plan §8.2, task T26) — replaces the earlier
+    ``frame_index: int = 0, layer_id: int = 0`` defaulted pair, which admitted a
+    half-threaded state worse than no threading at all (plan §8.1): ``layer_id
+    = 0`` is the documented *unminted* sentinel
+    (``logic/document.py:173-189``, ``:260-273``, ``:1729``) that
+    ``logic/convergence.py:139-140``/``:205-206`` and
+    ``logic/branch_recording.py`` both reject outright, while a defaulted
+    ``frame_index`` paired with a genuinely correct ``layer_id`` (a cross-frame
+    track id) resolves to a *real* node in frame 0 and mints a well-formed,
+    wrong ``RasterOp``.
+
+    The validation rule below **duplicates**, rather than imports,
+    ``convergence.py``'s ``layer_id > 0`` check — exactly as this module's own
+    ``LayerAttrValue`` is already duplicated from ``convergence.LayerAttrValue``
+    — because this module must stay a stdlib-only leaf (module docstring;
+    plan §3.1's cycle proof).
+
+    Attributes:
+        frame_index: The frame the edit landed in. Must be ``>= 0``.
+        layer_id: The stable cross-frame track id of the target layer. Must be
+            ``> 0`` — ``0`` is the *unminted* sentinel and is refused here so it
+            can never be laundered into a trace.
+
+    Raises:
+        EditTraceError: If ``frame_index < 0``, if ``layer_id <= 0``, or if
+            either is a ``bool`` (a ``bool`` is an ``int`` subclass in Python;
+            an accepted ``True`` would silently become ``1``).
+    """
+
+    frame_index: int
+    layer_id: int
+
+    def __post_init__(self) -> None:
+        """Reject a `bool`, a negative `frame_index`, or a non-positive `layer_id`."""
+        if isinstance(self.frame_index, bool) or isinstance(self.layer_id, bool):
+            raise EditTraceError(
+                "EditTarget.frame_index/layer_id must be int, not bool "
+                f"(got frame_index={self.frame_index!r}, layer_id={self.layer_id!r})"
+            )
+        if self.frame_index < 0:
+            raise EditTraceError(
+                f"EditTarget.frame_index must be >= 0, got {self.frame_index!r}"
+            )
+        if self.layer_id <= 0:
+            raise EditTraceError(
+                "EditTarget.layer_id must be > 0 (0 is the unminted sentinel, "
+                f"logic/document.py:264); got {self.layer_id!r}"
+            )
+
 
 #: A structured layer-attribute value. Duplicated from
 #: ``logic/convergence.LayerAttrValue`` rather than imported — this module is a
