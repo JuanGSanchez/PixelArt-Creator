@@ -36,14 +36,23 @@ from PySide6.QtWidgets import QGraphicsView, QMenu, QWidget
 
 from pixelart_creator.logic.color import BLACK, RGBA
 from pixelart_creator.logic.constants import (
+    DEFAULT_SNAP_TOLERANCE_PX,
     OPENGL_VIEWPORT_ENABLED,
     SCALE_FACTOR,
     ZOOM_MAX,
     ZOOM_PRESET_STOPS,
 )
+from pixelart_creator.logic.guides import (
+    Guide,
+    GuideOrientation,
+    screen_tolerance_to_doc,
+)
 from pixelart_creator.logic.selection import SelectionMask
 from pixelart_creator.logic.symmetry import SymmetryAxis
 from pixelart_creator.ui.canvas_scene import CanvasScene
+from pixelart_creator.ui.guides_rulers_overlay import Guides_Rulers_Overlay
+from pixelart_creator.ui.iso_grid_overlay import Iso_Grid_Overlay
+from pixelart_creator.ui.perspective_grid_overlay import Perspective_Grid_Overlay
 from pixelart_creator.ui.tools.base import Tool, ToolContext
 from pixelart_creator.ui.tools.floating_move import FloatingMoveController
 
@@ -65,6 +74,9 @@ class Canvas_View(QGraphicsView):
     #: Emitted ``(is_active, is_copy)`` when a floating move/copy state changes
     #: (drives the shell's copy-mode status hint, REQ-P2-UI-032/-036).
     floatingStateChanged = Signal(bool, bool)
+    #: Emitted when a paint/mask-edit stroke is refused because the active
+    #: layer is locked (D-05); the shell surfaces a "layer is locked" notice.
+    lockedLayerEditRejected = Signal()
 
     def __init__(
         self,
@@ -100,10 +112,26 @@ class Canvas_View(QGraphicsView):
         self._floating_controller.state_changed = self._emit_floating_state
         # Phase-2 drawing modes / active selection (bound into each ToolContext).
         self._symmetry_axis: SymmetryAxis = SymmetryAxis.NONE
+        #: Live mirror-centre override fed to ``logic.symmetry.mirror`` via each
+        #: stroke's :class:`ToolContext` (D-28/CF-93); ``None`` keeps the shipped
+        #: canvas-centre default. Fed by the shell's Symmetry_Panel.
+        self._symmetry_pos: Optional[Tuple[int, int]] = None
         self._pixel_perfect = False
         self._tiled = False
         self._snap = False
         self._selection: Optional[SelectionMask] = None
+        # Phase-9 aid seams consulted at the cursor level (D-08 precedence: guides
+        # > perspective > iso > rectangular; D-11 guide drag/remove). Bound by the
+        # shell per active tab (main_window._create_tab_aids /
+        # _bind_visual_aids_to_active); None until a tab has bound its aids.
+        self._guides_overlay: Optional[Guides_Rulers_Overlay] = None
+        self._iso_overlay: Optional[Iso_Grid_Overlay] = None
+        self._perspective_overlay: Optional[Perspective_Grid_Overlay] = None
+        #: The guide currently being dragged (D-11), or ``None``.
+        self._guide_drag: Optional[Guide] = None
+        #: Raw (pre-snap) scene point at the start of the current stroke — the
+        #: perspective direction-lock anchor (``logic.grids.perspective_snap``).
+        self._stroke_anchor: Optional[Tuple[float, float]] = None
 
         self.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
@@ -200,6 +228,22 @@ class Canvas_View(QGraphicsView):
         """Toggle the per-pixel grid overlay (delegates to the scene, CL-4)."""
         self._scene.set_grid_enabled(enabled)
 
+    # -- Phase-9 aid seams (D-08/D-09/D-11) -------------------------------
+
+    def set_guides_overlay(self, overlay: Optional[Guides_Rulers_Overlay]) -> None:
+        """Bind the active tab's guides/rulers controller (D-08 cursor snap, D-11)."""
+        self._guides_overlay = overlay
+
+    def set_iso_overlay(self, overlay: Optional[Iso_Grid_Overlay]) -> None:
+        """Bind the active tab's isometric-grid overlay (D-08 cursor snap)."""
+        self._iso_overlay = overlay
+
+    def set_perspective_overlay(
+        self, overlay: Optional[Perspective_Grid_Overlay]
+    ) -> None:
+        """Bind the active tab's perspective-grid overlay (D-08 cursor snap)."""
+        self._perspective_overlay = overlay
+
     # -- Phase-2 drawing modes -------------------------------------------
 
     def set_symmetry_axis(self, axis: SymmetryAxis) -> None:
@@ -209,6 +253,14 @@ class Canvas_View(QGraphicsView):
     def symmetry_axis(self) -> SymmetryAxis:
         """Return the active symmetry axis."""
         return self._symmetry_axis
+
+    def set_symmetry_pos(self, pos: Optional[Tuple[int, int]]) -> None:
+        """Set the mirror-centre override (D-28); ``None`` = canvas centre."""
+        self._symmetry_pos = pos
+
+    def symmetry_pos(self) -> Optional[Tuple[int, int]]:
+        """Return the active mirror-centre override, or ``None``."""
+        return self._symmetry_pos
 
     def set_pixel_perfect(self, enabled: bool) -> None:
         """Toggle pixel-perfect elbow cleaning for freehand strokes (P2-UI-012)."""
@@ -361,7 +413,44 @@ class Canvas_View(QGraphicsView):
 
     def _pixel_at(self, event: QMouseEvent) -> Coord:
         pt = self.mapToScene(event.position().toPoint())
-        return math.floor(pt.x()), math.floor(pt.y())
+        snapped = self._snap_scene_point(pt)
+        return math.floor(snapped.x()), math.floor(snapped.y())
+
+    def _snap_scene_point(self, point: QPointF) -> QPointF:
+        """Resolve the cursor through the winning Phase-9 aid's snap (D-08).
+
+        Ruled precedence (D-08 answer): the first VISIBLE **and** ENABLED aid in
+        ``guides > perspective > iso`` order owns the cursor for this call — a
+        hidden/disabled aid never participates, and no more than one aid ever
+        snaps a given point. When no aid is visible+enabled the point is
+        returned unchanged, so the caller's existing floor-to-pixel behaviour
+        (the rectangular grid, the precedence's last rank) is exactly the prior,
+        untouched behaviour. No snap/tick geometry is computed here — every
+        branch delegates to the aid's own ``logic/``-backed ``snap()`` (Article I).
+        """
+        guides = self._guides_overlay
+        if guides is not None and guides.is_enabled():
+            sx, sy = guides.snap(point.x(), point.y())
+            return QPointF(sx, sy)
+        perspective = self._perspective_overlay
+        if perspective is not None and perspective.isVisible():
+            anchor = self._stroke_anchor or (point.x(), point.y())
+            tol_doc = screen_tolerance_to_doc(DEFAULT_SNAP_TOLERANCE_PX, self._zoom)
+            snapped = perspective.snap(point.x(), point.y(), anchor, tol_doc)
+            return point if snapped is None else QPointF(*snapped)
+        iso = self._iso_overlay
+        if iso is not None and iso.isVisible():
+            sx, sy = iso.snap(point.x(), point.y())
+            return QPointF(sx, sy)
+        return point
+
+    def _hit_test_guide(self, point: QPointF) -> Optional[Guide]:
+        """Return the guide within snap tolerance of ``point``, if any (D-11)."""
+        overlay = self._guides_overlay
+        if overlay is None or not overlay.is_enabled():
+            return None
+        tol_doc = screen_tolerance_to_doc(DEFAULT_SNAP_TOLERANCE_PX, self._zoom)
+        return overlay.overlay_item().guide_at(point.x(), point.y(), tol_doc)
 
     def _make_context(self) -> ToolContext:
         return ToolContext(
@@ -374,7 +463,7 @@ class Canvas_View(QGraphicsView):
             selection=self._selection,
             set_selection=self.set_selection,
             symmetry_axis=self._symmetry_axis,
-            symmetry_pos=None,
+            symmetry_pos=self._symmetry_pos,
             pixel_perfect=self._pixel_perfect,
             tiled=self._tiled,
             snap=self._snap,
@@ -400,14 +489,30 @@ class Canvas_View(QGraphicsView):
             self._dispatch_menu(event)
             event.accept()
             return
+        if button == Qt.MouseButton.LeftButton:
+            scene_pt = self.mapToScene(event.position().toPoint())
+            guide_hit = self._hit_test_guide(scene_pt)
+            if guide_hit is not None:
+                # A press on an existing guide starts a drag-to-move (D-11); the
+                # guides aid owns the gesture instead of the active paint tool.
+                self._guide_drag = guide_hit
+                event.accept()
+                return
         if button == Qt.MouseButton.LeftButton and self._tool is not None:
             # A locked or reference active layer rejects paint (P4-UI-004/-010);
-            # the guard lives in the scene (it knows the active layer/mask).
+            # the guard lives in the scene (it knows the active layer/mask). A
+            # rejection creates no undo entry — the tool is never armed below.
             if not self._scene.is_active_editable():
+                if self._scene.active_layer().locked:
+                    self.lockedLayerEditRejected.emit()
                 event.accept()
                 return
             self._ctx = self._make_context()
             self._ctx.modifiers = event.modifiers()
+            # The raw (pre-snap) press point anchors a perspective direction-lock
+            # for the rest of this stroke (D-08; logic.grids.perspective_snap).
+            raw_pt = self.mapToScene(event.position().toPoint())
+            self._stroke_anchor = (raw_pt.x(), raw_pt.y())
             x, y = self._pixel_at(event)
             self._drawing = True
             self._tool.on_press(x, y, self._ctx)
@@ -416,7 +521,7 @@ class Canvas_View(QGraphicsView):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
-        """Continue an active pan or an active paint drag, tracking the cursor."""
+        """Continue an active pan, guide drag, or paint drag, tracking the cursor."""
         if self._panning:
             delta = event.position().toPoint() - self._pan_origin
             self._pan_origin = event.position().toPoint()
@@ -424,6 +529,10 @@ class Canvas_View(QGraphicsView):
             vbar = self.verticalScrollBar()
             hbar.setValue(hbar.value() - delta.x())
             vbar.setValue(vbar.value() - delta.y())
+            event.accept()
+            return
+        if self._guide_drag is not None:
+            self._update_guide_drag(self.mapToScene(event.position().toPoint()))
             event.accept()
             return
         if self._drawing and self._tool is not None and self._ctx is not None:
@@ -436,6 +545,17 @@ class Canvas_View(QGraphicsView):
             return
         super().mouseMoveEvent(event)
 
+    def _update_guide_drag(self, point: QPointF) -> None:
+        """Move the in-drag guide to ``point`` on its own axis (D-11)."""
+        overlay = self._guides_overlay
+        guide = self._guide_drag
+        if overlay is None or guide is None:
+            return
+        position = (
+            point.x() if guide.orientation is GuideOrientation.VERTICAL else point.y()
+        )
+        self._guide_drag = overlay.overlay_item().move_guide(guide, position)
+
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         """End an active pan, or commit the active paint stroke on release."""
         if self._panning and event.button() in (
@@ -444,6 +564,10 @@ class Canvas_View(QGraphicsView):
         ):
             self._panning = False
             self.viewport().unsetCursor()
+            event.accept()
+            return
+        if self._guide_drag is not None and event.button() == Qt.MouseButton.LeftButton:
+            self._finish_guide_drag(self.mapToScene(event.position().toPoint()))
             event.accept()
             return
         if (
@@ -457,19 +581,54 @@ class Canvas_View(QGraphicsView):
             self._tool.on_release(x, y, self._ctx)
             self._drawing = False
             self._ctx = None
+            self._stroke_anchor = None
             event.accept()
             return
         super().mouseReleaseEvent(event)
+
+    def _finish_guide_drag(self, point: QPointF) -> None:
+        """End the guide drag: drop it if released off-canvas (D-11).
+
+        Drag-off-canvas removes the guide through the overlay's PUBLIC
+        ``remove_guide`` (never a private path); released on-canvas simply
+        leaves it at the last :meth:`_update_guide_drag` position.
+        """
+        overlay = self._guides_overlay
+        guide = self._guide_drag
+        self._guide_drag = None
+        if overlay is None or guide is None:
+            return
+        if not self.sceneRect().contains(point):
+            overlay.overlay_item().remove_guide(guide)
 
     # -- right-click seam (CL-8) -----------------------------------------
 
     def _dispatch_menu(self, event: QMouseEvent) -> None:
         x, y = self._pixel_at(event)
         self.rightClicked.emit(x, y)
+        scene_pt = self.mapToScene(event.position().toPoint())
+        guide_hit = self._hit_test_guide(scene_pt)
+        if guide_hit is not None:
+            # Context-action removal gesture (D-11), an alternative to
+            # drag-off-canvas — both reach the overlay's PUBLIC remove_guide.
+            self._show_guide_context_menu(guide_hit, event.globalPosition().toPoint())
+            return
         if self._menu_hook is not None:
             self._menu_hook(x, y)
             return
         self._show_placeholder_menu(event.globalPosition().toPoint())
+
+    def _show_guide_context_menu(self, guide: Guide, global_pos: QPoint) -> None:
+        """Offer to remove ``guide`` (the D-11 context-action removal gesture)."""
+        overlay = self._guides_overlay
+        menu = QMenu(self)
+        remove_action = menu.addAction(self.tr("Remove guide"))
+        remove_action.setEnabled(overlay is not None)
+        if overlay is not None:
+            remove_action.triggered.connect(
+                lambda: overlay.overlay_item().remove_guide(guide)
+            )
+        menu.exec(global_pos)
 
     def _show_placeholder_menu(self, global_pos: QPoint) -> None:
         """Phase-1 placeholder menu — the colour hub is deferred to Phase 3."""

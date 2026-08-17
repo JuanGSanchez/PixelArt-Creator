@@ -90,6 +90,39 @@ class Guides_Overlay(QGraphicsItem):
             self._guides.remove(guide)
             self.update()
 
+    def guide_at(self, x: float, y: float, tolerance_doc: float) -> Optional[Guide]:
+        """Return the nearest guide within ``tolerance_doc`` of ``(x, y)`` (D-11).
+
+        Only the guide's own axis is compared (a ``VERTICAL`` guide's ``x``, a
+        ``HORIZONTAL`` guide's ``y``), so any point along the guide's full length
+        hits it — the drag-anywhere-on-the-line gesture. ``None`` when no guide
+        is within tolerance; the nearest wins on multiple hits (deterministic).
+        """
+        best: Optional[Guide] = None
+        best_d: Optional[float] = None
+        for guide in self._guides:
+            value = x if guide.orientation is GuideOrientation.VERTICAL else y
+            d = abs(value - guide.position)
+            if d <= tolerance_doc and (best_d is None or d < best_d):
+                best = guide
+                best_d = d
+        return best
+
+    def move_guide(self, guide: Guide, position: float) -> Guide:
+        """Replace ``guide`` with one at ``position`` on the same axis (D-11 drag).
+
+        Guides are immutable (:class:`Guide` is frozen), so a move is a
+        remove-then-add; returns the new stored :class:`Guide` so the caller
+        (the live drag) keeps tracking the correct instance. Safe even if
+        ``guide`` is no longer stored (the new guide is still appended).
+        """
+        if guide in self._guides:
+            self._guides.remove(guide)
+        moved = Guide(orientation=guide.orientation, position=float(position))
+        self._guides.append(moved)
+        self.update()
+        return moved
+
     def clear_guides(self) -> None:
         """Remove every guide."""
         if self._guides:

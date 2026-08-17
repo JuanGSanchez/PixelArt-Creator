@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from pixelart_creator.logic.sync_state import SyncState, compute_sync_state
 from pixelart_creator.logic.version_history import CloudVersion
 
 #: Column order of the version tree (presentation-only layout, not a domain value).
@@ -41,6 +42,11 @@ _COL_SIZE = 2
 _COL_PINNED = 3
 _COL_PARENT = 4
 
+#: QSS role-selector property (never a hard-coded colour): the status label carries
+#: the computed :class:`SyncState` as a dynamic property so BOTH themes can style it
+#: by role (``QLabel[syncState="diverged"]`` etc.) — see D-13.
+_SYNC_STATE_PROPERTY = "syncState"
+
 
 class Version_History_Browser(QDialog):
     """List ordered cloud versions and let the user restore one (REQ-P10-UI-002)."""
@@ -49,18 +55,28 @@ class Version_History_Browser(QDialog):
         self,
         versions: Sequence[CloudVersion],
         parent: Optional[QWidget] = None,
+        local_version_id: Optional[str] = None,
     ) -> None:
         """Build the browser over an already-fetched, ordered ``versions`` list.
 
         The versions are fetched off the GUI thread by the caller and handed in
         here (this widget never touches the port), so opening the browser cannot
-        freeze the UI (REQ-P10-UI-005).
+        freeze the UI (REQ-P10-UI-005). ``local_version_id`` — the remote
+        ``version_id`` the active tab last synced to, or ``None`` — is passed
+        straight into the read-only, Qt-free
+        :func:`~pixelart_creator.logic.sync_state.compute_sync_state` (D-13) to
+        drive the status line; this widget performs no sync-state math itself.
         """
         super().__init__(parent)
         self._versions: tuple[CloudVersion, ...] = tuple(versions)
+        self._sync_state: SyncState = compute_sync_state(local_version_id, versions)
 
         self._intro = QLabel(self)
         self._intro.setWordWrap(True)
+
+        self._status = QLabel(self)
+        self._status.setWordWrap(True)
+        self._status.setProperty(_SYNC_STATE_PROPERTY, self._sync_state.value)
 
         self._tree = QTreeWidget(self)
         self._tree.setColumnCount(5)
@@ -87,6 +103,7 @@ class Version_History_Browser(QDialog):
 
         layout = QVBoxLayout(self)
         layout.addWidget(self._intro)
+        layout.addWidget(self._status)
         layout.addWidget(self._tree, 1)
         layout.addWidget(self._detail)
         layout.addWidget(self._buttons)
@@ -157,6 +174,18 @@ class Version_History_Browser(QDialog):
             .replace("%3", str(version.created_marker))
         )
 
+    # -- sync-state status line (D-13) -------------------------------------
+
+    def _sync_status_text(self) -> str:
+        """Return the tr()-wrapped status text for the computed :class:`SyncState`."""
+        if self._sync_state is SyncState.UP_TO_DATE:
+            return self.tr("Up to date with the cloud.")
+        if self._sync_state is SyncState.LOCAL_AHEAD:
+            return self.tr("Local changes have not been saved to the cloud yet.")
+        if self._sync_state is SyncState.REMOTE_AHEAD:
+            return self.tr("A newer version exists in the cloud.")
+        return self.tr("Local and cloud history have diverged.")
+
     # -- i18n -------------------------------------------------------------
 
     def _retranslate(self) -> None:
@@ -167,6 +196,8 @@ class Version_History_Browser(QDialog):
                 "version in a new tab — your current work is not overwritten."
             )
         )
+        self._status.setText(self._sync_status_text())
+        self._status.setAccessibleName(self.tr("Cloud sync status"))
         self._tree.setHeaderLabels(
             [
                 self.tr("Version"),

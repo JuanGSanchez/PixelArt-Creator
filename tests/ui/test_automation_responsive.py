@@ -22,9 +22,9 @@ def _gate_engine(monkeypatch, gate: threading.Event) -> None:
     """Hold the WORKER thread inside the Qt-free dispatcher until ``gate`` is set."""
     real = automation_worker.scripting.dispatch
 
-    def _slow(document, ops):
+    def _slow(document, ops, on_target=None):
         gate.wait(timeout=5.0)  # blocks the worker thread, not the GUI thread
-        return real(document, ops)
+        return real(document, ops, on_target=on_target)
 
     monkeypatch.setattr(automation_worker.scripting, "dispatch", _slow)
 

@@ -212,7 +212,11 @@ def schema_for(name: str) -> ParamSchema:
     return registered.schema
 
 
-def dispatch(document: Document, ops: Sequence[Op]) -> Command:
+def dispatch(
+    document: Document,
+    ops: Sequence[Op],
+    on_target: Optional[Callable[[int, int], None]] = None,
+) -> Command:
     """Validate + apply an ordered DSL ``ops`` list **atomically**; return one group.
 
     The single trusted interpreter (REQ-P8-LOGIC-001/-002/-003), guaranteeing the
@@ -247,6 +251,19 @@ def dispatch(document: Document, ops: Sequence[Op]) -> Command:
     Args:
         document: The subject document (mutated in place by the applied commands).
         ops: The ordered DSL steps (``0..MAX_SCRIPT_OPS``).
+        on_target: Optional per-target progress callback, additive and off by
+            default (``None`` preserves prior behaviour exactly — no new UI/CLI
+            caller is required to pass it). Invoked as ``on_target(index, total)``
+            immediately after each op's command has been applied in Phase 2 —
+            ``index`` is 1-based (``1..total``) and ``total`` is ``len(ops)``, so
+            a 3-op run reports ``(1, 3)``, ``(2, 3)``, ``(3, 3)``. **A raising
+            callback is caught and discarded, never re-raised and never treated
+            as an op failure**: this dispatcher's error philosophy reserves
+            ``except Exception`` + rollback for a *domain* factory/apply failure
+            (Phase 2's own contract, above), and a progress observer is not part
+            of that domain — letting an observer's bug trigger a rollback would
+            undo an otherwise-successful op because of an unrelated UI concern,
+            which is a worse defect than a dropped progress notification.
 
     Returns:
         A grouped, already-applied :class:`~pixelart_creator.logic.history.Command`.
@@ -278,11 +295,17 @@ def dispatch(document: Document, ops: Sequence[Op]) -> Command:
     # sub-commands in reverse so the document is left exactly as it started,
     # then re-raise — never a partial mutation left off the undo stack.
     applied: list[Command] = []
+    total = len(plan)
     try:
-        for registered, validated, seed in plan:
+        for index, (registered, validated, seed) in enumerate(plan, start=1):
             command = registered.factory(document, validated, seed)
             command.execute()
             applied.append(command)
+            if on_target is not None:
+                try:
+                    on_target(index, total)
+                except Exception:
+                    pass
     except Exception:
         for command in reversed(applied):
             command.undo()
