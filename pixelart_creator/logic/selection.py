@@ -32,6 +32,7 @@ from pixelart_creator.logic import history
 from pixelart_creator.logic.color import TRANSPARENT
 from pixelart_creator.logic.constants import MAGIC_WAND_DEFAULT_TOLERANCE
 from pixelart_creator.logic.drawing import flood_fill
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer, PixelValue
 
 Coord = Tuple[int, int]
@@ -377,7 +378,12 @@ def apply_masked(
 
 
 def move_selection(
-    buffer: PixelBuffer, mask: SelectionMask, dx: int, dy: int
+    buffer: PixelBuffer,
+    mask: SelectionMask,
+    dx: int,
+    dy: int,
+    *,
+    target: Optional[EditTarget],
 ) -> history.Command:
     """Lift the masked pixels and re-stamp them at ``(dx, dy)`` (floating cut).
 
@@ -385,6 +391,11 @@ def move_selection(
     the lifted pixels are re-stamped at the offset (clipped to bounds). Returns an
     unapplied reversible :class:`history.PixelEdit` (push with ``execute=True``);
     ``apply then undo`` restores the buffer exactly.
+
+    Args:
+        target: Where this edit landed, or ``None`` if unknown — **required,
+            no default** (plan §8.2, task T27); passed straight through to
+            :class:`history.PixelEdit`.
 
     Raises:
         SelectionError: On a dimension mismatch or non-int offsets.
@@ -412,7 +423,7 @@ def move_selection(
         old = buffer.get_pixel(cx, cy)
         if old != new:
             changes.append((cx, cy, old, new))
-    return history.PixelEdit(buffer, changes, label="move selection")
+    return history.PixelEdit(buffer, changes, label="move selection", target=target)
 
 
 # -- floating selection (non-destructive move / copy) ---------------------
@@ -634,7 +645,12 @@ def composite_preview(
 
 
 def copy_selection(
-    buffer: PixelBuffer, mask: SelectionMask, dx: int, dy: int
+    buffer: PixelBuffer,
+    mask: SelectionMask,
+    dx: int,
+    dy: int,
+    *,
+    target: Optional[EditTarget],
 ) -> history.Command:
     """Stamp the masked pixels at ``(dx, dy)`` **without** vacating the origin.
 
@@ -644,6 +660,11 @@ def copy_selection(
     unapplied reversible :class:`history.PixelEdit` (push with ``execute=True``);
     ``apply then undo`` restores the buffer exactly. A zero offset produces an
     empty (identity / no-op) command (CL-F8).
+
+    Args:
+        target: Where this edit landed, or ``None`` if unknown — **required,
+            no default** (plan §8.2, task T27); passed straight through to
+            :class:`history.PixelEdit`.
 
     Raises:
         SelectionError: On a dimension mismatch or non-int offsets.
@@ -664,11 +685,14 @@ def copy_selection(
         old = buffer.get_pixel(tx, ty)
         if old != new:
             changes.append((tx, ty, old, new))
-    return history.PixelEdit(buffer, changes, label="copy selection")
+    return history.PixelEdit(buffer, changes, label="copy selection", target=target)
 
 
 def commit_floating(
-    buffer: PixelBuffer, floating: FloatingSelection
+    buffer: PixelBuffer,
+    floating: FloatingSelection,
+    *,
+    target: Optional[EditTarget],
 ) -> history.Command:
     """Turn a floating selection into ONE reversible commit command.
 
@@ -680,14 +704,19 @@ def commit_floating(
     ``execute=True``); ``apply then undo = identity``. A zero-offset commit is an
     identity / no-op command (CL-F8).
 
+    Args:
+        target: Where this edit landed, or ``None`` if unknown — **required,
+            no default** (plan §8.2, task T27); passed straight through to
+            :func:`move_selection` / :func:`copy_selection`.
+
     Raises:
         SelectionError: On a dimension mismatch (propagated from the builder).
     """
     dx, dy = floating.offset
     mask = floating.mask()
     if floating.mode is FloatMode.MOVE:
-        return move_selection(buffer, mask, dx, dy)
-    return copy_selection(buffer, mask, dx, dy)
+        return move_selection(buffer, mask, dx, dy, target=target)
+    return copy_selection(buffer, mask, dx, dy, target=target)
 
 
 __all__ = [

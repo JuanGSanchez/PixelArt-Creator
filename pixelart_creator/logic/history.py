@@ -13,7 +13,7 @@ from typing import Callable, List, Optional, Tuple, Union
 
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.constants import CRDT_TILE_SIZE_PX
-from pixelart_creator.logic.edit_trace import EditTrace, RasterTrace
+from pixelart_creator.logic.edit_trace import EditTarget, EditTrace, RasterTrace
 from pixelart_creator.logic.pixel_buffer import PixelBuffer, PixelValue
 
 #: One recorded pixel change: ``(x, y, old_value, new_value)``.
@@ -58,17 +58,27 @@ class Command(abc.ABC):
 class PixelEdit(Command):
     """A batch of pixel changes on one buffer, replayable both ways.
 
-    ``frame_index``/``layer_id`` are **optional** and additive (``REQ-P10-UI-025``,
-    task T7): they default to ``0`` so every existing construction site (there
-    are a dozen across ``logic/`` and ``ui/tools/base.py``) keeps working
-    unmodified. A caller that knows the real target — the frame/layer this edit
-    actually landed on — should pass them so :meth:`edit_trace` reports the
-    correct tiles; **no task in this slice threads those real values through
-    the existing call sites**, which is recorded in the dispatch report as a
-    gap for AGT-01/AGT-05 rather than silently worked around here.
+    ``target`` is a **required** keyword argument (plan §8.2, task T27) — it
+    replaced the earlier additive ``frame_index: int = 0, layer_id: int = 0``
+    pair. That defaulted pair was worse than no threading at all (plan §8.1):
+    ``layer_id = 0`` is the documented *unminted* sentinel that
+    ``logic/convergence.py`` and ``logic/branch_recording.py`` both reject, so
+    every raster trace failed to mint; and because ``layer_id`` is a
+    cross-frame track id, a *correct* ``layer_id`` paired with a *defaulted*
+    ``frame_index`` resolved to a real node in frame 0, minting a well-formed
+    ``RasterOp`` naming the wrong frame with the wrong pixels. A required
+    argument makes a missing value a construction-time ``TypeError`` instead.
+
+    ``target=None`` is the **defensible, explicit** sentinel for a site that
+    genuinely lacks the context (no ``logic/`` factory knows its layer
+    intrinsically — a :class:`~pixelart_creator.logic.pixel_buffer.PixelBuffer`
+    does not know which layer it belongs to). :meth:`edit_trace` then returns
+    ``()``, the shipped honest-empty channel that surfaces as ``unaccounted``
+    under ``REQ-P10-LOGIC-009`` supervision — strictly better than a refusal
+    (raster) or a lie (frame 0).
     """
 
-    __slots__ = ("_buffer", "_changes", "label", "_frame_index", "_layer_id")
+    __slots__ = ("_buffer", "_changes", "label", "_target")
 
     def __init__(
         self,
@@ -76,19 +86,19 @@ class PixelEdit(Command):
         changes: List[PixelChange],
         label: str = "draw",
         *,
-        frame_index: int = 0,
-        layer_id: int = 0,
+        target: Optional[EditTarget],
     ) -> None:
         """Store the target `buffer`, the recorded `changes`, and the undo `label`.
 
-        ``frame_index``/``layer_id`` name the edit's target for
-        :meth:`edit_trace` (default ``0``, see the class docstring).
+        Args:
+            target: Where this edit landed (frame + layer track), or ``None``
+                if the caller genuinely does not know — **no default**, see
+                the class docstring.
         """
         self._buffer = buffer
         self._changes = changes
         self.label = label
-        self._frame_index = frame_index
-        self._layer_id = layer_id
+        self._target = target
 
     def __len__(self) -> int:
         """Return the number of recorded pixel changes."""
@@ -106,20 +116,26 @@ class PixelEdit(Command):
 
     def edit_trace(self) -> Tuple[EditTrace, ...]:
         """Return the tiles this edit's recorded extent covers, one :class:`RasterTrace`
-        per distinct ``(tile_x, tile_y)`` touched by ``changes`` (task T7).
+        per distinct ``(tile_x, tile_y)`` touched by ``changes`` (task T7/T27).
 
         Derived purely from the recorded ``(x, y)`` coordinates via
         ``CRDT_TILE_SIZE_PX`` — no tile is invented that the recorded extent did
         not touch, and no tile bytes travel in the trace (those are read from
         the live buffer at op-minting time). Deterministic, sorted order.
+
+        Returns ``()`` when ``target is None`` — the honest-empty channel (the
+        class docstring); a caller that did not know where this edit landed
+        must not have it guessed on its behalf.
         """
+        if self._target is None:
+            return ()
         tiles: set[Tuple[int, int]] = set()
         for x, y, _old, _new in self._changes:
             tiles.add((x // CRDT_TILE_SIZE_PX, y // CRDT_TILE_SIZE_PX))
         return tuple(
             RasterTrace(
-                frame_index=self._frame_index,
-                layer_id=self._layer_id,
+                frame_index=self._target.frame_index,
+                layer_id=self._target.layer_id,
                 tile_x=tile_x,
                 tile_y=tile_y,
             )
@@ -270,6 +286,7 @@ def record_edit(
     operation: Callable[[PixelBuffer], List[Tuple[int, int]]],
     *,
     label: str = "draw",
+    target: Optional[EditTarget],
 ) -> PixelEdit:
     """Run a drawing ``operation`` and capture it as a reversible :class:`PixelEdit`.
 
@@ -277,6 +294,12 @@ def record_edit(
     (the ``logic/drawing.py`` contract). A transient snapshot captures the old
     values so the resulting command stores only the touched pixels — not the
     whole buffer.
+
+    Args:
+        target: Where this edit landed (frame + layer track), or ``None`` if
+            the caller genuinely does not know — **required, no default**
+            (plan §8.2, task T27); passed straight through to
+            :class:`PixelEdit`, inventing nothing.
 
     Returns:
         A :class:`PixelEdit` already applied to ``buffer`` (push it with
@@ -294,4 +317,4 @@ def record_edit(
         new: Union[RGBA, int] = buffer.get_pixel(x, y)
         if old != new:
             changes.append((x, y, old, new))
-    return PixelEdit(buffer, changes, label=label)
+    return PixelEdit(buffer, changes, label=label, target=target)

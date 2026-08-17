@@ -34,6 +34,7 @@ from pixelart_creator.logic import history, perceptual
 from pixelart_creator.logic._rgba_unique import unique_rgba_counts, unique_rgba_inverse
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.constants import KMEANS_SEED, PALETTE_EXTRACT_DEFAULT_N
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.palette import Palette, PaletteError
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 from pixelart_creator.logic.selection import SelectionMask
@@ -280,12 +281,18 @@ def make_constraint_command(
     *,
     metric: str = "distance_sq",
     mask: Optional[SelectionMask] = None,
+    target: Optional[EditTarget],
 ) -> history.Command:
     """Build a reversible command constraining ``buffer`` onto ``palette``.
 
     Returns a :class:`history.PixelEdit` (returned **unapplied**) whose undo
     restores the prior pixels exactly (SC-L017-1). With a ``mask`` only masked
     pixels change.
+
+    Args:
+        target: Where this edit landed, or ``None`` if unknown — **required,
+            no default** (plan §8.2, task T27); passed straight through to
+            :class:`history.PixelEdit`.
 
     Raises:
         QuantizeError: If ``metric`` is unknown or ``buffer`` is not RGBA.
@@ -301,4 +308,6 @@ def make_constraint_command(
             new = constrained.get_pixel(x, y)
             if old != new:
                 changes.append((x, y, old, new))
-    return history.PixelEdit(buffer, changes, label="constrain to palette")
+    return history.PixelEdit(
+        buffer, changes, label="constrain to palette", target=target
+    )
