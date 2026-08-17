@@ -4,6 +4,8 @@ Every numeric tuning value used across ui/, logic/, and data/ is defined here
 and imported by name, so a change is made in exactly one place (S12, Dossier §1).
 """
 
+from typing import Optional, Tuple
+
 MAX_CANVAS_WIDTH = 7680  # 8K UHD width  (S1, F7)
 MAX_CANVAS_HEIGHT = 4320  # 8K UHD height (S1, F7)
 TILE_SIZE = 64  # viewport tile-culling tile edge, px (S1)
@@ -438,6 +440,59 @@ MAX_TIMELAPSE_FRAMES: int = 4096
 """Defensive cap on the number of frames in one timelapse session (Article VII;
 parallels the shipped :data:`MAX_FRAMES` / :data:`MAX_MACRO_STEPS` = 4096)
 (ADR-0024; spec REQ-P9-LOGIC-010/011; SC-L010-1)."""
+
+# --- Phase-9 historical-replay playback/payload tuning (D-12; Article II
+# single-source) ------------------------------------------------------------------
+
+TIMELAPSE_PLAYBACK_FPS_DEFAULT: int = CYCLE_DEFAULT_FPS
+"""Default historical-timelapse playback cadence, fps (DEP-12a).
+
+Reused rather than invented: :data:`CYCLE_DEFAULT_FPS` (=10, cited above) is the
+product's only shipped non-animation frame-sequence playback cadence, so the
+replay control surface (``ui/timelapse_controls.py``) plays back at the same
+default rate a user already knows from onion-skin/cycle playback (spec
+REQ-P9-LOGIC-018; DEP-12a)."""
+
+TIMELAPSE_PLAYBACK_SPEEDS: Tuple[float, ...] = (0.25, 0.5, 1.0, 2.0, 4.0)
+"""Selectable historical-timelapse playback-speed multipliers (DEP-12a).
+
+Doubling steps bracketing ``1.0``, bounded above so the fastest speed cannot
+outrun the frame budget: ``FPS_TARGET // CYCLE_DEFAULT_FPS = 60 // 10 = 6``, so
+``4.0`` is the largest doubling step below that bound and the low end (``0.25``)
+mirrors it. The derivation is the citation (spec REQ-P9-LOGIC-018; DEP-12a)."""
+
+TIMELAPSE_PAYLOAD_MAX_BYTES: Optional[int] = None
+"""UNVALUED until T22: no payload-size bound is enforced yet (DEP-12e; the
+value comes from the T19 campaign).
+
+Hard cap on one serialised ``.pixtimelapse`` schema-2 payload, bytes
+(REQ-P9-DATA-004; DEP-12e; Article II) — ruled ``Optional[int] = None`` rather
+than a placeholder ``int`` (plan §8.1, 2026-08-17 addendum, AGT-01 Ruling A):
+``sys.maxsize`` is type-``int``, so under the mypy-strict gate
+``size <= TIMELAPSE_PAYLOAD_MAX_BYTES`` would type-check and silently pass for
+**every** input, leaving a constant named ``..._MAX_BYTES``, a refusal path
+wired against it, and a green suite with **no bound in existence** — nothing
+in the artifact or the run would say so. Under ``Optional[int]`` that same
+comparison **fails to type-check**, forcing every consumer
+(``data/timelapse_io.py``) to handle the unvalued state explicitly with an
+explicit two-branch. ``sys.maxsize`` is also derived from the interpreter's
+word size and therefore platform-dependent, which Article II's single-source
+rule disqualifies on its own for this cross-platform product.
+
+**``None`` does not mean "refuse everything".** It means *no bound is
+configured, therefore no size refusal is performed, and that is stated* — an
+unvalued bound that refused would block the T19 campaign that must record,
+save, reopen and replay four points **before** the bound can exist (plan
+§5.2). While unvalued, no ``ui/`` surface may promise the user a size
+refusal will happen.
+
+Choosing a real bound before the campaign exists would be exactly the
+invented threshold Article II forbids. T22 values this from the T19
+measurement campaign
+(``design-docs/reports/perf-timelapse-payload-campaign-20260817.md``) and
+T21's ruling, narrows the annotation to ``int``, and deletes the ``None`` arm
+in ``data/timelapse_io.py`` — after T22, "no bound" must not be a
+representable state."""
 
 MAX_DOCUMENT_VIEWS: int = 8
 """Defensive cap on simultaneous views of one shared document (bounded UI
