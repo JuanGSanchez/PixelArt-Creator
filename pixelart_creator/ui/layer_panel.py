@@ -283,6 +283,9 @@ class Layer_Panel(QWidget):
     activeNodeChanged = Signal(object)
     #: Emitted when the "edit mask" toggle flips (route paint to the mask buffer).
     maskEditToggled = Signal(bool)
+    #: Emitted when a mask attach/remove/edit is refused because the target
+    #: node is locked (D-05); the shell surfaces a "layer is locked" notice.
+    lockedLayerEditRejected = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """Initialise the layer/group tree panel with no bound document."""
@@ -657,6 +660,11 @@ class Layer_Panel(QWidget):
         path = self._selected_path()
         node = self._selected_node()
         if doc is None or path is None or node is None:
+            return
+        if node.locked:
+            # D-05: mask attach/remove on a locked layer is rejected outright —
+            # no DocumentError, no command built, no undo entry (REQ-P4-LOGIC-010).
+            self.lockedLayerEditRejected.emit()
             return
         try:
             if node.mask is None:

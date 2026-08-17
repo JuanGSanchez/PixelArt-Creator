@@ -41,6 +41,36 @@ constructed or touched off the GUI thread.
 
 There is **no ``eval`` / ``exec``** here: the worker only *calls* the trusted,
 allow-listed logic engine — it never interprets plugin or script *content*.
+
+**Per-target progress (D-06, additive).** :class:`AutomationWorkerSignals` carries
+one new ``progress`` signal — ``(token, target_index, target_count, stage)`` —
+alongside the unchanged ``finished`` / ``failed`` / ``done`` signals;
+:class:`Automation_Controller` relays it (token-filtered, exactly like the other
+per-run signals) as ``targetProgress``. ``target_count`` is the number of DSL ops
+the run comprises (each dispatched op is one automation "target"), known upfront
+from the job's own op/macro list and carried on the job callable via
+:class:`_CountedJob` — no change to the base ``AutomationJob`` call contract
+(``job(cancel) -> Command``), so existing direct-call test seams
+(``job(threading.Event())``) are unaffected: :class:`_CountedJob` additionally
+accepts an *optional* ``on_target`` callback (default ``None``), so a caller that
+still invokes it with one positional argument gets the exact prior behaviour.
+``stage`` is a plain, untranslated token (``"running"`` / ``"complete"``) the
+consuming panel maps to a translated label; this module has no widget context to
+``tr()`` from.
+
+Since ``logic.scripting.dispatch`` / ``logic.macro.replay`` now accept an
+optional ``on_target(index, total)`` callback (AGT-03 follow-up, additive), the
+``job`` closures built by :func:`make_dispatch_job` / :func:`make_replay_job`
+thread it straight through, and :class:`Automation_Worker` supplies a closure
+that emits ``progress`` for every completed target *during* the run — true
+intra-run per-target progress, not just the run-start/run-complete boundary.
+The full per-run sequence is exactly: ``(0, N, "running")`` at run-start,
+``(1, N, "running")`` .. ``(N-1, N, "running")`` as each target but the last
+completes, then a single ``(N, N, "complete")`` when the job returns cleanly —
+the worker's ``on_target`` closure deliberately does not re-emit at ``index ==
+total`` (the run-complete emission below already reports ``N``/``N``, now with
+:data:`STAGE_COMPLETE`, so the two are reconciled into one final tick rather than
+firing twice for the same index).
 """
 
 from __future__ import annotations
@@ -68,6 +98,54 @@ AutomationJob = Callable[[threading.Event], Command]
 #: ``export_worker._EXPORT_SHUTDOWN_WAIT_MS``).
 _AUTOMATION_SHUTDOWN_WAIT_MS = 5000
 
+#: Fallback per-run target count for a job that carries no ``target_count``
+#: (e.g. an ad-hoc test double) — a single, indivisible target.
+_DEFAULT_TARGET_COUNT = 1
+
+#: The ``stage`` token :attr:`AutomationWorkerSignals.progress` reports when a run
+#: starts (D-06). Plain, untranslated — the consuming panel maps it to a label.
+STAGE_RUNNING = "running"
+#: The ``stage`` token reported when a run's job has produced its result.
+STAGE_COMPLETE = "complete"
+
+
+#: Per-target progress callback threaded into ``logic.scripting.dispatch`` /
+#: ``logic.macro.replay`` — ``on_target(index, total)``, called once per
+#: completed target during the run (1-based ``index``).
+_OnTarget = Callable[[int, int], None]
+
+#: A counted job's inner body: the cancel event plus the optional per-target
+#: progress callback the counted job threads straight through to the logic
+#: layer's ``on_target`` parameter.
+_CountedJobFn = Callable[[threading.Event, Optional[_OnTarget]], Command]
+
+
+class _CountedJob:
+    """Wrap a counted job body with its known, upfront per-run target count.
+
+    Preserves the base ``job(cancel) -> Command`` call contract (D-06's addition
+    is purely additive): :class:`Automation_Worker` reads ``target_count`` via
+    ``getattr(..., "target_count", 1)`` before calling the job, so a plain
+    function/lambda job (no such attribute, e.g. a test double) still runs
+    unchanged and simply reports a single target. ``__call__`` also accepts an
+    *optional* ``on_target`` callback (default ``None``) that is forwarded,
+    unchanged, to the wrapped body — so an existing direct call with a single
+    positional ``cancel`` argument (``job(threading.Event())``) is unaffected.
+    """
+
+    __slots__ = ("_fn", "target_count")
+
+    def __init__(self, fn: _CountedJobFn, target_count: int) -> None:
+        """Wrap ``fn``, recording ``target_count`` (clamped to at least one)."""
+        self._fn = fn
+        self.target_count = max(_DEFAULT_TARGET_COUNT, int(target_count))
+
+    def __call__(
+        self, cancel: threading.Event, on_target: Optional[_OnTarget] = None
+    ) -> Command:
+        """Delegate to the wrapped job body, forwarding ``on_target`` unchanged."""
+        return self._fn(cancel, on_target)
+
 
 def make_dispatch_job(document: Document, ops: Sequence[Op]) -> AutomationJob:
     """Build a Qt-free job that dispatches ``ops`` and leaves ``document`` unchanged.
@@ -82,15 +160,21 @@ def make_dispatch_job(document: Document, ops: Sequence[Op]) -> AutomationJob:
     performs the observable mutation by pushing it onto the undo stack. Any
     ``ScriptError`` propagates and is surfaced as a user-facing error (no mutation
     lands on the undo stack). There is **no ``eval``/``exec``** — ops are data.
+
+    ``on_target(index, total)`` (D-06 follow-up, optional) is threaded straight
+    through to :func:`pixelart_creator.logic.scripting.dispatch`'s own
+    ``on_target`` parameter, so :class:`Automation_Worker` can observe true
+    intra-run per-op progress instead of only the run-start/run-complete
+    boundary.
     """
     op_list = list(ops)
 
-    def job(_cancel: threading.Event) -> Command:
-        command = scripting.dispatch(document, op_list)
+    def job(_cancel: threading.Event, on_target: Optional[_OnTarget] = None) -> Command:
+        command = scripting.dispatch(document, op_list, on_target=on_target)
         command.undo()
         return command
 
-    return job
+    return _CountedJob(job, len(op_list))
 
 
 def make_replay_job(document: Document, macro: Macro) -> AutomationJob:
@@ -100,14 +184,18 @@ def make_replay_job(document: Document, macro: Macro) -> AutomationJob:
     one trusted dispatcher (deterministic, REQ-P8-LOGIC-005), and the resulting
     grouped command is reverted so the worker leaves no mutation behind; the GUI
     thread applies it via the undo stack (one undoable replay — REQ-P8-UI-002).
+
+    ``on_target(index, total)`` (D-06 follow-up, optional) is threaded straight
+    through to :func:`pixelart_creator.logic.macro.replay`'s own ``on_target``
+    parameter, which itself passes it on unchanged to the injected dispatcher.
     """
 
-    def job(_cancel: threading.Event) -> Command:
-        command = macro_engine.replay(document, macro)
+    def job(_cancel: threading.Event, on_target: Optional[_OnTarget] = None) -> Command:
+        command = macro_engine.replay(document, macro, on_target=on_target)
         command.undo()
         return command
 
-    return job
+    return _CountedJob(job, len(macro.ops))
 
 
 class AutomationWorkerSignals(QObject):
@@ -124,6 +212,11 @@ class AutomationWorkerSignals(QObject):
     failed = Signal(int, str)
     #: ``(token,)`` — the job ended (success, failure, or cancel); clears busy.
     done = Signal(int)
+    #: ``(token, target_index, target_count, stage)`` — per-target progress (D-06,
+    #: additive), fired once at run-start, once per completed target during the
+    #: run, and once at run-complete. See the module docstring for the exact
+    #: sequence and what ``target_count``/``stage`` mean.
+    progress = Signal(int, int, int, str)
 
 
 class Automation_Worker(QRunnable):
@@ -166,16 +259,45 @@ class Automation_Worker(QRunnable):
         message; because a failed ``dispatch`` leaves no returned command, nothing
         is pushed to the undo stack (the document is uncorrupted from the GUI's
         perspective — no automation edit landed).
+
+        Also emits the per-target ``progress`` signal (D-06, additive) at run-start
+        (``0``/``target_count``, :data:`STAGE_RUNNING`), once per completed target
+        *during* the run (``1``..``target_count - 1``/``target_count``,
+        :data:`STAGE_RUNNING` — true intra-run progress, threaded through to
+        ``logic.scripting.dispatch`` / ``logic.macro.replay`` via ``on_target``)
+        and, on a clean result, at run-complete
+        (``target_count``/``target_count``, :data:`STAGE_COMPLETE`). The
+        ``on_target`` closure deliberately does not re-emit at
+        ``index == target_count``: the run-complete emission below already
+        reports that exact index, so the two are reconciled into one final tick
+        instead of firing twice. ``target_count`` comes from the job's own
+        ``target_count`` attribute (``getattr(..., "target_count", 1)``) — see
+        :class:`_CountedJob`.
         """
+        total = max(
+            _DEFAULT_TARGET_COUNT,
+            int(getattr(self._job, "target_count", _DEFAULT_TARGET_COUNT)),
+        )
+
+        def on_target(index: int, count: int) -> None:
+            if index < total:
+                self._signals.progress.emit(self._token, index, total, STAGE_RUNNING)
+
         try:
             if self._cancel.is_set():
                 return
-            result = self._job(self._cancel)
+            self._signals.progress.emit(self._token, 0, total, STAGE_RUNNING)
+            job = self._job
+            if isinstance(job, _CountedJob):
+                result = job(self._cancel, on_target)
+            else:
+                result = job(self._cancel)
             if self._cancel.is_set():
                 # Superseded / cancelled: the job restored the document to its
                 # original state (apply ∘ undo = identity), so discarding the
                 # result leaks no mutation.
                 return
+            self._signals.progress.emit(self._token, total, total, STAGE_COMPLETE)
             self._signals.finished.emit(self._token, result)
         except Exception as exc:  # noqa: BLE001 - deliberate UI backstop
             # Any engine error (ScriptError / MacroError / ProcgenError /
@@ -205,6 +327,10 @@ class Automation_Controller(QObject):
     runFinished = Signal()
     #: ``(busy,)`` — whether an automation run is in flight (drives UI enablement).
     busyChanged = Signal(bool)
+    #: ``(target_index, target_count, stage)`` — token-filtered relay of the
+    #: current run's per-target progress (D-06, additive); a superseded run's
+    #: progress is dropped like every other per-run signal here.
+    targetProgress = Signal(int, int, str)
 
     def __init__(self, parent: Optional[QObject] = None) -> None:
         """Create the window-owned single-thread pool + carrier (not the global one)."""
@@ -217,6 +343,7 @@ class Automation_Controller(QObject):
         self._signals.finished.connect(self._on_finished)
         self._signals.failed.connect(self._on_failed)
         self._signals.done.connect(self._on_done)
+        self._signals.progress.connect(self._on_progress)
         self._cancel = threading.Event()
         self._token = 0
         self._busy = False
@@ -283,6 +410,7 @@ class Automation_Controller(QObject):
                 (signals.finished, self._on_finished),
                 (signals.failed, self._on_failed),
                 (signals.done, self._on_done),
+                (signals.progress, self._on_progress),
             ):
                 try:
                     signal.disconnect(slot)
@@ -309,6 +437,11 @@ class Automation_Controller(QObject):
         if token == self._token:
             self._set_busy(False)
             self.runFinished.emit()
+
+    @Slot(int, int, int, str)
+    def _on_progress(self, token: int, index: int, count: int, stage: str) -> None:
+        if token == self._token:
+            self.targetProgress.emit(index, count, stage)
 
     # -- helpers ----------------------------------------------------------
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Optional, Sequence, cast
+from typing import Callable, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 from PySide6.QtCore import QEvent, QRectF, QStandardPaths, Qt, QTimer
@@ -54,8 +54,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pixelart_creator.data.asset_cas import ContentAddressableStore
+from pixelart_creator.data.asset_cas import default_content_store
 from pixelart_creator.data.asset_revision_store import AssetRevisionStore
+from pixelart_creator.data.asset_storage import default_asset_root
 from pixelart_creator.data.favourites_io import (
     FavouritesIOError,
     load_favourites,
@@ -107,12 +108,14 @@ from pixelart_creator.logic.selection import (
     rect_mask,
 )
 from pixelart_creator.logic.symmetry import SymmetryAxis
+from pixelart_creator.logic.sync_state import SyncState, compute_sync_state
 from pixelart_creator.logic.tilemap import Tilemap
 from pixelart_creator.logic.tileset import Tileset, TilesetError
 from pixelart_creator.logic.transform import (
     TransformError,
     scale_nearest,
 )
+from pixelart_creator.logic.version_history import CloudVersion
 from pixelart_creator.ui.asset_library_actions import Asset_Library_Session
 from pixelart_creator.ui.asset_library_panel import Asset_Library_Panel
 from pixelart_creator.ui.asset_reuse_panel import Asset_Reuse_Panel
@@ -229,6 +232,7 @@ from pixelart_creator.ui.tools.dither_tool import (
 )
 from pixelart_creator.ui.transform_dialog import Scale_Dialog
 from pixelart_creator.ui.user_guide import User_Guide_Dialog
+from pixelart_creator.ui.vanishing_point_dialog import Vanishing_Point_Dialog
 from pixelart_creator.ui.version_history_browser import Version_History_Browser
 
 #: Stable cloud recovery-slot key for the working document when no named cloud
@@ -272,6 +276,11 @@ class _DocTab:
     # (other collaborators' cursors; never persisted). ``None`` until aids attach.
     live_cursors: Optional[Live_Cursors_Overlay] = None
     perspective_overlay: Optional[Perspective_Grid_Overlay] = None
+    # D-13: the remote CloudVersion.version_id this tab's document was last saved
+    # to / restored from, or None if it has no remote lineage yet. Feeds the
+    # read-only, Qt-free ``compute_sync_state`` for the Cloud menu / version
+    # browser status line — never computed here.
+    local_version_id: Optional[str] = None
 
 
 class Palette_Panel(QWidget):
@@ -411,6 +420,9 @@ class Main_Window(QMainWindow):
         self._active_tool_id = PencilTool.tool_id
         # Per-view Phase-2 drawing modes (applied to each tab's view).
         self._symmetry_axis: SymmetryAxis = SymmetryAxis.NONE
+        #: Live mirror-centre override from the Symmetry_Panel (D-28/CF-93);
+        #: ``None`` keeps the shipped canvas-centre default.
+        self._symmetry_axis_pos: Optional[Tuple[int, int]] = None
         self._pixel_perfect = False
         self._tiled = False
         self._snap = False
@@ -435,6 +447,9 @@ class Main_Window(QMainWindow):
 
         self._symmetry_panel = Symmetry_Panel(self)
         self._symmetry_panel.axisChanged.connect(self._on_symmetry_axis_changed)
+        self._symmetry_panel.axisPositionChanged.connect(
+            self._on_symmetry_axis_position_changed
+        )
         self._symmetry_dock = QDockWidget(self)
         self._symmetry_dock.setWidget(self._symmetry_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._symmetry_dock)
@@ -445,6 +460,7 @@ class Main_Window(QMainWindow):
         self._layer_panel = Layer_Panel(self)
         self._layer_panel.activeNodeChanged.connect(self._on_active_node_changed)
         self._layer_panel.maskEditToggled.connect(self._on_mask_edit_toggled)
+        self._layer_panel.lockedLayerEditRejected.connect(self._notify_layer_locked)
         self._layer_dock = QDockWidget(self)
         self._layer_dock.setWidget(self._layer_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._layer_dock)
@@ -651,6 +667,10 @@ class Main_Window(QMainWindow):
             self._procgen_panel,
         ):
             self._automation_controller.busyChanged.connect(panel.set_busy)
+            # D-06: live per-target progress on the same four panels' bars.
+            self._automation_controller.targetProgress.connect(
+                panel.set_target_progress
+            )
 
         # Phase-10 Slice A cloud (REQ-P10-UI-001..008): a window-owned
         # Cloud_Controller runs the Qt-free data/cloud port (put/get/list/autosave)
@@ -671,6 +691,14 @@ class Main_Window(QMainWindow):
         self._cloud_session.connectionChanged.connect(self._on_cloud_connection_changed)
         #: The cloud project id last saved to / opened from (drives version browse).
         self._cloud_project_id: Optional[str] = None
+        #: D-13: the most recently fetched remote version list (cached from the last
+        #: "open_list"/"versions"/"save" result) — feeds the read-only
+        #: ``compute_sync_state`` for the Cloud menu status line and the version
+        #: browser, without a network round trip on every tab switch.
+        self._cloud_last_versions: tuple = ()
+        #: D-13: the version id of a restore/recover in flight, consumed once the
+        #: reconstructed document lands in its new tab (see ``_on_cloud_succeeded``).
+        self._pending_restore_version_id: Optional[str] = None
         # Autosave timer (UI-003 support): every AUTOSAVE_INTERVAL_MS it asks the
         # PURE logic.autosave.should_autosave policy (elapsed as an INPUT, no clock
         # read here) whether to write the working document to the port's recovery
@@ -800,7 +828,7 @@ class Main_Window(QMainWindow):
         # the CAS blob count is unchanged (reference-not-copy). Every op is a
         # SYNCHRONOUS CAS/in-memory call — no worker / timer / poller (the Slice-1/2
         # precedent), so shutdown_prewarm is unchanged and nothing survives into GC.
-        self._asset_content_store = ContentAddressableStore()
+        self._asset_content_store = default_content_store(self._asset_root())
         self._asset_revision_store = AssetRevisionStore(self._asset_content_store)
         self._asset_version_browser = Asset_Version_Browser(self)
         self._asset_version_browser.set_session(self._asset_session)
@@ -917,6 +945,12 @@ class Main_Window(QMainWindow):
         self._cloud_versions_action = QAction(self)
         self._cloud_versions_action.setEnabled(False)
         self._cloud_versions_action.triggered.connect(self._on_cloud_versions)
+        # D-13: a disabled, non-actionable status entry surfacing the active tab's
+        # ``compute_sync_state`` (read-only, Qt-free) — never computed here, only
+        # displayed. Its accessible name doubles as the a11y label since a disabled
+        # QAction still exposes its text through the menu's accessibility tree.
+        self._cloud_status_action = QAction(self)
+        self._cloud_status_action.setEnabled(False)
         # Phase-10 Slice C: real-time connect/disconnect + a live-cursor overlay toggle.
         # Connect joins the active document's real-time relay; disconnect leaves it
         # (reconnectable). The overlay toggle is checkable, per-tab visibility.
@@ -1201,6 +1235,7 @@ class Main_Window(QMainWindow):
         self._cloud_menu.addAction(self._cloud_open_action)
         self._cloud_menu.addSeparator()
         self._cloud_menu.addAction(self._cloud_versions_action)
+        self._cloud_menu.addAction(self._cloud_status_action)
         # Slice-B collaboration surfaces, consistent with the existing Cloud menu:
         # dock-toggle actions for shared projects, comments, and presence (UI-009/
         # -010/-011).
@@ -1297,6 +1332,13 @@ class Main_Window(QMainWindow):
         self._perspective_action.setCheckable(True)
         self._perspective_action.toggled.connect(self._on_perspective_toggled)
         self._aids_menu.addAction(self._perspective_action)
+        # D-09: the minimal vanishing-point configuration dialog entry point —
+        # the perspective aid's natural home (same menu, right after its toggle).
+        self._perspective_config_action = QAction(self)
+        self._perspective_config_action.triggered.connect(
+            self._on_configure_perspective
+        )
+        self._aids_menu.addAction(self._perspective_config_action)
         self._aids_menu.addSeparator()
         self._new_view_action = QAction(self)
         self._new_view_action.triggered.connect(self._on_new_view)
@@ -1324,6 +1366,12 @@ class Main_Window(QMainWindow):
         record.guides_rulers = Guides_Rulers_Overlay(
             record.view, record.scene, scene_rect
         )
+        # D-08: bind this tab's aids so the view's cursor snap (guides >
+        # perspective > iso > rectangular) can consult their visible+enabled
+        # state; rebound to the active tab on every switch, below.
+        record.view.set_guides_overlay(record.guides_rulers)
+        record.view.set_iso_overlay(record.iso_overlay)
+        record.view.set_perspective_overlay(record.perspective_overlay)
         # Phase-10 Slice C: the ephemeral live-cursor overlay (other collaborators'
         # cursors, REQ-P10-UI-013). Above the aids (z ~9); hidden until real-time is
         # connected. No item cache — cursors move per frame (AGT-10 will profile).
@@ -1411,6 +1459,15 @@ class Main_Window(QMainWindow):
         if record is not None and record.perspective_overlay is not None:
             record.perspective_overlay.setVisible(enabled)
 
+    def _on_configure_perspective(self) -> None:
+        """Open the vanishing-point dialog for the active tab (D-09)."""
+        record = self.active_tab()
+        if record is None or record.perspective_overlay is None:
+            return
+        dialog = Vanishing_Point_Dialog(record.perspective_overlay.config(), self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            record.perspective_overlay.set_config(dialog.perspective_config())
+
     def _on_new_view(self) -> None:
         view = self._multi_view.open_view()
         if view is not None:
@@ -1462,6 +1519,7 @@ class Main_Window(QMainWindow):
         view = Canvas_View(scene, stack)
         view.colorPicked.connect(self._on_color_picked)
         view.floatingStateChanged.connect(self._on_floating_state_changed)
+        view.lockedLayerEditRejected.connect(self._notify_layer_locked)
         view.set_menu_hook(self._open_colour_hub)
         # T-12: a drop delivered straight to the canvas viewport is routed
         # through the same handler as Main_Window.dropEvent (REQ-DDI-UI-001).
@@ -1477,9 +1535,23 @@ class Main_Window(QMainWindow):
         view.set_tool(self._tools[self._active_tool_id])
         view.set_active_color(self._active_color)
         view.set_active_index(self._active_index)
+        self._bind_symmetry_panel(record)
         self._apply_modes_to(record)
         self._bind_palette_workflows(record)
         return document
+
+    def _bind_symmetry_panel(self, record: "_DocTab") -> None:
+        """Rebind the Symmetry_Panel's spinbox ranges to ``record``'s document (D-28).
+
+        A resize/tab-switch must never keep a stale, now out-of-bounds user
+        position (``Symmetry_Panel.set_canvas_size`` itself resets to the
+        unset/centre default); the shell's own tracked override is reset in
+        step so ``_apply_modes_to`` pushes the same fresh ``None``.
+        """
+        self._symmetry_panel.set_canvas_size(
+            record.document.width, record.document.height
+        )
+        self._symmetry_axis_pos = None
 
     def _add_workflow_dock(self, widget: QWidget) -> QDockWidget:
         """Add a Slice-3C workflow widget as a dock tabified with the palette."""
@@ -1667,6 +1739,7 @@ class Main_Window(QMainWindow):
         """Push the shell's Phase-2 drawing modes onto a tab's view/scene."""
         view = record.view
         view.set_symmetry_axis(self._symmetry_axis)
+        view.set_symmetry_pos(self._symmetry_axis_pos)
         view.set_pixel_perfect(self._pixel_perfect)
         view.set_snap_enabled(self._snap)
         view.set_grid_enabled(self._grid_action.isChecked())
@@ -1908,6 +1981,17 @@ class Main_Window(QMainWindow):
             UI_NOTICE_DURATION_MS,
         )
 
+    def _notify_layer_locked(self) -> None:
+        """Non-blocking notice that a mask attach/edit/remove was refused.
+
+        The target layer is locked (D-05, REQ-P4-LOGIC-010); unlock it from
+        its row's lock toggle (REQ-P4-UI-004) to edit it.
+        """
+        self.statusBar().showMessage(
+            self.tr("Layer is locked."),
+            UI_NOTICE_DURATION_MS,
+        )
+
     def _notify_no_document(self) -> None:
         """Non-blocking notice that a palette drop needs an open document (UI-005)."""
         self.statusBar().showMessage(
@@ -1940,12 +2024,14 @@ class Main_Window(QMainWindow):
         record = self.active_tab()
         if record is None:
             self._active_view = None
+            self._update_cloud_status()
             return
         self._active_view = record.view
         self._undo_group.setActiveStack(record.stack)
         record.view.set_tool(self._tools[self._active_tool_id])
         record.view.set_active_color(self._active_color)
         record.view.set_active_index(self._active_index)
+        self._bind_symmetry_panel(record)
         self._apply_modes_to(record)
         self._bind_palette_workflows(record)
         # Rebind the Phase-9 aids (preview/multi-view/timelapse) to this tab and
@@ -1953,6 +2039,7 @@ class Main_Window(QMainWindow):
         self._bind_visual_aids_to_active()
         # Lazy: defer the buffer scan unless the analytics dock is visible.
         self._analytics_view.request_refresh()
+        self._update_cloud_status()
 
     def _on_tool_action(self) -> None:
         action = self.sender()
@@ -2283,6 +2370,22 @@ class Main_Window(QMainWindow):
         directory.mkdir(parents=True, exist_ok=True)
         return directory / _FAVOURITES_FILE
 
+    def _asset_root(self) -> Path:
+        """Return the app asset-store root (``QStandardPaths``, ADR-0051).
+
+        Resolved here in ``ui/`` from ``AppLocalDataLocation`` — the
+        non-roaming bulk-data home, deliberately NOT ``AppConfigLocation``
+        (ADR-0051 diverges from the Favourites precedent because the CAS is a
+        bulk blob store, not a small preference). Falls back to the Qt-free
+        ``default_asset_root()`` when Qt names nothing. Side-effect-free: no
+        ``mkdir`` here — ``LocalBlobBackend.put_blob`` creates the directory on
+        first write, so launching the app never litters the disk.
+        """
+        base = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.AppLocalDataLocation
+        )
+        return Path(base) if base else default_asset_root()
+
     def _load_favourites(self):
         """Load the persisted Favourites (empty on first run or on error)."""
         try:
@@ -2382,6 +2485,35 @@ class Main_Window(QMainWindow):
         self._cloud_save_action.setEnabled(connected)
         self._cloud_open_action.setEnabled(connected)
         self._cloud_versions_action.setEnabled(connected)
+        if not connected:
+            self._cloud_last_versions = ()
+        self._update_cloud_status()
+
+    def _update_cloud_status(self) -> None:
+        """Refresh the Cloud-menu status entry from ``compute_sync_state`` (D-13).
+
+        Read-only: this widget performs no sync-state math, it only asks the
+        Qt-free :func:`~pixelart_creator.logic.sync_state.compute_sync_state`
+        for the active tab's ``local_version_id`` against the last cached remote
+        version list, then displays the tr()-wrapped result. Recomputed on tab
+        switch, connection change, and after every cloud save/open/restore.
+        """
+        record = self.active_tab()
+        if record is None or not self._cloud_session.is_connected():
+            self._cloud_status_action.setText(self.tr("Cloud status: —"))
+            return
+        state = compute_sync_state(record.local_version_id, self._cloud_last_versions)
+        self._cloud_status_action.setText(self._cloud_status_text(state))
+
+    def _cloud_status_text(self, state: SyncState) -> str:
+        """Return the tr()-wrapped Cloud-menu label for a computed sync state."""
+        if state is SyncState.UP_TO_DATE:
+            return self.tr("Cloud status: Up to date")
+        if state is SyncState.LOCAL_AHEAD:
+            return self.tr("Cloud status: Not yet saved to cloud")
+        if state is SyncState.REMOTE_AHEAD:
+            return self.tr("Cloud status: Newer version in cloud")
+        return self.tr("Cloud status: Diverged")
 
     # -- Phase-10 Slice C: real-time + branching (REQ-P10-UI-012/-013) ----
 
@@ -2594,7 +2726,14 @@ class Main_Window(QMainWindow):
             record = self.active_tab()
             if record is not None:
                 record.stack.setClean()
+                if isinstance(result, CloudVersion):
+                    # D-13: the just-saved version is both the local marker and,
+                    # trivially, the whole known remote state — computing sync
+                    # from it needs no extra fetch (compute_sync_state is pure).
+                    record.local_version_id = result.version_id
+                    self._cloud_last_versions = (result,)
             self.statusBar().showMessage(self.tr("Saved to cloud."), 4000)
+            self._update_cloud_status()
         elif kind in ("open_list", "versions"):
             self._show_version_browser(result, restore_on_pick=(kind == "open_list"))
         elif kind in ("restore", "recover"):
@@ -2605,13 +2744,21 @@ class Main_Window(QMainWindow):
                     else self.tr("Recovered")
                 )
                 self._add_document_tab(result, title)
+                if kind == "restore":
+                    restored = self.active_tab()
+                    if restored is not None:
+                        restored.local_version_id = self._pending_restore_version_id
+                self._pending_restore_version_id = None
                 self.statusBar().showMessage(self.tr("Restored from cloud."), 4000)
+                self._update_cloud_status()
 
     def _show_version_browser(self, result: object, *, restore_on_pick: bool) -> None:
         """Open the version browser over an off-thread-fetched version list."""
         if not isinstance(result, (tuple, list)):
             return
         versions = tuple(result)
+        self._cloud_last_versions = versions
+        self._update_cloud_status()
         if not versions:
             QMessageBox.information(
                 self,
@@ -2619,7 +2766,11 @@ class Main_Window(QMainWindow):
                 self.tr("No versions found for this project."),
             )
             return
-        browser = Version_History_Browser(versions, self)
+        active = self.active_tab()
+        local_version_id = active.local_version_id if active is not None else None
+        browser = Version_History_Browser(
+            versions, self, local_version_id=local_version_id
+        )
         if browser.exec() != QDialog.DialogCode.Accepted:
             return
         chosen = browser.selected_version()
@@ -2632,6 +2783,7 @@ class Main_Window(QMainWindow):
         # Restore is a fresh off-thread get + defensive decode → NEW tab (current
         # unsaved state protected). restore_on_pick distinguishes the open flow's
         # implicit browse from an explicit version browse (both restore identically).
+        self._pending_restore_version_id = chosen.version_id
         self._cloud_controller.submit(
             "restore", make_restore_job(port, project_id, chosen.version_id)
         )
@@ -2693,6 +2845,12 @@ class Main_Window(QMainWindow):
         self._symmetry_axis = axis
         for record in self._tabs_data:
             record.view.set_symmetry_axis(axis)
+
+    def _on_symmetry_axis_position_changed(self, pos: object) -> None:
+        """Feed the panel's mirror-centre override to every tab's view (D-28)."""
+        self._symmetry_axis_pos = pos if isinstance(pos, tuple) else None
+        for record in self._tabs_data:
+            record.view.set_symmetry_pos(self._symmetry_axis_pos)
 
     # -- selection-op actions (REQ-P2-UI-008) ----------------------------
 
@@ -3359,6 +3517,7 @@ class Main_Window(QMainWindow):
         self._cloud_save_action.setText(self.tr("&Save to Cloud…"))
         self._cloud_open_action.setText(self.tr("&Open from Cloud…"))
         self._cloud_versions_action.setText(self.tr("&Version History…"))
+        self._update_cloud_status()
         self._realtime_connect_action.setText(self.tr("Start &Real-time…"))
         self._realtime_disconnect_action.setText(self.tr("Stop Real-&time"))
         self._live_cursors_action.setText(self.tr("Show &Live Cursors"))
@@ -3419,6 +3578,7 @@ class Main_Window(QMainWindow):
         self._guides_action.setText(self.tr("Guides && &Rulers"))
         self._iso_action.setText(self.tr("&Isometric Grid"))
         self._perspective_action.setText(self.tr("&Perspective Grid"))
+        self._perspective_config_action.setText(self.tr("Configure &Perspective…"))
         self._new_view_action.setText(self.tr("&New View"))
         self._reference_board_action.setText(self.tr("Reference &Board"))
 

@@ -596,3 +596,82 @@ def test_dispatch_group_with_seeded_procgen_replays_identically():
     scripting.dispatch(doc_a, ops)
     scripting.dispatch(doc_b, ops)
     assert _doc_hash(doc_a) == _doc_hash(doc_b)
+
+
+# --------------------------------------------------------------------------- #
+# D-06 — dispatch()/replay() on_target(index, total) progress callback         #
+# (per agt-03's callback report subagent-report-agt-03-python-dev-a777d9ae     #
+# §10 proposals). ``dispatch`` is the sole atomic entry point the automation   #
+# worker's counted job walks; ``macro.replay`` forwards to it unchanged.       #
+# --------------------------------------------------------------------------- #
+
+
+def test_dispatch_on_target_progress_sequence():
+    """A 3-op dispatch reports the exact (index, total) sequence, 1-based
+    index, in application order, after each op is applied."""
+    doc = _rgba_doc()
+    ops = [
+        Op("batch_recolour", {"color_map": [[list(TRANSPARENT), list(RED)]]}),
+        Op("batch_recolour", {"color_map": [[list(RED), list(BLUE)]]}),
+        Op("batch_recolour", {"color_map": [[list(BLUE), list(TRANSPARENT)]]}),
+    ]
+    seen: list[tuple[int, int]] = []
+    scripting.dispatch(doc, ops, on_target=lambda i, n: seen.append((i, n)))
+    assert seen == [(1, 3), (2, 3), (3, 3)]
+
+
+def test_replay_on_target_forwards_to_dispatch():
+    """macro.replay's on_target is forwarded unchanged to scripting.dispatch —
+    the same (index, total) sequence is observed via the replay entry point."""
+    from pixelart_creator.logic import macro
+
+    ops = (
+        Op("batch_recolour", {"color_map": [[list(TRANSPARENT), list(RED)]]}),
+        Op("batch_recolour", {"color_map": [[list(RED), list(BLUE)]]}),
+    )
+    m = macro.Macro(
+        schema_version=macro.MACRO_SCHEMA_VERSION,
+        min_app_version=macro.MIN_APP_VERSION,
+        ops=ops,
+    )
+    doc = _rgba_doc()
+    seen: list[tuple[int, int]] = []
+    macro.replay(doc, m, on_target=lambda i, n: seen.append((i, n)))
+    assert seen == [(1, 2), (2, 2)]
+
+
+def test_dispatch_on_target_exception_does_not_roll_back():
+    """A raising on_target callback is suppressed: it neither aborts the run
+    nor rolls back already-applied ops — the document result AND the group's
+    applied sub-commands both reflect every target having run."""
+    doc = _rgba_doc()
+    buf = _leaf_buffer(doc)
+    ops = [
+        Op("batch_recolour", {"color_map": [[list(TRANSPARENT), list(RED)]]}),
+        Op("batch_recolour", {"color_map": [[list(RED), list(BLUE)]]}),
+        Op("batch_recolour", {"color_map": [[list(BLUE), list(TRANSPARENT)]]}),
+    ]
+
+    def _raising_callback(index, total):
+        raise RuntimeError(f"boom at {index}/{total}")
+
+    cmd = scripting.dispatch(doc, ops, on_target=_raising_callback)  # no raise
+
+    # The document result reflects all 3 ops (last op turned BLUE back to
+    # TRANSPARENT) — no rollback occurred because of the callback's exception.
+    assert tuple(buf.data[0, 0]) == TRANSPARENT
+    # The returned group holds all 3 applied sub-commands, not fewer.
+    assert isinstance(cmd, GroupCommand)
+    assert len(cmd) == 3
+
+
+def test_dispatch_on_target_none_preserves_prior_behaviour():
+    """Regression guard: omitting on_target (the pre-D-06 call shape) still
+    dispatches normally — additive parameter, zero behaviour change."""
+    doc = _rgba_doc()
+    buf = _leaf_buffer(doc)
+    cmd = scripting.dispatch(
+        doc, [Op("batch_recolour", {"color_map": [[list(TRANSPARENT), list(RED)]]})]
+    )
+    assert tuple(buf.data[0, 0]) == RED
+    assert isinstance(cmd, GroupCommand)

@@ -27,7 +27,9 @@ from PySide6.QtCore import QEvent, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
+    QGroupBox,
     QLabel,
+    QProgressBar,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -41,6 +43,7 @@ from pixelart_creator.logic.constants import (
 from pixelart_creator.logic.macro import Op
 from pixelart_creator.logic.procgen import ALGORITHMS
 from pixelart_creator.logic.scripting import OP_PROCGEN
+from pixelart_creator.ui.automation_worker import STAGE_COMPLETE, STAGE_RUNNING
 
 #: Largest seed the spin box offers (a display range for the control; the engine
 #: accepts any int seed). 2**31 - 1 keeps the value in the Qt spin box's int range.
@@ -104,11 +107,48 @@ class Procgen_Panel(QWidget):
         self._generate_button = QPushButton(self)
         self._generate_button.clicked.connect(self._on_generate)
 
+        # Per-target automation progress (D-06): a dedicated QGroupBox keeps this
+        # visually distinct from the parameter form above it (the user's "clear
+        # element boundaries" directive), with no widget-level colour override —
+        # rendered entirely from the app's role-based theme (qss-theming).
+        self._progress_stage_token = ""
+        self._progress_group = QGroupBox(self)
+        self._progress_status = QLabel(self._progress_group)
+        self._progress_bar = QProgressBar(self._progress_group)
+        self._progress_bar.setRange(0, 1)
+        self._progress_bar.setValue(0)
+        progress_layout = QVBoxLayout(self._progress_group)
+        progress_layout.addWidget(self._progress_status)
+        progress_layout.addWidget(self._progress_bar)
+
         layout = QVBoxLayout(self)
         layout.addLayout(self._form)
         layout.addWidget(self._generate_button)
+        layout.addWidget(self._progress_group)
 
         self._retranslate()
+
+    # -- automation progress (D-06) ----------------------------------------
+
+    def set_target_progress(self, index: int, count: int, stage: str) -> None:
+        """Reflect the automation worker's per-target progress on the bar.
+
+        Bound (by the host) to ``Automation_Controller.targetProgress`` — this
+        panel computes no domain value; it only echoes ``index``/``count`` onto
+        the bar and maps the plain ``stage`` token to a translated label (S11).
+        """
+        total = max(1, int(count))
+        self._progress_bar.setRange(0, total)
+        self._progress_bar.setValue(max(0, min(int(index), total)))
+        self._progress_stage_token = stage
+        self._progress_status.setText(self._stage_text(stage))
+
+    def _stage_text(self, stage: str) -> str:
+        if stage == STAGE_RUNNING:
+            return self.tr("Running…")
+        if stage == STAGE_COMPLETE:
+            return self.tr("Done")
+        return self.tr("Idle")
 
     # -- generate ---------------------------------------------------------
 
@@ -128,8 +168,18 @@ class Procgen_Panel(QWidget):
     # -- enablement -------------------------------------------------------
 
     def set_busy(self, busy: bool) -> None:
-        """Disable Generate while an automation run is in flight."""
+        """Disable Generate while an automation run is in flight.
+
+        Also resets the progress bar to idle when a run ends (D-06); while a run
+        starts, the bar is left at its pre-run state until the first
+        ``targetProgress`` signal arrives (deterministic — no estimate is drawn).
+        """
         self._generate_button.setEnabled(not busy)
+        if not busy:
+            self._progress_bar.setRange(0, 1)
+            self._progress_bar.setValue(0)
+            self._progress_stage_token = ""
+            self._progress_status.setText(self._stage_text(""))
 
     # -- i18n -------------------------------------------------------------
 
@@ -164,6 +214,9 @@ class Procgen_Panel(QWidget):
         self._frequency_spin.setAccessibleName(self.tr("Noise base frequency"))
         self._octaves_spin.setAccessibleName(self.tr("Noise octaves"))
         self._generate_button.setAccessibleName(self.tr("Generate content"))
+        self._progress_group.setTitle(self.tr("Progress"))
+        self._progress_bar.setAccessibleName(self.tr("Generation progress"))
+        self._progress_status.setText(self._stage_text(self._progress_stage_token))
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
         """Re-translate the procgen strings on a language change (F5)."""

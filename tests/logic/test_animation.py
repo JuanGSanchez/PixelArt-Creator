@@ -15,6 +15,7 @@ from __future__ import annotations
 import itertools
 from typing import List, Union
 
+import numpy as np
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
@@ -381,6 +382,194 @@ def test_onion_defaults_and_tints_come_from_constants():
     assert DEFAULT_ONION_PREV == 1 and DEFAULT_ONION_NEXT == 1
     assert ONION_TINT_PREV == (255, 0, 0, 255)
     assert ONION_TINT_NEXT == (0, 0, 255, 255)
+
+
+# --------------------------------------------------------------------------- #
+# D-33/R-24 — single-source onion-tint byte-fidelity (logic/animation.py,      #
+# commit d6f5d72). ``_tint_and_fade`` is the shipped private recolour step;    #
+# these tests encode the EXPECTED recolour math independently (full RGB       #
+# replace + two-stage rounded alpha, per agt-03's report §3/§6) rather than    #
+# by calling the module's own implementation, so a broken formula cannot      #
+# pass by agreeing with itself.                                                #
+# --------------------------------------------------------------------------- #
+
+
+def _expected_tint_and_fade(rgb, alpha, tint, opacity):
+    """Independent re-derivation of the D-33 recolour formula.
+
+    ``rgb``/``alpha`` are same-shape NumPy arrays (the source composite's
+    channels); ``tint`` is an ``(r, g, b, a)`` 4-tuple; ``opacity`` is the
+    distance-fade fraction. Returns ``(expected_rgb, expected_alpha)`` as
+    ``uint8`` arrays — written from scratch here, not imported from
+    ``logic.animation``.
+    """
+    tr, tg, tb, ta = tint
+    expected_rgb = np.empty(rgb.shape, dtype=np.uint8)
+    expected_rgb[..., 0] = tr
+    expected_rgb[..., 1] = tg
+    expected_rgb[..., 2] = tb
+    stage1 = np.clip(np.round(alpha.astype(np.float64) * float(opacity)), 0, 255)
+    stage2 = np.clip(np.round(stage1 * (ta / 255.0)), 0, 255)
+    return expected_rgb, stage2.astype(np.uint8)
+
+
+def _mixed_stack(rgb_by_pixel, alpha_by_pixel, *, width=2, height=2, visible=True):
+    """A one-layer stack whose buffer carries distinct per-pixel RGB/alpha.
+
+    ``rgb_by_pixel``/``alpha_by_pixel`` are ``(height, width, 3)`` /
+    ``(height, width)`` arrays written directly into the layer buffer.
+    """
+    buf = PixelBuffer(width, height)
+    buf.data[:, :, :3] = rgb_by_pixel
+    buf.data[:, :, 3] = alpha_by_pixel
+    return [Layer(buf, "L", visible=visible)]
+
+
+def test_onion_overlay_default_tint_is_byte_exact_to_independent_recolour_math():
+    """D-33(a): defaults (ONION_TINT_PREV/NEXT) reproduce the documented
+    full-RGB-replace + two-stage-rounded-alpha recolour, computed
+    independently in this test (not via the module's own formula)."""
+    rgb = np.array([[[10, 20, 30], [200, 100, 50]], [[0, 0, 0], [255, 255, 255]]])
+    alpha = np.array([[255, 128], [1, 254]])
+    prev_stack = _mixed_stack(rgb, alpha)
+    next_stack = _mixed_stack(rgb, alpha)
+
+    ghosts = onion_overlay([prev_stack], [next_stack], 2, 2)
+    prev_ghost, next_ghost = ghosts
+
+    expected_rgb, expected_alpha = _expected_tint_and_fade(
+        rgb, alpha, ONION_TINT_PREV, ONION_SKIN_OPACITY
+    )
+    assert np.array_equal(prev_ghost.buffer.data[:, :, :3], expected_rgb)
+    assert np.array_equal(prev_ghost.buffer.data[:, :, 3], expected_alpha)
+
+    expected_rgb_n, expected_alpha_n = _expected_tint_and_fade(
+        rgb, alpha, ONION_TINT_NEXT, ONION_SKIN_OPACITY
+    )
+    assert np.array_equal(next_ghost.buffer.data[:, :, :3], expected_rgb_n)
+    assert np.array_equal(next_ghost.buffer.data[:, :, 3], expected_alpha_n)
+
+
+@pytest.mark.parametrize("tint_alpha", [0, 1, 254, 255])
+def test_onion_overlay_explicit_tint_kwargs_round_trip_at_edge_alphas(tint_alpha):
+    """D-33(b): explicit tint_prev/tint_next kwargs round-trip byte-exactly
+    at edge tint alphas (0, 1, 254, 255)."""
+    rgb = np.array([[[7, 8, 9], [1, 2, 3]], [[250, 251, 252], [4, 5, 6]]])
+    alpha = np.array([[0, 90], [200, 255]])
+    tint = (11, 22, 33, tint_alpha)
+    stack = _mixed_stack(rgb, alpha)
+
+    ghosts = onion_overlay([stack], [], 2, 2, tint_prev=tint)
+    (ghost,) = ghosts
+
+    expected_rgb, expected_alpha = _expected_tint_and_fade(
+        rgb, alpha, tint, ONION_SKIN_OPACITY
+    )
+    assert np.array_equal(ghost.buffer.data[:, :, :3], expected_rgb)
+    assert np.array_equal(ghost.buffer.data[:, :, 3], expected_alpha)
+
+
+def test_onion_overlay_explicit_tint_kwargs_partial_alpha_case():
+    """D-33(b): a genuinely partial-alpha custom tint on both prev/next,
+    round-tripped byte-exactly against the independent formula."""
+    rgb = np.array([[[64, 128, 192], [1, 1, 1]], [[0, 255, 0], [255, 0, 255]]])
+    alpha = np.array([[10, 245], [128, 3]])
+    tint_prev = (5, 6, 7, 137)
+    tint_next = (240, 241, 242, 61)
+    stack = _mixed_stack(rgb, alpha)
+
+    ghosts = onion_overlay(
+        [stack], [stack], 2, 2, tint_prev=tint_prev, tint_next=tint_next
+    )
+    prev_ghost, next_ghost = ghosts
+
+    expected_rgb_p, expected_alpha_p = _expected_tint_and_fade(
+        rgb, alpha, tint_prev, ONION_SKIN_OPACITY
+    )
+    assert np.array_equal(prev_ghost.buffer.data[:, :, :3], expected_rgb_p)
+    assert np.array_equal(prev_ghost.buffer.data[:, :, 3], expected_alpha_p)
+
+    expected_rgb_n, expected_alpha_n = _expected_tint_and_fade(
+        rgb, alpha, tint_next, ONION_SKIN_OPACITY
+    )
+    assert np.array_equal(next_ghost.buffer.data[:, :, :3], expected_rgb_n)
+    assert np.array_equal(next_ghost.buffer.data[:, :, 3], expected_alpha_n)
+
+
+@given(
+    values=st.lists(
+        st.tuples(
+            st.integers(min_value=0, max_value=255),  # r
+            st.integers(min_value=0, max_value=255),  # g
+            st.integers(min_value=0, max_value=255),  # b
+            st.integers(min_value=0, max_value=255),  # a
+        ),
+        min_size=4,
+        max_size=4,
+    ),
+    tint=st.tuples(
+        st.integers(min_value=0, max_value=255),
+        st.integers(min_value=0, max_value=255),
+        st.integers(min_value=0, max_value=255),
+        st.integers(min_value=0, max_value=255),
+    ),
+    opacity=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
+)
+def test_tint_and_fade_recolour_invariants_property(values, tint, opacity):
+    """D-33(c): property over random small buffers + random tints —
+    RGB is fully replaced by the tint's RGB, and alpha is exactly the
+    documented two-stage rounding (round(round(a*opacity) * ta/255))."""
+    buf = PixelBuffer(2, 2)
+    for index, (r, g, b, a) in enumerate(values):
+        x, y = index % 2, index // 2
+        buf.set_pixel(x, y, (r, g, b, a))
+
+    out = anim._tint_and_fade(buf, tint, opacity)
+
+    tr, tg, tb, ta = tint
+    for y in range(2):
+        for x in range(2):
+            or_, og, ob, oa = out.get_pixel(x, y)
+            assert (or_, og, ob) == (tr, tg, tb)
+            src_a = buf.get_pixel(x, y)[3]
+            stage1 = min(255, max(0, round(src_a * opacity)))
+            stage2 = min(255, max(0, round(stage1 * ta / 255.0)))
+            assert oa == stage2
+
+
+def test_tint_and_fade_pins_our_math_at_the_qt_premultiply_boundary():
+    """D-33(d): pins OUR recolour math at the exact boundary agt-03 flagged —
+    a partial-alpha tint combined with very low pre-fade silhouette alpha.
+
+    agt-03's report (subagent-report-agt-03-python-dev-abfdd7b1) §7 discloses
+    that Qt's internal premultiply/unpremultiply round-trip in
+    ``QPainter.CompositionMode_SourceIn`` can diverge from this pure model by
+    at most +/-1 per RGB channel for partial-alpha tints at very low source
+    alpha (~10% of 500 randomised extreme samples; never for the opaque
+    defaults). Reproducing Qt's fixed-point premultiply table is explicitly
+    OUT OF SCOPE for logic/ (S11: zero Qt in logic/, and the divergence lives
+    in UI-side compositing, not in this function's documented contract) — the
+    contract this function owns is the formula itself, which is what this
+    test pins, not Qt's raster-engine internals. UI-side fidelity against a
+    live Qt render (if ever needed) belongs to AGT-06/pytest-qt, not here.
+    """
+    rgb = np.array([[[9, 9, 9]]])
+    alpha = np.array([[1]])  # very low pre-fade silhouette alpha
+    stack = _mixed_stack(rgb, alpha, width=1, height=1)
+    tint = (200, 100, 50, 30)  # partial-alpha tint
+
+    ghosts = onion_overlay([stack], [], 1, 1, tint_prev=tint)
+    (ghost,) = ghosts
+
+    expected_rgb, expected_alpha = _expected_tint_and_fade(
+        rgb, alpha, tint, ONION_SKIN_OPACITY
+    )
+    assert np.array_equal(ghost.buffer.data[:, :, :3], expected_rgb)
+    assert np.array_equal(ghost.buffer.data[:, :, 3], expected_alpha)
+    # Pinned scalar expectation, independent of the helper above:
+    stage1 = round(1 * ONION_SKIN_OPACITY)  # == 0 or 1 depending on opacity
+    stage2 = round(stage1 * 30 / 255.0)
+    assert int(ghost.buffer.data[0, 0, 3]) == stage2
 
 
 # --------------------------------------------------------------------------- #
