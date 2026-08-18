@@ -492,13 +492,29 @@ jobs:
         # before. Clearing the findings is AGT-08's job (docs content), not
         # this workflow's.
         #
-        # DEBT REPAID: 0 findings measured 2026-08-16 (AGT-08, job
-        # 20260816-spec-audit-test-rebuild-docs-move; `pydocstyle
-        # pixelart_creator` exits 0). The 102-finding number above is now
-        # historical context, not the current state. The time-boxed
-        # exception scaffold below is left in place (unexercised while the
-        # gate stays green) rather than removed, so a future regression is
-        # still caught and self-expires on the same 2026-08-31 milestone.
+        # DEBT REPAID, THEN REGRESSED, THEN REPAID AGAIN -- history kept, not
+        # deleted (CI-warning fix, 2026-08-18):
+        #   - Repaid 2026-08-16 (AGT-08, job
+        #     20260816-spec-audit-test-rebuild-docs-move): `pydocstyle
+        #     pixelart_creator` exited 0.
+        #   - Regressed: PRs #9 and #10 reintroduced 15 findings across 4
+        #     files (logic/branch_diff.py, logic/history.py,
+        #     logic/project_prefs.py, ui/timeline_grid_view.py) -- codes
+        #     D102, D400, D205, D402, D107 dominant (measured on this branch
+        #     before the fix below landed; NOT the same breakdown as the
+        #     original 2026-07-30 102-finding redness, which was D102/D107/
+        #     D401/D105).
+        #   - Repaid again on this branch (fix-ci-hygiene, verified
+        #     2026-08-18): `pydocstyle pixelart_creator` exits 0.
+        # The 102-finding number that used to be hardcoded into the
+        # `::warning::` line below is now HISTORICAL CONTEXT ONLY, not the
+        # live state -- the step measures and reports its own real count
+        # every run instead (see the capture below), which is exactly the
+        # fix for the "warning reports a fixed historical number" defect
+        # this project keeps tripping on. The time-boxed exception scaffold
+        # stays in place (unexercised while the gate is green) so a future
+        # regression is still caught and self-expires on the same
+        # 2026-08-31 milestone.
         #
         # The time-box is SELF-ENFORCING, not a comment: past EXPIRY this step
         # starts failing the build unconditionally. Same 2026-08-31 milestone
@@ -506,16 +522,42 @@ jobs:
         # repaid on one shared deadline instead of drifting independently.
         run: |
           EXPIRY=2026-08-31
-          if pydocstyle pixelart_creator; then
+          # Capture pydocstyle's OWN output + exit code (rather than letting
+          # the command's exit status drive `if` directly) so the real
+          # finding count and per-code breakdown can be parsed out of it for
+          # the warning line below -- the whole point of this fix is that the
+          # message must never again quote a number pydocstyle didn't just
+          # produce. `set +e`/`set -e` bracket the capture so a nonzero
+          # pydocstyle exit (findings present) never trips this script's own
+          # `-e` (GitHub's default bash step flags) before STATUS is read.
+          set +e
+          FINDINGS_OUTPUT="$(pydocstyle pixelart_creator 2>&1)"
+          STATUS=$?
+          set -e
+          if [[ ${STATUS} -eq 0 ]]; then
             echo "pixelart_creator meets the pep257 docstring gate"
             exit 0
           fi
+          echo "${FINDINGS_OUTPUT}"
           TODAY="$(date -u +%F)"
+          # Real count + real per-code breakdown, parsed from pydocstyle's own
+          # output (format: "path.py:LINE in ...:" followed by an indented
+          # "    D1xx: <message>" line per violation) -- never a baked-in
+          # number. `|| true` on each: a clean grep/awk pipeline finding zero
+          # matches exits non-zero, which must not fail this step (robustness
+          # requirement -- this path must also work correctly when the count
+          # is legitimately zero, e.g. a pydocstyle tool error with no D-code
+          # lines at all).
+          COUNT=$(printf '%s\n' "${FINDINGS_OUTPUT}" | grep -cE '^[[:space:]]+D[0-9]{3}:' || true)
+          BREAKDOWN=$(printf '%s\n' "${FINDINGS_OUTPUT}" | grep -oE 'D[0-9]{3}' | sort | uniq -c | sort -rn | awk '{printf "%s x%s, ", $2, $1}' | sed 's/, $//' || true)
+          if [[ -z "${BREAKDOWN}" ]]; then
+            BREAKDOWN="(no per-code breakdown parsed -- see step log above for the full pydocstyle output)"
+          fi
           if [[ "${TODAY}" > "${EXPIRY}" ]]; then
-            echo "::error::Time-boxed pydocstyle exception EXPIRED on ${EXPIRY}. pixelart_creator still fails the pep257 docstring gate (see step log above for current findings). This now BLOCKS: clear the findings (AGT-08) -- do not extend the box without an explicit decision."
+            echo "::error::Time-boxed pydocstyle exception EXPIRED on ${EXPIRY}. pixelart_creator still fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see step log above for the full findings). This now BLOCKS: clear the findings (AGT-08) -- do not extend the box without an explicit decision."
             exit 1
           fi
-          echo "::warning::pixelart_creator fails the pep257 docstring gate (102 findings measured 2026-07-30; D102/D107/D401/D105 dominant -- see pyproject.toml [tool.pydocstyle] for the ruleset and the step comment for the full breakdown). KNOWN and time-boxed until ${EXPIRY} (owner AGT-08). This step BLOCKS the build after ${EXPIRY}."
+          echo "::warning::pixelart_creator fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see pyproject.toml [tool.pydocstyle] for the ruleset and the step log above for the full findings). KNOWN and time-boxed until ${EXPIRY} (owner AGT-08). This step BLOCKS the build after ${EXPIRY}."
 
       - name: Tests (pytest, headless, parallel, with coverage XML)
         # -n auto: pytest-xdist fans the suite across all runner cores, cutting
@@ -617,9 +659,43 @@ jobs:
         # UN-GATED (temporary, see revert block at top of file): OS-invariant
         # (Node runs fine on the self-hosted Windows leg; setup-node installs
         # its own toolchain rather than relying on a pre-provisioned one).
-        uses: actions/setup-node@v4
+        #
+        # actions/setup-node@v7 (was @v4, CI-warning fix, 2026-08-18): v4 is
+        # the only stale action in this file -- its own manifest declares
+        # `using: node20`, a runtime GitHub has deprecated and is
+        # force-upgrading off. Checked each tag's manifest directly: v5, v6
+        # and v7 all declare `using: node24`; v7.0.0 (2026-07-14) is latest.
+        # Picked v7 over v5/v6 on the release notes (gh api
+        # repos/actions/setup-node/releases), not habit: v5.0.0 and v6.0.0
+        # each carry an explicit "Breaking Changes" section (v5: bump to the
+        # node24 runtime, already accounted for above, plus automatic
+        # dependency-lockfile caching keyed off a package.json
+        # `packageManager` field; v6: that automatic caching narrowed to npm
+        # only) -- neither applies here because this repository has no
+        # package.json anywhere (verified) and this step never sets a
+        # `cache:` input, so no caching path, automatic or otherwise, is ever
+        # exercised by this invocation. v7.0.0's own release body carries NO
+        # "Breaking Changes" section (only Enhancements/Bug
+        # fixes/Documentation/Dependency-update), so it is the latest major
+        # with no breaking change for a node-version-only usage like this one.
+        #
+        # node-version bumped 20 -> 24 (same change): Node 20 ("Iron") reached
+        # its own end-of-life 2026-04-30 (nodejs/Release schedule.json,
+        # checked via the GitHub API), so this step was installing an EOL
+        # runtime to run the web-viewer JS-unit suite. Node 22 ("Jod") is
+        # Maintenance LTS as of this session (maintenance since 2025-10-21);
+        # Node 24 ("Krypton") is the current ACTIVE LTS (Active LTS since
+        # 2025-10-28, maintenance not until 2026-10-20) -- the version this
+        # project should be pinning to. Nothing in web_viewer/tests or this
+        # repository has any reason to stay on 20: the suite is a bare,
+        # framework-free ESM script (grep for "node-version"/"Node 20" across
+        # the tree turns up only this one line) with no lockfile, no bundler,
+        # and no Node-20-specific syntax. Verified before landing: `node
+        # web_viewer/tests/test_viewer_core.mjs` run locally on Node
+        # v24.18.0 -- 11/11 passed, exit 0.
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Web-viewer JS-unit tests (node, framework-free)
         # UN-GATED (temporary, see revert block at top of file): OS-invariant.
