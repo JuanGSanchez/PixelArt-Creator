@@ -4,7 +4,7 @@ Every numeric tuning value used across ui/, logic/, and data/ is defined here
 and imported by name, so a change is made in exactly one place (S12, Dossier §1).
 """
 
-from typing import Optional, Tuple
+from typing import Tuple
 
 MAX_CANVAS_WIDTH = 7680  # 8K UHD width  (S1, F7)
 MAX_CANVAS_HEIGHT = 4320  # 8K UHD height (S1, F7)
@@ -461,38 +461,64 @@ outrun the frame budget: ``FPS_TARGET // CYCLE_DEFAULT_FPS = 60 // 10 = 6``, so
 ``4.0`` is the largest doubling step below that bound and the low end (``0.25``)
 mirrors it. The derivation is the citation (spec REQ-P9-LOGIC-018; DEP-12a)."""
 
-TIMELAPSE_PAYLOAD_MAX_BYTES: Optional[int] = None
-"""UNVALUED until T22: no payload-size bound is enforced yet (DEP-12e; the
-value comes from the T19 campaign).
+TIMELAPSE_PAYLOAD_MAX_BYTES: int = 2_821_573 * (MAX_TIMELAPSE_FRAMES // 256)
+"""Hard cap on one serialised ``.pixtimelapse`` payload, bytes (REQ-P9-DATA-004;
+DEP-12e; Article II).
 
-Hard cap on one serialised ``.pixtimelapse`` schema-2 payload, bytes
-(REQ-P9-DATA-004; DEP-12e; Article II) — ruled ``Optional[int] = None`` rather
-than a placeholder ``int`` (plan §8.1, 2026-08-17 addendum, AGT-01 Ruling A):
-``sys.maxsize`` is type-``int``, so under the mypy-strict gate
-``size <= TIMELAPSE_PAYLOAD_MAX_BYTES`` would type-check and silently pass for
-**every** input, leaving a constant named ``..._MAX_BYTES``, a refusal path
-wired against it, and a green suite with **no bound in existence** — nothing
-in the artifact or the run would say so. Under ``Optional[int]`` that same
-comparison **fails to type-check**, forcing every consumer
-(``data/timelapse_io.py``) to handle the unvalued state explicitly with an
-explicit two-branch. ``sys.maxsize`` is also derived from the interpreter's
-word size and therefore platform-dependent, which Article II's single-source
-rule disqualifies on its own for this cross-platform product.
+Valued at ``2_821_573 * (4096 // 256) = 2_821_573 * 16 = 45_145_168`` bytes
+(43.054 MiB). ``2_821_573`` is P4's measured **schema-3** file size —
+1280x720, 256 frames, byte-identical across all 5 repeat runs — the largest
+of the T43 re-measurement campaign's four points
+(``design-docs/reports/perf-timelapse-payload-campaign-schema3-20260818.md``
+§3), extended to the shipped :data:`MAX_TIMELAPSE_FRAMES` (= 4096) frame cap
+by the unchanged ``* (MAX_TIMELAPSE_FRAMES // 256)`` step (plan §11.1). Never
+inlined: every consumer reads this name, never the literal.
 
-**``None`` does not mean "refuse everything".** It means *no bound is
-configured, therefore no size refusal is performed, and that is stated* — an
-unvalued bound that refused would block the T19 campaign that must record,
-save, reopen and replay four points **before** the bound can exist (plan
-§5.2). While unvalued, no ``ui/`` surface may promise the user a size
-refusal will happen.
+Superseded value (2026-08-17): ``2_397_487`` (-> a ``38_359_792``-byte bound),
+P4's **schema-2** file size measured by the original T19 campaign
+(``design-docs/reports/perf-timelapse-payload-campaign-20260817.md`` §3).
+That campaign's fixture-generator script was ephemeral (per AGT-10's role
+contract) and could not be re-invoked, so the schema-3 anchor above is a
+FRESH measurement on a freshly-generated fixture with its own stroke
+placement — it is **not** the old anchor plus identity's cost, and the two
+anchors are not directly comparable (plan §11.2). In particular: the anchor
+moved, but the movement may **not** be characterised as "identity" or
+"schema 3" making payloads larger by that margin — that reading is false.
+The only measured, attributable cost of identity is the campaign's
+**within-payload** figure of +0.55% at P4 (same dict, re-serialised with the
+identity fields stripped, campaign §6), which is immune to the fixture
+confound; the rest of the anchor's movement is a content-profile artifact of
+the new fixture, not an earned or measured cost of anything this constant
+guards.
 
-Choosing a real bound before the campaign exists would be exactly the
-invented threshold Article II forbids. T22 values this from the T19
-measurement campaign
-(``design-docs/reports/perf-timelapse-payload-campaign-20260817.md``) and
-T21's ruling, narrows the annotation to ``int``, and deletes the ``None`` arm
-in ``data/timelapse_io.py`` — after T22, "no bound" must not be a
-representable state."""
+ANCHOR INVARIANT: any future change to ``data/timelapse_io.py``'s
+serialisation that moves the bytes ``serialize_payload`` produces —
+separators, key order, field addition/removal, encoding — invalidates this
+anchor and requires the full re-measure -> re-value -> re-write chain
+(mirroring T43 -> T44 -> T45's shape) in the same unit of review as that
+change. Patching this constant by arithmetic instead of re-measuring is
+forbidden (plan §11.3)."""
+
+TIMELAPSE_RECORDING_ID_BYTES: int = 16
+"""Byte width of a timelapse recording's per-recording random half (Q-21,
+REQ-P9-LOGIC-022(b); REQ-P9-DATA-005; plan §10.4).
+
+128 bits is a **uniqueness** width, not a security one — deliberately
+narrower than the shipped ``secrets.token_urlsafe(24)`` at
+``data/cloud/providers/base.py:181``, because that token must resist an
+adversary and this one only has to not collide, while being paid on every
+frame minted in a recording session (``ui/timelapse_controls.py``, T34)."""
+
+TIMELAPSE_FRAME_ID_MAX_LEN: int = 2 * TIMELAPSE_RECORDING_ID_BYTES + 1 + 19
+"""Maximum length of one frame's stable identity string (Q-21,
+REQ-P9-LOGIC-022(b); REQ-P9-DATA-005; plan §10.4).
+
+``2 * TIMELAPSE_RECORDING_ID_BYTES`` is the hex width of the per-recording
+random half, ``+ 1`` is the ``":"`` separator, and ``19`` is the decimal
+width of a 64-bit ordinal. **The ordinal is NOT bounded by
+:data:`MAX_TIMELAPSE_FRAMES`** — it is monotone across discards while the
+session's live frame count is not (T34: a discard-and-rewrite never resets
+or rewinds the ordinal)."""
 
 MAX_DOCUMENT_VIEWS: int = 8
 """Defensive cap on simultaneous views of one shared document (bounded UI
