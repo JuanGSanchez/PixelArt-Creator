@@ -41,8 +41,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from pixelart_creator.logic.branch_recording import (
+    BranchRecordingError,
+    ops_for_traces,
+)
 from pixelart_creator.logic.convergence import Operation
 from pixelart_creator.logic.document import Document
+from pixelart_creator.logic.edit_trace import EditTrace
 from pixelart_creator.logic.realtime_apply import (
     Branch,
     RealtimeError,
@@ -77,9 +82,15 @@ class Branching_Session(QObject):
         """Create an empty session (no base document yet)."""
         super().__init__(parent)
         self._site_seq = 1
+        self._clock_seq = 1
         self._mainline: Optional[Branch] = None
         self._branches: Dict[str, Branch] = {}
         self._active = _MAINLINE
+        #: The Document object the active branch's edits actually land on —
+        #: the same instance the caller (``ui/main_window.py``) mutates in
+        #: place, so a raster trace's tile bytes are always read post-edit
+        #: (plan §8.2). ``None`` until a base document is set.
+        self._live: Optional[Document] = None
 
     # -- queries ----------------------------------------------------------
 
@@ -109,11 +120,13 @@ class Branching_Session(QObject):
             self._mainline = None
             self._branches = {}
             self._active = _MAINLINE
+            self._live = None
             self.branchesChanged.emit()
             return
         self._mainline = branch(document, site_id=0)
         self._branches = {}
         self._active = _MAINLINE
+        self._live = document
         self.branchesChanged.emit()
 
     def create_branch(self, name: str) -> None:
@@ -142,9 +155,11 @@ class Branching_Session(QObject):
             RealtimeError: If ``name`` is unknown.
         """
         selected = self._branch(name)
+        document = selected.document()
         self._active = name
+        self._live = document
         self.activeBranchChanged.emit(name)
-        self.documentSwitched.emit(selected.document())
+        self.documentSwitched.emit(document)
 
     def merge_to_mainline(self, name: str) -> None:
         """Merge feature branch ``name`` into the mainline, conflict-free.
@@ -167,6 +182,7 @@ class Branching_Session(QObject):
         self._mainline = branch(merged, site_id=0)
         del self._branches[name]
         self._active = _MAINLINE
+        self._live = merged
         self.branchesChanged.emit()
         self.activeBranchChanged.emit(_MAINLINE)
         self.documentSwitched.emit(merged)
@@ -181,6 +197,77 @@ class Branching_Session(QObject):
         if self._active == _MAINLINE or self._active not in self._branches:
             return
         self._branches[self._active].record(ops)
+
+    def record_traces(self, traces: Sequence[EditTrace], inverse: bool) -> None:
+        """Mint ``traces`` into ops and record them on the active branch (T14/-025).
+
+        Called by the Qt undo bridge (``ui/commands.py``, T13) after every successful
+        ``redo()`` with the command's own traces (``inverse=False``), and after
+        ``undo()`` with the already-computed inverse traces (``inverse=True`` — plan
+        §3.3: the *caller* runs
+        :func:`~pixelart_creator.logic.branch_recording.inverse_traces` itself before
+        invoking this; this method never inverts anything, it only mints and stamps).
+        ``inverse`` is accepted for symmetry with the callback's own shape and is not
+        otherwise used here — minting is identical either way, against whichever
+        traces the caller supplies.
+
+        ``inverse`` is deliberately positional-or-keyword, not keyword-only: this
+        method is assigned directly as a ``ui/commands.py`` ``RecordTraceCallback``
+        (``RecordTraceCallback = Callable[[Sequence[EditTrace], bool], None]``,
+        called positionally — ``record_trace(traces, inverse)``), and a bound
+        method with a keyword-only ``inverse`` cannot satisfy that positional
+        call. A prior fix bridged the gap with an adapter method in
+        ``ui/main_window.py``; fixing the mismatch here, at the source of the
+        keyword-only constraint, makes that adapter unnecessary (this method is
+        now directly assignable as ``record_trace=``) without touching either the
+        callback's calling convention in ``ui/commands.py`` or ``ui/main_window.py``
+        itself.
+
+        A no-op on the mainline, exactly the **unchanged** early return
+        :meth:`record_on_active` already makes above (mainline edits are the base;
+        this task never modifies that method). Traces mint against ``self._live`` —
+        the same ``Document`` object the active branch was switched into
+        (:meth:`switch_to`) or forked from (:meth:`set_base_document`), which is the
+        very object the UI mutates in place — so a raster trace's tile bytes are
+        always read from the buffer's *post-edit* state.
+
+        Raises:
+            RealtimeError: If no live document is bound yet, if a trace cannot be
+                mapped against it (wraps
+                :class:`~pixelart_creator.logic.branch_recording.BranchRecordingError`),
+                or if the branch's op-log would exceed the per-update cap (from the
+                unchanged :meth:`record_on_active` / :meth:`Branch.record`) — every
+                case is reported plainly, never swallowed.
+        """
+        if self._active == _MAINLINE or self._active not in self._branches:
+            return
+        if not traces:
+            return
+        if self._live is None:
+            raise RealtimeError("no live document bound to record traces against")
+        try:
+            ops = ops_for_traces(
+                traces,
+                self._live,
+                site_id=self._next_site_id(),
+                logical_clock=self._next_clock(),
+            )
+        except BranchRecordingError as exc:
+            raise RealtimeError(f"cannot record traces: {exc}") from exc
+        self.record_on_active(ops)
+
+    def get_branch(self, name: str) -> Branch:
+        """Return the named branch (mainline or feature) for read-only inspection.
+
+        Lets a caller (``ui/main_window.py``, T15) pass the live branch object to
+        :func:`~pixelart_creator.logic.branch_diff.supervise` without this module
+        computing anything itself (Article I) — it only looks the object up; the
+        same lookup :meth:`switch_to` and :meth:`merge_to_mainline` already use.
+
+        Raises:
+            RealtimeError: If ``name`` is unknown.
+        """
+        return self._branch(name)
 
     # -- helpers ----------------------------------------------------------
 
@@ -199,9 +286,20 @@ class Branching_Session(QObject):
         self._site_seq += 1
         return site
 
+    def _next_clock(self) -> int:
+        clock = self._clock_seq
+        self._clock_seq += 1
+        return clock
+
 
 class Branching_Panel(QWidget):
     """Create / switch / merge branches + surface the merge outcome (REQ-P10-UI-012)."""
+
+    #: ``(name,)`` — the user activated the open-diff affordance for the selected
+    #: feature branch (REQ-P10-UI-014). The caller (``ui/main_window.py``) supplies
+    #: the active tab's live ``Document`` to ``logic/branch_diff.supervise`` and, once
+    #: T16 (``ui/branch_diff_dialog.py``) exists, opens the pre-merge diff view from it.
+    openDiffRequested = Signal(str)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """Build the branch list, the create/switch/merge controls and the readout."""
@@ -220,10 +318,13 @@ class Branching_Panel(QWidget):
         self._switch_button.clicked.connect(self._on_switch)
         self._merge_button = QPushButton(self)
         self._merge_button.clicked.connect(self._on_merge)
+        self._diff_button = QPushButton(self)
+        self._diff_button.clicked.connect(self._on_open_diff)
         button_row = QHBoxLayout()
         button_row.addWidget(self._new_button)
         button_row.addWidget(self._switch_button)
         button_row.addWidget(self._merge_button)
+        button_row.addWidget(self._diff_button)
 
         self._outcome = QLabel(self)
         self._outcome.setWordWrap(True)
@@ -293,6 +394,20 @@ class Branching_Panel(QWidget):
         except RealtimeError as exc:
             QMessageBox.warning(self, self.tr("Merge"), str(exc))
 
+    def _on_open_diff(self) -> None:
+        """Request the pre-merge diff for the selected feature branch (REQ-P10-UI-014).
+
+        This panel computes nothing itself (Article I) — it only announces which
+        branch the caller should diff; ``ui/main_window.py`` (T15) supplies the
+        active tab's live ``Document`` to ``logic/branch_diff.supervise``.
+        """
+        if self._session is None:
+            return
+        name = self._selected_branch()
+        if name is None:
+            return
+        self.openDiffRequested.emit(name)
+
     # -- session reactions ------------------------------------------------
 
     def _on_active_changed(self, _name: str) -> None:
@@ -330,6 +445,23 @@ class Branching_Panel(QWidget):
         is_feature = has_base and selected is not None and _MAINLINE not in selected
         self._switch_button.setEnabled(has_base and selected is not None)
         self._merge_button.setEnabled(bool(is_feature))
+        # Open-diff follows exactly the Merge enablement rule (SC-UI-014-2):
+        # disabled, never hidden, with the reason stated accessibly.
+        self._diff_button.setEnabled(bool(is_feature))
+        if is_feature:
+            self._diff_button.setAccessibleDescription(
+                self.tr("Open the pre-merge diff for the selected branch.")
+            )
+        elif not has_base:
+            self._diff_button.setAccessibleDescription(
+                self.tr("Disabled: open a project first.")
+            )
+        else:
+            self._diff_button.setAccessibleDescription(
+                self.tr(
+                    "Disabled: select a feature branch, not mainline, to view its diff."
+                )
+            )
 
     # -- i18n -------------------------------------------------------------
 
@@ -349,6 +481,10 @@ class Branching_Panel(QWidget):
         self._merge_button.setText(self.tr("Merge"))
         self._merge_button.setAccessibleName(
             self.tr("Merge the selected branch into mainline")
+        )
+        self._diff_button.setText(self.tr("Open Diff"))
+        self._diff_button.setAccessibleName(
+            self.tr("Open the pre-merge diff for the selected branch")
         )
         self._outcome.setAccessibleName(self.tr("Merge outcome"))
 
