@@ -78,6 +78,7 @@ from pixelart_creator.data.project_io import (
 from pixelart_creator.logic import history, transform
 from pixelart_creator.logic.assistant import ChatBackend
 from pixelart_creator.logic.autosave import should_autosave
+from pixelart_creator.logic.blend import composite_stack
 from pixelart_creator.logic.color import BLACK, RGBA, TRANSPARENT, to_hex
 from pixelart_creator.logic.constants import (
     AUTOSAVE_INTERVAL_MS,
@@ -85,7 +86,7 @@ from pixelart_creator.logic.constants import (
     DEFAULT_CANVAS_WIDTH,
     UI_NOTICE_DURATION_MS,
 )
-from pixelart_creator.logic.document import Document, DocumentError, Layer
+from pixelart_creator.logic.document import Document, DocumentError, Layer, iter_layers
 from pixelart_creator.logic.grids import (
     IsoGridConfig,
     PerspectiveConfig,
@@ -1413,6 +1414,32 @@ class Main_Window(QMainWindow):
         if record.guides_rulers is not None:
             record.guides_rulers.set_colors(grid, _checker_dark, _checker_light)
 
+    @staticmethod
+    def _render_timelapse_frame(document: Document, frame_index: int) -> np.ndarray:
+        """Composite one ``Document`` frame to an RGBA ``ndarray`` (D-12, T9/T10).
+
+        The ``Timelapse_Controls`` renderer (``Document -> np.ndarray``, S11 — no
+        domain/composite maths authored here): binds to
+        :func:`~pixelart_creator.logic.blend.composite_stack` for an RGBA
+        document, mirroring the shipped ``ui/timeline_panel.py`` thumbnail idiom
+        for an indexed one (palette LUT over the topmost leaf layer — indexed
+        documents are not composited; the compositor is RGBA-only). ``document``
+        may hold a different frame count at each historical step than the tab
+        that owns it, so an out-of-range ``frame_index`` falls back to frame 0
+        rather than raising.
+        """
+        index = frame_index if 0 <= frame_index < len(document.frames) else 0
+        frame = document.frames[index]
+        if document.mode is ColorMode.RGBA:
+            buffer = composite_stack(frame.layers, document.width, document.height)
+            return np.ascontiguousarray(buffer.data)
+        leaves = iter_layers(frame.layers)
+        if not leaves:
+            return np.zeros((document.height, document.width, 4), dtype=np.uint8)
+        lut = np.array(document.palette.colors() or [(0, 0, 0, 255)], dtype=np.uint8)
+        idx = np.clip(leaves[-1].buffer.data, 0, len(lut) - 1)
+        return np.ascontiguousarray(lut[idx])
+
     def _bind_visual_aids_to_active(self) -> None:
         """Rebind the shell aids to the active tab + sync the Aids-menu state."""
         record = self.active_tab()
@@ -1421,7 +1448,23 @@ class Main_Window(QMainWindow):
         self._preview_window.set_scene(record.scene)
         self._preview_window.set_document_ppi(record.document.ppi)
         self._multi_view.set_scene(record.scene)
-        self._timelapse_controls.bind_undo_stack(record.stack)
+        # D-12: bind this tab's document alongside its stack (REQ-P9-UI-020 — a
+        # session belongs to one document) and (re)point the renderer at this
+        # tab's currently displayed frame, so a historical replay composites the
+        # same frame the canvas shows rather than always frame 0. ``id()`` is the
+        # only per-tab document identity available: ``_DocTab`` carries no other
+        # stable id and the document object is mutated in place, never
+        # reassigned, for this tab's lifetime (ui/timelapse_playback.py).
+        self._timelapse_controls.bind_undo_stack(
+            record.stack,
+            document_getter=lambda: record.document,
+            document_id=id(record.document),
+        )
+        self._timelapse_controls.set_renderer(
+            lambda document: self._render_timelapse_frame(
+                document, record.scene.frame_index
+            )
+        )
         # Phase-10 Slice C: rebind the real-time session + branching base to this tab's
         # document, and reflect this tab's live-cursor overlay visibility on the toggle.
         self._realtime_session.set_document(record.document)
