@@ -19,6 +19,61 @@ ruled shape, this module fails to import (`ReconstructionSubstrate`,
 
 SC-L013-1/-2, SC-L014-1/-2, SC-L015-1/-2, SC-L016-1/-2, SC-L017-1/-2,
 SC-L018-1/-2.
+
+**Re-keyed 2026-08-18 (Q-21, T33/T47) onto the stable frame identity**
+(REQ-P9-LOGIC-022). ``ReconstructionExtent``'s old command-id-keyed reachable
+set field was superseded by ``reachable_frame_ids: FrozenSet[FrameId]`` and
+``drop_discarded``'s old integer position keyword by
+``drop_discarded(session, surviving_ids=FrozenSet[FrameId])`` -- a *position*
+is exactly what REQ-P9-LOGIC-022(c) forbids as a reachability/removal key,
+because the undo stack reuses its coordinate space by design. Every session
+built by this module's helper is now **identity-bearing** (schema 3):
+``reconstructability``'s HISTORY branch checks ``frame.frame_id is None``
+before anything else, so a schema-1 (no-identity) session recorded through
+this helper would block on ``NO_IDENTITY`` before a single SC-L015/-L017
+assertion could even be reached -- minting an identity per frame is what
+lets these tests keep exercising ``BEYOND_EXTENT`` / ``SUBSTRATE_MISMATCH`` /
+survivor-preservation the way they did before the re-key.
+
+**Substitutions this re-keying made (old assertion -> new assertion), listed
+per the T47 done-when -- no assertion below was deleted, each was replaced
+by its identity-keyed equivalent:**
+
+1. ``test_sc_l017_1_frames_above_a_discarded_branch_are_removed`` /
+   ``..._original_session_is_not_mutated`` / ``..._what_remains_...`` --
+   OLD: drop_discarded took an integer position boundary keyword.
+   NEW: ``drop_discarded(session, surviving_ids=frozenset({...frame_id}))``
+   (the set of identities to keep) -- same kept/dropped frames for these
+   fixtures, restated as *which identities survive*, plus a new assertion
+   that each survivor's ``frame_id`` is preserved unchanged (T33's stated
+   guarantee, not claimed before this re-key).
+2. ``test_drop_discarded_rejects_negative_position`` -- OLD: asserted a
+   negative integer position keyword is refused. That parameter no longer exists
+   (``surviving_ids`` is a ``frozenset``, which has no sign). NEW:
+   ``test_drop_discarded_rejects_non_frozenset_surviving_ids`` asserts the
+   equivalent malformed-input refusal on the new signature: a
+   non-``frozenset`` (a plain ``set``) is rejected the same way a negative
+   position used to be -- ``_require_frozenset_of``'s own contract.
+3. ``test_sc_l015_1_fully_reachable_history_session_reports_playable`` /
+   ``..._unreachable_history_session_names_first_offending_frame`` /
+   ``..._substrate_mismatch_names_the_first_frame`` /
+   ``test_sc_l013_reindexed_by_command_id_reports_correctly_after_a_gap`` --
+   OLD: ``ReconstructionExtent`` took the old command-id-keyed reachable set.
+   NEW: ``ReconstructionExtent(reachable_frame_ids=frozenset({...FrameId}))``
+   -- the same reachable/unreachable command positions, translated through
+   the helper's own command_id -> frame_id map, so the *scenario* (which
+   frames are reachable) is unchanged and only the *key space* is re-keyed.
+4. ``test_extent_post_init_refuses_snapshot_extent_carrying_command_ids`` --
+   OLD: constructed a SNAPSHOT extent with a stray old command-id-keyed
+   kwarg. NEW:
+   ``test_extent_post_init_refuses_snapshot_extent_carrying_frame_ids``
+   constructs it with a stray ``reachable_frame_ids`` kwarg -- the same
+   "wrong substrate's keys" construction-time refusal, on the new field.
+5. ``test_sc_l018_2_no_frame_carries_a_timestamp`` -- OLD:
+   ``field_names == {"index", "command_id", "snapshot_id"}``. NEW: the same
+   set plus ``"frame_id"`` -- ``TimelapseFrame`` gained the field
+   additively (T32); the "no timestamp" assertion is unchanged and still
+   the point of the test.
 """
 
 from __future__ import annotations
@@ -53,14 +108,29 @@ from pixelart_creator.logic.timelapse import (
 # logic test).                                                               #
 # --------------------------------------------------------------------------- #
 
+#: A fixed per-module recording id (Q-21, T47 re-key) -- this module is
+#: Qt-free and mints nothing itself (that stays ui/'s job, T34); a constant
+#: string is all a *validating* test needs, since `record_frame` only checks
+#: shape and non-reuse, never provenance.
+_RECORDING_ID = "test-recording-replay"
+
+
+def _frame_id(command_id) -> str:
+    """The identity this module's helper mints for ``command_id`` (Q-21)."""
+    return f"{_RECORDING_ID}:{command_id}"
+
 
 def _session_with_command_ids(command_ids):
-    """Build a session whose frames carry the GIVEN command ids, in order --
-    deliberately not equal to the frame's own index for some fixtures, since
-    that divergence is exactly what Ruling B (B-1) is about."""
-    session = new_session()
+    """Build an identity-bearing session whose frames carry the GIVEN command
+    ids, in order -- deliberately not equal to the frame's own index for some
+    fixtures, since that divergence is exactly what Ruling B (B-1) is about.
+    **Identity-bearing since the 2026-08-18 re-key (Q-21, T47)**: a schema-1
+    (no-identity) session would block every HISTORY reconstructability check
+    on NO_IDENTITY before BEYOND_EXTENT/SUBSTRATE_MISMATCH could ever be
+    observed, which is not what SC-L015/-L017 are testing."""
+    session = new_session(recording_id=_RECORDING_ID)
     for cid in command_ids:
-        session = record_frame(session, command_id=cid)
+        session = record_frame(session, command_id=cid, frame_id=_frame_id(cid))
     return session
 
 
@@ -191,6 +261,8 @@ def test_sc_l014_2_never_falls_back_to_n_renders_of_current_document():
 # --------------------------------------------------------------------------- #
 # SC-L015 -- reconstructability decided before anything is rendered           #
 #            (plan §8.2 ruled shape: substrate-keyed extent, blocker codes)   #
+#            **Re-keyed onto identity 2026-08-18 (Q-21, T47) -- substitution  #
+#            #3 in the module docstring.**                                    #
 # --------------------------------------------------------------------------- #
 
 
@@ -199,7 +271,7 @@ def test_sc_l015_1_fully_reachable_history_session_reports_playable():
     session = _session_with_command_ids(command_ids)
     extent = ReconstructionExtent(
         substrate=ReconstructionSubstrate.HISTORY,
-        reachable_command_ids=frozenset(command_ids),
+        reachable_frame_ids=frozenset(_frame_id(c) for c in command_ids),
     )
     verdict = reconstructability(session, extent)
     assert verdict.ok is True
@@ -223,7 +295,7 @@ def test_sc_l015_2_unreachable_history_session_names_first_offending_frame():
     session = _session_with_command_ids(command_ids)
     extent = ReconstructionExtent(
         substrate=ReconstructionSubstrate.HISTORY,
-        reachable_command_ids=frozenset({1, 2, 3}),
+        reachable_frame_ids=frozenset(_frame_id(c) for c in (1, 2, 3)),
     )
     verdict = reconstructability(session, extent)
     assert verdict.ok is False
@@ -235,7 +307,7 @@ def test_sc_l015_2_substrate_mismatch_names_the_first_frame():
     session = _session_with_command_ids([1, 2])
     extent = ReconstructionExtent(
         substrate=ReconstructionSubstrate.HISTORY,
-        reachable_command_ids=frozenset({1, 2}),
+        reachable_frame_ids=frozenset(_frame_id(c) for c in (1, 2)),
         matches_session=False,
     )
     verdict = reconstructability(session, extent)
@@ -248,11 +320,14 @@ def test_sc_l013_reindexed_by_command_id_reports_correctly_after_a_gap():
     # B-1's own example: a session recorded from command 5 onward, checked
     # against a history holding only commands 0-2, must NOT be reported
     # fully reconstructible -- proving the fix over the rejected
-    # `frame.index >= reachable_count` comparison.
+    # `frame.index >= reachable_count` comparison. Re-keyed onto identity:
+    # the "reachable" set below names identities that belong to NO frame in
+    # this session (a *different*, hypothetical recording's commands 0-2) --
+    # the frame_id-keyed equivalent of "positions this session never held".
     session = _session_with_command_ids([5, 6, 7])
     extent = ReconstructionExtent(
         substrate=ReconstructionSubstrate.HISTORY,
-        reachable_command_ids=frozenset({0, 1, 2}),
+        reachable_frame_ids=frozenset(_frame_id(c) for c in (0, 1, 2)),
     )
     verdict = reconstructability(session, extent)
     assert verdict.ok is False
@@ -280,11 +355,15 @@ def test_extent_post_init_refuses_history_extent_carrying_snapshot_ids():
         )
 
 
-def test_extent_post_init_refuses_snapshot_extent_carrying_command_ids():
+def test_extent_post_init_refuses_snapshot_extent_carrying_frame_ids():
+    # Substitution #4 (module docstring): re-keyed from the superseded
+    # the old command-id-keyed kwarg onto `reachable_frame_ids` -- same
+    # construction-time refusal (a SNAPSHOT extent must not carry the
+    # HISTORY substrate's own key space), on the new field name.
     with pytest.raises(TimelapseError):
         ReconstructionExtent(
             substrate=ReconstructionSubstrate.SNAPSHOT,
-            reachable_command_ids=frozenset({1}),
+            reachable_frame_ids=frozenset({_frame_id(1)}),
         )
 
 
@@ -319,6 +398,7 @@ def test_sc_l016_1_restored_after_a_replay_stopped_part_way():
     partial_session = TimelapseSession(
         schema_version=full_session.schema_version,
         frames=full_session.frames[:2],
+        recording_id=full_session.recording_id,
     )
     frames = _replay_with_restore(partial_session, provider, _identity_renderer)
 
@@ -357,31 +437,41 @@ def test_sc_l016_2_replay_adds_no_history_entry_and_session_is_unchanged():
 
 # --------------------------------------------------------------------------- #
 # SC-L017 -- discarded-branch frames leave the session                        #
+#            **Re-keyed onto identity 2026-08-18 (Q-21, T47) -- substitution  #
+#            #1 in the module docstring: the old int position keyword became  #
+#            `surviving_ids=frozenset(FrameId)`.**                            #
 # --------------------------------------------------------------------------- #
 
 
 def test_sc_l017_1_frames_above_a_discarded_branch_are_removed():
     session = _session_with_command_ids([0, 1, 2, 3, 4])
     # The user undid back past the third recorded position (command_id 2)
-    # and committed a new command, discarding the redo branch above it.
-    pruned = drop_discarded(session, at_position=2)
+    # and committed a new command, discarding the redo branch above it --
+    # restated as *which identities survive* rather than *which positions*.
+    surviving = frozenset(_frame_id(c) for c in (0, 1, 2))
+    pruned = drop_discarded(session, surviving_ids=surviving)
     assert [f.command_id for f in pruned.frames] == [0, 1, 2]
     assert [f.index for f in pruned.frames] == [0, 1, 2]
+    # New assertion (not claimed before this re-key, T33's stated guarantee):
+    # every survivor's frame_id is preserved unchanged, not re-minted.
+    assert [f.frame_id for f in pruned.frames] == [_frame_id(c) for c in (0, 1, 2)]
 
 
 def test_sc_l017_1_original_session_is_not_mutated():
     session = _session_with_command_ids([0, 1, 2, 3, 4])
-    drop_discarded(session, at_position=1)
+    surviving = frozenset(_frame_id(c) for c in (0, 1))
+    drop_discarded(session, surviving_ids=surviving)
     assert [f.command_id for f in session.frames] == [0, 1, 2, 3, 4]
 
 
 def test_sc_l017_2_what_remains_after_a_discard_still_reconstructs():
     session = _session_with_command_ids([0, 1, 2, 3, 4])
-    pruned = drop_discarded(session, at_position=2)
+    surviving = frozenset(_frame_id(c) for c in (0, 1, 2))
+    pruned = drop_discarded(session, surviving_ids=surviving)
     history = _history([0, 1, 2])  # matches the 3 kept commands
     extent = ReconstructionExtent(
         substrate=ReconstructionSubstrate.HISTORY,
-        reachable_command_ids=frozenset({0, 1, 2}),
+        reachable_frame_ids=frozenset(_frame_id(c) for c in (0, 1, 2)),
     )
     verdict = reconstructability(pruned, extent)
     assert verdict.ok is True
@@ -391,9 +481,15 @@ def test_sc_l017_2_what_remains_after_a_discard_still_reconstructs():
         assert np.array_equal(produced, history[cid])
 
 
-def test_drop_discarded_rejects_negative_position():
+def test_drop_discarded_rejects_non_frozenset_surviving_ids():
+    # Substitution #2 (module docstring): a negative int position keyword no longer exists
+    # to be negative -- `surviving_ids` is a frozenset, which has no sign.
+    # The equivalent malformed-input refusal on the new signature: a plain
+    # `set` (not a `frozenset`) is rejected by `_require_frozenset_of`.
     with pytest.raises(TimelapseError):
-        drop_discarded(_session_with_command_ids([1]), at_position=-1)
+        drop_discarded(
+            _session_with_command_ids([1]), surviving_ids={_frame_id(1)}
+        )  # type: ignore[arg-type]
 
 
 # --------------------------------------------------------------------------- #
@@ -413,9 +509,12 @@ def test_sc_l018_1_same_session_replayed_twice_is_byte_identical():
 
 
 def test_sc_l018_2_no_frame_carries_a_timestamp():
+    # Substitution #5 (module docstring): `frame_id` was added additively
+    # (T32) -- the field-name set is widened by exactly that name, and the
+    # "no timestamp" assertion (the actual point of this test) is unchanged.
     field_names = {f.name for f in dataclasses.fields(TimelapseFrame)}
     assert "timestamp" not in field_names
-    assert field_names == {"index", "command_id", "snapshot_id"}
+    assert field_names == {"index", "command_id", "snapshot_id", "frame_id"}
 
 
 def test_sc_l018_2_playback_speeds_and_default_are_named_constants():

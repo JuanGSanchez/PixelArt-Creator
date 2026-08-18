@@ -30,6 +30,37 @@ assert a projected number or an 8K threshold in any case; asserting on the
 reports' *existence* before AGT-10 has produced them would be a test
 authored to fail, which is not what a dependency gap calls for -- reported
 as BLOCKED on AGT-10 instead (see the accompanying report).
+
+**Re-keyed 2026-08-18 (Q-21, T33/T35/T47) onto the stable frame identity**
+(REQ-P9-LOGIC-022, REQ-P9-DATA-005). ``data/timelapse_io.py``'s
+``serialize_payload``/``save_session_payload`` now write **only** schema 3
+(identity-bearing) -- a schema-2 (payload-carrying, no-identity) session
+raises ``TimelapseIOError`` if handed to either. Every session this module
+builds and SAVES is therefore now schema 3: a per-recording id plus one
+``recording_id:command_id`` identity per frame (mirroring the shape
+``ui/timelapse_controls.py`` mints, T34), matching the
+``^[0-9a-f]{32}:[0-9]+$`` pattern `data/timelapse_io.py` itself checks on
+load. **Substitution (old assertion -> new assertion, listed per T47's
+done-when -- no assertion was deleted):**
+
+- ``_record_and_save`` -- OLD: built a schema-2
+  ``TimelapseSession(schema_version=TIMELAPSE_PAYLOAD_SCHEMA_VERSION, ...)``
+  with no ``frame_id``, then called ``save_session_payload``. NEW: builds a
+  schema-3 session (``recording_id`` set, every frame carrying its own
+  ``frame_id``) via the same construction shape, because the write path
+  itself now refuses the old one -- the round-trip/replay assertions every
+  caller of this helper makes (SC-L019-1, -2, -4) are otherwise unchanged.
+- ``test_sc_l019_3_incomplete_payload_reports_unplayable_naming_the_frame`` --
+  OLD: frames 0/1 carried a ``snapshot_id`` and frame 2 did not, all three
+  with no identity; ``reconstructability`` named frame 2 as
+  ``NO_PAYLOAD``. Since the SNAPSHOT substrate now checks identity *after*
+  ``NO_PAYLOAD`` but *before* ``PAYLOAD_INCOMPLETE`` (``SC-D005-3``'s
+  precedence), a frame carrying a ``snapshot_id`` but no ``frame_id`` blocks
+  on ``NO_IDENTITY`` at frame 0 -- before frame 2 is ever reached. NEW: every
+  frame (including the deliberately-incomplete frame 2) now carries a
+  ``frame_id``, so the identity check passes uniformly and the test again
+  exercises exactly what it names -- ``NO_PAYLOAD`` at the first frame
+  missing its snapshot, unclouded by a missing identity.
 """
 
 from __future__ import annotations
@@ -45,7 +76,7 @@ from pixelart_creator.data.timelapse_io import (
 from pixelart_creator.logic.document import Document
 from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.timelapse import (
-    TIMELAPSE_PAYLOAD_SCHEMA_VERSION,
+    TIMELAPSE_IDENTITY_SCHEMA_VERSION,
     Reconstructability,
     ReconstructionBlocker,
     ReconstructionExtent,
@@ -61,6 +92,17 @@ RED = (255, 0, 0, 255)
 BLUE = (0, 0, 255, 255)
 GREEN = (0, 255, 0, 255)
 
+#: A fixed, 32-lowercase-hex-char per-module recording id (Q-21, T47
+#: re-key) -- matches the shape `data/timelapse_io.py` validates
+#: (`^[0-9a-f]{32}:[0-9]+$`, prefixed by this value). This module is
+#: Qt-free and mints nothing itself (that stays ui/'s job, T34); a fixed
+#: string is all a *validating* test needs.
+_RECORDING_ID = "cafecafecafecafecafecafecafecafe"
+
+
+def _frame_id(command_id) -> str:
+    return f"{_RECORDING_ID}:{command_id}"
+
 
 def _document(pixel) -> Document:
     doc = Document(2, 2, palette=Palette([RED, BLUE, GREEN]))
@@ -69,9 +111,11 @@ def _document(pixel) -> Document:
 
 
 def _record_and_save(tmp_path, pixels, name="rec"):
-    """Build+save a payload-carrying session, one frame per pixel value --
-    mirrors what a real in-session Snapshot_Document_Provider recording
-    (T9) would persist through save_session_payload."""
+    """Build+save an identity-bearing (schema-3) session, one frame per pixel
+    value -- mirrors what a real in-session Snapshot_Document_Provider
+    recording (T9) would persist through save_session_payload, now that
+    schema 2 is read-only legacy and the write path requires identity
+    (Q-21, T47 substitution, module docstring)."""
     snapshots = {}
     blobs = {}
     frames = []
@@ -82,11 +126,16 @@ def _record_and_save(tmp_path, pixels, name="rec"):
         blobs.update(doc_blobs)
         frames.append(
             TimelapseFrame(
-                index=command_id, command_id=command_id, snapshot_id=snapshot_id
+                index=command_id,
+                command_id=command_id,
+                snapshot_id=snapshot_id,
+                frame_id=_frame_id(command_id),
             )
         )
     session = TimelapseSession(
-        schema_version=TIMELAPSE_PAYLOAD_SCHEMA_VERSION, frames=tuple(frames)
+        schema_version=TIMELAPSE_IDENTITY_SCHEMA_VERSION,
+        frames=tuple(frames),
+        recording_id=_RECORDING_ID,
     )
     path = save_session_payload(session, snapshots, blobs, tmp_path / name)
     return path
@@ -133,7 +182,9 @@ def test_sc_l019_1_matches_the_in_session_replay_of_the_same_edits(tmp_path):
 
     # The in-session sequence for the same edits: a live "history" of the
     # same documents keyed by command_id (Ruling B), provided directly (no
-    # persistence involved).
+    # persistence involved). Identity plays no role in a bare in-session
+    # replay (`replay` resolves by command_id via the provider), so this
+    # comparison session is left schema-1 deliberately.
     in_session_docs = {i: _document(p) for i, p in enumerate(pixels)}
     in_session_session = TimelapseSession(
         frames=tuple(TimelapseFrame(index=i, command_id=i) for i in range(len(pixels)))
@@ -184,10 +235,14 @@ def test_sc_l019_2_replaying_twice_in_two_sessions_is_byte_identical(tmp_path):
 
 def test_sc_l019_3_incomplete_payload_reports_unplayable_naming_the_frame(tmp_path):
     # A payload where only the leading frames were actually persisted with a
-    # snapshot -- a legitimate schema-2 shape (snapshot_id is optional) that
+    # snapshot -- a legitimate schema-3 shape (snapshot_id is optional) that
     # models a truncated/incomplete recording at the logic layer (the data
     # layer's own malformed/fingerprint-mismatch rejections are covered by
-    # tests/data/test_timelapse_io_schema2.py, T14).
+    # tests/data/test_timelapse_io_schema3.py, T40). Every frame -- including
+    # the deliberately-incomplete one -- still carries its identity: identity
+    # and payload-completeness are orthogonal (T47 substitution, module
+    # docstring), and NO_PAYLOAD must be reached before PAYLOAD_INCOMPLETE
+    # would ever apply, never masked by a missing identity.
     pixels = [RED, BLUE, GREEN]
     snapshots = {}
     blobs = {}
@@ -200,13 +255,24 @@ def test_sc_l019_3_incomplete_payload_reports_unplayable_naming_the_frame(tmp_pa
             blobs.update(doc_blobs)
             frames.append(
                 TimelapseFrame(
-                    index=command_id, command_id=command_id, snapshot_id=snapshot_id
+                    index=command_id,
+                    command_id=command_id,
+                    snapshot_id=snapshot_id,
+                    frame_id=_frame_id(command_id),
                 )
             )
         else:
-            frames.append(TimelapseFrame(index=command_id, command_id=command_id))
+            frames.append(
+                TimelapseFrame(
+                    index=command_id,
+                    command_id=command_id,
+                    frame_id=_frame_id(command_id),
+                )
+            )
     session = TimelapseSession(
-        schema_version=TIMELAPSE_PAYLOAD_SCHEMA_VERSION, frames=tuple(frames)
+        schema_version=TIMELAPSE_IDENTITY_SCHEMA_VERSION,
+        frames=tuple(frames),
+        recording_id=_RECORDING_ID,
     )
     path = save_session_payload(session, snapshots, blobs, tmp_path / "truncated")
     payload = load_session_payload(path)
