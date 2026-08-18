@@ -178,7 +178,7 @@ def test_sc_l010_1_selection_transform_changes_only_masked_pixels():
     # select the 2x2 top-left region and flip it horizontally in place.
     mask = rect_mask(4, 4, 0, 0, 1, 1)
     holder = _Holder(buf)
-    cmd = make_transform_command(holder, flip_horizontal, mask)
+    cmd = make_transform_command(holder, flip_horizontal, mask, target=None)
     cmd.execute()
     # pixels outside the selection are untouched.
     for y in range(4):
@@ -193,14 +193,14 @@ def test_sc_l010_2_whole_buffer_transform_changes_every_pixel():
     buf = _distinct_buffer(3, 3)
     before = buf.copy()
     holder = _Holder(buf)
-    make_transform_command(holder, flip_horizontal).execute()
+    make_transform_command(holder, flip_horizontal, target=None).execute()
     assert holder.buffer == flip_horizontal(before)
 
 
 def test_sc_l010_2_dim_changing_whole_buffer_uses_function_command():
     buf = _distinct_buffer(5, 2)  # non-square -> rotate swaps dims
     holder = _Holder(buf)
-    cmd = make_transform_command(holder, rotate_90_cw)
+    cmd = make_transform_command(holder, rotate_90_cw, target=None)
     cmd.execute()
     assert holder.buffer.width == 2 and holder.buffer.height == 5
 
@@ -210,7 +210,7 @@ def test_sc_l010_3_selection_transform_then_undo_restores_buffer():
     before = buf.copy()
     mask = rect_mask(4, 4, 1, 1, 3, 3)
     holder = _Holder(buf)
-    cmd = make_transform_command(holder, rotate_90_cw, mask)
+    cmd = make_transform_command(holder, rotate_90_cw, mask, target=None)
     cmd.execute()
     cmd.undo()
     assert buf == before
@@ -220,7 +220,7 @@ def test_dim_changing_command_undo_restores_buffer():
     buf = _distinct_buffer(5, 2)
     before = buf.copy()
     holder = _Holder(buf)
-    cmd = make_transform_command(holder, rotate_90_cw)
+    cmd = make_transform_command(holder, rotate_90_cw, target=None)
     cmd.execute()
     cmd.undo()
     assert holder.buffer == before
@@ -231,7 +231,7 @@ def test_masked_transform_with_empty_mask_is_noop():
     before = buf.copy()
     empty = rect_mask(4, 4, 10, 10, 20, 20)  # empty
     holder = _Holder(buf)
-    make_transform_command(holder, flip_horizontal, empty).execute()
+    make_transform_command(holder, flip_horizontal, empty, target=None).execute()
     assert buf == before
 
 
@@ -239,7 +239,9 @@ def test_masked_transform_dim_mismatch_raises():
     buf = _distinct_buffer(4, 4)
     holder = _Holder(buf)
     with pytest.raises(TransformError):
-        make_transform_command(holder, flip_horizontal, rect_mask(8, 8, 0, 0, 1, 1))
+        make_transform_command(
+            holder, flip_horizontal, rect_mask(8, 8, 0, 0, 1, 1), target=None
+        )
 
 
 def test_masked_transform_uncovered_pixel_takes_fill():
@@ -250,7 +252,7 @@ def test_masked_transform_uncovered_pixel_takes_fill():
         buf.set_pixel(x, 0, (10 * (x + 1), 0, 0, 255))
     mask = rect_mask(4, 4, 0, 0, 2, 0)  # a 3-wide, 1-tall selection
     holder = _Holder(buf)
-    cmd = make_transform_command(holder, rotate_90_cw, mask)
+    cmd = make_transform_command(holder, rotate_90_cw, mask, target=None)
     cmd.execute()
     # some selected cells become transparent fill (rotated region is taller).
     fill_seen = any(buf.get_pixel(x, 0) == (0, 0, 0, 0) for x in range(3))
@@ -266,7 +268,7 @@ def test_indexed_flip_diff_path():
     buf.set_pixel(2, 0, 3)
     before = buf.copy()
     holder = _Holder(buf)
-    cmd = make_transform_command(holder, flip_horizontal)
+    cmd = make_transform_command(holder, flip_horizontal, target=None)
     cmd.execute()
     assert buf.get_pixel(0, 0) == 3 and buf.get_pixel(2, 0) == 1
     cmd.undo()
@@ -324,7 +326,7 @@ def test_property_whole_buffer_transform_reversible(data, w, h):
     for tfm in (flip_horizontal, flip_vertical, rotate_90_cw):
         holder.buffer = before.copy()
         snapshot = holder.buffer.copy()
-        cmd = make_transform_command(holder, tfm)
+        cmd = make_transform_command(holder, tfm, target=None)
         cmd.execute()
         cmd.undo()
         assert holder.buffer == snapshot

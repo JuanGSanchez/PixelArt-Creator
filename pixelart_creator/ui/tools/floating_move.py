@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Callable, Optional, Protocol
 
 from PySide6.QtGui import QUndoStack
 
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.history import PixelEdit
 from pixelart_creator.logic.pixel_buffer import PixelBuffer
 from pixelart_creator.logic.selection import (
@@ -61,6 +62,7 @@ class LiftContext(Protocol):
     scene: "CanvasScene"
     undo_stack: QUndoStack
     set_selection: Optional[SetSelection]
+    target: Optional[EditTarget]
 
 
 class FloatingMoveController:
@@ -80,6 +82,7 @@ class FloatingMoveController:
         self._undo_stack: Optional[QUndoStack] = None
         self._set_selection: Optional[SetSelection] = None
         self._origin_mask: Optional[SelectionMask] = None
+        self._target: Optional[EditTarget] = None
         self._label = ""
         #: Optional observer (set by the view) fed ``(is_active, is_copy)``.
         self.state_changed: Optional[StateCallback] = None
@@ -113,6 +116,7 @@ class FloatingMoveController:
         self._undo_stack = ctx.undo_stack
         self._set_selection = ctx.set_selection
         self._origin_mask = selection
+        self._target = ctx.target
         self._label = label
         ctx.scene.begin_floating(self._floating)
         ctx.scene.set_selection_move_offset(0, 0)
@@ -153,11 +157,12 @@ class FloatingMoveController:
         set_selection = self._set_selection
         origin = self._origin_mask
         buffer = self._buffer
+        target = self._target
         label = self._label
         dx, dy = floating.offset
         self._reset()
         assert buffer is not None and scene is not None and undo_stack is not None
-        command = commit_floating(buffer, floating)
+        command = commit_floating(buffer, floating, target=target)
         if isinstance(command, PixelEdit) and len(command) == 0:
             # No net pixel change — no spurious undo step (CL-F8).
             scene.end_floating()
@@ -198,6 +203,7 @@ class FloatingMoveController:
         self._undo_stack = None
         self._set_selection = None
         self._origin_mask = None
+        self._target = None
         self._label = ""
 
     def _notify(self) -> None:

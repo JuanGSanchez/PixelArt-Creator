@@ -10,7 +10,18 @@ reshaping it.
 from __future__ import annotations
 
 import math
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 
 from pixelart_creator.logic import palette_ops
 from pixelart_creator.logic.animation import (
@@ -29,6 +40,13 @@ from pixelart_creator.logic.constants import (
     MAX_FRAMES,
     MAX_GROUP_NESTING_DEPTH,
     MAX_LAYERS_PER_FRAME,
+)
+from pixelart_creator.logic.edit_trace import (
+    EditTrace,
+    LayerAttrTrace,
+    LayerAttrValue,
+    LayerOrderTrace,
+    MetadataTrace,
 )
 from pixelart_creator.logic.history import Command, FunctionCommand
 from pixelart_creator.logic.palette import Palette
@@ -64,6 +82,34 @@ LayerRef = Union[int, Sequence[int]]
 
 class DocumentError(ValueError):
     """Raised on an invalid document structure or operation."""
+
+
+class _TracedCommand(FunctionCommand):
+    """A :class:`FunctionCommand` that reports a fixed :meth:`edit_trace` (T8/T9/T10).
+
+    ``REQ-P10-UI-025``: the four op classes' commands describe their own change
+    at build time (the new value / resulting order is already known then), so
+    the trace is computed once and returned as-is on every call — additive,
+    Qt-free, no clock, no site id (plan §3.1, §3.2).
+    """
+
+    __slots__ = ("_trace",)
+
+    def __init__(
+        self,
+        do: Callable[[], None],
+        undo: Callable[[], None],
+        *,
+        label: str,
+        trace: Tuple[EditTrace, ...],
+    ) -> None:
+        """Wrap ``do``/``undo`` as a :class:`FunctionCommand`, carrying ``trace``."""
+        super().__init__(do, undo, label=label)
+        self._trace = trace
+
+    def edit_trace(self) -> Tuple[EditTrace, ...]:
+        """Return the fixed trace this command was built with."""
+        return self._trace
 
 
 def _validate_opacity(value: float) -> float:
@@ -1064,7 +1110,9 @@ class Document:
             command.undo()
             _clear_caches(cleared)
 
-        return FunctionCommand(_do, _undo, label=command.label)
+        return _TracedCommand(
+            _do, _undo, label=command.label, trace=command.edit_trace()
+        )
 
     def invalidate_caches(
         self, ref: Optional[LayerRef] = None, *, frame_index: int = 0
@@ -1089,8 +1137,29 @@ class Document:
     # -- reversible attribute ops (return a history.Command) --------------
 
     def _attr_command(
-        self, node: "LayerNode", attr: str, value: object, label: str
+        self,
+        node: "LayerNode",
+        attr: str,
+        value: object,
+        label: str,
+        *,
+        frame_index: Optional[int] = None,
     ) -> Command:
+        """Build a reversible attribute-set command.
+
+        When ``frame_index`` is given (only the call sites for ``name``,
+        ``visible`` and ``locked`` pass it — the attrs
+        :data:`~pixelart_creator.logic.convergence.LAYER_ATTRS` actually
+        converges, task T8), the returned command reports a
+        :class:`~pixelart_creator.logic.edit_trace.LayerAttrTrace` naming
+        ``(frame_index, node.layer_id, attr, value)``. ``document.py`` cannot
+        import ``logic/convergence.py`` to check membership directly —
+        ``convergence.py`` already imports ``document.py``, and the reverse
+        edge would close a two-module cycle (Article I §4) — so the call sites
+        below encode the membership instead: ``opacity`` (not in T8's scope)
+        and ``blend_mode`` (not in ``LAYER_ATTRS`` at all) omit ``frame_index``
+        and keep the default, honest, empty trace.
+        """
         old = getattr(node, attr)
 
         def _do() -> None:
@@ -1099,6 +1168,18 @@ class Document:
         def _undo() -> None:
             setattr(node, attr, old)
 
+        if frame_index is not None:
+            # Only call sites for LAYER_ATTRS-compatible attrs pass frame_index
+            # (name/visible/locked), so ``value`` is always str/bool here.
+            trace: Tuple[EditTrace, ...] = (
+                LayerAttrTrace(
+                    frame_index=frame_index,
+                    layer_id=node.layer_id,
+                    attr=attr,
+                    value=cast(LayerAttrValue, value),
+                ),
+            )
+            return _TracedCommand(_do, _undo, label=label, trace=trace)
         return FunctionCommand(_do, _undo, label=label)
 
     def set_layer_opacity(
@@ -1113,6 +1194,57 @@ class Document:
             self._chain_for_container(frame, container),
         )
 
+    def make_set_metadata_command(self, key: str, value: str) -> Command:
+        """Build a command reversibly setting ``self.metadata[key] = value`` (task T10).
+
+        The metadata-setting command's op class (``REQ-P10-UI-025``): reports a
+        :class:`~pixelart_creator.logic.edit_trace.MetadataTrace` naming
+        ``(key, value)``. No reversible metadata-setting command existed
+        before this task — ``Document.metadata`` was a plain dict, written
+        directly with no undo support. After T7-T10 all four convergence op
+        classes are reachable from a real, reversible edit.
+
+        Raises:
+            DocumentError: If ``key`` is not a non-empty ``str``.
+        """
+        if not isinstance(key, str) or not key:
+            raise DocumentError(f"metadata key must be a non-empty str, got {key!r}")
+        value = str(value)
+        old = self.metadata.get(key)
+        had_key = key in self.metadata
+
+        def _do() -> None:
+            self.metadata[key] = value
+
+        def _undo() -> None:
+            if had_key:
+                self.metadata[key] = old  # type: ignore[assignment]
+            else:
+                self.metadata.pop(key, None)
+
+        trace: Tuple[EditTrace, ...] = (MetadataTrace(key=key, value=value),)
+        return _TracedCommand(_do, _undo, label="set metadata", trace=trace)
+
+    def set_layer_name(
+        self, ref: LayerRef, value: str, *, frame_index: int = 0
+    ) -> Command:
+        """Reversibly set a node's display name (LOGIC-008, task T8).
+
+        The name setter's op class (``REQ-P10-UI-025``): ``name`` is one of
+        :data:`~pixelart_creator.logic.convergence.LAYER_ATTRS`, so this is the
+        fourth of the four commands task T8 wires to a
+        :class:`~pixelart_creator.logic.edit_trace.LayerAttrTrace`. No
+        reversible name-setting command existed before this task.
+        """
+        frame = self._check_frame(frame_index)
+        container, _index, node = self._resolve(frame, ref)
+        return self._invalidating(
+            self._attr_command(
+                node, "name", str(value), "rename layer", frame_index=frame_index
+            ),
+            self._chain_for_container(frame, container),
+        )
+
     def set_layer_visible(
         self, ref: LayerRef, value: bool, *, frame_index: int = 0
     ) -> Command:
@@ -1120,7 +1252,13 @@ class Document:
         frame = self._check_frame(frame_index)
         container, _index, node = self._resolve(frame, ref)
         return self._invalidating(
-            self._attr_command(node, "visible", bool(value), "set visibility"),
+            self._attr_command(
+                node,
+                "visible",
+                bool(value),
+                "set visibility",
+                frame_index=frame_index,
+            ),
             self._chain_for_container(frame, container),
         )
 
@@ -1131,14 +1269,23 @@ class Document:
         frame = self._check_frame(frame_index)
         container, _index, node = self._resolve(frame, ref)
         return self._invalidating(
-            self._attr_command(node, "locked", bool(value), "set lock"),
+            self._attr_command(
+                node, "locked", bool(value), "set lock", frame_index=frame_index
+            ),
             self._chain_for_container(frame, container),
         )
 
     def set_layer_blend_mode(
         self, ref: LayerRef, mode: BlendMode, *, frame_index: int = 0
     ) -> Command:
-        """Reversibly set a node's blend mode (LOGIC-008)."""
+        """Reversibly set a node's blend mode (LOGIC-008).
+
+        ``blend_mode`` is not one of
+        :data:`~pixelart_creator.logic.convergence.LAYER_ATTRS` — the structured
+        convergence model does not converge it — so this command keeps the
+        default, empty :meth:`~pixelart_creator.logic.history.Command.edit_trace`
+        (task T8's own scope: only ``name``/``visible``/``locked`` are traced).
+        """
         frame = self._check_frame(frame_index)
         container, _index, node = self._resolve(frame, ref)
         _validate_blend_mode(mode)
@@ -1222,6 +1369,15 @@ class Document:
         ``to`` addresses the destination container + insertion index (a
         top-level index, or a path whose last element is the index inside a
         target group).
+
+        When the move is **top-level to top-level** (LOGIC-009 §T9), the
+        returned command reports a
+        :class:`~pixelart_creator.logic.edit_trace.LayerOrderTrace` naming the
+        resulting ``(frame_index, order)``. A move into/out of a nested group
+        is not expressible as ``LayerOrderOp`` (the convergence union orders
+        only a frame's top level), so it keeps the default, honest, empty
+        trace — an expressiveness gap the model already has, not one this
+        task introduces.
         """
         frame = self._check_frame(frame_index)
         src_container, src_index, node = self._resolve(frame, ref)
@@ -1245,8 +1401,20 @@ class Document:
         for group in self._chain_for_container(frame, dst_container):
             if group not in groups:
                 groups.append(group)
+
+        trace: Tuple[EditTrace, ...] = ()
+        if src_container is frame.layers and dst_container is frame.layers:
+            resulting = list(frame.layers)
+            _remove_by_identity(resulting, node)
+            resulting.insert(dst_index, node)
+            trace = (
+                LayerOrderTrace(
+                    frame_index=frame_index,
+                    order=tuple(n.layer_id for n in resulting),
+                ),
+            )
         return self._invalidating(
-            FunctionCommand(_do, _undo, label="move layer"), groups
+            _TracedCommand(_do, _undo, label="move layer", trace=trace), groups
         )
 
     def make_duplicate_layer_command(

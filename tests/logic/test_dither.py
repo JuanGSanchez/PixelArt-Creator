@@ -153,7 +153,7 @@ def test_make_dither_command_reversible(mode):
     # SC-L017-1: apply ∘ undo = identity.
     buf = _gradient_buffer(8, 8)
     before = buf.copy()
-    cmd = make_dither_command(buf, BW, mode)
+    cmd = make_dither_command(buf, BW, mode, target=None)
     assert isinstance(cmd, history.Command)
     cmd.execute()
     assert _colours_in(buf).issubset(_palette_set(BW))
@@ -165,7 +165,7 @@ def test_make_dither_command_respects_mask():
     buf = _gradient_buffer(8, 8)
     before = buf.copy()
     mask = rect_mask(8, 8, 0, 0, 3, 3)
-    cmd = make_dither_command(buf, BW, "ordered", mask=mask)
+    cmd = make_dither_command(buf, BW, "ordered", mask=mask, target=None)
     cmd.execute()
     # Unmasked region is unchanged; masked region is snapped to the palette.
     assert buf.get_pixel(7, 7) == before.get_pixel(7, 7)
@@ -176,12 +176,12 @@ def test_make_dither_command_respects_mask():
 
 def test_make_dither_command_bad_mode_raises():
     with pytest.raises(DitherError):
-        make_dither_command(_gradient_buffer(4, 4), BW, "nope")
+        make_dither_command(_gradient_buffer(4, 4), BW, "nope", target=None)
 
 
 def test_make_dither_command_empty_palette_raises():
     with pytest.raises(PaletteError):
-        make_dither_command(_gradient_buffer(4, 4), Palette(), "ordered")
+        make_dither_command(_gradient_buffer(4, 4), Palette(), "ordered", target=None)
 
 
 @given(

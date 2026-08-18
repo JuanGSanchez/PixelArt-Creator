@@ -18,6 +18,7 @@ from PySide6.QtGui import QUndoStack
 
 from pixelart_creator.logic import drawing
 from pixelart_creator.logic.color import RGBA
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.history import PixelChange, PixelEdit
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer, PixelValue
 from pixelart_creator.logic.selection import SelectionMask
@@ -131,12 +132,39 @@ class Stroke:
         refresh: Callable[[QRectF], None],
         label: str,
         invalidate: Optional[Callable[[], None]] = None,
+        *,
+        target: Optional[EditTarget] = None,
     ) -> Optional[PaintCommand]:
         """Build a :class:`PaintCommand`, or ``None`` if nothing changed (CL-12/-14).
 
         ``invalidate`` is the D4 cache-safety hook (``scene.invalidate_group_caches``)
         forwarded to the command so a group's flatten cache cannot serve a stale
         composite after the edit; ``None`` for a non-composited target.
+
+        ``target`` is where this edit landed (``ctx.target``, plan §8.2,
+        `REQ-P10-UI-025`) — the frame + layer track the branch-recording seam
+        attributes the resulting op to. Every ``ui/tools/`` caller
+        (``fill.py``, ``line.py``, ``pencil.py`` — all three commit paths —,
+        ``shape_base.py``) passes ``target=ctx.target`` explicitly; ``None``
+        stays the honest default only for a caller that genuinely has no view
+        context (e.g. a headless test building a bare ``Stroke``), never a
+        guess (plan §8.2's honest-empty channel; the "unminted layer" sentinel
+        is ``ctx.target`` being ``None`` in the first place — see
+        ``Canvas_View._make_edit_target``).
+
+        ``record_trace``/``document`` (the *who does the recording* half of
+        `REQ-P10-UI-025`, as opposed to *what it is attributed to*) are
+        deliberately **not** parameters here: attaching them to every one of
+        the six drawing tools' `PaintCommand`/`LogicCommand` construction call
+        sites individually would touch files outside this dispatch's write set
+        (``ui/tools/{fill,line,pencil,shape_base,dither_tool}.py``,
+        ``ui/tools/floating_move.py``). Instead ``ui/canvas_view.py`` hands
+        every tool an undo stack that auto-binds the active recording sink
+        onto whatever command a tool pushes, *after* construction (see
+        ``Canvas_View._RecordingUndoStack`` and
+        ``PaintCommand``/``LogicCommand.bind_recording`` in ``ui/commands.py``)
+        — one interception point instead of six edited call sites, with the
+        exact same observable effect.
         """
         changes: List[PixelChange] = []
         for x, y in sorted(self._touched):
@@ -146,7 +174,7 @@ class Stroke:
                 changes.append((x, y, old, new))
         if not changes:
             return None
-        edit = PixelEdit(self._buffer, changes, label=label)
+        edit = PixelEdit(self._buffer, changes, label=label, target=target)
         return PaintCommand(
             edit, refresh, self.touched_rect(), text=label, invalidate=invalidate
         )
@@ -162,8 +190,31 @@ class ToolContext:
         active_index: The active palette index used as the paint value in an
             indexed buffer — the palette panel selects it (REQ-P3-UI-014). In an
             RGBA buffer it is ignored (``active_color`` is written instead).
-        undo_stack: The active document's undo stack.
+        undo_stack: The active document's undo stack. In production
+            ``ui/canvas_view.py`` hands every tool a thin recording wrapper
+            around the real ``QUndoStack`` — duck-typed to the same ``push``
+            interface, see ``Canvas_View._RecordingUndoStack`` — that attaches
+            the active branch's record-trace callback + live ``Document`` to
+            every pushed command (T-DRAW-01, `REQ-P10-UI-025`) so every drawing
+            tool's commit records, without any tool constructing its
+            ``PaintCommand``/``LogicCommand`` any differently than it already
+            does. Declared as ``QUndoStack`` here (the interface every real
+            caller besides the canvas view still passes) rather than a narrower
+            Protocol, so the wrapper's use is confined to and documented at its
+            one construction site instead of rippling this file's type into the
+            other ``ui/tools/`` modules' own ``QUndoStack``-typed contracts
+            (e.g. ``floating_move.LiftContext``) outside this dispatch's write
+            set.
         scene: The canvas scene (for dirty-rect refresh + previews).
+        target: Where an edit through this context lands — the active frame
+            index and the active node's stable ``layer_id`` (``EditTarget``),
+            or ``None`` when the active layer has no minted id yet
+            (``layer_id == 0``, the documented "unminted" sentinel,
+            ``logic/document.py:264``). Consumed by ``Stroke.to_command`` to
+            attribute the resulting op for branch recording (`REQ-P10-UI-025`,
+            plan §8.2). The context is read from the live ``Document`` here —
+            never computed — because a ``PixelBuffer`` does not know which
+            layer or frame it belongs to (Article I; plan §8.2).
         set_active_color: Callback the picker uses to set the active colour.
         selection: The active selection mask, or ``None`` (whole buffer, CL-5).
         set_selection: Callback a selection tool uses to set the active mask.
@@ -186,6 +237,7 @@ class ToolContext:
         scene: CanvasScene,
         set_active_color: Callable[[RGBA], None],
         *,
+        target: Optional[EditTarget],
         active_index: int = 0,
         selection: Optional[SelectionMask] = None,
         set_selection: Optional[Callable[[Optional[SelectionMask]], None]] = None,
@@ -203,6 +255,7 @@ class ToolContext:
         self.active_index = active_index
         self.undo_stack = undo_stack
         self.scene = scene
+        self.target = target
         self.set_active_color = set_active_color
         self.selection = selection
         self.set_selection = set_selection

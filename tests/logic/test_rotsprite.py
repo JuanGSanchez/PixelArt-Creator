@@ -187,7 +187,7 @@ def test_command_whole_buffer_is_reversible():
     buf = _sprite(6, 6)
     before = buf.copy()
     holder = _Holder(buf)
-    cmd = make_rotsprite_command(holder, 33.0)
+    cmd = make_rotsprite_command(holder, 33.0, target=None)
     cmd.execute()
     assert holder.buffer != before
     cmd.undo()
@@ -199,7 +199,7 @@ def test_command_selection_touches_only_masked_pixels_and_reverts():
     before = buf.copy()
     mask = rect_mask(8, 8, 2, 2, 5, 5)
     holder = _Holder(buf)
-    cmd = make_rotsprite_command(holder, 30.0, mask)
+    cmd = make_rotsprite_command(holder, 30.0, mask, target=None)
     cmd.execute()
     # pixels outside the mask are unchanged.
     for y in range(8):
@@ -214,7 +214,7 @@ def test_command_selection_dim_mismatch_raises():
     buf = _sprite(6, 6)
     holder = _Holder(buf)
     with pytest.raises(ValueError):
-        make_rotsprite_command(holder, 30.0, rect_mask(8, 8, 0, 0, 1, 1))
+        make_rotsprite_command(holder, 30.0, rect_mask(8, 8, 0, 0, 1, 1), target=None)
 
 
 def test_command_empty_selection_is_noop():
@@ -222,7 +222,7 @@ def test_command_empty_selection_is_noop():
     before = buf.copy()
     empty = rect_mask(6, 6, 10, 10, 20, 20)
     holder = _Holder(buf)
-    cmd = make_rotsprite_command(holder, 30.0, empty)
+    cmd = make_rotsprite_command(holder, 30.0, empty, target=None)
     cmd.execute()
     assert buf == before
 

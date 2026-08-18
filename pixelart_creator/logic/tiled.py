@@ -10,11 +10,12 @@ Tiled mode treats the canvas as a torus: any paint coordinate maps to
 
 from __future__ import annotations
 
-from typing import Callable, List, Sequence, Tuple, Union
+from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 from pixelart_creator.logic import history
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.constants import TILED_PREVIEW_REPEAT
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.pixel_buffer import PixelBuffer
 
 Coord = Tuple[int, int]
@@ -56,7 +57,12 @@ def preview_tiling(
     return out
 
 
-def make_tiled_command(buffer: PixelBuffer, operation: TiledPaint) -> history.Command:
+def make_tiled_command(
+    buffer: PixelBuffer,
+    operation: TiledPaint,
+    *,
+    target: Optional[EditTarget],
+) -> history.Command:
     """Apply a wrapped paint op and capture it as a reversible command.
 
     ``operation`` returns ``(coords, value)``; each coordinate is wrapped modulo
@@ -64,6 +70,11 @@ def make_tiled_command(buffer: PixelBuffer, operation: TiledPaint) -> history.Co
     :class:`history.PixelEdit` of the wrapped changed pixels (push with
     ``execute=True``); ``apply then undo`` restores the buffer exactly
     (SC-L014-4).
+
+    Args:
+        target: Where this edit landed, or ``None`` if unknown — **required,
+            no default** (plan §8.2, task T27); passed straight through to
+            :class:`history.PixelEdit`.
     """
     coords, value = operation()
     w, h = buffer.width, buffer.height
@@ -78,4 +89,4 @@ def make_tiled_command(buffer: PixelBuffer, operation: TiledPaint) -> history.Co
         old = buffer.get_pixel(wx, wy)
         if old != normalised:
             changes.append((wx, wy, old, normalised))
-    return history.PixelEdit(buffer, changes, label="tiled edit")
+    return history.PixelEdit(buffer, changes, label="tiled edit", target=target)

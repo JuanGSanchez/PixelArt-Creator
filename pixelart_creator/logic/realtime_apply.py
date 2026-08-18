@@ -61,6 +61,7 @@ __all__ = [
     "decode_update",
     "apply_remote",
     "dirty_regions",
+    "regions_for_ops",
     "branch",
     "merge",
 ]
@@ -330,19 +331,19 @@ class RealtimeState:
 # --------------------------------------------------------------------------- #
 
 
-def dirty_regions(update: bytes) -> Tuple[DirtyRegion, ...]:
-    """Return the raster rectangles a remote ``update`` touches (for dirty-rect redraw).
+def regions_for_ops(ops: Sequence[Operation]) -> Tuple[DirtyRegion, ...]:
+    """Map raster operations to their buffer-space rectangles (dirty-rect redraw).
 
-    Decodes + validates the blob (Article VII) and maps each raster op to its buffer
-    rectangle, so AGT-10's overlay/redraw path repaints only the changed tiles after
-    :func:`apply_remote` (Article VI, ADR-0027 §7). Structured-only updates touch no
-    raster and yield an empty tuple. Deterministic (sorted).
-
-    Raises:
-        RealtimeError / CloudValidationError: If the blob is malformed or oversized.
+    Pure over an already-decoded op sequence — the tile-index -> pixel-rect
+    mapping and its sort order live here **once** (plan §2: "two homes for one
+    format is a drift surface"), so both the real-time apply path
+    (:func:`dirty_regions`, via :func:`decode_update`) and the Phase-10 branch
+    diff's region tier (``logic/branch_diff.py``) read the *same* function
+    rather than a copy of it. Non-raster ops (metadata/attr/order) contribute no
+    region. Deterministic: sorted ``(frame_index, layer_id, y, x)``.
     """
     regions: List[DirtyRegion] = []
-    for op in decode_update(update):
+    for op in ops:
         if isinstance(op, RasterOp):
             regions.append(
                 DirtyRegion(
@@ -356,6 +357,21 @@ def dirty_regions(update: bytes) -> Tuple[DirtyRegion, ...]:
             )
     regions.sort(key=lambda r: (r.frame_index, r.layer_id, r.y, r.x))
     return tuple(regions)
+
+
+def dirty_regions(update: bytes) -> Tuple[DirtyRegion, ...]:
+    """Return the raster rectangles a remote ``update`` touches (for dirty-rect redraw).
+
+    Decodes + validates the blob (Article VII) and delegates the tile->rect
+    mapping to :func:`regions_for_ops` — **no** round trip through
+    :func:`encode_update` (that would re-impose the ``_MAX_OPS_PER_UPDATE`` cap
+    on a path that does not need it). Structured-only updates touch no raster
+    and yield an empty tuple. Deterministic (sorted).
+
+    Raises:
+        RealtimeError / CloudValidationError: If the blob is malformed or oversized.
+    """
+    return regions_for_ops(decode_update(update))
 
 
 def apply_remote(

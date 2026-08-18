@@ -252,7 +252,7 @@ def test_sc_l005_5_move_lifts_pixels_and_restamps_at_offset():
     buf.set_pixel(0, 0, RED)
     buf.set_pixel(1, 0, RED)
     mask = rect_mask(4, 4, 0, 0, 1, 0)
-    cmd = move_selection(buf, mask, 2, 1)
+    cmd = move_selection(buf, mask, 2, 1, target=None)
     cmd.execute()
     # vacated source is transparent, pixels re-stamped at +(2,1).
     assert buf.get_pixel(0, 0) == TRANSPARENT
@@ -265,7 +265,7 @@ def test_sc_l005_5_move_indexed_vacates_index_zero():
     buf = PixelBuffer(4, 1, ColorMode.INDEXED, fill=0)
     buf.set_pixel(0, 0, 7)
     mask = rect_mask(4, 1, 0, 0, 0, 0)
-    move_selection(buf, mask, 1, 0).execute()
+    move_selection(buf, mask, 1, 0, target=None).execute()
     assert buf.get_pixel(0, 0) == 0
     assert buf.get_pixel(1, 0) == 7
 
@@ -276,7 +276,7 @@ def test_sc_l005_6_move_then_undo_restores_buffer_exactly():
     buf.set_pixel(2, 1, GREEN)
     before = buf.copy()
     mask = rect_mask(5, 5, 1, 1, 2, 1)
-    cmd = move_selection(buf, mask, 1, 2)
+    cmd = move_selection(buf, mask, 1, 2, target=None)
     cmd.execute()
     assert buf != before  # something moved
     cmd.undo()
@@ -287,11 +287,11 @@ def test_move_selection_argument_validation():
     buf = _buf(4, 4)
     good_mask = rect_mask(4, 4, 0, 0, 1, 1)
     with pytest.raises(SelectionError):
-        move_selection(buf, rect_mask(8, 8, 0, 0, 1, 1), 1, 1)
+        move_selection(buf, rect_mask(8, 8, 0, 0, 1, 1), 1, 1, target=None)
     with pytest.raises(SelectionError):
-        move_selection(buf, good_mask, 1.5, 1)  # type: ignore[arg-type]
+        move_selection(buf, good_mask, 1.5, 1, target=None)  # type: ignore[arg-type]
     with pytest.raises(SelectionError):
-        move_selection(buf, good_mask, True, 1)  # type: ignore[arg-type]
+        move_selection(buf, good_mask, True, 1, target=None)  # type: ignore[arg-type]
 
 
 # --- SC-L006: mask-constrained editing -----------------------------------
