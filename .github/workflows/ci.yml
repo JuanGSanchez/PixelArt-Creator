@@ -25,6 +25,20 @@
 # remains the ONLY place those tests are selected; it is simply no longer
 # commented out.
 #
+# STATE THIS EXPLICITLY (so this paragraph cannot go stale the way the one it
+# replaces did): the `integration:` job is a LIVE, uncommented job in this
+# file, running on the self-hosted Windows leg — it is NOT preserved as a
+# commented-out block the way the disabled hosted `ubuntu-latest` /
+# `macos-latest` quality-gate matrix legs are (see those two `# - os: ...`
+# entries below). Hosted-runner CI minutes remain ZERO either way: the
+# integration job's live form still targets `[self-hosted, Windows, X64]`,
+# not a GitHub-hosted runner, so reactivating it spent no hosted minutes. A
+# structural check that still expects a commented-out `integration:` stanza
+# (e.g. a `preserved_block_gone` finding for "integration job" from
+# scripts/validate_workflow.py) is checking a promise this file no longer
+# makes as of WP-6.2 (2026-08-16) — that is this file's correct, current
+# state, not a regression to fix by re-commenting the job.
+#
 # REVERT — do all four steps together, when the repository goes public
 # (cross-reference the PUBLIC-REPO HAZARD comment on the windows-selfhosted
 # matrix entry below for WHY step 3 is mandatory, not optional):
