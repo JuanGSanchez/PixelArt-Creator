@@ -1,5 +1,4 @@
-"""Timeline grid view — frames (columns) x layer-tracks (rows) (REQ-P5-UI-022..025,
--027..-031).
+"""Timeline grid view — frames (columns) x layer-tracks (rows) (REQ-P5-UI-022..025, -027..-031).
 
 ``Timeline_Grid_View`` is a ``QTableView`` + ``QAbstractTableModel`` adapter over the
 pure, Qt-free ``logic/track_table.py`` derivation (REQ-P5-LOGIC-015). The choice is
@@ -395,6 +394,15 @@ class Timeline_Grid_View(QTableView):
     frameScrubbed = Signal(int)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
+        """Wire the table/model/delegate and the three disjoint gesture zones.
+
+        Binds an empty :class:`_Track_Table_Model`, disables Qt's own
+        drag-and-drop on the body so the hand-discriminated cell gestures
+        (T12) are the only claimant, enables the header's own reorder drag
+        (CF-56 fix), and connects header/cell click signals to their
+        handlers. No document is attached yet — that happens through
+        :meth:`set_context`.
+        """
         super().__init__(parent)
         self._document: Optional[Document] = None
         self._stack: Optional[QUndoStack] = None
@@ -611,6 +619,15 @@ class Timeline_Grid_View(QTableView):
     # -- occupied-cell drag = move/copy; body drag = scrub (REQ-P5-UI-025/-031) --
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        """Record the press cell and whether it is occupied, arming a possible drag.
+
+        A left press over a valid cell captures the press position, the
+        pressed index, and whether that cell already holds a node
+        (``self._press_occupied``) — this is what later distinguishes an
+        occupied-cell move/copy drag from an empty-body scrub once
+        :meth:`mouseMoveEvent` crosses the drag-distance threshold. No drag
+        starts here; ``self._dragging`` is reset to ``False``.
+        """
         if event.button() == Qt.MouseButton.LeftButton:
             index = self.indexAt(event.position().toPoint())
             if index.isValid():
@@ -623,6 +640,15 @@ class Timeline_Grid_View(QTableView):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        """Promote a held left-button press into a drag once it clears Qt's threshold.
+
+        While the button stays down over a cell captured by
+        :meth:`mousePressEvent`, this arms ``self._dragging`` the first time
+        the pointer moves at least ``QApplication.startDragDistance()`` from
+        the press point, then delegates to :meth:`_update_drag_indicator` on
+        every move after that — updating the move/copy-vs-scrub cursor and
+        indicator without pushing any command yet (that happens on release).
+        """
         if self._press_index is not None and (
             event.buttons() & Qt.MouseButton.LeftButton
         ):
@@ -636,6 +662,14 @@ class Timeline_Grid_View(QTableView):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        """Commit an in-progress drag on release, or just clear the press state.
+
+        If a drag was actually armed (``self._dragging``) and the release is
+        the left button, :meth:`_finish_drag` builds and pushes the
+        resulting move/copy or scrub command against the target cell under
+        the pointer; either way the press/drag bookkeeping is reset and the
+        cursor override is cleared via :meth:`_reset_drag_state`.
+        """
         if self._dragging and event.button() == Qt.MouseButton.LeftButton:
             self._finish_drag(event)
             self._reset_drag_state()
@@ -644,6 +678,13 @@ class Timeline_Grid_View(QTableView):
         super().mouseReleaseEvent(event)
 
     def keyPressEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        """Cancel an in-progress drag on Escape without pushing any command.
+
+        Only intercepts ``Key_Escape`` while ``self._dragging`` is true
+        (REQ-P5-UI-031): it clears the drag state and rebuilds the view to
+        drop the indicator, changing nothing about the document. Every
+        other key is passed to the base ``QTableView`` unchanged.
+        """
         if event.key() == Qt.Key.Key_Escape and self._dragging:
             # ESC mid-drag changes nothing and pushes nothing (REQ-P5-UI-031).
             self._reset_drag_state()
@@ -652,6 +693,12 @@ class Timeline_Grid_View(QTableView):
         super().keyPressEvent(event)
 
     def leaveEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        """Clear any drag-indicator cursor override when the pointer leaves the view.
+
+        Guards against a stale move/copy or scrub cursor being left showing
+        once the pointer exits the widget mid-drag; the drag state itself is
+        untouched here, only the cursor.
+        """
         self.unsetCursor()
         super().leaveEvent(event)
 

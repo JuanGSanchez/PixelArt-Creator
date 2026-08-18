@@ -35,8 +35,7 @@ class Command(abc.ABC):
         """Revert the change applied by :meth:`execute`."""
 
     def edit_trace(self) -> Tuple[EditTrace, ...]:
-        """Return the :class:`~pixelart_creator.logic.edit_trace.EditTrace` s this
-        command's last :meth:`execute` (or :meth:`undo`) produced.
+        """Return the :class:`~pixelart_creator.logic.edit_trace.EditTrace` instances this command's last :meth:`execute` (or :meth:`undo`) produced.
 
         Additive, **one new method on a shipped ABC** (``REQ-P10-UI-025``, plan
         §3/§5 step 5): the default is an empty tuple, so every existing
@@ -115,8 +114,7 @@ class PixelEdit(Command):
             self._buffer.set_pixel(x, y, old)
 
     def edit_trace(self) -> Tuple[EditTrace, ...]:
-        """Return the tiles this edit's recorded extent covers, one :class:`RasterTrace`
-        per distinct ``(tile_x, tile_y)`` touched by ``changes`` (task T7/T27).
+        """Return the tiles this edit's recorded extent covers, one :class:`RasterTrace` per distinct ``(tile_x, tile_y)`` touched by ``changes`` (task T7/T27).
 
         Derived purely from the recorded ``(x, y)`` coordinates via
         ``CRDT_TILE_SIZE_PX`` — no tile is invented that the recorded extent did

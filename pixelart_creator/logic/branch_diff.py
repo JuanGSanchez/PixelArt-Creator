@@ -154,7 +154,7 @@ class BranchDivergence:
 
 @dataclass(frozen=True)
 class SupervisionResult:
-    """The ``REQ-P10-LOGIC-009`` verdict: does the op-log explain the live document?
+    """The ``REQ-P10-LOGIC-009`` verdict on whether the op-log explains the live document.
 
     ``accounted`` is ``True`` when the branch's materialised op-log
     (``converge(base, ops)``) matches the caller-supplied live document
