@@ -52,6 +52,7 @@ from pixelart_creator.data.llm.port import LLMPort
 from pixelart_creator.logic import scripting
 from pixelart_creator.logic.assistant import AssistantReply
 from pixelart_creator.logic.document import Document, iter_layers
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.history import PixelEdit
 from pixelart_creator.logic.macro import Op
 from pixelart_creator.logic.palette import Palette
@@ -112,10 +113,22 @@ def _procgen_call(width: int, height: int, *, seed: int = 7) -> ToolCall:
 
 
 def _danger_factory(document, params, seed):
-    """Trusted factory for the destructive test op: one undoable single-pixel edit."""
-    buffer = iter_layers(document.frames[0].layers)[0].buffer
-    old = tuple(int(v) for v in buffer.data[0, 0])
-    return PixelEdit(buffer, [(0, 0, old, DANGER_COLOR)], label="danger")
+    """Trusted factory for the destructive test op: one undoable single-pixel edit.
+
+    The fixture (``make_dock``) always builds a fresh single-frame,
+    single-layer document, so the edit's real target — frame 0, the
+    background layer's minted ``layer_id`` — is genuinely knowable here; it is
+    threaded through rather than passing ``target=None`` (the unknown
+    sentinel is only for a site that truly lacks this context).
+    """
+    layer = iter_layers(document.frames[0].layers)[0]
+    old = tuple(int(v) for v in layer.buffer.data[0, 0])
+    return PixelEdit(
+        layer.buffer,
+        [(0, 0, old, DANGER_COLOR)],
+        label="danger",
+        target=EditTarget(frame_index=0, layer_id=layer.layer_id),
+    )
 
 
 def _send(qtbot, env, text: str, *, timeout: int = TURN_TIMEOUT_MS) -> None:
