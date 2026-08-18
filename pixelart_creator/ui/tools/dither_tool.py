@@ -92,7 +92,9 @@ class DitherTool(Tool):
         if mask.is_empty:
             return
         try:
-            command = make_dither_command(ctx.buffer, self._palette, self._mode, mask)
+            command = make_dither_command(
+                ctx.buffer, self._palette, self._mode, mask, target=ctx.target
+            )
         except (DitherError, PaletteError):
             return
         ctx.undo_stack.push(LogicCommand(command, ctx.scene.refresh_all, self.label()))

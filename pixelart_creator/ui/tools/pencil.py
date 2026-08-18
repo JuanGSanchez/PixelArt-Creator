@@ -129,6 +129,7 @@ class PencilTool(Tool):
                 ctx.scene.refresh_rect,
                 self.label(),
                 ctx.scene.invalidate_group_caches,
+                target=ctx.target,
             )
             if command is not None:
                 ctx.undo_stack.push(command)
@@ -143,7 +144,9 @@ class PencilTool(Tool):
         coords = list(self._raw)
         coords.extend(mirror_coords(self._raw, ctx))
         self._stroke.revert_touched()  # discard the live in-bounds preview
-        command = make_tiled_command(ctx.buffer, lambda: (coords, value))
+        command = make_tiled_command(
+            ctx.buffer, lambda: (coords, value), target=ctx.target
+        )
         ctx.undo_stack.push(LogicCommand(command, ctx.scene.refresh_all, self.label()))
 
     def _commit_pixel_perfect(self, ctx: ToolContext) -> None:
@@ -155,7 +158,10 @@ class PencilTool(Tool):
         self._stroke.stamp(cleaned, value)
         self._stroke.stamp(mirror_coords(cleaned, ctx), value)
         command = self._stroke.to_command(
-            ctx.scene.refresh_rect, self.label(), ctx.scene.invalidate_group_caches
+            ctx.scene.refresh_rect,
+            self.label(),
+            ctx.scene.invalidate_group_caches,
+            target=ctx.target,
         )
         if command is not None:
             ctx.undo_stack.push(command)
