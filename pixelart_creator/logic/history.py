@@ -35,7 +35,11 @@ class Command(abc.ABC):
         """Revert the change applied by :meth:`execute`."""
 
     def edit_trace(self) -> Tuple[EditTrace, ...]:
-        """Return the :class:`~pixelart_creator.logic.edit_trace.EditTrace` instances this command's last :meth:`execute` (or :meth:`undo`) produced.
+        """Return the EditTrace instances produced by the last execute/undo call.
+
+        Returns the :class:`~pixelart_creator.logic.edit_trace.EditTrace`
+        instances this command's last :meth:`execute` (or :meth:`undo`)
+        produced.
 
         Additive, **one new method on a shipped ABC** (``REQ-P10-UI-025``, plan
         §3/§5 step 5): the default is an empty tuple, so every existing
@@ -114,12 +118,14 @@ class PixelEdit(Command):
             self._buffer.set_pixel(x, y, old)
 
     def edit_trace(self) -> Tuple[EditTrace, ...]:
-        """Return the tiles this edit's recorded extent covers, one :class:`RasterTrace` per distinct ``(tile_x, tile_y)`` touched by ``changes`` (task T7/T27).
+        """Return one RasterTrace per distinct tile this edit's extent covers.
 
-        Derived purely from the recorded ``(x, y)`` coordinates via
-        ``CRDT_TILE_SIZE_PX`` — no tile is invented that the recorded extent did
-        not touch, and no tile bytes travel in the trace (those are read from
-        the live buffer at op-minting time). Deterministic, sorted order.
+        Returns one :class:`RasterTrace` per distinct ``(tile_x, tile_y)`` pair
+        touched by ``changes`` (task T7/T27). Derived purely from the recorded
+        ``(x, y)`` coordinates via ``CRDT_TILE_SIZE_PX`` — no tile is invented
+        that the recorded extent did not touch, and no tile bytes travel in the
+        trace (those are read from the live buffer at op-minting time).
+        Deterministic, sorted order.
 
         Returns ``()`` when ``target is None`` — the honest-empty channel (the
         class docstring); a caller that did not know where this edit landed

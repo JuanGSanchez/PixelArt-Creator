@@ -1,7 +1,8 @@
-"""Timeline grid view — frames (columns) x layer-tracks (rows) (REQ-P5-UI-022..025, -027..-031).
+"""Timeline grid view — frames (columns) x layer-tracks (rows).
 
-``Timeline_Grid_View`` is a ``QTableView`` + ``QAbstractTableModel`` adapter over the
-pure, Qt-free ``logic/track_table.py`` derivation (REQ-P5-LOGIC-015). The choice is
+REQ-P5-UI-022..025, -027..-031. ``Timeline_Grid_View`` is a ``QTableView`` +
+``QAbstractTableModel`` adapter over the pure, Qt-free ``logic/track_table.py``
+derivation (REQ-P5-LOGIC-015). The choice is
 load-bearing, not cosmetic (plan §2, ADR-0057): Qt calls ``data()`` only for the
 exposed viewport, which **is** REQ-P5-UI-030's culling rather than a hand-rolled one;
 the table gives native row/column/count semantics to assistive technology
