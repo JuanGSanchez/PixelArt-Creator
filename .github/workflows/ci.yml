@@ -25,6 +25,15 @@
 # remains the ONLY place those tests are selected; it is simply no longer
 # commented out.
 #
+# STATE THIS EXPLICITLY (so this paragraph cannot go stale the way the one it
+# replaces did): the `integration:` job is a LIVE, uncommented job in this
+# file, running on the self-hosted Windows leg — it is NOT preserved as a
+# commented-out block the way the disabled hosted `ubuntu-latest` /
+# `macos-latest` quality-gate matrix legs are (see those two `# - os: ...`
+# entries below). Hosted-runner CI minutes remain ZERO either way: the
+# integration job's live form still targets `[self-hosted, Windows, X64]`,
+# not a GitHub-hosted runner, so reactivating it spent no hosted minutes.
+#
 # REVERT — do all four steps together, when the repository goes public
 # (cross-reference the PUBLIC-REPO HAZARD comment on the windows-selfhosted
 # matrix entry below for WHY step 3 is mandatory, not optional):
@@ -315,21 +324,57 @@ jobs:
     # shell (pwsh) would otherwise break the multi-line command (portability).
     # This still applies to the self-hosted Windows leg: `shell: bash` needs a
     # bash executable on PATH, which Git for Windows (commonly present on a dev
-    # machine such as this one) provides — EXPECTED to work but not yet
-    # exercised as an actual Actions job step on this runner, so treat as
-    # UNVERIFIED alongside the other self-hosted assumptions below.
+    # machine such as this one) provides.
+    #
+    # UPDATE (2026-08-18, no longer "UNVERIFIED"): this WAS exercised, and it
+    # failed six consecutive runs with `##[error]bash: command not found` —
+    # Git for Windows was present, but only on the interactive user's PATH,
+    # invisible to the Actions Runner's own SYSTEM-service PATH.
+    #
+    # UPDATE 2 (2026-08-18, run 32128981766): an in-workflow `GITHUB_ENV`
+    # PATH-repair step was tried NEXT and RAN CORRECTLY, reporting Git for
+    # Windows found and PATH appended — and the very next `shell: bash` step
+    # still failed with the IDENTICAL bare error. Runner diagnostic logs
+    # (`_diag/Worker_*.log`) show why, conclusively: the failure is thrown
+    # inside `Handler.PrepareExecution` -> `ScriptHandler.PrintActionDetails`
+    # -> `WhichUtil.Which('bash', ...)`, which resolves the interpreter
+    # against the Actions Runner WORKER PROCESS's own inherited PATH — fixed
+    # at that process's launch from the `actions.runner...` Windows service
+    # (confirmed running as `NT AUTHORITY\SYSTEM` on this host), and this
+    # resolution happens BEFORE the step's script exists and BEFORE
+    # `GITHUB_ENV` is applied to any child process. `ProcessInvokerWrapper`
+    # (which WOULD honour the `GITHUB_ENV`-updated environment dictionary)
+    # is never reached for the failing step. No step in ANY job of this
+    # workflow can repair a `shell: bash` step's own interpreter lookup —
+    # the failure precedes the workflow. MACHINE REQUIREMENT for whichever
+    # host carries the `[self-hosted, Windows, X64]` labels (a rebuilt
+    # runner needs this too): Git for Windows must be installed at
+    # `C:\Program Files\Git` (or the x86 equivalent) AND that install's
+    # `bin`/`usr\bin` must be on the MACHINE (System) PATH, with the runner
+    # service restarted afterward to pick it up — see the AGT-09 report's
+    # 2026-08-18 follow-up for the exact elevated command and its
+    # verification. The "Diagnose Git-for-Windows bash resolvability" step
+    # below (renamed from "Ensure ... (self-hosted-safe PATH fix)" to stop
+    # overclaiming what it does) no longer pretends to repair this: it
+    # reports whether bash is already resolvable and, if not, FAILS FAST
+    # with a named cause instead of letting the job reach the same bare
+    # "command not found" one step later.
     defaults:
       run:
         shell: bash
     # SELF-HOSTED WINDOWS LEG — per-`uses:` compatibility assessment (this leg
     # only; the ubuntu-latest and macos-latest legs are unchanged hosted
     # runners and none of this applies to them):
-    #   actions/checkout@v5      - needs a `git` executable on PATH. This
-    #                              machine already has git (it is the dev
-    #                              checkout of this very repository), so this
-    #                              is EXPECTED to work but has never actually
-    #                              been exercised as an Actions job step on
-    #                              this runner — UNVERIFIED.
+    #   actions/checkout@v5      - needs a `git` executable on PATH. VERIFIED
+    #                              working: every one of the six runs that
+    #                              failed on the bash-PATH defect above
+    #                              (2026-08-17/18) reached and passed this
+    #                              step first, failing only at the first
+    #                              `shell: bash` run step that followed it —
+    #                              `git.exe` (Git\cmd) is on this runner's
+    #                              MACHINE PATH even though bash.exe (Git\bin)
+    #                              was not, which is exactly what the fix step
+    #                              above now repairs.
     #   actions/setup-python@v6  - hosted runners ship Python 3.12 in a
     #     (cache: pip)             pre-populated tool cache; this bare runner
     #                              does not, so the action will most likely
@@ -359,6 +404,115 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      # INCIDENT (2026-08-17/18) for the repeated `##[error]bash: command
+      # not found` failures on the self-hosted Windows leg (runner
+      # `pixelart-local-probe`, labels [self-hosted, Windows, X64]): six
+      # consecutive CI runs failed here because this job's
+      # `defaults.run.shell: bash` (see the comment on that key above) needs
+      # bash.exe, which Git for Windows ships at
+      # `<GitInstallRoot>\bin\bash.exe`. That directory sits on the
+      # INTERACTIVE USER's PATH only; the Actions Runner on this machine runs
+      # as a SERVICE under NT AUTHORITY\SYSTEM, which sees only the MACHINE
+      # PATH -- so every `shell: bash` step failed with "command not found".
+      #
+      # ATTEMPT 1 -- machine-local file (rejected, unversioned): a prior
+      # remediation wrote the machine PATH (plus Git's two bin dirs, appended
+      # at the end) to `D:\ci-runner\.path` on the runner host. That file is
+      # UNVERSIONED, machine-local configuration: invisible to anyone reading
+      # this repository, silently lost if the runner is ever
+      # re-registered/moved/rebuilt, and -- empirically confirmed by
+      # re-running CI before touching the service and reproducing the
+      # identical failure -- read by the Runner Listener ONLY at the
+      # Listener's OWN process startup, not per job.
+      #
+      # ATTEMPT 2 -- in-workflow `GITHUB_ENV` PATH repair (2026-08-18, run
+      # 32128981766: RAN CORRECTLY AND DID NOT WORK). This step used to
+      # append Git's `bin`/`usr\bin` to `PATH` via `GITHUB_ENV` whenever it
+      # found Git for Windows, on the theory that this would repair PATH "for
+      # the rest of this job". It ran, reported success -- and the VERY NEXT
+      # step (`shell: bash` by job default) still failed with the IDENTICAL
+      # bare "command not found". The runner's own diagnostic logs
+      # (`_diag/Worker_*.log`) show why, conclusively: resolving the
+      # executable for a step's `shell:` directive happens via
+      # `WhichUtil.Which`, called from `Handler.PrepareExecution` ->
+      # `ScriptHandler.PrintActionDetails`, BEFORE the step's own script
+      # exists and BEFORE `GITHUB_ENV` is applied to any child process --
+      # `ProcessInvokerWrapper` (which WOULD honour the `GITHUB_ENV`-updated
+      # environment) is never reached for the failing step. `WhichUtil.Which`
+      # reads the Actions Runner WORKER PROCESS's own inherited PATH,
+      # fixed at that process's launch from the `actions.runner...` Windows
+      # SERVICE (confirmed running as `NT AUTHORITY\SYSTEM` on this host,
+      # whose MACHINE PATH is confirmed to carry `Git\cmd` but NOT `Git\bin`
+      # or `Git\usr\bin` -- which is exactly why `actions/checkout@v5`
+      # (needs only `git.exe`) has always worked while every `shell: bash`
+      # step has always failed). A `GITHUB_ENV` PATH edit changes what a
+      # LATER step's own script (once ITS interpreter is already running) or
+      # something THAT script explicitly spawns can see; it can never change
+      # which interpreter the runner looks up in order to START that script
+      # in the first place. NO STEP IN ANY JOB OF THIS WORKFLOW CAN REPAIR A
+      # `shell: bash` STEP'S OWN INTERPRETER LOOKUP -- the failure precedes
+      # the workflow.
+      #
+      # THE ACTUAL FIX is therefore back on the machine, but done right this
+      # time: the runner's MACHINE (System) PATH itself must carry Git's
+      # `bin`/`usr\bin`, and the `actions.runner...pixelart-local-probe`
+      # service must be restarted so its own process re-inherits that PATH at
+      # launch. Unlike Attempt 1, this is exactly the configuration GitHub's
+      # own hosted `windows-latest` images ship with, survives runner
+      # re-registration (it is OS configuration, not a runner-internal file),
+      # and needs no unversioned file -- see the AGT-09 report's 2026-08-18
+      # follow-up for the exact elevated command and its verification. This
+      # is the user's step (elevation required); it is NOT executed by this
+      # workflow or by any CI job.
+      #
+      # THIS STEP's role, given the above: a PRE-FLIGHT DIAGNOSTIC, not a
+      # repair. `shell: powershell` (Windows PowerShell 5.1) overrides the
+      # job default for this ONE step so it can run before bash exists at
+      # all -- unlike bash, `powershell.exe` ships inside every Windows
+      # installation under `System32` and is on the SYSTEM account's MACHINE
+      # PATH by construction, so it never hits this same defect. It reports
+      # whether bash is ALREADY resolvable (true once the machine-PATH fix
+      # above has been applied and the service restarted, and true on every
+      # hosted `windows-latest` leg regardless -- so this step is a
+      # documented no-op there, safe to leave in place across the eventual
+      # revert to a hosted Windows leg; see the TEMPORARY revert block at the
+      # top of this file). If bash is NOT resolvable, the step FAILS FAST
+      # with a named, actionable `::error::` instead of letting the job limp
+      # one more step to the same bare "command not found" -- naming either
+      # "Git for Windows is not installed at all" (the well-known-location
+      # search comes up empty) or "Git for Windows is installed but its
+      # `bin`/`usr\bin` are not on the MACHINE PATH" (found, but a
+      # `GITHUB_ENV` PATH extension is written anyway before failing, since
+      # that DOES still help any step whose OWN shell is NOT bash and that
+      # shells out to bash itself -- a real, narrower benefit the step's
+      # message states honestly rather than implying a general repair). Not
+      # added to the `build-installers`/`regenerate-constraints` jobs below,
+      # whose hosted-only Windows/Linux legs have no incident evidence of
+      # this defect (Git for Windows ships fully on-PATH on those images).
+      - name: "Diagnose Git-for-Windows bash resolvability (does NOT repair 'shell: bash')"
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          if (Get-Command bash -ErrorAction SilentlyContinue) {
+            Write-Host "bash already resolvable on the runner's own PATH -- 'shell: bash' steps in this job will work. Nothing to do."
+            exit 0
+          }
+          $candidates = @(
+            "C:\Program Files\Git",
+            "C:\Program Files (x86)\Git"
+          )
+          $gitRoot = $candidates | Where-Object { Test-Path (Join-Path $_ "bin\bash.exe") } | Select-Object -First 1
+          if (-not $gitRoot) {
+            Write-Host "::error::Git for Windows was not found at any known location ($($candidates -join ', ')), so this job's 'shell: bash' steps have no bash.exe to run. Install Git for Windows on this runner (https://git-scm.com/download/win) -- required, not optional, for this workflow -- then re-run."
+            exit 1
+          }
+          $binDir = Join-Path $gitRoot "bin"
+          $usrBinDir = Join-Path $gitRoot "usr\bin"
+          $newPath = "$($env:PATH);$binDir;$usrBinDir"
+          Add-Content -Path $env:GITHUB_ENV -Value "PATH=$newPath"
+          Write-Host "Found Git for Windows at $gitRoot. Appended $binDir and $usrBinDir to PATH via GITHUB_ENV for the rest of this job -- but that ONLY helps a step whose own shell is not bash and that shells out to bash itself. It CANNOT make 'shell: bash' steps in this job work: GitHub Actions resolves that interpreter from the runner service's OWN process PATH before any step (including this one) runs, and a job-level PATH edit can never reach that lookup. THE REAL FIX is the runner's MACHINE PATH (System 'Environment Variables', or the elevated setx/registry command in the AGT-09 report) plus a restart of the 'actions.runner...pixelart-local-probe' service so it re-inherits that PATH at its own process start. Failing this job now, with this cause named, instead of letting it repeat the bare 'bash: command not found' one step later."
+          exit 1
 
       - name: Set up Python 3.12 (pinned)
         uses: actions/setup-python@v6
@@ -922,6 +1076,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      # PRE-FLIGHT DIAGNOSTIC, NOT A REPAIR (2026-08-18 correction) -- SAME
+      # defect and SAME corrected step as the identically-named step in the
+      # quality-gate job above (this job runs on the SAME self-hosted Windows
+      # runner with the SAME `defaults.run.shell: bash`, and a PATH fix in
+      # one job does not carry into another job, so the step is duplicated
+      # here rather than shared). See that step's comment for the full
+      # runner-log evidence of WHY a `GITHUB_ENV` write cannot repair a
+      # `shell: bash` step's own interpreter resolution; not repeated
+      # verbatim here to keep this job's own history readable.
+      - name: "Diagnose Git-for-Windows bash resolvability (does NOT repair 'shell: bash')"
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          if (Get-Command bash -ErrorAction SilentlyContinue) {
+            Write-Host "bash already resolvable on the runner's own PATH -- 'shell: bash' steps in this job will work. Nothing to do."
+            exit 0
+          }
+          $candidates = @(
+            "C:\Program Files\Git",
+            "C:\Program Files (x86)\Git"
+          )
+          $gitRoot = $candidates | Where-Object { Test-Path (Join-Path $_ "bin\bash.exe") } | Select-Object -First 1
+          if (-not $gitRoot) {
+            Write-Host "::error::Git for Windows was not found at any known location ($($candidates -join ', ')), so this job's 'shell: bash' steps have no bash.exe to run. Install Git for Windows on this runner (https://git-scm.com/download/win) -- required, not optional, for this workflow -- then re-run."
+            exit 1
+          }
+          $binDir = Join-Path $gitRoot "bin"
+          $usrBinDir = Join-Path $gitRoot "usr\bin"
+          $newPath = "$($env:PATH);$binDir;$usrBinDir"
+          Add-Content -Path $env:GITHUB_ENV -Value "PATH=$newPath"
+          Write-Host "Found Git for Windows at $gitRoot. Appended $binDir and $usrBinDir to PATH via GITHUB_ENV for the rest of this job -- but that ONLY helps a step whose own shell is not bash and that shells out to bash itself. It CANNOT make 'shell: bash' steps in this job work: GitHub Actions resolves that interpreter from the runner service's OWN process PATH before any step (including this one) runs, and a job-level PATH edit can never reach that lookup. THE REAL FIX is the runner's MACHINE PATH plus a restart of the 'actions.runner...pixelart-local-probe' service so it re-inherits that PATH at its own process start (see the AGT-09 report). Failing this job now, with this cause named, instead of letting it repeat the bare 'bash: command not found' one step later."
+          exit 1
 
       - name: Set up Python 3.12 (pinned)
         uses: actions/setup-python@v6
