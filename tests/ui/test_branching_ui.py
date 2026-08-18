@@ -21,6 +21,7 @@ import pytest
 from PySide6.QtWidgets import QInputDialog
 
 from pixelart_creator.logic.convergence import MetadataOp
+from pixelart_creator.logic.edit_trace import MetadataTrace, RasterTrace
 from pixelart_creator.logic.realtime_apply import RealtimeError
 from pixelart_creator.ui.branching_panel import Branching_Panel, Branching_Session
 
@@ -231,3 +232,157 @@ def test_window_loads_switched_branch_document_into_active_tab(qtbot, make_docum
     record = win.active_tab()
     assert record.document is new_doc
     assert record.document.metadata["title"] == "Merged Result"
+
+
+# --------------------------------------------------------------------------- #
+# Branching_Session.record_traces (T14, REQ-P10-UI-025) — minting + guards.   #
+# --------------------------------------------------------------------------- #
+
+
+def test_record_traces_noop_on_mainline(make_document):
+    """A no-op on the mainline — mainline edits are the base (the UNCHANGED rule
+    ``record_on_active`` already makes; this task never touches that method).
+    """
+    session = Branching_Session()
+    session.set_base_document(make_document())
+    session.record_traces((MetadataTrace(key="k", value="v"),), False)
+    assert session.branch_names() == ("mainline",)  # nothing raised, nothing recorded
+
+
+def test_record_traces_noop_when_traces_empty(qtbot, make_document):
+    """An empty trace sequence records nothing (no phantom op minted)."""
+    session = Branching_Session()
+    session.set_base_document(make_document())
+    session.create_branch("feature")
+    with qtbot.waitSignal(session.documentSwitched, timeout=1000):
+        session.switch_to("feature")
+    session.record_traces((), False)
+    assert session.get_branch("feature").ops == ()
+
+
+def test_record_traces_mints_and_records_a_metadata_op(qtbot, make_document):
+    """The forward path: a trace is minted into a real ``Operation`` (via the
+    UNCHANGED ``logic/branch_recording.ops_for_traces``) and appended to the
+    active feature branch's op-log.
+    """
+    session = Branching_Session()
+    session.set_base_document(make_document())
+    session.create_branch("feature")
+    with qtbot.waitSignal(session.documentSwitched, timeout=1000):
+        session.switch_to("feature")
+
+    session.record_traces((MetadataTrace(key="title", value="from-trace"),), False)
+
+    feature = session.get_branch("feature")
+    assert len(feature.ops) == 1
+    assert feature.document().metadata["title"] == "from-trace"
+
+
+def test_record_traces_records_regardless_of_inverse_flag(qtbot, make_document):
+    """``inverse`` only shapes the CALLER's traces (already inverted before the
+    call, ``ui/commands.py``); ``record_traces`` mints identically either way.
+    """
+    session = Branching_Session()
+    session.set_base_document(make_document())
+    session.create_branch("feature")
+    with qtbot.waitSignal(session.documentSwitched, timeout=1000):
+        session.switch_to("feature")
+
+    session.record_traces((MetadataTrace(key="title", value="reverted"),), True)
+
+    feature = session.get_branch("feature")
+    assert len(feature.ops) == 1
+    assert feature.document().metadata["title"] == "reverted"
+
+
+def test_record_traces_raises_without_a_live_document(qtbot, make_document):
+    """Fails loud (never guesses) when no live document is bound (Article II)."""
+    session = Branching_Session()
+    session.set_base_document(make_document())
+    session.create_branch("feature")
+    with qtbot.waitSignal(session.documentSwitched, timeout=1000):
+        session.switch_to("feature")
+    session._live = None  # simulate a caller bug: recording before a live doc is bound
+    with pytest.raises(RealtimeError):
+        session.record_traces((MetadataTrace(key="k", value="v"),), False)
+
+
+def test_record_traces_wraps_a_mapping_failure(qtbot, make_document):
+    """An unmappable trace (an unknown layer id) is reported, never swallowed."""
+    session = Branching_Session()
+    session.set_base_document(make_document())
+    session.create_branch("feature")
+    with qtbot.waitSignal(session.documentSwitched, timeout=1000):
+        session.switch_to("feature")
+    bad_trace = RasterTrace(frame_index=0, layer_id=9999, tile_x=0, tile_y=0)
+    with pytest.raises(RealtimeError):
+        session.record_traces((bad_trace,), False)
+
+
+# --------------------------------------------------------------------------- #
+# Branching_Session.get_branch (T15) — read-only lookup for the diff dialog.  #
+# --------------------------------------------------------------------------- #
+
+
+def test_get_branch_returns_mainline_and_feature(make_document):
+    session = Branching_Session()
+    session.set_base_document(make_document())
+    session.create_branch("feature")
+    assert session.get_branch("mainline") is not None
+    assert session.get_branch("feature") is not None
+
+
+def test_get_branch_unknown_name_raises(make_document):
+    session = Branching_Session()
+    session.set_base_document(make_document())
+    with pytest.raises(RealtimeError):
+        session.get_branch("does-not-exist")
+
+
+# --------------------------------------------------------------------------- #
+# End-to-end: branch, draw with a tool, merge — the drawn pixel should be     #
+# present in mainline (T-DRAW-01, REQ-P10-UI-025's own acceptance scenario).  #
+# --------------------------------------------------------------------------- #
+
+
+def test_drawn_pixel_on_branch_is_present_in_mainline_after_merge(qtbot):
+    """Draw a pixel on a feature branch with the (default) pencil tool, merge
+    it into mainline, and expect the drawn pixel to be present in the merged
+    result — driven through the REAL product wiring (``Main_Window``), not a
+    hand-built fixture, so this proves what a user actually gets.
+    """
+    from pixelart_creator.ui.main_window import Main_Window
+    from tests.ui._ui_helpers import click_pixel, prepare_for_click
+
+    win = Main_Window()
+    qtbot.addWidget(win)
+    win.new_document(64, 64)
+    record = win.active_tab()
+    assert record is not None
+
+    session = win._branching_session
+    session.create_branch("feature")
+    with qtbot.waitSignal(session.documentSwitched, timeout=1000):
+        session.switch_to("feature")
+
+    view = record.view
+    prepare_for_click(view)
+    paint_color = (10, 20, 30, 255)
+    before = record.document.frames[0].layers[0].buffer.get_pixel(5, 5)
+    assert before != paint_color
+    view.set_active_color(paint_color)
+    click_pixel(view, 5, 5)
+
+    # The pixel is visibly drawn on the branch's own live document right now.
+    painted = record.document.frames[0].layers[0].buffer.get_pixel(5, 5)
+    assert painted == paint_color
+
+    with qtbot.waitSignal(session.documentSwitched, timeout=1000) as blocker:
+        session.merge_to_mainline("feature")
+    merged = blocker.args[0]
+    merged_pixel = merged.frames[0].layers[0].buffer.get_pixel(5, 5)
+    assert merged_pixel == paint_color, (
+        "the drawn pixel did not survive the merge — the branch's op-log never "
+        "recorded it (see ui/canvas_view.py Canvas_View.set_recording, which "
+        "ui/main_window.py never calls for any document tab)"
+    )

@@ -67,6 +67,7 @@ from pixelart_creator.logic.constants import (
     MAX_TOOL_RESULT_BYTES,
 )
 from pixelart_creator.logic.document import Document, iter_layers
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.history import Command, PixelEdit
 from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.scripting import (
@@ -127,9 +128,11 @@ def _recolour(src, dst) -> ToolCall:
 
 def _danger_factory(document, params, seed):
     """A trusted factory for the destructive test op: one undoable single-pixel edit."""
-    buffer = iter_layers(document.frames[0].layers)[0].buffer
+    leaf = iter_layers(document.frames[0].layers)[0]
+    buffer = leaf.buffer
     old = tuple(int(v) for v in buffer.data[0, 0])
-    return PixelEdit(buffer, [(0, 0, old, DANGER_COLOR)], label="danger")
+    target = EditTarget(frame_index=0, layer_id=leaf.layer_id)
+    return PixelEdit(buffer, [(0, 0, old, DANGER_COLOR)], label="danger", target=target)
 
 
 @pytest.fixture

@@ -104,7 +104,10 @@ class ShapeTool(Tool):
             stroke.stamp(mirrored, value)
 
         command = stroke.to_command(
-            ctx.scene.refresh_rect, self.label(), ctx.scene.invalidate_group_caches
+            ctx.scene.refresh_rect,
+            self.label(),
+            ctx.scene.invalidate_group_caches,
+            target=ctx.target,
         )
         if command is not None:
             ctx.undo_stack.push(command)

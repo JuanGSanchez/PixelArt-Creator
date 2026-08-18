@@ -29,13 +29,16 @@ this bridge (Article I / S11).
 
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QUndoCommand
 
 from pixelart_creator.logic.asset_catalog import AssetDescriptor
 from pixelart_creator.logic.asset_tags import TagOp
+from pixelart_creator.logic.branch_recording import inverse_traces
+from pixelart_creator.logic.document import Document
+from pixelart_creator.logic.edit_trace import EditTrace
 from pixelart_creator.logic.history import Command, PixelEdit
 
 #: Called with the dirty rect (scene/pixel coords) after every apply/revert so
@@ -54,6 +57,64 @@ InvalidateCallback = Callable[[], None]
 #: Called (no args) after a whole-buffer / dimension-changing op so the view can
 #: rebind the scene and repaint (dirty-rect scope is AGT-10's concern).
 RebindCallback = Callable[[], None]
+
+#: Called with the traces one reversible op produced and whether they describe
+#: an undo, so an attached branching session can append them to the active
+#: branch's op-log (T13, ``REQ-P10-UI-025``; binds to
+#: ``Branching_Session.record_traces``, ``ui/branching_panel.py``). Fired after
+#: a successful ``redo()`` with the command's own :meth:`Command.edit_trace`
+#: (``inverse=False``) and after a successful ``undo()`` with the **inverse**
+#: of those same traces (``inverse=True``) — the log is append-only and
+#: last-writer-wins (plan §3.3), so an undo appends the inverse rather than
+#: popping the forward entry. ``None`` on every command class when no
+#: branching session is attached (T14/T15 wiring); this module mints no op and
+#: computes no domain maths of its own (Article I) — it only calls the Qt-free
+#: :func:`~pixelart_creator.logic.branch_recording.inverse_traces` to turn a
+#: command's fixed, build-time trace into the value an undo must record, then
+#: hands both directions to the callback unchanged.
+RecordTraceCallback = Callable[[Sequence[EditTrace], bool], None]
+
+
+def _fire_record_trace(
+    command: Command,
+    record_trace: Optional[RecordTraceCallback],
+    document: Optional[Document],
+    *,
+    inverse: bool,
+) -> None:
+    """Report ``command``'s traces to ``record_trace``, inverted on undo (T13).
+
+    A no-op whenever ``record_trace`` is ``None`` (no branching session
+    attached) or the command reports no traces at all (the honest empty
+    default, ``Command.edit_trace``) — a mainline edit or an untraced command
+    class costs nothing here and mints nothing (plan §7 risk R-1: the *absence*
+    of a trace is read downstream as ``unaccounted``, never guessed).
+
+    On ``inverse=True`` the **caller** (this bridge) computes the inverse
+    traces itself, via :func:`~pixelart_creator.logic.branch_recording.
+    inverse_traces`, against ``document`` **after** the command's own
+    :meth:`Command.undo` has already run — ``Branching_Session.record_traces``
+    never inverts anything (``ui/branching_panel.py``); it only mints and
+    stamps whatever it is handed (plan §3.3).
+    """
+    if record_trace is None:
+        return
+    traces = command.edit_trace()
+    if not traces:
+        return
+    if inverse:
+        # ``document`` is required whenever a command actually reports traces
+        # and this is an undo — without it the prior value cannot be read, and
+        # recording the forward (post-do) value instead would silently
+        # corrupt the merge (plan §3.3). Fail loud rather than invent a value
+        # (Article II).
+        if document is None:
+            raise ValueError(
+                "record_trace is attached but no document was supplied to "
+                "invert this command's traces on undo"
+            )
+        traces = inverse_traces(traces, document)
+    record_trace(traces, inverse)
 
 
 class PaintCommand(QUndoCommand):
@@ -87,14 +148,49 @@ class PaintCommand(QUndoCommand):
         parent: Optional[QUndoCommand] = None,
         *,
         invalidate: Optional[InvalidateCallback] = None,
+        record_trace: Optional[RecordTraceCallback] = None,
+        document: Optional[Document] = None,
     ) -> None:
-        """Bridge a pre-applied :class:`PixelEdit` to one ``QUndoCommand``."""
+        """Bridge a pre-applied :class:`PixelEdit` to one ``QUndoCommand``.
+
+        Args:
+            record_trace: Optional callback reporting this edit's
+                :class:`~pixelart_creator.logic.edit_trace.RasterTrace` s to an
+                attached branching session (T13, ``REQ-P10-UI-025``).
+            document: The live :class:`~pixelart_creator.logic.document.Document`
+                this edit's buffer belongs to; required whenever ``record_trace``
+                is given (used to invert the traces on undo).
+        """
         super().__init__(text or edit.label, parent)
         self._edit = edit
         self._refresh = refresh
         self._dirty_rect = QRectF(dirty_rect)
         self._invalidate = invalidate
         self._applied = True  # record_edit already applied it once.
+        self._record_trace = record_trace
+        self._document = document
+
+    def bind_recording(
+        self,
+        record_trace: Optional[RecordTraceCallback],
+        document: Optional[Document],
+    ) -> None:
+        """Attach a branch-recording sink after construction (T-DRAW-01).
+
+        Lets a caller that does not build this command itself — the
+        interception point in ``ui/canvas_view.py``'s recording undo-stack
+        wrapper, which every one of the six ``ui/tools/`` drawing controllers'
+        already-shipped ``ctx.undo_stack.push(command)`` call routes through —
+        bind the active branch's :data:`RecordTraceCallback` and live
+        :class:`~pixelart_creator.logic.document.Document` without editing each
+        tool controller's own ``PaintCommand``/``LogicCommand`` construction
+        call. A no-op on any value already set at construction time (never
+        silently overwrites an explicit binding).
+        """
+        if self._record_trace is None and record_trace is not None:
+            self._record_trace = record_trace
+        if self._document is None and document is not None:
+            self._document = document
 
     def redo(self) -> None:
         """Re-apply the edit (skipping the redundant first apply-on-push)."""
@@ -106,6 +202,9 @@ class PaintCommand(QUndoCommand):
         if self._invalidate is not None:
             self._invalidate()
         self._refresh(self._dirty_rect)
+        _fire_record_trace(
+            self._edit, self._record_trace, self._document, inverse=False
+        )
 
     def undo(self) -> None:
         """Revert exactly the pixels the edit changed, then repaint them."""
@@ -114,6 +213,7 @@ class PaintCommand(QUndoCommand):
         if self._invalidate is not None:
             self._invalidate()
         self._refresh(self._dirty_rect)
+        _fire_record_trace(self._edit, self._record_trace, self._document, inverse=True)
 
 
 class LogicCommand(QUndoCommand):
@@ -143,21 +243,58 @@ class LogicCommand(QUndoCommand):
         rebind: RebindCallback,
         text: str = "",
         parent: Optional[QUndoCommand] = None,
+        *,
+        record_trace: Optional[RecordTraceCallback] = None,
+        document: Optional[Document] = None,
     ) -> None:
-        """Bridge an unapplied logic :class:`Command` to one ``QUndoCommand``."""
+        """Bridge an unapplied logic :class:`Command` to one ``QUndoCommand``.
+
+        Args:
+            record_trace: Optional callback reporting this command's
+                :meth:`~pixelart_creator.logic.history.Command.edit_trace` to an
+                attached branching session (T13, ``REQ-P10-UI-025``).
+            document: The live :class:`~pixelart_creator.logic.document.Document`
+                this command acts on; required whenever ``record_trace`` is given
+                (used to invert the traces on undo).
+        """
         super().__init__(text or command.label, parent)
         self._command = command
         self._rebind = rebind
+        self._record_trace = record_trace
+        self._document = document
+
+    def bind_recording(
+        self,
+        record_trace: Optional[RecordTraceCallback],
+        document: Optional[Document],
+    ) -> None:
+        """Attach a branch-recording sink after construction (T-DRAW-01).
+
+        Same post-construction binding as :meth:`PaintCommand.bind_recording` —
+        see that docstring. Every ``LogicCommand`` subclass (``FrameCommand``,
+        ``LayerCommand``, ``TilesetCommand``, ``AutomationCommand``,
+        ``TilemapCommand``) inherits this unchanged.
+        """
+        if self._record_trace is None and record_trace is not None:
+            self._record_trace = record_trace
+        if self._document is None and document is not None:
+            self._document = document
 
     def redo(self) -> None:
         """Apply (or re-apply) the logic command, then repaint/rebind."""
         self._command.execute()
         self._rebind()
+        _fire_record_trace(
+            self._command, self._record_trace, self._document, inverse=False
+        )
 
     def undo(self) -> None:
         """Revert the logic command exactly, then repaint/rebind."""
         self._command.undo()
         self._rebind()
+        _fire_record_trace(
+            self._command, self._record_trace, self._document, inverse=True
+        )
 
 
 class FrameCommand(LogicCommand):
@@ -193,9 +330,14 @@ class FrameCommand(LogicCommand):
         refresh: RebindCallback,
         text: str = "",
         parent: Optional[QUndoCommand] = None,
+        *,
+        record_trace: Optional[RecordTraceCallback] = None,
+        document: Optional[Document] = None,
     ) -> None:
         """Bridge an unapplied frame/tag command to one ``QUndoCommand``."""
-        super().__init__(command, refresh, text, parent)
+        super().__init__(
+            command, refresh, text, parent, record_trace=record_trace, document=document
+        )
 
 
 class LayerCommand(LogicCommand):
@@ -229,9 +371,14 @@ class LayerCommand(LogicCommand):
         refresh: RebindCallback,
         text: str = "",
         parent: Optional[QUndoCommand] = None,
+        *,
+        record_trace: Optional[RecordTraceCallback] = None,
+        document: Optional[Document] = None,
     ) -> None:
         """Bridge an unapplied layer-tree command to one ``QUndoCommand``."""
-        super().__init__(command, refresh, text, parent)
+        super().__init__(
+            command, refresh, text, parent, record_trace=record_trace, document=document
+        )
 
 
 class TilesetCommand(LogicCommand):
@@ -263,9 +410,14 @@ class TilesetCommand(LogicCommand):
         refresh: RebindCallback,
         text: str = "",
         parent: Optional[QUndoCommand] = None,
+        *,
+        record_trace: Optional[RecordTraceCallback] = None,
+        document: Optional[Document] = None,
     ) -> None:
         """Bridge an unapplied tileset command to one ``QUndoCommand``."""
-        super().__init__(command, refresh, text, parent)
+        super().__init__(
+            command, refresh, text, parent, record_trace=record_trace, document=document
+        )
 
 
 class AutomationCommand(LogicCommand):
@@ -305,9 +457,14 @@ class AutomationCommand(LogicCommand):
         rebind: RebindCallback,
         text: str = "",
         parent: Optional[QUndoCommand] = None,
+        *,
+        record_trace: Optional[RecordTraceCallback] = None,
+        document: Optional[Document] = None,
     ) -> None:
         """Bridge an unapplied automation command to one ``QUndoCommand``."""
-        super().__init__(command, rebind, text, parent)
+        super().__init__(
+            command, rebind, text, parent, record_trace=record_trace, document=document
+        )
 
 
 class AssistantCommand(QUndoCommand):
@@ -352,22 +509,44 @@ class AssistantCommand(QUndoCommand):
         rebind: RebindCallback,
         text: str = "",
         parent: Optional[QUndoCommand] = None,
+        *,
+        record_trace: Optional[RecordTraceCallback] = None,
+        document: Optional[Document] = None,
     ) -> None:
-        """Bridge one turn's ordered unapplied commands to a single ``QUndoCommand``."""
+        """Bridge one turn's ordered unapplied commands to a single ``QUndoCommand``.
+
+        Args:
+            record_trace: Optional callback reporting each sub-command's own
+                :meth:`~pixelart_creator.logic.history.Command.edit_trace` to an
+                attached branching session (T13, ``REQ-P10-UI-025``) — fired once
+                per sub-command, in the same order they execute/undo, so a
+                multi-op turn is recorded as the same ordered sequence of traces
+                a single-command bridge would produce.
+            document: The live :class:`~pixelart_creator.logic.document.Document`
+                the turn acts on; required whenever ``record_trace`` is given.
+        """
         super().__init__(text, parent)
         self._commands = tuple(commands)
         self._rebind = rebind
+        self._record_trace = record_trace
+        self._document = document
 
     def redo(self) -> None:
         """Apply (or re-apply) every command in order, then repaint/rebind."""
         for command in self._commands:
             command.execute()
+            _fire_record_trace(
+                command, self._record_trace, self._document, inverse=False
+            )
         self._rebind()
 
     def undo(self) -> None:
         """Revert every command in reverse order, then repaint/rebind."""
         for command in reversed(self._commands):
             command.undo()
+            _fire_record_trace(
+                command, self._record_trace, self._document, inverse=True
+            )
         self._rebind()
 
 
@@ -404,9 +583,14 @@ class TilemapCommand(LogicCommand):
         refresh: RebindCallback,
         text: str = "",
         parent: Optional[QUndoCommand] = None,
+        *,
+        record_trace: Optional[RecordTraceCallback] = None,
+        document: Optional[Document] = None,
     ) -> None:
         """Bridge an unapplied tilemap command to one ``QUndoCommand``."""
-        super().__init__(command, refresh, text, parent)
+        super().__init__(
+            command, refresh, text, parent, record_trace=record_trace, document=document
+        )
 
 
 class _AssetTagCommand(QUndoCommand):

@@ -79,6 +79,7 @@ from pixelart_creator.logic import history, transform
 from pixelart_creator.logic.assistant import ChatBackend
 from pixelart_creator.logic.autosave import should_autosave
 from pixelart_creator.logic.blend import composite_stack
+from pixelart_creator.logic.branch_diff import SupervisionResult, supervise
 from pixelart_creator.logic.color import BLACK, RGBA, TRANSPARENT, to_hex
 from pixelart_creator.logic.constants import (
     AUTOSAVE_INTERVAL_MS,
@@ -87,6 +88,7 @@ from pixelart_creator.logic.constants import (
     UI_NOTICE_DURATION_MS,
 )
 from pixelart_creator.logic.document import Document, DocumentError, Layer, iter_layers
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.grids import (
     IsoGridConfig,
     PerspectiveConfig,
@@ -102,6 +104,7 @@ from pixelart_creator.logic.palette_ops import (
 )
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 from pixelart_creator.logic.quantize import QuantizeError, make_constraint_command
+from pixelart_creator.logic.realtime_apply import RealtimeError
 from pixelart_creator.logic.rotsprite import make_rotsprite_command, rotsprite
 from pixelart_creator.logic.selection import (
     SelectionMask,
@@ -132,6 +135,7 @@ from pixelart_creator.ui.automation_worker import (
 )
 from pixelart_creator.ui.batch_export_panel import Batch_Export_Panel
 from pixelart_creator.ui.batch_recolour_panel import Batch_Recolour_Panel
+from pixelart_creator.ui.branch_diff_dialog import Branch_Diff_Dialog
 from pixelart_creator.ui.branching_panel import Branching_Panel, Branching_Session
 from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.canvas_view import Canvas_View
@@ -183,6 +187,7 @@ from pixelart_creator.ui.plugin_manager_panel import Plugin_Manager_Panel
 from pixelart_creator.ui.presence_panel import Presence_Panel
 from pixelart_creator.ui.prewarm_indicator import Prewarm_Indicator
 from pixelart_creator.ui.procgen_panel import Procgen_Panel
+from pixelart_creator.ui.project_prefs_actions import build_project_prefs_menu
 from pixelart_creator.ui.provider_config_dialog import (
     build_backend,
     load_config,
@@ -477,6 +482,9 @@ class Main_Window(QMainWindow):
         self._timeline_panel = Timeline_Panel(self)
         self._timeline_panel.frameSelected.connect(self._on_frame_selected)
         self._timeline_panel.frameScrubbed.connect(self._on_frame_scrubbed)
+        # Grid cell surface (REQ-P5-UI-023, BF-G1): a cell selection reaches the
+        # layer panel through the sibling seam ``Layer_Panel.select_layer``.
+        self._timeline_panel.layerSelected.connect(self._layer_panel.select_layer)
         self._playback_controls = Playback_Controls(self)
         self._playback_controls.frameAdvanced.connect(self._on_frame_advanced)
         self._playback_controls.playbackActiveChanged.connect(self._on_playback_active)
@@ -772,6 +780,13 @@ class Main_Window(QMainWindow):
         self._branching_panel = Branching_Panel(self)
         self._branching_panel.set_session(self._branching_session)
         self._branching_dock = self._add_workflow_dock(self._branching_panel)
+        # T15 (REQ-P10-UI-014/-025/-026): the open-diff affordance names a branch;
+        # this window supplies the active tab's live Document to `supervise` (plan
+        # §3.2 — only `ui/` holds it) and builds/shows the modeless
+        # `Branch_Diff_Dialog` (T16, landed).
+        self._last_supervision: Optional[SupervisionResult] = None
+        self._branch_diff_dialog: Optional[Branch_Diff_Dialog] = None
+        self._branching_panel.openDiffRequested.connect(self._on_open_diff_requested)
 
         # Phase-11 Slice 1 asset library (REQ-P11-UI-001/-002/-003): browse the
         # catalog, tag assets, and search/filter — three docked panels bound to one
@@ -1146,6 +1161,14 @@ class Main_Window(QMainWindow):
         self._edit_menu = bar.addMenu("")
         self._edit_menu.addAction(self._undo_action)
         self._edit_menu.addAction(self._redo_action)
+        self._edit_menu.addSeparator()
+        # The restore path for suppressed per-project confirmations
+        # (REQ-P5-UI-033, ADR-0056) — not the suppressed dialog itself, and not
+        # a settings dialog (phase-6 REQ-P6-UI-039 owns that surface, plan §2).
+        self._project_prefs_menu = build_project_prefs_menu(
+            self.active_document, self._on_project_prefs_changed, self
+        )
+        self._edit_menu.addMenu(self._project_prefs_menu)
 
         self._select_menu = bar.addMenu("")
         self._select_menu.addAction(self._select_all_action)
@@ -1567,6 +1590,13 @@ class Main_Window(QMainWindow):
         # T-12: a drop delivered straight to the canvas viewport is routed
         # through the same handler as Main_Window.dropEvent (REQ-DDI-UI-001).
         view.set_drop_router(self._route_dropped_files)
+        # T-DRAW-01/REQ-P10-UI-025: bind this tab's branch-recording sink at
+        # construction, mirroring set_undo_stack's own tab-construction /
+        # tab-switch / branch-switch-or-merge binding points (see
+        # _on_tab_changed and _on_branch_document_switched below) — every
+        # drawing tool routes through this so a stroke lands in the active
+        # branch's op-log instead of being silently dropped at merge.
+        view.set_recording(self._branching_session.record_traces, document)
         record = _DocTab(document, scene, view, stack)
         self._tabs_data.append(record)
         # Attach this tab's Phase-9 visual aids and wrap the view with rulers before
@@ -1778,6 +1808,15 @@ class Main_Window(QMainWindow):
         """Handle the ``FrameCommand`` follow-up after a tag op (re-render spans)."""
         self._timeline_panel.rebuild()
 
+    def _on_project_prefs_changed(self) -> None:
+        """Handle a project confirmation preference restored to its default.
+
+        A preference is not document content (REQ-P5-DATA-004): no recomposite,
+        no undo entry. Reserved for a future dependent surface; presently a
+        deliberate no-op.
+        """
+        return None
+
     def _apply_modes_to(self, record: _DocTab) -> None:
         """Push the shell's Phase-2 drawing modes onto a tab's view/scene."""
         view = record.view
@@ -1880,6 +1919,27 @@ class Main_Window(QMainWindow):
         """Return the active document, or ``None``."""
         record = self.active_tab()
         return record.document if record is not None else None
+
+    @staticmethod
+    def _edit_target(record: _DocTab) -> Optional[EditTarget]:
+        """Return where an edit on ``record``'s active layer lands (`REQ-P10-UI-025`).
+
+        The context — which frame and which layer track an edit landed on —
+        exists only in the UI, which holds the active ``Document`` (plan
+        §8.2): no ``logic/`` factory has it intrinsically, so every
+        `main_window.py` call site that reaches a ``PixelEdit`` supplies it
+        from here. ``None`` only when the active layer has not been minted a
+        stable id yet (``layer_id == 0``, the documented *unminted* sentinel,
+        ``logic/document.py:264``, ``:1729``) — passing ``0`` through would
+        either be refused outright (`EditTarget.__post_init__`) or, worse,
+        resolve to a real node in frame 0 (plan §8.1's dangerous half-threaded
+        case) — so an unminted layer's edits are reported honestly as
+        ``unaccounted`` (`REQ-P10-UI-026`) instead of guessed.
+        """
+        layer = record.scene.active_layer()
+        if layer.layer_id <= 0:
+            return None
+        return EditTarget(frame_index=record.scene.frame_index, layer_id=layer.layer_id)
 
     # -- drag-and-drop import (REQ-DDI-UI-001..008) -----------------------
 
@@ -1994,7 +2054,15 @@ class Main_Window(QMainWindow):
             undo=lambda: palette.replace(before),
             label=label,
         )
-        record.stack.push(LogicCommand(command, self._on_palette_edited, label))
+        record.stack.push(
+            LogicCommand(
+                command,
+                self._on_palette_edited,
+                label,
+                record_trace=self._branching_session.record_traces,
+                document=record.document,
+            )
+        )
 
     def _save_for_guard(self) -> bool:
         """Save the active document for the dirty guard; ``False`` if cancelled.
@@ -2071,6 +2139,13 @@ class Main_Window(QMainWindow):
             return
         self._active_view = record.view
         self._undo_group.setActiveStack(record.stack)
+        # Rebind branch recording to the newly-active tab's document, exactly
+        # as the undo stack is rebound on the line above (T-DRAW-01) — without
+        # this, recording silently switches off the first time the user
+        # changes tabs.
+        record.view.set_recording(
+            self._branching_session.record_traces, record.document
+        )
         record.view.set_tool(self._tools[self._active_tool_id])
         record.view.set_active_color(self._active_color)
         record.view.set_active_index(self._active_index)
@@ -2225,13 +2300,19 @@ class Main_Window(QMainWindow):
         buffer = record.scene.active_buffer()
         mask = record.view.active_selection()
         try:
-            command = make_constraint_command(buffer, palette, mask=mask)
+            command = make_constraint_command(
+                buffer, palette, mask=mask, target=self._edit_target(record)
+            )
         except (QuantizeError, PaletteError) as exc:
             QMessageBox.warning(self, self.tr("Constrain to Palette"), str(exc))
             return
         record.stack.push(
             LogicCommand(
-                command, record.scene.refresh_all, self.tr("Constrain to Palette")
+                command,
+                record.scene.refresh_all,
+                self.tr("Constrain to Palette"),
+                record_trace=self._branching_session.record_traces,
+                document=record.document,
             )
         )
 
@@ -2255,12 +2336,20 @@ class Main_Window(QMainWindow):
             )
             return
         try:
-            command = make_cycle_command(buffer, start, end, step)
+            command = make_cycle_command(
+                buffer, start, end, step, target=self._edit_target(record)
+            )
         except PaletteError as exc:
             QMessageBox.warning(self, self.tr("Colour Cycling"), str(exc))
             return
         record.stack.push(
-            LogicCommand(command, record.scene.refresh_all, self.tr("Colour Cycle"))
+            LogicCommand(
+                command,
+                record.scene.refresh_all,
+                self.tr("Colour Cycle"),
+                record_trace=self._branching_session.record_traces,
+                document=record.document,
+            )
         )
         record.scene.set_display_palette(record.document.palette.colors())
 
@@ -2297,12 +2386,23 @@ class Main_Window(QMainWindow):
         if not mapping:
             return
         try:
-            command = make_swap_command(buffer, mapping, record.view.active_selection())
+            command = make_swap_command(
+                buffer,
+                mapping,
+                record.view.active_selection(),
+                target=self._edit_target(record),
+            )
         except PaletteError as exc:
             QMessageBox.warning(self, self.tr("Palette Swap"), str(exc))
             return
         record.stack.push(
-            LogicCommand(command, record.scene.refresh_all, self.tr("Palette Swap"))
+            LogicCommand(
+                command,
+                record.scene.refresh_all,
+                self.tr("Palette Swap"),
+                record_trace=self._branching_session.record_traces,
+                document=record.document,
+            )
         )
 
     # -- indexed-mode conversion (REQ-P3-UI-014, T22) --------------------
@@ -2329,6 +2429,8 @@ class Main_Window(QMainWindow):
                 command,
                 self._mode_switch_rebind(record),
                 self.tr("Convert to Indexed"),
+                record_trace=self._branching_session.record_traces,
+                document=record.document,
             )
         )
 
@@ -2350,7 +2452,11 @@ class Main_Window(QMainWindow):
             return
         record.stack.push(
             LogicCommand(
-                command, self._mode_switch_rebind(record), self.tr("Convert to RGBA")
+                command,
+                self._mode_switch_rebind(record),
+                self.tr("Convert to RGBA"),
+                record_trace=self._branching_session.record_traces,
+                document=record.document,
             )
         )
 
@@ -2645,6 +2751,66 @@ class Main_Window(QMainWindow):
         record.scene.set_document(document)
         record.scene.refresh_all()
         self._realtime_session.set_document(document)
+        # Rebind branch recording to the just-switched/merged document (same
+        # T-DRAW-01 seam as tab construction and tab switch) — the branch or
+        # mainline document object changes here, so the recording sink must
+        # follow it or the next stroke would record against the stale one.
+        record.view.set_recording(self._branching_session.record_traces, document)
+
+    def _on_open_diff_requested(self, name: str) -> None:
+        """Build + show the modeless pre-merge diff dialog (REQ-P10-UI-014/-025/-026).
+
+        The branching panel names the selected feature branch (``Branching_Panel.
+        openDiffRequested``); only this window holds the active tab's live
+        ``Document`` (plan §3.2), so it looks both branches up via
+        ``Branching_Session.get_branch`` — the selected branch is the diff's
+        *source*, the mainline (always ``branch_names()[0]``, ``Branching_Session``'s
+        own documented ordering) is the *target* — and hands them to
+        ``Branch_Diff_Dialog`` (T16), which computes the divergence and the
+        supervision verdict itself, once, at construction. No domain maths happens
+        here (Article I): this only looks up and supplies the arguments the pure
+        functions/dialog need. The result is also retained on
+        ``self._last_supervision`` (unchanged shape) for any other consumer.
+        """
+        record = self.active_tab()
+        if record is None:
+            return
+        try:
+            source_branch = self._branching_session.get_branch(name)
+            mainline_name = self._branching_session.branch_names()[0]
+            target_branch = self._branching_session.get_branch(mainline_name)
+        except RealtimeError:
+            return
+        self._last_supervision = supervise(source_branch, record.document)
+        dialog = Branch_Diff_Dialog(
+            name,
+            mainline_name,
+            source_branch,
+            target_branch,
+            record.document,
+            parent=self,
+        )
+        dialog.continueToMergeRequested.connect(self._on_branch_diff_continue_to_merge)
+        self._branch_diff_dialog = dialog
+        dialog.show()
+
+    def _on_branch_diff_continue_to_merge(self, name: str) -> None:
+        """Run the shipped merge path from the diff dialog (REQ-P10-UI-018/-019).
+
+        `Branch_Diff_Dialog` performs no merge itself; it only announces which
+        branch to merge. This calls the exact same
+        ``Branching_Session.merge_to_mainline`` the panel's own Merge button uses
+        (no second merge path), then closes the dialog — the merged document
+        reaches the active tab via the already-connected ``documentSwitched`` ->
+        ``_on_branch_document_switched`` signal, unchanged.
+        """
+        try:
+            self._branching_session.merge_to_mainline(name)
+        except RealtimeError as exc:
+            QMessageBox.warning(self, self.tr("Merge"), str(exc))
+            return
+        if self._branch_diff_dialog is not None:
+            self._branch_diff_dialog.close()
 
     def _on_cloud_save(self) -> None:
         """Save the active document to the cloud as a new version (off-thread)."""
@@ -2951,7 +3117,10 @@ class Main_Window(QMainWindow):
 
         label = self.tr("Clear Selection")
         edit = history.record_edit(
-            buffer, lambda b: apply_masked(b, clear_op, mask), label=label
+            buffer,
+            lambda b: apply_masked(b, clear_op, mask),
+            label=label,
+            target=self._edit_target(record),
         )
         dirty = QRectF(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
         record.stack.push(
@@ -2961,6 +3130,8 @@ class Main_Window(QMainWindow):
                 dirty,
                 text=label,
                 invalidate=record.scene.invalidate_group_caches,
+                record_trace=self._branching_session.record_traces,
+                document=record.document,
             )
         )
 
@@ -2978,9 +3149,25 @@ class Main_Window(QMainWindow):
                 record.scene.rebind_active()
                 record.view.clear_selection()
 
-            record.stack.push(LogicCommand(command, rebind, text))
+            record.stack.push(
+                LogicCommand(
+                    command,
+                    rebind,
+                    text,
+                    record_trace=self._branching_session.record_traces,
+                    document=record.document,
+                )
+            )
         else:
-            record.stack.push(LogicCommand(command, record.scene.refresh_all, text))
+            record.stack.push(
+                LogicCommand(
+                    command,
+                    record.scene.refresh_all,
+                    text,
+                    record_trace=self._branching_session.record_traces,
+                    document=record.document,
+                )
+            )
 
     def _apply_transform(
         self, fn: Callable[[PixelBuffer], PixelBuffer], text: str
@@ -2990,7 +3177,9 @@ class Main_Window(QMainWindow):
             return
         layer: Layer = record.scene.active_layer()
         mask = record.view.active_selection()
-        command = transform.make_transform_command(layer, fn, mask)
+        command = transform.make_transform_command(
+            layer, fn, mask, target=self._edit_target(record)
+        )
         dims_change = isinstance(command, history.FunctionCommand)
         self._apply_buffer_command(command, dims_change, text)
 
@@ -3021,7 +3210,9 @@ class Main_Window(QMainWindow):
             return scale_nearest(buffer, new_w, new_h)
 
         try:
-            command = transform.make_transform_command(layer, fn, mask)
+            command = transform.make_transform_command(
+                layer, fn, mask, target=self._edit_target(record)
+            )
         except TransformError as exc:
             QMessageBox.warning(self, self.tr("Scale Canvas"), str(exc))
             return
@@ -3038,7 +3229,9 @@ class Main_Window(QMainWindow):
         angle = dialog.angle()
         layer: Layer = record.scene.active_layer()
         mask = record.view.active_selection()
-        command = make_rotsprite_command(layer, angle, mask)
+        command = make_rotsprite_command(
+            layer, angle, mask, target=self._edit_target(record)
+        )
         dims_change = isinstance(command, history.FunctionCommand)
         self._apply_buffer_command(command, dims_change, self.tr("Rotate (RotSprite)"))
 
@@ -3215,6 +3408,8 @@ class Main_Window(QMainWindow):
                 doc.make_add_tileset_command(tileset),
                 self._rebind_active_tilemap,
                 self.tr("Add Tileset"),
+                record_trace=self._branching_session.record_traces,
+                document=record.document,
             )
         )
         if self._active_tilemap is not None:
@@ -3223,6 +3418,8 @@ class Main_Window(QMainWindow):
                     self._active_tilemap.make_attach_tileset_command(tileset),
                     self._refresh_tilemap_canvas,
                     self.tr("Attach Tileset"),
+                    record_trace=self._branching_session.record_traces,
+                    document=record.document,
                 )
             )
         self._active_tileset = tileset
@@ -3244,6 +3441,8 @@ class Main_Window(QMainWindow):
                 record.document.make_add_tilemap_command(tilemap),
                 self._rebind_active_tilemap,
                 self.tr("Add Tilemap"),
+                record_trace=self._branching_session.record_traces,
+                document=record.document,
             )
         )
         self._active_tilemap = tilemap
@@ -3270,6 +3469,8 @@ class Main_Window(QMainWindow):
                         record.document.make_add_tileset_command(tileset),
                         self._rebind_active_tilemap,
                         self.tr("Attach Tileset"),
+                        record_trace=self._branching_session.record_traces,
+                        document=record.document,
                     )
                 )
             record.stack.push(
@@ -3277,6 +3478,8 @@ class Main_Window(QMainWindow):
                     record.document.make_add_tilemap_command(tilemap),
                     self._rebind_active_tilemap,
                     label,
+                    record_trace=self._branching_session.record_traces,
+                    document=record.document,
                 )
             )
         finally:
@@ -3407,7 +3610,15 @@ class Main_Window(QMainWindow):
         if record is None or command is None:
             return
         label = self._pending_automation_label or self.tr("Automation")
-        record.stack.push(AutomationCommand(command, record.scene.refresh_all, label))
+        record.stack.push(
+            AutomationCommand(
+                command,
+                record.scene.refresh_all,
+                label,
+                record_trace=self._branching_session.record_traces,
+                document=record.document,
+            )
+        )
         if self._macro_controls.is_recording() and self._pending_automation_ops:
             self._macro_controls.add_recorded_ops(self._pending_automation_ops)
         self._pending_automation_ops = None
@@ -3481,7 +3692,13 @@ class Main_Window(QMainWindow):
         text = label or self.tr("Assistant edit")
         turn_commands = tuple(cast(Sequence[Command], commands))
         record.stack.push(
-            AssistantCommand(turn_commands, record.scene.refresh_all, text)
+            AssistantCommand(
+                turn_commands,
+                record.scene.refresh_all,
+                text,
+                record_trace=self._branching_session.record_traces,
+                document=record.document,
+            )
         )
 
     # -- i18n -------------------------------------------------------------

@@ -13,6 +13,7 @@ from PySide6.QtGui import QUndoStack
 
 from pixelart_creator.logic.color import TRANSPARENT
 from pixelart_creator.logic.document import Document
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 from pixelart_creator.ui.canvas_scene import CanvasScene
@@ -26,12 +27,18 @@ BLUE = (40, 90, 220, 255)
 def _ctx(scene, color=BLUE, picked=None):
     if picked is None:
         picked = []
+    # The fixture's document is freshly built (Document.__init__ mints every
+    # layer's stable id immediately, logic/document.py:450), so the active
+    # frame/layer target is genuinely known here — a real EditTarget, never
+    # the None sentinel, matching REQ-P10-UI-025 (plan §8.2).
+    layer = scene.active_layer()
     return ToolContext(
         buffer=scene.active_buffer(),
         active_color=color,
         undo_stack=QUndoStack(),
         scene=scene,
         set_active_color=picked.append,
+        target=EditTarget(frame_index=scene.frame_index, layer_id=layer.layer_id),
     )
 
 

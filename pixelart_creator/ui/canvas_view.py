@@ -29,6 +29,7 @@ from PySide6.QtGui import (
     QMouseEvent,
     QPainter,
     QTransform,
+    QUndoCommand,
     QUndoStack,
     QWheelEvent,
 )
@@ -42,6 +43,8 @@ from pixelart_creator.logic.constants import (
     ZOOM_MAX,
     ZOOM_PRESET_STOPS,
 )
+from pixelart_creator.logic.document import Document
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.guides import (
     Guide,
     GuideOrientation,
@@ -50,6 +53,7 @@ from pixelart_creator.logic.guides import (
 from pixelart_creator.logic.selection import SelectionMask
 from pixelart_creator.logic.symmetry import SymmetryAxis
 from pixelart_creator.ui.canvas_scene import CanvasScene
+from pixelart_creator.ui.commands import RecordTraceCallback
 from pixelart_creator.ui.guides_rulers_overlay import Guides_Rulers_Overlay
 from pixelart_creator.ui.iso_grid_overlay import Iso_Grid_Overlay
 from pixelart_creator.ui.perspective_grid_overlay import Perspective_Grid_Overlay
@@ -60,6 +64,46 @@ Coord = Tuple[int, int]
 
 #: Platform name reported by Qt when running without a windowing system.
 _OFFSCREEN_PLATFORM = "offscreen"
+
+
+class _RecordingUndoStack:
+    """Auto-attaches the view's active branch-recording sink to every push.
+
+    Every one of the six ``ui/tools/`` drawing controllers (pencil, line, fill,
+    the shared shape base, dither, floating-move) already builds its own
+    ``PaintCommand``/``LogicCommand`` and calls exactly one thing on
+    ``ctx.undo_stack``: ``push(command)`` (confirmed by grep across the package —
+    no other member of the real ``QUndoStack`` is ever reached through a
+    :class:`~pixelart_creator.ui.tools.base.ToolContext`). Standing between that
+    call and the real stack lets this one interception point call the pushed
+    command's own ``bind_recording`` (``ui/commands.py`` — present on
+    ``PaintCommand`` and every ``LogicCommand``) with the view's current
+    :data:`~pixelart_creator.ui.commands.RecordTraceCallback` and live
+    :class:`~pixelart_creator.logic.document.Document` **before** the real
+    ``QUndoStack.push`` fires the command's first ``redo()`` (T-DRAW-01,
+    `REQ-P10-UI-025`) — so every drawing tool's commit records on a branch,
+    without editing any of those six controllers' own command-construction call
+    sites, which sit outside this dispatch's write set (``ui/tools/base.py``,
+    ``ui/canvas_view.py``, ``ui/commands.py``, ``ui/branching_panel.py`` only).
+
+    Duck-typed to ``QUndoStack``'s ``push`` signature only; every other member a
+    caller might want (``undo``, ``redo``, ``isClean``, …) stays on the real
+    stack the view already keeps and exposes elsewhere — this wrapper is never
+    substituted for the document tab's own ``QUndoStack`` (``main_window.py``'s
+    ``record.stack``), only for the one reference a :class:`ToolContext` is
+    built with.
+    """
+
+    def __init__(self, view: "Canvas_View") -> None:
+        """Bind to ``view``, whose current stack/recording sink is read live."""
+        self._view = view
+
+    def push(self, command: QUndoCommand) -> None:
+        """Bind the active recording sink onto ``command``, then push it for real."""
+        bind = getattr(command, "bind_recording", None)
+        if bind is not None:
+            bind(self._view._record_trace, self._view._recording_document)
+        self._view._undo_stack.push(command)
 
 
 class Canvas_View(QGraphicsView):
@@ -88,6 +132,19 @@ class Canvas_View(QGraphicsView):
         super().__init__(scene, parent)
         self._scene = scene
         self._undo_stack = undo_stack
+        # Branch-recording sink for the drawing tools (T-DRAW-01, `REQ-P10-UI-025`):
+        # bound externally via `set_recording` (mirrors `set_undo_stack`'s pattern);
+        # `None` on a tab whose document has no active branch session attached,
+        # in which case `_RecordingUndoStack.push` binds `None` and every
+        # `PaintCommand`/`LogicCommand`'s own `_fire_record_trace` stays the
+        # documented no-op (``ui/commands.py``).
+        self._record_trace: Optional[RecordTraceCallback] = None
+        self._recording_document: Optional[Document] = None
+        #: The wrapper every :class:`~pixelart_creator.ui.tools.base.ToolContext`
+        #: is actually built with (see :class:`_RecordingUndoStack`); reads
+        #: ``self._undo_stack``/``self._record_trace``/``self._recording_document``
+        #: live at each push, so `set_undo_stack`/`set_recording` need not rebuild it.
+        self._recording_stack = _RecordingUndoStack(self)
         self._tool: Optional[Tool] = None
         self._active_color: RGBA = BLACK
         self._active_index: int = 0
@@ -209,6 +266,30 @@ class Canvas_View(QGraphicsView):
     def set_undo_stack(self, undo_stack: QUndoStack) -> None:
         """Rebind the view to a different document's undo stack (tab switch)."""
         self._undo_stack = undo_stack
+
+    def set_recording(
+        self,
+        record_trace: Optional[RecordTraceCallback],
+        document: Optional[Document],
+    ) -> None:
+        """Bind the active branch-recording sink (T-DRAW-01, `REQ-P10-UI-025`).
+
+        The caller (``ui/main_window.py``, outside this dispatch's write set)
+        supplies its ``Branching_Session.record_traces`` and the active tab's
+        live ``Document`` here — mirroring how it already calls
+        :meth:`set_undo_stack` on tab construction, tab switch, and after a
+        branch switch/merge (``ui/branching_panel.py``'s
+        ``documentSwitched``/``activeBranchChanged`` handling). Every drawing
+        tool's push routes through :class:`_RecordingUndoStack`, which reads
+        these two values live, so calling this again (e.g. on
+        ``activeBranchChanged``) takes effect on the very next stroke — no
+        rebuild of the context or the wrapper needed. ``(None, None)`` is the
+        safe default this view starts with (no branching session attached yet);
+        every drawing tool then records nothing, exactly the documented
+        no-op (``ui/commands.py``'s ``_fire_record_trace``), never a guess.
+        """
+        self._record_trace = record_trace
+        self._recording_document = document
 
     def set_menu_hook(self, hook: Optional[Callable[[int, int], None]]) -> None:
         """Register a replaceable right-click menu hook (Phase-3 seam, CL-8)."""
@@ -452,13 +533,36 @@ class Canvas_View(QGraphicsView):
         tol_doc = screen_tolerance_to_doc(DEFAULT_SNAP_TOLERANCE_PX, self._zoom)
         return overlay.overlay_item().guide_at(point.x(), point.y(), tol_doc)
 
+    def _make_edit_target(self) -> Optional[EditTarget]:
+        """Return where an edit through this view lands (`REQ-P10-UI-025`).
+
+        Read from the live ``Document`` the scene binds to — the active frame
+        index and the active leaf layer's stable cross-frame ``layer_id``
+        (plan §8.2). ``None`` only when the active layer has not been minted a
+        stable id yet (``layer_id == 0``, the documented *unminted* sentinel,
+        ``logic/document.py:264``, ``:1729``): passing ``0`` through would
+        either be refused outright (`EditTarget.__post_init__`) or, worse,
+        resolve to a real node in frame 0 (plan §8.1) — so an unminted layer's
+        edits are reported honestly as ``unaccounted`` instead.
+        """
+        layer = self._scene.active_layer()
+        if layer.layer_id <= 0:
+            return None
+        return EditTarget(frame_index=self._scene.frame_index, layer_id=layer.layer_id)
+
     def _make_context(self) -> ToolContext:
         return ToolContext(
             buffer=self._scene.active_buffer(),
             active_color=self._active_color,
             active_index=self._active_index,
-            undo_stack=self._undo_stack,
+            # `_recording_stack` duck-types `QUndoStack.push` only (the sole
+            # member every `ui/tools/` controller calls on `ctx.undo_stack`,
+            # confirmed by grep) and auto-binds the active branch-recording
+            # sink onto every pushed command before delegating to the real
+            # stack (T-DRAW-01, `REQ-P10-UI-025`; see `_RecordingUndoStack`).
+            undo_stack=self._recording_stack,  # type: ignore[arg-type]
             scene=self._scene,
+            target=self._make_edit_target(),
             set_active_color=self._on_color_picked,
             selection=self._selection,
             set_selection=self.set_selection,

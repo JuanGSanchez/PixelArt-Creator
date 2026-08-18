@@ -89,7 +89,7 @@ def test_preview_tiling_indexed_mode():
 
 def test_wrapped_edit_paints_wrapped_pixels():
     buf = PixelBuffer(4, 4)
-    cmd = make_tiled_command(buf, lambda: ([(5, 6), (-1, -1)], RED))
+    cmd = make_tiled_command(buf, lambda: ([(5, 6), (-1, -1)], RED), target=None)
     cmd.execute()
     assert buf.get_pixel(1, 2) == RED  # (5,6) wrapped
     assert buf.get_pixel(3, 3) == RED  # (-1,-1) wrapped
@@ -98,7 +98,7 @@ def test_wrapped_edit_paints_wrapped_pixels():
 def test_sc_l014_4_wrapped_edit_then_undo_restores_buffer():
     buf = PixelBuffer(4, 4)
     before = buf.copy()
-    cmd = make_tiled_command(buf, lambda: ([(4, 0), (0, 5), (7, 7)], RED))
+    cmd = make_tiled_command(buf, lambda: ([(4, 0), (0, 5), (7, 7)], RED), target=None)
     cmd.execute()
     assert buf != before
     cmd.undo()
@@ -108,14 +108,14 @@ def test_sc_l014_4_wrapped_edit_then_undo_restores_buffer():
 def test_wrapped_edit_dedups_coincident_wrapped_coords():
     buf = PixelBuffer(4, 4)
     # (0,0) and (4,4) both wrap to (0,0); only one change is recorded.
-    cmd = make_tiled_command(buf, lambda: ([(0, 0), (4, 4)], RED))
+    cmd = make_tiled_command(buf, lambda: ([(0, 0), (4, 4)], RED), target=None)
     cmd.execute()
     assert len(cmd) == 1
 
 
 def test_wrapped_edit_noop_when_value_unchanged():
     buf = PixelBuffer(4, 4, fill=RED)
-    cmd = make_tiled_command(buf, lambda: ([(0, 0), (5, 5)], RED))
+    cmd = make_tiled_command(buf, lambda: ([(0, 0), (5, 5)], RED), target=None)
     cmd.execute()
     assert len(cmd) == 0
 
@@ -123,7 +123,7 @@ def test_wrapped_edit_noop_when_value_unchanged():
 def test_wrapped_edit_indexed():
     buf = PixelBuffer(4, 4, ColorMode.INDEXED, fill=0)
     before = buf.copy()
-    cmd = make_tiled_command(buf, lambda: ([(5, 5)], 9))
+    cmd = make_tiled_command(buf, lambda: ([(5, 5)], 9), target=None)
     cmd.execute()
     assert buf.get_pixel(1, 1) == 9
     cmd.undo()
@@ -153,7 +153,7 @@ def test_property_wrap_is_modulo_identity(x, y, w, h):
 def test_property_wrapped_edit_reversible(coords, w, h):
     buf = PixelBuffer(w, h)
     before = buf.copy()
-    cmd = make_tiled_command(buf, lambda: (coords, RED))
+    cmd = make_tiled_command(buf, lambda: (coords, RED), target=None)
     cmd.execute()
     cmd.undo()
     assert buf == before

@@ -17,6 +17,7 @@ import numpy as np
 from pixelart_creator.logic import history
 from pixelart_creator.logic.color import TRANSPARENT
 from pixelart_creator.logic.constants import SCALE_MAX_FACTOR, SCALE_MIN_FACTOR
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer, PixelValue
 from pixelart_creator.logic.selection import SelectionMask
 
@@ -160,6 +161,8 @@ def make_transform_command(
     holder: BufferHolder,
     transform: Callable[[PixelBuffer], PixelBuffer],
     mask: Optional[SelectionMask] = None,
+    *,
+    target: Optional[EditTarget],
 ) -> history.Command:
     """Build a reversible command applying ``transform`` to ``holder.buffer``.
 
@@ -172,11 +175,19 @@ def make_transform_command(
 
     The command is returned **unapplied** (push it with ``execute=True``);
     ``apply then undo`` restores the buffer exactly (SC-L010-3).
+
+    Args:
+        target: Where this edit landed, or ``None`` if unknown — **required,
+            no default** (plan §8.2, task T27); passed straight through to
+            :class:`history.PixelEdit` (the dimension-changing path returns a
+            :class:`history.FunctionCommand`, which has no target to carry).
     """
     buffer = holder.buffer
     if mask is not None:
         changes = _masked_transform_changes(buffer, transform, mask)
-        return history.PixelEdit(buffer, changes, label="transform selection")
+        return history.PixelEdit(
+            buffer, changes, label="transform selection", target=target
+        )
 
     result = transform(buffer)
     if result.width != buffer.width or result.height != buffer.height:
@@ -190,4 +201,6 @@ def make_transform_command(
 
         return history.FunctionCommand(_do, _undo, label="transform")
 
-    return history.PixelEdit(buffer, _diff_changes(buffer, result), label="transform")
+    return history.PixelEdit(
+        buffer, _diff_changes(buffer, result), label="transform", target=target
+    )

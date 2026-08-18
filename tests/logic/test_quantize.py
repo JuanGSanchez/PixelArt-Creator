@@ -197,7 +197,7 @@ def test_kmeans_requires_rgba():
 def test_make_constraint_command_reversible():
     buf = _random_buffer(8, 8)
     before = buf.copy()
-    cmd = make_constraint_command(buf, game_boy_palette())
+    cmd = make_constraint_command(buf, game_boy_palette(), target=None)
     assert isinstance(cmd, history.Command)
     cmd.execute()
     assert _colours_in(buf).issubset(_palette_set(game_boy_palette()))
@@ -209,14 +209,16 @@ def test_make_constraint_command_respects_mask():
     buf = _random_buffer(8, 8)
     before = buf.copy()
     mask = rect_mask(8, 8, 0, 0, 3, 3)
-    cmd = make_constraint_command(buf, game_boy_palette(), mask=mask)
+    cmd = make_constraint_command(buf, game_boy_palette(), mask=mask, target=None)
     cmd.execute()
     assert buf.get_pixel(7, 7) == before.get_pixel(7, 7)
 
 
 def test_make_constraint_command_ciede2000_metric():
     buf = _random_buffer(6, 6)
-    cmd = make_constraint_command(buf, game_boy_palette(), metric="ciede2000")
+    cmd = make_constraint_command(
+        buf, game_boy_palette(), metric="ciede2000", target=None
+    )
     cmd.execute()
     assert _colours_in(buf).issubset(_palette_set(game_boy_palette()))
 

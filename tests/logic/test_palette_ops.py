@@ -166,7 +166,7 @@ def test_make_swap_command_reversible():
     # SC-L014-2: the inverse remap restores the original buffer exactly.
     buf = _indexed([[0, 1], [1, 2]])
     before = buf.copy()
-    cmd = make_swap_command(buf, {1: 0, 2: 1})
+    cmd = make_swap_command(buf, {1: 0, 2: 1}, target=None)
     assert isinstance(cmd, history.Command)
     cmd.execute()
     assert buf.data.tolist() == [[0, 0], [0, 1]]
@@ -177,7 +177,7 @@ def test_make_swap_command_reversible():
 def test_make_swap_command_respects_mask():
     buf = _indexed([[1, 1], [1, 1]])
     mask = rect_mask(2, 2, 0, 0, 0, 0)  # only (0,0)
-    cmd = make_swap_command(buf, {1: 2}, mask=mask)
+    cmd = make_swap_command(buf, {1: 2}, mask=mask, target=None)
     cmd.execute()
     assert buf.get_pixel(0, 0) == 2
     assert buf.get_pixel(1, 1) == 1
@@ -186,7 +186,7 @@ def test_make_swap_command_respects_mask():
 def test_make_cycle_command_reversible():
     buf = _indexed([[0, 1], [2, 0]])
     before = buf.copy()
-    cmd = make_cycle_command(buf, 0, 2, 1)
+    cmd = make_cycle_command(buf, 0, 2, 1, target=None)
     cmd.execute()
     cmd.undo()
     assert buf == before
@@ -194,19 +194,19 @@ def test_make_cycle_command_reversible():
 
 def test_make_cycle_command_requires_indexed():
     with pytest.raises(PaletteError):
-        make_cycle_command(PixelBuffer(2, 2, ColorMode.RGBA), 0, 1, 1)
+        make_cycle_command(PixelBuffer(2, 2, ColorMode.RGBA), 0, 1, 1, target=None)
 
 
 def test_make_cycle_command_empty_range_raises():
     buf = _indexed([[0, 1], [2, 0]])
     with pytest.raises(PaletteError):
-        make_cycle_command(buf, 2, 1, 1)
+        make_cycle_command(buf, 2, 1, 1, target=None)
 
 
 def test_make_cycle_command_bad_step_raises():
     buf = _indexed([[0, 1], [2, 0]])
     with pytest.raises(PaletteError):
-        make_cycle_command(buf, 0, 2, "x")  # type: ignore[arg-type]
+        make_cycle_command(buf, 0, 2, "x", target=None)  # type: ignore[arg-type]
 
 
 @given(
@@ -217,7 +217,7 @@ def test_swap_reversibility_property(a, b):
     # apply ∘ undo = identity for an arbitrary bijection {a<->b}.
     buf = _indexed([[a, b], [b, a]])
     before = buf.copy()
-    cmd = make_swap_command(buf, {a: b, b: a})
+    cmd = make_swap_command(buf, {a: b, b: a}, target=None)
     cmd.execute()
     cmd.undo()
     assert buf == before
