@@ -62,6 +62,26 @@ Path = Tuple[int, ...]
 _MASK_SHOWN: tuple = (255, 255, 255, 255)
 
 
+def _find_path_by_id(
+    nodes: Sequence[LayerNode], layer_id: int, prefix: Path = ()
+) -> Optional[Path]:
+    """Depth-first search of ``nodes`` for the node whose ``layer_id`` matches.
+
+    Structural addressing only (no domain decision, S11) — used by
+    :meth:`Layer_Panel.select_layer` (BF-G1) to turn a stable cross-frame track
+    id (``ui/timeline_grid_view.py``'s selection) into this panel's own index
+    path.
+    """
+    for index, node in enumerate(nodes):
+        if node.layer_id == layer_id:
+            return prefix + (index,)
+        if isinstance(node, LayerGroup):
+            found = _find_path_by_id(node.children, layer_id, prefix + (index,))
+            if found is not None:
+                return found
+    return None
+
+
 class _Node_Row(QWidget):
     """Per-node control row: visibility, lock, name, opacity, blend mode.
 
@@ -370,6 +390,33 @@ class Layer_Panel(QWidget):
         )
         self._on_opacity_drag_begin = on_opacity_drag_begin
         self.rebuild()
+
+    def select_layer(self, layer_id: int) -> bool:
+        """Select the track ``layer_id`` in the currently-shown frame (BF-G1).
+
+        The timeline grid's cell selection (``REQ-P5-UI-023``) reaches the layer
+        panel through this seam — the sibling of the shipped
+        ``Timeline_Panel.select_frame(index)`` (``ui/timeline_panel.py:297``).
+        Selection mutates nothing and pushes no command.
+
+        Args:
+            layer_id: The stable cross-frame track id
+                (``logic/document.py``'s ``Layer.layer_id`` /
+                ``LayerGroup.layer_id``) to select.
+
+        Returns:
+            Whether a node with that id was found in the active frame's tree
+            and became the current selection; ``False`` (selection unchanged)
+            when no document is bound or the active frame carries no node with
+            that id.
+        """
+        if self._document is None:
+            return False
+        frame = self._document.frames[self._frame_index]
+        path = _find_path_by_id(frame.layers, layer_id)
+        if path is None:
+            return False
+        return self._select_path(path)
 
     def set_frame_index(self, index: int) -> None:
         """Point the panel at frame ``index``'s layer tree (Phase-5 timeline sync).

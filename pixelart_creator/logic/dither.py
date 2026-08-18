@@ -24,6 +24,7 @@ import numpy.typing as npt
 from pixelart_creator.logic import history
 from pixelart_creator.logic.color import CHANNEL_MAX
 from pixelart_creator.logic.constants import BAYER_MATRIX_SIZE
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.palette import Palette, PaletteError
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 from pixelart_creator.logic.selection import SelectionMask
@@ -180,6 +181,8 @@ def make_dither_command(
     palette: Palette,
     mode: str,
     mask: Optional[SelectionMask] = None,
+    *,
+    target: Optional[EditTarget],
 ) -> history.Command:
     """Build a reversible command dithering ``buffer`` onto ``palette``.
 
@@ -189,6 +192,9 @@ def make_dither_command(
         palette: The target palette (output ⊆ palette).
         mode: ``'ordered'`` or ``'floyd_steinberg'``.
         mask: If given, only masked pixels change; others are untouched.
+        target: Where this edit landed, or ``None`` if unknown — **required,
+            no default** (plan §8.2, task T27); passed straight through to
+            :class:`history.PixelEdit`.
 
     Returns:
         A :class:`history.PixelEdit` whose undo restores the prior pixels exactly
@@ -214,4 +220,4 @@ def make_dither_command(
             new = dithered.get_pixel(x, y)
             if old != new:
                 changes.append((x, y, old, new))
-    return history.PixelEdit(buffer, changes, label=f"dither ({mode})")
+    return history.PixelEdit(buffer, changes, label=f"dither ({mode})", target=target)

@@ -49,6 +49,11 @@ from pixelart_creator.logic.document import (
 )
 from pixelart_creator.logic.palette import MAX_PALETTE_SIZE, Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+from pixelart_creator.logic.project_prefs import REGISTRY as PREFS_REGISTRY
+from pixelart_creator.logic.project_prefs import (
+    ProjectPrefs,
+    ProjectPrefsError,
+)
 from pixelart_creator.logic.tilemap import Tilemap, TilemapLayer
 from pixelart_creator.logic.tileset import Tileset
 
@@ -221,7 +226,7 @@ def serialize(document: Document) -> Dict[str, Any]:
             }
         )
     tileset_index = {id(ts): i for i, ts in enumerate(document.tilesets)}
-    return {
+    payload: Dict[str, Any] = {
         "format": FORMAT_NAME,
         "version": FORMAT_VERSION,
         "canvas": {
@@ -237,6 +242,13 @@ def serialize(document: Document) -> Dict[str, Any]:
         "tilesets": [_serialise_tileset(ts) for ts in document.tilesets],
         "tilemaps": [_serialise_tilemap(tm, tileset_index) for tm in document.tilemaps],
     }
+    # One optional root key (REQ-P5-DATA-004, ADR-0056): omitted entirely when
+    # no preference has been explicitly set, so a project that never touches
+    # a preference serialises exactly as it did before this field existed.
+    prefs_mapping = document.prefs.to_mapping()
+    if prefs_mapping:
+        payload["prefs"] = prefs_mapping
+    return payload
 
 
 def save_project(document: Document, path: Union[str, Path]) -> Path:
@@ -289,6 +301,36 @@ def _parse_ppi(value: Any) -> float:
     )
     _require(math.isfinite(value) and value > 0.0, "ppi must be finite and > 0")
     return float(value)
+
+
+def _parse_prefs(value: Any) -> ProjectPrefs:
+    """Parse the optional ``prefs`` root object (v5+; ``REQ-P5-DATA-004``, ADR-0056).
+
+    An absent object, and an absent key within a present object, both read as
+    that key's default (``ask``, for this slice's boolean-shaped preference) —
+    ``FORMAT_VERSION`` stays 5, so a v1–v4 project without this field loads
+    unchanged. A recognised key holding a value outside its declared domain is
+    **refused** with :class:`ProjectIOError`, never coerced (a coerced
+    preference is one the user did not set). A key this build does not
+    recognise (a newer build's preference, added by a later slice through
+    ``logic/project_prefs.py``'s ``register`` seam) is **ignored**, matching
+    this format's established forward-tolerance: an unknown key is dropped,
+    not refused (``data/project_io.py`` reads every field by name, "no
+    unknown-key rejection").
+    """
+    _require(isinstance(value, dict), "prefs must be an object")
+    resolved: Dict[str, str] = {}
+    for key_name, raw_value in value.items():
+        _require(isinstance(key_name, str), "prefs key must be a string")
+        key = PREFS_REGISTRY.get(key_name)
+        if key is None:
+            continue  # forward-tolerant: an unrecognised preference is dropped
+        _require(isinstance(raw_value, str), f"prefs[{key_name!r}] must be a string")
+        try:
+            resolved[key_name] = key.validate(raw_value)
+        except ProjectPrefsError as exc:
+            raise ProjectIOError(str(exc)) from exc
+    return ProjectPrefs(resolved)
 
 
 def _decode_buffer(
@@ -769,12 +811,19 @@ def deserialize(payload: Dict[str, Any]) -> Document:
     metadata = {str(k): str(v) for k, v in metadata_raw.items()}
 
     ppi = _parse_ppi(payload.get("ppi"))
+    prefs = _parse_prefs(payload.get("prefs", {}))
 
     frames_raw = _get(payload, "frames", list)
     _require(len(frames_raw) >= 1, "project must have at least one frame")
 
     document = Document(
-        width, height, mode=mode, palette=palette, metadata=metadata, ppi=ppi
+        width,
+        height,
+        mode=mode,
+        palette=palette,
+        metadata=metadata,
+        ppi=ppi,
+        prefs=prefs,
     )
     parse_frame = _parse_frame_v1 if version == 1 else _parse_frame_v2
     document.frames = [parse_frame(fdata, width, height, mode) for fdata in frames_raw]

@@ -24,6 +24,7 @@ from pixelart_creator.logic.constants import (
     ROTSPRITE_SIMILARITY_THRESHOLD,
     ROTSPRITE_UPSCALE_FACTOR,
 )
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer, PixelValue
 
 if TYPE_CHECKING:  # annotation-only; masks are duck-typed at runtime (no cycle)
@@ -329,6 +330,8 @@ def make_rotsprite_command(
     holder: BufferHolder,
     angle_degrees: float,
     mask: Optional["SelectionMask"] = None,
+    *,
+    target: Optional[EditTarget],
 ) -> history.Command:
     """Build a reversible RotSprite command over ``holder.buffer``.
 
@@ -337,6 +340,12 @@ def make_rotsprite_command(
     masked region and returns a :class:`history.PixelEdit` touching solely the
     masked pixels. Returned **unapplied** (push with ``execute=True``);
     ``apply then undo`` restores the buffer exactly.
+
+    Args:
+        target: Where this edit landed, or ``None`` if unknown — **required,
+            no default** (plan §8.2, task T27); passed straight through to
+            :class:`history.PixelEdit` (the whole-buffer path returns a
+            :class:`history.FunctionCommand`, which has no target to carry).
     """
     buffer = holder.buffer
     if mask is not None:
@@ -344,7 +353,9 @@ def make_rotsprite_command(
             raise ValueError("mask dimensions must match the buffer")
         box = mask.bounds()
         if box is None:
-            return history.PixelEdit(buffer, [], label="rotate selection")
+            return history.PixelEdit(
+                buffer, [], label="rotate selection", target=target
+            )
         x0, y0, x1, y1 = box
         sub = buffer.region(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
         rotated = rotsprite(sub, angle_degrees)
@@ -358,7 +369,9 @@ def make_rotsprite_command(
                 old = buffer.get_pixel(gx, gy)
                 if old != new:
                     changes.append((gx, gy, old, new))
-        return history.PixelEdit(buffer, changes, label="rotate selection")
+        return history.PixelEdit(
+            buffer, changes, label="rotate selection", target=target
+        )
 
     rotated = rotsprite(buffer, angle_degrees)
     prior = buffer

@@ -10,7 +10,18 @@ reshaping it.
 from __future__ import annotations
 
 import math
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 
 from pixelart_creator.logic import palette_ops
 from pixelart_creator.logic.animation import (
@@ -30,9 +41,17 @@ from pixelart_creator.logic.constants import (
     MAX_GROUP_NESTING_DEPTH,
     MAX_LAYERS_PER_FRAME,
 )
+from pixelart_creator.logic.edit_trace import (
+    EditTrace,
+    LayerAttrTrace,
+    LayerAttrValue,
+    LayerOrderTrace,
+    MetadataTrace,
+)
 from pixelart_creator.logic.history import Command, FunctionCommand
 from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+from pixelart_creator.logic.project_prefs import ProjectPrefs
 from pixelart_creator.logic.tilemap import Tilemap
 from pixelart_creator.logic.tileset import Tileset
 
@@ -63,6 +82,34 @@ LayerRef = Union[int, Sequence[int]]
 
 class DocumentError(ValueError):
     """Raised on an invalid document structure or operation."""
+
+
+class _TracedCommand(FunctionCommand):
+    """A :class:`FunctionCommand` that reports a fixed :meth:`edit_trace` (T8/T9/T10).
+
+    ``REQ-P10-UI-025``: the four op classes' commands describe their own change
+    at build time (the new value / resulting order is already known then), so
+    the trace is computed once and returned as-is on every call — additive,
+    Qt-free, no clock, no site id (plan §3.1, §3.2).
+    """
+
+    __slots__ = ("_trace",)
+
+    def __init__(
+        self,
+        do: Callable[[], None],
+        undo: Callable[[], None],
+        *,
+        label: str,
+        trace: Tuple[EditTrace, ...],
+    ) -> None:
+        """Wrap ``do``/``undo`` as a :class:`FunctionCommand`, carrying ``trace``."""
+        super().__init__(do, undo, label=label)
+        self._trace = trace
+
+    def edit_trace(self) -> Tuple[EditTrace, ...]:
+        """Return the fixed trace this command was built with."""
+        return self._trace
 
 
 def _validate_opacity(value: float) -> float:
@@ -365,6 +412,7 @@ class Document:
         "tilemaps",
         "ppi",
         "_next_layer_id",
+        "prefs",
     )
 
     def __init__(
@@ -376,6 +424,7 @@ class Document:
         palette: Optional[Palette] = None,
         metadata: Optional[Dict[str, str]] = None,
         ppi: float = DEFAULT_DOCUMENT_PPI,
+        prefs: Optional[ProjectPrefs] = None,
     ) -> None:
         """Create a document with one frame holding one empty background layer.
 
@@ -383,6 +432,13 @@ class Document:
         default :data:`DEFAULT_DOCUMENT_PPI`), validated ``> 0``/finite; it is a
         first-class document property consumed by ``logic/preview.real_size_scale``
         and persisted in ``.pixproj`` v5.
+
+        ``prefs`` is the per-project confirmation-preference snapshot
+        (``REQ-P5-DATA-004``, ADR-0056): a preference, not document content —
+        setting it never pushes a :class:`~pixelart_creator.logic.history.Command`
+        and it plays no part in document equality/dirty tracking. Defaults to
+        an all-defaults :class:`ProjectPrefs` when omitted, so every existing
+        call site is unaffected.
         """
         base = PixelBuffer(width, height, mode)
         self.width = base.width
@@ -392,6 +448,9 @@ class Document:
         self.metadata: Dict[str, str] = dict(metadata) if metadata else {}
         #: Real-size document resolution, pixels-per-inch (BF-3; REQ-P9-LOGIC-007).
         self.ppi: float = _validate_ppi(ppi)
+        #: Per-project confirmation preferences (REQ-P5-DATA-004, ADR-0056);
+        #: not document content (no undo command, no dirty-flag implication).
+        self.prefs: ProjectPrefs = prefs if prefs is not None else ProjectPrefs()
         #: Ordered document-level frame tags (named animations, REQ-P5-LOGIC-009).
         self.frame_tags: List[FrameTag] = []
         #: Phase-6 tileset/tilemap collections (ADR-0016; empty by default so
@@ -1051,7 +1110,9 @@ class Document:
             command.undo()
             _clear_caches(cleared)
 
-        return FunctionCommand(_do, _undo, label=command.label)
+        return _TracedCommand(
+            _do, _undo, label=command.label, trace=command.edit_trace()
+        )
 
     def invalidate_caches(
         self, ref: Optional[LayerRef] = None, *, frame_index: int = 0
@@ -1076,8 +1137,29 @@ class Document:
     # -- reversible attribute ops (return a history.Command) --------------
 
     def _attr_command(
-        self, node: "LayerNode", attr: str, value: object, label: str
+        self,
+        node: "LayerNode",
+        attr: str,
+        value: object,
+        label: str,
+        *,
+        frame_index: Optional[int] = None,
     ) -> Command:
+        """Build a reversible attribute-set command.
+
+        When ``frame_index`` is given (only the call sites for ``name``,
+        ``visible`` and ``locked`` pass it — the attrs
+        :data:`~pixelart_creator.logic.convergence.LAYER_ATTRS` actually
+        converges, task T8), the returned command reports a
+        :class:`~pixelart_creator.logic.edit_trace.LayerAttrTrace` naming
+        ``(frame_index, node.layer_id, attr, value)``. ``document.py`` cannot
+        import ``logic/convergence.py`` to check membership directly —
+        ``convergence.py`` already imports ``document.py``, and the reverse
+        edge would close a two-module cycle (Article I §4) — so the call sites
+        below encode the membership instead: ``opacity`` (not in T8's scope)
+        and ``blend_mode`` (not in ``LAYER_ATTRS`` at all) omit ``frame_index``
+        and keep the default, honest, empty trace.
+        """
         old = getattr(node, attr)
 
         def _do() -> None:
@@ -1086,6 +1168,18 @@ class Document:
         def _undo() -> None:
             setattr(node, attr, old)
 
+        if frame_index is not None:
+            # Only call sites for LAYER_ATTRS-compatible attrs pass frame_index
+            # (name/visible/locked), so ``value`` is always str/bool here.
+            trace: Tuple[EditTrace, ...] = (
+                LayerAttrTrace(
+                    frame_index=frame_index,
+                    layer_id=node.layer_id,
+                    attr=attr,
+                    value=cast(LayerAttrValue, value),
+                ),
+            )
+            return _TracedCommand(_do, _undo, label=label, trace=trace)
         return FunctionCommand(_do, _undo, label=label)
 
     def set_layer_opacity(
@@ -1100,6 +1194,57 @@ class Document:
             self._chain_for_container(frame, container),
         )
 
+    def make_set_metadata_command(self, key: str, value: str) -> Command:
+        """Build a command reversibly setting ``self.metadata[key] = value`` (task T10).
+
+        The metadata-setting command's op class (``REQ-P10-UI-025``): reports a
+        :class:`~pixelart_creator.logic.edit_trace.MetadataTrace` naming
+        ``(key, value)``. No reversible metadata-setting command existed
+        before this task — ``Document.metadata`` was a plain dict, written
+        directly with no undo support. After T7-T10 all four convergence op
+        classes are reachable from a real, reversible edit.
+
+        Raises:
+            DocumentError: If ``key`` is not a non-empty ``str``.
+        """
+        if not isinstance(key, str) or not key:
+            raise DocumentError(f"metadata key must be a non-empty str, got {key!r}")
+        value = str(value)
+        old = self.metadata.get(key)
+        had_key = key in self.metadata
+
+        def _do() -> None:
+            self.metadata[key] = value
+
+        def _undo() -> None:
+            if had_key:
+                self.metadata[key] = old  # type: ignore[assignment]
+            else:
+                self.metadata.pop(key, None)
+
+        trace: Tuple[EditTrace, ...] = (MetadataTrace(key=key, value=value),)
+        return _TracedCommand(_do, _undo, label="set metadata", trace=trace)
+
+    def set_layer_name(
+        self, ref: LayerRef, value: str, *, frame_index: int = 0
+    ) -> Command:
+        """Reversibly set a node's display name (LOGIC-008, task T8).
+
+        The name setter's op class (``REQ-P10-UI-025``): ``name`` is one of
+        :data:`~pixelart_creator.logic.convergence.LAYER_ATTRS`, so this is the
+        fourth of the four commands task T8 wires to a
+        :class:`~pixelart_creator.logic.edit_trace.LayerAttrTrace`. No
+        reversible name-setting command existed before this task.
+        """
+        frame = self._check_frame(frame_index)
+        container, _index, node = self._resolve(frame, ref)
+        return self._invalidating(
+            self._attr_command(
+                node, "name", str(value), "rename layer", frame_index=frame_index
+            ),
+            self._chain_for_container(frame, container),
+        )
+
     def set_layer_visible(
         self, ref: LayerRef, value: bool, *, frame_index: int = 0
     ) -> Command:
@@ -1107,7 +1252,13 @@ class Document:
         frame = self._check_frame(frame_index)
         container, _index, node = self._resolve(frame, ref)
         return self._invalidating(
-            self._attr_command(node, "visible", bool(value), "set visibility"),
+            self._attr_command(
+                node,
+                "visible",
+                bool(value),
+                "set visibility",
+                frame_index=frame_index,
+            ),
             self._chain_for_container(frame, container),
         )
 
@@ -1118,14 +1269,23 @@ class Document:
         frame = self._check_frame(frame_index)
         container, _index, node = self._resolve(frame, ref)
         return self._invalidating(
-            self._attr_command(node, "locked", bool(value), "set lock"),
+            self._attr_command(
+                node, "locked", bool(value), "set lock", frame_index=frame_index
+            ),
             self._chain_for_container(frame, container),
         )
 
     def set_layer_blend_mode(
         self, ref: LayerRef, mode: BlendMode, *, frame_index: int = 0
     ) -> Command:
-        """Reversibly set a node's blend mode (LOGIC-008)."""
+        """Reversibly set a node's blend mode (LOGIC-008).
+
+        ``blend_mode`` is not one of
+        :data:`~pixelart_creator.logic.convergence.LAYER_ATTRS` — the structured
+        convergence model does not converge it — so this command keeps the
+        default, empty :meth:`~pixelart_creator.logic.history.Command.edit_trace`
+        (task T8's own scope: only ``name``/``visible``/``locked`` are traced).
+        """
         frame = self._check_frame(frame_index)
         container, _index, node = self._resolve(frame, ref)
         _validate_blend_mode(mode)
@@ -1209,6 +1369,15 @@ class Document:
         ``to`` addresses the destination container + insertion index (a
         top-level index, or a path whose last element is the index inside a
         target group).
+
+        When the move is **top-level to top-level** (LOGIC-009 §T9), the
+        returned command reports a
+        :class:`~pixelart_creator.logic.edit_trace.LayerOrderTrace` naming the
+        resulting ``(frame_index, order)``. A move into/out of a nested group
+        is not expressible as ``LayerOrderOp`` (the convergence union orders
+        only a frame's top level), so it keeps the default, honest, empty
+        trace — an expressiveness gap the model already has, not one this
+        task introduces.
         """
         frame = self._check_frame(frame_index)
         src_container, src_index, node = self._resolve(frame, ref)
@@ -1232,8 +1401,20 @@ class Document:
         for group in self._chain_for_container(frame, dst_container):
             if group not in groups:
                 groups.append(group)
+
+        trace: Tuple[EditTrace, ...] = ()
+        if src_container is frame.layers and dst_container is frame.layers:
+            resulting = list(frame.layers)
+            _remove_by_identity(resulting, node)
+            resulting.insert(dst_index, node)
+            trace = (
+                LayerOrderTrace(
+                    frame_index=frame_index,
+                    order=tuple(n.layer_id for n in resulting),
+                ),
+            )
         return self._invalidating(
-            FunctionCommand(_do, _undo, label="move layer"), groups
+            _TracedCommand(_do, _undo, label="move layer", trace=trace), groups
         )
 
     def make_duplicate_layer_command(
@@ -1330,6 +1511,253 @@ class Document:
         return self._invalidating(
             FunctionCommand(_do, _undo, label="ungroup layers"),
             self._chain_for_container(frame, container),
+        )
+
+    # -- reversible cross-frame cel operations (REQ-P5-LOGIC-016) ---------
+
+    def make_move_cel_command(
+        self,
+        *,
+        source_frame_index: int,
+        source_track_id: int,
+        dest_frame_index: int,
+        dest_track_id: int,
+    ) -> Command:
+        """Build a command moving a cel between (frame, track) cells.
+
+        Implements ``REQ-P5-LOGIC-016``'s move: the drawing on track
+        ``source_track_id`` in frame ``source_frame_index`` is removed from
+        its source cell and placed on track ``dest_track_id`` in frame
+        ``dest_frame_index`` — the moved node keeps its own ``layer_id``
+        (a cross-track move is a move, never a merge). After the move the
+        source cell is **empty**, a first-class outcome
+        (``logic/track_table.py``), never a blank layer. If the destination
+        cell is occupied, its node is replaced and captured so undo restores
+        it exactly; if it is empty, the moved node is appended to the
+        destination frame's top-level layers. Exactly one reversible command;
+        undo restores both cells' exact prior state.
+
+        Args:
+            source_frame_index: The source cel's frame index.
+            source_track_id: The source cel's track (``layer_id``).
+            dest_frame_index: The destination cell's frame index.
+            dest_track_id: The destination cell's track (``layer_id``) — an
+                existing track's id, exactly as read from
+                ``logic/track_table.py``'s ``TrackRow.layer_id``.
+
+        Returns:
+            The reversible :class:`Command`.
+
+        Raises:
+            DocumentError: If either frame index is out of range, the source
+                cell is empty, either endpoint node is a
+                :class:`LayerGroup` (a cel is a leaf drawing), the move would
+                leave the source frame with no top-level node at all (the
+                shipped "never remove a frame's last layer" invariant,
+                CF-89/D-25, applies to this removal exactly as it does to
+                ``make_remove_layer_command``), the drop is onto the cel's
+                own cell (refused totally, a no-op the caller must not
+                push), or an empty destination would exceed
+                ``MAX_LAYERS_PER_FRAME``.
+        """
+        if source_frame_index == dest_frame_index and source_track_id == dest_track_id:
+            raise DocumentError("cannot move a cel onto its own cell")
+        src_frame = self._check_frame(source_frame_index)
+        dst_frame = self._check_frame(dest_frame_index)
+        found = _find_by_track_id(src_frame.layers, source_track_id)
+        if found is None:
+            raise DocumentError(
+                f"no cel on track {source_track_id} in frame {source_frame_index}"
+            )
+        src_container, src_index, node = found
+        if isinstance(node, LayerGroup):
+            raise DocumentError("cel move operates on a leaf drawing, not a group")
+        if src_container is src_frame.layers:
+            self._ensure_layer_removable(src_frame)
+
+        dst_found = _find_by_track_id(dst_frame.layers, dest_track_id)
+        prior: Optional["LayerNode"]
+        if dst_found is not None:
+            dst_container, dst_index, prior = dst_found
+            if isinstance(prior, LayerGroup):
+                raise DocumentError("destination cell holds a group, not a drawing")
+        else:
+            if len(_iter_layers(dst_frame.layers)) + 1 > MAX_LAYERS_PER_FRAME:
+                raise DocumentError(
+                    f"move exceeds MAX_LAYERS_PER_FRAME ({MAX_LAYERS_PER_FRAME})"
+                )
+            dst_container, dst_index, prior = (
+                dst_frame.layers,
+                len(dst_frame.layers),
+                None,
+            )
+
+        def _do() -> None:
+            _remove_by_identity(src_container, node)
+            if prior is not None:
+                _remove_by_identity(dst_container, prior)
+            dst_container.insert(dst_index, node)
+
+        def _undo() -> None:
+            _remove_by_identity(dst_container, node)
+            if prior is not None:
+                dst_container.insert(dst_index, prior)
+            src_container.insert(src_index, node)
+
+        groups = self._chain_for_container(src_frame, src_container)
+        for group in self._chain_for_container(dst_frame, dst_container):
+            if group not in groups:
+                groups.append(group)
+        return self._invalidating(FunctionCommand(_do, _undo, label="move cel"), groups)
+
+    def make_copy_cel_command(
+        self,
+        *,
+        source_frame_index: int,
+        source_track_id: int,
+        dest_frame_index: int,
+        dest_track_id: int,
+    ) -> Command:
+        """Build a command copying a cel to another (frame, track) cell.
+
+        Implements ``REQ-P5-LOGIC-016``'s copy: the source cel is left
+        untouched, and an **independent** deep copy (editing one never
+        affects the other — the CL-9 linked-cel boundary stays deferred) is
+        placed on track ``dest_track_id`` in frame ``dest_frame_index``.
+        **The copy joins the destination track**: its ``layer_id`` is set to
+        ``dest_track_id`` (an existing track, defined by shared
+        ``layer_id`` — ``REQ-P5-LOGIC-015``), never a freshly minted id — the
+        shipped ``make_add_layer_command`` mints a fresh id and is therefore
+        not reusable here (plan §3.2). If the destination cell is occupied,
+        its node is replaced and captured so undo restores it exactly; if it
+        is empty, the copy is appended to the destination frame's top-level
+        layers. Exactly one reversible command.
+
+        Args:
+            source_frame_index: The source cel's frame index.
+            source_track_id: The source cel's track (``layer_id``).
+            dest_frame_index: The destination cell's frame index.
+            dest_track_id: The destination cell's track (``layer_id``) — an
+                existing track's id, exactly as read from
+                ``logic/track_table.py``'s ``TrackRow.layer_id``.
+
+        Returns:
+            The reversible :class:`Command`.
+
+        Raises:
+            DocumentError: If either frame index is out of range, the source
+                cell is empty, either endpoint node is a
+                :class:`LayerGroup`, the drop is onto the cel's own cell
+                (refused totally), or an empty destination would exceed
+                ``MAX_LAYERS_PER_FRAME``.
+        """
+        if source_frame_index == dest_frame_index and source_track_id == dest_track_id:
+            raise DocumentError("cannot copy a cel onto its own cell")
+        src_frame = self._check_frame(source_frame_index)
+        dst_frame = self._check_frame(dest_frame_index)
+        found = _find_by_track_id(src_frame.layers, source_track_id)
+        if found is None:
+            raise DocumentError(
+                f"no cel on track {source_track_id} in frame {source_frame_index}"
+            )
+        _src_container, _src_index, node = found
+        if isinstance(node, LayerGroup):
+            raise DocumentError("cel copy operates on a leaf drawing, not a group")
+
+        dst_found = _find_by_track_id(dst_frame.layers, dest_track_id)
+        prior: Optional["LayerNode"]
+        if dst_found is not None:
+            dst_container, dst_index, prior = dst_found
+            if isinstance(prior, LayerGroup):
+                raise DocumentError("destination cell holds a group, not a drawing")
+        else:
+            if len(_iter_layers(dst_frame.layers)) + 1 > MAX_LAYERS_PER_FRAME:
+                raise DocumentError(
+                    f"copy exceeds MAX_LAYERS_PER_FRAME ({MAX_LAYERS_PER_FRAME})"
+                )
+            dst_container, dst_index, prior = (
+                dst_frame.layers,
+                len(dst_frame.layers),
+                None,
+            )
+
+        copy_node = _copy_node(node, new_ids=False)
+        copy_node.layer_id = dest_track_id  # joins the destination track
+
+        def _do() -> None:
+            if prior is not None:
+                _remove_by_identity(dst_container, prior)
+            dst_container.insert(dst_index, copy_node)
+
+        def _undo() -> None:
+            _remove_by_identity(dst_container, copy_node)
+            if prior is not None:
+                dst_container.insert(dst_index, prior)
+
+        groups = self._chain_for_container(dst_frame, dst_container)
+        return self._invalidating(FunctionCommand(_do, _undo, label="copy cel"), groups)
+
+    def make_create_cel_command(
+        self,
+        *,
+        frame_index: int,
+        track_id: int,
+        name: str = "Layer",
+    ) -> Command:
+        """Build a command creating a new cel in an empty (frame, track) cell.
+
+        Implements ``REQ-P5-LOGIC-016``'s third entry point — the "create a
+        cel here" affordance of ``REQ-P5-UI-031`` — as the same conceptual
+        operation as :meth:`make_copy_cel_command` with an **empty prior
+        state**: no source cel exists, so a fresh, empty
+        :class:`~pixelart_creator.logic.pixel_buffer.PixelBuffer` is placed
+        on the existing track ``track_id`` in frame ``frame_index``. The new
+        node **joins** ``track_id`` — its ``layer_id`` is set to the given,
+        already-minted track id, exactly as a copy joins its destination
+        track (plan §3.2) — it never mints a fresh id, so this is not
+        reusable as :meth:`make_add_layer_command`, which always starts a
+        new track. Exactly one reversible command; undo removes the created
+        node and restores the cell to empty.
+
+        Args:
+            frame_index: The destination cel's frame index.
+            track_id: The destination track's id (``layer_id``) — an
+                existing track's id, exactly as read from
+                ``logic/track_table.py``'s ``TrackRow.layer_id``.
+            name: The new layer's display name.
+
+        Returns:
+            The reversible :class:`Command`.
+
+        Raises:
+            DocumentError: If ``frame_index`` is out of range, the target
+                cell is already occupied (a first-class outcome that must be
+                refused totally, never silently overwritten — overwriting a
+                cel is ``make_move_cel_command`` / ``make_copy_cel_command``'s
+                job, gated by ``REQ-P5-UI-033`` upstream), or creating the
+                cel would exceed ``MAX_LAYERS_PER_FRAME``.
+        """
+        frame = self._check_frame(frame_index)
+        if _find_by_track_id(frame.layers, track_id) is not None:
+            raise DocumentError(
+                f"track {track_id} already occupied in frame {frame_index}"
+            )
+        if len(_iter_layers(frame.layers)) >= MAX_LAYERS_PER_FRAME:
+            raise DocumentError(
+                f"create exceeds MAX_LAYERS_PER_FRAME ({MAX_LAYERS_PER_FRAME})"
+            )
+        layer = Layer(PixelBuffer(self.width, self.height, self.mode), name)
+        layer.layer_id = track_id  # joins the existing track, never minted
+
+        def _do() -> None:
+            frame.layers.append(layer)
+
+        def _undo() -> None:
+            _remove_by_identity(frame.layers, layer)
+
+        return self._invalidating(
+            FunctionCommand(_do, _undo, label="create cel"),
+            self._chain_for_container(frame, frame.layers),
         )
 
     # -- reversible mask / reference / smart ops --------------------------
@@ -1547,6 +1975,26 @@ def _remove_by_identity(container: List["LayerNode"], node: "LayerNode") -> None
             del container[i]
             return
     raise DocumentError("node is not in the expected container")
+
+
+def _find_by_track_id(
+    nodes: List["LayerNode"], track_id: int
+) -> Optional[Tuple[List["LayerNode"], int, "LayerNode"]]:
+    """Depth-first search of ``nodes`` for the node with ``layer_id == track_id``.
+
+    Returns ``(container, index, node)`` for the owning list and position, or
+    ``None`` if no node in the subtree carries that id. Used by the cross-frame
+    cel operations (``REQ-P5-LOGIC-016``) to address a ``(frame, track)`` cell
+    by track id rather than by structural path.
+    """
+    for index, node in enumerate(nodes):
+        if node.layer_id == track_id:
+            return nodes, index, node
+        if isinstance(node, LayerGroup):
+            found = _find_by_track_id(node.children, track_id)
+            if found is not None:
+                return found
+    return None
 
 
 def _copy_node(node: "LayerNode", *, new_ids: bool = True) -> "LayerNode":

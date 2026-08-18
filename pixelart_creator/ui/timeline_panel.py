@@ -29,13 +29,14 @@ from typing import Callable, List, Optional
 
 import numpy as np
 from PySide6.QtCore import QEvent, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QImage, QPixmap, QUndoStack
+from PySide6.QtGui import QAction, QColor, QImage, QPixmap, QUndoStack
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QSpinBox,
+    QStackedWidget,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -48,6 +49,14 @@ from pixelart_creator.logic.document import Document, DocumentError, iter_layers
 from pixelart_creator.logic.history import Command
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 from pixelart_creator.ui.commands import FrameCommand
+from pixelart_creator.ui.timeline_grid_view import Timeline_Grid_View
+
+#: Index of the strip surface in the cell-surface QStackedWidget — the default
+#: (REQ-P5-UI-020: "the strip is the default"). Not a domain constant (Article
+#: II does not reach a fixed widget-stack index); grouped with the other
+#: presentation literals this module already carries.
+_STRIP_SURFACE_INDEX = 0
+_GRID_SURFACE_INDEX = 1
 
 #: Longest edge (px) of a cached per-cell frame thumbnail. Presentation-only
 #: sizing (like ``_SWATCH_PX`` in ``main_window``); the resident buffer is never
@@ -68,9 +77,12 @@ class Timeline_Panel(QWidget):
     frameSelected = Signal(int)
     #: Emitted with the frame index the cursor is dragging over (scrub — onion off).
     frameScrubbed = Signal(int)
+    #: Emitted with a ``layer_id`` the grid cell surface's selection settled on
+    #: (REQ-P5-UI-023, BF-G1); the strip has no layer axis and never emits this.
+    layerSelected = Signal(int)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
-        """Build the frame strip, toolbar actions and duration editor."""
+        """Build the frame strip, the grid, the view toggle and shared actions."""
         super().__init__(parent)
         self._document: Optional[Document] = None
         self._stack: Optional[QUndoStack] = None
@@ -80,6 +92,12 @@ class Timeline_Panel(QWidget):
 
         self._toolbar = QToolBar(self)
         self._build_actions()
+        self._grid_toggle_action = QAction(self)
+        self._grid_toggle_action.setCheckable(True)
+        self._grid_toggle_action.setChecked(False)  # strip is the default (UI-020).
+        self._grid_toggle_action.toggled.connect(self._on_view_mode_toggled)
+        self._toolbar.addSeparator()
+        self._toolbar.addAction(self._grid_toggle_action)
 
         self._strip = QListWidget(self)
         self._strip.setFlow(QListWidget.Flow.LeftToRight)
@@ -99,6 +117,19 @@ class Timeline_Panel(QWidget):
         # source of truth. Intercept the internal-move drop → one move command.
         self._strip.model().rowsMoved.connect(self._on_rows_moved)
 
+        # The grid is the optional second cell surface (REQ-P5-UI-020/-022); the
+        # toolbar, duration editor and tag markers stay siblings, untouched by
+        # the swap (T4). It pushes through this panel's own FrameCommand path
+        # (_push), so the strip and the grid share one undo discipline.
+        self._grid = Timeline_Grid_View(self)
+        self._grid.frameActivated.connect(self._on_grid_frame_activated)
+        self._grid.frameScrubbed.connect(self._on_grid_frame_scrubbed)
+        self._grid.layerActivated.connect(self.layerSelected.emit)
+
+        self._cell_surface = QStackedWidget(self)
+        self._cell_surface.addWidget(self._strip)  # index _STRIP_SURFACE_INDEX
+        self._cell_surface.addWidget(self._grid)  # index _GRID_SURFACE_INDEX
+
         self._duration_label = QLabel(self)
         self._duration_spin = QSpinBox(self)
         self._duration_spin.setRange(1, _DURATION_SPIN_MAX)
@@ -112,7 +143,7 @@ class Timeline_Panel(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._toolbar)
-        layout.addWidget(self._strip, 1)
+        layout.addWidget(self._cell_surface, 1)
         layout.addWidget(duration_bar)
 
         self._retranslate()
@@ -147,13 +178,12 @@ class Timeline_Panel(QWidget):
         self._stack = stack
         self._on_frames_changed = on_frames_changed
         self._active_index = 0
+        self._grid.set_context(document, stack, self._active_index, self._push)
         self.rebuild()
 
     # -- toolbar actions --------------------------------------------------
 
     def _build_actions(self) -> None:
-        from PySide6.QtGui import QAction
-
         self._add_action = QAction(self)
         self._add_action.triggered.connect(self._on_add)
         self._remove_action = QAction(self)
@@ -186,6 +216,7 @@ class Timeline_Panel(QWidget):
                 self._strip.addItem(item)
             self._strip.setCurrentRow(self._active_index)
         self._updating = False
+        self._grid.rebuild()
         self._sync_duration_spin()
         self._update_actions()
 
@@ -304,8 +335,36 @@ class Timeline_Panel(QWidget):
         self._updating = True
         self._strip.setCurrentRow(index)
         self._updating = False
+        self._grid.set_active_frame(index)
         self._sync_duration_spin()
         self._update_actions()
+
+    # -- grid forwarding (T4: the same signals serve both cell surfaces) -----
+
+    def _on_grid_frame_activated(self, index: int) -> None:
+        self._active_index = index
+        self._updating = True
+        self._strip.setCurrentRow(index)
+        self._updating = False
+        self._sync_duration_spin()
+        self._update_actions()
+        self.frameSelected.emit(index)
+
+    def _on_grid_frame_scrubbed(self, index: int) -> None:
+        self._active_index = index
+        self.frameScrubbed.emit(index)
+
+    # -- view-mode toggle (REQ-P5-UI-020) -------------------------------------
+
+    def _on_view_mode_toggled(self, checked: bool) -> None:
+        # Pure view state: pushes no QUndoCommand, marks nothing modified, and is
+        # never written to .pixproj (REQ-P5-UI-020). The active frame, active
+        # layer, playback state and undo stack are all untouched by the switch.
+        self._cell_surface.setCurrentIndex(
+            _GRID_SURFACE_INDEX if checked else _STRIP_SURFACE_INDEX
+        )
+        if checked:
+            self._grid.set_active_frame(self._active_index)
 
     # -- frame ops (one FrameCommand each, REQ-P5-UI-015) ----------------
 
@@ -457,6 +516,11 @@ class Timeline_Panel(QWidget):
         self._duplicate_action.setToolTip(
             self.tr("Insert a copy of the active frame after it")
         )
+        self._grid_toggle_action.setText(self.tr("Grid View"))
+        self._grid_toggle_action.setToolTip(
+            self.tr("Show frames and layer tracks as a grid instead of a strip")
+        )
+        self._cell_surface.setAccessibleName(self.tr("Timeline cell surface"))
         self._duration_label.setText(self.tr("Duration"))
         # Leading-space unit suffix, translatable + re-set on language change.
         self._duration_spin.setSuffix(self.tr(" ms"))

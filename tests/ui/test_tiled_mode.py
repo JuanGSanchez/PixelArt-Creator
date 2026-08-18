@@ -9,6 +9,7 @@ keyboard-reachable). Both themes via the autouse ``theme`` fixture.
 from __future__ import annotations
 
 from pixelart_creator.logic.constants import TILED_PREVIEW_REPEAT
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.tools import PencilTool
 from pixelart_creator.ui.tools.base import ToolContext
@@ -72,12 +73,18 @@ def test_sc_u015_2_painting_past_edge_wraps(make_view):
     """
     _view, scene, stack = make_view(8, 8)
     buf = scene.active_buffer()
+    # scene comes from make_view -> make_scene, whose Document is freshly built
+    # (every layer's stable id is minted at construction, logic/document.py:450),
+    # so the active frame/layer target is genuinely known here — pass a real
+    # EditTarget, not the None sentinel (REQ-P10-UI-025, plan §8.2).
+    layer = scene.active_layer()
     ctx = ToolContext(
         buffer=buf,
         active_color=RED,
         undo_stack=stack,
         scene=scene,
         set_active_color=lambda c: None,
+        target=EditTarget(frame_index=scene.frame_index, layer_id=layer.layer_id),
         tiled=True,
     )
     tool = PencilTool()

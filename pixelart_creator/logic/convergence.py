@@ -61,6 +61,9 @@ __all__ = [
     "converge",
     "apply_operations",
     "make_raster_op",
+    "make_metadata_op",
+    "make_layer_attr_op",
+    "make_layer_order_op",
     "structured_sidecar",
 ]
 
@@ -268,6 +271,74 @@ def make_raster_op(
         pixels=tile.tobytes(),
         tile_width=tw,
         tile_height=th,
+        logical_clock=logical_clock,
+        site_id=site_id,
+    )
+
+
+def make_metadata_op(
+    key: str, value: str, *, logical_clock: int, site_id: int
+) -> MetadataOp:
+    """Build a :class:`MetadataOp` setting ``Document.metadata[key] = value``.
+
+    Sibling of :func:`make_raster_op` for the structured-metadata op class
+    (``REQ-P10-UI-025``: "every operation class the merge model has is
+    recorded"). Validation (non-empty ``str`` key, ``str`` value, non-negative
+    stamp) happens in :class:`MetadataOp`'s own ``__post_init__``.
+
+    Raises:
+        ConvergenceError: If ``key``/``value`` or the stamp is ill-typed.
+    """
+    return MetadataOp(
+        key=key, value=value, logical_clock=logical_clock, site_id=site_id
+    )
+
+
+def make_layer_attr_op(
+    *,
+    frame_index: int,
+    layer_id: int,
+    attr: str,
+    value: LayerAttrValue,
+    logical_clock: int,
+    site_id: int,
+) -> LayerAttrOp:
+    """Build a :class:`LayerAttrOp` setting one node's attribute (:data:`LAYER_ATTRS`).
+
+    Sibling of :func:`make_raster_op` for the layer-attribute op class.
+    Validation happens in :class:`LayerAttrOp`'s own ``__post_init__``.
+
+    Raises:
+        ConvergenceError: If the target, ``attr`` or the stamp is ill-typed.
+    """
+    return LayerAttrOp(
+        frame_index=frame_index,
+        layer_id=layer_id,
+        attr=attr,
+        value=value,
+        logical_clock=logical_clock,
+        site_id=site_id,
+    )
+
+
+def make_layer_order_op(
+    frame_index: int,
+    order: Tuple[int, ...],
+    *,
+    logical_clock: int,
+    site_id: int,
+) -> LayerOrderOp:
+    """Build a :class:`LayerOrderOp` setting a frame's top-level layer order.
+
+    Sibling of :func:`make_raster_op` for the layer-order op class. Validation
+    happens in :class:`LayerOrderOp`'s own ``__post_init__``.
+
+    Raises:
+        ConvergenceError: If ``order`` or the stamp is ill-typed.
+    """
+    return LayerOrderOp(
+        frame_index=frame_index,
+        order=order,
         logical_clock=logical_clock,
         site_id=site_id,
     )

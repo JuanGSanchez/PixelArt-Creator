@@ -275,7 +275,7 @@ def test_sc_l032_1_move_commit_vacates_origin_and_stamps():
     buf = _block_buffer()
     floating = lift_selection(buf, _block_mask(), FloatMode.MOVE)
     floating.set_offset(2, 1)
-    cmd = commit_floating(buf, floating)
+    cmd = commit_floating(buf, floating, target=None)
     cmd.execute()
     for x, y in ((1, 1), (2, 1), (1, 2), (2, 2)):
         assert buf.get_pixel(x, y) == TRANSPARENT
@@ -288,7 +288,7 @@ def test_sc_l032_2_move_commit_reversible_apply_undo_identity():
     before = buf.copy()
     floating = lift_selection(buf, _block_mask(), FloatMode.MOVE)
     floating.set_offset(1, 2)
-    cmd = commit_floating(buf, floating)
+    cmd = commit_floating(buf, floating, target=None)
     cmd.execute()
     assert buf != before  # something moved
     cmd.undo()
@@ -299,7 +299,7 @@ def test_sc_l032_3_move_commit_is_exactly_one_pixeledit():
     buf = _block_buffer()
     floating = lift_selection(buf, _block_mask(), FloatMode.MOVE)
     floating.set_offset(2, 1)
-    cmd = commit_floating(buf, floating)
+    cmd = commit_floating(buf, floating, target=None)
     assert isinstance(cmd, history.PixelEdit)
 
 
@@ -307,7 +307,7 @@ def test_sc_l032_4_zero_offset_move_commit_is_noop():
     buf = _block_buffer()
     before = buf.copy()
     floating = lift_selection(buf, _block_mask(), FloatMode.MOVE)  # offset (0,0)
-    cmd = commit_floating(buf, floating)
+    cmd = commit_floating(buf, floating, target=None)
     assert len(cmd) == 0  # CL-F8: no spurious undo step
     cmd.execute()
     assert buf == before
@@ -320,7 +320,7 @@ def test_sc_l032_5_indexed_move_vacates_index_zero():
     mask = rect_mask(4, 4, 0, 0, 1, 0)
     floating = lift_selection(buf, mask, FloatMode.MOVE)
     floating.set_offset(0, 2)
-    commit_floating(buf, floating).execute()
+    commit_floating(buf, floating, target=None).execute()
     assert buf.get_pixel(0, 0) == 0  # vacated to index 0 (CL-F2)
     assert buf.get_pixel(1, 0) == 0
     assert buf.get_pixel(0, 2) == 7
@@ -335,8 +335,8 @@ def test_sc_l032_move_commit_equals_move_selection_regression():
     mask = _block_mask()
     floating = lift_selection(buf1, mask, FloatMode.MOVE)
     floating.set_offset(2, 1)
-    commit_floating(buf1, floating).execute()
-    move_selection(buf2, mask, 2, 1).execute()
+    commit_floating(buf1, floating, target=None).execute()
+    move_selection(buf2, mask, 2, 1, target=None).execute()
     assert buf1 == buf2
 
 
@@ -347,7 +347,7 @@ def test_sc_l033_1_copy_commit_stamps_dest_keeps_origin():
     buf = _block_buffer()
     floating = lift_selection(buf, _block_mask(), FloatMode.COPY)
     floating.set_offset(2, 1)
-    commit_floating(buf, floating).execute()
+    commit_floating(buf, floating, target=None).execute()
     # Origin intact.
     for x, y in ((1, 1), (2, 1), (1, 2), (2, 2)):
         assert buf.get_pixel(x, y) == RED
@@ -361,7 +361,7 @@ def test_sc_l033_2_copy_commit_reversible():
     before = buf.copy()
     floating = lift_selection(buf, _block_mask(), FloatMode.COPY)
     floating.set_offset(3, 1)
-    cmd = commit_floating(buf, floating)
+    cmd = commit_floating(buf, floating, target=None)
     cmd.execute()
     assert buf != before
     cmd.undo()
@@ -372,7 +372,7 @@ def test_sc_l033_3_copy_commit_is_exactly_one_command():
     buf = _block_buffer()
     floating = lift_selection(buf, _block_mask(), FloatMode.COPY)
     floating.set_offset(2, 1)
-    cmd = commit_floating(buf, floating)
+    cmd = commit_floating(buf, floating, target=None)
     assert isinstance(cmd, history.PixelEdit)
 
 
@@ -382,7 +382,7 @@ def test_sc_l033_4_copy_keeps_origin_in_indexed_mode():
     mask = rect_mask(4, 4, 0, 0, 0, 0)
     floating = lift_selection(buf, mask, FloatMode.COPY)
     floating.set_offset(2, 0)
-    commit_floating(buf, floating).execute()
+    commit_floating(buf, floating, target=None).execute()
     assert buf.get_pixel(0, 0) == 7  # origin kept (CL-F7)
     assert buf.get_pixel(2, 0) == 7  # copy stamped
 
@@ -395,7 +395,7 @@ def test_sc_l033_copy_introduces_no_new_colours():
     }
     floating = lift_selection(buf, _block_mask(), FloatMode.COPY)
     floating.set_offset(2, 1)
-    commit_floating(buf, floating).execute()
+    commit_floating(buf, floating, target=None).execute()
     after_colours = {
         buf.get_pixel(x, y) for y in range(buf.height) for x in range(buf.width)
     }
@@ -405,7 +405,7 @@ def test_sc_l033_copy_introduces_no_new_colours():
 def test_copy_selection_zero_offset_is_noop():
     buf = _block_buffer()
     before = buf.copy()
-    cmd = copy_selection(buf, _block_mask(), 0, 0)
+    cmd = copy_selection(buf, _block_mask(), 0, 0, target=None)
     assert len(cmd) == 0
     cmd.execute()
     assert buf == before
@@ -414,11 +414,17 @@ def test_copy_selection_zero_offset_is_noop():
 def test_copy_selection_validates_arguments():
     buf = _block_buffer()
     with pytest.raises(SelectionError):
-        copy_selection(buf, rect_mask(8, 8, 0, 0, 1, 1), 1, 1)  # dim mismatch
+        copy_selection(
+            buf, rect_mask(8, 8, 0, 0, 1, 1), 1, 1, target=None
+        )  # dim mismatch
     with pytest.raises(SelectionError):
-        copy_selection(buf, _block_mask(), 1.5, 0)  # type: ignore[arg-type]
+        copy_selection(
+            buf, _block_mask(), 1.5, 0, target=None
+        )  # type: ignore[arg-type]
     with pytest.raises(SelectionError):
-        copy_selection(buf, _block_mask(), True, 0)  # type: ignore[arg-type]
+        copy_selection(
+            buf, _block_mask(), True, 0, target=None
+        )  # type: ignore[arg-type]
 
 
 # --- FA-T5 / SC-L034: cancel is a non-destructive no-op -------------------
@@ -444,7 +450,7 @@ def test_sc_l035_1_off_canvas_pixels_discarded_on_commit_not_wrapped():
     buf = _block_buffer()
     floating = lift_selection(buf, _block_mask(), FloatMode.MOVE)
     floating.set_offset(4, 4)  # dest (5,5)-(6,6): only (5,5) in bounds
-    commit_floating(buf, floating).execute()
+    commit_floating(buf, floating, target=None).execute()
     assert buf.get_pixel(5, 5) == RED
     # Off-canvas destinations dropped, never wrapped to (0,0)/(0,*)/(*, 0).
     assert buf.get_pixel(0, 0) == TRANSPARENT
@@ -457,7 +463,7 @@ def test_sc_l035_2_move_fully_off_canvas_still_vacates_whole_origin():
     buf = _block_buffer()
     floating = lift_selection(buf, _block_mask(), FloatMode.MOVE)
     floating.set_offset(20, 20)  # entirely off-canvas
-    commit_floating(buf, floating).execute()
+    commit_floating(buf, floating, target=None).execute()
     # Whole in-bounds origin vacated; no stamp anywhere (would-be dest off-canvas).
     assert not np.any(buf.data[:, :, :] != 0)
 
@@ -467,7 +473,7 @@ def test_sc_l035_3_off_canvas_clipping_is_deterministic():
         buf = _block_buffer()
         floating = lift_selection(buf, _block_mask(), FloatMode.COPY)
         floating.set_offset(5, 3)
-        commit_floating(buf, floating).execute()
+        commit_floating(buf, floating, target=None).execute()
         return buf
 
     assert _commit_result() == _commit_result()
@@ -548,7 +554,7 @@ def test_property_commit_apply_undo_is_identity(flat, x0, y0, x1, y1, dx, dy, mo
     mask = rect_mask(_W, _H, x0, y0, x1, y1)
     floating = lift_selection(buf, mask, mode)
     floating.set_offset(dx, dy)
-    cmd = commit_floating(buf, floating)
+    cmd = commit_floating(buf, floating, target=None)
     before = buf.copy()
     cmd.execute()
     cmd.undo()

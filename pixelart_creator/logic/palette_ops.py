@@ -34,6 +34,7 @@ import numpy.typing as npt
 from pixelart_creator.logic import history, perceptual
 from pixelart_creator.logic._rgba_unique import unique_rgba_inverse
 from pixelart_creator.logic.color import RGBA, is_rgba, rgba
+from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.palette import Palette, PaletteError
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 from pixelart_creator.logic.selection import SelectionMask
@@ -162,13 +163,23 @@ def _index_changes(
 
 
 def make_cycle_command(
-    buffer: PixelBuffer, start: int, end: int, step: int
+    buffer: PixelBuffer,
+    start: int,
+    end: int,
+    step: int,
+    *,
+    target: Optional[EditTarget],
 ) -> history.Command:
     """Commit a colour-cycle preview on an indexed ``buffer`` as one command.
 
     Bakes the rotation of index range ``[start, end]`` by ``step`` into the
     buffer's indices (a reversible :class:`history.PixelEdit`, returned
     **unapplied**). Undo restores the pre-cycle buffer exactly.
+
+    Args:
+        target: Where this edit landed, or ``None`` if unknown — **required,
+            no default** (plan §8.2, task T27); passed straight through to
+            :class:`history.PixelEdit`.
 
     Raises:
         PaletteError: If ``buffer`` is not indexed or the range is invalid.
@@ -185,13 +196,15 @@ def make_cycle_command(
     k = step % length
     mapping = {start + j: start + ((j + k) % length) for j in range(length)}
     changes = _index_changes(buffer, mapping, None)
-    return history.PixelEdit(buffer, changes, label="colour cycle")
+    return history.PixelEdit(buffer, changes, label="colour cycle", target=target)
 
 
 def make_swap_command(
     buffer: PixelBuffer,
     mapping: Mapping[int, int],
     mask: Optional[SelectionMask] = None,
+    *,
+    target: Optional[EditTarget],
 ) -> history.Command:
     """Build a reversible command remapping ``buffer`` indices through ``mapping``.
 
@@ -199,11 +212,16 @@ def make_swap_command(
     restores the original buffer exactly (the inverse remap, SC-L014-2). With a
     ``mask`` only masked pixels change.
 
+    Args:
+        target: Where this edit landed, or ``None`` if unknown — **required,
+            no default** (plan §8.2, task T27); passed straight through to
+            :class:`history.PixelEdit`.
+
     Raises:
         PaletteError: If ``buffer`` is not indexed or an index is out of range.
     """
     changes = _index_changes(buffer, mapping, mask)
-    return history.PixelEdit(buffer, changes, label="palette swap")
+    return history.PixelEdit(buffer, changes, label="palette swap", target=target)
 
 
 # -- indexed-mode conversion (REQ-P3-UI-014 logic support) --------------------

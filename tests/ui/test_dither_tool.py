@@ -99,14 +99,21 @@ def test_invalid_mode_is_ignored(qtbot):
 
 
 def _ctx(scene, buffer, stack):
+    from pixelart_creator.logic.edit_trace import EditTarget
     from pixelart_creator.ui.tools.base import ToolContext
 
+    # scene comes from the make_scene factory, whose Document is freshly built
+    # (every layer's stable id is minted at construction, logic/document.py:450),
+    # so the active frame/layer target is genuinely known here — pass a real
+    # EditTarget, not the None sentinel (REQ-P10-UI-025, plan §8.2).
+    layer = scene.active_layer()
     return ToolContext(
         buffer=buffer,
         active_color=(0, 0, 0, 255),
         undo_stack=stack,
         scene=scene,
         set_active_color=lambda _c: None,
+        target=EditTarget(frame_index=scene.frame_index, layer_id=layer.layer_id),
     )
 
 

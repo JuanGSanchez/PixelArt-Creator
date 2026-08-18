@@ -12,6 +12,8 @@ import abc
 from typing import Callable, List, Optional, Tuple, Union
 
 from pixelart_creator.logic.color import RGBA
+from pixelart_creator.logic.constants import CRDT_TILE_SIZE_PX
+from pixelart_creator.logic.edit_trace import EditTarget, EditTrace, RasterTrace
 from pixelart_creator.logic.pixel_buffer import PixelBuffer, PixelValue
 
 #: One recorded pixel change: ``(x, y, old_value, new_value)``.
@@ -32,22 +34,71 @@ class Command(abc.ABC):
     def undo(self) -> None:
         """Revert the change applied by :meth:`execute`."""
 
+    def edit_trace(self) -> Tuple[EditTrace, ...]:
+        """Return the :class:`~pixelart_creator.logic.edit_trace.EditTrace` s this
+        command's last :meth:`execute` (or :meth:`undo`) produced.
+
+        Additive, **one new method on a shipped ABC** (``REQ-P10-UI-025``, plan
+        §3/§5 step 5): the default is an empty tuple, so every existing
+        ``Command`` subclass keeps working untouched. A command overrides this
+        only if it can describe its change as one of the four convergence op
+        classes (``logic/edit_trace.py``); the default ``()`` is the *honest*
+        default for a command that cannot — it is read downstream as
+        ``unaccounted`` by ``REQ-P10-LOGIC-009`` supervision rather than turned
+        into a plausible-looking wrong op (plan risk R-1).
+
+        This module stays a **leaf**: the only new import here is
+        :mod:`pixelart_creator.logic.edit_trace` (stdlib-only), never
+        :mod:`pixelart_creator.logic.convergence` — see that module's docstring
+        for the cycle this avoids.
+        """
+        return ()
+
 
 class PixelEdit(Command):
-    """A batch of pixel changes on one buffer, replayable both ways."""
+    """A batch of pixel changes on one buffer, replayable both ways.
 
-    __slots__ = ("_buffer", "_changes", "label")
+    ``target`` is a **required** keyword argument (plan §8.2, task T27) — it
+    replaced the earlier additive ``frame_index: int = 0, layer_id: int = 0``
+    pair. That defaulted pair was worse than no threading at all (plan §8.1):
+    ``layer_id = 0`` is the documented *unminted* sentinel that
+    ``logic/convergence.py`` and ``logic/branch_recording.py`` both reject, so
+    every raster trace failed to mint; and because ``layer_id`` is a
+    cross-frame track id, a *correct* ``layer_id`` paired with a *defaulted*
+    ``frame_index`` resolved to a real node in frame 0, minting a well-formed
+    ``RasterOp`` naming the wrong frame with the wrong pixels. A required
+    argument makes a missing value a construction-time ``TypeError`` instead.
+
+    ``target=None`` is the **defensible, explicit** sentinel for a site that
+    genuinely lacks the context (no ``logic/`` factory knows its layer
+    intrinsically — a :class:`~pixelart_creator.logic.pixel_buffer.PixelBuffer`
+    does not know which layer it belongs to). :meth:`edit_trace` then returns
+    ``()``, the shipped honest-empty channel that surfaces as ``unaccounted``
+    under ``REQ-P10-LOGIC-009`` supervision — strictly better than a refusal
+    (raster) or a lie (frame 0).
+    """
+
+    __slots__ = ("_buffer", "_changes", "label", "_target")
 
     def __init__(
         self,
         buffer: PixelBuffer,
         changes: List[PixelChange],
         label: str = "draw",
+        *,
+        target: Optional[EditTarget],
     ) -> None:
-        """Store the target `buffer`, the recorded `changes`, and the undo `label`."""
+        """Store the target `buffer`, the recorded `changes`, and the undo `label`.
+
+        Args:
+            target: Where this edit landed (frame + layer track), or ``None``
+                if the caller genuinely does not know — **no default**, see
+                the class docstring.
+        """
         self._buffer = buffer
         self._changes = changes
         self.label = label
+        self._target = target
 
     def __len__(self) -> int:
         """Return the number of recorded pixel changes."""
@@ -62,6 +113,34 @@ class PixelEdit(Command):
         """Restore every recorded change's old value, in reverse order."""
         for x, y, old, _new in reversed(self._changes):
             self._buffer.set_pixel(x, y, old)
+
+    def edit_trace(self) -> Tuple[EditTrace, ...]:
+        """Return the tiles this edit's recorded extent covers, one :class:`RasterTrace`
+        per distinct ``(tile_x, tile_y)`` touched by ``changes`` (task T7/T27).
+
+        Derived purely from the recorded ``(x, y)`` coordinates via
+        ``CRDT_TILE_SIZE_PX`` — no tile is invented that the recorded extent did
+        not touch, and no tile bytes travel in the trace (those are read from
+        the live buffer at op-minting time). Deterministic, sorted order.
+
+        Returns ``()`` when ``target is None`` — the honest-empty channel (the
+        class docstring); a caller that did not know where this edit landed
+        must not have it guessed on its behalf.
+        """
+        if self._target is None:
+            return ()
+        tiles: set[Tuple[int, int]] = set()
+        for x, y, _old, _new in self._changes:
+            tiles.add((x // CRDT_TILE_SIZE_PX, y // CRDT_TILE_SIZE_PX))
+        return tuple(
+            RasterTrace(
+                frame_index=self._target.frame_index,
+                layer_id=self._target.layer_id,
+                tile_x=tile_x,
+                tile_y=tile_y,
+            )
+            for tile_x, tile_y in sorted(tiles)
+        )
 
 
 class FunctionCommand(Command):
@@ -207,6 +286,7 @@ def record_edit(
     operation: Callable[[PixelBuffer], List[Tuple[int, int]]],
     *,
     label: str = "draw",
+    target: Optional[EditTarget],
 ) -> PixelEdit:
     """Run a drawing ``operation`` and capture it as a reversible :class:`PixelEdit`.
 
@@ -214,6 +294,12 @@ def record_edit(
     (the ``logic/drawing.py`` contract). A transient snapshot captures the old
     values so the resulting command stores only the touched pixels — not the
     whole buffer.
+
+    Args:
+        target: Where this edit landed (frame + layer track), or ``None`` if
+            the caller genuinely does not know — **required, no default**
+            (plan §8.2, task T27); passed straight through to
+            :class:`PixelEdit`, inventing nothing.
 
     Returns:
         A :class:`PixelEdit` already applied to ``buffer`` (push it with
@@ -231,4 +317,4 @@ def record_edit(
         new: Union[RGBA, int] = buffer.get_pixel(x, y)
         if old != new:
             changes.append((x, y, old, new))
-    return PixelEdit(buffer, changes, label=label)
+    return PixelEdit(buffer, changes, label=label, target=target)
