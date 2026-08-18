@@ -182,6 +182,7 @@ from pixelart_creator.ui.plugin_manager_panel import Plugin_Manager_Panel
 from pixelart_creator.ui.presence_panel import Presence_Panel
 from pixelart_creator.ui.prewarm_indicator import Prewarm_Indicator
 from pixelart_creator.ui.procgen_panel import Procgen_Panel
+from pixelart_creator.ui.project_prefs_actions import build_project_prefs_menu
 from pixelart_creator.ui.provider_config_dialog import (
     build_backend,
     load_config,
@@ -476,6 +477,9 @@ class Main_Window(QMainWindow):
         self._timeline_panel = Timeline_Panel(self)
         self._timeline_panel.frameSelected.connect(self._on_frame_selected)
         self._timeline_panel.frameScrubbed.connect(self._on_frame_scrubbed)
+        # Grid cell surface (REQ-P5-UI-023, BF-G1): a cell selection reaches the
+        # layer panel through the sibling seam ``Layer_Panel.select_layer``.
+        self._timeline_panel.layerSelected.connect(self._layer_panel.select_layer)
         self._playback_controls = Playback_Controls(self)
         self._playback_controls.frameAdvanced.connect(self._on_frame_advanced)
         self._playback_controls.playbackActiveChanged.connect(self._on_playback_active)
@@ -1145,6 +1149,14 @@ class Main_Window(QMainWindow):
         self._edit_menu = bar.addMenu("")
         self._edit_menu.addAction(self._undo_action)
         self._edit_menu.addAction(self._redo_action)
+        self._edit_menu.addSeparator()
+        # The restore path for suppressed per-project confirmations
+        # (REQ-P5-UI-033, ADR-0056) — not the suppressed dialog itself, and not
+        # a settings dialog (phase-6 REQ-P6-UI-039 owns that surface, plan §2).
+        self._project_prefs_menu = build_project_prefs_menu(
+            self.active_document, self._on_project_prefs_changed, self
+        )
+        self._edit_menu.addMenu(self._project_prefs_menu)
 
         self._select_menu = bar.addMenu("")
         self._select_menu.addAction(self._select_all_action)
@@ -1734,6 +1746,15 @@ class Main_Window(QMainWindow):
     def _on_timeline_tags_changed(self) -> None:
         """Handle the ``FrameCommand`` follow-up after a tag op (re-render spans)."""
         self._timeline_panel.rebuild()
+
+    def _on_project_prefs_changed(self) -> None:
+        """Handle a project confirmation preference restored to its default.
+
+        A preference is not document content (REQ-P5-DATA-004): no recomposite,
+        no undo entry. Reserved for a future dependent surface; presently a
+        deliberate no-op.
+        """
+        return None
 
     def _apply_modes_to(self, record: _DocTab) -> None:
         """Push the shell's Phase-2 drawing modes onto a tab's view/scene."""
