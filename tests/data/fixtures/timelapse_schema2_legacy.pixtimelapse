@@ -1,0 +1,144 @@
+{
+  "blobs": {
+    "4fcde773a4e8ce1d1c5a19bfbc93274cecdfb908b12431c3fdc4ae011fe6f9eb": "eNr7z8DwnwEJAAAc8wH/",
+    "7ec2cb46d653bb955a8f3e42d6c41cec65459d2de8a9e5c5003bafbeb2ed10f7": "eNpjYPj/nwEJAAAa9QH/"
+  },
+  "format": "pixtimelapse",
+  "frames": [
+    {
+      "command_id": 0,
+      "index": 0,
+      "snapshot": "snap-0"
+    },
+    {
+      "command_id": 1,
+      "index": 1,
+      "snapshot": "snap-1"
+    },
+    {
+      "command_id": 2,
+      "index": 2,
+      "snapshot": "snap-2"
+    }
+  ],
+  "schema_version": "2",
+  "snapshots": {
+    "snap-0": {
+      "canvas": {
+        "height": 2,
+        "mode": "rgba",
+        "width": 2
+      },
+      "fingerprint": "5c88506054081fc1df21584d620612ead0cd9d228fb33a0697aa011c99bfd2cd",
+      "format": "pixproj",
+      "frame_tags": [],
+      "frames": [
+        {
+          "duration_ms": 100,
+          "layers": [
+            {
+              "blend_mode": "normal",
+              "data": "4fcde773a4e8ce1d1c5a19bfbc93274cecdfb908b12431c3fdc4ae011fe6f9eb",
+              "layer_id": 1,
+              "locked": false,
+              "mask": null,
+              "name": "Background",
+              "opacity": 1.0,
+              "reference": false,
+              "smart_source": null,
+              "type": "layer",
+              "visible": true
+            }
+          ]
+        }
+      ],
+      "metadata": {},
+      "palette": [
+        "#FF0000FF",
+        "#0000FFFF"
+      ],
+      "ppi": 72.0,
+      "tilemaps": [],
+      "tilesets": [],
+      "version": 5
+    },
+    "snap-1": {
+      "canvas": {
+        "height": 2,
+        "mode": "rgba",
+        "width": 2
+      },
+      "fingerprint": "ef429e4dc9d0cff7a1d63d8a3d0ef27b22c793da991ce48a3944c8da22063ada",
+      "format": "pixproj",
+      "frame_tags": [],
+      "frames": [
+        {
+          "duration_ms": 100,
+          "layers": [
+            {
+              "blend_mode": "normal",
+              "data": "7ec2cb46d653bb955a8f3e42d6c41cec65459d2de8a9e5c5003bafbeb2ed10f7",
+              "layer_id": 1,
+              "locked": false,
+              "mask": null,
+              "name": "Background",
+              "opacity": 1.0,
+              "reference": false,
+              "smart_source": null,
+              "type": "layer",
+              "visible": true
+            }
+          ]
+        }
+      ],
+      "metadata": {},
+      "palette": [
+        "#FF0000FF",
+        "#0000FFFF"
+      ],
+      "ppi": 72.0,
+      "tilemaps": [],
+      "tilesets": [],
+      "version": 5
+    },
+    "snap-2": {
+      "canvas": {
+        "height": 2,
+        "mode": "rgba",
+        "width": 2
+      },
+      "fingerprint": "5c88506054081fc1df21584d620612ead0cd9d228fb33a0697aa011c99bfd2cd",
+      "format": "pixproj",
+      "frame_tags": [],
+      "frames": [
+        {
+          "duration_ms": 100,
+          "layers": [
+            {
+              "blend_mode": "normal",
+              "data": "4fcde773a4e8ce1d1c5a19bfbc93274cecdfb908b12431c3fdc4ae011fe6f9eb",
+              "layer_id": 1,
+              "locked": false,
+              "mask": null,
+              "name": "Background",
+              "opacity": 1.0,
+              "reference": false,
+              "smart_source": null,
+              "type": "layer",
+              "visible": true
+            }
+          ]
+        }
+      ],
+      "metadata": {},
+      "palette": [
+        "#FF0000FF",
+        "#0000FFFF"
+      ],
+      "ppi": 72.0,
+      "tilemaps": [],
+      "tilesets": [],
+      "version": 5
+    }
+  }
+}

@@ -380,8 +380,18 @@ def test_reference_board_apply_layout_skips_unloadable(qtbot, tmp_path, monkeypa
 # --------------------------------------------------------------------------- #
 
 
-def test_timelapse_save_load_handlers(qtbot, tmp_path, monkeypatch):
-    """_on_save / _on_load drive through monkeypatched dialogs (round-trip)."""
+def test_timelapse_save_load_handlers(qtbot, tmp_path, monkeypatch, make_document):
+    """_on_save / _on_load drive through monkeypatched dialogs (round-trip).
+
+    ``bind_undo_stack`` is called with a real ``document_getter`` (matching
+    every other call site, including ``Main_Window._bind_visual_aids_to_active``)
+    because the schema-2 payload builder ``_on_save`` drives
+    (``_build_payload_tables``) legitimately requires one — without it, it
+    raises ``TimelapseError`` and ``_on_save`` correctly shows a translated
+    refusal modal, which blocks forever headless (nothing to dismiss it).
+    That refusal is documented, intended behaviour, not a defect; the old
+    two-argument ``bind_undo_stack(stack)`` call here was simply stale.
+    """
     from PySide6.QtGui import QUndoCommand, QUndoStack
 
     class _Noop(QUndoCommand):
@@ -394,7 +404,10 @@ def test_timelapse_save_load_handlers(qtbot, tmp_path, monkeypatch):
     controls = Timelapse_Controls()
     qtbot.addWidget(controls)
     stack = QUndoStack()
-    controls.bind_undo_stack(stack)
+    document = make_document()
+    controls.bind_undo_stack(
+        stack, document_getter=lambda: document, document_id=id(document)
+    )
     controls._record_button.setChecked(True)
     stack.push(_Noop())
     target = str(tmp_path / "c.pixtimelapse")

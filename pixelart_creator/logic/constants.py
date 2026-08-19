@@ -4,6 +4,8 @@ Every numeric tuning value used across ui/, logic/, and data/ is defined here
 and imported by name, so a change is made in exactly one place (S12, Dossier §1).
 """
 
+from typing import Tuple
+
 MAX_CANVAS_WIDTH = 7680  # 8K UHD width  (S1, F7)
 MAX_CANVAS_HEIGHT = 4320  # 8K UHD height (S1, F7)
 TILE_SIZE = 64  # viewport tile-culling tile edge, px (S1)
@@ -438,6 +440,85 @@ MAX_TIMELAPSE_FRAMES: int = 4096
 """Defensive cap on the number of frames in one timelapse session (Article VII;
 parallels the shipped :data:`MAX_FRAMES` / :data:`MAX_MACRO_STEPS` = 4096)
 (ADR-0024; spec REQ-P9-LOGIC-010/011; SC-L010-1)."""
+
+# --- Phase-9 historical-replay playback/payload tuning (D-12; Article II
+# single-source) ------------------------------------------------------------------
+
+TIMELAPSE_PLAYBACK_FPS_DEFAULT: int = CYCLE_DEFAULT_FPS
+"""Default historical-timelapse playback cadence, fps (DEP-12a).
+
+Reused rather than invented: :data:`CYCLE_DEFAULT_FPS` (=10, cited above) is the
+product's only shipped non-animation frame-sequence playback cadence, so the
+replay control surface (``ui/timelapse_controls.py``) plays back at the same
+default rate a user already knows from onion-skin/cycle playback (spec
+REQ-P9-LOGIC-018; DEP-12a)."""
+
+TIMELAPSE_PLAYBACK_SPEEDS: Tuple[float, ...] = (0.25, 0.5, 1.0, 2.0, 4.0)
+"""Selectable historical-timelapse playback-speed multipliers (DEP-12a).
+
+Doubling steps bracketing ``1.0``, bounded above so the fastest speed cannot
+outrun the frame budget: ``FPS_TARGET // CYCLE_DEFAULT_FPS = 60 // 10 = 6``, so
+``4.0`` is the largest doubling step below that bound and the low end (``0.25``)
+mirrors it. The derivation is the citation (spec REQ-P9-LOGIC-018; DEP-12a)."""
+
+TIMELAPSE_PAYLOAD_MAX_BYTES: int = 2_821_573 * (MAX_TIMELAPSE_FRAMES // 256)
+"""Hard cap on one serialised ``.pixtimelapse`` payload, bytes (REQ-P9-DATA-004;
+DEP-12e; Article II).
+
+Valued at ``2_821_573 * (4096 // 256) = 2_821_573 * 16 = 45_145_168`` bytes
+(43.054 MiB). ``2_821_573`` is P4's measured **schema-3** file size —
+1280x720, 256 frames, byte-identical across all 5 repeat runs — the largest
+of the T43 re-measurement campaign's four points
+(``design-docs/reports/perf-timelapse-payload-campaign-schema3-20260818.md``
+§3), extended to the shipped :data:`MAX_TIMELAPSE_FRAMES` (= 4096) frame cap
+by the unchanged ``* (MAX_TIMELAPSE_FRAMES // 256)`` step (plan §11.1). Never
+inlined: every consumer reads this name, never the literal.
+
+Superseded value (2026-08-17): ``2_397_487`` (-> a ``38_359_792``-byte bound),
+P4's **schema-2** file size measured by the original T19 campaign
+(``design-docs/reports/perf-timelapse-payload-campaign-20260817.md`` §3).
+That campaign's fixture-generator script was ephemeral (per AGT-10's role
+contract) and could not be re-invoked, so the schema-3 anchor above is a
+FRESH measurement on a freshly-generated fixture with its own stroke
+placement — it is **not** the old anchor plus identity's cost, and the two
+anchors are not directly comparable (plan §11.2). In particular: the anchor
+moved, but the movement may **not** be characterised as "identity" or
+"schema 3" making payloads larger by that margin — that reading is false.
+The only measured, attributable cost of identity is the campaign's
+**within-payload** figure of +0.55% at P4 (same dict, re-serialised with the
+identity fields stripped, campaign §6), which is immune to the fixture
+confound; the rest of the anchor's movement is a content-profile artifact of
+the new fixture, not an earned or measured cost of anything this constant
+guards.
+
+ANCHOR INVARIANT: any future change to ``data/timelapse_io.py``'s
+serialisation that moves the bytes ``serialize_payload`` produces —
+separators, key order, field addition/removal, encoding — invalidates this
+anchor and requires the full re-measure -> re-value -> re-write chain
+(mirroring T43 -> T44 -> T45's shape) in the same unit of review as that
+change. Patching this constant by arithmetic instead of re-measuring is
+forbidden (plan §11.3)."""
+
+TIMELAPSE_RECORDING_ID_BYTES: int = 16
+"""Byte width of a timelapse recording's per-recording random half (Q-21,
+REQ-P9-LOGIC-022(b); REQ-P9-DATA-005; plan §10.4).
+
+128 bits is a **uniqueness** width, not a security one — deliberately
+narrower than the shipped ``secrets.token_urlsafe(24)`` at
+``data/cloud/providers/base.py:181``, because that token must resist an
+adversary and this one only has to not collide, while being paid on every
+frame minted in a recording session (``ui/timelapse_controls.py``, T34)."""
+
+TIMELAPSE_FRAME_ID_MAX_LEN: int = 2 * TIMELAPSE_RECORDING_ID_BYTES + 1 + 19
+"""Maximum length of one frame's stable identity string (Q-21,
+REQ-P9-LOGIC-022(b); REQ-P9-DATA-005; plan §10.4).
+
+``2 * TIMELAPSE_RECORDING_ID_BYTES`` is the hex width of the per-recording
+random half, ``+ 1`` is the ``":"`` separator, and ``19`` is the decimal
+width of a 64-bit ordinal. **The ordinal is NOT bounded by
+:data:`MAX_TIMELAPSE_FRAMES`** — it is monotone across discards while the
+session's live frame count is not (T34: a discard-and-rewrite never resets
+or rewinds the ordinal)."""
 
 MAX_DOCUMENT_VIEWS: int = 8
 """Defensive cap on simultaneous views of one shared document (bounded UI
