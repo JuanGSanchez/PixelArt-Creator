@@ -253,6 +253,17 @@ Select a branch in the list and click **Switch**. The selected branch's document
 loaded into the active tab, so you edit that branch's independent copy. Switching to
 **mainline** returns to the trunk.
 
+### Reviewing before you merge
+
+Select a feature branch and click **Open Diff** — a separate affordance from
+**Merge**, enabled under the same conditions. It opens a **modeless, read-only**
+diff dialog that computes the divergence between the branch and mainline once, when
+it opens, and lists the **Affected regions** — every changed area, reported at a
+fixed pixel-tile granularity so even a one-pixel edit shows as a full tile — plus a
+supervision warning when one applies. The dialog performs no merge itself; from it
+you choose **Continue to merge** (which runs the same merge described below) or
+**Close** to go back without merging.
+
 ### Merging a branch
 
 Select a feature branch and click **Merge**. Its edits are merged into **mainline**
@@ -264,7 +275,8 @@ a **merge outcome** line summarising what happened (for example
     Because the underlying model is commutative and deterministic, a merge always
     succeeds and always produces the same result regardless of the order edits were
     made — there is no manual conflict-resolution step. Branching is session state
-    and is **not** an undo step on the undo stack.
+    and is **not** an undo step on the undo stack. **Open Diff** is optional — you
+    can merge directly without reviewing the diff first.
 
 ## Operator note: running the sync backend
 

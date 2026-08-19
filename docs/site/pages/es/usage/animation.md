@@ -150,6 +150,48 @@ válidos automáticamente (recortados al nuevo número de fotogramas); deshacer
 restaura tanto el cambio de fotogramas como los rangos de etiqueta originales
 juntos.
 
+## Vista de cuadrícula (la cuadrícula de celdas)
+
+El alternador **Grid View** (aún sin traducir al español en esta versión) de la
+barra de herramientas de la línea de tiempo cambia de la tira horizontal a una
+**cuadrícula de celdas**: fotogramas como columnas, pistas de capa como filas, al
+estilo de la cuadrícula de celdas de Aseprite. Muestra el mismo documento que la
+tira — alternar entre ambas vistas nunca pierde tu posición.
+
+- **Mover/copiar una celda** — presiona y arrastra una celda con contenido para
+  moverlo a un fotograma/pista nuevo; mantén pulsado **Ctrl** mientras arrastras para
+  copiarlo en su lugar, dejando el origen intacto. Ambas acciones son un único paso
+  de deshacer.
+- **Confirmación de sobrescritura** — soltar sobre una celda que ya tiene contenido
+  abre el diálogo **Overwrite Existing Cel?** pidiéndote confirmación antes de
+  reemplazarlo. Marca su casilla **"Don't ask again for this project"** (también
+  pendiente de traducción) para dejar de recibir esa pregunta el resto de este
+  proyecto; restáurala desde el menú **Project confirmations** (bajo Editar).
+- **Alternar visibilidad por celda** — haz clic en el indicador de visibilidad de una
+  celda para mostrar/ocultar la capa de ese fotograma; es un paso de deshacer, igual
+  que el alternador de visibilidad en cualquier otro lugar.
+- **Crear una celda aquí** — clic derecho (o la tecla de menú contextual del
+  teclado) sobre una celda vacía para la acción **"Create Cel Here"** (sin
+  traducir). No se ofrece en absoluto cuando la celda ya está ocupada, ni cuando el
+  fotograma ya está en el número máximo de capas.
+- **Explorar (scrub)** — arrastra por las celdas vacías de la cuadrícula para
+  recorrer el fotograma mostrado, igual que arrastrar por la tira.
+- **Reordenar columnas** — arrastra el encabezado de una columna para reordenar
+  fotogramas, el equivalente en la cuadrícula de arrastrar una celda de la tira.
+
+!!! note "Nota de idioma"
+    "Grid View", "Overwrite Existing Cel?", "Don't ask again for this project" y
+    "Create Cel Here" aparecen todavía en inglés en la interfaz en español: el
+    catálogo de traducción (`i18n/pixelart_es.ts`) aún no incluye estas cadenas.
+    Esto es un hueco de localización, no un error de esta página.
+
+!!! note "Confirmaciones del proyecto"
+    La confirmación de sobrescritura de la vista de cuadrícula es una de las
+    preferencias por proyecto de la aplicación: una vez suprimida con "Don't ask
+    again for this project," permanece desactivada para ese proyecto hasta que se
+    restaure desde el menú **Project confirmations** (bajo Editar), que lista
+    todas las confirmaciones suprimidas y reactiva cada una individualmente.
+
 ## Persistencia
 
 Los fotogramas, las duraciones por fotograma y las etiquetas de fotograma se
@@ -164,11 +206,12 @@ etiquetas vacía.
 ## Deshacer, rehacer y lo que *no* es deshacible
 
 - **Deshacible (un paso cada uno):** añadir / eliminar / reordenar /
-  duplicar un fotograma, fijar la duración de un fotograma, y
-  crear / editar / eliminar una etiqueta.
+  duplicar un fotograma, fijar la duración de un fotograma,
+  crear / editar / eliminar una etiqueta, y — en la vista de cuadrícula —
+  mover/copiar una celda, alternar la visibilidad de una celda, y crear una celda.
 - **No deshacible (estado de vista):** seleccionar o explorar (scrub) un
-  fotograma, reproducir / pausar / detener, y cambiar los recuentos o
-  tintes del onion skinning.
+  fotograma, reproducir / pausar / detener, cambiar los recuentos o
+  tintes del onion skinning, y alternar entre la tira y la vista de cuadrícula.
 
 ## Lo que no se cubre
 
