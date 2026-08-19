@@ -102,6 +102,26 @@ dev = [
     # have it — the docs-build gate could not have passed in CI even though it
     # passes here. Declared so the new CI step actually has the tool it invokes.
     "mkdocs>=1.6",
+    # ES translation of the public docs site (user decision 2026-08-19, scope:
+    # README + docs/site only). mkdocs-static-i18n itself declares
+    # `Requires-Dist: mkdocs>=1.5.2` (verified from its 1.3.1 wheel METADATA on
+    # PyPI), which the pinned mkdocs==1.6.1 in constraints.txt satisfies. Same
+    # "runnable locally but never declared" trap as the mkdocs entry above, so
+    # declared here up front, before the plugin is configured or any translated
+    # page exists.
+    "mkdocs-static-i18n>=1.3",
+    # User decision (2026-08-19): adopt mkdocs-material now, ahead of an
+    # eventual published docs site, rather than hand-roll a language switcher —
+    # the theme's built-in i18n language selector is the UI switch this project
+    # wants once the i18n content module is configured. DEPENDENCY ONLY here:
+    # theme selection/config in mkdocs.yml is a separate, later dispatch. Its
+    # own wheel METADATA declares `Requires-Python >=3.8` and
+    # `Requires-Dist: mkdocs<2,>=1.6`, satisfied by the pinned mkdocs==1.6.1.
+    # Checked against every already-pinned neighbour it also depends on
+    # (colorama, Jinja2, Markdown, Pygments) by real resolution against
+    # constraints.txt, not by inspection — mkdocs-material==9.7.7 accepted all
+    # four exact pins with no conflict.
+    "mkdocs-material>=9.7",
 ]
 
 # Console entry points (installed on `pip install`). T7C-07 (REQ-P7-DATA-004);

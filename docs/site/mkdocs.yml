@@ -4,6 +4,9 @@ docs_dir: pages
 site_dir: _build
 use_directory_urls: false
 
+theme:
+  name: material
+
 nav:
   - Home: index.md
   - Usage:
@@ -23,6 +26,50 @@ nav:
       - Asset library: usage/asset-library.md
       - Asset dependencies & break detection: usage/dependency-graph.md
       - Asset versioning & cross-project reuse: usage/asset-versioning.md
+
+plugins:
+  - search
+  - i18n:
+      # docs_structure: folder — each language is a self-contained tree under
+      # pages/<locale>/ (pages/en/, pages/es/, …). Chosen over the default
+      # `suffix` layout (pages/usage/foo.md + pages/usage/foo.es.md side by
+      # side) because `suffix` makes every page appear N times in one
+      # directory and a missing translation is invisible; `folder` keeps each
+      # language's page set visibly complete or visibly short.
+      docs_structure: folder
+      # reconfigure_material: true (the plugin default) wires the built-in
+      # Material language switcher automatically — do not hand-write one.
+      reconfigure_material: true
+      # Adding language N+1: append ONE new block to this list. Nothing else
+      # in this file changes. See docs/adding-a-language.md for the full
+      # procedure.
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: es
+          name: Español
+          build: true
+          nav_translations:
+            Home: Inicio
+            Usage: Uso
+            Layer panel: Panel de capas
+            Blend modes: Modos de fusión
+            Multiple canvases: Múltiples lienzos
+            Floating selection: Selección flotante
+            Drag-and-drop import: Importar por arrastrar y soltar
+            Animation timeline: Línea de tiempo de animación
+            Tilemap & level design: Mapa de tiles y diseño de niveles
+            Export & pipeline integration: Exportación e integración de pipeline
+            Automation & extensibility: Automatización y extensibilidad
+            Visual aids & UX: Ayudas visuales y UX
+            Cloud, versions & recovery: Nube, versiones y recuperación
+            Shared projects & comments: Proyectos compartidos y comentarios
+            Hosting the real-time relay: Alojar el relé en tiempo real
+            Asset library: Biblioteca de recursos
+            Asset dependencies & break detection: Dependencias de recursos y detección de roturas
+            Asset versioning & cross-project reuse: Versionado de recursos y reutilización entre proyectos
 
 markdown_extensions:
   - admonition
