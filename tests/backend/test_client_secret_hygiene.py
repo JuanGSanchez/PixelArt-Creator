@@ -44,6 +44,7 @@ per the AGT-12 GROUNDING NOTE.
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import sys
 import time
@@ -174,6 +175,33 @@ def _mint_sentinel_token(*, iss: str, aud: str, scope: str = "edit") -> str:
     return share_token.mint(claims, _SHARE_SECRET)
 
 
+def _corrupt_signature(token: str) -> str:
+    """Return ``token`` with its signature segment altered at the BYTE level.
+
+    A share token's trailing segment is the base64url (unpadded) encoding of a
+    32-byte ``HMAC-SHA256`` digest: 43 characters carrying 258 bits for 256 bits
+    of payload, so the final character's low 2 bits are discarded on decode.
+    Editing that *character* (as a prior version of this test did) is therefore
+    NOT guaranteed to change the *decoded signature bytes* — roughly 1 in 16 of
+    the 64 possible substitutions at that position is a no-op (any of the 4
+    characters sharing the same top 4 bits), and ``verify_share_token`` compares
+    DECODED BYTES, so a no-op substitution leaves the token validly signed and
+    the intended negative test silently does not test anything.
+
+    Decoding first and flipping a byte that is not affected by padding removes
+    the ambiguity entirely: every one of the 256 possible XOR masks on a real
+    signature byte changes the decoded bytes, so this corruption is unconditional.
+    """
+    header_b64, payload_b64, sig_b64 = token.split(".")
+    padding = "=" * (-len(sig_b64) % 4)
+    sig_bytes = bytearray(base64.urlsafe_b64decode(sig_b64 + padding))
+    sig_bytes[0] ^= 0xFF  # flip every bit of a genuine signature byte
+    new_sig_b64 = (
+        base64.urlsafe_b64encode(bytes(sig_bytes)).rstrip(b"=").decode("ascii")
+    )
+    return f"{header_b64}.{payload_b64}.{new_sig_b64}"
+
+
 # --------------------------------------------------------------------------- #
 # 2. The transport connect/handshake path over the loopback network —
 #    pixelart_creator.data.cloud.ws_transport.WebSocketTransport
@@ -228,10 +256,24 @@ def test_ws_transport_rejected_handshake_never_logs_the_share_token(caplog):
         )
         host, port = await server.start()
         try:
-            bad_token = _mint_sentinel_token(iss="test-iss", aud="test-aud")
-            bad_token = bad_token[:-1] + (
-                "A" if bad_token[-1] != "A" else "B"
-            )  # flip the signature: authentication must fail
+            good_token = _mint_sentinel_token(iss="test-iss", aud="test-aud")
+            bad_token = _corrupt_signature(good_token)
+
+            # Prove the corruption's own premise BEFORE attempting the handshake:
+            # the mutated token's decoded signature bytes must actually differ from
+            # the original's. A negative test whose mutation silently no-ops is
+            # indistinguishable from a passing one (the defect this test once had).
+            good_sig = base64.urlsafe_b64decode(
+                good_token.split(".")[2] + "=" * (-len(good_token.split(".")[2]) % 4)
+            )
+            bad_sig = base64.urlsafe_b64decode(
+                bad_token.split(".")[2] + "=" * (-len(bad_token.split(".")[2]) % 4)
+            )
+            assert bad_sig != good_sig, (
+                "corruption helper produced a no-op: decoded signature bytes "
+                "are unchanged"
+            )
+
             uri = f"ws://{host}:{port}/?token={bad_token}"
             raised = None
             try:
