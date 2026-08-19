@@ -713,6 +713,86 @@ jobs:
           fi
           echo "::warning::pixelart_creator fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see pyproject.toml [tool.pydocstyle] for the ruleset and the step log above for the full findings). KNOWN and time-boxed until ${EXPIRY} (owner AGT-08). This step BLOCKS the build after ${EXPIRY}."
 
+      - name: Documentation-reference gate (ADR citations + control-label currency, P11 script; AGT-09)
+        # scripts/check_doc_references.py checks two independent legs, both
+        # over the WHOLE checkout (no OS-gate needed -- pure-Python, stdlib
+        # only, deterministic):
+        #   LEG 1 -- every `ADR-NNNN` citation found anywhere in product
+        #     source/docs/workflows must resolve to a real file under
+        #     docs/adr/. This is the gate the project did not have when three
+        #     dangling citations (ADR numbers 0052, 0056 and 0057, against a
+        #     highest-on-disk of ADR-0051) went unnoticed -- written here
+        #     deliberately broken up (never as a literal "ADR-" immediately
+        #     followed by four digits) so this very sentence cannot trip the
+        #     LEG 1 scan it is describing.
+        #   LEG 2 -- every shipped, user-facing FEATURE label (window/dialog
+        #     titles, menu/toolbar actions, primary panel controls,
+        #     file-dialog captions -- derived from the UI source itself, never
+        #     hardcoded) must appear in at least one of the two documentation
+        #     surfaces (the mkdocs usage pages, the in-app user guide). Each
+        #     label is checked PER LOCALE, independently: en/es are their own
+        #     pair, so a label documented only in English still fails as
+        #     es-documentation-stale, and vice versa -- a check that only
+        #     looked at one language would certify a property it never
+        #     tested.
+        #
+        # BASELINE-AND-RATCHET, not all-or-nothing: 145 pre-existing findings
+        # were real, measured documentation debt at the moment this gate was
+        # wired -- clearing all of it first would have meant this gate never
+        # landing. Every one of the 145 is recorded, one entry per finding, in
+        # doc-reference-baseline.json (repository root -- NOT docs/, which is
+        # gitignored by a deliberate privacy allowlist and would silently
+        # strand this CI-gate state file as untracked); the human-readable
+        # accounting of
+        # that debt is design-docs/auxiliary/doc-currency-debt-20260819.md --
+        # in the CONTAINER, not this repository, so searching this repo will
+        # not find it. The ratchet: a baselined finding does not fail the
+        # build, but ANY finding NOT already in the baseline does -- the debt
+        # is frozen at 145, never allowed to grow silently, and the user
+        # explicitly accepted that baselined items "might provoke new fails in
+        # the CI" as new code moves lines around.
+        #
+        # TWO FAILURE MODES a developer will actually hit -- read the one that
+        # matches before touching this step, because an unexplained CI
+        # failure here is exactly how a gate like this gets disabled instead
+        # of obeyed:
+        #   1. A genuinely NEW undocumented feature (a new finding, not a
+        #      rename): either write the missing documentation (mkdocs page
+        #      and/or in-app guide entry, both locales), or -- only if the
+        #      label truly needs no documentation, e.g. an internal/debug
+        #      action or a caption nobody looks up by name -- add it to
+        #      doc-reference-allowlist.json (repository root) WITH a reason.
+        #   2. A RENAMED label or a moved/renumbered ADR citation: this
+        #      produces a STALE baseline entry (the old value/location, now
+        #      gone) AND a NEW finding (the new value/location) TOGETHER --
+        #      update the EXISTING doc-reference-baseline.json (repository
+        #      root) entry to the new value/location; do not leave the stale
+        #      one and add a second entry beside it.
+        #
+        # BASELINE vs ALLOWLIST are never merged -- they mean different
+        # things:
+        #   doc-reference-baseline.json (repository root) = debt OWED. Every
+        #     entry is a real gap that should eventually be closed.
+        #   doc-reference-allowlist.json (repository root) = NEEDS NO
+        #     DOCUMENTATION, EVER.
+        #     Every entry carries a reason and is not counted as debt.
+        #
+        # BLOCKING, unconditionally: no time-boxed exception, no `|| true`, no
+        # advisory/warn-and-continue mode -- the script's own exit code (0
+        # clean; 1 new finding and/or stale baseline entry, FAILS the build;
+        # 2 script error, FAILS the build) is this step's verdict as-is. A
+        # gate that reports and never blocks is the exact defect this gate
+        # exists to catch. Run BEFORE the long pytest step below so a
+        # documentation regression fails fast, not after a five-minute suite.
+        # `--root .` matches the other P11 scripts' CI convention (checkout
+        # root, no working-directory override); --allowlist/--baseline are
+        # left at their defaults, which already resolve to
+        # doc-reference-allowlist.json and doc-reference-baseline.json at the
+        # repository root (relocated from docs/ 2026-08-19 -- docs/* is
+        # gitignored, S19, and would have stranded these CI-gate state files
+        # as untracked, never committed).
+        run: python scripts/check_doc_references.py --root .
+
       - name: Tests (pytest, headless, parallel, with coverage XML)
         # -n auto: pytest-xdist fans the suite across all runner cores, cutting
         # the ~46-48 min single-process wall-time to a fraction (FU-20). Per-test

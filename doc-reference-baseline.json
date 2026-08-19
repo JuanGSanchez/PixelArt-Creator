@@ -1,0 +1,842 @@
+[
+  {
+    "file": "pixelart_creator/data/snapshot_store.py",
+    "kind": "dangling-adr-citation",
+    "line": 4,
+    "value": "ADR-0052"
+  },
+  {
+    "file": "pixelart_creator/data/project_io.py",
+    "kind": "dangling-adr-citation",
+    "line": 245,
+    "value": "ADR-0056"
+  },
+  {
+    "file": "pixelart_creator/logic/document.py",
+    "kind": "dangling-adr-citation",
+    "line": 437,
+    "value": "ADR-0056"
+  },
+  {
+    "file": "pixelart_creator/logic/project_prefs.py",
+    "kind": "dangling-adr-citation",
+    "line": 1,
+    "value": "ADR-0056"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "dangling-adr-citation",
+    "line": 1166,
+    "value": "ADR-0056"
+  },
+  {
+    "file": "pixelart_creator/ui/project_prefs_actions.py",
+    "kind": "dangling-adr-citation",
+    "line": 5,
+    "value": "ADR-0056"
+  },
+  {
+    "file": "pixelart_creator/ui/timeline_grid_view.py",
+    "kind": "dangling-adr-citation",
+    "line": 27,
+    "value": "ADR-0056"
+  },
+  {
+    "file": "tests/data/test_project_io_prefs.py",
+    "kind": "dangling-adr-citation",
+    "line": 3,
+    "value": "ADR-0056"
+  },
+  {
+    "file": "tests/ui/test_project_prefs_actions.py",
+    "kind": "dangling-adr-citation",
+    "line": 2,
+    "value": "ADR-0056"
+  },
+  {
+    "file": "pixelart_creator/ui/timeline_grid_view.py",
+    "kind": "dangling-adr-citation",
+    "line": 6,
+    "value": "ADR-0057"
+  },
+  {
+    "file": "pixelart_creator/ui/colour_hub_menu.py",
+    "kind": "en-documentation-stale",
+    "line": 167,
+    "value": "Move Down"
+  },
+  {
+    "file": "pixelart_creator/ui/script_runner_panel.py",
+    "kind": "en-documentation-stale",
+    "line": 182,
+    "value": "Run Script"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "en-documentation-stale",
+    "line": 3717,
+    "value": "Shade Ramps"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "en-documentation-stale",
+    "line": 3720,
+    "value": "Tileset Editor"
+  },
+  {
+    "file": "pixelart_creator/ui/reference_board.py",
+    "kind": "es-documentation-stale",
+    "line": 452,
+    "value": "Always on Top"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3789,
+    "value": "Anti-aliasing Off"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3727,
+    "value": "Batch Recolour"
+  },
+  {
+    "file": "pixelart_creator/ui/export_dialog.py",
+    "kind": "es-documentation-stale",
+    "line": 293,
+    "value": "Browse"
+  },
+  {
+    "file": "pixelart_creator/ui/real_size_preview_window.py",
+    "kind": "es-documentation-stale",
+    "line": 265,
+    "value": "Calibrate"
+  },
+  {
+    "file": "pixelart_creator/ui/branch_diff_dialog.py",
+    "kind": "es-documentation-stale",
+    "line": 358,
+    "value": "Close"
+  },
+  {
+    "file": "pixelart_creator/ui/assistant_dock.py",
+    "kind": "es-documentation-stale",
+    "line": 289,
+    "value": "Configure"
+  },
+  {
+    "file": "pixelart_creator/ui/plugin_manager_panel.py",
+    "kind": "es-documentation-stale",
+    "line": 269,
+    "value": "Disable"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3776,
+    "value": "Disconnect"
+  },
+  {
+    "file": "pixelart_creator/ui/plugin_manager_panel.py",
+    "kind": "es-documentation-stale",
+    "line": 268,
+    "value": "Enable"
+  },
+  {
+    "file": "pixelart_creator/ui/batch_export_panel.py",
+    "kind": "es-documentation-stale",
+    "line": 184,
+    "value": "Export All"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3714,
+    "value": "Frame Tags"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3838,
+    "value": "Guides & Rulers"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3858,
+    "value": "Help"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3839,
+    "value": "Isometric Grid"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3857,
+    "value": "Language"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3840,
+    "value": "Perspective Grid"
+  },
+  {
+    "file": "pixelart_creator/ui/reference_board.py",
+    "kind": "es-documentation-stale",
+    "line": 243,
+    "value": "Raise"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3742,
+    "value": "Real-Size Preview"
+  },
+  {
+    "file": "pixelart_creator/ui/asset_tagging_panel.py",
+    "kind": "es-documentation-stale",
+    "line": 196,
+    "value": "Remove Tag"
+  },
+  {
+    "file": "pixelart_creator/ui/assistant_dock.py",
+    "kind": "es-documentation-stale",
+    "line": 287,
+    "value": "Send"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3783,
+    "value": "Show Live Cursors"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3781,
+    "value": "Start Real-time"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3782,
+    "value": "Stop Real-time"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3856,
+    "value": "Theme"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3722,
+    "value": "Tilemap Canvas"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3721,
+    "value": "Tilemap Layers"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3779,
+    "value": "Version History"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "es-documentation-stale",
+    "line": 3784,
+    "value": "Zoom In"
+  },
+  {
+    "file": "pixelart_creator/ui/reference_board.py",
+    "kind": "undocumented-control-label",
+    "line": 449,
+    "value": "Add Image"
+  },
+  {
+    "file": "pixelart_creator/ui/layer_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 881,
+    "value": "Add Layer"
+  },
+  {
+    "file": "pixelart_creator/ui/plugin_manager_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 267,
+    "value": "Add Manifest"
+  },
+  {
+    "file": "pixelart_creator/ui/layer_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 889,
+    "value": "Add Mask"
+  },
+  {
+    "file": "pixelart_creator/ui/batch_recolour_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 287,
+    "value": "Add Pair"
+  },
+  {
+    "file": "pixelart_creator/ui/plugin_manager_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 131,
+    "value": "Add Plugin Manifest"
+  },
+  {
+    "file": "pixelart_creator/ui/asset_reuse_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 283,
+    "value": "Add Project"
+  },
+  {
+    "file": "pixelart_creator/ui/reference_board.py",
+    "kind": "undocumented-control-label",
+    "line": 420,
+    "value": "Add Reference Image"
+  },
+  {
+    "file": "pixelart_creator/ui/asset_tagging_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 194,
+    "value": "Add Tag"
+  },
+  {
+    "file": "pixelart_creator/ui/batch_export_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 182,
+    "value": "Add Target"
+  },
+  {
+    "file": "pixelart_creator/ui/colour_hub_menu.py",
+    "kind": "undocumented-control-label",
+    "line": 269,
+    "value": "Add to Favourites"
+  },
+  {
+    "file": "pixelart_creator/ui/branch_diff_dialog.py",
+    "kind": "undocumented-control-label",
+    "line": 327,
+    "value": "Affected regions"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3719,
+    "value": "Analytics"
+  },
+  {
+    "file": "pixelart_creator/ui/batch_recolour_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 289,
+    "value": "Apply Batch Recolour"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3737,
+    "value": "Asset Versions"
+  },
+  {
+    "file": "pixelart_creator/ui/tilemap_layer_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 278,
+    "value": "Auto-tile (Blob-47)"
+  },
+  {
+    "file": "pixelart_creator/ui/real_size_preview_window.py",
+    "kind": "undocumented-control-label",
+    "line": 107,
+    "value": "Calibrate Real Size"
+  },
+  {
+    "file": "pixelart_creator/ui/extract_palette_dialog.py",
+    "kind": "undocumented-control-label",
+    "line": 125,
+    "value": "Choose Image"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3829,
+    "value": "Clear Selection"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3718,
+    "value": "Colour Cycling"
+  },
+  {
+    "file": "pixelart_creator/ui/provider_config_dialog.py",
+    "kind": "undocumented-control-label",
+    "line": 272,
+    "value": "Configure AI Assistant Provider"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3841,
+    "value": "Configure Perspective"
+  },
+  {
+    "file": "pixelart_creator/ui/assistant_dock.py",
+    "kind": "undocumented-control-label",
+    "line": 204,
+    "value": "Confirm assistant action"
+  },
+  {
+    "file": "pixelart_creator/ui/palette_constraint_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 61,
+    "value": "Constrain to Game Boy"
+  },
+  {
+    "file": "pixelart_creator/ui/palette_constraint_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 60,
+    "value": "Constrain to NES"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3716,
+    "value": "Constraints"
+  },
+  {
+    "file": "pixelart_creator/ui/branch_diff_dialog.py",
+    "kind": "undocumented-control-label",
+    "line": 350,
+    "value": "Continue to Merge"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3824,
+    "value": "Convert to RGBA"
+  },
+  {
+    "file": "pixelart_creator/ui/timeline_grid_view.py",
+    "kind": "undocumented-control-label",
+    "line": 574,
+    "value": "Create Cel Here"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3827,
+    "value": "Deselect"
+  },
+  {
+    "file": "pixelart_creator/ui/cel_overwrite_dialog.py",
+    "kind": "undocumented-control-label",
+    "line": 76,
+    "value": "Don't ask again for this project"
+  },
+  {
+    "file": "pixelart_creator/ui/layer_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 883,
+    "value": "Duplicate Layer"
+  },
+  {
+    "file": "pixelart_creator/ui/layer_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 886,
+    "value": "Edit Mask"
+  },
+  {
+    "file": "pixelart_creator/ui/frame_tags_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 379,
+    "value": "Edit Tag"
+  },
+  {
+    "file": "pixelart_creator/ui/tileset_editor_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 189,
+    "value": "Edit Tile"
+  },
+  {
+    "file": "pixelart_creator/ui/onion_skin_controls.py",
+    "kind": "undocumented-control-label",
+    "line": 172,
+    "value": "Enable onion skinning"
+  },
+  {
+    "file": "pixelart_creator/ui/palette_editor_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 277,
+    "value": "Export Palette"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3797,
+    "value": "Export Tiled JSON"
+  },
+  {
+    "file": "pixelart_creator/ui/tilemap_io_actions.py",
+    "kind": "undocumented-control-label",
+    "line": 36,
+    "value": "Export Tiled Map"
+  },
+  {
+    "file": "pixelart_creator/ui/export_dialog.py",
+    "kind": "undocumented-control-label",
+    "line": 281,
+    "value": "Export To"
+  },
+  {
+    "file": "pixelart_creator/ui/extract_palette_dialog.py",
+    "kind": "undocumented-control-label",
+    "line": 158,
+    "value": "Extract Palette from Image"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3820,
+    "value": "Extract from Image"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3812,
+    "value": "Filled Shapes"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3786,
+    "value": "Fit to View"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3831,
+    "value": "Flip Horizontal"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3806,
+    "value": "Flip Stamp Horizontal"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3807,
+    "value": "Flip Stamp Vertical"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3832,
+    "value": "Flip Vertical"
+  },
+  {
+    "file": "pixelart_creator/ui/timeline_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 506,
+    "value": "Frame actions"
+  },
+  {
+    "file": "pixelart_creator/ui/timeline_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 519,
+    "value": "Grid View"
+  },
+  {
+    "file": "pixelart_creator/ui/palette_editor_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 293,
+    "value": "Import Palette"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3796,
+    "value": "Import Tiled JSON"
+  },
+  {
+    "file": "pixelart_creator/ui/tilemap_io_actions.py",
+    "kind": "undocumented-control-label",
+    "line": 65,
+    "value": "Import Tiled Map"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3828,
+    "value": "Invert Selection"
+  },
+  {
+    "file": "pixelart_creator/ui/layer_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 876,
+    "value": "Layer actions"
+  },
+  {
+    "file": "pixelart_creator/ui/macro_controls.py",
+    "kind": "undocumented-control-label",
+    "line": 247,
+    "value": "Load Macro"
+  },
+  {
+    "file": "pixelart_creator/ui/colour_hub_menu.py",
+    "kind": "undocumented-control-label",
+    "line": 166,
+    "value": "Move Up"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3795,
+    "value": "New Tilemap"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3794,
+    "value": "New Tileset from Image"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3842,
+    "value": "New View"
+  },
+  {
+    "file": "pixelart_creator/ui/branching_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 485,
+    "value": "Open Diff"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 2577,
+    "value": "Open Project"
+  },
+  {
+    "file": "pixelart_creator/ui/reference_board.py",
+    "kind": "undocumented-control-label",
+    "line": 403,
+    "value": "Open Reference Board"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3386,
+    "value": "Open Tileset Image"
+  },
+  {
+    "file": "pixelart_creator/ui/timelapse_controls.py",
+    "kind": "undocumented-control-label",
+    "line": 646,
+    "value": "Open Timelapse"
+  },
+  {
+    "file": "pixelart_creator/ui/cel_overwrite_dialog.py",
+    "kind": "undocumented-control-label",
+    "line": 67,
+    "value": "Overwrite Existing Cel?"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3715,
+    "value": "Palette Editor"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3821,
+    "value": "Palette Swap"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3813,
+    "value": "Pixel Perfect"
+  },
+  {
+    "file": "pixelart_creator/ui/colour_cycling_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 158,
+    "value": "Play / Stop"
+  },
+  {
+    "file": "pixelart_creator/ui/project_prefs_actions.py",
+    "kind": "undocumented-control-label",
+    "line": 108,
+    "value": "Project confirmations"
+  },
+  {
+    "file": "pixelart_creator/ui/tileset_editor_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 426,
+    "value": "Re-slice"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3802,
+    "value": "Rectangle Fill"
+  },
+  {
+    "file": "pixelart_creator/ui/asset_reuse_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 289,
+    "value": "Reference into Project"
+  },
+  {
+    "file": "pixelart_creator/ui/layer_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 882,
+    "value": "Remove Layer"
+  },
+  {
+    "file": "pixelart_creator/ui/canvas_view.py",
+    "kind": "undocumented-control-label",
+    "line": 729,
+    "value": "Remove guide"
+  },
+  {
+    "file": "pixelart_creator/ui/timelapse_frame_view.py",
+    "kind": "undocumented-control-label",
+    "line": 108,
+    "value": "Reopened Recording"
+  },
+  {
+    "file": "pixelart_creator/ui/symmetry_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 165,
+    "value": "Reset to centre"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3836,
+    "value": "Rotate (RotSprite)"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3834,
+    "value": "Rotate 90\u00b0 CCW"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3833,
+    "value": "Rotate 90\u00b0 CW"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3808,
+    "value": "Rotate Stamp 90\u00b0 CW"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3771,
+    "value": "Save As"
+  },
+  {
+    "file": "pixelart_creator/ui/macro_controls.py",
+    "kind": "undocumented-control-label",
+    "line": 227,
+    "value": "Save Macro"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 2079,
+    "value": "Save Project"
+  },
+  {
+    "file": "pixelart_creator/ui/reference_board.py",
+    "kind": "undocumented-control-label",
+    "line": 389,
+    "value": "Save Reference Board"
+  },
+  {
+    "file": "pixelart_creator/ui/timelapse_controls.py",
+    "kind": "undocumented-control-label",
+    "line": 532,
+    "value": "Save Timelapse"
+  },
+  {
+    "file": "pixelart_creator/ui/transform_dialog.py",
+    "kind": "undocumented-control-label",
+    "line": 107,
+    "value": "Scale Canvas"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3826,
+    "value": "Select All"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3787,
+    "value": "Show Grid"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3788,
+    "value": "Snap to Grid"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3710,
+    "value": "Symmetry"
+  },
+  {
+    "file": "pixelart_creator/ui/frame_tags_panel.py",
+    "kind": "undocumented-control-label",
+    "line": 373,
+    "value": "Tag actions"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3800,
+    "value": "Tile Eraser"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3790,
+    "value": "Tiled Mode"
+  },
+  {
+    "file": "pixelart_creator/ui/export_dialog.py",
+    "kind": "undocumented-control-label",
+    "line": 311,
+    "value": "Write JSON metadata"
+  },
+  {
+    "file": "pixelart_creator/ui/main_window.py",
+    "kind": "undocumented-control-label",
+    "line": 3785,
+    "value": "Zoom Out"
+  }
+]

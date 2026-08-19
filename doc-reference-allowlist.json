@@ -1,0 +1,17 @@
+[
+  {
+    "type": "control-label",
+    "value": "No canvas actions yet",
+    "reason": "A disabled (setEnabled(False)) QAction shown only as the sole entry of the canvas placeholder context menu (pixelart_creator/ui/canvas_view.py, _show_placeholder_menu) -- the code's own comment marks this 'Phase-1 placeholder... deferred to Phase 3'. It is not an invocable capability, it is the empty-state message for a feature that does not exist yet to document."
+  },
+  {
+    "type": "control-label",
+    "value": "Cloud status: —",
+    "reason": "A disabled (setEnabled(False)) QAction used as a live, read-only status readout in the Cloud menu (pixelart_creator/ui/main_window.py) -- this is its default/unset display text before any cloud state is known. Its sibling live-state strings ('Cloud status: Up to date', 'Cloud status: Not yet saved to cloud', 'Cloud status: Newer version in cloud', 'Cloud status: Diverged') already resolve as documented; this is the same status readout in its blank starting state, not a separate capability."
+  },
+  {
+    "type": "adr-citation",
+    "value": "ADR-9999",
+    "reason": "ADR-9999 is a deliberately non-existent ADR number used as a negative fixture by this gate's own regression suite (tests/scripts/test_check_doc_references.py, test_adr_leg_flags_dangling_citation, lines 98/108/115) to prove LEG 1 flags a citation with no matching docs/adr/9999-*.md file. It must never resolve to a real file -- if it ever does, the fix is in the test fixture (rename the fixture number), never in this allowlist entry."
+  }
+]
