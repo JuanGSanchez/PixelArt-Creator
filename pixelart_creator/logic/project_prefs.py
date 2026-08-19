@@ -176,10 +176,10 @@ class ProjectPrefs:
 
 
 def get(prefs: ProjectPrefs, key: PrefKey) -> str:
-    """Module-level convenience, equivalent to ``prefs.get(key)``."""
+    """Module-level convenience wrapping :meth:`ProjectPrefs.get`."""
     return prefs.get(key)
 
 
 def with_value(prefs: ProjectPrefs, key: PrefKey, value: str) -> ProjectPrefs:
-    """Module-level convenience, equivalent to ``prefs.with_value(key, value)``."""
+    """Module-level convenience wrapping :meth:`ProjectPrefs.with_value`."""
     return prefs.with_value(key, value)
