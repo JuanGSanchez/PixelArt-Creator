@@ -1,5 +1,7 @@
 # PixelArt Creator
 
+*[Leer en español](README.es.md)*
+
 **PixelArt Creator** is a cross-platform pixel-art creation platform built on Python and
 PySide6 (Qt 6). It pairs a large, 8K-capable editable canvas with a non-destructive layer
 model and a fast, region-scoped compositor, and grows outward into animation, tilemaps, a
