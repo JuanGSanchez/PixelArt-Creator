@@ -142,7 +142,8 @@ class TimelapsePayloadTooLargeError(TimelapseIOError):
     still is-a ``TimelapseIOError``. Raised by both
     :func:`serialize_payload` (record/save time) and
     :func:`load_session_payload` (open time). Never write or truncate on this
-    path — the payload is refused whole (REQ-P9-DATA-004)."""
+    path — the payload is refused whole (REQ-P9-DATA-004).
+    """
 
 
 class TimelapseIdentityError(TimelapseIOError):
@@ -159,7 +160,8 @@ class TimelapseIdentityError(TimelapseIOError):
     ``recording_id``; two frames sharing one identity; and an
     ``"identity"``/``"recording_id"`` field present where schema 1 or 2
     forbids it. Nothing is inferred, regenerated or renumbered to make a file
-    load (``SC-D005-4``)."""
+    load (``SC-D005-4``).
+    """
 
 
 def _require(condition: bool, message: str) -> None:

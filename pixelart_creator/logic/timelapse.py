@@ -156,7 +156,8 @@ class TimelapseFrameUnresolved(TimelapseError):
     Raised by :func:`resolve_frame` — the second of its two outcomes
     (REQ-P9-LOGIC-022(d)): resolution either succeeds with that frame's own
     recorded content, or fails naming the frame that could not be resolved.
-    It never returns a *different* frame's content."""
+    It never returns a *different* frame's content.
+    """
 
 
 @dataclass(frozen=True)
