@@ -46,6 +46,20 @@
 # only the 5 direct deps would leave the harder half of R-11 (transitive
 # drift) completely open, so this file covers the full closure instead.
 #
+# MKDOCS-MATERIAL ADDITION (2026-08-19, user decision — adopt the theme now
+# rather than hand-roll an i18n language switcher; dependency declared here
+# only, mkdocs.yml is a separate later dispatch): resolved against this file's
+# OWN pre-existing pins via `pip install -c constraints.txt mkdocs-material`
+# in a clean scratch venv, so every already-constrained package it also
+# depends on (colorama, Jinja2, Markdown, mkdocs, Pygments) was CONFIRMED
+# compatible rather than assumed — none moved. Six new direct/transitive
+# packages were named ahead of the resolve (babel, backrefs,
+# mkdocs-material-extensions, paginate, pymdown-extensions, requests); the
+# real resolve surfaced THREE MORE, undeclared, arriving under `requests`
+# itself: `certifi`, `charset-normalizer`, `urllib3`. Same discipline as the
+# `colorama` note below — pinned rather than left to float, and reported here
+# rather than silently added.
+#
 # MECHANISM CHOICE, AND WHY: this project uses plain pip with a `[dev]` extra
 # and has no lock tool installed (no pip-tools, no uv, no poetry) — see
 # design-docs/reports/subagent-report-agt-09-github-devops-lock11-20260730T190000Z.md
@@ -109,7 +123,11 @@
 # =============================================================================
 anyio==4.14.2
 ast_serialize==0.6.0
+babel==2.18.0
+backrefs==8.0
 black==26.5.1
+certifi==2026.7.22
+charset-normalizer==3.5.1
 click==8.4.2
 colorama==0.4.6
 coverage==7.15.2
@@ -128,10 +146,14 @@ mccabe==0.7.0
 mergedeep==1.3.4
 mkdocs==1.6.1
 mkdocs-get-deps==0.2.2
+mkdocs-material==9.7.7
+mkdocs-material-extensions==1.3.1
+mkdocs-static-i18n==1.3.1
 mypy==2.3.0
 mypy_extensions==1.1.0
 numpy==2.5.1
 packaging==26.2
+paginate==0.5.7
 pathspec==1.1.1
 pillow==12.3.0
 platformdirs==4.11.0
@@ -141,6 +163,7 @@ pycrdt==0.14.1
 pydocstyle==6.3.0
 pyflakes==3.4.0
 Pygments==2.20.0
+pymdown-extensions==11.0.1
 PySide6==6.11.1
 PySide6_Addons==6.11.1
 PySide6_Essentials==6.11.1
@@ -153,10 +176,12 @@ python-dateutil==2.9.0.post0
 pytokens==0.4.1
 PyYAML==6.0.3
 pyyaml_env_tag==1.1
+requests==2.34.2
 shiboken6==6.11.1
 six==1.17.0
 snowballstemmer==3.1.1
 sortedcontainers==2.4.0
 typing_extensions==4.16.0
+urllib3==2.7.0
 watchdog==6.0.0
 websockets==16.0
