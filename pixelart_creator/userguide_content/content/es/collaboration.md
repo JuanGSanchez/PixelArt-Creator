@@ -250,6 +250,25 @@ Selecciona una rama en la lista y haz clic en **Cambiar**. El documento de la ra
 seleccionada se carga en la pestaña activa, así que editas la copia independiente
 de esa rama. Cambiar a la **rama principal** vuelve al tronco.
 
+### Revisar antes de fusionar
+
+Selecciona una rama de funcionalidad y haz clic en **Open Diff** (todavía sin
+traducir al español en esta versión) — una opción separada de **Fusionar**,
+habilitada bajo las mismas condiciones. Abre un diálogo de diferencias **sin modo
+(modeless) y de solo lectura** que calcula la divergencia entre la rama y la rama
+principal una sola vez, al abrirse, y lista las **Affected regions** (también sin
+traducir) — cada área cambiada, reportada con una granularidad fija de tiles de
+píxeles, de modo que incluso un cambio de un solo píxel se muestra como un tile
+completo — además de una advertencia de supervisión cuando corresponde. El
+diálogo no realiza ninguna fusión por sí mismo; desde él eliges **Continue to
+Merge** (que ejecuta la misma fusión descrita a continuación) o **Close** para
+volver sin fusionar.
+
+> **Nota de idioma.** "Open Diff", "Affected regions", "Continue to Merge" y
+> "Close" aparecen todavía en inglés en la interfaz en español: el catálogo de
+> traducción (`i18n/pixelart_es.ts`) aún no incluye estas cadenas del diálogo de
+> diferencias. Esto es un hueco de localización, no un error de esta guía.
+
 ### Fusionar una rama
 
 Selecciona una rama de funcionalidad y haz clic en **Fusionar**. Sus ediciones se
@@ -263,6 +282,8 @@ ediciones) en la rama principal"*).
 > el mismo resultado sin importar el orden en que se hicieron las ediciones — no
 > hay ningún paso manual de resolución de conflictos. La ramificación es estado de
 > sesión y **no** es un paso de deshacer en la pila de deshacer.
+> **Open Diff** es opcional — puedes fusionar directamente sin revisar antes las
+> diferencias.
 
 ## Nota para operadores: ejecutar el backend de sincronización
 

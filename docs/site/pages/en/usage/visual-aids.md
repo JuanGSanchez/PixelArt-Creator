@@ -125,23 +125,43 @@ detail view next to a fit-to-window overview.
 
 ## Timelapse recording
 
-Record a **timelapse** of your edit session to share how a piece was made.
+Open the **Timelapse** dock from **Aids -> Timelapse** to record and play back a
+timelapse of your edit session, sharing how a piece was made.
 
 - Press **Record** to start capturing; the recorder appends **one frame per
   committed edit** (each undoable command). Press it again to stop.
 - Recording is **view/session state** — it is never undoable and never changes
   the document.
-- **Save / open** the session as a `.pixtimelapse` file. The session stores an
-  ordered manifest of **command references, not pixels**, so it stays small and
-  **replays deterministically**: the same recorded session replayed twice yields
-  the **identical** frame sequence (frames re-render from the document's edit
-  history). Sessions are bounded to **4096** frames; a malformed file surfaces a
-  user-facing error.
+- **Save Timelapse / Open Timelapse** the session as a `.pixtimelapse` file. The
+  session stores an ordered manifest of **command references, not pixels**, so it
+  stays small and **replays deterministically**: the same recorded session replayed
+  twice yields the **identical** frame sequence (frames re-render from the
+  document's edit history). Sessions are bounded to **4096** frames; a malformed
+  file surfaces a user-facing error.
+
+### Playback
+
+Once a session is recorded or opened, the same dock plays it back:
+
+- **Play / Pause** toggles playback of the reconstructed frame sequence; **Stop**
+  halts it. An absolute **seek** control jumps straight to any frame, and a
+  **speed** selector (0.25x, 0.5x, 1x, 2x, 4x) changes how fast frames advance —
+  none of this touches your document, and while playback is running (or paused
+  mid-sequence) document edits are refused until you stop.
+- Playing back a session you **opened** from a `.pixtimelapse` file (rather than one
+  you just recorded) shows a **Reopened Recording** banner, reminding you it is
+  replaying the saved recording, not your current document.
+- Playback can refuse to reconstruct a particular frame rather than show a wrong
+  one. You may see: the recording has no reconstructible payload; a frame's
+  payload is incomplete; a requested position is beyond the recorded range; the
+  recording does not match the document's current undo history; or a frame lacks
+  the stable identity playback needs. Each refusal is reported as a clear,
+  specific message — never a silent skip or a crash.
 
 !!! note "Video/GIF export is a later handoff"
-    This release produces the reproducible **frame sequence**. Encoding it to a
-    shareable video or GIF reuses the export pipeline as a later follow-up — the
-    recorded sequence is that pipeline's input.
+    This release produces the reproducible **frame sequence** and its own
+    playback. Encoding it to a shareable video or GIF reuses the export pipeline
+    as a later follow-up — the recorded sequence is that pipeline's input.
 
 ## Accessibility, themes & languages
 

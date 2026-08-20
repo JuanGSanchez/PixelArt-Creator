@@ -67,12 +67,11 @@ The Dependency Graph view's controls each have an accessible name and are reacha
 the keyboard, every label is fully translatable, and the view and the Status column render
 correctly in both the light and dark themes.
 
-## What is not covered yet
+## Related
 
-Dependency tracking and break detection ship in this slice. Still arriving in a later
-slice:
-
-- **Version history** — an append-only record of each asset's revisions, with the ability
-  to inspect and restore an earlier revision.
-- **Cross-project reuse** — referencing one shared asset from several projects without
-  duplicating its bytes, and bundling the referenced assets on export.
+Dependency tracking and break detection build on the [asset library](asset-library.md)
+catalog. The companion capability — an append-only **version history** per asset, plus
+**cross-project reuse**, **export/import** and **optional cloud backing** — is documented in
+[Asset versioning & cross-project reuse](asset-versioning.md). A reused asset is a reference
+like any other, so the break indicator described here flags a reuse whose target later goes
+missing or changes.

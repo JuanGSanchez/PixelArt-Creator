@@ -96,15 +96,15 @@ Behind the panels, the library keeps a **catalog** of asset entries and a
   is confirmed to stay inside the library — a malformed or out-of-bounds catalog is
   rejected with a clear error rather than crashing or corrupting anything.
 
-## What is not covered yet
+## The rest of the asset library
 
-The asset library ships in slices. This release delivers the **catalog, tagging and
-search/filter**, plus **dependency tracking and break detection** (see
-[Asset dependencies & break detection](asset-dependencies.md) — a queryable graph of how
-assets reference one another, and a passive warning when changing one asset breaks another
-that references it). Arriving in later slices:
+The asset library was delivered in slices; the whole milestone now ships. Beyond the
+catalog, tagging and search/filter above:
 
-- **Version history** — an append-only record of each asset's revisions, with the ability
-  to inspect and restore an earlier revision.
-- **Cross-project reuse** — referencing one shared asset from several projects without
-  duplicating its bytes, and bundling the referenced assets on export.
+- **[Asset dependencies & break detection](asset-dependencies.md)** — a queryable graph of
+  how assets reference one another (`sprite -> animation -> tileset -> tilemap`) and a
+  passive warning when changing one asset breaks another that references it.
+- **[Asset versioning & cross-project reuse](asset-versioning.md)** — an append-only
+  revision history per asset (inspect and restore), reference-not-copy reuse of a shared
+  asset across projects, export/import of a project's referenced assets as a self-contained
+  bundle, and optional cloud backing of the shared blobs.

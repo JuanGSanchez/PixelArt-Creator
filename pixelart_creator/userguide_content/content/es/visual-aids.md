@@ -128,25 +128,48 @@ detalle con zoom junto a una vista general ajustada a la ventana.
 
 ## Grabación de timelapse
 
-Graba un **timelapse** de tu sesión de edición para compartir cómo se hizo una
-pieza.
+Abre el panel **Timelapse** desde **Ayudas -> Timelapse** para grabar y reproducir
+un timelapse de tu sesión de edición, y así compartir cómo se hizo una pieza.
 
 - Pulsa **Grabar** para empezar a capturar; el grabador añade **un fotograma por
   cada edición confirmada** (cada comando deshacible). Púlsalo de nuevo para
   detenerlo.
 - Grabar es **estado de vista/sesión** — nunca es deshacible y nunca cambia el
   documento.
-- **Guarda/abre** la sesión como un archivo `.pixtimelapse`. La sesión almacena un
+- **Guardar timelapse / Abrir timelapse** la sesión como un archivo `.pixtimelapse`. La sesión almacena un
   manifiesto ordenado de **referencias de comandos, no de píxeles**, así que se
   mantiene pequeña y **se reproduce de forma determinista**: la misma sesión
   grabada, reproducida dos veces, produce la **misma** secuencia de fotogramas de
   forma idéntica. Las sesiones están acotadas a **4096** fotogramas; un archivo
   malformado muestra un error de cara al usuario.
 
+### Reproducción
+
+Una vez grabada o abierta una sesión, el mismo panel la reproduce:
+
+- **Reproducir/Pausar** alterna la reproducción de la secuencia de fotogramas
+  reconstruida; **Detener** la para. Un control de **búsqueda** absoluta salta
+  directamente a cualquier fotograma, y un selector de **velocidad** (0.25x, 0.5x,
+  1x, 2x, 4x) cambia la rapidez con la que avanzan los fotogramas — nada de esto
+  toca tu documento, y mientras la reproducción está en curso (o en pausa a mitad
+  de secuencia) las ediciones del documento se rechazan hasta que la detienes.
+- Reproducir una sesión que **abriste** desde un archivo `.pixtimelapse` (en lugar
+  de una que acabas de grabar) muestra un aviso **Grabación reabierta**,
+  recordándote que estás reproduciendo la grabación guardada, no tu documento
+  actual.
+- La reproducción puede rechazar reconstruir un fotograma concreto en lugar de
+  mostrar uno incorrecto. Puedes ver: la grabación no tiene contenido reconstruible;
+  el contenido de un fotograma está incompleto; una posición solicitada está más
+  allá del rango grabado; la grabación no coincide con el historial de deshacer
+  actual del documento; o a un fotograma le falta la identidad estable que la
+  reproducción necesita. Cada rechazo se comunica con un mensaje claro y
+  específico — nunca un salto silencioso ni un error inesperado.
+
 > **La exportación a vídeo/GIF es un traspaso posterior.** Esta versión produce la
-> **secuencia de fotogramas** reproducible. Codificarla a un vídeo o GIF compartible
-> reutiliza la [canalización de exportación](export-and-pipeline.md) como un
-> seguimiento posterior — la secuencia grabada es la entrada de esa canalización.
+> **secuencia de fotogramas** reproducible y su propia reproducción. Codificarla a
+> un vídeo o GIF compartible reutiliza la
+> [canalización de exportación](export-and-pipeline.md) como un seguimiento
+> posterior — la secuencia grabada es la entrada de esa canalización.
 
 ## Accesibilidad, temas e idiomas
 

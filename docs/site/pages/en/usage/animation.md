@@ -125,6 +125,37 @@ When you add or remove frames, tag ranges are kept valid automatically (clamped
 into the new frame count); undo restores both the frame change and the original
 tag ranges together.
 
+## Grid view (the cel grid)
+
+The timeline toolbar's **Grid View** toggle switches from the horizontal frame strip to
+a **cel grid**: frames as columns, layer tracks as rows, in the same style as
+Aseprite's cel grid. It shows the same document the strip shows — toggling back and
+forth never loses your place.
+
+- **Move / copy a cel** — press-drag a cell holding a cel to move it to a new
+  frame/track; hold **Ctrl** while dragging to copy it instead, leaving the source in
+  place. Both are a single undo step.
+- **Overwrite confirmation** — dropping onto a cell that already holds a cel opens the
+  **Overwrite Existing Cel?** dialog. Tick its **"Don't ask again for this project"**
+  checkbox to stop being asked for the rest of this project; restore it from
+  **Edit -> Project confirmations**.
+- **Toggle per-cell visibility** — click a cell's visibility indicator to show/hide
+  that frame's layer; this is one undo step, the same as the visibility toggle
+  anywhere else.
+- **Create a cel here** — right-click (or the keyboard context-menu key) an empty cell
+  for a **"Create cel here"** action. It is not offered at all when the cell is
+  already occupied, or when the frame is already at the maximum layer count.
+- **Scrub** — drag across empty grid cells to scrub the displayed frame, exactly like
+  dragging along the strip.
+- **Reorder columns** — drag a column header to reorder frames, the grid's equivalent
+  of dragging a strip cell.
+
+!!! note "Project confirmations"
+    The Grid View's overwrite confirmation is one of the app's per-project
+    preferences: once suppressed with "Don't ask again for this project," it stays
+    off for that project until restored from **Edit -> Project confirmations**, which
+    lists every suppressed confirmation and turns each back on individually.
+
 ## Persistence
 
 Frames, per-frame durations and frame tags all round-trip through `.pixproj`
@@ -137,9 +168,11 @@ collection.
 ## Undo, redo and what is *not* undoable
 
 - **Undoable (one step each):** add / remove / reorder / duplicate frame, set a
-  frame's duration, and create / edit / delete a tag.
+  frame's duration, create / edit / delete a tag, and — in the grid view — move / copy
+  a cel, toggle a cel's visibility, and create a cel.
 - **Not undoable (view state):** selecting or scrubbing a frame, playing /
-  pausing / stopping, and changing onion-skin counts or tints.
+  pausing / stopping, changing onion-skin counts or tints, and switching between the
+  strip and the grid view.
 
 ## What is not covered
 

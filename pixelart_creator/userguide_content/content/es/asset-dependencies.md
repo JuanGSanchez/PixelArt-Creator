@@ -75,14 +75,14 @@ Cada control de la vista del Grafo de dependencias tiene un nombre accesible y e
 accesible desde el teclado, cada etiqueta es completamente traducible, y la vista
 y la columna de Estado se renderizan correctamente en ambos temas, claro y oscuro.
 
-## Lo que aún no se cubre
+## Relacionado
 
-El seguimiento de dependencias y la detección de roturas se entregan en esta fase.
-Aún llegando en una fase posterior:
-
-- **Historial de versiones** — un registro de solo adición de las revisiones de
-  cada recurso, con la capacidad de inspeccionar y restaurar una revisión
-  anterior.
-- **Reutilización entre proyectos** — referenciar un recurso compartido desde
-  varios proyectos sin duplicar sus bytes, y empaquetar los recursos
-  referenciados en la exportación.
+El seguimiento de dependencias y la detección de roturas se construyen sobre el
+catálogo de la [biblioteca de recursos](asset-library.md). La capacidad
+complementaria — un historial de versiones de solo adición por recurso, más la
+**reutilización entre proyectos**, la **exportación/importación** y el **respaldo
+opcional en la nube** — está documentada en
+[Versionado de recursos y reutilización entre proyectos](asset-versioning.md). Un
+recurso reutilizado es una referencia como cualquier otra, así que el indicador de
+roturas descrito aquí marca una reutilización cuyo destino desaparece o cambia más
+adelante.

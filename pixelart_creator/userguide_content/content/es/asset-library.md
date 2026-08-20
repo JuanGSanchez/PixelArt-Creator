@@ -110,19 +110,18 @@ recursos y un **almacén direccionable por contenido** para sus bytes:
   catálogo malformado o fuera de límites se rechaza con un error claro en lugar de
   fallar o corromper algo.
 
-## Lo que aún no se cubre
+## El resto de la biblioteca de recursos
 
-La biblioteca de recursos se entrega en fases. Esta versión entrega el
-**catálogo, etiquetado y búsqueda/filtro**, más el **seguimiento de dependencias y
-detección de roturas** (consulta
-[Dependencias de recursos y detección de roturas](asset-dependencies.md) — un grafo
-consultable de cómo se referencian los recursos entre sí, y una advertencia pasiva
-cuando cambiar un recurso rompe otro que lo referencia). Llegando en fases
-posteriores:
+La biblioteca de recursos se entregó en fases; el hito completo ya está
+disponible. Más allá del catálogo, el etiquetado y la búsqueda/filtro anteriores:
 
-- **Historial de versiones** — un registro de solo adición de las revisiones de
-  cada recurso, con la capacidad de inspeccionar y restaurar una revisión
-  anterior.
-- **Reutilización entre proyectos** — referenciar un recurso compartido desde
-  varios proyectos sin duplicar sus bytes, y empaquetar los recursos
-  referenciados en la exportación.
+- **[Dependencias de recursos y detección de roturas](asset-dependencies.md)** —
+  un grafo consultable de cómo se referencian los recursos entre sí
+  (`sprite -> animación -> conjunto de tiles -> mapa de tiles`) y una advertencia
+  pasiva cuando cambiar un recurso rompe otro que lo referencia.
+- **[Versionado de recursos y reutilización entre proyectos](asset-versioning.md)**
+  — un historial de revisiones de solo adición por recurso (inspeccionar y
+  restaurar), reutilización por referencia (sin copiar) de un recurso compartido
+  entre proyectos, exportación/importación de los recursos que un proyecto
+  referencia como un paquete autónomo, y respaldo opcional en la nube de los
+  blobs compartidos.

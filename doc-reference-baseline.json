@@ -54,12 +54,6 @@
     "value": "Calibrate"
   },
   {
-    "file": "pixelart_creator/ui/branch_diff_dialog.py",
-    "kind": "es-documentation-stale",
-    "line": 358,
-    "value": "Close"
-  },
-  {
     "file": "pixelart_creator/ui/assistant_dock.py",
     "kind": "es-documentation-stale",
     "line": 289,
@@ -264,12 +258,6 @@
     "value": "Add to Favourites"
   },
   {
-    "file": "pixelart_creator/ui/branch_diff_dialog.py",
-    "kind": "undocumented-control-label",
-    "line": 327,
-    "value": "Affected regions"
-  },
-  {
     "file": "pixelart_creator/ui/main_window.py",
     "kind": "undocumented-control-label",
     "line": 3719,
@@ -354,34 +342,16 @@
     "value": "Constraints"
   },
   {
-    "file": "pixelart_creator/ui/branch_diff_dialog.py",
-    "kind": "undocumented-control-label",
-    "line": 350,
-    "value": "Continue to Merge"
-  },
-  {
     "file": "pixelart_creator/ui/main_window.py",
     "kind": "undocumented-control-label",
     "line": 3824,
     "value": "Convert to RGBA"
   },
   {
-    "file": "pixelart_creator/ui/timeline_grid_view.py",
-    "kind": "undocumented-control-label",
-    "line": 574,
-    "value": "Create Cel Here"
-  },
-  {
     "file": "pixelart_creator/ui/main_window.py",
     "kind": "undocumented-control-label",
     "line": 3827,
     "value": "Deselect"
-  },
-  {
-    "file": "pixelart_creator/ui/cel_overwrite_dialog.py",
-    "kind": "undocumented-control-label",
-    "line": 76,
-    "value": "Don't ask again for this project"
   },
   {
     "file": "pixelart_creator/ui/layer_panel.py",
@@ -492,12 +462,6 @@
     "value": "Frame actions"
   },
   {
-    "file": "pixelart_creator/ui/timeline_panel.py",
-    "kind": "undocumented-control-label",
-    "line": 519,
-    "value": "Grid View"
-  },
-  {
     "file": "pixelart_creator/ui/palette_editor_panel.py",
     "kind": "undocumented-control-label",
     "line": 293,
@@ -558,12 +522,6 @@
     "value": "New View"
   },
   {
-    "file": "pixelart_creator/ui/branching_panel.py",
-    "kind": "undocumented-control-label",
-    "line": 485,
-    "value": "Open Diff"
-  },
-  {
     "file": "pixelart_creator/ui/main_window.py",
     "kind": "undocumented-control-label",
     "line": 2577,
@@ -580,18 +538,6 @@
     "kind": "undocumented-control-label",
     "line": 3386,
     "value": "Open Tileset Image"
-  },
-  {
-    "file": "pixelart_creator/ui/timelapse_controls.py",
-    "kind": "undocumented-control-label",
-    "line": 646,
-    "value": "Open Timelapse"
-  },
-  {
-    "file": "pixelart_creator/ui/cel_overwrite_dialog.py",
-    "kind": "undocumented-control-label",
-    "line": 67,
-    "value": "Overwrite Existing Cel?"
   },
   {
     "file": "pixelart_creator/ui/main_window.py",
@@ -616,12 +562,6 @@
     "kind": "undocumented-control-label",
     "line": 158,
     "value": "Play / Stop"
-  },
-  {
-    "file": "pixelart_creator/ui/project_prefs_actions.py",
-    "kind": "undocumented-control-label",
-    "line": 108,
-    "value": "Project confirmations"
   },
   {
     "file": "pixelart_creator/ui/tileset_editor_panel.py",
@@ -652,12 +592,6 @@
     "kind": "undocumented-control-label",
     "line": 729,
     "value": "Remove guide"
-  },
-  {
-    "file": "pixelart_creator/ui/timelapse_frame_view.py",
-    "kind": "undocumented-control-label",
-    "line": 108,
-    "value": "Reopened Recording"
   },
   {
     "file": "pixelart_creator/ui/symmetry_panel.py",
@@ -712,12 +646,6 @@
     "kind": "undocumented-control-label",
     "line": 389,
     "value": "Save Reference Board"
-  },
-  {
-    "file": "pixelart_creator/ui/timelapse_controls.py",
-    "kind": "undocumented-control-label",
-    "line": 532,
-    "value": "Save Timelapse"
   },
   {
     "file": "pixelart_creator/ui/transform_dialog.py",
