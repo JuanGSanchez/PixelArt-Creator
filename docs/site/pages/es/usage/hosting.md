@@ -1,4 +1,5 @@
 <!-- REQ-P13-BACKEND-003 -->
+<!-- surface-only: site — contenido de despliegue/instalación; extraído de la sección "Nota para operadores: ejecutar el backend de sincronización" de collaboration.md del bundle, que sigue siendo la única mención de este material en el bundle (WP-8 unidad 2d) -->
 # Alojar el relé en tiempo real: tres opciones equivalentes
 
 La colaboración en tiempo real (coedición en vivo, cursores y ramificación) se

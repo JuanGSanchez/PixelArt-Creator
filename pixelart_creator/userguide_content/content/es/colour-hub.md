@@ -1,3 +1,4 @@
+<!-- surface-only: bundle — contenido de orientación en la app; sin página en el sitio, por diseño (WP-8 unidad 2d) -->
 # El centro de color al clic derecho
 
 El **centro de color** es un menú contextual que invocas **justo donde estás

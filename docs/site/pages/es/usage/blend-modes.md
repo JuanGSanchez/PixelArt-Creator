@@ -53,5 +53,8 @@ región sucia en aproximadamente **1 ms**, dentro del presupuesto de 16 ms /
 arrastrar el deslizador de opacidad, o un cambio de atributo que repinta un
 viewport grande a través de muchas capas — están actualmente limitadas por la
 CPU y pueden superar el presupuesto; la composición completa por shader de
-GPU es una mejora planificada para más adelante. Consulta las
-**Limitaciones conocidas** del changelog para más detalles.
+GPU es una mejora planificada para más adelante.
+
+<!-- surface-only: site — la referencia al changelog asume un lector fuera de la app; la página equivalente del bundle termina el párrafo sin ella, por diseño (WP-8 unidad 2d) -->
+
+Consulta las **Limitaciones conocidas** del changelog para más detalles.

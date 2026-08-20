@@ -1,3 +1,4 @@
+<!-- surface-only: bundle — contenido de orientación en la app; solo cubierto ligeramente por el texto de index.md del sitio, sin página dedicada por diseño (WP-8 unidad 2d) -->
 # Primeros pasos y el espacio de trabajo
 
 Bienvenido a **PixelArt Creator** — un estudio de pixel art de escritorio con un lienzo

@@ -278,6 +278,8 @@ a **merge outcome** line summarising what happened (for example
     and is **not** an undo step on the undo stack. **Open Diff** is optional — you
     can merge directly without reviewing the diff first.
 
+<!-- split-with: pixelart_creator/userguide_content/content/en/collaboration.md "Operator note: running the sync backend" section (this page extracts and expands that section's deployment detail — WP-8 unit 2d) -->
+
 ## Operator note: running the sync backend
 
 Real-time co-editing needs a **sync backend** — a small, separate service that relays

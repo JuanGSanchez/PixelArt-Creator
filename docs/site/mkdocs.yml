@@ -19,6 +19,7 @@ nav:
       - Tilemap & level design: usage/tilemap.md
       - Export & pipeline integration: usage/export.md
       - Automation & extensibility: usage/automation.md
+      - AI assistant: usage/ai-assistant.md
       - Visual aids & UX: usage/visual-aids.md
       - Cloud, versions & recovery: usage/cloud.md
       - Shared projects & comments: usage/collaboration.md
@@ -63,6 +64,7 @@ plugins:
             Tilemap & level design: Mapa de tiles y diseño de niveles
             Export & pipeline integration: Exportación e integración de pipeline
             Automation & extensibility: Automatización y extensibilidad
+            AI assistant: Asistente de IA
             Visual aids & UX: Ayudas visuales y UX
             Cloud, versions & recovery: Nube, versiones y recuperación
             Shared projects & comments: Proyectos compartidos y comentarios

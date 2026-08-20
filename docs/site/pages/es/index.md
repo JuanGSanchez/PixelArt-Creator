@@ -4,8 +4,9 @@ PixelArt Creator es un editor de arte pixel construido en torno a un lienzo con
 capacidad para 8K, un modelo de capas no destructivo y un compositor rápido y
 acotado por región.
 
-Esta guía cubre los flujos de trabajo orientados al usuario entregados en la
-**Fase 4 — Sistema de capas y lienzo**:
+Esta guía cubre los flujos de trabajo orientados al usuario entregados hasta ahora,
+desde el sistema básico de capas y lienzo hasta la colaboración en la nube y la
+biblioteca de recursos:
 
 - **[Panel de capas](usage/layers.md)** — opacidad, visibilidad, bloqueo, modo de
   fusión, reordenación, añadir / eliminar / duplicar, grupos, máscaras, capas de
@@ -44,6 +45,13 @@ Esta guía cubre los flujos de trabajo orientados al usuario entregados en la
   consentimiento explícito, recolorea por lotes muchos objetivos a la vez,
   genera contenido de forma procedural, y ejecuta cualquier automatización sin
   interfaz gráfica con la línea de comandos `pixelart-run`.
+- **[Asistente de IA](usage/ai-assistant.md)** — maneja el editor en lenguaje
+  natural mediante un panel de chat agnóstico de modelo: conecta cualquier
+  proveedor compatible con OpenAI o Anthropic con tu propia clave (guardada en
+  el llavero del sistema operativo, nunca en el proyecto), y deja que ejecute
+  las mismas operaciones de automatización que puedes grabar y programar a
+  mano, aplicando lo reversible de inmediato y preguntando antes de lo
+  destructivo.
 - **[Ayudas visuales y UX](usage/visual-aids.md)** — una vista previa en vivo a
   tamaño real, guías y reglas con ajuste, cuadrículas isométricas y de
   perspectiva, un tablero de referencia de estilo PureRef, varias vistas
@@ -58,8 +66,9 @@ Esta guía cubre los flujos de trabajo orientados al usuario entregados en la
   proyecto con un listado de miembros con nombre (roles propietario / editor /
   espectador), deja y resuelve comentarios encadenados, y ve quién más está
   presente, con ediciones concurrentes fusionadas mediante un modelo determinista
-  de convergencia híbrida (la co-edición en tiempo real, los cursores en vivo y
-  el ramificado de arte llegan en una versión posterior).
+  de convergencia híbrida — la co-edición en tiempo real, los cursores en vivo de
+  otros editores y la ramificación de arte al estilo git (con una revisión de
+  diferencias opcional antes de fusionar) se entregan todas en esta versión.
 - **[Biblioteca de recursos](usage/asset-library.md)** — cataloga tus sprites,
   animaciones, tilesets, mapas de tiles y paletas como recursos con nombre y
   etiquetados, y encuéntralos rápido con búsqueda y filtro por nombre, etiqueta y

@@ -1,3 +1,4 @@
+<!-- surface-only: bundle — in-app orientation content; no site page by design (WP-8 unit 2d) -->
 # The canvas: zoom, pan & the grid
 
 The **canvas** is the main drawing surface — a large scene that supports documents up
