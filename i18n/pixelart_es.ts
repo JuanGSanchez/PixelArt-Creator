@@ -763,112 +763,112 @@
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="177"/>
         <source>Metadata changes</source>
         <extracomment>The four op-tier groups, fixed display order (``REQ-P10-UI-016``) — matches ``branch_diff._CLASS_RANK``&apos;s declaration order (metadata, layer_attr, layer_order, raster; ``convergence.py:228``). Emitted with ``source_name`` when the user activates *Continue to merge*. This view performs **no** merge itself (``REQ-P10-UI-018``) — the caller runs the unchanged ``Branching_Session.merge_to_mainline`` (the same shipped path the panel&apos;s own Merge button uses, ``REQ-P10-UI-019``).</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Cambios de metadatos</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="178"/>
         <source>Layer attribute changes</source>
-        <translation type="unfinished"></translation>
+        <translation>Cambios de atributos de capa</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="179"/>
         <source>Layer order changes</source>
-        <translation type="unfinished"></translation>
+        <translation>Cambios de orden de capas</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="180"/>
         <source>Raster (pixel) changes</source>
-        <translation type="unfinished"></translation>
+        <translation>Cambios de ráster (píxeles)</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="192"/>
         <source>Metadata &apos;{key}&apos; set to &apos;{value}&apos;</source>
-        <translation type="unfinished"></translation>
+        <translation>Metadato «{key}» establecido a «{value}»</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="196"/>
         <source>Frame {frame}, layer {layer}: {attr} = {value}</source>
-        <translation type="unfinished"></translation>
+        <translation>Fotograma {frame}, capa {layer}: {attr} = {value}</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="200"/>
         <source>Frame {frame}: layer order changed</source>
-        <translation type="unfinished"></translation>
+        <translation>Fotograma {frame}: orden de capas modificado</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="205"/>
         <source>Frame {frame}, layer {layer}: tile ({tile_x}, {tile_y})</source>
-        <translation type="unfinished"></translation>
+        <translation>Fotograma {frame}, capa {layer}: tile ({tile_x}, {tile_y})</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="240"/>
         <source>Frame {frame}, layer {layer}: ({x}, {y}) {width}×{height}</source>
-        <translation type="unfinished"></translation>
+        <translation>Fotograma {frame}, capa {layer}: ({x}, {y}) {width}×{height}</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="267"/>
         <source>Diff: &apos;{source}&apos; vs &apos;{target}&apos;</source>
-        <translation type="unfinished"></translation>
+        <translation>Diferencias: «{source}» frente a «{target}»</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="271"/>
         <source>Branch diff</source>
-        <translation type="unfinished"></translation>
+        <translation>Diferencias de rama</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="274"/>
         <source>Comparing branch &apos;{source}&apos; (source) against &apos;{target}&apos; (target). This is a snapshot taken now — the merge has not happened yet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Comparando la rama «{source}» (origen) con «{target}» (destino). Esto es una instantánea tomada ahora — la fusión aún no ha ocurrido.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="279"/>
         <source>Diff basis</source>
-        <translation type="unfinished"></translation>
+        <translation>Base de las diferencias</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="284"/>
         <source>Checked: the recorded changes account for everything on this branch.</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobado: los cambios registrados explican todo lo ocurrido en esta rama.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="291"/>
         <source>Warning: some changes on this branch are not recorded and will not be merged. {detail}</source>
-        <translation type="unfinished"></translation>
+        <translation>Advertencia: algunos cambios de esta rama no están registrados y no se fusionarán. {detail}</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="295"/>
         <source>Supervision result</source>
-        <translation type="unfinished"></translation>
+        <translation>Resultado de la supervisión</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="298"/>
         <source>States whether the recorded operation log explains every change on this branch&apos;s live document.</source>
-        <translation type="unfinished"></translation>
+        <translation>Indica si el registro de operaciones grabado explica cada cambio en el documento activo de esta rama.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="305"/>
         <source>This branch has no changes to merge.</source>
-        <translation type="unfinished"></translation>
+        <translation>Esta rama no tiene cambios que fusionar.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="317"/>
         <source>No changes.</source>
-        <translation type="unfinished"></translation>
+        <translation>Sin cambios.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="319"/>
         <source>{count} change(s).</source>
-        <translation type="unfinished"></translation>
+        <translation>{count} cambio(s).</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="321"/>
         <source>{title} list</source>
-        <translation type="unfinished"></translation>
+        <translation>Lista de {title}</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="324"/>
         <source>{count} entries.</source>
-        <translation type="unfinished"></translation>
+        <translation>{count} entradas.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="327"/>
@@ -878,27 +878,27 @@
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="330"/>
         <source>Each region is reported at the whole {tile}×{tile} pixel tile granularity — a one-pixel change still covers a full tile here.</source>
-        <translation type="unfinished"></translation>
+        <translation>Cada región se informa con la granularidad completa de un tile de {tile}×{tile} píxeles — un cambio de un solo píxel sigue cubriendo un tile completo aquí.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="335"/>
         <source>Affected regions list</source>
-        <translation type="unfinished"></translation>
+        <translation>Lista de regiones afectadas</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="337"/>
         <source>{count} regions.</source>
-        <translation type="unfinished"></translation>
+        <translation>{count} regiones.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="342"/>
         <source>{total} operation(s) total, across {targets} distinct target(s).</source>
-        <translation type="unfinished"></translation>
+        <translation>{total} operación(es) en total, en {targets} destino(s) distinto(s).</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="348"/>
         <source>Divergence total</source>
-        <translation type="unfinished"></translation>
+        <translation>Divergencia total</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="350"/>
@@ -908,48 +908,48 @@
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="351"/>
         <source>Continue to merge</source>
-        <translation type="unfinished"></translation>
+        <translation>Continuar a la fusión</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="354"/>
         <source>Performs the same conflict-free merge as the branching panel&apos;s Merge control.</source>
-        <translation type="unfinished"></translation>
+        <translation>Realiza la misma fusión sin conflictos que el control Fusionar del panel de ramificación.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="358"/>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="359"/>
         <source>Close</source>
-        <translation type="unfinished"></translation>
+        <translation>Cerrar</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="361"/>
         <source>Closes this view without merging or changing anything.</source>
-        <translation type="unfinished"></translation>
+        <translation>Cierra esta vista sin fusionar ni cambiar nada.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="373"/>
         <source>frames {frames}</source>
-        <translation type="unfinished"></translation>
+        <translation>fotogramas {frames}</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="379"/>
         <source>layers {layers}</source>
-        <translation type="unfinished"></translation>
+        <translation>capas {layers}</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="387"/>
         <source>attributes {attrs}</source>
-        <translation type="unfinished"></translation>
+        <translation>atributos {attrs}</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="396"/>
         <source>metadata keys {keys}</source>
-        <translation type="unfinished"></translation>
+        <translation>claves de metadatos {keys}</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="402"/>
         <source>tiles {tiles}</source>
-        <translation type="unfinished"></translation>
+        <translation>tiles {tiles}</translation>
     </message>
 </context>
 <context>
@@ -997,17 +997,17 @@
     <message>
         <location filename="../pixelart_creator/ui/branching_panel.py" line="453"/>
         <source>Open the pre-merge diff for the selected branch.</source>
-        <translation type="unfinished"></translation>
+        <translation>Abre las diferencias previas a la fusión para la rama seleccionada.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branching_panel.py" line="457"/>
         <source>Disabled: open a project first.</source>
-        <translation type="unfinished"></translation>
+        <translation>Deshabilitado: abre un proyecto primero.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branching_panel.py" line="462"/>
         <source>Disabled: select a feature branch, not mainline, to view its diff.</source>
-        <translation type="unfinished"></translation>
+        <translation>Deshabilitado: selecciona una rama de función, no la principal, para ver sus diferencias.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branching_panel.py" line="469"/>
@@ -1052,7 +1052,7 @@
     <message>
         <location filename="../pixelart_creator/ui/branching_panel.py" line="487"/>
         <source>Open the pre-merge diff for the selected branch</source>
-        <translation type="unfinished"></translation>
+        <translation>Abre las diferencias previas a la fusión para la rama seleccionada</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/branching_panel.py" line="489"/>
@@ -1096,17 +1096,17 @@
     <message>
         <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="68"/>
         <source>Overwrite existing cel confirmation</source>
-        <translation type="unfinished"></translation>
+        <translation>Confirmación de sobrescritura de celda existente</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="71"/>
         <source>The destination cell already has a drawing on it. Proceeding replaces that drawing. This can be undone.</source>
-        <translation type="unfinished"></translation>
+        <translation>La celda de destino ya tiene un dibujo. Continuar reemplaza ese dibujo. Esto se puede deshacer.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="75"/>
         <source>Overwrite warning</source>
-        <translation type="unfinished"></translation>
+        <translation>Advertencia de sobrescritura</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="76"/>
@@ -1116,19 +1116,19 @@
     <message>
         <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="78"/>
         <source>Suppress this confirmation for the current project</source>
-        <translation type="unfinished"></translation>
+        <translation>Suprimir esta confirmación para el proyecto actual</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="82"/>
         <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="83"/>
         <source>Overwrite</source>
-        <translation type="unfinished"></translation>
+        <translation>Sobrescribir</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="86"/>
         <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="87"/>
         <source>Cancel</source>
-        <translation type="unfinished">Cancelar</translation>
+        <translation>Cancelar</translation>
     </message>
 </context>
 <context>
@@ -2495,7 +2495,7 @@
     <message>
         <location filename="../pixelart_creator/ui/main_window.py" line="2810"/>
         <source>Merge</source>
-        <translation type="unfinished">Fusionar</translation>
+        <translation>Fusionar</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/main_window.py" line="2839"/>
@@ -5360,7 +5360,7 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="546"/>
         <source>Toggle Cel Visibility</source>
         <extracomment>Emitted with the frame index a selection (of any kind) settled on (REQ-P5-UI-023). Pushes no command. Emitted with the ``layer_id`` a cell/row-header selection settled on (REQ-P5-UI-023). Pushes no command. Emitted with the frame index the cursor is scrubbing over during a body drag away from any occupied cell (REQ-P5-UI-025). Pushes no command.</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Alternar visibilidad de celda</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="574"/>
@@ -5370,47 +5370,47 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="576"/>
         <source>Create a new drawing on this track in this frame</source>
-        <translation type="unfinished"></translation>
+        <translation>Crear un nuevo dibujo en esta pista en este fotograma</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="594"/>
         <source>Create Cel</source>
-        <translation type="unfinished"></translation>
+        <translation>Crear celda</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="618"/>
         <source>Reorder Frame</source>
-        <translation type="unfinished">Reordenar fotograma</translation>
+        <translation>Reordenar fotograma</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="768"/>
         <source>Copy Cel</source>
-        <translation type="unfinished"></translation>
+        <translation>Copiar celda</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="776"/>
         <source>Move Cel</source>
-        <translation type="unfinished"></translation>
+        <translation>Mover celda</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="803"/>
         <source>Timeline grid</source>
-        <translation type="unfinished"></translation>
+        <translation>Cuadrícula de la línea de tiempo</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="806"/>
         <source>Frames as columns, layer tracks as rows; drag a header to reorder, drag a drawing to move it (hold Ctrl to copy), or open the context menu on an empty cell to create a cel there</source>
-        <translation type="unfinished"></translation>
+        <translation>Fotogramas como columnas, pistas de capa como filas; arrastra un encabezado para reordenar, arrastra un dibujo para moverlo (mantén Ctrl para copiar), o abre el menú contextual en una celda vacía para crear una celda ahí</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="811"/>
         <source>Frame headers</source>
-        <translation type="unfinished"></translation>
+        <translation>Encabezados de fotograma</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="812"/>
         <source>Layer track headers</source>
-        <translation type="unfinished"></translation>
+        <translation>Encabezados de pista de capa</translation>
     </message>
 </context>
 <context>
@@ -5497,12 +5497,12 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
     <message>
         <location filename="../pixelart_creator/ui/timeline_panel.py" line="521"/>
         <source>Show frames and layer tracks as a grid instead of a strip</source>
-        <translation type="unfinished"></translation>
+        <translation>Muestra fotogramas y pistas de capa como una cuadrícula en lugar de una tira</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_panel.py" line="523"/>
         <source>Timeline cell surface</source>
-        <translation type="unfinished"></translation>
+        <translation>Superficie de celdas de la línea de tiempo</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_panel.py" line="524"/>
@@ -5861,12 +5861,12 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
         <location filename="../pixelart_creator/ui/project_prefs_actions.py" line="104"/>
         <source>Confirm before overwriting a cel</source>
         <extracomment>The provider the caller supplies: returns the active document, or ``None`` when no document is open.</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Confirmar antes de sobrescribir una celda</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/project_prefs_actions.py" line="105"/>
         <source>Confirm: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Confirmar: %1</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/project_prefs_actions.py" line="108"/>
@@ -5877,7 +5877,7 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
     <message>
         <location filename="../pixelart_creator/ui/project_prefs_actions.py" line="114"/>
         <source>Restore this confirmation so it asks again</source>
-        <translation type="unfinished"></translation>
+        <translation>Restaurar esta confirmación para que vuelva a preguntar</translation>
     </message>
 </context>
 <context>
@@ -5902,53 +5902,54 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="237"/>
         <source>Frame %1</source>
         <extracomment>Longest edge (px) of a cached per-cell thumbnail. Mirrors ``timeline_panel._THUMBNAIL_EDGE`` exactly (visual consistency between the two cell surfaces the toggle swaps between, T4); a presentation-only sizing literal, not a domain tuning value (Article II does not reach it, like its strip twin). Custom data roles carried on every cell, alongside the standard Qt roles.</extracomment>
-        <translation type="unfinished">Fotograma %1</translation>
+        <translation>Fotograma %1</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="254"/>
         <source>%1, %2</source>
-        <translation type="unfinished"></translation>
+        <translation>%1, %2</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="259"/>
         <source>%1, %2 — empty</source>
-        <translation type="unfinished"></translation>
+        <translation>%1, %2 — vacía</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="266"/>
         <source>%1, track %2</source>
-        <translation type="unfinished"></translation>
+        <translation>%1, pista %2</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="271"/>
         <source>%1, track %2, empty</source>
-        <translation type="unfinished"></translation>
+        <translation>%1, pista %2, vacía</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="276"/>
         <source>Occupied cell</source>
-        <translation type="unfinished"></translation>
+        <translation>Celda ocupada</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="276"/>
         <source>Empty cell</source>
-        <translation type="unfinished"></translation>
+        <translation>Celda vacía</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="324"/>
         <source>%1
 %2 ms</source>
-        <translation type="unfinished"></translation>
+        <translation>%1
+%2 ms</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="330"/>
         <source>Frame %1, %2 milliseconds</source>
-        <translation type="unfinished"></translation>
+        <translation>Fotograma %1, %2 milisegundos</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="341"/>
         <source>Track %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Pista %1</translation>
     </message>
 </context>
 <context>
