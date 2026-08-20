@@ -758,84 +758,304 @@
     </message>
 </context>
 <context>
+    <name>Branch_Diff_Dialog</name>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="177"/>
+        <source>Metadata changes</source>
+        <extracomment>The four op-tier groups, fixed display order (``REQ-P10-UI-016``) — matches ``branch_diff._CLASS_RANK``&apos;s declaration order (metadata, layer_attr, layer_order, raster; ``convergence.py:228``). Emitted with ``source_name`` when the user activates *Continue to merge*. This view performs **no** merge itself (``REQ-P10-UI-018``) — the caller runs the unchanged ``Branching_Session.merge_to_mainline`` (the same shipped path the panel&apos;s own Merge button uses, ``REQ-P10-UI-019``).</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="178"/>
+        <source>Layer attribute changes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="179"/>
+        <source>Layer order changes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="180"/>
+        <source>Raster (pixel) changes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="192"/>
+        <source>Metadata &apos;{key}&apos; set to &apos;{value}&apos;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="196"/>
+        <source>Frame {frame}, layer {layer}: {attr} = {value}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="200"/>
+        <source>Frame {frame}: layer order changed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="205"/>
+        <source>Frame {frame}, layer {layer}: tile ({tile_x}, {tile_y})</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="240"/>
+        <source>Frame {frame}, layer {layer}: ({x}, {y}) {width}×{height}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="267"/>
+        <source>Diff: &apos;{source}&apos; vs &apos;{target}&apos;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="271"/>
+        <source>Branch diff</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="274"/>
+        <source>Comparing branch &apos;{source}&apos; (source) against &apos;{target}&apos; (target). This is a snapshot taken now — the merge has not happened yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="279"/>
+        <source>Diff basis</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="284"/>
+        <source>Checked: the recorded changes account for everything on this branch.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="291"/>
+        <source>Warning: some changes on this branch are not recorded and will not be merged. {detail}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="295"/>
+        <source>Supervision result</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="298"/>
+        <source>States whether the recorded operation log explains every change on this branch&apos;s live document.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="305"/>
+        <source>This branch has no changes to merge.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="317"/>
+        <source>No changes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="319"/>
+        <source>{count} change(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="321"/>
+        <source>{title} list</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="324"/>
+        <source>{count} entries.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="327"/>
+        <source>Affected regions</source>
+        <translation>Regiones afectadas</translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="330"/>
+        <source>Each region is reported at the whole {tile}×{tile} pixel tile granularity — a one-pixel change still covers a full tile here.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="335"/>
+        <source>Affected regions list</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="337"/>
+        <source>{count} regions.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="342"/>
+        <source>{total} operation(s) total, across {targets} distinct target(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="348"/>
+        <source>Divergence total</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="350"/>
+        <source>Continue to Merge</source>
+        <translation>Continuar a la fusión</translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="351"/>
+        <source>Continue to merge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="354"/>
+        <source>Performs the same conflict-free merge as the branching panel&apos;s Merge control.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="358"/>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="359"/>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="361"/>
+        <source>Closes this view without merging or changing anything.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="373"/>
+        <source>frames {frames}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="379"/>
+        <source>layers {layers}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="387"/>
+        <source>attributes {attrs}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="396"/>
+        <source>metadata keys {keys}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branch_diff_dialog.py" line="402"/>
+        <source>tiles {tiles}</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>Branching_Panel</name>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="260"/>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="272"/>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="283"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="361"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="373"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="384"/>
         <source>Branch</source>
-        <extracomment>The reserved name of the always-present mainline branch. emitted when the set of branches changed (create / merge). ``(name,)`` — the active branch changed. ``(document,)`` — a branch was materialised/merged; the caller loads it into the active tab (a whole Qt-free :class:`~pixelart_creator.logic.document.Document`). ``(summary,)`` — a merge completed conflict-free; carries a translatable-ready outcome summary the panel surfaces (REQ-P10-UI-012).</extracomment>
+        <extracomment>The reserved name of the always-present mainline branch. emitted when the set of branches changed (create / merge). ``(name,)`` — the active branch changed. ``(document,)`` — a branch was materialised/merged; the caller loads it into the active tab (a whole Qt-free :class:`~pixelart_creator.logic.document.Document`). ``(summary,)`` — a merge completed conflict-free; carries a translatable-ready outcome summary the panel surfaces (REQ-P10-UI-012). The Document object the active branch&apos;s edits actually land on — the same instance the caller (``ui/main_window.py``) mutates in place, so a raster trace&apos;s tile bytes are always read post-edit (plan §8.2). ``None`` until a base document is set. ``(name,)`` — the user activated the open-diff affordance for the selected feature branch (REQ-P10-UI-014). The caller (``ui/main_window.py``) supplies the active tab&apos;s live ``Document`` to ``logic/branch_diff.supervise`` and, once T16 (``ui/branch_diff_dialog.py``) exists, opens the pre-merge diff view from it.</extracomment>
         <translation>Rama</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="261"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="362"/>
         <source>Open a project first.</source>
         <translation>Abre un proyecto primero.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="265"/>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="345"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="366"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="477"/>
         <source>New Branch</source>
         <translation>Nueva rama</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="265"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="366"/>
         <source>Branch name:</source>
         <translation>Nombre de la rama:</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="294"/>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="349"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="395"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="481"/>
         <source>Merge</source>
         <translation>Fusionar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="306"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="421"/>
         <source>Merged branch &apos;{name}&apos; ({count} edits) into mainline — conflict-free.</source>
         <translation>Rama «{name}» fusionada ({count} ediciones) en la principal — sin conflictos.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="319"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="434"/>
         <source>{name} (active)</source>
         <translation>{name} (activa)</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="337"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="453"/>
+        <source>Open the pre-merge diff for the selected branch.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="457"/>
+        <source>Disabled: open a project first.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="462"/>
+        <source>Disabled: select a feature branch, not mainline, to view its diff.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="469"/>
         <source>Branching</source>
         <translation>Ramificación</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="340"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="472"/>
         <source>Branch the project to edit a variation independently, then merge it back. Merges are conflict-free.</source>
         <translation>Ramifica el proyecto para editar una variación de forma independiente y luego fusionarla de nuevo. Las fusiones son sin conflictos.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="344"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="476"/>
         <source>Branches</source>
         <translation>Ramas</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="346"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="478"/>
         <source>Create a new branch</source>
         <translation>Crear una nueva rama</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="347"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="479"/>
         <source>Switch</source>
         <translation>Cambiar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="348"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="480"/>
         <source>Switch to the selected branch</source>
         <translation>Cambiar a la rama seleccionada</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="351"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="483"/>
         <source>Merge the selected branch into mainline</source>
         <translation>Fusionar la rama seleccionada en la principal</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/branching_panel.py" line="353"/>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="485"/>
+        <source>Open Diff</source>
+        <translation>Abrir diferencias</translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="487"/>
+        <source>Open the pre-merge diff for the selected branch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/branching_panel.py" line="489"/>
         <source>Merge outcome</source>
         <translation>Resultado de la fusión</translation>
     </message>
@@ -843,27 +1063,72 @@
 <context>
     <name>Canvas_View</name>
     <message>
-        <location filename="../pixelart_creator/ui/canvas_view.py" line="149"/>
-        <location filename="../pixelart_creator/ui/canvas_view.py" line="723"/>
+        <location filename="../pixelart_creator/ui/canvas_view.py" line="206"/>
+        <location filename="../pixelart_creator/ui/canvas_view.py" line="827"/>
         <source>Canvas</source>
-        <extracomment>Platform name reported by Qt when running without a windowing system. Emitted with the current zoom scale after any zoom change. Emitted with the buffer ``(x, y)`` when the canvas is right-clicked (seam). Emitted with the picked RGBA tuple when the colour-picker sets a colour. Emitted ``(is_active, is_copy)`` when a floating move/copy state changes (drives the shell&apos;s copy-mode status hint, REQ-P2-UI-032/-036). Emitted when a paint/mask-edit stroke is refused because the active layer is locked (D-05); the shell surfaces a &quot;layer is locked&quot; notice. Live mirror-centre override fed to ``logic.symmetry.mirror`` via each stroke&apos;s :class:`ToolContext` (D-28/CF-93); ``None`` keeps the shipped canvas-centre default. Fed by the shell&apos;s Symmetry_Panel. The guide currently being dragged (D-11), or ``None``. Raw (pre-snap) scene point at the start of the current stroke — the perspective direction-lock anchor (``logic.grids.perspective_snap``).</extracomment>
+        <extracomment>Platform name reported by Qt when running without a windowing system. Emitted with the current zoom scale after any zoom change. Emitted with the buffer ``(x, y)`` when the canvas is right-clicked (seam). Emitted with the picked RGBA tuple when the colour-picker sets a colour. Emitted ``(is_active, is_copy)`` when a floating move/copy state changes (drives the shell&apos;s copy-mode status hint, REQ-P2-UI-032/-036). Emitted when a paint/mask-edit stroke is refused because the active layer is locked (D-05); the shell surfaces a &quot;layer is locked&quot; notice. The wrapper every :class:`~pixelart_creator.ui.tools.base.ToolContext` is actually built with (see :class:`_RecordingUndoStack`); reads ``self._undo_stack``/``self._record_trace``/``self._recording_document`` live at each push, so `set_undo_stack`/`set_recording` need not rebuild it. Live mirror-centre override fed to ``logic.symmetry.mirror`` via each stroke&apos;s :class:`ToolContext` (D-28/CF-93); ``None`` keeps the shipped canvas-centre default. Fed by the shell&apos;s Symmetry_Panel. The guide currently being dragged (D-11), or ``None``. Raw (pre-snap) scene point at the start of the current stroke — the perspective direction-lock anchor (``logic.grids.perspective_snap``).</extracomment>
         <translation>Lienzo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/canvas_view.py" line="151"/>
-        <location filename="../pixelart_creator/ui/canvas_view.py" line="725"/>
+        <location filename="../pixelart_creator/ui/canvas_view.py" line="208"/>
+        <location filename="../pixelart_creator/ui/canvas_view.py" line="829"/>
         <source>Pixel canvas: left-click to paint, middle-drag to pan</source>
         <translation>Lienzo de píxeles: clic izquierdo para pintar, arrastrar con el botón central para desplazar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/canvas_view.py" line="625"/>
+        <location filename="../pixelart_creator/ui/canvas_view.py" line="729"/>
         <source>Remove guide</source>
         <translation>Eliminar guía</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/canvas_view.py" line="636"/>
+        <location filename="../pixelart_creator/ui/canvas_view.py" line="740"/>
         <source>No canvas actions yet</source>
         <translation>Aún no hay acciones de lienzo</translation>
+    </message>
+</context>
+<context>
+    <name>Cel_Overwrite_Dialog</name>
+    <message>
+        <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="67"/>
+        <source>Overwrite Existing Cel?</source>
+        <translation>¿Sobrescribir celda existente?</translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="68"/>
+        <source>Overwrite existing cel confirmation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="71"/>
+        <source>The destination cell already has a drawing on it. Proceeding replaces that drawing. This can be undone.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="75"/>
+        <source>Overwrite warning</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="76"/>
+        <source>Don&apos;t ask again for this project</source>
+        <translation>No volver a preguntar para este proyecto</translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="78"/>
+        <source>Suppress this confirmation for the current project</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="82"/>
+        <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="83"/>
+        <source>Overwrite</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="86"/>
+        <location filename="../pixelart_creator/ui/cel_overwrite_dialog.py" line="87"/>
+        <source>Cancel</source>
+        <translation type="unfinished">Cancelar</translation>
     </message>
 </context>
 <context>
@@ -1674,175 +1939,175 @@
 <context>
     <name>Layer_Panel</name>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="394"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="441"/>
         <source>Normal</source>
         <extracomment>Emitted with the selected node (``Layer`` / ``LayerGroup`` / ``None``). Emitted when the &quot;edit mask&quot; toggle flips (route paint to the mask buffer). Emitted when a mask attach/remove/edit is refused because the target node is locked (D-05); the shell surfaces a &quot;layer is locked&quot; notice.</extracomment>
         <translation>Normal</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="395"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="442"/>
         <source>Multiply</source>
         <translation>Multiplicar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="396"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="443"/>
         <source>Screen</source>
         <translation>Trama</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="397"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="444"/>
         <source>Overlay</source>
         <translation>Superponer</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="398"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="445"/>
         <source>Darken</source>
         <translation>Oscurecer</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="399"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="446"/>
         <source>Lighten</source>
         <translation>Aclarar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="400"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="447"/>
         <source>Colour Dodge</source>
         <translation>Sobreexponer color</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="401"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="448"/>
         <source>Colour Burn</source>
         <translation>Subexponer color</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="402"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="449"/>
         <source>Hard Light</source>
         <translation>Luz fuerte</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="403"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="450"/>
         <source>Soft Light</source>
         <translation>Luz suave</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="404"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="451"/>
         <source>Difference</source>
         <translation>Diferencia</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="405"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="452"/>
         <source>Exclusion</source>
         <translation>Exclusión</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="601"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="648"/>
         <source>Layer</source>
         <translation>Capa</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="605"/>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="834"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="652"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="881"/>
         <source>Add Layer</source>
         <translation>Añadir capa</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="618"/>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="835"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="665"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="882"/>
         <source>Remove Layer</source>
         <translation>Eliminar capa</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="631"/>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="836"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="678"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="883"/>
         <source>Duplicate Layer</source>
         <translation>Duplicar capa</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="640"/>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="837"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="687"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="884"/>
         <source>Group</source>
         <translation>Agrupar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="644"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="691"/>
         <source>Group Layers</source>
         <translation>Agrupar capas</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="656"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="703"/>
         <source>Ungroup Layers</source>
         <translation>Desagrupar capas</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="677"/>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="822"/>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="842"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="724"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="869"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="889"/>
         <source>Add Mask</source>
         <translation>Añadir máscara</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="684"/>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="822"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="731"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="869"/>
         <source>Remove Mask</source>
         <translation>Eliminar máscara</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="708"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="755"/>
         <source>Toggle Reference</source>
         <translation>Alternar referencia</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="718"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="765"/>
         <source>Smart</source>
         <translation>Inteligente</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="722"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="769"/>
         <source>Create Smart Layer</source>
         <translation>Crear capa inteligente</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="779"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="826"/>
         <source>Move Layer</source>
         <translation>Mover capa</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="828"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="875"/>
         <source>Layers panel</source>
         <translation>Panel de capas</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="829"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="876"/>
         <source>Layer actions</source>
         <translation>Acciones de capa</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="830"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="877"/>
         <source>Layer tree</source>
         <translation>Árbol de capas</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="832"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="879"/>
         <source>Layers top-to-bottom; drag to reorder or re-parent</source>
         <translation>Capas de arriba abajo; arrastra para reordenar o reasignar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="838"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="885"/>
         <source>Ungroup</source>
         <translation>Desagrupar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="839"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="886"/>
         <source>Edit Mask</source>
         <translation>Editar máscara</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="840"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="887"/>
         <source>Reference</source>
         <translation>Referencia</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="841"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="888"/>
         <source>Smart Layer</source>
         <translation>Capa inteligente</translation>
     </message>
@@ -2015,23 +2280,23 @@
 <context>
     <name>Main_Window</name>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="902"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="917"/>
         <source>&amp;Undo</source>
         <extracomment>Live mirror-centre override from the Symmetry_Panel (D-28/CF-93); ``None`` keeps the shipped canvas-centre default. The DSL ops of the in-flight automation run (recorded into a macro on success if recording is active); ``None`` for a macro replay (a replay is not itself re-recorded). The cloud project id last saved to / opened from (drives version browse). D-13: the most recently fetched remote version list (cached from the last &quot;open_list&quot;/&quot;versions&quot;/&quot;save&quot; result) — feeds the read-only ``compute_sync_state`` for the Cloud menu status line and the version browser, without a network round trip on every tab switch. D-13: the version id of a restore/recover in flight, consumed once the reconstructed document lands in its new tab (see ``_on_cloud_succeeded``). Live-cursor overlays are per-tab (attached in _create_tab_aids); toggled on connect. The local member id broadcast with presence (never a token).</extracomment>
         <translation>&amp;Deshacer</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="904"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="919"/>
         <source>&amp;Redo</source>
         <translation>&amp;Rehacer</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="1532"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="1555"/>
         <source>Untitled</source>
         <translation>Sin título</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2112"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2187"/>
         <source>Copying selection — release, Enter to commit, Esc to cancel</source>
         <translation>Copiando selección — suelta, Enter para confirmar, Esc para cancelar</translation>
     </message>
@@ -2040,797 +2305,802 @@
         <translation type="vanished">Moviendo selección — mantén Ctrl o Alt para copiar; Enter para confirmar, Esc para cancelar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2214"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2289"/>
         <source>Add Shade Ramp</source>
         <translation>Añadir rampa de sombra</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2230"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2234"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2307"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2313"/>
         <source>Constrain to Palette</source>
         <translation>Restringir a la paleta</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2253"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2260"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3501"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2334"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2343"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3718"/>
         <source>Colour Cycling</source>
         <translation>Ciclo de color</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2254"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2335"/>
         <source>Colour cycling applies to indexed documents.</source>
         <translation>El ciclo de color se aplica a documentos indexados.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2263"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2349"/>
         <source>Colour Cycle</source>
         <translation>Ciclo de color</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2278"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2367"/>
         <source>Extract Palette</source>
         <translation>Extraer paleta</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2289"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2302"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2305"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2378"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2396"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2402"/>
         <source>Palette Swap</source>
         <translation>Intercambio de paleta</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2290"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2379"/>
         <source>Palette swap applies to indexed documents.</source>
         <translation>El intercambio de paleta se aplica a documentos indexados.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2325"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2331"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2425"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2431"/>
         <source>Convert to Indexed</source>
         <translation>Convertir a indexado</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2349"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2353"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2451"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2457"/>
         <source>Convert to RGBA</source>
         <translation>Convertir a RGBA</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2471"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2577"/>
         <source>Open Project</source>
         <translation>Abrir proyecto</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2013"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2473"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2489"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2081"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2579"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2595"/>
         <source>Pixel projects (*%1)</source>
         <translation>Proyectos de píxeles (*%1)</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="1954"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2014"/>
         <source>Unsaved Changes</source>
         <translation>Cambios sin guardar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="1956"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2016"/>
         <source>The current document has unsaved changes. Save it before opening the dropped project?</source>
         <translation>El documento actual tiene cambios sin guardar. ¿Guardarlo antes de abrir el proyecto soltado?</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="1991"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2051"/>
         <source>Load Palette</source>
         <translation>Cargar paleta</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2011"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2487"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2079"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2593"/>
         <source>Save Project</source>
         <translation>Guardar proyecto</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2023"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2091"/>
         <source>Unsupported file type: %1</source>
         <translation>Tipo de archivo no admitido: %1</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2041"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2109"/>
         <source>Open a document before loading a palette.</source>
         <translation>Abre un documento antes de cargar una paleta.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2049"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2117"/>
         <source>Import Failed</source>
         <translation>Error de importación</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2050"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2118"/>
         <source>Could not import %1:
 %2</source>
         <translation>No se pudo importar %1:
 %2</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2117"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2192"/>
         <source>Moving selection — hold Ctrl to copy; Enter to commit, Esc to cancel</source>
         <translation>Moviendo selección — mantén Ctrl para copiar; Enter para confirmar, Esc para cancelar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2498"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2604"/>
         <source>Cloud project name:</source>
         <translation>Nombre del proyecto en la nube:</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2503"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2609"/>
         <source>Enter a project name.</source>
         <translation>Introduce un nombre de proyecto.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2512"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2618"/>
         <source>Connect to a cloud provider first.</source>
         <translation>Conéctate primero a un proveedor en la nube.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2651"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2817"/>
         <source>Save to Cloud</source>
         <translation>Guardar en la nube</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2568"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2656"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2674"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2822"/>
         <source>Open a document first.</source>
         <translation>Abre primero un documento.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2034"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2102"/>
         <source>Layer is locked.</source>
         <translation>La capa está bloqueada.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2546"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2652"/>
         <source>Cloud status: —</source>
         <translation>Estado de la nube: —</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2554"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2660"/>
         <source>Cloud status: Up to date</source>
         <translation>Estado de la nube: al día</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2556"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2662"/>
         <source>Cloud status: Not yet saved to cloud</source>
         <translation>Estado de la nube: aún no guardado en la nube</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2558"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2664"/>
         <source>Cloud status: Newer version in cloud</source>
         <translation>Estado de la nube: hay una versión más reciente en la nube</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2559"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2665"/>
         <source>Cloud status: Diverged</source>
         <translation>Estado de la nube: divergente</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2565"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2671"/>
         <source>Real-time</source>
         <translation>Tiempo real</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2570"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2676"/>
         <source>Your member id:</source>
         <translation>Tu id de miembro:</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2600"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2706"/>
         <source>Real-time: {msg}</source>
         <translation>Tiempo real: {msg}</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2673"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2810"/>
+        <source>Merge</source>
+        <translation type="unfinished">Fusionar</translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2839"/>
         <source>Open from Cloud</source>
         <translation>Abrir desde la nube</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2691"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2808"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2857"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2974"/>
         <source>Cloud Version History</source>
         <translation>Historial de versiones en la nube</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2778"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2944"/>
         <source>Saved to cloud.</source>
         <translation>Guardado en la nube.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2785"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2951"/>
         <source>Cloud Project</source>
         <translation>Proyecto en la nube</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2787"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2953"/>
         <source>Recovered</source>
         <translation>Recuperado</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2795"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2961"/>
         <source>Restored from cloud.</source>
         <translation>Restaurado desde la nube.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2809"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="2975"/>
         <source>No versions found for this project.</source>
         <translation>No se encontraron versiones para este proyecto.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2836"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3002"/>
         <source>Cloud</source>
         <translation>Nube</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2952"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3118"/>
         <source>Clear Selection</source>
         <translation>Borrar selección</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="2998"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3187"/>
         <source>Flip Horizontal</source>
         <translation>Voltear horizontalmente</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3001"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3190"/>
         <source>Flip Vertical</source>
         <translation>Voltear verticalmente</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3004"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3193"/>
         <source>Rotate 90° CW</source>
         <translation>Rotar 90° horario</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3007"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3196"/>
         <source>Rotate 90° CCW</source>
         <translation>Rotar 90° antihorario</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3026"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3029"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3217"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3220"/>
         <source>Scale Canvas</source>
         <translation>Escalar lienzo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3043"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3236"/>
         <source>Rotate (RotSprite)</source>
         <translation>Rotar (RotSprite)</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3193"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3202"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3386"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3395"/>
         <source>Open Tileset Image</source>
         <translation>Abrir imagen de tileset</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3195"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3388"/>
         <source>Images (*.png *.jpg *.jpeg *.bmp *.gif)</source>
         <translation>Imágenes (*.png *.jpg *.jpeg *.bmp *.gif)</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3211"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3404"/>
         <source>New Tileset</source>
         <translation>Nuevo tileset</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3217"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3410"/>
         <source>Add Tileset</source>
         <translation>Añadir tileset</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3225"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3272"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3420"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3471"/>
         <source>Attach Tileset</source>
         <translation>Adjuntar tileset</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3236"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3433"/>
         <source>Tilemap</source>
         <translation>Mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3239"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3436"/>
         <source>Layer 1</source>
         <translation>Capa 1</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3246"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3443"/>
         <source>Add Tilemap</source>
         <translation>Añadir mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3264"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3463"/>
         <source>Import Tilemap</source>
         <translation>Importar mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3292"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3495"/>
         <source>Export Tiled Map</source>
         <translation>Exportar mapa de Tiled</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3293"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3496"/>
         <source>There is no tilemap to export.</source>
         <translation>No hay ningún mapa de tiles para exportar.</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3321"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3524"/>
         <source>Exporting…</source>
         <translation>Exportando…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3326"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3529"/>
         <source>Exporting %1 of %2…</source>
         <translation>Exportando %1 de %2…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3349"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3552"/>
         <source>Export Failed</source>
         <translation>Error de exportación</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3350"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3553"/>
         <source>%1 export target(s) failed:
 %2</source>
         <translation>%1 destino(s) de exportación fallaron:
 %2</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3357"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3560"/>
         <source>Export complete (%1 file(s)).</source>
         <translation>Exportación completada (%1 archivo(s)).</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3409"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3612"/>
         <source>Automation</source>
         <translation>Automatización</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3423"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3634"/>
         <source>Automation Error</source>
         <translation>Error de automatización</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3435"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3646"/>
         <source>Running automation…</source>
         <translation>Ejecutando automatización…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3481"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3692"/>
         <source>Assistant edit</source>
         <translation>Edición del asistente</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3490"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3707"/>
         <source>PixelArt Creator</source>
         <translation>PixelArt Creator</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3491"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3708"/>
         <source>Tools</source>
         <translation>Herramientas</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3492"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3709"/>
         <source>Palette</source>
         <translation>Paleta</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3493"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3710"/>
         <source>Symmetry</source>
         <translation>Simetría</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3494"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3711"/>
         <source>Layers</source>
         <translation>Capas</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3495"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3712"/>
         <source>Timeline</source>
         <translation>Línea de tiempo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3496"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3713"/>
         <source>Onion Skin</source>
         <translation>Papel cebolla</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3497"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3714"/>
         <source>Frame Tags</source>
         <translation>Etiquetas de fotogramas</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3498"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3715"/>
         <source>Palette Editor</source>
         <translation>Editor de paleta</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3499"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3716"/>
         <source>Constraints</source>
         <translation>Restricciones</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3500"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3717"/>
         <source>Shade Ramps</source>
         <translation>Rampas de sombra</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3502"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3719"/>
         <source>Analytics</source>
         <translation>Analíticas</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3503"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3720"/>
         <source>Tileset Editor</source>
         <translation>Editor de tileset</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3504"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3721"/>
         <source>Tilemap Layers</source>
         <translation>Capas del mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3505"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3722"/>
         <source>Tilemap Canvas</source>
         <translation>Lienzo del mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3506"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3723"/>
         <source>Batch Export</source>
         <translation>Exportación por lotes</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3507"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3724"/>
         <source>Macros</source>
         <translation>Macros</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3508"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3725"/>
         <source>Script Runner</source>
         <translation>Ejecutor de scripts</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3509"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3726"/>
         <source>Plugins</source>
         <translation>Complementos</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3510"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3727"/>
         <source>Batch Recolour</source>
         <translation>Recoloreado por lotes</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3511"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3728"/>
         <source>Procedural Generation</source>
         <translation>Generación procedural</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3512"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3729"/>
         <source>Shared Projects</source>
         <translation>Proyectos compartidos</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3513"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3730"/>
         <source>Comments</source>
         <translation>Comentarios</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3514"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3731"/>
         <source>Presence</source>
         <translation>Presencia</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3515"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3732"/>
         <source>Branching</source>
         <translation>Ramificación</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3516"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3733"/>
         <source>Asset Library</source>
         <translation>Biblioteca de recursos</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3517"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3734"/>
         <source>Asset Search</source>
         <translation>Búsqueda de recursos</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3518"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3735"/>
         <source>Asset Tagging</source>
         <translation>Etiquetado de recursos</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3519"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3736"/>
         <source>Dependency Graph</source>
         <translation>Grafo de dependencias</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3520"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3737"/>
         <source>Asset Versions</source>
         <translation>Versiones del recurso</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3521"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3738"/>
         <source>Asset Reuse</source>
         <translation>Reutilización de recursos</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3525"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3742"/>
         <source>Real-Size Preview</source>
         <translation>Vista a tamaño real</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3526"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3743"/>
         <source>Timelapse</source>
         <translation>Timelapse</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3527"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3744"/>
         <source>Open documents</source>
         <translation>Documentos abiertos</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3528"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3745"/>
         <source>Floating selection status</source>
         <translation>Estado de selección flotante</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3532"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3749"/>
         <source>Pencil</source>
         <translation>Lápiz</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3533"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3750"/>
         <source>Eraser</source>
         <translation>Borrador</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3534"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3751"/>
         <source>Fill</source>
         <translation>Relleno</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3535"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3752"/>
         <source>Line</source>
         <translation>Línea</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3536"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3753"/>
         <source>Colour picker</source>
         <translation>Selector de color</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3537"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3754"/>
         <source>Rectangle</source>
         <translation>Rectángulo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3538"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3755"/>
         <source>Ellipse</source>
         <translation>Elipse</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3539"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3756"/>
         <source>Rectangle select</source>
         <translation>Selección rectangular</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3540"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3757"/>
         <source>Lasso select</source>
         <translation>Selección de lazo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3541"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3758"/>
         <source>Magic wand</source>
         <translation>Varita mágica</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3542"/>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3599"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3759"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3816"/>
         <source>Dither</source>
         <translation>Tramado</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3551"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3768"/>
         <source>&amp;New</source>
         <translation>&amp;Nuevo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3552"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3769"/>
         <source>&amp;Open…</source>
         <translation>&amp;Abrir…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3553"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3770"/>
         <source>&amp;Save</source>
         <translation>&amp;Guardar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3554"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3771"/>
         <source>Save &amp;As…</source>
         <translation>Guardar &amp;como…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3555"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3772"/>
         <source>&amp;Export…</source>
         <translation>&amp;Exportar…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3556"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3773"/>
         <source>&amp;Close</source>
         <translation>&amp;Cerrar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3558"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3775"/>
         <source>&amp;Connect…</source>
         <translation>&amp;Conectar…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3559"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3776"/>
         <source>&amp;Disconnect</source>
         <translation>&amp;Desconectar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3560"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3777"/>
         <source>&amp;Save to Cloud…</source>
         <translation>&amp;Guardar en la nube…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3561"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3778"/>
         <source>&amp;Open from Cloud…</source>
         <translation>&amp;Abrir desde la nube…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3562"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3779"/>
         <source>&amp;Version History…</source>
         <translation>&amp;Historial de versiones…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3564"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3781"/>
         <source>Start &amp;Real-time…</source>
         <translation>Iniciar &amp;tiempo real…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3565"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3782"/>
         <source>Stop Real-&amp;time</source>
         <translation>Detener t&amp;iempo real</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3566"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3783"/>
         <source>Show &amp;Live Cursors</source>
         <translation>Mostrar &amp;cursores en vivo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3567"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3784"/>
         <source>Zoom &amp;In</source>
         <translation>&amp;Acercar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3568"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3785"/>
         <source>Zoom &amp;Out</source>
         <translation>A&amp;lejar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3569"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3786"/>
         <source>&amp;Fit to View</source>
         <translation>&amp;Ajustar a la vista</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3570"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3787"/>
         <source>Show &amp;Grid</source>
         <translation>Mostrar &amp;cuadrícula</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3571"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3788"/>
         <source>&amp;Snap to Grid</source>
         <translation>&amp;Ajustar a la cuadrícula</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3572"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3789"/>
         <source>&amp;Anti-aliasing Off</source>
         <translation>&amp;Suavizado desactivado</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3577"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3794"/>
         <source>New Tileset from Image…</source>
         <translation>Nuevo tileset desde imagen…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3578"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3795"/>
         <source>New Tilemap</source>
         <translation>Nuevo mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3579"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3796"/>
         <source>Import Tiled JSON…</source>
         <translation>Importar JSON de Tiled…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3580"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3797"/>
         <source>Export Tiled JSON…</source>
         <translation>Exportar JSON de Tiled…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3581"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3798"/>
         <source>Stamp Tool</source>
         <translation>Herramienta de sello</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3582"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3799"/>
         <source>Place the selected tile</source>
         <translation>Coloca el tile seleccionado</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3583"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3800"/>
         <source>Tile Eraser</source>
         <translation>Borrador de tiles</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3584"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3801"/>
         <source>Clear the target cell</source>
         <translation>Limpia la celda de destino</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3585"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3802"/>
         <source>Rectangle Fill</source>
         <translation>Relleno rectangular</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3587"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3804"/>
         <source>Fill a dragged rectangle with the selected tile</source>
         <translation>Rellena un rectángulo arrastrado con el tile seleccionado</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3589"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3806"/>
         <source>Flip Stamp Horizontal</source>
         <translation>Voltear sello horizontalmente</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3590"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3807"/>
         <source>Flip Stamp Vertical</source>
         <translation>Voltear sello verticalmente</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3591"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3808"/>
         <source>Rotate Stamp 90° CW</source>
         <translation>Rotar sello 90° a la derecha</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3595"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3812"/>
         <source>Fille&amp;d Shapes</source>
         <translation>&amp;Formas rellenas</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3596"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3813"/>
         <source>&amp;Pixel Perfect</source>
         <translation>&amp;Píxel perfecto</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3624"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3841"/>
         <source>Configure &amp;Perspective…</source>
         <translation>Configurar &amp;perspectiva…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3638"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3855"/>
         <source>&amp;Library</source>
         <translation>&amp;Biblioteca</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3641"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3858"/>
         <source>&amp;Help</source>
         <translation>&amp;Ayuda</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3642"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3859"/>
         <source>&amp;User Guide</source>
         <translation>&amp;Guía del usuario</translation>
     </message>
@@ -2839,17 +3109,17 @@
         <translation type="vanished">Suavizado desactivado</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3573"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3790"/>
         <source>&amp;Tiled Mode</source>
         <translation>Modo &amp;mosaico</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3574"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3791"/>
         <source>Light</source>
         <translation>Claro</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3575"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3792"/>
         <source>Dark</source>
         <translation>Oscuro</translation>
     </message>
@@ -2862,182 +3132,182 @@
         <translation type="vanished">Píxel perfecto</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3597"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3814"/>
         <source>Tolerance</source>
         <translation>Tolerancia</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3598"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3815"/>
         <source>Magic-wand tolerance</source>
         <translation>Tolerancia de la varita mágica</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3600"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3817"/>
         <source>Dither mode</source>
         <translation>Modo de tramado</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3601"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3818"/>
         <source>Ordered (Bayer)</source>
         <translation>Ordenado (Bayer)</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3602"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3819"/>
         <source>Floyd–Steinberg</source>
         <translation>Floyd–Steinberg</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3603"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3820"/>
         <source>&amp;Extract from Image…</source>
         <translation>&amp;Extraer de imagen…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3604"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3821"/>
         <source>Palette &amp;Swap…</source>
         <translation>Intercambio de &amp;paleta…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3606"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3823"/>
         <source>Convert to Inde&amp;xed</source>
         <translation>Convertir a inde&amp;xado</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3607"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3824"/>
         <source>&amp;Convert to RGBA</source>
         <translation>&amp;Convertir a RGBA</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3609"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3826"/>
         <source>Select &amp;All</source>
         <translation>Seleccionar &amp;todo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3610"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3827"/>
         <source>&amp;Deselect</source>
         <translation>&amp;Deseleccionar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3611"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3828"/>
         <source>&amp;Invert Selection</source>
         <translation>&amp;Invertir selección</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3612"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3829"/>
         <source>&amp;Clear Selection</source>
         <translation>&amp;Borrar selección</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3614"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3831"/>
         <source>Flip &amp;Horizontal</source>
         <translation>Voltear &amp;horizontalmente</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3615"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3832"/>
         <source>Flip &amp;Vertical</source>
         <translation>Voltear &amp;verticalmente</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3616"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3833"/>
         <source>Rotate 90° C&amp;W</source>
         <translation>Rotar 90° &amp;horario</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3617"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3834"/>
         <source>Rotate 90° CC&amp;W</source>
         <translation>Rotar 90° &amp;antihorario</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3618"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3835"/>
         <source>&amp;Scale…</source>
         <translation>&amp;Escalar…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3619"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3836"/>
         <source>&amp;Rotate (RotSprite)…</source>
         <translation>&amp;Rotar (RotSprite)…</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3621"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3838"/>
         <source>Guides &amp;&amp; &amp;Rulers</source>
         <translation>Guías &amp;&amp; &amp;Reglas</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3622"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3839"/>
         <source>&amp;Isometric Grid</source>
         <translation>Cuadrícula &amp;Isométrica</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3623"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3840"/>
         <source>&amp;Perspective Grid</source>
         <translation>Cuadrícula en &amp;Perspectiva</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3625"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3842"/>
         <source>&amp;New View</source>
         <translation>&amp;Nueva Vista</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3626"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3843"/>
         <source>Reference &amp;Board</source>
         <translation>Panel de &amp;Referencia</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3628"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3845"/>
         <source>&amp;File</source>
         <translation>&amp;Archivo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3629"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3846"/>
         <source>&amp;Edit</source>
         <translation>&amp;Editar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3630"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3847"/>
         <source>&amp;Select</source>
         <translation>&amp;Selección</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3631"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3848"/>
         <source>&amp;Image</source>
         <translation>&amp;Imagen</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3632"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3849"/>
         <source>&amp;View</source>
         <translation>&amp;Ver</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3633"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3850"/>
         <source>&amp;Aids</source>
         <translation>A&amp;yudas</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3634"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3851"/>
         <source>&amp;Palette</source>
         <translation>&amp;Paleta</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3635"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3852"/>
         <source>Tile&amp;map</source>
         <translation>Mapa de &amp;tiles</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3636"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3853"/>
         <source>&amp;Automation</source>
         <translation>&amp;Automatización</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3637"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3854"/>
         <source>&amp;Cloud</source>
         <translation>&amp;Nube</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3639"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3856"/>
         <source>&amp;Theme</source>
         <translation>&amp;Tema</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="3640"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="3857"/>
         <source>&amp;Language</source>
         <translation>&amp;Idioma</translation>
     </message>
@@ -3261,33 +3531,33 @@
 <context>
     <name>Palette_Panel</name>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="357"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="362"/>
         <source>Colour palette</source>
         <extracomment>Stable cloud recovery-slot key for the working document when no named cloud project is active (presentation-only identifier, not a domain tuning value). A sensible starter palette for a new document (usability, not a spec value). Swatch icon edge, px (presentation-only sizing, not a domain tuning value). Filename of the app-level Favourites store under AppConfigLocation (ADR-0004). Longest edge of a RotSprite preview thumbnail, px (presentation-only sizing, not a domain tuning value — cf. _SWATCH_PX).</extracomment>
         <translation>Paleta de colores</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="358"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="363"/>
         <source>Palette panel</source>
         <translation>Panel de paleta</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="359"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="364"/>
         <source>Colour mode</source>
         <translation>Modo de color</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="364"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="369"/>
         <source>Mode: Indexed</source>
         <translation>Modo: Indexado</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="366"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="371"/>
         <source>Mode: RGBA</source>
         <translation>Modo: RGBA</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/main_window.py" line="368"/>
+        <location filename="../pixelart_creator/ui/main_window.py" line="373"/>
         <source>Mode: —</source>
         <translation>Modo: —</translation>
     </message>
@@ -5085,98 +5355,172 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
     </message>
 </context>
 <context>
+    <name>Timeline_Grid_View</name>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="546"/>
+        <source>Toggle Cel Visibility</source>
+        <extracomment>Emitted with the frame index a selection (of any kind) settled on (REQ-P5-UI-023). Pushes no command. Emitted with the ``layer_id`` a cell/row-header selection settled on (REQ-P5-UI-023). Pushes no command. Emitted with the frame index the cursor is scrubbing over during a body drag away from any occupied cell (REQ-P5-UI-025). Pushes no command.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="574"/>
+        <source>Create Cel Here</source>
+        <translation>Crear celda aquí</translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="576"/>
+        <source>Create a new drawing on this track in this frame</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="594"/>
+        <source>Create Cel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="618"/>
+        <source>Reorder Frame</source>
+        <translation type="unfinished">Reordenar fotograma</translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="768"/>
+        <source>Copy Cel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="776"/>
+        <source>Move Cel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="803"/>
+        <source>Timeline grid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="806"/>
+        <source>Frames as columns, layer tracks as rows; drag a header to reorder, drag a drawing to move it (hold Ctrl to copy), or open the context menu on an empty cell to create a cel there</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="811"/>
+        <source>Frame headers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="812"/>
+        <source>Layer track headers</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>Timeline_Panel</name>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="239"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="270"/>
         <source>Frame %1</source>
-        <extracomment>Longest edge (px) of a cached per-cell frame thumbnail. Presentation-only sizing (like ``_SWATCH_PX`` in ``main_window``); the resident buffer is never culled — only the small display thumbnail is downscaled (F7). Ceiling for the per-frame duration spin box (ms). A presentation-only cap on how high the editor spins (like ``_THUMBNAIL_EDGE``); it is NOT a domain tuning value — the authoritative bound is the logic ``make_set_frame_duration_command`` positive-int guard, which alone validates. Emitted with the frame index a click/keyboard selected (settled — onion on). Emitted with the frame index the cursor is dragging over (scrub — onion off).</extracomment>
+        <extracomment>Index of the strip surface in the cell-surface QStackedWidget — the default (REQ-P5-UI-020: &quot;the strip is the default&quot;). Not a domain constant (Article II does not reach a fixed widget-stack index); grouped with the other presentation literals this module already carries. Longest edge (px) of a cached per-cell frame thumbnail. Presentation-only sizing (like ``_SWATCH_PX`` in ``main_window``); the resident buffer is never culled — only the small display thumbnail is downscaled (F7). Ceiling for the per-frame duration spin box (ms). A presentation-only cap on how high the editor spins (like ``_THUMBNAIL_EDGE``); it is NOT a domain tuning value — the authoritative bound is the logic ``make_set_frame_duration_command`` positive-int guard, which alone validates. Emitted with the frame index a click/keyboard selected (settled — onion on). Emitted with the frame index the cursor is dragging over (scrub — onion off). Emitted with a ``layer_id`` the grid cell surface&apos;s selection settled on (REQ-P5-UI-023, BF-G1); the strip has no layer axis and never emits this.</extracomment>
         <translation>Fotograma %1</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="247"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="278"/>
         <source>Frame %1 — %2 ms</source>
         <translation>Fotograma %1 — %2 ms</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="333"/>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="452"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="392"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="511"/>
         <source>Add Frame</source>
         <translation>Añadir fotograma</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="345"/>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="454"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="404"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="513"/>
         <source>Remove Frame</source>
         <translation>Eliminar fotograma</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="356"/>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="456"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="415"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="515"/>
         <source>Duplicate Frame</source>
         <translation>Duplicar fotograma</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="389"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="448"/>
         <source>Reorder Frame</source>
         <translation>Reordenar fotograma</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="405"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="464"/>
         <source>Set Frame Duration</source>
         <translation>Establecer duración del fotograma</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="446"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="505"/>
         <source>Timeline panel</source>
         <translation>Panel de línea de tiempo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="447"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="506"/>
         <source>Frame actions</source>
         <translation>Acciones de fotograma</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="448"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="507"/>
         <source>Frame strip</source>
         <translation>Tira de fotogramas</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="450"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="509"/>
         <source>Frames left-to-right in playback order; drag to reorder</source>
         <translation>Fotogramas de izquierda a derecha en orden de reproducción; arrastre para reordenar</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="453"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="512"/>
         <source>Insert a new frame after the active one</source>
         <translation>Insertar un nuevo fotograma después del activo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="455"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="514"/>
         <source>Delete the active frame</source>
         <translation>Eliminar el fotograma activo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="458"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="517"/>
         <source>Insert a copy of the active frame after it</source>
         <translation>Insertar una copia del fotograma activo a continuación</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="460"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="519"/>
+        <source>Grid View</source>
+        <translation>Vista de cuadrícula</translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="521"/>
+        <source>Show frames and layer tracks as a grid instead of a strip</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="523"/>
+        <source>Timeline cell surface</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="524"/>
         <source>Duration</source>
         <translation>Duración</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="462"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="526"/>
         <source> ms</source>
         <translation> ms</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="463"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="527"/>
         <source>Frame duration</source>
         <translation>Duración del fotograma</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/timeline_panel.py" line="465"/>
+        <location filename="../pixelart_creator/ui/timeline_panel.py" line="529"/>
         <source>Display time of the active frame, in milliseconds</source>
         <translation>Tiempo de visualización del fotograma activo, en milisegundos</translation>
     </message>
@@ -5419,96 +5763,121 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
 <context>
     <name>_Node_Row</name>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="158"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="178"/>
         <source>Ref</source>
         <extracomment>A node address in the frame tree — the logic index path used by the document layer ops (top-level index, then indices descending through nested groups). A fully-shown mask (opaque alpha everywhere ⇒ no modulation, LOGIC-012).</extracomment>
         <translation>Ref</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="160"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="180"/>
         <source>Mask</source>
         <translation>Másc</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="162"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="182"/>
         <source>Smart</source>
         <translation>Intel</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="174"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="194"/>
         <source>Toggle Visibility</source>
         <translation>Alternar visibilidad</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="183"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="203"/>
         <source>Toggle Lock</source>
         <translation>Alternar bloqueo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="195"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="215"/>
         <source>Set Blend Mode</source>
         <translation>Establecer modo de fusión</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="229"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="249"/>
         <source>Set Opacity</source>
         <translation>Establecer opacidad</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="235"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="255"/>
         <source>V</source>
         <translation>V</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="236"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="256"/>
         <source>Toggle layer visibility</source>
         <translation>Alternar visibilidad de la capa</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="237"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="257"/>
         <source>Visibility</source>
         <translation>Visibilidad</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="238"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="258"/>
         <source>L</source>
         <translation>B</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="239"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="259"/>
         <source>Lock layer against painting</source>
         <translation>Bloquear la capa contra el pintado</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="240"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="260"/>
         <source>Lock</source>
         <translation>Bloqueo</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="241"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="261"/>
         <source>Layer name</source>
         <translation>Nombre de la capa</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="242"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="262"/>
         <source>Layer flags</source>
         <translation>Indicadores de la capa</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="243"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="263"/>
         <source>Layer opacity</source>
         <translation>Opacidad de la capa</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="244"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="264"/>
         <source>Opacity</source>
         <translation>Opacidad</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="245"/>
-        <location filename="../pixelart_creator/ui/layer_panel.py" line="246"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="265"/>
+        <location filename="../pixelart_creator/ui/layer_panel.py" line="266"/>
         <source>Blend mode</source>
         <translation>Modo de fusión</translation>
+    </message>
+</context>
+<context>
+    <name>_Project_Prefs_Menu</name>
+    <message>
+        <location filename="../pixelart_creator/ui/project_prefs_actions.py" line="104"/>
+        <source>Confirm before overwriting a cel</source>
+        <extracomment>The provider the caller supplies: returns the active document, or ``None`` when no document is open.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/project_prefs_actions.py" line="105"/>
+        <source>Confirm: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/project_prefs_actions.py" line="108"/>
+        <location filename="../pixelart_creator/ui/project_prefs_actions.py" line="109"/>
+        <source>Project confirmations</source>
+        <translation>Confirmaciones del proyecto</translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/project_prefs_actions.py" line="114"/>
+        <source>Restore this confirmation so it asks again</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -5525,6 +5894,61 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
         <location filename="../pixelart_creator/ui/tileset_editor_panel.py" line="155"/>
         <source>Left-click to paint, right-click to erase</source>
         <translation>Clic izquierdo para pintar, clic derecho para borrar</translation>
+    </message>
+</context>
+<context>
+    <name>_Track_Table_Model</name>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="237"/>
+        <source>Frame %1</source>
+        <extracomment>Longest edge (px) of a cached per-cell thumbnail. Mirrors ``timeline_panel._THUMBNAIL_EDGE`` exactly (visual consistency between the two cell surfaces the toggle swaps between, T4); a presentation-only sizing literal, not a domain tuning value (Article II does not reach it, like its strip twin). Custom data roles carried on every cell, alongside the standard Qt roles.</extracomment>
+        <translation type="unfinished">Fotograma %1</translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="254"/>
+        <source>%1, %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="259"/>
+        <source>%1, %2 — empty</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="266"/>
+        <source>%1, track %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="271"/>
+        <source>%1, track %2, empty</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="276"/>
+        <source>Occupied cell</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="276"/>
+        <source>Empty cell</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="324"/>
+        <source>%1
+%2 ms</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="330"/>
+        <source>Frame %1, %2 milliseconds</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../pixelart_creator/ui/timeline_grid_view.py" line="341"/>
+        <source>Track %1</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
