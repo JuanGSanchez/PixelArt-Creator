@@ -144,37 +144,36 @@ tira — alternar entre ambas vistas nunca pierde tu posición.
   para copiarlo en su lugar, dejando el origen intacto. Ambas acciones son un único
   paso de deshacer.
 - **Confirmación de sobrescritura** — soltar sobre una celda que ya tiene contenido
-  abre el diálogo **Overwrite Existing Cel?** pidiéndote confirmación antes de
-  reemplazarlo. Marca su casilla **"Don't ask again for this project"** (también
-  pendiente de traducción) para dejar de recibir esa pregunta el resto de este
-  proyecto; consulta [Confirmaciones del proyecto](#confirmaciones-del-proyecto)
-  más abajo para volver a activarla.
+  abre el diálogo **¿Sobrescribir celda existente?** pidiéndote confirmación
+  antes de reemplazarlo. Marca su casilla
+  **"No volver a preguntar para este proyecto"** para dejar de recibir esa
+  pregunta el resto de este proyecto; consulta [Confirmaciones del
+  proyecto](#confirmaciones-del-proyecto) más abajo para volver a activarla.
 - **Alternar visibilidad por celda** — haz clic en el indicador de visibilidad de una
   celda para mostrar/ocultar la capa de ese fotograma; es un paso de deshacer, igual
   que el alternador de visibilidad en cualquier otro lugar.
 - **Crear una celda aquí** — clic derecho (o la tecla de menú contextual del teclado)
-  sobre una celda vacía para la acción **"Create Cel Here"** (sin traducir). No se
-  ofrece en absoluto cuando la celda ya está ocupada, ni cuando el fotograma ya está
-  en el número máximo de capas — el menú nunca ofrece una acción que solo se
+  sobre una celda vacía para la acción **"Crear celda aquí"**. No se ofrece en
+  absoluto cuando la celda ya está ocupada, ni cuando el fotograma ya está en el
+  número máximo de capas — el menú nunca ofrece una acción que solo se
   rechazaría.
 - **Recorrer (scrub)** — arrastra por las celdas vacías de la cuadrícula para
   recorrer el fotograma mostrado, igual que arrastrar por la tira.
 - **Reordenar columnas** — arrastra el encabezado de una columna para reordenar
   fotogramas, el equivalente en la cuadrícula de arrastrar una celda de la tira.
 
-> **Nota de idioma.** "Grid View", "Overwrite Existing Cel?", "Don't ask again for
-> this project" y "Create Cel Here" aparecen todavía en inglés en la interfaz en
-> español: el catálogo de traducción (`i18n/pixelart_es.ts`) aún no incluye estas
-> cadenas. Esto es un hueco de localización, no un error de esta guía.
+> **Nota de idioma.** "Grid View" aparece todavía en inglés en la interfaz en
+> español: el catálogo de traducción (`i18n/pixelart_es.ts`) aún no incluye esta
+> cadena. Esto es un hueco de localización, no un error de esta guía.
 
 ### Confirmaciones del proyecto
 
 La confirmación de sobrescritura de la vista de cuadrícula es una de las
-preferencias por proyecto de la aplicación: una vez suprimida con "Don't ask again
-for this project," permanece desactivada para ese proyecto hasta que la restaures
-desde el menú **Project confirmations** (bajo Editar; también pendiente de
-traducción), que lista todas las confirmaciones suprimidas y reactiva cada una
-individualmente.
+preferencias por proyecto de la aplicación: una vez suprimida con
+"No volver a preguntar para este proyecto," permanece desactivada para ese
+proyecto hasta que la restaures desde el menú **Project confirmations** (bajo
+Editar; también pendiente de traducción), que lista todas las confirmaciones
+suprimidas y reactiva cada una individualmente.
 
 ## Persistencia
 
