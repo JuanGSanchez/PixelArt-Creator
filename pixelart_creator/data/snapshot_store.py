@@ -1,7 +1,7 @@
 """Document <-> content-addressed snapshot store (zero Qt, S11).
 
-The shared, single persisted-history payload for the whole product (planned
-ADR-0052): a timelapse frame's own recorded state (D-12, phase-9) and a
+The shared, single persisted-history payload for the whole product
+(ADR-0052): a timelapse frame's own recorded state (D-12, phase-9) and a
 mode-toggle undo checkpoint (phase-6) are both, at bottom, one
 :class:`~pixelart_creator.logic.document.Document` at a moment in time. Rather
 than invent a second encoding, this module reuses the **public**
