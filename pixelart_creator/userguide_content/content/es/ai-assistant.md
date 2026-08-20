@@ -1,3 +1,4 @@
+<!-- site-counterpart: docs/site/pages/es/usage/ai-assistant.md (derivado DESDE este archivo del bundle, dirección inversa — WP-8 unidad 2d) -->
 # El asistente de IA — chatea para manejar el editor
 
 El **asistente de IA** te permite manejar el editor en **lenguaje natural**. Escribes

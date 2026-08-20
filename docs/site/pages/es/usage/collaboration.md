@@ -327,6 +327,8 @@ fusión** resumiendo lo que ocurrió (por ejemplo, *"Merged branch 'experiment'
     un paso de deshacer en la pila de deshacer. **Open Diff** es opcional —
     puedes fusionar directamente sin revisar antes las diferencias.
 
+<!-- split-with: pixelart_creator/userguide_content/content/es/collaboration.md, sección "Nota para operadores: ejecutar el backend de sincronización" (esta página extrae y amplía el detalle de despliegue de esa sección — WP-8 unidad 2d) -->
+
 ## Nota para operadores: ejecutar el backend de sincronización
 
 La coedición en tiempo real necesita un **backend de sincronización** — un

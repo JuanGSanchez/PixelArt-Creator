@@ -1,3 +1,4 @@
+<!-- surface-only: bundle — in-app orientation content; no site page by design (WP-8 unit 2d) -->
 # The right-click colour hub
 
 The **colour hub** is a contextual menu you summon **right where you are working**:

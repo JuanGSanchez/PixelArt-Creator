@@ -1,3 +1,4 @@
+<!-- surface-only: bundle — contenido de orientación en la app; sin página en el sitio, por diseño (WP-8 unidad 2d) -->
 # El lienzo: zoom, desplazamiento y la cuadrícula
 
 El **lienzo** es la superficie de dibujo principal — una escena grande que admite

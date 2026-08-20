@@ -3,8 +3,8 @@
 PixelArt Creator is a pixel-art editor built around an 8K-capable canvas, a
 non-destructive layer model, and a fast region-scoped compositor.
 
-This guide covers the user-facing workflows shipped through **Phase 4 — Layer &
-Canvas System**:
+This guide covers the user-facing workflows shipped so far, from the core layer &
+canvas system through cloud collaboration and the asset library:
 
 - **[Layer panel](usage/layers.md)** — opacity, visibility, lock, blend mode,
   reordering, add / remove / duplicate, groups, masks, reference and smart
@@ -38,6 +38,11 @@ Canvas System**:
   extend the app with trusted, consent-gated plugins, batch-recolour many targets
   at once, generate content procedurally, and run any automation headlessly with
   the `pixelart-run` command line.
+- **[AI assistant](usage/ai-assistant.md)** — drive the editor in plain language
+  over a model-agnostic chat panel: connect any OpenAI-compatible or Anthropic
+  provider with your own key (kept in the OS keyring, never in the project),
+  and let it run the same automation operations you can record and script by
+  hand, with reversible edits auto-applying and destructive ones asking first.
 - **[Visual aids & UX](usage/visual-aids.md)** — a live real-size preview, guides
   & rulers with snapping, isometric and perspective grids, a PureRef-style
   reference board, multiple synced views of one document, and reproducible
@@ -50,8 +55,9 @@ Canvas System**:
 - **[Shared projects & comments](usage/collaboration.md)** — share a project with a
   named member roster (owner / editor / viewer roles), leave and resolve threaded
   comments, and see who else is present, with concurrent edits merged by a
-  deterministic hybrid convergence model (real-time co-editing, live cursors and
-  art branching arrive in a later slice).
+  deterministic hybrid convergence model — real-time co-editing, other editors'
+  live cursors, and git-like art branching (with an optional pre-merge diff
+  review) all ship in this release.
 - **[Asset library](usage/asset-library.md)** — catalog your sprites, animations,
   tilesets, tilemaps and palettes as named, tagged assets and find them fast with
   search and filter by name, tag and kind, from the **&Library** menu.

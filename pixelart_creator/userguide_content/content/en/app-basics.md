@@ -1,3 +1,4 @@
+<!-- surface-only: bundle — in-app orientation content; only lightly covered by the site's index.md framing prose, no dedicated site page by design (WP-8 unit 2d) -->
 # Getting started & the workspace
 
 Welcome to **PixelArt Creator** — a desktop pixel-art studio with an 8K canvas, a

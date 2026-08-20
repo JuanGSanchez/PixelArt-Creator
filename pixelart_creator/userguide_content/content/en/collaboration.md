@@ -236,6 +236,8 @@ conflict-free, the merged document is loaded into the active tab, and the panel 
 > step. Branching is session state and is **not** an undo step on the undo stack.
 > **Open Diff** is optional — you can merge directly without reviewing the diff first.
 
+<!-- split-with: docs/site/pages/en/usage/hosting.md (that page extracts and expands this section's deployment detail; this section stays the bundle's single mention — WP-8 unit 2d) -->
+
 ## Operator note: running the sync backend
 
 Real-time co-editing needs a **sync backend** — a small, separate service that relays and
