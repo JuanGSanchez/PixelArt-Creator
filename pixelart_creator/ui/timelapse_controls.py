@@ -23,11 +23,22 @@ in-session ``QUndoStack``
 or a loaded, cross-session payload
 (:class:`~pixelart_creator.ui.timelapse_playback.Snapshot_Document_Provider`).
 Whichever substrate serves it, every rendered frame is emitted on
-:attr:`Timelapse_Controls.frameReady` — the shipped active canvas consumes it
-for an in-session play, and
+:attr:`Timelapse_Controls.frameReady`. **One control surface, one wired
+display target so far:** the production host
+(``ui/main_window.py``) forwards ``frameReady`` to
 :class:`~pixelart_creator.ui.timelapse_frame_view.Timelapse_Frame_View`
-consumes it for a reopened recording (REQ-P9-UI-024): **one control surface,
-two display targets**.
+only while :meth:`is_reopened_recording` is true, so that widget's
+"reopened recording" banner (REQ-P9-UI-024) is never shown over the
+user's own current work. There is, as of this wiring pass, **no display
+target for an in-session (history) playback** — the active canvas does
+not consume ``frameReady``; only its **read-only lock** is wired: the
+production host connects :attr:`playbackEditLockChanged` to refuse
+document edits on the active tab while playback runs or is paused
+mid-sequence (REQ-P9-UI-016), disabling that tab's view and the shared
+undo/redo actions. :attr:`playbackEditLockChanged` is only ever emitted
+``True`` while :meth:`is_reopened_recording` is false — a reopened
+recording's review never borrows or locks whatever document happens to
+be open (REQ-P9-UI-024's "must not quietly borrow the active one").
 
 **The verdict-to-words boundary (plan §8.2, Ruling B).** Every
 :class:`~pixelart_creator.logic.timelapse.ReconstructionBlocker` code maps to
@@ -477,6 +488,18 @@ class Timelapse_Controls(QWidget):
         """Return whether recording is active."""
         return self._recording
 
+    def is_reopened_recording(self) -> bool:
+        """Return whether the current session is a loaded, payload-carrying file.
+
+        ``True`` once :meth:`_on_load`/:meth:`load_reopened_recording` has
+        served a payload (REQ-P9-UI-024) and not yet reset/re-recorded —
+        the host uses this to route ``frameReady`` to
+        :class:`~pixelart_creator.ui.timelapse_frame_view.Timelapse_Frame_View`
+        only for a reopened recording, never for the user's own in-session
+        work.
+        """
+        return self._payload is not None
+
     def frame_count(self) -> int:
         """Return the number of recorded frames."""
         return len(self._session.frames)
@@ -827,7 +850,11 @@ class Timelapse_Controls(QWidget):
             self._seek_slider.setMaximum(max(0, len(self._rendered_frames) - 1))
         self._playing = True
         self._seek_slider.setEnabled(True)
-        self.playbackEditLockChanged.emit(True)
+        # REQ-P9-UI-024: reviewing a reopened (payload) recording touches no
+        # open document, so it must never lock one either — only an
+        # in-session (history) playback engages the read-only lock.
+        if self._payload is None:
+            self.playbackEditLockChanged.emit(True)
         self._timer.start(self._interval_ms())
         self._retranslate_play()
 
@@ -852,8 +879,10 @@ class Timelapse_Controls(QWidget):
     def _pause_playback(self) -> None:
         self._timer.stop()
         self._playing = False
-        # Editing stays refused while paused mid-sequence (REQ-P9-UI-016).
-        self.playbackEditLockChanged.emit(True)
+        # Editing stays refused while paused mid-sequence (REQ-P9-UI-016) —
+        # gated the same way as the play-start emit above (REQ-P9-UI-024).
+        if self._payload is None:
+            self.playbackEditLockChanged.emit(True)
         self._retranslate_play()
 
     def _on_stop(self) -> None:
@@ -866,7 +895,7 @@ class Timelapse_Controls(QWidget):
         self._seek_slider.setValue(0)
         if self._play_button.isChecked():
             self._play_button.setChecked(False)
-        if was_active:
+        if was_active and self._payload is None:
             self.playbackEditLockChanged.emit(False)
         self._emit_count()
         self._retranslate_play()

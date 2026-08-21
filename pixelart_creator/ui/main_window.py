@@ -168,6 +168,7 @@ from pixelart_creator.ui.frame_tags_panel import Frame_Tags_Panel
 from pixelart_creator.ui.guides_rulers_overlay import Guides_Rulers_Overlay
 from pixelart_creator.ui.i18n import LanguageManager
 from pixelart_creator.ui.image_import import decode_image
+from pixelart_creator.ui.iso_grid_dialog import Iso_Grid_Dialog
 from pixelart_creator.ui.iso_grid_overlay import Iso_Grid_Overlay
 from pixelart_creator.ui.layer_panel import Layer_Panel
 from pixelart_creator.ui.live_cursors_overlay import Live_Cursors_Overlay
@@ -217,6 +218,7 @@ from pixelart_creator.ui.tilemap_io_actions import (
 from pixelart_creator.ui.tilemap_layer_panel import Tilemap_Layer_Panel
 from pixelart_creator.ui.tileset_editor_panel import Tileset_Editor_Panel
 from pixelart_creator.ui.timelapse_controls import Timelapse_Controls
+from pixelart_creator.ui.timelapse_frame_view import Timelapse_Frame_View
 from pixelart_creator.ui.timeline_panel import Timeline_Panel
 from pixelart_creator.ui.tools import (
     DitherTool,
@@ -626,6 +628,10 @@ class Main_Window(QMainWindow):
         #: is not itself re-recorded).
         self._pending_automation_ops: Optional[List[Op]] = None
         self._pending_automation_label = ""
+        #: True while an in-session timelapse playback holds the active tab's
+        #: canvas + the shared undo/redo actions read-only (REQ-P9-UI-016);
+        #: see ``_on_timelapse_playback_lock_changed``.
+        self._playback_locked = False
 
         self._macro_controls = Macro_Controls(self)
         self._macro_controls.replayRequested.connect(self._on_replay_requested)
@@ -1332,6 +1338,26 @@ class Main_Window(QMainWindow):
         self._timelapse_dock = self._add_workflow_dock(self._timelapse_controls)
         self._timelapse_dock.hide()
 
+        # Reopened-recording display target (REQ-P9-UI-024, DEP-12f): a
+        # dock of its own, never the active canvas, so its "reopened
+        # recording" banner can never appear over the user's own current
+        # work. Fed frameReady only while the shipped controls are
+        # reviewing a loaded, payload-carrying session; the read-only lock
+        # (playbackEditLockChanged) and the dropped-frames notice
+        # (framesDropped) are routed to their production consumers here too.
+        self._timelapse_frame_view = Timelapse_Frame_View(self)
+        self._timelapse_frame_view_dock = self._add_workflow_dock(
+            self._timelapse_frame_view
+        )
+        self._timelapse_frame_view_dock.hide()
+        self._timelapse_controls.frameReady.connect(self._on_timelapse_frame_ready)
+        self._timelapse_controls.playbackEditLockChanged.connect(
+            self._on_timelapse_playback_lock_changed
+        )
+        self._timelapse_controls.framesDropped.connect(
+            self._on_timelapse_frames_dropped
+        )
+
         # Reference board: a separate window (PureRef-style; optional always-on-top).
         self._reference_board = Reference_Board()
         self._reference_board.setWindowFlag(Qt.WindowType.Window, True)
@@ -1352,6 +1378,12 @@ class Main_Window(QMainWindow):
         self._iso_action.setCheckable(True)
         self._iso_action.toggled.connect(self._on_iso_toggled)
         self._aids_menu.addAction(self._iso_action)
+        # REQ-P9-UI-004: the minimal iso-grid configuration dialog entry point,
+        # in the same menu region as its toggle — mirrors the perspective aid's
+        # D-09 pattern below.
+        self._iso_config_action = QAction(self)
+        self._iso_config_action.triggered.connect(self._on_configure_iso_grid)
+        self._aids_menu.addAction(self._iso_config_action)
         self._perspective_action = QAction(self)
         self._perspective_action.setCheckable(True)
         self._perspective_action.toggled.connect(self._on_perspective_toggled)
@@ -1371,6 +1403,7 @@ class Main_Window(QMainWindow):
         self._reference_board_action.triggered.connect(self._on_show_reference_board)
         self._aids_menu.addAction(self._reference_board_action)
         self._aids_menu.addAction(self._timelapse_dock.toggleViewAction())
+        self._aids_menu.addAction(self._timelapse_frame_view_dock.toggleViewAction())
 
     def _create_tab_aids(self, record: "_DocTab") -> QWidget:
         """Create this tab's overlays + rulers, returning the ruler-wrapped view.
@@ -1510,6 +1543,55 @@ class Main_Window(QMainWindow):
             action.setChecked(bool(visible))
             action.blockSignals(False)
 
+    def _on_timelapse_frame_ready(self, frame: "np.ndarray") -> None:
+        """Route one rendered timelapse frame to its display target (frameReady).
+
+        Only a reopened (payload-carrying) session's frames reach
+        :class:`Timelapse_Frame_View` — REQ-P9-UI-024's "reopened recording"
+        banner must never appear over the user's own in-session work.
+        ``Timelapse_Controls.is_reopened_recording()`` is the same
+        distinction :meth:`_on_timelapse_playback_lock_changed`'s emitter
+        already gates on, so the two consumers stay consistent with each
+        other by construction.
+        """
+        if not self._timelapse_controls.is_reopened_recording():
+            return
+        self._timelapse_frame_view.display_frame(frame)
+        if not self._timelapse_frame_view_dock.isVisible():
+            self._timelapse_frame_view_dock.show()
+            self._timelapse_frame_view_dock.raise_()
+
+    def _on_timelapse_playback_lock_changed(self, locked: bool) -> None:
+        """Refuse document edits on the active tab during playback (REQ-P9-UI-016).
+
+        Only ever emitted for an in-session (history) playback —
+        ``Timelapse_Controls`` gates the emission on
+        ``not is_reopened_recording()`` — so the tab this locks genuinely is
+        the document the running session was recorded against. Disables
+        that tab's canvas view (no drawing, no tool commit) and the shared
+        undo/redo actions (no undo/redo); both are re-enabled once playback
+        stops (``locked`` becomes ``False``).
+        """
+        self._playback_locked = locked
+        record = self.active_tab()
+        if record is not None:
+            record.view.setEnabled(not locked)
+        self._undo_action.setEnabled(not locked and self._can_undo())
+        self._redo_action.setEnabled(not locked and self._can_redo())
+
+    def _on_timelapse_frames_dropped(self, count: int) -> None:
+        """Surface the timelapse dock so its drop notice reaches the user (UI-021).
+
+        ``Timelapse_Controls`` already sets its own reason-label text on
+        this same occurrence (``_on_stack_index_changed``); that text is
+        never duplicated here. The dock starts hidden, so without this the
+        notice could be produced while nothing shows it.
+        """
+        del count  # the widget's own reason label already states the count
+        if not self._timelapse_dock.isVisible():
+            self._timelapse_dock.show()
+            self._timelapse_dock.raise_()
+
     def _on_guides_toggled(self, enabled: bool) -> None:
         record = self.active_tab()
         if record is not None and record.guides_rulers is not None:
@@ -1519,6 +1601,15 @@ class Main_Window(QMainWindow):
         record = self.active_tab()
         if record is not None and record.iso_overlay is not None:
             record.iso_overlay.setVisible(enabled)
+
+    def _on_configure_iso_grid(self) -> None:
+        """Open the isometric-grid configuration dialog for the active tab (UI-004)."""
+        record = self.active_tab()
+        if record is None or record.iso_overlay is None:
+            return
+        dialog = Iso_Grid_Dialog(record.iso_overlay.config(), self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            record.iso_overlay.set_config(dialog.iso_config())
 
     def _on_perspective_toggled(self, enabled: bool) -> None:
         record = self.active_tab()
@@ -3638,10 +3729,16 @@ class Main_Window(QMainWindow):
 
         Undo / redo are disabled during the brief off-thread run so the GUI thread
         cannot mutate the document concurrently with the worker; a non-blocking
-        status message reflects the run.
+        status message reflects the run. Also respects a live timelapse playback
+        lock (``self._playback_locked``, REQ-P9-UI-016) so this handler can never
+        re-enable undo/redo out from under it.
         """
-        self._undo_action.setEnabled(not busy and self._can_undo())
-        self._redo_action.setEnabled(not busy and self._can_redo())
+        self._undo_action.setEnabled(
+            not busy and not self._playback_locked and self._can_undo()
+        )
+        self._redo_action.setEnabled(
+            not busy and not self._playback_locked and self._can_redo()
+        )
         if busy:
             self.statusBar().showMessage(self.tr("Running automation…"))
         else:
@@ -3741,6 +3838,7 @@ class Main_Window(QMainWindow):
         # title ("Real-Size Preview" / "Timelapse") so the toggles are labelled.
         self._preview_dock.setWindowTitle(self.tr("Real-Size Preview"))
         self._timelapse_dock.setWindowTitle(self.tr("Timelapse"))
+        self._timelapse_frame_view_dock.setWindowTitle(self.tr("Reopened Recording"))
         self._tab_widget.setAccessibleName(self.tr("Open documents"))
         self._float_hint.setAccessibleName(self.tr("Floating selection status"))
         self._update_float_hint()
@@ -3837,6 +3935,7 @@ class Main_Window(QMainWindow):
 
         self._guides_action.setText(self.tr("Guides && &Rulers"))
         self._iso_action.setText(self.tr("&Isometric Grid"))
+        self._iso_config_action.setText(self.tr("Configure &Isometric Grid…"))
         self._perspective_action.setText(self.tr("&Perspective Grid"))
         self._perspective_config_action.setText(self.tr("Configure &Perspective…"))
         self._new_view_action.setText(self.tr("&New View"))
