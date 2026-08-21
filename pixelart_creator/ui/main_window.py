@@ -2235,6 +2235,14 @@ class Main_Window(QMainWindow):
         record = self.active_tab()
         if record is None:
             self._active_view = None
+            # No tab is left to rebind to (the last/only tab just closed) —
+            # unbind the timelapse controls explicitly so its existing
+            # unconditional _on_stop() teardown (stop timer, release the
+            # playback edit lock) still runs; _bind_visual_aids_to_active()
+            # below is never reached in this branch, so nothing else stops
+            # a still-active in-session playback for a document that no
+            # longer has a tab.
+            self._timelapse_controls.bind_undo_stack(None)
             self._update_cloud_status()
             return
         self._active_view = record.view

@@ -442,3 +442,83 @@ def test_ui016_edit_lock_engagement_unchanged_with_overlay_wired(qtbot):
     assert record.view.isEnabled() is True
     assert win._undo_action.isEnabled() is True
     assert record.scene._playback_overlay.isVisible() is False
+
+
+# --------------------------------------------------------------------------- #
+# REC-3 tab-close teardown fix (Main_Window._on_tab_changed's ``record is    #
+# None`` branch now calls ``bind_undo_stack(None)``) -- permanent regression #
+# encoding of AGT-06's own ephemeral probe (a), Scenario A + Scenario B      #
+# (subagent-report-agt-06-qa-expert-ab0bc12c-20260821T145232.md).           #
+# --------------------------------------------------------------------------- #
+
+
+def test_tabclose_a_only_tab_playing_stops_timer_and_releases_lock_same_turn(
+    qtbot,
+):
+    """REC-3 fix: closing the ONLY open tab while its in-session timelapse
+    playback is active stops the ``Timelapse_Controls`` ``QTimer`` and
+    releases ``_playback_locked`` in the SAME event-loop turn that
+    ``close_document(...)`` returns -- no ``qtbot.wait``/``processEvents``
+    self-heal call appears anywhere between the close and the assertions
+    below. Before the fix, ``Main_Window._on_tab_changed``'s ``record is
+    None`` early return skipped ``_bind_visual_aids_to_active()`` entirely,
+    so ``Timelapse_Controls.bind_undo_stack`` (and its unconditional
+    ``_on_stop()`` safety net) was never reached and the timer/lock leaked
+    until a new document was opened or Stop was clicked manually. Encodes
+    AGT-06's own probe (a), Scenario A."""
+    win = _window(qtbot)
+    _record_three_real_frames(qtbot, win)
+    assert len(win._tabs_data) == 1  # the only tab -- Scenario A's precondition
+
+    # Observer connected BEFORE the triggering action.
+    with qtbot.waitSignal(
+        win._timelapse_controls.playbackEditLockChanged, timeout=2000
+    ) as blocker:
+        win._timelapse_controls._play_button.setChecked(True)
+    assert blocker.args == [True]
+
+    assert win._playback_locked is True
+    assert win._timelapse_controls._timer.isActive() is True
+
+    win.close_document(0)  # the only open tab, closed while playing
+
+    # Observable state immediately after close_document(...) returns -- no
+    # event-loop turn was allowed to pass between the close and this assert.
+    assert win._playback_locked is False
+    assert win._timelapse_controls._timer.isActive() is False
+
+
+def test_tabclose_b_closing_non_last_tab_stays_regression_pinned(qtbot):
+    """Regression pin: closing a NON-last tab (a next tab remains) while ITS
+    playback is active must keep behaving exactly as it did before the
+    REC-3 fix -- the pre-existing rebind path
+    (``_on_tab_changed`` -> ``_bind_visual_aids_to_active`` ->
+    ``Timelapse_Controls.bind_undo_stack`` -> unconditional ``_on_stop()``)
+    fires synchronously inside ``removeTab``'s own ``currentChanged``, so the
+    timer stops and the lock releases immediately, same-turn, exactly as
+    Scenario B in AGT-06's probe (a) showed against the UNFIXED code. The
+    fix touches only the ``record is None`` branch, never this path, so this
+    test's outcome is unaffected by the fix either way (see the reversion
+    proof, where this test PASSES both before and after)."""
+    win = _window(qtbot)
+    _record_three_real_frames(qtbot, win)
+    win.new_document()  # a second tab -- now 2 tabs open, not the last-tab case
+    assert len(win._tabs_data) == 2
+
+    win._tab_widget.setCurrentIndex(0)
+    assert win.active_tab() is win._tabs_data[0]
+
+    with qtbot.waitSignal(
+        win._timelapse_controls.playbackEditLockChanged, timeout=2000
+    ) as blocker:
+        win._timelapse_controls._play_button.setChecked(True)
+    assert blocker.args == [True]
+
+    assert win._playback_locked is True
+    assert win._timelapse_controls._timer.isActive() is True
+
+    win.close_document(0)  # close the ACTIVE (playing) tab; tab 1 remains
+
+    assert len(win._tabs_data) == 1
+    assert win._playback_locked is False
+    assert win._timelapse_controls._timer.isActive() is False
