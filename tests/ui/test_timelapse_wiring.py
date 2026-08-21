@@ -32,13 +32,31 @@ Covers job criterion **C-4** (REC-3/R-4):
 Both themes run automatically (the autouse ``theme`` fixture in
 ``tests/ui/conftest.py``); nothing here depends on which theme is active.
 
-## Adjudication recorded here, not encoded as a test (per dispatch instruction)
+## Superseded: the REQ-P9-UI-016 display gap named below is now CLOSED
 
-REQ-P9-UI-016 (``design-docs/specs/phase-9-timelapse-replay/spec.md:709-715``)
-reads, verbatim: *"Playing steps the bound document through the recorded
-positions in order, so the **active canvas shows each historical state as it
-is reconstructed** (the document genuinely is at that state — §4.3)."* That is
-a visual-display requirement on the active canvas during IN-SESSION playback,
+The paragraph immediately following this one is kept verbatim as the
+historical record of the gap this module used to report rather than assert.
+It is superseded, not deleted, per this codebase's own convention (see the
+"re-keyed onto identity" note in ``test_timelapse_playback.py``): AGT-10's
+render-strategy directive
+(``design-docs/reports/subagent-report-agt-10-p9playback-20260821-140500.md``)
+and AGT-05's implementation of it (``CanvasScene._PlaybackOverlayItem`` /
+``show_playback_frame`` / ``end_playback_frame``, wired from THIS module's own
+``_on_timelapse_frame_ready`` / ``_on_timelapse_playback_lock_changed``) now
+close it. The overlay-visible/reconstructed-content assertions live in
+``tests/ui/test_playback_overlay.py`` (AGT-10 acceptance-list items 1-4, 6);
+THIS module adds the remaining wiring-integration items: reopened-session
+isolation (item 5, run alongside the pre-existing banner test below so both
+``is_reopened_recording()`` branches are proven mutually exclusive in the same
+suite run), teardown on stop AND on a paused/scrubbed stop, and confirmation
+that the pre-existing edit-lock behaviour is unaffected by the new wiring.
+
+*Superseded text (2026-08-21):* REQ-P9-UI-016
+(``design-docs/specs/phase-9-timelapse-replay/spec.md:709-715``) reads,
+verbatim: *"Playing steps the bound document through the recorded positions in
+order, so the **active canvas shows each historical state as it is
+reconstructed** (the document genuinely is at that state — §4.3)."* That is a
+visual-display requirement on the active canvas during IN-SESSION playback,
 separate from the read-only edit lock. AGT-05's S3 dispatch wired the lock
 (``playbackEditLockChanged`` -> ``record.view.setEnabled``) but explicitly did
 NOT build a mechanism for the active canvas to paint the reconstructed
@@ -52,13 +70,11 @@ it. It is NOT an S1 (8K grid) or S2 (left-click paint) criterion in this
 procedure's own C2 sense, and nothing here corrupts data or misleads the
 user (the document is provably byte-identical before/after, per the existing
 ``test_sc_ui_016_2_stack_and_document_restored_after_playback``) — so it does
-not meet this procedure's BLOCKED bar. It is reported as a real, owed
+not meet this procedure's BLOCKED bar. It was reported as a real, owed
 follow-up dispatch (scope: ``ui/canvas_scene.py``/``ui/canvas_view.py``, a
 render-strategy question AGT-05's own report already flagged as needing
 either a new display-override hook or a render/restore timing re-architecture
--- AGT-10's territory). No test below asserts canvas pixel content during
-in-session playback; per this dispatch's instruction, that would encode a
-known-failing expectation rather than adjudicate it.
+-- AGT-10's territory) -- and that dispatch is what closed it.
 """
 
 from __future__ import annotations
@@ -287,3 +303,142 @@ def test_c4_reopened_recording_banner_identifies_itself_through_production_dock(
     banner = win2._timelapse_frame_view._banner.text().lower()
     assert "reopened" in banner
     assert "not" in banner  # "...this is not your current document"
+
+
+# --------------------------------------------------------------------------- #
+# AGT-10 acceptance-list item 5 -- reopened review never shows the in-session #
+# overlay; run in the SAME suite as the banner test directly above.          #
+# --------------------------------------------------------------------------- #
+
+
+def test_ui016_reopened_session_never_shows_the_in_session_playback_overlay(
+    qtbot, tmp_path, monkeypatch
+):
+    """REQ-P9-UI-016/-024, AGT-10 acceptance item 5: reviewing a reopened
+    (payload-carrying) recording must NEVER construct/show the in-session
+    canvas overlay on any open tab -- only ``Timelapse_Frame_View`` serves
+    it. This runs in the SAME suite as
+    ``test_c4_reopened_recording_banner_identifies_itself_through_production_dock``
+    directly above (both in this module) and the in-session overlay
+    assertions in ``tests/ui/test_playback_overlay.py``, proving the two
+    ``is_reopened_recording()`` branches stay mutually exclusive after the
+    overlay change -- not merely each true in isolation.
+    """
+    win1 = _window(qtbot)
+    _record_three_real_frames(qtbot, win1)
+    saved = _save_current_session(qtbot, monkeypatch, win1, tmp_path, name="clip3")
+
+    win2 = _window(qtbot)
+    record2 = win2.active_tab()
+    assert record2 is not None
+    assert record2.scene._playback_overlay.isVisible() is False
+
+    _load_into(monkeypatch, win2._timelapse_controls, saved)
+    assert win2._timelapse_controls.is_reopened_recording() is True
+
+    received = []
+    win2._timelapse_controls.frameReady.connect(lambda arr: received.append(arr))
+    win2._timelapse_controls._play_button.setChecked(True)
+    qtbot.waitUntil(lambda: len(received) >= 3, timeout=5000)
+
+    # The reopened frames reached Timelapse_Frame_View, never the active
+    # tab's canvas overlay -- no overlay call happened for this path.
+    assert record2.scene._playback_overlay.isVisible() is False
+    assert win2._timelapse_frame_view._last_pixmap is not None  # frameReady consumed
+
+    win2._timelapse_controls._stop_button.click()
+    assert record2.scene._playback_overlay.isVisible() is False
+
+
+# --------------------------------------------------------------------------- #
+# Teardown on stop AND on a paused/scrubbed stop                              #
+# --------------------------------------------------------------------------- #
+
+
+def test_ui016_teardown_hides_overlay_on_stop_and_after_pause_scrub_stop(
+    qtbot,
+):
+    """AGT-10 acceptance list / task instruction 'stop AND scrub-end': the
+    overlay teardown (``record.scene.end_playback_frame()``, driven by
+    ``playbackEditLockChanged(False)``) fires identically whether Stop is
+    clicked while actively ticking, or after the transport was paused and
+    the user scrubbed (the seek slider) to a different recorded frame first.
+
+    Adjudication on 'scrub-end': ``Timelapse_Controls`` has no SEPARATE
+    scrub-end signal -- ``_on_seek`` only emits ``frameReady`` (see
+    ``test_sc_ui_017_1_seek_shows_frame_k_and_leaves_session_unchanged`` in
+    ``test_timelapse_playback.py``, which pauses then seeks then calls
+    ``_on_stop()`` directly, the same shape used here). Teardown is the SAME
+    ``_on_stop()``/``playbackEditLockChanged(False)`` path in both contexts;
+    this test proves both invocation contexts -- stop while ticking, and stop
+    after a pause+scrub -- reach it and hide the overlay.
+    """
+    win = _window(qtbot)
+    record = _record_three_real_frames(qtbot, win)
+
+    # -- context 1: stop while actively ticking ---------------------------
+    received = []
+    win._timelapse_controls.frameReady.connect(lambda arr: received.append(arr))
+    win._timelapse_controls._play_button.setChecked(True)
+    qtbot.waitUntil(lambda: len(received) >= 1, timeout=5000)
+    assert record.scene._playback_overlay.isVisible() is True
+
+    win._timelapse_controls._stop_button.click()
+    assert record.scene._playback_overlay.isVisible() is False
+    assert record.view.isEnabled() is True
+
+    # -- context 2: pause immediately (no tick fired yet, same shape as
+    # test_sc_ui_017_1_seek_shows_frame_k_and_leaves_session_unchanged), then
+    # scrub (seek) -- which is what actually shows a frame here -- then stop.
+    win._timelapse_controls._play_button.setChecked(True)  # re-renders (Given: stopped)
+    win._timelapse_controls._pause_playback()  # paused before any timer tick fires
+    assert record.scene._playback_overlay.isVisible() is False  # nothing shown yet
+
+    win._timelapse_controls._seek_slider.setValue(1)  # scrub to frame index 1
+    assert record.scene._playback_overlay.isVisible() is True  # scrub shows a frame
+
+    win._timelapse_controls._on_stop()
+    assert record.scene._playback_overlay.isVisible() is False
+    assert record.view.isEnabled() is True
+
+
+# --------------------------------------------------------------------------- #
+# Edit-lock engagement is unchanged by the overlay wiring                    #
+# --------------------------------------------------------------------------- #
+
+
+def test_ui016_edit_lock_engagement_unchanged_with_overlay_wired(qtbot):
+    """AGT-10 acceptance list / task instruction 'edit lock engagement
+    unchanged': the pre-existing REQ-P9-UI-016 lock behaviour (view/undo/redo
+    disabled while playing, restored on stop) is unaffected by wiring the
+    overlay into the SAME two handlers -- same shape as
+    ``test_c4_in_session_playback_locks_active_canvas_and_undo_redo`` above,
+    extended to also assert the overlay toggles alongside the lock."""
+    win = _window(qtbot)
+    record = _record_three_real_frames(qtbot, win)
+
+    assert record.view.isEnabled() is True
+    assert win._undo_action.isEnabled() is True
+    assert win._playback_locked is False
+    assert record.scene._playback_overlay.isVisible() is False
+
+    with qtbot.waitSignal(
+        win._timelapse_controls.playbackEditLockChanged, timeout=2000
+    ) as blocker:
+        win._timelapse_controls._play_button.setChecked(True)
+    assert blocker.args == [True]
+
+    assert win._playback_locked is True
+    assert record.view.isEnabled() is False  # no drawing, no tool commit
+    assert win._undo_action.isEnabled() is False  # no undo
+    assert win._redo_action.isEnabled() is False  # no redo
+    qtbot.waitUntil(
+        lambda: record.scene._playback_overlay.isVisible() is True, timeout=5000
+    )
+
+    win._timelapse_controls._stop_button.click()
+
+    assert win._playback_locked is False
+    assert record.view.isEnabled() is True
+    assert win._undo_action.isEnabled() is True
+    assert record.scene._playback_overlay.isVisible() is False

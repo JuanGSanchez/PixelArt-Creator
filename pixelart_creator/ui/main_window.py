@@ -1552,9 +1552,14 @@ class Main_Window(QMainWindow):
         ``Timelapse_Controls.is_reopened_recording()`` is the same
         distinction :meth:`_on_timelapse_playback_lock_changed`'s emitter
         already gates on, so the two consumers stay consistent with each
-        other by construction.
+        other by construction. An in-session (non-reopened) frame instead goes
+        to the active tab's canvas overlay (REQ-P9-UI-016) — the same tab this
+        playback locked, since both handlers reach it via :meth:`active_tab`.
         """
         if not self._timelapse_controls.is_reopened_recording():
+            record = self.active_tab()
+            if record is not None:
+                record.scene.show_playback_frame(frame)
             return
         self._timelapse_frame_view.display_frame(frame)
         if not self._timelapse_frame_view_dock.isVisible():
@@ -1570,12 +1575,16 @@ class Main_Window(QMainWindow):
         the document the running session was recorded against. Disables
         that tab's canvas view (no drawing, no tool commit) and the shared
         undo/redo actions (no undo/redo); both are re-enabled once playback
-        stops (``locked`` becomes ``False``).
+        stops (``locked`` becomes ``False``), at which point the playback
+        overlay is also hidden so the tab returns to showing the live
+        document.
         """
         self._playback_locked = locked
         record = self.active_tab()
         if record is not None:
             record.view.setEnabled(not locked)
+            if not locked:
+                record.scene.end_playback_frame()
         self._undo_action.setEnabled(not locked and self._can_undo())
         self._redo_action.setEnabled(not locked and self._can_redo())
 

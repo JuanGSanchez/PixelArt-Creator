@@ -645,6 +645,71 @@ class _OnionOverlayItem(QGraphicsItem):
             painter.drawImage(target, image, target)
 
 
+class _PlaybackOverlayItem(QGraphicsPixmapItem):
+    """Historical timelapse frame shown in place of the live composite (UI-016).
+
+    Mirrors :class:`_BufferPixmapItem`'s zero-copy ``QImage`` pattern exactly: each
+    tick wraps the already-rendered playback frame array directly (no
+    ``QPixmap.fromImage`` in the per-tick path) and ``paint`` blits it clipped to
+    the exposed rect. Hidden by default and whenever playback is not running, so
+    it never risks being mistaken for the live document. It never reads or writes
+    ``self._composite``/the buffer item's ``_buffer`` — the document is untouched
+    for the whole span an in-session playback is shown (D6/AGT-10 directive).
+    """
+
+    _Z = 0.5
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setZValue(self._Z)
+        self.setVisible(False)
+        self._frame: Optional[np.ndarray] = None
+        self._image = QImage()
+        self._w = 0
+        self._h = 0
+        # A single pixmap keeps the item a genuine QGraphicsPixmapItem (D1); the
+        # live image is what paint() blits, so this is only a placeholder.
+        self.setPixmap(QPixmap(1, 1))
+
+    def show_frame(self, frame: np.ndarray) -> None:
+        """Present ``frame`` (a zero-copy QImage wrap, no document buffer touch)."""
+        h, w = frame.shape[0], frame.shape[1]
+        if w != self._w or h != self._h:
+            self.prepareGeometryChange()
+            self._w, self._h = w, h
+        # Keep a strong reference: the QImage below shares this array's memory.
+        self._frame = frame
+        self._image = QImage(
+            frame.data, w, h, frame.strides[0], QImage.Format.Format_RGBA8888
+        )
+        self.setVisible(True)
+        self.update()
+
+    def end_frame(self) -> None:
+        """Hide the overlay (idempotent; safe when already hidden)."""
+        if self.isVisible():
+            self.setVisible(False)
+            self.update()
+
+    def boundingRect(self) -> QRectF:  # noqa: N802 (Qt override)
+        return QRectF(0, 0, self._w, self._h)
+
+    def paint(  # noqa: N802 (Qt override)
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: Optional[QWidget] = None,
+    ) -> None:
+        if self._frame is None:
+            return
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+        target = option.exposedRect.intersected(self.boundingRect())
+        if target.isEmpty():
+            return
+        painter.drawImage(target, self._image, target)
+
+
 class CanvasScene(QGraphicsScene):
     """Scene rendering the active frame's composited layer stack + background.
 
@@ -796,6 +861,10 @@ class CanvasScene(QGraphicsScene):
         # Onion ghosts draw behind the active frame composite (REQ-P5-UI-011).
         self._onion_item = _OnionOverlayItem()
         self.addItem(self._onion_item)
+        # In-session playback overlay (REQ-P9-UI-016): always present, hidden
+        # until playback shows a frame — same idiom as _tiled_item/_onion_item.
+        self._playback_overlay = _PlaybackOverlayItem()
+        self.addItem(self._playback_overlay)
         self.setSceneRect(0, 0, document.width, document.height)
 
     # -- line-tool preview (D5) ------------------------------------------
@@ -1304,6 +1373,25 @@ class CanvasScene(QGraphicsScene):
         ordered.sort(key=lambda pair: pair[0])
         self._onion_item.set_ghosts([image for _z, image in ordered], w, h)
         self.update(self._onion_item.boundingRect())
+
+    # -- in-session playback overlay (REQ-P9-UI-016) ----------------------
+
+    def show_playback_frame(self, frame: np.ndarray) -> None:
+        """Present a rendered timelapse ``frame`` in place of the live composite.
+
+        Overlay presentation only: neither ``self._composite`` nor the buffer
+        item's live pixels are read or written, so the document stays exactly as
+        it was for the whole span playback is shown (no undo entry, no dirty).
+        """
+        self._playback_overlay.show_frame(frame)
+
+    def end_playback_frame(self) -> None:
+        """Hide the playback overlay and return to the live composite.
+
+        Idempotent — safe to call on every path that stops playback, including
+        one where the overlay was never shown.
+        """
+        self._playback_overlay.end_frame()
 
     # -- document binding -------------------------------------------------
 
