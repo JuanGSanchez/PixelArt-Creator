@@ -564,6 +564,7 @@ class Canvas_View(QGraphicsView):
             scene=self._scene,
             target=self._make_edit_target(),
             set_active_color=self._on_color_picked,
+            resolve_palette_color=self._resolve_palette_color,
             selection=self._selection,
             set_selection=self.set_selection,
             symmetry_axis=self._symmetry_axis,
@@ -577,6 +578,27 @@ class Canvas_View(QGraphicsView):
     def _on_color_picked(self, color: RGBA) -> None:
         self._active_color = color
         self.colorPicked.emit(color)
+
+    def _resolve_palette_color(self, index: int) -> Optional[RGBA]:
+        """Resolve an indexed pixel's palette ``index`` to its RGBA colour.
+
+        Fed to every :class:`ToolContext` as ``resolve_palette_color`` for the
+        picker tool (REQ-P1-UI-016). Reads the active document's live palette
+        off :attr:`_recording_document` — the same ``Document`` the recording
+        stack binds each pushed command to, kept current by ``set_recording``
+        on every tab/branch switch (T-DRAW-01) — rather than the buffer, which
+        carries no palette of its own (Article I). Returns ``None`` for an
+        out-of-range index (a stale pixel left over from a since-shrunk
+        palette) or when no document is bound yet, so the picker no-ops
+        instead of crashing.
+        """
+        document = self._recording_document
+        if document is None:
+            return None
+        palette = document.palette
+        if 0 <= index < len(palette):
+            return palette.get(index)
+        return None
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         """Start a pan, open the right-click menu, or start a paint stroke."""

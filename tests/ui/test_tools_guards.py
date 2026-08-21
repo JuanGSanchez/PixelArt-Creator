@@ -24,7 +24,7 @@ RED = (230, 30, 30, 255)
 BLUE = (40, 90, 220, 255)
 
 
-def _ctx(scene, color=BLUE, picked=None):
+def _ctx(scene, color=BLUE, picked=None, resolve_palette_color=None):
     if picked is None:
         picked = []
     # The fixture's document is freshly built (Document.__init__ mints every
@@ -39,6 +39,10 @@ def _ctx(scene, color=BLUE, picked=None):
         scene=scene,
         set_active_color=picked.append,
         target=EditTarget(frame_index=scene.frame_index, layer_id=layer.layer_id),
+        # Opt-in (REQ-P1-UI-016/-018): `None` unless a test explicitly supplies
+        # one, matching every real construction site's default and every
+        # existing caller of `_ctx()` in this file.
+        resolve_palette_color=resolve_palette_color,
     )
 
 
@@ -120,14 +124,66 @@ def test_picker_out_of_bounds_sets_nothing():
     assert picked == []
 
 
-def test_picker_indexed_pixel_sets_nothing_directly():
-    """Picking an indexed pixel (an int, not an RGBA tuple) sets no colour."""
+def test_picker_indexed_pixel_without_resolver_is_noop():
+    """Indexed pick, no `resolve_palette_color` bound: honest fallback, not a defect.
+
+    A bare hand-built :class:`ToolContext` (as every other test in this file
+    constructs one) carries no palette resolver by default
+    (``ToolContext.resolve_palette_color``, `ui/tools/base.py`), so the picker
+    cannot turn the picked palette *index* into an RGBA colour and stays a
+    documented no-op — it does NOT describe the picker's real, user-facing
+    behaviour (`Canvas_View._make_context` always supplies a live resolver in
+    production; see `test_picker_indexed.py` for that production-wired
+    regression, and `test_picker_indexed_pixel_with_resolver_sets_resolved_color`
+    below for the resolved-colour branch exercised directly against
+    :class:`PickerTool`). REQ-P1-UI-016/-018.
+    """
     scene = _indexed_scene()
     scene.active_buffer().set_pixel(3, 3, 1)
     picked: list = []
-    ctx = _ctx(scene, picked=picked)
+    ctx = _ctx(scene, picked=picked)  # resolve_palette_color defaults to None
     PickerTool().on_press(3, 3, ctx)
-    assert picked == []  # an int index is not applied as the active RGBA colour
+    assert picked == []
+
+
+def test_picker_indexed_pixel_with_resolver_sets_resolved_color():
+    """A bound resolver: the picker resolves the index and sets its RGBA colour.
+
+    Exercises `PickerTool.on_press`'s own resolve-then-set branch in isolation
+    (REQ-P1-UI-016). The resolver here is a direct `Palette.get` lookup, the
+    same computation `Canvas_View._resolve_palette_color` performs against the
+    live document palette — `test_picker_indexed.py` proves that production
+    wiring end-to-end through a real `Canvas_View`/`Document`.
+    """
+    palette = Palette([RED, BLUE])
+    scene = _indexed_scene()
+    scene.active_buffer().set_pixel(3, 3, 1)  # index 1 -> BLUE
+    picked: list = []
+    ctx = _ctx(
+        scene,
+        picked=picked,
+        resolve_palette_color=lambda i: (
+            palette.get(i) if 0 <= i < len(palette) else None
+        ),
+    )
+    PickerTool().on_press(3, 3, ctx)
+    assert picked == [BLUE]
+
+
+def test_picker_indexed_pixel_resolver_returns_none_is_noop():
+    """A resolver reporting a stale/out-of-range index (`None`) is a no-op.
+
+    REQ-P1-UI-016 ("picking does not mutate the buffer and pushes no undo
+    command") extends to "sets no active colour" for an index the resolver
+    cannot place — this must never raise, matching the picker's existing
+    out-of-canvas guard shape.
+    """
+    scene = _indexed_scene()
+    scene.active_buffer().set_pixel(3, 3, 9)  # stale index: no such palette entry
+    picked: list = []
+    ctx = _ctx(scene, picked=picked, resolve_palette_color=lambda i: None)
+    PickerTool().on_press(3, 3, ctx)
+    assert picked == []
 
 
 def test_plain_buffer_helpers_unused_paths():
