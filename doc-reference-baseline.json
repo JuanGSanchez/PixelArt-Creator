@@ -54,12 +54,6 @@
     "value": "Calibrate"
   },
   {
-    "file": "pixelart_creator/ui/assistant_dock.py",
-    "kind": "es-documentation-stale",
-    "line": 289,
-    "value": "Configure"
-  },
-  {
     "file": "pixelart_creator/ui/plugin_manager_panel.py",
     "kind": "es-documentation-stale",
     "line": 269,
@@ -100,12 +94,6 @@
     "kind": "es-documentation-stale",
     "line": 3858,
     "value": "Help"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "es-documentation-stale",
-    "line": 3839,
-    "value": "Isometric Grid"
   },
   {
     "file": "pixelart_creator/ui/main_window.py",

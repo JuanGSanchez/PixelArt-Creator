@@ -216,6 +216,14 @@ class ToolContext:
             never computed — because a ``PixelBuffer`` does not know which
             layer or frame it belongs to (Article I; plan §8.2).
         set_active_color: Callback the picker uses to set the active colour.
+        resolve_palette_color: Callback the picker uses to resolve an indexed
+            pixel's palette index to its RGBA colour (REQ-P1-UI-016). Returns
+            ``None`` when the index has no matching palette entry (e.g. a
+            stale pixel left over from a since-shrunk palette) so the picker
+            can no-op instead of raising. ``None`` outside a canvas view (a
+            bare ``ToolContext`` built by a test) — the picker then simply
+            cannot resolve an indexed pick, matching the pre-existing RGBA-only
+            behaviour.
         selection: The active selection mask, or ``None`` (whole buffer, CL-5).
         set_selection: Callback a selection tool uses to set the active mask.
         symmetry_axis: The active symmetry axis for live mirror drawing (P2-UI-011).
@@ -238,6 +246,7 @@ class ToolContext:
         set_active_color: Callable[[RGBA], None],
         *,
         target: Optional[EditTarget],
+        resolve_palette_color: Optional[Callable[[int], Optional[RGBA]]] = None,
         active_index: int = 0,
         selection: Optional[SelectionMask] = None,
         set_selection: Optional[Callable[[Optional[SelectionMask]], None]] = None,
@@ -257,6 +266,7 @@ class ToolContext:
         self.scene = scene
         self.target = target
         self.set_active_color = set_active_color
+        self.resolve_palette_color = resolve_palette_color
         self.selection = selection
         self.set_selection = set_selection
         self.symmetry_axis = symmetry_axis

@@ -23,3 +23,16 @@ class PickerTool(Tool):
         value = drawing.pick_color(ctx.buffer, x, y)
         if isinstance(value, tuple):
             ctx.set_active_color(value)
+            return
+        # Indexed buffer: `value` is a palette index (REQ-P1-UI-016). Resolve it
+        # to its RGBA colour through the context's palette resolver so
+        # `set_active_color` runs the same active-swatch path as an RGBA pick;
+        # `Main_Window._set_active_color` then aligns the paint-by-index value
+        # to the matching palette entry (REQ-P3-UI-014), so a subsequent stroke
+        # paints with the picked index. A stale index with no matching palette
+        # entry (or no resolver, e.g. a bare test context) resolves to `None`
+        # and the pick is a silent no-op, never a crash.
+        if ctx.resolve_palette_color is not None:
+            color = ctx.resolve_palette_color(value)
+            if color is not None:
+                ctx.set_active_color(color)
