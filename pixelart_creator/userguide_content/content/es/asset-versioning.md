@@ -78,11 +78,32 @@ lugar de copiarlos, la reutilización no cuesta nada en almacenamiento:
 > rotura señalará una reutilización cuyo destino desaparezca o cambie más
 > adelante.
 
+## Cuando cambia un recurso compartido
+
+Abrir un proyecto que referencia un recurso de biblioteca que ha sido editado desde
+entonces muestra el aviso **Recurso de biblioteca actualizado** (*Library Asset
+Updated*), una vez por cada recurso cambiado:
+
+- **Adoptar el cambio** (*Pick Up the Change*) resuelve a partir de ahora el
+  contenido actual del recurso en la biblioteca; la referencia del proyecto pasa a
+  la última revisión de la biblioteca.
+- **Mantener la versión referenciada** (*Keep the Referenced Version*) sigue
+  resolviendo exactamente el contenido que el proyecto ya referencia — nada de la
+  referencia cambia.
+
+Cancelar o cerrar el aviso se comporta igual que **Mantener la versión
+referenciada**. Marcar **No volver a preguntar** al elegir cualquiera de las dos
+opciones recuerda esa elección para futuras ediciones de este recurso, en este
+proyecto; puedes restaurar el aviso más tarde desde **Editar → Confirmaciones del
+proyecto → Cuando cambia un recurso de biblioteca referenciado**.
+
 ## Exportar e importar los recursos de un proyecto
 
-**Exportar** empaqueta exactamente los recursos que un proyecto referencia en un
-**artefacto autónomo y portable** para que el proyecto se abra completo en otra
-máquina; **importar** trae de vuelta un paquete de esos.
+**Exportar paquete de proyecto** (*Export Project Bundle*) empaqueta exactamente los
+recursos que un proyecto referencia en un **artefacto autónomo y portable** para que el
+proyecto se abra completo en otra máquina; **Importar paquete de proyecto** (*Import
+Project Bundle*) trae de vuelta un paquete de esos. Ambos comandos se acceden desde el
+menú **Biblioteca**.
 
 - **Exactamente los recursos referenciados — ni más ni menos.** Exportar resuelve
   el conjunto de referencias del proyecto y empaqueta precisamente los blobs de

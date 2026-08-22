@@ -31,6 +31,53 @@ flujo de trabajo de la aplicación), así que puedes organizar los tres paneles 
 prefieras. Los paneles comparten **un** catálogo en memoria, así que un cambio hecho
 en un panel se refleja de inmediato en los demás.
 
+## Registrar un recurso
+
+Antes de que algo aparezca en el catálogo, tiene que **registrarse**. Tres lugares de
+la aplicación inician un registro, y los tres terminan en el mismo aviso compartido,
+**Registrar recurso** (*Register Asset*):
+
+- **Registrar documento activo** (*Register Active Document*), en el menú
+  **Biblioteca**, registra el documento abierto en la pestaña activa. Registrar el
+  mismo documento de nuevo más tarde añade una nueva revisión a su entrada de catálogo
+  existente en lugar de crear un duplicado — consulta
+  [Versionado de recursos y reutilización entre proyectos](asset-versioning.md).
+- **Registrar selección** (*Register Selection*), también en el menú **Biblioteca**,
+  registra solo los píxeles dentro de tu selección actual. Para una selección no
+  rectangular, todo lo que queda fuera de los píxeles seleccionados es transparente en
+  el recurso registrado. Sin ninguna selección, no hay nada que registrar.
+- **También añadir a la biblioteca de recursos**, una casilla del diálogo de
+  exportación (consulta [Exportación y canalización](export-and-pipeline.md)), registra
+  el artefacto exportado en el mismo paso que la exportación.
+
+Los tres abren el mismo diálogo **Registrar recurso**, que pide:
+
+| Campo | Qué pide |
+| --- | --- |
+| **Nombre** | Un nombre de visualización para la nueva entrada de catálogo. |
+| **Tipo** | Uno de los cinco tipos de recurso — Sprite, Animación, Tileset, Mapa de tiles, Paleta. |
+| **Etiquetas** | Un conjunto opcional de etiquetas separadas por comas, comprobado contra los mismos límites de longitud y cantidad que el panel de etiquetado más abajo. |
+
+El diálogo valida mientras escribes: un nombre vacío, o un conjunto de etiquetas que
+supere los límites de longitud/cantidad, deshabilita el botón **Registrar** con un
+motivo claro mostrado hasta que lo corrijas. Cancelar el diálogo no registra nada.
+
+## Mover un recurso individual
+
+Otros dos comandos del menú **Biblioteca** mueven un único archivo de artefacto, a
+diferencia de un proyecto completo:
+
+- **Exportar recurso** (*Export Asset*) exporta la entrada de catálogo seleccionada
+  actualmente — o, sin ninguna selección, todas las entradas del catálogo abierto —
+  como un único archivo de artefacto importable.
+- **Importar recurso** (*Import Asset*) lee de vuelta uno de esos artefactos en la
+  biblioteca abierta, fusionándolo con el catálogo.
+
+Estos son distintos de **Exportar paquete de proyecto** / **Importar paquete de
+proyecto** (*Export Project Bundle* / *Import Project Bundle*), que mueven un proyecto
+completo junto con todo lo que referencia — consulta
+[Versionado de recursos y reutilización entre proyectos](asset-versioning.md).
+
 ## Explorar el catálogo
 
 El panel de **Biblioteca de recursos** lista el catálogo en tres columnas —

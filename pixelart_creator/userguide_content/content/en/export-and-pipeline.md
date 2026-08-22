@@ -72,6 +72,14 @@ and a Unity atlas from one project in a single run. Batch export is
 remaining targets still export and the failure is reported for that target alone, so one
 bad target never aborts the batch.
 
+## Registering an exported artifact in the library
+
+The export dialog carries a checkbox, **Also add to the asset library**, that registers
+the exported artifact into the [asset library](asset-library.md) in the same step as
+exporting it — an opt-in, not a default. Ticking it opens the shared **Register Asset**
+prompt (name, kind, tags) after a successful export; leaving it unticked exports without
+touching the library at all, exactly as before this option existed.
+
 ## Responsiveness
 
 All export work runs **off the GUI thread** on a background worker, behind a **progress
