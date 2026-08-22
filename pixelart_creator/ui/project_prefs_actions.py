@@ -12,16 +12,27 @@ Setting a preference is not document content (REQ-P5-DATA-004): no
 ``QUndoCommand`` is pushed. No domain logic lives here (Article I / S11) — this
 module only reads ``logic/project_prefs.py``'s registry and calls
 ``Document.prefs.with_value``.
+
+**Rendering is generic by domain size (plan §3.4, ruling P11-R2), not keyed on
+any one slice's key name.** A two-member domain (``phase-5``'s
+``confirm_cel_overwrite``) still renders as a single checkable action whose
+activation restores the default — byte-for-byte what shipped before this
+ruling. A domain with more than two members (``phase-11``'s
+``asset_library_edit``) renders as a nested, exclusive submenu — one checkable
+action per value — because a single checkbox cannot show which of two
+non-default outcomes is remembered. Both shapes read/write through the same
+``logic/project_prefs.py`` seam and neither pushes a ``QUndoCommand``.
 """
 
 from __future__ import annotations
 
 from typing import Callable, Dict, Optional
 
-from PySide6.QtCore import QEvent
-from PySide6.QtGui import QAction
+from PySide6.QtCore import QCoreApplication, QEvent
+from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import QMenu, QWidget
 
+from pixelart_creator.logic.asset_references import ASSET_LIBRARY_EDIT
 from pixelart_creator.logic.document import Document
 from pixelart_creator.logic.project_prefs import (
     CONFIRM_CEL_OVERWRITE,
@@ -29,13 +40,60 @@ from pixelart_creator.logic.project_prefs import (
     PrefKey,
 )
 
+#: A domain wider than this renders as a nested exclusive submenu rather than
+#: a single checkable action (plan §3.4) — a plain boolean-shaped preference
+#: (ask / suppressed) keeps the shipped single-checkbox rendering.
+_BINARY_DOMAIN_SIZE = 2
+
+#: Menu-rendering strings share one translation context with the class below
+#: so :func:`value_label_for` — a free function, exported for a future
+#: renderer (phase-6's settings dialog) — is caught by the same ``tr()``
+#: extraction pass as the class's own strings.
+_TR_CONTEXT = "_Project_Prefs_Menu"
+
+
+def value_label_for(key: PrefKey, value: str) -> str:
+    """Return ``value``'s label, in the user's own words, for ``key``.
+
+    Exported at module level (plan §3.4) so a later renderer of the same
+    ``logic/project_prefs.REGISTRY`` — phase-6's ``REQ-P6-UI-039`` settings
+    dialog is the named future consumer — shows the identical strings this
+    submenu does, rather than maintaining a second copy.
+
+    A key this module does not itself own (a future slice's) falls back to a
+    readable rendering of the raw value rather than inventing a label on that
+    slice's behalf — the same policy ``_label_for`` applies to unknown keys.
+    """
+    if key.name == ASSET_LIBRARY_EDIT.name:
+        labels = {
+            "ask": QCoreApplication.translate(
+                "_Project_Prefs_Menu", "Ask me every time"
+            ),
+            "always_pick_up": QCoreApplication.translate(
+                "_Project_Prefs_Menu", "Always pick up the library change"
+            ),
+            "always_keep_referenced": QCoreApplication.translate(
+                "_Project_Prefs_Menu", "Always keep the referenced version"
+            ),
+        }
+        if value in labels:
+            return labels[value]
+    return QCoreApplication.translate("_Project_Prefs_Menu", "Set to: %1").replace(
+        "%1", value.replace("_", " ")
+    )
+
+
 #: The provider the caller supplies: returns the active document, or ``None``
 #: when no document is open.
 DocumentProvider = Callable[[], Optional[Document]]
 
 
 class _Project_Prefs_Menu(QMenu):
-    """``&Edit -> Project confirmations``: one checkable action per registered key."""
+    """``&Edit -> Project confirmations``: one entry per registered key.
+
+    A two-value key renders as one checkable action; a key with more than
+    two values renders as a nested exclusive submenu (plan §3.4).
+    """
 
     def __init__(
         self,
@@ -53,9 +111,14 @@ class _Project_Prefs_Menu(QMenu):
         self._document_provider = document_provider
         self._on_changed = on_changed
         self._actions: Dict[str, QAction] = {}
+        self._submenus: Dict[str, QMenu] = {}
+        self._value_actions: Dict[str, Dict[str, QAction]] = {}
 
         for key in REGISTRY.values():
-            self._add_action(key)
+            if len(key.domain) > _BINARY_DOMAIN_SIZE:
+                self._add_submenu(key)
+            else:
+                self._add_action(key)
         self.aboutToShow.connect(self._sync)
 
         self._retranslate()
@@ -68,6 +131,31 @@ class _Project_Prefs_Menu(QMenu):
         self.addAction(action)
         self._actions[key.name] = action
 
+    def _add_submenu(self, key: PrefKey) -> None:
+        # A domain with more than two members cannot be shown by one checkbox
+        # (plan §3.4, ruling P11-R2): a nested menu holds one checkable action
+        # per value, in an exclusive group, so exactly one reads "checked" —
+        # the remembered outcome — at a time.
+        submenu = QMenu(self)
+        menu_action = submenu.menuAction()
+        menu_action.setData(key.name)
+        self.addMenu(submenu)
+        group = QActionGroup(submenu)
+        group.setExclusive(True)
+        value_actions: Dict[str, QAction] = {}
+        for value in sorted(key.domain):
+            action = QAction(submenu)
+            action.setCheckable(True)
+            action.setData((key.name, value))
+            action.setActionGroup(group)
+            action.triggered.connect(
+                lambda _checked, k=key, v=value: self._select(k, v)
+            )
+            submenu.addAction(action)
+            value_actions[value] = action
+        self._submenus[key.name] = submenu
+        self._value_actions[key.name] = value_actions
+
     def _restore(self, key: PrefKey) -> None:
         document = self._document_provider()
         if document is None:
@@ -75,6 +163,16 @@ class _Project_Prefs_Menu(QMenu):
         # A preference is not document content (REQ-P5-DATA-004): no
         # QUndoCommand, no dirty-flag implication — a direct assignment.
         document.prefs = document.prefs.with_value(key, key.default)
+        self._sync()
+        self._on_changed()
+
+    def _select(self, key: PrefKey, value: str) -> None:
+        document = self._document_provider()
+        if document is None:
+            return
+        # Same non-undoable direct-assignment contract as _restore — picking
+        # a remembered outcome is not document content either.
+        document.prefs = document.prefs.with_value(key, value)
         self._sync()
         self._on_changed()
 
@@ -92,6 +190,20 @@ class _Project_Prefs_Menu(QMenu):
                 action.setEnabled(True)
                 action.setChecked(document.prefs.get(key) != key.default)
             action.blockSignals(False)
+        for name, value_actions in self._value_actions.items():
+            key = REGISTRY.get(name)
+            submenu = self._submenus.get(name)
+            if key is None:
+                continue
+            enabled = document is not None
+            current = document.prefs.get(key) if document is not None else None
+            if submenu is not None:
+                submenu.menuAction().setEnabled(enabled)
+            for value, action in value_actions.items():
+                action.blockSignals(True)
+                action.setEnabled(enabled)
+                action.setChecked(enabled and current == value)
+                action.blockSignals(False)
 
     # -- i18n / a11y --------------------------------------------------------
 
@@ -102,6 +214,8 @@ class _Project_Prefs_Menu(QMenu):
         # name rather than this module inventing a label on that slice's behalf.
         if key.name == CONFIRM_CEL_OVERWRITE.name:
             return self.tr("Confirm before overwriting a cel")
+        if key.name == ASSET_LIBRARY_EDIT.name:
+            return self.tr("When a referenced library asset changes")
         return self.tr("Confirm: %1").replace("%1", key.name.replace("_", " "))
 
     def _retranslate(self) -> None:
@@ -112,6 +226,16 @@ class _Project_Prefs_Menu(QMenu):
             label = self._label_for(key) if key is not None else name
             action.setText(label)
             action.setToolTip(self.tr("Restore this confirmation so it asks again"))
+        for name, submenu in self._submenus.items():
+            key = REGISTRY.get(name)
+            label = self._label_for(key) if key is not None else name
+            submenu.setTitle(label)
+            submenu.setAccessibleName(label)
+            for value, action in self._value_actions.get(name, {}).items():
+                if key is not None:
+                    action.setText(value_label_for(key, value))
+                else:
+                    action.setText(value)
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
         """Re-translate the submenu's strings on a language change (F5)."""

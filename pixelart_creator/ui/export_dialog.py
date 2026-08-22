@@ -109,6 +109,13 @@ class Export_Dialog(QDialog):
         path_row.addWidget(self._path_edit, 1)
         path_row.addWidget(self._browse_button)
 
+        # T7-A (ruling P11-R7, REQ-P11-UI-014): the export flow's own opt-in into
+        # the asset library. Unchecked by default so the export's existing default
+        # behaviour (write the file, touch nothing else) is unchanged; the window
+        # (ui/main_window.py) performs the registration only after this export
+        # actually succeeds, never from this dialog (export runs off-thread).
+        self._register_check = QCheckBox(self)
+
         self._format_label = QLabel(self)
         self._preset_label = QLabel(self)
         self._path_label = QLabel(self)
@@ -129,6 +136,7 @@ class Export_Dialog(QDialog):
         layout.addWidget(self._options)
         layout.addWidget(self._path_label)
         layout.addLayout(path_row)
+        layout.addWidget(self._register_check)
         layout.addWidget(self._buttons)
 
         self._on_format_changed(0)
@@ -252,6 +260,14 @@ class Export_Dialog(QDialog):
         )
         return ExportTarget(request=request, out_path=path, label=label)
 
+    def register_on_export(self) -> bool:
+        """Return whether the user opted to also add this export to the library.
+
+        REQ-P11-UI-014, T7-A: calling this is the only way the caller learns
+        the opt-in was taken — the dialog itself performs no registration.
+        """
+        return self._register_check.isChecked()
+
     # -- slots ------------------------------------------------------------
 
     def _on_format_changed(self, index: int) -> None:
@@ -291,6 +307,7 @@ class Export_Dialog(QDialog):
         self._preset_label.setText(self.tr("Engine preset"))
         self._path_label.setText(self.tr("Destination"))
         self._browse_button.setText(self.tr("Browse…"))
+        self._register_check.setText(self.tr("Also add to the asset library"))
 
         self._format_combo.setItemText(0, self.tr("PNG image"))
         self._format_combo.setItemText(1, self.tr("Animated GIF"))
@@ -318,6 +335,9 @@ class Export_Dialog(QDialog):
         self._preset_combo.setAccessibleName(self.tr("Engine preset"))
         self._path_edit.setAccessibleName(self.tr("Destination path"))
         self._browse_button.setAccessibleName(self.tr("Browse for destination"))
+        self._register_check.setAccessibleName(
+            self.tr("Also add this export to the asset library")
+        )
         self._gif_source_combo.setAccessibleName(self.tr("GIF frame source"))
         self._gif_loop_spin.setAccessibleName(self.tr("GIF loop count"))
         self._columns_spin.setAccessibleName(self.tr("Sprite-sheet columns"))

@@ -12,7 +12,8 @@ tool → ``logic/drawing`` → :class:`PaintCommand` (Article I).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, List, Optional, Sequence, Tuple, cast
 
@@ -72,10 +73,16 @@ from pixelart_creator.data.palette_import import load_palette
 from pixelart_creator.data.project_io import (
     FILE_SUFFIX,
     ProjectIOError,
-    load_project,
+    load_project_with_asset_refs,
     save_project,
 )
 from pixelart_creator.logic import history, transform
+
+# Side-effect import: registers ASSET_LIBRARY_EDIT into project_prefs.REGISTRY
+# at module scope, before the confirmations submenu is built below (plan
+# §3.4, ruling P11-R2). Not referenced by name elsewhere in this module.
+from pixelart_creator.logic.asset_references import ASSET_LIBRARY_EDIT  # noqa: F401
+from pixelart_creator.logic.asset_references import ReferenceSet
 from pixelart_creator.logic.assistant import ChatBackend
 from pixelart_creator.logic.autosave import should_autosave
 from pixelart_creator.logic.blend import composite_stack
@@ -102,13 +109,15 @@ from pixelart_creator.logic.palette_ops import (
     make_cycle_command,
     make_swap_command,
 )
-from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer, PixelBufferError
 from pixelart_creator.logic.quantize import QuantizeError, make_constraint_command
 from pixelart_creator.logic.realtime_apply import RealtimeError
 from pixelart_creator.logic.rotsprite import make_rotsprite_command, rotsprite
 from pixelart_creator.logic.selection import (
+    SelectionError,
     SelectionMask,
     apply_masked,
+    extract_masked,
     rect_mask,
 )
 from pixelart_creator.logic.symmetry import SymmetryAxis
@@ -125,6 +134,10 @@ from pixelart_creator.ui.asset_library_panel import Asset_Library_Panel
 from pixelart_creator.ui.asset_reuse_panel import Asset_Reuse_Panel
 from pixelart_creator.ui.asset_search_panel import Asset_Search_Panel
 from pixelart_creator.ui.asset_tagging_panel import Asset_Tagging_Panel
+from pixelart_creator.ui.asset_update_prompt import (
+    Asset_Update_Prompt_Dialog,
+    resolve_library_edits,
+)
 from pixelart_creator.ui.asset_version_browser import Asset_Version_Browser
 from pixelart_creator.ui.assistant_dock import Assistant_Dock
 from pixelart_creator.ui.assistant_worker import Assistant_Controller
@@ -161,7 +174,10 @@ from pixelart_creator.ui.commands import (
 )
 from pixelart_creator.ui.comments_panel import Comments_Panel
 from pixelart_creator.ui.dependency_graph_view import Dependency_Graph_View
-from pixelart_creator.ui.export_actions import run_export_dialog
+from pixelart_creator.ui.export_actions import (
+    Export_Registration_Request,
+    run_export_dialog,
+)
 from pixelart_creator.ui.export_worker import Export_Controller
 from pixelart_creator.ui.extract_palette_dialog import Extract_Palette_Dialog
 from pixelart_creator.ui.frame_tags_panel import Frame_Tags_Panel
@@ -287,6 +303,27 @@ class _DocTab:
     # read-only, Qt-free ``compute_sync_state`` for the Cloud menu / version
     # browser status line — never computed here.
     local_version_id: Optional[str] = None
+    # T43 (ruling P11-R12, DEV-43 finding 1): this tab's session-scoped binding
+    # to the catalog entry it was last registered/re-registered as, or None
+    # when the tab has never been registered. Session-scoped only — never
+    # written to the project file, never carried by a format-version event —
+    # so re-registering the SAME changed document appends a revision to the
+    # SAME asset (REQ-P11-UI-020's reachability) instead of always minting a
+    # new one. Cleared by _on_register_active_document itself when the bound
+    # id is found to no longer be in the catalog (T43's own pre-check); the
+    # session's own stale-id guard (asset_library_actions.py's
+    # _register_via_prompt) remains the last line of defence for a race.
+    registered_asset_id: Optional[str] = None
+    # T30 (plan §3.11 (2)/(2b)): this tab's real, durable reference set — held
+    # here, never on ``document`` (data/project_io.py's own "the open projects'
+    # reference sets are held by the caller" contract) — and the key that
+    # scopes it, both in the reuse panel's ``_projects`` dict and in the
+    # update-prompt's per-project session memory. Unique per open tab: the
+    # absolute path for a project loaded from disk, a stable synthetic id
+    # otherwise (never ``document`` identity, which is mutable across
+    # branch-switch/restore).
+    reference_set: ReferenceSet = field(default_factory=ReferenceSet)
+    project_key: str = ""
 
 
 class Palette_Panel(QWidget):
@@ -599,6 +636,18 @@ class Main_Window(QMainWindow):
         self._export_controller.busyChanged.connect(self._on_export_busy)
         self._export_run_failures: List[str] = []
         self._export_run_ok = 0
+        # T7-A (ruling P11-R7): the export dialog's opt-in answer, carried back by
+        # run_export_dialog and consumed only on the completion handlers below —
+        # export runs off-thread, so success is known only there, never at
+        # submission (REQ-P11-UI-014's negative: an un-opted-in export must leave
+        # the catalog/store/revision history unchanged).
+        self._pending_export_registration: Optional[Export_Registration_Request] = None
+        # T10 WIRE follow-up (DEV-37): the target directory chosen by
+        # _on_import_project_bundle, consumed exactly once by
+        # _on_project_bundle_imported to title the new tab — the session's
+        # own projectBundleImported signal carries only (document, catalog),
+        # never the path the caller supplied it.
+        self._pending_bundle_import_dir: Optional[Path] = None
         self._batch_export_panel = Batch_Export_Panel(self)
         self._batch_export_panel.set_context(
             self._export_controller, self.active_document
@@ -790,17 +839,19 @@ class Main_Window(QMainWindow):
 
         # Phase-11 Slice 1 asset library (REQ-P11-UI-001/-002/-003): browse the
         # catalog, tag assets, and search/filter — three docked panels bound to one
-        # Asset_Library_Session that holds the shared in-memory AssetCatalog and the
+        # Asset_Library_Session that holds the shared AssetCatalog, LOADED FROM DISK
+        # at bind time and persisted on every mutation (T5, REQ-P11-DATA-008), and the
         # shared undo stack the tag QUndoCommands push onto (PL11-D3). Every Slice-1
-        # library op (enumerate, filter, tag) is a PURELY SYNCHRONOUS in-memory call
-        # over the immutable catalog value — no network, no I/O, no off-GUI-thread
-        # worker / timer / poller (the Slice-B Shared_Projects_Panel precedent), so
-        # shutdown_prewarm is unchanged and no worker survives into GC. Only tag
-        # add/remove is undoable; adding/removing a catalog entry is library state and
-        # pushes NO QUndoCommand. The tag stack joins the undo group so the global
-        # Undo/Redo actions reach it. The search panel drives the pure query on the
-        # library panel; the library selection drives the tagging panel.
+        # library op (enumerate, filter, tag) is a SYNCHRONOUS in-memory call over the
+        # immutable catalog value — no network, no off-GUI-thread worker / timer /
+        # poller (the Slice-B Shared_Projects_Panel precedent), so shutdown_prewarm is
+        # unchanged and no worker survives into GC. Only tag add/remove is undoable;
+        # adding/removing a catalog entry is library state and pushes NO QUndoCommand.
+        # The tag stack joins the undo group so the global Undo/Redo actions reach it.
+        # The search panel drives the pure query on the library panel; the library
+        # selection drives the tagging panel.
         self._asset_session = Asset_Library_Session(self)
+        self._asset_session.bind_root(self._asset_root())
         self._undo_group.addStack(self._asset_session.undo_stack())
         self._asset_library_panel = Asset_Library_Panel(self)
         self._asset_library_panel.set_session(self._asset_session)
@@ -830,6 +881,20 @@ class Main_Window(QMainWindow):
         self._asset_library_panel.assetSelected.connect(
             self._dependency_graph_view.set_asset
         )
+        # T9 (REQ-P11-LOGIC-010, REQ-P11-UI-018, ruling P11-R6): give
+        # show_edges its first production caller. The session derives no
+        # edge itself and never calls set_graph or imports the view (see
+        # Asset_Library_Session's own docstring) — show_edges alone decides
+        # whether the accumulated edge set it receives is accepted or
+        # passively rejected as cyclic.
+        self._asset_session.edgesDerived.connect(self._dependency_graph_view.show_edges)
+        # T10 WIRE follow-up (DEV-37): a bundle import reconstructs a NEW
+        # project (never merged into this session's open library, plan
+        # Section 3.7's "Import lands in" row); the window is what opens it
+        # into a tab.
+        self._asset_session.projectBundleImported.connect(
+            self._on_project_bundle_imported
+        )
         self._dependency_dock = self._add_workflow_dock(self._dependency_graph_view)
 
         # Phase-11 Slice 3 version browser + cross-project reuse
@@ -846,6 +911,15 @@ class Main_Window(QMainWindow):
         # precedent), so shutdown_prewarm is unchanged and nothing survives into GC.
         self._asset_content_store = default_content_store(self._asset_root())
         self._asset_revision_store = AssetRevisionStore(self._asset_content_store)
+        # T41 (P11-R11): adopt persisted revision history before any consumer reads it
+        self._asset_revision_store.bind_root(self._asset_root())
+        # T7-A (ruling P11-R7): bind both stores to the session so
+        # register_active_document / register_selection / register_export_artifact
+        # (T7) stop failing _require_ingress_ready on their first call. Neither
+        # store is constructed here — both already exist on the two lines above
+        # (ADR-0051's injected-root ruling; the session never re-resolves a root).
+        self._asset_session.bind_content_store(self._asset_content_store)
+        self._asset_session.bind_revision_store(self._asset_revision_store)
         self._asset_version_browser = Asset_Version_Browser(self)
         self._asset_version_browser.set_session(self._asset_session)
         self._asset_version_browser.set_store(self._asset_revision_store)
@@ -978,6 +1052,49 @@ class Main_Window(QMainWindow):
         self._live_cursors_action = QAction(self)
         self._live_cursors_action.setCheckable(True)
         self._live_cursors_action.toggled.connect(self._on_live_cursors_toggled)
+
+        # T7-A (ruling P11-R7, REQ-P11-UI-017): the two registration command
+        # entries T7 shipped as unreachable methods on Asset_Library_Session.
+        # Enablement is refreshed by _refresh_registration_actions_ui, not set
+        # here (both start disabled until a document is open).
+        self._register_active_document_action = QAction(self)
+        self._register_active_document_action.setEnabled(False)
+        self._register_active_document_action.triggered.connect(
+            self._on_register_active_document
+        )
+        self._register_selection_action = QAction(self)
+        self._register_selection_action.setEnabled(False)
+        self._register_selection_action.triggered.connect(self._on_register_selection)
+
+        # T10 WIRE follow-up (DEV-37, ruling P11-R5, plan Section 3.7): the
+        # four import/export commands T10 shipped as unreachable methods on
+        # Asset_Library_Session. Two separately-labelled command PAIRS —
+        # library artifact (import/export) and project bundle
+        # (export/import) — never sharing a menu entry or a dialog filter
+        # (the session methods themselves own the filter strings). The two
+        # import actions need only the already-bound library session (bound
+        # at construction, above _build_actions in __init__) so they start
+        # enabled; the two export actions are refreshed by
+        # _refresh_ingress_actions_ui, mirroring _refresh_registration_actions_ui's
+        # active_tab()-driven idiom.
+        self._import_library_artifact_action = QAction(self)
+        self._import_library_artifact_action.triggered.connect(
+            self._on_import_library_artifact
+        )
+        self._export_library_artifact_action = QAction(self)
+        self._export_library_artifact_action.setEnabled(False)
+        self._export_library_artifact_action.triggered.connect(
+            self._on_export_library_artifact
+        )
+        self._export_project_bundle_action = QAction(self)
+        self._export_project_bundle_action.setEnabled(False)
+        self._export_project_bundle_action.triggered.connect(
+            self._on_export_project_bundle
+        )
+        self._import_project_bundle_action = QAction(self)
+        self._import_project_bundle_action.triggered.connect(
+            self._on_import_project_bundle
+        )
 
         self._zoom_in_action = QAction(self)
         self._zoom_in_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_Plus)
@@ -1286,6 +1403,25 @@ class Main_Window(QMainWindow):
         self._library_menu.addAction(self._dependency_dock.toggleViewAction())
         self._library_menu.addAction(self._version_browser_dock.toggleViewAction())
         self._library_menu.addAction(self._reuse_dock.toggleViewAction())
+        # T7-A (ruling P11-R7): the command surface for T7's three registration
+        # methods — no new UI module (plan §3.9's "why no new module"). Enablement
+        # is refreshed on every tab switch and right before the menu opens, so a
+        # selection made after the last tab switch is still reflected
+        # (SC-P11-UI-017-1) without a dedicated selectionChanged signal.
+        self._library_menu.addSeparator()
+        self._library_menu.addAction(self._register_active_document_action)
+        self._library_menu.addAction(self._register_selection_action)
+        # T10 WIRE follow-up (DEV-37, P11-R5): the library-artifact pair and
+        # the project-bundle pair, each behind its own separator so neither
+        # pair, nor either command within a pair, is read as one menu entry.
+        self._library_menu.addSeparator()
+        self._library_menu.addAction(self._import_library_artifact_action)
+        self._library_menu.addAction(self._export_library_artifact_action)
+        self._library_menu.addSeparator()
+        self._library_menu.addAction(self._export_project_bundle_action)
+        self._library_menu.addAction(self._import_project_bundle_action)
+        self._library_menu.aboutToShow.connect(self._refresh_registration_actions_ui)
+        self._library_menu.aboutToShow.connect(self._refresh_ingress_actions_ui)
 
         self._theme_menu = bar.addMenu("")
         self._theme_menu.addAction(self._theme_light_action)
@@ -1555,9 +1691,46 @@ class Main_Window(QMainWindow):
         return self._add_document_tab(document, self.tr("Untitled"))
 
     def open_document(self, path: str) -> Document:
-        """Open a ``.pixproj`` via ``data/project_io`` into a new tab (020)."""
-        document = load_project(path)
-        self._add_document_tab(document, Path(path).name)
+        """Open a ``.pixproj`` via ``data/project_io`` into a new tab (020).
+
+        Loads through :func:`load_project_with_asset_refs` (T30, plan §3.11 (2))
+        so the project's reference set travels with it — a v1-v5 file loads with
+        an **empty** set (T12's behaviour, not a migration). The tab's key is the
+        opened file's absolute path, which is what makes it stable across a later
+        save-in-place and what the reuse panel and the update-prompt's per-project
+        session memory both key on (plan §3.11 (2b)).
+
+        Once the tab exists — so the prompt has a parent and the user can see
+        which project is asking — and **before** the loaded set is bound to
+        the reuse panel or used to resolve anything, runs
+        :func:`~pixelart_creator.ui.asset_update_prompt.resolve_library_edits`
+        **once** over the newly-created tab's own reference set (T31, plan
+        §3.11 (2)): each ``STATE_EDITED`` reference raises
+        ``Asset_Update_Prompt_Dialog.decide`` exactly once; the resolved
+        ``(reference_set, prefs)`` pair is written back onto the tab before
+        anything else runs.
+        """
+        document, reference_set = load_project_with_asset_refs(path)
+        project_key = str(Path(path).resolve())
+
+        def _resolve_library_edits(record: "_DocTab") -> None:
+            new_reference_set, new_prefs = resolve_library_edits(
+                record.reference_set,
+                self._asset_session.catalog(),
+                record.document.prefs,
+                record.project_key,
+                parent=self,
+            )
+            record.reference_set = new_reference_set
+            record.document.prefs = new_prefs
+
+        self._add_document_tab(
+            document,
+            Path(path).name,
+            reference_set=reference_set,
+            project_key=project_key,
+            after_tab_created=_resolve_library_edits,
+        )
         return document
 
     def save_document(self, path: str) -> None:
@@ -1565,14 +1738,25 @@ class Main_Window(QMainWindow):
 
         Marks the tab's undo stack **clean** at the saved state so the drag-drop
         dirty guard (REQ-DDI-UI-004) can trust ``QUndoStack.isClean()`` — a saved,
-        un-edited document no longer prompts on a ``.pixproj`` drop.
+        un-edited document no longer prompts on a ``.pixproj`` drop. Forwards the
+        tab's held reference set (T30, plan §3.11 (2)) so a bound set is written
+        back rather than dropped on the next save; a project referencing nothing
+        still writes no ``asset_refs`` key (``data/project_io.py``'s own
+        ``reference_set.entries()`` guard).
         """
         record = self.active_tab()
         if record is not None:
-            save_project(record.document, path)
+            save_project(record.document, path, reference_set=record.reference_set)
             record.stack.setClean()
 
-    def _add_document_tab(self, document: Document, title: str) -> Document:
+    def _add_document_tab(
+        self,
+        document: Document,
+        title: str,
+        reference_set: Optional[ReferenceSet] = None,
+        project_key: Optional[str] = None,
+        after_tab_created: Optional[Callable[["_DocTab"], None]] = None,
+    ) -> Document:
         scene = CanvasScene(document)
         # Off-thread pre-warm progress (D1/D2): each scene reports its own warm; the
         # slots guard on the active tab so a background tab's warm never drives the
@@ -1597,8 +1781,38 @@ class Main_Window(QMainWindow):
         # drawing tool routes through this so a stroke lands in the active
         # branch's op-log instead of being silently dropped at merge.
         view.set_recording(self._branching_session.record_traces, document)
-        record = _DocTab(document, scene, view, stack)
+        if reference_set is None:
+            reference_set = ReferenceSet()
+        if project_key is None:
+            # No path is known yet (a new, unsaved document) — a stable
+            # synthetic id, never the tab's index or the document's identity,
+            # both of which can move (plan §3.11 (2b)).
+            project_key = uuid.uuid4().hex
+        record = _DocTab(
+            document,
+            scene,
+            view,
+            stack,
+            reference_set=reference_set,
+            project_key=project_key,
+        )
         self._tabs_data.append(record)
+        # T31 (plan §3.11 (2)): the tab now exists (has a project_key and a
+        # document.prefs to resolve against) but nothing has bound or used
+        # its reference set yet — exactly where the ordering clause places
+        # the update-prompt pass, when the caller (open_document) supplies
+        # one. Every other caller of this method passes ``None`` and this is
+        # a no-op, so their reference set (empty, absent an editable library
+        # mismatch) is unaffected.
+        if after_tab_created is not None:
+            after_tab_created(record)
+        # T30 (plan §3.11 (2)): bind this tab's real, durable set to the reuse
+        # panel now, under its project_key, so the resolve-/shared-state
+        # indicators (REQ-P11-UI-021) are computed over what the application
+        # actually holds rather than a set only a test ever bound.
+        self._asset_reuse_panel.set_project_reference_set(
+            record.project_key, record.reference_set
+        )
         # Attach this tab's Phase-9 visual aids and wrap the view with rulers before
         # the tab is shown (setCurrentIndex fires _on_tab_changed, which binds them).
         container = self._create_tab_aids(record)
@@ -1842,6 +2056,13 @@ class Main_Window(QMainWindow):
         record.scene.shutdown_prewarm()
         self._undo_group.removeStack(record.stack)
         self._tab_widget.removeTab(index)
+        # T31 (plan §3.11 (2b)): release this tab's update-prompt session
+        # memory, keyed by project_key now that decide()/resolve_library_edits
+        # scope the bucket that way (bounds retention; not required for
+        # correctness — see forget_session's own docstring).
+        Asset_Update_Prompt_Dialog.forget_session(
+            record.document.prefs, record.project_key
+        )
 
     def shutdown_prewarm(self) -> None:
         """Deterministically tear down every off-thread warm in the window (D2/D4).
@@ -2136,6 +2357,8 @@ class Main_Window(QMainWindow):
         if record is None:
             self._active_view = None
             self._update_cloud_status()
+            self._refresh_registration_actions_ui()
+            self._refresh_ingress_actions_ui()
             return
         self._active_view = record.view
         self._undo_group.setActiveStack(record.stack)
@@ -2158,6 +2381,8 @@ class Main_Window(QMainWindow):
         # Lazy: defer the buffer scan unless the analytics dock is visible.
         self._analytics_view.request_refresh()
         self._update_cloud_status()
+        self._refresh_registration_actions_ui()
+        self._refresh_ingress_actions_ui()
 
     def _on_tool_action(self) -> None:
         action = self.sender()
@@ -2503,6 +2728,203 @@ class Main_Window(QMainWindow):
         self._palette_panel.set_mode(mode)
         self._to_indexed_action.setEnabled(mode is ColorMode.RGBA)
         self._to_rgba_action.setEnabled(mode is ColorMode.INDEXED)
+
+    # -- asset-library registration reachability (T7-A, ruling P11-R7,
+    #    REQ-P11-UI-012/-013/-017) ------------------------------------------
+
+    def _refresh_registration_actions_ui(self) -> None:
+        """Sync the two Library-menu registration actions' enablement.
+
+        ``SC-P11-UI-017-1``: no open document disables both; no active
+        selection additionally disables the selection action. Mirrors
+        :meth:`_refresh_mode_ui`'s ``active_tab()``-driven ``setEnabled``
+        idiom — no second enable/disable mechanism is minted. Called on every
+        tab switch (:meth:`_on_tab_changed`) and right before the Library
+        menu opens, since this window has no ``selectionChanged`` signal to
+        bind to directly.
+        """
+        record = self.active_tab()
+        self._register_active_document_action.setEnabled(record is not None)
+        mask = record.view.active_selection() if record is not None else None
+        self._register_selection_action.setEnabled(
+            mask is not None and not mask.is_empty
+        )
+
+    def _on_register_active_document(self) -> None:
+        """Register the document open in the active tab (REQ-P11-UI-012).
+
+        T43 (ruling P11-R12, DEV-43 finding 1): reads this tab's session-scoped
+        ``registered_asset_id`` binding and passes it through as
+        ``existing_asset_id`` so a second registration of a changed document
+        appends a revision to the SAME catalog entry (REQ-P11-UI-020's
+        reachability, SC-P11-INGRESS-E2E-1's re-registration step) instead of
+        always minting a new one. The binding is cleared FIRST when the
+        catalog no longer holds that id (this tab's entry was removed from
+        the library since it was last registered) — a known-stale binding is
+        never passed on; the session's own stale-id guard
+        (``asset_library_actions.py``'s ``_register_via_prompt``) remains the
+        last line of defence for a race and is left unweakened. On a non-
+        ``None`` outcome the binding is written back to ``outcome.asset_id``
+        (unchanged on a re-registration, freshly minted on a first one).
+        """
+        document = self.active_document()
+        if document is None:
+            return
+        record = self.active_tab()
+        existing_asset_id = record.registered_asset_id if record is not None else None
+        if (
+            record is not None
+            and existing_asset_id is not None
+            and self._asset_session.catalog().get(existing_asset_id) is None
+        ):
+            record.registered_asset_id = None
+            existing_asset_id = None
+        outcome = self._asset_session.register_active_document(
+            document, parent=self, existing_asset_id=existing_asset_id
+        )
+        if record is not None and outcome is not None:
+            record.registered_asset_id = outcome.asset_id
+
+    def _on_register_selection(self) -> None:
+        """Register the active selection's content (REQ-P11-UI-013).
+
+        Builds the selection-only document from :func:`extract_masked`, so
+        the payload is mask-exact rather than the tight bounding box of the
+        mask (ruling P11-R10) — a non-rectangular selection registers only
+        its selected pixels, transparent elsewhere. Passes ``None`` when
+        there is no active selection so the session reports "nothing to
+        register" rather than an implicit whole-document registration.
+        """
+        document: Optional[Document] = None
+        record = self.active_tab()
+        if record is not None:
+            mask = record.view.active_selection()
+            if mask is not None:
+                layer = record.scene.active_layer()
+                try:
+                    extracted = extract_masked(layer.buffer, mask)
+                    document = Document.from_buffer(extracted, name="Selection")
+                except (PixelBufferError, DocumentError, SelectionError) as exc:
+                    QMessageBox.warning(self, self.tr("Register Selection"), str(exc))
+                    return
+        self._asset_session.register_selection(document, parent=self)
+
+    # -- asset-library import/export reachability (T10 WIRE follow-up,
+    #    DEV-37, ruling P11-R5, REQ-P11-UI-015/-016) -----------------------
+
+    def _refresh_ingress_actions_ui(self) -> None:
+        """Sync the four T10 import/export actions' enablement.
+
+        The two import actions (library artifact, project bundle) need only
+        the library session, which is bound once at construction — before
+        ``_build_actions`` runs — so they stay enabled unconditionally, same
+        reasoning as the always-available dock-toggle actions. The two
+        export actions need something to export: library-artifact export
+        needs a non-empty open catalog; project-bundle export needs an open
+        document. Mirrors :meth:`_refresh_registration_actions_ui`'s
+        ``active_tab()``-driven ``setEnabled`` idiom — no second enable/
+        disable mechanism is minted. Called on every tab switch
+        (:meth:`_on_tab_changed`) and right before the Library menu opens.
+        """
+        self._export_library_artifact_action.setEnabled(
+            len(self._asset_session.catalog().entries()) > 0
+        )
+        self._export_project_bundle_action.setEnabled(
+            self.active_document() is not None
+        )
+
+    def _on_import_library_artifact(self) -> None:
+        """Import one library-artifact file into the open library (T10).
+
+        Delegates entirely to :meth:`Asset_Library_Session.import_library_artifact`
+        — the file-open dialog, the ``ARTIFACT_SUFFIX`` filter, the atomic
+        merge-and-commit, and both the success/failure/cancellation
+        reporting (a ``QMessageBox`` on failure, silence on cancel) all live
+        on the session, exactly as the T7 registration actions already
+        delegate their own reporting.
+        """
+        self._asset_session.import_library_artifact(parent=self)
+
+    def _on_export_library_artifact(self) -> None:
+        """Export the selected asset, or the whole catalog, as one artifact (T10).
+
+        :class:`Asset_Library_Panel` supports only a single current
+        selection (:meth:`~Asset_Library_Panel.current_asset_id`); with
+        nothing selected this exports every entry currently in the open
+        catalog instead of prompting for a subset. Disclosed simplification:
+        no multi-select affordance exists on the library panel to gather an
+        arbitrary subset from, and building one is out of this WIRE task's
+        scope.
+        """
+        selected = self._asset_library_panel.current_asset_id()
+        if selected:
+            asset_ids: List[str] = [selected]
+        else:
+            asset_ids = [d.asset_id for d in self._asset_session.catalog().entries()]
+        if not asset_ids:
+            return
+        self._asset_session.export_library_subset(asset_ids, parent=self)
+
+    def _on_export_project_bundle(self) -> None:
+        """Export the active document plus its references as a project bundle (T10).
+
+        ``reference_ids`` is taken as every asset currently in the open
+        library catalog. Disclosed simplification: no mechanism reachable
+        from ``ui/`` derives "which assets does this open document
+        reference" today — the Item-2 ``reference_key`` matching machinery
+        (``logic/asset_edges.py``) derives edges for a *just-registered*
+        asset against the catalog, not the inverse query this command would
+        need, and authoring that query is domain logic outside a WIRE task.
+        """
+        document = self.active_document()
+        if document is None:
+            return
+        reference_ids = [d.asset_id for d in self._asset_session.catalog().entries()]
+        self._asset_session.export_project_bundle_to_file(
+            document, reference_ids, parent=self
+        )
+
+    def _on_import_project_bundle(self) -> None:
+        """Import a ``.pixbundle`` into a new project directory (T10).
+
+        The session's own file-open dialog (inside
+        :meth:`Asset_Library_Session.import_project_bundle_from_file`)
+        chooses *which* bundle; this handler chooses *where* the
+        reconstructed project lands — a not-yet-existing directory, taken as
+        given on the same "taken as given, never re-resolved" terms
+        :meth:`~Asset_Library_Session.bind_root` takes its own root.
+        """
+        caption = self.tr("Choose a new folder for the imported project")
+        path_str, _selected = QFileDialog.getSaveFileName(self, caption, "", "")
+        if not path_str:
+            return
+        target_dir = Path(path_str)
+        if target_dir.exists():
+            QMessageBox.warning(
+                self,
+                caption,
+                self.tr('"%1" already exists. Choose a name for a new folder.').replace(
+                    "%1", str(target_dir)
+                ),
+            )
+            return
+        self._pending_bundle_import_dir = target_dir
+        self._asset_session.import_project_bundle_from_file(target_dir, parent=self)
+
+    def _on_project_bundle_imported(self, payload: object) -> None:
+        """Open a reconstructed project into a new tab (T10, ``projectBundleImported``).
+
+        ``payload`` is the session's ``(document, catalog)`` pair; the
+        bundle's own catalog is never merged into the open library (plan
+        Section 3.7's "Import lands in" row) and is discarded here.
+        """
+        document, _catalog = cast(Tuple[Document, object], payload)
+        target_dir = self._pending_bundle_import_dir
+        self._pending_bundle_import_dir = None
+        title = (
+            target_dir.name if target_dir is not None else self.tr("Imported Project")
+        )
+        self._add_document_tab(document, title)
 
     # -- colour hub (REQ-P3-UI-003/-004/-006) ----------------------------
 
@@ -3509,7 +3931,7 @@ class Main_Window(QMainWindow):
         untouched (REQ-P7-UI-009). The tracked active frame is forwarded so a
         PNG export honours it instead of always frame 0 (CF-18).
         """
-        run_export_dialog(
+        self._pending_export_registration = run_export_dialog(
             self,
             self.active_document(),
             self._export_controller,
@@ -3532,12 +3954,32 @@ class Main_Window(QMainWindow):
         )
 
     def _on_export_target_ok(self, _index: int, _result: object) -> None:
-        """Count a successful export target (summarised at run end)."""
+        """Count a successful export target (summarised at run end).
+
+        T7-A (ruling P11-R7): registration follows a **successful** export,
+        never submission — ``run_export_dialog`` cannot register itself
+        because export runs off-thread. A pending opt-in is consumed exactly
+        once here and never re-applied to a later, unrelated run (the export
+        controller's own token filter already drops a superseded run's
+        signals before they reach this handler).
+        """
         self._export_run_ok += 1
+        pending = self._pending_export_registration
+        if pending is not None:
+            self._pending_export_registration = None
+            self._asset_session.register_export_artifact(
+                pending.document, pending.export_metadata, parent=self
+            )
 
     def _on_export_target_failed(self, _index: int, message: str) -> None:
-        """Collect a failed target's message (summarised at run end, UI-008)."""
+        """Collect a failed target's message (summarised at run end, UI-008).
+
+        T7-A: a failed export target is never registered — REQ-P11-UI-014's
+        negative requires an un-opted-in (and, by the same logic, a failed)
+        export to leave the catalog/store/revision history unchanged.
+        """
         self._export_run_failures.append(message)
+        self._pending_export_registration = None
 
     def _on_export_finished(self) -> None:
         """Summarise a finished export run: a QMessageBox on any failure (UI-008).
@@ -3853,6 +4295,14 @@ class Main_Window(QMainWindow):
         self._automation_menu.setTitle(self.tr("&Automation"))
         self._cloud_menu.setTitle(self.tr("&Cloud"))
         self._library_menu.setTitle(self.tr("&Library"))
+        self._register_active_document_action.setText(
+            self.tr("&Register Active Document…")
+        )
+        self._register_selection_action.setText(self.tr("Register &Selection…"))
+        self._import_library_artifact_action.setText(self.tr("&Import Asset…"))
+        self._export_library_artifact_action.setText(self.tr("&Export Asset…"))
+        self._export_project_bundle_action.setText(self.tr("Export Project &Bundle…"))
+        self._import_project_bundle_action.setText(self.tr("I&mport Project Bundle…"))
         self._theme_menu.setTitle(self.tr("&Theme"))
         self._language_menu.setTitle(self.tr("&Language"))
         self._help_menu.setTitle(self.tr("&Help"))
