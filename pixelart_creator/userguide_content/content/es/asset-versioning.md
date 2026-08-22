@@ -95,7 +95,11 @@ Cancelar o cerrar el aviso se comporta igual que **Mantener la versión
 referenciada**. Marcar **No volver a preguntar** al elegir cualquiera de las dos
 opciones recuerda esa elección para futuras ediciones de este recurso, en este
 proyecto; puedes restaurar el aviso más tarde desde **Editar → Confirmaciones del
-proyecto → Cuando cambia un recurso de biblioteca referenciado**.
+proyecto → Cuando cambia un recurso de biblioteca referenciado**. La elección se
+guarda en cuanto la haces, actives o no la casilla — no necesitas guardar el proyecto
+para que se conserve. Si dejas sin marcar **No volver a preguntar**, tu respuesta se
+aplica igualmente a esta edición; la siguiente edición distinta de este recurso vuelve
+a preguntar.
 
 ## Exportar e importar los recursos de un proyecto
 

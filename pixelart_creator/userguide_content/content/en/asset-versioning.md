@@ -76,7 +76,10 @@ Opening a project that references a library asset which has since been edited sh
 Cancelling or closing the prompt behaves the same as **Keep the Referenced Version**.
 Ticking **Don't ask again** while choosing either option remembers that choice for future
 edits of this asset, in this project; you can restore the prompt later from **Edit →
-Project confirmations → When a referenced library asset changes**.
+Project confirmations → When a referenced library asset changes**. The choice is saved
+as soon as you make it, whether or not you tick the box — you do not need to save the
+project for it to stick. Leaving **Don't ask again** unticked still applies your answer to
+this edit; the next, different edit of this asset asks again.
 
 ## Export & import a project's assets
 
