@@ -28,9 +28,16 @@ Zero Qt; the whole store is CI-testable headless with no network/credentials.
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from pathlib import Path
+from typing import Dict, Optional, Union
 
 from pixelart_creator.data.asset_cas import CasError, ContentAddressableStore
+from pixelart_creator.data.asset_revision_io import (
+    AssetRevisionIOError,
+    load_histories,
+    write_history,
+    write_index,
+)
 from pixelart_creator.logic.asset_version import (
     AssetRevision,
     AssetVersionError,
@@ -71,6 +78,38 @@ class AssetRevisionStore:
             )
         self._cas = cas
         self._histories: Dict[str, AssetVersionHistory] = {}
+        self._root: Optional[Path] = None
+
+    def bind_root(self, root: Union[str, Path]) -> None:
+        """Bind this store to ``root`` and adopt any revision histories found there.
+
+        Loads ``root``'s revision index/sidecars via
+        :func:`~pixelart_creator.data.asset_revision_io.load_histories` and adopts
+        the result into this store's in-memory histories, replacing whatever was
+        held before the call. An absent index loads as an empty mapping — this
+        method performs **no** ``mkdir`` and creates nothing on disk (``root`` is
+        already resolved by the caller; this method neither resolves a root nor
+        names a backend, ADR-0051).
+
+        Once bound, :meth:`record` persists every recorded revision under ``root``
+        (T40's durable half of ``REQ-P11-DATA-008``).
+
+        Args:
+            root: The already-resolved project root revisions are persisted under.
+
+        Raises:
+            AssetRevisionStoreError: If the index or a sidecar under ``root`` is
+                malformed.
+        """
+        root_path = Path(root)
+        try:
+            histories = load_histories(root_path)
+        except AssetRevisionIOError as exc:
+            raise AssetRevisionStoreError(
+                f"cannot bind revision store to {str(root_path)!r}: {exc}"
+            ) from exc
+        self._root = root_path
+        self._histories = dict(histories)
 
     def _require_asset_id(self, asset_id: object) -> str:
         if not isinstance(asset_id, str) or not asset_id:
@@ -138,11 +177,22 @@ class AssetRevisionStore:
                 parent_hash=parent_hash,
                 author=author,
             )
-            self._histories[asset_id] = history.append(revision)
+            updated = history.append(revision)
         except AssetVersionError as exc:
             raise AssetRevisionStoreError(
                 f"cannot record revision for {asset_id!r}: {exc}"
             ) from exc
+
+        if self._root is not None:
+            try:
+                write_history(self._root, asset_id, updated)
+                write_index(self._root, sorted(set(self._histories) | {asset_id}))
+            except AssetRevisionIOError as exc:
+                raise AssetRevisionStoreError(
+                    f"cannot persist revision for {asset_id!r}: {exc}"
+                ) from exc
+
+        self._histories[asset_id] = updated
         return revision
 
     def history(self, asset_id: str) -> AssetVersionHistory:
