@@ -20,6 +20,7 @@ from pixelart_creator.logic.selection import (
     SelectionError,
     SelectionMask,
     apply_masked,
+    extract_masked,
     lasso_mask,
     move_selection,
     rect_mask,
@@ -392,3 +393,119 @@ def test_property_lasso_mask_stays_in_bounds(verts):
     ys, xs = np.nonzero(mask.data())
     if xs.size:
         assert xs.max() < 8 and ys.max() < 8
+
+
+# --- T38: extract_masked (SC-P11-UI-013-1 payload clause, unit level) -----
+
+
+def _unique_pixel_buf(w: int, h: int) -> PixelBuffer:
+    """A buffer where every pixel's colour encodes its own (x, y) coordinate.
+
+    Lets a test tell "the selected pixel equals the source pixel at its own
+    coordinate" apart from "the selected pixel equals some other pixel that
+    happens to share its colour" (a uniform fill cannot make that distinction).
+    """
+    buf = PixelBuffer(w, h, fill=TRANSPARENT)
+    for y in range(h):
+        for x in range(w):
+            buf.set_pixel(x, y, (10 + x * 10, 10 + y * 10, 100, 255))
+    return buf
+
+
+def _expected_region(buf: PixelBuffer, mask: SelectionMask) -> PixelBuffer:
+    """The shipped no-regression comparator: ``region`` over the mask's own bounds."""
+    x0, y0, x1, y1 = mask.bounds()
+    return buf.region(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
+
+
+class TestExtractMasked:
+    def test_lasso_mask_exact_extraction(self):
+        buf = _unique_pixel_buf(8, 8)
+        # A triangle lasso: its bounding box strictly contains unselected corners.
+        mask = lasso_mask(8, 8, [(1, 1), (6, 1), (1, 6)])
+        assert mask.bounds() is not None
+        x0, y0, x1, y1 = mask.bounds()
+
+        out = extract_masked(buf, mask)
+
+        assert out.width == x1 - x0 + 1
+        assert out.height == y1 - y0 + 1
+        sub_mask = mask.data()[y0 : y1 + 1, x0 : x1 + 1]
+        selected_any = False
+        unselected_any = False
+        for oy in range(out.height):
+            for ox in range(out.width):
+                sx, sy = x0 + ox, y0 + oy
+                if sub_mask[oy, ox]:
+                    selected_any = True
+                    assert out.get_pixel(ox, oy) == buf.get_pixel(sx, sy)
+                else:
+                    unselected_any = True
+                    assert out.get_pixel(ox, oy) == TRANSPARENT
+        # Both halves of the property must actually be exercised, or the
+        # assertions above would pass vacuously.
+        assert selected_any and unselected_any
+
+    def test_wand_mask_exact_extraction(self):
+        buf = PixelBuffer(6, 6, fill=(0, 0, 0, 255))
+        # A plus-shaped contiguous region distinct from the background.
+        plus = [(2, 1), (2, 2), (1, 2), (2, 2), (3, 2), (2, 3)]
+        for x, y in plus:
+            buf.set_pixel(x, y, (200, 50, 50, 255))
+
+        mask = wand_mask(buf, 2, 2, tolerance=0)
+        assert mask.bounds() is not None
+        x0, y0, x1, y1 = mask.bounds()
+
+        out = extract_masked(buf, mask)
+
+        assert out.width == x1 - x0 + 1
+        assert out.height == y1 - y0 + 1
+        sub_mask = mask.data()[y0 : y1 + 1, x0 : x1 + 1]
+        selected_any = False
+        unselected_any = False
+        for oy in range(out.height):
+            for ox in range(out.width):
+                sx, sy = x0 + ox, y0 + oy
+                if sub_mask[oy, ox]:
+                    selected_any = True
+                    assert out.get_pixel(ox, oy) == buf.get_pixel(sx, sy)
+                else:
+                    unselected_any = True
+                    assert out.get_pixel(ox, oy) == TRANSPARENT
+        assert selected_any and unselected_any
+
+    def test_rectangular_mask_matches_shipped_region_no_regression(self):
+        buf = _unique_pixel_buf(6, 6)
+        mask = rect_mask(6, 6, 1, 2, 4, 5)
+
+        out = extract_masked(buf, mask)
+        expected = _expected_region(buf, mask)
+
+        assert out == expected
+
+    def test_purity_buffer_and_mask_unchanged(self):
+        buf = _unique_pixel_buf(5, 5)
+        mask = lasso_mask(5, 5, [(0, 0), (4, 0), (4, 4), (0, 4)])
+
+        buf_before = buf.data.copy()
+        mask_before = mask.data().copy()
+
+        extract_masked(buf, mask)
+
+        assert np.array_equal(buf.data, buf_before)
+        assert np.array_equal(mask.data(), mask_before)
+
+    def test_raises_selection_error_on_dimension_mismatch(self):
+        buf = _unique_pixel_buf(4, 4)
+        mismatched_mask = rect_mask(5, 5, 0, 0, 1, 1)
+
+        with pytest.raises(SelectionError):
+            extract_masked(buf, mismatched_mask)
+
+    def test_raises_selection_error_on_empty_mask(self):
+        buf = _unique_pixel_buf(4, 4)
+        empty_mask = SelectionMask(4, 4)
+
+        with pytest.raises(SelectionError):
+            extract_masked(buf, empty_mask)
