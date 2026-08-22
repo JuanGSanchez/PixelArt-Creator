@@ -65,8 +65,11 @@ Coverage map (dispatch item -> test(s)):
 * edge case 2 (state changing during playback) ->
   ``test_edgecase_state_changing_during_playback_is_ignored_by_restore``;
 * edge case 3 (teardown route, commit 37bd0ff) ->
-  ``test_edgecase_last_tab_close_teardown_does_not_restore_KNOWN_GAP``
-  (a FAILING test -- see its docstring and the accompanying report);
+  ``test_edgecase_last_tab_close_teardown_does_restore`` -- a REGRESSION GUARD
+  for the fix landed after this module's first pass (AGT-05 routed
+  ``end_playback_frame()`` through the existing teardown before
+  ``bind_undo_stack(None)``); see its docstring for the finding's history and
+  the fix that closed it;
 * edge case 4 (never played) ->
   ``test_covered_restore_is_noop_when_playback_never_ran``;
 * scene-instance scoping -> ``test_scoping_snapshot_never_leaks_across_scenes``.
@@ -343,45 +346,52 @@ def _record_three_real_frames(qtbot, win):
     return record
 
 
-def test_edgecase_last_tab_close_teardown_does_not_restore_KNOWN_GAP(qtbot):
+def test_edgecase_last_tab_close_teardown_does_restore(qtbot):
     """Edge case 3, driven through the REAL ``Main_Window`` + ``Timelapse_Controls``
     production seam (the only edge case that needs it -- the teardown routing
     itself lives in ``main_window.py``, not ``canvas_scene.py``).
 
-    THIS TEST IS EXPECTED TO FAIL against the current implementation, and is
-    kept failing deliberately (never xfail/skip -- HARD RULE) because it is a
-    real, evidenced finding, not a mistaken assertion:
+    REGRESSION GUARD -- history of the finding, kept rather than erased:
 
-    ``Main_Window.close_document`` pops the tab from ``_tabs_data`` and THEN
-    calls ``removeTab``, whose ``currentChanged`` reaches
+    This test originally FAILED against the implementation as it stood when
+    this module was first written, and was deliberately kept failing rather
+    than xfail/skip (HARD RULE), because it was a real, evidenced finding:
+
+    ``Main_Window.close_document`` popped the tab from ``_tabs_data`` and
+    THEN called ``removeTab``, whose ``currentChanged`` reached
     ``_on_tab_changed``'s ``record is None`` branch (no tab left) ->
     ``Timelapse_Controls.bind_undo_stack(None)`` -> ``_on_stop()`` ->
     ``playbackEditLockChanged.emit(False)`` ->
     ``Main_Window._on_timelapse_playback_lock_changed(False)``, which itself
-    calls ``self.active_tab()`` -- and by this point ``_tabs_data`` is
-    already empty, so ``active_tab()`` returns ``None`` and
-    ``record.scene.end_playback_frame()`` is **never called** on the closing
-    scene. Confirmed empirically this session (probe script, discarded per
-    the temp-hygiene policy): after ``close_document(0)`` on the only,
-    playing tab, the closed scene's ``_pre_playback_overlay_visibility``
-    snapshot is STILL HELD (not ``None``) and ``_selection_overlay.isVisible()``
-    is still ``False`` -- i.e. NOT restored to its pre-playback ``True`` --
-    even though the general ruling states every covered item is 'restored to
-    its exact prior state when [playback] stops', with no stated exception
-    for this route. ``_playback_overlay.isVisible()`` is also still ``True``
-    (same root cause) after the close.
+    called ``self.active_tab()`` -- and by that point ``_tabs_data`` was
+    already empty, so ``active_tab()`` returned ``None`` and
+    ``record.scene.end_playback_frame()`` was **never called** on the
+    closing scene. Confirmed empirically at the time (probe script,
+    discarded per the temp-hygiene policy): after ``close_document(0)`` on
+    the only, playing tab, the closed scene's
+    ``_pre_playback_overlay_visibility`` snapshot was STILL HELD (not
+    ``None``) and ``_selection_overlay.isVisible()`` was still ``False`` --
+    i.e. NOT restored to its pre-playback ``True`` -- even though the
+    general ruling states every covered item is 'restored to its exact
+    prior state when [playback] stops', with no stated exception for this
+    route.
 
     AGT-05's own report
     (``subagent-report-agt-05-playbackoverlays-20260822-191500.md``) traced
-    this exact chain and disclosed it explicitly, arguing it is moot because
-    the scene is discarded immediately after and nothing can observe its
-    overlays again. That argument may well be correct as a PRODUCT judgement
-    -- but it is a judgement, not a test result, and the scene object is in
-    fact still live (still referenced by this test's own ``record``) at the
-    moment this assertion runs, so the literal 'restored to exact prior
-    state when it stops' guarantee does not hold on this route as stated.
-    Reported to AGT-05/main_window's owner via the accompanying subagent
-    report; not fixed here (C2 -- AGT-06 never edits product code)."""
+    this exact chain and disclosed it explicitly at the time, arguing it was
+    moot because the scene is discarded immediately after and nothing can
+    observe its overlays again. That argument was a PRODUCT judgement, not a
+    test result, and the scene object was in fact still live (still
+    referenced by this test's own ``record``) at the moment the assertion
+    ran, so the literal 'restored to exact prior state when it stops'
+    guarantee did not hold on this route as stated.
+
+    THE FIX: AGT-05 subsequently routed ``end_playback_frame()`` through the
+    existing teardown BEFORE ``bind_undo_stack(None)`` runs, so the closing
+    scene's overlays are restored before ``_tabs_data`` goes empty. This test
+    now PASSES and has become the regression guard for that fix: it must
+    stay in the suite, unweakened, so a future refactor of the close/teardown
+    ordering cannot silently reopen this exact leak without a red test."""
     win = _window(qtbot)
     record = win.active_tab()
     record.view.set_selection(
@@ -400,8 +410,9 @@ def test_edgecase_last_tab_close_teardown_does_not_restore_KNOWN_GAP(qtbot):
     win.close_document(0)  # the last-tab-close teardown route (37bd0ff)
 
     # The stated general guarantee: restored to its exact prior state (True)
-    # once playback stops, on ANY route that stops it. This is the assertion
-    # that currently FAILS -- see the docstring above for the traced cause.
+    # once playback stops, on ANY route that stops it. This assertion FAILED
+    # before AGT-05's teardown-ordering fix (see docstring above) and is the
+    # regression guard for it now that it passes.
     assert record.scene._selection_overlay.isVisible() is True
     assert record.scene._pre_playback_overlay_visibility is None
 
