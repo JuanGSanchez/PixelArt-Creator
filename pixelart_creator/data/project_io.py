@@ -24,6 +24,11 @@ from pixelart_creator.logic.animation import (
     validate_tag_range,
 )
 from pixelart_creator.logic.asset_catalog import AssetKind
+from pixelart_creator.logic.asset_edit_decisions import (
+    DECISION_DOMAIN,
+    AssetEditDecisions,
+    AssetEditDecisionsError,
+)
 from pixelart_creator.logic.asset_references import (
     AssetReference,
     AssetReferenceError,
@@ -38,6 +43,7 @@ from pixelart_creator.logic.constants import (
     DEFAULT_LAYER_OPACITY,
     MAX_CANVAS_HEIGHT,
     MAX_CANVAS_WIDTH,
+    MAX_CATALOG_ASSETS,
     MAX_GROUP_NESTING_DEPTH,
     MAX_LAYERS_PER_FRAME,
     MAX_TILE_DIMENSION,
@@ -242,7 +248,10 @@ def _serialise_asset_ref(reference: AssetReference) -> Dict[str, Any]:
 
 
 def serialize(
-    document: Document, *, reference_set: Optional[ReferenceSet] = None
+    document: Document,
+    *,
+    reference_set: Optional[ReferenceSet] = None,
+    decisions: Optional[AssetEditDecisions] = None,
 ) -> Dict[str, Any]:
     """Serialise a :class:`Document` to a plain JSON-ready dict (schema v6).
 
@@ -252,6 +261,11 @@ def serialize(
     accepted as an explicit, optional argument. Omitted or empty, the ``"asset_refs"``
     root key is left out entirely, exactly as ``"prefs"`` is: a project that never
     references a library asset serialises with one fewer key, not an empty array.
+
+    ``decisions`` follows the identical convention (``REQ-P11-DATA-010``, ruling
+    P11-R13): omitted or empty, the ``"asset_edit_decisions"`` root key is left out
+    entirely. Also **not** document content, for the same reason as
+    ``reference_set`` — the ledger is held by the caller, not by :class:`Document`.
     """
     frames_out: List[Dict[str, Any]] = []
     for frame in document.frames:
@@ -293,6 +307,12 @@ def serialize(
         payload["asset_refs"] = [
             _serialise_asset_ref(reference) for reference in reference_set.entries()
         ]
+    # A third optional root key (REQ-P11-DATA-010, ruling P11-R13): omitted entirely
+    # when no ledger was supplied or it is empty, matching "prefs" and "asset_refs".
+    # FORMAT_VERSION is NOT bumped for this key (ruling P11-R13): a lost ledger costs
+    # one prompt reappearing, which the ruling holds is not a format break.
+    if decisions is not None and decisions.entries():
+        payload["asset_edit_decisions"] = decisions.to_serializable()
     return payload
 
 
@@ -301,16 +321,18 @@ def save_project(
     path: Union[str, Path],
     *,
     reference_set: Optional[ReferenceSet] = None,
+    decisions: Optional[AssetEditDecisions] = None,
 ) -> Path:
-    """Serialise ``document`` (and ``reference_set``, if given) and write to ``path``.
+    """Serialise ``document`` (and ``reference_set``/``decisions``, if given) and save.
 
-    ``reference_set`` is forwarded to :func:`serialize` unchanged — see its docstring
-    for why it is a caller-supplied argument rather than a :class:`Document` field.
+    ``reference_set`` and ``decisions`` are forwarded to :func:`serialize` unchanged —
+    see its docstring for why each is a caller-supplied argument rather than a
+    :class:`Document` field.
     """
     target = Path(path)
     if target.suffix != FILE_SUFFIX:
         target = target.with_suffix(FILE_SUFFIX)
-    payload = serialize(document, reference_set=reference_set)
+    payload = serialize(document, reference_set=reference_set, decisions=decisions)
     target.write_text(json.dumps(payload), encoding="utf-8")
     return target
 
@@ -422,10 +444,10 @@ def _parse_asset_ref(entry: Any) -> AssetReference:
 
 
 def parse_asset_refs(value: Any) -> ReferenceSet:
-    """Parse the optional ``asset_refs`` root array (v6+; ``REQ-P11-UI-021`` persistence
-    half, T12).
+    """Parse the optional ``asset_refs`` root array.
 
-    An absent array (v1–v5 files, and a v6 file that never referenced a library asset)
+    v6+; ``REQ-P11-UI-021`` persistence half, T12. An absent array (v1–v5 files,
+    and a v6 file that never referenced a library asset)
     reads as an **empty** :class:`~pixelart_creator.logic.asset_references.ReferenceSet`
     — correct, not a migration: a pre-v6 project never had a reference set to lose.
     Each entry is validated by :func:`_parse_asset_ref` before construction; the set's
@@ -440,6 +462,64 @@ def parse_asset_refs(value: Any) -> ReferenceSet:
     try:
         return ReferenceSet(references=tuple(_parse_asset_ref(e) for e in value))
     except AssetReferenceError as exc:
+        raise ProjectIOError(str(exc)) from exc
+
+
+def _parse_asset_edit_decision(entry: Any) -> Tuple[str, str, str]:
+    """Parse and validate one ``asset_edit_decisions`` entry into a raw row.
+
+    Mirrors :func:`_parse_asset_ref`'s untrusted-input posture: ``edit_token`` is a
+    ``content_hash`` value (``ui/asset_update_prompt.py:423-424``), so it is
+    hex-shape checked the same way with
+    :func:`~pixelart_creator.logic.content_hash.is_valid_hash`; ``outcome`` must be a
+    member of :data:`~pixelart_creator.logic.asset_edit_decisions.DECISION_DOMAIN`.
+    Anything else raises :class:`ProjectIOError`.
+    """
+    _require(
+        isinstance(entry, dict),
+        "each asset_edit_decisions entry must be a JSON object",
+    )
+    asset_id = _get(entry, "asset_id", str)
+    edit_token = _get(entry, "edit_token", str)
+    _require(
+        is_valid_hash(edit_token),
+        f"asset_edit_decisions edit_token {edit_token!r} is not a well-formed hash",
+    )
+    outcome = _get(entry, "outcome", str)
+    _require(
+        outcome in DECISION_DOMAIN,
+        f"asset_edit_decisions outcome {outcome!r} is not in the outcome domain "
+        f"{sorted(DECISION_DOMAIN)!r}",
+    )
+    return asset_id, edit_token, outcome
+
+
+def parse_asset_edit_decisions(value: Any) -> AssetEditDecisions:
+    """Parse the optional ``asset_edit_decisions`` root array.
+
+    ``REQ-P11-DATA-010``, ruling P11-R13. An absent array reads as an **empty**
+    :class:`~pixelart_creator.logic.asset_edit_decisions.AssetEditDecisions` — a
+    project that never recorded a library-edit decision loses nothing by this key's
+    absence (``SC-P11-DATA-010-2``: absence still asks). Each entry is validated by
+    :func:`_parse_asset_edit_decision` before construction; the entry-count bound
+    (:data:`~pixelart_creator.logic.constants.MAX_CATALOG_ASSETS`) is enforced here,
+    matching :func:`parse_asset_refs`'s own posture toward its equivalent bound. A
+    malformed entry or a count over the bound raises :class:`ProjectIOError` and
+    constructs nothing — the caller's document load fails atomically rather than
+    silently dropping decisions (``SC-P11-DATA-010-4``, ``-5``).
+    """
+    _require(isinstance(value, list), "asset_edit_decisions must be a list")
+    _require(
+        len(value) <= MAX_CATALOG_ASSETS,
+        f"asset_edit_decisions exceeds MAX_CATALOG_ASSETS ({MAX_CATALOG_ASSETS})",
+    )
+    rows = {}
+    for entry in value:
+        asset_id, edit_token, outcome = _parse_asset_edit_decision(entry)
+        rows[asset_id] = (edit_token, outcome)
+    try:
+        return AssetEditDecisions(rows)
+    except AssetEditDecisionsError as exc:
         raise ProjectIOError(str(exc)) from exc
 
 
@@ -929,6 +1009,11 @@ def deserialize(payload: Dict[str, Any]) -> Document:
     # parsed set back calls :func:`parse_asset_refs` (or :func:`deserialize_project`)
     # on the same payload.
     parse_asset_refs(payload.get("asset_refs", []))
+    # Same atomicity posture for the third optional root key (REQ-P11-DATA-010,
+    # ruling P11-R13): a caller that also wants the parsed ledger back calls
+    # :func:`parse_asset_edit_decisions` (or :func:`load_project_bundle`) on the
+    # same payload.
+    parse_asset_edit_decisions(payload.get("asset_edit_decisions", []))
 
     frames_raw = _get(payload, "frames", list)
     _require(len(frames_raw) >= 1, "project must have at least one frame")
@@ -954,6 +1039,26 @@ def deserialize(payload: Dict[str, Any]) -> Document:
     return document
 
 
+def _deserialize_project_bundle(
+    payload: Dict[str, Any],
+) -> Tuple[Document, ReferenceSet, AssetEditDecisions]:
+    """Reconstruct the Document, ReferenceSet and decision ledger together.
+
+    v6+; ``REQ-P11-DATA-010``, ruling P11-R13. Returns the :class:`Document`, its
+    :class:`ReferenceSet` and its
+    :class:`~pixelart_creator.logic.asset_edit_decisions.AssetEditDecisions` ledger.
+    The shared implementation behind :func:`deserialize_project` (two-tuple) and
+    :func:`load_project_bundle` (three-tuple, path-reading) — kept private so the two
+    public, pre-existing two-tuple signatures never widen (this task's hard
+    constraint). Raises :class:`ProjectIOError` and constructs nothing if any part is
+    malformed.
+    """
+    document = deserialize(payload)
+    reference_set = parse_asset_refs(payload.get("asset_refs", []))
+    decisions = parse_asset_edit_decisions(payload.get("asset_edit_decisions", []))
+    return document, reference_set, decisions
+
+
 def deserialize_project(payload: Dict[str, Any]) -> Tuple[Document, ReferenceSet]:
     """Reconstruct a :class:`Document` and its :class:`ReferenceSet` together (v6+).
 
@@ -963,9 +1068,12 @@ def deserialize_project(payload: Dict[str, Any]) -> Tuple[Document, ReferenceSet
     :class:`Document` itself carries no ``asset_refs`` field (plan §4.2: the open
     projects' reference sets are held by the caller, not by the document). Raises
     :class:`ProjectIOError` and constructs neither value if either half is malformed.
+
+    A thin delegator over :func:`_deserialize_project_bundle`: this signature stays a
+    two-tuple (``REQ-P11-DATA-010`` must not widen it) — a caller that also wants the
+    ledger uses :func:`load_project_bundle` instead.
     """
-    document = deserialize(payload)
-    reference_set = parse_asset_refs(payload.get("asset_refs", []))
+    document, reference_set, _decisions = _deserialize_project_bundle(payload)
     return document, reference_set
 
 
@@ -996,5 +1104,24 @@ def load_project_with_asset_refs(
     The v6+ counterpart of :func:`load_project` for a caller that also needs the
     project's reference set (e.g. ``ui/main_window.py``, which holds the open
     projects' sets per plan §4.2). A v1–v5 file loads with an **empty** reference set.
+
+    A thin delegator over :func:`deserialize_project`: this signature stays a
+    two-tuple (``REQ-P11-DATA-010`` must not widen it) — a caller that also wants the
+    ledger uses :func:`load_project_bundle` instead.
     """
     return deserialize_project(_read_payload(path))
+
+
+def load_project_bundle(
+    path: Union[str, Path],
+) -> Tuple[Document, ReferenceSet, AssetEditDecisions]:
+    """Read a ``.pixproj`` file into its Document, ReferenceSet and decision ledger.
+
+    Returns the :class:`Document`, its :class:`ReferenceSet` and its
+    :class:`~pixelart_creator.logic.asset_edit_decisions.AssetEditDecisions` ledger.
+    The v6+, three-tuple counterpart of :func:`load_project_with_asset_refs` for a
+    caller that also needs the per-edit decision ledger (``REQ-P11-DATA-010``, ruling
+    P11-R13). A v1–v5 file, or a v6 file that never recorded a decision, loads with an
+    **empty** ledger (``SC-P11-DATA-010-2``: absence still asks).
+    """
+    return _deserialize_project_bundle(_read_payload(path))
