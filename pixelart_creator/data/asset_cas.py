@@ -26,12 +26,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+from pixelart_creator.data.asset_shared_backend import SharedBlobBackend
 from pixelart_creator.data.asset_storage import (
     AssetStorageError,
     BlobBackend,
     LocalBlobBackend,
     default_asset_root,
 )
+from pixelart_creator.data.cloud.port import CloudPort
 from pixelart_creator.logic.constants import MAX_BLOB_BYTES
 from pixelart_creator.logic.content_hash import content_hash, is_valid_hash
 
@@ -130,8 +132,10 @@ class ContentAddressableStore:
         return self._backend.has_blob(content_hash_key)
 
 
-def default_content_store(root: Optional[Path] = None) -> ContentAddressableStore:
-    """Return the app's default, DURABLE asset store (D-26 / CF-119).
+def default_content_store(
+    root: Optional[Path] = None, *, port: Optional[CloudPort] = None
+) -> ContentAddressableStore:
+    """Return the app's default, DURABLE asset store (D-26 / CF-119; P11-R4).
 
     ``ContentAddressableStore()`` (the bare constructor) keeps defaulting to an
     in-memory backend on purpose — many headless tests and transient-session
@@ -141,8 +145,17 @@ def default_content_store(root: Optional[Path] = None) -> ContentAddressableStor
     explicit "app default": a filesystem-backed store, so an asset put through it
     survives a restart instead of ending with the session.
 
+    This factory is the application's composition root for the byte store
+    (ruling P11-R4, `design-docs/specs/phase-11-asset-ingress/plan.md` §3.6): it
+    composes a :class:`~pixelart_creator.data.asset_shared_backend.SharedBlobBackend`
+    over the resolved local backend UNCONDITIONALLY, passing ``port`` through
+    unchanged. With ``port=None`` (the default), the shared backend's cloud path
+    is never engaged and every operation resolves through its local backend, so
+    this remains behaviourally the local-only store of prior versions.
+
     Args:
-        root: The filesystem root the store's :class:`LocalBlobBackend` is
+        root: The filesystem root the store's local
+            :class:`~pixelart_creator.data.asset_storage.LocalBlobBackend` is
             rooted at. When omitted (``None``), defaults to
             :func:`~pixelart_creator.data.asset_storage.default_asset_root` —
             today's behaviour is unchanged. Pass an explicit root to build the
@@ -152,13 +165,24 @@ def default_content_store(root: Optional[Path] = None) -> ContentAddressableStor
             performs no ``mkdir`` itself — directory creation stays deferred to
             :meth:`~pixelart_creator.data.asset_storage.LocalBlobBackend.put_blob`,
             on first write).
+        port: The optional provider-agnostic
+            :class:`~pixelart_creator.data.cloud.port.CloudPort`. When omitted
+            (``None``, the default), the composed
+            :class:`~pixelart_creator.data.asset_shared_backend.SharedBlobBackend`
+            never engages its cloud path, so store operations resolve purely
+            through the local backend. Passing a connected port lets the
+            identical store operations be served by the shared backing
+            transparently, with no caller-visible change.
 
     Production wiring (construction-time, ui-side — REQ-P11-DATA-006/-007):
     ``ui/main_window.py`` should construct its asset store via this factory,
     passing a ``QStandardPaths``-resolved root (the Favourites precedent,
     ADR-0004) instead of the bare ``ContentAddressableStore()`` it uses today —
     never by composing ``ContentAddressableStore(LocalBlobBackend(path))``
-    directly in ``ui/``.
+    directly in ``ui/``. ``port`` is keyword-optional so an existing call site
+    that names only ``root`` is unaffected.
     """
     resolved_root = root if root is not None else default_asset_root()
-    return ContentAddressableStore(LocalBlobBackend(resolved_root))
+    return ContentAddressableStore(
+        SharedBlobBackend(port, local=LocalBlobBackend(resolved_root))
+    )

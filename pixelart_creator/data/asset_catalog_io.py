@@ -62,6 +62,8 @@ __all__ = [
     "load_catalog",
     "store_asset",
     "load_asset",
+    "safe_asset_id",
+    "resolve_within",
 ]
 
 #: The catalog-index format marker.
@@ -101,7 +103,7 @@ def _require(condition: bool, message: str) -> None:
         raise AssetCatalogError(message)
 
 
-def _safe_asset_id(asset_id: str) -> str:
+def safe_asset_id(asset_id: str) -> str:
     """Return ``asset_id`` if it is a safe filename component, else raise.
 
     An id used as a sidecar filename must not be a path separator, ``.``/``..``, or
@@ -119,7 +121,12 @@ def _safe_asset_id(asset_id: str) -> str:
     return asset_id
 
 
-def _resolve_within(root: Path, candidate: str) -> Path:
+#: Promoted public alias (ruling P11-R11, T39 step 1) — the underscore name is
+#: retained so every existing reference still resolves; change nothing else.
+_safe_asset_id = safe_asset_id
+
+
+def resolve_within(root: Path, candidate: str) -> Path:
     """Resolve ``candidate`` under ``root`` and confirm containment, else raise.
 
     The robust path-traversal defence (Researcher §5): canonicalize with ``resolve()``
@@ -137,6 +144,11 @@ def _resolve_within(root: Path, candidate: str) -> Path:
     return resolved
 
 
+#: Promoted public alias (ruling P11-R11, T39 step 1) — the underscore name is
+#: retained so every existing reference still resolves; change nothing else.
+_resolve_within = resolve_within
+
+
 # --------------------------------------------------------------------------- #
 # Descriptor <-> sidecar                                                       #
 # --------------------------------------------------------------------------- #
@@ -152,6 +164,10 @@ def _serialise_descriptor(descriptor: AssetDescriptor) -> Dict[str, Any]:
         "tags": sorted(descriptor.tags),
         "metadata": dict(descriptor.metadata),
         "path": descriptor.path,
+        # T8-B, ruling P11-R8 (plan §3.10): additive, defaulted on read
+        # (`_parse_descriptor` below) — a sidecar written before this field
+        # existed still parses, as `reference_key = ""` (no derived edge).
+        "reference_key": descriptor.reference_key,
     }
 
 
@@ -212,6 +228,12 @@ def _parse_descriptor(payload: Any, root: Path) -> AssetDescriptor:
         _require(isinstance(path_value, str), "sidecar path must be a string or null")
         # Defend the advisory path: it must resolve within the catalog root.
         _resolve_within(root, path_value)
+    # T8-B, ruling P11-R8 (plan §3.10): additive and optional — a sidecar
+    # written before this field existed has no "reference_key" key at all,
+    # and `.get(..., "")` reads that as "unknown" (no derived edge), not a
+    # missing-field error.
+    reference_key = payload.get("reference_key", "")
+    _require(isinstance(reference_key, str), "sidecar reference_key must be a string")
     try:
         return AssetDescriptor(
             asset_id=asset_id,
@@ -221,6 +243,7 @@ def _parse_descriptor(payload: Any, root: Path) -> AssetDescriptor:
             tags=frozenset(tags),
             metadata=metadata,
             path=path_value,
+            reference_key=reference_key,
         )
     except AssetCatalogModelError as exc:  # bounds / scalar-type defence
         raise AssetCatalogError(f"invalid asset descriptor: {exc}") from exc

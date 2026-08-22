@@ -23,6 +23,12 @@ from pixelart_creator.logic.animation import (
     PlaybackMode,
     validate_tag_range,
 )
+from pixelart_creator.logic.asset_catalog import AssetKind
+from pixelart_creator.logic.asset_references import (
+    AssetReference,
+    AssetReferenceError,
+    ReferenceSet,
+)
 from pixelart_creator.logic.autotile import BLOB_TILE_COUNT, AutotileRuleset
 from pixelart_creator.logic.blend import BlendMode
 from pixelart_creator.logic.color import ColorError, from_hex, to_hex
@@ -40,6 +46,7 @@ from pixelart_creator.logic.constants import (
     PROJECT_ZLIB_LEVEL,
     TILEMAP_CHUNK_SIZE,
 )
+from pixelart_creator.logic.content_hash import is_valid_hash
 from pixelart_creator.logic.document import (
     Document,
     Frame,
@@ -58,16 +65,26 @@ from pixelart_creator.logic.tilemap import Tilemap, TilemapLayer
 from pixelart_creator.logic.tileset import Tileset
 
 FORMAT_NAME = "pixproj"
-#: Current schema version (ADR-0025). v5 adds the first-class ``Document.ppi`` field
-#: (real-size preview, BF-3); v4 adds document-level ``tilesets`` + ``tilemaps``
-#: (Phase-6 tileset/tilemap model — source-image ref + slicing; chunked-sparse layer
-#: stack + linked instances + auto-tile logical placement); v3 adds ``frame_tags`` +
-#: per-node ``layer_id``; v2 the richer layer model; v1 flat NORMAL layers.
-#: v1–v4 load unchanged: absent ``ppi`` -> :data:`DEFAULT_DOCUMENT_PPI`; v1/v2/v3
-#: also load with empty tileset/tilemap collections; v1/v2 with an empty tag
-#: collection + minted ``layer_id`` s. Saving always writes v5.
-FORMAT_VERSION = 5
-_SUPPORTED_VERSIONS = (1, 2, 3, 4, 5)
+#: Current schema version (ADR-0025, ADR-0058). v6 adds the optional ``asset_refs``
+#: root array (a project's per-project asset reference set, ``REQ-P11-UI-021``
+#: persistence half) — **the only field in this format whose loss the bump protects**,
+#: because it is content the user cannot reconstruct (plan.md §2.2, ``phase-11``'s T12).
+#: The bump is unconditional: every save from this build writes ``6`` whether or not the
+#: project actually has any references, because a version that depends on whether a
+#: feature happens to be used would not describe the schema. v5 adds the first-class
+#: ``Document.ppi`` field (real-size preview, BF-3); v4 adds document-level
+#: ``tilesets`` + ``tilemaps`` (Phase-6 tileset/tilemap model — source-image ref +
+#: slicing; chunked-sparse layer stack + linked instances + auto-tile logical
+#: placement); v3 adds ``frame_tags`` + per-node ``layer_id``; v2 the richer layer
+#: model; v1 flat NORMAL layers.
+#: v1–v5 load unchanged: absent ``asset_refs`` -> an **empty**
+#: :class:`~pixelart_creator.logic.asset_references.ReferenceSet` (correct, not a
+#: migration — a pre-v6 project never had a reference set to lose); absent ``ppi`` ->
+#: :data:`DEFAULT_DOCUMENT_PPI`; v1/v2/v3 also load with empty tileset/tilemap
+#: collections; v1/v2 with an empty tag collection + minted ``layer_id`` s. Saving
+#: always writes v6.
+FORMAT_VERSION = 6
+_SUPPORTED_VERSIONS = (1, 2, 3, 4, 5, 6)
 FILE_SUFFIX = ".pixproj"
 
 #: Hard cap on a decoded pixel payload (bytes) — a full 8K RGBA layer plus slack.
@@ -214,8 +231,28 @@ def _serialise_tilemap(
     }
 
 
-def serialize(document: Document) -> Dict[str, Any]:
-    """Serialise a :class:`Document` to a plain JSON-ready dict (schema v4)."""
+def _serialise_asset_ref(reference: AssetReference) -> Dict[str, Any]:
+    """Serialise one :class:`AssetReference` entry (``kind`` by its stable string)."""
+    return {
+        "asset_id": reference.asset_id,
+        "content_hash": reference.content_hash,
+        "kind": reference.kind.value,
+        "last_known_name": reference.last_known_name,
+    }
+
+
+def serialize(
+    document: Document, *, reference_set: Optional[ReferenceSet] = None
+) -> Dict[str, Any]:
+    """Serialise a :class:`Document` to a plain JSON-ready dict (schema v6).
+
+    ``reference_set`` is **not** document content — it is not read from ``document``
+    (:class:`Document` carries no such field; the open projects' reference sets are
+    held by the caller, ``ui/main_window.py``'s per-project map, plan §4.2) — so it is
+    accepted as an explicit, optional argument. Omitted or empty, the ``"asset_refs"``
+    root key is left out entirely, exactly as ``"prefs"`` is: a project that never
+    references a library asset serialises with one fewer key, not an empty array.
+    """
     frames_out: List[Dict[str, Any]] = []
     for frame in document.frames:
         paths = _node_paths(frame.layers)
@@ -248,15 +285,32 @@ def serialize(document: Document) -> Dict[str, Any]:
     prefs_mapping = document.prefs.to_mapping()
     if prefs_mapping:
         payload["prefs"] = prefs_mapping
+    # Another optional root key (REQ-P11-UI-021, T12): omitted entirely when no
+    # reference set was supplied or it is empty, matching "prefs"'s own convention —
+    # unlike "prefs" this key's presence is what bumps FORMAT_VERSION (plan §2.2), so
+    # the bump itself is unconditional even while the key stays optional.
+    if reference_set is not None and reference_set.entries():
+        payload["asset_refs"] = [
+            _serialise_asset_ref(reference) for reference in reference_set.entries()
+        ]
     return payload
 
 
-def save_project(document: Document, path: Union[str, Path]) -> Path:
-    """Serialise ``document`` and write it to ``path`` (adds ``.pixproj``)."""
+def save_project(
+    document: Document,
+    path: Union[str, Path],
+    *,
+    reference_set: Optional[ReferenceSet] = None,
+) -> Path:
+    """Serialise ``document`` (and ``reference_set``, if given) and write to ``path``.
+
+    ``reference_set`` is forwarded to :func:`serialize` unchanged — see its docstring
+    for why it is a caller-supplied argument rather than a :class:`Document` field.
+    """
     target = Path(path)
     if target.suffix != FILE_SUFFIX:
         target = target.with_suffix(FILE_SUFFIX)
-    payload = serialize(document)
+    payload = serialize(document, reference_set=reference_set)
     target.write_text(json.dumps(payload), encoding="utf-8")
     return target
 
@@ -331,6 +385,62 @@ def _parse_prefs(value: Any) -> ProjectPrefs:
         except ProjectPrefsError as exc:
             raise ProjectIOError(str(exc)) from exc
     return ProjectPrefs(resolved)
+
+
+def _parse_asset_ref(entry: Any) -> AssetReference:
+    """Parse and validate one ``asset_refs`` entry into an :class:`AssetReference`.
+
+    The resolution key (``asset_id``, ``content_hash``) and the display-only labels
+    (``kind``, ``last_known_name``) are validated at this untrusted-input boundary,
+    per :mod:`~pixelart_creator.logic.asset_references`'s own docstring, which leaves
+    hex-shape and enum-membership checking to ``data/``: ``content_hash`` must be a
+    well-formed hash (:func:`~pixelart_creator.logic.content_hash.is_valid_hash`) and
+    ``kind`` one of the five shipped
+    :class:`~pixelart_creator.logic.asset_catalog.AssetKind` values. Anything else
+    raises :class:`ProjectIOError`.
+    """
+    _require(isinstance(entry, dict), "each asset_refs entry must be a JSON object")
+    asset_id = _get(entry, "asset_id", str)
+    content_hash = _get(entry, "content_hash", str)
+    _require(
+        is_valid_hash(content_hash),
+        f"asset_refs content_hash {content_hash!r} is not a well-formed hash",
+    )
+    kind_name = _get(entry, "kind", str)
+    try:
+        kind = AssetKind(kind_name)
+    except ValueError as exc:
+        raise ProjectIOError(f"unknown asset kind {kind_name!r}") from exc
+    last_known_name = entry.get("last_known_name", "")
+    _require(
+        isinstance(last_known_name, str), "asset_refs last_known_name must be a string"
+    )
+    try:
+        return AssetReference(asset_id, content_hash, kind, last_known_name)
+    except AssetReferenceError as exc:
+        raise ProjectIOError(str(exc)) from exc
+
+
+def parse_asset_refs(value: Any) -> ReferenceSet:
+    """Parse the optional ``asset_refs`` root array (v6+; ``REQ-P11-UI-021`` persistence
+    half, T12).
+
+    An absent array (v1–v5 files, and a v6 file that never referenced a library asset)
+    reads as an **empty** :class:`~pixelart_creator.logic.asset_references.ReferenceSet`
+    — correct, not a migration: a pre-v6 project never had a reference set to lose.
+    Each entry is validated by :func:`_parse_asset_ref` before construction; the set's
+    own ``asset_id``-uniqueness and count bound
+    (:data:`~pixelart_creator.logic.constants.MAX_CATALOG_ASSETS`) are enforced by
+    :class:`~pixelart_creator.logic.asset_references.ReferenceSet` itself. A malformed
+    entry, a duplicate ``asset_id``, or a count over the bound raises
+    :class:`ProjectIOError` and constructs nothing — the caller's document load fails
+    atomically rather than silently dropping references.
+    """
+    _require(isinstance(value, list), "asset_refs must be a list")
+    try:
+        return ReferenceSet(references=tuple(_parse_asset_ref(e) for e in value))
+    except AssetReferenceError as exc:
+        raise ProjectIOError(str(exc)) from exc
 
 
 def _decode_buffer(
@@ -812,6 +922,13 @@ def deserialize(payload: Dict[str, Any]) -> Document:
 
     ppi = _parse_ppi(payload.get("ppi"))
     prefs = _parse_prefs(payload.get("prefs", {}))
+    # Validated here (not attached to Document — a project's reference set is held by
+    # the caller, plan §4.2) so a malformed v6 "asset_refs" array fails the whole load
+    # atomically, exactly like every other field, rather than being silently ignored
+    # because nothing downstream happens to read it. A caller that also wants the
+    # parsed set back calls :func:`parse_asset_refs` (or :func:`deserialize_project`)
+    # on the same payload.
+    parse_asset_refs(payload.get("asset_refs", []))
 
     frames_raw = _get(payload, "frames", list)
     _require(len(frames_raw) >= 1, "project must have at least one frame")
@@ -837,8 +954,23 @@ def deserialize(payload: Dict[str, Any]) -> Document:
     return document
 
 
-def load_project(path: Union[str, Path]) -> Document:
-    """Read and validate a ``.pixproj`` file into a :class:`Document`."""
+def deserialize_project(payload: Dict[str, Any]) -> Tuple[Document, ReferenceSet]:
+    """Reconstruct a :class:`Document` and its :class:`ReferenceSet` together (v6+).
+
+    Equivalent to calling :func:`deserialize` and :func:`parse_asset_refs` on the
+    same ``payload`` and pairing the results — provided as one call for a caller (a
+    project-opening surface, e.g. ``ui/main_window.py``) that needs both, since
+    :class:`Document` itself carries no ``asset_refs`` field (plan §4.2: the open
+    projects' reference sets are held by the caller, not by the document). Raises
+    :class:`ProjectIOError` and constructs neither value if either half is malformed.
+    """
+    document = deserialize(payload)
+    reference_set = parse_asset_refs(payload.get("asset_refs", []))
+    return document, reference_set
+
+
+def _read_payload(path: Union[str, Path]) -> Dict[str, Any]:
+    """Read and JSON-decode a ``.pixproj`` file (shared by both load entry points)."""
     target = Path(path)
     try:
         text = target.read_text(encoding="utf-8")
@@ -848,4 +980,21 @@ def load_project(path: Union[str, Path]) -> Document:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
         raise ProjectIOError(f"{target} is not valid JSON: {exc}") from exc
-    return deserialize(payload)
+    return payload
+
+
+def load_project(path: Union[str, Path]) -> Document:
+    """Read and validate a ``.pixproj`` file into a :class:`Document`."""
+    return deserialize(_read_payload(path))
+
+
+def load_project_with_asset_refs(
+    path: Union[str, Path],
+) -> Tuple[Document, ReferenceSet]:
+    """Read a ``.pixproj`` file into its :class:`Document` and :class:`ReferenceSet`.
+
+    The v6+ counterpart of :func:`load_project` for a caller that also needs the
+    project's reference set (e.g. ``ui/main_window.py``, which holds the open
+    projects' sets per plan §4.2). A v1–v5 file loads with an **empty** reference set.
+    """
+    return deserialize_project(_read_payload(path))
