@@ -118,10 +118,10 @@ def edges_for(
     content: Sequence[bytes],
     catalog: AssetCatalog,
 ) -> Tuple[DependencyEdge, ...]:
-    """Return the direct :class:`DependencyEdge` s ``descriptor`` carries into
-    ``catalog``.
+    """Return the direct dependency edges ``descriptor`` carries into ``catalog``.
 
-    For each blob in ``content`` — one reference-candidate key per direct
+    Each returned edge is a :class:`DependencyEdge`. For each blob in
+    ``content`` — one reference-candidate key per direct
     reference candidate the caller identified on the registered domain
     object (:func:`candidate_keys`'s output: a tileset's source-image
     reference bytes; one blob per sprite a ``FrameTag`` covers; a tilemap's

@@ -178,8 +178,10 @@ class ReferenceSet:
         return ReferenceSet(references=kept)
 
     def get(self, asset_id: str) -> Optional[AssetReference]:
-        """Return the reference for ``asset_id``, or ``None`` if absent (never
-        raises)."""
+        """Return the reference for ``asset_id``, or ``None`` if absent.
+
+        Never raises.
+        """
         for reference in self.references:
             if reference.asset_id == asset_id:
                 return reference

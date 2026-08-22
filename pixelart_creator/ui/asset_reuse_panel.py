@@ -181,11 +181,11 @@ class Asset_Reuse_Panel(QWidget):
     # -- project management (presentation state) --------------------------
 
     def add_project(self, name: str) -> None:
-        """Create a **genuinely empty** reference set for ``name`` (no-op if it
-        already exists).
+        """Create a **genuinely empty** reference set for ``name``.
 
-        An empty :class:`~pixelart_creator.logic.asset_references.ReferenceSet` is a
-        correct durable state for a project that references nothing yet — not a
+        No-op if ``name`` already exists. An empty
+        :class:`~pixelart_creator.logic.asset_references.ReferenceSet` is a correct
+        durable state for a project that references nothing yet — not a
         placeholder standing in for real data.
         """
         name = name.strip()
@@ -291,8 +291,7 @@ class Asset_Reuse_Panel(QWidget):
         )
 
     def is_shared(self, asset_id: str) -> bool:
-        """Return whether ``asset_id`` is referenced by more than one **open**
-        project.
+        """Return whether ``asset_id`` is referenced by more than one **open** project.
 
         Delegates to :func:`~pixelart_creator.logic.asset_references.shared_ids` — the
         panel computes no predicate of its own. The honesty bound is the model's:
@@ -358,8 +357,9 @@ class Asset_Reuse_Panel(QWidget):
             self._tree.setCurrentItem(restored)
 
     def _refresh_project_tree(self) -> None:
-        """Show the current project's own references and their resolve / shared
-        state (REQ-P11-UI-021) — the panel's new indicator surface, computed over
+        """Show the current project's own references and their resolve / shared state.
+
+        This is the panel's new indicator surface (REQ-P11-UI-021), computed over
         the real, durable :class:`~pixelart_creator.logic.asset_references.ReferenceSet`
         in :attr:`_projects`, never over a widget-local rule.
         """
