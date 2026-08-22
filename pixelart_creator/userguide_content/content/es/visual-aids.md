@@ -73,6 +73,12 @@ Activa la **cuadrícula isométrica** para dibujar sobre una retícula de diaman
 - El espaciado de la cuadrícula (ancho de tile) está acotado entre **2 y 1024 px**.
 - La **isometría verdadera** (aproximadamente `1,732:1`) es configurable si la
   prefieres sobre la dimétrica 2:1.
+- Abre **Configure Isometric Grid** desde el menú **Ayudas**, justo al lado del
+  interruptor de la cuadrícula isométrica, para fijar valores exactos en lugar de
+  calcularlos a ojo: el **ancho de tile**, la **relación de tile W:H** (2,0 para
+  dimétrica, ~1,732 para isometría verdadera) y el **origen** de la retícula (X, Y).
+  Este diálogo aún no está traducido al español, así que conserva su nombre en
+  inglés en la interfaz.
 
 > **Las cuadrículas muy alejadas se desvanecen por rendimiento.** Cuando el borde en
 > pantalla de un tile se reduce por debajo de **32 px**, la retícula es demasiado
