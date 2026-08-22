@@ -15,7 +15,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, List, Optional, Sequence, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 from PySide6.QtCore import QEvent, QRectF, QStandardPaths, Qt, QTimer
@@ -56,6 +56,13 @@ from PySide6.QtWidgets import (
 )
 
 from pixelart_creator.data.asset_cas import default_content_store
+from pixelart_creator.data.asset_decision_journal import (
+    JOURNAL_FILENAME,
+    AssetDecisionJournalError,
+    drop_record,
+    load_journal,
+    write_record,
+)
 from pixelart_creator.data.asset_revision_store import AssetRevisionStore
 from pixelart_creator.data.asset_storage import default_asset_root
 from pixelart_creator.data.favourites_io import (
@@ -73,16 +80,17 @@ from pixelart_creator.data.palette_import import load_palette
 from pixelart_creator.data.project_io import (
     FILE_SUFFIX,
     ProjectIOError,
-    load_project_with_asset_refs,
+    load_project_bundle,
     save_project,
 )
 from pixelart_creator.logic import history, transform
+from pixelart_creator.logic.asset_edit_decisions import AssetEditDecisions
 
-# Side-effect import: registers ASSET_LIBRARY_EDIT into project_prefs.REGISTRY
-# at module scope, before the confirmations submenu is built below (plan
-# §3.4, ruling P11-R2). Not referenced by name elsewhere in this module.
-from pixelart_creator.logic.asset_references import ASSET_LIBRARY_EDIT  # noqa: F401
-from pixelart_creator.logic.asset_references import ReferenceSet
+# Also a side-effect import: registers ASSET_LIBRARY_EDIT into
+# project_prefs.REGISTRY at module scope, before the confirmations submenu is
+# built below (plan §3.4, ruling P11-R2). Referenced by name (T51) to filter
+# the journal's admitted-prefs write to this one key.
+from pixelart_creator.logic.asset_references import ASSET_LIBRARY_EDIT, ReferenceSet
 from pixelart_creator.logic.assistant import ChatBackend
 from pixelart_creator.logic.autosave import should_autosave
 from pixelart_creator.logic.blend import composite_stack
@@ -324,6 +332,21 @@ class _DocTab:
     # branch-switch/restore).
     reference_set: ReferenceSet = field(default_factory=ReferenceSet)
     project_key: str = ""
+    # T51 (ruling P11-R13, ADR-0062): the durable project identity that keys the
+    # write-ahead decision journal — the resolved absolute ``.pixproj`` path, set
+    # by ``open_document``/``save_document`` only. Deliberately **not**
+    # ``project_key``: that key also scopes the reuse panel's bucket and the
+    # update-prompt's per-session memory, and re-keying it on save would move a
+    # project's reuse-panel bucket and its session memory mid-session. ``None``
+    # for a never-saved document — a never-saved project's decisions live only
+    # on ``decided_edits`` below and the journal writes no record for it.
+    file_path: Optional[str] = None
+    # T51: this tab's per-edit library-decision ledger (T47's
+    # ``AssetEditDecisions``), hydrated at open from the project file merged
+    # with any journal record (journal wins per key), advanced by the resolve
+    # prompt's ``on_decided`` callback, and forwarded to ``save_project`` on
+    # save so it becomes part of the file the next open reads back.
+    decided_edits: AssetEditDecisions = field(default_factory=AssetEditDecisions)
 
 
 class Palette_Panel(QWidget):
@@ -1693,33 +1716,118 @@ class Main_Window(QMainWindow):
     def open_document(self, path: str) -> Document:
         """Open a ``.pixproj`` via ``data/project_io`` into a new tab (020).
 
-        Loads through :func:`load_project_with_asset_refs` (T30, plan §3.11 (2))
-        so the project's reference set travels with it — a v1-v5 file loads with
-        an **empty** set (T12's behaviour, not a migration). The tab's key is the
-        opened file's absolute path, which is what makes it stable across a later
-        save-in-place and what the reuse panel and the update-prompt's per-project
-        session memory both key on (plan §3.11 (2b)).
+        Loads through :func:`load_project_bundle` (T30/T49, plan §3.11 (2),
+        ``REQ-P11-DATA-010``) so the project's reference set **and** its
+        per-edit decision ledger travel with it — a v1-v5 file, or a v6 file
+        that never recorded a decision, loads with an **empty** ledger. The
+        tab's key is the opened file's absolute path, which is what makes it
+        stable across a later save-in-place and what the reuse panel and the
+        update-prompt's per-project session memory both key on (plan §3.11
+        (2b)); ``file_path`` (T51) is set to the same resolved path — the
+        durable identity that keys the decision journal, deliberately kept
+        separate from ``project_key`` (see ``_DocTab.file_path``'s own
+        docstring).
 
         Once the tab exists — so the prompt has a parent and the user can see
         which project is asking — and **before** the loaded set is bound to
-        the reuse panel or used to resolve anything, runs
+        the reuse panel or used to resolve anything, this method (T51, ruling
+        P11-R13):
+
+        1. Reads the journal's record for this resolved path, if any, and
+           **merges it over** the loaded prefs and ledger — the journal wins
+           per key, because it is never staler than the file (see
+           ``_on_project_prefs_changed`` and the resolve callback below,
+           which keep that precondition true).
+        2. Assigns the merged result to ``record.document.prefs`` and
+           ``record.decided_edits``.
+        3. Calls :meth:`Asset_Update_Prompt_Dialog.prime_session` so the
+           resolve pass below never re-asks about an edit already decided.
+
+        Only **then** does it run
         :func:`~pixelart_creator.ui.asset_update_prompt.resolve_library_edits`
         **once** over the newly-created tab's own reference set (T31, plan
         §3.11 (2)): each ``STATE_EDITED`` reference raises
         ``Asset_Update_Prompt_Dialog.decide`` exactly once; the resolved
-        ``(reference_set, prefs)`` pair is written back onto the tab before
-        anything else runs.
+        ``(reference_set, prefs)`` pair is written back onto the tab, and a
+        fresh decision is written straight to the journal by the resolve
+        callback (T51 step 4) before this method returns.
         """
-        document, reference_set = load_project_with_asset_refs(path)
+        document, reference_set, decisions = load_project_bundle(path)
         project_key = str(Path(path).resolve())
 
+        def _hydrate_from_journal(record: "_DocTab") -> None:
+            record.file_path = project_key
+            record.decided_edits = decisions
+            journal_record = self._read_decision_journal_record(project_key)
+            if journal_record is not None:
+                # The journal's only admitted preference key is
+                # ``ASSET_LIBRARY_EDIT.name`` (data/asset_decision_journal.py's
+                # own admitted-key list) — updated through the same
+                # ``with_value`` seam the confirmations submenu itself uses,
+                # rather than reconstructing a whole ``ProjectPrefs`` snapshot
+                # for a merge that only ever touches one key.
+                library_edit_value = journal_record["prefs"].get(
+                    ASSET_LIBRARY_EDIT.name
+                )
+                if library_edit_value is not None:
+                    record.document.prefs = record.document.prefs.with_value(
+                        ASSET_LIBRARY_EDIT, library_edit_value
+                    )
+                journal_decisions = AssetEditDecisions(
+                    {
+                        entry["asset_id"]: (entry["edit_token"], entry["outcome"])
+                        for entry in journal_record["edits"]
+                    }
+                )
+                record.decided_edits = record.decided_edits.merged_with(
+                    journal_decisions
+                )
+            Asset_Update_Prompt_Dialog.prime_session(
+                record.project_key, record.document.prefs, record.decided_edits
+            )
+
         def _resolve_library_edits(record: "_DocTab") -> None:
+            _hydrate_from_journal(record)
+
+            # ``prefs_after`` is deliberately left untyped: importing
+            # ``logic/project_prefs.ProjectPrefs`` by name here for a single
+            # annotation would add an import edge (`check_cycles`) this task's
+            # own placement prediction (plan §3.15 (10)) does not carry —
+            # ``record.document.prefs`` (already typed via ``Document``) is
+            # this callback's only real contract.
+            def _on_asset_edit_decided(
+                asset_id: str,
+                edit_token: Optional[str],
+                outcome: str,
+                remembered_always: bool,
+                prefs_after,
+            ) -> None:
+                record.document.prefs = prefs_after
+                # Step 4 (ruling P11-R13): the unticked half of the choice
+                # lands on the per-edit ledger; the ticked half only changes
+                # ``prefs``, already handled above — never double-recorded as
+                # a ledger row.
+                if not remembered_always and edit_token is not None:
+                    record.decided_edits = record.decided_edits.with_decision(
+                        asset_id, edit_token, outcome
+                    )
+                # Never record an outcome the user did not choose: this
+                # callback fires only on an explicit decision (never a
+                # dismissal, never a remembered-"always" short-circuit) — see
+                # ``Asset_Update_Prompt_Dialog.decide``'s own docstring. A
+                # never-saved project writes no record (its decision lives on
+                # the tab only); that is the user's own ruling on
+                # ``CL-P11-8``.
+                if record.file_path is not None:
+                    self._write_decision_journal_record(record)
+
             new_reference_set, new_prefs = resolve_library_edits(
                 record.reference_set,
                 self._asset_session.catalog(),
                 record.document.prefs,
                 record.project_key,
                 parent=self,
+                on_decided=_on_asset_edit_decided,
             )
             record.reference_set = new_reference_set
             record.document.prefs = new_prefs
@@ -1742,12 +1850,30 @@ class Main_Window(QMainWindow):
         tab's held reference set (T30, plan §3.11 (2)) so a bound set is written
         back rather than dropped on the next save; a project referencing nothing
         still writes no ``asset_refs`` key (``data/project_io.py``'s own
-        ``reference_set.entries()`` guard).
+        ``reference_set.entries()`` guard). Also forwards the tab's per-edit
+        decision ledger (T51, ``decisions=``, ruling P11-R13) so it becomes part
+        of the saved file, then sets ``record.file_path`` to the saved,
+        suffix-corrected path and **retires** that path's journal record —
+        after the file write has already succeeded, never before. A failed
+        retire is tolerated and does not raise into this method: the durable
+        copy already lives in the file that was just written; the journal row
+        left behind is merely redundant until the next open reads it as a
+        no-op (it matches what the file already carries).
         """
         record = self.active_tab()
         if record is not None:
-            save_project(record.document, path, reference_set=record.reference_set)
+            saved_path = save_project(
+                record.document,
+                path,
+                reference_set=record.reference_set,
+                decisions=record.decided_edits,
+            )
             record.stack.setClean()
+            record.file_path = str(saved_path.resolve())
+            try:
+                drop_record(self._decision_journal_path(), record.file_path)
+            except AssetDecisionJournalError:
+                pass
 
     def _add_document_tab(
         self,
@@ -2023,13 +2149,21 @@ class Main_Window(QMainWindow):
         self._timeline_panel.rebuild()
 
     def _on_project_prefs_changed(self) -> None:
-        """Handle a project confirmation preference restored to its default.
+        """Handle a project confirmation preference set or restored to its default.
 
         A preference is not document content (REQ-P5-DATA-004): no recomposite,
-        no undo entry. Reserved for a future dependent surface; presently a
-        deliberate no-op.
+        no undo entry — ``ui/project_prefs_actions.py`` has already assigned
+        the new value directly onto the active document's ``prefs`` by the
+        time this fires. T51 (ruling P11-R13) adds one further step: write the
+        active tab's current record through the decision journal, so the
+        journal is never staler than the file — the precondition the whole
+        journal-wins-per-key precedence rule in ``open_document`` rests on. A
+        no-op for a never-saved tab (``record.file_path is None``) or when no
+        tab is active, matching every other journal-write site in this class.
         """
-        return None
+        record = self.active_tab()
+        if record is not None:
+            self._write_decision_journal_record(record)
 
     def _apply_modes_to(self, record: _DocTab) -> None:
         """Push the shell's Phase-2 drawing modes onto a tab's view/scene."""
@@ -2940,6 +3074,65 @@ class Main_Window(QMainWindow):
         directory = Path(base) if base else Path.home() / ".pixelart_creator"
         directory.mkdir(parents=True, exist_ok=True)
         return directory / _FAVOURITES_FILE
+
+    def _decision_journal_path(self) -> Path:
+        """Return the app-level decision-journal path (T51, ADR-0062).
+
+        The app-config directory is resolved here in ``ui/`` — beside the
+        Favourites store above, in the same style — and passed to the Qt-free
+        ``data/asset_decision_journal`` layer, which resolves nothing itself
+        (the caller passes a :class:`~pathlib.Path`).
+        """
+        base = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.AppConfigLocation
+        )
+        directory = Path(base) if base else Path.home() / ".pixelart_creator"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory / JOURNAL_FILENAME
+
+    def _read_decision_journal_record(
+        self, project_path: str
+    ) -> Optional[Dict[str, Any]]:
+        """Return ``project_path``'s journal record, or ``None`` if absent/unreadable.
+
+        A malformed journal is treated the same as an absent record (T51) —
+        the same safe-failure direction the module's own atomicity posture
+        already chooses for a kill mid-write: the decision is lost and the
+        user is asked again, rather than the application failing to open the
+        project at all.
+        """
+        try:
+            journal = load_journal(self._decision_journal_path())
+        except AssetDecisionJournalError:
+            return None
+        return journal.get(project_path)
+
+    def _write_decision_journal_record(self, record: "_DocTab") -> None:
+        """Write ``record``'s current prefs + ledger to the journal (T51).
+
+        A no-op when ``record.file_path`` is ``None`` — a never-saved project
+        writes no record; its decision lives on the tab only (the user's own
+        ruling on ``CL-P11-8``). Only the admitted preference key
+        (``ASSET_LIBRARY_EDIT.name``) is forwarded — the one
+        ``data/asset_decision_journal.py`` accepts; every other explicitly-set
+        preference on this project is out of this journal's scope. A write
+        failure is tolerated and never raised to the caller: this is a
+        best-effort durability buffer, not the file itself.
+        """
+        if record.file_path is None:
+            return
+        prefs_values = {
+            ASSET_LIBRARY_EDIT.name: record.document.prefs.get(ASSET_LIBRARY_EDIT)
+        }
+        try:
+            write_record(
+                self._decision_journal_path(),
+                record.file_path,
+                prefs_values,
+                record.decided_edits,
+            )
+        except AssetDecisionJournalError:
+            pass
 
     def _asset_root(self) -> Path:
         """Return the app asset-store root (``QStandardPaths``, ADR-0051).

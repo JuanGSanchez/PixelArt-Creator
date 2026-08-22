@@ -56,6 +56,19 @@ split):**
   side, from "the same edit asked about before"). The caller is still
   responsible for the eventual content-hash-scoped identity via
   :meth:`decide`'s optional ``edit_token`` — see below.
+  **Update (T50, ADR-0062, ruling P11-R13):** this per-process session
+  memory was, until this task, the *only* home this decision had — closing
+  the tab discarded it, unticked and ticked alike, even though the user's
+  ruling requires both branches to be saved automatically. It is no longer
+  the only home: the unticked half now also lands in the durable, per-edit
+  ledger built by T47 (:mod:`pixelart_creator.logic.asset_edit_decisions`)
+  and T48/T49 (the write-ahead journal and project-file persistence). This
+  module's own session bucket is now a **runtime cache** in front of that
+  ledger, seeded from it by :meth:`Asset_Update_Prompt_Dialog.prime_session`
+  and observed, on every fresh decision, through :meth:`decide`'s optional
+  ``on_decided`` callback — the caller is the one that writes the callback's
+  payload into the durable ledger; this module still performs no I/O of its
+  own (see below).
 - *Computing which reference is "edited" in the first place* (the
   hash-mismatch predicate) is **T13**'s resolve-state surface
   (``ui/asset_reuse_panel.py``) plus T11's ``resolve_states`` /
@@ -73,7 +86,7 @@ nothing to tear down.
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Tuple, Union
+from typing import Callable, Dict, Optional, Tuple, Union
 
 from PySide6.QtCore import QEvent, Signal
 from PySide6.QtWidgets import (
@@ -87,6 +100,11 @@ from PySide6.QtWidgets import (
 )
 
 from pixelart_creator.logic.asset_catalog import AssetCatalog
+from pixelart_creator.logic.asset_edit_decisions import (
+    DECISION_KEEP,
+    DECISION_PICK_UP,
+    AssetEditDecisions,
+)
 from pixelart_creator.logic.asset_references import (
     ASSET_LIBRARY_EDIT,
     STATE_EDITED,
@@ -105,8 +123,19 @@ from pixelart_creator.logic.project_prefs import with_value as prefs_with_value
 #: ``logic/asset_references.ASSET_LIBRARY_EDIT``): an outcome is what THIS
 #: prompt resolved to for ONE edit; the preference is what to do about
 #: FUTURE edits without asking.
-OUTCOME_PICK_UP = "pick_up"
-OUTCOME_KEEP = "keep"
+#:
+#: **Promoted aliases (T50, ADR-0062, ruling P11-R13 — same "one definition of
+#: a control, aliases kept so no call site moves" move ruling P11-R11 made for
+#: ``data/asset_catalog_io.py``'s ``_safe_asset_id`` / ``_resolve_within``,
+#: applied here in the other direction):** the canonical outcome domain now
+#: lives in the logic layer,
+#: :data:`~pixelart_creator.logic.asset_edit_decisions.DECISION_PICK_UP` /
+#: :data:`~pixelart_creator.logic.asset_edit_decisions.DECISION_KEEP`, at
+#: byte-identical values — these two names are retained, unchanged, as
+#: aliases so every existing reference in this module and its callers still
+#: resolves without moving.
+OUTCOME_PICK_UP = DECISION_PICK_UP
+OUTCOME_KEEP = DECISION_KEEP
 
 #: The two non-default members of ``ASSET_LIBRARY_EDIT.domain`` this prompt
 #: writes through :func:`~pixelart_creator.logic.project_prefs.with_value`
@@ -146,14 +175,23 @@ class Asset_Update_Prompt_Dialog(QDialog):
     #: — the production route (``ui/main_window.py``, plan §3.11 (2b)),
     #: because ``document.prefs`` is *replaced* on any confirmation-preference
     #: toggle (``ui/project_prefs_actions.py:165/175``), which would silently
-    #: orphan an ``id(prefs)``-keyed bucket. This is in-memory, per-process
-    #: session state — never persisted, never written through
-    #: ``logic/project_prefs.py`` (that seam is reserved for the "Don't ask
-    #: again" preference, ``REQ-P11-UI-023``, a materially different,
-    #: explicit, durable choice). Disclosed cost: a decided ``ProjectPrefs``
-    #: snapshot (or a live ``project_key`` bucket) is retained for the life of
-    #: the process; call :meth:`forget_session` when a project closes to
-    #: release it.
+    #: orphan an ``id(prefs)``-keyed bucket. This dict itself is still
+    #: in-memory, per-process runtime state — it is never itself written to
+    #: disk, and it is never written through ``logic/project_prefs.py`` (that
+    #: seam is reserved for the "Don't ask again" preference,
+    #: ``REQ-P11-UI-023``, a materially different, explicit, durable choice).
+    #: **Corrected (T50, ADR-0062, ruling P11-R13):** this bucket is no longer
+    #: the *only* record of an unticked decision — it can be **hydrated** at
+    #: the start of a session from the durable, per-edit ledger
+    #: (:class:`~pixelart_creator.logic.asset_edit_decisions.AssetEditDecisions`,
+    #: T47) via :meth:`prime_session`, and every fresh decision made through
+    #: :meth:`decide` is handed to that method's optional ``on_decided``
+    #: callback so the caller can persist it (T48's write-ahead journal /
+    #: T49's project-file save) — this module performs no I/O of its own;
+    #: it only calls out. Disclosed cost, unchanged: a decided
+    #: ``ProjectPrefs`` snapshot (or a live ``project_key`` bucket) is
+    #: retained for the life of the process; call :meth:`forget_session` when
+    #: a project closes to release it.
     _SESSION_MEMORY: Dict[Union[int, str], Tuple[ProjectPrefs, Dict[_EditKey, str]]] = (
         {}
     )
@@ -286,6 +324,51 @@ class Asset_Update_Prompt_Dialog(QDialog):
             return
         cls._SESSION_MEMORY.pop(id(prefs), None)
 
+    @classmethod
+    def prime_session(
+        cls,
+        project_key: str,
+        prefs: ProjectPrefs,
+        decisions: AssetEditDecisions,
+    ) -> None:
+        """Seed ``project_key``'s session bucket from a durable ledger (ADR-0062).
+
+        For every ``(asset_id, edit_token, outcome)`` row
+        :meth:`~pixelart_creator.logic.asset_edit_decisions.AssetEditDecisions.entries`
+        returns, the session bucket gains that entry under the exact
+        ``(asset_id, edit_token)`` key :meth:`decide` already looks up —
+        :meth:`decide`'s own ``if edit_key in bucket`` lookup is unchanged and
+        needs no knowledge that a hydrated entry looks any different from a
+        live one.
+
+        **Idempotent:** calling this twice with the same ``decisions`` leaves
+        the bucket exactly as the first call did — a row already present is
+        never rewritten with an identical value.
+
+        **A live decision beats a hydrated one:** a bucket entry recorded
+        *during this session* (a real dialog answer, cached by :meth:`decide`
+        itself) is never overwritten by a hydrated row for the same
+        ``(asset_id, edit_token)`` key, whichever order the two calls happen
+        in — this method only ever fills a key that is still absent.
+
+        Args:
+            project_key: The same stable project identity :meth:`decide` is
+                called with, so the seeded rows land in the bucket
+                :meth:`decide` will actually consult.
+            prefs: The project's confirmation-preferences snapshot, threaded
+                through to :meth:`_session_bucket` exactly as :meth:`decide`
+                threads it — this method mints or reuses no bucket of its
+                own.
+            decisions: The durable ledger to hydrate from (T47's
+                :class:`~pixelart_creator.logic.asset_edit_decisions.AssetEditDecisions`,
+                loaded by T49's ``load_project_bundle``/
+                ``parse_asset_edit_decisions``).
+        """
+        bucket = cls._session_bucket(prefs, project_key)
+        for asset_id, edit_token, outcome in decisions.entries():
+            edit_key: _EditKey = (asset_id, edit_token)
+            bucket.setdefault(edit_key, outcome)
+
     # -- the whole ask-or-remember flow (consults + writes the seam) ----
 
     @classmethod
@@ -297,6 +380,9 @@ class Asset_Update_Prompt_Dialog(QDialog):
         parent: Optional[QWidget] = None,
         edit_token: Optional[str] = None,
         project_key: Optional[str] = None,
+        on_decided: Optional[
+            Callable[[str, Optional[str], str, bool, ProjectPrefs], None]
+        ] = None,
     ) -> Tuple[str, ProjectPrefs]:
         """Resolve one library-edit prompt end to end; return ``(outcome, prefs)``.
 
@@ -313,16 +399,26 @@ class Asset_Update_Prompt_Dialog(QDialog):
         cache hit skips the dialog and returns the cached outcome with
         ``prefs`` unchanged. A cache miss shows the dialog modally; a
         decision made **without** ticking "Don't ask again" is cached here
-        for this ``(asset_id, edit_token)`` pair, for this ``prefs`` only —
-        never persisted, never written through
-        ``logic/project_prefs.py``. Ticking it, instead, writes the outcome
-        back through :func:`~pixelart_creator.logic.project_prefs.with_value`
+        for this ``(asset_id, edit_token)`` pair, for this ``prefs`` only.
+        This module still writes nothing to disk and still never calls
+        ``logic/project_prefs.py`` for it — but (T50, ADR-0062, ruling
+        P11-R13) that unticked decision is no longer *undurable* by
+        construction: it is handed, alongside the ticked branch, to the
+        optional ``on_decided`` callback below, and the caller (T48's
+        write-ahead journal / T49's project-file save) is the one that
+        actually persists it, matching the user's ruling that both the
+        ticked and the unticked choice are saved automatically. Ticking it,
+        instead, writes the outcome back through
+        :func:`~pixelart_creator.logic.project_prefs.with_value`
         (``REQ-P11-DATA-010``) as before — a *durable*, cross-session
         record, which supersedes the in-memory cache for every future edit
         of this project. Cancelling / closing caches and writes nothing and
         resolves as :data:`OUTCOME_KEEP` (``SC-P11-UI-023-4``: "ticking
         without choosing records nothing" — the session cache honours the
-        same rule).
+        same rule); ``on_decided`` is **not** invoked for a dismissal, nor
+        when a remembered "always" preference short-circuits the dialog
+        entirely — both cases record nothing new, so there is nothing for
+        the callback to carry.
 
         Args:
             edit_token: An optional identity for *this specific* edit (e.g.
@@ -340,6 +436,19 @@ class Asset_Update_Prompt_Dialog(QDialog):
                 this, because ``document.prefs`` is *replaced* on any
                 confirmation-preference toggle, which would otherwise
                 silently drop the session memory.
+            on_decided: An optional
+                ``(asset_id, edit_token, outcome, remembered_always,
+                prefs_after) -> None`` callback, invoked **exactly once,
+                synchronously**, after the outcome is recorded (either into
+                the session bucket or, when "Don't ask again" was ticked,
+                into ``prefs``) and **before** this method returns. Never
+                invoked for a session-cache hit (nothing new was recorded),
+                a dismissal, or a remembered-"always" short-circuit — see
+                above. ``remembered_always`` is ``True`` exactly when
+                ``prefs_after`` carries the new "always" preference;
+                ``prefs_after`` is this call's returned ``prefs``. This
+                method never persists anything itself; the callback is the
+                caller's own seam for doing so (T48/T49).
 
         The caller is responsible for invoking this **before** applying any
         project-side effect of the edit (``REQ-P11-UI-022``'s ordering
@@ -361,7 +470,8 @@ class Asset_Update_Prompt_Dialog(QDialog):
         dialog.exec()
         outcome = dialog.outcome()
         if dialog.decided_explicitly():
-            if dialog.dont_ask_again():
+            remembered_always = dialog.dont_ask_again()
+            if remembered_always:
                 value = (
                     _PREF_ALWAYS_PICK_UP
                     if outcome == OUTCOME_PICK_UP
@@ -370,6 +480,8 @@ class Asset_Update_Prompt_Dialog(QDialog):
                 prefs = prefs_with_value(prefs, ASSET_LIBRARY_EDIT, value)
             else:
                 bucket[edit_key] = outcome
+            if on_decided is not None:
+                on_decided(asset_id, edit_token, outcome, remembered_always, prefs)
         return outcome, prefs
 
     # -- i18n / a11y ------------------------------------------------------
@@ -412,6 +524,9 @@ def resolve_library_edits(
     prefs: ProjectPrefs,
     project_key: str,
     parent: Optional[QWidget] = None,
+    on_decided: Optional[
+        Callable[[str, Optional[str], str, bool, ProjectPrefs], None]
+    ] = None,
 ) -> Tuple[ReferenceSet, ProjectPrefs]:
     """Run :meth:`Asset_Update_Prompt_Dialog.decide` over every edited reference.
 
@@ -465,6 +580,9 @@ def resolve_library_edits(
             the reuse panel's shared-state bucket; minted by the caller.
         parent: The dialog's Qt parent, so a raised prompt is anchored to the
             project asking about it.
+        on_decided: Forwarded unchanged, per edited reference, to
+            :meth:`Asset_Update_Prompt_Dialog.decide` — see that method's own
+            ``on_decided`` doc for exactly when it fires (T50, ADR-0062).
 
     Returns:
         ``(reference_set, prefs)`` — the pair to write back onto the tab.
@@ -484,6 +602,7 @@ def resolve_library_edits(
             parent,
             edit_token=tokens[asset_id],
             project_key=project_key,
+            on_decided=on_decided,
         )
         if outcome == OUTCOME_PICK_UP:
             reference_set = reference_set.remove(asset_id).add(
