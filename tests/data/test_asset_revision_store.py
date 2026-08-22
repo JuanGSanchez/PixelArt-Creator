@@ -227,3 +227,143 @@ def test_module_imports_no_crdt_no_cloud_no_qt() -> None:
         assert "cloud" not in parts
         assert not lowered.startswith(("pyside", "pyqt"))
         assert "qt" not in parts
+
+
+# --------------------------------------------------------------------------- #
+# Durability — bind_root (T40; SC-P11-INGRESS-E2E-1's restart clause, unit    #
+# level; REQ-P11-DATA-008's revision half)                                    #
+# --------------------------------------------------------------------------- #
+
+
+def test_bind_root_of_empty_root_adopts_nothing(tmp_path) -> None:
+    store, _ = _store_over_backend()
+    before = sorted(p.name for p in tmp_path.iterdir())
+    assert before == []
+    store.bind_root(tmp_path)
+    assert store.history("anything") == AssetVersionHistory()
+    after = sorted(p.name for p in tmp_path.iterdir())
+    assert after == []
+
+
+def test_bind_root_rejects_malformed_index(tmp_path) -> None:
+    (tmp_path / "revisions.json").write_text("not json{{{", encoding="utf-8")
+    store, _ = _store_over_backend()
+    with pytest.raises(AssetRevisionStoreError):
+        store.bind_root(tmp_path)
+
+
+def test_record_after_bind_root_persists_to_disk(tmp_path) -> None:
+    store, _ = _store_over_backend()
+    store.bind_root(tmp_path)
+    store.record("sprite", b"v1", created_marker=0)
+    assert (tmp_path / "revisions.json").exists()
+    assert (tmp_path / "revisions" / "sprite.json").exists()
+
+
+def test_second_store_bound_to_same_root_sees_recorded_revisions(tmp_path) -> None:
+    writer, _ = _store_over_backend()
+    writer.bind_root(tmp_path)
+    r1 = writer.record("sprite", b"v1", created_marker=0)
+    writer.record("sprite", b"v2", created_marker=1)
+
+    reader, _ = _store_over_backend()
+    reader.bind_root(tmp_path)
+    history = reader.history("sprite")
+    assert [r.content_hash for r in history.revisions] == [
+        r1.content_hash,
+        content_hash(b"v2"),
+    ]
+
+
+def test_unbound_store_persists_nothing(tmp_path, monkeypatch) -> None:
+    from pixelart_creator.data import asset_revision_store as module
+
+    calls: list[str] = []
+    monkeypatch.setattr(
+        module,
+        "write_history",
+        lambda *a, **k: calls.append("write_history"),
+    )
+    monkeypatch.setattr(
+        module,
+        "write_index",
+        lambda *a, **k: calls.append("write_index"),
+    )
+    store, _ = _store_over_backend()  # never bound
+    store.record("sprite", b"v1", created_marker=0)
+    assert calls == []
+
+
+def test_dedup_rerecord_after_bind_root_writes_nothing_new(
+    tmp_path, monkeypatch
+) -> None:
+    from pixelart_creator.data import asset_revision_store as module
+
+    store, _ = _store_over_backend()
+    store.bind_root(tmp_path)
+    store.record("sprite", b"same", created_marker=0)
+
+    calls: list[str] = []
+    monkeypatch.setattr(
+        module,
+        "write_history",
+        lambda *a, **k: calls.append("write_history"),
+    )
+    monkeypatch.setattr(
+        module,
+        "write_index",
+        lambda *a, **k: calls.append("write_index"),
+    )
+    # Identical bytes against the current head is a dedup no-op: the store never
+    # reaches the persistence calls at all.
+    store.record("sprite", b"same", created_marker=1)
+    assert calls == []
+
+
+def test_write_failure_leaves_history_unchanged_and_wraps_as_store_error(
+    tmp_path, monkeypatch
+) -> None:
+    from pixelart_creator.data import asset_revision_store as module
+    from pixelart_creator.data.asset_revision_io import AssetRevisionIOError
+
+    store, _ = _store_over_backend()
+    store.bind_root(tmp_path)
+    store.record("sprite", b"v1", created_marker=0)
+    before = store.history("sprite")
+
+    def _raise(*_args, **_kwargs):
+        raise AssetRevisionIOError("simulated disk failure")
+
+    monkeypatch.setattr(module, "write_history", _raise)
+
+    with pytest.raises(AssetRevisionStoreError) as excinfo:
+        store.record("sprite", b"v2", created_marker=1)
+
+    # Never the raw serialiser error — the two Qt slots that call record() catch
+    # only AssetRevisionStoreError, so a leaked AssetRevisionIOError would crash
+    # unhandled inside a slot.
+    assert not isinstance(excinfo.value, AssetRevisionIOError)
+    assert store.history("sprite") == before
+
+
+def test_write_index_failure_also_leaves_history_unchanged(
+    tmp_path, monkeypatch
+) -> None:
+    from pixelart_creator.data import asset_revision_store as module
+    from pixelart_creator.data.asset_revision_io import AssetRevisionIOError
+
+    store, _ = _store_over_backend()
+    store.bind_root(tmp_path)
+    store.record("sprite", b"v1", created_marker=0)
+    before = store.history("sprite")
+
+    def _raise(*_args, **_kwargs):
+        raise AssetRevisionIOError("simulated index write failure")
+
+    monkeypatch.setattr(module, "write_index", _raise)
+
+    with pytest.raises(AssetRevisionStoreError) as excinfo:
+        store.record("sprite", b"v2", created_marker=1)
+
+    assert not isinstance(excinfo.value, AssetRevisionIOError)
+    assert store.history("sprite") == before

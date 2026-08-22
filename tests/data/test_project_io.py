@@ -78,10 +78,13 @@ def test_serialize_shape():
     payload = pio.serialize(Document(2, 2))
     assert payload["format"] == "pixproj"
     # Schema tracks the FORMAT_VERSION constant, not a literal (v5 adds
-    # Document.ppi, ADR-0025; earlier versions still load back-compat). Pinning
-    # to the constant stops this assertion going stale on the next bump.
+    # Document.ppi, ADR-0025; v6 adds the optional "asset_refs" root array,
+    # ADR-0058; earlier versions still load back-compat). Pinning to the
+    # constant, and only the constant, stops this assertion going stale on the
+    # next bump (the redundant `assert pio.FORMAT_VERSION == <N>` this line
+    # used to carry alongside it was dropped 2026-08-21 for exactly that
+    # reason -- T19 addendum).
     assert payload["version"] == pio.FORMAT_VERSION
-    assert pio.FORMAT_VERSION == 5
     assert payload["canvas"] == {"width": 2, "height": 2, "mode": "rgba"}
 
 
