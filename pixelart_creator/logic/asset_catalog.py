@@ -150,6 +150,20 @@ class AssetDescriptor:
             ``MAX_METADATA_BYTES``.
         path: The advisory current location (display/fallback only); resolved *through*
             ``asset_id``, never authoritative. ``None`` when unknown.
+        reference_key: The content-only reference-derivation key (ruling P11-R8,
+            ``design-docs/specs/phase-11-asset-ingress/plan.md`` §3.10) — a hex
+            content hash of :func:`~pixelart_creator.logic.asset_edges.reference_bytes`,
+            distinct from ``content_hash``: this key answers *"is this the same
+            pictorial content?"* (edge derivation only, ``REQ-P11-LOGIC-010``),
+            while ``content_hash`` answers *"are these the same stored bytes?"*
+            (dedup/retrieval/identity, unchanged by this field). Defaulted to
+            ``""``, meaning *unknown* — a pre-``reference_key`` sidecar or
+            artifact entry parses with ``""`` and simply derives no edge (never
+            a crash). Recorded only for kinds that can **be** a reference
+            target (``SPRITE``, ``TILESET``); every other kind, and an
+            ambiguous ``TILESET`` (zero or more than one tileset), also
+            records ``""``. A **defaulted trailing field**: it is added last so
+            no existing keyword-argument call site moves.
     """
 
     asset_id: str
@@ -159,6 +173,7 @@ class AssetDescriptor:
     tags: "frozenset[str]" = frozenset()
     metadata: Mapping[str, object] = field(default=MappingProxyType({}), hash=False)
     path: Optional[str] = None
+    reference_key: str = ""
 
     def __post_init__(self) -> None:
         """Validate identity, kind, name, hash, tags, metadata and advisory path."""
@@ -183,6 +198,10 @@ class AssetDescriptor:
         if self.path is not None and not isinstance(self.path, str):
             raise AssetCatalogModelError(
                 f"path must be a str or None, got {self.path!r}"
+            )
+        if not isinstance(self.reference_key, str):
+            raise AssetCatalogModelError(
+                f"reference_key must be a str, got {self.reference_key!r}"
             )
 
 
