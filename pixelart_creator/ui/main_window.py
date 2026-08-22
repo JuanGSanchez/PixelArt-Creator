@@ -2225,6 +2225,7 @@ class Main_Window(QMainWindow):
     def _on_tab_changed(self, index: int) -> None:
         # Commit a live float on the view being left before switching (a float is
         # a transient edit state, committed on tool/tab switch — REQ-P2-UI-033).
+        outgoing_scene: Optional[CanvasScene] = None
         if self._active_view is not None:
             self._active_view.commit_active_float()
             # Cancel the outgoing scene's off-thread warm — the transport rebinds
@@ -2232,6 +2233,7 @@ class Main_Window(QMainWindow):
             outgoing = self._active_view.scene()
             if isinstance(outgoing, CanvasScene):
                 outgoing.cancel_prewarm()
+                outgoing_scene = outgoing
         record = self.active_tab()
         if record is None:
             self._active_view = None
@@ -2242,6 +2244,18 @@ class Main_Window(QMainWindow):
             # below is never reached in this branch, so nothing else stops
             # a still-active in-session playback for a document that no
             # longer has a tab.
+            #
+            # The closing tab's own scene is also unreachable via
+            # active_tab() by this point, so its playback-overlay snapshot
+            # (captured by CanvasScene._hide_edit_affordance_overlays) would
+            # otherwise stay held forever with the edit-affordance overlays
+            # left hidden. end_playback_frame() is idempotent and a no-op
+            # when no snapshot is held, so calling it unconditionally on the
+            # captured outgoing scene here restores that scene's exact
+            # pre-playback overlay state on this teardown route too, without
+            # touching the timer, the edit lock, or any Z value (2026-08-22).
+            if outgoing_scene is not None:
+                outgoing_scene.end_playback_frame()
             self._timelapse_controls.bind_undo_stack(None)
             self._update_cloud_status()
             return
