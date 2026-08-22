@@ -43,17 +43,32 @@ by identity, not just by count.
 Headless (``QT_QPA_PLATFORM=offscreen``, forced by ``tests/ui/conftest.py``). Every test
 here runs under BOTH the light and dark theme via the autouse ``theme`` fixture -- no
 per-test parametrisation is needed for that.
+
+**T53 addition (ruling P11-R13, plan.md §3.15, ``tasks.md`` T53).** The block below the
+existing five functions asserts ``SC-P11-DATA-010-4`` and ``-5`` (both new; no test
+existed for either before T51 landed) and the three previously-unasserted clauses of
+``SC-P11-DATA-010-3`` -- the pre-existing "no asset revision is appended" clause plus
+the two the 2026-08-22 durability ruling added ("not reported as having unsaved
+changes because of it", "the unsaved canvas work is still unsaved"). It also covers
+``CL-P11-8`` (spec.md §10.4) -- explicitly NOT a scenario id, and named as such in its
+own test's docstring -- and the "never record an outcome the user did not choose"
+requirement for both a dismissed dialog and a remembered-"always" short-circuit. None
+of the five functions above is touched; T53 only appends.
 """
 
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 from typing import List
 
 import pytest
 
 from pixelart_creator.data import project_io
+from pixelart_creator.data.asset_decision_journal import JOURNAL_FILENAME, load_journal
 from pixelart_creator.logic.asset_catalog import AssetKind
+from pixelart_creator.logic.asset_edit_decisions import DECISION_PICK_UP
 from pixelart_creator.logic.asset_references import (
     ASSET_LIBRARY_EDIT,
     AssetReference,
@@ -63,6 +78,7 @@ from pixelart_creator.logic.content_hash import content_hash
 from pixelart_creator.logic.document import Document
 from pixelart_creator.ui.asset_update_prompt import Asset_Update_Prompt_Dialog
 from pixelart_creator.ui.main_window import Main_Window
+from tests.ui._ui_helpers import click_pixel, prepare_for_click
 
 
 def _window(qtbot) -> Main_Window:
@@ -351,3 +367,271 @@ def test_sc_p11_ui_021_5_boundary_mixed_edited_and_missing_prompts_only_for_edit
     missing_ids = win._asset_reuse_panel.missing_asset_ids(project_key)
     assert missing_ids == frozenset({ghost_id})
     assert set(win._asset_reuse_panel.project_references(project_key)) == in_ids
+
+
+# --------------------------------------------------------------------------- #
+# T53 (ruling P11-R13) -- the durability chain: SC-P11-DATA-010-4/-5, the      #
+# three owed clauses of -3, CL-P11-8, and "never record a choice not made".    #
+# --------------------------------------------------------------------------- #
+
+
+def test_sc_p11_data_010_4_ticked_decision_survives_closing_without_saving(
+    qtbot, tmp_path, answer_prompt
+):
+    """T53: SC-P11-DATA-010-4 -- ticking "Don't ask again" and choosing KEEP is
+    written to the journal at the MOMENT OF THE CLICK (asserted on the journal
+    FILE, not on an in-memory object -- an in-memory assertion would pass
+    against the pre-T51 defect); the project still reports no unsaved changes
+    because of it; and the remembered outcome survives closing the project
+    WITHOUT saving and reopening it, with the next library-side edit of the
+    same asset handled without a prompt. Also covers the companion half of
+    "never record an outcome the user did not choose" for the
+    remembered-"always" short-circuit: the later reopen resolves through
+    ``decide()``'s early return (no dialog is even constructed -- ``presented``
+    stays empty) and the journal file is left BYTE-FOR-BYTE untouched by it,
+    because nothing new was chosen.
+    """
+    win = _window(qtbot)
+    asset_id, hash_v1, _hash_v2 = _make_edited_asset(win, qtbot)
+    stale_reference = AssetReference(asset_id, hash_v1, AssetKind.SPRITE, "Hero")
+    path = _write_project(tmp_path, "ticked_durable.pixproj", (stale_reference,))
+
+    presented = answer_prompt(action="keep", dont_ask=True)
+    win.open_document(str(path))
+    assert presented == [asset_id]
+
+    record = win.active_tab()
+    assert record is not None
+    tab_index = win._tab_widget.currentIndex()
+    # Still reports no unsaved changes -- the tick did not dirty the document,
+    # and no save is required to keep the choice.
+    assert record.stack.isClean() is True
+
+    # The moment-of-the-click assertion: BEFORE any save, the journal file on
+    # disk already carries the remembered preference for this project path.
+    journal_path = win._decision_journal_path()
+    project_key = str(Path(path).resolve())
+    journal = load_journal(journal_path)
+    assert journal[project_key]["prefs"] == {
+        ASSET_LIBRARY_EDIT.name: "always_keep_referenced"
+    }
+    assert journal[project_key]["edits"] == []  # the ticked half never rows the ledger
+    journal_bytes_after_tick = journal_path.read_bytes()
+
+    # Close WITHOUT saving, then reopen.
+    win.close_document(tab_index)
+    presented.clear()
+    win.open_document(str(path))
+    # No prompt: decide()'s remembered-preference short-circuit returns before
+    # a dialog is even constructed.
+    assert presented == []
+
+    reopened = win.active_tab()
+    assert reopened is not None
+    assert reopened.reference_set.get(asset_id).content_hash == hash_v1  # kept
+    assert reopened.document.prefs.get(ASSET_LIBRARY_EDIT) == "always_keep_referenced"
+
+    # The short-circuited resolution recorded nothing new: the journal file is
+    # untouched, byte-for-byte, by this reopen.
+    assert journal_path.read_bytes() == journal_bytes_after_tick
+
+
+def test_sc_p11_data_010_5_unticked_decision_survives_and_stays_scoped_to_its_edit(
+    qtbot, tmp_path, answer_prompt
+):
+    """T53: SC-P11-DATA-010-5 -- an UNTICKED decision (pick up, "Don't ask
+    again" left unchecked) is also written to the journal at the moment of the
+    click (asserted on the file), survives closing the project WITHOUT saving
+    and reopening it (the SAME edit is not asked about again and the change is
+    picked up automatically), and stays scoped to THAT edit: a DIFFERENT
+    library-side edit of the same asset -- a further revision, minting a new
+    ``edit_token`` -- still asks. This second half is the one an
+    implementation could satisfy wrongly by promoting every unticked answer
+    into a standing rule, which the ruling does not say
+    (``AssetEditDecisions.decision_for``'s own "a different edit of the same
+    asset asks again" contract).
+    """
+    win = _window(qtbot)
+    asset_id, hash_v1, hash_v2 = _make_edited_asset(win, qtbot)
+    stale_reference = AssetReference(asset_id, hash_v1, AssetKind.SPRITE, "Hero")
+    path = _write_project(tmp_path, "unticked_durable.pixproj", (stale_reference,))
+
+    presented = answer_prompt(action="pick_up", dont_ask=False)
+    win.open_document(str(path))
+    assert presented == [asset_id]
+    record = win.active_tab()
+    assert record is not None
+    assert record.reference_set.get(asset_id).content_hash == hash_v2
+
+    # Moment-of-the-click: the ledger row is on disk before any save.
+    journal_path = win._decision_journal_path()
+    project_key = str(Path(path).resolve())
+    journal = load_journal(journal_path)
+    assert journal[project_key]["edits"] == [
+        {"asset_id": asset_id, "edit_token": hash_v2, "outcome": "pick_up"}
+    ]
+    # The unticked half never touches the standing preference.
+    assert journal[project_key]["prefs"].get(ASSET_LIBRARY_EDIT.name) == "ask"
+
+    # Close WITHOUT saving, then reopen -- the SAME edit does not ask again.
+    win.close_document(win._tab_widget.currentIndex())
+    presented.clear()
+    win.open_document(str(path))
+    assert presented == []
+    reopened = win.active_tab()
+    assert reopened is not None
+    assert reopened.reference_set.get(asset_id).content_hash == hash_v2  # picked up
+
+    # A DIFFERENT library-side edit of the SAME asset -- Hero is revised again,
+    # minting a new edit_token -- still asks.
+    doc_v3 = Document(4, 4)
+    doc_v3.frames[0].layers[0].buffer.set_pixel(0, 0, (7, 7, 7, 255))
+    existing = win._asset_session.catalog().get(asset_id)
+    with qtbot.waitSignal(win._asset_session.catalogChanged, timeout=1000):
+        _outcome3, descriptor3 = _reregister(
+            win, existing, doc_v3, name="Hero", kind=AssetKind.SPRITE
+        )
+    hash_v3 = descriptor3.content_hash
+    assert hash_v3 not in (hash_v1, hash_v2)
+
+    win.close_document(win._tab_widget.currentIndex())
+    presented.clear()
+    win.open_document(str(path))
+    assert presented == [asset_id]  # a different edit of the same asset -- it asks
+
+
+def test_sc_p11_data_010_3_owed_clauses_no_revision_not_dirtied_still_unsaved(
+    qtbot, tmp_path
+):
+    """T53: SC-P11-DATA-010-3's three owed clauses, asserted together because
+    they need a real window -- with an asset that HAS a revision history and
+    UNSAVED canvas work already present in the project, changing the
+    confirmation preference through the real ``Edit -> Project confirmations``
+    menu action (``ui/project_prefs_actions.py``, the real production surface,
+    not a stand-in): appends NO asset revision (pre-existing, never asserted
+    before this task); leaves the document NOT reported as having unsaved
+    changes BECAUSE OF IT (the dirty flag the preference change alone would
+    have caused never appears); and leaves the unsaved canvas work still
+    unsaved (the same dirty flag, already true from the real edit, is not
+    quietly cleared by the preference change either).
+    """
+    win = _window(qtbot)
+    asset_id, _hash_v1, _hash_v2 = _make_edited_asset(win, qtbot)
+    path = _write_project(tmp_path, "prefs_not_content.pixproj", ())
+    win.open_document(str(path))
+    record = win.active_tab()
+    assert record is not None
+
+    # Undo history + unsaved canvas work, through the real paint path (the
+    # same idiom ``tests/ui/test_cloud_save_load.py`` uses to dirty a stack).
+    prepare_for_click(record.view)
+    record.view.set_active_color((10, 20, 30, 255))
+    click_pixel(record.view, 1, 1)
+    assert record.stack.isClean() is False  # unsaved canvas work is present
+    undo_count_before = record.stack.count()
+    revisions_before = len(win._asset_revision_store.history(asset_id).revisions)
+
+    value_action = win._project_prefs_menu._value_actions[ASSET_LIBRARY_EDIT.name][
+        "always_keep_referenced"
+    ]
+    value_action.trigger()
+    assert (
+        record.document.prefs.get(ASSET_LIBRARY_EDIT) == "always_keep_referenced"
+    )  # the change under test really happened
+
+    # No undo entry was created for the preference change.
+    assert record.stack.count() == undo_count_before
+    # No asset revision is appended (the pre-existing, previously unasserted
+    # clause).
+    assert (
+        len(win._asset_revision_store.history(asset_id).revisions) == revisions_before
+    )
+    # Not reported as having unsaved changes BECAUSE OF the preference change,
+    # and the pre-existing unsaved canvas work is still unsaved -- the same
+    # dirty flag, unmoved by this change in either direction.
+    assert record.stack.isClean() is False
+
+
+def test_dismissed_prompt_leaves_the_decision_journal_untouched(
+    qtbot, tmp_path, answer_prompt
+):
+    """T53: "never record an outcome the user did not choose", the dismissal
+    half. Dismissing the prompt (Esc/close, no button clicked) through the
+    real caller leaves the decision journal untouched -- no file is even
+    created -- because ``decide()`` never invokes ``on_decided`` when
+    ``dialog.decided_explicitly()`` is ``False``.
+    ``test_sc_p11_ui_022_5_open_document_dismissing_keeps_referenced_version``
+    already asserts this at the in-memory/``prefs`` level; this is the
+    journal-durability half of the same behaviour.
+    """
+    win = _window(qtbot)
+    asset_id, hash_v1, _hash_v2 = _make_edited_asset(win, qtbot)
+    stale_reference = AssetReference(asset_id, hash_v1, AssetKind.SPRITE, "Hero")
+    path = _write_project(tmp_path, "dismissed_journal.pixproj", (stale_reference,))
+
+    presented = answer_prompt(action="dismiss")
+    win.open_document(str(path))
+    assert presented == [asset_id]
+
+    appconfig_dir = win._decision_journal_path().parent
+    assert JOURNAL_FILENAME not in os.listdir(appconfig_dir)
+
+
+def test_cl_p11_8_never_saved_project_writes_no_journal_record_until_first_save(
+    qtbot, tmp_path
+):
+    """T53: CL-P11-8 (spec.md §10.4) -- NOT a scenario id, and named as such
+    here so it is never mistaken for scenario coverage; it holds no REQ id and
+    no acceptance clause by the spec's own design. The reading this test
+    proves (spec's proposed reading, still awaiting confirmation): a decision
+    made in a project that has NEVER been saved has no per-project file to go
+    to yet, so it is held on the tab only and the journal writes NO record for
+    it -- until the project first acquires a file, at which point the decision
+    already made is IN that first saved file.
+
+    ``resolve_library_edits`` has no production caller other than
+    ``Main_Window.open_document`` (T33's own disclosed reachability
+    boundary), and ``open_document`` always assigns ``record.file_path``
+    immediately on load -- so there is no real caller through which a
+    never-saved (``new_document()``) tab could reach the update prompt at all.
+    This test therefore drives the SAME private seam ``open_document``'s own
+    resolve callback drives -- ``Main_Window._write_decision_journal_record``
+    -- directly against a ``new_document()`` tab, exactly as
+    ``tests/ui/test_asset_update_prompt.py`` (T23) asserts ``decide()`` at its
+    own seam when no caller reaches it, and exactly as this module's own
+    docstring already discloses for the reachability boundary it closed.
+    """
+    win = _window(qtbot)
+    win.new_document(4, 4)
+    record = win.active_tab()
+    assert record is not None
+    assert record.file_path is None  # never saved
+
+    fake_token = "deadbeef" * 4 + "00000000"
+    # The decision the window made -- exactly the ledger row the real
+    # on_decided callback would set, without a caller that could reach the
+    # dialog for a never-saved tab.
+    record.decided_edits = record.decided_edits.with_decision(
+        "hero", fake_token, DECISION_PICK_UP
+    )
+
+    win._write_decision_journal_record(record)  # the real, only write site
+
+    # No journal record -- asserted as a DIRECTORY LISTING, not as the
+    # absence of an exception: the app-config directory holds no journal
+    # file at all, because the never-saved guard short-circuits before ever
+    # opening one.
+    appconfig_dir = win._decision_journal_path().parent
+    assert JOURNAL_FILENAME not in os.listdir(appconfig_dir)
+
+    # The decision lives on the tab, unaffected by the no-op write.
+    assert record.decided_edits.decision_for("hero", fake_token) == DECISION_PICK_UP
+
+    # The project's first save contains the decision.
+    saved_path = tmp_path / "first_save.pixproj"
+    win.save_document(str(saved_path))
+    assert record.file_path is not None
+    payload = json.loads(Path(record.file_path).read_bytes().decode("utf-8"))
+    assert payload["asset_edit_decisions"] == [
+        {"asset_id": "hero", "edit_token": fake_token, "outcome": "pick_up"}
+    ]

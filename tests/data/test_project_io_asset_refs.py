@@ -27,6 +27,11 @@ import pytest
 from pixelart_creator.data import project_io as pio
 from pixelart_creator.data.project_io import ProjectIOError
 from pixelart_creator.logic.asset_catalog import AssetKind
+from pixelart_creator.logic.asset_edit_decisions import (
+    DECISION_KEEP,
+    DECISION_PICK_UP,
+    AssetEditDecisions,
+)
 from pixelart_creator.logic.asset_references import (
     ASSET_LIBRARY_EDIT,
     AssetReference,
@@ -421,3 +426,236 @@ def test_data_layer_only_import_registers_the_pref_key_no_ui_import():
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "OK"
+
+
+# --------------------------------------------------------------------------- #
+# T52: the "asset_edit_decisions" root key (REQ-P11-DATA-010, ruling P11-R13) #
+# --------------------------------------------------------------------------- #
+
+_DECISION_HASH_A = "a" * 64
+_DECISION_HASH_B = "b" * 64
+
+
+def _sample_decisions() -> AssetEditDecisions:
+    return AssetEditDecisions(
+        {
+            "a1": (_DECISION_HASH_A, DECISION_PICK_UP),
+            "a2": (_DECISION_HASH_B, DECISION_KEEP),
+        }
+    )
+
+
+def test_format_version_is_unchanged_by_the_decisions_key():
+    # ruling P11-R13: a lost ledger costs one prompt reappearing, which the
+    # ruling holds is not a format break -- FORMAT_VERSION stays 6.
+    assert pio.FORMAT_VERSION == 6
+
+
+def test_serialize_with_decisions_still_stamps_version_six():
+    payload = pio.serialize(Document(4, 4), decisions=_sample_decisions())
+    assert payload["version"] == 6
+
+
+def test_decisions_key_absent_when_none_supplied():
+    payload = pio.serialize(Document(4, 4))
+    assert "asset_edit_decisions" not in payload
+
+
+def test_decisions_key_absent_when_empty_ledger_supplied():
+    payload = pio.serialize(Document(4, 4), decisions=AssetEditDecisions())
+    assert "asset_edit_decisions" not in payload
+
+
+def test_decisions_key_present_exactly_when_non_empty_both_directions():
+    empty_keys = set(
+        pio.serialize(Document(4, 4), decisions=AssetEditDecisions()).keys()
+    )
+    populated_keys = set(
+        pio.serialize(Document(4, 4), decisions=_sample_decisions()).keys()
+    )
+    assert "asset_edit_decisions" not in empty_keys
+    assert "asset_edit_decisions" in populated_keys
+
+
+def test_decisions_entry_shape_and_sort_order_matches_the_ledger():
+    payload = pio.serialize(Document(4, 4), decisions=_sample_decisions())
+    assert payload["asset_edit_decisions"] == [
+        {
+            "asset_id": "a1",
+            "edit_token": _DECISION_HASH_A,
+            "outcome": DECISION_PICK_UP,
+        },
+        {"asset_id": "a2", "edit_token": _DECISION_HASH_B, "outcome": DECISION_KEEP},
+    ]
+
+
+def test_saved_bytes_omit_decisions_when_absent(tmp_path):
+    path = pio.save_project(Document(4, 4), tmp_path / "p")
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    assert "asset_edit_decisions" not in raw
+
+
+def test_saved_bytes_include_decisions_when_populated(tmp_path):
+    path = pio.save_project(
+        Document(4, 4), tmp_path / "p", decisions=_sample_decisions()
+    )
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    expected = pio.serialize(Document(4, 4), decisions=_sample_decisions())[
+        "asset_edit_decisions"
+    ]
+    assert raw["asset_edit_decisions"] == expected
+
+
+def test_populated_decisions_round_trip_through_load_project_bundle(tmp_path):
+    doc = Document(4, 4)
+    decisions = _sample_decisions()
+    path = pio.save_project(doc, tmp_path / "p", decisions=decisions)
+    _loaded_doc, _loaded_refs, loaded_decisions = pio.load_project_bundle(path)
+    assert loaded_decisions == decisions
+
+
+def test_project_without_the_decisions_key_still_round_trips_empty(tmp_path):
+    # Absence still asks (SC-P11-DATA-010-2): a project saved without a
+    # decisions argument at all loads back with an empty ledger, no error.
+    doc = Document(4, 4)
+    path = pio.save_project(doc, tmp_path / "p")
+    _loaded_doc, _loaded_refs, loaded_decisions = pio.load_project_bundle(path)
+    assert loaded_decisions == AssetEditDecisions()
+
+
+def test_decisions_keyword_only_on_serialize():
+    with pytest.raises(TypeError):
+        pio.serialize(Document(4, 4), None, _sample_decisions())  # type: ignore[misc]
+
+
+def test_decisions_keyword_only_on_save_project(tmp_path):
+    with pytest.raises(TypeError):
+        pio.save_project(  # type: ignore[misc]
+            Document(4, 4), tmp_path / "p", None, _sample_decisions()
+        )
+
+
+def test_parse_asset_edit_decisions_absent_reads_as_empty():
+    payload = pio.serialize(Document(4, 4))
+    assert "asset_edit_decisions" not in payload
+    ledger = pio.parse_asset_edit_decisions(payload.get("asset_edit_decisions", []))
+    assert ledger == AssetEditDecisions()
+
+
+def test_parse_asset_edit_decisions_populated_reads_back_the_ledger():
+    payload = pio.serialize(Document(4, 4), decisions=_sample_decisions())
+    ledger = pio.parse_asset_edit_decisions(payload["asset_edit_decisions"])
+    assert ledger == _sample_decisions()
+
+
+def test_parse_asset_edit_decisions_not_a_list_raises():
+    with pytest.raises(ProjectIOError):
+        pio.parse_asset_edit_decisions({"a1": "not-a-list"})
+
+
+def test_parse_asset_edit_decisions_entry_not_an_object_raises():
+    with pytest.raises(ProjectIOError):
+        pio.parse_asset_edit_decisions(["not-an-object"])
+
+
+def test_parse_asset_edit_decisions_missing_asset_id_raises():
+    with pytest.raises(ProjectIOError):
+        pio.parse_asset_edit_decisions(
+            [{"edit_token": _DECISION_HASH_A, "outcome": DECISION_KEEP}]
+        )
+
+
+def test_parse_asset_edit_decisions_malformed_edit_token_shape_raises():
+    with pytest.raises(ProjectIOError):
+        pio.parse_asset_edit_decisions(
+            [{"asset_id": "a1", "edit_token": "not-a-hash", "outcome": DECISION_KEEP}]
+        )
+
+
+def test_parse_asset_edit_decisions_out_of_domain_outcome_raises():
+    with pytest.raises(ProjectIOError):
+        pio.parse_asset_edit_decisions(
+            [
+                {
+                    "asset_id": "a1",
+                    "edit_token": _DECISION_HASH_A,
+                    "outcome": "discard",
+                }
+            ]
+        )
+
+
+def test_parse_asset_edit_decisions_empty_asset_id_raises():
+    with pytest.raises(ProjectIOError):
+        pio.parse_asset_edit_decisions(
+            [
+                {
+                    "asset_id": "",
+                    "edit_token": _DECISION_HASH_A,
+                    "outcome": DECISION_KEEP,
+                }
+            ]
+        )
+
+
+def test_parse_asset_edit_decisions_non_string_asset_id_raises():
+    with pytest.raises(ProjectIOError):
+        pio.parse_asset_edit_decisions(
+            [{"asset_id": 1, "edit_token": _DECISION_HASH_A, "outcome": DECISION_KEEP}]
+        )
+
+
+def test_parse_asset_edit_decisions_over_max_catalog_assets_raises():
+    too_many = [
+        {
+            "asset_id": f"a{i}",
+            "edit_token": format(i, "064x"),
+            "outcome": DECISION_KEEP,
+        }
+        for i in range(MAX_CATALOG_ASSETS + 1)
+    ]
+    with pytest.raises(ProjectIOError):
+        pio.parse_asset_edit_decisions(too_many)
+
+
+def test_malformed_decisions_entry_raises_before_frames_is_even_read_atomic_order():
+    payload = pio.serialize(Document(4, 4))
+    payload["asset_edit_decisions"] = [{"asset_id": "a1"}]  # missing edit_token
+    del payload["frames"]
+    with pytest.raises(ProjectIOError, match="edit_token"):
+        pio.deserialize(payload)
+
+
+def test_load_project_bundle_atomic_on_malformed_decisions_file(tmp_path):
+    doc = Document(4, 4)
+    path = pio.save_project(doc, tmp_path / "p", decisions=_sample_decisions())
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["asset_edit_decisions"][0]["outcome"] = "discard"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    with pytest.raises(ProjectIOError):
+        pio.load_project_bundle(path)
+
+
+def test_deserialize_project_two_tuple_signature_unchanged_by_decisions():
+    # REQ-P11-DATA-010 must not widen the pre-existing two-tuple signature.
+    payload = pio.serialize(Document(4, 4), decisions=_sample_decisions())
+    result = pio.deserialize_project(payload)
+    assert len(result) == 2
+
+
+def test_load_project_with_asset_refs_two_tuple_signature_unchanged_by_decisions(
+    tmp_path,
+):
+    path = pio.save_project(
+        Document(4, 4), tmp_path / "p", decisions=_sample_decisions()
+    )
+    result = pio.load_project_with_asset_refs(path)
+    assert len(result) == 2
+
+
+def test_pre_v6_fixture_loads_with_an_empty_decisions_ledger_no_migration():
+    payload = pio.serialize(Document(4, 4))
+    payload["version"] = 5
+    _doc, _refs, decisions = pio._deserialize_project_bundle(payload)
+    assert decisions == AssetEditDecisions()
