@@ -161,6 +161,38 @@ class _OpacityDragCache:
     blend_mode: BlendMode
 
 
+@dataclass
+class _OverlayVisibilitySnapshot:
+    """Pre-playback visibility of the inert edit-affordance overlays.
+
+    Captured per user ruling 2026-08-22 ("those overlays must be hidden while
+    playback runs, and shown when it's not"), once, at the hidden -> shown
+    transition of the playback overlay, and restored VERBATIM when playback
+    stops — never a forced show — so an overlay that had no independent
+    reason to be on screen (no selection, no mid-drag line/shape, nothing
+    floating) does not appear just because playback ended. Covers the
+    affordances the ruling names: the line-tool preview (Z 1.0), the
+    shape/lasso preview (Z 1.5, extended 2026-08-22 — "same defect class",
+    user ruling — see the follow-up audit for the items this extension does
+    NOT reach), the floating-move preview pair (Z 1.70/1.75), and the
+    selection marquee (Z 2.0). Z values are unchanged by this ruling — it
+    is about visibility, not stacking order.
+    """
+
+    #: Prior visibility of the selection-marquee overlay (Z 2.0).
+    selection: bool
+    #: Prior visibility of the floated-colours floating-move preview (Z 1.75).
+    float_preview: bool
+    #: Prior visibility of the vacated-origin floating-move preview (Z 1.70).
+    origin_preview: bool
+    #: Prior visibility of the line-tool preview (Z 1.0), or ``None`` when no
+    #: preview item existed at capture time (nothing to hide or later restore).
+    line_preview: Optional[bool]
+    #: Prior visibility of the shape/lasso preview (Z 1.5), or ``None`` when no
+    #: preview item existed at capture time (nothing to hide or later restore).
+    shape_preview: Optional[bool]
+
+
 class _BufferPixmapItem(QGraphicsPixmapItem):
     """One whole-buffer item drawing a live :class:`QImage` view of the buffer.
 
@@ -645,6 +677,71 @@ class _OnionOverlayItem(QGraphicsItem):
             painter.drawImage(target, image, target)
 
 
+class _PlaybackOverlayItem(QGraphicsPixmapItem):
+    """Historical timelapse frame shown in place of the live composite (UI-016).
+
+    Mirrors :class:`_BufferPixmapItem`'s zero-copy ``QImage`` pattern exactly: each
+    tick wraps the already-rendered playback frame array directly (no
+    ``QPixmap.fromImage`` in the per-tick path) and ``paint`` blits it clipped to
+    the exposed rect. Hidden by default and whenever playback is not running, so
+    it never risks being mistaken for the live document. It never reads or writes
+    ``self._composite``/the buffer item's ``_buffer`` — the document is untouched
+    for the whole span an in-session playback is shown (D6/AGT-10 directive).
+    """
+
+    _Z = 0.5
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setZValue(self._Z)
+        self.setVisible(False)
+        self._frame: Optional[np.ndarray] = None
+        self._image = QImage()
+        self._w = 0
+        self._h = 0
+        # A single pixmap keeps the item a genuine QGraphicsPixmapItem (D1); the
+        # live image is what paint() blits, so this is only a placeholder.
+        self.setPixmap(QPixmap(1, 1))
+
+    def show_frame(self, frame: np.ndarray) -> None:
+        """Present ``frame`` (a zero-copy QImage wrap, no document buffer touch)."""
+        h, w = frame.shape[0], frame.shape[1]
+        if w != self._w or h != self._h:
+            self.prepareGeometryChange()
+            self._w, self._h = w, h
+        # Keep a strong reference: the QImage below shares this array's memory.
+        self._frame = frame
+        self._image = QImage(
+            frame.data, w, h, frame.strides[0], QImage.Format.Format_RGBA8888
+        )
+        self.setVisible(True)
+        self.update()
+
+    def end_frame(self) -> None:
+        """Hide the overlay (idempotent; safe when already hidden)."""
+        if self.isVisible():
+            self.setVisible(False)
+            self.update()
+
+    def boundingRect(self) -> QRectF:  # noqa: N802 (Qt override)
+        return QRectF(0, 0, self._w, self._h)
+
+    def paint(  # noqa: N802 (Qt override)
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: Optional[QWidget] = None,
+    ) -> None:
+        if self._frame is None:
+            return
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+        target = option.exposedRect.intersected(self.boundingRect())
+        if target.isEmpty():
+            return
+        painter.drawImage(target, self._image, target)
+
+
 class CanvasScene(QGraphicsScene):
     """Scene rendering the active frame's composited layer stack + background.
 
@@ -796,6 +893,19 @@ class CanvasScene(QGraphicsScene):
         # Onion ghosts draw behind the active frame composite (REQ-P5-UI-011).
         self._onion_item = _OnionOverlayItem()
         self.addItem(self._onion_item)
+        # In-session playback overlay (REQ-P9-UI-016): always present, hidden
+        # until playback shows a frame — same idiom as _tiled_item/_onion_item.
+        self._playback_overlay = _PlaybackOverlayItem()
+        self.addItem(self._playback_overlay)
+        #: Pre-playback visibility snapshot of the edit-affordance overlays;
+        #: ``None`` whenever playback is not the reason they are hidden (never
+        #: run yet, already restored, or a teardown-stop with nothing to undo).
+        #: Scene-instance-scoped by construction, so a teardown route that stops
+        #: playback on one scene can never leak a hide/restore into another's
+        #: overlays (user ruling 2026-08-22).
+        self._pre_playback_overlay_visibility: Optional[_OverlayVisibilitySnapshot] = (
+            None
+        )
         self.setSceneRect(0, 0, document.width, document.height)
 
     # -- line-tool preview (D5) ------------------------------------------
@@ -1304,6 +1414,100 @@ class CanvasScene(QGraphicsScene):
         ordered.sort(key=lambda pair: pair[0])
         self._onion_item.set_ghosts([image for _z, image in ordered], w, h)
         self.update(self._onion_item.boundingRect())
+
+    # -- in-session playback overlay (REQ-P9-UI-016) ----------------------
+
+    def show_playback_frame(self, frame: np.ndarray) -> None:
+        """Present a rendered timelapse ``frame`` in place of the live composite.
+
+        Overlay presentation only: neither ``self._composite`` nor the buffer
+        item's live pixels are read or written, so the document stays exactly as
+        it was for the whole span playback is shown (no undo entry, no dirty).
+
+        On the hidden -> shown transition only (never on a later per-tick
+        update while playback keeps running) this also hides the inert
+        edit-affordance overlays, per the user ruling that they must not render
+        above the historical frame being reviewed (2026-08-22).
+        """
+        if not self._playback_overlay.isVisible():
+            self._hide_edit_affordance_overlays()
+        self._playback_overlay.show_frame(frame)
+
+    def end_playback_frame(self) -> None:
+        """Hide the playback overlay and return to the live composite.
+
+        Idempotent — safe to call on every path that stops playback, including
+        one where the overlay was never shown. Also restores the edit-affordance
+        overlays :meth:`_hide_edit_affordance_overlays` hid, to their exact
+        pre-playback state (never a forced show) — a no-op when playback never
+        hid them, so a teardown-stop path (e.g. the last tab closing) that
+        never reaches this method at all leaves nothing stuck, and one that
+        does reach it restores this scene's own overlays only (2026-08-22).
+        """
+        self._playback_overlay.end_frame()
+        self._restore_edit_affordance_overlays()
+
+    def _hide_edit_affordance_overlays(self) -> None:
+        """Capture, then hide, the edit-affordance overlays for one playback span.
+
+        Idempotent within a span: a later call while the snapshot is already
+        held (should not happen — callers gate on the overlay's hidden -> shown
+        transition — but is cheap to guard) never re-captures an already-hidden
+        state. Handles an overlay mid-interaction when playback starts (e.g. a
+        line/shape/lasso drag in progress) the same as any other: its current
+        visibility is captured and it is hidden for the span, reappearing at
+        its last drawn state on restore — the least surprising reading, since
+        editing is locked for the whole span (REQ-P9-UI-016) so nothing else
+        can advance that interaction while it is hidden.
+        """
+        if self._pre_playback_overlay_visibility is not None:
+            return
+        self._pre_playback_overlay_visibility = _OverlayVisibilitySnapshot(
+            selection=self._selection_overlay.isVisible(),
+            float_preview=self._float_item.isVisible(),
+            origin_preview=self._origin_item.isVisible(),
+            line_preview=(
+                self._preview_item.isVisible()
+                if self._preview_item is not None
+                else None
+            ),
+            shape_preview=(
+                self._shape_preview.isVisible()
+                if self._shape_preview is not None
+                else None
+            ),
+        )
+        self._selection_overlay.setVisible(False)
+        self._float_item.setVisible(False)
+        self._origin_item.setVisible(False)
+        if self._preview_item is not None:
+            self._preview_item.setVisible(False)
+        if self._shape_preview is not None:
+            self._shape_preview.setVisible(False)
+
+    def _restore_edit_affordance_overlays(self) -> None:
+        """Restore the edit-affordance overlays to their exact pre-playback state.
+
+        A no-op when nothing is held (playback never ran, or a prior call
+        already restored and cleared it) — so this never forces an overlay
+        visible that had no independent reason to be on screen. If the
+        line-tool preview item was removed (:meth:`hide_line_preview`) or the
+        shape/lasso preview item was removed (:meth:`hide_shape_preview` /
+        :meth:`_clear_shape_preview`) while playback ran, there is nothing left
+        to set — the captured boolean is simply discarded rather than applied
+        to a stale reference.
+        """
+        snapshot = self._pre_playback_overlay_visibility
+        if snapshot is None:
+            return
+        self._pre_playback_overlay_visibility = None
+        self._selection_overlay.setVisible(snapshot.selection)
+        self._float_item.setVisible(snapshot.float_preview)
+        self._origin_item.setVisible(snapshot.origin_preview)
+        if self._preview_item is not None and snapshot.line_preview is not None:
+            self._preview_item.setVisible(snapshot.line_preview)
+        if self._shape_preview is not None and snapshot.shape_preview is not None:
+            self._shape_preview.setVisible(snapshot.shape_preview)
 
     # -- document binding -------------------------------------------------
 

@@ -64,6 +64,11 @@ isometric standard).
   way).
 - Grid spacing (tile width) is bounded to **2–1024 px**.
 - **True-isometric** (about `1.732:1`) is configurable if you prefer it over 2:1 dimetric.
+- Open **Configure Isometric Grid** from **Aids**, right next to the isometric toggle, to
+  set exact values instead of eyeballing them: **tile width**, the **W:H tile ratio**
+  (2.0 for dimetric, ~1.732 for true-isometric), and the lattice **origin** (X, Y). Click
+  **OK** to apply the new configuration to the active tab, or **Cancel** to leave it
+  unchanged.
 
 > **Zoomed-out grids fade out for performance.** When a tile's on-screen edge shrinks below
 > **32 px** the lattice is too dense to read, so the overlay **skips painting** rather than

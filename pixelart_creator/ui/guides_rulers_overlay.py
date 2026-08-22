@@ -258,8 +258,20 @@ class Ruler_Strip(QWidget):
         )
         self.update()
 
+    def clear_cursor_readout(self) -> None:
+        """Clear the live coordinate readout (cursor left the canvas)."""
+        if self._cursor_doc is not None:
+            self._cursor_doc = None
+            self.update()
+
     def paintEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
-        """Paint the ruler background, nice-number ticks and labels (Qt override)."""
+        """Paint the ruler background, nice-number ticks/labels + cursor readout.
+
+        The readout (REQ-P9-UI-003) is a marker line + numeric label drawn at the
+        cursor's projected doc position, fed by :meth:`set_cursor_readout`; it uses
+        the same role-based foreground pen as the tick labels, so it stays legible
+        in both themes without a widget-local colour (025).
+        """
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         painter.fillRect(self.rect(), self._bg)
@@ -288,6 +300,24 @@ class Ruler_Strip(QWidget):
             else:
                 painter.drawLine(QLineF(12.0, screen, _RULER_THICKNESS, screen))
                 painter.drawText(QPointF(1.0, screen - 2.0), tick.label)
+        if self._cursor_doc is not None:
+            screen = (self._cursor_doc - offset) * zoom
+            if 0.0 <= screen <= float(axis_pixels):
+                marker_pen = QPen(self._fg)
+                marker_pen.setCosmetic(True)
+                marker_pen.setWidth(2)
+                painter.setPen(marker_pen)
+                label = str(int(round(self._cursor_doc)))
+                if horizontal:
+                    painter.drawLine(QLineF(screen, 0.0, screen, _RULER_THICKNESS))
+                    painter.drawText(
+                        QPointF(screen + 2.0, float(_RULER_THICKNESS) - 2.0), label
+                    )
+                else:
+                    painter.drawLine(QLineF(0.0, screen, _RULER_THICKNESS, screen))
+                    painter.drawText(
+                        QPointF(1.0, screen + float(_RULER_THICKNESS) - 8.0), label
+                    )
         painter.end()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802 (Qt override)
@@ -354,6 +384,15 @@ class Guides_Rulers_Overlay(QObject):
         zoom_changed = getattr(view, "zoomChanged", None)
         if zoom_changed is not None:
             zoom_changed.connect(self._sync_rulers)
+        # REQ-P9-UI-003 live coordinate readout feed: an event filter on the
+        # view's viewport (not the canvas_view module itself, which is off-limits
+        # this wave) observes mouse-move/leave without altering canvas_view's own
+        # event handling — the filter returns False so every event still reaches
+        # Canvas_View.mouseMoveEvent unchanged.
+        viewport_fn = getattr(view, "viewport", None)
+        self._viewport = viewport_fn() if callable(viewport_fn) else None
+        if self._viewport is not None:
+            self._viewport.installEventFilter(self)
 
     # -- accessors --------------------------------------------------------
 
@@ -411,3 +450,30 @@ class Guides_Rulers_Overlay(QObject):
         self, orientation: GuideOrientation, position: float
     ) -> None:
         self._overlay.add_guide(orientation, position)
+
+    # -- live coordinate readout feed (REQ-P9-UI-003) ----------------------
+
+    def eventFilter(  # noqa: N802 (Qt override)
+        self, watched: QObject, event: QEvent
+    ) -> bool:
+        """Feed the ruler readout from the view's viewport mouse-move/leave.
+
+        Observes only; always defers to the normal event chain (returns the
+        base-class result) so :class:`~pixelart_creator.ui.canvas_view.Canvas_View`
+        keeps handling every mouse event exactly as before.
+        """
+        if self._enabled and watched is self._viewport:
+            if event.type() == QEvent.Type.MouseMove and isinstance(event, QMouseEvent):
+                self._update_cursor_readout(event.position())
+            elif event.type() == QEvent.Type.Leave:
+                self._h_ruler.clear_cursor_readout()
+                self._v_ruler.clear_cursor_readout()
+        return super().eventFilter(watched, event)
+
+    def _update_cursor_readout(self, pos: QPointF) -> None:
+        map_fn = getattr(self._view, "mapToScene", None)
+        if map_fn is None:
+            return
+        scene_point = map_fn(pos.toPoint())
+        self._h_ruler.set_cursor_readout(scene_point.x(), scene_point.y())
+        self._v_ruler.set_cursor_readout(scene_point.x(), scene_point.y())
