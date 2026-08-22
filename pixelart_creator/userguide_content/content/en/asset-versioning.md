@@ -63,11 +63,30 @@ nothing in storage:
 > together: a reused asset is a reference like any other, so the passive break indicator will
 > flag a reuse whose target later goes missing or changes.
 
+## When a shared asset changes
+
+Opening a project that references a library asset which has since been edited shows the
+**Library Asset Updated** prompt, once per changed asset:
+
+- **Pick Up the Change** resolves the asset's current library content from now on; the
+  project's reference moves to the library's latest revision.
+- **Keep the Referenced Version** keeps resolving exactly the content the project already
+  references — nothing about the reference changes.
+
+Cancelling or closing the prompt behaves the same as **Keep the Referenced Version**.
+Ticking **Don't ask again** while choosing either option remembers that choice for future
+edits of this asset, in this project; you can restore the prompt later from **Edit →
+Project confirmations → When a referenced library asset changes**. The choice is saved
+as soon as you make it, whether or not you tick the box — you do not need to save the
+project for it to stick. Leaving **Don't ask again** unticked still applies your answer to
+this edit; the next, different edit of this asset asks again.
+
 ## Export & import a project's assets
 
-**Export** bundles exactly the assets a project references into a **self-contained,
-portable artifact** so the project opens complete on another machine; **import** brings such
-a bundle back in.
+**Export Project Bundle** bundles exactly the assets a project references into a
+**self-contained, portable artifact** so the project opens complete on another machine;
+**Import Project Bundle** brings such a bundle back in. Both commands are reached from the
+**Library** menu.
 
 - **Exactly the referenced assets — no more, no fewer.** Export resolves the project's
   reference set and bundles precisely those assets' blobs, each stored once by content, plus

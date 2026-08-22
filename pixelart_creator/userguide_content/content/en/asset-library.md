@@ -27,6 +27,50 @@ Each entry is a normal dock toggle (consistent with the app's other workflow pan
 you can arrange the three panels however suits you. The panels share **one** in-memory
 catalog, so a change made in one panel is reflected immediately in the others.
 
+## Registering an asset
+
+Before anything shows up in the catalog, it has to be **registered**. Three places in
+the app start a registration, and all three end at the same shared **Register Asset**
+prompt:
+
+- **Register Active Document**, in the **Library** menu, registers the document open in
+  the active tab. Registering the same document again later appends a new revision to its
+  existing catalog entry instead of creating a duplicate — see
+  [Asset versioning & cross-project reuse](asset-versioning.md).
+- **Register Selection**, also in the **Library** menu, registers only the pixels inside
+  your current selection. For a non-rectangular selection, everything outside the selected
+  pixels is transparent in the registered asset. With nothing selected, there is nothing to
+  register.
+- **Also add to the asset library**, a checkbox on the export dialog (see
+  [Export & pipeline integration](export-and-pipeline.md)), registers the exported artifact
+  in the same step as exporting it.
+
+All three open the same **Register Asset** dialog, which asks for:
+
+| Field | What it asks |
+| --- | --- |
+| **Name** | A display name for the new catalog entry. |
+| **Kind** | One of the five asset kinds — Sprite, Animation, Tileset, Tilemap, Palette. |
+| **Tags** | An optional, comma-separated set of tags, checked against the same length and count caps as the tagging panel below. |
+
+The dialog validates as you type: an empty name, or a tag set over the length/count caps,
+disables the **Register** button with a clear reason shown until you fix it. Cancelling the
+dialog registers nothing.
+
+## Moving one asset in or out
+
+Two further **Library** menu commands move a single artifact file, as distinct from a whole
+project:
+
+- **Export Asset** exports the currently selected catalog entry — or, with nothing
+  selected, every entry in the open catalog — as one importable artifact file.
+- **Import Asset** reads such an artifact back into the open library, merging it into the
+  catalog.
+
+These are separate from **Export Project Bundle** / **Import Project Bundle**, which move a
+whole project plus everything it references — see
+[Asset versioning & cross-project reuse](asset-versioning.md).
+
 ## Browsing the catalog
 
 The **Asset Library** panel lists the catalog in three columns — **name**, **kind** and

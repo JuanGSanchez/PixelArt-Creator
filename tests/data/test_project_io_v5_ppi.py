@@ -17,9 +17,13 @@ from pixelart_creator.logic import constants
 from pixelart_creator.logic.document import Document
 
 
-def test_format_version_is_five_and_supported():
-    assert pio.FORMAT_VERSION == 5
-    assert set(pio._SUPPORTED_VERSIONS) == {1, 2, 3, 4, 5}
+def test_format_version_is_six_and_supported():
+    # v6 (ADR-0058, phase-11-asset-ingress T12: the optional "asset_refs" root
+    # array). Updated from the stale "is_five" pin 2026-08-21 (T19 addendum) --
+    # this file's own ppi-specific behaviour (below) is unaffected by that
+    # bump; only this schema-currency check needed the literal moved forward.
+    assert pio.FORMAT_VERSION == 6
+    assert set(pio._SUPPORTED_VERSIONS) == {1, 2, 3, 4, 5, 6}
 
 
 def test_v5_round_trip_preserves_ppi(tmp_path):

@@ -439,3 +439,78 @@ def test_load_asset_rejects_non_json_payload() -> None:
     desc = descriptor(asset_id="x", content_hash=digest)
     with pytest.raises(AssetCatalogError):
         load_asset(desc, cas)
+
+
+# --------------------------------------------------------------------------- #
+# reference_key persistence (T17-A, ruling P11-R8, plan §3.10) — additive     #
+# append per the T17-A dispatch                                               #
+# --------------------------------------------------------------------------- #
+
+
+def test_catalog_roundtrip_preserves_reference_key(tmp_path) -> None:
+    """T17-A Done-when #5: a descriptor with a non-empty ``reference_key``
+    round-trips through ``save_catalog``/``load_catalog``."""
+    ref_key = content_hash(b"the reference-candidate bytes")
+    catalog = AssetCatalog().add(
+        descriptor(
+            asset_id="a",
+            kind=AssetKind.TILESET,
+            reference_key=ref_key,
+        )
+    )
+    save_catalog(catalog, tmp_path)
+    reloaded = load_catalog(tmp_path)
+    entry = reloaded.get("a")
+    assert entry is not None
+    assert entry.reference_key == ref_key
+
+
+def test_catalog_roundtrip_preserves_default_empty_reference_key(tmp_path) -> None:
+    """A descriptor whose ``reference_key`` was never set (the default ``""``,
+    e.g. a kind that is never a reference target) round-trips as ``""``, not
+    as a missing field or ``None``."""
+    catalog = AssetCatalog().add(descriptor(asset_id="a"))
+    save_catalog(catalog, tmp_path)
+    reloaded = load_catalog(tmp_path)
+    assert reloaded.get("a").reference_key == ""
+
+
+def test_sidecar_written_by_current_code_carries_reference_key_key(tmp_path) -> None:
+    """The sidecar JSON on disk actually carries the ``"reference_key"`` key
+    (not just that the round trip happens to work) — proves
+    ``_serialise_descriptor`` writes it, not merely that ``_parse_descriptor``
+    tolerates its absence."""
+    ref_key = content_hash(b"sidecar content")
+    catalog = AssetCatalog().add(
+        descriptor(asset_id="a", kind=AssetKind.SPRITE, reference_key=ref_key)
+    )
+    save_catalog(catalog, tmp_path)
+    raw = json.loads(
+        (tmp_path / cio.ASSETS_DIRNAME / "a.json").read_text(encoding="utf-8")
+    )
+    assert raw["reference_key"] == ref_key
+
+
+def test_sidecar_without_reference_key_parses_as_empty_string(tmp_path) -> None:
+    """T17-A Done-when #5: a sidecar written **before** ``reference_key``
+    existed (no such key at all in its JSON — the pre-T8-B shape) parses
+    with ``reference_key == ""`` and raises nothing — the backward-compat
+    read path, no schema bump (T8-B report, measured: ``payload.get(...)``
+    already tolerated unknown/absent keys)."""
+    pre_reference_key_sidecar = _good_sidecar()
+    assert "reference_key" not in pre_reference_key_sidecar  # the pre-T8-B shape
+    _write_sidecar(tmp_path, "a", pre_reference_key_sidecar)
+
+    reloaded = load_catalog(tmp_path)
+
+    entry = reloaded.get("a")
+    assert entry is not None
+    assert entry.reference_key == ""
+
+
+def test_sidecar_reference_key_not_str_raises(tmp_path) -> None:
+    bad = _good_sidecar()
+    bad["reference_key"] = 123
+    _write_sidecar(tmp_path, "a", bad)
+    with pytest.raises(AssetCatalogError):
+        load_catalog(tmp_path)

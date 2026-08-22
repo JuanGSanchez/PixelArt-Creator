@@ -85,6 +85,16 @@ exportación por lotes **continúa ante un fallo**: si un objetivo falla (por ej
 un atlas que no cabe), los demás objetivos se siguen exportando y el fallo se informa
 solo para ese objetivo, así que un objetivo defectuoso nunca aborta el lote completo.
 
+## Añadir una exportación a la biblioteca de recursos
+
+El diálogo de exportación lleva una casilla, **También añadir a la biblioteca de
+recursos** (*Also add to the asset library*), que registra el artefacto exportado en
+la [biblioteca de recursos](asset-library.md) en el mismo paso que la exportación —
+una opción de inclusión, no un valor por defecto. Marcarla abre el aviso compartido
+**Registrar recurso** (nombre, tipo, etiquetas) tras una exportación satisfactoria;
+dejarla sin marcar exporta sin tocar la biblioteca en absoluto, exactamente como
+antes de que existiera esta opción.
+
 ## Capacidad de respuesta
 
 Todo el trabajo de exportación se ejecuta **fuera del hilo de la interfaz** en un

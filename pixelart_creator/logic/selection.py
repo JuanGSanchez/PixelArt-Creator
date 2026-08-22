@@ -544,6 +544,47 @@ def lift_selection(
     return FloatingSelection(mask.copy(), mode, colors, box, offset=(0, 0))
 
 
+def extract_masked(buffer: PixelBuffer, mask: SelectionMask) -> PixelBuffer:
+    """Extract the mask-exact selected region of ``buffer`` (ruling P11-R10).
+
+    Returns the tight :meth:`SelectionMask.bounds` region of ``buffer``, with
+    every pixel the mask does **not** select set to
+    :data:`~pixelart_creator.logic.color.TRANSPARENT` (RGBA) / index ``0``
+    (indexed) — the same vacate-fill convention :func:`move_selection` and
+    :func:`composite_preview` already use. Unlike :func:`lift_selection`
+    (which pairs a bbox crop with the mask for later application),
+    this returns the masked colours **already applied**: a single buffer whose
+    non-selected pixels carry no content, which is what
+    ``REQ-P11-UI-013``'s *"only the selected region's content as the
+    payload"* requires for a non-rectangular (lasso/wand) selection.
+
+    For a **rectangular** mask this is byte-identical to
+    ``buffer.region(*mask.bounds())`` — every pixel inside the bounding box is
+    selected, so nothing is cleared.
+
+    Neither ``buffer`` nor ``mask`` is mutated.
+
+    Raises:
+        SelectionError: If ``mask`` dimensions differ from ``buffer``, or
+            ``mask`` is empty (ADR-0009 D5 — the same boundary
+            :func:`lift_selection` states: a programming error, not a
+            control-flow path).
+    """
+    if mask.width != buffer.width or mask.height != buffer.height:
+        raise SelectionError("mask dimensions must match the buffer")
+    box = mask.bounds()
+    if box is None:
+        raise SelectionError("cannot extract an empty selection")
+    x0, y0, x1, y1 = box
+    out = buffer.region(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
+    fill: PixelValue = TRANSPARENT if buffer.mode is ColorMode.RGBA else 0
+    sub_mask = mask.data()[y0 : y1 + 1, x0 : x1 + 1]
+    unselected = ~sub_mask
+    if unselected.any():
+        out.data[unselected] = fill
+    return out
+
+
 def _validate_region(
     base: PixelBuffer, region: Tuple[int, int, int, int]
 ) -> Tuple[int, int, int, int]:
@@ -732,6 +773,7 @@ __all__ = [
     "wand_mask",
     "apply_masked",
     "move_selection",
+    "extract_masked",
     "lift_selection",
     "composite_preview",
     "copy_selection",
