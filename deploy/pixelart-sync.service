@@ -9,7 +9,7 @@
 #   2. Create a dedicated, unprivileged service user + group:
 #        sudo useradd --system --no-create-home --shell /usr/sbin/nologin pixelart-sync
 #   3. Create a Qt-free virtualenv and install ONLY the backend's runtime dep:
-#        python3.12 -m venv /opt/pixelart-creator/.venv
+#        python3.13 -m venv /opt/pixelart-creator/.venv
 #        /opt/pixelart-creator/.venv/bin/pip install "websockets==16.0"
 #      (Do NOT install PySide6/numpy/Pillow/pycrdt — the relay import chain needs none.)
 #   4. Install this unit:  sudo cp deploy/pixelart-sync.service /etc/systemd/system/

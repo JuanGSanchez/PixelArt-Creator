@@ -105,7 +105,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
@@ -359,8 +359,64 @@ def _handle_checkout(step: Dict[str, Any]) -> StepResult:
     )
 
 
+def _resolve_setup_python_pin(step: Dict[str, Any]) -> Tuple[str, str]:
+    """Resolve the version an actions/setup-python step requests, LOCALLY.
+
+    REMEDIATION (Python-version standardization, 2026-08-24): this used to read
+    ONLY the `with.python-version` key, so once the workflow switched to pinning
+    via `python-version-file: .python-version` this script would silently
+    misreport the requested interpreter as "unspecified" -- a local CI runner
+    lying about the very thing being standardized. It now resolves BOTH keys,
+    mirroring actions/setup-python's own documented semantics: `python-version`
+    (an inline pin) WINS when both are set, and the file is ignored in that case
+    -- which is exactly why the workflow must never carry both at once. Returns
+    (requested_version, how_it_was_resolved).
+    """
+    with_ = step.get("with", {})
+    inline = with_.get("python-version")
+    file_key = with_.get("python-version-file")
+
+    if inline:
+        if file_key:
+            return (
+                str(inline),
+                f"python-version={inline!r} WINS over python-version-file="
+                f"{file_key!r} (both were set on this step -- actions/setup-python "
+                "ignores the file when an inline version is also given).",
+            )
+        return str(inline), f"from inline python-version={inline!r}"
+
+    if file_key:
+        file_path = Path(str(file_key))
+        if not file_path.is_absolute():
+            file_path = REPO_ROOT / file_path
+        try:
+            content = file_path.read_bytes().decode("utf-8").strip()
+        except OSError as exc:
+            return (
+                "unspecified",
+                f"python-version-file={file_key!r} could not be read locally "
+                f"at {file_path} ({exc!r}).",
+            )
+        if not content:
+            return (
+                "unspecified",
+                f"python-version-file={file_key!r} resolved to an empty file "
+                f"at {file_path}.",
+            )
+        return (
+            content,
+            f"from python-version-file={file_key!r} -> {file_path} -> {content!r}",
+        )
+
+    return (
+        "unspecified",
+        "neither python-version nor python-version-file was set on this step.",
+    )
+
+
 def _handle_setup_python(step: Dict[str, Any]) -> StepResult:
-    requested = str(step.get("with", {}).get("python-version", "unspecified"))
+    requested, source_note = _resolve_setup_python_pin(step)
     local = _tool_version(sys.executable) or "(python not resolvable)"
     match = requested != "unspecified" and requested in local
     note = (
@@ -371,7 +427,7 @@ def _handle_setup_python(step: Dict[str, Any]) -> StepResult:
         "MAPPED",
         "actions/setup-python cannot install an interpreter locally; local "
         f"equivalent executed: `{sys.executable} --version` -> {local!r} "
-        f"(workflow pins python-version={requested!r}; {note}).",
+        f"(workflow requests python-version={requested!r} [{source_note}]; {note}).",
     )
 
 
