@@ -27,6 +27,7 @@ from PySide6.QtGui import (
     QCursor,
     QDragEnterEvent,
     QDropEvent,
+    QGuiApplication,
     QIcon,
     QImage,
     QKeySequence,
@@ -98,6 +99,7 @@ from pixelart_creator.logic.branch_diff import SupervisionResult, supervise
 from pixelart_creator.logic.color import BLACK, RGBA, TRANSPARENT, to_hex
 from pixelart_creator.logic.constants import (
     AUTOSAVE_INTERVAL_MS,
+    CANVAS_PANE_WIDTH_RATIO,
     DEFAULT_CANVAS_HEIGHT,
     DEFAULT_CANVAS_WIDTH,
     UI_NOTICE_DURATION_MS,
@@ -291,6 +293,65 @@ _FAVOURITES_FILE = "favourites.json"
 #: not a domain tuning value — cf. _SWATCH_PX).
 _PREVIEW_MAX_EDGE_PX = 128
 
+#: Tool ids whose stroke WRITES the active colour to the buffer (CL-18,
+#: 2026-08-24 ruling UR-HUBFILL-2): the value written is ``ctx.paint_value()``
+#: / ``ctx.active_color`` itself, not merely a live-preview tint. These five
+#: run under REQ-P3-UI-006 leg (2) from a completed colour-hub pick; the other
+#: six tool ids (eraser, the three selection tools, picker, dither) hide the
+#: hub's wheel/value/numeric/harmony pick surface (``set_pick_surface_visible``)
+#: and never run from a hub pick, even a Favourites activation (SC-U006-13).
+#: Tool identifiers, not numeric tuning values, so this stays a set of the
+#: tools' own ``tool_id`` class attributes rather than a `constants.py` entry.
+_COLOUR_CONSUMING_TOOL_IDS = frozenset(
+    {
+        PencilTool.tool_id,
+        FloodFillTool.tool_id,
+        LineTool.tool_id,
+        RectangleTool.tool_id,
+        EllipseTool.tool_id,
+    }
+)
+
+#: FIX 3 (2026-08-24 field defect, RC-1 follow-up). Every right-hand
+#: "workflow" panel is tabified into ONE dock group (``_add_workflow_dock``),
+#: and a Qt tab group's minimum width is the MAXIMUM over its members' own
+#: content-derived ``minimumSizeHint()`` — verified up to 766 px for one panel
+#: (probe-runtime-canvas-20260824.py). That floor overrides FIX 1's
+#: ``CANVAS_PANE_WIDTH_RATIO`` split regardless of window width, so no
+#: per-panel edit can fix it: the override has to happen once, here, at the
+#: single place every workflow dock is created.
+#: Overriding ``QWidget.setMinimumWidth()`` on the panel (verified empirically
+#: to lower ``QDockWidget.minimumSizeHint()`` even though the panel's own
+#: ``minimumSizeHint()`` is unchanged and content can clip below it — Qt's
+#: dock layout consults the explicit minimum, not the generic
+#: ``QLayoutItem.minimumSize()`` ``expandedTo`` rule) is presentation sizing,
+#: not a domain tuning value, so it stays local exactly like _SWATCH_PX /
+#: _PREVIEW_MAX_EDGE_PX above — see the FIX-3 report note requesting this be
+#: promoted to logic/constants.py (AGT-03 surface) as e.g.
+#: ``WORKFLOW_DOCK_MIN_WIDTH_PX`` rather than reached into from here.
+_WORKFLOW_DOCK_MIN_WIDTH_PX = 220
+
+#: FIX 3 (2026-08-24 field defect). Bound on ``Main_Window._settle_width()``'s
+#: event-flush loop (presentation-only startup timing, not a domain tuning
+#: value — cf. _SWATCH_PX / _PREVIEW_MAX_EDGE_PX above). Observed settling in
+#: 2 passes on the probe's offscreen run; this leaves generous headroom
+#: without risking an unbounded/hanging wait on a layout that never settles.
+_LAYOUT_SETTLE_MAX_ITERATIONS = 10
+
+#: FIX 1 (2026-08-24 field defect, RC-1 follow-up on the earlier FIX 1). The
+#: window was never given an explicit default size; Qt sized it to its layout
+#: hint, which on a real desktop happened to land the canvas at only ~10% of
+#: the window even after the FIX 1/FIX 3 dock-splitting work above, because
+#: that split is a RATIO of whatever width the window already has -- a window
+#: with no deliberate width defeats a width RATIO. Fraction of the primary
+#: screen's *available* geometry (excludes taskbars/docks) the window claims
+#: on first launch, absent any saved geometry restore (presentation-only
+#: startup sizing, not a domain tuning value -- cf. _WORKFLOW_DOCK_MIN_WIDTH_PX
+#: / _SWATCH_PX above). Report note: a candidate for promotion to
+#: logic/constants.py as e.g. DEFAULT_LAUNCH_SIZE_RATIO, exactly like that
+#: floor's own promotion note -- left local here on the same precedent.
+_DEFAULT_LAUNCH_SIZE_RATIO = 0.80
+
 
 @dataclass
 class _DocTab:
@@ -457,11 +518,25 @@ class Main_Window(QMainWindow):
         self._active_color: RGBA = BLACK
         self._active_index: int = 0
         self._theme = THEME_LIGHT
+        # FIX 1 (2026-08-24 field defect) forward guard: the first-launch dock
+        # layout (_apply_initial_dock_layout) applies only while no saved dock
+        # arrangement has been restored. Nothing restores one today, so this
+        # flag stays False and the guard is inert -- it exists so a future
+        # restoreState() call can flip it before the default sizing runs, rather
+        # than fighting a user's saved layout on every launch.
+        self._dock_layout_restored = False
         # Floating move/copy status (REQ-P2-UI-032/-036): the last view-reported
         # float state, surfaced as a status-bar hint (see _update_float_hint).
         self._active_view: Optional[Canvas_View] = None
         self._float_active = False
         self._float_copy = False
+        # Colour-hub session anchor (REQ-P3-UI-006 T16a): the buffer pixel the
+        # hub opened on and the view it opened for, kept for the life of that
+        # hub popup so a COMPLETED pick (``_on_hub_color_committed``) can run
+        # the active tool at the same pixel, not the mouse position at pick
+        # time (which may have moved inside the popup).
+        self._hub_anchor: Optional[Tuple[int, int]] = None
+        self._hub_anchor_view: Optional[Canvas_View] = None
         # In-app User Guide (REQ-UG-UI-001..011): a read-only, offline viewer built
         # lazily on first open. Content loads synchronously from the committed
         # bundle — NO off-thread worker/timer — so there is no teardown wiring; the
@@ -518,6 +593,14 @@ class Main_Window(QMainWindow):
         self._symmetry_panel.axisPositionChanged.connect(
             self._on_symmetry_axis_position_changed
         )
+        # FIX 3 (2026-08-24 field defect): this dock is NOT tabified -- it is
+        # stacked in the same right-hand COLUMN as ``_layer_dock`` and the
+        # palette tab group, and a Qt dock column's width is the maximum over
+        # every dock stacked in it, exactly like a tab group (see
+        # ``_add_workflow_dock``). Left uncapped its 280 px content-derived
+        # minimum re-floors the whole column even after every tabified
+        # workflow panel is capped, so the same override is required here.
+        self._symmetry_panel.setMinimumWidth(_WORKFLOW_DOCK_MIN_WIDTH_PX)
         self._symmetry_dock = QDockWidget(self)
         self._symmetry_dock.setWidget(self._symmetry_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._symmetry_dock)
@@ -529,6 +612,10 @@ class Main_Window(QMainWindow):
         self._layer_panel.activeNodeChanged.connect(self._on_active_node_changed)
         self._layer_panel.maskEditToggled.connect(self._on_mask_edit_toggled)
         self._layer_panel.lockedLayerEditRejected.connect(self._notify_layer_locked)
+        # FIX 3: same right-hand column as ``_symmetry_dock`` above. This
+        # panel's own content-derived hint (187 px) is already under the cap
+        # (see _WORKFLOW_DOCK_MIN_WIDTH_PX), so it is deliberately left
+        # untouched -- forcing it up to the cap would only WIDEN its floor.
         self._layer_dock = QDockWidget(self)
         self._layer_dock.setWidget(self._layer_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._layer_dock)
@@ -630,11 +717,17 @@ class Main_Window(QMainWindow):
 
         # Marquee S3/S4 colour hub: a persisted Favourites model + the cursor-
         # anchored hub, wired into each view's Phase-1 right-click seam. A pick
-        # applies to the active colour (tool state) — never an undo entry (T17).
+        # always applies to the active colour (tool state, leg 1, never
+        # refused). Amended 2026-08-24 (UR-HUBFILL-1/B, CL-17): the premise
+        # that a pick "never touches the undo stack" is RETIRED — a COMPLETED
+        # pick also runs the active tool at the hub's anchor pixel as one
+        # undoable command (REQ-P3-UI-006 leg 2, T17), via
+        # ``_on_hub_color_committed`` below.
         self._favourites = self._load_favourites()
         self._colour_hub = Colour_Hub_Menu(self)
         self._colour_hub.set_favourites_model(self._favourites)
         self._colour_hub.colorApplied.connect(self._on_hub_color_applied)
+        self._colour_hub.colorCommitted.connect(self._on_hub_color_committed)
         self._colour_hub.favouritesChanged.connect(self._save_favourites)
 
         # Copy-mode status hint for a live floating move (REQ-P2-UI-032/-036,
@@ -742,6 +835,20 @@ class Main_Window(QMainWindow):
             self,
         )
         self._assistant_dock_widget.editsReady.connect(self._on_assistant_edits)
+        # FIX 4 (2026-08-24 field defect, runtime width-drift hunt). Same right-
+        # hand tab group as ``_preview_dock`` above, same bypass of the
+        # ``_add_workflow_dock`` choke point (this dock is built by
+        # ``Assistant_Dock`` itself, never handed to that helper). Its transcript
+        # ``QTextEdit`` wraps normal text so today's ``minimumSizeHint()`` (160 px)
+        # already sits under the floor -- but a long unbroken token (a URL, a
+        # stack trace, an unwrapped code line) in a chat reply can widen it after
+        # the dock is already built, and this group's floor is the maximum over
+        # every member the same way ``_preview_dock``'s was. Capping the inner
+        # content widget defensively closes that path before it is ever
+        # observed, exactly like ``_preview_window`` above.
+        self._assistant_dock_widget.widget().setMinimumWidth(
+            _WORKFLOW_DOCK_MIN_WIDTH_PX
+        )
         self.addDockWidget(
             Qt.DockWidgetArea.RightDockWidgetArea, self._assistant_dock_widget
         )
@@ -1485,6 +1592,25 @@ class Main_Window(QMainWindow):
         """
         # A placeholder scene until the first document tab rebinds the preview.
         self._preview_window = Real_Size_Preview_Window(QGraphicsScene(self))
+        # FIX 4 (2026-08-24 field defect, runtime width-drift hunt). This dock is
+        # tabified into the SAME right-hand group as every ``_add_workflow_dock``
+        # panel (see below) but is built by hand and therefore never passed
+        # through that choke point's ``_WORKFLOW_DOCK_MIN_WIDTH_PX`` cap. A
+        # ``QGraphicsView``'s uncapped ``minimumSizeHint()`` is content-derived
+        # from its scene's real-size scale factor (measured 682 px against the
+        # document loaded at construction) -- and a Qt tab group's floor is the
+        # MAXIMUM over every member's effective minimum, capped or not. Toggling
+        # "Real-Size Preview" from the Aids menu (``_preview_aid_action`` below)
+        # therefore re-floors the WHOLE right-hand column at that content width
+        # the instant it is shown, and the floor does not relax again on its own
+        # once the dock is hidden -- verified empirically: canvas 1275 px -> 919
+        # px on a 1920-wide window on show, STILL 919 px after hide, only
+        # recovering on an explicit later resize. Capping this panel exactly like
+        # every other tabified member closes the one bypass of the choke point;
+        # see ``_add_workflow_dock``'s own docstring for why an explicit
+        # ``setMinimumWidth`` (not the panel's own unchanged content hint) is
+        # what a Qt dock layout actually consults.
+        self._preview_window.setMinimumWidth(_WORKFLOW_DOCK_MIN_WIDTH_PX)
         self._preview_dock = QDockWidget(self)
         self._preview_dock.setWidget(self._preview_window)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._preview_dock)
@@ -1996,6 +2122,9 @@ class Main_Window(QMainWindow):
         view.colorPicked.connect(self._on_color_picked)
         view.floatingStateChanged.connect(self._on_floating_state_changed)
         view.lockedLayerEditRejected.connect(self._notify_layer_locked)
+        view.outOfDocumentClickRejected.connect(self._notify_out_of_document)
+        view.nonEditableLayerEditRejected.connect(self._notify_layer_not_editable)
+        view.toolRunNoChange.connect(self._notify_tool_run_no_change)
         view.set_menu_hook(self._open_colour_hub)
         # T-12: a drop delivered straight to the canvas viewport is routed
         # through the same handler as Main_Window.dropEvent (REQ-DDI-UI-001).
@@ -2051,6 +2180,13 @@ class Main_Window(QMainWindow):
         self._bind_symmetry_panel(record)
         self._apply_modes_to(record)
         self._bind_palette_workflows(record)
+        # FIX 2 (2026-08-24 field defect): fit every new/opened document into
+        # its pane, not just the launch document -- avoids a launch-only
+        # special case. For the very first (pre-``show()``) document this fits
+        # against the not-yet-real viewport and is corrected once more by
+        # ``apply_first_launch_layout()``; for every later tab the window is
+        # already shown and sized, so this fit is already correct.
+        view.fit()
         return document
 
     def _bind_symmetry_panel(self, record: "_DocTab") -> None:
@@ -2066,8 +2202,177 @@ class Main_Window(QMainWindow):
         )
         self._symmetry_axis_pos = None
 
+    def apply_default_launch_geometry(self) -> None:
+        """Give the window an explicit default size, once, BEFORE ``show()``.
+
+        FIX 1 (2026-08-24 field defect, RC-1 follow-up on the earlier FIX 1).
+        The launcher (``ui/app.py``) calls this exactly once, immediately
+        before :meth:`show`, and :meth:`apply_first_launch_layout` (below)
+        still runs immediately after it — sizing the window has to precede
+        distributing its width between the centre pane and the docks, or the
+        dock split has nothing real to divide.
+
+        Without this method the window was never given an explicit size at
+        all: Qt fell back to its layout hint, which is far narrower than any
+        real desktop and starves ``CANVAS_PANE_WIDTH_RATIO`` regardless of how
+        the docks are split (a ratio of a too-small width is still too small).
+
+        Reads ``QGuiApplication.primaryScreen().availableGeometry()`` —
+        deliberately the *available* geometry (excludes the OS taskbar/dock),
+        not the full screen — and targets ``_DEFAULT_LAUNCH_SIZE_RATIO`` of
+        it, centred within it. The target is clamped on both ends so it can
+        never exceed the available geometry (this window is never larger than
+        the usable screen) nor fall below ``self.minimumSizeHint()`` (this
+        window is never smaller than its own contents demand — if that hint
+        itself exceeds the available geometry, the available geometry wins;
+        Qt cannot show a window larger than the screen regardless of what this
+        method requests).
+
+        No-op when no screen is reported (``QGuiApplication.primaryScreen()``
+        returns ``None``) — an offscreen/headless platform with zero screens
+        is possible under test, and in that case Qt's own layout-hint sizing
+        (the prior, pre-FIX-1 behaviour) is the honest fallback rather than a
+        guess at dimensions this method has no way to ground.
+        """
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        available = screen.availableGeometry()
+        hint = self.minimumSizeHint()
+        target_width = round(available.width() * _DEFAULT_LAUNCH_SIZE_RATIO)
+        target_height = round(available.height() * _DEFAULT_LAUNCH_SIZE_RATIO)
+        target_width = max(hint.width(), target_width)
+        target_height = max(hint.height(), target_height)
+        # Final clamp: the available screen geometry is the hard ceiling,
+        # applied AFTER the minimum-size floor above, so a minimum size that
+        # itself exceeds the screen degrades to "as large as the screen
+        # allows" rather than requesting an off-screen window.
+        target_width = min(target_width, available.width())
+        target_height = min(target_height, available.height())
+        x = available.x() + max(0, (available.width() - target_width) // 2)
+        y = available.y() + max(0, (available.height() - target_height) // 2)
+        self.setGeometry(x, y, target_width, target_height)
+
+    def apply_first_launch_layout(self) -> None:
+        """Size the docks and fit the active document, once, right after ``show()``.
+
+        FIX 1 + FIX 2 (2026-08-24 field defect). The launcher (``ui/app.py``)
+        calls this exactly once, immediately after :meth:`show`. Order is load
+        bearing both within and across the two steps:
+
+        * ``resizeDocks()`` before the window is shown is a documented Qt
+          no-op (there is no real geometry yet to redistribute) — this is why
+          the caller must invoke this method AFTER ``show()``, not before.
+        * The active document is re-fitted only AFTER the dock widths are set,
+          because fitting into the still-unresized (pre-FIX-1) pane would fit
+          to the wrong viewport.
+        * ``self.width()`` immediately after ``show()`` still reads a
+          transitional pre-layout value (observed: 926 vs. the settled 1140 on
+          the probe's 8th-gen offscreen run) — ``show()`` schedules the real
+          layout pass but does not block for it. One ``processEvents()`` call
+          flushes that pending pass so the width this method reads, and hands
+          to ``resizeDocks``, is the one the user (and the probe) actually
+          sees.
+        * FIX 3 (2026-08-24 field defect, follow-up): ``resizeDocks()`` itself
+          does not settle in one pass either — observed taking a SECOND
+          transitional width (255 px) before the active view's true, final
+          viewport width (375 px) is reached. Fitting against the transitional
+          width leaves the document under-covering the viewport (a fit()
+          computed for a too-narrow viewport is too-far-zoomed-out once the
+          viewport finishes growing). ``_settle_width()`` below flushes events
+          until ``self.width()`` stops moving (bounded, so a genuinely
+          never-settling layout cannot hang startup) before ``fit()`` reads
+          the final geometry.
+        """
+        QApplication.processEvents()
+        self._apply_initial_dock_layout()
+        self._settle_width()
+        if self._active_view is not None:
+            self._active_view.fit()
+
+    def _settle_width(
+        self, *, max_iterations: int = _LAYOUT_SETTLE_MAX_ITERATIONS
+    ) -> None:
+        """Flush pending layout passes until ``self.width()`` stops changing.
+
+        FIX 3 (2026-08-24 field defect): a bounded loop, never an unconditional
+        wait — see ``apply_first_launch_layout``'s docstring for why a single
+        ``processEvents()`` after ``resizeDocks()`` is not always enough.
+        """
+        previous_width: Optional[int] = None
+        for _ in range(max_iterations):
+            QApplication.processEvents()
+            current_width = self.width()
+            if current_width == previous_width:
+                return
+            previous_width = current_width
+
+    def _apply_initial_dock_layout(self) -> None:
+        """Give the central pane ``CANVAS_PANE_WIDTH_RATIO`` of the window width.
+
+        The remainder goes to the right-hand docks only (FIX 1). The left side
+        is untouched by design: it carries no dock at all — ``self._toolbar``
+        is a ``QToolBar`` in ``Qt.ToolBarArea.LeftToolBarArea`` (see
+        ``_build_toolbar``), sized by its own contents, not by this method, and
+        the user confirmed that width is fine.
+
+        Forward guard: a no-op once ``self._dock_layout_restored`` is set by a
+        future saved-arrangement restore — today nothing restores one, so this
+        default always applies (not a behaviour change).
+        """
+        if self._dock_layout_restored:
+            return
+        # FIX 3 (2026-08-24 field defect): split the width actually AVAILABLE
+        # to the dock area, not the whole window. ``self.width()`` includes
+        # ``self._toolbar`` (LeftToolBarArea, untouched by this method -- see
+        # above), so splitting the raw window width let the toolbar's fixed
+        # footprint silently eat into the centre pane's promised
+        # ``CANVAS_PANE_WIDTH_RATIO`` share; subtracting it here is what makes
+        # the ratio this method targets the ratio the probe/user actually see.
+        width = self.width() - self._toolbar.width()
+        if width <= 0:
+            return
+        right_width = max(1, round(width * (1.0 - CANVAS_PANE_WIDTH_RATIO)))
+        # FIX 1 (2026-08-24 field defect, RC-1 follow-up): on a window too
+        # narrow for the ratio's share to clear the tab group's own floor
+        # (``_WORKFLOW_DOCK_MIN_WIDTH_PX``, enforced by ``setMinimumWidth`` on
+        # every workflow panel), Qt's layout would silently re-inflate
+        # ``right_width`` back up to that floor regardless of what is
+        # requested here -- an implicit clamp this method's own request would
+        # then misrepresent. Requesting the floor explicitly makes that
+        # degradation an intentional, visible choice: the right column takes
+        # exactly its floor and the centre pane gets every remaining pixel,
+        # never an unrequested squeeze the code silently allowed to happen.
+        # With ``_DEFAULT_LAUNCH_SIZE_RATIO`` sizing the window before this
+        # method runs (see ``apply_default_launch_geometry``), this branch is
+        # only reached on a screen too small for that sizing to clear the
+        # floor on its own.
+        right_width = max(right_width, _WORKFLOW_DOCK_MIN_WIDTH_PX)
+        right_docks = [
+            dock
+            for dock in self.findChildren(QDockWidget)
+            if self.dockWidgetArea(dock) == Qt.DockWidgetArea.RightDockWidgetArea
+            and dock.isVisible()
+        ]
+        if not right_docks:
+            return
+        self.resizeDocks(
+            right_docks,
+            [right_width] * len(right_docks),
+            Qt.Orientation.Horizontal,
+        )
+
     def _add_workflow_dock(self, widget: QWidget) -> QDockWidget:
-        """Add a Slice-3C workflow widget as a dock tabified with the palette."""
+        """Add a Slice-3C workflow widget as a dock tabified with the palette.
+
+        FIX 3 (2026-08-24 field defect): cap the panel's content-derived
+        minimum width so this tab group can shrink to FIX 1's
+        ``CANVAS_PANE_WIDTH_RATIO`` split instead of flooring the whole
+        right-hand area at its widest member's ``minimumSizeHint()``. This is
+        the single choke point every workflow dock passes through, so the
+        override is applied exactly once, here — never per-panel.
+        """
+        widget.setMinimumWidth(_WORKFLOW_DOCK_MIN_WIDTH_PX)
         dock = QDockWidget(self)
         dock.setWidget(widget)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
@@ -2555,6 +2860,44 @@ class Main_Window(QMainWindow):
         """
         self.statusBar().showMessage(
             self.tr("Layer is locked."),
+            UI_NOTICE_DURATION_MS,
+        )
+
+    def _notify_out_of_document(self) -> None:
+        """Non-blocking notice that a click landed outside the document (FIX 5).
+
+        Follows the ``_notify_layer_locked`` precedent exactly: the click is
+        refused (no stroke armed, no undo entry) and this status-bar message
+        makes the refusal visible instead of silent.
+        """
+        self.statusBar().showMessage(
+            self.tr("Click was outside the document."),
+            UI_NOTICE_DURATION_MS,
+        )
+
+    def _notify_layer_not_editable(self) -> None:
+        """Non-blocking notice that the active layer is reference/smart (SC-U006-8).
+
+        REQ-P3-UI-006 clause 5: locked, reference and smart are three distinct
+        non-editable classes; ``_notify_layer_locked`` above already covers
+        the locked case, this covers the other two — neither may refuse
+        silently.
+        """
+        self.statusBar().showMessage(
+            self.tr("This layer cannot be edited directly."),
+            UI_NOTICE_DURATION_MS,
+        )
+
+    def _notify_tool_run_no_change(self) -> None:
+        """Non-blocking notice that a completed pick's tool run changed nothing.
+
+        REQ-P3-UI-006 clause 6: an explicit, deliberate gesture (e.g. a flood
+        fill picking the colour already filling that region) must never
+        answer with silence even when it changed no pixel and pushed no undo
+        entry.
+        """
+        self.statusBar().showMessage(
+            self.tr("No change: the colour already matched."),
             UI_NOTICE_DURATION_MS,
         )
 
@@ -3294,19 +3637,64 @@ class Main_Window(QMainWindow):
         Anchoring off the buffer pixel (mapped through the active view) — rather
         than the mouse cursor — makes the hub open in the right place for BOTH a
         right-click and a keyboard Menu-key request (A11Y-COLHUB-1).
+
+        T16(a) (2026-08-24 amendment): the anchor now SURVIVES for the life of
+        the hub session — ``self._hub_anchor`` / ``self._hub_anchor_view`` —
+        instead of being discarded once the popup position is computed, so a
+        later completed pick (``_on_hub_color_committed``) can run the active
+        tool at this same pixel. Also sets the pick-surface visibility
+        (CL-18): the wheel/value/numeric/harmony surface shows only for the
+        five colour-consuming tools.
         """
         self._colour_hub.set_color(self._active_color)
         record = self.active_tab()
         if record is not None:
             global_pos = record.view.scene_pixel_to_global(x, y)
+            self._hub_anchor_view = record.view
         else:
             global_pos = QCursor.pos()
+            self._hub_anchor_view = None
+        self._hub_anchor = (x, y)
+        self._colour_hub.set_pick_surface_visible(
+            self._active_tool_id in _COLOUR_CONSUMING_TOOL_IDS
+        )
         self._colour_hub.popup_at(global_pos)
 
     def _on_hub_color_applied(self, color: RGBA) -> None:
-        """Apply a hub pick immediately to the active swatch (SC-U006-1)."""
+        """Apply a hub pick immediately to the active swatch (SC-U006-1, leg 1).
+
+        Never refused — for any tool, on any layer, at any anchor (REQ-P3-UI-006
+        clause 1/11): this leg runs even when :meth:`_on_hub_color_committed`
+        below refuses the tool run.
+        """
         self._set_active_color(color)
         self._palette_panel.select_color(color)
+
+    def _on_hub_color_committed(self, color: RGBA) -> None:
+        """Run the active tool at the hub anchor for a COMPLETED pick (leg 2).
+
+        REQ-P3-UI-006 clause 2: the result is exactly what a left press-and-
+        release at the anchor with the active tool would produce. Clause 7 /
+        SC-U006-13: for the six tools that do not write the active colour to
+        the buffer, the hub hides the pick surface and a Favourites activation
+        there must run no tool — guarded here on ``_active_tool_id`` rather
+        than trusting that no other path can reach this slot, since
+        ``Colour_Hub_Menu`` emits ``colorCommitted`` uniformly for every
+        completed pick (including a Favourites choice) regardless of which
+        surfaces happen to be visible.
+
+        The guard/refusal notices (locked / reference / smart layer, an
+        out-of-document anchor, or a run that changed nothing) are
+        ``Canvas_View.run_tool_at``'s own — reused, not reimplemented here
+        (clause 5) — via the same rejection signals the left-click path
+        already surfaces to the status bar.
+        """
+        if self._active_tool_id not in _COLOUR_CONSUMING_TOOL_IDS:
+            return  # SC-U006-13: favourites still set the colour only.
+        if self._hub_anchor is None or self._hub_anchor_view is None:
+            return
+        x, y = self._hub_anchor
+        self._hub_anchor_view.run_tool_at(x, y)
 
     def _on_open(self) -> None:
         path, _ = QFileDialog.getOpenFileName(

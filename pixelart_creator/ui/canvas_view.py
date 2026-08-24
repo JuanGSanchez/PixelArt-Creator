@@ -41,6 +41,7 @@ from pixelart_creator.logic.constants import (
     OPENGL_VIEWPORT_ENABLED,
     SCALE_FACTOR,
     ZOOM_MAX,
+    ZOOM_MIN,
     ZOOM_PRESET_STOPS,
 )
 from pixelart_creator.logic.document import Document
@@ -121,6 +122,26 @@ class Canvas_View(QGraphicsView):
     #: Emitted when a paint/mask-edit stroke is refused because the active
     #: layer is locked (D-05); the shell surfaces a "layer is locked" notice.
     lockedLayerEditRejected = Signal()
+    #: Emitted when a left-click lands outside the active document's bounds
+    #: (FIX 5, 2026-08-24 field defect): a click there must not arm a stroke,
+    #: and must not fail silently — the shell surfaces a notice, following the
+    #: ``lockedLayerEditRejected`` precedent exactly.
+    outOfDocumentClickRejected = Signal()
+    #: Emitted when a paint/mask-edit is refused because the active layer is a
+    #: REFERENCE or SMART layer (REQ-P3-UI-006 clause 5: non-editable targets
+    #: are three classes, not two — locked, reference, and smart — and every
+    #: one of them must be surfaced, never silently swallowed). Distinct from
+    #: ``lockedLayerEditRejected`` so the shell can show the right notice;
+    #: ``is_active_editable()`` returns ``False`` for all three classes, and
+    #: this signal covers the two this view previously dropped on the floor.
+    nonEditableLayerEditRejected = Signal()
+    #: Emitted when a tool ran (the guards passed) but produced no pixel
+    #: change — e.g. a flood fill on a region that already holds the picked
+    #: colour (REQ-P1-UI-014), or a pencil placed on a pixel that already
+    #: holds it — so no undo entry was pushed. An explicit, deliberate gesture
+    #: (a completed colour-hub pick, REQ-P3-UI-006 clause 6) must never answer
+    #: with silence even when it changed nothing.
+    toolRunNoChange = Signal()
 
     def __init__(
         self,
@@ -397,7 +418,15 @@ class Canvas_View(QGraphicsView):
         return min(fit, ZOOM_MAX)
 
     def _clamp_zoom(self, z: float) -> float:
-        return max(self._fit_zoom(), min(z, ZOOM_MAX))
+        # The lower bound is min(ZOOM_MIN, fit_zoom), NOT a flat fit_zoom and NOT
+        # a flat ZOOM_MIN (FIX 3, field defect 2026-08-24). A flat fit_zoom floor
+        # makes the 1.0 preset stop unreachable and forces zoom-out to RAISE the
+        # zoom for any document smaller than the viewport. A flat ZOOM_MIN floor
+        # would instead make a document too large to fit at 1:1 (up to the 8K /
+        # 7680x4320 ceiling) impossible to view as a whole grid, since its
+        # fit_zoom is below 1.0. Taking the smaller of the two keeps both a small
+        # document's 1:1 stop AND a huge document's whole-grid view reachable.
+        return max(min(ZOOM_MIN, self._fit_zoom()), min(z, ZOOM_MAX))
 
     def set_zoom(self, z: float) -> None:
         """Set an absolute zoom (clamped), anchored on the view centre."""
@@ -600,6 +629,45 @@ class Canvas_View(QGraphicsView):
             return palette.get(index)
         return None
 
+    def run_tool_at(self, x: int, y: int) -> bool:
+        """Run the active tool as one press+release at pixel ``(x, y)``.
+
+        REQ-P3-UI-006 leg (2): a completed colour-hub pick runs the ACTIVE
+        tool at the anchor pixel, producing **exactly** what a left-button
+        press-and-release at that pixel would — no more, no less (clause 2).
+        Reuses the identical guards :meth:`mousePressEvent` enforces — a
+        locked/reference/smart active layer or an anchor outside the document
+        refuses the run with the same non-blocking rejection signal a
+        rejected left-click surfaces, no stroke armed, no undo entry (clause
+        5) — so this is never a second, divergent code path for those checks.
+
+        Returns whether the tool actually ran (``False`` on any refusal).
+        A run that changed nothing still returns ``True``; it separately
+        emits :attr:`toolRunNoChange` so that case is never silent either
+        (clause 6). Uses the CURRENT active colour/tool — the caller is
+        responsible for having applied the picked colour first (leg 1, which
+        is never refused, REQ-P3-UI-006 clause 1).
+        """
+        if self._tool is None:
+            return False
+        if not self._scene.is_active_editable():
+            if self._scene.active_layer().locked:
+                self.lockedLayerEditRejected.emit()
+            else:
+                self.nonEditableLayerEditRejected.emit()
+            return False
+        buf = self._scene.active_buffer()
+        if not (0 <= x < buf.width and 0 <= y < buf.height):
+            self.outOfDocumentClickRejected.emit()
+            return False
+        ctx = self._make_context()
+        before = self._undo_stack.count()
+        self._tool.on_press(x, y, ctx)
+        self._tool.on_release(x, y, ctx)
+        if self._undo_stack.count() == before:
+            self.toolRunNoChange.emit()
+        return True
+
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         """Start a pan, open the right-click menu, or start a paint stroke."""
         button = event.button()
@@ -629,8 +697,22 @@ class Canvas_View(QGraphicsView):
             # the guard lives in the scene (it knows the active layer/mask). A
             # rejection creates no undo entry — the tool is never armed below.
             if not self._scene.is_active_editable():
+                # Three non-editable classes, not two (REQ-P3-UI-006 clause 5):
+                # locked, reference, and smart all fail ``is_active_editable()``,
+                # and none may refuse silently.
                 if self._scene.active_layer().locked:
                     self.lockedLayerEditRejected.emit()
+                else:
+                    self.nonEditableLayerEditRejected.emit()
+                event.accept()
+                return
+            x, y = self._pixel_at(event)
+            buf = self._scene.active_buffer()
+            if not (0 <= x < buf.width and 0 <= y < buf.height):
+                # Out-of-document click (FIX 5): must not arm a stroke, and must
+                # not fail silently (no-silent-result rule) — surfaced by the
+                # shell exactly like the locked-layer rejection above.
+                self.outOfDocumentClickRejected.emit()
                 event.accept()
                 return
             self._ctx = self._make_context()
@@ -639,7 +721,6 @@ class Canvas_View(QGraphicsView):
             # for the rest of this stroke (D-08; logic.grids.perspective_snap).
             raw_pt = self.mapToScene(event.position().toPoint())
             self._stroke_anchor = (raw_pt.x(), raw_pt.y())
-            x, y = self._pixel_at(event)
             self._drawing = True
             self._tool.on_press(x, y, self._ctx)
             event.accept()

@@ -42,9 +42,22 @@ ZOOM_MAX: float = 64.0
 """Deep-zoom ceiling as a scale factor (6400 %); fit-to-view lower bound is
 computed, not a literal (CL-1)."""
 
+ZOOM_MIN: float = 1.0
+"""ZOOM_MIN is the floor for a document small enough that zooming below 1:1
+is pointless. It is NOT an absolute floor. The view's lower clamp is
+`min(ZOOM_MIN, fit_zoom)` so that a very large document (up to the 8K
+canvas) can always be zoomed out far enough to show the whole grid, which a
+flat 1.0 floor would make unreachable. User ruling, 2026-08-24."""
+
 ZOOM_PRESET_STOPS: tuple[float, ...] = (1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0)
 """Discrete keyboard zoom preset stops, 100 %..6400 % (CL-2). The geometric
 zoom step reuses SCALE_FACTOR as `1.0 + SCALE_FACTOR` (BF-3)."""
+
+CANVAS_PANE_WIDTH_RATIO: float = 0.80
+"""Fraction of the main window's width the central canvas pane occupies at
+first launch, with the remainder going to the right-hand docks. Applies only
+to the first-launch default layout; it does not override a restored user
+arrangement."""
 
 DEFAULT_CANVAS_WIDTH: int = 64
 """Default width, px, for a new document (8K still supported) (CL-7)."""

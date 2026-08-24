@@ -77,6 +77,7 @@ from pixelart_creator.logic.constants import (
     SCALE_FACTOR,
     TILEMAP_CHUNK_SIZE,
     ZOOM_MAX,
+    ZOOM_MIN,
 )
 from pixelart_creator.logic.history import Command
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
@@ -707,7 +708,11 @@ class Tilemap_Canvas(QGraphicsView):
         )
 
     def _clamp_zoom(self, value: float) -> float:
-        return max(self._fit_zoom(), min(value, ZOOM_MAX))
+        # Same correction as Canvas_View._clamp_zoom (FIX 4, 2026-08-24 field
+        # defect): the floor is min(ZOOM_MIN, fit_zoom), not a flat fit_zoom --
+        # see that method's comment for why a flat floor breaks either a small
+        # tilemap's 1.0 preset stop or a huge tilemap's whole-grid view.
+        return max(min(ZOOM_MIN, self._fit_zoom()), min(value, ZOOM_MAX))
 
     def set_zoom(self, value: float) -> None:
         """Set an absolute zoom (clamped), anchored on the view centre."""
@@ -844,7 +849,10 @@ class Tilemap_Canvas(QGraphicsView):
 
     def _apply_stamp(self, cx: int, cy: int) -> None:
         tilemap = self._tilemap_ready()
-        if tilemap is None or self._brush_base_gid == 0:
+        if tilemap is None:
+            return
+        if self._brush_base_gid == 0:
+            self._warn_no_active_brush(tilemap)
             return
         gid = self._brush_base_gid if self.is_autotile_enabled() else self.brush_gid()
         try:
@@ -867,7 +875,10 @@ class Tilemap_Canvas(QGraphicsView):
 
     def _apply_fill(self, start: Tuple[int, int], end: Tuple[int, int]) -> None:
         tilemap = self._tilemap_ready()
-        if tilemap is None or self._brush_base_gid == 0:
+        if tilemap is None:
+            return
+        if self._brush_base_gid == 0:
+            self._warn_no_active_brush(tilemap)
             return
         x0, x1 = sorted((start[0], end[0]))
         y0, y1 = sorted((start[1], end[1]))
@@ -916,6 +927,20 @@ class Tilemap_Canvas(QGraphicsView):
 
     def _warn(self, title: str, message: str) -> None:
         QMessageBox.warning(self, title, message)
+
+    def _warn_no_active_brush(self, tilemap: Tilemap) -> None:
+        """Surface why a stamp/fill was refused for gid 0 (FIX 5, no-silent-result).
+
+        gid 0 is both the brush's default and the state of a document with no
+        tileset bound yet, so the two cases get distinct, honest messages
+        instead of one silent no-op.
+        """
+        if not tilemap.tilesets:
+            self._warn(
+                self.tr("Stamp"), self.tr("No tileset bound to this tilemap yet.")
+            )
+        else:
+            self._warn(self.tr("Stamp"), self.tr("Select a tile first."))
 
     # -- i18n / a11y ------------------------------------------------------
 
