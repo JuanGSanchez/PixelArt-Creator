@@ -285,13 +285,33 @@ def test_rc3_clamp_floor_is_min_zoom_min_and_fit_zoom_for_a_large_8k_document(qt
 
     A flat ``ZOOM_MIN`` (1.0) floor would make the whole-grid view of such a
     document unreachable -- its own ``fit_zoom`` is well below 1.0. This is
-    the user-required case a flat floor of EITHER kind would break."""
-    doc = Document(
-        MAX_CANVAS_WIDTH,
-        MAX_CANVAS_HEIGHT,
-        mode=ColorMode.RGBA,
-        palette=Palette([BLACK]),
-    )
+    the user-required case a flat floor of EITHER kind would break.
+
+    2026-08-24 CI incident (PR #27, ``quality-gate``): the original version of
+    this test built a REAL ``Document(MAX_CANVAS_WIDTH, MAX_CANVAS_HEIGHT)`` --
+    a ~133 MB RGBA buffer -- and ``CanvasScene.drawBackground``'s
+    ``_ensure_composite()`` then allocated a second, equally large composite
+    buffer on first paint. Under ``pytest -n auto`` (8 workers on the
+    self-hosted Windows runner) this reproduced as a genuine worker crash
+    (``Windows fatal exception: access violation`` inside
+    ``CanvasScene.drawBackground``, confirmed on this module's own unfixed
+    commit 2cbe05e via a throwaway detached worktree before this rewrite --
+    see the AGT-06 report for the verbatim trace), not an assertion failure --
+    the memory hypothesis in the dispatch order was CONFIRMED, not assumed.
+
+    The rule under test -- ``_fit_zoom()``/``_clamp_zoom()``/``fit()`` in
+    ``ui/canvas_view.py`` -- reads only ``self.sceneRect()`` (the QGraphicsView/
+    QGraphicsScene rect) and the viewport size; none of the three touches
+    ``_document`` or ``_composite`` (confirmed by reading the source). So the
+    8K case is exercised here by forcing an 8K **scene rect** directly onto a
+    genuinely small (64x64), cheap document's scene via the inherited
+    ``QGraphicsScene.setSceneRect()`` -- never allocating an 8K pixel buffer at
+    all -- which still proves the exact rule the user required: a document
+    whose fit_zoom is below ZOOM_MIN must still be viewable as a whole grid.
+    ``fit()`` -> ``set_zoom()`` still calls ``scene.recomposite_exposed()``;
+    that is verified a no-op here (the ``_stale.isEmpty()`` premise asserted
+    below) so forcing the scene rect never triggers a real 8K recomposite."""
+    doc = Document(64, 64, mode=ColorMode.RGBA, palette=Palette([BLACK]))
     scene = CanvasScene(doc)
     from PySide6.QtGui import QUndoStack
 
@@ -301,6 +321,12 @@ def test_rc3_clamp_floor_is_min_zoom_min_and_fit_zoom_for_a_large_8k_document(qt
     view.resize(800, 800)
     view.show()
     qtbot.waitExposed(view)
+
+    # Premise: recomposite_exposed() (called by fit() below) is a documented
+    # no-op while nothing is stale -- true for this untouched fresh scene, so
+    # forcing the scene rect below cannot smuggle in a real 8K recomposite.
+    assert scene._stale.isEmpty()
+    scene.setSceneRect(0, 0, MAX_CANVAS_WIDTH, MAX_CANVAS_HEIGHT)
 
     fit_zoom = view._fit_zoom()
     assert fit_zoom < ZOOM_MIN, (
@@ -457,9 +483,19 @@ def test_fix5_non_editable_layer_rejects_visibly_no_undo_entry(
     assert stack.count() == before_count
 
 
-def test_fix5_tilemap_zero_brush_stamp_warns_no_tileset(qtbot, mute_message_boxes):
-    """A stamp with brush gid 0 on a tilemap with NO tileset bound warns
-    ("No tileset bound...") instead of returning silently."""
+def test_fix5_tilemap_zero_brush_stamp_emits_no_tileset_bound_signal(qtbot):
+    """A stamp with brush gid 0 on a tilemap with NO tileset bound emits
+    ``noTilesetBoundRejected`` instead of returning silently.
+
+    2026-08-24 CI incident (PR #27): the original version of this test
+    asserted a blocking ``QMessageBox.warning`` mute, which the product code
+    has since replaced with a non-blocking signal (the modal hung a headless
+    parallel worker with nothing to dismiss it). This asserts the SIGNAL --
+    the canvas's actual contract -- not a side effect of the status-bar shell
+    wiring ``main_window.py`` does with it. Kept distinct from
+    ``noActiveBrushRejected`` (below): a stamp with NO tileset bound must
+    never satisfy on the "select a tile" signal or vice versa, so each test
+    connects to exactly one of the two and waits on it alone."""
     from PySide6.QtGui import QUndoStack
 
     tilemap = Tilemap(tile_width=16, tile_height=16)
@@ -468,19 +504,17 @@ def test_fix5_tilemap_zero_brush_stamp_warns_no_tileset(qtbot, mute_message_boxe
     qtbot.addWidget(canvas)
     canvas.set_context(tilemap, QUndoStack(), None)
 
-    canvas._apply_stamp(0, 0)  # brush_base_gid defaults to 0
-
-    assert len(mute_message_boxes) == 1
-    kind, title, text = mute_message_boxes[0]
-    assert kind == "warning"
-    assert "tileset" in text.lower()
+    # Observer connected BEFORE the triggering action.
+    with qtbot.waitSignal(canvas.noTilesetBoundRejected, timeout=1000):
+        canvas._apply_stamp(0, 0)  # brush_base_gid defaults to 0; no tileset bound
 
 
-def test_fix5_tilemap_zero_brush_stamp_warns_select_a_tile(
-    qtbot, make_tilemap_setup, mute_message_boxes
+def test_fix5_tilemap_zero_brush_stamp_emits_no_active_brush_signal(
+    qtbot, make_tilemap_setup
 ):
-    """A stamp with brush gid 0 on a tilemap that HAS a tileset warns
-    ("Select a tile first.") -- the distinct message for the other gid-0 case."""
+    """A stamp with brush gid 0 on a tilemap that HAS a tileset emits
+    ``noActiveBrushRejected`` -- the distinct signal for the other gid-0 case
+    (a tileset IS bound; no tile is selected as the active brush)."""
     from PySide6.QtGui import QUndoStack
 
     _tileset, tilemap = make_tilemap_setup()
@@ -488,12 +522,9 @@ def test_fix5_tilemap_zero_brush_stamp_warns_select_a_tile(
     qtbot.addWidget(canvas)
     canvas.set_context(tilemap, QUndoStack(), None)
 
-    canvas._apply_stamp(0, 0)  # brush_base_gid still defaults to 0
-
-    assert len(mute_message_boxes) == 1
-    kind, _title, text = mute_message_boxes[0]
-    assert kind == "warning"
-    assert "select" in text.lower()
+    # Observer connected BEFORE the triggering action.
+    with qtbot.waitSignal(canvas.noActiveBrushRejected, timeout=1000):
+        canvas._apply_stamp(0, 0)  # brush_base_gid still defaults to 0
 
 
 # --------------------------------------------------------------------------- #
