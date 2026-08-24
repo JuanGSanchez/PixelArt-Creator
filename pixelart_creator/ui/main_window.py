@@ -711,6 +711,10 @@ class Main_Window(QMainWindow):
         self._tilemap_canvas.autotileChanged.connect(
             self._tilemap_layer_panel.set_autotile_checked
         )
+        self._tilemap_canvas.noTilesetBoundRejected.connect(
+            self._notify_no_tileset_bound
+        )
+        self._tilemap_canvas.noActiveBrushRejected.connect(self._notify_no_active_brush)
         self._tilemap_dock = QDockWidget(self)
         self._tilemap_dock.setWidget(self._tilemap_canvas)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._tilemap_dock)
@@ -2898,6 +2902,31 @@ class Main_Window(QMainWindow):
         """
         self.statusBar().showMessage(
             self.tr("No change: the colour already matched."),
+            UI_NOTICE_DURATION_MS,
+        )
+
+    def _notify_no_tileset_bound(self) -> None:
+        """Non-blocking notice that a tilemap stamp/fill was refused (CI-red fix).
+
+        The tilemap has no tileset bound yet, so gid 0 is the only brush
+        available. Replaces a blocking ``QMessageBox.warning`` that hung a
+        headless parallel test worker with nothing to dismiss it (worker
+        crash, 2026-08-24); follows the ``_notify_layer_locked`` precedent.
+        """
+        self.statusBar().showMessage(
+            self.tr("No tileset bound to this tilemap yet."),
+            UI_NOTICE_DURATION_MS,
+        )
+
+    def _notify_no_active_brush(self) -> None:
+        """Non-blocking notice that a tilemap stamp/fill was refused (CI-red fix).
+
+        A tileset is bound, but no tile is selected as the active brush.
+        Distinct from :meth:`_notify_no_tileset_bound` so the message stays
+        honest about which of the two refusal causes applies.
+        """
+        self.statusBar().showMessage(
+            self.tr("Select a tile first."),
             UI_NOTICE_DURATION_MS,
         )
 

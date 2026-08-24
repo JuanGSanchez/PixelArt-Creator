@@ -491,6 +491,20 @@ class Tilemap_Canvas(QGraphicsView):
 
     #: Emitted after a layer's auto-tile mode changes (drives the panel checkbox).
     autotileChanged = Signal(bool)
+    #: Emitted when a stamp/fill is refused because the tilemap has no tileset
+    #: bound yet (CI-red field defect, 2026-08-24: the original FIX 5 routed
+    #: this refusal through a blocking ``QMessageBox.warning``, which hangs a
+    #: headless parallel worker with nothing to dismiss it). Follows the
+    #: ``Canvas_View.lockedLayerEditRejected`` precedent exactly -- a signal
+    #: the shell surfaces non-blockingly, never a modal, for a refusal
+    #: reachable from a plain mouse gesture.
+    noTilesetBoundRejected = Signal()
+    #: Emitted when a stamp/fill is refused because no tile is selected as the
+    #: active brush (a tileset IS bound; the brush gid is 0). Kept distinct
+    #: from ``noTilesetBoundRejected`` so the shell shows the honest message
+    #: for each case, exactly as the two ``_warn_no_active_brush`` branches
+    #: already did.
+    noActiveBrushRejected = Signal()
 
     def __init__(
         self, undo_stack: Optional[QUndoStack] = None, parent: Optional[QWidget] = None
@@ -932,15 +946,19 @@ class Tilemap_Canvas(QGraphicsView):
         """Surface why a stamp/fill was refused for gid 0 (FIX 5, no-silent-result).
 
         gid 0 is both the brush's default and the state of a document with no
-        tileset bound yet, so the two cases get distinct, honest messages
-        instead of one silent no-op.
+        tileset bound yet, so the two cases get distinct, honest signals
+        instead of one silent no-op -- and, per the CI-red fix of
+        2026-08-24, a SIGNAL rather than a blocking ``QMessageBox.warning``:
+        this refusal is reachable from a plain mouse gesture (a stray stamp
+        click with no brush selected), and a modal there blocks headless
+        parallel test workers indefinitely (worker crash, not an assertion
+        failure). The shell surfaces the notice non-blockingly, following the
+        ``lockedLayerEditRejected`` precedent exactly.
         """
         if not tilemap.tilesets:
-            self._warn(
-                self.tr("Stamp"), self.tr("No tileset bound to this tilemap yet.")
-            )
+            self.noTilesetBoundRejected.emit()
         else:
-            self._warn(self.tr("Stamp"), self.tr("Select a tile first."))
+            self.noActiveBrushRejected.emit()
 
     # -- i18n / a11y ------------------------------------------------------
 
