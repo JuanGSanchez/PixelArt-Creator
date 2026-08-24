@@ -63,7 +63,17 @@ def create_app(argv: Optional[List[str]] = None) -> Tuple[QApplication, Main_Win
     app.setOrganizationName(ORGANIZATION_NAME)
 
     window = Main_Window()
+    # FIX 1 (2026-08-24 field defect, RC-1 follow-up): give the window an
+    # explicit default size BEFORE it is shown -- without this it falls back
+    # to Qt's layout hint, which starves the canvas regardless of how the
+    # docks below are split (a ratio of a too-small width is still too
+    # small). See Main_Window.apply_default_launch_geometry.
+    window.apply_default_launch_geometry()
     window.show()
+    # FIX 1/2 (2026-08-24 field defect): the first-launch dock sizing + initial
+    # document fit MUST run after show() -- resizeDocks() before the window is
+    # shown is a documented Qt no-op. See Main_Window.apply_first_launch_layout.
+    window.apply_first_launch_layout()
     return app, window
 
 

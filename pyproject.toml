@@ -158,8 +158,21 @@ exclude = ["tests*", "scripts*", "docs*", "sync_backend*", "web_viewer*"]
 # The two globs cover manifest.json (userguide_content/*.json) and every
 # per-topic Markdown file at any depth (userguide_content/**/*.md, e.g.
 # content/en/*.md). No source build; no new dependency.
+#
+# B6 FIX: the translation catalogues moved from a repository-top-level
+# `i18n/` folder (OUTSIDE the package, so pip never installed them) into
+# pixelart_creator/i18n/ (a sibling of pixelart_creator/ui/, resolved by
+# ui/i18n.py's _default_translations_dir()). The two globs below ship the
+# compiled catalogues actually loaded at runtime (i18n/*.qm) and their .ts
+# sources (i18n/*.ts) alongside them, matching the userguide entry's
+# compiled+source-together style. No source build; no new dependency.
 [tool.setuptools.package-data]
-pixelart_creator = ["userguide_content/**/*.md", "userguide_content/*.json"]
+pixelart_creator = [
+    "userguide_content/**/*.md",
+    "userguide_content/*.json",
+    "i18n/*.qm",
+    "i18n/*.ts",
+]
 
 # ------------------------------- tool config ---------------------------------
 [tool.black]

@@ -2,10 +2,14 @@
 
 pytest-qt, headless, both themes (autouse fixture). Exercises the defensive guards
 and typed-error surfaces of the tilemap UI that the happy-path acceptance tests skip:
-a stamp/fill with an unknown gid or empty brush is a no-op / user-facing warning (no
-crash); edits with no bound tilemap return early; layer-op factory errors surface a
-warning; the auto-tile disable path clears the ruleset; and the export dialog surfaces
-a write error. All assert the UI never crashes and never pushes a spurious command.
+a stamp/fill with an unknown gid surfaces a ``QMessageBox.warning`` (no crash); a
+stamp/fill with an empty (gid 0) brush pushes no command but is NOT silent -- it
+emits a non-blocking ``noActiveBrushRejected``/``noTilesetBoundRejected`` signal
+(no-silent-result, FIX 5, CI-red fix of 2026-08-24) instead of the blocking modal
+that used to hang headless parallel workers; edits with no bound tilemap at all
+return early with no signal; layer-op factory errors surface a warning; the
+auto-tile disable path clears the ruleset; and the export dialog surfaces a write
+error. All assert the UI never crashes and never pushes a spurious command.
 """
 
 from __future__ import annotations
@@ -36,11 +40,21 @@ def _canvas(qtbot, tilemap, tileset, theme):
 
 
 def test_stamp_with_empty_brush_is_noop(qtbot, theme, make_tilemap_setup):
-    """A zero (empty) brush gid stamps nothing and pushes no command."""
+    """A zero (empty) brush gid pushes no command and visibly refuses (FIX 5).
+
+    ``make_tilemap_setup`` always attaches a tileset to the tilemap (see its
+    fixture docstring), so ``tilemap.tilesets`` is non-empty here and the guard's
+    ``if not tilemap.tilesets`` branch is false: it is the "tileset present, no
+    active brush selected" case, which emits ``noActiveBrushRejected`` -- not
+    ``noTilesetBoundRejected``, which is reserved for a tilemap with zero attached
+    tilesets. The refusal must be visible instead of silent, and it must still
+    push no undo command.
+    """
     _tileset, tilemap = make_tilemap_setup()
     canvas, stack = _canvas(qtbot, tilemap, None, theme)
     canvas.set_brush_gid(0)
-    canvas._apply_stamp(0, 0)
+    with qtbot.waitSignal(canvas.noActiveBrushRejected, timeout=1000, raising=True):
+        canvas._apply_stamp(0, 0)
     assert stack.index() == 0
 
 

@@ -100,10 +100,13 @@
 #   checked against the EN corpus (site en/ + guide content/en/) using its
 #   literal EN source text, AND separately against the ES corpus (site es/ +
 #   guide content/es/) using its shipped ES translation, read from
-#   i18n/pixelart_es.ts (`<source>` -> finished `<translation>`; an
-#   unfinished/absent ES translation falls back to checking the literal EN
-#   text against the ES corpus, since Spanish pages sometimes keep an
-#   English proper-noun label as-is). Three outcomes, not one:
+#   pixelart_creator/i18n/pixelart_es.ts (packaged catalogue location; falls
+#   back to the legacy repository-top-level i18n/pixelart_es.ts for a stale
+#   checkout, mirroring ui/i18n.py's _default_translations_dir() resolution)
+#   (`<source>` -> finished `<translation>`; an unfinished/absent ES
+#   translation falls back to checking the literal EN text against the ES
+#   corpus, since Spanish pages sometimes keep an English proper-noun label
+#   as-is). Three outcomes, not one:
 #     "undocumented-control-label" -- missing from BOTH language corpora.
 #     "es-documentation-stale"     -- documented in en/, missing from es/.
 #     "en-documentation-stale"     -- documented in es/, missing from en/.
@@ -555,19 +558,36 @@ def collect_ui_labels(root):
     return labels, scanned, None
 
 
+def _es_translations_path(root):
+    """Resolve pixelart_es.ts, preferring the packaged location
+    (pixelart_creator/i18n/, which ships inside the installed package) and
+    falling back to the legacy repository-top-level i18n/ for a stale
+    checkout -- the same two-step resolution ui/i18n.py's
+    _default_translations_dir() applies to the compiled .qm catalogues."""
+    packaged = os.path.join(root, "pixelart_creator", "i18n", "pixelart_es.ts")
+    if os.path.isfile(packaged):
+        return packaged
+    legacy = os.path.join(root, "i18n", "pixelart_es.ts")
+    if os.path.isfile(legacy):
+        return legacy
+    return packaged
+
+
 def load_es_translations(root):
     """Map EN <source> text -> shipped, FINISHED ES <translation> text from
-    i18n/pixelart_es.ts. A missing/unfinished/empty translation is simply
-    absent from the map (the leg-2 locale check then falls back to checking
-    the literal EN text against the ES corpus)."""
-    path = os.path.join(root, "i18n", "pixelart_es.ts")
+    pixelart_es.ts (packaged location preferred, legacy top-level as
+    fallback -- see _es_translations_path()). A missing/unfinished/empty
+    translation is simply absent from the map (the leg-2 locale check then
+    falls back to checking the literal EN text against the ES corpus)."""
+    path = _es_translations_path(root)
+    rel = os.path.relpath(path, root).replace("\\", "/")
     mapping = {}
     if not os.path.isfile(path):
-        return mapping, "i18n/pixelart_es.ts not found under --root"
+        return mapping, "%s not found under --root" % rel
     try:
         tree = ET.parse(path)
     except ET.ParseError as exc:
-        return mapping, "i18n/pixelart_es.ts: %r" % exc
+        return mapping, "%s: %r" % (rel, exc)
     for msg in tree.getroot().iter("message"):
         src = msg.find("source")
         trn = msg.find("translation")
