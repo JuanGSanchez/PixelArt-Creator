@@ -63,7 +63,10 @@ The platform has been built in phases; the capabilities below are **shipped**.
 
 ### Requirements
 
-- **Python 3.12 or newer** (`requires-python = ">=3.12"`).
+- **Python 3.13 or newer** (`requires-python = ">=3.13"`) — that is the install floor.
+  The project itself develops and tests against an exact pinned interpreter, **3.13.13**
+  (`.python-version`), which is what CI and the deployment image run; a newer 3.13.x (or
+  later) satisfies the floor for running the application.
 - Runtime dependencies are declared in `pyproject.toml` and installed automatically:
   PySide6 (Qt 6), NumPy, Pillow, and the collaboration libraries `pycrdt` and `websockets`.
 
@@ -138,7 +141,7 @@ and font fallbacks, then runs the Qt event loop). `python -m pixelart_creator` i
 module entry point; `pixelart-creator` is the installed GUI console command (declared in
 `pyproject.toml` under `[project.gui-scripts]`), available after `pip install .`.
 
-The application runs on Windows, Linux and macOS wherever PySide6 (Qt 6) and Python 3.12+
+The application runs on Windows, Linux and macOS wherever PySide6 (Qt 6) and Python 3.13+
 are available.
 
 ### Native installers

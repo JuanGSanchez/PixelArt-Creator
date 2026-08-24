@@ -8,8 +8,11 @@
 # We therefore copy the source and install ONLY `websockets` — never PySide6/numpy/
 # Pillow/pycrdt (the GUI/desktop stack), keeping the image small.
 
-# Slim base pinned to the project's Python (pyproject: requires-python >=3.12).
-FROM python:3.12-slim-bookworm
+# Base pinned to the project's single parametric source: the repo-root
+# `.python-version` file ("3.13.13"), confirmed on Docker Hub 2026-05-20
+# (design-docs/research/research-ci-python-3-13-13-pins.md, Q3). Kept in sync
+# by scripts/check_python_version.py (exact-patch precision for this site).
+FROM python:3.13.13-slim-bookworm
 
 # Fail fast, unbuffered logs (so `docker logs` / journald see the "listening" line).
 ENV PYTHONUNBUFFERED=1 \

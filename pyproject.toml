@@ -14,27 +14,30 @@ name = "pixelart-creator"
 version = "0.2.1"
 description = "Unified pixel-art platform: 8K editable grid, colour tools, layers, GPU render pipeline."
 readme = "NOTICE"
-# LOCAL/CI PYTHON ALIGNMENT (#31, 2026-07-31): this floor (">=3.12") is the
-# public install contract, but ci.yml pins the EXACT minor "3.12" on every job
-# (quality-gate/integration/build-installers) and constraints.txt is generated
-# from a clean Python 3.12.0 venv. A machine running a newer interpreter (e.g.
-# 3.13.x) can still satisfy this floor and pass locally while never exercising
-# what CI actually gates. The repo-root `.python-version` file pins "3.12" as
-# the intended DEVELOPMENT interpreter (read by pyenv/pyenv-win/uv/asdf and
-# most IDE Python-version pickers) so the divergence is discoverable instead of
-# silent. This does not change the public floor here, and this project does
-# NOT claim 3.13 support via a classifier — the suite is only exercised on
-# 3.12 in CI. Switching the actual local interpreter to 3.12.x is a manual,
-# machine-level step (e.g. `pyenv install 3.12.x && pyenv local 3.12.x`, or the
-# platform equivalent) that this repository cannot perform for the developer.
-requires-python = ">=3.12"
+# PYTHON VERSION — SINGLE PARAMETRIC SOURCE (2026-08-24): the repo-root
+# `.python-version` file is the ONE source of truth for the exact interpreter,
+# pinned to "3.13.13" (CPython 3.13.13, released 2026-04-07; the 3.13 line is
+# bugfix-supported until 2029-10, versus 3.12's security-only track ending
+# 2028-10 — confirmed by
+# design-docs/research/research-ci-python-3-13-13-pins.md). ci.yml reads this
+# SAME file via actions/setup-python's `python-version-file:` input, so CI and
+# any local pyenv/pyenv-win/uv/asdf/IDE Python-version picker that reads
+# `.python-version` resolve to the IDENTICAL interpreter — the local/CI
+# divergence this comment used to document (a "3.12" floor here vs a
+# separately hardcoded "3.12" in ci.yml) no longer exists by construction.
+# The floor below (">=3.13") is therefore equal to what CI actually tests, not
+# a looser public promise. scripts/check_python_version.py is the enforcement
+# gate that keeps this file, the floor, the classifier, mypy's `python_version`,
+# black's `target-version`, the deployment container base image, and the
+# systemd unit's interpreter reference all in agreement going forward.
+requires-python = ">=3.13"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Juan Garcia Sanchez" }]
 keywords = ["pixel-art", "editor", "pyside6", "qt6", "graphics"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Multimedia :: Graphics :: Editors",
 ]
 
@@ -174,14 +177,14 @@ pixelart_creator = [
 # ------------------------------- tool config ---------------------------------
 [tool.black]
 line-length = 88
-target-version = ["py312"]
+target-version = ["py313"]
 
 [tool.isort]
 profile = "black"
 line_length = 88
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 warn_unused_ignores = true
 warn_redundant_casts = true
 # Strict typing for the pure layers; UI/Qt stubs are looser.

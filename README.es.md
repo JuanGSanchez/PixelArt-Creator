@@ -73,7 +73,11 @@ La plataforma se ha construido por fases; las capacidades siguientes están **en
 
 ### Requisitos
 
-- **Python 3.12 o más reciente** (`requires-python = ">=3.12"`).
+- **Python 3.13 o más reciente** (`requires-python = ">=3.13"`) — ese es el mínimo de
+  instalación. El propio proyecto se desarrolla y se prueba contra un intérprete fijado
+  de forma exacta, **3.13.13** (`.python-version`), que es lo que ejecutan CI y la imagen
+  de despliegue; cualquier 3.13.x más reciente (o posterior) satisface el mínimo para
+  ejecutar la aplicación.
 - Las dependencias en tiempo de ejecución están declaradas en `pyproject.toml` y se instalan
   automáticamente: PySide6 (Qt 6), NumPy, Pillow, y las bibliotecas de colaboración `pycrdt` y
   `websockets`.
@@ -155,7 +159,7 @@ pixelart_creator` es el punto de entrada del módulo; `pixelart-creator` es el c
 consola de GUI instalado (declarado en `pyproject.toml` bajo `[project.gui-scripts]`),
 disponible tras `pip install .`.
 
-La aplicación se ejecuta en Windows, Linux y macOS allí donde PySide6 (Qt 6) y Python 3.12+
+La aplicación se ejecuta en Windows, Linux y macOS allí donde PySide6 (Qt 6) y Python 3.13+
 estén disponibles.
 
 ### Instaladores nativos
