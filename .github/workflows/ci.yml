@@ -126,8 +126,12 @@
 #
 # Runs on push + pull_request: installs the project from pyproject.toml into a
 # clean runner, then runs the full quality gate HEADLESS (QT_QPA_PLATFORM=
-# offscreen) with the OS libraries PySide6 needs. Python 3.12 pinned. A
-# single-run concurrency guard cancels superseded runs for the same ref.
+# offscreen) with the OS libraries PySide6 needs. Python version is a SINGLE
+# PARAMETRIC SOURCE, not a literal pinned here: every actions/setup-python
+# site below reads it from the repository's own .python-version file via
+# the `python-version-file:` input, so bumping the interpreter is a one-file
+# change (CI-STANDARDIZATION, 2026-08-24) instead of four hand-edited sites.
+# A single-run concurrency guard cancels superseded runs for the same ref.
 #
 # REPRODUCIBILITY (R-11, constraints.txt): every `pip install -e ...` step
 # below also passes `-c constraints.txt` — a committed, regenerable pip
@@ -148,8 +152,10 @@
 # the Ubuntu runner and the source-lint results are OS-invariant. fail-fast is
 # OFF so a genuine Windows/macOS regression does not cancel the other legs (each
 # leg's result is captured). The Ubuntu Qt apt install is Linux-guarded; Windows
-# and macOS need no extra system libs for offscreen Qt. Concurrency guard +
-# Python-3.12 pin preserved.
+# and macOS need no extra system libs for offscreen Qt. Concurrency guard
+# preserved; the Python version is no longer a literal pin here — see the
+# single-parametric-source note above (.python-version via
+# python-version-file:).
 # =============================================================================
 name: ci
 
@@ -268,9 +274,11 @@ jobs:
         # pre-provisioned). 45 min is 3x that 15-min measured figure —
         # headroom sized for what a warm run does NOT pay for but a genuinely
         # COLD first run on this bare runner does: (a) actions/setup-python
-        # downloading and installing CPython 3.12 from the
-        # actions/python-versions release instead of hitting a pre-populated
-        # tool cache, (b) `pip install -c constraints.txt -e ".[dev]"`
+        # downloading and installing the pinned Python version (read from
+        # .python-version via python-version-file: — no version literal here
+        # to go stale on the next bump) from the actions/python-versions
+        # release instead of hitting a pre-populated tool cache, (b)
+        # `pip install -c constraints.txt -e ".[dev]"`
         # resolving/downloading the full runtime+dev closure with no local
         # wheel cache, and (c) the first-ever `actions/checkout` on this
         # machine. 25 min (the earlier, unmeasured value) gave only 10 min of
@@ -375,10 +383,12 @@ jobs:
     #                              MACHINE PATH even though bash.exe (Git\bin)
     #                              was not, which is exactly what the fix step
     #                              above now repairs.
-    #   actions/setup-python@v6  - hosted runners ship Python 3.12 in a
-    #     (cache: pip)             pre-populated tool cache; this bare runner
+    #   actions/setup-python@v6  - hosted runners ship a pre-populated tool
+    #     (cache: pip)             cache for common versions; this bare runner
     #                              does not, so the action will most likely
-    #                              DOWNLOAD and install CPython 3.12 from the
+    #                              DOWNLOAD and install the pinned Python
+    #                              version (from .python-version via
+    #                              python-version-file:) from the
     #                              actions/python-versions release the first
     #                              time it runs here (slower, needs network
     #                              egress) rather than hitting a local cache.
@@ -514,10 +524,38 @@ jobs:
           Write-Host "Found Git for Windows at $gitRoot. Appended $binDir and $usrBinDir to PATH via GITHUB_ENV for the rest of this job -- but that ONLY helps a step whose own shell is not bash and that shells out to bash itself. It CANNOT make 'shell: bash' steps in this job work: GitHub Actions resolves that interpreter from the runner service's OWN process PATH before any step (including this one) runs, and a job-level PATH edit can never reach that lookup. THE REAL FIX is the runner's MACHINE PATH (System 'Environment Variables', or the elevated setx/registry command in the AGT-09 report) plus a restart of the 'actions.runner...pixelart-local-probe' service so it re-inherits that PATH at its own process start. Failing this job now, with this cause named, instead of letting it repeat the bare 'bash: command not found' one step later."
           exit 1
 
-      - name: Set up Python 3.12 (pinned)
+      - name: Set up CI temp root (CI-PixelArtCreator)
+        # CI temp standardization (supersedes DEV-36a's D:\tmp\ci\<workflow>-
+        # <job> naming): the root is ONE product-owned segment under the
+        # runner's OWN ${RUNNER_TEMP} -- no drive letter and no other path
+        # segment is hardcoded into this file (the segment below,
+        # "CI-PixelArtCreator/<leg name>", is the only literal contributed
+        # here). The leg-scoped name (workflow job + matrix leg, no run id or
+        # timestamp) is DETERMINISTIC, so a re-run of the same leg resolves to
+        # the identical path; the `rm -rf` before `mkdir -p` makes that an
+        # OVERWRITE, not an accumulation, of whatever a previous run left (the
+        # ~68 randomly-named dirs + stray `pytest-of-<machine>` tree DEV-36a
+        # recorded). Every temp-producing surface in this job is routed under
+        # this one root: the pytest steps below via --basetemp, and the
+        # process TMP/TEMP/TMPDIR env so a bare `tempfile.mkdtemp()` call
+        # inside a test (not just the pytest-managed tmp_path) lands here too
+        # -- a --basetemp alone does not catch that. The final cleanup step
+        # below deletes this same root again by reading the CI_TEMP_ROOT
+        # variable exported here, never a re-typed path.
+        run: |
+          CI_TEMP_ROOT="${RUNNER_TEMP}/CI-PixelArtCreator/ci-quality-gate-${{ matrix.os }}"
+          rm -rf "${CI_TEMP_ROOT}"
+          mkdir -p "${CI_TEMP_ROOT}"
+          echo "CI_TEMP_ROOT=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TEMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMPDIR=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "CI temp root for this leg: ${CI_TEMP_ROOT}"
+
+      - name: Set up Python (pinned via .python-version)
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
           cache: pip
 
       # OS-level libraries required to import/run PySide6 (Qt6) headless on a
@@ -827,6 +865,7 @@ jobs:
         # integration marker and still runs here.
         run: |
           pytest -n auto -m "not slow and not gpu and not cloud_live and not assistant_live and not integration" \
+            --basetemp="${CI_TEMP_ROOT}/pytest-main" \
             --timeout=120 --timeout-method=thread --durations=15 \
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 
@@ -861,6 +900,7 @@ jobs:
         run: |
           pytest -m "not slow and not gpu and not cloud_live and not assistant_live and not integration" \
             tests/backend tests/deploy web_viewer/tests \
+            --basetemp="${CI_TEMP_ROOT}/pytest-nonclient" \
             --timeout=120 --timeout-method=thread \
             --cov=sync_backend --cov=web_viewer --cov-branch --cov-report=term
           # Written under coverage/ because that path is ALREADY gitignored, so
@@ -1101,6 +1141,39 @@ jobs:
         # pytest marker, no Qt.
         run: python scripts/perf_profile.py --viewport-recomposite --vp-region-size 1920 --vp-layers 12
 
+      - name: Clean up CI temp root (CI-PixelArtCreator)
+        # `if: always()`: a failing leg must still clean up, or a red run
+        # leaks its temp root by design. GUARD before deleting, per the CI
+        # temp-standardization requirement: refuse unless CI_TEMP_ROOT is (a)
+        # non-empty, (b) resolves under ${RUNNER_TEMP}, and (c) still carries
+        # the expected CI-PixelArtCreator/<name> shape -- FAIL LOUDLY on any
+        # mismatch rather than deleting something unexpected or silently
+        # skipping. The path is read from the CI_TEMP_ROOT variable exported
+        # by the "Set up CI temp root" step above -- computed there ONCE and
+        # reused here, never re-typed. No wildcard is used anywhere in this
+        # step. Only the scoped root is touched; the runner workspace, tool
+        # cache and Actions cache are never in scope here.
+        if: always()
+        run: |
+          if [[ -z "${CI_TEMP_ROOT:-}" ]]; then
+            echo "::error::CI_TEMP_ROOT is not set; refusing to guess a path to delete."
+            exit 1
+          fi
+          case "${CI_TEMP_ROOT}" in
+            "${RUNNER_TEMP}"/CI-PixelArtCreator/*) ;;
+            *)
+              echo "::error::CI_TEMP_ROOT (${CI_TEMP_ROOT}) does not resolve under \${RUNNER_TEMP}/CI-PixelArtCreator/<name>; refusing to delete."
+              exit 1
+              ;;
+          esac
+          if [[ -d "${CI_TEMP_ROOT}" ]]; then
+            echo "Removing CI temp root: ${CI_TEMP_ROOT}"
+            rm -rf "${CI_TEMP_ROOT}"
+            echo "Removed: ${CI_TEMP_ROOT}"
+          else
+            echo "CI temp root already absent (nothing to remove): ${CI_TEMP_ROOT}"
+          fi
+
   # ===========================================================================
   # Phase-13 Slice 13C (REQ-P13-BACKEND-001/-002/-003, T13C-06): dedicated
   # integration job for the deploy/ VPS self-hosting artifacts.
@@ -1190,10 +1263,27 @@ jobs:
           Write-Host "Found Git for Windows at $gitRoot. Appended $binDir and $usrBinDir to PATH via GITHUB_ENV for the rest of this job -- but that ONLY helps a step whose own shell is not bash and that shells out to bash itself. It CANNOT make 'shell: bash' steps in this job work: GitHub Actions resolves that interpreter from the runner service's OWN process PATH before any step (including this one) runs, and a job-level PATH edit can never reach that lookup. THE REAL FIX is the runner's MACHINE PATH plus a restart of the 'actions.runner...pixelart-local-probe' service so it re-inherits that PATH at its own process start (see the AGT-09 report). Failing this job now, with this cause named, instead of letting it repeat the bare 'bash: command not found' one step later."
           exit 1
 
-      - name: Set up Python 3.12 (pinned)
+      - name: Set up CI temp root (CI-PixelArtCreator)
+        # Same routing as the quality-gate job's identically-named step (see
+        # that step's comment for the full rationale) -- duplicated here
+        # rather than shared because a temp root set in one job does not
+        # carry into another job. This job has no matrix, so the leg name is
+        # just the job name (still deterministic, still overwritten on
+        # re-run via the leading `rm -rf`).
+        run: |
+          CI_TEMP_ROOT="${RUNNER_TEMP}/CI-PixelArtCreator/ci-integration"
+          rm -rf "${CI_TEMP_ROOT}"
+          mkdir -p "${CI_TEMP_ROOT}"
+          echo "CI_TEMP_ROOT=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TEMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMPDIR=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "CI temp root for this leg: ${CI_TEMP_ROOT}"
+
+      - name: Set up Python (pinned via .python-version)
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
           cache: pip
 
       - name: Install project (runtime + dev) from manifest
@@ -1225,7 +1315,34 @@ jobs:
         # every push. No Qt-libs install needed on Windows: the PySide6 wheel
         # bundles its own Qt binaries (mirrors the quality-gate windows-selfhosted
         # leg, which needs none either).
-        run: pytest -m integration tests/deploy/ tests/backend/
+        run: pytest -m integration tests/deploy/ tests/backend/ --basetemp="${CI_TEMP_ROOT}/pytest"
+
+      - name: Clean up CI temp root (CI-PixelArtCreator)
+        # Same guard shape as the quality-gate job's identically-named step:
+        # if: always() so a red run still cleans up; refuses to delete unless
+        # CI_TEMP_ROOT is non-empty, under ${RUNNER_TEMP}, and still shaped
+        # CI-PixelArtCreator/<name>; reads the SAME exported variable rather
+        # than recomputing the path; no wildcard.
+        if: always()
+        run: |
+          if [[ -z "${CI_TEMP_ROOT:-}" ]]; then
+            echo "::error::CI_TEMP_ROOT is not set; refusing to guess a path to delete."
+            exit 1
+          fi
+          case "${CI_TEMP_ROOT}" in
+            "${RUNNER_TEMP}"/CI-PixelArtCreator/*) ;;
+            *)
+              echo "::error::CI_TEMP_ROOT (${CI_TEMP_ROOT}) does not resolve under \${RUNNER_TEMP}/CI-PixelArtCreator/<name>; refusing to delete."
+              exit 1
+              ;;
+          esac
+          if [[ -d "${CI_TEMP_ROOT}" ]]; then
+            echo "Removing CI temp root: ${CI_TEMP_ROOT}"
+            rm -rf "${CI_TEMP_ROOT}"
+            echo "Removed: ${CI_TEMP_ROOT}"
+          else
+            echo "CI temp root already absent (nothing to remove): ${CI_TEMP_ROOT}"
+          fi
 
   # ===========================================================================
   # R-11 residual (#31, 2026-07-31): constraints.txt closure gap on Linux/macOS.
@@ -1259,10 +1376,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Set up Python 3.12 (pinned, matches ci.yml + constraints.txt)
+      - name: Set up CI temp root (CI-PixelArtCreator)
+        # Same routing as the quality-gate job's identically-named step (see
+        # that step's comment for the full rationale). This job has no
+        # matrix; deterministic name is just the job name. Covers the venv
+        # creation + pip scratch below, not only pytest (this job runs none).
+        run: |
+          CI_TEMP_ROOT="${RUNNER_TEMP}/CI-PixelArtCreator/ci-regenerate-constraints"
+          rm -rf "${CI_TEMP_ROOT}"
+          mkdir -p "${CI_TEMP_ROOT}"
+          echo "CI_TEMP_ROOT=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TEMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMPDIR=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "CI temp root for this leg: ${CI_TEMP_ROOT}"
+
+      - name: Set up Python (pinned via .python-version; matches ci.yml + constraints.txt)
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
 
       # Deliberately a CLEAN venv, not the runner's system/cached pip
       # environment, so the freeze reflects only this project's own resolved
@@ -1294,6 +1426,33 @@ jobs:
           path: constraints.linux.txt
           if-no-files-found: error
 
+      - name: Clean up CI temp root (CI-PixelArtCreator)
+        # Same guard shape as the quality-gate job's identically-named step:
+        # if: always() so a red run still cleans up; refuses to delete unless
+        # CI_TEMP_ROOT is non-empty, under ${RUNNER_TEMP}, and still shaped
+        # CI-PixelArtCreator/<name>; reads the SAME exported variable rather
+        # than recomputing the path; no wildcard.
+        if: always()
+        run: |
+          if [[ -z "${CI_TEMP_ROOT:-}" ]]; then
+            echo "::error::CI_TEMP_ROOT is not set; refusing to guess a path to delete."
+            exit 1
+          fi
+          case "${CI_TEMP_ROOT}" in
+            "${RUNNER_TEMP}"/CI-PixelArtCreator/*) ;;
+            *)
+              echo "::error::CI_TEMP_ROOT (${CI_TEMP_ROOT}) does not resolve under \${RUNNER_TEMP}/CI-PixelArtCreator/<name>; refusing to delete."
+              exit 1
+              ;;
+          esac
+          if [[ -d "${CI_TEMP_ROOT}" ]]; then
+            echo "Removing CI temp root: ${CI_TEMP_ROOT}"
+            rm -rf "${CI_TEMP_ROOT}"
+            echo "Removed: ${CI_TEMP_ROOT}"
+          else
+            echo "CI temp root already absent (nothing to remove): ${CI_TEMP_ROOT}"
+          fi
+
   # ===========================================================================
   # Phase-13 Slice 13D (REQ-P13-BUILD-002/-003/-004/-005, ADR-0038): native
   # installer BUILD matrix. SEPARATE from the always-on quality-gate TEST matrix
@@ -1304,8 +1463,9 @@ jobs:
   # One matrix over ubuntu/windows/macos builds all three native distributables
   # on their respective OS legs and publishes each as a downloadable artifact
   # (actions/upload-artifact). fail-fast is OFF so a per-leg build failure fails
-  # THAT leg VISIBLY without cancelling the others (BUILD-005). Python 3.12 is
-  # pinned.
+  # THAT leg VISIBLY without cancelling the others (BUILD-005). Python version
+  # is read from .python-version via python-version-file: (single parametric
+  # source, see the file header), not pinned as a literal here.
   #
   # OWN, PER-OS concurrency group (BUILD-005, ADR-0038): the build matrix uses a
   # DISTINCT group (build-installers-<ref>-<os>) instead of inheriting the
@@ -1373,10 +1533,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Set up Python 3.12 (pinned)
+      - name: Set up CI temp root (CI-PixelArtCreator)
+        # Same routing as the quality-gate job's identically-named step (see
+        # that step's comment for the full rationale). Deterministic leg name
+        # includes ${{ matrix.os }} so the three parallel legs (ubuntu/
+        # windows/macos) never collide. This job runs no pytest, but Nuitka's
+        # own C-build intermediates and pip's install scratch both honour
+        # TMP/TEMP/TMPDIR, so they are routed here too rather than left on
+        # whatever default the runner OS would otherwise use.
+        run: |
+          CI_TEMP_ROOT="${RUNNER_TEMP}/CI-PixelArtCreator/ci-build-installers-${{ matrix.os }}"
+          rm -rf "${CI_TEMP_ROOT}"
+          mkdir -p "${CI_TEMP_ROOT}"
+          echo "CI_TEMP_ROOT=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TEMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMPDIR=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "CI temp root for this leg: ${CI_TEMP_ROOT}"
+
+      - name: Set up Python (pinned via .python-version)
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
           cache: pip
 
       # Ubuntu: the same Qt runtime libs the test matrix installs (needed for
@@ -1537,3 +1715,34 @@ jobs:
           name: pixelart-creator-macos
           path: artifact/PixelArtCreator-macos.dmg
           if-no-files-found: error
+
+      - name: Clean up CI temp root (CI-PixelArtCreator)
+        # Same guard shape as the quality-gate job's identically-named step:
+        # if: always() so a failed/cancelled leg still cleans up; refuses to
+        # delete unless CI_TEMP_ROOT is non-empty, under ${RUNNER_TEMP}, and
+        # still shaped CI-PixelArtCreator/<name>; reads the SAME exported
+        # variable rather than recomputing the path; no wildcard. Runs on
+        # every OS leg of this matrix — the guard and the variable are
+        # OS-invariant even though `rm -rf`/`mkdir -p` are POSIX commands,
+        # because `defaults.run.shell: bash` (job-level, above) makes every
+        # step in this job — Windows included — run under bash.
+        if: always()
+        run: |
+          if [[ -z "${CI_TEMP_ROOT:-}" ]]; then
+            echo "::error::CI_TEMP_ROOT is not set; refusing to guess a path to delete."
+            exit 1
+          fi
+          case "${CI_TEMP_ROOT}" in
+            "${RUNNER_TEMP}"/CI-PixelArtCreator/*) ;;
+            *)
+              echo "::error::CI_TEMP_ROOT (${CI_TEMP_ROOT}) does not resolve under \${RUNNER_TEMP}/CI-PixelArtCreator/<name>; refusing to delete."
+              exit 1
+              ;;
+          esac
+          if [[ -d "${CI_TEMP_ROOT}" ]]; then
+            echo "Removing CI temp root: ${CI_TEMP_ROOT}"
+            rm -rf "${CI_TEMP_ROOT}"
+            echo "Removed: ${CI_TEMP_ROOT}"
+          else
+            echo "CI temp root already absent (nothing to remove): ${CI_TEMP_ROOT}"
+          fi
