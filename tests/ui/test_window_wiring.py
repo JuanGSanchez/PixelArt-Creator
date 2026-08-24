@@ -8,9 +8,11 @@ dialogs are monkeypatched so nothing blocks headless. Both themes.
 
 from __future__ import annotations
 
+import pytest
 from PySide6.QtWidgets import QFileDialog
 
 from pixelart_creator.data.project_io import FILE_SUFFIX
+from pixelart_creator.logic.constants import ZOOM_MAX, ZOOM_MIN
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.theme import THEME_DARK, build_qss
 from tests.ui._ui_helpers import click_pixel, prepare_for_click
@@ -52,13 +54,32 @@ def test_palette_panel_selected_colour_none_when_empty(qtbot):
 
 
 def test_zoom_and_fit_slots(qtbot):
-    """Zoom-in/out/fit actions drive the active view's zoom within range."""
+    """Zoom-in/out/fit actions drive the active view's zoom within range
+    (REQ-P1-UI-017..020). Regression for the 2026-08-24 field defect: the
+    lower zoom bound is ``min(ZOOM_MIN, fit_zoom)`` -- never a flat
+    ``fit_zoom`` (which made ``zoom_out()`` RAISE the zoom and left the 1.0
+    preset stop unreachable for a small document) and never a flat
+    ``ZOOM_MIN`` (which would make the whole-grid view unreachable for a
+    document larger than the viewport, e.g. 7680x4320)."""
     win = _window(qtbot)
     view = win.active_tab().view
+    floor = min(ZOOM_MIN, view._fit_zoom())
+
     win._zoom_in_action.trigger()
-    assert view._fit_zoom() <= view.zoom() <= 64.0
+    zoomed_in = view.zoom()
+    assert floor <= zoomed_in <= ZOOM_MAX
+
     win._zoom_out_action.trigger()
-    assert view._fit_zoom() <= view.zoom() <= 64.0
+    zoomed_out = view.zoom()
+    assert zoomed_out < zoomed_in  # zoom_out() must DECREASE the zoom
+    assert floor <= zoomed_out <= ZOOM_MAX
+
+    # Drive the raw clamp far below the floor to prove the RULE, not today's
+    # arithmetic: the achievable minimum is always min(ZOOM_MIN, fit_zoom),
+    # so this stays true whether the default canvas is small or huge.
+    view.set_zoom(0.0)
+    assert view.zoom() == pytest.approx(floor)
+
     win._fit_action.trigger()
     assert view.zoom() == view._fit_zoom()
 

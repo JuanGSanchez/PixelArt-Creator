@@ -34,12 +34,21 @@ macos.permissions =
 # onefile → a single distributable .exe.
 mode = onefile
 # --noinclude-qt-translations: we ship our own .qm (Article V) — skip Qt's.
+# --include-data-dir=SOURCE=DEST (B6 fix): ships our OWN compiled catalogues
+# (pixelart_creator/i18n/*.qm), referenced in the comment above, into the
+# frozen onefile payload at the same package-relative path
+# pixelart_creator/ui/i18n.py's _default_translations_dir() resolves at
+# runtime (sibling of pixelart_creator/ui/). Onefile mode extracts included
+# data files under this same relative layout at run time, so static import
+# analysis alone (which onefile/standalone both rely on for code) is not
+# enough — non-Python data needs this explicit flag.
 # --nofollow-import-to: keep the non-desktop / dev-only packages OUT of the
 # frozen app (defence-in-depth mirroring the pyproject wheel `exclude`;
 # sync_backend/web_viewer are separate services, tests/scripts/docs are dev
 # infra). The launcher only imports `pixelart_creator`, so these are belt-and-
 # braces so nothing leaks in transitively.
 extra_args = --quiet --assume-yes-for-downloads --noinclude-qt-translations
+    --include-data-dir=pixelart_creator/i18n=pixelart_creator/i18n
     --nofollow-import-to=sync_backend --nofollow-import-to=web_viewer
     --nofollow-import-to=tests --nofollow-import-to=scripts
     --nofollow-import-to=docs --nofollow-import-to=pytest

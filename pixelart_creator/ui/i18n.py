@@ -28,13 +28,30 @@ _CATALOGUE_PREFIX = "pixelart_"
 _CATALOGUE_SUFFIX = ".qm"
 
 
-def _default_translations_dir() -> Path:
-    """Return the repository ``i18n/`` directory holding the ``.qm`` catalogues.
+#: Package-internal catalogue folder name, sibling of this module inside
+#: ``pixelart_creator`` (``pixelart_creator/i18n/``). It ships with the wheel
+#: because it is inside the installed package (unlike the old repository-top-level
+#: ``i18n/`` folder, which pip never installed -- B6).
+_CATALOGUE_DIRNAME = "i18n"
 
-    Derived portably from this file's location (``pixelart_creator/ui/i18n.py``)
-    by walking up to the repository root, so no absolute path is baked in.
+
+def _default_translations_dir() -> Path:
+    """Return the directory holding the ``.qm``/``.ts`` catalogues.
+
+    Resolved correctly BY CONSTRUCTION as a sibling of the ``pixelart_creator``
+    package's ``ui`` subpackage: ``pixelart_creator/i18n/`` sits next to
+    ``pixelart_creator/ui/`` (this module's own parent), so it is inside the
+    installed package and ships with the wheel. Falls back to the legacy
+    repository-top-level ``i18n/`` directory (three parents up from this file)
+    for a stale checkout or an unusual layout where only that copy exists.
     """
-    return Path(__file__).resolve().parent.parent.parent / "i18n"
+    packaged = Path(__file__).resolve().parent.parent / _CATALOGUE_DIRNAME
+    if packaged.is_dir():
+        return packaged
+    legacy = Path(__file__).resolve().parent.parent.parent / _CATALOGUE_DIRNAME
+    if legacy.is_dir():
+        return legacy
+    return packaged
 
 
 class LanguageManager(QObject):
@@ -44,7 +61,7 @@ class LanguageManager(QObject):
         app: The running application (``QApplication``/``QCoreApplication``)
             the translator is installed on.
         translations_dir: Directory holding ``pixelart_<code>.qm`` catalogues.
-            Defaults to the repository ``i18n/`` folder (resolved portably).
+            Defaults to the package-internal ``i18n/`` folder (resolved portably).
         parent: Optional Qt parent.
     """
 
