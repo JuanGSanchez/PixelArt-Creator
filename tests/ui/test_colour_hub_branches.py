@@ -58,10 +58,16 @@ def test_value_slider_changes_brightness(wheel, qtbot):
 
 
 def test_picking_a_harmony_swatch_selects_it(wheel, qtbot):
-    """SC-U005: activating a harmony swatch makes it the pending selection."""
+    """SC-U005: activating a harmony swatch makes it the pending selection.
+
+    Superseded by REQ-CGS-UI-011 (SC-CGS-UI-011-1): promotion now requires a
+    left **double**-click, not a single click/``.click()`` — the intent
+    (picking a harmony swatch selects that colour) is still valid; only the
+    gesture changed.
+    """
     target = wheel._comp[0].color()
     with qtbot.waitSignal(wheel.colorPicked, timeout=1000):
-        wheel._comp[0].click()
+        qtbot.mouseDClick(wheel._comp[0], Qt.MouseButton.LeftButton)
     assert wheel.current_rgba() == target
 
 

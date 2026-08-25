@@ -30,6 +30,7 @@ from pixelart_creator.logic.color_theory import (
     rgba_to_hsv,
     shade_ramp,
     split_complementary,
+    square,
     tint_ramp,
     tone_ramp,
     triadic,
@@ -208,6 +209,108 @@ def test_complementary_hue_wrap_property(h, a):
     got = _hue(comp)
     diff = min((got - expected) % 360.0, (expected - got) % 360.0)
     assert diff < 2.0
+
+
+# -- SC-CGS-LOGIC-001-1: square scheme ----------------------------------------
+
+
+def test_square_angles():
+    # SC-CGS-LOGIC-001-1 (1): the three hues are the base rotated by exactly
+    # 1x/2x/3x HARMONY_SQUARE_DEG (90/180/270), modulo 360.
+    base = (200, 120, 40, 255)
+    bh = _hue(base)
+    a, b, c = square(base)
+    assert _hue(a) == pytest.approx(
+        (bh + constants.HARMONY_SQUARE_DEG) % 360.0, abs=1.0
+    )
+    assert _hue(b) == pytest.approx(
+        (bh + 2 * constants.HARMONY_SQUARE_DEG) % 360.0, abs=1.0
+    )
+    assert _hue(c) == pytest.approx(
+        (bh + 3 * constants.HARMONY_SQUARE_DEG) % 360.0, abs=1.0
+    )
+
+
+def test_square_wraps_mod_360():
+    # A base near the wrap boundary still lands within [0, 360).
+    base = hsv_to_rgba(300.0, 1.0, 1.0)
+    bh = _hue(base)
+    a, b, c = square(base)
+    assert _hue(a) == pytest.approx(
+        (bh + constants.HARMONY_SQUARE_DEG) % 360.0, abs=1.0
+    )
+    assert _hue(b) == pytest.approx(
+        (bh + 2 * constants.HARMONY_SQUARE_DEG) % 360.0, abs=1.0
+    )
+    assert _hue(c) == pytest.approx(
+        (bh + 3 * constants.HARMONY_SQUARE_DEG) % 360.0, abs=1.0
+    )
+
+
+def test_square_preserves_saturation_value_alpha():
+    # SC-CGS-LOGIC-001-1 (2): S/V/alpha preserved on every member.
+    base = (200, 120, 40, 173)
+    _, bs, bv, _ = rgba_to_hsv(base)
+    for member in square(base):
+        ms, mv, ma = rgba_to_hsv(member)[1], rgba_to_hsv(member)[2], member[3]
+        assert ms == pytest.approx(bs, abs=0.01)
+        assert mv == pytest.approx(bv, abs=0.01)
+        assert ma == 173
+
+
+def test_square_excludes_base_colour():
+    # SC-CGS-LOGIC-001-1 (3): the base colour is not repeated.
+    base = (200, 120, 40, 255)
+    assert base not in square(base)
+
+
+def test_square_deterministic():
+    # SC-CGS-LOGIC-001-1 (4): repeated calls agree.
+    base = (200, 120, 40, 255)
+    assert square(base) == square(base)
+
+
+def test_harmony_square_dispatch_matches_direct_call():
+    # SC-CGS-LOGIC-001-1 (5): harmony(c, "square") returns the same list.
+    base = (123, 200, 50, 255)
+    assert harmony(base, "square") == list(square(base))
+
+
+def test_harmony_unknown_scheme_names_five_schemes():
+    # SC-CGS-LOGIC-001-1 (6): the error names all five schemes, "square"
+    # included, and still raises ColorTheoryError.
+    with pytest.raises(ColorTheoryError) as excinfo:
+        harmony(RED, "tetradic")
+    message = str(excinfo.value)
+    for scheme_name in (
+        "complementary",
+        "analogous",
+        "triadic",
+        "split",
+        "square",
+    ):
+        assert scheme_name in message
+
+
+def test_square_plus_180_member_equals_complementary():
+    # Deliberate pin: square()'s +180 member is exactly complementary()'s
+    # output. This overlap is intentional (the shipped schemes already
+    # overlap this way, e.g. split-complementary straddles complementary's
+    # hue) and must NOT be "fixed" by trimming it from square()'s result.
+    base = (200, 120, 40, 255)
+    assert square(base)[1] == complementary(base)
+
+
+@given(h=st.floats(min_value=-1080.0, max_value=1080.0), a=alpha)
+def test_square_angles_property(h, a):
+    base = hsv_to_rgba(h % 360.0, 0.8, 0.8, a)
+    bh = _hue(base)
+    members = square(base)
+    for k, member in enumerate(members, start=1):
+        expected = (bh + k * constants.HARMONY_SQUARE_DEG) % 360.0
+        got = _hue(member)
+        diff = min((got - expected) % 360.0, (expected - got) % 360.0)
+        assert diff < 2.0
 
 
 # -- SC-L003: ramps -----------------------------------------------------------

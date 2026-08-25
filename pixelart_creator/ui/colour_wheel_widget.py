@@ -55,6 +55,7 @@ from pixelart_creator.logic.color_theory import (
     complementary,
     shade_ramp,
     split_complementary,
+    square,
     tint_ramp,
     triadic,
 )
@@ -87,10 +88,37 @@ class _SwatchButton(QToolButton):
         self._group = ""
         self.setFixedSize(_SWATCH_PX, _SWATCH_PX)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.clicked.connect(self._on_clicked)
 
     def _on_clicked(self) -> None:
         self.picked.emit(self._color)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        """Promote this swatch's colour on a left double click only.
+
+        A single click still focuses the swatch (StrongFocus). Promotion is
+        reserved for the double-click gesture, not the single click that
+        ``QToolButton.clicked`` would otherwise fire.
+        """
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._on_clicked()
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        """Keep Space/Enter promoting the swatch (keyboard activation path).
+
+        ``QToolButton`` normally synthesises ``clicked`` from Space/Enter, but
+        that signal is no longer connected to promotion (double-click owns the
+        mouse gesture) — so the keyboard route is preserved explicitly here
+        rather than lost along with the single-click connection.
+        """
+        key = event.key()
+        if key in (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self._on_clicked()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def set_group(self, name: str) -> None:
         """Set the harmony group this swatch belongs to (announced to AT, A3)."""
@@ -308,12 +336,14 @@ class Colour_Wheel_Widget(QWidget):
         self._lbl_comp = QLabel(self)
         self._lbl_analog = QLabel(self)
         self._lbl_triadic = QLabel(self)
+        self._lbl_square = QLabel(self)
         self._lbl_split = QLabel(self)
         self._lbl_shades = QLabel(self)
         self._lbl_tints = QLabel(self)
         self._comp = self._make_swatches(1)
         self._analog = self._make_swatches(2)
         self._triadic = self._make_swatches(2)
+        self._square = self._make_swatches(3)
         self._split = self._make_swatches(2)
         self._shades = self._make_swatches(RAMP_STEP_COUNT)
         self._tints = self._make_swatches(RAMP_STEP_COUNT)
@@ -391,6 +421,7 @@ class Colour_Wheel_Widget(QWidget):
         layout.addLayout(self._swatch_row(self._lbl_comp, self._comp))
         layout.addLayout(self._swatch_row(self._lbl_analog, self._analog))
         layout.addLayout(self._swatch_row(self._lbl_triadic, self._triadic))
+        layout.addLayout(self._swatch_row(self._lbl_square, self._square))
         layout.addLayout(self._swatch_row(self._lbl_split, self._split))
         layout.addLayout(self._swatch_row(self._lbl_shades, self._shades))
         layout.addLayout(self._swatch_row(self._lbl_tints, self._tints))
@@ -415,6 +446,7 @@ class Colour_Wheel_Widget(QWidget):
             self._comp,
             self._analog,
             self._triadic,
+            self._square,
             self._split,
             self._shades,
             self._tints,
@@ -489,6 +521,8 @@ class Colour_Wheel_Widget(QWidget):
             button.set_color(color)
         for button, color in zip(self._triadic, triadic(rgba)):
             button.set_color(color)
+        for button, color in zip(self._square, square(rgba)):
+            button.set_color(color)
         for button, color in zip(self._split, split_complementary(rgba)):
             button.set_color(color)
         for button, color in zip(self._shades, shade_ramp(rgba)):
@@ -555,12 +589,14 @@ class Colour_Wheel_Widget(QWidget):
         comp = self.tr("Complementary")
         analog = self.tr("Analogous")
         triadic_name = self.tr("Triadic")
+        square_name = self.tr("Square")
         split = self.tr("Split-complementary")
         shades = self.tr("Shades")
         tints = self.tr("Tints")
         self._lbl_comp.setText(comp)
         self._lbl_analog.setText(analog)
         self._lbl_triadic.setText(triadic_name)
+        self._lbl_square.setText(square_name)
         self._lbl_split.setText(split)
         self._lbl_shades.setText(shades)
         self._lbl_tints.setText(tints)
@@ -572,6 +608,7 @@ class Colour_Wheel_Widget(QWidget):
             (self._lbl_comp, comp, self._comp),
             (self._lbl_analog, analog, self._analog),
             (self._lbl_triadic, triadic_name, self._triadic),
+            (self._lbl_square, square_name, self._square),
             (self._lbl_split, split, self._split),
             (self._lbl_shades, shades, self._shades),
             (self._lbl_tints, tints, self._tints),
