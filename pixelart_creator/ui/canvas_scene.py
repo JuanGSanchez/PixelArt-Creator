@@ -218,6 +218,50 @@ class _BufferPixmapItem(QGraphicsPixmapItem):
         self._image = QImage()
         self._rebuild()
 
+    def _wrap_image(self) -> QImage:
+        """Return a fresh zero-copy ``QImage`` view over ``self._display``.
+
+        A NEW ``QImage`` instance every call — never a pixel copy, only Qt
+        metadata over the same shared NumPy memory (identical cost to the
+        original ``_rebuild`` wrap). This exists because Qt's OpenGL paint
+        engine caches an uploaded texture keyed on the ``QImage``'s own
+        identity (``cacheKey()``), which an in-place write to the shared
+        buffer never changes — so ``drawImage`` on a GL viewport kept
+        re-blitting the texture captured at construction (transparent, in the
+        pre-first-edit case) and drawn pixels stayed invisible on a real GL
+        surface even though the raster paint engine, which reads the memory
+        directly with no such cache, showed them correctly (matching the
+        offscreen/GL A/B split the field defect isolated). Rebinding the
+        wrapper on every content-changing repaint (:meth:`update`, below)
+        moves the identity the cache keys on with the data itself.
+        """
+        w, h = self._buffer.width, self._buffer.height
+        return QImage(
+            self._display.data,
+            w,
+            h,
+            self._display.strides[0],
+            QImage.Format.Format_RGBA8888,
+        )
+
+    def update(  # noqa: N802 (Qt override; *args mirrors QGraphicsItem's two overloads)
+        self, *args: object, **kwargs: object
+    ) -> None:
+        """Rebind the live image wrapper, then schedule the Qt repaint.
+
+        Every content-changing call site in :class:`CanvasScene` already
+        calls ``sync_region`` followed by this method (never bypassed), so
+        rebuilding here — rather than duplicating the call at each of those
+        sites — covers all of them uniformly and keeps the GL texture-cache
+        identity fix (see :meth:`_wrap_image`) a single, hard-to-miss seam.
+        ``*args``/``**kwargs`` pass straight through to
+        ``QGraphicsItem.update`` unexamined — this override never inspects
+        the requested rect, so it stays valid against both of Qt's overloads
+        (``update(QRectF | QRect = ...)`` and ``update(x, y, w, h)``).
+        """
+        self._image = self._wrap_image()
+        super().update(*args, **kwargs)  # type: ignore[call-overload]
+
     def set_buffer(
         self,
         buffer: PixelBuffer,
@@ -239,13 +283,7 @@ class _BufferPixmapItem(QGraphicsPixmapItem):
         else:
             self._display = np.zeros((h, w, 4), dtype=np.uint8)
             self._sync_indexed(0, 0, w, h)
-        self._image = QImage(
-            self._display.data,
-            w,
-            h,
-            self._display.strides[0],
-            QImage.Format.Format_RGBA8888,
-        )
+        self._image = self._wrap_image()
         # A single pixmap keeps the item a genuine QGraphicsPixmapItem (D1); the
         # live image is what paint() blits, so this is only a placeholder.
         self.setPixmap(QPixmap(1, 1))
