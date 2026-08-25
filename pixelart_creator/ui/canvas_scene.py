@@ -1107,12 +1107,35 @@ class CanvasScene(QGraphicsScene):
         :meth:`drawBackground` before the pixmap item blits it, or from any earlier
         explicit read of ``self._composite``. It is idempotent: a no-op once the
         composite is fresh, so the dirty-rect (region) recomposite fast paths are
-        unaffected. The in-place write in :meth:`_recomposite_all` keeps the
-        item's zero-copy ``QImage`` view valid, so no rebuild is needed. FLAGGED
-        for an AGT-10 render-strategy re-profile.
+        unaffected. ``_recomposite_all``'s in-place write keeps the item's
+        zero-copy ``QImage`` *pixels* valid on its own, but the GL paint engine
+        caches an uploaded texture keyed on the ``QImage`` **identity**
+        (``_wrap_image``'s docstring on ``_BufferPixmapItem``) — an in-place
+        write never changes that identity, so the mutation must still be
+        followed by telling the item to repaint. When this call performs the
+        (once-ever) mutation, :meth:`_schedule_item_repaint` queues that
+        follow-up on the next event-loop tick, never inline here, because a
+        caller may be :meth:`drawBackground` itself (paint already in
+        progress — an inline ``update()`` there risks a repaint
+        recursion/churn). FLAGGED for an AGT-10 render-strategy re-profile.
         """
         if self._composite_dirty:
             self._recomposite_all()
+            self._schedule_item_repaint()
+
+    def _schedule_item_repaint(self) -> None:
+        """Queue ``self._item.update()`` for the next event-loop tick.
+
+        Deferred rather than called inline so a composite mutation performed
+        from *inside* :meth:`drawBackground` (paint already in progress)
+        never triggers a synchronous re-entrant repaint of the item being
+        painted; the queued call lands safely after the current paint pass
+        completes. ``_ensure_composite`` performs its one real mutation at
+        most once per scene lifetime (``_composite_dirty`` is set ``True``
+        only in ``__init__``), so this adds one negligible deferred call, not
+        a per-frame cost.
+        """
+        QTimer.singleShot(0, self._item.update)
 
     def _recomposite_region(self, rect: QRectF) -> None:
         """Recompose only ``rect`` into the composite buffer (dirty-rect path, D1).
