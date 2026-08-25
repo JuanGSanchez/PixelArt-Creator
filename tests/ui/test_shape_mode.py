@@ -7,9 +7,12 @@ a11y, both themes). Both themes via the autouse ``theme`` fixture.
 
 from __future__ import annotations
 
+import pytest
+
 from pixelart_creator.logic.selection import rect_mask
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.tools import RectangleTool
+from pixelart_creator.ui.tools.shape_base import ShapeTool
 from tests.ui._ui_helpers import move, press, release
 
 RED = (230, 30, 30, 255)
@@ -80,3 +83,54 @@ def test_sc_u003_2_mode_control_translatable_and_reachable(qtbot):
     action.setChecked(True)
     assert win._rectangle_tool.filled is True
     assert win._ellipse_tool.filled is True
+
+
+# =========================================================================
+# ShapeTool controller contract (P2-UI-001..003) -- the abstract subclass
+# hooks, and the two no-active-drag / zero-net-change guards no scripted
+# RectangleTool/EllipseTool drag through the UI ever reaches.
+# =========================================================================
+
+
+def test_shape_tool_abstract_hooks_raise_not_implemented():
+    """``ShapeTool`` itself declares ``kind``/``label``/``_draw_op`` abstract
+    (``NotImplementedError``) -- proving ``RectangleTool``/``EllipseTool``
+    must, and do, override every one of them."""
+    tool = ShapeTool()
+    with pytest.raises(NotImplementedError):
+        tool.kind()
+    with pytest.raises(NotImplementedError):
+        tool.label()
+    with pytest.raises(NotImplementedError):
+        tool._draw_op(None, 0, 0, 0, 0, None)
+
+
+def test_shape_tool_on_move_and_on_release_noop_without_a_prior_press():
+    """``on_move``/``on_release`` are documented drag continuations -- called
+    with no drag in progress (``self._start is None``, e.g. a stray event
+    delivered outside a press/move/release sequence) they are silent no-ops,
+    never touching ``ctx``."""
+    tool = ShapeTool()
+    tool.on_move(5, 5, None)  # no exception, nothing to update
+    tool.on_release(5, 5, None)  # no exception, nothing to commit
+    assert tool._start is None
+
+
+def test_shape_commit_with_zero_net_change_pushes_no_command(make_view):
+    """A shape drawn entirely over already-matching pixels changes nothing --
+    ``Stroke.to_command`` returns ``None`` and no undo entry is pushed (the
+    ``command is not None`` guard's False branch)."""
+    view, scene, stack = make_view(16, 16)
+    buf = scene.active_buffer()
+    buf.fill_rect(0, 0, 16, 16, RED)  # the whole buffer is already RED
+    tool = RectangleTool()
+    tool.set_filled(True)
+    view.set_tool(tool)
+    view.set_active_color(RED)
+
+    press(view, 2, 2)
+    move(view, 6, 6)
+    release(view, 6, 6)
+
+    assert stack.count() == 0  # zero net change -> no command pushed
+    assert buf.get_pixel(4, 4) == RED  # unchanged, still red

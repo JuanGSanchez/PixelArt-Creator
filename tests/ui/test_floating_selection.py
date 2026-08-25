@@ -49,8 +49,10 @@ from pixelart_creator.logic.selection import rect_mask
 from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.canvas_view import Canvas_View
 from pixelart_creator.ui.main_window import Main_Window
+from pixelart_creator.ui.overwrite_confirm_dialog import Overwrite_Confirm_Dialog
 from pixelart_creator.ui.theme import canvas_roles
 from pixelart_creator.ui.tools import PencilTool, RectSelectTool
+from pixelart_creator.ui.tools.floating_move import CONFIRM_FLOATING_OVERWRITE
 from tests.ui._ui_helpers import prepare_for_click, viewport_point_for_pixel
 
 LEFT = Qt.MouseButton.LeftButton
@@ -582,3 +584,437 @@ def test_sc_u036_3_a11y_hint_translatable_keyboard_reachable_focus_visible(
 
     # A visible focus indicator is themed once by role (a :focus QSS rule).
     assert ":focus" in QApplication.instance().styleSheet()
+
+
+# =========================================================================
+# FloatingMoveController direct API contract (no Canvas_View)
+# =========================================================================
+#
+# ``begin``/``update``/``commit``/``cancel`` are exercised above exclusively
+# through a real ``Canvas_View`` (mouse/key events on ``SelectionTool``'s
+# in-mask press). Two of the controller's own documented guarantees are
+# never reached that way and are proven directly here instead:
+#
+# - "Returns False when there is no active, non-empty selection under the
+#   cursor" (:meth:`begin`'s docstring) -- unreachable through
+#   ``SelectionTool.on_press`` because that caller's own ``inside`` gate
+#   (``ui/tools/selection_base.py``) already filters out exactly this case
+#   before ``controller.begin`` is ever called; it is a real, separately
+#   documented contract of the controller class itself, so it is exercised
+#   by calling ``begin`` directly.
+# - "Idempotent when no float is active" (:meth:`commit`'s docstring, and
+#   the equivalent guarantee on :meth:`update`/:meth:`cancel`) -- unreachable
+#   through the UI because every UI path that can call ``update``/``commit``/
+#   ``cancel`` first requires a live float (``self._moving`` on
+#   ``SelectionTool``, or a key/tool-switch handler that checks
+#   ``controller.is_active()`` first).
+#
+# A bare ``FloatingMoveController()`` is never wired to a view, so its
+# ``state_changed`` observer stays ``None`` throughout (matching
+# ``ui/tools/base.py``'s own ``ToolContext.floating_controller`` docstring:
+# "``None`` outside a canvas view") -- every call below therefore also
+# exercises ``_notify``'s skip-when-unobserved branch as a side effect.
+
+
+def _lift_ctx(scene, buf, selection, *, set_selection=None, undo_stack=None):
+    """A minimal object structurally satisfying ``floating_move.LiftContext``."""
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        selection=selection,
+        buffer=buf,
+        scene=scene,
+        undo_stack=undo_stack if undo_stack is not None else QUndoStack(),
+        set_selection=set_selection,
+        target=None,
+    )
+
+
+def test_begin_returns_false_and_does_not_lift_when_no_active_selection(make_scene):
+    """``begin`` returns False -- no float started -- when the selection is
+    None, empty, or the point is outside it (REQ-P2-UI-030's documented
+    fall-through to the build tools), proven directly against the
+    controller's own guard."""
+    from pixelart_creator.logic.selection import SelectionMask
+    from pixelart_creator.ui.tools.floating_move import FloatingMoveController
+
+    scene = make_scene(16, 16)
+    buf = scene.active_buffer()
+    controller = FloatingMoveController()
+
+    assert controller.begin(3, 3, _lift_ctx(scene, buf, None), label="x") is False
+    assert not controller.is_active()
+
+    empty = SelectionMask(16, 16)
+    assert empty.is_empty
+    assert controller.begin(3, 3, _lift_ctx(scene, buf, empty), label="x") is False
+    assert not controller.is_active()
+
+    mask = rect_mask(16, 16, 2, 2, 4, 4)
+    assert controller.begin(10, 10, _lift_ctx(scene, buf, mask), label="x") is False
+    assert not controller.is_active()
+
+
+def test_update_commit_cancel_are_idempotent_with_no_active_float(make_scene):
+    """``update``/``commit``/``cancel`` are documented no-ops when no float is
+    active -- proven directly against a bare, unwired controller."""
+    from pixelart_creator.ui.tools.floating_move import FloatingMoveController
+
+    controller = FloatingMoveController()
+
+    controller.update(3, 3, copy=False)  # no exception, no state change
+    assert not controller.is_active()
+
+    controller.commit()  # no exception
+    assert not controller.is_active()
+
+    controller.cancel()  # no exception
+    assert not controller.is_active()
+
+
+def test_commit_without_a_set_selection_callback_drops_the_mask_silently(make_scene):
+    """A caller that provides no ``set_selection`` callback (a bare/non-view
+    context, e.g. a read-only preview -- ``LiftContext.set_selection`` is
+    documented ``Optional``) still commits the move as one command; it simply
+    cannot follow the mask to the destination."""
+    from pixelart_creator.ui.tools.floating_move import FloatingMoveController
+
+    scene = make_scene(16, 16)
+    buf = scene.active_buffer()
+    buf.set_pixel(2, 2, RED)
+    mask = rect_mask(16, 16, 2, 2, 2, 2)
+    controller = FloatingMoveController()
+    stack = QUndoStack()
+
+    started = controller.begin(
+        2,
+        2,
+        _lift_ctx(scene, buf, mask, set_selection=None, undo_stack=stack),
+        label="x",
+    )
+    assert started
+    controller.update(3, 3, copy=False)
+    controller.commit()
+
+    assert stack.count() == 1
+    assert buf.get_pixel(5, 5) == RED  # (2,2) + offset (3,3)
+
+
+# =========================================================================
+# Overwrite confirmation before a floating commit (REQ-P2-UI-037,
+# REQ-P2-LOGIC-037, REQ-P2-DATA-030 -- Q-19 ruling, ``27f0106``).
+# =========================================================================
+#
+# Two layers, mirroring ``test_cel_overwrite_dialog.py``'s own two-part
+# shape:
+#
+# 1. ``Overwrite_Confirm_Dialog`` itself, standalone and unpatched.
+# 2. The full commit-gate flow through ``FloatingMoveController``, with
+#    ``Overwrite_Confirm_Dialog.exec`` monkeypatched to answer immediately
+#    (the same headless-modal pattern ``test_cel_overwrite_dialog.py`` uses).
+
+
+def test_overwrite_dialog_default_state_and_accessible_names(qtbot):
+    """The dialog opens with "Don't ask again" unticked and every interactive
+    part carrying a non-empty accessible name."""
+    dialog = Overwrite_Confirm_Dialog()
+    qtbot.addWidget(dialog)
+
+    assert dialog.dont_ask_again() is False
+    assert dialog.accessibleName() != ""
+    assert dialog._message.accessibleName() != ""
+    assert dialog._dont_ask.accessibleName() != ""
+    assert dialog._dont_ask.text() != ""
+    assert dialog.windowTitle() != ""
+
+
+def test_overwrite_dialog_is_keyboard_reachable_and_modal(qtbot):
+    """The dialog is modal (blocking, cancellable) and its controls are real
+    focusable widgets, not painted-only."""
+    dialog = Overwrite_Confirm_Dialog()
+    qtbot.addWidget(dialog)
+
+    assert dialog.isModal()
+    assert dialog._dont_ask.focusPolicy() != Qt.FocusPolicy.NoFocus
+    yes = dialog._buttons.button(dialog._buttons.StandardButton.Yes)
+    cancel = dialog._buttons.button(dialog._buttons.StandardButton.Cancel)
+    assert yes is not None and cancel is not None
+    assert yes.text() != "" and cancel.text() != ""
+
+
+def test_overwrite_dialog_cancel_returns_rejected(qtbot):
+    """Clicking Cancel rejects the dialog."""
+    dialog = Overwrite_Confirm_Dialog()
+    qtbot.addWidget(dialog)
+    dialog.show()
+    cancel = dialog._buttons.button(dialog._buttons.StandardButton.Cancel)
+
+    with qtbot.waitSignal(dialog.rejected, timeout=1000):
+        qtbot.mouseClick(cancel, LEFT)
+
+    assert dialog.result() == dialog.DialogCode.Rejected
+
+
+def test_overwrite_dialog_yes_returns_accepted(qtbot):
+    """Clicking the overwrite (Yes) button accepts the dialog."""
+    dialog = Overwrite_Confirm_Dialog()
+    qtbot.addWidget(dialog)
+    dialog.show()
+    yes = dialog._buttons.button(dialog._buttons.StandardButton.Yes)
+
+    with qtbot.waitSignal(dialog.accepted, timeout=1000):
+        qtbot.mouseClick(yes, LEFT)
+
+    assert dialog.result() == dialog.DialogCode.Accepted
+
+
+def test_overwrite_dialog_retranslates_on_language_change(qtbot):
+    """A LanguageChange event re-sets every user-visible string without
+    raising, and the accessible names stay non-empty."""
+    dialog = Overwrite_Confirm_Dialog()
+    qtbot.addWidget(dialog)
+
+    dialog.changeEvent(QEvent(QEvent.Type.LanguageChange))
+
+    assert dialog.windowTitle() != ""
+    assert dialog.accessibleName() != ""
+    assert dialog._dont_ask.text() != ""
+
+
+def test_overwrite_dialog_retranslate_tolerates_missing_standard_buttons(
+    qtbot, monkeypatch
+):
+    """The defensive ``is not None`` guards around the Yes/Cancel buttons in
+    ``_retranslate`` must not assume ``QDialogButtonBox.button()`` always
+    resolves both standard buttons -- proven by forcing ``button()`` to
+    report neither found, which must degrade gracefully rather than raise."""
+    dialog = Overwrite_Confirm_Dialog()
+    qtbot.addWidget(dialog)
+    monkeypatch.setattr(dialog._buttons, "button", lambda *a, **k: None)
+
+    dialog._retranslate()  # must not raise
+
+    assert dialog.windowTitle() != ""
+    assert dialog._dont_ask.text() != ""
+
+
+@pytest.fixture
+def answer_overwrite_dialog(monkeypatch):
+    """Patch ``Overwrite_Confirm_Dialog.exec`` to answer immediately (headless
+    modal automation -- the dialog's own behaviour is proven, unpatched,
+    above). Returns a controller: ``answer_overwrite_dialog(accept=True,
+    dont_ask=False)``; records every simulated presentation."""
+    calls: list = []
+    state = {"accept": True, "dont_ask": False}
+
+    def _fake_exec(self):
+        calls.append(True)
+        self._dont_ask.setChecked(state["dont_ask"])
+        if state["accept"]:
+            self.accept()
+            return self.DialogCode.Accepted
+        self.reject()
+        return self.DialogCode.Rejected
+
+    monkeypatch.setattr(Overwrite_Confirm_Dialog, "exec", _fake_exec)
+
+    def _configure(*, accept: bool, dont_ask: bool = False) -> list:
+        state["accept"] = accept
+        state["dont_ask"] = dont_ask
+        return calls
+
+    return _configure
+
+
+def _make_move_view_occupied_destination(make_scene, qtbot, offset=(5, 5)):
+    """Like :func:`_make_move_view`, but the drag destination already carries
+    a non-origin pixel, so ``destination_is_empty`` is False and the
+    confirmation gate fires."""
+    view, scene, stack, buf = _make_move_view(make_scene, qtbot)
+    ox, oy = offset
+    dx, dy = 2 + ox, 2 + oy  # outside the (2,2)-(4,4) origin mask
+    buf.set_pixel(dx, dy, YELLOW)
+    return view, scene, stack, buf
+
+
+def test_sc_ui_037_1_occupied_destination_confirmed_before_anything_applied(
+    make_scene, qtbot, answer_overwrite_dialog
+):
+    """REQ-P2-UI-037: committing a MOVE onto an occupied destination presents
+    the confirmation before anything is applied."""
+    view, scene, stack, buf = _make_move_view_occupied_destination(make_scene, qtbot)
+    presented = answer_overwrite_dialog(accept=False)
+    before_count = stack.count()
+    before_buf = buf.copy()
+
+    press(view, 3, 3)
+    move(view, 8, 8)  # offset (5, 5) -> destination overlaps the marked pixel
+    release(view, 8, 8)
+
+    assert presented == [True]
+    assert stack.count() == before_count
+    assert buf == before_buf  # nothing applied while confirming/cancel
+
+    view.floating_controller().cancel()  # do not leak an active float
+
+
+def test_sc_ui_037_2_cancel_leaves_float_active_not_esc_semantics(
+    make_scene, qtbot, answer_overwrite_dialog
+):
+    """Cancelling the confirmation is NOT the same as ESC (REQ-P2-UI-034): the
+    float stays lifted at its current offset, still movable, no command
+    pushed -- a further ESC still abandons it cleanly."""
+    view, scene, stack, buf = _make_move_view_occupied_destination(make_scene, qtbot)
+    controller = view.floating_controller()
+    answer_overwrite_dialog(accept=False)
+
+    press(view, 3, 3)
+    move(view, 8, 8)
+    release(view, 8, 8)  # declined
+
+    assert controller.is_active()  # still floating -- NOT abandoned
+    assert stack.count() == 0
+
+    key(view, Qt.Key.Key_Escape)  # a further ESC still cancels it cleanly
+    assert not controller.is_active()
+    assert stack.count() == 0
+
+
+def test_sc_ui_037_3_confirming_commits_one_command_undo_restores(
+    make_scene, qtbot, answer_overwrite_dialog
+):
+    """Confirming proceeds through the SAME single commit path -- exactly one
+    reversible command, undo restores the destination's prior content."""
+    view, scene, stack, buf = _make_move_view_occupied_destination(make_scene, qtbot)
+    answer_overwrite_dialog(accept=True)
+    before = buf.copy()
+
+    press(view, 3, 3)
+    move(view, 8, 8)
+    release(view, 8, 8)
+
+    assert stack.count() == 1
+    assert buf.get_pixel(7, 7) == RED  # RED at (2,2) moved to (7,7)
+    stack.undo()
+    assert buf == before
+
+
+def test_sc_ui_037_4_empty_destination_is_not_confirmed_at_all(
+    make_scene, qtbot, answer_overwrite_dialog
+):
+    """An empty destination applies directly -- REQ-P2-LOGIC-037's fast path
+    -- no confirmation presented at all."""
+    view, scene, stack, buf = _make_move_view(make_scene, qtbot)  # no occupied dest
+    presented = answer_overwrite_dialog(accept=True)
+
+    press(view, 3, 3)
+    move(view, 8, 8)
+    release(view, 8, 8)
+
+    assert presented == []  # never shown
+    assert stack.count() == 1
+
+
+def test_sc_ui_037_5_dont_ask_again_suppresses_for_the_rest_of_the_project(
+    make_scene, qtbot, answer_overwrite_dialog
+):
+    """Ticking "Don't ask again" and confirming suppresses future prompts for
+    this project; a second occupied commit in the SAME project no longer
+    presents the dialog, and remains exactly one command."""
+    view, scene, stack, buf = _make_move_view_occupied_destination(make_scene, qtbot)
+    presented = answer_overwrite_dialog(accept=True, dont_ask=True)
+
+    press(view, 3, 3)
+    move(view, 8, 8)
+    release(view, 8, 8)
+    assert presented == [True]
+    assert scene._document.prefs.get(CONFIRM_FLOATING_OVERWRITE) == "suppressed"
+
+    # A second, independent occupied-destination move in the same project.
+    buf.set_pixel(1, 1, RED)
+    buf.set_pixel(10, 10, YELLOW)  # a fresh occupied destination
+    view.set_selection(rect_mask(buf.width, buf.height, 0, 0, 1, 1))
+    before_count = stack.count()
+
+    press(view, 0, 0)
+    move(view, 9, 9)  # offset (9, 9): (1,1) -> (10,10), occupied
+    release(view, 9, 9)
+
+    assert presented == [True]  # unchanged -- not presented a second time
+    assert stack.count() == before_count + 1
+
+
+def test_sc_ui_037_6_ticking_then_cancelling_records_nothing(
+    make_scene, qtbot, answer_overwrite_dialog
+):
+    """Ticking "Don't ask again" and then cancelling persists nothing (Q-19);
+    the next occupied commit still presents the confirmation."""
+    view, scene, stack, buf = _make_move_view_occupied_destination(make_scene, qtbot)
+    presented = answer_overwrite_dialog(accept=False, dont_ask=True)
+
+    press(view, 3, 3)
+    move(view, 8, 8)
+    release(view, 8, 8)
+
+    assert presented == [True]
+    assert scene._document.prefs.get(CONFIRM_FLOATING_OVERWRITE) == "ask"
+
+    view.floating_controller().cancel()  # do not leak an active float
+
+
+def test_sc_ui_037_7_suppression_belongs_to_one_project(
+    make_scene, qtbot, answer_overwrite_dialog
+):
+    """Suppressing the confirmation in one scene's document does not affect a
+    second, independent scene's document."""
+    view1, scene1, _stack1, _buf1 = _make_move_view_occupied_destination(
+        make_scene, qtbot
+    )
+    _view2, scene2, _stack2, _buf2 = _make_move_view_occupied_destination(
+        make_scene, qtbot
+    )
+    answer_overwrite_dialog(accept=True, dont_ask=True)
+
+    press(view1, 3, 3)
+    move(view1, 8, 8)
+    release(view1, 8, 8)
+
+    assert scene1._document.prefs.get(CONFIRM_FLOATING_OVERWRITE) == "suppressed"
+    assert scene2._document.prefs.get(CONFIRM_FLOATING_OVERWRITE) == "ask"
+
+
+# =========================================================================
+# Canvas_View's key handling around a live float (REQ-P2-UI-033/-034) --
+# the "neither Enter/Return nor Escape" / "release key isn't Space" arms no
+# scripted drag+Enter/Escape sequence above ever takes.
+# =========================================================================
+
+
+def test_key_press_other_than_enter_escape_does_not_affect_an_active_float(
+    make_scene, qtbot
+):
+    """A key press that is neither Enter/Return nor Escape while a float is
+    active is inert to the float -- neither committed nor cancelled -- and
+    falls through to the base ``QGraphicsView.keyPressEvent`` handler."""
+    view, _scene, stack, _buf = _make_move_view(make_scene, qtbot)
+    controller = view.floating_controller()
+
+    press(view, 3, 3)
+    move(view, 6, 5)
+    assert controller.is_active()
+
+    key(view, Qt.Key.Key_A)  # neither Enter/Return nor Escape
+
+    assert controller.is_active()  # untouched -- no commit, no cancel
+    assert stack.count() == 0
+
+    controller.cancel()  # do not leak an active float
+
+
+def test_key_release_other_than_space_falls_through(make_scene, qtbot):
+    """A key release that is not Space leaves the pan modifier untouched and
+    still reaches the base ``QGraphicsView.keyReleaseEvent`` handler."""
+    view, _scene, _stack, _buf = _make_move_view(make_scene, qtbot)
+
+    view.keyReleaseEvent(QKeyEvent(QEvent.Type.KeyRelease, Qt.Key.Key_A, NO_MOD))
+    # No exception raised; the Space-only pan-modifier branch was skipped.
