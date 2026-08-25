@@ -174,12 +174,6 @@
     "value": "Version History"
   },
   {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "es-documentation-stale",
-    "line": 3784,
-    "value": "Zoom In"
-  },
-  {
     "file": "pixelart_creator/ui/reference_board.py",
     "kind": "undocumented-control-label",
     "line": 449,
@@ -688,11 +682,5 @@
     "kind": "undocumented-control-label",
     "line": 311,
     "value": "Write JSON metadata"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
-    "line": 3785,
-    "value": "Zoom Out"
   }
 ]

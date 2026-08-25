@@ -21,6 +21,11 @@ and square at any zoom, exactly as pixel art should look.
   canvas. Because the scene is prepared once for the full document size, panning across
   an 8K canvas stays smooth — only the part of the canvas visible in the viewport is
   drawn, so off-screen regions cost nothing to scroll past.
+- **Zoom In / Zoom Out** — these two view actions step between the same fixed preset
+  stops as the keyboard shortcuts (100 %, 200 %, 400 %, 800 %, 1600 %, 3200 %,
+  6400 %): **Zoom In** snaps up to the next stop and **Zoom Out** snaps down to the
+  previous one. That is a discrete jump, unlike the continuous, cursor-anchored zoom
+  you get from scrolling the mouse wheel over the canvas.
 
 > **Large canvases stay responsive.** The renderer draws only the region currently
 > exposed in the viewport and repaints only the small area an edit actually changes,
@@ -66,6 +71,19 @@ is a view/tool setting, not an edit.
   is pushed as one undo step.
 - **Right-click** opens the contextual [colour hub](colour-hub.md) at the cursor, so
   you can pick or change your colour without leaving the canvas.
+
+## Resizing the canvas
+
+**Image ▸ Canvas Size…** changes the canvas dimensions themselves — it does not
+resample a single pixel. Enter a new width and height (each up to the platform
+ceiling of **7680 × 4320**, i.e. 8K) and click **OK**; every layer and mask in every
+frame is cropped or padded to the new size, anchored at the top-left, so existing
+artwork never shifts and any newly exposed area is transparent. Click **Cancel** to
+leave the document exactly as it was. The resize applies as one undoable step.
+
+This is a different operation from resampling the artwork to a new size — Canvas
+Size only changes how much canvas there is; it never stretches or shrinks the
+pixels you already have.
 
 ## Related topics
 

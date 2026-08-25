@@ -24,6 +24,12 @@ debe verse el pixel art.
   para el tamaño completo del documento, desplazarse por un lienzo de 8K se mantiene
   fluido — solo se dibuja la parte del lienzo visible en el viewport, así que las
   regiones fuera de pantalla no cuestan nada al desplazarse.
+- **Acercar / Alejar** (en inglés, **Zoom In** / **Zoom Out** en el código fuente) —
+  estas dos acciones de vista saltan entre los mismos puntos fijos que usan los
+  atajos de teclado (100 %, 200 %, 400 %, 800 %, 1600 %, 3200 %, 6400 %):
+  **Acercar** salta al siguiente punto y **Alejar** salta al anterior. Es un salto
+  discreto, a diferencia del zoom continuo anclado al cursor que obtienes al
+  desplazar la rueda del ratón sobre el lienzo.
 
 > **Los lienzos grandes se mantienen fluidos.** El renderizador dibuja solo la región
 > actualmente expuesta en el viewport y repinta solo la pequeña área que una edición
@@ -72,6 +78,21 @@ vista/herramienta, no una edición.
   trazo se apila como un paso de deshacer.
 - **Clic derecho** abre el [centro de color](colour-hub.md) contextual en el cursor,
   así puedes elegir o cambiar tu color sin salir del lienzo.
+
+## Cambiar el tamaño del lienzo
+
+**Imagen ▸ Tamaño del lienzo…** cambia las dimensiones del lienzo en sí — no
+remuestrea ni un solo píxel. Introduce un ancho y un alto nuevos (cada uno hasta el
+máximo de la plataforma, **7680 × 4320**, es decir 8K) y pulsa **Aceptar**; cada capa
+y máscara de cada fotograma se recorta o se rellena hasta el nuevo tamaño, anclada en
+la esquina superior izquierda, así que la obra existente nunca se desplaza y
+cualquier área recién expuesta queda transparente. Pulsa **Cancelar** para dejar el
+documento exactamente como estaba. El cambio de tamaño se aplica como un único paso
+deshacible.
+
+Esta es una operación distinta de remuestrear la obra a un nuevo tamaño — Tamaño del
+lienzo solo cambia cuánto lienzo hay; nunca estira ni encoge los píxeles que ya
+tienes.
 
 ## Temas relacionados
 

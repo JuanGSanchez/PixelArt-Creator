@@ -95,6 +95,12 @@ al levantamiento.
 > clic dentro de la selección sin mover) es una operación nula — no crea ningún paso
 > de deshacer.
 
+Si el destino ya tiene píxeles, un diálogo **¿Sobrescribir píxeles existentes?**
+pregunta antes: **Continuar** aplica la confirmación como de costumbre, **Cancelar**
+no aplica nada y deja la selección flotante activa en su desplazamiento actual.
+Marcar **"No volver a preguntar para este proyecto"** solo registra la supresión
+cuando realmente aceptas — marcarla y cancelar no registra nada.
+
 ## Bordes fuera del lienzo
 
 Puedes arrastrar una selección flotante **parcial o totalmente fuera del lienzo**. Al
@@ -112,6 +118,34 @@ arrastrado.
 - La vista previa en vivo del arrastre actualiza solo la región que toca la
   selección flotante, así que se mantiene dentro del presupuesto de 16 ms / 60 fps
   incluso en un lienzo de 8K.
+
+## Transformaciones de documento completo
+
+**Imagen ▸ Escalar…**, los dos giros de un cuarto de vuelta y los dos volteos
+(horizontal y vertical) actúan sobre **todo el documento** — cada capa y máscara, en
+cada fotograma — siempre que no haya nada seleccionado. Con una selección activa,
+esas mismas acciones siguen transformando solo la región enmascarada de la capa
+activa, igual que antes.
+
+RotSprite es la única excepción: siempre transforma solo la capa activa, haya o no
+selección, porque su giro nunca cambia las dimensiones del búfer y nunca necesitó
+el alcance más amplio.
+
+> **Las transformaciones grandes preguntan antes.** Cuando el resultado
+> remuestreado más los búferes conservados para deshacer superarían juntos los
+> 506,25 MiB (el equivalente a cuatro lienzos completos de 8K en RGBA), el diálogo
+> **Confirmar transformación grande** indica la memoria proyectada exacta antes de
+> ejecutar nada. **Cancelar** es el botón predeterminado, así que pulsar Intro
+> **no** inicia la transformación — tienes que pulsar **Continuar** deliberadamente.
+> Rechazar deja el documento completamente intacto y no apila nada en el historial
+> de deshacer. Por debajo de ese umbral, el diálogo no aparece en absoluto.
+
+Mientras se ejecuta una transformación de documento completo, el diálogo de
+progreso **Transformando documento** la sigue búfer a búfer y se puede cancelar en
+cualquier momento — el botón Cancelar, Escape o el control de cierre de la propia
+ventana funcionan igual. Cancelar es atómico: el documento queda exactamente como
+estaba y nada llega al historial de deshacer, sin importar cuántos búferes se
+hubieran remuestreado ya.
 
 ## Lo que no se cubre
 
