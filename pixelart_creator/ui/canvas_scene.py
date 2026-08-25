@@ -609,11 +609,13 @@ class _FloatingPreviewItem(QGraphicsItem):
         self._canvas_rect = QRectF()
 
     def set_roles(self, checker: _CheckerBrush, canvas_rect: QRectF) -> None:
-        """Set the shared checker brush + canvas bounds (kept in step with the
-        scene's, REQ-CGS-UI-003/-004/-005). ``canvas_rect`` bounds every checker
-        fill to the document — a float dragged past the document edge cannot
-        paint checker outside it (``ItemClipsToShape`` clips to the item's own
-        region, not to the canvas, so it does not achieve this on its own).
+        """Set the shared checker brush and canvas bounds.
+
+        Kept in step with the scene's (REQ-CGS-UI-003/-004/-005).
+        ``canvas_rect`` bounds every checker fill to the document — a float
+        dragged past the document edge cannot paint checker outside it
+        (``ItemClipsToShape`` clips to the item's own region, not to the
+        canvas, so it does not achieve this on its own).
         """
         self._checker = checker
         self._canvas_rect = QRectF(canvas_rect)
@@ -2414,8 +2416,9 @@ class CanvasScene(QGraphicsScene):
     def drawBackground(  # type: ignore[override]  # noqa: N802
         self, painter: QPainter, rect: QRectF
     ) -> None:
-        """Paint workspace + checker + optional grid + border over the exposed
-        ``rect`` only (D2, REQ-CGS-UI-003/-004/-005/-006/-010).
+        """Paint the workspace, checker, grid and border for the exposed rect.
+
+        Only ``rect`` is painted (D2, REQ-CGS-UI-003/-004/-005/-006/-010).
 
         Order is load-bearing:
           1. workspace fill, over the whole exposed rect;

@@ -21,7 +21,7 @@ from pixelart_creator.logic.constants import (
     CRDT_TILE_SIZE_PX,
     DEFAULT_TILE_HEIGHT,
     DEFAULT_TILE_WIDTH,
-    HARMONY_SQUARE_DEG,
+    HARMONY_TETRADIC_DEG,
     TILE_SIZE,
     ZOOM_MIN,
 )
@@ -113,13 +113,13 @@ class TestCheckerLodBound:
         )
 
 
-class TestHarmonySquareDeg:
-    """HARMONY_SQUARE_DEG is the colour-harmony square-relationship angle."""
+class TestHarmonyTetradicDeg:
+    """HARMONY_TETRADIC_DEG is the colour-harmony tetradic-relationship angle."""
 
     def test_value_is_ninety_degrees(self):
         assert (
-            HARMONY_SQUARE_DEG == 90
-        ), f"HARMONY_SQUARE_DEG must be 90 degrees; got {HARMONY_SQUARE_DEG!r}."
+            HARMONY_TETRADIC_DEG == 90
+        ), f"HARMONY_TETRADIC_DEG must be 90 degrees; got {HARMONY_TETRADIC_DEG!r}."
 
 
 class TestCanvasBorderWidthPx:

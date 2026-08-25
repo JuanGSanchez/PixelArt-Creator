@@ -193,8 +193,9 @@ def split_complementary(color: RGBA) -> Tuple[RGBA, RGBA]:
 
 
 def tetradic(color: RGBA) -> Tuple[RGBA, RGBA, RGBA]:
-    """Return the three tetradic-scheme colours (hue rotated 1x/2x/3x by
-    ``HARMONY_TETRADIC_DEG``).
+    """Return the three tetradic-scheme colours.
+
+    Hue rotated 1x/2x/3x by ``HARMONY_TETRADIC_DEG``.
 
     "Tetradic" is a superset term: it names any four-colour harmony. This
     implementation is specifically the evenly spaced (square) tetrad at

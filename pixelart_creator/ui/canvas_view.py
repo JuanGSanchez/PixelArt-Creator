@@ -260,13 +260,19 @@ class Canvas_View(QGraphicsView):
     # -- pan headroom (REQ-CGS-UI-009) -------------------------------------
 
     def _on_scene_rect_changed(self, _rect: QRectF) -> None:
-        """Re-derive the view's inflated pan-margin rect after the scene's own
-        rect changes (document load/resize, tiled-mode toggle)."""
+        """Re-derive the view's inflated pan-margin rect.
+
+        Triggered after the scene's own rect changes (document load/resize,
+        tiled-mode toggle), so the margin never goes stale against a
+        superseded document size (REQ-CGS-UI-009).
+        """
         self._apply_pan_margin()
 
     def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 (Qt override)
-        """Re-derive the pan margin: half a viewport in scene units moves with
-        the viewport's own size."""
+        """Re-derive the pan margin.
+
+        Half a viewport in scene units moves with the viewport's own size.
+        """
         super().resizeEvent(event)
         self._apply_pan_margin()
 
