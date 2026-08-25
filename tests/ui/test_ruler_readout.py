@@ -27,8 +27,8 @@ from PySide6.QtCore import QEvent, QPointF, QRectF, Qt
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QApplication
 
-from pixelart_creator.logic.guides import coordinate_readout
 from pixelart_creator.ui.guides_rulers_overlay import Guides_Rulers_Overlay
+from tests.ui._ui_helpers import viewport_point_for_pixel
 
 NO_MOD = Qt.KeyboardModifier.NoModifier
 NO_BTN = Qt.MouseButton.NoButton
@@ -41,8 +41,18 @@ def _controller(make_view, w=64, h=64, enabled=True):
     return controller, view, scene, stack
 
 
-def _move_event(x: float, y: float) -> QMouseEvent:
-    pt = QPointF(x, y)
+def _move_event(view, x: int, y: int) -> QMouseEvent:
+    """Build a MouseMove event at document pixel ``(x, y)``.
+
+    Routed through the view's own CURRENT mapping
+    (``_ui_helpers.viewport_point_for_pixel`` / ``view.mapFromScene``) — never
+    a hand-computed offset. ``Canvas_View`` inflates its own scene rect by a
+    pan margin (REQ-CGS-UI-009), giving it a negative-origin scrollable rect
+    even for a freshly built view, so viewport point ``(x, y)`` no longer
+    equals document pixel ``(x, y)``.
+    """
+    point = viewport_point_for_pixel(view, x, y)
+    pt = QPointF(point.x(), point.y())
     return QMouseEvent(QEvent.Type.MouseMove, pt, pt, NO_BTN, NO_BTN, NO_MOD)
 
 
@@ -54,7 +64,19 @@ def _move_event(x: float, y: float) -> QMouseEvent:
 def test_c5_viewport_mouse_move_feeds_the_ruler_readout_via_event_filter(make_view):
     """REQ-P9-UI-003: a real mouse-move over the canvas viewport reaches
     ``Ruler_Strip.set_cursor_readout`` through the installed event filter --
-    the production feed that did not exist before this fix (DEV-27)."""
+    the production feed that did not exist before this fix (DEV-27).
+
+    SC-UI-003-1's own contract is the observable one asserted here: a cursor
+    genuinely over document pixel (30, 10) reads out (30, 10) -- not a
+    reproduction of ``Guides_Rulers_Overlay._update_cursor_readout``'s
+    internal formula. See this module's docstring / the AGT-06 report for why
+    this currently fails: ``_update_cursor_readout`` feeds an
+    already-``view.mapToScene``-mapped point into ``Ruler_Strip.set_cursor_readout``,
+    which itself re-applies the pan offset via ``coordinate_readout`` --
+    double-counting the offset whenever it is non-zero. That is a product
+    defect (reported to AGT-05), not a test-side coordinate assumption, and it
+    is left failing here rather than papered over.
+    """
     controller, view, _scene, _stack = _controller(make_view)
     h_ruler = controller.horizontal_ruler()
     v_ruler = controller.vertical_ruler()
@@ -64,30 +86,39 @@ def test_c5_viewport_mouse_move_feeds_the_ruler_readout_via_event_filter(make_vi
     viewport = view.viewport()
     app = QApplication.instance()
     assert app is not None
-    # prepare_for_click (applied by make_view) pins the view to identity
-    # transform + zero pan, so viewport point (30, 10) maps to scene (30, 10).
-    app.sendEvent(viewport, _move_event(30.4, 10.4))
+    # Target document pixel (30, 10) via the view's own CURRENT mapping.
+    app.sendEvent(viewport, _move_event(view, 30, 10))
 
-    expected_x, expected_y = coordinate_readout(30.0, 10.0, view.zoom(), (0.0, 0.0))
-    assert h_ruler._cursor_doc == expected_x
-    assert v_ruler._cursor_doc == expected_y
+    assert h_ruler._cursor_doc == 30
+    assert v_ruler._cursor_doc == 10
 
 
 def test_c5_ruler_paints_a_readout_marker_once_fed(make_view):
     """The readout is not just stored -- ``Ruler_Strip.paintEvent`` reads
     ``_cursor_doc`` and paints a marker; a ruler with no readout paints a
-    different image than the same ruler once fed a real cursor position."""
+    different image than the same ruler once fed a real cursor position.
+
+    The strip is sized to the view's own CURRENT viewport width -- not a
+    fixed, arbitrary value -- because ``paintEvent`` places the marker via
+    the same live ``zoom``/pan-offset mapping as the readout feed
+    (``Ruler_Strip._view_zoom``/``_doc_offset``, both driven by the real,
+    pan-margin-inflated ``Canvas_View``, REQ-CGS-UI-009). A strip narrower
+    than the viewport it is meant to span can legitimately have the mapped
+    marker position fall outside it, which would fail this test for a
+    reason that has nothing to do with whether the marker paints -- exactly
+    the failure mode this docked-width sizing avoids.
+    """
     from PySide6.QtGui import QPixmap
 
     controller, view, _scene, _stack = _controller(make_view)
     h_ruler = controller.horizontal_ruler()
-    h_ruler.resize(200, 20)
+    h_ruler.resize(view.viewport().width(), 20)
 
     before = QPixmap(h_ruler.size())
     h_ruler.render(before)
 
     viewport = view.viewport()
-    QApplication.instance().sendEvent(viewport, _move_event(30.4, 10.4))
+    QApplication.instance().sendEvent(viewport, _move_event(view, 30, 10))
     assert h_ruler._cursor_doc is not None  # sanity: the feed landed
 
     after = QPixmap(h_ruler.size())
@@ -104,7 +135,7 @@ def test_c5_leave_event_clears_the_readout_via_event_filter(make_view):
     viewport = view.viewport()
     app = QApplication.instance()
 
-    app.sendEvent(viewport, _move_event(15.4, 15.4))
+    app.sendEvent(viewport, _move_event(view, 15, 15))
     assert h_ruler._cursor_doc is not None
     assert v_ruler._cursor_doc is not None
 
@@ -120,6 +151,6 @@ def test_c5_readout_feed_is_gated_on_the_aid_being_enabled(make_view):
     assert controller.is_enabled() is False
     h_ruler = controller.horizontal_ruler()
 
-    QApplication.instance().sendEvent(view.viewport(), _move_event(30.4, 10.4))
+    QApplication.instance().sendEvent(view.viewport(), _move_event(view, 30, 10))
 
     assert h_ruler._cursor_doc is None

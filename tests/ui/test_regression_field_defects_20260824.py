@@ -223,8 +223,9 @@ def test_rc2_real_click_at_pane_centre_paints_exactly_one_pixel(qtbot):
 
 # --------------------------------------------------------------------------- #
 # 3. Zoom (RC-3): startup zoom in clamp; zoom_out() decreases; every preset   #
-#    stop reachable; the min(ZOOM_MIN, fit_zoom) rule for BOTH a small and    #
-#    a large (8K) document.                                                  #
+#    stop reachable; the flat ZOOM_MIN floor holds for a small AND a large    #
+#    (8K) document -- REQ-CGS-UI-008 supersedes the old min(ZOOM_MIN,         #
+#    fit_zoom) rule (2026-08-25 ruling).                                      #
 # --------------------------------------------------------------------------- #
 
 
@@ -279,13 +280,26 @@ def test_rc3_every_preset_stop_is_reachable_for_a_small_document(qtbot):
     assert 1.0 in reachable  # the specific stop the field report named
 
 
-def test_rc3_clamp_floor_is_min_zoom_min_and_fit_zoom_for_a_large_8k_document(qtbot):
-    """RC-3: ``min(ZOOM_MIN, fit_zoom)`` must hold for a document LARGER than
-    the ceiling of a normal viewport (the full 8K / 7680x4320 ceiling, S1).
+def test_rc3_zoom_floors_at_zoom_min_for_a_large_8k_document(qtbot):
+    """RC-3 / REQ-CGS-UI-008: a document LARGER than the ceiling of a normal
+    viewport (the full 8K / 7680x4320 ceiling, S1) floors its zoom at the
+    flat ``ZOOM_MIN`` (1:1), not at its own raw fit-to-view computation.
 
-    A flat ``ZOOM_MIN`` (1.0) floor would make the whole-grid view of such a
-    document unreachable -- its own ``fit_zoom`` is well below 1.0. This is
-    the user-required case a flat floor of EITHER kind would break.
+    Superseded 2026-08-25 (user ruling; see ``ZOOM_MIN``'s docstring in
+    ``logic/constants.py``): this test used to require ``min(ZOOM_MIN,
+    fit_zoom)`` -- i.e. that such a document's whole grid stay reachable by
+    zooming OUT below 100%. That reasoning was sound for grid visibility
+    alone but did not account for point-sampling loss below 1:1: the canvas
+    is minified by a painter with smoothing off (nearest-neighbour), so an
+    isolated pixel between sample points is not drawn at all until the
+    sampling grid happens to re-align -- the actual mechanism behind one
+    "my drawing was invisible until I moved something" field report. The
+    accepted trade-off, put to the user explicitly and accepted: an 8K
+    document is no longer viewable as a whole grid at once; it is reached by
+    panning instead. This test now proves the floor holds AT ZOOM_MIN for
+    such a document, not below it -- the ``fit_zoom < ZOOM_MIN`` premise
+    below is retained unchanged, so this is the same forcing technique
+    proving the opposite outcome, not a weaker check.
 
     2026-08-24 CI incident (PR #27, ``quality-gate``): the original version of
     this test built a REAL ``Document(MAX_CANVAS_WIDTH, MAX_CANVAS_HEIGHT)`` --
@@ -306,8 +320,9 @@ def test_rc3_clamp_floor_is_min_zoom_min_and_fit_zoom_for_a_large_8k_document(qt
     8K case is exercised here by forcing an 8K **scene rect** directly onto a
     genuinely small (64x64), cheap document's scene via the inherited
     ``QGraphicsScene.setSceneRect()`` -- never allocating an 8K pixel buffer at
-    all -- which still proves the exact rule the user required: a document
-    whose fit_zoom is below ZOOM_MIN must still be viewable as a whole grid.
+    all -- which still proves the rule under test: a document whose raw
+    ``fit_zoom`` is below ``ZOOM_MIN`` must land exactly AT ``ZOOM_MIN``, not
+    at that lower raw fit.
     ``fit()`` -> ``set_zoom()`` still calls ``scene.recomposite_exposed()``;
     that is verified a no-op here (the ``_stale.isEmpty()`` premise asserted
     below) so forcing the scene rect never triggers a real 8K recomposite."""
@@ -336,10 +351,13 @@ def test_rc3_clamp_floor_is_min_zoom_min_and_fit_zoom_for_a_large_8k_document(qt
 
     view.fit()
     assert (
-        abs(view.zoom() - fit_zoom) < 1e-9
-    ), f"whole-grid view not reachable: zoom={view.zoom()}, expected {fit_zoom}"
-    # A request far below the floor still clamps to fit_zoom, not to ZOOM_MIN.
-    assert abs(view._clamp_zoom(0.0001) - fit_zoom) < 1e-9
+        abs(view.zoom() - ZOOM_MIN) < 1e-9
+    ), f"fit() must floor at ZOOM_MIN: zoom={view.zoom()}, expected {ZOOM_MIN}"
+    assert (
+        abs(view.zoom() - fit_zoom) > 1e-9
+    ), "fit() landed on the raw sub-1:1 fit, not the ZOOM_MIN floor"
+    # A request far below the floor also clamps to ZOOM_MIN, not to fit_zoom.
+    assert abs(view._clamp_zoom(0.0001) - ZOOM_MIN) < 1e-9
 
 
 # --------------------------------------------------------------------------- #

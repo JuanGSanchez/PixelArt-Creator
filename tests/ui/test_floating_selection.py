@@ -38,10 +38,11 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from PySide6.QtCore import QEvent, QPointF, Qt
+from PySide6.QtCore import QEvent, QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QUndoStack
 from PySide6.QtWidgets import QApplication
 
+from pixelart_creator.logic.constants import CHECKER_CELL_PX
 from pixelart_creator.logic.document import Document
 from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.selection import rect_mask
@@ -50,7 +51,7 @@ from pixelart_creator.ui.canvas_view import Canvas_View
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.theme import canvas_roles
 from pixelart_creator.ui.tools import PencilTool, RectSelectTool
-from tests.ui._ui_helpers import prepare_for_click
+from tests.ui._ui_helpers import prepare_for_click, viewport_point_for_pixel
 
 LEFT = Qt.MouseButton.LeftButton
 NO_BTN = Qt.MouseButton.NoButton
@@ -68,24 +69,36 @@ STARTER = [(0, 0, 0, 255), (255, 255, 255, 255), (230, 30, 30, 255)]
 
 
 # -- event helpers (modifier-carrying; the shared _ui_helpers force NoModifier) --
+#
+# Routed through the ONE shared coordinate source, viewport_point_for_pixel
+# (view.mapFromScene), exactly like every helper in _ui_helpers.py -- never a
+# hand-computed offset. This used to build the position as
+# QPointF(x + 0.2, y + 0.2) and assume viewport (x, y) == scene pixel (x, y);
+# that stopped holding once Canvas_View began inflating its own scene rect by
+# a pan margin (REQ-CGS-UI-009), which gives the view's scrollable rect a
+# negative origin. See _ui_helpers.prepare_for_click's docstring for the full
+# measurement.
 
 
-def _mev(etype, x, y, button, buttons, mod) -> QMouseEvent:
-    pt = QPointF(x + 0.2, y + 0.2)
+def _mev(view, etype, x, y, button, buttons, mod) -> QMouseEvent:
+    point = viewport_point_for_pixel(view, x, y)
+    pt = QPointF(point.x(), point.y())
     return QMouseEvent(etype, pt, pt, button, buttons, mod)
 
 
 def press(view, x, y, mod=NO_MOD) -> None:
-    view.mousePressEvent(_mev(QEvent.Type.MouseButtonPress, x, y, LEFT, LEFT, mod))
+    view.mousePressEvent(
+        _mev(view, QEvent.Type.MouseButtonPress, x, y, LEFT, LEFT, mod)
+    )
 
 
 def move(view, x, y, mod=NO_MOD) -> None:
-    view.mouseMoveEvent(_mev(QEvent.Type.MouseMove, x, y, NO_BTN, LEFT, mod))
+    view.mouseMoveEvent(_mev(view, QEvent.Type.MouseMove, x, y, NO_BTN, LEFT, mod))
 
 
 def release(view, x, y, mod=NO_MOD) -> None:
     view.mouseReleaseEvent(
-        _mev(QEvent.Type.MouseButtonRelease, x, y, LEFT, NO_BTN, mod)
+        _mev(view, QEvent.Type.MouseButtonRelease, x, y, LEFT, NO_BTN, mod)
     )
 
 
@@ -449,7 +462,18 @@ def test_sc_u035_2_preview_renders_nearest_neighbour_aa_off(make_scene, qtbot):
 
 def test_sc_u035_3_preview_legible_in_both_themes(make_scene, qtbot, theme):
     """SC-U035-3: the floating preview is legible in both themes — its checker
-    colours come from the active theme's canvas roles (role-based, not hard-coded)."""
+    colours come from the active theme's canvas roles (role-based, not
+    hard-coded). Superseded mechanism: ``_FloatingPreviewItem`` used to hold
+    its own private ``_checker_light``/``_checker_dark`` QColor pair; it now
+    receives the scene's shared ``_CheckerBrush`` + canvas rect
+    (``set_roles(checker, canvas_rect)``) instead of two colours
+    (canvas-grid-semantics job, REQ-CGS-UI-003/-004). This asserts the SAME
+    intent through the new surface: the float's checker is the identical
+    brush instance the scene itself paints with (agreement by construction,
+    not coincidence — at least as strong as the predecessor's equality
+    check), that brush's texture is built from the active theme's roles, and
+    the float's checker stays bounded to the same document canvas rect
+    (REQ-CGS-UI-004, both float + origin layers)."""
     view, scene, _stack, _buf = _make_move_view(make_scene, qtbot)
     light, dark, _grid = canvas_roles(theme)
 
@@ -457,9 +481,18 @@ def test_sc_u035_3_preview_legible_in_both_themes(make_scene, qtbot, theme):
     move(view, 6, 6)
 
     assert scene._float_item.isVisible()
-    # The overlay's checker roles track the theme (both float + origin layers).
-    assert scene._float_item._checker_light == QColor(light)
-    assert scene._float_item._checker_dark == QColor(dark)
+    # The overlay's checker roles track the theme (both float + origin layers):
+    # both share the SAME _CheckerBrush instance the scene paints with.
+    assert scene._float_item._checker is scene._checker_brush
+    assert scene._origin_item._checker is scene._checker_brush
+    # That shared brush's texture is built from the active theme's own roles.
+    texture_image = scene._checker_brush.texture.texture().toImage()
+    assert texture_image.pixelColor(0, 0) == QColor(light)
+    assert texture_image.pixelColor(CHECKER_CELL_PX, 0) == QColor(dark)
+    # And it stays bounded to the same document canvas rect as the scene.
+    canvas_rect = QRectF(0, 0, scene._document.width, scene._document.height)
+    assert scene._float_item._canvas_rect == canvas_rect
+    assert scene._origin_item._canvas_rect == canvas_rect
 
     view.floating_controller().cancel()
 

@@ -8,10 +8,11 @@ and the indexed-buffer render path. Both themes.
 
 from __future__ import annotations
 
+import pytest
 from PySide6.QtCore import QEvent, QPointF, QRectF, Qt
 from PySide6.QtGui import QImage, QKeyEvent, QMouseEvent, QPainter, QUndoStack
 
-from pixelart_creator.logic.constants import ZOOM_MAX
+from pixelart_creator.logic.constants import ZOOM_MAX, ZOOM_MIN
 from pixelart_creator.logic.document import Document
 from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode
@@ -47,10 +48,19 @@ def test_set_grid_enabled_delegates_to_scene(make_view):
 
 
 def test_fit_sets_zoom_to_fit_minimum(make_view):
-    """fit() drives the zoom to the computed fit-to-view minimum (-004)."""
+    """REQ-CGS-UI-008: fit() floors at ZOOM_MIN (1:1), not the document's raw
+    fit-to-view computation, for a document larger than the viewport (-004).
+
+    Superseded 2026-08-25: this used to assert ``zoom() == _fit_zoom()``
+    exactly, which held only because the pre-ruling floor WAS the raw fit.
+    This document's raw fit-to-view is still sub-1:1 -- that is exactly the
+    case ZOOM_MIN's flat floor now guards against.
+    """
     view, _scene, _stack = make_view(1024, 1024)
+    raw_fit = view._fit_zoom()
+    assert raw_fit < ZOOM_MIN  # premise: this document would fit below 100%
     view.fit()
-    assert view.zoom() == view._fit_zoom()
+    assert view.zoom() == pytest.approx(ZOOM_MIN)  # floored, never below it
 
 
 def test_wheel_at_ceiling_is_noop(make_view):
@@ -75,11 +85,21 @@ def test_wheel_at_ceiling_is_noop(make_view):
 
 
 def test_zoom_out_below_first_preset_falls_to_fit(make_view):
-    """zoom_out below the first preset stop falls back to fit (-004)."""
+    """REQ-CGS-UI-008: zoom_out() with no lower preset falls back to fit(),
+    which is itself floored at ZOOM_MIN (-004).
+
+    Superseded 2026-08-25: a request of 0.5 (below the old ``min(ZOOM_MIN,
+    fit_zoom)`` floor) used to land AT the document's raw sub-1:1 fit.
+    ``set_zoom`` now clamps 0.5 straight to ZOOM_MIN before the fallback path
+    even runs; zoom_out()'s "no lower preset -> fit()" branch is still
+    exercised, and fit() still cannot go below ZOOM_MIN either.
+    """
     view, _scene, _stack = make_view(1024, 1024)
-    view.set_zoom(0.5)  # below preset stop 1.0, above fit
-    view.zoom_out()
-    assert view.zoom() == view._fit_zoom()
+    assert view._fit_zoom() < ZOOM_MIN  # premise: raw fit is sub-1:1
+    view.set_zoom(0.5)  # requests below the floor -> clamps to ZOOM_MIN
+    assert view.zoom() == pytest.approx(ZOOM_MIN)
+    view.zoom_out()  # no preset stop below ZOOM_MIN -> falls back to fit()
+    assert view.zoom() == pytest.approx(ZOOM_MIN)  # fit() is floored too
 
 
 # -- keyboard + mouse fall-through ---------------------------------------

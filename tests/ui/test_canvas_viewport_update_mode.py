@@ -63,6 +63,7 @@ from tests.ui._ui_helpers import (
     real_move_pixel,
     real_press_pixel,
     real_release_pixel,
+    viewport_point_for_pixel,
 )
 
 try:
@@ -158,11 +159,15 @@ def _prepared_cgs_view(make_view, qtbot):
 
     Mirrors ``test_real_event_harness.py``'s ``_prepared_view``: real geometry
     is required for a real ``QTest`` event to hit-test correctly under
-    ``QT_QPA_PLATFORM=offscreen``, and ``prepare_for_click`` (re-applied after
-    the resize) pins zoom=1.0 + top-left alignment + zero scroll so viewport
-    point ``(x, y)`` maps to document pixel ``(x, y)`` — the same mapping
-    ``real_click_pixel``/``real_press_pixel``/etc. and this module's own pixel
-    sampling both rely on. No tool is armed here; each test selects its own.
+    ``QT_QPA_PLATFORM=offscreen``. ``prepare_for_click`` (re-applied after the
+    resize) pins zoom=1.0 and guarantees the document is reachable, but makes
+    NO promise that viewport point ``(x, y)`` equals document pixel ``(x, y)``
+    — ``Canvas_View`` inflates its own scene rect by a pan margin
+    (``_apply_pan_margin``, REQ-CGS-UI-009), which gives it a negative origin.
+    Every real click below and every pixel sample in :func:`_sample` therefore
+    goes through the view's own CURRENT mapping
+    (``_ui_helpers.viewport_point_for_pixel`` / ``view.mapFromScene``), never a
+    hand-computed offset. No tool is armed here; each test selects its own.
     """
     view, scene, stack = make_view(_DOC_SIZE, _DOC_SIZE)
     view.resize(_VIEWPORT_SIZE, _VIEWPORT_SIZE)
@@ -185,6 +190,18 @@ def _render_viewport(view) -> QImage:
     return image
 
 
+def _sample(image: QImage, view, x: int, y: int):
+    """Sample ``image`` (a rendered viewport) at document pixel ``(x, y)``.
+
+    Located via the view's own CURRENT mapping (``viewport_point_for_pixel`` /
+    ``view.mapFromScene``) — never the raw ``(x, y)`` — since ``image`` is a
+    render of the viewport, whose pixel (0, 0) is not document pixel (0, 0)
+    once the pan margin gives the view's scene rect a negative origin.
+    """
+    point = viewport_point_for_pixel(view, x, y)
+    return image.pixelColor(point.x(), point.y())
+
+
 def test_sc_cgs_ui_001_1_pencil_dab_visible_without_further_input(make_view, qtbot):
     """SC-CGS-UI-001-1 / REQ-CGS-UI-001: a pencil dab, made through the tool
     controller — a real press+release delivered to the viewport, running
@@ -204,7 +221,7 @@ def test_sc_cgs_ui_001_1_pencil_dab_visible_without_further_input(make_view, qtb
 
     image = _render_viewport(view)  # <-- no further input delivered first
 
-    assert image.pixelColor(*target).getRgb() == _PENCIL_COLOR
+    assert _sample(image, view, *target).getRgb() == _PENCIL_COLOR
 
 
 def test_sc_cgs_ui_001_2_eraser_stroke_clears_visibly_without_further_input(
@@ -220,7 +237,7 @@ def test_sc_cgs_ui_001_2_eraser_stroke_clears_visibly_without_further_input(
     row_y = 6
     region = [(2, row_y), (3, row_y), (4, row_y)]
     erased = (3, row_y)
-    base_before_paint = _render_viewport(view).pixelColor(*erased).getRgb()
+    base_before_paint = _sample(_render_viewport(view), view, *erased).getRgb()
 
     view.set_tool(PencilTool())
     view.set_active_color(_ERASER_PAINT_COLOR)
@@ -229,7 +246,7 @@ def test_sc_cgs_ui_001_2_eraser_stroke_clears_visibly_without_further_input(
 
     painted = _render_viewport(view)
     for x, y in region:
-        assert painted.pixelColor(x, y).getRgb() == _ERASER_PAINT_COLOR
+        assert _sample(painted, view, x, y).getRgb() == _ERASER_PAINT_COLOR
 
     view.set_tool(EraserTool())
     before_count = stack.count()
@@ -240,11 +257,11 @@ def test_sc_cgs_ui_001_2_eraser_stroke_clears_visibly_without_further_input(
 
     image = _render_viewport(view)  # <-- no further input delivered first
 
-    assert image.pixelColor(*erased).getRgb() == base_before_paint
-    assert image.pixelColor(*erased).getRgb() != _ERASER_PAINT_COLOR
+    assert _sample(image, view, *erased).getRgb() == base_before_paint
+    assert _sample(image, view, *erased).getRgb() != _ERASER_PAINT_COLOR
     # Only the middle pixel of the region was erased -- the rest is untouched.
-    assert image.pixelColor(2, row_y).getRgb() == _ERASER_PAINT_COLOR
-    assert image.pixelColor(4, row_y).getRgb() == _ERASER_PAINT_COLOR
+    assert _sample(image, view, 2, row_y).getRgb() == _ERASER_PAINT_COLOR
+    assert _sample(image, view, 4, row_y).getRgb() == _ERASER_PAINT_COLOR
 
 
 def test_sc_cgs_ui_001_3_committed_line_visible_without_further_input(make_view, qtbot):
@@ -268,7 +285,7 @@ def test_sc_cgs_ui_001_3_committed_line_visible_without_further_input(make_view,
     image = _render_viewport(view)  # <-- no further input delivered first
 
     for x in range(start[0], end[0] + 1):
-        assert image.pixelColor(x, start[1]).getRgb() == _LINE_COLOR
+        assert _sample(image, view, x, start[1]).getRgb() == _LINE_COLOR
 
 
 def test_sc_cgs_ui_001_4_selection_drag_reveals_nothing_that_was_hidden(
@@ -310,10 +327,10 @@ def test_sc_cgs_ui_001_4_selection_drag_reveals_nothing_that_was_hidden(
     before = _render_viewport(view)
     # Each edit is independently already visible, exactly as tests -1/-2/-3
     # established, BEFORE the selection drag that is this test's own subject.
-    assert before.pixelColor(*pencil_px).getRgb() == _PENCIL_COLOR
-    assert before.pixelColor(*erased_px).getRgb() != _ERASER_PAINT_COLOR
-    assert before.pixelColor(*line_px).getRgb() == _LINE_COLOR
-    before_values = [before.pixelColor(x, y).getRgb() for x, y in sampled]
+    assert _sample(before, view, *pencil_px).getRgb() == _PENCIL_COLOR
+    assert _sample(before, view, *erased_px).getRgb() != _ERASER_PAINT_COLOR
+    assert _sample(before, view, *line_px).getRgb() == _LINE_COLOR
+    before_values = [_sample(before, view, x, y).getRgb() for x, y in sampled]
 
     view.set_tool(RectSelectTool())
     view.set_active_color(_PENCIL_COLOR)
@@ -325,6 +342,6 @@ def test_sc_cgs_ui_001_4_selection_drag_reveals_nothing_that_was_hidden(
     assert view.active_selection() is not None  # the drag was a real gesture
 
     after = _render_viewport(view)
-    after_values = [after.pixelColor(x, y).getRgb() for x, y in sampled]
+    after_values = [_sample(after, view, x, y).getRgb() for x, y in sampled]
 
     assert after_values == before_values  # nothing became visible for the first time

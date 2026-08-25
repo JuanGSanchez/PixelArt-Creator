@@ -9,7 +9,7 @@ from __future__ import annotations
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QImage, QPainter, QTransform
 
-from pixelart_creator.logic.constants import TILE_SIZE
+from pixelart_creator.logic.constants import CHECKER_CELL_PX
 
 RED = (255, 0, 0, 255)
 
@@ -148,28 +148,61 @@ def test_sc_ui_003_1_draw_background_only_exposed_rect(make_scene):
 
 
 def test_sc_ui_003_2_background_tiles_on_tile_size(make_scene):
-    """SC-UI-003-2: checker tile boundary falls on a TILE_SIZE multiple."""
-    scene = make_scene(256, 256)
-    img = QImage(256, 256, QImage.Format.Format_RGBA8888)
+    """SC-UI-003-2: superseded by REQ-CGS-UI-003 — the checker period is exactly
+    CHECKER_CELL_PX (one document pixel), never a TILE_SIZE (64) multiple, and
+    the checker is clipped to the document canvas rect (REQ-CGS-UI-004): it
+    gives way to the workspace ground past the document's own bounds, even
+    when the exposed rect extends further than that (the field defect this
+    batch fixes: a whole 64x64 document used to read as a single checker cell).
+    """
+    doc_w, doc_h = 8, 8
+    scene = make_scene(doc_w, doc_h)
+    img = QImage(doc_w + 4, doc_h + 4, QImage.Format.Format_RGBA8888)
     img.fill(Qt.GlobalColor.transparent)
     painter = QPainter(img)
-    scene.drawBackground(painter, QRectF(0, 0, 200, 200))
+    # The exposed rect deliberately extends past the document, to prove the
+    # canvas clip (REQ-CGS-UI-004) alongside the period (REQ-CGS-UI-003).
+    scene.drawBackground(painter, QRectF(0, 0, doc_w + 4, doc_h + 4))
     painter.end()
-    # Tile (0,0) and tile (1,0) use alternating checker colours; the change
-    # occurs exactly at x == TILE_SIZE.
-    left_tile = img.pixelColor(TILE_SIZE - 2, 10)
-    right_tile = img.pixelColor(TILE_SIZE + 2, 10)
-    assert left_tile != right_tile
-    assert img.pixelColor(TILE_SIZE - 2, 10) == img.pixelColor(2, 10)
+
+    # Period: the checker alternates every CHECKER_CELL_PX -- never every
+    # TILE_SIZE (the conflation this fix removes) -- and repeats after exactly
+    # two CHECKER_CELL_PX-wide columns. Sampled on an interior row, clear of
+    # the cosmetic border stroke the canvas edge carries on every side.
+    row = doc_h // 2
+    x0 = 2
+    col0 = img.pixelColor(x0, row)
+    col1 = img.pixelColor(x0 + CHECKER_CELL_PX, row)
+    col2 = img.pixelColor(x0 + 2 * CHECKER_CELL_PX, row)
+    assert col0 != col1  # boundary at exactly one CHECKER_CELL_PX
+    assert col0 == col2  # period repeats after exactly one CHECKER_CELL_PX
+
+    # Clip: past the document edge (a couple of px clear of the cosmetic
+    # border stroke) the checker gives way to the workspace ground colour --
+    # it never continues the pattern outside the canvas.
+    assert img.pixelColor(doc_w + 2, 0) == scene._workspace_color
+    assert img.pixelColor(0, doc_h + 2) == scene._workspace_color
 
 
 # -- REQ-P1-UI-007 (grid overlay) ----------------------------------------
 
 
-def test_sc_ui_007_1_grid_off_by_default(make_scene):
-    """SC-UI-007-1: the per-pixel grid overlay is off by default (CL-4)."""
+def test_sc_ui_007_1_grid_on_by_default_and_user_controllable(make_scene):
+    """SC-UI-007-1: superseded by REQ-CGS-UI-007 -- the per-pixel grid overlay
+    is now ON by default for a new document (the old CL-4 "off by default"
+    contract this test asserted meant a new user's only visible lattice was
+    the meaningless 64-document-pixel checker; that field defect is the
+    reason this batch exists). The default remains user-controllable: the
+    overlay can still be switched off, and back on, at the scene API.
+    """
     scene = make_scene(32, 32)
+    assert scene.is_grid_enabled() is True
+
+    scene.set_grid_enabled(False)
     assert scene.is_grid_enabled() is False
+
+    scene.set_grid_enabled(True)
+    assert scene.is_grid_enabled() is True
 
 
 def _draw_bg_at_scale(scene, scale, size=32):

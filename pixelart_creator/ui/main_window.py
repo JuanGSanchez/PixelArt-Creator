@@ -1247,6 +1247,7 @@ class Main_Window(QMainWindow):
         self._fit_action.triggered.connect(self._on_fit)
         self._grid_action = QAction(self)
         self._grid_action.setCheckable(True)
+        self._grid_action.setChecked(True)
         self._grid_action.toggled.connect(self._on_grid_toggled)
         self._snap_action = QAction(self)
         self._snap_action.setCheckable(True)
