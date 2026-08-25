@@ -7,10 +7,13 @@ Zero Qt; deterministic and portable.
 
 from __future__ import annotations
 
+import tracemalloc
+
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from pixelart_creator.logic.constants import MAX_CANVAS_HEIGHT, MAX_CANVAS_WIDTH
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 from pixelart_creator.logic.selection import rect_mask
 from pixelart_creator.logic.transform import (
@@ -158,15 +161,79 @@ def test_sc_l009_5_scale_down_stays_within_source_palette():
     assert _colour_set(down).issubset(_colour_set(buf))
 
 
-def test_scale_factor_out_of_bounds_raises():
-    # factor below SCALE_MIN_FACTOR (0.01): 200 wide -> 1 = 0.005.
-    wide = PixelBuffer(200, 1)
-    with pytest.raises(TransformError):
-        scale_nearest(wide, 1, 1)
-    # factor above SCALE_MAX_FACTOR (64.0): 1 wide -> 65 = 65.0.
-    tiny = PixelBuffer(1, 1)
-    with pytest.raises(TransformError):
-        scale_nearest(tiny, 65, 1)
+# --- REQ-CSD-LOGIC-001/002: the scale target is bounded by resulting
+# dimension, not by the old ratio-factor guard (canvas-scale-defects
+# spec.md; tasks.md T03). The old test_scale_factor_out_of_bounds_raises
+# asserted the DELETED SCALE_MIN_FACTOR/SCALE_MAX_FACTOR ratio guard: both
+# of its bodies (200x1 -> 1x1, factor 0.005; 1x1 -> 65x1, factor 65.0) are
+# now within [1, MAX_CANVAS_WIDTH/HEIGHT] and must NOT raise. It is
+# replaced below by the per-scenario class table T03 specifies.
+
+
+class TestScDimensionClamp:
+    """SC-CSD-L001-*: the scale target is bounded by resulting dimension.
+
+    DEFECT (L001-1..4): fails against the unfixed code, which still enforces
+    the deleted SCALE_MIN_FACTOR/SCALE_MAX_FACTOR ratio guard.
+    GUARD (L001-5): passes today (the positive-int check predates this
+    batch) and must keep passing -- no pre-fix failure is manufactured for it.
+    """
+
+    def test_sc_l001_1_ceiling_reachable_from_default_document(self):
+        # DEFECT: implied factors 120.0 x / 67.5 y both exceed the old 64.0
+        # ratio cap; the fixed code accepts any in-bounds resulting dimension.
+        buf = PixelBuffer(64, 64)
+        out = scale_nearest(buf, 7680, 4320)
+        assert out.width == 7680 and out.height == 4320
+
+    def test_sc_l001_2_one_pixel_past_ceiling_names_the_limit(self):
+        # DEFECT: pre-fix this also raised, but with the ratio-factor
+        # message, not one naming the 7680 dimension ceiling.
+        buf = PixelBuffer(64, 64)
+        with pytest.raises(TransformError) as excinfo:
+            scale_nearest(buf, 7681, 4320)
+        assert "7680" in str(excinfo.value)
+
+    def test_sc_l001_3_large_downscale_is_reachable(self):
+        # DEFECT: implied factor 0.00833 is below the old SCALE_MIN_FACTOR
+        # of 0.01 and was refused pre-fix.
+        buf = PixelBuffer(7680, 4320)
+        out = scale_nearest(buf, 64, 36)
+        assert out.width == 64 and out.height == 36
+
+    def test_sc_l001_4_downscale_to_single_pixel_is_reachable(self):
+        # DEFECT: pre-fix the implied factor is far below SCALE_MIN_FACTOR.
+        buf = PixelBuffer(7680, 4320)
+        out = scale_nearest(buf, 1, 1)
+        assert out.width == 1 and out.height == 1
+
+    def test_sc_l001_5_zero_target_still_refused(self):
+        # GUARD: the positive-int check already passes today; do not prove
+        # a prior failure for this row.
+        buf = PixelBuffer(64, 64)
+        with pytest.raises(TransformError):
+            scale_nearest(buf, 0, 64)
+
+
+def test_sc_l002_1_oversized_target_raises_before_allocation():
+    # DEFECT: under the deleted ratio guard the implied factor is exactly
+    # 64.0 (32768 / 512), which passed, so a 4 GiB array was attempted. The
+    # fixed clamp on resulting dimension must refuse BEFORE any array of
+    # that size is allocated -- proven here by a tracemalloc peak far below
+    # the would-be 4 GiB allocation, and by the absence of MemoryError.
+    buf = PixelBuffer(512, 512)
+    assert buf.data.nbytes == 1_048_576
+    tracemalloc.start()
+    try:
+        with pytest.raises(TransformError) as excinfo:
+            scale_nearest(buf, 32768, 32768)
+        current, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    message = str(excinfo.value)
+    assert str(MAX_CANVAS_WIDTH) in message
+    assert peak < 4_194_304
+    assert not isinstance(excinfo.value, MemoryError)
 
 
 # --- SC-L010: transform target buffer-or-selection ------------------------

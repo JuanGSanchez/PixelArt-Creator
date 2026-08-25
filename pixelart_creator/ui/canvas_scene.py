@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import math
 import threading
+import warnings
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Sequence, Set, Tuple
 
@@ -234,8 +235,20 @@ class _BufferPixmapItem(QGraphicsPixmapItem):
         offscreen/GL A/B split the field defect isolated). Rebinding the
         wrapper on every content-changing repaint (:meth:`update`, below)
         moves the identity the cache keys on with the data itself.
+
+        Dimensions are read from ``self._display.shape`` — the array this
+        method actually wraps — never from ``self._buffer.width/height``.
+        ``set_buffer`` reassigns ``self._buffer`` to the NEW buffer before
+        ``_rebuild`` refreshes ``self._display`` to match it; deriving the
+        size from ``self._buffer`` would therefore risk pairing the new
+        (possibly larger) dimensions with the still-old, smaller
+        ``self._display`` memory during that window — an out-of-bounds read
+        the moment anything triggered a wrap in between. Reading the shape
+        off ``self._display`` itself makes the two inputs to this ``QImage``
+        inseparable by construction, so no such window can exist regardless
+        of call order.
         """
-        w, h = self._buffer.width, self._buffer.height
+        h, w = self._display.shape[0], self._display.shape[1]
         return QImage(
             self._display.data,
             w,
@@ -1134,8 +1147,44 @@ class CanvasScene(QGraphicsScene):
         most once per scene lifetime (``_composite_dirty`` is set ``True``
         only in ``__init__``), so this adds one negligible deferred call, not
         a per-frame cost.
+
+        Carries a context object (canvas-scale-defects DEBT, ``plan.md``
+        §5.6): ``self._item`` (:class:`_BufferPixmapItem`) derives from
+        ``QGraphicsPixmapItem``, which is **not** a ``QObject`` and so cannot
+        itself be the context that guards this deferred call. ``self`` — this
+        scene, a ``QGraphicsScene`` and therefore a ``QObject`` that owns the
+        item's lifetime — is passed as the three-argument overload's context,
+        so a scene torn down within the same event-loop tick discards the
+        call instead of firing it on a deleted C++ object. Verified this
+        overload resolves, and that deleting the context before the loop
+        runs suppresses delivery, under the pinned PySide6 6.11.1 (U-3).
+
+        Guarded: this is the one call site :meth:`_ensure_composite` reaches
+        from *inside* an active paint pass (via ``drawBackground``), so a
+        raise here must never be allowed to unwind through the Qt paint
+        machinery — a Python exception crossing that C++ boundary mid-paint
+        leaves the ``QPainter`` in an undefined state, and the very next Qt
+        paint call (observed: the pixmap item's own ``drawImage``) then dies
+        in shiboken argument validation instead of failing cleanly (field
+        defect: a monkeypatched 2-argument ``QTimer.singleShot`` spy rejects
+        this call's 3-argument context form and raises ``TypeError`` here).
+        Scheduling this repaint is inherently best-effort — the composite
+        buffer itself is already correct by the time this runs, only the
+        on-screen blit is deferred — so swallowing a failure to schedule it
+        costs at most one missed early repaint, never a wrong pixel and never
+        a crash. ``warnings.warn`` keeps the failure discoverable without
+        letting it propagate.
         """
-        QTimer.singleShot(0, self._item.update)
+        try:
+            QTimer.singleShot(0, self, self._item.update)
+        except Exception as exc:  # noqa: BLE001 - must never escape a paint pass
+            warnings.warn(
+                f"CanvasScene: deferred repaint scheduling failed ({exc!r}); "
+                "the composite is still correct, only its on-screen blit is "
+                "delayed to the next natural repaint.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     def _recomposite_region(self, rect: QRectF) -> None:
         """Recompose only ``rect`` into the composite buffer (dirty-rect path, D1).
@@ -1760,12 +1809,12 @@ class CanvasScene(QGraphicsScene):
 
         Called by :class:`~pixelart_creator.ui.commands.LogicCommand` for
         dimension-changing transforms / RotSprite: the logic ``FunctionCommand``
-        has swapped ``Layer.buffer``, so the scene must re-read it and re-fix its
-        rect (the document geometry is synced by the caller).
+        has swapped ``Layer.buffer`` (and, for a whole-document transform, has
+        already moved ``Document.width``/``Document.height`` itself — see
+        ``logic/doc_transform.py``'s ``make_document_transform_command``), so
+        this method only re-reads the document's now-current geometry and
+        re-renders (REQ-CSD-UI-005: the scene does not author geometry).
         """
-        buffer = self._active_layer.buffer
-        self._document.width = buffer.width
-        self._document.height = buffer.height
         self._rebuild_composite()
         self._item.set_buffer(self._display_source(), self._document.palette.colors())
         self._tiled_item.set_source(self._item)

@@ -101,13 +101,33 @@ TILED_PREVIEW_REPEAT: int = 3
 """Tiled-mode repeating preview arrangement: TILED_PREVIEW_REPEAT x
 TILED_PREVIEW_REPEAT tiles (3x3, centre tile editable) (CL-13; plan §8)."""
 
-SCALE_MIN_FACTOR: float = 0.01
-"""Lower bound on the nearest-neighbour scale factor (guards pathological
-near-zero factors below the MAX_CANVAS_* hard bound) (plan §8, PL-D5)."""
+# --- canvas-scale-defects whole-document transform tuning (T01; Article II
+# single-source) --------------------------------------------------------------
+# Consumed by logic/doc_transform.py and the four whole-document geometry
+# operations it drives (Scale, Rotate 90, Flip H, Flip V). This module stays a
+# leaf (no intra-package imports).
 
-SCALE_MAX_FACTOR: float = 64.0
-"""Upper bound on the nearest-neighbour scale factor; the hard pixel ceiling
-remains MAX_CANVAS_WIDTH / MAX_CANVAS_HEIGHT (plan §8, PL-D5)."""
+DOCUMENT_TRANSFORM_CONFIRM_BYTES: int = 4 * MAX_CANVAS_WIDTH * MAX_CANVAS_HEIGHT * 4
+"""Projected-peak-bytes ceiling above which a whole-document geometry operation
+(Scale / Rotate 90 / Flip H / Flip V) asks for confirmation before running —
+4 full 8K RGBA canvases = 530,841,600 B = 506.25 MiB (canvas-scale-defects
+spec.md §5.2/§5.3; plan.md §4.4; PL-CSD-D1).
+
+Spelled in terms of :data:`MAX_CANVAS_WIDTH` / :data:`MAX_CANVAS_HEIGHT`, never
+as the bare literal (Article II.3), so the threshold tracks the platform
+ceiling. Named ``DOCUMENT_TRANSFORM_CONFIRM_BYTES`` rather than a
+``SCALE_``-prefixed name (AGT-01 ruling PL-CSD-D1): ``logic/transform.py``'s
+own module docstring — "Buffer transforms: flip / rotate-90 / scale-NN" — is
+this codebase's own noun for the whole four-operation family, and all four
+consult this constant.
+
+The floor of 2 "units" (one projected-result buffer + one retained-source
+buffer, :func:`~pixelart_creator.logic.doc_transform.projected_peak_bytes`) is
+FORCED, not chosen: a single-layer 8K document scaled to the ceiling, or
+merely flipped, costs exactly 2 units and must stay silent, so the threshold
+must strictly exceed 2 units. 3 units leaves under half a unit of headroom, so
+an ordinary two-layer 8K operation would already prompt. 4 is the smallest
+power-of-two multiple of a unit that clears the forced floor with headroom."""
 
 # --- Phase-3 colour & palette tuning (phase-3 T1; Article II single-source) -----
 # Tuning scalars consumed by the new logic/ colour modules. The ΔE00 formula

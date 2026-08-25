@@ -8,12 +8,24 @@ import pytest
 
 from pixelart_creator.data import project_io as pio
 from pixelart_creator.logic import constants
+from pixelart_creator.logic.doc_transform import (
+    DocumentTransformRun,
+    enumerate_targets,
+    make_document_transform_command,
+)
 from pixelart_creator.logic.document import Document
 from pixelart_creator.logic.palette import Palette
-from pixelart_creator.logic.pixel_buffer import ColorMode
+from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+from pixelart_creator.logic.rotsprite import rotsprite
+from pixelart_creator.logic.transform import (
+    flip_horizontal,
+    rotate_90_cw,
+    scale_nearest,
+)
 
 RED = (255, 0, 0, 255)
 BLUE = (0, 0, 255, 255)
+TRANSPARENT = (0, 0, 0, 0)
 
 
 def test_tuning_constants_single_sourced_from_constants():
@@ -165,3 +177,212 @@ def test_defaults_applied_for_optional_fields():
     doc = pio.deserialize(payload)
     assert doc.metadata == {}
     assert doc.frames[0].layers[0].visible is True
+
+
+# =========================================================================
+# REQ-CSD-DATA-001..004: whole-document geometry round-trips
+# (canvas-scale-defects spec.md / tasks.md T17)
+#
+# Every scenario here asserts PIXEL IDENTITY, never merely the absence of
+# a ProjectIOError -- rotate-90 preserves the byte count of a 64x48 RGBA
+# buffer (64*48*4 == 48*64*4 == 12,288), so a round-trip asserting only
+# "no exception" PASSES against a document whose sibling layers were
+# reshaped at the wrong row stride while the active layer alone was
+# rotated. `data/project_io.py` is not edited by this batch (plan.md
+# Section 4.1); these prove a consequence of the doc_transform fix, not a
+# format change.
+# =========================================================================
+
+
+def _fill_distinct(buf: PixelBuffer, seed: int) -> None:
+    """Fill every pixel with a value unique to (x, y, seed) -- so a wrong row
+    stride or a cross-layer mixup shows up as a pixel-identity failure."""
+    for y in range(buf.height):
+        for x in range(buf.width):
+            buf.set_pixel(
+                x,
+                y,
+                (
+                    (x * 7 + seed) % 256,
+                    (y * 13 + seed) % 256,
+                    (x + y + seed * 3) % 256,
+                    255,
+                ),
+            )
+
+
+def _document_two_frames_two_layers(width: int = 64, height: int = 48) -> Document:
+    doc = Document(width, height)
+    doc.add_layer(frame_index=0)
+    doc.add_frame()
+    doc.add_layer(frame_index=1)
+    seed = 0
+    for frame in doc.frames:
+        for layer in frame.layers:
+            _fill_distinct(layer.buffer, seed)
+            seed += 1
+    return doc
+
+
+def _apply_whole_document_transform(
+    doc: Document, transform, new_width: int, new_height: int
+) -> None:
+    """Drive the fixed doc_transform engine exactly as the UI action does:
+    enumerate every target, resample each with `transform`, then commit."""
+    run = DocumentTransformRun(enumerate_targets(doc))
+    while not run.finished:
+        run.step(transform)
+    make_document_transform_command(doc, run, new_width, new_height).execute()
+
+
+class TestScCsdD001Scale:
+    """SC-CSD-D001-1: a scaled document round-trips through pxproj.
+
+    DEFECT: proven to fail pre-fix in a scratch reconstruction (AGT-04
+    report) -- "layer payload is 12288 bytes, expected 49152" -- because the
+    pre-fix seam resampled only the active layer while declaring the new
+    document dimensions for all of them. Not re-provable here without
+    editing product code: the whole-document engine this test drives did
+    not exist pre-fix.
+    """
+
+    def test_sc_csd_d001_1_save_load_after_scale_is_pixel_identical(self, tmp_path):
+        doc = _document_two_frames_two_layers(64, 48)
+        for frame in doc.frames:
+            for layer in frame.layers:
+                assert layer.buffer.width == 64 and layer.buffer.height == 48
+                assert layer.buffer.data.nbytes == 12_288
+
+        expected_by_layer = [
+            [layer.buffer.copy() for layer in frame.layers] for frame in doc.frames
+        ]
+
+        _apply_whole_document_transform(
+            doc, lambda buf: scale_nearest(buf, 128, 96), 128, 96
+        )
+        for frame_idx, frame in enumerate(doc.frames):
+            for layer_idx, layer in enumerate(frame.layers):
+                expected = scale_nearest(
+                    expected_by_layer[frame_idx][layer_idx], 128, 96
+                )
+                assert layer.buffer == expected
+
+        path = pio.save_project(doc, tmp_path / "scaled")
+        loaded = pio.load_project(path)  # must raise no ProjectIOError
+
+        assert loaded.width == 128 and loaded.height == 96
+        for frame_idx, frame in enumerate(loaded.frames):
+            for layer_idx, layer in enumerate(frame.layers):
+                assert layer.buffer.width == 128 and layer.buffer.height == 96
+                assert layer.buffer == doc.frames[frame_idx].layers[layer_idx].buffer
+
+
+class TestScCsdD002Rotate90:
+    """SC-CSD-D002-1: a rotated document round-trips through pxproj, PIXEL-identical.
+
+    DEFECT: proven to fail pre-fix in a scratch reconstruction (AGT-04
+    report). Against the pre-fix seam the load SUCCEEDS (64*48*4 ==
+    48*64*4 == 12,288 bytes, so the decoder's length check cannot catch
+    it) while the sibling layers are silently scrambled -- only the
+    pixel-identity assertions below would have failed. An "assert no
+    ProjectIOError" test alone is explicitly insufficient (spec.md Section 1.4).
+    """
+
+    def test_sc_csd_d002_1_save_load_after_rotate_90_is_pixel_identical(self, tmp_path):
+        doc = Document(64, 48)
+        doc.add_layer(frame_index=0)
+        doc.add_frame()
+        doc.add_layer(frame_index=1)
+        _fill_distinct(doc.frames[0].layers[0].buffer, 1)
+        _fill_distinct(doc.frames[0].layers[1].buffer, 2)
+        # the non-active layer of frame 2 (index 1): fully transparent except
+        # one marker pixel, so "exactly one non-transparent pixel" is checkable.
+        sibling = doc.frames[1].layers[1].buffer
+        for y in range(sibling.height):
+            for x in range(sibling.width):
+                sibling.set_pixel(x, y, TRANSPARENT)
+        sibling.set_pixel(63, 0, BLUE)
+        _fill_distinct(doc.frames[1].layers[0].buffer, 4)
+
+        expected_by_layer = [
+            [layer.buffer.copy() for layer in frame.layers] for frame in doc.frames
+        ]
+
+        _apply_whole_document_transform(doc, rotate_90_cw, 48, 64)
+
+        path = pio.save_project(doc, tmp_path / "rotated")
+        loaded = pio.load_project(path)  # must raise no ProjectIOError
+
+        assert loaded.width == 48 and loaded.height == 64
+        for frame_idx, frame in enumerate(loaded.frames):
+            for layer_idx, layer in enumerate(frame.layers):
+                assert layer.buffer.width == 48 and layer.buffer.height == 64
+                expected = rotate_90_cw(expected_by_layer[frame_idx][layer_idx])
+                assert layer.buffer == expected
+
+        loaded_sibling = loaded.frames[1].layers[1].buffer
+        non_transparent = [
+            (x, y)
+            for y in range(loaded_sibling.height)
+            for x in range(loaded_sibling.width)
+            if loaded_sibling.get_pixel(x, y) != TRANSPARENT
+        ]
+        assert len(non_transparent) == 1
+        assert loaded_sibling.get_pixel(*non_transparent[0]) == BLUE
+
+
+class TestScCsdD003RotSprite:
+    """SC-CSD-D003-1: RotSprite continues to round-trip through pxproj.
+
+    GUARD -- passes today, must keep passing. RotSprite was already applied
+    per-layer (dimension-preserving) and never depended on the shared
+    single-buffer geometry seam this batch fixes, so its round-trip is
+    unaffected; no pre-fix failure is manufactured for it.
+    """
+
+    def test_sc_csd_d003_1_save_load_after_rotsprite_is_pixel_identical(self, tmp_path):
+        doc = _document_two_frames_two_layers(64, 48)
+        for frame in doc.frames:
+            for layer in frame.layers:
+                layer.buffer = rotsprite(layer.buffer, 30.0)
+
+        expected_by_layer = [
+            [layer.buffer.copy() for layer in frame.layers] for frame in doc.frames
+        ]
+
+        path = pio.save_project(doc, tmp_path / "rotsprited")
+        loaded = pio.load_project(path)  # must raise no ProjectIOError
+
+        assert loaded.width == 64 and loaded.height == 48
+        for frame_idx, frame in enumerate(loaded.frames):
+            for layer_idx, layer in enumerate(frame.layers):
+                assert layer.buffer.width == 64 and layer.buffer.height == 48
+                assert layer.buffer == expected_by_layer[frame_idx][layer_idx]
+
+
+class TestScCsdD004Flip:
+    """SC-CSD-D004-1: a flipped document round-trips through pxproj, pixel-identical.
+
+    GUARD -- passes today. A flip preserves every payload length at every
+    aspect ratio, so the decoder's length check can never be tripped here;
+    there is no corruption to prove absent, and no pre-fix failure is
+    manufactured for this row.
+    """
+
+    def test_sc_csd_d004_1_save_load_after_flip_is_pixel_identical(self, tmp_path):
+        doc = _document_two_frames_two_layers(64, 48)
+        expected_by_layer = [
+            [layer.buffer.copy() for layer in frame.layers] for frame in doc.frames
+        ]
+
+        _apply_whole_document_transform(doc, flip_horizontal, 64, 48)
+
+        path = pio.save_project(doc, tmp_path / "flipped")
+        loaded = pio.load_project(path)  # must raise no ProjectIOError
+
+        assert loaded.width == 64 and loaded.height == 48
+        for frame_idx, frame in enumerate(loaded.frames):
+            for layer_idx, layer in enumerate(frame.layers):
+                assert layer.buffer.width == 64 and layer.buffer.height == 48
+                expected = flip_horizontal(expected_by_layer[frame_idx][layer_idx])
+                assert layer.buffer == expected

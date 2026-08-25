@@ -16,7 +16,7 @@ import numpy as np
 
 from pixelart_creator.logic import history
 from pixelart_creator.logic.color import TRANSPARENT
-from pixelart_creator.logic.constants import SCALE_MAX_FACTOR, SCALE_MIN_FACTOR
+from pixelart_creator.logic.constants import MAX_CANVAS_HEIGHT, MAX_CANVAS_WIDTH
 from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer, PixelValue
 from pixelart_creator.logic.selection import SelectionMask
@@ -79,23 +79,21 @@ def scale_nearest(buffer: PixelBuffer, new_width: int, new_height: int) -> Pixel
     map back to a source pixel by floor.
 
     Raises:
-        TransformError: If a target dimension is a non-positive int, or the
-            implied scale factor falls outside ``SCALE_MIN_FACTOR`` /
-            ``SCALE_MAX_FACTOR``.
+        TransformError: If a target dimension is a non-positive int, or
+            exceeds ``MAX_CANVAS_WIDTH`` / ``MAX_CANVAS_HEIGHT``. The clamp
+            runs before any array is allocated, so an oversized request never
+            materialises a buffer (REQ-CSD-LOGIC-002).
     """
-    for name, value in (("new_width", new_width), ("new_height", new_height)):
+    for name, value, limit in (
+        ("new_width", new_width, MAX_CANVAS_WIDTH),
+        ("new_height", new_height, MAX_CANVAS_HEIGHT),
+    ):
         if not isinstance(value, int) or isinstance(value, bool):
             raise TransformError(f"{name} must be an int, got {value!r}")
         if value <= 0:
             raise TransformError(f"{name} must be positive, got {value}")
-    fx = new_width / buffer.width
-    fy = new_height / buffer.height
-    for axis, factor in (("x", fx), ("y", fy)):
-        if factor < SCALE_MIN_FACTOR or factor > SCALE_MAX_FACTOR:
-            raise TransformError(
-                f"scale factor {factor:g} on {axis} outside "
-                f"[{SCALE_MIN_FACTOR}, {SCALE_MAX_FACTOR}]"
-            )
+        if value > limit:
+            raise TransformError(f"{name} {value} exceeds maximum {limit}")
     src_xs = (np.arange(new_width) * buffer.width) // new_width
     src_ys = (np.arange(new_height) * buffer.height) // new_height
     sampled = buffer.data[src_ys.reshape(-1, 1), src_xs.reshape(1, -1)]

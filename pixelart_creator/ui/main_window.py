@@ -186,6 +186,7 @@ from pixelart_creator.ui.commands import (
 )
 from pixelart_creator.ui.comments_panel import Comments_Panel
 from pixelart_creator.ui.dependency_graph_view import Dependency_Graph_View
+from pixelart_creator.ui.document_transform_runner import run_document_transform
 from pixelart_creator.ui.export_actions import (
     Export_Registration_Request,
     run_export_dialog,
@@ -4360,14 +4361,60 @@ class Main_Window(QMainWindow):
                 )
             )
 
+    def _push_document_transform(
+        self, record: _DocTab, command: history.Command, text: str
+    ) -> None:
+        """Push an unapplied whole-document transform command (REQ-CSD-UI-001/002).
+
+        Mirrors ``_apply_buffer_command``'s dimension-changing branch: the
+        scene re-reads every layer's (already-swapped) buffer and the
+        document's (already-moved) geometry only after ``LogicCommand``
+        invokes ``command``'s own ``execute``/``undo`` (REQ-CSD-UI-005 — the
+        scene no longer writes the geometry itself).
+        """
+
+        def rebind() -> None:
+            record.scene.rebind_active()
+            record.view.clear_selection()
+
+        record.stack.push(
+            LogicCommand(
+                command,
+                rebind,
+                text,
+                record_trace=self._branching_session.record_traces,
+                document=record.document,
+            )
+        )
+
     def _apply_transform(
-        self, fn: Callable[[PixelBuffer], PixelBuffer], text: str
+        self,
+        fn: Callable[[PixelBuffer], PixelBuffer],
+        text: str,
+        *,
+        swap_dims: bool = False,
     ) -> None:
         record = self.active_tab()
         if record is None:
             return
-        layer: Layer = record.scene.active_layer()
         mask = record.view.active_selection()
+        if mask is None:
+            # REQ-CSD-UI-001/006/015: no active selection -> the operation is
+            # whole-document, every layer and mask across every frame, run
+            # through the shared runner (canvas-scale-defects). The masked
+            # path below is untouched (REQ-CSD-UI-003, REQ-CSD-UI-007).
+            document = record.document
+            new_w, new_h = (
+                (document.height, document.width)
+                if swap_dims
+                else (document.width, document.height)
+            )
+            command = run_document_transform(document, fn, new_w, new_h, text, self)
+            if command is None:
+                return  # declined or cancelled: nothing built, nothing pushed
+            self._push_document_transform(record, command, text)
+            return
+        layer: Layer = record.scene.active_layer()
         command = transform.make_transform_command(
             layer, fn, mask, target=self._edit_target(record)
         )
@@ -4381,10 +4428,14 @@ class Main_Window(QMainWindow):
         self._apply_transform(transform.flip_vertical, self.tr("Flip Vertical"))
 
     def _on_rotate_cw(self) -> None:
-        self._apply_transform(transform.rotate_90_cw, self.tr("Rotate 90° CW"))
+        self._apply_transform(
+            transform.rotate_90_cw, self.tr("Rotate 90° CW"), swap_dims=True
+        )
 
     def _on_rotate_ccw(self) -> None:
-        self._apply_transform(transform.rotate_90_ccw, self.tr("Rotate 90° CCW"))
+        self._apply_transform(
+            transform.rotate_90_ccw, self.tr("Rotate 90° CCW"), swap_dims=True
+        )
 
     def _on_scale(self) -> None:
         record = self.active_tab()
@@ -4394,12 +4445,27 @@ class Main_Window(QMainWindow):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         new_w, new_h = dialog.target_size()
-        layer: Layer = record.scene.active_layer()
         mask = record.view.active_selection()
 
         def fn(buffer: PixelBuffer) -> PixelBuffer:
             return scale_nearest(buffer, new_w, new_h)
 
+        if mask is None:
+            # REQ-CSD-UI-001/002: whole-document scale, every layer and mask.
+            document = record.document
+            try:
+                command = run_document_transform(
+                    document, fn, new_w, new_h, self.tr("Scale Canvas"), self
+                )
+            except TransformError as exc:
+                QMessageBox.warning(self, self.tr("Scale Canvas"), str(exc))
+                return
+            if command is None:
+                return
+            self._push_document_transform(record, command, self.tr("Scale Canvas"))
+            return
+
+        layer: Layer = record.scene.active_layer()
         try:
             command = transform.make_transform_command(
                 layer, fn, mask, target=self._edit_target(record)

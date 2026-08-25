@@ -125,3 +125,56 @@ def test_scale_dialog_factor_size_sync(qtbot):
     dialog._width.setValue(8)  # size -> factor
     assert abs(dialog._factor.value() - 0.5) < 1e-6
     assert dialog.accessibleName() != ""
+
+
+# =========================================================================== #
+# REQ-CSD-UI-004 (canvas-scale-defects `tasks.md` T16, DEFECT):               #
+# the Scale dialog's factor and target fields never contradict each other     #
+# =========================================================================== #
+
+
+def test_sc_csd_u004_1_the_8k_ceiling_factor_agrees_with_the_target(qtbot):
+    """SC-CSD-U004-1 (DEFECT): seeded at 64x64, typing 7680 into the width
+    field yields a factor of EXACTLY 120.0 (not clamped), and `target_size()`
+    returns width 7680 -- the two never disagree.
+
+    Pre-change: `SCALE_MAX_FACTOR = 64.0` capped the factor spin box, so the
+    displayed factor silently clamped to 64.00 while `target_size()` still
+    (correctly) returned the width field's 7680 -- a dialog that visibly
+    disagreed with what it was about to submit. Asserted on `spin.value()`,
+    not rendered text (`plan.md` §5.5, `analysis.md` F-2: the factor now
+    carries 4 decimals, so "reads 120.00" describes the NUMBER 120, not a
+    2-decimal string).
+    """
+    dialog = Scale_Dialog(64, 64)
+    qtbot.addWidget(dialog)
+    dialog._width.setValue(7680)
+    assert abs(dialog._factor.value() - 120.0) < 1e-6
+    assert dialog.target_size()[0] == 7680
+
+
+def test_sc_csd_u004_2_a_factor_reaching_the_ceiling_is_selectable(qtbot):
+    """SC-CSD-U004-2 (DEFECT): seeded at 64x64, setting the factor to 67.50
+    yields target fields of EXACTLY 4320 x 4320 (the real 8K-height ceiling
+    from this source), not the old factor-capped 4096 x 4096.
+
+    Pre-change: the factor spin box's maximum was `SCALE_MAX_FACTOR = 64.0`,
+    so Qt clamped 67.50 down to 64.00 and the target fields read 4096 x 4096
+    instead of 4320 x 4320.
+    """
+    dialog = Scale_Dialog(64, 64)
+    qtbot.addWidget(dialog)
+    dialog._factor.setValue(67.5)
+    assert dialog._width.value() == 4320
+    assert dialog._height.value() == 4320
+
+
+def test_sc_csd_u004_range_covers_the_full_ceiling_for_the_default_document(qtbot):
+    """The factor range itself reaches the platform ceiling from the default
+    64x64 document (`MAX_CANVAS_WIDTH / 64 == 120.0`) -- the range is not
+    merely reachable by an off-range setValue clamp trick."""
+    from pixelart_creator.logic.constants import MAX_CANVAS_WIDTH
+
+    dialog = Scale_Dialog(64, 64)
+    qtbot.addWidget(dialog)
+    assert dialog._factor.maximum() >= MAX_CANVAS_WIDTH / 64
