@@ -103,6 +103,11 @@ from pixelart_creator.ui.frame_cache import FrameCompositeCache
 _DEFAULT_CHECKER_LIGHT = QColor(200, 200, 200)
 _DEFAULT_CHECKER_DARK = QColor(160, 160, 160)
 _DEFAULT_GRID = QColor(120, 120, 120, 160)
+#: Default surface roles (REQ-CGS-UI-005/-006), covering the pre-theme state a
+#: directly-constructed scene is in (several tests build a scene with no theme
+#: applied). Overridden by the active theme via :meth:`CanvasScene.set_surface_roles`.
+_DEFAULT_WORKSPACE = QColor(200, 200, 200)
+_DEFAULT_BORDER = QColor(120, 120, 120)
 
 #: Longest-edge cap (px) of the cached downscaled tiled-preview pixmap. The dimmed
 #: neighbour tiles are context only, so they render from one small cached pixmap
@@ -861,6 +866,11 @@ class CanvasScene(QGraphicsScene):
         self._checker_light = QColor(_DEFAULT_CHECKER_LIGHT)
         self._checker_dark = QColor(_DEFAULT_CHECKER_DARK)
         self._grid_color = QColor(_DEFAULT_GRID)
+        #: Surface roles (REQ-CGS-UI-005/-006): where the document workspace ends
+        #: and its border begins. Stored only — nothing paints them yet (that is a
+        #: later task); defaults cover a directly-constructed, pre-theme scene.
+        self._workspace_color = QColor(_DEFAULT_WORKSPACE)
+        self._border_color = QColor(_DEFAULT_BORDER)
         self._item = _BufferPixmapItem(
             self._display_source(), document.palette.colors()
         )
@@ -2290,6 +2300,19 @@ class CanvasScene(QGraphicsScene):
         self._float_item.set_roles(self._checker_light, self._checker_dark)
         self._origin_item.set_roles(self._checker_light, self._checker_dark)
         self.invalidate(self.sceneRect(), QGraphicsScene.SceneLayer.BackgroundLayer)
+
+    def set_surface_roles(self, workspace: QColor, border: QColor) -> None:
+        """Set the document-surface role colours (REQ-CGS-UI-005/-006).
+
+        A sibling of :meth:`set_background_roles` — added rather than folded into
+        it so the shipped 3-colour positional-splat call sites
+        (``set_background_roles(*canvas_roles(theme))``) keep their signature
+        byte-unchanged. Stores the two roles only; nothing paints them yet — that
+        is a later task (drawBackground still paints the checker across the whole
+        exposed viewport, unchanged by this method).
+        """
+        self._workspace_color = QColor(workspace)
+        self._border_color = QColor(border)
 
     # -- background -------------------------------------------------------
 

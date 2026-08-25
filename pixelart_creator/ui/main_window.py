@@ -234,6 +234,7 @@ from pixelart_creator.ui.theme import (
     apply_font_fallbacks,
     apply_theme,
     canvas_roles,
+    canvas_surface_roles,
 )
 from pixelart_creator.ui.tiled_mode import set_tiled_mode
 from pixelart_creator.ui.tilemap_canvas import Tilemap_Canvas, TilemapTool
@@ -4467,6 +4468,8 @@ class Main_Window(QMainWindow):
     def _apply_theme_to_scene(self, scene: CanvasScene) -> None:
         checker_light, checker_dark, grid = canvas_roles(self._theme)
         scene.set_background_roles(checker_light, checker_dark, grid)
+        workspace, border = canvas_surface_roles(self._theme)
+        scene.set_surface_roles(workspace, border)
 
     # -- Phase-6 tilemap wiring (REQ-P6-UI-001..013) ---------------------
 
