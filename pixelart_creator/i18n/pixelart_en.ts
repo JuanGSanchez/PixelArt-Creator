@@ -1638,7 +1638,7 @@
     </message>
     <message>
         <location filename="../pixelart_creator/ui/colour_wheel_widget.py" line="592"/>
-        <source>Square</source>
+        <source>Tetradic</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4853,23 +4853,23 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Ruler_Strip</name>
     <message>
-        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="340"/>
+        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="345"/>
         <source>Horizontal ruler</source>
         <extracomment>z-order in the aid band, just below the grid overlays so guides read under grids. Ruler strip thickness in device-independent px (presentation sizing). Default overlay/ruler colours (overridden by the theme&apos;s role colours, 025). Emitted ``(orientation, doc_position)`` when a guide is dragged out.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="342"/>
+        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="347"/>
         <source>Drag down to create a horizontal guide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="345"/>
+        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="350"/>
         <source>Vertical ruler</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="347"/>
+        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="352"/>
         <source>Drag right to create a vertical guide</source>
         <translation type="unfinished"></translation>
     </message>

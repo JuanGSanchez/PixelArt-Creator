@@ -1528,7 +1528,7 @@
     <message>
         <location filename="../pixelart_creator/ui/colour_hub_menu.py" line="390"/>
         <source>This tool does not paint the active colour, so the colour wheel is hidden here.</source>
-        <translation type="unfinished"></translation>
+        <translation>Esta herramienta no pinta el color activo, así que la rueda de color se oculta aquí.</translation>
     </message>
 </context>
 <context>
@@ -1638,8 +1638,12 @@
     </message>
     <message>
         <location filename="../pixelart_creator/ui/colour_wheel_widget.py" line="592"/>
+        <source>Tetradic</source>
+        <translation>Tetrádicos</translation>
+    </message>
+    <message>
         <source>Square</source>
-        <translation>Cuadrados</translation>
+        <translation type="vanished">Cuadrados</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/colour_wheel_widget.py" line="593"/>
@@ -2284,57 +2288,57 @@
         <location filename="../pixelart_creator/ui/iso_grid_dialog.py" line="115"/>
         <source>Configure Isometric Grid</source>
         <extracomment>Sane bounds for the ``W:H`` tile ratio field (2:1 dimetric default is 2.0; true-iso is ~1.732). Not a lattice geometry decision — just a widget bound keeping the field away from non-finite/degenerate input before it ever reaches ``IsoGridConfig`` validation (S12).</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Configurar cuadrícula isométrica</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/iso_grid_dialog.py" line="116"/>
         <source>Tile width</source>
-        <translation type="unfinished">Ancho de tile</translation>
+        <translation>Ancho de tile</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/iso_grid_dialog.py" line="117"/>
         <source>Tile ratio (W:H)</source>
-        <translation type="unfinished"></translation>
+        <translation>Proporción de tile (ancho:alto)</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/iso_grid_dialog.py" line="118"/>
         <source>Origin X</source>
-        <translation type="unfinished"></translation>
+        <translation>Origen X</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/iso_grid_dialog.py" line="119"/>
         <source>Origin Y</source>
-        <translation type="unfinished"></translation>
+        <translation>Origen Y</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/iso_grid_dialog.py" line="120"/>
         <source>Isometric tile width</source>
-        <translation type="unfinished"></translation>
+        <translation>Ancho de tile isométrico</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/iso_grid_dialog.py" line="121"/>
         <source>Isometric tile ratio</source>
-        <translation type="unfinished"></translation>
+        <translation>Proporción de tile isométrico</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/iso_grid_dialog.py" line="122"/>
         <source>Isometric grid origin X</source>
-        <translation type="unfinished"></translation>
+        <translation>Origen X de la cuadrícula isométrica</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/iso_grid_dialog.py" line="123"/>
         <source>Isometric grid origin Y</source>
-        <translation type="unfinished"></translation>
+        <translation>Origen Y de la cuadrícula isométrica</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/iso_grid_dialog.py" line="126"/>
         <source>OK</source>
-        <translation type="unfinished">Aceptar</translation>
+        <translation>Aceptar</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/iso_grid_dialog.py" line="129"/>
         <source>Cancel</source>
-        <translation type="unfinished">Cancelar</translation>
+        <translation>Cancelar</translation>
     </message>
 </context>
 <context>
@@ -2856,27 +2860,27 @@
     <message>
         <location filename="../pixelart_creator/ui/main_window.py" line="2879"/>
         <source>Click was outside the document.</source>
-        <translation type="unfinished"></translation>
+        <translation>El clic quedó fuera del documento.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/main_window.py" line="2892"/>
         <source>This layer cannot be edited directly.</source>
-        <translation type="unfinished"></translation>
+        <translation>Esta capa no se puede editar directamente.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/main_window.py" line="2905"/>
         <source>No change: the colour already matched.</source>
-        <translation type="unfinished"></translation>
+        <translation>Sin cambios: el color ya coincidía.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/main_window.py" line="2918"/>
         <source>No tileset bound to this tilemap yet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Aún no hay ningún tileset vinculado a este mapa de tiles.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/main_window.py" line="2930"/>
         <source>Select a tile first.</source>
-        <translation type="unfinished"></translation>
+        <translation>Selecciona un tile primero.</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/main_window.py" line="3437"/>
@@ -3292,7 +3296,7 @@
     <message>
         <location filename="../pixelart_creator/ui/main_window.py" line="4927"/>
         <source>Reopened Recording</source>
-        <translation type="unfinished">Grabación reabierta</translation>
+        <translation>Grabación reabierta</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/main_window.py" line="4928"/>
@@ -3538,7 +3542,7 @@
     <message>
         <location filename="../pixelart_creator/ui/main_window.py" line="5024"/>
         <source>Configure &amp;Isometric Grid…</source>
-        <translation type="unfinished"></translation>
+        <translation>Configurar &amp;cuadrícula isométrica…</translation>
     </message>
     <message>
         <location filename="../pixelart_creator/ui/main_window.py" line="5026"/>
@@ -4875,23 +4879,23 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
 <context>
     <name>Ruler_Strip</name>
     <message>
-        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="340"/>
+        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="345"/>
         <source>Horizontal ruler</source>
         <extracomment>z-order in the aid band, just below the grid overlays so guides read under grids. Ruler strip thickness in device-independent px (presentation sizing). Default overlay/ruler colours (overridden by the theme&apos;s role colours, 025). Emitted ``(orientation, doc_position)`` when a guide is dragged out.</extracomment>
         <translation>Regla horizontal</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="342"/>
+        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="347"/>
         <source>Drag down to create a horizontal guide</source>
         <translation>Arrastra hacia abajo para crear una guía horizontal</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="345"/>
+        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="350"/>
         <source>Vertical ruler</source>
         <translation>Regla vertical</translation>
     </message>
     <message>
-        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="347"/>
+        <location filename="../pixelart_creator/ui/guides_rulers_overlay.py" line="352"/>
         <source>Drag right to create a vertical guide</source>
         <translation>Arrastra hacia la derecha para crear una guía vertical</translation>
     </message>
