@@ -67,6 +67,27 @@ Coord = Tuple[int, int]
 _OFFSCREEN_PLATFORM = "offscreen"
 
 
+def _viewport_update_mode_for(
+    widget: QWidget,
+) -> QGraphicsView.ViewportUpdateMode:
+    """Return the update mode Qt documents as correct for ``widget`` (REQ-CGS-UI-002).
+
+    Qt 6 states verbatim that ``FullViewportUpdate`` "is the preferred update
+    mode for viewports that do not support partial updates, such as
+    QOpenGLWidget", and that ``MinimalViewportUpdate`` "is QGraphicsView's
+    default mode" — Qt does not switch it for you when a GL viewport is
+    installed. Checked via ``inherits`` (a ``QObject`` string test) rather
+    than an ``isinstance`` against ``PySide6.QtOpenGLWidgets.QOpenGLWidget``,
+    so this module-level helper stays import-free: the GL module is only ever
+    imported inside :meth:`Canvas_View._install_viewport` and
+    :meth:`Canvas_View.setViewport`, never at module scope (a headless run
+    with no system GL library must not fail merely importing ``ui/``).
+    """
+    if widget.inherits("QOpenGLWidget"):
+        return QGraphicsView.ViewportUpdateMode.FullViewportUpdate
+    return QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate
+
+
 class _RecordingUndoStack:
     """Auto-attaches the view's active branch-recording sink to every push.
 
@@ -244,6 +265,38 @@ class Canvas_View(QGraphicsView):
             self.setViewport(QOpenGLWidget())
         except Exception:  # noqa: BLE001 - any GL failure ⇒ raster fallback.
             pass
+
+    def setViewport(self, widget: QWidget, /) -> None:  # noqa: N802 (Qt override)
+        """Match the update mode to whichever viewport is actually installed.
+
+        ``QAbstractScrollArea::setViewport`` is non-virtual, so Qt's C++
+        constructor installs the DEFAULT viewport directly and never routes
+        through this Python override — the ``MinimalViewportUpdate`` set at
+        construction (:216-218, above) is the base case for THAT viewport and
+        is left untouched here. This override only fires for a viewport
+        installed through an explicit ``setViewport(...)`` call: this view's
+        own ``_install_viewport`` GL branch, and any other caller (including
+        this fix's regression test) that calls it directly.
+
+        Qt 6 documents ``FullViewportUpdate`` as required for a viewport that
+        "does not support partial updates, such as QOpenGLWidget" — see
+        :func:`_viewport_update_mode_for` (REQ-CGS-UI-002); every other
+        viewport keeps ``MinimalViewportUpdate``, matching every drawing
+        tool's partial ``refresh_rect`` commit path (REQ-CGS-UI-001).
+        """
+        super().setViewport(widget)
+        self.setViewportUpdateMode(_viewport_update_mode_for(widget))
+        try:
+            from PySide6.QtOpenGLWidgets import QOpenGLWidget
+        except Exception:  # noqa: BLE001 - no system GL module ⇒ nothing to do.
+            return
+        if isinstance(widget, QOpenGLWidget):
+            # Defensive only — NOT Qt-documented like the mode switch above.
+            # Forum-level evidence only (the research pass could not read the
+            # relevant Qt bug-ticket bodies): applied alongside the documented
+            # FullViewportUpdate mode in case some path still attempts a
+            # partial repaint directly on the GL widget itself.
+            widget.setUpdateBehavior(QOpenGLWidget.UpdateBehavior.NoPartialUpdate)
 
     # -- external wiring --------------------------------------------------
 
