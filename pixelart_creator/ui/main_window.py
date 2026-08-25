@@ -268,6 +268,15 @@ from pixelart_creator.ui.tools.dither_tool import (
     MODE_FLOYD_STEINBERG,
     MODE_ORDERED,
 )
+
+# Also a side-effect import: registers CONFIRM_FLOATING_OVERWRITE into
+# project_prefs.REGISTRY at module scope, before the confirmations submenu is
+# built below (REQ-P2-DATA-030, same pattern as ASSET_LIBRARY_EDIT above).
+# Referenced by name only for that registration side effect (unlike
+# ASSET_LIBRARY_EDIT, nothing else in this module reads the key by name).
+from pixelart_creator.ui.tools.floating_move import (  # noqa: F401
+    CONFIRM_FLOATING_OVERWRITE,
+)
 from pixelart_creator.ui.transform_dialog import Scale_Dialog
 from pixelart_creator.ui.user_guide import User_Guide_Dialog
 from pixelart_creator.ui.vanishing_point_dialog import Vanishing_Point_Dialog

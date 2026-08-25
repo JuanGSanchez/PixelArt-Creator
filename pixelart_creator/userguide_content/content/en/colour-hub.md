@@ -41,11 +41,16 @@ without guessing:
 | **Complementary** | The opposite hue (+180°) — maximum contrast. |
 | **Analogous** | The neighbours (±30°) — calm, cohesive schemes. |
 | **Triadic** | Two hues 120° away (±120°) — balanced and vibrant. |
+| **Tetradic** | Three hues at evenly spaced 90° intervals — four-colour, high contrast. |
 | **Split-complementary** | The two hues either side of the complement (±150°). |
 | **Shade / tint ramps** | Darker (shade) and lighter (tint) steps of your colour. |
 
-Click any harmony swatch to make it the active colour, or add it to Favourites. The
-harmonies recompute live as you move around the wheel.
+**Double-click a harmony swatch to apply it** — that makes it your active colour. A
+single click only **selects** the swatch (and moves keyboard focus to it); it does not
+change your active colour. This is a deliberate change from a single-click apply, so
+if a click alone no longer picks up the colour, double-click it instead. Keyboard
+activation is unchanged: focus a swatch with Tab and press **Space** or **Enter** to
+apply it. The harmonies recompute live as you move around the wheel.
 
 ## Applying and saving
 
