@@ -119,6 +119,14 @@ HARMONY_SPLIT_COMPLEMENTARY_DEG: int = 150
 """Hue offset (±) for the split-complementary harmony, degrees
 (research F9 Topic 1.1; spec REQ-P3-LOGIC-002; SC-L002-4)."""
 
+HARMONY_SQUARE_DEG: int = 90
+"""Hue rotation for the Square (quadric) harmony, degrees (research F9 Topic
+1.1; spec REQ-CGS-LOGIC-001). DISTINCT from :data:`HARMONY_COMPLEMENTARY_DEG`
+(=180) even though 2 x 90 = 180: the Square scheme rotates hue by this amount
+four times (0, 90, 180, 270) and its +180 member is a property of the scheme,
+not a substitute for the standalone complementary harmony — the spec forbids
+trimming it out."""
+
 RAMP_STEP_COUNT: int = 5
 """Number of steps in a shade/tint/tone ramp (Aseprite ramp norm; odd count
 keeps the base centred) (plan §8; spec REQ-P3-LOGIC-003; SC-L003-1)."""
@@ -1163,3 +1171,49 @@ UI_NOTICE_DURATION_MS: int = 6000
 Formerly an inline literal in the UI layer; centralised here so a change is made
 in exactly one place. Pure numeric tuning only — the UI widget that shows/hides
 the notice remains ui/'s concern (S11)."""
+
+# --- canvas-grid-semantics fix (T5; Article II single-source) -------------------
+# The canvas checkerboard was drawn at TILE_SIZE document px per square. TILE_SIZE
+# is 64 and its declared meaning is the viewport-culling render edge — a
+# performance quantity that had been conflated with a transparency-checker
+# quantity. Consequence in the field: a default 64x64 document (DEFAULT_CANVAS_
+# WIDTH/HEIGHT) is EXACTLY ONE checker square, so a user drew inside what they
+# reasonably took to be a cell and coloured 1/4096th of it. The four names below
+# declare the checker's own scalars, plus the harmony scalar above, so this
+# conflation cannot recur. TILE_SIZE, TILE_BUFFER and every other canonical value
+# are UNCHANGED; every TILE_SIZE call site is untouched. This module stays a leaf
+# (no intra-package imports).
+
+CHECKER_CELL_PX: int = 1
+"""Transparency-checker square edge, in **document** px, so it scales with zoom
+(the Aseprite semantic: its checker is sized in sprite pixels with a zoom-aware
+toggle, default 16 sprite px there; this project ships 1 by user ruling, so one
+checker square is one document pixel — REQ-CGS-UI-003/REQ-CGS-LOGIC-001).
+
+DISTINCT from :data:`TILE_SIZE` (=64, the viewport-cull *render* edge — the very
+conflation that caused the field defect: a default 64x64 document was exactly
+one checker square, so a user drew inside what they reasonably took to be a
+cell and coloured 1/4096th of it). Also DISTINCT from :data:`DEFAULT_TILE_WIDTH`
+/ :data:`DEFAULT_TILE_HEIGHT` (=16, the tileset *content* tile) and from
+:data:`CRDT_TILE_SIZE_PX` (=64, the collaboration *transport* tile) — none of
+those three is a transparency-checker quantity."""
+
+CHECKER_MIN_ON_SCREEN_EDGE_PX: float = 1.0
+"""LOD floor, in **device** px per cell, below which the checker pattern
+degrades to a flat blend rather than aliasing into moire (REQ-CGS-UI-006).
+
+BOUND, not only the value: this MUST NOT fire at the 1:1 zoom floor with
+:data:`CHECKER_CELL_PX` = 1, where one checker cell is exactly 1.0 device px —
+so the value here must be <= 1.0. Any value GREATER than 1.0 would blend the
+checker at 100% zoom and silently repeal the "one square is one pixel"
+requirement; this is not hypothetical, the orchestrator's first draft proposed
+3.0 and it was caught at the gate. ``float``, unlike its ``int`` precedents
+(:data:`CHECKER_CELL_PX`, :data:`CANVAS_BORDER_WIDTH_PX`), because it is
+compared against a zoom scale, not counted in whole px."""
+
+CANVAS_BORDER_WIDTH_PX: int = 1
+"""Cosmetic canvas-edge pen width, in **device** px (REQ-CGS-UI-010). The only
+screen-space scalar of the four canvas-grid-semantics constants; distinct from
+:data:`CHECKER_CELL_PX` and :data:`CHECKER_MIN_ON_SCREEN_EDGE_PX` by unit (a
+fixed-width pen stroke, not a document-space size or a zoom-compared LOD
+threshold) rather than by value."""
