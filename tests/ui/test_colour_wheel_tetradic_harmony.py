@@ -1,6 +1,6 @@
-"""The Square harmony row + the double-click promotion gesture (T28).
+"""The Tetradic harmony row + the double-click promotion gesture (T28).
 
-One test per acceptance criterion for the Square related-colour row and the
+One test per acceptance criterion for the Tetradic related-colour row and the
 narrowed promotion gesture on :class:`Colour_Wheel_Widget`:
 
 * SC-CGS-UI-011-1  a left **double**-click on a swatch promotes it.
@@ -8,7 +8,7 @@ narrowed promotion gesture on :class:`Colour_Wheel_Widget`:
   swatch takes keyboard focus.
 * SC-CGS-UI-011-3  **keyboard activation still promotes**, and the swatch is
   still announced with its harmony group name.
-* SC-CGS-LOGIC-001-2  the Square row sits directly after Triadic and
+* SC-CGS-LOGIC-001-2  the Tetradic row sits directly after Triadic and
   directly before Split-complementary, with every other row unchanged.
 * SC-CGS-LOGIC-001-3  the row's label is a ``tr()``-wrapped string announced
   as a harmony group, in the same form as every other harmony row.
@@ -40,13 +40,13 @@ from pixelart_creator.ui.colour_wheel_widget import Colour_Wheel_Widget
 _BASE = QColor(200, 120, 60)  # a saturated, non-black seed (value > 0)
 
 #: The harmony/ramp row labels in their required, shipped order
-#: (SC-CGS-LOGIC-001-2: Square directly after Triadic, directly before
+#: (SC-CGS-LOGIC-001-2: Tetradic directly after Triadic, directly before
 #: Split-complementary; every other row's position unchanged).
 _EXPECTED_ROW_ORDER = [
     "Complementary",
     "Analogous",
     "Triadic",
-    "Square",
+    "Tetradic",
     "Split-complementary",
     "Shades",
     "Tints",
@@ -114,7 +114,7 @@ def _swatch_rows(widget: Colour_Wheel_Widget) -> list[tuple[str, int]]:
 
 def test_sc_cgs_ui_011_1_double_click_promotes(wheel, qtbot):
     """SC-CGS-UI-011-1: a left double-click on a swatch promotes its colour."""
-    swatch = wheel._square[0]
+    swatch = wheel._tetradic[0]
     target = swatch.color()
     assert wheel.current_rgba() != target  # the pick will actually change
     with qtbot.waitSignal(wheel.colorPicked, timeout=1000):  # observer first
@@ -127,7 +127,7 @@ def test_sc_cgs_ui_011_1_double_click_promotes(wheel, qtbot):
 
 def test_sc_cgs_ui_011_2_single_click_does_not_promote_but_focuses(wheel, qtbot):
     """SC-CGS-UI-011-2: a single left click does not promote and focuses."""
-    swatch = wheel._square[0]
+    swatch = wheel._tetradic[0]
     before = wheel.current_rgba()
     with qtbot.assertNotEmitted(wheel.colorPicked):  # observer first
         qtbot.mouseClick(swatch, Qt.MouseButton.LeftButton)  # then the action
@@ -140,7 +140,7 @@ def test_sc_cgs_ui_011_2_single_click_does_not_promote_but_focuses(wheel, qtbot)
 
 def test_sc_cgs_ui_011_3_keyboard_activation_still_promotes_and_announces(wheel, qtbot):
     """SC-CGS-UI-011-3: Space/Enter still promotes; the swatch stays named."""
-    swatch = wheel._square[0]
+    swatch = wheel._tetradic[0]
     swatch.setFocus()
     target = swatch.color()
     assert wheel.current_rgba() != target
@@ -148,20 +148,20 @@ def test_sc_cgs_ui_011_3_keyboard_activation_still_promotes_and_announces(wheel,
         qtbot.keyClick(swatch, Qt.Key.Key_Space)  # then the keyboard action
     assert wheel.current_rgba() == target
     # Still announced with its harmony group name (A11Y-COLHUB-3 form).
-    expected_name = f"Square {to_hex(swatch.color(), with_alpha=False)}"
+    expected_name = f"Tetradic {to_hex(swatch.color(), with_alpha=False)}"
     assert swatch.accessibleName() == expected_name
 
 
 # -- SC-CGS-LOGIC-001-2 (row order: directly after Triadic, before Split) ------
 
 
-def test_sc_cgs_logic_001_2_square_row_between_triadic_and_split(wheel):
-    """SC-CGS-LOGIC-001-2: Square sits directly after Triadic, before Split."""
+def test_sc_cgs_logic_001_2_tetradic_row_between_triadic_and_split(wheel):
+    """SC-CGS-LOGIC-001-2: Tetradic sits directly after Triadic, before Split."""
     rows = _swatch_rows(wheel)
     labels = [label for label, _count in rows]
     assert labels == _EXPECTED_ROW_ORDER  # every other row's position unchanged
     counts = dict(rows)
-    assert counts["Square"] == 3  # the scheme returns three colours
+    assert counts["Tetradic"] == 3  # the scheme returns three colours
     # Every other row's swatch count is untouched by the insertion.
     assert counts["Complementary"] == 1
     assert counts["Analogous"] == 2
@@ -172,17 +172,17 @@ def test_sc_cgs_logic_001_2_square_row_between_triadic_and_split(wheel):
 # -- SC-CGS-LOGIC-001-3 (tr()-wrapped label, announced as a harmony group) -----
 
 
-def test_sc_cgs_logic_001_3_square_label_is_translatable_and_announced(wheel):
+def test_sc_cgs_logic_001_3_tetradic_label_is_translatable_and_announced(wheel):
     """SC-CGS-LOGIC-001-3: the label is tr()-wrapped and named a harmony group."""
-    assert wheel._lbl_square.text() == "Square"
+    assert wheel._lbl_tetradic.text() == "Tetradic"
     # Same announcement FORM as every other harmony row ("<name> harmony").
-    assert wheel._lbl_square.accessibleName() == "Square harmony"
+    assert wheel._lbl_tetradic.accessibleName() == "Tetradic harmony"
     assert wheel._lbl_triadic.accessibleName() == "Triadic harmony"
-    for swatch in wheel._square:
-        expected = f"Square {to_hex(swatch.color(), with_alpha=False)}"
+    for swatch in wheel._tetradic:
+        expected = f"Tetradic {to_hex(swatch.color(), with_alpha=False)}"
         assert swatch.accessibleName() == expected
     # tr()-wrapped: the label participates in the same LanguageChange
     # retranslation pipeline as every other row (F5), not a hard-coded string.
     wheel.changeEvent(QEvent(QEvent.Type.LanguageChange))
-    assert wheel._lbl_square.text() == "Square"
-    assert wheel._lbl_square.accessibleName() == "Square harmony"
+    assert wheel._lbl_tetradic.text() == "Tetradic"
+    assert wheel._lbl_tetradic.accessibleName() == "Tetradic harmony"

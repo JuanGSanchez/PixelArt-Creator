@@ -30,7 +30,7 @@ from pixelart_creator.logic.color_theory import (
     rgba_to_hsv,
     shade_ramp,
     split_complementary,
-    square,
+    tetradic,
     tint_ramp,
     tone_ramp,
     triadic,
@@ -194,7 +194,7 @@ def test_harmony_dispatch_and_determinism():
 
 def test_harmony_unknown_scheme_raises():
     with pytest.raises(ColorTheoryError):
-        harmony(RED, "tetradic")
+        harmony(RED, "hexadic")
 
 
 def test_complementary_preserves_alpha():
@@ -211,103 +211,103 @@ def test_complementary_hue_wrap_property(h, a):
     assert diff < 2.0
 
 
-# -- SC-CGS-LOGIC-001-1: square scheme ----------------------------------------
+# -- SC-CGS-LOGIC-001-1: tetradic scheme --------------------------------------
 
 
-def test_square_angles():
+def test_tetradic_angles():
     # SC-CGS-LOGIC-001-1 (1): the three hues are the base rotated by exactly
-    # 1x/2x/3x HARMONY_SQUARE_DEG (90/180/270), modulo 360.
+    # 1x/2x/3x HARMONY_TETRADIC_DEG (90/180/270), modulo 360.
     base = (200, 120, 40, 255)
     bh = _hue(base)
-    a, b, c = square(base)
+    a, b, c = tetradic(base)
     assert _hue(a) == pytest.approx(
-        (bh + constants.HARMONY_SQUARE_DEG) % 360.0, abs=1.0
+        (bh + constants.HARMONY_TETRADIC_DEG) % 360.0, abs=1.0
     )
     assert _hue(b) == pytest.approx(
-        (bh + 2 * constants.HARMONY_SQUARE_DEG) % 360.0, abs=1.0
+        (bh + 2 * constants.HARMONY_TETRADIC_DEG) % 360.0, abs=1.0
     )
     assert _hue(c) == pytest.approx(
-        (bh + 3 * constants.HARMONY_SQUARE_DEG) % 360.0, abs=1.0
+        (bh + 3 * constants.HARMONY_TETRADIC_DEG) % 360.0, abs=1.0
     )
 
 
-def test_square_wraps_mod_360():
+def test_tetradic_wraps_mod_360():
     # A base near the wrap boundary still lands within [0, 360).
     base = hsv_to_rgba(300.0, 1.0, 1.0)
     bh = _hue(base)
-    a, b, c = square(base)
+    a, b, c = tetradic(base)
     assert _hue(a) == pytest.approx(
-        (bh + constants.HARMONY_SQUARE_DEG) % 360.0, abs=1.0
+        (bh + constants.HARMONY_TETRADIC_DEG) % 360.0, abs=1.0
     )
     assert _hue(b) == pytest.approx(
-        (bh + 2 * constants.HARMONY_SQUARE_DEG) % 360.0, abs=1.0
+        (bh + 2 * constants.HARMONY_TETRADIC_DEG) % 360.0, abs=1.0
     )
     assert _hue(c) == pytest.approx(
-        (bh + 3 * constants.HARMONY_SQUARE_DEG) % 360.0, abs=1.0
+        (bh + 3 * constants.HARMONY_TETRADIC_DEG) % 360.0, abs=1.0
     )
 
 
-def test_square_preserves_saturation_value_alpha():
+def test_tetradic_preserves_saturation_value_alpha():
     # SC-CGS-LOGIC-001-1 (2): S/V/alpha preserved on every member.
     base = (200, 120, 40, 173)
     _, bs, bv, _ = rgba_to_hsv(base)
-    for member in square(base):
+    for member in tetradic(base):
         ms, mv, ma = rgba_to_hsv(member)[1], rgba_to_hsv(member)[2], member[3]
         assert ms == pytest.approx(bs, abs=0.01)
         assert mv == pytest.approx(bv, abs=0.01)
         assert ma == 173
 
 
-def test_square_excludes_base_colour():
+def test_tetradic_excludes_base_colour():
     # SC-CGS-LOGIC-001-1 (3): the base colour is not repeated.
     base = (200, 120, 40, 255)
-    assert base not in square(base)
+    assert base not in tetradic(base)
 
 
-def test_square_deterministic():
+def test_tetradic_deterministic():
     # SC-CGS-LOGIC-001-1 (4): repeated calls agree.
     base = (200, 120, 40, 255)
-    assert square(base) == square(base)
+    assert tetradic(base) == tetradic(base)
 
 
-def test_harmony_square_dispatch_matches_direct_call():
-    # SC-CGS-LOGIC-001-1 (5): harmony(c, "square") returns the same list.
+def test_harmony_tetradic_dispatch_matches_direct_call():
+    # SC-CGS-LOGIC-001-1 (5): harmony(c, "tetradic") returns the same list.
     base = (123, 200, 50, 255)
-    assert harmony(base, "square") == list(square(base))
+    assert harmony(base, "tetradic") == list(tetradic(base))
 
 
 def test_harmony_unknown_scheme_names_five_schemes():
-    # SC-CGS-LOGIC-001-1 (6): the error names all five schemes, "square"
+    # SC-CGS-LOGIC-001-1 (6): the error names all five schemes, "tetradic"
     # included, and still raises ColorTheoryError.
     with pytest.raises(ColorTheoryError) as excinfo:
-        harmony(RED, "tetradic")
+        harmony(RED, "hexadic")
     message = str(excinfo.value)
     for scheme_name in (
         "complementary",
         "analogous",
         "triadic",
         "split",
-        "square",
+        "tetradic",
     ):
         assert scheme_name in message
 
 
-def test_square_plus_180_member_equals_complementary():
-    # Deliberate pin: square()'s +180 member is exactly complementary()'s
+def test_tetradic_plus_180_member_equals_complementary():
+    # Deliberate pin: tetradic()'s +180 member is exactly complementary()'s
     # output. This overlap is intentional (the shipped schemes already
     # overlap this way, e.g. split-complementary straddles complementary's
-    # hue) and must NOT be "fixed" by trimming it from square()'s result.
+    # hue) and must NOT be "fixed" by trimming it from tetradic()'s result.
     base = (200, 120, 40, 255)
-    assert square(base)[1] == complementary(base)
+    assert tetradic(base)[1] == complementary(base)
 
 
 @given(h=st.floats(min_value=-1080.0, max_value=1080.0), a=alpha)
-def test_square_angles_property(h, a):
+def test_tetradic_angles_property(h, a):
     base = hsv_to_rgba(h % 360.0, 0.8, 0.8, a)
     bh = _hue(base)
-    members = square(base)
+    members = tetradic(base)
     for k, member in enumerate(members, start=1):
-        expected = (bh + k * constants.HARMONY_SQUARE_DEG) % 360.0
+        expected = (bh + k * constants.HARMONY_TETRADIC_DEG) % 360.0
         got = _hue(member)
         diff = min((got - expected) % 360.0, (expected - got) % 360.0)
         assert diff < 2.0

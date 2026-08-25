@@ -43,11 +43,24 @@ ZOOM_MAX: float = 64.0
 computed, not a literal (CL-1)."""
 
 ZOOM_MIN: float = 1.0
-"""ZOOM_MIN is the floor for a document small enough that zooming below 1:1
-is pointless. It is NOT an absolute floor. The view's lower clamp is
-`min(ZOOM_MIN, fit_zoom)` so that a very large document (up to the 8K
-canvas) can always be zoomed out far enough to show the whole grid, which a
-flat 1.0 floor would make unreachable. User ruling, 2026-08-24."""
+"""ZOOM_MIN is a flat, absolute lower clamp on zoom: 1:1 and no further out,
+full stop. Below 1:1 the canvas is minified by a painter with smoothing off
+(nearest-neighbour point sampling), and an isolated pixel that falls between
+sample points is not drawn at all -- it reappears only if the sampling grid
+happens to re-align, which read to users as 'my drawing was invisible until
+I moved something'. The accepted trade-off: a document larger than the
+viewport can no longer be zoomed out to show the whole grid at once: it is
+reached by panning instead. This was put to the user explicitly and
+accepted; it is not an oversight. Measured against a 1200x800 viewport, the
+floor only binds at roughly 1024 px and above -- a 64x64 or 256x256 document
+still fits well inside 1:1 and is unaffected.
+
+Supersedes the 2026-08-24 ruling, which held that ZOOM_MIN was NOT an
+absolute floor and that the view's lower clamp was `min(ZOOM_MIN,
+fit_zoom)` so a very large document could always be zoomed out far enough
+to show the whole grid. That reasoning was sound for grid visibility alone
+but did not account for point-sampling loss below 1:1; superseded by user
+ruling, 2026-08-25."""
 
 ZOOM_PRESET_STOPS: tuple[float, ...] = (1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0)
 """Discrete keyboard zoom preset stops, 100 %..6400 % (CL-2). The geometric
@@ -119,13 +132,13 @@ HARMONY_SPLIT_COMPLEMENTARY_DEG: int = 150
 """Hue offset (±) for the split-complementary harmony, degrees
 (research F9 Topic 1.1; spec REQ-P3-LOGIC-002; SC-L002-4)."""
 
-HARMONY_SQUARE_DEG: int = 90
-"""Hue rotation for the Square (quadric) harmony, degrees (research F9 Topic
-1.1; spec REQ-CGS-LOGIC-001). DISTINCT from :data:`HARMONY_COMPLEMENTARY_DEG`
-(=180) even though 2 x 90 = 180: the Square scheme rotates hue by this amount
-four times (0, 90, 180, 270) and its +180 member is a property of the scheme,
-not a substitute for the standalone complementary harmony — the spec forbids
-trimming it out."""
+HARMONY_TETRADIC_DEG: int = 90
+"""Hue rotation for the Tetradic (evenly spaced, square) harmony, degrees
+(research F9 Topic 1.1; spec REQ-CGS-LOGIC-001). DISTINCT from
+:data:`HARMONY_COMPLEMENTARY_DEG` (=180) even though 2 x 90 = 180: the
+Tetradic scheme rotates hue by this amount four times (0, 90, 180, 270) and
+its +180 member is a property of the scheme, not a substitute for the
+standalone complementary harmony — the spec forbids trimming it out."""
 
 RAMP_STEP_COUNT: int = 5
 """Number of steps in a shade/tint/tone ramp (Aseprite ramp norm; odd count

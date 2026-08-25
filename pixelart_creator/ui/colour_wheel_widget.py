@@ -55,7 +55,7 @@ from pixelart_creator.logic.color_theory import (
     complementary,
     shade_ramp,
     split_complementary,
-    square,
+    tetradic,
     tint_ramp,
     triadic,
 )
@@ -336,14 +336,14 @@ class Colour_Wheel_Widget(QWidget):
         self._lbl_comp = QLabel(self)
         self._lbl_analog = QLabel(self)
         self._lbl_triadic = QLabel(self)
-        self._lbl_square = QLabel(self)
+        self._lbl_tetradic = QLabel(self)
         self._lbl_split = QLabel(self)
         self._lbl_shades = QLabel(self)
         self._lbl_tints = QLabel(self)
         self._comp = self._make_swatches(1)
         self._analog = self._make_swatches(2)
         self._triadic = self._make_swatches(2)
-        self._square = self._make_swatches(3)
+        self._tetradic = self._make_swatches(3)
         self._split = self._make_swatches(2)
         self._shades = self._make_swatches(RAMP_STEP_COUNT)
         self._tints = self._make_swatches(RAMP_STEP_COUNT)
@@ -421,7 +421,7 @@ class Colour_Wheel_Widget(QWidget):
         layout.addLayout(self._swatch_row(self._lbl_comp, self._comp))
         layout.addLayout(self._swatch_row(self._lbl_analog, self._analog))
         layout.addLayout(self._swatch_row(self._lbl_triadic, self._triadic))
-        layout.addLayout(self._swatch_row(self._lbl_square, self._square))
+        layout.addLayout(self._swatch_row(self._lbl_tetradic, self._tetradic))
         layout.addLayout(self._swatch_row(self._lbl_split, self._split))
         layout.addLayout(self._swatch_row(self._lbl_shades, self._shades))
         layout.addLayout(self._swatch_row(self._lbl_tints, self._tints))
@@ -446,7 +446,7 @@ class Colour_Wheel_Widget(QWidget):
             self._comp,
             self._analog,
             self._triadic,
-            self._square,
+            self._tetradic,
             self._split,
             self._shades,
             self._tints,
@@ -521,7 +521,7 @@ class Colour_Wheel_Widget(QWidget):
             button.set_color(color)
         for button, color in zip(self._triadic, triadic(rgba)):
             button.set_color(color)
-        for button, color in zip(self._square, square(rgba)):
+        for button, color in zip(self._tetradic, tetradic(rgba)):
             button.set_color(color)
         for button, color in zip(self._split, split_complementary(rgba)):
             button.set_color(color)
@@ -589,14 +589,14 @@ class Colour_Wheel_Widget(QWidget):
         comp = self.tr("Complementary")
         analog = self.tr("Analogous")
         triadic_name = self.tr("Triadic")
-        square_name = self.tr("Square")
+        tetradic_name = self.tr("Tetradic")
         split = self.tr("Split-complementary")
         shades = self.tr("Shades")
         tints = self.tr("Tints")
         self._lbl_comp.setText(comp)
         self._lbl_analog.setText(analog)
         self._lbl_triadic.setText(triadic_name)
-        self._lbl_square.setText(square_name)
+        self._lbl_tetradic.setText(tetradic_name)
         self._lbl_split.setText(split)
         self._lbl_shades.setText(shades)
         self._lbl_tints.setText(tints)
@@ -608,7 +608,7 @@ class Colour_Wheel_Widget(QWidget):
             (self._lbl_comp, comp, self._comp),
             (self._lbl_analog, analog, self._analog),
             (self._lbl_triadic, triadic_name, self._triadic),
-            (self._lbl_square, square_name, self._square),
+            (self._lbl_tetradic, tetradic_name, self._tetradic),
             (self._lbl_split, split, self._split),
             (self._lbl_shades, shades, self._shades),
             (self._lbl_tints, tints, self._tints),
