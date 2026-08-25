@@ -37,9 +37,10 @@ from PySide6.QtGui import QUndoCommand
 from pixelart_creator.logic.asset_catalog import AssetDescriptor
 from pixelart_creator.logic.asset_tags import TagOp
 from pixelart_creator.logic.branch_recording import inverse_traces
-from pixelart_creator.logic.document import Document
+from pixelart_creator.logic.document import Document, Layer, iter_layers
 from pixelart_creator.logic.edit_trace import EditTrace
 from pixelart_creator.logic.history import Command, PixelEdit
+from pixelart_creator.logic.pixel_buffer import PixelBuffer
 
 #: Called with the dirty rect (scene/pixel coords) after every apply/revert so
 #: the view can repaint only the affected region (D5).
@@ -654,3 +655,107 @@ class RemoveTagCommand(_AssetTagCommand):
     pair; ``redo()`` removes the tag, ``undo()`` restores it. See
     :class:`_AssetTagCommand` for the sequencing contract.
     """
+
+
+class CanvasResizeCommand(QUndoCommand):
+    """One ``QUndoCommand`` for a whole-document canvas resize (F3, F1/FIX-05).
+
+    Wraps :meth:`~pixelart_creator.logic.document.Document.resize_canvas`,
+    which already resizes every layer/mask buffer in every frame (a
+    non-destructive crop/pad) and updates ``Document.width``/``height``.
+    ``resize_canvas`` **replaces** each ``Layer.buffer``/``Layer.mask`` with a
+    new :class:`~pixelart_creator.logic.pixel_buffer.PixelBuffer` rather than
+    returning an inverse, so a second ``resize_canvas`` call back to the old
+    dimensions would not be a true undo — a resize that crops content cannot
+    be reversed by growing back (the cropped pixels are gone). This bridge
+    therefore snapshots every frame's ``(layer, buffer, mask)`` triple via the
+    public :func:`~pixelart_creator.logic.document.iter_layers` walk **before**
+    the first ``redo()`` and restores those exact objects on ``undo()`` — a
+    byte-exact revert regardless of whether the resize grew or cropped the
+    canvas. No domain maths lives here (Article I / S11): the reversible logic
+    is entirely ``Document.resize_canvas`` plus this plain object
+    snapshot/restore, and every frame's flatten caches are dropped through the
+    public :meth:`~pixelart_creator.logic.document.Document.invalidate_caches`
+    exactly as ``resize_canvas`` itself does on the forward path.
+
+    Args:
+        document: The live document to resize.
+        new_width: Target canvas width, px (already validated against
+            ``MAX_CANVAS_WIDTH`` by the caller's dialog and by
+            ``PixelBuffer``'s own ceiling check).
+        new_height: Target canvas height, px.
+        rebind: Callback (no args) rebinding the scene + clearing any stale
+            selection after apply or revert (whole-buffer / dimension-changing
+            op, so callers pass a full scene rebind, mirroring
+            :class:`LogicCommand`'s ``dims_change`` branch).
+        text: Undo-menu label; the caller supplies a translatable label.
+        parent: Optional parent command (macro support).
+        offset_x: Where the old content lands on the new canvas, x (0 = the
+            existing content stays anchored at the top-left; default).
+        offset_y: Where the old content lands on the new canvas, y.
+    """
+
+    def __init__(
+        self,
+        document: Document,
+        new_width: int,
+        new_height: int,
+        rebind: RebindCallback,
+        text: str = "",
+        parent: Optional[QUndoCommand] = None,
+        *,
+        offset_x: int = 0,
+        offset_y: int = 0,
+    ) -> None:
+        """Snapshot ``document``, then apply the resize once (mirrors ``PaintCommand``).
+
+        ``resize_canvas`` runs here, at construction time, and any
+        :class:`~pixelart_creator.logic.pixel_buffer.PixelBufferError` it
+        raises (e.g. a ceiling breach) propagates to the **caller** before the
+        command ever reaches the undo stack — exactly the pattern
+        ``ui/main_window.py._on_scale`` already uses around
+        ``transform.make_transform_command``, so a bad size surfaces as one
+        caught exception, never a command left half-built on the stack.
+        """
+        super().__init__(text, parent)
+        self._document = document
+        self._new_width = new_width
+        self._new_height = new_height
+        self._offset_x = offset_x
+        self._offset_y = offset_y
+        self._rebind = rebind
+        self._old_width = document.width
+        self._old_height = document.height
+        self._snapshot: list[tuple[Layer, PixelBuffer, Optional[PixelBuffer]]] = []
+        for frame in document.frames:
+            for layer in iter_layers(frame.layers):
+                self._snapshot.append((layer, layer.buffer, layer.mask))
+        document.resize_canvas(
+            new_width, new_height, offset_x=offset_x, offset_y=offset_y
+        )
+        self._applied = True  # the constructor already applied it once.
+
+    def redo(self) -> None:
+        """Re-apply the resize (skipping the redundant first apply), then rebind."""
+        if self._applied:
+            self._applied = False
+        else:
+            self._document.resize_canvas(
+                self._new_width,
+                self._new_height,
+                offset_x=self._offset_x,
+                offset_y=self._offset_y,
+            )
+        self._rebind()
+
+    def undo(self) -> None:
+        """Restore every layer/mask's exact prior buffer, then rebind."""
+        for layer, buffer, mask in self._snapshot:
+            layer.buffer = buffer
+            layer.mask = mask
+        self._document.width = self._old_width
+        self._document.height = self._old_height
+        for frame_index in range(len(self._document.frames)):
+            self._document.invalidate_caches(frame_index=frame_index)
+        self._applied = False
+        self._rebind()

@@ -161,6 +161,7 @@ from pixelart_creator.ui.batch_recolour_panel import Batch_Recolour_Panel
 from pixelart_creator.ui.branch_diff_dialog import Branch_Diff_Dialog
 from pixelart_creator.ui.branching_panel import Branching_Panel, Branching_Session
 from pixelart_creator.ui.canvas_scene import CanvasScene
+from pixelart_creator.ui.canvas_size_dialog import Canvas_Size_Dialog
 from pixelart_creator.ui.canvas_view import Canvas_View
 from pixelart_creator.ui.cloud_actions import (
     Cloud_Session,
@@ -177,6 +178,7 @@ from pixelart_creator.ui.colour_hub_menu import Colour_Hub_Menu
 from pixelart_creator.ui.commands import (
     AssistantCommand,
     AutomationCommand,
+    CanvasResizeCommand,
     LogicCommand,
     PaintCommand,
     TilemapCommand,
@@ -200,6 +202,7 @@ from pixelart_creator.ui.layer_panel import Layer_Panel
 from pixelart_creator.ui.live_cursors_overlay import Live_Cursors_Overlay
 from pixelart_creator.ui.macro_controls import Macro_Controls
 from pixelart_creator.ui.multi_view import Multi_View
+from pixelart_creator.ui.new_document_dialog import New_Document_Dialog
 from pixelart_creator.ui.onion_skin_controls import Onion_Skin_Controls, OnionSettings
 from pixelart_creator.ui.palette_analytics_view import Palette_Analytics_View
 from pixelart_creator.ui.palette_constraint_panel import (
@@ -1136,7 +1139,7 @@ class Main_Window(QMainWindow):
 
         self._new_action = QAction(self)
         self._new_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_N)
-        self._new_action.triggered.connect(lambda: self.new_document())
+        self._new_action.triggered.connect(self._on_new)
         self._open_action = QAction(self)
         self._open_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_O)
         self._open_action.triggered.connect(self._on_open)
@@ -1299,6 +1302,11 @@ class Main_Window(QMainWindow):
         self._rotate_ccw_action.triggered.connect(self._on_rotate_ccw)
         self._scale_action = QAction(self)
         self._scale_action.triggered.connect(self._on_scale)
+        # Canvas Size (F3): resizes the whole document without resampling —
+        # distinct from Scale, which resamples the active layer's pixels
+        # (REQ-P2-UI-009 / this fix's own scope; see _on_canvas_size).
+        self._canvas_size_action = QAction(self)
+        self._canvas_size_action.triggered.connect(self._on_canvas_size)
         self._rotsprite_action = QAction(self)
         self._rotsprite_action.triggered.connect(self._on_rotsprite)
 
@@ -1442,6 +1450,7 @@ class Main_Window(QMainWindow):
         self._image_menu.addAction(self._rotate_ccw_action)
         self._image_menu.addSeparator()
         self._image_menu.addAction(self._scale_action)
+        self._image_menu.addAction(self._canvas_size_action)
         self._image_menu.addAction(self._rotsprite_action)
 
         self._view_menu = bar.addMenu("")
@@ -1935,6 +1944,23 @@ class Main_Window(QMainWindow):
         self._reference_board.raise_()
 
     # -- document lifecycle ----------------------------------------------
+
+    def _on_new(self) -> None:
+        """File > New / Ctrl+N: ask for a size, then create that document.
+
+        Previously ``new_document()`` was always called with no arguments, so
+        every document silently landed at the 64x64 default however large a
+        canvas the user actually wanted — the size was reachable in code
+        (``new_document(width, height)``) but unreachable from the UI. This
+        opens :class:`New_Document_Dialog` (default ``DEFAULT_CANVAS_WIDTH`` x
+        ``DEFAULT_CANVAS_HEIGHT``, up to the 8K ceiling) and forwards the
+        chosen size.
+        """
+        dialog = New_Document_Dialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        width, height = dialog.target_size()
+        self.new_document(width, height)
 
     def new_document(
         self,
@@ -4375,6 +4401,40 @@ class Main_Window(QMainWindow):
         dims_change = isinstance(command, history.FunctionCommand)
         self._apply_buffer_command(command, dims_change, self.tr("Scale Canvas"))
 
+    def _on_canvas_size(self) -> None:
+        """Image > Canvas Size...: resize the whole document, every layer/frame.
+
+        Unlike Scale (which resamples the active layer's pixels only), this
+        changes the canvas dimensions themselves via
+        ``Document.resize_canvas`` — already correct across every frame,
+        layer and mask (Article I) — wrapped as one
+        :class:`CanvasResizeCommand` so the whole document-wide resize undoes
+        in a single step (F1/FIX-05).
+        """
+        record = self.active_tab()
+        if record is None:
+            return
+        document = record.document
+        dialog = Canvas_Size_Dialog(document.width, document.height, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        new_w, new_h = dialog.target_size()
+        if (new_w, new_h) == (document.width, document.height):
+            return
+
+        def rebind() -> None:
+            record.scene.on_document_resized(document.width, document.height)
+            record.view.clear_selection()
+
+        try:
+            command = CanvasResizeCommand(
+                document, new_w, new_h, rebind, self.tr("Canvas Size")
+            )
+        except PixelBufferError as exc:
+            QMessageBox.warning(self, self.tr("Canvas Size"), str(exc))
+            return
+        record.stack.push(command)
+
     def _on_rotsprite(self) -> None:
         record = self.active_tab()
         if record is None:
@@ -5018,6 +5078,7 @@ class Main_Window(QMainWindow):
         self._rotate_cw_action.setText(self.tr("Rotate 90° C&W"))
         self._rotate_ccw_action.setText(self.tr("Rotate 90° CC&W"))
         self._scale_action.setText(self.tr("&Scale…"))
+        self._canvas_size_action.setText(self.tr("Canvas &Size…"))
         self._rotsprite_action.setText(self.tr("&Rotate (RotSprite)…"))
 
         self._guides_action.setText(self.tr("Guides && &Rulers"))
