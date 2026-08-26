@@ -82,6 +82,16 @@ el búfer, cancelar restaura el lienzo previo al movimiento **exactamente** y
 no registra **ninguna** entrada de deshacer; la máscara de selección vuelve a
 su posición previa al levantamiento.
 
+### Sobrescribir un destino no vacío
+
+Si el destino sobre el que vas a confirmar ya tiene píxeles, un diálogo
+**¿Sobrescribir píxeles existentes?** pregunta antes. **Continuar** aplica la
+confirmación como de costumbre; **Cancelar** no aplica nada y deja la selección
+flotante activa en su desplazamiento actual, así que puedes seguir reposicionándola.
+Marca **"No volver a preguntar para este proyecto"** y la supresión solo se registra
+cuando realmente aceptas el diálogo — marcarla y luego cancelar no registra nada, así
+que una confirmación cancelada nunca cambia este ajuste del proyecto en silencio.
+
 !!! tip "Un clic sin arrastre no cuesta nada"
     Confirmar con un desplazamiento cero (un clic dentro de la selección sin
     mover) es una operación nula — no crea ningún paso de deshacer.

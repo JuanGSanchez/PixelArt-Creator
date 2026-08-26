@@ -10,15 +10,33 @@ Qt-free logic surface to the canvas:
 - ``update`` sets the live integer offset and the :class:`FloatMode` (Ctrl =
   COPY, CL-F5; Alt is the shipped CL-4 subtract, never copy) and asks the scene
   to recomposite only the dirty region;
-- ``commit`` (release / Enter / tool-switch) pushes **exactly one**
-  :class:`~pixelart_creator.ui.commands.LogicCommand` wrapping the unapplied
-  ``commit_floating`` command, then follows the selection mask to the destination;
+- ``commit`` (release / Enter / tool-switch) first consults
+  ``logic/selection.destination_is_empty`` (``REQ-P2-LOGIC-037``); when the
+  destination is not empty and the project's ``confirm_floating_overwrite``
+  preference (``REQ-P2-DATA-030``) is not ``"suppressed"``, it blocks on
+  :class:`~pixelart_creator.ui.overwrite_confirm_dialog.Overwrite_Confirm_Dialog`
+  before proceeding (``REQ-P2-UI-037``, Q-19 ruling). It then pushes **exactly
+  one** :class:`~pixelart_creator.ui.commands.LogicCommand` wrapping the
+  unapplied ``commit_floating`` command, then follows the selection mask to the
+  destination — the confirmation adds a question, never a second command;
 - ``cancel`` (Escape) discards the float — a pure no-op, since the base buffer was
   never written (ADR-0009 D1).
 
 No domain math lives here (Article I / S11): the vacate/composite/commit maths are
 all in ``logic/selection``; this controller only orchestrates the logic calls and
 the scene overlay, and wraps the returned reversible command for Qt's undo stack.
+
+Registers this slice's ``confirm_floating_overwrite`` preference key
+(``REQ-P2-DATA-030``) into ``logic/project_prefs.REGISTRY`` at import time,
+following the ``ASSET_LIBRARY_EDIT`` precedent in
+``logic/asset_references.py`` — ``logic/project_prefs.py`` itself is external
+to this slice (built by ``phase-5-timeline-grid``) and is only consumed here.
+``CONFIRM_FLOATING_OVERWRITE`` is declared in this module rather than in
+``logic/selection.py`` because no ``logic/`` file is in this dispatch's write
+set; it is a plain declared constant
+(a :class:`~pixelart_creator.logic.project_prefs.PrefKey` ``NamedTuple``),
+not domain computation, but its placement diverges from the ``logic/``
+precedent and is reported as such.
 """
 
 from __future__ import annotations
@@ -30,17 +48,35 @@ from PySide6.QtGui import QUndoStack
 from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.history import PixelEdit
 from pixelart_creator.logic.pixel_buffer import PixelBuffer
+from pixelart_creator.logic.project_prefs import PrefKey
+from pixelart_creator.logic.project_prefs import register as register_pref_key
 from pixelart_creator.logic.selection import (
     FloatingSelection,
     FloatMode,
     SelectionMask,
     commit_floating,
+    destination_is_empty,
     lift_selection,
 )
 from pixelart_creator.ui.commands import LogicCommand
+from pixelart_creator.ui.overwrite_confirm_dialog import Overwrite_Confirm_Dialog
 
 if TYPE_CHECKING:
+    from pixelart_creator.logic.document import Document
     from pixelart_creator.ui.canvas_scene import CanvasScene
+
+#: This slice's boolean preference (``REQ-P2-DATA-030``): whether a floating
+#: commit that would overwrite a non-empty destination asks first
+#: (``REQ-P2-UI-037``). ``"ask"`` is the default — absence reads as "ask me";
+#: ``"suppressed"`` records "Don't ask again" for the current project only.
+#: Registered as a side effect of importing this module (mirrors
+#: ``ASSET_LIBRARY_EDIT``'s import-time registration in ``ui/main_window.py``).
+CONFIRM_FLOATING_OVERWRITE = PrefKey(
+    name="confirm_floating_overwrite",
+    domain=frozenset({"ask", "suppressed"}),
+    default="ask",
+)
+register_pref_key(CONFIRM_FLOATING_OVERWRITE)
 
 #: Notified ``(active, copy)`` whenever the float state changes (view → shell hint).
 StateCallback = Callable[[bool, bool], None]
@@ -148,9 +184,23 @@ class FloatingMoveController:
         A zero-change commit (zero offset, or a move onto identical pixels — CL-F8)
         pushes **no** command. On a real change the selection mask follows to the
         destination (SC-U033-4). Idempotent when no float is active.
+
+        Before the origin is vacated or anything is stamped, consults
+        ``logic/selection.destination_is_empty`` (REQ-P2-LOGIC-037): when the
+        destination is not empty and the project's ``confirm_floating_overwrite``
+        preference is not ``"suppressed"``, blocks on
+        :class:`~pixelart_creator.ui.overwrite_confirm_dialog.Overwrite_Confirm_Dialog`
+        (REQ-P2-UI-037). Cancelling that dialog returns to the active floating
+        state — the float stays lifted at its current offset, no undoable
+        command is recorded and the buffer stays untouched; this is
+        deliberately **not** :meth:`cancel`'s ESC semantics, which abandon the
+        float. Confirming proceeds through this single existing commit path —
+        the confirmation adds a question, never a second command.
         """
         if self._floating is None:
             return
+        if not self._confirm_overwrite_if_needed():
+            return  # cancelled — the float remains exactly as it was
         floating = self._floating
         scene = self._scene
         undo_stack = self._undo_stack
@@ -176,6 +226,44 @@ class FloatingMoveController:
             moved = origin.translate(dx, dy)
             set_selection(moved if not moved.is_empty else None)
         self._notify()
+
+    def _confirm_overwrite_if_needed(self) -> bool:
+        """Return whether ``commit`` should proceed (REQ-P2-UI-037, Q-19 ruling).
+
+        Reads the mask-exact ``destination_is_empty`` predicate
+        (REQ-P2-LOGIC-037) — never re-derived here (Article I / S11). Returns
+        ``True`` immediately (no dialog) when the destination is empty, or when
+        the current project has this confirmation suppressed. Otherwise blocks
+        on
+        :class:`~pixelart_creator.ui.overwrite_confirm_dialog.Overwrite_Confirm_Dialog`
+        and returns whether the user confirmed. "Don't ask again" is persisted
+        to ``document.prefs`` only when the dialog was accepted — ticking then
+        cancelling records nothing (Q-19: "consent to suppress is given by
+        confirming").
+        """
+        assert self._floating is not None and self._buffer is not None
+        assert self._scene is not None
+        if destination_is_empty(self._floating, self._buffer):
+            return True
+        # The live Document lives on the scene (CanvasScene._document); no
+        # public accessor exists on CanvasScene and that module is outside
+        # this dispatch's write set, so it is read here rather than left
+        # unreachable (reported as a follow-up: a public `CanvasScene.document`
+        # property would remove this one private read).
+        document: Optional["Document"] = getattr(self._scene, "_document", None)
+        if document is not None:
+            if document.prefs.get(CONFIRM_FLOATING_OVERWRITE) == "suppressed":
+                return True
+        views = self._scene.views()
+        parent = views[0] if views else None
+        dialog = Overwrite_Confirm_Dialog(parent)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return False
+        if dialog.dont_ask_again() and document is not None:
+            document.prefs = document.prefs.with_value(
+                CONFIRM_FLOATING_OVERWRITE, "suppressed"
+            )
+        return True
 
     def cancel(self) -> None:
         """Discard the active float (Escape) — no command, buffer untouched.

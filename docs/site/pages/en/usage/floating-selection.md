@@ -77,6 +77,16 @@ selection mask returns to its pre-lift position.
     Committing at a zero offset (a click inside the selection with no move) is a
     no-op — it creates no undo step.
 
+### Overwriting a non-empty destination
+
+If the destination you are about to commit onto already has pixels on it, an
+**Overwrite Existing Pixels?** dialog asks first. **Continue** applies the commit as
+usual; **Cancel** applies nothing and leaves the float active at its current offset,
+so you can keep repositioning it. Tick **"Don't ask again for this project"** and the
+suppression is only recorded once you actually accept the dialog — ticking it and
+then cancelling records nothing, so a cancelled commit never silently changes this
+setting for the project.
+
 ## Off-canvas edges
 
 You can drag a float **partly or fully off the canvas**. On commit the

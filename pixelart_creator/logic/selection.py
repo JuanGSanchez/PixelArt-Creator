@@ -760,6 +760,80 @@ def commit_floating(
     return copy_selection(buffer, mask, dx, dy, target=target)
 
 
+def destination_is_empty(floating: FloatingSelection, base: PixelBuffer) -> bool:
+    """Report whether committing ``floating`` onto ``base`` would overwrite content.
+
+    Pure, read-only and total (REQ-P2-LOGIC-037, Q-19 ruling): mutates neither
+    ``floating`` nor ``base``, and never raises for a degenerate destination — an
+    empty mask, a fully off-canvas offset, or a zero-offset (identity) commit are
+    all simply **empty**, matching :func:`move_selection` /
+    :func:`copy_selection`'s own no-op convention (CL-F8).
+
+    "Empty" is the ruling's definition, taken verbatim: the destination is empty
+    only when **no content exists there**; any existing content makes it not
+    empty (no threshold, no percentage, no tolerance). A pixel carries content
+    when, on the **active layer** (``base``), it is **not fully transparent** —
+    alpha ``!= 0`` in :attr:`~pixelart_creator.logic.pixel_buffer.ColorMode.RGBA`,
+    palette index ``!= 0`` in
+    :attr:`~pixelart_creator.logic.pixel_buffer.ColorMode.INDEXED` (the same
+    vacate-fill convention :func:`move_selection` uses). The destination is the
+    float's mask translated by its current offset and clipped to ``base``'s
+    bounds (REQ-P2-LOGIC-035) — only pixels the mask actually covers are
+    considered, never the bounding box.
+
+    For :attr:`FloatMode.MOVE`, a destination pixel that coincides with an
+    origin (pre-offset) mask pixel is excluded from the check: the commit
+    vacates every origin pixel before it stamps, so whatever was there is
+    replaced by the float's own write regardless of its prior content, and is
+    never "existing content" the user could lose (SC-L037-4). This is *not*
+    applied to :attr:`FloatMode.COPY`, whose origin is left intact and is judged
+    at its destination only, exactly as the ruling states.
+
+    Args:
+        floating: The active float; its live :attr:`FloatingSelection.offset`
+            and mask are used.
+        base: The buffer the float would commit onto. Never written.
+
+    Raises:
+        SelectionError: If ``base`` dimensions differ from the float's mask.
+    """
+    if floating._mask.width != base.width or floating._mask.height != base.height:
+        raise SelectionError("mask dimensions must match the base buffer")
+
+    dx, dy = floating.offset
+    if dx == 0 and dy == 0:
+        return True
+
+    mask_data = floating._mask._data  # same-module read; no full-canvas copy
+    ys, xs = np.nonzero(mask_data)
+    if ys.size == 0:
+        return True
+
+    dest_x = xs + dx
+    dest_y = ys + dy
+    in_bounds = (
+        (dest_x >= 0) & (dest_x < base.width) & (dest_y >= 0) & (dest_y < base.height)
+    )
+    dest_x = dest_x[in_bounds]
+    dest_y = dest_y[in_bounds]
+    if dest_x.size == 0:
+        return True
+
+    if floating.mode is FloatMode.MOVE:
+        supplied_by_float = mask_data[dest_y, dest_x]
+        keep = ~supplied_by_float
+        dest_x = dest_x[keep]
+        dest_y = dest_y[keep]
+        if dest_x.size == 0:
+            return True
+
+    if base.mode is ColorMode.RGBA:
+        content = base.data[dest_y, dest_x, 3] != 0
+    else:
+        content = base.data[dest_y, dest_x] != 0
+    return not bool(content.any())
+
+
 __all__ = [
     "SelectionError",
     "SelectionMask",
@@ -778,4 +852,5 @@ __all__ = [
     "composite_preview",
     "copy_selection",
     "commit_floating",
+    "destination_is_empty",
 ]

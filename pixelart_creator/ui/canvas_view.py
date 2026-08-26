@@ -18,7 +18,7 @@ from __future__ import annotations
 import math
 from typing import Callable, List, Optional, Tuple
 
-from PySide6.QtCore import QEvent, QPoint, QPointF, Qt, Signal
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (
     QContextMenuEvent,
     QDragEnterEvent,
@@ -28,6 +28,7 @@ from PySide6.QtGui import (
     QKeyEvent,
     QMouseEvent,
     QPainter,
+    QResizeEvent,
     QTransform,
     QUndoCommand,
     QUndoStack,
@@ -65,6 +66,27 @@ Coord = Tuple[int, int]
 
 #: Platform name reported by Qt when running without a windowing system.
 _OFFSCREEN_PLATFORM = "offscreen"
+
+
+def _viewport_update_mode_for(
+    widget: QWidget,
+) -> QGraphicsView.ViewportUpdateMode:
+    """Return the update mode Qt documents as correct for ``widget`` (REQ-CGS-UI-002).
+
+    Qt 6 states verbatim that ``FullViewportUpdate`` "is the preferred update
+    mode for viewports that do not support partial updates, such as
+    QOpenGLWidget", and that ``MinimalViewportUpdate`` "is QGraphicsView's
+    default mode" — Qt does not switch it for you when a GL viewport is
+    installed. Checked via ``inherits`` (a ``QObject`` string test) rather
+    than an ``isinstance`` against ``PySide6.QtOpenGLWidgets.QOpenGLWidget``,
+    so this module-level helper stays import-free: the GL module is only ever
+    imported inside :meth:`Canvas_View._install_viewport` and
+    :meth:`Canvas_View.setViewport`, never at module scope (a headless run
+    with no system GL library must not fail merely importing ``ui/``).
+    """
+    if widget.inherits("QOpenGLWidget"):
+        return QGraphicsView.ViewportUpdateMode.FullViewportUpdate
+    return QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate
 
 
 class _RecordingUndoStack:
@@ -229,6 +251,30 @@ class Canvas_View(QGraphicsView):
             self.tr("Pixel canvas: left-click to paint, middle-drag to pan")
         )
         self._install_viewport()
+        # The pan margin is re-derived whenever the scene's OWN rect changes
+        # (document load/resize, tiled-mode toggle) so it never goes stale
+        # against a superseded document size (REQ-CGS-UI-009).
+        self._scene.sceneRectChanged.connect(self._on_scene_rect_changed)
+        self._apply_pan_margin()
+
+    # -- pan headroom (REQ-CGS-UI-009) -------------------------------------
+
+    def _on_scene_rect_changed(self, _rect: QRectF) -> None:
+        """Re-derive the view's inflated pan-margin rect.
+
+        Triggered after the scene's own rect changes (document load/resize,
+        tiled-mode toggle), so the margin never goes stale against a
+        superseded document size (REQ-CGS-UI-009).
+        """
+        self._apply_pan_margin()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 (Qt override)
+        """Re-derive the pan margin.
+
+        Half a viewport in scene units moves with the viewport's own size.
+        """
+        super().resizeEvent(event)
+        self._apply_pan_margin()
 
     # -- viewport (D6) ----------------------------------------------------
 
@@ -244,6 +290,38 @@ class Canvas_View(QGraphicsView):
             self.setViewport(QOpenGLWidget())
         except Exception:  # noqa: BLE001 - any GL failure ⇒ raster fallback.
             pass
+
+    def setViewport(self, widget: QWidget, /) -> None:  # noqa: N802 (Qt override)
+        """Match the update mode to whichever viewport is actually installed.
+
+        ``QAbstractScrollArea::setViewport`` is non-virtual, so Qt's C++
+        constructor installs the DEFAULT viewport directly and never routes
+        through this Python override — the ``MinimalViewportUpdate`` set at
+        construction (:216-218, above) is the base case for THAT viewport and
+        is left untouched here. This override only fires for a viewport
+        installed through an explicit ``setViewport(...)`` call: this view's
+        own ``_install_viewport`` GL branch, and any other caller (including
+        this fix's regression test) that calls it directly.
+
+        Qt 6 documents ``FullViewportUpdate`` as required for a viewport that
+        "does not support partial updates, such as QOpenGLWidget" — see
+        :func:`_viewport_update_mode_for` (REQ-CGS-UI-002); every other
+        viewport keeps ``MinimalViewportUpdate``, matching every drawing
+        tool's partial ``refresh_rect`` commit path (REQ-CGS-UI-001).
+        """
+        super().setViewport(widget)
+        self.setViewportUpdateMode(_viewport_update_mode_for(widget))
+        try:
+            from PySide6.QtOpenGLWidgets import QOpenGLWidget
+        except Exception:  # noqa: BLE001 - no system GL module ⇒ nothing to do.
+            return
+        if isinstance(widget, QOpenGLWidget):
+            # Defensive only — NOT Qt-documented like the mode switch above.
+            # Forum-level evidence only (the research pass could not read the
+            # relevant Qt bug-ticket bodies): applied alongside the documented
+            # FullViewportUpdate mode in case some path still attempts a
+            # partial repaint directly on the GL widget itself.
+            widget.setUpdateBehavior(QOpenGLWidget.UpdateBehavior.NoPartialUpdate)
 
     # -- external wiring --------------------------------------------------
 
@@ -407,8 +485,19 @@ class Canvas_View(QGraphicsView):
         """Return the current zoom scale."""
         return self._zoom
 
+    def _content_rect(self) -> QRectF:
+        """Return the document's own rect — never the view's inflated pan margin.
+
+        This is the scene's ``sceneRect()`` (the document, or the 3x3 tiled-mode
+        area under ``set_tiled``): ``_fit_zoom`` reads it to fit the whole
+        document, and every off-canvas semantic test (guide-drop) reads it too.
+        The VIEW carries a separately-inflated scene rect for pan headroom
+        (``_apply_pan_margin``); that inflated rect is never substituted here.
+        """
+        return self._scene.sceneRect()
+
     def _fit_zoom(self) -> float:
-        rect = self.sceneRect()
+        rect = self._content_rect()
         vp = self.viewport().rect()
         if rect.width() <= 0 or rect.height() <= 0:
             return 1.0
@@ -418,15 +507,43 @@ class Canvas_View(QGraphicsView):
         return min(fit, ZOOM_MAX)
 
     def _clamp_zoom(self, z: float) -> float:
-        # The lower bound is min(ZOOM_MIN, fit_zoom), NOT a flat fit_zoom and NOT
-        # a flat ZOOM_MIN (FIX 3, field defect 2026-08-24). A flat fit_zoom floor
-        # makes the 1.0 preset stop unreachable and forces zoom-out to RAISE the
-        # zoom for any document smaller than the viewport. A flat ZOOM_MIN floor
-        # would instead make a document too large to fit at 1:1 (up to the 8K /
-        # 7680x4320 ceiling) impossible to view as a whole grid, since its
-        # fit_zoom is below 1.0. Taking the smaller of the two keeps both a small
-        # document's 1:1 stop AND a huge document's whole-grid view reachable.
-        return max(min(ZOOM_MIN, self._fit_zoom()), min(z, ZOOM_MAX))
+        # ZOOM_MIN is a flat, absolute floor (user ruling 2026-08-25;
+        # `logic/constants.py`'s ZOOM_MIN docstring). Below 1:1 the canvas is
+        # minified by a painter with smoothing off (nearest-neighbour point
+        # sampling), so an isolated pixel between sample points is not drawn at
+        # all until the sampling grid happens to re-align — "my drawing was
+        # invisible until I moved something". `fit()` is clamped by this same
+        # floor, so a document larger than the viewport lands at exactly 1.0
+        # rather than a fractional whole-grid fit; it is viewed by panning
+        # instead (the accepted trade-off, put to the user and accepted). This
+        # supersedes the 2026-08-24 `min(ZOOM_MIN, fit_zoom)` reasoning, which
+        # was sound for grid visibility alone but did not account for the
+        # point-sampling loss below 1:1.
+        return max(ZOOM_MIN, min(z, ZOOM_MAX))
+
+    def _apply_pan_margin(self) -> None:
+        """Inflate the VIEW's own scene rect so every corner stays reachable.
+
+        Sets ``self.setSceneRect(...)`` (the view's scrollable range) to the
+        document's :meth:`_content_rect` inflated by half a viewport in scene
+        units on every side, plus one screen pixel of slack (also converted to
+        scene units) so Qt's scrollbar-range rounding does not fall one pixel
+        short of the far corner. The scene's OWN rect (``self._scene.sceneRect()``,
+        read by :meth:`_fit_zoom` and rewritten by tiled mode) is never touched
+        here — only the view's, via the base-class ``setSceneRect`` override
+        QGraphicsView provides for exactly this purpose.
+
+        Half a viewport in scene units is not a fixed pixel count: it scales
+        with the live viewport size and the current zoom, so it is computed
+        fresh here rather than hoisted into a constant that would be correct
+        at only one window size and one zoom.
+        """
+        rect = self._content_rect()
+        vp = self.viewport().rect()
+        zoom = self._zoom if self._zoom > 0 else 1.0
+        margin_x = vp.width() / (2 * zoom) + 1.0 / zoom
+        margin_y = vp.height() / (2 * zoom) + 1.0 / zoom
+        self.setSceneRect(rect.adjusted(-margin_x, -margin_y, margin_x, margin_y))
 
     def set_zoom(self, z: float) -> None:
         """Set an absolute zoom (clamped), anchored on the view centre."""
@@ -438,6 +555,7 @@ class Canvas_View(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self._zoom = target
         self.zoomChanged.emit(target)
+        self._apply_pan_margin()  # the pan headroom scales with zoom too
         self._scene.recomposite_exposed()  # zoom-out may expose stale area (D2)
 
     def fit(self) -> None:
@@ -474,6 +592,7 @@ class Canvas_View(QGraphicsView):
         self.scale(applied, applied)
         self._zoom = target
         self.zoomChanged.emit(target)
+        self._apply_pan_margin()  # the pan headroom scales with zoom too
         self._scene.recomposite_exposed()  # zoom-out may expose stale area (D2)
         event.accept()
 
@@ -805,7 +924,7 @@ class Canvas_View(QGraphicsView):
         self._guide_drag = None
         if overlay is None or guide is None:
             return
-        if not self.sceneRect().contains(point):
+        if not self._content_rect().contains(point):
             overlay.overlay_item().remove_guide(guide)
 
     # -- right-click seam (CL-8) -----------------------------------------

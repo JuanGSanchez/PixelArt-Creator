@@ -161,6 +161,7 @@ from pixelart_creator.ui.batch_recolour_panel import Batch_Recolour_Panel
 from pixelart_creator.ui.branch_diff_dialog import Branch_Diff_Dialog
 from pixelart_creator.ui.branching_panel import Branching_Panel, Branching_Session
 from pixelart_creator.ui.canvas_scene import CanvasScene
+from pixelart_creator.ui.canvas_size_dialog import Canvas_Size_Dialog
 from pixelart_creator.ui.canvas_view import Canvas_View
 from pixelart_creator.ui.cloud_actions import (
     Cloud_Session,
@@ -177,6 +178,7 @@ from pixelart_creator.ui.colour_hub_menu import Colour_Hub_Menu
 from pixelart_creator.ui.commands import (
     AssistantCommand,
     AutomationCommand,
+    CanvasResizeCommand,
     LogicCommand,
     PaintCommand,
     TilemapCommand,
@@ -184,6 +186,7 @@ from pixelart_creator.ui.commands import (
 )
 from pixelart_creator.ui.comments_panel import Comments_Panel
 from pixelart_creator.ui.dependency_graph_view import Dependency_Graph_View
+from pixelart_creator.ui.document_transform_runner import run_document_transform
 from pixelart_creator.ui.export_actions import (
     Export_Registration_Request,
     run_export_dialog,
@@ -200,6 +203,7 @@ from pixelart_creator.ui.layer_panel import Layer_Panel
 from pixelart_creator.ui.live_cursors_overlay import Live_Cursors_Overlay
 from pixelart_creator.ui.macro_controls import Macro_Controls
 from pixelart_creator.ui.multi_view import Multi_View
+from pixelart_creator.ui.new_document_dialog import New_Document_Dialog
 from pixelart_creator.ui.onion_skin_controls import Onion_Skin_Controls, OnionSettings
 from pixelart_creator.ui.palette_analytics_view import Palette_Analytics_View
 from pixelart_creator.ui.palette_constraint_panel import (
@@ -234,6 +238,7 @@ from pixelart_creator.ui.theme import (
     apply_font_fallbacks,
     apply_theme,
     canvas_roles,
+    canvas_surface_roles,
 )
 from pixelart_creator.ui.tiled_mode import set_tiled_mode
 from pixelart_creator.ui.tilemap_canvas import Tilemap_Canvas, TilemapTool
@@ -263,6 +268,15 @@ from pixelart_creator.ui.tools import (
 from pixelart_creator.ui.tools.dither_tool import (
     MODE_FLOYD_STEINBERG,
     MODE_ORDERED,
+)
+
+# Also a side-effect import: registers CONFIRM_FLOATING_OVERWRITE into
+# project_prefs.REGISTRY at module scope, before the confirmations submenu is
+# built below (REQ-P2-DATA-030, same pattern as ASSET_LIBRARY_EDIT above).
+# Referenced by name only for that registration side effect (unlike
+# ASSET_LIBRARY_EDIT, nothing else in this module reads the key by name).
+from pixelart_creator.ui.tools.floating_move import (  # noqa: F401
+    CONFIRM_FLOATING_OVERWRITE,
 )
 from pixelart_creator.ui.transform_dialog import Scale_Dialog
 from pixelart_creator.ui.user_guide import User_Guide_Dialog
@@ -1135,7 +1149,7 @@ class Main_Window(QMainWindow):
 
         self._new_action = QAction(self)
         self._new_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_N)
-        self._new_action.triggered.connect(lambda: self.new_document())
+        self._new_action.triggered.connect(self._on_new)
         self._open_action = QAction(self)
         self._open_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_O)
         self._open_action.triggered.connect(self._on_open)
@@ -1246,6 +1260,7 @@ class Main_Window(QMainWindow):
         self._fit_action.triggered.connect(self._on_fit)
         self._grid_action = QAction(self)
         self._grid_action.setCheckable(True)
+        self._grid_action.setChecked(True)
         self._grid_action.toggled.connect(self._on_grid_toggled)
         self._snap_action = QAction(self)
         self._snap_action.setCheckable(True)
@@ -1297,6 +1312,11 @@ class Main_Window(QMainWindow):
         self._rotate_ccw_action.triggered.connect(self._on_rotate_ccw)
         self._scale_action = QAction(self)
         self._scale_action.triggered.connect(self._on_scale)
+        # Canvas Size (F3): resizes the whole document without resampling —
+        # distinct from Scale, which resamples the active layer's pixels
+        # (REQ-P2-UI-009 / this fix's own scope; see _on_canvas_size).
+        self._canvas_size_action = QAction(self)
+        self._canvas_size_action.triggered.connect(self._on_canvas_size)
         self._rotsprite_action = QAction(self)
         self._rotsprite_action.triggered.connect(self._on_rotsprite)
 
@@ -1440,6 +1460,7 @@ class Main_Window(QMainWindow):
         self._image_menu.addAction(self._rotate_ccw_action)
         self._image_menu.addSeparator()
         self._image_menu.addAction(self._scale_action)
+        self._image_menu.addAction(self._canvas_size_action)
         self._image_menu.addAction(self._rotsprite_action)
 
         self._view_menu = bar.addMenu("")
@@ -1933,6 +1954,23 @@ class Main_Window(QMainWindow):
         self._reference_board.raise_()
 
     # -- document lifecycle ----------------------------------------------
+
+    def _on_new(self) -> None:
+        """File > New / Ctrl+N: ask for a size, then create that document.
+
+        Previously ``new_document()`` was always called with no arguments, so
+        every document silently landed at the 64x64 default however large a
+        canvas the user actually wanted — the size was reachable in code
+        (``new_document(width, height)``) but unreachable from the UI. This
+        opens :class:`New_Document_Dialog` (default ``DEFAULT_CANVAS_WIDTH`` x
+        ``DEFAULT_CANVAS_HEIGHT``, up to the 8K ceiling) and forwards the
+        chosen size.
+        """
+        dialog = New_Document_Dialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        width, height = dialog.target_size()
+        self.new_document(width, height)
 
     def new_document(
         self,
@@ -4323,14 +4361,60 @@ class Main_Window(QMainWindow):
                 )
             )
 
+    def _push_document_transform(
+        self, record: _DocTab, command: history.Command, text: str
+    ) -> None:
+        """Push an unapplied whole-document transform command (REQ-CSD-UI-001/002).
+
+        Mirrors ``_apply_buffer_command``'s dimension-changing branch: the
+        scene re-reads every layer's (already-swapped) buffer and the
+        document's (already-moved) geometry only after ``LogicCommand``
+        invokes ``command``'s own ``execute``/``undo`` (REQ-CSD-UI-005 — the
+        scene no longer writes the geometry itself).
+        """
+
+        def rebind() -> None:
+            record.scene.rebind_active()
+            record.view.clear_selection()
+
+        record.stack.push(
+            LogicCommand(
+                command,
+                rebind,
+                text,
+                record_trace=self._branching_session.record_traces,
+                document=record.document,
+            )
+        )
+
     def _apply_transform(
-        self, fn: Callable[[PixelBuffer], PixelBuffer], text: str
+        self,
+        fn: Callable[[PixelBuffer], PixelBuffer],
+        text: str,
+        *,
+        swap_dims: bool = False,
     ) -> None:
         record = self.active_tab()
         if record is None:
             return
-        layer: Layer = record.scene.active_layer()
         mask = record.view.active_selection()
+        if mask is None:
+            # REQ-CSD-UI-001/006/015: no active selection -> the operation is
+            # whole-document, every layer and mask across every frame, run
+            # through the shared runner (canvas-scale-defects). The masked
+            # path below is untouched (REQ-CSD-UI-003, REQ-CSD-UI-007).
+            document = record.document
+            new_w, new_h = (
+                (document.height, document.width)
+                if swap_dims
+                else (document.width, document.height)
+            )
+            command = run_document_transform(document, fn, new_w, new_h, text, self)
+            if command is None:
+                return  # declined or cancelled: nothing built, nothing pushed
+            self._push_document_transform(record, command, text)
+            return
+        layer: Layer = record.scene.active_layer()
         command = transform.make_transform_command(
             layer, fn, mask, target=self._edit_target(record)
         )
@@ -4344,10 +4428,14 @@ class Main_Window(QMainWindow):
         self._apply_transform(transform.flip_vertical, self.tr("Flip Vertical"))
 
     def _on_rotate_cw(self) -> None:
-        self._apply_transform(transform.rotate_90_cw, self.tr("Rotate 90° CW"))
+        self._apply_transform(
+            transform.rotate_90_cw, self.tr("Rotate 90° CW"), swap_dims=True
+        )
 
     def _on_rotate_ccw(self) -> None:
-        self._apply_transform(transform.rotate_90_ccw, self.tr("Rotate 90° CCW"))
+        self._apply_transform(
+            transform.rotate_90_ccw, self.tr("Rotate 90° CCW"), swap_dims=True
+        )
 
     def _on_scale(self) -> None:
         record = self.active_tab()
@@ -4357,12 +4445,27 @@ class Main_Window(QMainWindow):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         new_w, new_h = dialog.target_size()
-        layer: Layer = record.scene.active_layer()
         mask = record.view.active_selection()
 
         def fn(buffer: PixelBuffer) -> PixelBuffer:
             return scale_nearest(buffer, new_w, new_h)
 
+        if mask is None:
+            # REQ-CSD-UI-001/002: whole-document scale, every layer and mask.
+            document = record.document
+            try:
+                command = run_document_transform(
+                    document, fn, new_w, new_h, self.tr("Scale Canvas"), self
+                )
+            except TransformError as exc:
+                QMessageBox.warning(self, self.tr("Scale Canvas"), str(exc))
+                return
+            if command is None:
+                return
+            self._push_document_transform(record, command, self.tr("Scale Canvas"))
+            return
+
+        layer: Layer = record.scene.active_layer()
         try:
             command = transform.make_transform_command(
                 layer, fn, mask, target=self._edit_target(record)
@@ -4372,6 +4475,40 @@ class Main_Window(QMainWindow):
             return
         dims_change = isinstance(command, history.FunctionCommand)
         self._apply_buffer_command(command, dims_change, self.tr("Scale Canvas"))
+
+    def _on_canvas_size(self) -> None:
+        """Image > Canvas Size...: resize the whole document, every layer/frame.
+
+        Unlike Scale (which resamples the active layer's pixels only), this
+        changes the canvas dimensions themselves via
+        ``Document.resize_canvas`` — already correct across every frame,
+        layer and mask (Article I) — wrapped as one
+        :class:`CanvasResizeCommand` so the whole document-wide resize undoes
+        in a single step (F1/FIX-05).
+        """
+        record = self.active_tab()
+        if record is None:
+            return
+        document = record.document
+        dialog = Canvas_Size_Dialog(document.width, document.height, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        new_w, new_h = dialog.target_size()
+        if (new_w, new_h) == (document.width, document.height):
+            return
+
+        def rebind() -> None:
+            record.scene.on_document_resized(document.width, document.height)
+            record.view.clear_selection()
+
+        try:
+            command = CanvasResizeCommand(
+                document, new_w, new_h, rebind, self.tr("Canvas Size")
+            )
+        except PixelBufferError as exc:
+            QMessageBox.warning(self, self.tr("Canvas Size"), str(exc))
+            return
+        record.stack.push(command)
 
     def _on_rotsprite(self) -> None:
         record = self.active_tab()
@@ -4467,6 +4604,8 @@ class Main_Window(QMainWindow):
     def _apply_theme_to_scene(self, scene: CanvasScene) -> None:
         checker_light, checker_dark, grid = canvas_roles(self._theme)
         scene.set_background_roles(checker_light, checker_dark, grid)
+        workspace, border = canvas_surface_roles(self._theme)
+        scene.set_surface_roles(workspace, border)
 
     # -- Phase-6 tilemap wiring (REQ-P6-UI-001..013) ---------------------
 
@@ -5014,6 +5153,7 @@ class Main_Window(QMainWindow):
         self._rotate_cw_action.setText(self.tr("Rotate 90° C&W"))
         self._rotate_ccw_action.setText(self.tr("Rotate 90° CC&W"))
         self._scale_action.setText(self.tr("&Scale…"))
+        self._canvas_size_action.setText(self.tr("Canvas &Size…"))
         self._rotsprite_action.setText(self.tr("&Rotate (RotSprite)…"))
 
         self._guides_action.setText(self.tr("Guides && &Rulers"))

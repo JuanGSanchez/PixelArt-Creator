@@ -249,7 +249,12 @@ class Ruler_Strip(QWidget):
         self.update()
 
     def set_cursor_readout(self, sx: float, sy: float) -> None:
-        """Update the live coordinate readout from a scene cursor (via logic)."""
+        """Update the live coordinate readout from a screen-space cursor.
+
+        ``sx``/``sy`` must be viewport (screen) pixels, not scene coordinates:
+        :func:`~pixelart_creator.logic.guides.coordinate_readout` applies the
+        pan offset and the zoom division itself.
+        """
         zoom = self._view_zoom()
         ox, oy = self._doc_offset()
         doc_x, doc_y = coordinate_readout(sx, sy, zoom, (ox, oy))
@@ -471,9 +476,10 @@ class Guides_Rulers_Overlay(QObject):
         return super().eventFilter(watched, event)
 
     def _update_cursor_readout(self, pos: QPointF) -> None:
-        map_fn = getattr(self._view, "mapToScene", None)
-        if map_fn is None:
-            return
-        scene_point = map_fn(pos.toPoint())
-        self._h_ruler.set_cursor_readout(scene_point.x(), scene_point.y())
-        self._v_ruler.set_cursor_readout(scene_point.x(), scene_point.y())
+        # `Ruler_Strip.set_cursor_readout` forwards straight into
+        # `logic.guides.coordinate_readout`, which is documented as taking
+        # SCREEN coordinates and applying `offset + screen / zoom` itself
+        # (see that function's docstring). Passing an already-`mapToScene`d
+        # point here would apply the pan offset and the zoom division twice.
+        self._h_ruler.set_cursor_readout(pos.x(), pos.y())
+        self._v_ruler.set_cursor_readout(pos.x(), pos.y())

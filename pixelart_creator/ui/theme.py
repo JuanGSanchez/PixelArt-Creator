@@ -71,6 +71,8 @@ _ROLES: Dict[str, Dict[str, str]] = {
         "canvas_checker_light": "#ffffff",
         "canvas_checker_dark": "#c8c8c8",
         "canvas_grid": "#78787890",
+        "canvas_workspace": "#b8b8b8",
+        "canvas_border": "#787878",
     },
     THEME_DARK: {
         "background": "#2b2b2b",
@@ -85,6 +87,8 @@ _ROLES: Dict[str, Dict[str, str]] = {
         "canvas_checker_light": "#5a5a5a",
         "canvas_checker_dark": "#464646",
         "canvas_grid": "#a0a0a090",
+        "canvas_workspace": "#232323",
+        "canvas_border": "#7a7a7a",
     },
 }
 
@@ -203,4 +207,24 @@ def canvas_roles(name: str) -> Tuple[QColor, QColor, QColor]:
         QColor(roles["canvas_checker_light"]),
         QColor(roles["canvas_checker_dark"]),
         QColor(roles["canvas_grid"]),
+    )
+
+
+def canvas_surface_roles(name: str) -> Tuple[QColor, QColor]:
+    """Return ``(workspace, border)`` :class:`QColor` for ``name`` (REQ-CGS-UI-005/006).
+
+    ``workspace`` is the ground painted behind the document (distinct from both
+    checker tones in its theme) and ``border`` outlines the document edge
+    (distinct from the workspace and from both checker tones). A later task
+    clips the checker paint to the canvas rect and strokes this border; this
+    accessor only supplies the two colours, resolved through the same
+    :func:`_roles` validator as :func:`canvas_roles` so an unknown theme name
+    raises identically. This is a sibling of :func:`canvas_roles`, which stays
+    unchanged and keeps returning exactly three colours (it is unpacked
+    positionally at call sites and in tests).
+    """
+    roles = _roles(name)
+    return (
+        QColor(roles["canvas_workspace"]),
+        QColor(roles["canvas_border"]),
     )

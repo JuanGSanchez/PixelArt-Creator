@@ -24,6 +24,7 @@ from pixelart_creator.logic.constants import (
     HARMONY_ANALOGOUS_DEG,
     HARMONY_COMPLEMENTARY_DEG,
     HARMONY_SPLIT_COMPLEMENTARY_DEG,
+    HARMONY_TETRADIC_DEG,
     HARMONY_TRIADIC_DEG,
     RAMP_STEP_COUNT,
 )
@@ -38,6 +39,7 @@ __all__ = [
     "analogous",
     "triadic",
     "split_complementary",
+    "tetradic",
     "harmony",
     "shade_ramp",
     "tint_ramp",
@@ -50,7 +52,7 @@ HSVA = Tuple[float, float, float, int]
 HSLA = Tuple[float, float, float, int]
 
 #: Valid harmony scheme names accepted by :func:`harmony`.
-_SCHEMES = ("complementary", "analogous", "triadic", "split")
+_SCHEMES = ("complementary", "analogous", "triadic", "split", "tetradic")
 
 
 class ColorTheoryError(ValueError):
@@ -190,13 +192,35 @@ def split_complementary(color: RGBA) -> Tuple[RGBA, RGBA]:
     )
 
 
+def tetradic(color: RGBA) -> Tuple[RGBA, RGBA, RGBA]:
+    """Return the three tetradic-scheme colours.
+
+    Hue rotated 1x/2x/3x by ``HARMONY_TETRADIC_DEG``.
+
+    "Tetradic" is a superset term: it names any four-colour harmony. This
+    implementation is specifically the evenly spaced (square) tetrad at
+    90-degree intervals — NOT the rectangular tetrad (offsets of +60/+180/+240
+    from the base), which spaces two complementary pairs unevenly. The even
+    four-colour analogue of :func:`triadic`'s 120° spacing: the base hue
+    rotated by ``HARMONY_TETRADIC_DEG``, ``2 * HARMONY_TETRADIC_DEG`` and
+    ``3 * HARMONY_TETRADIC_DEG`` (90°/180°/270°). The base colour is excluded.
+    The +180° member intentionally duplicates :func:`complementary`'s result;
+    that overlap is a property of the tetradic scheme and is not trimmed.
+    """
+    return (
+        _rotate_hue(color, HARMONY_TETRADIC_DEG),
+        _rotate_hue(color, 2 * HARMONY_TETRADIC_DEG),
+        _rotate_hue(color, 3 * HARMONY_TETRADIC_DEG),
+    )
+
+
 def harmony(color: RGBA, scheme: str) -> List[RGBA]:
     """Return the harmony set for ``scheme`` (excluding the base colour).
 
     Args:
         color: The base RGBA colour.
         scheme: One of ``'complementary'``, ``'analogous'``, ``'triadic'``,
-            ``'split'``.
+            ``'split'``, ``'tetradic'``.
 
     Returns:
         A deterministic list of the harmony colours (SC-L002-6).
@@ -212,6 +236,8 @@ def harmony(color: RGBA, scheme: str) -> List[RGBA]:
         return list(triadic(color))
     if scheme == "split":
         return list(split_complementary(color))
+    if scheme == "tetradic":
+        return list(tetradic(color))
     raise ColorTheoryError(
         f"unknown harmony scheme {scheme!r}; expected one of {_SCHEMES}"
     )

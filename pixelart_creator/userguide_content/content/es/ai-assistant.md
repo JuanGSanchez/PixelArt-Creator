@@ -31,7 +31,9 @@ en lugar de fallar — configurar un proveedor es un paso de una sola vez.
 
 ## Configurar un proveedor y una clave
 
-Abre el diálogo de configuración de proveedor desde el menú **Asistente**. El
+Abre el diálogo de configuración de proveedor desde el menú **Asistente**, o desde
+el botón **Configurar…** (`Configure…` en el código fuente) del panel del asistente
+— ambos abren el mismo diálogo. El
 asistente es **agnóstico de modelo**, así que eliges el servicio y el modelo que te
 convengan e introduces:
 

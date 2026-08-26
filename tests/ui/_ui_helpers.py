@@ -23,11 +23,9 @@ Two families live here, and neither replaces the other:
   point falls outside the viewport's current rect, :func:`viewport_point_for_pixel`
   raises :class:`ViewportTargetError` rather than clicking somewhere arbitrary.
 
-:func:`prepare_for_click` pins the view to identity transform + top-left
-alignment + zero scroll, so a viewport point ``(x, y)`` maps to scene pixel
-``(x, y)`` (self-consistent, no display needed). The real-event helpers do not
-require this pin — they read whatever mapping the view currently has — but a
-test may still call it for a predictable layout.
+Both families now share that ONE coordinate source, :func:`viewport_point_for_pixel`
+— see the contract note on :func:`prepare_for_click` below for why the
+direct-handler family did not always work this way, and why it had to change.
 """
 
 from __future__ import annotations
@@ -54,53 +52,68 @@ class ViewportTargetError(RuntimeError):
     instead of delivering a click at a clamped/arbitrary point. A test that
     hits this has asked for a pixel that is scrolled out of view, zoomed out
     of the widget, or otherwise not currently visible — fix the test's setup
-    (resize/zoom/scroll the view), never the assertion.
+    (resize/zoom/scroll/:func:`prepare_for_click` the view), never the
+    assertion.
     """
 
 
 def prepare_for_click(view) -> None:
-    """Pin the view so viewport point ``(x, y)`` maps to scene pixel ``(x, y)``."""
+    """Pin the view's zoom to identity and centre it on the document.
+
+    **The new contract**: after this call, ``view.zoom() == 1.0`` (one scene
+    unit is one viewport pixel — deterministic, no scale rounding) and every
+    pixel of the document is inside the viewport's current ``rect()``. It
+    makes NO promise about which scrollbar value that took, and — unlike the
+    old contract — NO promise that viewport point ``(x, y)`` equals scene
+    pixel ``(x, y)``. A test that wants a specific document pixel's viewport
+    point must go through :func:`viewport_point_for_pixel`, exactly like the
+    real-event helpers; every helper in this module already does.
+
+    **Why the old contract broke.** This used to pin the view with
+    ``resetTransform()`` + top-left alignment + ``setValue(0)`` on both
+    scrollbars, on the assumption that scrollbar value ``0`` always lands
+    scene ``(0, 0)`` at viewport ``(0, 0)``. That assumption depended on the
+    view's own scrollable scene rect starting at the scene origin, which
+    stopped being true once ``Canvas_View`` began inflating its OWN scene
+    rect by a pan margin — half a viewport in scene units on every side, so
+    every document corner can be brought to the viewport *centre*
+    (``_apply_pan_margin``, REQ-CGS-UI-009). The document's own rect
+    (``scene.sceneRect()``) is untouched; only the view's is inflated, and the
+    inflated rect gets a NEGATIVE origin. Measured directly (16x16 document,
+    400x400 view, zoom 1): the view's scrollable rect is
+    ``QRectF(-193, -193, 402, 402)`` and the resulting horizontal/vertical
+    scrollbar range is ``(-193, -175)`` — nowhere near 0. Two things then both
+    go wrong for the old code:
+
+    1. ``setValue(0)`` is silently clamped by Qt into that range (landing on
+       ``-175``, the nearest bound), so scene ``(0, 0)`` maps to viewport
+       ``(175, 175)`` instead of ``(0, 0)`` — not merely offset, but offset by
+       an amount that depends on the viewport size and the document size
+       both, so no single constant correction is possible.
+    2. Even a "corrected" scrollbar value cannot fix it, because a legal
+       scroll position that puts scene ``(0, 0)`` at viewport ``(0, 0)``
+       may not exist at all: Qt bounds the scrollbar range to
+       ``sceneRect.right() - viewport.width()`` (and the vertical analogue),
+       and for a document that is small relative to the viewport plus its
+       margin, that bound sits well short of 0. The pan margin is designed to
+       let a document corner reach the viewport's *centre*, never its edge,
+       by construction — so "scrollbar 0 == scene origin" is not a bug to
+       patch, it is a contract that no longer holds for this shape of scene
+       rect, in either direction.
+
+    Given that, this function stops trying to make viewport (x, y) equal
+    scene pixel (x, y) at all, and instead only guarantees the document is
+    reachable; every caller reads the ACTUAL current mapping via
+    :func:`viewport_point_for_pixel` (``view.mapFromScene``) to find out where
+    a given document pixel really is. That works whether or not the view's
+    scene rect has a negative origin, and whether or not the caller resized
+    the viewport — verified directly against a negative-origin rect
+    (``QRectF(-193, -193, 402, 402)``) as part of this fix.
+    """
     view.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
     view.resetTransform()
     view._zoom = 1.0  # keep the tracked zoom consistent with the reset transform
-    view.horizontalScrollBar().setValue(0)
-    view.verticalScrollBar().setValue(0)
-
-
-def _evt(etype: QEvent.Type, x: float, y: float, button, buttons) -> QMouseEvent:
-    # +0.2 keeps QPointF.toPoint() (which the view applies) inside pixel (x, y).
-    pt = QPointF(x + 0.2, y + 0.2)
-    return QMouseEvent(etype, pt, pt, button, buttons, NO_MOD)
-
-
-def press(view, x: int, y: int, button=LEFT) -> None:
-    """Deliver a single button-press at buffer pixel ``(x, y)``."""
-    view.mousePressEvent(_evt(QEvent.Type.MouseButtonPress, x, y, button, button))
-
-
-def move(view, x: int, y: int, button=LEFT) -> None:
-    """Deliver a drag-move at buffer pixel ``(x, y)`` (button held)."""
-    view.mouseMoveEvent(_evt(QEvent.Type.MouseMove, x, y, NO_BTN, button))
-
-
-def release(view, x: int, y: int, button=LEFT) -> None:
-    """Deliver a button-release at buffer pixel ``(x, y)``."""
-    view.mouseReleaseEvent(_evt(QEvent.Type.MouseButtonRelease, x, y, button, NO_BTN))
-
-
-def click_pixel(view, x: int, y: int, button=LEFT) -> None:
-    """Press + release at buffer pixel ``(x, y)`` (a full click)."""
-    press(view, x, y, button)
-    release(view, x, y, button)
-
-
-def drag_path(view, points: Iterable[Coord], button=LEFT) -> None:
-    """Press at the first point, move through the rest, release at the last."""
-    pts = list(points)
-    press(view, pts[0][0], pts[0][1], button)
-    for x, y in pts[1:]:
-        move(view, x, y, button)
-    release(view, pts[-1][0], pts[-1][1], button)
+    view.centerOn(view.scene().sceneRect().center())
 
 
 def viewport_point_for_pixel(view, x: int, y: int) -> QPoint:
@@ -111,7 +124,10 @@ def viewport_point_for_pixel(view, x: int, y: int) -> QPoint:
     ``setSceneRect(0, 0, document.width, document.height)`` once, F3) — so the
     mapped viewport point lands inside pixel ``(x, y)`` itself rather than on
     a shared edge with a neighbour. Goes through ``view.mapFromScene``, i.e.
-    the view's CURRENT zoom/pan/alignment, never a hand-computed offset.
+    the view's CURRENT zoom/pan/alignment, never a hand-computed offset. This
+    is the ONE coordinate source both helper families in this module share —
+    see :func:`prepare_for_click` for why the direct-handler family did not
+    always route through it.
 
     NOT ``+ 0.5`` (the geometric centre): ``QGraphicsView.mapFromScene``
     returns a ``QPoint`` and rounds half-away-from-zero, so the exact centre
@@ -141,6 +157,54 @@ def viewport_point_for_pixel(view, x: int, y: int) -> QPoint:
             "clamps to the nearest visible point."
         )
     return viewport_pt
+
+
+def _evt(view, etype: QEvent.Type, x: int, y: int, button, buttons) -> QMouseEvent:
+    """Build a synthetic ``QMouseEvent`` at document pixel ``(x, y)``.
+
+    Routed through :func:`viewport_point_for_pixel` — the view's own CURRENT
+    mapping — exactly like the real-event helpers below, so a direct-handler
+    event lands on the pixel it claims to regardless of scroll/zoom/pan-margin
+    state. (This used to hand-build the position as ``(x + 0.2, y + 0.2)`` and
+    assume that viewport point equalled scene pixel ``(x, y)`` directly; that
+    was only ever true under :func:`prepare_for_click`'s old, now-broken pin —
+    see its docstring.)
+    """
+    point = viewport_point_for_pixel(view, x, y)
+    pt = QPointF(point.x(), point.y())
+    return QMouseEvent(etype, pt, pt, button, buttons, NO_MOD)
+
+
+def press(view, x: int, y: int, button=LEFT) -> None:
+    """Deliver a single button-press at document pixel ``(x, y)``."""
+    view.mousePressEvent(_evt(view, QEvent.Type.MouseButtonPress, x, y, button, button))
+
+
+def move(view, x: int, y: int, button=LEFT) -> None:
+    """Deliver a drag-move at document pixel ``(x, y)`` (button held)."""
+    view.mouseMoveEvent(_evt(view, QEvent.Type.MouseMove, x, y, NO_BTN, button))
+
+
+def release(view, x: int, y: int, button=LEFT) -> None:
+    """Deliver a button-release at document pixel ``(x, y)``."""
+    view.mouseReleaseEvent(
+        _evt(view, QEvent.Type.MouseButtonRelease, x, y, button, NO_BTN)
+    )
+
+
+def click_pixel(view, x: int, y: int, button=LEFT) -> None:
+    """Press + release at document pixel ``(x, y)`` (a full click)."""
+    press(view, x, y, button)
+    release(view, x, y, button)
+
+
+def drag_path(view, points: Iterable[Coord], button=LEFT) -> None:
+    """Press at the first point, move through the rest, release at the last."""
+    pts = list(points)
+    press(view, pts[0][0], pts[0][1], button)
+    for x, y in pts[1:]:
+        move(view, x, y, button)
+    release(view, pts[-1][0], pts[-1][1], button)
 
 
 def real_press_pixel(view, x: int, y: int, button=LEFT, modifier=NO_MOD) -> None:

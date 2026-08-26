@@ -43,12 +43,17 @@ coherente sin adivinar:
 | **Complementario** | El tono opuesto (+180°) — contraste máximo. |
 | **Análogo** | Los vecinos (±30°) — esquemas tranquilos y cohesivos. |
 | **Triádico** | Dos tonos a 120° de distancia (±120°) — equilibrado y vibrante. |
+| **Tetrádicos** | Tres tonos a intervalos de 90° equidistantes — cuatro colores, alto contraste. |
 | **Complementario dividido** | Los dos tonos a cada lado del complementario (±150°). |
 | **Rampas de sombra / tinte** | Pasos más oscuros (sombra) y más claros (tinte) de tu color. |
 
-Haz clic en cualquier muestra de armonía para convertirla en el color activo, o
-añádela a Favoritos. Las armonías se recalculan en vivo mientras te mueves por la
-rueda.
+**Haz doble clic en una muestra de armonía para aplicarla** — así se convierte en tu
+color activo. Un solo clic solo **selecciona** la muestra (y le da el foco de
+teclado); no cambia tu color activo. Es un cambio deliberado respecto a la aplicación
+con un solo clic, así que si un clic ya no aplica el color, haz doble clic. La
+activación por teclado no cambia: da el foco a una muestra con Tab y pulsa
+**Espacio** o **Intro** para aplicarla. Las armonías se recalculan en vivo mientras te
+mueves por la rueda.
 
 ## Aplicar y guardar
 

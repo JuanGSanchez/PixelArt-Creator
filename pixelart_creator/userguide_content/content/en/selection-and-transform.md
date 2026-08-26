@@ -90,6 +90,12 @@ mask returns to its pre-lift position.
 > **A click without a drag costs nothing.** Committing at a zero offset (a click inside
 > the selection with no move) is a no-op — it creates no undo step.
 
+If the destination already has pixels on it, an **Overwrite Existing Pixels?** dialog
+asks first: **Continue** applies the commit as usual, **Cancel** applies nothing and
+leaves the float active at its current offset. Ticking **"Don't ask again for this
+project"** only records the suppression once you actually accept — ticking it and
+cancelling records nothing.
+
 ## Off-canvas edges
 
 You can drag a float **partly or fully off the canvas**. On commit the off-canvas
@@ -105,6 +111,31 @@ dragged.
   zoom, and is legible in both the **light** and **dark** themes.
 - The live drag preview updates only the region the float touches, so it stays within
   the 16 ms / 60 fps frame budget even on an 8K canvas.
+
+## Whole-document transforms
+
+**Image ▸ Scale…**, the two quarter-turn rotations and the two flip actions all act
+on the **whole document** — every layer and mask, across every frame — whenever
+nothing is selected. With an active selection, these same actions still transform
+only the active layer's masked region, exactly as before.
+
+RotSprite is the one exception: it always transforms only the active layer, with or
+without a selection, because its rotation never changes the buffer's dimensions and
+never needed the wider scope.
+
+> **Large transforms ask first.** When the resampled result plus the buffers kept
+> for undo together would exceed 506.25 MiB (four full 8K canvases' worth of RGBA
+> data), a **Confirm Large Transform** dialog states the exact projected memory
+> before anything runs. **Cancel** is the default button, so pressing Return does
+> **not** start the transform — you have to click **Proceed** deliberately.
+> Declining leaves the document completely untouched and pushes nothing onto the
+> undo stack. Below that threshold, no dialog appears at all.
+
+Once a whole-document transform is running, a **Transforming Document** progress
+dialog tracks it buffer by buffer and can be cancelled at any point — the Cancel
+button, Escape, or the window's own close control all work. Cancelling is atomic:
+the document is left exactly as it was and nothing reaches the undo stack, no
+matter how many buffers had already resampled.
 
 ## What is not covered
 

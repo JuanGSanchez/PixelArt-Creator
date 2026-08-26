@@ -2,10 +2,13 @@
 
 ``Scale_Dialog`` collects a new width/height (or a uniform factor that drives
 them) for ``logic.transform.scale_nearest``; it holds **no** scaling math (S11) —
-the shell applies the transform as one :class:`QUndoCommand`. Bounds come from
-``logic.constants`` (``SCALE_MIN_FACTOR`` / ``SCALE_MAX_FACTOR``, ``MAX_CANVAS_*``);
-no magic numbers here (S12). All strings are ``tr()``-wrapped and re-set on
-``QEvent.LanguageChange`` (F5).
+the shell applies the transform as one :class:`QUndoCommand`. The factor range
+is **derived from the seeded source size** — ``[1 / src_w, MAX_CANVAS_WIDTH /
+src_w]`` (REQ-CSD-UI-004; ``plan.md`` §5.5) — never from a fixed factor
+constant, so every reachable target dimension up to ``MAX_CANVAS_*`` has a
+factor that can reach it. Bounds otherwise come from ``logic.constants``
+(``MAX_CANVAS_*``); no magic numbers here (S12). All strings are
+``tr()``-wrapped and re-set on ``QEvent.LanguageChange`` (F5).
 """
 
 from __future__ import annotations
@@ -23,12 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pixelart_creator.logic.constants import (
-    MAX_CANVAS_HEIGHT,
-    MAX_CANVAS_WIDTH,
-    SCALE_MAX_FACTOR,
-    SCALE_MIN_FACTOR,
-)
+from pixelart_creator.logic.constants import MAX_CANVAS_HEIGHT, MAX_CANVAS_WIDTH
 
 
 class Scale_Dialog(QDialog):
@@ -44,8 +42,8 @@ class Scale_Dialog(QDialog):
         self._updating = False
 
         self._factor = QDoubleSpinBox(self)
-        self._factor.setDecimals(2)
-        self._factor.setRange(SCALE_MIN_FACTOR, SCALE_MAX_FACTOR)
+        self._factor.setDecimals(4)
+        self._factor.setRange(1.0 / self._src_w, MAX_CANVAS_WIDTH / self._src_w)
         self._factor.setSingleStep(0.5)
         self._factor.setValue(1.0)
         self._factor.valueChanged.connect(self._on_factor_changed)

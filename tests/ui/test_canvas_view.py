@@ -13,6 +13,7 @@ from PySide6.QtGui import QMouseEvent, QTransform, QWheelEvent
 from pixelart_creator.logic.constants import (
     SCALE_FACTOR,
     ZOOM_MAX,
+    ZOOM_MIN,
     ZOOM_PRESET_STOPS,
 )
 from tests.ui._ui_helpers import (
@@ -29,14 +30,22 @@ from tests.ui._ui_helpers import (
 
 
 def test_sc_ui_004_1_zoom_clamped_to_range(make_view):
-    """SC-UI-004-1: zoom clamps to [fit .. ZOOM_MAX]."""
+    """SC-UI-004-1 / REQ-CGS-UI-008: zoom clamps to [ZOOM_MIN .. ZOOM_MAX].
+
+    Superseded 2026-08-25: the lower clamp used to be the document's raw
+    fit-to-view computation (``min(ZOOM_MIN, fit_zoom)``), which could sit
+    below 100% for a document larger than the viewport. It is now the flat
+    ``ZOOM_MIN`` floor, full stop -- see ``ZOOM_MIN``'s docstring in
+    ``logic/constants.py``.
+    """
     view, _scene, _stack = make_view(1024, 1024)
     view.set_zoom(ZOOM_MAX * 100.0)
     assert view.zoom() == pytest.approx(ZOOM_MAX)
     fit = view._fit_zoom()
-    view.set_zoom(fit / 1000.0)
-    assert view.zoom() == pytest.approx(fit)
-    assert view.zoom() >= fit
+    assert fit < ZOOM_MIN  # this document's raw fit is sub-1:1 ...
+    view.set_zoom(fit / 1000.0)  # ... and this request is even lower still
+    assert view.zoom() == pytest.approx(ZOOM_MIN)  # clamps to the flat floor
+    assert view.zoom() >= ZOOM_MIN
 
 
 def test_sc_ui_004_2_wheel_notch_scales_by_step(make_view):

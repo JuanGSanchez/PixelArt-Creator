@@ -243,7 +243,7 @@ class Timeline_Panel(QWidget):
             _THUMBNAIL_EDGE,
             _THUMBNAIL_EDGE,
             Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.FastTransformation,  # nearest-neighbour
+            Qt.TransformationMode.SmoothTransformation,  # thumbnail-only, not canvas
         )
         return QPixmap.fromImage(scaled)
 

@@ -99,7 +99,7 @@ def test_t17_frame_select_commits_a_live_float(qtbot):
     from pixelart_creator.logic.selection import rect_mask
     from pixelart_creator.ui.main_window import Main_Window
     from pixelart_creator.ui.tools import RectSelectTool
-    from tests.ui._ui_helpers import prepare_for_click
+    from tests.ui._ui_helpers import prepare_for_click, viewport_point_for_pixel
 
     win = Main_Window()
     qtbot.addWidget(win)
@@ -115,7 +115,10 @@ def test_t17_frame_select_commits_a_live_float(qtbot):
     view.set_selection(rect_mask(buf.width, buf.height, 2, 2, 4, 4))
 
     def _mev(etype, x, y, button, buttons):
-        pt = QPointF(x + 0.2, y + 0.2)
+        # Routed through the view's own CURRENT mapping (view.mapFromScene),
+        # never a hand-computed offset -- see _ui_helpers.viewport_point_for_pixel.
+        point = viewport_point_for_pixel(view, x, y)
+        pt = QPointF(point.x(), point.y())
         return QMouseEvent(
             etype, pt, pt, button, buttons, Qt.KeyboardModifier.NoModifier
         )

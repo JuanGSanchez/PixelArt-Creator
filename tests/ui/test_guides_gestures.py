@@ -16,8 +16,11 @@ from __future__ import annotations
 from PySide6.QtCore import QRectF
 
 from pixelart_creator.logic.guides import GuideOrientation
-from pixelart_creator.ui.guides_rulers_overlay import Guides_Rulers_Overlay
-from tests.ui._ui_helpers import drag_path
+from pixelart_creator.ui.guides_rulers_overlay import (
+    Guides_Overlay,
+    Guides_Rulers_Overlay,
+)
+from tests.ui._ui_helpers import drag_path, viewport_point_for_pixel
 
 _RECT64 = QRectF(0, 0, 64, 64)
 
@@ -63,8 +66,17 @@ def test_d11_drag_off_canvas_removes_the_guide_via_public_remove_guide(make_view
 
     press(view, 10, 5)
 
-    # Manually finish the release far outside the scene rect (x=200 > width 64).
-    pt = QPointF(200.0, 5.0)
+    # Manually finish the release genuinely off-canvas: a scene point well
+    # past the document's own right edge (never a raw viewport-space literal
+    # like x=200 -- Canvas_View inflates its own scrollable rect by a pan
+    # margin of half a viewport on every side, REQ-CGS-UI-009, so a
+    # viewport-space literal's off-canvas-ness would depend on viewport size
+    # rather than being guaranteed by construction). scene.sceneRect() is the
+    # document's own untouched rect (F3); +20 scene units past its right edge
+    # is unambiguously off-document regardless of pan-margin size.
+    off_canvas_scene_pt = QPointF(scene.sceneRect().width() + 20.0, 5.0)
+    release_vp = view.mapFromScene(off_canvas_scene_pt)
+    pt = QPointF(release_vp.x(), release_vp.y())
     evt = QMouseEvent(
         QEvent.Type.MouseButtonRelease,
         pt,
@@ -76,6 +88,80 @@ def test_d11_drag_off_canvas_removes_the_guide_via_public_remove_guide(make_view
     view.mouseReleaseEvent(evt)
 
     assert guides.overlay_item().guides() == ()
+
+
+def test_d11_drag_just_past_document_edge_removes_the_guide_via_public_remove_guide(
+    make_view,
+):
+    """D-11 regression guard (REQ-CGS-UI-009): a release only ONE scene unit
+    past the document's own edge must still count as off-canvas.
+
+    The sibling test above releases the guide ``scene.sceneRect().width() +
+    20`` -- comfortably outside the document, but that ``+20`` is still a
+    FIXED offset, not a proof against every pan-margin size. ``Canvas_View``
+    inflates its OWN scrollable rect (``self.sceneRect()``, distinct from the
+    document's ``scene.sceneRect()``) by half a viewport in scene units on
+    every side (``_apply_pan_margin``). If the drop-off-canvas check ever
+    regressed back to reading that inflated view rect instead of
+    ``_content_rect()`` (the document's own, untouched rect), a margin bigger
+    than ``20`` scene units -- trivially reached by a wide-enough viewport --
+    would make the buggy check still ``contains()`` the ``+20`` release
+    point, so that sibling test's green would NOT be evidence the fix holds.
+
+    Releasing just past the edge -- ``width + 1`` -- closes that gap: for the
+    buggy inflated-rect check to wrongly call this point "still on canvas",
+    the pan margin would have to be SMALLER than a single scene unit, which
+    ``_apply_pan_margin`` (half a viewport, plus a pixel of rounding slack)
+    never produces for any real viewport. So this assertion fails against an
+    inflated ``self.sceneRect()`` check at any margin the view could
+    plausibly compute, however large the window; only the semantic
+    ``_content_rect()`` check makes it pass.
+    """
+    view, scene, guides = _rig(make_view)
+    guide = guides.overlay_item().add_guide(GuideOrientation.VERTICAL, 10.0)
+    assert len(guides.overlay_item().guides()) == 1
+
+    # Spy on the PUBLIC ``remove_guide`` itself (never private state) so the
+    # removal is confirmed to go through that exact seam, not merely
+    # inferred from the guides() outcome -- while still delegating to the
+    # real implementation, so the guide is genuinely removed.
+    calls: list = []
+    real_remove_guide = Guides_Overlay.remove_guide
+
+    def _spy_remove_guide(self, guide_arg):  # noqa: ANN001
+        calls.append(guide_arg)
+        return real_remove_guide(self, guide_arg)
+
+    import unittest.mock as _mock
+
+    with _mock.patch.object(Guides_Overlay, "remove_guide", _spy_remove_guide):
+        # Start the drag on the guide, exactly as the sibling test does.
+        from PySide6.QtCore import QEvent, QPointF, Qt
+        from PySide6.QtGui import QMouseEvent
+
+        from tests.ui._ui_helpers import press
+
+        press(view, 10, 5)
+
+        # Just past the document's own right edge -- +1 scene unit, not the
+        # sibling's +20 (see docstring): the tightest release point that
+        # still unambiguously counts as off-document (F3), immune to any
+        # plausible pan-margin size rather than merely a margin under 20.
+        off_canvas_scene_pt = QPointF(scene.sceneRect().width() + 1.0, 5.0)
+        release_vp = view.mapFromScene(off_canvas_scene_pt)
+        pt = QPointF(release_vp.x(), release_vp.y())
+        evt = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            pt,
+            pt,
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        view.mouseReleaseEvent(evt)
+
+    assert guides.overlay_item().guides() == ()
+    assert calls == [guide], "removal did not go through the PUBLIC remove_guide"
 
 
 class _FakeSignal:
@@ -153,7 +239,11 @@ def test_d11_context_action_removes_the_guide_via_public_remove_guide(
     from PySide6.QtCore import QEvent, QPointF, Qt
     from PySide6.QtGui import QMouseEvent
 
-    pt = QPointF(10.0, 5.0)
+    # Target document pixel (10, 5) -- where the guide was added -- via the
+    # view's own CURRENT mapping (view.mapFromScene), never a hand-computed
+    # offset; see _ui_helpers.viewport_point_for_pixel.
+    point = viewport_point_for_pixel(view, 10, 5)
+    pt = QPointF(point.x(), point.y())
     evt = QMouseEvent(
         QEvent.Type.MouseButtonPress,
         pt,

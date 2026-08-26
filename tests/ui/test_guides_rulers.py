@@ -52,11 +52,22 @@ def test_sc_ui_003_1_no_snap_beyond_tolerance(make_view):
 
 
 def test_sc_ui_003_1_ruler_coordinate_readout_from_logic(make_view):
-    """SC-UI-003-1: the ruler readout equals logic.coordinate_readout of the cursor."""
+    """SC-UI-003-1: the ruler readout equals logic.coordinate_readout of the cursor.
+
+    The expected pan offset is read from the view's own CURRENT mapping
+    (``view.mapToScene(0, 0)``) — the same value ``Ruler_Strip._doc_offset()``
+    uses internally — never assumed to be ``(0.0, 0.0)``. ``Canvas_View``
+    inflates its own scene rect by a pan margin (REQ-CGS-UI-009), so the
+    view's scrollable rect (and therefore this offset) has a negative origin
+    even for a freshly built view; see ``_ui_helpers.prepare_for_click``.
+    """
     controller, view, _scene, _stack = _controller(make_view)
     ruler = controller.horizontal_ruler()
     ruler.set_cursor_readout(30.0, 10.0)
-    expected_x, _expected_y = coordinate_readout(30.0, 10.0, view.zoom(), (0.0, 0.0))
+    top_left = view.mapToScene(0, 0)
+    expected_x, _expected_y = coordinate_readout(
+        30.0, 10.0, view.zoom(), (top_left.x(), top_left.y())
+    )
     assert ruler._cursor_doc == expected_x
 
 

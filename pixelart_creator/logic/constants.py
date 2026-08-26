@@ -43,11 +43,24 @@ ZOOM_MAX: float = 64.0
 computed, not a literal (CL-1)."""
 
 ZOOM_MIN: float = 1.0
-"""ZOOM_MIN is the floor for a document small enough that zooming below 1:1
-is pointless. It is NOT an absolute floor. The view's lower clamp is
-`min(ZOOM_MIN, fit_zoom)` so that a very large document (up to the 8K
-canvas) can always be zoomed out far enough to show the whole grid, which a
-flat 1.0 floor would make unreachable. User ruling, 2026-08-24."""
+"""ZOOM_MIN is a flat, absolute lower clamp on zoom: 1:1 and no further out,
+full stop. Below 1:1 the canvas is minified by a painter with smoothing off
+(nearest-neighbour point sampling), and an isolated pixel that falls between
+sample points is not drawn at all -- it reappears only if the sampling grid
+happens to re-align, which read to users as 'my drawing was invisible until
+I moved something'. The accepted trade-off: a document larger than the
+viewport can no longer be zoomed out to show the whole grid at once: it is
+reached by panning instead. This was put to the user explicitly and
+accepted; it is not an oversight. Measured against a 1200x800 viewport, the
+floor only binds at roughly 1024 px and above -- a 64x64 or 256x256 document
+still fits well inside 1:1 and is unaffected.
+
+Supersedes the 2026-08-24 ruling, which held that ZOOM_MIN was NOT an
+absolute floor and that the view's lower clamp was `min(ZOOM_MIN,
+fit_zoom)` so a very large document could always be zoomed out far enough
+to show the whole grid. That reasoning was sound for grid visibility alone
+but did not account for point-sampling loss below 1:1; superseded by user
+ruling, 2026-08-25."""
 
 ZOOM_PRESET_STOPS: tuple[float, ...] = (1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0)
 """Discrete keyboard zoom preset stops, 100 %..6400 % (CL-2). The geometric
@@ -88,13 +101,33 @@ TILED_PREVIEW_REPEAT: int = 3
 """Tiled-mode repeating preview arrangement: TILED_PREVIEW_REPEAT x
 TILED_PREVIEW_REPEAT tiles (3x3, centre tile editable) (CL-13; plan §8)."""
 
-SCALE_MIN_FACTOR: float = 0.01
-"""Lower bound on the nearest-neighbour scale factor (guards pathological
-near-zero factors below the MAX_CANVAS_* hard bound) (plan §8, PL-D5)."""
+# --- canvas-scale-defects whole-document transform tuning (T01; Article II
+# single-source) --------------------------------------------------------------
+# Consumed by logic/doc_transform.py and the four whole-document geometry
+# operations it drives (Scale, Rotate 90, Flip H, Flip V). This module stays a
+# leaf (no intra-package imports).
 
-SCALE_MAX_FACTOR: float = 64.0
-"""Upper bound on the nearest-neighbour scale factor; the hard pixel ceiling
-remains MAX_CANVAS_WIDTH / MAX_CANVAS_HEIGHT (plan §8, PL-D5)."""
+DOCUMENT_TRANSFORM_CONFIRM_BYTES: int = 4 * MAX_CANVAS_WIDTH * MAX_CANVAS_HEIGHT * 4
+"""Projected-peak-bytes ceiling above which a whole-document geometry operation
+(Scale / Rotate 90 / Flip H / Flip V) asks for confirmation before running —
+4 full 8K RGBA canvases = 530,841,600 B = 506.25 MiB (canvas-scale-defects
+spec.md §5.2/§5.3; plan.md §4.4; PL-CSD-D1).
+
+Spelled in terms of :data:`MAX_CANVAS_WIDTH` / :data:`MAX_CANVAS_HEIGHT`, never
+as the bare literal (Article II.3), so the threshold tracks the platform
+ceiling. Named ``DOCUMENT_TRANSFORM_CONFIRM_BYTES`` rather than a
+``SCALE_``-prefixed name (AGT-01 ruling PL-CSD-D1): ``logic/transform.py``'s
+own module docstring — "Buffer transforms: flip / rotate-90 / scale-NN" — is
+this codebase's own noun for the whole four-operation family, and all four
+consult this constant.
+
+The floor of 2 "units" (one projected-result buffer + one retained-source
+buffer, :func:`~pixelart_creator.logic.doc_transform.projected_peak_bytes`) is
+FORCED, not chosen: a single-layer 8K document scaled to the ceiling, or
+merely flipped, costs exactly 2 units and must stay silent, so the threshold
+must strictly exceed 2 units. 3 units leaves under half a unit of headroom, so
+an ordinary two-layer 8K operation would already prompt. 4 is the smallest
+power-of-two multiple of a unit that clears the forced floor with headroom."""
 
 # --- Phase-3 colour & palette tuning (phase-3 T1; Article II single-source) -----
 # Tuning scalars consumed by the new logic/ colour modules. The ΔE00 formula
@@ -118,6 +151,14 @@ HARMONY_TRIADIC_DEG: int = 120
 HARMONY_SPLIT_COMPLEMENTARY_DEG: int = 150
 """Hue offset (±) for the split-complementary harmony, degrees
 (research F9 Topic 1.1; spec REQ-P3-LOGIC-002; SC-L002-4)."""
+
+HARMONY_TETRADIC_DEG: int = 90
+"""Hue rotation for the Tetradic (evenly spaced, square) harmony, degrees
+(research F9 Topic 1.1; spec REQ-CGS-LOGIC-001). DISTINCT from
+:data:`HARMONY_COMPLEMENTARY_DEG` (=180) even though 2 x 90 = 180: the
+Tetradic scheme rotates hue by this amount four times (0, 90, 180, 270) and
+its +180 member is a property of the scheme, not a substitute for the
+standalone complementary harmony — the spec forbids trimming it out."""
 
 RAMP_STEP_COUNT: int = 5
 """Number of steps in a shade/tint/tone ramp (Aseprite ramp norm; odd count
@@ -1163,3 +1204,49 @@ UI_NOTICE_DURATION_MS: int = 6000
 Formerly an inline literal in the UI layer; centralised here so a change is made
 in exactly one place. Pure numeric tuning only — the UI widget that shows/hides
 the notice remains ui/'s concern (S11)."""
+
+# --- canvas-grid-semantics fix (T5; Article II single-source) -------------------
+# The canvas checkerboard was drawn at TILE_SIZE document px per square. TILE_SIZE
+# is 64 and its declared meaning is the viewport-culling render edge — a
+# performance quantity that had been conflated with a transparency-checker
+# quantity. Consequence in the field: a default 64x64 document (DEFAULT_CANVAS_
+# WIDTH/HEIGHT) is EXACTLY ONE checker square, so a user drew inside what they
+# reasonably took to be a cell and coloured 1/4096th of it. The four names below
+# declare the checker's own scalars, plus the harmony scalar above, so this
+# conflation cannot recur. TILE_SIZE, TILE_BUFFER and every other canonical value
+# are UNCHANGED; every TILE_SIZE call site is untouched. This module stays a leaf
+# (no intra-package imports).
+
+CHECKER_CELL_PX: int = 1
+"""Transparency-checker square edge, in **document** px, so it scales with zoom
+(the Aseprite semantic: its checker is sized in sprite pixels with a zoom-aware
+toggle, default 16 sprite px there; this project ships 1 by user ruling, so one
+checker square is one document pixel — REQ-CGS-UI-003/REQ-CGS-LOGIC-001).
+
+DISTINCT from :data:`TILE_SIZE` (=64, the viewport-cull *render* edge — the very
+conflation that caused the field defect: a default 64x64 document was exactly
+one checker square, so a user drew inside what they reasonably took to be a
+cell and coloured 1/4096th of it). Also DISTINCT from :data:`DEFAULT_TILE_WIDTH`
+/ :data:`DEFAULT_TILE_HEIGHT` (=16, the tileset *content* tile) and from
+:data:`CRDT_TILE_SIZE_PX` (=64, the collaboration *transport* tile) — none of
+those three is a transparency-checker quantity."""
+
+CHECKER_MIN_ON_SCREEN_EDGE_PX: float = 1.0
+"""LOD floor, in **device** px per cell, below which the checker pattern
+degrades to a flat blend rather than aliasing into moire (REQ-CGS-UI-006).
+
+BOUND, not only the value: this MUST NOT fire at the 1:1 zoom floor with
+:data:`CHECKER_CELL_PX` = 1, where one checker cell is exactly 1.0 device px —
+so the value here must be <= 1.0. Any value GREATER than 1.0 would blend the
+checker at 100% zoom and silently repeal the "one square is one pixel"
+requirement; this is not hypothetical, the orchestrator's first draft proposed
+3.0 and it was caught at the gate. ``float``, unlike its ``int`` precedents
+(:data:`CHECKER_CELL_PX`, :data:`CANVAS_BORDER_WIDTH_PX`), because it is
+compared against a zoom scale, not counted in whole px."""
+
+CANVAS_BORDER_WIDTH_PX: int = 1
+"""Cosmetic canvas-edge pen width, in **device** px (REQ-CGS-UI-010). The only
+screen-space scalar of the four canvas-grid-semantics constants; distinct from
+:data:`CHECKER_CELL_PX` and :data:`CHECKER_MIN_ON_SCREEN_EDGE_PX` by unit (a
+fixed-width pen stroke, not a document-space size or a zoom-compared LOD
+threshold) rather than by value."""

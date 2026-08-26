@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import math
 import threading
+import warnings
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Sequence, Set, Tuple
 
@@ -73,11 +74,12 @@ from pixelart_creator.logic.blend import (
 )
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.constants import (
+    CANVAS_BORDER_WIDTH_PX,
+    CHECKER_CELL_PX,
+    CHECKER_MIN_ON_SCREEN_EDGE_PX,
     FRAME_BUDGET_MS,
     GRID_MIN_PIXEL_EDGE_PX,
     OPACITY_PREVIEW_MAX_PX,
-    TILE_BUFFER,
-    TILE_SIZE,
     TILED_PREVIEW_REPEAT,
 )
 from pixelart_creator.logic.document import (
@@ -103,6 +105,11 @@ from pixelart_creator.ui.frame_cache import FrameCompositeCache
 _DEFAULT_CHECKER_LIGHT = QColor(200, 200, 200)
 _DEFAULT_CHECKER_DARK = QColor(160, 160, 160)
 _DEFAULT_GRID = QColor(120, 120, 120, 160)
+#: Default surface roles (REQ-CGS-UI-005/-006), covering the pre-theme state a
+#: directly-constructed scene is in (several tests build a scene with no theme
+#: applied). Overridden by the active theme via :meth:`CanvasScene.set_surface_roles`.
+_DEFAULT_WORKSPACE = QColor(200, 200, 200)
+_DEFAULT_BORDER = QColor(120, 120, 120)
 
 #: Longest-edge cap (px) of the cached downscaled tiled-preview pixmap. The dimmed
 #: neighbour tiles are context only, so they render from one small cached pixmap
@@ -212,6 +219,62 @@ class _BufferPixmapItem(QGraphicsPixmapItem):
         self._image = QImage()
         self._rebuild()
 
+    def _wrap_image(self) -> QImage:
+        """Return a fresh zero-copy ``QImage`` view over ``self._display``.
+
+        A NEW ``QImage`` instance every call — never a pixel copy, only Qt
+        metadata over the same shared NumPy memory (identical cost to the
+        original ``_rebuild`` wrap). This exists because Qt's OpenGL paint
+        engine caches an uploaded texture keyed on the ``QImage``'s own
+        identity (``cacheKey()``), which an in-place write to the shared
+        buffer never changes — so ``drawImage`` on a GL viewport kept
+        re-blitting the texture captured at construction (transparent, in the
+        pre-first-edit case) and drawn pixels stayed invisible on a real GL
+        surface even though the raster paint engine, which reads the memory
+        directly with no such cache, showed them correctly (matching the
+        offscreen/GL A/B split the field defect isolated). Rebinding the
+        wrapper on every content-changing repaint (:meth:`update`, below)
+        moves the identity the cache keys on with the data itself.
+
+        Dimensions are read from ``self._display.shape`` — the array this
+        method actually wraps — never from ``self._buffer.width/height``.
+        ``set_buffer`` reassigns ``self._buffer`` to the NEW buffer before
+        ``_rebuild`` refreshes ``self._display`` to match it; deriving the
+        size from ``self._buffer`` would therefore risk pairing the new
+        (possibly larger) dimensions with the still-old, smaller
+        ``self._display`` memory during that window — an out-of-bounds read
+        the moment anything triggered a wrap in between. Reading the shape
+        off ``self._display`` itself makes the two inputs to this ``QImage``
+        inseparable by construction, so no such window can exist regardless
+        of call order.
+        """
+        h, w = self._display.shape[0], self._display.shape[1]
+        return QImage(
+            self._display.data,
+            w,
+            h,
+            self._display.strides[0],
+            QImage.Format.Format_RGBA8888,
+        )
+
+    def update(  # noqa: N802 (Qt override; *args mirrors QGraphicsItem's two overloads)
+        self, *args: object, **kwargs: object
+    ) -> None:
+        """Rebind the live image wrapper, then schedule the Qt repaint.
+
+        Every content-changing call site in :class:`CanvasScene` already
+        calls ``sync_region`` followed by this method (never bypassed), so
+        rebuilding here — rather than duplicating the call at each of those
+        sites — covers all of them uniformly and keeps the GL texture-cache
+        identity fix (see :meth:`_wrap_image`) a single, hard-to-miss seam.
+        ``*args``/``**kwargs`` pass straight through to
+        ``QGraphicsItem.update`` unexamined — this override never inspects
+        the requested rect, so it stays valid against both of Qt's overloads
+        (``update(QRectF | QRect = ...)`` and ``update(x, y, w, h)``).
+        """
+        self._image = self._wrap_image()
+        super().update(*args, **kwargs)  # type: ignore[call-overload]
+
     def set_buffer(
         self,
         buffer: PixelBuffer,
@@ -233,13 +296,7 @@ class _BufferPixmapItem(QGraphicsPixmapItem):
         else:
             self._display = np.zeros((h, w, 4), dtype=np.uint8)
             self._sync_indexed(0, 0, w, h)
-        self._image = QImage(
-            self._display.data,
-            w,
-            h,
-            self._display.strides[0],
-            QImage.Format.Format_RGBA8888,
-        )
+        self._image = self._wrap_image()
         # A single pixmap keeps the item a genuine QGraphicsPixmapItem (D1); the
         # live image is what paint() blits, so this is only a placeholder.
         self.setPixmap(QPixmap(1, 1))
@@ -480,28 +537,88 @@ class _TiledPreviewItem(QGraphicsItem):
                 painter.drawPixmap(clipped, pixmap, src)
 
 
-def _paint_checker_tiles(
-    painter: QPainter, rect: QRectF, light: QColor, dark: QColor
-) -> None:
-    """Fill ``rect`` with the ``TILE_SIZE`` checkerboard (D2).
+class _CheckerBrush:
+    """Precomputed transparency-checker texture brush + LOD-floor blend colour.
 
-    Shared by :meth:`CanvasScene.drawBackground` and
-    :class:`_FloatingPreviewItem` so a vacated (transparent) MOVE origin reads as
-    the checker rather than the buffer pixmap beneath it. Tile indices use
-    absolute scene coordinates, so the item's checker aligns pixel-perfectly with
-    the scene background.
+    Shared by :meth:`CanvasScene.drawBackground` and both
+    :class:`_FloatingPreviewItem` instances (via :func:`_fill_checker`) so a
+    vacated (transparent) MOVE origin, and the document canvas itself, read the
+    identical checker (REQ-CGS-UI-003/-004). Built once per role-colour or
+    cell-size change — **never** on zoom, pan, edit or frame (rebuild sites:
+    :meth:`CanvasScene.set_background_roles` and scene construction only).
+
+    ``texture`` is a ``QPixmap`` of edge ``2 * cell`` **document** pixels, the
+    four cells of one checker period painted into it (light/dark/dark/light),
+    wrapped in a ``QBrush``; ``blend`` is the precomputed 50/50 mix of the two
+    role colours, used below :data:`CHECKER_MIN_ON_SCREEN_EDGE_PX` (REQ-CGS-UI-006).
+
+    No brush transform is installed here, and deliberately so: at
+    ``cell == CHECKER_CELL_PX == 1`` a transform would be the identity — a
+    no-op a later reader could mistake for a missing seam fix — and the cell is
+    already painted into the texture as a whole number of texture pixels, which
+    cannot be resampled by a transform anyway. ``QBrush.setTransform`` is the
+    correct mechanism *if* a non-integer ``CHECKER_CELL_PX`` is ever introduced;
+    it is intentionally absent while the cell stays an integer.
     """
-    left = math.floor(rect.left() / TILE_SIZE) - TILE_BUFFER
-    top = math.floor(rect.top() / TILE_SIZE) - TILE_BUFFER
-    right = math.ceil(rect.right() / TILE_SIZE) + TILE_BUFFER
-    bottom = math.ceil(rect.bottom() / TILE_SIZE) + TILE_BUFFER
-    for ty in range(top, bottom):
-        for tx in range(left, right):
-            colour = light if (tx + ty) % 2 == 0 else dark
-            painter.fillRect(
-                QRectF(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE),
-                colour,
-            )
+
+    __slots__ = ("texture", "blend", "cell")
+
+    def __init__(self, texture: QBrush, blend: QColor, cell: int) -> None:
+        self.texture = texture
+        self.blend = blend
+        self.cell = cell
+
+
+def _build_checker_brush(light: QColor, dark: QColor, cell: int) -> _CheckerBrush:
+    """Build a :class:`_CheckerBrush` for ``light``/``dark`` at ``cell`` document px.
+
+    The texture pixmap is ``2 * cell`` square — one full checker period — so
+    Qt's brush tiling reproduces the whole checkerboard from a single
+    ``fillRect`` call (see :func:`_fill_checker`), regardless of the filled
+    area (REQ-CGS-UI-003; measured: a per-cell ``fillRect`` loop extrapolates to
+    ~2841 ms at ``cell=1`` over 1920x1080 — 177x the 16 ms frame budget — versus
+    1.96 ms for this texture-brush fill of the same case).
+    """
+    edge = 2 * cell
+    pixmap = QPixmap(edge, edge)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.fillRect(QRect(0, 0, cell, cell), light)
+    painter.fillRect(QRect(cell, 0, cell, cell), dark)
+    painter.fillRect(QRect(0, cell, cell, cell), dark)
+    painter.fillRect(QRect(cell, cell, cell, cell), light)
+    painter.end()
+    texture = QBrush(pixmap)
+    # No texture.setTransform(...) — see _CheckerBrush's docstring: at cell == 1
+    # the transform would be the identity, and the cell already lives in the
+    # pixmap as whole texture pixels, so there is nothing to resample.
+    blend = QColor(
+        (light.red() + dark.red()) // 2,
+        (light.green() + dark.green()) // 2,
+        (light.blue() + dark.blue()) // 2,
+        (light.alpha() + dark.alpha()) // 2,
+    )
+    return _CheckerBrush(texture, blend, cell)
+
+
+def _fill_checker(painter: QPainter, rect: QRectF, checker: _CheckerBrush) -> None:
+    """Fill ``rect`` with ``checker``'s texture, or its flat blend below the LOD floor.
+
+    One ``fillRect`` call regardless of ``rect``'s area — the LOD decision has
+    exactly **one** site: the checker cell's on-screen edge, in device px,
+    computed here from the painter's own world transform (REQ-CGS-UI-006).
+    Positive-form gate, mirroring the pixel-grid idiom in
+    :meth:`CanvasScene.drawBackground` (``... >= GRID_MIN_PIXEL_EDGE_PX``): at
+    the 1:1 zoom floor the cell is exactly ``CHECKER_MIN_ON_SCREEN_EDGE_PX``
+    device px and the gate is ``>=``, so the pattern still draws there.
+    """
+    if rect.isEmpty():
+        return
+    cell_edge_px = checker.cell * abs(painter.worldTransform().m11())
+    if cell_edge_px >= CHECKER_MIN_ON_SCREEN_EDGE_PX:
+        painter.fillRect(rect, checker.texture)
+    else:
+        painter.fillRect(rect, checker.blend)
 
 
 class _FloatingPreviewItem(QGraphicsItem):
@@ -539,13 +656,20 @@ class _FloatingPreviewItem(QGraphicsItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemClipsToShape, True)
         self._region = QRectF()
         self._image = QImage()
-        self._checker_light = QColor(_DEFAULT_CHECKER_LIGHT)
-        self._checker_dark = QColor(_DEFAULT_CHECKER_DARK)
+        self._checker: Optional[_CheckerBrush] = None
+        self._canvas_rect = QRectF()
 
-    def set_roles(self, light: QColor, dark: QColor) -> None:
-        """Set the two checker colours (kept in step with the scene's, 025)."""
-        self._checker_light = QColor(light)
-        self._checker_dark = QColor(dark)
+    def set_roles(self, checker: _CheckerBrush, canvas_rect: QRectF) -> None:
+        """Set the shared checker brush and canvas bounds.
+
+        Kept in step with the scene's (REQ-CGS-UI-003/-004/-005).
+        ``canvas_rect`` bounds every checker fill to the document — a float
+        dragged past the document edge cannot paint checker outside it
+        (``ItemClipsToShape`` clips to the item's own region, not to the
+        canvas, so it does not achieve this on its own).
+        """
+        self._checker = checker
+        self._canvas_rect = QRectF(canvas_rect)
         self.update()
 
     def set_preview(self, image: QImage, region: QRectF) -> None:
@@ -584,8 +708,13 @@ class _FloatingPreviewItem(QGraphicsItem):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
         # Repaint the checker so a vacated (transparent) MOVE origin reads empty
-        # instead of showing the untouched buffer pixmap underneath.
-        _paint_checker_tiles(painter, target, self._checker_light, self._checker_dark)
+        # instead of showing the untouched buffer pixmap underneath. Bounded to
+        # the canvas so a float dragged past the document edge cannot paint
+        # checker outside it (REQ-CGS-UI-005).
+        if self._checker is not None:
+            checker_target = target.intersected(self._canvas_rect)
+            if not checker_target.isEmpty():
+                _fill_checker(painter, checker_target, self._checker)
         # Map the (culled) target back into the region-local image coordinates.
         src = target.translated(-self._region.left(), -self._region.top())
         painter.drawImage(target, self._image, src)
@@ -857,10 +986,21 @@ class CanvasScene(QGraphicsScene):
             self._composite_dirty = True
             self._frame_cache.put(self._frame_index, self._composite)
             self._frame_cache.pin(self._frame_index)
-        self._grid_enabled = False
+        self._grid_enabled = True
         self._checker_light = QColor(_DEFAULT_CHECKER_LIGHT)
         self._checker_dark = QColor(_DEFAULT_CHECKER_DARK)
+        #: Shared checker texture brush + LOD blend (REQ-CGS-UI-003/-004), built
+        #: once here and rebuilt only by :meth:`set_background_roles` — never on
+        #: zoom/pan/edit/frame.
+        self._checker_brush: _CheckerBrush = _build_checker_brush(
+            self._checker_light, self._checker_dark, CHECKER_CELL_PX
+        )
         self._grid_color = QColor(_DEFAULT_GRID)
+        #: Surface roles (REQ-CGS-UI-005/-006): where the document workspace ends
+        #: and its border begins. Defaults cover a directly-constructed, pre-theme
+        #: scene; the shell overrides via :meth:`set_surface_roles`.
+        self._workspace_color = QColor(_DEFAULT_WORKSPACE)
+        self._border_color = QColor(_DEFAULT_BORDER)
         self._item = _BufferPixmapItem(
             self._display_source(), document.palette.colors()
         )
@@ -875,11 +1015,12 @@ class CanvasScene(QGraphicsScene):
         # (bounded) destination bbox; the vacated origin is a SEPARATE one-shot
         # layer just below, composited once at lift — so a long MOVE drag never
         # unions the two into a distance-growing region (AGT-10 FB-8).
+        canvas_rect = QRectF(0, 0, document.width, document.height)
         self._float_item = _FloatingPreviewItem()
-        self._float_item.set_roles(self._checker_light, self._checker_dark)
+        self._float_item.set_roles(self._checker_brush, canvas_rect)
         self.addItem(self._float_item)
         self._origin_item = _FloatingPreviewItem(z=_FloatingPreviewItem._ORIGIN_Z)
-        self._origin_item.set_roles(self._checker_light, self._checker_dark)
+        self._origin_item.set_roles(self._checker_brush, canvas_rect)
         self.addItem(self._origin_item)
         self._floating_prev: QRectF = QRectF()
         #: Scene rect of the one-shot vacated-origin overlay (empty when none).
@@ -979,12 +1120,71 @@ class CanvasScene(QGraphicsScene):
         :meth:`drawBackground` before the pixmap item blits it, or from any earlier
         explicit read of ``self._composite``. It is idempotent: a no-op once the
         composite is fresh, so the dirty-rect (region) recomposite fast paths are
-        unaffected. The in-place write in :meth:`_recomposite_all` keeps the
-        item's zero-copy ``QImage`` view valid, so no rebuild is needed. FLAGGED
-        for an AGT-10 render-strategy re-profile.
+        unaffected. ``_recomposite_all``'s in-place write keeps the item's
+        zero-copy ``QImage`` *pixels* valid on its own, but the GL paint engine
+        caches an uploaded texture keyed on the ``QImage`` **identity**
+        (``_wrap_image``'s docstring on ``_BufferPixmapItem``) — an in-place
+        write never changes that identity, so the mutation must still be
+        followed by telling the item to repaint. When this call performs the
+        (once-ever) mutation, :meth:`_schedule_item_repaint` queues that
+        follow-up on the next event-loop tick, never inline here, because a
+        caller may be :meth:`drawBackground` itself (paint already in
+        progress — an inline ``update()`` there risks a repaint
+        recursion/churn). FLAGGED for an AGT-10 render-strategy re-profile.
         """
         if self._composite_dirty:
             self._recomposite_all()
+            self._schedule_item_repaint()
+
+    def _schedule_item_repaint(self) -> None:
+        """Queue ``self._item.update()`` for the next event-loop tick.
+
+        Deferred rather than called inline so a composite mutation performed
+        from *inside* :meth:`drawBackground` (paint already in progress)
+        never triggers a synchronous re-entrant repaint of the item being
+        painted; the queued call lands safely after the current paint pass
+        completes. ``_ensure_composite`` performs its one real mutation at
+        most once per scene lifetime (``_composite_dirty`` is set ``True``
+        only in ``__init__``), so this adds one negligible deferred call, not
+        a per-frame cost.
+
+        Carries a context object (canvas-scale-defects DEBT, ``plan.md``
+        §5.6): ``self._item`` (:class:`_BufferPixmapItem`) derives from
+        ``QGraphicsPixmapItem``, which is **not** a ``QObject`` and so cannot
+        itself be the context that guards this deferred call. ``self`` — this
+        scene, a ``QGraphicsScene`` and therefore a ``QObject`` that owns the
+        item's lifetime — is passed as the three-argument overload's context,
+        so a scene torn down within the same event-loop tick discards the
+        call instead of firing it on a deleted C++ object. Verified this
+        overload resolves, and that deleting the context before the loop
+        runs suppresses delivery, under the pinned PySide6 6.11.1 (U-3).
+
+        Guarded: this is the one call site :meth:`_ensure_composite` reaches
+        from *inside* an active paint pass (via ``drawBackground``), so a
+        raise here must never be allowed to unwind through the Qt paint
+        machinery — a Python exception crossing that C++ boundary mid-paint
+        leaves the ``QPainter`` in an undefined state, and the very next Qt
+        paint call (observed: the pixmap item's own ``drawImage``) then dies
+        in shiboken argument validation instead of failing cleanly (field
+        defect: a monkeypatched 2-argument ``QTimer.singleShot`` spy rejects
+        this call's 3-argument context form and raises ``TypeError`` here).
+        Scheduling this repaint is inherently best-effort — the composite
+        buffer itself is already correct by the time this runs, only the
+        on-screen blit is deferred — so swallowing a failure to schedule it
+        costs at most one missed early repaint, never a wrong pixel and never
+        a crash. ``warnings.warn`` keeps the failure discoverable without
+        letting it propagate.
+        """
+        try:
+            QTimer.singleShot(0, self, self._item.update)
+        except Exception as exc:  # noqa: BLE001 - must never escape a paint pass
+            warnings.warn(
+                f"CanvasScene: deferred repaint scheduling failed ({exc!r}); "
+                "the composite is still correct, only its on-screen blit is "
+                "delayed to the next natural repaint.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     def _recomposite_region(self, rect: QRectF) -> None:
         """Recompose only ``rect`` into the composite buffer (dirty-rect path, D1).
@@ -1609,12 +1809,12 @@ class CanvasScene(QGraphicsScene):
 
         Called by :class:`~pixelart_creator.ui.commands.LogicCommand` for
         dimension-changing transforms / RotSprite: the logic ``FunctionCommand``
-        has swapped ``Layer.buffer``, so the scene must re-read it and re-fix its
-        rect (the document geometry is synced by the caller).
+        has swapped ``Layer.buffer`` (and, for a whole-document transform, has
+        already moved ``Document.width``/``Document.height`` itself — see
+        ``logic/doc_transform.py``'s ``make_document_transform_command``), so
+        this method only re-reads the document's now-current geometry and
+        re-renders (REQ-CSD-UI-005: the scene does not author geometry).
         """
-        buffer = self._active_layer.buffer
-        self._document.width = buffer.width
-        self._document.height = buffer.height
         self._rebuild_composite()
         self._item.set_buffer(self._display_source(), self._document.palette.colors())
         self._tiled_item.set_source(self._item)
@@ -1630,6 +1830,13 @@ class CanvasScene(QGraphicsScene):
             self.setSceneRect(-half * w, -half * h, TILED_PREVIEW_REPEAT * w, h * 3)
         else:
             self.setSceneRect(0, 0, w, h)
+        # The document canvas bounds (distinct from the scene rect above, which
+        # is expanded for the tiled preview) — re-pushed to both float items so
+        # a document resize keeps their checker bounded to the new canvas
+        # (REQ-CGS-UI-005).
+        canvas_rect = QRectF(0, 0, w, h)
+        self._float_item.set_roles(self._checker_brush, canvas_rect)
+        self._origin_item.set_roles(self._checker_brush, canvas_rect)
 
     # -- dirty-rect refresh (D5) -----------------------------------------
 
@@ -2283,12 +2490,35 @@ class CanvasScene(QGraphicsScene):
     def set_background_roles(
         self, checker_light: QColor, checker_dark: QColor, grid: QColor
     ) -> None:
-        """Set role-based background colours (legible in both themes, 025)."""
+        """Set role-based background colours (legible in both themes, 025).
+
+        Rebuilds the shared checker brush (REQ-CGS-UI-003/-004) — the only two
+        rebuild sites are this method and scene construction; the brush is
+        never rebuilt on zoom, pan, edit or frame.
+        """
         self._checker_light = QColor(checker_light)
         self._checker_dark = QColor(checker_dark)
         self._grid_color = QColor(grid)
-        self._float_item.set_roles(self._checker_light, self._checker_dark)
-        self._origin_item.set_roles(self._checker_light, self._checker_dark)
+        self._checker_brush = _build_checker_brush(
+            self._checker_light, self._checker_dark, CHECKER_CELL_PX
+        )
+        canvas_rect = QRectF(0, 0, self._document.width, self._document.height)
+        self._float_item.set_roles(self._checker_brush, canvas_rect)
+        self._origin_item.set_roles(self._checker_brush, canvas_rect)
+        self.invalidate(self.sceneRect(), QGraphicsScene.SceneLayer.BackgroundLayer)
+
+    def set_surface_roles(self, workspace: QColor, border: QColor) -> None:
+        """Set the document-surface role colours (REQ-CGS-UI-005/-006).
+
+        A sibling of :meth:`set_background_roles` — added rather than folded into
+        it so the shipped 3-colour positional-splat call sites
+        (``set_background_roles(*canvas_roles(theme))``) keep their signature
+        byte-unchanged. :meth:`drawBackground` paints both roles: the workspace
+        fill under the checker, and the cosmetic canvas border on top of
+        everything else.
+        """
+        self._workspace_color = QColor(workspace)
+        self._border_color = QColor(border)
         self.invalidate(self.sceneRect(), QGraphicsScene.SceneLayer.BackgroundLayer)
 
     # -- background -------------------------------------------------------
@@ -2296,19 +2526,52 @@ class CanvasScene(QGraphicsScene):
     def drawBackground(  # type: ignore[override]  # noqa: N802
         self, painter: QPainter, rect: QRectF
     ) -> None:
-        """Paint checker + optional grid over ONLY the exposed ``rect`` (D2)."""
+        """Paint the workspace, checker, grid and border for the exposed rect.
+
+        Only ``rect`` is painted (D2, REQ-CGS-UI-003/-004/-005/-006/-010).
+
+        Order is load-bearing:
+          1. workspace fill, over the whole exposed rect;
+          2. checker, clipped to ``rect ∩ canvas_rect`` — the checker never
+             paints past the document edge (REQ-CGS-UI-005);
+          3. the per-pixel grid overlay (unchanged, own LOD gate);
+          4. the cosmetic canvas border, drawn LAST so the outermost grid
+             lines cannot overdraw it — painted earlier, it would read as a
+             grid line in one theme and vanish in the other.
+
+        The checker clip is an intersected ``QRectF``, never a ``QPainter``
+        clip region: the view runs with ``DontSavePainterState``, so an
+        unbalanced ``save()``/``restore()`` pair around a clip region would be
+        a real hazard here.
+        """
         # Compute the deferred initial composite before the pixmap item blits it,
         # so scene construction stays O(1) yet the first frame is correct (D1).
         self._ensure_composite()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-        # Snap the tile loop to a TILE_SIZE grid, extend a TILE_BUFFER ring.
-        _paint_checker_tiles(painter, rect, self._checker_light, self._checker_dark)
 
+        # 1. workspace fill, over the whole exposed rect.
+        painter.fillRect(rect, self._workspace_color)
+
+        # 2. checker, bounded to the document canvas (REQ-CGS-UI-005).
+        canvas_rect = QRectF(0, 0, self._document.width, self._document.height)
+        checker_rect = rect.intersected(canvas_rect)
+        if not checker_rect.isEmpty():
+            _fill_checker(painter, checker_rect, self._checker_brush)
+
+        # 3. per-pixel grid overlay, own LOD gate (unchanged).
         if (
             self._grid_enabled
             and self._pixel_edge_px(painter) >= GRID_MIN_PIXEL_EDGE_PX
         ):
             self._draw_grid(painter, rect)
+
+        # 4. cosmetic canvas border, painted LAST (see docstring).
+        pen = QPen(self._border_color)
+        pen.setCosmetic(True)
+        pen.setWidth(CANVAS_BORDER_WIDTH_PX)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(canvas_rect)
 
     def _pixel_edge_px(self, painter: QPainter) -> float:
         """On-screen edge (device px) of one buffer pixel at the current zoom."""

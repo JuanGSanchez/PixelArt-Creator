@@ -12,23 +12,28 @@ from PySide6.QtGui import QMouseEvent
 
 from pixelart_creator.logic.selection import rect_mask
 from pixelart_creator.ui.tools import RectSelectTool
-from tests.ui._ui_helpers import move, press, release
+from tests.ui._ui_helpers import move, press, release, viewport_point_for_pixel
 
 LEFT = Qt.MouseButton.LeftButton
 NO_BTN = Qt.MouseButton.NoButton
 
 
-def _mev(etype, x, y, button, buttons, mod):
-    pt = QPointF(x + 0.2, y + 0.2)
+def _mev(view, etype, x, y, button, buttons, mod):
+    # Routed through the view's own CURRENT mapping (view.mapFromScene), never
+    # a hand-computed offset -- see _ui_helpers.viewport_point_for_pixel.
+    point = viewport_point_for_pixel(view, x, y)
+    pt = QPointF(point.x(), point.y())
     return QMouseEvent(etype, pt, pt, button, buttons, mod)
 
 
 def _drag_mod(view, x0, y0, x1, y1, mod):
     """Press-drag-release carrying a keyboard modifier at the press (combine)."""
-    view.mousePressEvent(_mev(QEvent.Type.MouseButtonPress, x0, y0, LEFT, LEFT, mod))
-    view.mouseMoveEvent(_mev(QEvent.Type.MouseMove, x1, y1, NO_BTN, LEFT, mod))
+    view.mousePressEvent(
+        _mev(view, QEvent.Type.MouseButtonPress, x0, y0, LEFT, LEFT, mod)
+    )
+    view.mouseMoveEvent(_mev(view, QEvent.Type.MouseMove, x1, y1, NO_BTN, LEFT, mod))
     view.mouseReleaseEvent(
-        _mev(QEvent.Type.MouseButtonRelease, x1, y1, LEFT, NO_BTN, mod)
+        _mev(view, QEvent.Type.MouseButtonRelease, x1, y1, LEFT, NO_BTN, mod)
     )
 
 
