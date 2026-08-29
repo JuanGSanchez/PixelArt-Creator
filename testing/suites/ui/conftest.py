@@ -1,7 +1,7 @@
 """Shared fixtures for the UI suite: headless platform + both-theme parametrise.
 
 The ``theme`` fixture is ``autouse`` and parametrised over the light and dark
-themes, so **every** test in ``tests/ui`` runs twice — once per theme — applying
+themes, so **every** test in ``testing/suites/ui`` runs twice — once per theme — applying
 the QSS via :func:`pixelart_creator.ui.theme.apply_theme` (REQ-P1-UI-025). The
 offscreen Qt platform is forced before any ``QApplication`` is created (F11).
 """

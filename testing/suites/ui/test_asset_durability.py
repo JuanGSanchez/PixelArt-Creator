@@ -36,7 +36,7 @@ location). The module-scoped ``_confirm_real_root_untouched`` fixture below MEAS
 after), rather than assuming the placement ruling's caveat holds.
 
 Every test runs under BOTH light and dark themes via the autouse ``theme`` fixture
-(``tests/ui/conftest.py``).
+(``testing/suites/ui/conftest.py``).
 """
 
 from __future__ import annotations

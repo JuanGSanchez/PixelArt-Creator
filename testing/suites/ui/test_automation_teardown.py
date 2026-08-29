@@ -5,7 +5,7 @@ disposed, NO automation worker thread or connected signal carrier may survive
 into a later test's GC — the Phase-5 cross-thread-GC-of-Qt-C++ segfault class the
 whole UI suite guards against under ``pytest -n auto``. AGT-05 folded
 ``Automation_Controller.shutdown()`` into ``Main_Window.shutdown_prewarm`` (hence
-``closeEvent``); the ``tests/ui/conftest.py`` drain fixture calls
+``closeEvent``); the ``testing/suites/ui/conftest.py`` drain fixture calls
 ``shutdown_prewarm`` on every tracked ``Main_Window`` at teardown, so a
 window-owned automation controller IS reached. These tests dispatch a real
 automation run, then prove the deterministic teardown drains the pool and

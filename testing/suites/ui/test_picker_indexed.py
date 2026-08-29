@@ -8,7 +8,7 @@ INDEXED :class:`Document` via `set_recording` (mirrors
 `Canvas_View._resolve_palette_color`, which reads the document's own
 :class:`Palette` — never a hand-rolled lambda detached from production
 wiring. Every test runs under both themes via the autouse ``theme`` fixture
-(`tests/ui/conftest.py`).
+(`testing/suites/ui/conftest.py`).
 """
 
 from __future__ import annotations

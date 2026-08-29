@@ -27,7 +27,7 @@ SC mapping:
 
 This is a pure ``logic`` test module: it imports NO Qt. It touches ``data`` ONLY for the
 scripted fake adapter (the sanctioned CI backend). Property-based tests use the
-deterministic ``ci`` Hypothesis profile registered in ``tests/logic/conftest.py``.
+deterministic ``ci`` Hypothesis profile registered in ``testing/suites/logic/conftest.py``.
 """
 
 from __future__ import annotations

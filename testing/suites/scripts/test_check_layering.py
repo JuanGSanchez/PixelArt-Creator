@@ -13,7 +13,7 @@ passed to the script via its own ``--root`` flag. The real
 
 The forbidden import name used to build the "logic imports Qt" violation
 fixture is read from the script's own ``QT`` constant (via ``importlib``,
-matching the file-load pattern ``tests/deploy/test_run_ci_router.py`` already
+matching the file-load pattern ``testing/suites/deploy/test_run_ci_router.py`` already
 uses for a ``scripts/`` module with no package to import through) rather than
 hardcoding a duplicate of "PySide6" -- if the script's own forbidden-name list
 ever changes, this fixture changes with it instead of silently testing a rule

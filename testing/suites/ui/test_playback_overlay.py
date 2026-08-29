@@ -10,11 +10,11 @@ wiring in ``pixelart_creator/ui/main_window.py``'s
 
 Every test drives the REAL production seam -- a genuine ``Main_Window``, its
 own docked ``Timelapse_Controls``, its own ``active_tab()`` -- exactly like
-``tests/ui/test_timelapse_wiring.py``, never a bare ``CanvasScene`` assembled
+``testing/suites/ui/test_timelapse_wiring.py``, never a bare ``CanvasScene`` assembled
 by hand, so the same tab identity guarantee the directive relies on
 (``record.scene`` / ``record.view`` are the SAME ``_DocTab`` both handlers
 reach) is exercised for real. Both themes run automatically (the autouse
-``theme`` fixture in ``tests/ui/conftest.py``); none of these assertions is
+``theme`` fixture in ``testing/suites/ui/conftest.py``); none of these assertions is
 colour/theme-dependent, since the overlay blits the raw reconstructed RGBA
 frame directly and never reads a theme role.
 
@@ -32,7 +32,7 @@ Coverage map (AGT-10 acceptance-list item -> test):
 * item 6 -- ``test_ui016_6a_overlay_update_bounded_and_no_unrelated_scene_invalidate``
             + ``test_ui016_6b_no_qpixmap_fromimage_in_the_playback_tick_window``
 * item 5 (reopened isolation) and item 7 (deferred frame-time) are covered /
-  named in ``tests/ui/test_timelapse_wiring.py`` -- see that module's
+  named in ``testing/suites/ui/test_timelapse_wiring.py`` -- see that module's
   docstring for the mapping.
 """
 
@@ -58,7 +58,7 @@ def _window(qtbot) -> Main_Window:
 def _record_three_real_frames(qtbot, win):
     """Record 3 genuinely distinct edits on ``win``'s own active tab + controls.
 
-    Mirrors ``tests/ui/test_timelapse_wiring.py``'s helper of the same name --
+    Mirrors ``testing/suites/ui/test_timelapse_wiring.py``'s helper of the same name --
     drives the PRODUCTION seam only (``win.active_tab()`` / ``win._timelapse_controls``,
     never a hand-built widget).
     """

@@ -97,7 +97,7 @@ def test_sc_ui_009_1_session_round_trips_and_replays_identically(qtbot, tmp_path
     ``reconstructability`` reports ``NO_PAYLOAD`` at frame 0, reached as a
     **value** (plan §8.2), never by string-matching a ``logic/`` reason. The
     replayable, payload-carrying case is covered end-to-end by
-    ``tests/ui/test_timelapse_reopened.py`` (T17).
+    ``testing/suites/ui/test_timelapse_reopened.py`` (T17).
 
     **Re-specified a second time, same day (identity re-keying, Q-21/Amendment
     3; an accounting gap closed here rather than by T48 -- T48 re-keys T16/T17's

@@ -62,7 +62,7 @@ module because neither can be proven by a worktree comparison:
   Nuitka argument) can only be proven by an actual Nuitka standalone freeze,
   which is out of scope here for the same reason.
 
-Uses the REAL-event harness (``tests/ui/_ui_helpers.py``'s ``real_click_pixel``
+Uses the REAL-event harness (``testing/suites/ui/_ui_helpers.py``'s ``real_click_pixel``
 / ``real_right_click_pixel`` / ``QTest`` calls) wherever a test drives a
 widget through its actual viewport/geometry, per the reason every one of
 these defects shipped green: the existing suite drove ``Canvas_View``

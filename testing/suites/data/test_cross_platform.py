@@ -303,7 +303,7 @@ def test_catalog_relative_path_roundtrips_and_leaks_no_separator(
 def test_no_eval_or_exec_on_data_io_modules(module) -> None:
     """REQ-P13-DATA-008 / Article VII: the untrusted-input I/O modules never eval/exec.
 
-    Path-traversal rejection itself is exercised in ``tests/data/test_asset_paths.py``;
+    Path-traversal rejection itself is exercised in ``testing/suites/data/test_asset_paths.py``;
     this is the complementary source audit that the ``eval``/``exec``-free discipline is
     preserved on the modules the portable round-trip depends on.
     """

@@ -57,8 +57,8 @@ def _maximal_document() -> Document:
     """A document exercising every project_io serialiser branch this module
     knows about: multiple layers, a group, a mask, a tileset and a tilemap
     with both a literal and an auto-tile layer (mirrors
-    tests/data/test_project_io_v2.py::_rich_document and
-    tests/data/test_project_io_tilemap.py::_document_with_tilemap)."""
+    testing/suites/data/test_project_io_v2.py::_rich_document and
+    testing/suites/data/test_project_io_tilemap.py::_document_with_tilemap)."""
     doc = Document(
         8, 8, palette=Palette([RED, BLUE, GREEN]), metadata={"author": "agt-04"}
     )

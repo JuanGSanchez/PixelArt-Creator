@@ -6,7 +6,7 @@ reopened-recording module (T17) owns), driven **headlessly**
 (``QT_QPA_PLATFORM=offscreen``) against a real :class:`Canvas_View` +
 ``QUndoStack`` so every recorded frame is a genuinely distinct, real pixel
 edit — never a no-op stand-in. Both themes are exercised automatically (the
-autouse ``theme`` fixture in ``tests/ui/conftest.py``).
+autouse ``theme`` fixture in ``testing/suites/ui/conftest.py``).
 
 Coverage map:
 
@@ -624,7 +624,7 @@ def test_sc_ui_021_1_dropped_frames_are_reported_with_count(qtbot, make_view):
 # was DELETED here 2026-08-18 (T48, analyze F-15, spec §0b.2) -- see this
 # module's docstring for the full, recorded reasoning. Its replacement,
 # asserting on both legitimate outcomes rather than returning on one of them,
-# is ``tests/ui/test_frame_identity_reordering.py::
+# is ``testing/suites/ui/test_frame_identity_reordering.py::
 # test_r4_sc_l022_2_reference_held_across_a_discard_never_resolves_to_new_content``
 # (T38, R4/SC-L022-2).
 

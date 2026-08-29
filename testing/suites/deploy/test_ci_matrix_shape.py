@@ -2,7 +2,8 @@
 (T-40, remediation register; WP-6.6 extended it to ``integration``, decision
 batch 2026-08-16).
 
-Placed under ``tests/deploy/`` -- AGT-09's owned surface (ADR-0043 §1 covers
+Placed under ``testing/suites/deploy/`` (moved from ``tests/deploy/`` on
+2026-08-30, see ADR-0065) -- AGT-09's owned surface (ADR-0043 §1 covers
 the pipeline vehicles this agent runs; ``.github/workflows/ci.yml`` itself is
 this agent's surface too) -- but deliberately **NOT**
 ``@pytest.mark.integration``, same ruling and precedent as
@@ -130,10 +131,12 @@ def test_integration_job_runs_on_self_hosted_windows_labels():
 
 def test_integration_job_names_both_test_roots():
     """HARD RULE (ADR-0043 §3a): the integration job's pytest invocation must
-    name BOTH ``tests/deploy/`` and ``tests/backend/`` -- naming only one is
-    exactly how a suite silently stops running while the check stays green
-    (after the ADR-0043 move, ``pytest -m integration tests/backend/`` alone
-    collects 0 and exits 5). A read-only substring check on the step's own
+    name BOTH ``testing/suites/deploy/`` and ``testing/suites/backend/`` --
+    naming only one is exactly how a suite silently stops running while the
+    check stays green (after the ADR-0043 move, ``pytest -m integration
+    tests/backend/`` alone collected 0 and exited 5; the roots were later
+    relocated under ``testing/suites/`` on 2026-08-30, ADR-0065). A read-only
+    substring check on the step's own
     command, so a future edit that drops either root fails here instead of
     silently shrinking coverage."""
     data = _load_ci_yaml()

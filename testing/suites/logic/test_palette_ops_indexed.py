@@ -5,7 +5,7 @@ support). The reversible **mode-conversion commands** moved up to
 :class:`~pixelart_creator.logic.document.Document` (ADR-0008 D3/D6 — the
 buffer-level ``make_to_indexed_command`` / ``make_to_rgba_command`` and the
 ``SupportsBuffer`` protocol were retired); those commands are covered by
-``tests/logic/test_document_convert.py``. This module keeps the pure-function
+``testing/suites/logic/test_document_convert.py``. This module keeps the pure-function
 coverage the commands delegate to:
 
 * :func:`to_indexed` snaps each pixel to its nearest palette index — by squared

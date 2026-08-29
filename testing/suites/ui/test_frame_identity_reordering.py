@@ -9,7 +9,7 @@ a **real** :class:`~pixelart_creator.ui.canvas_view.Canvas_View` +
 never a logic-only stand-in for the stack: this is precisely where a
 position-addressed implementation fails and a mocked stack would not
 discharge the case (T38's own done-when). Both themes are exercised
-automatically (the autouse ``theme`` fixture in ``tests/ui/conftest.py``).
+automatically (the autouse ``theme`` fixture in ``testing/suites/ui/conftest.py``).
 
 Every scenario here is written, per spec §11's preamble, so a
 **position-addressed** implementation FAILS it — each is mechanically proved
@@ -162,7 +162,7 @@ def test_r4_sc_l022_2_reference_held_across_a_discard_never_resolves_to_new_cont
     THAT branch -- it never returns or passes without asserting, which is
     exactly what the shipped QA pin
     (``test_req_p9_logic_017_a_discarded_frame_must_never_replay_wrong_content``,
-    ``tests/ui/test_timelapse_playback.py``) failed to do on its drop path.
+    ``testing/suites/ui/test_timelapse_playback.py``) failed to do on its drop path.
     Position-addressed: resolving by the held frame's ``command_id`` returns
     the NEW command's content (they now sit at the same position), which
     satisfies neither the "own content" nor the "fails naming it" branch --

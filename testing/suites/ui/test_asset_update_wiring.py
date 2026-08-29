@@ -2,7 +2,7 @@
 (phase-11-asset-ingress, job ``20260821-reachability-remediation``; ruling P11-R9,
 ``plan.md`` §3.11; DEV-40/DEV-40a chain).
 
-``tests/ui/test_asset_update_prompt.py`` (T23) tests
+``testing/suites/ui/test_asset_update_prompt.py`` (T23) tests
 :meth:`~pixelart_creator.ui.asset_update_prompt.Asset_Update_Prompt_Dialog.decide` at its
 own seam and DISCLOSES, in its own module docstring, that no production caller reaches it
 and that ``SC-P11-UI-022-2``'s reference-resolution half is asserted at decision level
@@ -25,7 +25,7 @@ invariant intact for a mix of edited and missing references (SC-P11-UI-021-5's b
 
 Every project fixture and asset root used here is an injected ``tmp_path`` (never
 :func:`~pixelart_creator.data.asset_storage.default_asset_root`) -- the autouse
-``_isolate_app_config`` fixture (``tests/ui/conftest.py``) already redirects
+``_isolate_app_config`` fixture (``testing/suites/ui/conftest.py``) already redirects
 ``QStandardPaths.writableLocation`` (and therefore ``Main_Window._asset_root()``, which
 reads ``AppLocalDataLocation``) to a per-test ``tmp_path`` subdirectory, so a bare
 ``Main_Window()`` built in any test here never touches the real per-user asset store. No
@@ -33,14 +33,14 @@ reads ``AppLocalDataLocation``) to a per-test ``tmp_path`` subdirectory, so a ba
 constructed fresh under ``tmp_path`` and discarded with it.
 
 The prompt itself is driven through the same ``Asset_Update_Prompt_Dialog.exec``
-monkeypatch idiom ``tests/ui/test_asset_update_prompt.py``'s own ``answer_prompt`` fixture
+monkeypatch idiom ``testing/suites/ui/test_asset_update_prompt.py``'s own ``answer_prompt`` fixture
 and T31's offscreen smoke script both use -- patched at the ``QDialog.exec`` boundary, so
 ``resolve_library_edits``/``open_document`` are never bypassed, only the blocking modal
 loop headless Qt cannot drive with real input. This module's own ``answer_prompt`` records
 each PRESENTED ``asset_id`` (not merely ``True``), so "the edited one only" is assertable
 by identity, not just by count.
 
-Headless (``QT_QPA_PLATFORM=offscreen``, forced by ``tests/ui/conftest.py``). Every test
+Headless (``QT_QPA_PLATFORM=offscreen``, forced by ``testing/suites/ui/conftest.py``). Every test
 here runs under BOTH the light and dark theme via the autouse ``theme`` fixture -- no
 per-test parametrisation is needed for that.
 
@@ -89,7 +89,7 @@ def _window(qtbot) -> Main_Window:
 
 def _register(win: Main_Window, document: Document, *, name: str, kind: AssetKind):
     """Register ``document`` through ``win``'s own, real, construction-bound session
-    (mirrors ``tests/ui/test_asset_durability.py``'s own ``_register`` helper, here
+    (mirrors ``testing/suites/ui/test_asset_durability.py``'s own ``_register`` helper, here
     driving the window's real ``_asset_session`` rather than a standalone one)."""
     root, cas, revision_store = win._asset_session._require_ingress_ready()
     return win._asset_session._register_new(
@@ -162,7 +162,7 @@ def _write_project(tmp_path: Path, name: str, references) -> Path:
 @pytest.fixture
 def answer_prompt(monkeypatch):
     """Patch ``Asset_Update_Prompt_Dialog.exec`` to answer immediately (headless
-    modal automation -- the same idiom as ``tests/ui/test_asset_update_prompt.py``'s
+    modal automation -- the same idiom as ``testing/suites/ui/test_asset_update_prompt.py``'s
     own ``answer_prompt`` fixture and T31's offscreen smoke script), patched at the
     ``QDialog.exec`` boundary so ``resolve_library_edits``/``open_document`` are
     never bypassed. Returns a controller: ``answer_prompt(action="pick_up" | "keep"
@@ -523,7 +523,7 @@ def test_sc_p11_data_010_3_owed_clauses_no_revision_not_dirtied_still_unsaved(
     assert record is not None
 
     # Undo history + unsaved canvas work, through the real paint path (the
-    # same idiom ``tests/ui/test_cloud_save_load.py`` uses to dirty a stack).
+    # same idiom ``testing/suites/ui/test_cloud_save_load.py`` uses to dirty a stack).
     prepare_for_click(record.view)
     record.view.set_active_color((10, 20, 30, 255))
     click_pixel(record.view, 1, 1)
@@ -597,7 +597,7 @@ def test_cl_p11_8_never_saved_project_writes_no_journal_record_until_first_save(
     This test therefore drives the SAME private seam ``open_document``'s own
     resolve callback drives -- ``Main_Window._write_decision_journal_record``
     -- directly against a ``new_document()`` tab, exactly as
-    ``tests/ui/test_asset_update_prompt.py`` (T23) asserts ``decide()`` at its
+    ``testing/suites/ui/test_asset_update_prompt.py`` (T23) asserts ``decide()`` at its
     own seam when no caller reaches it, and exactly as this module's own
     docstring already discloses for the reachability boundary it closed.
     """

@@ -3,8 +3,9 @@
 Covers item T-33 (CF-66). The BACKEND half of the no-secrets-in-logs contract is
 already enforced and tested: :class:`sync_backend.server._TokenRedactingFilter`
 scrubs the ``token=<value>`` query parameter from every record the relay's own
-``websockets`` server logger emits (``tests/backend/test_sync_backend.py``,
-``tests/backend/test_server_defensive_branches.py``). This module proves the
+``websockets`` server logger emits
+(``testing/suites/backend/test_sync_backend.py``,
+``testing/suites/backend/test_server_defensive_branches.py``). This module proves the
 **client** half: that the client-side cloud path
 (:mod:`pixelart_creator.data.cloud`) never emits a credential/token into
 logging, using fake credentials of a recognizable sentinel shape and
@@ -36,7 +37,7 @@ used is the ephemeral loopback :class:`~sync_backend.server.SyncServer` (A5).
 
 NO OFFICIAL GUIDANCE covers testing a WebSocket client's own logging output
 for handshake-token leakage; this module follows the in-tree pattern at
-``tests/backend/test_sync_backend.py`` (asyncio-ws-harness) and the client
+``testing/suites/backend/test_sync_backend.py`` (asyncio-ws-harness) and the client
 module at ``pixelart_creator/data/cloud/ws_transport.py`` as the reference,
 per the AGT-12 GROUNDING NOTE.
 """
@@ -213,7 +214,7 @@ def test_ws_transport_valid_handshake_never_logs_the_share_token(caplog):
 
     ADR-0036 §2 presents the share token on the wire as a ``?token=`` query
     parameter. The server side is proven scrubbed
-    (``tests/backend/test_sync_backend.py`` / the ``_TokenRedactingFilter``); this
+    (``testing/suites/backend/test_sync_backend.py`` / the ``_TokenRedactingFilter``); this
     proves the CLIENT side: the same handshake, observed from the connecting
     client's own logging (``websockets.client`` — the default logger the shipped
     ``websockets.sync.client.connect`` call uses when :class:`WebSocketTransport`

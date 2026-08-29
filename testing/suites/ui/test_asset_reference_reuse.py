@@ -36,7 +36,7 @@ two scenarios together, matching the task's own ``Done when`` phrasing):
   (``SC-P11-UI-021-6``).
 
 Every test runs under BOTH light and dark themes via the autouse ``theme`` fixture
-(``tests/ui/conftest.py``) — the two indicators (resolve-state and shared-state) are
+(``testing/suites/ui/conftest.py``) — the two indicators (resolve-state and shared-state) are
 UI-visible and are asserted on the rendered tree text in every run, so both themes
 exercise the same assertions (light/dark differ only in styling, never in text).
 

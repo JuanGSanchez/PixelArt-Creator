@@ -1,8 +1,8 @@
 """Shared pytest/Hypothesis configuration for the data test suite (no Qt).
 
-Mirrors ``tests/logic/conftest.py``: registers the deterministic ``ci``
+Mirrors ``testing/suites/logic/conftest.py``: registers the deterministic ``ci``
 Hypothesis profile so any property-based data test is reproducible and portable
-in CI (NFR-2). Loaded for every ``tests/data`` module.
+in CI (NFR-2). Loaded for every ``testing/suites/data`` module.
 """
 
 from __future__ import annotations

@@ -1,10 +1,11 @@
 """Shared launcher harness for the deployment-acceptance tests (localhost, no Qt).
 
-Moved here from ``tests/backend/conftest.py`` by ADR-0043: every symbol in this
-module is deployment-acceptance machinery (AGT-09), used **only** by
+Moved here from ``tests/backend/conftest.py`` by ADR-0043 (this whole tree was
+later relocated to ``testing/suites/`` on 2026-08-30, ADR-0065): every symbol in
+this module is deployment-acceptance machinery (AGT-09), used **only** by
 ``test_vps_localhost.py`` and ``test_nginx_wss_localhost.py``. No test remaining
-under ``tests/backend/`` referenced it, so the split leaves both directories
-self-contained.
+under ``testing/suites/backend/`` referenced it, so the split leaves both
+directories self-contained.
 
 Phase-13 Slice 13C (REQ-P13-BACKEND-001/-002). The VPS artifacts are proven by
 **launching the shipped, unmodified** ``sync_backend/`` the way a container / systemd

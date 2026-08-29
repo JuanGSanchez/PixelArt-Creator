@@ -5,8 +5,8 @@
 ADR-0010 -- but its CONTRACT (bounds-check before allocation, oversize/corrupt
 -> ``ImageImportError``, paletted/indexed source expanded to RGBA, JPEG
 decodes) is drivable entirely headlessly, with no widget ever constructed. It
-had ZERO test coverage before this module. Placed under ``tests/data/`` (not
-``tests/logic/``) because it imports a QImage-dependent module; every test
+had ZERO test coverage before this module. Placed under ``testing/suites/data/`` (not
+``testing/suites/logic/``) because it imports a QImage-dependent module; every test
 here runs under ``QT_QPA_PLATFORM=offscreen`` (set by the harness / CI, and
 defensively re-asserted below) so it is headless and portable.
 

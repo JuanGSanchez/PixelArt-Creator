@@ -2,7 +2,7 @@
 
 ``SC-UI-019-5`` / ``REQ-P9-UI-019``(f) / ``SC-D005-2`` (surface half) — driven
 **headlessly** (``QT_QPA_PLATFORM=offscreen``), both themes via the autouse
-``theme`` fixture (``tests/ui/conftest.py``). Asserts that opening a
+``theme`` fixture (``testing/suites/ui/conftest.py``). Asserts that opening a
 payload-carrying recording written before the stable-identity amendment
 (Q-21) puts **exactly one** ``tr()``-wrapped sentence in front of the user —
 the surface's text equal to the widget's own translated string — that reads

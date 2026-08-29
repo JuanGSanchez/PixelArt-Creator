@@ -3,7 +3,7 @@
 Registers a deterministic Hypothesis profile so property-based tests are
 reproducible and portable in CI (NFR-2, plan §7): a fixed random seed and
 ``derandomize=True`` remove run-to-run flakiness while keeping the shrinking
-behaviour. Loaded for every ``tests/logic`` module.
+behaviour. Loaded for every ``testing/suites/logic`` module.
 """
 
 from __future__ import annotations

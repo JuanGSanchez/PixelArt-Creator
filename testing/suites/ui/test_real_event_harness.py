@@ -1,7 +1,7 @@
-"""Harness self-tests for the real-Qt-event helpers (``tests/ui/_ui_helpers.py``).
+"""Harness self-tests for the real-Qt-event helpers (``testing/suites/ui/_ui_helpers.py``).
 
 Context (AGT-06 finding, verified this session): every other module in
-``tests/ui`` that exercises ``Canvas_View`` drives it through
+``testing/suites/ui`` that exercises ``Canvas_View`` drives it through
 ``view.mousePressEvent(...)``/``mouseMoveEvent``/``mouseReleaseEvent`` called
 DIRECTLY (see ``_ui_helpers.press``/``release``/``click_pixel``). A direct
 handler call bypasses viewport hit-testing, widget geometry, event filters,

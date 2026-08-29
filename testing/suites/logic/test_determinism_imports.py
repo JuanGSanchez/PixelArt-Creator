@@ -155,7 +155,7 @@ def test_no_paint_or_timer_event_file_imports_a_phase11_module():
 
 # --------------------------------------------------------------------------- #
 # C-05 -- UI_NOTICE_DURATION_MS single-sourced from logic/constants.py         #
-# (mirrors tests/data/test_project_io.py::                                    #
+# (mirrors testing/suites/data/test_project_io.py::                           #
 # test_tuning_constants_single_sourced_from_constants' identity-check idiom,  #
 # combined with this module's own AST/static-scan idiom for T-07/T-08.)       #
 # --------------------------------------------------------------------------- #

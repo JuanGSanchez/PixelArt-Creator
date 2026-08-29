@@ -10,7 +10,7 @@ assert the distinctness that prevents that conflation recurring, and make
 the LOD bound (REQ-CGS-UI-010 / SC-CGS-UI-003-3) machine-checkable rather
 than merely documented in prose.
 
-Qt-free: no PySide6 import anywhere in this module (tests/logic is the
+Qt-free: no PySide6 import anywhere in this module (testing/suites/logic is the
 Qt-free root).
 """
 

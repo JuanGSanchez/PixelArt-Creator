@@ -22,7 +22,7 @@ Phase-8 DSL registry (``logic.scripting``) is:
   construction — model output is data mapped onto the allow-listed registry).
 
 No Qt, no product-code changes. Property-based tests use the deterministic ``ci``
-Hypothesis profile registered in ``tests/logic/conftest.py``.
+Hypothesis profile registered in ``testing/suites/logic/conftest.py``.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """T-26 (AGT-06 audit) — bounded overlay-render timing (REQ-P9-UI-011).
 
-The Phase-9 render-budget matrix names ``tests/ui/test_aids_perf.py`` as the
+The Phase-9 render-budget matrix names ``testing/suites/ui/test_aids_perf.py`` as the
 UI-level overlay-render timing module; until now the file did not exist. This
 drives the REAL shipped :class:`~pixelart_creator.ui.iso_grid_overlay.Iso_Grid_Overlay`
 ``paint()`` (the same code PATH — not the same statistic, see the sampling

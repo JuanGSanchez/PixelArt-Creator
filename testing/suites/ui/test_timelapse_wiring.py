@@ -1,7 +1,7 @@
 """Timelapse production-wiring acceptance tests (job REC-3/R-4/C-4, DEV-27).
 
-Everything in ``tests/ui/test_timelapse_playback.py`` and
-``tests/ui/test_timelapse_reopened.py`` deliberately builds a bare
+Everything in ``testing/suites/ui/test_timelapse_playback.py`` and
+``testing/suites/ui/test_timelapse_reopened.py`` deliberately builds a bare
 ``Timelapse_Controls`` (and, for the reopened module, a bare
 ``Timelapse_Frame_View``) to pin the WIDGET's own contract — both modules say
 so explicitly in their own docstrings, and the playback module names the
@@ -30,7 +30,7 @@ Covers job criterion **C-4** (REC-3/R-4):
   banner, actually becomes visible + identifies itself).
 
 Both themes run automatically (the autouse ``theme`` fixture in
-``tests/ui/conftest.py``); nothing here depends on which theme is active.
+``testing/suites/ui/conftest.py``); nothing here depends on which theme is active.
 
 ## Superseded: the REQ-P9-UI-016 display gap named below is now CLOSED
 
@@ -44,7 +44,7 @@ and AGT-05's implementation of it (``CanvasScene._PlaybackOverlayItem`` /
 ``show_playback_frame`` / ``end_playback_frame``, wired from THIS module's own
 ``_on_timelapse_frame_ready`` / ``_on_timelapse_playback_lock_changed``) now
 close it. The overlay-visible/reconstructed-content assertions live in
-``tests/ui/test_playback_overlay.py`` (AGT-10 acceptance-list items 1-4, 6);
+``testing/suites/ui/test_playback_overlay.py`` (AGT-10 acceptance-list items 1-4, 6);
 THIS module adds the remaining wiring-integration items: reopened-session
 isolation (item 5, run alongside the pre-existing banner test below so both
 ``is_reopened_recording()`` branches are proven mutually exclusive in the same
@@ -320,7 +320,7 @@ def test_ui016_reopened_session_never_shows_the_in_session_playback_overlay(
     it. This runs in the SAME suite as
     ``test_c4_reopened_recording_banner_identifies_itself_through_production_dock``
     directly above (both in this module) and the in-session overlay
-    assertions in ``tests/ui/test_playback_overlay.py``, proving the two
+    assertions in ``testing/suites/ui/test_playback_overlay.py``, proving the two
     ``is_reopened_recording()`` branches stay mutually exclusive after the
     overlay change -- not merely each true in isolation.
     """

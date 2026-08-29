@@ -1,6 +1,7 @@
 """Static packaging-artifact contract tests (T-36/T-37/T-39, remediation register).
 
-Placed under ``tests/deploy/`` -- AGT-09's owned surface (ADR-0043 §1: this
+Placed under ``testing/suites/deploy/`` (moved from ``tests/deploy/`` on
+2026-08-30, ADR-0065) -- AGT-09's owned surface (ADR-0043 §1: this
 agent owns ``packaging/**`` and the pipeline vehicles that build/ship the
 product) -- but deliberately **NOT** ``@pytest.mark.integration``, on the same
 precedent as ``test_run_ci_router.py`` already in this directory: nothing

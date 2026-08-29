@@ -30,7 +30,7 @@ Covered here (REQ-IDs from the module docstring):
 * Refusal/cancel paths: no active tab, and an unknown branch name.
 
 Both light and dark themes are covered by the autouse ``theme`` fixture
-(``tests/ui/conftest.py``).
+(``testing/suites/ui/conftest.py``).
 """
 
 from __future__ import annotations

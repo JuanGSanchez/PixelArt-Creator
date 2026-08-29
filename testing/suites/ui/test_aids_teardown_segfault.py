@@ -18,7 +18,7 @@ connection; the NEXT test's event loop (an automation ``waitSignal``) flushes
 every accumulated ``DeferredDelete`` at once and dereferences the freed sender →
 the PySide6 cross-thread/GC-of-Qt-C++ native segfault.
 
-The fix (owned in ``tests/ui/conftest.py``) tracks these Phase-9 widgets in the
+The fix (owned in ``testing/suites/ui/conftest.py``) tracks these Phase-9 widgets in the
 ``_LIVE_UI_INSTANCES`` registry and ``shiboken6.delete``-s them SYNCHRONOUSLY,
 before the per-test ``gc.collect``, so the connection is torn down cleanly and the
 orphan QObject is collected with no live receiver. These tests pin BOTH halves:

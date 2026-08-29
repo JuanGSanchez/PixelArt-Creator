@@ -12,8 +12,8 @@ the shape that would hide the shipped defect (ruling P11-R7, plan §3.9).
 
 Scope boundary (so this module is not read as duplicating a sibling task):
 durability across a simulated "restart" is T21's job
-(``tests/ui/test_asset_durability.py``); cross-project reuse and the two
-resolve/shared indicators are T22's (``tests/ui/test_asset_reference_reuse.py``).
+(``testing/suites/ui/test_asset_durability.py``); cross-project reuse and the two
+resolve/shared indicators are T22's (``testing/suites/ui/test_asset_reference_reuse.py``).
 This module borrows the "two independently bound root" idiom for SC-P11-UI-015-1
 and SC-P11-UI-016-2 only because those two scenarios are on **this** task's own
 ``Satisfies:`` line.
@@ -48,11 +48,11 @@ Design choices disclosed up front (never silently substituted):
   ``Document.from_buffer(buffer)`` with the factory default name
   (``"Imported"``), which is the one shape no user can produce.
 
-Headless (``QT_QPA_PLATFORM=offscreen``, forced by ``tests/ui/conftest.py``).
+Headless (``QT_QPA_PLATFORM=offscreen``, forced by ``testing/suites/ui/conftest.py``).
 Every test in this module runs under BOTH the light and dark theme via the
 autouse ``theme`` fixture — no per-test parametrisation is needed for that.
 Every asset root used here is isolated by the autouse ``_isolate_app_config``
-fixture (``tests/ui/conftest.py``), which redirects
+fixture (``testing/suites/ui/conftest.py``), which redirects
 ``QStandardPaths.writableLocation`` to a per-test ``tmp_path`` subdirectory for
 EVERY location kind, including the ``AppLocalDataLocation`` the shipped
 ``Main_Window._asset_root()`` resolves — so a bare ``Main_Window()`` built in
@@ -98,7 +98,7 @@ def _accept_dialog(name: str, kind_index: int, tags: str = ""):
     """Return an ``Asset_Register_Dialog.exec`` replacement that fills + accepts.
 
     Mirrors the existing ``Export_Dialog.exec`` fake-exec idiom already used in
-    ``tests/ui/test_export_actions.py`` — the modal ``exec()`` cannot run
+    ``testing/suites/ui/test_export_actions.py`` — the modal ``exec()`` cannot run
     headlessly with real user input, so the fields are set directly on the
     real, constructed dialog instance before returning ``Accepted``.
     """
@@ -669,7 +669,7 @@ def test_sc_p11_ui_017_2_a_failed_action_says_so_and_changes_nothing(
     ``_report_import_failure``, which pops a real, blocking ``QMessageBox`` on
     top of the ``libraryImportFailed`` signal this test asserts on -- headless
     with no automated interaction that would hang forever, so it is muted
-    (the shared idiom from ``tests/ui/conftest.py``).
+    (the shared idiom from ``testing/suites/ui/conftest.py``).
     """
     win = _window(qtbot)
     bad_path = tmp_path / f"garbage{ARTIFACT_SUFFIX}"
@@ -776,7 +776,7 @@ def test_p11_r3_and_r6_real_derived_edge_then_cyclic_edges_hit_show_edges_reject
     # -- P11-R3 cycle route: force the THIRD registration's derived edges to
     #    close a cycle, by patching only edges_for -- the UI WIRING under
     #    test, not the domain derivation rule (already proven real above and
-    #    independently covered by tests/logic/test_asset_edges.py). ---------
+    #    independently covered by testing/suites/logic/test_asset_edges.py). ---------
     def _forced_cycle_edges(descriptor, content, catalog):
         return (
             DependencyEdge(

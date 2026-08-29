@@ -7,7 +7,7 @@ driver mirrors ``pixelart-run`` — it drives the SAME 14C agentic loop
 tiered-safety gate reused verbatim (reversible auto-applies; destructive is gate-closed
 by default and only runs with ``--approve-destructive``/``--yes`` or an interactive
 ``y``). Everything is driven through the INJECTED fake adapter + temp-file document I/O
-— no network, no real keyring, no Qt (mirrors ``tests/data/test_automation_cli.py``).
+— no network, no real keyring, no Qt (mirrors ``testing/suites/data/test_automation_cli.py``).
 
 Exit codes exercised: ``0`` ok / ``1`` runtime-or-write error / ``2`` bad args or a
 defensive load failure / ``3`` not configured.

@@ -238,7 +238,7 @@ def test_sc_l019_3_incomplete_payload_reports_unplayable_naming_the_frame(tmp_pa
     # snapshot -- a legitimate schema-3 shape (snapshot_id is optional) that
     # models a truncated/incomplete recording at the logic layer (the data
     # layer's own malformed/fingerprint-mismatch rejections are covered by
-    # tests/data/test_timelapse_io_schema3.py, T40). Every frame -- including
+    # testing/suites/data/test_timelapse_io_schema3.py, T40). Every frame -- including
     # the deliberately-incomplete one -- still carries its identity: identity
     # and payload-completeness are orthogonal (T47 substitution, module
     # docstring), and NO_PAYLOAD must be reached before PAYLOAD_INCOMPLETE

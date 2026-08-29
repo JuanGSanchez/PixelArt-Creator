@@ -7,7 +7,7 @@ repository's map, start the viewer for THIS store only, and open a browser on
 it. They are SOURCE and therefore tracked; the rendered `graph-view.html` beside
 them is DERIVED and gitignored.
 
-WHY THIS ROOT IS `tests/memory_view/` AND NOT `tests/memory/`: a directory
+WHY THIS ROOT IS `testing/suites/memory_view/` AND NOT `testing/suites/memory/`: a directory
 named `memory` anywhere but the repository root is the mistake the layout
 invariant names, and the structure guard refuses writes into one — correctly,
 since a second thing called `memory` beside the real store is exactly the

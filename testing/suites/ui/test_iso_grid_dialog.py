@@ -23,7 +23,7 @@ configurability, not a fixed 32px"):
   ``QEvent.LanguageChange`` retranslation hook on every new control.
 
 The headless-dialog pattern below (stub ``exec()`` rather than drive the modal
-loop) mirrors ``tests/ui/test_vanishing_point_dialog.py``'s own established,
+loop) mirrors ``testing/suites/ui/test_vanishing_point_dialog.py``'s own established,
 accepted convention for this exact "minimal config dialog" shape in this
 codebase -- nothing here waits on a user. Both themes run automatically (the
 autouse ``theme`` fixture).

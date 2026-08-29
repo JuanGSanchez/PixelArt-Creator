@@ -1,7 +1,7 @@
 """T-01: the real tree passes the architecture gates (REQ-P1-LOGIC-013).
 
 ``scripts/check_layering.py`` and ``scripts/check_cycles.py`` each ship their
-own synthetic-fixture contract suites under ``tests/scripts/`` — those tests
+own synthetic-fixture contract suites under ``testing/suites/scripts/`` — those tests
 build tiny hand-crafted package trees under ``tmp_path`` and never scan the
 real ``pixelart_creator/`` tree (see their module docstrings). This module
 closes that gap: it runs both scripts, unmodified, as subprocesses over the

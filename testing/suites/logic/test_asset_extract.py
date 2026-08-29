@@ -22,7 +22,7 @@ exceptions, and boundaries (empty, oversized, invalid-type), plus
 Hypothesis property tests for the two determinism invariants. Zero Qt
 imports in this file; no I/O; no wall-clock, CPU-count, ordering or
 network dependence; no unseeded randomness (the shared
-``tests/logic/conftest.py`` Hypothesis profile is derandomized).
+``testing/suites/logic/conftest.py`` Hypothesis profile is derandomized).
 """
 
 from __future__ import annotations

@@ -15,7 +15,7 @@ that call).
 
 ``Guides_Rulers_Overlay`` is constructed directly over a real, production
 ``Canvas_View`` from the shared ``make_view`` fixture -- the same pattern the
-already-shipped ``tests/ui/test_guides_rulers.py`` uses; the class under test
+already-shipped ``testing/suites/ui/test_guides_rulers.py`` uses; the class under test
 IS the production class, so this is not a test double. Both themes run
 automatically (the autouse ``theme`` fixture); the readout does not depend on
 theme, only its pen colour does (unchanged by this fix).

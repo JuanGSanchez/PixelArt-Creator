@@ -25,7 +25,7 @@ One test per behaviour:
 * the ``QEvent.LanguageChange`` retranslation hook (F5).
 
 Headless (``QT_QPA_PLATFORM=offscreen``); every test runs under BOTH themes
-via the autouse ``theme`` fixture (see ``tests/ui/conftest.py``).
+via the autouse ``theme`` fixture (see ``testing/suites/ui/conftest.py``).
 """
 
 from __future__ import annotations

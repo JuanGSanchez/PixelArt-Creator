@@ -1,6 +1,6 @@
 """Tests for the .pixtimelapse schema-2 (payload-carrying) manifest (T14,
 REQ-P9-DATA-004; plan §4.1). Schema 1 stays untouched and unmodified
-(tests/data/test_timelapse_io.py, REQ-P9-DATA-003) -- this module covers only
+(testing/suites/data/test_timelapse_io.py, REQ-P9-DATA-003) -- this module covers only
 the additive ``*_payload`` functions. Zero Qt.
 
 SC-D003-1 (a pre-slice fixture loads unchanged), SC-D003-2 (no playability
@@ -29,7 +29,7 @@ per the T47 done-when -- no assertion below was deleted:**
    ``test_both_schema_versions_load_and_report_their_own_form`` -- OLD: each
    called ``tio.save_session_payload`` on a freshly built schema-2 session
    (now refused). NEW: each reads
-   ``tests/data/fixtures/timelapse_schema2_legacy.pixtimelapse`` -- a
+   ``testing/suites/data/fixtures/timelapse_schema2_legacy.pixtimelapse`` -- a
    **committed, read-only fixture** (provenance below) -- instead of writing
    one at test time; every original assertion (round-trips its frames and
    blobs, replays to the recorded pixel sequence, loads and reports its own
@@ -63,7 +63,7 @@ per the T47 done-when -- no assertion below was deleted:**
    ``pytest.raises`` is again reached by, and therefore actually proves, the
    specific size/fingerprint/blob-completeness branch it names.
 
-**Fixture provenance (``tests/data/fixtures/timelapse_schema2_legacy.pixtimelapse``,
+**Fixture provenance (``testing/suites/data/fixtures/timelapse_schema2_legacy.pixtimelapse``,
 substitution #2).** Generated once, at authoring time, by constructing the
 identical wire shape ``serialize_payload`` produced for schema 2 **before**
 Q-21 (three frames over a 2x2 document, pixels RED/BLUE/RED, one

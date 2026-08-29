@@ -18,7 +18,8 @@ FINDING (reported, not silently absorbed): the script's own in-source comment
 check.py`` as already covering the regex-pattern-argument false-positive
 exemption "see tests/deploy/test_path_portability_check.py for both
 directions". That file does not exist anywhere in this working tree (verified
-by directory listing of ``tests/deploy/`` this session: it holds
+by directory listing of ``testing/suites/deploy/`` (moved from ``tests/deploy/``
+on 2026-08-30, ADR-0065) this session: it holds
 ``__init__.py``, ``conftest.py``, ``test_nginx_wss_localhost.py``,
 ``test_run_ci_router.py`` and ``test_vps_localhost.py`` -- no
 ``test_path_portability_check.py``). The exemption behaviour the comment

@@ -20,7 +20,7 @@ that invariance is a genuine regression test by reproducing the pre-T8-B
 defect injection (``monkeypatch``), never by mutating shipped code on disk.
 
 Importing ``data.asset_ingress.canonical_bytes`` here (a ``data/`` module,
-inside ``tests/logic/``) is deliberate and required by the T17/T17-A
+inside ``testing/suites/logic/``) is deliberate and required by the T17/T17-A
 dispatch: a catalog entry's ``content_hash`` (still recorded on every
 produced edge, ruling P11-R8) can only be derived through the *real*
 canonical-bytes pairing a production registration would use, not a

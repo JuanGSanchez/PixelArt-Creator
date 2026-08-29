@@ -124,7 +124,7 @@ def _history(n: int):
     needed to prove the historical contract). Indexed by ``command_id``,
     which in this fixture is built equal to the frame's ordinal (plan §8.2
     Ruling B: the port is keyed by the frame's own ``command_id``, never by
-    the ordinal — ``tests/logic/test_timelapse_replay.py`` exercises the
+    the ordinal — ``testing/suites/logic/test_timelapse_replay.py`` exercises the
     divergent case)."""
     return [np.full((1, 1, 4), k + 1, dtype=np.uint8) for k in range(n)]
 

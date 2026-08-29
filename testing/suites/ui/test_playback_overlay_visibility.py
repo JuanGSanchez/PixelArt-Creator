@@ -29,7 +29,7 @@ halves of the ruling:
 Real-surface policy: every covered-item state is driven through the actual
 production entry points a user's gesture reaches --
 ``pixelart_creator.ui.tools.{line,rectangle,rect_select_tool}`` via
-``tests/ui/_ui_helpers.press``/``move`` (mirrors ``test_selection_overlay.py``
+``testing/suites/ui/_ui_helpers.press``/``move`` (mirrors ``test_selection_overlay.py``
 and ``test_playback_overlay.py``'s own conventions) -- and the playback
 mechanism itself is driven through ``CanvasScene.show_playback_frame`` /
 ``end_playback_frame``, the exact two methods ``main_window.py`` calls from
@@ -46,7 +46,7 @@ attribute names AGT-05's own report and ``test_playback_overlay.py`` /
 attribute-coupling, not a private implementation detail invented for this
 module, in the accompanying subagent report.
 
-Both themes: the autouse ``theme`` fixture (``tests/ui/conftest.py``)
+Both themes: the autouse ``theme`` fixture (``testing/suites/ui/conftest.py``)
 already runs every test in this module twice (light/dark). No assertion here
 is colour/theme-dependent -- the whole mechanism is a boolean
 ``setVisible()`` toggle untouched by theme/palette -- so no additional

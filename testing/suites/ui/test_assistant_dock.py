@@ -4,7 +4,7 @@ One pytest-qt test per Slice-14E acceptance criterion (``SC-UI-001-1`` ..
 ``SC-UI-006-1``), driven **headlessly** (offscreen) against the deterministic scripted
 :class:`~pixelart_creator.data.llm.fake_adapter.FakeLLMAdapter` — **no network, no real
 key, no real keyring**. Both themes are exercised automatically (the autouse ``theme``
-fixture in ``tests/ui/conftest.py`` parametrises every test over light + dark).
+fixture in ``testing/suites/ui/conftest.py`` parametrises every test over light + dark).
 
 Coverage map:
 
@@ -198,7 +198,7 @@ def make_dock(qtbot):
 def danger_op(plugin_isolation):
     """Register the destructive (non-whitelisted) op; the registry is restored after.
 
-    ``plugin_isolation`` (tests/ui/conftest.py) unregisters any op added by the test,
+    ``plugin_isolation`` (testing/suites/ui/conftest.py) unregisters any op added by the test,
     so the built-ins (``batch_recolour`` / ``procgen``) are left intact.
     """
     scripting.register_command(DANGER_OP, _danger_factory, ParamSchema())

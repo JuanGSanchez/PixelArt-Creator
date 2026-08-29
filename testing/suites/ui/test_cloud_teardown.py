@@ -5,7 +5,7 @@ segfault class. After a ``Main_Window`` (or a standalone ``Cloud_Controller``) t
 used the cloud worker is disposed, NO cloud worker thread or connected signal
 carrier may survive into a later test's GC. AGT-05 folded
 ``Cloud_Controller.shutdown()`` (and ``_autosave_timer.stop()``) into
-``Main_Window.shutdown_prewarm`` -> ``closeEvent``; the ``tests/ui/conftest.py``
+``Main_Window.shutdown_prewarm`` -> ``closeEvent``; the ``testing/suites/ui/conftest.py``
 drain fixture calls ``shutdown_prewarm`` on every tracked ``Main_Window`` at
 teardown, and now also disposes the parent-less cloud dialogs. These tests dispatch
 a real cloud op, then prove the deterministic teardown drains the pool + releases

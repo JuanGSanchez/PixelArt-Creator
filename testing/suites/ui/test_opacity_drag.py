@@ -36,7 +36,7 @@ clause's literal ceiling is covered by ONE opt-in, ``slow``-marked test further
 down (``test_commit_byte_exact_at_1920_scale_12_layers_opt_in``) — env-gated by
 ``PIXELART_OPACITY_SCALE_TEST=1`` and deselected by CI's default
 ``-m "not slow and ..."`` gate, the same double-gate convention already used by
-``tests/backend/test_nginx_wss_localhost.py`` / ``test_vps_localhost.py``, because
+``testing/suites/deploy/test_nginx_wss_localhost.py`` / ``test_vps_localhost.py``, because
 a full 1920x1920x12-layer commit costs tens of seconds of vectorised NumPy work
 per theme instance — too slow to run on every default invocation of this file.
 """
@@ -81,8 +81,8 @@ _LAYERS = 12
 #: T12-B-03's own scale ceiling ("byte-exact viewport recomposite up to 1920x1920,
 #: >= 12 layers"). Measured at ~50-90 s for the two theme-parametrised invocations
 #: (see test docstring below), so it is opt-in (env-gated + ``slow``-marked, the
-#: SAME double-gate convention as ``tests/backend/test_nginx_wss_localhost.py`` and
-#: ``tests/backend/test_vps_localhost.py``) rather than part of the default gate.
+#: SAME double-gate convention as ``testing/suites/deploy/test_nginx_wss_localhost.py`` and
+#: ``testing/suites/deploy/test_vps_localhost.py``) rather than part of the default gate.
 _SCALE_ENV_VAR = "PIXELART_OPACITY_SCALE_TEST"
 _SCALE_W = 1920
 _SCALE_H = 1920
@@ -388,8 +388,8 @@ def test_commit_byte_exact_at_1920_scale_12_layers_opt_in(qtbot, theme):
 
     Opt-in (env var + ``slow`` marker, deselected by CI's default
     ``-m "not slow and ..."`` gate, mirroring
-    ``tests/backend/test_nginx_wss_localhost.py``'s idle-past-60s test and
-    ``tests/backend/test_vps_localhost.py``'s Docker path): a single commit
+    ``testing/suites/deploy/test_nginx_wss_localhost.py``'s idle-past-60s test and
+    ``testing/suites/deploy/test_vps_localhost.py``'s Docker path): a single commit
     at this scale costs several seconds of vectorised NumPy work (measured
     locally, Python 3.13.13 / PySide6 6.11.1 / offscreen: ~24 s per theme
     instance, ~48 s for both together — see AGT-06's report for the exact
@@ -401,7 +401,7 @@ def test_commit_byte_exact_at_1920_scale_12_layers_opt_in(qtbot, theme):
 
     Set ``PIXELART_OPACITY_SCALE_TEST=1`` to run it:
         QT_QPA_PLATFORM=offscreen PIXELART_OPACITY_SCALE_TEST=1 \\
-            python -m pytest tests/ui/test_opacity_drag.py \\
+            python -m pytest testing/suites/ui/test_opacity_drag.py \\
             -k test_commit_byte_exact_at_1920_scale_12_layers_opt_in -m slow -q
     """
     if os.environ.get(_SCALE_ENV_VAR) != "1":
@@ -469,7 +469,7 @@ def test_per_tick_preview_holds_16ms_at_1080_squared_opt_in(qtbot, theme):
 
     Set ``PIXELART_OPACITY_TICK_TEST=1`` to run it:
         QT_QPA_PLATFORM=offscreen PIXELART_OPACITY_TICK_TEST=1 \\
-            python -m pytest tests/ui/test_opacity_drag.py \\
+            python -m pytest testing/suites/ui/test_opacity_drag.py \\
             -k test_per_tick_preview_holds_16ms_at_1080_squared_opt_in -m slow -q
     """
     if os.environ.get(_TICK_ENV_VAR) != "1":

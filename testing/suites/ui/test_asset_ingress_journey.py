@@ -90,7 +90,7 @@ restart clause is still asserted exactly as written — this module does not
 weaken it either way, before or after the fix — and it is measured, this
 session, to hold on the product's real behaviour.
 
-Headless (``QT_QPA_PLATFORM=offscreen``, forced by ``tests/ui/conftest.py``).
+Headless (``QT_QPA_PLATFORM=offscreen``, forced by ``testing/suites/ui/conftest.py``).
 Both light and dark themes via the autouse ``theme`` fixture — no per-test
 parametrisation needed. Every asset root is the per-test ``tmp_path`` the
 autouse ``_isolate_app_config`` fixture points ``QStandardPaths`` at; every

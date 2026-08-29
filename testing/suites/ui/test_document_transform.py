@@ -13,7 +13,7 @@ directs ("connecting to the runner's ``stepped`` signal and calling
 
 **A resource note, disclosed rather than silently substituted.** Several
 Gherkin ``Given`` clauses in `spec.md` §7 use literal figures sized for the
-LOGIC-layer cost-estimator tests (`tests/logic/test_doc_transform.py`, T05,
+LOGIC-layer cost-estimator tests (`testing/suites/logic/test_doc_transform.py`, T05,
 AGT-04's module) — e.g. an 8-frame x 4-layer 4096x2304 document scaled to
 7680x4320 (a real ~5.08 GiB transient peak). Reproducing every such figure
 here, at the UI layer, with real backing pixel data would make this module
@@ -31,7 +31,7 @@ source to be large). The ONE scenario that is exact-numbers-critical
 session (<1s, <800MB).
 
 Every test in this module also runs under **both** themes via the autouse
-``theme`` fixture (`tests/ui/conftest.py`); this module adds no explicit
+``theme`` fixture (`testing/suites/ui/conftest.py`); this module adds no explicit
 theme parametrisation of its own, only the accessibility assertions that are
 theme-relevant (T27, `plan.md` §8.1 — Article V.1/V.3/V.4, a constitution gate,
 not a REQ-ID).

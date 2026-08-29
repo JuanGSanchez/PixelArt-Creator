@@ -1,6 +1,6 @@
 """T-12 — REAL Qt drag/drop event routing onto the canvas viewport.
 
-``tests/ui/test_drag_drop_import.py`` proves the drop-handling *logic*
+``testing/suites/ui/test_drag_drop_import.py`` proves the drop-handling *logic*
 (``Main_Window.dragEnterEvent`` / ``dropEvent``) by calling those handlers
 directly. That is a legitimate unit test of the routing/dispatch logic, but it
 never proves the event actually **reaches** ``Main_Window`` when a real drag is

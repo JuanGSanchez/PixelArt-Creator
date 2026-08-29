@@ -18,7 +18,7 @@ Covers the recording-bind guards added for Phase-10 Slice C:
 
 ``ui/commands.py`` is the sole Qt-aware undo bridge (Article I / S11). Its
 base ``redo()``/``undo()``/no-recording-attached behaviour is already
-exercised indirectly by the wider ``tests/ui`` suite (no dedicated
+exercised indirectly by the wider ``testing/suites/ui`` suite (no dedicated
 ``test_commands*.py`` existed before this file) — only the NEW recording-guard
 branches this slice added are covered here, not a re-test of the bridge.
 """

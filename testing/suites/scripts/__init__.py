@@ -13,7 +13,7 @@ Every module here tests a script's declared CLI **contract** — its
 entrypoint, its documented exit-code mapping, and its structured JSON output
 — never its private implementation. Each script is invoked either as a real
 subprocess (matching its own documented ``ENTRYPOINT``) or via the same
-``importlib`` file-load pattern ``tests/deploy/test_run_ci_router.py`` uses
+``importlib`` file-load pattern ``testing/suites/deploy/test_run_ci_router.py`` uses
 for a ``scripts/`` module with no ``scripts/__init__.py`` to import through.
 Fixtures live under ``tmp_path`` and are passed to each script by its own
 ``--root``/``--xml`` flag; the real repository tree is never the input under
@@ -21,5 +21,5 @@ test.
 
 No test in this package carries ``@pytest.mark.integration`` — every script
 here runs as an ordinary local subprocess against a temp fixture, so these
-tests belong in the default gate alongside the rest of ``tests/``.
+tests belong in the default gate alongside the rest of ``testing/suites/``.
 """

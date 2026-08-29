@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Accepted** |
+| Status | **Accepted** (paths superseded in part — see below; the split decision itself stands unchanged) |
 | Date | 2026-07-31 |
 | Author | AGT-01 (Architecture) |
 | Feature | Test-tree ownership boundary (follows the `sync_backend/**` ownership split) |
 | Supersedes | — |
-| Superseded by | — |
-| Relates to | ADR-0027 (`sync_backend/` placement — the peer-top-level precedent this mirrors one level down, in the test tree), ADR-0038 (`deploy/` native/hosting artifacts), Phase-13 Slice 13C (T13C-04/-05/-06) |
+| Superseded by | ADR-0065, for PATHS ONLY: every `tests/…` path this ADR names (including its own filename and title) was relocated to `testing/suites/…` on 2026-08-30 by a pure rename (3 commits, `a98f61f`/`65026ad`/`4280d77`). The ownership boundary decided here — a peer root for deployment-acceptance tests, split out of the service tests — is NOT reopened; only the directory prefix changed. |
+| Relates to | ADR-0027 (`sync_backend/` placement — the peer-top-level precedent this mirrors one level down, in the test tree), ADR-0038 (`deploy/` native/hosting artifacts), Phase-13 Slice 13C (T13C-04/-05/-06), ADR-0065 (test-tree relocation) |
 
 ## Context
 

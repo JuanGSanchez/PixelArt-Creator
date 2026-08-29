@@ -92,7 +92,7 @@ def _record_and_save(qtbot, make_view, tmp_path, monkeypatch, name="clip"):
     # Recording has concluded (the Given is "a recording MADE and saved") --
     # stepping the SAME watched stack below to build the ground truth would
     # otherwise itself be recorded as new commits (a real defect, reported
-    # separately in tests/ui/test_timelapse_playback.py's
+    # separately in testing/suites/ui/test_timelapse_playback.py's
     # test_req_p9_ui_018_playing_while_still_recording_must_not_modify_the_session).
     controls._record_button.setChecked(False)
 

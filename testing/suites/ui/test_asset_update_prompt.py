@@ -43,7 +43,7 @@ outcome) is asserted for those scenario ids; the downstream effect is
 outside this module's reachable surface and is not independently exercised
 here.
 
-Both themes run via the autouse ``theme`` fixture (``tests/ui/conftest.py``).
+Both themes run via the autouse ``theme`` fixture (``testing/suites/ui/conftest.py``).
 """
 
 from __future__ import annotations
@@ -439,7 +439,7 @@ def test_phase5_key_still_renders_as_a_single_checkable_entry(qtbot):
     extension -- it still renders as a single checkable ``QAction`` (not a
     submenu) whose activation restores its default. This test file asserts
     it directly, in ADDITION to running (not editing)
-    ``tests/ui/test_project_prefs_actions.py`` unmodified, per the task's own
+    ``testing/suites/ui/test_project_prefs_actions.py`` unmodified, per the task's own
     instruction and P11-R2's regression obligation.
     """
     from pixelart_creator.logic.project_prefs import CONFIRM_CEL_OVERWRITE

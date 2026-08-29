@@ -1,8 +1,8 @@
 """Tests for the .pixtimelapse schema-3 (identity-bearing) manifest (T40,
 Q-21, REQ-P9-DATA-005; plan §10.3). Schema 1 stays untouched
-(``tests/data/test_timelapse_io.py``'s 13 shipped tests, REQ-P9-DATA-003,
+(``testing/suites/data/test_timelapse_io.py``'s 13 shipped tests, REQ-P9-DATA-003,
 are not touched by this file and stay green). Schema 2 is read-only legacy
-(``tests/data/test_timelapse_io_schema2.py``, T47) -- this module covers the
+(``testing/suites/data/test_timelapse_io_schema2.py``, T47) -- this module covers the
 identity-bearing form and the refusal of identity-less payloads. Zero Qt.
 
 SC-D005-1 (round-trips identities exactly; two identical-content frames

@@ -237,7 +237,7 @@ def test_sc_cgs_ui_012_3_canvas_never_smooths_at_100_or_6400_percent(
 ):
     """SC-CGS-UI-012-3: the canvas renders with NO smoothing at 100%/6400%.
 
-    ``make_view`` (``tests/ui/conftest.py``) builds a click-ready
+    ``make_view`` (``testing/suites/ui/conftest.py``) builds a click-ready
     ``Canvas_View`` bound to a fresh 64x64 document. Setting the zoom to
     1.0 (100%) and to ``ZOOM_MAX`` (6400%) in turn and re-checking the
     view's own render hints proves the thumbnail-smoothing fix carries no
