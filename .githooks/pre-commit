@@ -21,6 +21,7 @@ set -e
 HOOK=pre-commit
 
 repo_root=$(git rev-parse --show-toplevel)
+skip_container_checks=
 
 # Locate the container: nearest ancestor holding <dir>/check_branch_naming.py
 # (1 level up for a single-product branch folder, 3 for a multi-product one).
@@ -43,8 +44,21 @@ for _ in 1 2 3 4; do
 done
 
 if [ -z "$container_found" ]; then
-    echo "pre-commit: container scripts/ not found above $repo_root; refusing to pass an unrunnable gate." >&2
-    exit 1
+    skip_container_checks=yes
+    echo "pre-commit: no container found above $repo_root; the following" >&2
+    echo "pre-commit: container-backed checks did NOT run (this clone has no" >&2
+    echo "pre-commit: orchestration container above it, and its gate scripts" >&2
+    echo "pre-commit: are deliberately not vendored into the product):" >&2
+    echo "pre-commit:   - branch naming (check_branch_naming.py) - NOT run:" >&2
+    echo "pre-commit:     would have verified the branch is 'main', 'feat-<x>'" >&2
+    echo "pre-commit:     or 'fix-<x>'." >&2
+    echo "pre-commit:   - portable names (check_names.py) - NOT run: would have" >&2
+    echo "pre-commit:     verified no OS-reserved/unportable path is staged." >&2
+    echo "pre-commit:   - memory store refresh (memory_graph.py refresh) - NOT" >&2
+    echo "pre-commit:     run: would have kept the tracked map current with" >&2
+    echo "pre-commit:     this commit's tree." >&2
+    echo "pre-commit: The line-ending guard and the main-branch admission gate" >&2
+    echo "pre-commit: below DID run, and the exit code is decided by them alone." >&2
 fi
 
 scripts="$container_scripts"
@@ -62,17 +76,25 @@ else
     exit 1
 fi
 
-$PY "$scripts/check_branch_naming.py" --project "$container" || {
-    echo "pre-commit: branch naming check FAILED - commit refused." >&2
-    echo "pre-commit: branches must be 'main', 'feat-<x>' or 'fix-<x>'." >&2
-    exit 1
-}
+if [ "$skip_container_checks" = yes ]; then
+    :   # already reported above: no container, so this did not run
+else
+    $PY "$scripts/check_branch_naming.py" --project "$container" || {
+        echo "pre-commit: branch naming check FAILED - commit refused." >&2
+        echo "pre-commit: branches must be 'main', 'feat-<x>' or 'fix-<x>'." >&2
+        exit 1
+    }
+fi
 
-$PY "$scripts/check_names.py" --staged --repo "$repo_root" || {
-    echo "pre-commit: portable-name check FAILED - commit refused." >&2
-    echo "pre-commit: no OS-reserved or unportable file name may be committed." >&2
-    exit 1
-}
+if [ "$skip_container_checks" = yes ]; then
+    :   # already reported above: no container, so this did not run
+else
+    $PY "$scripts/check_names.py" --staged --repo "$repo_root" || {
+        echo "pre-commit: portable-name check FAILED - commit refused." >&2
+        echo "pre-commit: no OS-reserved or unportable file name may be committed." >&2
+        exit 1
+    }
+fi
 
 # Line endings, two rules. (1) A staged file identical to HEAD once CRLF is
 # normalised changed NOTHING BUT its endings. (2) A staged file whose DOMINANT
@@ -249,6 +271,9 @@ case "$branch" in
     ;;
 esac
 
+if [ "$skip_container_checks" = yes ]; then
+    :   # already reported above: no container, so the store was not refreshed
+else
 
 # --- refresh this repository's own memory store, and stage what THIS run
 #     made dirty ---------------------------------------------------------
@@ -350,4 +375,6 @@ if isinstance(payload, dict) and payload.get("verdict") not in (None, "OK"):
         fi
         git -C "$repo_root" add -- "$changed_path" >/dev/null 2>&1 || true
     done
+fi
+
 fi

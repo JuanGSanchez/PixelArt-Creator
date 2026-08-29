@@ -66,6 +66,24 @@
 #     (pixelart_creator, sync_backend, web_viewer) rather than restated
 #     here - the same one-declaration rule applied to what gets measured,
 #     not just to how the suite is collected.
+# WHY THE REPOSITORY ROOT IS ALSO PREPENDED TO PYTHONPATH (on top of the
+# frozen template's own "$here", which stays so every child still imports
+# sitecustomize.py). This checkout is one of several SIBLING WORKTREES of the
+# same repository, and this machine also carries a machine-wide EDITABLE
+# INSTALL of the package (an __editable___*_finder.py under site-packages)
+# pinned to exactly one of those siblings via sys.meta_path. That finder is
+# APPENDED to sys.meta_path, so the stdlib PathFinder - which honours
+# PYTHONPATH - is still consulted first; a child process whose cwd is not
+# this worktree (every pytest-xdist worker that changes directory, and any
+# subprocess a test spawns elsewhere) would otherwise silently import
+# pixelart_creator/sync_backend/web_viewer from THAT OTHER WORKTREE instead
+# of this one, and no test would notice - a full run was measured pulling 65
+# files from outside this checkout, 24 of them from a sibling's
+# pixelart_creator/ tree. Putting repo_root first on PYTHONPATH makes every
+# child resolve the three packages from THIS checkout regardless of its cwd
+# or the machine-wide install. The caller's own PYTHONPATH is preserved,
+# appended after both entries, never discarded.
+#
 # Everything else - the trap, the reclaim call, KEEP_TEMP/NO_COVERAGE, the
 # coverage combine/json steps, the exit-code discipline - is unchanged.
 set -u
@@ -137,7 +155,7 @@ data = json.load(open(sys.argv[1], encoding="utf-8"))
 print(",".join(data.get("source_roots") or []))
 ' "$here/testing.json" 2>/dev/null)
     COVERAGE_PROCESS_START="$here/.coveragerc"
-    PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}"
+    PYTHONPATH="$repo_root:$here${PYTHONPATH:+:$PYTHONPATH}"
     COVERAGE_FILE="$coverage_file"
     export COVERAGE_PROCESS_START PYTHONPATH COVERAGE_FILE
     if [ -n "$source_roots" ]; then

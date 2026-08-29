@@ -43,7 +43,17 @@ for _ in 1 2 3 4; do
 done
 
 if [ -z "$container_found" ]; then
-    echo "post-merge: container not found above $repo_root; lessons stay here." >&2
+    echo "post-merge: no container found above $repo_root; the following" >&2
+    echo "post-merge: container-backed duties did NOT run (this clone has no" >&2
+    echo "post-merge: orchestration container above it, and its gate scripts" >&2
+    echo "post-merge: are deliberately not vendored into the product):" >&2
+    echo "post-merge:   - lesson promotion (container_repo.py promote-merged) -" >&2
+    echo "post-merge:     NOT run: would have moved this merge's memory/insight" >&2
+    echo "post-merge:     entries into the container's store." >&2
+    echo "post-merge:   - memory map refresh (memory_graph.py refresh) - NOT" >&2
+    echo "post-merge:     run: would have kept the tracked map current with" >&2
+    echo "post-merge:     this merge." >&2
+    echo "post-merge: Lessons stay in $repo_root/memory." >&2
     exit 0
 fi
 for required in memory_graph container_repo; do

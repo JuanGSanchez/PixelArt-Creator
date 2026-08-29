@@ -44,6 +44,29 @@ literal drive letter baked into either wrapper) so a killed run's scratch
 files are reclaimable the same way `cleanup.py` reclaims everything else it
 owns.
 
+## Which worktree's code gets imported
+
+Both wrappers put this repository's own root on `PYTHONPATH`, ahead of
+anything else - including the caller's own `PYTHONPATH`, which is preserved
+and appended after it, never discarded. This matters on a machine that
+checks out more than one worktree of the same repository side by side (a
+`main/` checkout plus one or more `feat-`/`fix-` branch worktrees) and also
+carries a machine-wide *editable* install of the package pinned to exactly
+one of them: without this, every child process whose current directory is
+not this worktree - every `pytest-xdist` worker that changes directory, and
+any subprocess a test spawns elsewhere - falls back to that machine-wide
+install and silently imports `pixelart_creator`, `sync_backend` or
+`web_viewer` from a **different worktree's checkout**, not this one. A run
+was once measured pulling dozens of files into its own coverage report from
+a sibling worktree this way, and nothing about the run looked wrong.
+
+Running a bare `pytest` from this worktree's root does **not** carry the
+same guarantee: it inherits whatever `PYTHONPATH` (if any) happens to be set
+in the calling shell, so a subprocess test that changes directory can still
+resolve the wrong worktree's code. Use `./run` / `run.cmd` - or export
+`PYTHONPATH` to include this repository's root yourself - for any invocation
+where that matters.
+
 `testing.json` is the machine-readable contract: which runner, which
 verbosity flags, which cleanup entry point, which wrappers, which
 `source_roots` get measured, and which name pattern marks a test as unit /
