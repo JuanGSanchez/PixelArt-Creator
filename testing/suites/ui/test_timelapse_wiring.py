@@ -82,7 +82,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QFileDialog
 
 from pixelart_creator.ui.main_window import Main_Window
-from tests.ui._ui_helpers import click_pixel, prepare_for_click
+from testing.suites.ui._ui_helpers import click_pixel, prepare_for_click
 
 RED = (230, 30, 30, 255)
 GREEN = (30, 190, 60, 255)

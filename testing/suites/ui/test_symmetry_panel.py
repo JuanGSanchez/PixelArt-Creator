@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from pixelart_creator.logic.symmetry import SymmetryAxis
 from pixelart_creator.ui.symmetry_panel import Symmetry_Panel
-from tests.ui._ui_helpers import click_pixel
+from testing.suites.ui._ui_helpers import click_pixel
 
 RED = (230, 30, 30, 255)
 TRANSPARENT = (0, 0, 0, 0)

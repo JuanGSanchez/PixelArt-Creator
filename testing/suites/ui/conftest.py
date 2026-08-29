@@ -533,7 +533,7 @@ def make_view(make_scene, qtbot):
     Returns ``(view, scene, stack)``. The view is pinned so a viewport point
     ``(x, y)`` maps to scene pixel ``(x, y)`` and the pencil tool is active.
     """
-    from tests.ui._ui_helpers import prepare_for_click
+    from testing.suites.ui._ui_helpers import prepare_for_click
 
     def _make(width: int = 64, height: int = 64):
         scene = make_scene(width, height)

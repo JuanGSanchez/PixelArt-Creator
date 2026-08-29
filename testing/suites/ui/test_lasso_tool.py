@@ -10,7 +10,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QGraphicsPolygonItem
 
 from pixelart_creator.ui.tools import LassoTool
-from tests.ui._ui_helpers import move, press, release
+from testing.suites.ui._ui_helpers import move, press, release
 
 
 def test_sc_u005_1_drag_sets_autoclosed_lasso(make_view):

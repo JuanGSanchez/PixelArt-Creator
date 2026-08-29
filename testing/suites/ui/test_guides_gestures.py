@@ -20,7 +20,7 @@ from pixelart_creator.ui.guides_rulers_overlay import (
     Guides_Overlay,
     Guides_Rulers_Overlay,
 )
-from tests.ui._ui_helpers import drag_path, viewport_point_for_pixel
+from testing.suites.ui._ui_helpers import drag_path, viewport_point_for_pixel
 
 _RECT64 = QRectF(0, 0, 64, 64)
 
@@ -62,7 +62,7 @@ def test_d11_drag_off_canvas_removes_the_guide_via_public_remove_guide(make_view
     from PySide6.QtCore import QEvent, QPointF, Qt
     from PySide6.QtGui import QMouseEvent
 
-    from tests.ui._ui_helpers import press
+    from testing.suites.ui._ui_helpers import press
 
     press(view, 10, 5)
 
@@ -139,7 +139,7 @@ def test_d11_drag_just_past_document_edge_removes_the_guide_via_public_remove_gu
         from PySide6.QtCore import QEvent, QPointF, Qt
         from PySide6.QtGui import QMouseEvent
 
-        from tests.ui._ui_helpers import press
+        from testing.suites.ui._ui_helpers import press
 
         press(view, 10, 5)
 

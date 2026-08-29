@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QListWidgetItem
 from pixelart_creator.logic.export import ExportFormat, ExportRequest
 from pixelart_creator.ui.batch_export_panel import Batch_Export_Panel
 from pixelart_creator.ui.export_worker import ExportTarget
-from tests.ui._export_helpers import single_frame_document
+from testing.suites.ui._export_helpers import single_frame_document
 
 
 def _add_target(panel: Batch_Export_Panel, target: ExportTarget) -> None:

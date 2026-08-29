@@ -28,7 +28,7 @@ from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QApplication
 
 from pixelart_creator.ui.guides_rulers_overlay import Guides_Rulers_Overlay
-from tests.ui._ui_helpers import viewport_point_for_pixel
+from testing.suites.ui._ui_helpers import viewport_point_for_pixel
 
 NO_MOD = Qt.KeyboardModifier.NoModifier
 NO_BTN = Qt.MouseButton.NoButton

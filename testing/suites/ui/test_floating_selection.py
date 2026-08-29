@@ -53,7 +53,7 @@ from pixelart_creator.ui.overwrite_confirm_dialog import Overwrite_Confirm_Dialo
 from pixelart_creator.ui.theme import canvas_roles
 from pixelart_creator.ui.tools import PencilTool, RectSelectTool
 from pixelart_creator.ui.tools.floating_move import CONFIRM_FLOATING_OVERWRITE
-from tests.ui._ui_helpers import prepare_for_click, viewport_point_for_pixel
+from testing.suites.ui._ui_helpers import prepare_for_click, viewport_point_for_pixel
 
 LEFT = Qt.MouseButton.LeftButton
 NO_BTN = Qt.MouseButton.NoButton

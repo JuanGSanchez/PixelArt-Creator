@@ -141,5 +141,5 @@ def test_integration_job_names_both_test_roots():
     run_commands = " ".join(
         step.get("run", "") for step in steps if isinstance(step, dict)
     )
-    assert "tests/deploy/" in run_commands
-    assert "tests/backend/" in run_commands
+    assert "testing/suites/deploy/" in run_commands
+    assert "testing/suites/backend/" in run_commands

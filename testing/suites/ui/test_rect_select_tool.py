@@ -12,7 +12,7 @@ from PySide6.QtGui import QMouseEvent
 
 from pixelart_creator.logic.selection import rect_mask
 from pixelart_creator.ui.tools import RectSelectTool
-from tests.ui._ui_helpers import move, press, release, viewport_point_for_pixel
+from testing.suites.ui._ui_helpers import move, press, release, viewport_point_for_pixel
 
 LEFT = Qt.MouseButton.LeftButton
 NO_BTN = Qt.MouseButton.NoButton

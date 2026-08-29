@@ -19,7 +19,7 @@ import ast
 from pathlib import Path
 from typing import List, Set
 
-_ROOT = Path(__file__).resolve().parents[2]
+_ROOT = Path(__file__).resolve().parents[3]
 _PIXELART = _ROOT / "pixelart_creator"
 
 # --------------------------------------------------------------------------- #

@@ -91,7 +91,7 @@ from pixelart_creator.ui.iso_grid_overlay import Iso_Grid_Overlay
 from pixelart_creator.ui.live_cursors_overlay import Live_Cursors_Overlay
 from pixelart_creator.ui.perspective_grid_overlay import Perspective_Grid_Overlay
 from pixelart_creator.ui.tools import LineTool, RectangleTool, RectSelectTool
-from tests.ui._ui_helpers import click_pixel, move, prepare_for_click, press
+from testing.suites.ui._ui_helpers import click_pixel, move, prepare_for_click, press
 
 RED = (230, 30, 30, 255)
 

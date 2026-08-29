@@ -17,7 +17,7 @@ from PySide6.QtWidgets import QApplication
 from pixelart_creator.ui.batch_export_panel import Batch_Export_Panel
 from pixelart_creator.ui.export_dialog import Export_Dialog
 from pixelart_creator.ui.main_window import Main_Window
-from tests.ui._export_helpers import animation_document
+from testing.suites.ui._export_helpers import animation_document
 
 
 def _dialog(qtbot):

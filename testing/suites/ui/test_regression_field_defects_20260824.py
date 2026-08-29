@@ -99,7 +99,7 @@ from pixelart_creator.ui.canvas_view import Canvas_View
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.tilemap_canvas import Tilemap_Canvas
 from pixelart_creator.ui.tools import EraserTool, FloodFillTool, PencilTool
-from tests.ui._ui_helpers import (
+from testing.suites.ui._ui_helpers import (
     prepare_for_click,
     real_click_pixel,
 )

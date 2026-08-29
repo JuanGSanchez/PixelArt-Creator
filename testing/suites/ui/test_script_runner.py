@@ -10,7 +10,7 @@ surfaces a graceful error with no command landing. Headless; both themes.
 from __future__ import annotations
 
 from pixelart_creator.ui.main_window import Main_Window
-from tests.ui._automation_helpers import (
+from testing.suites.ui._automation_helpers import (
     RUN_TIMEOUT_MS,
     arrays_equal,
     buffer_of,

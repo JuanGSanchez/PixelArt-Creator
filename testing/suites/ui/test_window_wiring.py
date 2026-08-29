@@ -15,7 +15,7 @@ from pixelart_creator.data.project_io import FILE_SUFFIX
 from pixelart_creator.logic.constants import ZOOM_MAX, ZOOM_MIN
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.theme import THEME_DARK, build_qss
-from tests.ui._ui_helpers import click_pixel, prepare_for_click
+from testing.suites.ui._ui_helpers import click_pixel, prepare_for_click
 
 BLACK = (0, 0, 0, 255)
 BLUE = (40, 90, 220, 255)

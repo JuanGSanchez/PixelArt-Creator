@@ -78,7 +78,7 @@ from pixelart_creator.logic.content_hash import content_hash
 from pixelart_creator.logic.document import Document
 from pixelart_creator.ui.asset_update_prompt import Asset_Update_Prompt_Dialog
 from pixelart_creator.ui.main_window import Main_Window
-from tests.ui._ui_helpers import click_pixel, prepare_for_click
+from testing.suites.ui._ui_helpers import click_pixel, prepare_for_click
 
 
 def _window(qtbot) -> Main_Window:

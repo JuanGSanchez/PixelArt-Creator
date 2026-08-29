@@ -177,7 +177,7 @@ def test_t16_scale_with_active_selection_affects_only_the_selection(qtbot, monke
     resizes the canvas); pixels outside the selection are byte-identical.
     """
     from pixelart_creator.logic.selection import rect_mask
-    from tests.ui._ui_helpers import prepare_for_click
+    from testing.suites.ui._ui_helpers import prepare_for_click
 
     win = _window(qtbot)
     record = win.active_tab()
@@ -359,7 +359,7 @@ def test_sc_csd_u003_1_a_masked_scale_changes_no_dimension_anywhere(qtbot, monke
     `tasks.md` T14's "do not weaken the shipped test_t16_... sibling."
     """
     from pixelart_creator.logic.selection import rect_mask
-    from tests.ui._ui_helpers import prepare_for_click
+    from testing.suites.ui._ui_helpers import prepare_for_click
 
     win = _window(qtbot)
     document = _build_document(64, 48, [2, 2])

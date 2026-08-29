@@ -40,7 +40,7 @@ from typing import Any, Dict, List
 # `scripts/` is not an installed package (no `scripts/__init__.py`), so import
 # run_ci.py directly by file path -- the same pattern used by this project's
 # other scripts-under-test call sites.
-_SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+_SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts"
 _SPEC = importlib.util.spec_from_file_location("run_ci", _SCRIPTS_DIR / "run_ci.py")
 assert _SPEC is not None and _SPEC.loader is not None
 run_ci = importlib.util.module_from_spec(_SPEC)

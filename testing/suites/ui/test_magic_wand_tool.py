@@ -8,7 +8,7 @@ themes via the autouse ``theme`` fixture.
 from __future__ import annotations
 
 from pixelart_creator.ui.tools import MagicWandTool
-from tests.ui._ui_helpers import click_pixel
+from testing.suites.ui._ui_helpers import click_pixel
 
 RED = (230, 30, 30, 255)
 NEAR_RED = (230, 30, 40, 255)  # differs from RED by 10 in the blue channel
@@ -99,7 +99,7 @@ def test_t17_frame_select_commits_a_live_float(qtbot):
     from pixelart_creator.logic.selection import rect_mask
     from pixelart_creator.ui.main_window import Main_Window
     from pixelart_creator.ui.tools import RectSelectTool
-    from tests.ui._ui_helpers import prepare_for_click, viewport_point_for_pixel
+    from testing.suites.ui._ui_helpers import prepare_for_click, viewport_point_for_pixel
 
     win = Main_Window()
     qtbot.addWidget(win)

@@ -1,7 +1,7 @@
 """Mocked HTTP transport + stateful provider fakes for the cloud-adapter tests.
 
 Shared test infrastructure (NOT a ``test_`` module — pytest does not collect it) for
-the Phase-10 live-provider contract tests (``tests/data/test_cloud_providers_*.py``).
+the Phase-10 live-provider contract tests (``testing/suites/data/test_cloud_providers_*.py``).
 
 Every real adapter (Drive / OneDrive / Dropbox) depends only on the injectable
 :class:`~pixelart_creator.data.cloud.providers._http.HttpClient` *protocol*; these

@@ -7,7 +7,7 @@ reverts exactly the painted pixel), SC-UI-010-2 (redo re-applies), SC-UI-010-3
 
 from __future__ import annotations
 
-from tests.ui._ui_helpers import click_pixel
+from testing.suites.ui._ui_helpers import click_pixel
 
 BLUE = (40, 90, 220, 255)
 TRANSPARENT = (0, 0, 0, 0)

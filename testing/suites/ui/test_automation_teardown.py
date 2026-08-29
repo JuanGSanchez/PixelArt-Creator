@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from pixelart_creator.ui.automation_worker import make_dispatch_job
 from pixelart_creator.ui.main_window import Main_Window
-from tests.ui._automation_helpers import procgen_op, run_ops
+from testing.suites.ui._automation_helpers import procgen_op, run_ops
 
 
 def test_main_window_shutdown_drains_automation_controller(qtbot):

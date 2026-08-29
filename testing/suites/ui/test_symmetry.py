@@ -13,7 +13,7 @@ from PySide6.QtCore import Qt
 from pixelart_creator.logic.symmetry import SymmetryAxis
 from pixelart_creator.ui.symmetry_panel import Symmetry_Panel
 from pixelart_creator.ui.tools import PencilTool
-from tests.ui._ui_helpers import click_pixel
+from testing.suites.ui._ui_helpers import click_pixel
 
 RED = (230, 30, 30, 255)
 TRANSPARENT = (0, 0, 0, 0)

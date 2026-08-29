@@ -22,7 +22,7 @@ from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.canvas_view import Canvas_View
 from pixelart_creator.ui.theme import canvas_roles
 from pixelart_creator.ui.tools import PickerTool
-from tests.ui._ui_helpers import click_pixel, prepare_for_click
+from testing.suites.ui._ui_helpers import click_pixel, prepare_for_click
 
 RED = (230, 30, 30, 255)
 BLUE = (40, 90, 220, 255)

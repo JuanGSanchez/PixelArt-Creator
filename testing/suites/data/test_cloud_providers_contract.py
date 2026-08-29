@@ -2,7 +2,7 @@
 
 Phase-10 Slice-C live-provider adapters (``data/cloud/providers/{drive,onedrive,
 dropbox}.py``) are exercised here entirely through a **mocked**
-:class:`~tests.data._cloud_provider_fakes.MockHttpClient` — recorded/synthetic provider
+:class:`~testing.suites.data._cloud_provider_fakes.MockHttpClient` — recorded/synthetic provider
 responses, **no network, no credentials, no OS keyring**. These are the CI contract
 tests (they carry **NO** ``cloud_live`` marker); only genuinely live end-to-end runs
 would be ``cloud_live``.
@@ -39,7 +39,7 @@ from pixelart_creator.data.cloud.providers import base as _base
 from pixelart_creator.data.cloud.providers._http import HttpError
 from pixelart_creator.logic.constants import MAX_CLOUD_VERSIONS
 from pixelart_creator.logic.version_history import CloudVersion
-from tests.data._cloud_provider_fakes import (
+from testing.suites.data._cloud_provider_fakes import (
     PROVIDERS,
     Fail401Once,
     MockHttpClient,
@@ -582,7 +582,7 @@ def test_dropbox_get_recovery_409_returns_none():
 
 def test_provider_modules_contain_no_eval_or_exec():
     root = (
-        Path(__file__).resolve().parents[2]
+        Path(__file__).resolve().parents[3]
         / "pixelart_creator"
         / "data"
         / "cloud"

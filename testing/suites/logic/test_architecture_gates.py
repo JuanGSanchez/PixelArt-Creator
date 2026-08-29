@@ -17,8 +17,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-# The worktree root -- three parents up from tests/logic/test_architecture_gates.py.
-_ROOT = Path(__file__).resolve().parents[2]
+# The worktree root -- four parents up from testing/suites/logic/test_architecture_gates.py.
+_ROOT = Path(__file__).resolve().parents[3]
 _SCRIPTS_DIR = _ROOT / "scripts"
 
 

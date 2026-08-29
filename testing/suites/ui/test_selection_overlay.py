@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pixelart_creator.logic.selection import rect_mask
 from pixelart_creator.ui.tools import RectSelectTool
-from tests.ui._ui_helpers import move, press, release
+from testing.suites.ui._ui_helpers import move, press, release
 
 RED = (230, 30, 30, 255)
 TRANSPARENT = (0, 0, 0, 0)

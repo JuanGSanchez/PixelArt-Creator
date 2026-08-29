@@ -18,7 +18,7 @@ from pixelart_creator.logic import plugins
 from pixelart_creator.logic.plugins import Capability, PluginError, PluginManifest
 from pixelart_creator.logic.scripting import ParamSchema
 from pixelart_creator.ui.main_window import Main_Window
-from tests.ui._automation_helpers import write_malformed_manifest, write_manifest
+from testing.suites.ui._automation_helpers import write_malformed_manifest, write_manifest
 
 
 def _window(qtbot) -> Main_Window:

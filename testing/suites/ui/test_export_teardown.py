@@ -17,7 +17,7 @@ from __future__ import annotations
 from pixelart_creator.logic.export import ExportFormat, ExportRequest
 from pixelart_creator.ui.export_worker import ExportTarget
 from pixelart_creator.ui.main_window import Main_Window
-from tests.ui._export_helpers import single_frame_document
+from testing.suites.ui._export_helpers import single_frame_document
 
 
 def _run_one_export(qtbot, controller, document, out_path):

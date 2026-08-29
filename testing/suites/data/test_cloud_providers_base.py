@@ -32,7 +32,7 @@ from pixelart_creator.data.cloud.providers.base import (
 )
 from pixelart_creator.logic.constants import MAX_CLOUD_PROJECT_BYTES
 from pixelart_creator.logic.version_history import CloudVersion
-from tests.data._cloud_provider_fakes import (
+from testing.suites.data._cloud_provider_fakes import (
     MockHttpClient,
     Routes,
     empty_resp,

@@ -15,7 +15,7 @@ import numpy as np
 
 from pixelart_creator.logic import timelapse as timelapse_logic
 from pixelart_creator.ui.timelapse_controls import Timelapse_Controls
-from tests.ui._ui_helpers import click_pixel, prepare_for_click
+from testing.suites.ui._ui_helpers import click_pixel, prepare_for_click
 
 RED = (230, 30, 30, 255)
 GREEN = (30, 190, 60, 255)

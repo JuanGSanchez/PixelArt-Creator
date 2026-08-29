@@ -19,7 +19,7 @@ from PySide6.QtWidgets import QApplication, QGraphicsView
 from pixelart_creator.logic.constants import DEFAULT_DOCUMENT_PPI
 from pixelart_creator.logic.preview import real_size_scale
 from pixelart_creator.ui.real_size_preview_window import Real_Size_Preview_Window
-from tests.ui._ui_helpers import click_pixel
+from testing.suites.ui._ui_helpers import click_pixel
 
 BLUE = (40, 90, 220, 255)
 

@@ -13,7 +13,7 @@ from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.tools import PencilTool
 from pixelart_creator.ui.tools.base import ToolContext
-from tests.ui._ui_helpers import click_pixel
+from testing.suites.ui._ui_helpers import click_pixel
 
 RED = (230, 30, 30, 255)
 TRANSPARENT = (0, 0, 0, 0)

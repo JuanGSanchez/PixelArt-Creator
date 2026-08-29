@@ -55,7 +55,7 @@ from pixelart_creator.ui.export_worker import (
     ExportTarget,
     ExportWorkerSignals,
 )
-from tests.ui._export_helpers import single_frame_document
+from testing.suites.ui._export_helpers import single_frame_document
 
 #: Marker tags used only to pick which crafted index gets which outcome —
 #: never routed to a real failure injection any more (that seam moved: see

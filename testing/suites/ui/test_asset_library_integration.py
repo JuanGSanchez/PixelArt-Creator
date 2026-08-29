@@ -150,7 +150,7 @@ def test_standalone_panels_are_registered_in_the_drain_set():
     instance accumulates across the suite under ``pytest -n auto`` (the disposal-
     hygiene contract; here a regression guard).
     """
-    from tests.ui.conftest import _PHASE9_DISPOSABLE
+    from testing.suites.ui.conftest import _PHASE9_DISPOSABLE
 
     for cls in (Asset_Library_Panel, Asset_Tagging_Panel, Asset_Search_Panel):
         assert cls in _PHASE9_DISPOSABLE

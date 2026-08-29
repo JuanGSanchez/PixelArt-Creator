@@ -248,7 +248,7 @@ def test_colour_cycling_panel_consumes_the_constant_by_identity():
     from pathlib import Path
 
     panel_path = (
-        Path(__file__).resolve().parents[2]
+        Path(__file__).resolve().parents[3]
         / "pixelart_creator"
         / "ui"
         / "colour_cycling_panel.py"

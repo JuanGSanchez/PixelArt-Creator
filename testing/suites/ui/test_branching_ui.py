@@ -352,7 +352,7 @@ def test_drawn_pixel_on_branch_is_present_in_mainline_after_merge(qtbot):
     hand-built fixture, so this proves what a user actually gets.
     """
     from pixelart_creator.ui.main_window import Main_Window
-    from tests.ui._ui_helpers import click_pixel, prepare_for_click
+    from testing.suites.ui._ui_helpers import click_pixel, prepare_for_click
 
     win = Main_Window()
     qtbot.addWidget(win)

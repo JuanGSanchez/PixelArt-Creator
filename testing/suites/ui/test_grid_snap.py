@@ -18,7 +18,7 @@ from __future__ import annotations
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.tools import RectSelectTool
 from pixelart_creator.ui.tools.base import Tool, ToolContext
-from tests.ui._ui_helpers import move, press, release
+from testing.suites.ui._ui_helpers import move, press, release
 
 
 def _window(qtbot) -> Main_Window:

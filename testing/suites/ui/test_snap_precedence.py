@@ -3,7 +3,7 @@
 The audit finding this closes (`audit-spec-verification-consolidated-20260816.md`)
 was that each aid's ``logic/`` snap function was unit-tested but nothing on the
 real mouse/paint path ever called it — "satisfied at the seam, not the cursor".
-These tests drive real ``Canvas_View`` mouse events (``tests.ui._ui_helpers``)
+These tests drive real ``Canvas_View`` mouse events (``testing.suites.ui._ui_helpers``)
 through :class:`~pixelart_creator.ui.tools.PencilTool` and assert on the
 OBSERVABLE painted pixel in the document buffer — never on
 ``Canvas_View._snap_scene_point`` directly — so a regression that broke the
@@ -29,7 +29,7 @@ from pixelart_creator.ui.guides_rulers_overlay import Guides_Rulers_Overlay
 from pixelart_creator.ui.iso_grid_overlay import Iso_Grid_Overlay
 from pixelart_creator.ui.perspective_grid_overlay import Perspective_Grid_Overlay
 from pixelart_creator.ui.tools import PencilTool
-from tests.ui._ui_helpers import click_pixel, drag_path
+from testing.suites.ui._ui_helpers import click_pixel, drag_path
 
 RED = (230, 30, 30, 255)
 TRANSPARENT = (0, 0, 0, 0)

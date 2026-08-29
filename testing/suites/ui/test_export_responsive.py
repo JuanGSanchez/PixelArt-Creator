@@ -34,7 +34,7 @@ import threading
 import pixelart_creator.logic.export as export_logic
 from pixelart_creator.logic.export import ExportFormat, ExportRequest
 from pixelart_creator.ui.export_worker import ExportTarget
-from tests.ui._export_helpers import single_frame_document
+from testing.suites.ui._export_helpers import single_frame_document
 
 
 def _png_target(tmp_path, name):

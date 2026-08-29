@@ -38,7 +38,7 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 STORE = REPO_ROOT / "memory"
 
 # The three page assets WP-7 tracks (ground truth: the WP-7 findings report).

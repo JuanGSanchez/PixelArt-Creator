@@ -14,7 +14,7 @@ from pixelart_creator.ui.tools import (
     PencilTool,
     PickerTool,
 )
-from tests.ui._ui_helpers import click_pixel, move, press, release
+from testing.suites.ui._ui_helpers import click_pixel, move, press, release
 
 GREEN = (30, 190, 60, 255)
 YELLOW = (240, 220, 40, 255)

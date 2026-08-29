@@ -1,8 +1,10 @@
-"""Shared fixtures for the ``tests/scripts/`` gate-script contract tests (ADR-0047).
+"""Shared fixtures for the ``testing/suites/scripts/`` gate-script contract tests
+(ADR-0047).
 
-Mirrors the ``REPO_ROOT`` convention already used by ``tests/deploy/conftest.py``:
-``tests/scripts/conftest.py`` sits at the same depth (``tests/<root>/conftest.py``),
-so the same ``parents[2]`` expression resolves to the working-tree root.
+Mirrors the ``REPO_ROOT`` convention already used by
+``testing/suites/deploy/conftest.py``: ``testing/suites/scripts/conftest.py`` sits
+at the same depth (``testing/suites/<root>/conftest.py``), so the same
+``parents[3]`` expression resolves to the working-tree root.
 """
 
 from __future__ import annotations
@@ -13,8 +15,8 @@ import sys
 from pathlib import Path
 from typing import List, NamedTuple, Optional
 
-#: Repo root: tests/scripts/conftest.py -> parents[2] is the working tree root.
-REPO_ROOT = Path(__file__).resolve().parents[2]
+#: Repo root: testing/suites/scripts/conftest.py -> parents[3] is the working tree root.
+REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 
 

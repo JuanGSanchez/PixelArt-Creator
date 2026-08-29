@@ -20,7 +20,7 @@ from pixelart_creator.ui.automation_worker import (
     make_dispatch_job,
     make_replay_job,
 )
-from tests.ui._automation_helpers import (
+from testing.suites.ui._automation_helpers import (
     arrays_equal,
     buffer_of,
     macro_of,

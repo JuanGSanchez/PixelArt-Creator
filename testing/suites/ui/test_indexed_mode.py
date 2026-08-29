@@ -18,7 +18,7 @@ import pytest
 
 from pixelart_creator.logic.pixel_buffer import ColorMode
 from pixelart_creator.ui.main_window import Main_Window
-from tests.ui._ui_helpers import click_pixel, prepare_for_click
+from testing.suites.ui._ui_helpers import click_pixel, prepare_for_click
 
 
 @pytest.fixture

@@ -28,7 +28,7 @@ from pixelart_creator.ui.batch_recolour_panel import Batch_Recolour_Panel
 from pixelart_creator.ui.macro_controls import Macro_Controls
 from pixelart_creator.ui.procgen_panel import Procgen_Panel
 from pixelart_creator.ui.script_runner_panel import Script_Runner_Panel
-from tests.ui._automation_helpers import batch_recolour_op, macro_of
+from testing.suites.ui._automation_helpers import batch_recolour_op, macro_of
 
 
 def _run_synchronously(job):

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.tools import PencilTool
-from tests.ui._ui_helpers import drag_path
+from testing.suites.ui._ui_helpers import drag_path
 
 RED = (230, 30, 30, 255)
 TRANSPARENT = (0, 0, 0, 0)

@@ -3,8 +3,8 @@
 Three things this module proves, each with its own scenario id:
 
 - ``SC-UI-021-1..5`` (the evidence bar): the shipped Phase-5 timeline suite —
-  ``tests/ui/test_animation_timeline.py`` and
-  ``tests/ui/test_animation_timeline_wiring.py`` — passes **unmodified**.
+  ``testing/suites/ui/test_animation_timeline.py`` and
+  ``testing/suites/ui/test_animation_timeline_wiring.py`` — passes **unmodified**.
   Verified two ways below: a real subprocess run (so this is not a claim
   taken on faith) AND a ``git diff`` check that the two files are
   byte-identical to the committed HEAD (so "unmodified" is measured, not
@@ -38,10 +38,10 @@ from pixelart_creator.ui.timeline_panel import Timeline_Panel
 
 STARTER = [(0, 0, 0, 255), (255, 255, 255, 255), (230, 30, 30, 255), (10, 200, 10, 255)]
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 _SHIPPED_FILES = (
-    "tests/ui/test_animation_timeline.py",
-    "tests/ui/test_animation_timeline_wiring.py",
+    "testing/suites/ui/test_animation_timeline.py",
+    "testing/suites/ui/test_animation_timeline_wiring.py",
 )
 
 

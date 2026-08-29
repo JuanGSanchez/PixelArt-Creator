@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QApplication
 
 from pixelart_creator.logic.constants import MAX_DOCUMENT_VIEWS
 from pixelart_creator.ui.multi_view import Multi_View
-from tests.ui._ui_helpers import click_pixel
+from testing.suites.ui._ui_helpers import click_pixel
 
 BLUE = (40, 90, 220, 255)
 

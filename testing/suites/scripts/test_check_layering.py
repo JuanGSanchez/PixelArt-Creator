@@ -31,7 +31,7 @@ from .conftest import run_script
 
 SCRIPT = "check_layering.py"
 
-_SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+_SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts"
 _SPEC = importlib.util.spec_from_file_location(
     "check_layering", _SCRIPTS_DIR / "check_layering.py"
 )

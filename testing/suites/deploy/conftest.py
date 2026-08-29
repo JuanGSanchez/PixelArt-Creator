@@ -32,8 +32,8 @@ from typing import List, Optional, Tuple
 
 import pytest
 
-#: Repo root: tests/deploy/conftest.py -> parents[2] is the working tree root.
-REPO_ROOT = Path(__file__).resolve().parents[2]
+#: Repo root: testing/suites/deploy/conftest.py -> parents[3] is the working tree root.
+REPO_ROOT = Path(__file__).resolve().parents[3]
 #: The Phase-13 Slice 13C persistent launcher (deploy/, outside sync_backend/).
 LAUNCHER = REPO_ROOT / "deploy" / "run_sync_backend.py"
 

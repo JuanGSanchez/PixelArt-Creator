@@ -92,7 +92,7 @@ def test_every_user_facing_setter_in_the_declared_set_is_flagged(tmp_path):
     import importlib.util
     import sys as _sys
 
-    scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
+    scripts_dir = Path(__file__).resolve().parents[3] / "scripts"
     spec = importlib.util.spec_from_file_location(
         "string_audit_check", scripts_dir / "string_audit_check.py"
     )

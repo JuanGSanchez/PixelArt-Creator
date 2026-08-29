@@ -15,7 +15,7 @@ import threading
 
 import pixelart_creator.ui.automation_worker as automation_worker
 from pixelart_creator.ui.automation_worker import make_dispatch_job
-from tests.ui._automation_helpers import procgen_op
+from testing.suites.ui._automation_helpers import procgen_op
 
 
 def _gate_engine(monkeypatch, gate: threading.Event) -> None:

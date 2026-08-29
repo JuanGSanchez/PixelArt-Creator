@@ -28,7 +28,7 @@ from pixelart_creator.logic.constants import (
 )
 from pixelart_creator.logic.export import EnginePreset, ExportFormat
 from pixelart_creator.ui.export_dialog import Export_Dialog
-from tests.ui._export_helpers import animation_document, single_frame_document
+from testing.suites.ui._export_helpers import animation_document, single_frame_document
 
 #: Option-page indices in the dialog's format combo / stacked widget.
 _PNG, _GIF, _SHEET, _ATLAS = 0, 1, 2, 3

@@ -16,7 +16,7 @@ from pixelart_creator.data import automation_cli
 from pixelart_creator.data.macro_io import save_macro
 from pixelart_creator.data.project_io import load_project, save_project
 from pixelart_creator.ui.main_window import Main_Window
-from tests.ui._automation_helpers import (
+from testing.suites.ui._automation_helpers import (
     GREEN,
     RED,
     arrays_equal,

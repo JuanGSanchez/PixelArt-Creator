@@ -11,7 +11,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from pixelart_creator.ui.main_window import Main_Window
-from tests.ui._automation_helpers import (
+from testing.suites.ui._automation_helpers import (
     GREEN,
     RED,
     batch_recolour_op,

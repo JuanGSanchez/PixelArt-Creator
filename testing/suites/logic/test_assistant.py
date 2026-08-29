@@ -222,7 +222,7 @@ def test_assistant_module_contains_no_eval_or_exec():
 
 import pathlib as _pathlib  # noqa: E402
 
-_REPO_ROOT = _pathlib.Path(__file__).resolve().parents[2] / "pixelart_creator"
+_REPO_ROOT = _pathlib.Path(__file__).resolve().parents[3] / "pixelart_creator"
 
 _ASSISTANT_PATH_MODULES = [
     _REPO_ROOT / "logic" / "assistant.py",

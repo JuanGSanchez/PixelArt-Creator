@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QDialog, QMessageBox, QWidget
 
 from pixelart_creator.ui import export_actions
 from pixelart_creator.ui.export_dialog import Export_Dialog
-from tests.ui._export_helpers import single_frame_document
+from testing.suites.ui._export_helpers import single_frame_document
 
 
 def _parent(qtbot) -> QWidget:
@@ -94,7 +94,7 @@ def test_t24_undo_stack_unchanged_across_a_full_export_run(
     # equality, not a vacuous 0 == 0.
     record.scene.active_buffer().set_pixel(0, 0, (10, 20, 30, 255))
     record.view.set_active_color((10, 20, 30, 255))
-    from tests.ui._ui_helpers import click_pixel, prepare_for_click
+    from testing.suites.ui._ui_helpers import click_pixel, prepare_for_click
 
     prepare_for_click(record.view)
     click_pixel(record.view, 1, 1)

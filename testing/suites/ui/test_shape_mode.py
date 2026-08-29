@@ -13,7 +13,7 @@ from pixelart_creator.logic.selection import rect_mask
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.tools import RectangleTool
 from pixelart_creator.ui.tools.shape_base import ShapeTool
-from tests.ui._ui_helpers import move, press, release
+from testing.suites.ui._ui_helpers import move, press, release
 
 RED = (230, 30, 30, 255)
 TRANSPARENT = (0, 0, 0, 0)

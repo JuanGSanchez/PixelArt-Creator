@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-_UI_DIR = Path(__file__).resolve().parents[2] / "pixelart_creator" / "ui"
+_UI_DIR = Path(__file__).resolve().parents[3] / "pixelart_creator" / "ui"
 
 #: The Phase-11 team-asset-management UI modules (asset library + tagging +
 #: search + reuse + version browser + dependency graph + the shared session).

@@ -240,4 +240,4 @@ def test_sc_csd_u014_1_string_audit_check_reports_no_unwrapped_string(qtbot):
 def _repo_root():
     from pathlib import Path
 
-    return Path(__file__).resolve().parents[2]
+    return Path(__file__).resolve().parents[3]

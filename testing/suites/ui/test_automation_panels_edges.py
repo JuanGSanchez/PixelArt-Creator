@@ -29,7 +29,7 @@ from pixelart_creator.ui.macro_controls import Macro_Controls
 from pixelart_creator.ui.plugin_manager_panel import Plugin_Manager_Panel
 from pixelart_creator.ui.procgen_panel import Procgen_Panel
 from pixelart_creator.ui.script_runner_panel import Script_Runner_Panel
-from tests.ui._automation_helpers import (
+from testing.suites.ui._automation_helpers import (
     GREEN,
     macro_of,
     procgen_op,

@@ -54,7 +54,7 @@ from pixelart_creator.logic.constants import (
 from pixelart_creator.logic.content_hash import ContentHashError, content_hash
 
 _MODULE_PATH = (
-    Path(__file__).resolve().parents[2]
+    Path(__file__).resolve().parents[3]
     / "pixelart_creator"
     / "logic"
     / "asset_extract.py"
@@ -345,7 +345,7 @@ class TestExtractionIsByteDeterministic:
         """
         blob = b"cross-process determinism check"
         expected = hash_of(blob)
-        root = Path(__file__).resolve().parents[2]
+        root = Path(__file__).resolve().parents[3]
         script = (
             "from pixelart_creator.logic.asset_extract import hash_of; "
             f"print(hash_of({blob!r}))"

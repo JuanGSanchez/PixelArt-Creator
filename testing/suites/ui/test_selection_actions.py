@@ -16,7 +16,7 @@ from pixelart_creator.ui.tools.base import ToolContext
 from pixelart_creator.ui.tools.floating_move import FloatingMoveController
 from pixelart_creator.ui.tools.rect_select_tool import RectSelectTool
 from pixelart_creator.ui.tools.selection_base import SelectionTool
-from tests.ui._ui_helpers import NO_MOD
+from testing.suites.ui._ui_helpers import NO_MOD
 
 RED = (230, 30, 30, 255)
 TRANSPARENT = (0, 0, 0, 0)

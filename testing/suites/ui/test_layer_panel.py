@@ -36,7 +36,7 @@ from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.canvas_view import Canvas_View
 from pixelart_creator.ui.layer_panel import Layer_Panel
 from pixelart_creator.ui.tools import PencilTool
-from tests.ui._ui_helpers import click_pixel, prepare_for_click
+from testing.suites.ui._ui_helpers import click_pixel, prepare_for_click
 
 STARTER = [
     (0, 0, 0, 255),

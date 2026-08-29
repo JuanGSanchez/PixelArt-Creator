@@ -6,7 +6,7 @@ to one command), SC-UI-006-3 (off-buffer click is a no-op). Both themes.
 
 from __future__ import annotations
 
-from tests.ui._ui_helpers import click_pixel, drag_path
+from testing.suites.ui._ui_helpers import click_pixel, drag_path
 
 BLUE = (40, 90, 220, 255)
 

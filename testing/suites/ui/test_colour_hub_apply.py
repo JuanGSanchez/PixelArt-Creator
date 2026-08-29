@@ -82,7 +82,7 @@ def test_sc_u006_2_favourite_pick_sets_active_swatch(window):
 
 def test_sc_u006_3_next_left_click_paints_applied_colour(window):
     """SC-U006-3: after a pick, the next left-click paints the active colour."""
-    from tests.ui._ui_helpers import click_pixel, prepare_for_click
+    from testing.suites.ui._ui_helpers import click_pixel, prepare_for_click
 
     hub = window._colour_hub
     hub.set_color(RED)

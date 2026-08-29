@@ -21,7 +21,7 @@ from pixelart_creator.ui.tools.dither_tool import (
     MODE_ORDERED,
     DitherTool,
 )
-from tests.ui._ui_helpers import drag_path
+from testing.suites.ui._ui_helpers import drag_path
 
 STARTER = [(0, 0, 0, 255), (255, 255, 255, 255), (230, 30, 30, 255)]
 REGION = [(2, 2), (2, 2), (9, 9)]

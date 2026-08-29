@@ -16,7 +16,7 @@ from pixelart_creator.logic.constants import (
     ZOOM_MIN,
     ZOOM_PRESET_STOPS,
 )
-from tests.ui._ui_helpers import (
+from testing.suites.ui._ui_helpers import (
     LEFT,
     MIDDLE,
     RIGHT,

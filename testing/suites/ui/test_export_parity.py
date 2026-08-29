@@ -25,7 +25,7 @@ from pixelart_creator.data import export_cli
 from pixelart_creator.data.project_io import save_project
 from pixelart_creator.logic.export import ExportFormat, ExportRequest
 from pixelart_creator.ui.export_worker import ExportTarget
-from tests.ui._export_helpers import animation_document, single_frame_document
+from testing.suites.ui._export_helpers import animation_document, single_frame_document
 
 
 def _gui_export(qtbot, export_controller, document, request, out_path):

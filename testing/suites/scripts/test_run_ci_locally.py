@@ -64,7 +64,7 @@ from .conftest import run_script
 
 SCRIPT = "run_ci_locally.py"
 
-_SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+_SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts"
 _SPEC = importlib.util.spec_from_file_location(
     "run_ci_locally", _SCRIPTS_DIR / "run_ci_locally.py"
 )

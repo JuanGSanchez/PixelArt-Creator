@@ -36,8 +36,8 @@ from pixelart_creator.ui.multi_view import Multi_View
 from pixelart_creator.ui.real_size_preview_window import Real_Size_Preview_Window
 from pixelart_creator.ui.reference_board import Reference_Board
 from pixelart_creator.ui.timelapse_controls import Timelapse_Controls
-from tests.ui._automation_helpers import procgen_op, run_ops
-from tests.ui.conftest import _LIVE_UI_INSTANCES, _PHASE9_DISPOSABLE
+from testing.suites.ui._automation_helpers import procgen_op, run_ops
+from testing.suites.ui.conftest import _LIVE_UI_INSTANCES, _PHASE9_DISPOSABLE
 
 
 class _Noop(QUndoCommand):

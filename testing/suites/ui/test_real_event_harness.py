@@ -30,7 +30,7 @@ from __future__ import annotations
 import pytest
 
 from pixelart_creator.ui.tools import PencilTool
-from tests.ui._ui_helpers import (
+from testing.suites.ui._ui_helpers import (
     ViewportTargetError,
     prepare_for_click,
     real_click_pixel,

@@ -87,7 +87,7 @@ def test_sc_ui_001_window_save_marks_clean_and_creates_version(qtbot, monkeypatc
     record = win.active_tab()
     assert record is not None
     # Make the document dirty via a real edit command on its stack.
-    from tests.ui._ui_helpers import click_pixel, prepare_for_click
+    from testing.suites.ui._ui_helpers import click_pixel, prepare_for_click
 
     prepare_for_click(record.view)
     record.view.set_active_color((40, 90, 220, 255))

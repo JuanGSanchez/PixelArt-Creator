@@ -57,7 +57,7 @@ from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QGraphicsView, QWidget
 
 from pixelart_creator.ui.tools import EraserTool, LineTool, PencilTool, RectSelectTool
-from tests.ui._ui_helpers import (
+from testing.suites.ui._ui_helpers import (
     prepare_for_click,
     real_click_pixel,
     real_move_pixel,

@@ -11,7 +11,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QGraphicsRectItem
 
 from pixelart_creator.ui.tools import RectangleTool
-from tests.ui._ui_helpers import move, press, release
+from testing.suites.ui._ui_helpers import move, press, release
 
 RED = (230, 30, 30, 255)
 TRANSPARENT = (0, 0, 0, 0)
