@@ -98,6 +98,19 @@ coverage.xml
 htmlcov/
 .tox/
 
+# testing/ own runner artefacts (N-4b): the Coverage frame's source
+# artefact changes on every run, so a clone that has never run the
+# suite has measured nothing, which is what the frame then reports.
+# .coverage / .coverage.* / *.coverage above already reach
+# testing/.coverage and its parallel-mode fragments (unanchored
+# patterns match at any depth); coverage.json is a distinct filename
+# those patterns do not cover.
+testing/coverage.json
+# The portable default temp root testing/run and run.cmd fall back to
+# when $ORCH_TEST_TMP is unset (never a literal drive letter in either
+# wrapper - see testing/README.md).
+.tmp/
+
 # ---- Editors / OS -----------------------------------------------------------
 *.swp
 .DS_Store

@@ -1,0 +1,53 @@
+# Coverage configuration for this repository's system testing suite
+# (frozen copy of the orchestrator-design template).
+#
+# `run` / `run.cmd` point COVERAGE_PROCESS_START at this file, which is what
+# makes `sitecustomize.py` beside it start measuring in every CHILD process —
+# and this suite runs the system under test as a child on purpose, through its
+# real CLI. Without that, coverage would report the harness and almost nothing
+# else.
+#
+# WHAT IT DOES NOT SAY. It names no source roots. The repository already
+# declares where its code lives — `unit_roots` in `testing/coverage-map.json`
+# on the container side, `source_roots` in `testing/testing.json` on the
+# product side — and a second list here would be a second place for that
+# answer to drift. The runner passes the declared roots on the command line.
+
+[run]
+# One fragment per process, combined afterwards. Without this the children
+# overwrite each other's data file and the last one to exit wins.
+parallel = True
+# Branch coverage, because "the line ran" and "both ways through the line ran"
+# are different claims and the second is the one a reader wants.
+branch = True
+# The suite's own machinery is not the subject. It is measured by whether the
+# suite passes, which is a stronger check than whether its lines ran.
+omit =
+    */testing/harness/*
+    */testing/tools/*
+    */testing/suites/*
+    */testing/conftest.py
+    */testing/cleanup.py
+    */testing/sitecustomize.py
+    */.pytest_cache/*
+    */__pycache__/*
+
+[report]
+# A source coverage recorded but cannot read afterwards is SKIPPED, not a
+# reason to render nothing. `coverage run -m pytest` records a phantom
+# `pyscript` entry on Windows, and without this the whole `json` step aborts
+# on it — turning a measured run into no artefact at all, which the frame
+# then correctly reports as "nothing was measured". Losing every number to
+# one unreadable entry is the worse failure.
+ignore_errors = True
+# A file with no executable statement at all is not a coverage finding.
+exclude_also =
+    if TYPE_CHECKING:
+    if __name__ == .__main__.:
+    raise NotImplementedError
+
+[json]
+# The per-function block the Coverage frame reads its three buckets from:
+# covered (100%), partially covered (1-99%), not covered (0%).
+show_contexts = False
+pretty_print = False
