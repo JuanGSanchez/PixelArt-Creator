@@ -1,0 +1,5 @@
+coverage-view-snapshot.html
+__pycache__/
+coverage.json
+.coverage
+.coverage.*

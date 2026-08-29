@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "project": "pixelart-creator",
+  "runner": {
+    "command": [
+      "python",
+      "-m",
+      "pytest"
+    ],
+    "verbose_flags": [
+      "-ra"
+    ]
+  },
+  "cleanup": "cleanup.py",
+  "wrappers": [
+    "run",
+    "run.cmd"
+  ],
+  "temp_root_var": "ORCH_TEST_TMP",
+  "types": {
+    "integration": "tests/deploy/*",
+    "unit": "test_*.py"
+  },
+  "source_roots": [
+    "pixelart_creator",
+    "sync_backend",
+    "web_viewer"
+  ]
+}

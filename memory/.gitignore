@@ -7,3 +7,5 @@ insight/
 cards/
 promotions.jsonl
 archive/
+graph-view-snapshot.html
+__pycache__/

@@ -1,0 +1,387 @@
+/* coverage-view.css — the test-coverage viewer (FROZEN ASSET).
+ *
+ * Copied byte-identically next to coverage-view.html in every repository that
+ * carries a viewer; never edited per project.
+ *
+ * COLOURS ARE DEFINED ONCE, BY ROLE. Every colour below resolves through a
+ * small set of role variables — surface, text, muted, border, accent, and the
+ * type/verdict hues — declared once per theme. Colour literals scattered
+ * through the rules cannot be re-themed: they have to be found and re-decided
+ * one at a time, and the ones that are missed are exactly the ones that turn
+ * unreadable in the other theme. Adding a theme must be adding one block of
+ * values, never auditing this file.
+ *
+ * The palette is the memory viewer's, deliberately: three viewers that look
+ * like three products make the reader learn three pages.
+ */
+
+:root {
+  --bg: #fbfbfd;
+  --panel: #ffffff;
+  --field: #f2f3f7;
+  --ink: #14161c;
+  --muted: #5d6270;
+  --line: #dfe1e9;
+  --accent: #2f6feb;
+  --accent-soft: #e6eeff;
+  --ok: #1f7a4d;
+  --ok-soft: #e2f4ea;
+  --warn: #8a5a00;
+  --warn-soft: #fdf1dc;
+  --gap: #8d3030;
+  --gap-soft: #fbe7e7;
+  /* A file the artefact never saw. Deliberately OUTSIDE the plasma ramp —
+     it must not read as "a low percentage", because it is not one. */
+  --unmeasured: #d9dbe3;
+  /* The pie's four answers. Named for what they MEAN, not for the colour
+     they happen to be, so the dark theme can move them without renaming
+     anything. They are NOT the plasma ramp: the ramp answers "how much of
+     this file ran" as a continuum, the pie answers "how many of its
+     functions are in each of four states", and one palette doing both
+     would invite reading a slice as a position on the ramp. */
+  --cov-covered: #2e9e5b;
+  --cov-partial: #d98324;
+  --cov-none: #9aa0ac;
+  --shadow: 0 1px 2px rgba(20, 22, 28, .06);
+}
+
+[data-theme="dark"] {
+  --bg: #14161c;
+  --panel: #1b1e26;
+  --field: #232732;
+  --ink: #e7e9ef;
+  --muted: #9aa0b0;
+  --line: #2e3341;
+  --accent: #78a4ff;
+  --accent-soft: #22304d;
+  --ok: #6ed3a2;
+  --ok-soft: #1c3a2c;
+  --warn: #e3b45f;
+  --warn-soft: #3a2f18;
+  --gap: #f09a9a;
+  --gap-soft: #3a2222;
+  --unmeasured: #3a3f4d;
+  --cov-covered: #57c98a;
+  --cov-partial: #e0a44f;
+  --cov-none: #6d7382;
+  --shadow: none;
+}
+
+* { box-sizing: border-box; }
+/* THE HIDDEN ATTRIBUTE MUST ALWAYS WIN. `hidden` is a UA rule and loses to
+ * every author rule, so any element this stylesheet also gives a `display:`
+ * ignores it and stays laid out. That is not only a visual defect: the
+ * Coverage frame's `#covEmpty` overlay is `position: absolute; inset: 0`,
+ * so while it leaked through it sat invisibly over the whole packing and
+ * swallowed every click meant for a circle. The memory viewer has carried
+ * this rule since its own overlay showed "no nodes match" forever; this
+ * stylesheet was written without it and cost the same defect twice.
+ * `test_46c` is the gate. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  padding: 0 20px 48px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* header ------------------------------------------------------------ */
+header {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; padding: 18px 0 10px;
+  border-bottom: 1px solid var(--line);
+}
+h1 { font-size: 18px; margin: 0; font-weight: 600; }
+h2 { font-size: 13px; margin: 0 0 6px; font-weight: 600; }
+.muted { color: var(--muted); font-weight: 400; }
+.head-right { display: flex; align-items: center; gap: 10px; }
+
+.chip {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 11px; color: var(--muted);
+  background: var(--field); border: 1px solid var(--line);
+  border-radius: 999px; padding: 2px 9px;
+}
+
+.theme-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 4px 11px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.theme-toggle:hover { border-color: var(--accent); }
+
+/* the caveat, above the numbers ------------------------------------- */
+.banner {
+  margin: 14px 0 0; padding: 11px 14px;
+  background: var(--warn-soft); border: 1px solid var(--line);
+  border-left: 3px solid var(--warn); border-radius: 6px;
+}
+.banner ul { margin: 0; padding-left: 18px; }
+.banner li { margin: 2px 0; color: var(--ink); }
+
+/* the numbers -------------------------------------------------------- */
+.cards {
+  display: grid; gap: 10px; margin: 14px 0 0;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+}
+.card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 12px; box-shadow: var(--shadow);
+}
+.card .n { font-size: 22px; font-weight: 600; line-height: 1.1; }
+.card .k { font-size: 11px; color: var(--muted); }
+.card.gap .n { color: var(--gap); }
+.card.warn .n { color: var(--warn); }
+
+/* tabs and controls -------------------------------------------------- */
+nav#tabs { display: flex; gap: 4px; margin: 18px 0 0; flex-wrap: wrap; }
+nav#tabs button {
+  background: none; border: 1px solid transparent; border-bottom: none;
+  border-radius: 7px 7px 0 0; padding: 7px 13px;
+  font: inherit; color: var(--muted); cursor: pointer;
+}
+nav#tabs button:hover { color: var(--ink); }
+nav#tabs button.active {
+  background: var(--panel); border-color: var(--line);
+  color: var(--ink); font-weight: 600;
+}
+/* The frame nav sits between the caveat and the stages, and is deliberately
+   heavier than the sub-tabs inside Metrics: switching frames changes what
+   the numbers MEAN, switching sub-tabs only changes which of them is
+   listed. */
+nav#frames {
+  display: flex; gap: 6px; margin: 14px 0 0; flex-wrap: wrap;
+  border-bottom: 1px solid var(--line); padding-bottom: 0;
+}
+nav#frames button {
+  background: none; border: 1px solid transparent; border-bottom: none;
+  border-radius: 7px 7px 0 0; padding: 8px 16px; margin-bottom: -1px;
+  font: inherit; font-size: 14px; color: var(--muted); cursor: pointer;
+}
+nav#frames button:hover { color: var(--ink); }
+nav#frames button.active {
+  background: var(--panel); border-color: var(--line);
+  border-bottom: 1px solid var(--panel);
+  color: var(--ink); font-weight: 600;
+}
+
+.controls {
+  display: flex; align-items: center; gap: 12px;
+  border-top: 1px solid var(--line); padding: 10px 0;
+}
+#filter {
+  flex: 1 1 260px; max-width: 460px;
+  background: var(--field); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 10px; font: inherit;
+}
+#filter:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* rows --------------------------------------------------------------- */
+.row {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 9px 12px; margin: 7px 0;
+  box-shadow: var(--shadow);
+}
+.row-head {
+  display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+}
+.name {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 13px; font-weight: 600;
+}
+.where { font-size: 11px; color: var(--muted); }
+.row ul { margin: 6px 0 0; padding-left: 18px; }
+.row li {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 11.5px; color: var(--muted); margin: 1px 0;
+  overflow-wrap: anywhere;
+}
+.sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+/* badges ------------------------------------------------------------- */
+.badge {
+  font-size: 10.5px; letter-spacing: .02em; text-transform: uppercase;
+  border-radius: 999px; padding: 1px 8px; border: 1px solid transparent;
+}
+.badge.type { background: var(--accent-soft); color: var(--accent);
+  border-color: var(--accent); }
+.badge.direct { background: var(--ok-soft); color: var(--ok);
+  border-color: var(--ok); }
+.badge.indirect { background: var(--field); color: var(--muted);
+  border-color: var(--line); }
+.badge.none { background: var(--gap-soft); color: var(--gap);
+  border-color: var(--gap); }
+.badge.warn { background: var(--warn-soft); color: var(--warn);
+  border-color: var(--warn); }
+
+/* the Coverage frame ------------------------------------------------- *
+ *
+ * Three columns, in the memory viewer's order — legend and provenance, the
+ * packing, the selection's detail — because a reader who has learned that
+ * page should not have to learn this one. The stage owns a real height:
+ * an SVG in normal flow with no height collapses, and a packing drawn into
+ * a zero-height box is an empty frame with nothing to say why.
+ */
+#stageCoverage.cov-stage {
+  display: grid; grid-template-columns: 232px minmax(0, 1fr) 340px;
+  gap: 12px; margin-top: 12px;
+  height: calc(100vh - 260px); min-height: 440px;
+}
+#covSide, #covDetail {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 12px; overflow: auto;
+  box-shadow: var(--shadow);
+}
+/* The centre, split. The packing answers WHICH file; the pie answers HOW
+   MUCH — of the selected file, or of everything measured when nothing is
+   selected. `min-height: 0` on both children is what stops a grid row from
+   being sized by its content and pushing the map off the stage. */
+#covCentre {
+  display: grid; grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 12px; min-height: 0;
+}
+#covMap {
+  position: relative; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+  min-height: 0;
+}
+#covPie {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 12px; overflow: auto; min-height: 0;
+  box-shadow: var(--shadow);
+}
+#covPieTitle { overflow-wrap: anywhere; }
+#svgPie { width: 100%; max-width: 240px; height: auto; display: block;
+  margin: 6px auto 10px; }
+.pie-slice { stroke: var(--panel); stroke-width: 1.5; }
+.pie-covered { fill: var(--cov-covered); }
+.pie-partial { fill: var(--cov-partial); }
+.pie-none { fill: var(--cov-none); }
+/* Hatched, never a fourth flat colour: "the artefact carries no figure for
+   this" is a different kind of answer from "0% of it ran", and a reader
+   scanning colours must not be able to read one as the other. */
+.pie-unknown { fill: url(#pieHatch); stroke: var(--muted); }
+.hatch-ground { fill: var(--unmeasured); }
+.hatch-line { stroke: var(--muted); stroke-width: 3; }
+.pie-empty { fill: none; stroke: var(--line); stroke-width: 2;
+  stroke-dasharray: 4 4; }
+.pie-row { display: flex; align-items: baseline; gap: 7px;
+  font-size: 11.5px; margin-top: 5px; }
+.pie-row .swatch { align-self: center; }
+.pie-row .name { flex: 1 1 auto; color: var(--ink); }
+.pie-row .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+.swatch.pie-sw-covered { background: var(--cov-covered); }
+.swatch.pie-sw-partial { background: var(--cov-partial); }
+.swatch.pie-sw-none { background: var(--cov-none); }
+.swatch.pie-sw-unknown { background: var(--unmeasured);
+  border-style: dashed; border-color: var(--muted); }
+#svgCov { width: 100%; height: 100%; display: block; cursor: grab; }
+#svgCov.panning { cursor: grabbing; }
+#covEmpty {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; padding: 24px; text-align: center;
+  color: var(--muted);
+}
+.cov-tools { margin-bottom: 12px; }
+.cov-tools button {
+  background: var(--field); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 6px;
+  padding: 5px 14px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.cov-tools button:hover { border-color: var(--accent); }
+.hint { font-size: 11px; color: var(--muted); margin-top: 8px;
+  overflow-wrap: anywhere; }
+
+/* the legend: a strip of the very same colours the circles were given */
+.cmap-bar { display: flex; height: 12px; border-radius: 3px;
+  overflow: hidden; border: 1px solid var(--line); }
+.cmap-bar span { flex: 1 1 auto; }
+.cmap-limits { display: flex; justify-content: space-between;
+  font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+.legend-note { margin-top: 4px; }
+.legend-row { display: flex; align-items: center; gap: 7px;
+  margin-top: 10px; font-size: 11.5px; color: var(--muted); }
+.swatch { width: 13px; height: 13px; border-radius: 3px;
+  border: 1px solid var(--line); display: inline-block; flex: 0 0 auto; }
+.swatch.unmeasured-swatch { background: var(--unmeasured);
+  border-style: dashed; }
+
+/* the packing */
+.cdir { fill: none; stroke: var(--line); stroke-width: 1; }
+/* NO `fill` ON THE BARE CLASS. The percentage a file reached is DATA, and
+   the page sets it as a presentation attribute — which every author
+   declaration outranks, however unspecific. A `fill:` here therefore does
+   not act as a fallback: it repaints every measured circle in the map with
+   one flat colour and makes the ramp invisible, which is precisely what it
+   did. A file with no colour of its own carries a class that says which
+   kind of "no colour" it is, below. */
+.cleaf { stroke: var(--panel); stroke-width: .5; cursor: pointer; }
+/* Dashed, not merely pale: "the artefact never saw this file" must be
+   legible as a DIFFERENT KIND of answer, not as a low percentage. */
+.cleaf.unmeasured { fill: var(--unmeasured); stroke: var(--muted);
+  stroke-width: .8; stroke-dasharray: 2 2; }
+/* Measured, but the artefact carries no percentage for it. Not dashed —
+   the suite did see this file — and not on the ramp either, because there
+   is no number to place. */
+.cleaf.nofigure { fill: var(--unmeasured); }
+.cleaf.selected { stroke: var(--accent); stroke-width: 2.5;
+  stroke-dasharray: none; }
+/* ONE LABEL STYLING, THREE CIRCLE GRAPHS. Byte-for-byte the memory viewer's
+   rules with this page's class prefix — the Repo frame, the History frame
+   and this one draw the same picture from the same packing, and a reader
+   who has learned one must not have to learn another. This frame used to
+   differ in three ways nobody chose: monospace names, folder names not
+   bold, and a FIXED `stroke-width: .6px` halo — a smear over a 0.03px label
+   and invisible on a 36px one. The width now scales with the label and is
+   set per element by `makeLabel`, like `font-size`. `test_46c` compares the
+   two stylesheets and fails if they drift. */
+.cdir-label, .cleaf-label {
+  text-anchor: middle; pointer-events: none;
+  paint-order: stroke; stroke: var(--panel); stroke-linejoin: round; }
+.cdir-label { fill: var(--muted); font-weight: 700; }
+.cleaf-label { fill: var(--ink); }
+
+/* the right-hand panel */
+.cov-file-head { display: flex; align-items: baseline; gap: 10px;
+  flex-wrap: wrap; margin-bottom: 10px; }
+.cov-file-head .n { font-size: 22px; font-weight: 600; }
+.cov-file-head .k { font-size: 11px; color: var(--muted); }
+#covDetailTitle {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 12px; overflow-wrap: anywhere;
+}
+.cov-group { margin-top: 14px; }
+.cov-group-head { display: flex; align-items: baseline; gap: 8px; }
+.cov-group .row { padding: 6px 9px; margin: 5px 0; }
+.badge.covered { background: var(--ok-soft); color: var(--ok);
+  border-color: var(--ok); }
+.badge.partial { background: var(--warn-soft); color: var(--warn);
+  border-color: var(--warn); }
+.badge.unknown { background: var(--field); color: var(--muted);
+  border-color: var(--line); }
+
+@media (max-width: 1100px) {
+  #stageCoverage.cov-stage {
+    grid-template-columns: 1fr; height: auto; min-height: 0;
+  }
+  #covCentre { grid-template-columns: 1fr; }
+  #covMap { height: 60vh; min-height: 360px; }
+}
+
+footer {
+  margin-top: 26px; padding-top: 12px;
+  border-top: 1px solid var(--line); font-size: 11.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}

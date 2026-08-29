@@ -1,0 +1,163 @@
+#!/bin/sh
+# run - execute the suite under coverage, then ALWAYS reclaim what it
+#       generated (adapted from the orchestrator-design frozen template -
+#       see WHY THIS COPY DIVERGES below for the two places it does).
+#
+# The POSIX half of the cleanup contract outer ring; run.cmd is the
+# Windows half and cleanup.py holds the reasoning. The trap is the whole
+# point: it fires on a normal exit, on a failing exit, and on the INT/TERM a
+# killed run receives - which is the case the runner's own finalizers cannot
+# serve, because the process they belong to is the one going away.
+#
+# This wrapper is also the language-agnostic form of the contract
+# (references/product-testing.md section 2). A suite in any language
+# satisfies it the same way: run the suite, then run the cleanup entry point
+# from a trap/finally, and carry the RUNNER exit code across it.
+#
+#   ./run                              the whole suite, under the CI markers
+#   ./run tests/logic/test_color.py    anything; arguments pass to pytest
+#   KEEP_TEMP=1 ./run                  skip the reclaim to inspect a run
+#   NO_COVERAGE=1 ./run                skip the measurement, run plain
+#   MARKEXPR="not slow" ./run          override the default -m expression
+#   COVERAGE_FILE=/other/.coverage ./run  measure into a different data file
+#                                          (so two measured runs never clash)
+#
+# The exit code is the runner's, never cleanup's: a green suite whose temp
+# files resisted deletion is still a green suite, and the cleanup failure is
+# reported on stderr rather than silently changing the verdict.
+#
+# WHY COVERAGE IS WIRED HERE AND NOT IN pytest.ini. This suite drives the
+# system under test through its real CLI, as a CHILD PROCESS. A plain
+# pytest --cov measures the process pytest runs in and reports near-zero for
+# every script the suite actually exercises. Subprocess measurement needs
+# three things that belong to the RUNNER rather than to a config file:
+# COVERAGE_PROCESS_START in the environment, this directory on PYTHONPATH so
+# every child imports sitecustomize.py, and a combine afterwards to fold
+# the per-process fragments back together.
+#
+# IT DEGRADES OUT LOUD. Without coverage installed the suite still runs; the
+# runner says so on stderr and the Coverage frame reports that nothing has
+# been measured in this clone, which is true.
+#
+# WHY THIS COPY DIVERGES FROM THE FROZEN TEMPLATE. The template assumes a
+# self-contained testing/pytest.ini. This PRODUCT own pytest configuration -
+# testpaths (tests, web_viewer/tests), the five deselectable markers,
+# addopts - lives in the repository own pyproject.toml
+# [tool.pytest.ini_options]. A second, testing/-local pytest.ini would
+# duplicate that configuration and give it a second place to drift, which is
+# exactly the class of defect this repository has already been bitten by
+# once. So, in place of the frozen -c "$here/pytest.ini", both pytest
+# invocations below point -c at the repository own pyproject.toml - ONE
+# source of truth, read, not restated - and this wrapper additionally
+# supplies what a config file cannot decide for it:
+#   - the CI marker filter (deselecting slow/gpu/cloud_live/assistant_live/
+#     integration, the same expression the ci.yml "Tests (pytest, headless,
+#     parallel, with coverage XML)" step uses), so a local run matches the
+#     default quality-gate job. Overridable via MARKEXPR, and a caller own
+#     trailing -m argument still wins (it is appended after this one, and
+#     pytest keeps the last occurrence).
+#   - --basetemp under the configured temp root (ORCH_TEST_TMP, falling
+#     back to a .tmp/ beside the repository - never a bare OS temp dir, and
+#     never a literal drive letter baked into this file), named the same way
+#     cleanup.py names a namespace (<scope>/pytest-<pid>) so the reclaim
+#     ring this wrapper trap drives can actually find and sweep it once the
+#     run that owns it is gone.
+#   - --source for coverage run, read from testing.json own source_roots
+#     (pixelart_creator, sync_backend, web_viewer) rather than restated
+#     here - the same one-declaration rule applied to what gets measured,
+#     not just to how the suite is collected.
+# Everything else - the trap, the reclaim call, KEEP_TEMP/NO_COVERAGE, the
+# coverage combine/json steps, the exit-code discipline - is unchanged.
+set -u
+
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+repo_root=$(CDPATH= cd -- "$here/.." && pwd)
+python=${PYTHON:-python}
+status=0
+
+reclaim() {
+    if [ "${KEEP_TEMP:-}" = "1" ]; then
+        echo "run: KEEP_TEMP=1 - workspaces left in place" >&2
+        return
+    fi
+    "$python" "$here/cleanup.py" || echo "run: cleanup reported a problem" >&2
+}
+
+trap 'reclaim' EXIT INT TERM
+
+pyproject="$repo_root/pyproject.toml"
+
+temp_root=${ORCH_TEST_TMP:-"$repo_root/.tmp"}
+# The scope MUST be the checkout-folder basename, not testing.json's
+# "project" field: this repository's frozen testing/cleanup.py derives
+# its OWN sweep scope the same way -- CONTAINER_ROOT = TESTING_DIR.parent
+# (cleanup.py line 76), PROJECT = CONTAINER_ROOT.name (line 92), used to
+# build "scope" in scope_name() (line 428). cleanup.py has no --scope
+# flag to override that. Each checkout runs its OWN cleanup.py, which
+# derives its OWN folder name and reclaims its OWN debris, so the
+# runner and the reclaim must derive the SAME scope from the SAME
+# place -- reading a different source here (e.g. the manifest's
+# "project" field) would make the runner write to one directory while
+# the trap's cleanup.py call sweeps another, so it fires and reclaims
+# nothing.
+project_name=$(basename "$repo_root")
+if [ "${CI:-}" = "true" ] || [ "${CI:-}" = "1" ] || \
+   [ "${ORCH_TEST_CI:-}" = "1" ] || [ "${ORCH_TEST_CI:-}" = "true" ]; then
+    scope="CI-${project_name}"
+else
+    scope="${project_name}-tests"
+fi
+# pytest's own basetemp.mkdir(mode=0o700) is NON-RECURSIVE -- it makes
+# only the final "pytest-<pid>" component and raises FileNotFoundError
+# when "$temp_root/$scope" does not exist yet. Create the PARENT here;
+# the leaf directory itself is pytest's own to make.
+mkdir -p "$temp_root/$scope" 2>/dev/null ||\
+    echo "run: could not create $temp_root/$scope" >&2
+basetemp="$temp_root/$scope/pytest-$$"
+
+markexpr=${MARKEXPR:-"not slow and not gpu and not cloud_live and not assistant_live and not integration"}
+
+coverage_file=${COVERAGE_FILE:-"$here/.coverage"}
+
+measured=0
+if [ "${NO_COVERAGE:-}" != "1" ] && "$python" -c "import coverage" 2>/dev/null
+then
+    measured=1
+else
+    if [ "${NO_COVERAGE:-}" != "1" ]; then
+        echo "run: coverage is not importable - running the suite plain." >&2
+        echo "run: the Coverage frame will report that nothing was measured." >&2
+    fi
+fi
+
+if [ "$measured" = "1" ]; then
+    source_roots=$("$python" -c '
+import json, sys
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+print(",".join(data.get("source_roots") or []))
+' "$here/testing.json" 2>/dev/null)
+    COVERAGE_PROCESS_START="$here/.coveragerc"
+    PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}"
+    COVERAGE_FILE="$coverage_file"
+    export COVERAGE_PROCESS_START PYTHONPATH COVERAGE_FILE
+    if [ -n "$source_roots" ]; then
+        "$python" -u -m coverage run --rcfile="$here/.coveragerc" \
+            --source="$source_roots" \
+            -m pytest -c "$pyproject" -p no:cacheprovider \
+            --basetemp="$basetemp" -m "$markexpr" "$@" || status=$?
+    else
+        "$python" -u -m coverage run --rcfile="$here/.coveragerc" \
+            -m pytest -c "$pyproject" -p no:cacheprovider \
+            --basetemp="$basetemp" -m "$markexpr" "$@" || status=$?
+    fi
+    "$python" -m coverage combine --rcfile="$here/.coveragerc" >/dev/null 2>&1 \
+        || echo "run: coverage combine reported a problem" >&2
+    "$python" -m coverage json --rcfile="$here/.coveragerc" \
+        -o "$here/coverage.json" >/dev/null 2>&1 \
+        || echo "run: coverage json reported a problem" >&2
+else
+    "$python" -u -m pytest -c "$pyproject" -p no:cacheprovider \
+        --basetemp="$basetemp" -m "$markexpr" "$@" \
+        || status=$?
+fi
+exit "$status"

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test coverage</title>
+<script>
+/* ===================================================================
+   THEME RESOLUTION — RUNS BEFORE THE FIRST PAINT, ON PURPOSE.
+   The one deliberate inline exception: every other style lives in
+   ./coverage-view.css and every other behaviour in ./coverage-view.js.
+   It is inline in <head>, ahead of the stylesheet, so the resolved
+   theme is already on <html> when the first frame is painted. Doing it
+   at the end of the body (or on DOMContentLoaded) is what produces the
+   white flash a dark-mode reader sees on every reload.
+
+   Three modes, not two: system / light / dark. "System" has to stay
+   REACHABLE after an explicit choice, so the toggle cycles through it
+   rather than flipping between two states. The stored choice always
+   wins over the system preference; with nothing stored we follow the
+   system. Storage may throw (private mode, disabled storage) — the
+   page must still render, so every access is guarded.
+
+   Same three-mode contract, same storage discipline and the same
+   palette as the other two viewers; only the storage key differs, so
+   choosing dark here does not silently re-theme them.
+   =================================================================== */
+(function () {
+  "use strict";
+  var KEY = "coverageView.theme";
+  var MODES = ["system", "light", "dark"];
+  var root = document.documentElement;
+
+  function stored() {
+    try {
+      var v = window.localStorage.getItem(KEY);
+      return MODES.indexOf(v) === -1 ? null : v;
+    } catch (e) { return null; }
+  }
+  function remember(mode) {
+    try { window.localStorage.setItem(KEY, mode); } catch (e) { /* ok */ }
+  }
+  function query() {
+    try { return window.matchMedia("(prefers-color-scheme: dark)"); }
+    catch (e) { return null; }
+  }
+  function apply(mode) {
+    var q = query();
+    var dark = mode === "dark" || (mode === "system" && q && q.matches);
+    root.setAttribute("data-theme", dark ? "dark" : "light");
+    root.setAttribute("data-theme-mode", mode);
+  }
+  var mode = stored() || "system";
+  apply(mode);
+  window.coverageTheme = { mode: mode, apply: apply, remember: remember,
+                           query: query };
+}());
+</script>
+<link rel="stylesheet" href="./coverage-view.css">
+</head>
+<body>
+<header id="top">
+  <h1>Test coverage <span id="project" class="muted"></span></h1>
+  <div class="head-right">
+    <span id="declaredIn" class="chip" title="the file this page reads its conventions from"></span>
+    <button type="button" class="theme-toggle" id="themeToggle" hidden>
+      <span class="t-icon" id="themeIcon" aria-hidden="true">◐</span>
+      <span class="t-name" id="themeName">System</span>
+    </button>
+    <span class="sr-only" role="status" aria-live="polite" id="themeStatus"></span>
+  </div>
+</header>
+
+<!-- Above the numbers, never below them: every figure on this page is a
+     claim about the code, and a reader who meets the numbers first has
+     already formed the wrong belief by the time the caveat arrives.
+
+     IT CHANGES WITH THE FRAME. The two frames make DIFFERENT claims —
+     Metrics counts MENTIONS of a name, Coverage counts lines that RAN — so
+     one block carrying both would leave half of it always irrelevant to
+     what is on screen, which is how a caveat stops being read. The title
+     and the list are both rewritten when the frame changes; the block does
+     not move, so the reader's eye finds it in the same place either way. -->
+<section id="limits" class="banner">
+  <h2 id="limitTitle">What these numbers are, and are not</h2>
+  <ul id="limitList"></ul>
+</section>
+
+<!-- The frames, immediately beneath the caveat that qualifies them, the way
+     the memory viewer places #tabs above its three .stage divs. -->
+<nav id="frames">
+  <button id="frameMetrics" class="active">Metrics</button>
+  <button id="frameCoverage">Coverage</button>
+</nav>
+
+<div id="stageMetrics" class="stage">
+<section id="summary" class="cards"></section>
+
+<nav id="tabs">
+  <button id="tabSources" class="active">By function</button>
+  <button id="tabTests">By test</button>
+  <button id="tabOutputs">Outputs</button>
+  <button id="tabGaps">Not mentioned</button>
+</nav>
+
+<section class="controls">
+  <input type="search" id="filter" placeholder="filter by name or path…"
+         autocomplete="off" spellcheck="false">
+  <span id="count" class="muted"></span>
+</section>
+
+<main>
+  <div id="paneSources" class="pane"></div>
+  <div id="paneTests" class="pane" hidden></div>
+  <div id="paneOutputs" class="pane" hidden></div>
+  <div id="paneGaps" class="pane" hidden></div>
+  <p id="empty" class="muted" hidden></p>
+</main>
+</div><!-- /#stageMetrics -->
+
+<!-- The Coverage frame: the memory viewer's Repo frame, drawn from the
+     measurement rather than from the file tree. Same three columns —
+     legend and stats, the packing, the selection's detail — because a
+     reader who has learned one of these pages should not have to learn
+     another. `testing/` is not drawn here: the suite is the instrument. -->
+<div id="stageCoverage" class="stage cov-stage" hidden>
+  <aside id="covSide">
+    <div class="cov-tools"><button type="button" id="btnCovFit">Fit</button></div>
+    <h2 id="covLegendTitle">Lines covered</h2>
+    <div id="covLegend"></div>
+    <div id="covStats" class="hint"></div>
+  </aside>
+  <!-- The centre is split: the packing answers WHICH file, the pie answers
+       HOW MUCH — of the selected file, or of everything measured when
+       nothing is selected. Both read the same function records, so the pie
+       and the list on the right can never disagree. -->
+  <div id="covCentre">
+    <div id="covMap">
+      <svg id="svgCov"><g id="viewportCov"></g></svg>
+      <div id="covEmpty" hidden><p id="covEmptyText"></p></div>
+    </div>
+    <aside id="covPie">
+      <h2 id="covPieTitle">All measured code</h2>
+      <svg id="svgPie" viewBox="0 0 200 200" role="img"
+           aria-labelledby="covPieTitle">
+        <defs>
+          <!-- The fourth slice is HATCHED, not merely another colour:
+               "no figure" is a different kind of answer from "0% of it
+               ran", and a reader scanning colours must not be able to
+               read the one as the other. -->
+          <pattern id="pieHatch" width="7" height="7"
+                   patternUnits="userSpaceOnUse"
+                   patternTransform="rotate(45)">
+            <rect width="7" height="7" class="hatch-ground"></rect>
+            <line x1="0" y1="0" x2="0" y2="7" class="hatch-line"></line>
+          </pattern>
+        </defs>
+        <g id="pieSlices"></g>
+      </svg>
+      <div id="covPieLegend"></div>
+      <div id="covPieNote" class="hint"></div>
+    </aside>
+  </div>
+  <aside id="covDetail">
+    <h2 id="covDetailTitle">Functions</h2>
+    <div id="covDetailBody"></div>
+  </aside>
+</div>
+
+<footer id="foot" class="muted"></footer>
+
+<!-- The shared packing floor first: it defines one global and touches no
+     DOM, so a page that parses it and never opens the Coverage frame has
+     paid nothing. The viewer below reads #coverage-data the moment it
+     executes, which is why a SERVED page detaches that tag and lets its
+     loader append it once the data has arrived. -->
+<script src="./packing.js"></script>
+<script type="application/json" id="coverage-data">/*__COVERAGE_DATA__*/</script>
+<script src="./coverage-view.js"></script>
+</body>
+</html>

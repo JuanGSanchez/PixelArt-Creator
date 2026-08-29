@@ -44,12 +44,50 @@ STORE = REPO_ROOT / "memory"
 # The three page assets WP-7 tracks (ground truth: the WP-7 findings report).
 VIEWER_ASSETS = ("graph-view.html", "graph-view.css", "graph-view.js")
 
-# A repo-relative reference inside a launcher looks like `$STORE/<file>` in
-# the POSIX script or `%STORE%\<file>` in the batch script -- always with a
+# A repo-relative reference inside a launcher looks like `$HERE/<file>` in
+# the POSIX script or `%HERE%\<file>` in the batch script -- always with a
 # file extension, which is what distinguishes an actual file reference from a
-# bare directory walk like `$STORE/..` or `--store "$STORE"`.
-_SH_STORE_REF = re.compile(r"\$STORE/([\w.\-]+\.[A-Za-z0-9]+)")
-_CMD_STORE_REF = re.compile(r"%STORE%\\+([\w.\-]+\.[A-Za-z0-9]+)")
+# bare directory walk like `$HERE/..` or `--store "$HERE"`.
+#
+# HISTORY: the launcher's own directory variable was renamed from `$STORE` /
+# `%STORE%` to `$HERE` / `%HERE%` -- this is why the pattern targets `$HERE`,
+# not a leftover of the old name.
+_SH_HERE_REF = re.compile(r"\$HERE/([\w.\-]+\.[A-Za-z0-9]+)")
+_CMD_HERE_REF = re.compile(r"%HERE%\\+([\w.\-]+\.[A-Za-z0-9]+)")
+
+# `$C/scripts/...` (sh) and `!C!\scripts\...` (cmd) are the BOUNDED UPWARD
+# WALK for an orchestration `scripts/memory_graph.py`: `$C`/`!C!` is
+# reassigned by `dirname`/`for %%D in ("!C!\..")` on each iteration and, once
+# it climbs past the repository root, no longer names a repo-relative path at
+# all -- it is never repo-relative and can never be tracked here, structurally
+# excluded by matching only the launcher's OWN directory variable ($HERE /
+# %HERE%), never the walk cursor.
+
+# A reference is a HARD REQUIREMENT -- the launcher cannot proceed without it
+# -- only when the launcher tests for its absence and EXITS on that branch.
+# `if [ -f ... ]` / `if exist ...` (a POSITIVE existence probe, "use it if
+# it's there") is how the launcher treats an OPTIONAL, best-effort file: its
+# own docstring in `memory_views.py`'s `_engine()` says as much for
+# `memory_graph.py` -- "deliberately NOT part of the vendored package -- a
+# bare clone opens its viewer, it does not need the writer." Absence there is
+# a DESIGNED state, not a defect, and asserting it must be tracked would be
+# false. `if [ ! -f ... ]; then ... exit ...; fi` / `if not exist ... ( ...
+# exit /b ... )` (a NEGATED probe that aborts) is how the launcher treats a
+# file it cannot run without -- that is the one invariant worth protecting:
+# "every file the launcher REQUIRES unconditionally must be tracked."
+#
+# Filename-agnostic and compiled once (rather than built per-filename with
+# `re.escape(name)` + `.format()`): every guarded block is found in a single
+# pass and then matched, in Python, against the specific filename under
+# test -- so the pattern the launcher actually wrote never has to be
+# reconstructed from a template.
+_SH_MANDATORY_GUARD = re.compile(
+    r'if\s*\[\s*!\s*-f\s*"\$HERE/([\w.\-]+\.[A-Za-z0-9]+)"\s*\][^\n]*\n(.*?)\nfi\b',
+    re.DOTALL,
+)
+_CMD_MANDATORY_GUARD = re.compile(
+    r'if not exist "%HERE%\\+([\w.\-]+\.[A-Za-z0-9]+)" \((.*?)\n\)', re.DOTALL
+)
 
 
 def _git(repo_root: Path, *args: str) -> subprocess.CompletedProcess:
@@ -80,14 +118,71 @@ def _is_ignored(repo_root: Path, rel_path: str) -> bool:
 def _parse_repo_relative_references(sh_body: str, cmd_body: str) -> set:
     """Parse both launcher bodies for the repo-relative files they touch.
 
-    Returns the UNION of filenames referenced via ``$STORE/<file>`` (sh) or
-    ``%STORE%\\<file>`` (cmd) in either script -- never a hardcoded list, so a
+    Returns the UNION of filenames referenced via ``$HERE/<file>`` (sh) or
+    ``%HERE%\\<file>`` (cmd) in either script -- never a hardcoded list, so a
     launcher edit that starts referencing a new file is what drives the
-    expected set, not a constant frozen in this test.
+    expected set, not a constant frozen in this test. This is EVERY
+    reference, required or merely probed -- the non-vacuity check
+    (``test_launcher_referenced_files_are_parsed_and_non_empty``) reads this
+    one, so it stays non-empty as long as the launcher touches ANY
+    repo-relative file at all, whether or not that file turns out to be a
+    hard requirement. See ``_required_repo_relative_references`` for the
+    narrower, tracked-ness-relevant set.
     """
-    refs = set(_SH_STORE_REF.findall(sh_body))
-    refs |= set(_CMD_STORE_REF.findall(cmd_body))
+    refs = set(_SH_HERE_REF.findall(sh_body))
+    refs |= set(_CMD_HERE_REF.findall(cmd_body))
     return refs
+
+
+def _sh_is_mandatory(body: str, filename: str) -> bool:
+    """True if the sh launcher EXITS when ``filename`` (under ``$HERE``) is
+    missing.
+
+    Finds every ``if [ ! -f "$HERE/<name>" ]; then ... fi`` block, keeps the
+    one whose ``<name>`` equals ``filename``, and checks that block for an
+    ``exit`` -- the launcher's own "I cannot proceed" signal. A file only
+    ever probed the OTHER way round (``if [ -f ... ]``, "use it if it
+    happens to be there") never matches this guard shape at all and is
+    correctly read as a candidate, not a requirement.
+    """
+    return any(
+        name == filename and re.search(r"\bexit\b", block)
+        for name, block in _SH_MANDATORY_GUARD.findall(body)
+    )
+
+
+def _cmd_is_mandatory(body: str, filename: str) -> bool:
+    """True if the cmd launcher EXITS when ``filename`` (under ``%HERE%``)
+    is missing. Mirrors ``_sh_is_mandatory`` for the batch syntax:
+    ``if not exist "%HERE%\\<name>" ( ... )`` guarded blocks are matched by
+    ``<name>`` and checked for ``exit /b``.
+    """
+    return any(
+        name == filename and re.search(r"\bexit\s*/b", block)
+        for name, block in _CMD_MANDATORY_GUARD.findall(body)
+    )
+
+
+def _required_repo_relative_references(sh_body: str, cmd_body: str) -> set:
+    """The subset of ``_parse_repo_relative_references`` the launchers
+    cannot run without -- excluding a file that is only ever PROBED with an
+    existence test before an optional use (``memory_graph.py``: "deliberately
+    NOT part of the vendored package", per ``memory_views.py``'s own
+    ``_engine()`` docstring) and structurally excluding the bounded upward
+    walk's ``$C``/``!C!`` cursor, which is never repo-relative in the first
+    place (see the module-level comment above the guard patterns).
+
+    A reference counts as required if EITHER launcher aborts on its absence
+    -- checked per-file, never assumed, so a future launcher edit that turns
+    a hard requirement into a soft fallback (or the reverse) is exactly what
+    changes this set, not a constant this test bakes in.
+    """
+    refs = _parse_repo_relative_references(sh_body, cmd_body)
+    return {
+        name
+        for name in refs
+        if _sh_is_mandatory(sh_body, name) or _cmd_is_mandatory(cmd_body, name)
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -197,24 +292,56 @@ def test_default_index_aware_check_would_have_missed_the_regression(tmp_path):
 def test_launcher_referenced_files_are_parsed_and_non_empty():
     """Probe before asserting: fail loudly, not silently, if a future
     launcher rewrite stops referencing any repo-relative file at all -- an
-    empty parse would otherwise make the next test vacuously pass."""
+    empty parse would otherwise make the next two tests vacuously pass.
+
+    Deliberately the WIDE parse (required + merely-probed) -- this only
+    proves the parser itself still finds something, not that any of it is a
+    hard requirement."""
     sh_body = (STORE / "memory-view.sh").read_text("utf-8", errors="replace")
     cmd_body = (STORE / "memory-view.cmd").read_text("utf-8", errors="replace")
     refs = _parse_repo_relative_references(sh_body, cmd_body)
     assert refs, (
-        "the parser found no $STORE/<file> or %STORE%\\<file> reference in "
+        "the parser found no $HERE/<file> or %HERE%\\<file> reference in "
         "either launcher -- either the launchers changed shape or the "
         "parser regex needs updating; either way this must not go unnoticed"
     )
 
 
-def test_launcher_referenced_files_are_tracked():
+def test_launcher_required_files_are_parsed_and_non_empty():
+    """Same probe-before-asserting guard as above, for the NARROWER required
+    set: ``test_launcher_referenced_files_are_tracked`` below loops over
+    exactly this set, and an empty required set would make that loop pass
+    over nothing -- the identical vacuity trap the wide-parse guard exists to
+    catch, one level downstream. If this ever finds zero required files,
+    either every reference became probed (unlikely -- the launcher cannot
+    run without ``memory_views.py``) or the mandatory-guard regex needs
+    updating to match a reshaped launcher; either way, silence here is not an
+    acceptable outcome."""
     sh_body = (STORE / "memory-view.sh").read_text("utf-8", errors="replace")
     cmd_body = (STORE / "memory-view.cmd").read_text("utf-8", errors="replace")
-    refs = _parse_repo_relative_references(sh_body, cmd_body)
-    for name in sorted(refs):
+    required = _required_repo_relative_references(sh_body, cmd_body)
+    assert required, (
+        "no reference was classified as a hard requirement -- either the "
+        "launchers no longer abort on a missing file, or the mandatory-guard "
+        "pattern (a negated `-f`/`exist` test followed by `exit`) needs "
+        "updating to match how the launcher currently spells it"
+    )
+
+
+def test_launcher_referenced_files_are_tracked():
+    """Only the REQUIRED subset -- a file the launcher merely PROBES with
+    ``-f``/``exist`` before an optional use (``memory_graph.py``) is a
+    candidate, not a requirement, and its absence from this repository's
+    index is a designed state, not a defect. Asserting it must be tracked
+    would be false: it is deliberately excluded from the vendored package
+    (``memory_views.py``'s own ``_engine()`` docstring), and a bare clone is
+    meant to open its viewer without it."""
+    sh_body = (STORE / "memory-view.sh").read_text("utf-8", errors="replace")
+    cmd_body = (STORE / "memory-view.cmd").read_text("utf-8", errors="replace")
+    required = _required_repo_relative_references(sh_body, cmd_body)
+    for name in sorted(required):
         assert _is_tracked(REPO_ROOT, "memory/" + name), (
-            "%s is referenced by a launcher at run time but is not tracked "
-            "-- a clone would follow a reference to a file that never "
-            "arrived" % name
+            "%s is a hard requirement of the launcher (it aborts without it) "
+            "but is not tracked -- a clone would follow a reference to a "
+            "file that never arrived" % name
         )

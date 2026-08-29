@@ -23,14 +23,45 @@ beside `FURNITURE`, and the canonical generator is explicit that the exemption
 is "derived, never a second list: an exemption that drifted from the pathspec
 would refuse the commit that installs the very files the pathspec protects."
 
-So the marker was withdrawn and these tests now assert the canonical rule. What
-keeps work off the default branch is the branch-and-pull-request discipline the
-refusal message names, not a variable a caller can set — the gate stops someone
-who did not notice which branch they were on, and no gate has ever stopped
-someone who meant it.
+So the marker was withdrawn and these tests asserted the canonical rule as it
+stood then: ANY commit whose every staged path was furniture — any of
+`.githooks/`, `.gitattributes`, `memory/`, without further qualification — was
+admitted. That rule was itself too wide, and was narrowed a second time: 33
+"chore(memory): refresh the map" commits had landed on a real product's
+default branch through it, unconditionally, forever. Hook and merge-driver
+CHANGES must travel by pull request; only their arrangement — not their
+editing — belongs on the default branch directly. So the single carve-out
+became FOUR narrow, named admissions, and this suite was rewritten again to
+match:
 
-The matrix below is the point: every route to the default branch, and the three
-that are legitimate — the creation commit, a merge, and the arrangement itself.
+  1. the creation commit — there is no HEAD yet;
+  2. a merge — MERGE_HEAD is present while it lands;
+  3. a STORE-ONLY refresh committed immediately after a merge lands — staged
+     paths are `memory/` and `memory/` ONLY, and the CURRENT HEAD (the commit
+     already sitting there, before the one being made) is itself a merge
+     commit (`HEAD^2` resolves). `.githooks/` and `.gitattributes` no longer
+     qualify here at all — a hook or merge-driver CHANGE is development now,
+     whatever else is staged beside it;
+  4. a one-time BOOTSTRAP — every staged furniture path (`.githooks/`,
+     `.gitattributes`, `memory/`) is NEW, i.e. none of it was tracked
+     before. The files a product's gate installs are untracked in any clone
+     made before the gate existed, and while they stay untracked the first
+     branch commits them and the merge back into main aborts on "untracked
+     working tree files would be overwritten" — main could then never
+     receive a pull request at all. The second time the SAME paths are
+     staged they are modifications, not additions, and admission 4 refuses
+     them: bootstrap is a door that closes behind you, not a standing route.
+
+What keeps work off the default branch is the branch-and-pull-request
+discipline the refusal message names, not a variable a caller can set, and —
+as of the second narrowing — not an indefinitely reusable furniture exemption
+either. The gate stops someone who did not notice which branch they were on,
+or who reached for the old, wider exemption out of habit; it has never
+stopped someone who meant it, and `--no-verify` still says so out loud.
+
+The matrix below is the point: every route to the default branch, and the
+four that are legitimate — the creation commit, a merge, a post-merge store
+refresh, and a one-time furniture bootstrap.
 """
 
 import subprocess
@@ -39,15 +70,25 @@ import pytest
 
 CONTAINER_STUBS = ("check_branch_naming.py", "check_names.py")
 
-# The three roots the generator treats as the arrangement rather than the work.
-# Kept here as data so a change to the set fails a test rather than passing
-# silently — this is the mirror of `container_repo.py`'s FURNITURE.
-# `.githooks/post-merge` stands for the `.githooks/` root rather than
-# `pre-commit`: overwriting the hook that is currently running makes git fail
-# with "cannot spawn", which is indistinguishable from a refusal. The previous
-# version of this suite asserted a non-zero exit here and was green for exactly
-# that wrong reason.
-FURNITURE = ("memory/graph/nodes.jsonl", ".githooks/post-merge", ".gitattributes")
+# The three roots the generator treats as ORCHESTRATION FURNITURE at all —
+# the class a genuinely NEW path under any of them may bootstrap through
+# (admission 4). Kept here as data, mirroring `container_repo.py`'s own
+# `FURNITURE`, so a change to that set fails a test rather than passing
+# silently.
+#
+# This is deliberately NOT "every path under here is admitted unconditionally"
+# any more — that was the wide, pre-narrowing rule. `.githooks/new-file` and
+# `memory/graph/new-node.jsonl` below are each a path NEVER STAGED BEFORE in
+# the fixture's history, which is what makes bootstrap the right (and only)
+# admission for them; staging an ALREADY-TRACKED path under the same roots is
+# covered separately, by `test_a_githooks_change_is_refused_outside_bootstrap`
+# and `test_a_second_furniture_commit_is_refused_once_tracked` below, and
+# refused.
+NEW_FURNITURE_PATHS = (
+    ".githooks/new-file",
+    ".gitattributes",
+    "memory/graph/new-node.jsonl",
+)
 
 
 def git(repo, *args, env=None, check=True):
@@ -163,37 +204,147 @@ def test_the_refusal_names_the_route_out(repo):
     assert "start-branch" in done.stderr or "switch -c" in done.stderr
 
 
-# --- the arrangement: admitted, and it has to be ----------------------------
+# --- admission 3: a post-merge store-only refresh, and ONLY then -----------
 
 
-def test_a_store_only_commit_is_admitted_as_the_arrangement(repo):
-    """It has to be POSSIBLE, and this is why: `post-merge` commits the
-    refreshed map on the default branch after every merge, because a map left
-    dirty makes the NEXT merge refuse. A gate that blocked this would fail
-    merges with their own bookkeeping."""
+def test_a_store_only_commit_is_refused_when_head_is_not_a_merge(repo):
+    """THE CORE OF THE SECOND NARROWING, and the direct descendant of what
+    this test used to assert. Before the narrowing, ANY furniture-only
+    commit was admitted unconditionally — including this one, staged right
+    after the creation commit with no merge anywhere in its history. That is
+    exactly what is refused now: a store-only commit is the arrangement only
+    when it is the post-merge refresh, i.e. when the CURRENT HEAD (the commit
+    already sitting there, before this one) is itself a merge commit. Nothing
+    here is a merge, so admission 3 does not fire, and admission 4
+    (bootstrap) does not either — `memory/graph/nodes.jsonl` was tracked by
+    the fixture's own creation commit, so this is a modification, not an
+    addition.
+
+    The admitted counterpart — the SAME kind of commit, made immediately
+    after a real merge — is
+    `test_a_post_merge_store_refresh_is_admitted_because_head_is_a_merge`
+    below, and is also what
+    `test_a_merge_is_not_failed_by_the_map_it_leaves_behind` exercises as
+    part of the full merge workflow.
+    """
     before = head(repo)
     touch(repo, "memory/graph/nodes.jsonl", '{"kind":"node"}\n')
     done = commit(repo, "chore(memory): refresh")
+    assert (
+        done.returncode != 0
+    ), "a store-only commit landed on main without a preceding merge"
+    assert "development on 'main' is refused" in done.stderr
+    assert head(repo) == before, "a refused commit still moved HEAD"
+
+
+def test_a_post_merge_store_refresh_is_admitted_because_head_is_a_merge(repo):
+    """Admission 3, kept as small as the real thing allows: a `--no-ff`
+    merge of a branch carrying one trivial commit — `--no-ff` on a branch
+    with NOTHING new is a no-op ("Already up to date", no merge commit, no
+    `HEAD^2`), so the single commit exists only to force a real merge commit
+    into being, not because its content is under test — then a memory-only
+    commit. HEAD is now the merge just made — `HEAD^2` resolves — which is
+    the ONLY thing that makes this admitted rather than refused;
+    `test_a_store_only_commit_is_refused_when_head_is_not_a_merge` is the
+    same shape of trailing commit without that precondition, and is
+    refused."""
+    git(repo, "checkout", "-q", "-b", "empty-branch")
+    touch(repo, "app.py", "print('from the branch')\n")
+    assert commit(repo, "feat: a trivial branch commit to merge").returncode == 0
+    git(repo, "checkout", "-q", "main")
+    assert (
+        git(
+            repo,
+            "merge",
+            "--no-ff",
+            "-m",
+            "Merge empty-branch",
+            "empty-branch",
+            check=False,
+        ).returncode
+        == 0
+    )
+    assert git(repo, "rev-parse", "--verify", "--quiet", "HEAD^2").returncode == 0, (
+        "the merge above did not produce a merge commit; the precondition "
+        "this test isolates was never exercised"
+    )
+
+    before = head(repo)
+    touch(repo, "memory/graph/nodes.jsonl", '{"kind":"node","after":"merge"}\n')
+    done = commit(repo, "chore(memory): refresh the map after the merge")
     assert done.returncode == 0, done.stdout + done.stderr
+    assert "post-merge store refresh" in done.stderr
     assert "arrangement, not development" in done.stderr
     assert head(repo) != before, "the commit was reported allowed but never made"
 
 
-@pytest.mark.parametrize("rel", FURNITURE)
-def test_every_furniture_path_is_admitted_alone(repo, rel):
-    """One admitted path proves one path; the CLASS is what must hold. The
-    exemption is derived from one list in the generator, so all three roots
-    stand or fall together."""
-    touch(repo, rel, "# changed\n")
-    done = commit(repo, "chore: furniture")
+# --- admission 4: a one-time furniture bootstrap ----------------------------
+
+
+@pytest.mark.parametrize("rel", NEW_FURNITURE_PATHS)
+def test_every_furniture_root_is_admitted_as_a_bootstrap(repo, rel):
+    """One admitted path proves one path; the CLASS is what must hold. All
+    three furniture roots bootstrap the same way — a genuinely NEW path
+    under any of them, staged alone, is admitted — because the pattern the
+    gate matches is derived from one list (`FURNITURE`) in the generator,
+    same as before the narrowing. What changed is the SECOND condition
+    admission 4 now carries alongside that pattern: every staged path must
+    also be an ADDITION. `rel` here has never been staged in this
+    repository's history, so it satisfies both."""
+    before = head(repo)
+    touch(repo, rel, "# new furniture\n")
+    done = commit(
+        repo,
+        "chore(system): track the orchestration gate, merge-driver "
+        "request and memory store",
+    )
     assert done.returncode == 0, done.stdout + done.stderr
+    assert "bootstrap" in done.stderr
+    assert head(repo) != before, "the commit was reported allowed but never made"
+
+
+def test_a_second_furniture_commit_is_refused_once_tracked(repo):
+    """Bootstrap is a door that closes behind you. The SAME path,
+    `.gitattributes`, is staged twice: the first time it is genuinely new and
+    admission 4 fires; the second time it is a modification of a path this
+    repository now tracks, admission 4's own "every staged path is an
+    addition" test fails, and nothing else admits it either — a repeat visit
+    through the one-time exception is exactly what "one-time" has to mean,
+    or it is not an exception at all."""
+    touch(repo, ".gitattributes", "* -text\n")
+    first = commit(repo, "chore(system): bootstrap the memory merge stanza")
+    assert first.returncode == 0, first.stdout + first.stderr
+
+    touch(repo, ".gitattributes", "* -text\n# a second, later change\n")
+    second = commit(repo, "chore(system): change it again")
+    assert (
+        second.returncode != 0
+    ), "a second commit of an already-tracked furniture path was admitted"
+    assert "development on 'main' is refused" in second.stderr
+
+
+def test_a_githooks_change_is_refused_outside_bootstrap(repo):
+    """Hook and merge-driver CHANGES travel by pull request now — the whole
+    point of narrowing admission 3 to `memory/` alone. `.githooks/post-merge`
+    stands for the `.githooks/` root rather than `pre-commit`: overwriting
+    the hook that is currently running makes git fail with "cannot spawn",
+    which is indistinguishable from a refusal and would prove nothing. The
+    fixture's creation commit already tracks `.githooks/post-merge` (it is
+    copied in wholesale, `git add -A`, before that commit), so modifying it
+    here is neither a bootstrap addition nor a memory-only refresh — it is
+    development, and is refused like any other."""
+    touch(repo, ".githooks/post-merge", "#!/bin/sh\n# changed\nexit 0\n")
+    done = commit(repo, "chore: change a tracked hook file")
+    assert done.returncode != 0, "a .githooks/ change landed on main directly"
+    assert "development on 'main' is refused" in done.stderr
 
 
 def test_a_marker_variable_no_longer_governs_anything(repo):
     """REGRESSION, in the direction the mistake actually ran. The withdrawn
     `PIXELART_MAIN_BOOKKEEPING` must not come back as a second source of truth
     beside FURNITURE: an unset marker may not change the verdict, and neither
-    may a set one."""
+    may a set one. Unaffected by the second narrowing — this is a plain
+    development commit either way, admitted by neither admission 3 nor 4."""
     import os
 
     declared = dict(os.environ)
@@ -207,7 +358,9 @@ def test_a_marker_variable_no_longer_governs_anything(repo):
 
 def test_furniture_mixed_with_product_code_is_refused(repo):
     """All-or-nothing. Otherwise the arrangement becomes a way to smuggle a
-    source change onto the default branch beside a store update."""
+    source change onto the default branch beside a store update. Unaffected
+    by the second narrowing: neither admission 3 nor 4 accepts a staged set
+    that contains `app.py` at all, before or after."""
     touch(repo, "memory/graph/nodes.jsonl", '{"kind":"node"}\n')
     touch(repo, "app.py", "print('smuggled')\n")
     done = commit(repo, "chore(memory): refresh")
@@ -236,7 +389,13 @@ def test_a_merge_is_not_failed_by_the_map_it_leaves_behind(repo):
     """`post-merge` cannot run here — it needs the container's real modules,
     and the fixture's container is a stub — so this drives the sequence it
     performs: merge, then commit the refreshed store on the default branch.
-    Both halves must pass the gate, or every merge ends with a dirty map."""
+    Both halves must pass the gate, or every merge ends with a dirty map.
+
+    Before the second narrowing this passed because ANY furniture-only
+    commit was admitted, merge or not. It still passes, but now for the
+    narrower and correct reason: HEAD, at the moment of the second commit, IS
+    the merge just made (`HEAD^2` resolves), which is exactly admission 3 and
+    is asserted below by name rather than left implicit."""
     git(repo, "checkout", "-q", "-b", "feat-thing")
     touch(repo, "app.py", "print('from the branch')\n")
     assert commit(repo, "feat: add a thing").returncode == 0
@@ -258,6 +417,7 @@ def test_a_merge_is_not_failed_by_the_map_it_leaves_behind(repo):
     touch(repo, "memory/graph/nodes.jsonl", '{"kind":"node","after":"merge"}\n')
     done = commit(repo, "chore(memory): refresh the map after the merge")
     assert done.returncode == 0, done.stdout + done.stderr
+    assert "post-merge store refresh" in done.stderr
     assert head(repo) != before
 
 
