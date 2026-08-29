@@ -55,6 +55,25 @@ REM under the configured temp root (ORCH_TEST_TMP, falling back to a .tmp\
 REM beside the repository - never a literal drive letter baked into this
 REM file), and --source for `coverage run` read from testing.json's own
 REM source_roots rather than restated here.
+REM
+REM WHY THE REPOSITORY ROOT IS ALSO PREPENDED TO PYTHONPATH (on top of the
+REM frozen template's own %HERE%, which stays so every child still imports
+REM sitecustomize.py). This checkout is one of several SIBLING WORKTREES of
+REM the same repository, and this machine also carries a machine-wide
+REM EDITABLE INSTALL of the package (an __editable___*_finder.py under
+REM site-packages) pinned to exactly one of those siblings via
+REM sys.meta_path. That finder is APPENDED to sys.meta_path, so the stdlib
+REM PathFinder - which honours PYTHONPATH - is still consulted first; a
+REM child process whose cwd is not this worktree (every pytest-xdist worker
+REM that changes directory, and any subprocess a test spawns elsewhere)
+REM would otherwise silently import pixelart_creator/sync_backend/web_viewer
+REM from THAT OTHER WORKTREE instead of this one, and no test would notice -
+REM a full run was measured pulling files from outside this checkout,
+REM several dozen of them from a sibling's pixelart_creator\ tree. Putting
+REM REPO_ROOT first on PYTHONPATH makes every child resolve the three
+REM packages from THIS checkout regardless of its cwd or the machine-wide
+REM install. The caller's own PYTHONPATH is preserved, appended after both
+REM entries, never discarded.
 setlocal
 set "HERE=%~dp0"
 set "REPO_ROOT=%~dp0.."
@@ -107,8 +126,8 @@ goto :plain
 
 :measured
 set "COVERAGE_PROCESS_START=%HERE%.coveragerc"
-if defined PYTHONPATH set "PYTHONPATH=%HERE%;%PYTHONPATH%"
-if not defined PYTHONPATH set "PYTHONPATH=%HERE%"
+if defined PYTHONPATH set "PYTHONPATH=%REPO_ROOT%;%HERE%;%PYTHONPATH%"
+if not defined PYTHONPATH set "PYTHONPATH=%REPO_ROOT%;%HERE%"
 REM Read source_roots out of testing.json via a redirected scratch file
 REM rather than a FOR /F backquoted command: a backquoted command is
 REM re-tokenized by cmd before it runs, and the nested double-quoted -c
