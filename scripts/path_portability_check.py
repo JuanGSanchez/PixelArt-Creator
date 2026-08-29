@@ -12,7 +12,7 @@
 #   AGT-03/AGT-05 local pre-flight before asserting "done".
 # RUNTIME: Python 3.8+ (CPython, stdlib only: ast, re, argparse, json, os, sys).
 # ENTRYPOINT: python scripts/path_portability_check.py [--root .]
-#             [--include pixelart_creator scripts tests]
+#             [--include pixelart_creator scripts testing/suites]
 # INPUTS:
 #   --root    (CLI arg, optional, default "."): repo root.
 #   --include (CLI arg, optional, nargs+): subdirs to scan (default the source dirs).
@@ -142,7 +142,9 @@ def main():
     ap = argparse.ArgumentParser(description="Flag non-portable path literals.")
     ap.add_argument("--root", default=".")
     ap.add_argument(
-        "--include", nargs="+", default=["pixelart_creator", "scripts", "tests"]
+        "--include",
+        nargs="+",
+        default=["pixelart_creator", "scripts", "testing/suites"],
     )
     args = ap.parse_args()
 

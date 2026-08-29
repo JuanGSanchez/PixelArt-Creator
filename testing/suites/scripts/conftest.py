@@ -1,0 +1,60 @@
+"""Shared fixtures for the ``testing/suites/scripts/`` gate-script contract tests
+(ADR-0047).
+
+Mirrors the ``REPO_ROOT`` convention already used by
+``testing/suites/deploy/conftest.py``: ``testing/suites/scripts/conftest.py`` sits
+at the same depth (``testing/suites/<root>/conftest.py``), so the same
+``parents[3]`` expression resolves to the working-tree root.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+from typing import List, NamedTuple, Optional
+
+#: Repo root: testing/suites/scripts/conftest.py -> parents[3] is the working tree root.
+REPO_ROOT = Path(__file__).resolve().parents[3]
+SCRIPTS_DIR = REPO_ROOT / "scripts"
+
+
+class ScriptRun(NamedTuple):
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+def run_script(
+    script_name: str, args: List[str], env: Optional[dict] = None
+) -> ScriptRun:
+    """Invoke ``scripts/<script_name>`` as a real subprocess, matching its own
+    documented ``ENTRYPOINT`` (``python scripts/<script_name> [flags]``).
+
+    A subprocess (rather than an in-process ``main()`` call) is used
+    deliberately: every one of these scripts reads its flags via
+    ``argparse.parse_args()`` with no injectable parameter, so a subprocess is
+    the only way to exercise the real CLI contract -- the entrypoint under
+    test, not a private call shape.
+
+    ``env``, when given, is a MERGE on top of a copy of the current process
+    environment (never a replacement) -- so callers only need to state the
+    override (e.g. a doctored ``PYTHONPATH`` shim) and everything else (PATH,
+    QT_QPA_PLATFORM if already set, etc.) keeps working as it does for every
+    other ``run_script`` call.
+    """
+    script_path = SCRIPTS_DIR / script_name
+    run_env = None
+    if env is not None:
+        run_env = dict(os.environ)
+        run_env.update(env)
+    completed = subprocess.run(
+        [sys.executable, str(script_path), *args],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=run_env,
+    )
+    return ScriptRun(completed.returncode, completed.stdout, completed.stderr)

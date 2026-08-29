@@ -150,7 +150,7 @@ include = ["pixelart_creator*"]
 # web_viewer is the SEPARATE Phase-13 13E web-client package (its own build/runtime,
 # not part of the desktop distributable) — excluded the same way as sync_backend for
 # defence-in-depth (ADR-0027/0035) so it never leaks into the desktop wheel.
-exclude = ["tests*", "scripts*", "docs*", "sync_backend*", "web_viewer*"]
+exclude = ["testing*", "scripts*", "docs*", "sync_backend*", "web_viewer*"]
 
 # Non-Python package data shipped inside the wheel. The offline in-app User
 # Guide bundle (REQ-UG-DATA-001) lives under pixelart_creator/userguide_content/
@@ -218,7 +218,7 @@ minversion = "8.0"
 # tests/backend at 40 and tests/deploy at 9. A NEW TOP-LEVEL test root (a
 # sibling of "tests", as web_viewer/tests is) WOULD have to be added here or it
 # would never be collected.
-testpaths = ["tests", "web_viewer/tests"]
+testpaths = ["testing/suites", "web_viewer/tests"]
 addopts = "-ra"
 # Machine-agnostic default: heavy/host-sensitive tests are deselectable markers.
 markers = [

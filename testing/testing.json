@@ -18,7 +18,7 @@
   ],
   "temp_root_var": "ORCH_TEST_TMP",
   "types": {
-    "integration": "tests/deploy/*",
+    "integration": "testing/suites/deploy/*",
     "unit": "test_*.py"
   },
   "source_roots": [

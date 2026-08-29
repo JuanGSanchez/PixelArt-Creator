@@ -899,7 +899,7 @@ jobs:
           COVERAGE_FILE: .coverage.nonclient
         run: |
           pytest -m "not slow and not gpu and not cloud_live and not assistant_live and not integration" \
-            tests/backend tests/deploy web_viewer/tests \
+            testing/suites/backend testing/suites/deploy web_viewer/tests \
             --basetemp="${CI_TEMP_ROOT}/pytest-nonclient" \
             --timeout=120 --timeout-method=thread \
             --cov=sync_backend --cov=web_viewer --cov-branch --cov-report=term
@@ -1315,7 +1315,7 @@ jobs:
         # every push. No Qt-libs install needed on Windows: the PySide6 wheel
         # bundles its own Qt binaries (mirrors the quality-gate windows-selfhosted
         # leg, which needs none either).
-        run: pytest -m integration tests/deploy/ tests/backend/ --basetemp="${CI_TEMP_ROOT}/pytest"
+        run: pytest -m integration testing/suites/deploy/ testing/suites/backend/ --basetemp="${CI_TEMP_ROOT}/pytest"
 
       - name: Clean up CI temp root (CI-PixelArtCreator)
         # Same guard shape as the quality-gate job's identically-named step:
