@@ -127,6 +127,17 @@ UNGOVERNED_TOPLEVEL = {
         "coverage viewer; a sys.path directory, not a package: nothing "
         "imports it and it ships in no wheel"
     ),
+    # The Python here is VENDORED, not authored: `memory_views.py install
+    # --product-self` copies the viewer in beside the store so a bare clone can
+    # open its own map with no container above it. The five modules are
+    # byte-identical to the container's scripts/ originals — fix those, never
+    # these, or the next install overwrites the edit. Deleting them does not
+    # retire them either; re-running the install verb restores them.
+    "memory": (
+        "the Memory Graph store (graph/*.jsonl + MEMORY-INDEX.md) plus its "
+        "vendored viewer — tracked data that now carries its own tooling, "
+        "not a package: nothing imports it and it ships in no wheel"
+    ),
     "scripts": "standalone P11 dev/CI scripts — not shipped, not in the import graph",
     "deploy": "VPS self-hosting artifacts — the launcher IS the backend entrypoint",
     "packaging": "pyside6-deploy / Nuitka specs + build helpers — build-time only",
