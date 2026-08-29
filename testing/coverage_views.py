@@ -423,6 +423,197 @@ def find_own_server(project, host=None):
 
 
 # --------------------------------------------------------------------------
+# the branch a write would land on
+# --------------------------------------------------------------------------
+#
+# `install` writes TRACKED files — the vendored package, the bootstrap page,
+# two launchers, a `.gitignore` line — into a repository's `testing/`. Run
+# against that repository's `main` it puts them straight onto the branch a
+# pull request is supposed to protect, and nothing here noticed.
+#
+# THREE QUESTIONS, KEPT SEPARATE. `product_boundary.guard` asks "is this a
+# product?"; `--product-self` answers "yes, and I am its own system, let me
+# write"; this asks "fine — but not onto its `main`". Folding the third into
+# `guard()` would make the second an answer to it too, which is exactly the
+# bypass being closed. It is asked SECOND, after the boundary, so a container
+# reaching into a product still gets the boundary's refusal — the one that
+# names the right remedy for that mistake.
+#
+# IT READS GIT'S FILES, IT DOES NOT RUN GIT — the reason
+# `product_boundary.repository_root` gives: this is on the write path of every
+# installer, and it must answer the same way where git is absent, where it is
+# a stub, and where it hangs.
+#
+# UPSTREAM NOTE (this file is a recorded fork). These five helpers belong in
+# `product_boundary.py` beside `guard()` / `enforce()`, called by both viewers
+# and by `container_repo.py`. They are byte-for-byte the same as
+# `memory_views.py`'s copy but for the verb names in the refusal, and they are
+# duplicated only because this change's declared write targets were the two
+# viewer files; porting them upstream is a move, not a rewrite.
+
+PROTECTED_BRANCHES = ("main", "master")
+
+
+def _git_dir(repo):
+    """`repo`'s git directory: a `.git` folder, or the one a worktree names.
+
+    A LINKED WORKTREE — which is exactly how a `fix-…` branch is checked out
+    beside `main` — carries a `.git` FILE reading `gitdir: <path>`. Its HEAD
+    lives at that path, and HEAD is the whole question, so a reader that
+    handled only the folder case would see no branch at all and let every
+    worktree through.
+    """
+    dot = Path(repo) / ".git"
+    if dot.is_dir():
+        return dot
+    if dot.is_file():
+        try:
+            text = dot.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return None
+        for line in text.splitlines():
+            if line.startswith("gitdir:"):
+                target = Path(line.split(":", 1)[1].strip())
+                if not target.is_absolute():
+                    target = Path(repo) / target
+                return target if target.is_dir() else None
+    return None
+
+
+def _common_dir(gitdir):
+    """Where the refs live — which is not always where HEAD does.
+
+    A linked worktree's git directory holds its own HEAD but shares the
+    primary repository's refs, and names that shared directory in
+    `commondir`. Looking for `refs/heads/<branch>` in the worktree's own
+    directory would find nothing and read as "no commit yet".
+    """
+    marker = Path(gitdir) / "commondir"
+    if marker.is_file():
+        try:
+            rel = marker.read_text(encoding="utf-8", errors="replace").strip()
+        except OSError:
+            return Path(gitdir)
+        if rel:
+            candidate = Path(rel)
+            if not candidate.is_absolute():
+                candidate = Path(gitdir) / candidate
+            return candidate
+    return Path(gitdir)
+
+
+def _current_branch(gitdir):
+    """The branch HEAD is on, or None when it is not on one.
+
+    A DETACHED HEAD is not `main` even when it points at `main`'s commit: a
+    write there lands on no branch, so it is not the thing this gate exists to
+    stop, and it is let through.
+    """
+    try:
+        head = (Path(gitdir) / "HEAD").read_text(
+            encoding="utf-8", errors="replace").strip()
+    except OSError:
+        return None
+    if not head.startswith("ref:"):
+        return None
+    ref = head.split(":", 1)[1].strip()
+    prefix = "refs/heads/"
+    return ref[len(prefix):] if ref.startswith(prefix) else None
+
+
+def _has_commit(gitdir, branch):
+    """Does `branch` name a commit yet?
+
+    A repository freshly `git init`-ed is ON `main` with nothing on it, and
+    installing a viewer into one is how a repository is set up in the first
+    place. Refusing there would break the ordinary case to protect a branch
+    that does not exist, so an unborn branch is not protected.
+    """
+    common = _common_dir(gitdir)
+    loose = common.joinpath("refs", "heads", *branch.split("/"))
+    try:
+        if loose.is_file() and loose.read_text(
+                encoding="utf-8", errors="replace").strip():
+            return True
+    except OSError:
+        pass
+    ref = "refs/heads/%s" % branch
+    try:
+        for line in (common / "packed-refs").read_text(
+                encoding="utf-8", errors="replace").splitlines():
+            parts = line.split()
+            if len(parts) == 2 and parts[1] == ref:
+                return True
+    except OSError:
+        pass
+    return False
+
+
+def protected_branch(path):
+    """(repo, branch) when a write to `path` would land on a protected branch.
+
+    `branch` is None whenever the write may proceed — not a product, no
+    repository, no git directory, a detached HEAD, a branch nobody protects,
+    or a branch with nothing on it yet.
+
+    IT IS A CONJUNCTION, AND THE FIRST TERM IS THE ONE THAT IS EASY TO FORGET:
+    the target must be a PRODUCT repository. A container is itself a git
+    repository, it sits on `main`, and it is maintained that way on purpose —
+    `coverage_views.py install --project .` against the container itself is
+    the ordinary, correct call. Keyed on the branch name alone this gate would
+    refuse it, which is a worse defect than the one it fixes. Whether a
+    repository is a product is `product_boundary.describe`'s question and it
+    is asked here rather than re-answered: one boundary, one implementation.
+    """
+    facts = boundary.describe(path)
+    if not facts["product"]:
+        return facts["repo"], None
+    repo = facts["repo"]
+    if repo is None:
+        return None, None
+    gitdir = _git_dir(repo)
+    if gitdir is None:
+        return repo, None
+    branch = _current_branch(gitdir)
+    if branch is None or branch not in PROTECTED_BRANCHES:
+        return repo, None
+    if not _has_commit(gitdir, branch):
+        return repo, None
+    return repo, branch
+
+
+def refuse_protected_branch(verb, path):
+    """The named exit for a write aimed at a protected branch, or None.
+
+    Printed in `product_boundary.refusal`'s shape — same keys, same
+    `exit_code`, the same "here is the ONE command that IS legitimate" ending
+    — but NOT by calling it: that function's `error` sentence states a
+    different finding ("would write into a PRODUCT repository"), and a gate
+    that reports the wrong reason sends its reader to fix the wrong thing.
+    `branch` stands where `container` does, being the evidence here.
+    """
+    repo, branch = protected_branch(path)
+    if branch is None:
+        return None
+    print(json.dumps({
+        "status": "REFUSED",
+        "verb": verb,
+        "target": str(Path(path).resolve()),
+        "repository": str(repo),
+        "branch": branch,
+        "error": "%s writes TRACKED files, and %s is on `%s` — its protected "
+                 "branch. Committing them there puts them in the repository "
+                 "without a pull request, which is the review this branch "
+                 "exists to require."
+                 % (verb, repo, branch),
+        "legitimate": "container_repo.py start-branch %s --name fix-<slug>, "
+                      "then run this verb against that worktree" % repo,
+        "exit_code": boundary.EXIT_REFUSED,
+    }, ensure_ascii=False))
+    return boundary.EXIT_REFUSED
+
+
+# --------------------------------------------------------------------------
 # verbs
 # --------------------------------------------------------------------------
 
@@ -448,6 +639,15 @@ def cmd_install(args):
                    "--product-self` from the PRODUCT's own orchestration "
                    "system" % project,
         product_self=getattr(args, "product_self", False))
+    if refused is not None:
+        return refused
+    # AND THE BRANCH, WHICH IS A SECOND QUESTION — asked here, before the
+    # scaffolding precondition, for the same reason the boundary is: where
+    # these files would be committed does not depend on what is in the tree,
+    # and a reader told "no testing/ directory" would go and make one on
+    # `main`. `--product-self` answers the boundary's question and is
+    # deliberately not consulted here.
+    refused = refuse_protected_branch("coverage_views.py install", project)
     if refused is not None:
         return refused
     if not testing.is_dir():

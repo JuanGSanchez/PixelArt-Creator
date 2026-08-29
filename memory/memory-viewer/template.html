@@ -68,7 +68,7 @@
   };
 })();
 </script>
-<link rel="stylesheet" href="./memory-viewer/graph-view.css">
+<link rel="stylesheet" href="./graph-view.css">
 </head>
 <body>
 <div id="app">
@@ -166,47 +166,8 @@
      viewer below reads #graph-data the moment it executes, which is why
      a SERVED page detaches that tag and lets its loader append it once
      the data has arrived. -->
-<script src="./viewer-shared/packing.js"></script>
-<script type="application/json" id="graph-data">{"disk": {"files": [], "state": "off", "truncated": false}, "edges": [], "git": {"commits": [], "state": "off"}, "meta": {"served": false}, "nodes": []}</script>
-
-<script>
-(function () {
-  /* Fetch first, THEN run the viewer: graph-view.js parses #graph-data the
-     moment it executes, so it must not execute before the data is there. */
-  var el = document.getElementById("graph-data");
-  fetch("data.json", {cache: "no-store"})
-    .then(function (r) {
-      if (!r.ok) { throw new Error("data.json: HTTP " + r.status); }
-      return r.text();
-    })
-    .then(function (text) {
-      el.textContent = text;
-      var s = document.createElement("script");
-      /* Served from this server's own root: the server hands out the frozen
-         assets itself, so a served page never depends on where they sit in
-         the store. */
-      s.src = "./memory-viewer/graph-view.js";
-      document.body.appendChild(s);
-    })
-    .catch(function (err) {
-      /* Say what went wrong. This page is a BOOTSTRAP: opened straight off
-         disk it is a file:// page, browsers forbid those from reading local
-         files, and it holds no records of its own. A blank page that never
-         explains itself is the failure this viewer exists to avoid. */
-      var p = document.createElement("pre");
-      p.style.cssText = "padding:1.5rem;white-space:pre-wrap;font:13px " +
-        "ui-monospace,Consolas,monospace";
-      p.textContent =
-        "This page could not load its data: " + ((err && err.message) || err) +
-        "\n\nIt is a bootstrap, not a snapshot \u2014 it holds no records " +
-        "and fills itself from a running viewer.\n" +
-        "Start one by double-clicking memory-view.cmd (Windows) or running " +
-        "./memory-view.sh beside this file.\n" +
-        "For an offline copy that needs no server, run:\n" +
-        "    python memory_views.py render --store .";
-      document.body.appendChild(p);
-    });
-}());
-</script>
+<script src="./packing.js"></script>
+<script type="application/json" id="graph-data">/*__GRAPH_DATA__*/</script>
+<script src="./graph-view.js"></script>
 </body>
 </html>

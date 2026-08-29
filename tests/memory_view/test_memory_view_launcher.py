@@ -118,13 +118,39 @@ def test_the_launcher_serves_this_store_only(name):
     assert "serve" in body
 
 
-@pytest.mark.parametrize("name", LAUNCHERS)
-def test_the_launcher_probes_the_interpreter_by_running_it(name):
-    """REGRESSION. `command -v python3` / `where python` succeed on Windows
-    because the Microsoft Store alias stub is a real file on PATH that is not
-    Python: it prints an install advert and exits. Existence is not
-    availability, so the probe has to execute something."""
-    body = (STORE / name).read_text("utf-8", errors="replace")
+def test_the_sh_launcher_probes_the_interpreter_by_running_it():
+    """REGRESSION. `command -v python3` succeeds on a machine that only has
+    the Microsoft Store alias stub on PATH -- a real file that is not Python:
+    it prints an install advert and exits. Existence is not availability, so
+    the probe has to execute something, not merely locate it.
+
+    This is split from the `.cmd` variant (below) because the two platforms
+    use different interpreter names -- `py -3` is a Windows-only launcher
+    syntax that does not exist on POSIX shells, and a single parametrized
+    assertion that demanded `"py -3"` of BOTH files was over-specification:
+    it happened to pass only because `.sh` also contained the literal
+    substring `"py"` (one of the candidate names in its `for cand in python3
+    python py` shortlist), not because it ran a Windows launcher. See
+    ``test_default_index_aware_check_would_have_missed_the_regression``'s
+    sibling module for the same shape of trap in the assets suite.
+    """
+    body = (STORE / "memory-view.sh").read_text("utf-8", errors="replace")
+    assert "import sys" in body, "the interpreter probe must RUN the interpreter"
+    # The probe must run a SHORTLISTED CANDIDATE variable, not merely mention
+    # the string "import sys" somewhere unrelated (e.g. in a comment).
+    assert re.search(r'"\$\w+"\s+-c\s+"import sys"', body), (
+        "the probe must invoke the shortlisted candidate by variable, "
+        'e.g. "$cand" -c "import sys"'
+    )
+
+
+def test_the_cmd_launcher_probes_the_interpreter_by_running_it():
+    """REGRESSION. `where python` succeeds on Windows even when `python` on
+    PATH is the Microsoft Store alias stub: a real file that prints an
+    install advert and exits rather than being a working interpreter. The
+    probe has to execute something, not merely locate it -- and `py -3` is
+    the correct Windows launcher syntax to try first."""
+    body = (STORE / "memory-view.cmd").read_text("utf-8", errors="replace")
     assert "import sys" in body, "the interpreter probe must RUN the interpreter"
     assert "py -3" in body, "py -3 is the correct launcher on Windows"
 

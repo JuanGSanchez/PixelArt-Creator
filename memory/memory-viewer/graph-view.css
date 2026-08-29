@@ -1,0 +1,356 @@
+/* graph-view.css — memory graph viewer styles (FROZEN ASSET).
+ *
+ * Copied byte-identically into every delivered system next to
+ * graph-view.html; never edited per project. Keep it self-contained:
+ * no imports, no external fonts, no URLs. */
+
+/* ------------------------------------------------------------------ */
+/* theme variables                                                    */
+/* ------------------------------------------------------------------ */
+/* One palette, two themes, three modes.
+ *
+ * The values are the design viewer's (`scripts/viewer/viewer.css`) — the
+ * same warm off-white and the same orange accent — so a reader moving
+ * between the two pages of one system is not moving between two
+ * products. Only the role NAMES differ, and only because this page has
+ * fewer roles to name: --bg is its --page, --panel its --raised, --ink
+ * its --text, --line its --border.
+ *
+ * Three modes, not two: System / Light / Dark. "System" has to stay
+ * REACHABLE after an explicit choice, so the toggle cycles rather than
+ * flipping. The attribute is written before the first paint by the
+ * inline script in template.html; the media query below is what themes
+ * the page when scripting is off, written as :not() on both explicit
+ * values so it can never overrule a choice the reader actually made. */
+:root {
+  color-scheme: light;
+  --bg: #fcfcfb; --panel: #f9f9f7; --field: #ffffff;
+  --ink: #0b0b0b; --muted: #52514e; --faint: #898781;
+  --line: #e1e0d9; --line-strong: #d8d7d0;
+  --accent: #d95926; --accent-ink: #a03c10; --accent-soft: #f9e0d5;
+  --warn: #b3261e; --ok: #1baf7a; --info: #2a78d6;
+  --dim: 0.32;
+  --shadow: rgba(11, 11, 11, .18);
+  /* the hover weight is the resting weight times three, written as two
+     variables so the ratio is a decision and not a coincidence */
+  --leaf-stroke: 1; --leaf-stroke-hover: 3;
+  --leaf-ease: 140ms ease-in-out;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #131312; --panel: #1c1c1a; --field: #0c0c0b;
+  --ink: #f3f2ef; --muted: #c6c4be; --faint: #98968f;
+  --line: #3a3934; --line-strong: #4e4c46;
+  --accent: #f4814e; --accent-ink: #ffb08a; --accent-soft: #40200f;
+  --warn: #ff8d84; --ok: #35c795; --info: #5f9ff2;
+  --shadow: rgba(0, 0, 0, .6);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+    --bg: #131312; --panel: #1c1c1a; --field: #0c0c0b;
+    --ink: #f3f2ef; --muted: #c6c4be; --faint: #98968f;
+    --line: #3a3934; --line-strong: #4e4c46;
+    --accent: #f4814e; --accent-ink: #ffb08a; --accent-soft: #40200f;
+    --warn: #ff8d84; --ok: #35c795; --info: #5f9ff2;
+    --shadow: rgba(0, 0, 0, .6);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* reset + base                                                       */
+/* ------------------------------------------------------------------ */
+* { box-sizing: border-box; }
+/* The hidden attribute must always win. Without this rule any element
+ * that also has a display: rule (flex grid ...) ignores hidden= and the
+ * overlays leak through permanently - the old single-file viewer showed
+ * its "no nodes match" message forever because of exactly this. */
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; font: 13px/1.45 system-ui, "Segoe UI",
+  sans-serif; background: var(--bg); color: var(--ink); }
+.muted { color: var(--muted); }
+
+/* ------------------------------------------------------------------ */
+/* application grid                                                   */
+/* ------------------------------------------------------------------ */
+#app { display: grid; grid-template-columns: 240px 1fr 320px; height: 100%; }
+#sidebar, #detail { background: var(--panel); border-right: 1px solid
+  var(--line); padding: 12px; overflow-y: auto; }
+#detail { border-right: none; border-left: 1px solid var(--line); }
+#main { display: flex; flex-direction: column; min-width: 0; }
+.stage { position: relative; overflow: hidden; flex: 1; }
+
+/* ------------------------------------------------------------------ */
+/* tab bar                                                            */
+/* ------------------------------------------------------------------ */
+#tabs { display: flex; gap: 6px; padding: 8px 10px; background: var(--panel);
+  border-bottom: 1px solid var(--line); align-items: center; }
+#tabs button { min-width: 72px; }
+/* The frame's own name, beside the buttons that reach it: a reader who
+   arrives at a screenshot or a second monitor should not have to infer
+   which of the three they are looking at from the controls. */
+#frameTitle { margin: 0 0 0 6px; font-size: 12px; letter-spacing: .08em;
+  color: var(--muted); }
+#tabs .theme-toggle { margin-left: auto; min-width: 0; display: flex;
+  gap: 6px; align-items: center; font-size: 11px; }
+.theme-toggle .t-resolved { color: var(--faint); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0;
+  margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  border: 0; }
+
+/* Tab-scoped sections. Each block declares the ONE tab it belongs to and
+   is hidden everywhere else, so adding a tab never means revisiting the
+   blocks of the others. `node-detail` is the exception on purpose: the
+   detail panel serves both node views and only steps aside for the
+   commit list. */
+body:not(.tab-graph) .graph-only { display: none !important; }
+body:not(.tab-repo) .repo-only { display: none !important; }
+body:not(.tab-history) .history-only { display: none !important; }
+body.tab-history .node-detail { display: none !important; }
+
+/* ------------------------------------------------------------------ */
+/* sidebar typography + controls                                      */
+/* ------------------------------------------------------------------ */
+h1 { font-size: 15px; margin: 0 0 8px; }
+h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); margin: 14px 0 6px; }
+#search { width: 100%; padding: 6px 8px; border: 1px solid var(--line);
+  border-radius: 6px; background: var(--field); color: var(--ink); }
+label.type, label.opt { display: flex; align-items: center; gap: 6px;
+  margin: 3px 0; cursor: pointer; }
+.swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.hint { color: var(--muted); font-size: 11px; margin: 2px 0 0 20px; }
+label.etype-filter { display: flex; align-items: center; gap: 6px;
+  margin: 3px 0; cursor: pointer; color: var(--muted); }
+label.etype-filter .line { width: 18px; height: 0; border-top: 2px solid;
+  flex: none; }
+button { padding: 5px 10px; border: 1px solid var(--line); background:
+  var(--panel); color: var(--ink); border-radius: 6px; cursor: pointer;
+  font: inherit; }
+button.active { background: var(--accent); border-color: var(--accent);
+  color: #fff; }
+#toolbar, #toolbarRepo { display: flex; gap: 6px; margin-bottom: 4px;
+  flex-wrap: wrap; }
+#stats, #repoStats { color: var(--muted); font-size: 11px; margin-top: 10px; }
+#repoModes, #repoScopes { display: flex; gap: 4px; flex-wrap: wrap; }
+#repoModes button, #repoScopes button { padding: 4px 8px;
+  font-size: 11px; }
+#repoModes button:disabled { opacity: 0.45; cursor: not-allowed; }
+label.type.derived { font-style: italic; }
+
+/* Continuous legends: a strip of samples taken from the same colormap
+   function that painted the circles, with the observed limits under it.
+   The limits are the data's own minimum and maximum, so the scale
+   always spends its whole range on the values that exist. */
+.cmap-bar { display: flex; height: 12px; border-radius: 3px;
+  overflow: hidden; border: 1px solid var(--line); }
+.cmap-bar span { flex: 1 1 auto; }
+.cmap-limits { display: flex; justify-content: space-between;
+  color: var(--muted); font-size: 11px; margin-top: 2px; }
+.legend-note { margin-left: 0; }
+
+/* ------------------------------------------------------------------ */
+/* graph stage (SVG)                                                  */
+/* ------------------------------------------------------------------ */
+svg { width: 100%; height: 100%; display: block; cursor: grab;
+  touch-action: none; }
+svg.panning { cursor: grabbing; }
+.node circle { stroke: var(--panel); stroke-width: 1.5; cursor: pointer; }
+.node text { font-size: 10px; fill: var(--ink); pointer-events: none; }
+.node.dimmed { opacity: var(--dim); }
+.node.dimmed text { font-style: italic; }
+.node.faded, .edge.faded { opacity: 0.12; }
+.node.selected circle { stroke: var(--accent); stroke-width: 3; }
+.node:focus { outline: none; }
+.node:focus circle { stroke: var(--accent); stroke-width: 3; }
+.edge path { fill: none; stroke-width: 1.4; }
+.edge.dimmed { opacity: var(--dim); }
+
+/* ------------------------------------------------------------------ */
+/* stage overlays: banner, empty state, footer                        */
+/* ------------------------------------------------------------------ */
+#empty, #banner, #repoEmpty, #historyEmpty { position: absolute; }
+#empty, #repoEmpty, #historyEmpty { inset: 0; display: flex;
+  flex-direction: column; align-items: center; justify-content: center;
+  color: var(--muted); text-align: center; padding: 24px;
+  pointer-events: none; }
+#empty b, #repoEmpty b, #historyEmpty b { color: var(--ink); }
+#banner { top: 8px; left: 8px; right: 8px; background: var(--panel);
+  border: 1px solid var(--warn); border-radius: 6px; padding: 6px 10px;
+  font-size: 11px; display: flex; gap: 10px; align-items: center; }
+footer { position: absolute; bottom: 6px; left: 10px; color: var(--muted);
+  font-size: 10px; pointer-events: none; }
+
+/* ------------------------------------------------------------------ */
+/* detail panel                                                       */
+/* ------------------------------------------------------------------ */
+#detail .badge { display: inline-block; padding: 1px 7px; border-radius: 9px;
+  font-size: 10px; margin-right: 4px; background: var(--line); }
+#detail .badge.warn { background: var(--warn); color: #fff; }
+#detail dl { margin: 8px 0; }
+#detail dt { font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); margin-top: 8px; }
+#detail dd { margin: 1px 0 0; word-break: break-word; white-space: pre-wrap; }
+#detail a.nlink { color: var(--accent); cursor: pointer; }
+#detail .rel { margin: 2px 0; }
+#detail .rel .etype { color: var(--muted); font-size: 11px; }
+#detail .conn-sum { margin: 2px 0 6px; color: var(--muted); font-size: 11px; }
+#detail .conn-group { border-left: 2px solid var(--line); padding-left: 8px;
+  margin: 6px 0; }
+#detail .conn-out { border-left-color: var(--accent); }
+#detail .conn-in { border-left-color: var(--warn); }
+#detail .conn-head { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+pre.props, pre.code { background: var(--field); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px; overflow-x: auto; font-size: 11px;
+  white-space: pre-wrap; word-break: break-word; }
+
+/* ------------------------------------------------------------------ */
+/* card markdown                                                      */
+/* ------------------------------------------------------------------ */
+.card { border-left: 2px solid var(--line); padding-left: 8px; }
+.card h4 { margin: 8px 0 2px; font-size: 12px; }
+.card p, .card li { margin: 3px 0; }
+.card ul { margin: 3px 0; padding-left: 18px; }
+.card blockquote { margin: 3px 0; padding-left: 8px; color: var(--muted);
+  border-left: 2px solid var(--line); }
+.card .fm { display: flex; flex-direction: column; color: var(--muted);
+  font-size: 11px; border-bottom: 1px dashed var(--line);
+  padding-bottom: 4px; margin-bottom: 4px; }
+
+/* ------------------------------------------------------------------ */
+/* repo view (nested circle packing)                                  */
+/* ------------------------------------------------------------------ */
+.rdir { fill: var(--ink); fill-opacity: 0.035; stroke: var(--muted);
+  stroke-opacity: 0.45; stroke-width: 1; cursor: pointer; }
+.rdir:hover { stroke: var(--accent); stroke-opacity: 1; }
+/* NO font-size here (N-6.3). The size is a function of the circle being
+   named and is set per element by `makeLabel`; a rule here would either win
+   over it or be dead, and a dead rule in a stylesheet is a lie somebody
+   maintains. Folder names are BOLD, which is the part that belongs to a
+   stylesheet because it is the same at every size.
+   `pointer-events: none` keeps a label from swallowing the click meant for
+   its circle: a name drawn across a small circle would otherwise be the
+   thing the pointer hits. The full name reaches the reader through the
+   CIRCLE's tooltip, which carries the whole path — so the truncation costs
+   nothing and no second tooltip has to exist.
+   THE HALO is what lets a name be read on ANY fill. A circle's colour is
+   data — a file type, a connection count, a percentage of lines that ran —
+   so the text has to survive both ends of a ramp. `paint-order: stroke`
+   paints the background-coloured outline first and the glyph over it, so
+   the halo costs no glyph weight. Its WIDTH is not here: it scales with the
+   label and is set per element by `makeLabel`, for the same reason
+   `font-size` is. ONE label styling serves all three circle graphs — Repo,
+   History, and the coverage viewer's Coverage frame — and `test_46c` is
+   what keeps the two stylesheets from drifting apart. */
+.rdir-label, .rleaf-label {
+  text-anchor: middle; pointer-events: none;
+  paint-order: stroke; stroke: var(--panel); stroke-linejoin: round; }
+.rdir-label { fill: var(--muted); font-weight: 700; }
+/* Hover thickens the outline to three times its resting weight - the
+   difference between a regular and a bold letter, which is legible
+   without moving the circle or changing its colour (colour is carrying
+   the file's type, and must keep meaning only that). The transition
+   sits on the resting rule so it runs on the way OUT as well as in;
+   declared on the element rather than in :hover, or leaving a circle
+   would snap. */
+.rleaf { stroke: var(--panel); stroke-width: var(--leaf-stroke);
+  cursor: pointer;
+  transition: stroke-width var(--leaf-ease), stroke var(--leaf-ease); }
+.rleaf:hover { stroke: var(--accent); stroke-width: var(--leaf-stroke-hover); }
+.rleaf.selected { stroke: var(--accent); stroke-width: 2.5; }
+.rleaf.selected:hover { stroke-width: var(--leaf-stroke-hover); }
+.rleaf.dimmed { opacity: var(--dim); }
+.rleaf-label { fill: var(--ink); }
+/* A file on disk that no node speaks for. Drawn, because it IS there — the
+   accumulation this frame exists to show is made of exactly these — but
+   outlined rather than filled solid, so "present" and "recorded" stay two
+   different statements. */
+.rleaf.untracked { stroke-dasharray: 2 2; stroke: var(--muted); }
+
+/* Connections of the SELECTED file (the reference draws them on hover;
+   holding them on selection is what makes them followable to the other
+   end, and lets the right-hand panel name them). Curved, so a pair of
+   opposite links does not collapse into one segment, and dashed with a
+   travelling offset so the direction is readable while standing still. */
+.rlinks { pointer-events: none; }
+.rlink { fill: none; stroke-width: 1.8; stroke-opacity: 0.9;
+  stroke-linecap: round; stroke-dasharray: 9 7;
+  animation: rlink-flow 1.1s linear infinite; }
+.rlink.dimmed { stroke-opacity: 0.4; }
+.rline-out { stroke: var(--accent); }
+/* incoming runs the other way, so the dashes travel toward this file */
+.rline-in { stroke: var(--warn); animation-direction: reverse; }
+@keyframes rlink-flow { to { stroke-dashoffset: -16; } }
+
+/* ------------------------------------------------------------------ */
+/* history view                                                       */
+/* ------------------------------------------------------------------ */
+/* Uncoloured until a commit is chosen: the map is the backdrop, and the
+   colour is reserved to say "this commit landed here". Same hover
+   emphasis as the Repo view, from the same variables. */
+.hleaf { stroke: var(--panel); stroke-width: var(--leaf-stroke);
+  transition: stroke-width var(--leaf-ease), fill var(--leaf-ease); }
+.hleaf:hover { stroke: var(--accent);
+  stroke-width: var(--leaf-stroke-hover); }
+.hleaf.changed { stroke: var(--ink); stroke-opacity: 0.55; }
+/* changed, but git counts no lines in a binary file — the dashed ring
+   says "touched" without claiming a size nobody measured */
+.hleaf.unknown { stroke: var(--warn); stroke-opacity: 1;
+  stroke-dasharray: 3 2; }
+#toolbarHistory { display: flex; gap: 6px; margin-bottom: 4px;
+  flex-wrap: wrap; }
+#historyStats { color: var(--muted); font-size: 11px; margin-top: 10px; }
+
+/* who wrote it ------------------------------------------------------ */
+/* Under the legend, in the left panel (N-6.1). Two columns so the labels
+   line up and the eye can drop straight down the values. */
+#commitWho { margin-top: 12px; }
+#commitWho h2 { font-size: 11px; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--muted); margin: 0 0 4px; }
+dl.who { display: grid; grid-template-columns: auto 1fr; gap: 1px 8px;
+  margin: 0; font-size: 11px; }
+dl.who dt { color: var(--muted); white-space: nowrap; }
+dl.who dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+
+/* commit list ------------------------------------------------------- */
+.commit { border-bottom: 1px solid var(--line); padding: 7px 4px;
+  cursor: pointer; }
+/* The gutter is only laid out when there IS a graph: `position: relative`
+   plus a left pad on the row, so the SVG can be full-height without the
+   text having to know how tall the row turned out to be. */
+#commitList.graphed .commit { position: relative;
+  padding-left: calc(var(--gutter-w, 0px) + 6px); }
+.commit-lanes { position: absolute; left: 0; top: 0; overflow: visible;
+  pointer-events: none; }
+.lane-rail { stroke-width: 1.5; opacity: .45; }
+.lane-link { fill: none; stroke-width: 1.5; opacity: .75; }
+.lane-dot { stroke: var(--bg); stroke-width: 1.5; }
+.commit.selected .lane-dot { stroke: var(--accent); stroke-width: 2; }
+.commit:hover { background: var(--field); }
+.commit.selected { background: var(--accent-soft); }
+.commit-head { display: flex; justify-content: space-between; gap: 8px; }
+.commit-sha { font-family: ui-monospace, "Cascadia Mono", Consolas,
+  monospace; font-size: 12px; color: var(--ink); }
+.commit.selected .commit-sha { color: var(--accent); font-weight: 600; }
+.commit-date { color: var(--muted); font-size: 11px; }
+.commit-title { color: var(--muted); font-size: 11px; margin-top: 1px;
+  overflow-wrap: anywhere; }
+/* The description rolls down like a blind rather than appearing: the
+   row track is animated from 0fr to 1fr, so the height comes from the
+   text itself and no max-height has to be guessed (a guess that is too
+   small truncates a long message, one that is too large makes the
+   easing visibly wrong). */
+.commit-body { display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms ease; }
+.commit.selected .commit-body { grid-template-rows: 1fr; }
+.commit-body-inner { overflow: hidden; min-height: 0; font-size: 11px;
+  white-space: pre-wrap; overflow-wrap: anywhere; }
+.commit.selected .commit-body-inner { padding-top: 4px; }
+
+/* A reader who asked the system for less motion gets the same
+   information, still. */
+@media (prefers-reduced-motion: reduce) {
+  .rleaf, .hleaf { transition: none; }
+  .rlink { animation: none; }
+  .commit-body { transition: none; }
+}

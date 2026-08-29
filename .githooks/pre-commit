@@ -173,28 +173,44 @@ branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
 case "$branch" in
   main|master)
     # The creation commit is the exception: there is no HEAD yet, and a
-    # repository has to start somewhere. A merge is the other one — that
-    # is how an accepted branch is meant to arrive.
+    # repository has to start somewhere. A merge is the second one — that
+    # is how an accepted branch is meant to arrive. Two more admissions,
+    # each narrow on purpose:
+    #   * a STORE-ONLY refresh committed immediately after a merge lands
+    #     (HEAD is itself a merge commit) — the post-merge hook's own
+    #     "chore(memory): refresh the map after the merge" commit, and
+    #     `memory/` ONLY: hook and merge-driver files travel by pull
+    #     request from here on, never through this exemption;
+    #   * a one-time BOOTSTRAP where every staged furniture path is NEW —
+    #     those files are untracked in any product whose gate was
+    #     installed after its creation commit, and while they stay
+    #     untracked the first branch commits them and the merge back into
+    #     main aborts on "untracked working tree files would be
+    #     overwritten": main could then never receive a pull request at
+    #     all. The second time these paths are staged they are
+    #     modifications, not additions, and this refuses them.
     if git rev-parse --verify HEAD >/dev/null 2>&1 &&
        [ ! -f "$(git rev-parse --git-path MERGE_HEAD)" ]; then
       staged=$(git diff --cached --name-only)
-      # The arrangement is not development. A commit whose EVERY staged path
-      # is orchestration furniture — the gate, the merge-driver request, the
-      # store — is bookkeeping, and it has to be possible: those files are
-      # untracked in any product whose gate was installed after its creation
-      # commit, and while they stay untracked the first branch commits them
-      # and the merge back into main aborts on "untracked working tree files
-      # would be overwritten". main could then never receive a pull request.
-      # All-or-nothing: one product path in the same commit and it is
-      # development again.
-      if [ -n "$staged" ] && ! printf '%s\n' "$staged" | grep -qvE '^(\.githooks|\.gitattributes|memory)(/|$)'; then
-        echo "pre-commit: bookkeeping-only commit on '$branch' (the gate, the" >&2
-        echo "pre-commit: merge-driver request, the memory map) — allowed:" >&2
+      added=$(git diff --cached --diff-filter=A --name-only)
+      staged_sorted=$(printf '%s\n' "$staged" | sort)
+      added_sorted=$(printf '%s\n' "$added" | sort)
+      admitted=
+      if [ -n "$staged" ] && ! printf '%s\n' "$staged" | grep -qvE '^memory(/|$)' \
+         && git rev-parse --verify --quiet "HEAD^2" >/dev/null 2>&1; then
+        admitted="post-merge store refresh (HEAD is itself a merge commit)"
+      elif [ -n "$staged" ] && [ "$staged_sorted" = "$added_sorted" ] \
+         && ! printf '%s\n' "$staged" | grep -qvE '^(\.githooks|\.gitattributes|memory)(/|$)'; then
+        admitted="bootstrap: every staged furniture path is new, none was tracked before"
+      fi
+      if [ -n "$admitted" ]; then
+        echo "pre-commit: admitted on '$branch' - $admitted:" >&2
         echo "pre-commit: this is the arrangement, not development." >&2
       else
         echo "pre-commit: development on '$branch' is refused: '$branch' takes" >&2
-        echo "pre-commit: the repository's creation commit and merges, nothing" >&2
-        echo "pre-commit: else. Nothing is created for you; take this path:" >&2
+        echo "pre-commit: the repository's creation commit, merges, a" >&2
+        echo "pre-commit: post-merge store refresh and a one-time furniture" >&2
+        echo "pre-commit: bootstrap, nothing else. Take this path:" >&2
         echo "pre-commit:" >&2
         # ONE route, both natures (repository-policy.md §2.2): a product
         # root is `<...>/main` in a single-product container and in a
@@ -223,8 +239,10 @@ case "$branch" in
             echo "pre-commit: branches live in place, as above." >&2
         fi
         echo "pre-commit:" >&2
-        echo "pre-commit: Merges and the creation commit are allowed; --no-verify" >&2
-        echo "pre-commit: bypasses this deliberately and visibly." >&2
+        echo "pre-commit: Merges, the creation commit, a post-merge store" >&2
+        echo "pre-commit: refresh and a one-time furniture bootstrap are" >&2
+        echo "pre-commit: allowed; --no-verify bypasses this deliberately and" >&2
+        echo "pre-commit: visibly." >&2
         exit 1
       fi
     fi
