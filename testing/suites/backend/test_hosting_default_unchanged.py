@@ -29,7 +29,7 @@ import sync_backend.store as store_module
 from sync_backend.server import SyncServer
 from sync_backend.store import UpdateStore
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 _LAUNCHER_PATH = _REPO_ROOT / "deploy" / "run_sync_backend.py"
 
 
