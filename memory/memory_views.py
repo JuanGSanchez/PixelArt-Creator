@@ -55,6 +55,9 @@ Usage
 """
 
 import argparse
+import contextlib
+import hashlib
+import importlib.util
 import json
 import os
 import sys
@@ -87,6 +90,120 @@ GRACE_SECONDS = 45
 IDLE_SECONDS = 90
 
 
+# --------------------------------------------------------------------------
+# loading THIS file's own siblings
+# --------------------------------------------------------------------------
+#
+# UPSTREAM NOTE (this file is a recorded fork). The three helpers below are a
+# DEFECT FIX, not a local preference, and they belong upstream unchanged. The
+# skill original's `_load_sibling` inserts its folder at `sys.path[0]` and
+# calls `__import__(name)` — which cannot do what it is written to do:
+# `__import__` returns `sys.modules[name]` when the name is already loaded and
+# never consults `sys.path` at all. `viewer_ports.py`, `viewer_serving.py` and
+# `product_boundary.py` are each vendored into BOTH a store (by
+# `memory_views.py install`) and a `testing/` (by `coverage_views.py install`),
+# beside the skill's own `scripts/` originals — three copies, maintained by
+# two independent install verbs — so whichever copy was imported first
+# answered for all three. Measured: with `testing/` on `PYTHONPATH`, which is
+# what `testing/run` gives every child process it spawns, the memory viewer
+# bound `testing/viewer_ports`, `testing/viewer_serving` and
+# `testing/product_boundary`.
+#
+# Upstream should take the same shape in both viewers: load by FILE PATH with
+# `importlib.util`, under a `sys.modules` key derived from that path. It is a
+# COPY, not a move — the two viewers do not import each other, and one
+# viewer reaching for the other's loader would undo the property that lets a
+# repository be cloned alone.
+
+def _sibling_key(path):
+    """A `sys.modules` key derived from the FILE, never from the bare name.
+
+    Three copies of each vendored module live in one repository — the
+    container's `scripts/`, every store's vendored package, every
+    `testing/`'s — and two independent install verbs maintain them, so they
+    can drift. A digest of the absolute path gives each copy a key of its
+    own: two copies can never share one, and the key still names a findable
+    module, which is what a dataclass, a pickle and a traceback each need.
+
+    `normcase` because one file spelled two ways is one file, and two keys
+    for it would be two module objects holding two copies of its state.
+    """
+    digest = hashlib.sha1(
+        os.path.normcase(str(path)).encode("utf-8", "replace")).hexdigest()
+    return "_viewer_sibling_%s_%s" % (path.stem, digest[:12])
+
+
+@contextlib.contextmanager
+def _folder_leading(folder):
+    """`folder` first on `sys.path`, competing copies set aside, during exec.
+
+    A module being loaded may import ITS OWN siblings by bare name —
+    `memory_graph.py` does exactly that for `product_boundary` and `lease`,
+    inside a `try/except ImportError` that degrades to None in silence — and
+    those imports run through the ordinary machinery, which a loader cannot
+    reach into. So this sets the two things that machinery reads: the folder
+    leads `sys.path`, and the `sys.modules` entries for the bare names THIS
+    FOLDER HAS ITS OWN COPY OF are lifted out, so the cache cannot answer
+    with another copy's before `sys.path` is ever consulted.
+
+    Only names this folder actually carries are touched, and every one is put
+    back afterwards: the module being loaded keeps the references it bound
+    while they were in force, and nothing outside it sees a change. The
+    `sys.path` entry is left in place, exactly as this loader always left it —
+    withdrawing it would be a second behaviour change riding along with a fix.
+    """
+    folder = Path(folder)
+    try:
+        siblings = [p for p in folder.iterdir() if p.suffix == ".py"]
+    except OSError:
+        siblings = []
+    shadowed = {}
+    for sibling in siblings:
+        loaded = sys.modules.get(sibling.stem)
+        if loaded is None:
+            continue
+        where = getattr(loaded, "__file__", None)
+        if where and (os.path.normcase(str(Path(where).resolve()))
+                      == os.path.normcase(str(sibling.resolve()))):
+            continue                      # already this folder's own copy
+        shadowed[sibling.stem] = loaded
+    sys.path.insert(0, str(folder))
+    for stem in shadowed:
+        del sys.modules[stem]
+    try:
+        yield
+    finally:
+        sys.modules.update(shadowed)
+
+
+def _load_module(path, what):
+    """Execute `path` as a module of its own, under its path-derived key."""
+    key = _sibling_key(path)
+    loaded = sys.modules.get(key)
+    if loaded is not None:
+        return loaded
+    spec = importlib.util.spec_from_file_location(key, str(path))
+    if spec is None or spec.loader is None:
+        sys.exit(json.dumps({
+            "status": "BLOCKED",
+            "error": "%s cannot be loaded from %s: Python does not recognise "
+                     "that file as an importable module" % (what, path),
+            "hint": "restore it from the orchestrator-design skill",
+        }))
+    module = importlib.util.module_from_spec(spec)
+    # In the table BEFORE exec, under the path-derived key: a module is
+    # looked up by its own `__module__` while it is still executing.
+    sys.modules[key] = module
+    try:
+        with _folder_leading(path.parent):
+            spec.loader.exec_module(module)
+    except BaseException:
+        # A half-executed module left behind would be handed out whole.
+        sys.modules.pop(key, None)
+        raise
+    return module
+
+
 def _load_sibling(name, what):
     """Import a module that ships beside this file.
 
@@ -94,11 +211,26 @@ def _load_sibling(name, what):
     store into which the whole package has been vendored so the repository
     works when cloned alone. A copy of either module's contents here instead
     of an import is the silent divergence the fidelity gate exists to catch.
+
+    WHY NOT `__import__`. This used to put the chosen folder at `sys.path[0]`
+    and call `__import__(name)` — which looks like it guarantees the local
+    copy and does not. `__import__` returns `sys.modules[name]` whenever the
+    name is already loaded, and never consults `sys.path` at all. With three
+    copies of each vendored module in one repository, whichever was imported
+    FIRST answered for all of them. It is reachable in ordinary operation:
+    `testing/run` puts `testing/` on `PYTHONPATH` for every child process it
+    spawns, so a child that touches the coverage viewer and then the memory
+    viewer bound `testing/viewer_ports` into the memory viewer. Harmless
+    while the bytes match; a real defect the moment the two vendored sets
+    diverge — which is exactly what two independent install verbs make
+    possible. The fix is to load by FILE PATH under a key derived from that
+    path (`_load_module`), so a bare name already in `sys.modules` cannot
+    answer for a copy it is not.
     """
     for folder in (BASE, BASE.parent):
-        if (folder / (name + ".py")).is_file():
-            sys.path.insert(0, str(folder))
-            return __import__(name)
+        path = folder / (name + ".py")
+        if path.is_file():
+            return _load_module(path.resolve(), what)
     sys.exit(json.dumps({
         "status": "BLOCKED",
         "error": "{} is missing: {}.py must ship beside this script".format(
