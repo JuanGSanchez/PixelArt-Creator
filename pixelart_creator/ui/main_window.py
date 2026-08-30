@@ -251,6 +251,7 @@ from pixelart_creator.ui.tileset_editor_panel import Tileset_Editor_Panel
 from pixelart_creator.ui.timelapse_controls import Timelapse_Controls
 from pixelart_creator.ui.timelapse_frame_view import Timelapse_Frame_View
 from pixelart_creator.ui.timeline_panel import Timeline_Panel
+from pixelart_creator.ui.tool_icons import tool_icon
 from pixelart_creator.ui.tools import (
     DitherTool,
     EllipseTool,
@@ -1145,6 +1146,12 @@ class Main_Window(QMainWindow):
             self._tool_action_group.addAction(action)
             self._tool_actions[tool_id] = action
         self._tool_actions[self._active_tool_id].setChecked(True)
+        # T-36: mount the eleven glyphs (REQ-IS-UI-027, UI half). Text and
+        # accessible name are untouched here and set/retranslated separately
+        # (see the labels loop in _retranslate) -- an icon must never displace
+        # either (Article V.1). Re-tinted on every theme switch by
+        # _apply_tool_icons, called once more below and again from set_theme.
+        self._apply_tool_icons()
 
         self._undo_action = self._undo_group.createUndoAction(self, self.tr("&Undo"))
         self._undo_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_Z)
@@ -4610,6 +4617,22 @@ class Main_Window(QMainWindow):
             self._apply_theme_to_scene(record.scene)
             self._apply_aid_theme(record)
         self._tilemap_canvas.set_theme_colors(*canvas_roles(self._theme))
+        # T-36: the resolver bakes the tint into the QIcon at build time, so a
+        # runtime theme switch must re-resolve every tool glyph or the
+        # toolbar keeps the OLD theme's ink on the NEW theme's background.
+        self._apply_tool_icons()
+
+    def _apply_tool_icons(self) -> None:
+        """(Re)apply the eleven theme-tinted tool glyphs (`REQ-IS-UI-027`).
+
+        Called once from `_build_actions` and again from every `set_theme`
+        call, since `tool_icon` bakes the tint into the returned `QIcon` at
+        build time (`ui/tool_icons.py`) rather than following the theme
+        live. Text and accessible name are set/retranslated elsewhere
+        (`_retranslate`) and are never touched here (Article V.1).
+        """
+        for tool_id, action in self._tool_actions.items():
+            action.setIcon(tool_icon(tool_id, theme=self._theme))
 
     def _apply_theme_to_scene(self, scene: CanvasScene) -> None:
         checker_light, checker_dark, grid = canvas_roles(self._theme)
