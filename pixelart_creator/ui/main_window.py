@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
-from PySide6.QtCore import QEvent, QRectF, QStandardPaths, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, QRectF, QStandardPaths, Qt, QTimer
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -31,6 +31,7 @@ from PySide6.QtGui import (
     QIcon,
     QImage,
     QKeySequence,
+    QMouseEvent,
     QPixmap,
     QUndoGroup,
     QUndoStack,
@@ -185,6 +186,7 @@ from pixelart_creator.ui.commands import (
     TilesetCommand,
 )
 from pixelart_creator.ui.comments_panel import Comments_Panel
+from pixelart_creator.ui.cursor_feedback_overlay import Cursor_Feedback_Overlay
 from pixelart_creator.ui.dependency_graph_view import Dependency_Graph_View
 from pixelart_creator.ui.document_transform_runner import run_document_transform
 from pixelart_creator.ui.export_actions import (
@@ -384,6 +386,11 @@ class _DocTab:
     # (other collaborators' cursors; never persisted). ``None`` until aids attach.
     live_cursors: Optional[Live_Cursors_Overlay] = None
     perspective_overlay: Optional[Perspective_Grid_Overlay] = None
+    # T-20 (REQ-IS-UI-024..026): this tab's transient cursor-feedback square,
+    # a child of ``view.viewport()`` (never the scene — REQ-IS-UI-026 clause
+    # 2). Created with the tab in ``_create_tab_aids``; ``None`` only in the
+    # narrow window between tab construction and that call.
+    feedback_overlay: Optional[Cursor_Feedback_Overlay] = None
     # D-13: the remote CloudVersion.version_id this tab's document was last saved
     # to / restored from, or None if it has no remote lineage yet. Feeds the
     # read-only, Qt-free ``compute_sync_state`` for the Cloud menu / version
@@ -557,6 +564,22 @@ class Main_Window(QMainWindow):
         # bundle — NO off-thread worker/timer — so there is no teardown wiring; the
         # dialog is parented to this window, so it is disposed with it.
         self._user_guide_dialog: Optional[User_Guide_Dialog] = None
+
+        # T-20 (REQ-IS-UI-026): true while the left button is down on a
+        # painting-surface viewport, tracked via an event filter installed on
+        # each tab's ``Canvas_View.viewport()`` below (``_add_document_tab``) —
+        # ``eventFilter`` toggles this flag and never consumes the event, so
+        # every click/drag still reaches the view underneath unchanged.
+        # Approximation, disclosed: this mirrors "a mouse button is down on a
+        # painting surface" but not the stricter "...with a tool armed" half
+        # of REQ-IS-UI-026 — ``Canvas_View``'s own ``_drawing``/``_stroke_anchor``
+        # state (armed-tool-only) is private to ``ui/canvas_view.py``, which is
+        # outside this task's sole write target (``ui/main_window.py``), so a
+        # left press that starts a guide-drag or a space-held pan is also
+        # (over-)suppressed here. That is the safe direction — it can only
+        # suppress a square, never leak one mid-stroke — and is reported as a
+        # named gap rather than silently narrowed.
+        self._stroke_active = False
 
         self._rectangle_tool = RectangleTool()
         self._ellipse_tool = EllipseTool()
@@ -1762,6 +1785,11 @@ class Main_Window(QMainWindow):
         record.live_cursors = Live_Cursors_Overlay(scene_rect)
         record.scene.addItem(record.live_cursors)
         self._apply_aid_theme(record)
+        # T-20 (REQ-IS-UI-024..026): a viewport child, never a QGraphicsItem —
+        # never added to ``record.scene`` and so never reached by a
+        # QGraphicsScene.render() call, structurally (module docstring of
+        # cursor_feedback_overlay.py).
+        record.feedback_overlay = Cursor_Feedback_Overlay(record.view.viewport())
 
         # Wrap the view with the ruler strips (top + left) in a grid container.
         container = QWidget()
@@ -2178,6 +2206,11 @@ class Main_Window(QMainWindow):
         stack = QUndoStack(self)
         self._undo_group.addStack(stack)
         view = Canvas_View(scene, stack)
+        # T-20 (REQ-IS-UI-026): watch this viewport's left-button press/release
+        # to suppress the feedback squares for the life of a stroke. Never
+        # consumes the event (Main_Window.eventFilter always returns False),
+        # so every click/drag still reaches the view underneath unchanged.
+        view.viewport().installEventFilter(self)
         view.colorPicked.connect(self._on_color_picked)
         view.floatingStateChanged.connect(self._on_floating_state_changed)
         view.lockedLayerEditRejected.connect(self._notify_layer_locked)
@@ -2781,6 +2814,27 @@ class Main_Window(QMainWindow):
         # A zero-file drop is a no-op (SC-U008-5); otherwise route each path.
         self._route_dropped_files(paths)
 
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        """Track a stroke's left-button span on a painting viewport (REQ-IS-UI-026).
+
+        Installed on every tab's ``Canvas_View.viewport()`` (``_add_document_tab``).
+        Toggles ``self._stroke_active``, consumed by ``_set_active_color`` /
+        ``_on_tool_action`` to suppress the feedback squares for the life of a
+        stroke — never consumes the event itself (always falls through to
+        ``super().eventFilter``), so every click and drag still reaches the
+        view underneath in full, exactly like ``Cursor_Feedback_Overlay``'s own
+        filter on the same viewport.
+        """
+        if (
+            isinstance(event, QMouseEvent)
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            if event.type() == QEvent.Type.MouseButtonPress:
+                self._stroke_active = True
+            elif event.type() == QEvent.Type.MouseButtonRelease:
+                self._stroke_active = False
+        return super().eventFilter(watched, event)
+
     def _route_dropped_files(self, paths: List[str]) -> None:
         """Route each dropped path by classified TYPE, in stable order (UI-002/-008).
 
@@ -3077,6 +3131,15 @@ class Main_Window(QMainWindow):
             self._active_tool_id = action.data()
             if record is not None:
                 record.view.set_tool(self._tools[self._active_tool_id])
+                # T-20 (REQ-IS-UI-025/-026): raise the tool square for EVERY
+                # tool change, whatever the source (shortcut, toolbar,
+                # menu) — ``action`` is the one that fired regardless of
+                # origin — suppressed for the life of a stroke. ``action.icon()``
+                # is the exact theme-tinted glyph already mounted on the
+                # toolbar (REQ-IS-UI-027's own "must also be" clause), never
+                # re-resolved here.
+                if not self._stroke_active and record.feedback_overlay is not None:
+                    record.feedback_overlay.show_icon(action.icon())
 
     def _on_floating_state_changed(self, active: bool, copy: bool) -> None:
         """Update the copy-mode status hint from a view's float state (UI-032/-036)."""
@@ -3130,6 +3193,20 @@ class Main_Window(QMainWindow):
                 self._set_active_index(index)
         self._palette_editor.set_active_color(color)
         self._ramp_picker.set_base_color(color)
+        # T-20 (REQ-IS-UI-024/-026, CL-IS-07): raise the colour square for
+        # EVERY caller of this method — the wheel, a middle-click, a hub pick,
+        # a palette/ramp/favourite click all route through here — suppressed
+        # for the life of a stroke. Deliberately NOT raised for the tab-
+        # activation/tab-creation paths (``_on_tab_changed``, this method's own
+        # 2246-area sibling) that push the existing colour into a newly-shown
+        # view: those call ``record.view.set_active_color`` directly and never
+        # reach ``_set_active_color`` at all, so nothing here can fire on a tab
+        # switch or a session/document restore — no real colour CHANGE
+        # occurred from the user's point of view, so none is drawn (that
+        # distinction is structural, not a flag added here).
+        if record is not None and not self._stroke_active:
+            if record.feedback_overlay is not None:
+                record.feedback_overlay.show_colour(color)
 
     def _set_active_index(self, index: int) -> None:
         """Set the paint-by-index value and push it to every view (P3-UI-014)."""
