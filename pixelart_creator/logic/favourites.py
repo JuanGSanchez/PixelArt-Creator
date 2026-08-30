@@ -6,6 +6,18 @@ colours with add / remove / reorder and a JSON-serialisable form
 (:meth:`Favourites.to_serializable` / :meth:`Favourites.from_serializable`). The
 UI/data layer persists it (``data/favourites_io.py``, ADR-0004). A soft cap
 (``FAVOURITES_MAX``) bounds the list defensively (Article VII). REQ-P3-LOGIC-015.
+
+T-04 (input-scheme, REQ-IS-LOGIC-001/-002): the model also carries a
+**cursor** — an index into the ordered list, or ``-1`` meaning "no entry" —
+consumed by wheel-gesture colour navigation. ``cursor_index()``/``current()``
+read it; ``advance()``/``retreat()`` step it with wrap-around at both ends and
+are silent no-ops on an empty list; ``first()`` places it on entry 0. The
+cursor is maintained across ``add``/``remove``/``move`` so it always addresses
+an existing entry, or is ``-1`` iff the list is empty (plan.md §4.1).
+Deliberately **not** part of equality or serialisation: ``__eq__`` compares
+colours only and ``to_serializable``/``from_serializable`` are unchanged, so
+two colour-identical lists reached via different histories still compare
+equal and the on-disk form stays a plain hex-string list (plan.md §4.1, R-27a).
 """
 
 from __future__ import annotations
@@ -25,7 +37,7 @@ class FavouritesError(ValueError):
 class Favourites:
     """An ordered, de-duplicated list of favourite RGBA colours."""
 
-    __slots__ = ("_colors", "_max_size")
+    __slots__ = ("_colors", "_max_size", "_cursor")
 
     def __init__(
         self, colors: Optional[Iterable[RGBA]] = None, *, max_size: int = FAVOURITES_MAX
@@ -40,12 +52,17 @@ class Favourites:
             raise FavouritesError(f"max_size must be a positive int, got {max_size!r}")
         self._max_size = max_size
         self._colors: List[RGBA] = []
+        self._cursor: int = -1
         if colors is not None:
             for c in colors:
                 self.add(c)
 
     def add(self, color: RGBA) -> None:
         """Append ``color`` if absent; a no-op if already present (de-dup).
+
+        Placing the first entry into an empty list moves the cursor onto it
+        (REQ-IS-LOGIC-001); an append to a non-empty list leaves the cursor
+        addressing whatever entry it already addressed.
 
         Raises:
             FavouritesError: If ``color`` is malformed, or adding a new colour
@@ -58,10 +75,19 @@ class Favourites:
             return
         if len(self._colors) >= self._max_size:
             raise FavouritesError(f"favourites is full ({self._max_size} colours)")
+        was_empty = not self._colors
         self._colors.append(normalised)
+        if was_empty:
+            self._cursor = 0
 
     def remove(self, color: RGBA) -> None:
         """Remove ``color``.
+
+        The cursor is kept valid (REQ-IS-LOGIC-001): removing an entry ahead
+        of the cursor leaves it unchanged; removing an entry below the cursor
+        decrements it; removing the cursor's own entry clamps it to
+        ``min(cursor, len - 1)``; removing the last remaining entry sets it
+        to ``-1`` (no entry).
 
         Raises:
             FavouritesError: If ``color`` is malformed or not present.
@@ -70,12 +96,25 @@ class Favourites:
             raise FavouritesError(f"not an RGBA colour: {color!r}")
         normalised = rgba(*color)
         try:
-            self._colors.remove(normalised)
+            index = self._colors.index(normalised)
         except ValueError as exc:
             raise FavouritesError(f"colour not in favourites: {color!r}") from exc
+        was_cursor_entry = index == self._cursor
+        del self._colors[index]
+        if not self._colors:
+            self._cursor = -1
+        elif was_cursor_entry:
+            self._cursor = min(self._cursor, len(self._colors) - 1)
+        elif index < self._cursor:
+            self._cursor -= 1
 
     def move(self, from_index: int, to_index: int) -> None:
         """Reorder: move the favourite at ``from_index`` to ``to_index``.
+
+        The cursor follows the colour it addressed before the move — the
+        moved colour if that was the cursor's, otherwise its re-derived
+        index (REQ-IS-LOGIC-001). Colours are unique in this model, so
+        re-locating the previously-addressed colour by value is exact.
 
         Raises:
             FavouritesError: If either index is out of range.
@@ -86,8 +125,50 @@ class Favourites:
                 raise FavouritesError(f"{name} must be an int, got {value!r}")
             if not (0 <= value < n):
                 raise FavouritesError(f"{name} {value} out of range 0..{n - 1}")
+        cursor_color = self._colors[self._cursor] if self._cursor != -1 else None
         color = self._colors.pop(from_index)
         self._colors.insert(to_index, color)
+        if cursor_color is not None:
+            self._cursor = self._colors.index(cursor_color)
+
+    def cursor_index(self) -> int:
+        """Return the cursor's current position, or ``-1`` if the list is empty."""
+        return self._cursor
+
+    def current(self) -> Optional[RGBA]:
+        """Return the colour at the cursor, or ``None`` if the list is empty."""
+        if self._cursor == -1:
+            return None
+        return self._colors[self._cursor]
+
+    def advance(self) -> Optional[RGBA]:
+        """Step the cursor to the next entry, wrapping past the last to the
+        first (REQ-IS-LOGIC-001, ``CL-IS-04``). A silent no-op — never
+        raises — on an empty list, returning ``None``.
+        """
+        if not self._colors:
+            return None
+        self._cursor = (self._cursor + 1) % len(self._colors)
+        return self._colors[self._cursor]
+
+    def retreat(self) -> Optional[RGBA]:
+        """Step the cursor to the previous entry, wrapping before the first
+        to the last (REQ-IS-LOGIC-001, ``CL-IS-04``). A silent no-op — never
+        raises — on an empty list, returning ``None``.
+        """
+        if not self._colors:
+            return None
+        self._cursor = (self._cursor - 1) % len(self._colors)
+        return self._colors[self._cursor]
+
+    def first(self) -> Optional[RGBA]:
+        """Place the cursor on entry 0 and return it (REQ-IS-LOGIC-002); a
+        silent no-op returning ``None`` on an empty list.
+        """
+        if not self._colors:
+            return None
+        self._cursor = 0
+        return self._colors[0]
 
     def colors(self) -> List[RGBA]:
         """Return a shallow copy of the favourites in order."""
