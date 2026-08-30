@@ -166,6 +166,35 @@ def main():
                         files.append(os.path.join(dp, n))
     files = sorted(set(files))
 
+    # ZERO-SCOPE FLOOR (estate-wide, user decision 2026-08-30): `--include`
+    # naming a subdir that does not exist (or exists but holds no .py file)
+    # used to fall straight through to `{"findings": [], "scanned": 0}` exit
+    # 0 -- an honest zero that still reads as a clean pass. This is exactly
+    # how the gate went blind after PR #32 moved the test tree: the old
+    # default named `tests`, CI passed no override, and the gate silently
+    # scanned 234 files instead of 599 while still reporting clean. A moved
+    # or renamed scope must fail loudly instead of scanning nothing, matching
+    # `check_layering`'s `root-not-found` and `a11y_scan`'s `empty-scope`
+    # floor: an empty denominator is an error about the SCOPE, not a verdict
+    # about the code, so the error object is printed INSTEAD of the normal
+    # report here -- printing `{"findings": [], "scanned": 0}` would still
+    # put the word "clean" (via a zero-findings verdict) on stdout for a scan
+    # of nothing, which is the misreading this floor exists to end.
+    if not files:
+        sys.stderr.write(
+            "path_portability_check: no Python files under root=%r include=%r"
+            " -- a scope of zero is not a pass; check --root/--include.\n"
+            % (args.root, args.include)
+        )
+        print(
+            json.dumps(
+                {"findings": [], "scanned": 0, "error": "empty-scope"},
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 2
+
     findings = []
     try:
         for path in files:

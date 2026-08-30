@@ -143,6 +143,39 @@ def main():
     args = ap.parse_args()
 
     files = collect(args.paths, args.root)
+
+    # ZERO-SCOPE FLOOR (estate-wide, user decision 2026-08-30), root-driven
+    # mode only: no explicit `paths` were given, so `--root` (default or
+    # overridden) is the whole scope. `--root` naming a directory that does
+    # not exist, or one that exists but holds no .py file, used to fall
+    # straight through `collect()` to `{"findings": [], "scanned": 0}` exit 0
+    # -- an honest zero that still reads as a clean pass, and a scope that
+    # moved would go on "passing" forever. Matches `path_portability_check`'s
+    # own floor and `a11y_scan`'s `root-not-found` / `empty-scope` pair: an
+    # empty denominator is an error about the SCOPE, not a verdict about the
+    # code, so the error object is printed INSTEAD of the normal report.
+    #
+    # Deliberately NOT applied when `paths` were given explicitly: `collect()`
+    # silently drops a nonexistent explicit path by design (documented
+    # behaviour, see testing/suites/scripts/test_string_audit_check.py::
+    # test_nonexistent_explicit_path_is_silently_dropped_not_an_error) --
+    # that is the caller naming exact files, not a directory scope that can
+    # silently go empty out from under it, so it is left unchanged here.
+    if not args.paths and not files:
+        error = "root-not-found" if not os.path.isdir(args.root) else "empty-scope"
+        sys.stderr.write(
+            "string_audit_check: no Python files under root=%r -- a scope of "
+            "zero is not a pass; check --root.\n" % (args.root,)
+        )
+        print(
+            json.dumps(
+                {"findings": [], "scanned": 0, "error": error},
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 2
+
     findings = []
     try:
         for path in files:
