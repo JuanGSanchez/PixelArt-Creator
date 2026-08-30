@@ -24,13 +24,23 @@ from pixelart_creator.ui.theme import (
     canvas_roles,
 )
 
-#: Aseprite-conventional single-key tool shortcuts (REQ-P1-UI-024; A11Y-1 fix).
+#: Home-row single-key tool shortcuts (REQ-IS-UI-001/-028; input-scheme remap).
+#: All eleven shipped tool_ids, matching main_window._build_actions()'s own
+#: tool_shortcuts mapping exactly -- not a subset -- so a future tool added
+#: to _tools without a shortcut entry fails HERE (missing key -> KeyError in
+#: the completeness test below) rather than silently shipping unreachable.
 _EXPECTED_TOOL_SHORTCUTS = {
-    "pencil": "B",
-    "eraser": "E",
-    "fill": "G",
-    "line": "L",
-    "picker": "I",
+    "pencil": "A",
+    "picker": "Shift+A",
+    "eraser": "Q",
+    "rectangle": "S",
+    "line": "W",
+    "ellipse": "Shift+W",
+    "select_rect": "D",
+    "fill": "F",
+    "dither": "Shift+F",
+    "select_lasso": "E",
+    "select_wand": "Shift+E",
 }
 
 #: WCAG 2.1 AA minimum contrast ratio for normal-size text.
@@ -96,9 +106,10 @@ def test_sc_ui_024_2_keyboard_reachable_with_visible_focus(qtbot):
 def test_sc_ui_024_3_tool_actions_expose_shortcuts(qtbot, tool_id, key):
     """SC-UI-024-3 (A11Y-1): each tool action carries its expected QKeySequence.
 
-    Re-verifies the AGT-05 fix that assigned Aseprite-conventional single-key
-    shortcuts (Pencil=B, Eraser=E, Fill=G, Line=L, Picker=I). Runs under both
-    themes via the autouse ``theme`` fixture (shortcut binding is theme-invariant).
+    Re-verifies the home-row remap (REQ-IS-UI-001/-028): Pencil=A, Picker=Shift+A,
+    Eraser=Q, Rectangle=S, Line=W, Ellipse=Shift+W, Select-Rect=D, Fill=F,
+    Dither=Shift+F, Lasso=E, Magic-Wand=Shift+E. Runs under both themes via the
+    autouse ``theme`` fixture (shortcut binding is theme-invariant).
     """
     win = _window(qtbot)
     action = win._tool_actions[tool_id]
@@ -106,6 +117,34 @@ def test_sc_ui_024_3_tool_actions_expose_shortcuts(qtbot, tool_id, key):
     assert action.shortcut() == QKeySequence(key)
     # The assigned key is surfaced in the tooltip so it is discoverable.
     assert key in action.toolTip()
+
+
+def test_sc_ui_024_3_every_shipped_tool_is_tracked_and_bound(qtbot):
+    """SC-UI-024-3 (A11Y-1, strengthened): no shipped tool is silently unreachable.
+
+    The parametrized test above only proves each tracked tool_id's shortcut is
+    CORRECT; it says nothing about a tool that is missing from
+    ``_EXPECTED_TOOL_SHORTCUTS`` entirely. A tool present in the running app
+    but absent from that dict would never be parametrized, so a future
+    binding loss could ship invisibly to sighted testing -- exactly the
+    accessibility gap SC-UI-024-3 exists to close. This test instead walks
+    the window's OWN ``_tool_actions`` registry (the source of truth) and
+    fails on either direction of drift: a live tool this module does not
+    track, or a tracked entry that no longer names a live tool -- plus a
+    direct non-empty-shortcut check on every live action, so a tool that
+    exposes NO shortcut at all fails here even before the per-key assertion
+    above would catch a WRONG one.
+    """
+    win = _window(qtbot)
+    live_tool_ids = set(win._tool_actions.keys())
+    assert live_tool_ids == set(_EXPECTED_TOOL_SHORTCUTS.keys()), (
+        f"tool registry drift: live={live_tool_ids!r} "
+        f"tracked={set(_EXPECTED_TOOL_SHORTCUTS.keys())!r}"
+    )
+    for tool_id, action in win._tool_actions.items():
+        assert (
+            not action.shortcut().isEmpty()
+        ), f"tool {tool_id!r} exposes no keyboard shortcut at all"
 
 
 @pytest.mark.parametrize("theme_name", [THEME_LIGHT, THEME_DARK])

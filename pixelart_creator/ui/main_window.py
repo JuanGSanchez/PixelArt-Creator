@@ -1112,20 +1112,24 @@ class Main_Window(QMainWindow):
     # -- actions / toolbar / menu ----------------------------------------
 
     def _build_actions(self) -> None:
-        # Aseprite-conventional single-key tool shortcuts (REQ-P1-UI-024). The
-        # Phase-2 keys avoid the Phase-1 set (B/E/G/L/I).
+        # Home-row single-key tool shortcuts (REQ-IS-UI-001). A bijection onto the
+        # eleven shipped tool_ids; the Shift-modified forms live alongside the
+        # bare keys here (picker/ellipse/dither/lasso-wand) rather than as a
+        # separate action, since each is a distinct tool_id, not a toggle.
+        # Displaces the old Aseprite-style set (B/E/G/L/I/R/O/M/Q/W/D); those
+        # seven freed letters (B G I L M O R) are bound to nothing (REQ-IS-UI-002).
         tool_shortcuts = {
-            PencilTool.tool_id: "B",
-            EraserTool.tool_id: "E",
-            FloodFillTool.tool_id: "G",
-            LineTool.tool_id: "L",
-            PickerTool.tool_id: "I",
-            RectangleTool.tool_id: "R",
-            EllipseTool.tool_id: "O",
-            RectSelectTool.tool_id: "M",
-            LassoTool.tool_id: "Q",
-            MagicWandTool.tool_id: "W",
-            DitherTool.tool_id: "D",
+            PencilTool.tool_id: "A",
+            PickerTool.tool_id: "Shift+A",
+            EraserTool.tool_id: "Q",
+            RectangleTool.tool_id: "S",
+            LineTool.tool_id: "W",
+            EllipseTool.tool_id: "Shift+W",
+            RectSelectTool.tool_id: "D",
+            FloodFillTool.tool_id: "F",
+            DitherTool.tool_id: "Shift+F",
+            LassoTool.tool_id: "E",
+            MagicWandTool.tool_id: "Shift+E",
         }
         self._tool_action_group = QActionGroup(self)
         self._tool_action_group.setExclusive(True)
@@ -1163,7 +1167,8 @@ class Main_Window(QMainWindow):
             lambda: self.close_document(self._tab_widget.currentIndex())
         )
         # Export action (REQ-P7-UI-001): opens the export dialog. Ctrl+Shift+E is
-        # free (the tool key E is unmodified; Ctrl+Shift+A is the only other combo).
+        # a distinct QKeySequence from the tool shortcuts Shift+E (magic wand) and
+        # Shift+A (colour picker), so it does not shadow either (REQ-IS-UI-001).
         self._export_action = QAction(self)
         self._export_action.setShortcut(
             Qt.Modifier.CTRL | Qt.Modifier.SHIFT | Qt.Key.Key_E
@@ -1273,9 +1278,11 @@ class Main_Window(QMainWindow):
         # Shape + drawing-mode toggles (REQ-P2-UI-003, -012, -015).
         self._filled_action = QAction(self)
         self._filled_action.setCheckable(True)
+        self._filled_action.setShortcut(QKeySequence("Shift+S"))  # REQ-IS-UI-003
         self._filled_action.toggled.connect(self._on_filled_toggled)
         self._pixel_perfect_action = QAction(self)
         self._pixel_perfect_action.setCheckable(True)
+        self._pixel_perfect_action.setShortcut(QKeySequence("Shift+R"))  # REQ-IS-UI-004
         self._pixel_perfect_action.toggled.connect(self._on_pixel_perfect_toggled)
         self._tiled_action = QAction(self)
         self._tiled_action.setCheckable(True)
@@ -1294,7 +1301,10 @@ class Main_Window(QMainWindow):
         self._invert_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_I)
         self._invert_action.triggered.connect(self._on_invert_selection)
         self._clear_action = QAction(self)
-        self._clear_action.setShortcut(Qt.Key.Key_Delete)
+        # REQ-IS-UI-005: Shift+Q is added alongside Delete, not substituted for it.
+        self._clear_action.setShortcuts(
+            [QKeySequence(Qt.Key.Key_Delete), QKeySequence("Shift+Q")]
+        )
         self._clear_action.triggered.connect(self._on_clear_selection)
 
         # Transform + RotSprite actions (REQ-P2-UI-009, -010). Flips get direct
