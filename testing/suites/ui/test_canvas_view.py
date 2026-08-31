@@ -49,7 +49,17 @@ def test_sc_ui_004_1_zoom_clamped_to_range(make_view):
 
 
 def test_sc_ui_004_2_wheel_notch_scales_by_step(make_view):
-    """SC-UI-004-2: one wheel notch scales zoom by the SCALE_FACTOR step."""
+    """SC-UI-004-2: one wheel notch scales zoom by the SCALE_FACTOR step.
+
+    INVERTED 2026-08-31 (T-22, D-16/REQ-IS-UI-008,-009): a plain wheel notch
+    now travels the Favourites cursor instead of zooming (REQ-IS-UI-008) --
+    zoom relocated to ``Shift``+wheel (REQ-IS-UI-009), same step, same
+    anchor, same floor/ceiling. This test's job was always "prove the
+    canvas zooms by SCALE_FACTOR on a wheel notch"; it still does that job,
+    now under the modifier the gesture actually lives on. The plain-wheel
+    Favourites-travel side of this collision is proven fresh in
+    ``test_input_scheme_pointer.py`` (``SC-U008-1``), not duplicated here.
+    """
     view, _scene, _stack = make_view(1024, 1024)
     view.set_zoom(4.0)  # well within [fit .. ZOOM_MAX]
     start = view.zoom()
@@ -59,7 +69,7 @@ def test_sc_ui_004_2_wheel_notch_scales_by_step(make_view):
         QPoint(0, 0),
         QPoint(0, 120),  # positive angle delta => zoom in
         Qt.MouseButton.NoButton,
-        Qt.KeyboardModifier.NoModifier,
+        Qt.KeyboardModifier.ShiftModifier,  # INVERTED: zoom now lives on Shift+wheel
         Qt.ScrollPhase.NoScrollPhase,
         False,
     )
@@ -97,14 +107,28 @@ def _mouse(view, etype, x, y, button, buttons):
 
 
 def test_sc_ui_005_1_middle_drag_pans_without_painting(make_view):
-    """SC-UI-005-1: middle-drag pans; no pixel changes, no command pushed."""
+    """SC-UI-005-1: middle-drag pans; no pixel changes, no command pushed.
+
+    INVERTED 2026-08-31 (T-22, REQ-IS-UI-011): a middle press no longer
+    engages a pan immediately -- it defers into ``_middle_pending`` until the
+    drag crosses ``CLICK_DRAG_THRESHOLD_PX`` (click/drag split). The
+    immediately-after-press assertion is updated from ``_panning is True`` to
+    ``_middle_pending is True``; ``_panning is True`` is now asserted after
+    the move below, which travels 10+10=20 Manhattan pixels -- well past the
+    threshold, so it still promotes to a real pan within this one test. The
+    below-threshold/at-threshold boundary itself is exercised precisely in
+    ``test_input_scheme_pointer.py`` (``SC-U011-1``/``-2``), not duplicated
+    here.
+    """
     view, scene, stack = make_view(64, 64)
     before = scene.active_buffer().copy()
     press(view, 10, 10, MIDDLE)
-    assert view._panning is True  # pan engaged, not a paint
+    assert view._middle_pending is True  # deferred: click or drag, not yet decided
     view.mouseMoveEvent(
         _mouse(view, QEvent.Type.MouseMove, 20, 20, Qt.MouseButton.NoButton, MIDDLE)
     )
+    assert view._panning is True  # 20px Manhattan travel crossed the threshold
+    assert view._middle_pending is False
     release(view, 20, 20, MIDDLE)
     assert view._panning is False
     assert scene.active_buffer() == before

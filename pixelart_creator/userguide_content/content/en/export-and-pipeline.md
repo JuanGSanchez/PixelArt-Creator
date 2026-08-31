@@ -15,6 +15,10 @@ the Export menu or with **Ctrl+Shift+E**.
 > and a CLI export of the same document are **byte-identical**. The guarantee is
 > *same-environment* (a pinned toolchain), not guaranteed across different machines.
 
+| Shortcut | Action |
+| --- | --- |
+| **Ctrl+Shift+E** | Open the Export dialog. |
+
 ## Raster export (PNG / GIF)
 
 - **PNG** exports **frame 0** as a single RGBA image — the still-image target.

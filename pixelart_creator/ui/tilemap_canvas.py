@@ -71,6 +71,7 @@ from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QMessageBox, QWidge
 
 from pixelart_creator.logic.autotile import BLOB_TILE_COUNT, AutotileRuleset
 from pixelart_creator.logic.constants import (
+    CLICK_DRAG_THRESHOLD_PX,
     MAX_CANVAS_HEIGHT,
     MAX_CANVAS_WIDTH,
     OPENGL_VIEWPORT_ENABLED,
@@ -79,6 +80,7 @@ from pixelart_creator.logic.constants import (
     ZOOM_MAX,
     ZOOM_MIN,
 )
+from pixelart_creator.logic.favourites import Favourites
 from pixelart_creator.logic.history import Command
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
 from pixelart_creator.logic.tilemap import (
@@ -505,6 +507,12 @@ class Tilemap_Canvas(QGraphicsView):
     #: for each case, exactly as the two ``_warn_no_active_brush`` branches
     #: already did.
     noActiveBrushRejected = Signal()
+    #: Emitted with the picked RGBA tuple when a plain wheel notch / an
+    #: unmodified middle click travels the shared Favourites cursor
+    #: (REQ-IS-UI-008/-012, T-21). Mirrors ``Canvas_View.colorPicked`` — the
+    #: tilemap has no colour of its own to paint with, but the app-wide
+    #: active colour/palette state is shared across every surface.
+    colorPicked = Signal(object)
 
     def __init__(
         self, undo_stack: Optional[QUndoStack] = None, parent: Optional[QWidget] = None
@@ -522,10 +530,16 @@ class Tilemap_Canvas(QGraphicsView):
         self._flip_d = False
         self._zoom = 1.0
         self._panning = False
+        #: A middle press awaiting the click/drag verdict — see
+        #: ``Canvas_View._middle_pending`` (REQ-IS-UI-011); same behaviour here.
+        self._middle_pending = False
         self._space_held = False
         self._pan_origin = QPoint()
         self._drawing = False
         self._fill_start: Optional[Tuple[int, int]] = None
+        #: The persisted Favourites model bound via :meth:`set_favourites_model`
+        #: (T-21); ``None`` until the shell binds one.
+        self._favourites: Optional[Favourites] = None
 
         self.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
@@ -589,6 +603,11 @@ class Tilemap_Canvas(QGraphicsView):
     def active_tool(self) -> TilemapTool:
         """Return the active stamping tool."""
         return self._tool
+
+    def set_favourites_model(self, favourites: Favourites) -> None:
+        """Bind the persisted Favourites model a plain wheel notch / an
+        unmodified middle click travel (REQ-IS-UI-008/-012, T-21)."""
+        self._favourites = favourites
 
     def set_active_layer(self, index: int) -> None:
         """Set the layer that receives stamps/erases (view state, no undo)."""
@@ -722,11 +741,19 @@ class Tilemap_Canvas(QGraphicsView):
         )
 
     def _clamp_zoom(self, value: float) -> float:
-        # Same correction as Canvas_View._clamp_zoom (FIX 4, 2026-08-24 field
-        # defect): the floor is min(ZOOM_MIN, fit_zoom), not a flat fit_zoom --
-        # see that method's comment for why a flat floor breaks either a small
-        # tilemap's 1.0 preset stop or a huge tilemap's whole-grid view.
-        return max(min(ZOOM_MIN, self._fit_zoom()), min(value, ZOOM_MAX))
+        # ZOOM_MIN is a flat, absolute floor (user ruling 2026-08-25;
+        # `logic/constants.py`'s ZOOM_MIN docstring), applied here to match
+        # `Canvas_View._clamp_zoom` (D-20, 2026-08-31). The 2026-08-24
+        # `min(ZOOM_MIN, fit_zoom)` formula this superseded is the SAME defect
+        # class the paint canvas carried until 92f09d5: below 1:1 this view is
+        # minified by a painter with smoothing off (nearest-neighbour point
+        # sampling), and this scene draws its own 1-device-pixel grid overlay
+        # lines (`_Tilemap_Scene.drawBackground`) -- sparse, single-pixel-wide
+        # content that point-sampling can drop between sample points exactly
+        # as the checker border did. A document larger than the viewport is
+        # viewed by panning at 1:1 rather than a fractional whole-grid fit,
+        # the same accepted trade-off `Canvas_View` made.
+        return max(ZOOM_MIN, min(value, ZOOM_MAX))
 
     def set_zoom(self, value: float) -> None:
         """Set an absolute zoom (clamped), anchored on the view centre."""
@@ -737,7 +764,19 @@ class Tilemap_Canvas(QGraphicsView):
         self._zoom = target
 
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802
-        """Cursor-anchored geometric zoom by the ``SCALE_FACTOR`` step."""
+        """``Shift``+wheel zooms (REQ-IS-UI-009); plain wheel travels
+        Favourites (REQ-IS-UI-008, T-21)."""
+        if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            self._zoom_wheel(event)
+        else:
+            self._favourites_wheel(event)
+
+    def _zoom_wheel(self, event: QWheelEvent) -> None:
+        """Cursor-anchored geometric zoom by the ``SCALE_FACTOR`` step.
+
+        Relocated from plain wheel to ``Shift``+wheel (REQ-IS-UI-009); the
+        step, anchor, floor and ceiling are otherwise unmodified.
+        """
         factor = 1.0 + SCALE_FACTOR
         if event.angleDelta().y() < 0:
             factor = 1.0 / factor
@@ -748,6 +787,24 @@ class Tilemap_Canvas(QGraphicsView):
         applied = target / self._zoom
         self.scale(applied, applied)
         self._zoom = target
+        event.accept()
+
+    def _favourites_wheel(self, event: QWheelEvent) -> None:
+        """Plain wheel steps the Favourites cursor (REQ-IS-UI-008).
+
+        Wheel down **advances**, wheel up **retreats** (``CL-IS-02``, a
+        flagged assumption — see ``Canvas_View._favourites_wheel``). A silent
+        no-op with no favourites bound or an empty list.
+        """
+        if self._favourites is None:
+            event.accept()
+            return
+        if event.angleDelta().y() < 0:
+            color = self._favourites.advance()
+        else:
+            color = self._favourites.retreat()
+        if color is not None:
+            self.colorPicked.emit(color)
         event.accept()
 
     # -- keyboard (Space pan + flip/rotate) ------------------------------
@@ -782,12 +839,31 @@ class Tilemap_Canvas(QGraphicsView):
         th = tilemap.tile_height if tilemap is not None else 1
         return (int(math.floor(point.x() / tw)), int(math.floor(point.y() / th)))
 
+    def _pick_first_favourite(self) -> None:
+        """An unmodified middle click sets the first favourite (REQ-IS-UI-012)."""
+        if self._favourites is None:
+            return
+        color = self._favourites.first()
+        if color is not None:
+            self.colorPicked.emit(color)
+
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
-        """Pan (middle/Space+left) or begin a stamp/erase/fill (left)."""
+        """Pan (middle/Space+left/Shift+left) or begin a stamp/erase/fill (left)."""
         button = event.button()
-        if button == Qt.MouseButton.MiddleButton or (
-            button == Qt.MouseButton.LeftButton and self._space_held
+        if button == Qt.MouseButton.MiddleButton:
+            # Deferred: a middle press is a click or a drag depending on how far
+            # it travels before release (REQ-IS-UI-011) — decided in
+            # mouseMoveEvent/mouseReleaseEvent, never here.
+            self._middle_pending = True
+            self._pan_origin = event.position().toPoint()
+            event.accept()
+            return
+        if button == Qt.MouseButton.LeftButton and (
+            self._space_held or event.modifiers() & Qt.KeyboardModifier.ShiftModifier
         ):
+            # Shift+left-drag always pans here — the tilemap canvas has no
+            # selection tools to preserve the Shift-add gesture for
+            # (REQ-IS-UI-015; unconditional, unlike the paint canvas).
             self._panning = True
             self._pan_origin = event.position().toPoint()
             self.viewport().setCursor(Qt.CursorShape.ClosedHandCursor)
@@ -810,6 +886,18 @@ class Tilemap_Canvas(QGraphicsView):
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         """Continue panning, or continue a drag stamp/erase (fill waits release)."""
+        if self._middle_pending:
+            here = event.position().toPoint()
+            travel = (here - self._pan_origin).manhattanLength()
+            if travel >= CLICK_DRAG_THRESHOLD_PX:
+                # Crossed the click/drag threshold (REQ-IS-UI-011): promote to
+                # a real pan, re-anchored here so the next delta is not a jump.
+                self._middle_pending = False
+                self._panning = True
+                self._pan_origin = here
+                self.viewport().setCursor(Qt.CursorShape.ClosedHandCursor)
+            event.accept()
+            return
         if self._panning:
             delta = event.position().toPoint() - self._pan_origin
             self._pan_origin = event.position().toPoint()
@@ -830,7 +918,16 @@ class Tilemap_Canvas(QGraphicsView):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
-        """Finish a pan, or commit a rectangle-fill on release."""
+        """Finish a pan, resolve a middle click, or commit a rectangle-fill."""
+        if self._middle_pending and event.button() == Qt.MouseButton.MiddleButton:
+            # Released before crossing the threshold: a click (REQ-IS-UI-011).
+            # An unmodified click picks the first favourite (REQ-IS-UI-012); a
+            # modified one is left for its own gesture (T-23), a no-op here.
+            self._middle_pending = False
+            if event.modifiers() == Qt.KeyboardModifier.NoModifier:
+                self._pick_first_favourite()
+            event.accept()
+            return
         if self._panning and event.button() in (
             Qt.MouseButton.MiddleButton,
             Qt.MouseButton.LeftButton,

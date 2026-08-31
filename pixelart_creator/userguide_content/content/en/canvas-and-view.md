@@ -21,11 +21,11 @@ and square at any zoom, exactly as pixel art should look.
   canvas. Because the scene is prepared once for the full document size, panning across
   an 8K canvas stays smooth — only the part of the canvas visible in the viewport is
   drawn, so off-screen regions cost nothing to scroll past.
-- **Zoom In / Zoom Out** — these two view actions step between the same fixed preset
-  stops as the keyboard shortcuts (100 %, 200 %, 400 %, 800 %, 1600 %, 3200 %,
-  6400 %): **Zoom In** snaps up to the next stop and **Zoom Out** snaps down to the
-  previous one. That is a discrete jump, unlike the continuous, cursor-anchored zoom
-  you get from scrolling the mouse wheel over the canvas.
+- **Zoom In / Zoom Out** — **Ctrl++** and **Ctrl+-** step between the same fixed
+  preset stops (100 %, 200 %, 400 %, 800 %, 1600 %, 3200 %, 6400 %): **Ctrl++**
+  snaps up to the next stop and **Ctrl+-** snaps down to the previous one. That is
+  a discrete jump, unlike the continuous, cursor-anchored zoom you get from
+  **Shift+wheel** below.
 
 > **Large canvases stay responsive.** The renderer draws only the region currently
 > exposed in the viewport and repaints only the small area an edit actually changes,
@@ -84,6 +84,25 @@ leave the document exactly as it was. The resize applies as one undoable step.
 This is a different operation from resampling the artwork to a new size — Canvas
 Size only changes how much canvas there is; it never stretches or shrinks the
 pixels you already have.
+
+## Keyboard & pointer shortcuts
+
+These live here rather than only in the [Application Basics](app-basics.md)
+table because they are canvas-view operations, not tools:
+
+| Shortcut | Action |
+| --- | --- |
+| **Ctrl++** | Zoom the active canvas in by one preset step. |
+| **Ctrl+-** | Zoom the active canvas out by one preset step. |
+
+The canvas also answers a few pointer gestures that never touch your artwork —
+each is a **view** action, exactly like Zoom, so none of them is an undo step:
+
+| Gesture | Result |
+| --- | --- |
+| **Wheel** | Steps the same **Favourites** cursor the [colour hub](colour-hub.md) uses and sets the active colour — a way to cycle your favourite colours without opening the hub at all. |
+| **Shift+wheel** | The continuous, cursor-anchored zoom mentioned above — the point under the cursor stays put as you zoom in or out. |
+| **Shift+middle-click** | Frames the viewport on the painted pixels, so a piece you have scrolled or zoomed away from is one gesture from being back in view. |
 
 ## Related topics
 

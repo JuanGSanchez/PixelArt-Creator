@@ -175,6 +175,13 @@ def test_sc_cgs_ui_008_1_floor_holds_via_wheel_gesture(make_view):
     the same construction ``test_canvas_view.py``'s wheel test uses) straight
     into ``view.wheelEvent`` -- enough of them to reach and then try to pass
     the floor.
+
+    INVERTED 2026-08-31 (T-22, D-16/REQ-IS-UI-008,-009): the wheel gesture
+    that reaches this route now requires ``Shift`` held -- plain wheel
+    travels Favourites instead (REQ-IS-UI-008) and does not reach
+    ``_zoom_wheel``/``_clamp_zoom`` at all. This test's job -- proving the
+    floor holds via the wheel-zoom route specifically -- is unchanged; only
+    the modifier needed to reach that route changed.
     """
     view, _scene, _stack = make_view(64, 64)
     view.set_zoom(ZOOM_MIN * 2)  # start above the floor, well within range
@@ -184,7 +191,7 @@ def test_sc_cgs_ui_008_1_floor_holds_via_wheel_gesture(make_view):
         QPoint(0, 0),
         QPoint(0, -120),  # negative angle delta => zoom out
         Qt.MouseButton.NoButton,
-        Qt.KeyboardModifier.NoModifier,
+        Qt.KeyboardModifier.ShiftModifier,  # INVERTED: zoom now needs Shift+wheel
         Qt.ScrollPhase.NoScrollPhase,
         False,
     )

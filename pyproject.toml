@@ -172,6 +172,7 @@ pixelart_creator = [
     "userguide_content/*.json",
     "i18n/*.qm",
     "i18n/*.ts",
+    "icons/tools/*.svg",
 ]
 
 # ------------------------------- tool config ---------------------------------

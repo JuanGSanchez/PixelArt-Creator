@@ -393,6 +393,13 @@ class Timeline_Grid_View(QTableView):
     #: Emitted with the frame index the cursor is scrubbing over during a body
     #: drag away from any occupied cell (REQ-P5-UI-025). Pushes no command.
     frameScrubbed = Signal(int)
+    #: Emitted when a Ctrl+right-click removal was refused because the target
+    #: document has only one frame left (D-22). ``Document._ensure_frame_removable``
+    #: is the single, unconditional owner of that invariant; this view asks the
+    #: bound document itself (``len(document.frames)``) rather than keeping a
+    #: second, independently-maintained notion of "removable" — so the two can
+    #: never drift apart. Pushes no command; the gesture stays inert.
+    lastFrameRemovalRefused = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """Wire the table/model/delegate and the three disjoint gesture zones.
@@ -555,6 +562,14 @@ class Timeline_Grid_View(QTableView):
             index = self.currentIndex()
         if not index.isValid():
             return
+        if QApplication.keyboardModifiers() & Qt.KeyboardModifier.ControlModifier:
+            # Ctrl+right-click removes the frame under the cursor — the ONE
+            # destructive gesture in the spec, confined to this timeline
+            # surface (REQ-IS-UI-017); applies regardless of whether the cell
+            # under the cursor happens to be occupied, so it is checked before
+            # the empty-cell "Create Cel Here" affordance below.
+            self._remove_frame_at(index.column())
+            return
         if self._model.cell_at(index.row(), index.column()) is not EMPTY_CELL:
             # No affordance is offered for an occupied cell today — the drag
             # gestures above already cover it (REQ-P5-UI-025).
@@ -592,6 +607,39 @@ class Timeline_Grid_View(QTableView):
             self.rebuild()
             return
         self._push(cmd, self.tr("Create Cel"))
+
+    # -- Ctrl+right-click removes a frame, timeline-only (REQ-IS-UI-017) -------
+
+    def _remove_frame_at(self, frame_index: int) -> None:
+        """Remove ``frame_index`` via the shipped undoable command.
+
+        On the document's last remaining frame the gesture is inert by
+        invariant (``Document._ensure_frame_removable`` is the single,
+        unconditional owner of "never remove the document's last frame") —
+        so asking Yes/No there would ask a question whose answer cannot
+        change the outcome (D-22). This checks the SAME source of truth the
+        domain does, ``document.frames`` itself, not a second,
+        independently-maintained notion of "removable"; on that condition it
+        emits :data:`lastFrameRemovalRefused` for the owner to surface as a
+        transient status-bar explanation and returns without removing
+        anything or building a command.
+
+        On every other frame the removal proceeds exactly as before: no
+        confirmation, straight through ``make_remove_frame_command``.
+        """
+        document = self._document
+        if document is None or self._push is None:
+            return
+        if not 0 <= frame_index < len(document.frames):
+            return
+        if len(document.frames) <= 1:
+            self.lastFrameRemovalRefused.emit()
+            return
+        try:
+            cmd = document.make_remove_frame_command(frame_index)
+        except DocumentError:
+            return
+        self._push(cmd, self.tr("Remove Frame"))
 
     # -- header drag = reorder (REQ-P5-UI-025) --------------------------------
 

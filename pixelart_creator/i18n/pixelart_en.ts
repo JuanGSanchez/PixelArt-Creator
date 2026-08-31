@@ -1418,25 +1418,25 @@
 <context>
     <name>Canvas_View</name>
     <message>
-        <location filename="../ui/canvas_view.py" line="249"/>
-        <location filename="../ui/canvas_view.py" line="1049"/>
+        <location filename="../ui/canvas_view.py" line="282"/>
+        <location filename="../ui/canvas_view.py" line="1347"/>
         <source>Canvas</source>
-        <extracomment>Platform name reported by Qt when running without a windowing system. Emitted with the current zoom scale after any zoom change. Emitted with the buffer ``(x, y)`` when the canvas is right-clicked (seam). Emitted with the picked RGBA tuple when the colour-picker sets a colour. Emitted ``(is_active, is_copy)`` when a floating move/copy state changes (drives the shell&apos;s copy-mode status hint, REQ-P2-UI-032/-036). Emitted when a paint/mask-edit stroke is refused because the active layer is locked (D-05); the shell surfaces a &quot;layer is locked&quot; notice. Emitted when a left-click lands outside the active document&apos;s bounds (FIX 5, 2026-08-24 field defect): a click there must not arm a stroke, and must not fail silently — the shell surfaces a notice, following the ``lockedLayerEditRejected`` precedent exactly. Emitted when a paint/mask-edit is refused because the active layer is a REFERENCE or SMART layer (REQ-P3-UI-006 clause 5: non-editable targets are three classes, not two — locked, reference, and smart — and every one of them must be surfaced, never silently swallowed). Distinct from ``lockedLayerEditRejected`` so the shell can show the right notice; ``is_active_editable()`` returns ``False`` for all three classes, and this signal covers the two this view previously dropped on the floor. Emitted when a tool ran (the guards passed) but produced no pixel change — e.g. a flood fill on a region that already holds the picked colour (REQ-P1-UI-014), or a pencil placed on a pixel that already holds it — so no undo entry was pushed. An explicit, deliberate gesture (a completed colour-hub pick, REQ-P3-UI-006 clause 6) must never answer with silence even when it changed nothing. The wrapper every :class:`~pixelart_creator.ui.tools.base.ToolContext` is actually built with (see :class:`_RecordingUndoStack`); reads ``self._undo_stack``/``self._record_trace``/``self._recording_document`` live at each push, so `set_undo_stack`/`set_recording` need not rebuild it. Live mirror-centre override fed to ``logic.symmetry.mirror`` via each stroke&apos;s :class:`ToolContext` (D-28/CF-93); ``None`` keeps the shipped canvas-centre default. Fed by the shell&apos;s Symmetry_Panel. The guide currently being dragged (D-11), or ``None``. Raw (pre-snap) scene point at the start of the current stroke — the perspective direction-lock anchor (``logic.grids.perspective_snap``).</extracomment>
+        <extracomment>Platform name reported by Qt when running without a windowing system. Emitted with the current zoom scale after any zoom change. Emitted with the buffer ``(x, y)`` when the canvas is right-clicked (seam). Emitted with the picked RGBA tuple when the colour-picker sets a colour. Emitted ``(is_active, is_copy)`` when a floating move/copy state changes (drives the shell&apos;s copy-mode status hint, REQ-P2-UI-032/-036). Emitted when a paint/mask-edit stroke is refused because the active layer is locked (D-05); the shell surfaces a &quot;layer is locked&quot; notice. Emitted when a left-click lands outside the active document&apos;s bounds (FIX 5, 2026-08-24 field defect): a click there must not arm a stroke, and must not fail silently — the shell surfaces a notice, following the ``lockedLayerEditRejected`` precedent exactly. Emitted when a paint/mask-edit is refused because the active layer is a REFERENCE or SMART layer (REQ-P3-UI-006 clause 5: non-editable targets are three classes, not two — locked, reference, and smart — and every one of them must be surfaced, never silently swallowed). Distinct from ``lockedLayerEditRejected`` so the shell can show the right notice; ``is_active_editable()`` returns ``False`` for all three classes, and this signal covers the two this view previously dropped on the floor. Emitted when a tool ran (the guards passed) but produced no pixel change — e.g. a flood fill on a region that already holds the picked colour (REQ-P1-UI-014), or a pencil placed on a pixel that already holds it — so no undo entry was pushed. An explicit, deliberate gesture (a completed colour-hub pick, REQ-P3-UI-006 clause 6) must never answer with silence even when it changed nothing. Emitted with the target frame index a ``Ctrl``+wheel / ``Ctrl``+middle- click frame gesture resolved to (REQ-IS-UI-010/-014); the shell routes it through the shipped frame-selection path. Pushes no command — frame navigation is view state (CL-13). Emitted when a confirmed ``Ctrl``+left-click (no floating move live) should add a frame after the active one (REQ-IS-UI-016); the shell builds and pushes the shipped undoable ``make_add_frame_command``. The three selection tools whose Shift/Alt modifiers stay the shipped add/subtract combine gesture (REQ-IS-UI-015) — Shift+drag pans for every other tool. Mirrors ``Main_Window._SELECTION_ENTRY_TOOL_IDS``. The wrapper every :class:`~pixelart_creator.ui.tools.base.ToolContext` is actually built with (see :class:`_RecordingUndoStack`); reads ``self._undo_stack``/``self._record_trace``/``self._recording_document`` live at each push, so `set_undo_stack`/`set_recording` need not rebuild it. A middle press awaiting the click/drag verdict (REQ-IS-UI-011): ``True`` between a middle press and either its release under ``CLICK_DRAG_THRESHOLD_PX`` (a click) or its promotion to ``_panning`` once the cursor travels past the threshold (a drag). A ``Ctrl``+left press awaiting the click/drag verdict (REQ-IS-UI-016, mirrors ``_middle_pending``): ``True`` between the press and either its release under ``CLICK_DRAG_THRESHOLD_PX`` (adds a frame) or its promotion to an ordinary paint/floating-move drag once the cursor travels past the threshold. The persisted Favourites model a plain wheel notch / unmodified middle click travel (REQ-IS-UI-008/-012); ``None`` until the shell binds one via :meth:`set_favourites_model` (T-21). Live mirror-centre override fed to ``logic.symmetry.mirror`` via each stroke&apos;s :class:`ToolContext` (D-28/CF-93); ``None`` keeps the shipped canvas-centre default. Fed by the shell&apos;s Symmetry_Panel. The guide currently being dragged (D-11), or ``None``. Raw (pre-snap) scene point at the start of the current stroke — the perspective direction-lock anchor (``logic.grids.perspective_snap``).</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/canvas_view.py" line="251"/>
-        <location filename="../ui/canvas_view.py" line="1051"/>
+        <location filename="../ui/canvas_view.py" line="284"/>
+        <location filename="../ui/canvas_view.py" line="1349"/>
         <source>Pixel canvas: left-click to paint, middle-drag to pan</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/canvas_view.py" line="951"/>
+        <location filename="../ui/canvas_view.py" line="1249"/>
         <source>Remove guide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/canvas_view.py" line="962"/>
+        <location filename="../ui/canvas_view.py" line="1260"/>
         <source>No canvas actions yet</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1543,23 +1543,23 @@
 <context>
     <name>Colour_Hub_Menu</name>
     <message>
-        <location filename="../ui/colour_hub_menu.py" line="385"/>
+        <location filename="../ui/colour_hub_menu.py" line="506"/>
         <source>Colour Hub</source>
-        <extracomment>Emitted with an RGBA tuple whenever a colour is picked (apply immediately, leg 1 — the live preview stream; never refused, REQ-P3-UI-006 clause 1). Emitted with an RGBA tuple on a COMPLETED pick only — one emission per discrete gesture (a wheel-drag release, a keyboard nudge release, a numeric spin&apos;s editingFinished, a swatch click, or a favourite chosen). The shell (``ui/main_window.py``) uses this to run the active tool at the hub&apos;s anchor pixel as leg 2 (REQ-P3-UI-006 clauses 2-6). Re-emitted when the Favourites model changes (so the shell persists it).</extracomment>
+        <extracomment>Emitted with an RGBA tuple whenever a colour is picked (apply immediately, leg 1 — the live preview stream; never refused, REQ-P3-UI-006 clause 1). Emitted with an RGBA tuple on a COMPLETED pick only — one emission per discrete gesture (a wheel-drag release, a keyboard nudge release, a numeric spin&apos;s editingFinished, a single click on a harmony/shade/tint swatch, or a single click on a Favourites entry). A DOUBLE click / a keyboard activation on either swatch surface adopts instead and never reaches this signal (REQ-IS-UI-019/-020/-022, D-11). The shell (``ui/main_window.py``) uses this to run the active tool at the hub&apos;s anchor pixel as leg 2 (REQ-P3-UI-006 clauses 2-6). Re-emitted when the Favourites model changes (so the shell persists it).</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_hub_menu.py" line="386"/>
+        <location filename="../ui/colour_hub_menu.py" line="507"/>
         <source>Colour hub</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_hub_menu.py" line="387"/>
+        <location filename="../ui/colour_hub_menu.py" line="508"/>
         <source>Add to Favourites</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_hub_menu.py" line="390"/>
+        <location filename="../ui/colour_hub_menu.py" line="511"/>
         <source>This tool does not paint the active colour, so the colour wheel is hidden here.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1567,130 +1567,130 @@
 <context>
     <name>Colour_Wheel_Widget</name>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="313"/>
-        <location filename="../ui/colour_wheel_widget.py" line="582"/>
+        <location filename="../ui/colour_wheel_widget.py" line="351"/>
+        <location filename="../ui/colour_wheel_widget.py" line="625"/>
         <source>Red channel</source>
-        <extracomment>Emitted with the picked :class:`QColor` on any user-initiated change.</extracomment>
+        <extracomment>Emitted with the picked :class:`QColor` on any user-initiated change that ADOPTS into the wheel (wheel-pad drag, value slider, numeric entries, and a harmony/shade/tint swatch&apos;s double-click/keyboard activation — never a swatch&apos;s single click). Emitted with a harmony/shade/tint swatch&apos;s own RGBA tuple on a single left click (REQ-IS-UI-020). PAINT-only: the wheel&apos;s own selection is deliberately left unchanged, unlike :attr:`colorPicked`.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="316"/>
-        <location filename="../ui/colour_wheel_widget.py" line="583"/>
+        <location filename="../ui/colour_wheel_widget.py" line="354"/>
+        <location filename="../ui/colour_wheel_widget.py" line="626"/>
         <source>Green channel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="319"/>
-        <location filename="../ui/colour_wheel_widget.py" line="584"/>
+        <location filename="../ui/colour_wheel_widget.py" line="357"/>
+        <location filename="../ui/colour_wheel_widget.py" line="627"/>
         <source>Blue channel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="322"/>
-        <location filename="../ui/colour_wheel_widget.py" line="585"/>
+        <location filename="../ui/colour_wheel_widget.py" line="360"/>
+        <location filename="../ui/colour_wheel_widget.py" line="628"/>
         <source>Hue</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="325"/>
-        <location filename="../ui/colour_wheel_widget.py" line="586"/>
+        <location filename="../ui/colour_wheel_widget.py" line="363"/>
+        <location filename="../ui/colour_wheel_widget.py" line="629"/>
         <source>Saturation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="328"/>
-        <location filename="../ui/colour_wheel_widget.py" line="574"/>
-        <location filename="../ui/colour_wheel_widget.py" line="587"/>
+        <location filename="../ui/colour_wheel_widget.py" line="366"/>
+        <location filename="../ui/colour_wheel_widget.py" line="617"/>
+        <location filename="../ui/colour_wheel_widget.py" line="630"/>
         <source>Value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="514"/>
+        <location filename="../ui/colour_wheel_widget.py" line="553"/>
         <source>Current colour %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="573"/>
+        <location filename="../ui/colour_wheel_widget.py" line="616"/>
         <source>Colour wheel picker</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="575"/>
+        <location filename="../ui/colour_wheel_widget.py" line="618"/>
         <source>Brightness value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="576"/>
+        <location filename="../ui/colour_wheel_widget.py" line="619"/>
         <source>R</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="577"/>
+        <location filename="../ui/colour_wheel_widget.py" line="620"/>
         <source>G</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="578"/>
+        <location filename="../ui/colour_wheel_widget.py" line="621"/>
         <source>B</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="579"/>
+        <location filename="../ui/colour_wheel_widget.py" line="622"/>
         <source>H</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="580"/>
+        <location filename="../ui/colour_wheel_widget.py" line="623"/>
         <source>S</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="581"/>
+        <location filename="../ui/colour_wheel_widget.py" line="624"/>
         <source>V</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="588"/>
+        <location filename="../ui/colour_wheel_widget.py" line="631"/>
         <source>Hex colour</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="589"/>
+        <location filename="../ui/colour_wheel_widget.py" line="632"/>
         <source>Complementary</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="590"/>
+        <location filename="../ui/colour_wheel_widget.py" line="633"/>
         <source>Analogous</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="591"/>
+        <location filename="../ui/colour_wheel_widget.py" line="634"/>
         <source>Triadic</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="592"/>
+        <location filename="../ui/colour_wheel_widget.py" line="635"/>
         <source>Tetradic</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="593"/>
+        <location filename="../ui/colour_wheel_widget.py" line="636"/>
         <source>Split-complementary</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="594"/>
+        <location filename="../ui/colour_wheel_widget.py" line="637"/>
         <source>Shades</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="595"/>
+        <location filename="../ui/colour_wheel_widget.py" line="638"/>
         <source>Tints</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="606"/>
+        <location filename="../ui/colour_wheel_widget.py" line="649"/>
         <source>harmony</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1815,6 +1815,16 @@
     <message>
         <location filename="../ui/comments_panel.py" line="238"/>
         <source>Comment byte count</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>Cursor_Feedback_Overlay</name>
+    <message>
+        <location filename="../ui/cursor_feedback_overlay.py" line="92"/>
+        <location filename="../ui/cursor_feedback_overlay.py" line="148"/>
+        <source>Cursor feedback</source>
+        <extracomment>Progress fraction (0..1 of FEEDBACK_DURATION_MS) at which the fall to zero begins.</extracomment>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -2007,13 +2017,13 @@
 <context>
     <name>Document_View</name>
     <message>
-        <location filename="../ui/multi_view.py" line="67"/>
+        <location filename="../ui/multi_view.py" line="112"/>
         <source>Document view {0}</source>
-        <extracomment>Per-wheel-notch zoom step for an extra view (independent of the primary view).</extracomment>
+        <extracomment>Per-wheel-notch zoom step for an extra view (independent of the primary view). Emitted with the picked RGBA tuple when a plain wheel notch travels the shared Favourites cursor (REQ-IS-UI-008, T-21/D-16 — this surface is a navigate-only view of the SAME live document scene as the primary Canvas_View, so the active colour it sets is real document context). The persisted Favourites model bound via :meth:`set_favourites_model` (T-21); ``None`` until the shell binds one.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/multi_view.py" line="71"/>
+        <location filename="../ui/multi_view.py" line="116"/>
         <source>An extra synced view of the same document (independent zoom/pan)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2293,33 +2303,33 @@
 <context>
     <name>Favourites_Panel</name>
     <message>
-        <location filename="../ui/colour_hub_menu.py" line="179"/>
+        <location filename="../ui/colour_hub_menu.py" line="244"/>
         <source>Favourites</source>
-        <extracomment>Edge of a Favourites swatch icon, px (presentation-only sizing). Keys that nudge the wheel pad&apos;s hue/saturation (``_WheelPad.keyPressEvent``); a KeyRelease for one of these is a discrete, already-completed pick (REQ-P3- UI-006 leg 2), unlike Tab/other keys the pad never acts on. Emitted with an RGBA tuple when a favourite is chosen (click or Enter). Emitted whenever the underlying model is mutated (so the shell persists it).</extracomment>
+        <extracomment>Edge of a Favourites swatch icon, px (presentation-only sizing). Keys that nudge the wheel pad&apos;s hue/saturation (``_WheelPad.keyPressEvent``); a KeyRelease for one of these is a discrete, already-completed pick (REQ-P3- UI-006 leg 2), unlike Tab/other keys the pad never acts on. Single left click on a favourite — paint that colour, leave the wheel alone. Double left click / Enter / Return on a favourite — adopt that colour into the wheel, paint nothing. Deprecated alias of :attr:`favouriteActivated`, kept for pre-2026-08-31 callers of the pre-split single ``favouriteChosen`` signal. Emitted alongside :attr:`favouriteActivated` ONLY — never alongside :attr:`favouritePicked`, so it never resurrects the fused-gesture defect this split fixes (REQ-IS-UI-019). New code should connect :attr:`favouritePicked` / :attr:`favouriteActivated` directly. Emitted whenever the underlying model is mutated (so the shell persists it).</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_hub_menu.py" line="180"/>
+        <location filename="../ui/colour_hub_menu.py" line="245"/>
         <source>Favourites panel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_hub_menu.py" line="181"/>
+        <location filename="../ui/colour_hub_menu.py" line="246"/>
         <source>Favourite colours</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_hub_menu.py" line="182"/>
+        <location filename="../ui/colour_hub_menu.py" line="247"/>
         <source>Remove</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_hub_menu.py" line="183"/>
+        <location filename="../ui/colour_hub_menu.py" line="248"/>
         <source>Move Up</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_hub_menu.py" line="184"/>
+        <location filename="../ui/colour_hub_menu.py" line="249"/>
         <source>Move Down</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2796,1115 +2806,1131 @@
 <context>
     <name>Main_Window</name>
     <message>
-        <location filename="../ui/main_window.py" line="1145"/>
+        <location filename="../ui/main_window.py" line="1209"/>
         <source>&amp;Undo</source>
         <extracomment>Live mirror-centre override from the Symmetry_Panel (D-28/CF-93); ``None`` keeps the shipped canvas-centre default. The DSL ops of the in-flight automation run (recorded into a macro on success if recording is active); ``None`` for a macro replay (a replay is not itself re-recorded). True while an in-session timelapse playback holds the active tab&apos;s canvas + the shared undo/redo actions read-only (REQ-P9-UI-016); see ``_on_timelapse_playback_lock_changed``. The cloud project id last saved to / opened from (drives version browse). D-13: the most recently fetched remote version list (cached from the last &quot;open_list&quot;/&quot;versions&quot;/&quot;save&quot; result) — feeds the read-only ``compute_sync_state`` for the Cloud menu status line and the version browser, without a network round trip on every tab switch. D-13: the version id of a restore/recover in flight, consumed once the reconstructed document lands in its new tab (see ``_on_cloud_succeeded``). Live-cursor overlays are per-tab (attached in _create_tab_aids); toggled on connect. The local member id broadcast with presence (never a token).</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="1147"/>
+        <location filename="../ui/main_window.py" line="1211"/>
         <source>&amp;Redo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="1982"/>
+        <location filename="../ui/main_window.py" line="2072"/>
         <source>Untitled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2816"/>
+        <location filename="../ui/main_window.py" line="2632"/>
+        <source>Add Frame</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/main_window.py" line="2981"/>
         <source>Unsaved Changes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2818"/>
+        <location filename="../ui/main_window.py" line="2983"/>
         <source>The current document has unsaved changes. Save it before opening the dropped project?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2853"/>
+        <location filename="../ui/main_window.py" line="3018"/>
         <source>Load Palette</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2881"/>
-        <location filename="../ui/main_window.py" line="3785"/>
+        <location filename="../ui/main_window.py" line="3046"/>
+        <location filename="../ui/main_window.py" line="4034"/>
         <source>Save Project</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2883"/>
-        <location filename="../ui/main_window.py" line="3771"/>
-        <location filename="../ui/main_window.py" line="3787"/>
+        <location filename="../ui/main_window.py" line="3048"/>
+        <location filename="../ui/main_window.py" line="4020"/>
+        <location filename="../ui/main_window.py" line="4036"/>
         <source>Pixel projects (*%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2893"/>
+        <location filename="../ui/main_window.py" line="3058"/>
         <source>Unsupported file type: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2904"/>
+        <location filename="../ui/main_window.py" line="3069"/>
         <source>Layer is locked.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2916"/>
+        <location filename="../ui/main_window.py" line="3084"/>
+        <source>This is the last remaining frame; a document must keep at least one.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/main_window.py" line="3097"/>
         <source>Click was outside the document.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2929"/>
+        <location filename="../ui/main_window.py" line="3110"/>
         <source>This layer cannot be edited directly.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2942"/>
+        <location filename="../ui/main_window.py" line="3123"/>
         <source>No change: the colour already matched.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2955"/>
+        <location filename="../ui/main_window.py" line="3136"/>
         <source>No tileset bound to this tilemap yet.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2967"/>
+        <location filename="../ui/main_window.py" line="3148"/>
         <source>Select a tile first.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2974"/>
+        <location filename="../ui/main_window.py" line="3155"/>
         <source>Open a document before loading a palette.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2982"/>
+        <location filename="../ui/main_window.py" line="3163"/>
         <source>Import Failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2983"/>
+        <location filename="../ui/main_window.py" line="3164"/>
         <source>Could not import %1:
 %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3078"/>
+        <location filename="../ui/main_window.py" line="3283"/>
         <source>Copying selection — release, Enter to commit, Esc to cancel</source>
+        <extracomment>Incoming tool ids that discard the active selection on entry (REQ-IS-UI-029, CL-IS-08/-09). Re-activating an already-active selection tool is included deliberately, so it doubles as a start-fresh gesture — an assumption (CL-IS-08), flagged and cheap to reverse. Every other incoming tool leaves the selection untouched, so mask-constrained drawing (REQ-P2-LOGIC-006) survives a tool switch.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3083"/>
+        <location filename="../ui/main_window.py" line="3288"/>
         <source>Moving selection — hold Ctrl to copy; Enter to commit, Esc to cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3180"/>
+        <location filename="../ui/main_window.py" line="3399"/>
         <source>Add Shade Ramp</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3198"/>
-        <location filename="../ui/main_window.py" line="3204"/>
+        <location filename="../ui/main_window.py" line="3417"/>
+        <location filename="../ui/main_window.py" line="3423"/>
         <source>Constrain to Palette</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3225"/>
-        <location filename="../ui/main_window.py" line="3234"/>
-        <location filename="../ui/main_window.py" line="5037"/>
+        <location filename="../ui/main_window.py" line="3444"/>
+        <location filename="../ui/main_window.py" line="3453"/>
+        <location filename="../ui/main_window.py" line="5309"/>
         <source>Colour Cycling</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3226"/>
+        <location filename="../ui/main_window.py" line="3445"/>
         <source>Colour cycling applies to indexed documents.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3240"/>
+        <location filename="../ui/main_window.py" line="3459"/>
         <source>Colour Cycle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3258"/>
+        <location filename="../ui/main_window.py" line="3477"/>
         <source>Extract Palette</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3269"/>
-        <location filename="../ui/main_window.py" line="3287"/>
-        <location filename="../ui/main_window.py" line="3293"/>
+        <location filename="../ui/main_window.py" line="3488"/>
+        <location filename="../ui/main_window.py" line="3506"/>
+        <location filename="../ui/main_window.py" line="3512"/>
         <source>Palette Swap</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3270"/>
+        <location filename="../ui/main_window.py" line="3489"/>
         <source>Palette swap applies to indexed documents.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3316"/>
-        <location filename="../ui/main_window.py" line="3322"/>
+        <location filename="../ui/main_window.py" line="3535"/>
+        <location filename="../ui/main_window.py" line="3541"/>
         <source>Convert to Indexed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3342"/>
-        <location filename="../ui/main_window.py" line="3348"/>
+        <location filename="../ui/main_window.py" line="3561"/>
+        <location filename="../ui/main_window.py" line="3567"/>
         <source>Convert to RGBA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3474"/>
+        <location filename="../ui/main_window.py" line="3693"/>
         <source>Register Selection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3563"/>
+        <location filename="../ui/main_window.py" line="3782"/>
         <source>Choose a new folder for the imported project</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3572"/>
+        <location filename="../ui/main_window.py" line="3791"/>
         <source>&quot;%1&quot; already exists. Choose a name for a new folder.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3591"/>
+        <location filename="../ui/main_window.py" line="3810"/>
         <source>Imported Project</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3769"/>
+        <location filename="../ui/main_window.py" line="4018"/>
         <source>Open Project</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3796"/>
+        <location filename="../ui/main_window.py" line="4045"/>
         <source>Cloud project name:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3801"/>
+        <location filename="../ui/main_window.py" line="4050"/>
         <source>Enter a project name.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3810"/>
+        <location filename="../ui/main_window.py" line="4059"/>
         <source>Connect to a cloud provider first.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3844"/>
+        <location filename="../ui/main_window.py" line="4093"/>
         <source>Cloud status: —</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3852"/>
+        <location filename="../ui/main_window.py" line="4101"/>
         <source>Cloud status: Up to date</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3854"/>
+        <location filename="../ui/main_window.py" line="4103"/>
         <source>Cloud status: Not yet saved to cloud</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3856"/>
+        <location filename="../ui/main_window.py" line="4105"/>
         <source>Cloud status: Newer version in cloud</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3857"/>
+        <location filename="../ui/main_window.py" line="4106"/>
         <source>Cloud status: Diverged</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3863"/>
+        <location filename="../ui/main_window.py" line="4112"/>
         <source>Real-time</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3866"/>
-        <location filename="../ui/main_window.py" line="4014"/>
+        <location filename="../ui/main_window.py" line="4115"/>
+        <location filename="../ui/main_window.py" line="4263"/>
         <source>Open a document first.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3868"/>
+        <location filename="../ui/main_window.py" line="4117"/>
         <source>Your member id:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3898"/>
+        <location filename="../ui/main_window.py" line="4147"/>
         <source>Real-time: {msg}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4002"/>
+        <location filename="../ui/main_window.py" line="4251"/>
         <source>Merge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4009"/>
+        <location filename="../ui/main_window.py" line="4258"/>
         <source>Save to Cloud</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4031"/>
+        <location filename="../ui/main_window.py" line="4280"/>
         <source>Open from Cloud</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4049"/>
-        <location filename="../ui/main_window.py" line="4166"/>
+        <location filename="../ui/main_window.py" line="4298"/>
+        <location filename="../ui/main_window.py" line="4415"/>
         <source>Cloud Version History</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4136"/>
+        <location filename="../ui/main_window.py" line="4385"/>
         <source>Saved to cloud.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4143"/>
+        <location filename="../ui/main_window.py" line="4392"/>
         <source>Cloud Project</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4145"/>
+        <location filename="../ui/main_window.py" line="4394"/>
         <source>Recovered</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4153"/>
+        <location filename="../ui/main_window.py" line="4402"/>
         <source>Restored from cloud.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4167"/>
+        <location filename="../ui/main_window.py" line="4416"/>
         <source>No versions found for this project.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4194"/>
+        <location filename="../ui/main_window.py" line="4443"/>
         <source>Cloud</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4310"/>
+        <location filename="../ui/main_window.py" line="4566"/>
         <source>Clear Selection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4425"/>
+        <location filename="../ui/main_window.py" line="4681"/>
         <source>Flip Horizontal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4428"/>
+        <location filename="../ui/main_window.py" line="4684"/>
         <source>Flip Vertical</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4432"/>
+        <location filename="../ui/main_window.py" line="4688"/>
         <source>Rotate 90° CW</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4437"/>
+        <location filename="../ui/main_window.py" line="4693"/>
         <source>Rotate 90° CCW</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4458"/>
-        <location filename="../ui/main_window.py" line="4461"/>
-        <location filename="../ui/main_window.py" line="4465"/>
-        <location filename="../ui/main_window.py" line="4474"/>
-        <location filename="../ui/main_window.py" line="4477"/>
+        <location filename="../ui/main_window.py" line="4714"/>
+        <location filename="../ui/main_window.py" line="4717"/>
+        <location filename="../ui/main_window.py" line="4721"/>
+        <location filename="../ui/main_window.py" line="4730"/>
+        <location filename="../ui/main_window.py" line="4733"/>
         <source>Scale Canvas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4506"/>
-        <location filename="../ui/main_window.py" line="4509"/>
+        <location filename="../ui/main_window.py" line="4762"/>
+        <location filename="../ui/main_window.py" line="4765"/>
         <source>Canvas Size</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4527"/>
+        <location filename="../ui/main_window.py" line="4783"/>
         <source>Rotate (RotSprite)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4679"/>
-        <location filename="../ui/main_window.py" line="4688"/>
+        <location filename="../ui/main_window.py" line="4951"/>
+        <location filename="../ui/main_window.py" line="4960"/>
         <source>Open Tileset Image</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4681"/>
+        <location filename="../ui/main_window.py" line="4953"/>
         <source>Images (*.png *.jpg *.jpeg *.bmp *.gif)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4697"/>
+        <location filename="../ui/main_window.py" line="4969"/>
         <source>New Tileset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4703"/>
+        <location filename="../ui/main_window.py" line="4975"/>
         <source>Add Tileset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4713"/>
-        <location filename="../ui/main_window.py" line="4764"/>
+        <location filename="../ui/main_window.py" line="4985"/>
+        <location filename="../ui/main_window.py" line="5036"/>
         <source>Attach Tileset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4726"/>
+        <location filename="../ui/main_window.py" line="4998"/>
         <source>Tilemap</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4729"/>
+        <location filename="../ui/main_window.py" line="5001"/>
         <source>Layer 1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4736"/>
+        <location filename="../ui/main_window.py" line="5008"/>
         <source>Add Tilemap</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4756"/>
+        <location filename="../ui/main_window.py" line="5028"/>
         <source>Import Tilemap</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4788"/>
+        <location filename="../ui/main_window.py" line="5060"/>
         <source>Export Tiled Map</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4789"/>
+        <location filename="../ui/main_window.py" line="5061"/>
         <source>There is no tilemap to export.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4817"/>
+        <location filename="../ui/main_window.py" line="5089"/>
         <source>Exporting…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4822"/>
+        <location filename="../ui/main_window.py" line="5094"/>
         <source>Exporting %1 of %2…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4865"/>
+        <location filename="../ui/main_window.py" line="5137"/>
         <source>Export Failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4866"/>
+        <location filename="../ui/main_window.py" line="5138"/>
         <source>%1 export target(s) failed:
 %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4873"/>
+        <location filename="../ui/main_window.py" line="5145"/>
         <source>Export complete (%1 file(s)).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4925"/>
+        <location filename="../ui/main_window.py" line="5197"/>
         <source>Automation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4947"/>
+        <location filename="../ui/main_window.py" line="5219"/>
         <source>Automation Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4965"/>
+        <location filename="../ui/main_window.py" line="5237"/>
         <source>Running automation…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5011"/>
+        <location filename="../ui/main_window.py" line="5283"/>
         <source>Assistant edit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5026"/>
+        <location filename="../ui/main_window.py" line="5298"/>
         <source>PixelArt Creator</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5027"/>
+        <location filename="../ui/main_window.py" line="5299"/>
         <source>Tools</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5028"/>
+        <location filename="../ui/main_window.py" line="5300"/>
         <source>Palette</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5029"/>
+        <location filename="../ui/main_window.py" line="5301"/>
         <source>Symmetry</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5030"/>
+        <location filename="../ui/main_window.py" line="5302"/>
         <source>Layers</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5031"/>
+        <location filename="../ui/main_window.py" line="5303"/>
         <source>Timeline</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5032"/>
+        <location filename="../ui/main_window.py" line="5304"/>
         <source>Onion Skin</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5033"/>
+        <location filename="../ui/main_window.py" line="5305"/>
         <source>Frame Tags</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5034"/>
+        <location filename="../ui/main_window.py" line="5306"/>
         <source>Palette Editor</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5035"/>
+        <location filename="../ui/main_window.py" line="5307"/>
         <source>Constraints</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5036"/>
+        <location filename="../ui/main_window.py" line="5308"/>
         <source>Shade Ramps</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5038"/>
+        <location filename="../ui/main_window.py" line="5310"/>
         <source>Analytics</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5039"/>
+        <location filename="../ui/main_window.py" line="5311"/>
         <source>Tileset Editor</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5040"/>
+        <location filename="../ui/main_window.py" line="5312"/>
         <source>Tilemap Layers</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5041"/>
+        <location filename="../ui/main_window.py" line="5313"/>
         <source>Tilemap Canvas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5042"/>
+        <location filename="../ui/main_window.py" line="5314"/>
         <source>Batch Export</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5043"/>
+        <location filename="../ui/main_window.py" line="5315"/>
         <source>Macros</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5044"/>
+        <location filename="../ui/main_window.py" line="5316"/>
         <source>Script Runner</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5045"/>
+        <location filename="../ui/main_window.py" line="5317"/>
         <source>Plugins</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5046"/>
+        <location filename="../ui/main_window.py" line="5318"/>
         <source>Batch Recolour</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5047"/>
+        <location filename="../ui/main_window.py" line="5319"/>
         <source>Procedural Generation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5048"/>
+        <location filename="../ui/main_window.py" line="5320"/>
         <source>Shared Projects</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5049"/>
+        <location filename="../ui/main_window.py" line="5321"/>
         <source>Comments</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5050"/>
+        <location filename="../ui/main_window.py" line="5322"/>
         <source>Presence</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5051"/>
+        <location filename="../ui/main_window.py" line="5323"/>
         <source>Branching</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5052"/>
+        <location filename="../ui/main_window.py" line="5324"/>
         <source>Asset Library</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5053"/>
+        <location filename="../ui/main_window.py" line="5325"/>
         <source>Asset Search</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5054"/>
+        <location filename="../ui/main_window.py" line="5326"/>
         <source>Asset Tagging</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5055"/>
+        <location filename="../ui/main_window.py" line="5327"/>
         <source>Dependency Graph</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5056"/>
+        <location filename="../ui/main_window.py" line="5328"/>
         <source>Asset Versions</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5057"/>
+        <location filename="../ui/main_window.py" line="5329"/>
         <source>Asset Reuse</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5061"/>
+        <location filename="../ui/main_window.py" line="5333"/>
         <source>Real-Size Preview</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5062"/>
+        <location filename="../ui/main_window.py" line="5334"/>
         <source>Timelapse</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5063"/>
+        <location filename="../ui/main_window.py" line="5335"/>
         <source>Reopened Recording</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5064"/>
+        <location filename="../ui/main_window.py" line="5336"/>
         <source>Open documents</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5065"/>
+        <location filename="../ui/main_window.py" line="5337"/>
         <source>Floating selection status</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5069"/>
+        <location filename="../ui/main_window.py" line="5341"/>
         <source>Pencil</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5070"/>
+        <location filename="../ui/main_window.py" line="5342"/>
         <source>Eraser</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5071"/>
+        <location filename="../ui/main_window.py" line="5343"/>
         <source>Fill</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5072"/>
+        <location filename="../ui/main_window.py" line="5344"/>
         <source>Line</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5073"/>
+        <location filename="../ui/main_window.py" line="5345"/>
         <source>Colour picker</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5074"/>
+        <location filename="../ui/main_window.py" line="5346"/>
         <source>Rectangle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5075"/>
+        <location filename="../ui/main_window.py" line="5347"/>
         <source>Ellipse</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5076"/>
+        <location filename="../ui/main_window.py" line="5348"/>
         <source>Rectangle select</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5077"/>
+        <location filename="../ui/main_window.py" line="5349"/>
         <source>Lasso select</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5078"/>
+        <location filename="../ui/main_window.py" line="5350"/>
         <source>Magic wand</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5079"/>
-        <location filename="../ui/main_window.py" line="5136"/>
+        <location filename="../ui/main_window.py" line="5351"/>
+        <location filename="../ui/main_window.py" line="5409"/>
         <source>Dither</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5088"/>
+        <location filename="../ui/main_window.py" line="5360"/>
         <source>&amp;New</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5089"/>
+        <location filename="../ui/main_window.py" line="5361"/>
         <source>&amp;Open…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5090"/>
+        <location filename="../ui/main_window.py" line="5362"/>
         <source>&amp;Save</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5091"/>
+        <location filename="../ui/main_window.py" line="5363"/>
         <source>Save &amp;As…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5092"/>
+        <location filename="../ui/main_window.py" line="5364"/>
         <source>&amp;Export…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5093"/>
+        <location filename="../ui/main_window.py" line="5365"/>
         <source>&amp;Close</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5095"/>
+        <location filename="../ui/main_window.py" line="5367"/>
         <source>&amp;Connect…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5096"/>
+        <location filename="../ui/main_window.py" line="5368"/>
         <source>&amp;Disconnect</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5097"/>
+        <location filename="../ui/main_window.py" line="5369"/>
         <source>&amp;Save to Cloud…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5098"/>
+        <location filename="../ui/main_window.py" line="5370"/>
         <source>&amp;Open from Cloud…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5099"/>
+        <location filename="../ui/main_window.py" line="5371"/>
         <source>&amp;Version History…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5101"/>
+        <location filename="../ui/main_window.py" line="5373"/>
         <source>Start &amp;Real-time…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5102"/>
+        <location filename="../ui/main_window.py" line="5374"/>
         <source>Stop Real-&amp;time</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5103"/>
+        <location filename="../ui/main_window.py" line="5375"/>
         <source>Show &amp;Live Cursors</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5104"/>
+        <location filename="../ui/main_window.py" line="5376"/>
         <source>Zoom &amp;In</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5105"/>
+        <location filename="../ui/main_window.py" line="5377"/>
         <source>Zoom &amp;Out</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5106"/>
+        <location filename="../ui/main_window.py" line="5378"/>
         <source>&amp;Fit to View</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5107"/>
+        <location filename="../ui/main_window.py" line="5379"/>
+        <source>Fit to &amp;Content</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/main_window.py" line="5380"/>
         <source>Show &amp;Grid</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5108"/>
+        <location filename="../ui/main_window.py" line="5381"/>
         <source>&amp;Snap to Grid</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5109"/>
+        <location filename="../ui/main_window.py" line="5382"/>
         <source>&amp;Anti-aliasing Off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5110"/>
+        <location filename="../ui/main_window.py" line="5383"/>
         <source>&amp;Tiled Mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5111"/>
+        <location filename="../ui/main_window.py" line="5384"/>
         <source>Light</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5112"/>
+        <location filename="../ui/main_window.py" line="5385"/>
         <source>Dark</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5114"/>
+        <location filename="../ui/main_window.py" line="5387"/>
         <source>New Tileset from Image…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5115"/>
+        <location filename="../ui/main_window.py" line="5388"/>
         <source>New Tilemap</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5116"/>
+        <location filename="../ui/main_window.py" line="5389"/>
         <source>Import Tiled JSON…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5117"/>
+        <location filename="../ui/main_window.py" line="5390"/>
         <source>Export Tiled JSON…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5118"/>
+        <location filename="../ui/main_window.py" line="5391"/>
         <source>Stamp Tool</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5119"/>
+        <location filename="../ui/main_window.py" line="5392"/>
         <source>Place the selected tile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5120"/>
+        <location filename="../ui/main_window.py" line="5393"/>
         <source>Tile Eraser</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5121"/>
+        <location filename="../ui/main_window.py" line="5394"/>
         <source>Clear the target cell</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5122"/>
+        <location filename="../ui/main_window.py" line="5395"/>
         <source>Rectangle Fill</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5124"/>
+        <location filename="../ui/main_window.py" line="5397"/>
         <source>Fill a dragged rectangle with the selected tile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5126"/>
+        <location filename="../ui/main_window.py" line="5399"/>
         <source>Flip Stamp Horizontal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5127"/>
+        <location filename="../ui/main_window.py" line="5400"/>
         <source>Flip Stamp Vertical</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5128"/>
+        <location filename="../ui/main_window.py" line="5401"/>
         <source>Rotate Stamp 90° CW</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5132"/>
+        <location filename="../ui/main_window.py" line="5405"/>
         <source>Fille&amp;d Shapes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5133"/>
+        <location filename="../ui/main_window.py" line="5406"/>
         <source>&amp;Pixel Perfect</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5134"/>
+        <location filename="../ui/main_window.py" line="5407"/>
         <source>Tolerance</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5135"/>
+        <location filename="../ui/main_window.py" line="5408"/>
         <source>Magic-wand tolerance</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5137"/>
+        <location filename="../ui/main_window.py" line="5410"/>
         <source>Dither mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5138"/>
+        <location filename="../ui/main_window.py" line="5411"/>
         <source>Ordered (Bayer)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5139"/>
+        <location filename="../ui/main_window.py" line="5412"/>
         <source>Floyd–Steinberg</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5140"/>
+        <location filename="../ui/main_window.py" line="5413"/>
         <source>&amp;Extract from Image…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5141"/>
+        <location filename="../ui/main_window.py" line="5414"/>
         <source>Palette &amp;Swap…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5143"/>
+        <location filename="../ui/main_window.py" line="5416"/>
         <source>Convert to Inde&amp;xed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5144"/>
+        <location filename="../ui/main_window.py" line="5417"/>
         <source>&amp;Convert to RGBA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5146"/>
+        <location filename="../ui/main_window.py" line="5419"/>
         <source>Select &amp;All</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5147"/>
+        <location filename="../ui/main_window.py" line="5420"/>
         <source>&amp;Deselect</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5148"/>
+        <location filename="../ui/main_window.py" line="5421"/>
         <source>&amp;Invert Selection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5149"/>
+        <location filename="../ui/main_window.py" line="5422"/>
         <source>&amp;Clear Selection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5151"/>
+        <location filename="../ui/main_window.py" line="5424"/>
         <source>Flip &amp;Horizontal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5152"/>
+        <location filename="../ui/main_window.py" line="5425"/>
         <source>Flip &amp;Vertical</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5153"/>
+        <location filename="../ui/main_window.py" line="5426"/>
         <source>Rotate 90° C&amp;W</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5154"/>
+        <location filename="../ui/main_window.py" line="5427"/>
         <source>Rotate 90° CC&amp;W</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5155"/>
+        <location filename="../ui/main_window.py" line="5428"/>
         <source>&amp;Scale…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5156"/>
+        <location filename="../ui/main_window.py" line="5429"/>
         <source>Canvas &amp;Size…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5157"/>
+        <location filename="../ui/main_window.py" line="5430"/>
         <source>&amp;Rotate (RotSprite)…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5159"/>
+        <location filename="../ui/main_window.py" line="5432"/>
         <source>Guides &amp;&amp; &amp;Rulers</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5160"/>
+        <location filename="../ui/main_window.py" line="5433"/>
         <source>&amp;Isometric Grid</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5161"/>
+        <location filename="../ui/main_window.py" line="5434"/>
         <source>Configure &amp;Isometric Grid…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5162"/>
+        <location filename="../ui/main_window.py" line="5435"/>
         <source>&amp;Perspective Grid</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5163"/>
+        <location filename="../ui/main_window.py" line="5436"/>
         <source>Configure &amp;Perspective…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5164"/>
+        <location filename="../ui/main_window.py" line="5437"/>
         <source>&amp;New View</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5165"/>
+        <location filename="../ui/main_window.py" line="5438"/>
         <source>Reference &amp;Board</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5167"/>
+        <location filename="../ui/main_window.py" line="5440"/>
         <source>&amp;File</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5168"/>
+        <location filename="../ui/main_window.py" line="5441"/>
         <source>&amp;Edit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5169"/>
+        <location filename="../ui/main_window.py" line="5442"/>
         <source>&amp;Select</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5170"/>
+        <location filename="../ui/main_window.py" line="5443"/>
         <source>&amp;Image</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5171"/>
+        <location filename="../ui/main_window.py" line="5444"/>
         <source>&amp;View</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5172"/>
+        <location filename="../ui/main_window.py" line="5445"/>
         <source>&amp;Aids</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5173"/>
+        <location filename="../ui/main_window.py" line="5446"/>
         <source>&amp;Palette</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5174"/>
+        <location filename="../ui/main_window.py" line="5447"/>
         <source>Tile&amp;map</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5175"/>
+        <location filename="../ui/main_window.py" line="5448"/>
         <source>&amp;Automation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5176"/>
+        <location filename="../ui/main_window.py" line="5449"/>
         <source>&amp;Cloud</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5177"/>
+        <location filename="../ui/main_window.py" line="5450"/>
         <source>&amp;Library</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5179"/>
+        <location filename="../ui/main_window.py" line="5452"/>
         <source>&amp;Register Active Document…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5181"/>
+        <location filename="../ui/main_window.py" line="5454"/>
         <source>Register &amp;Selection…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5182"/>
+        <location filename="../ui/main_window.py" line="5455"/>
         <source>&amp;Import Asset…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5183"/>
+        <location filename="../ui/main_window.py" line="5456"/>
         <source>&amp;Export Asset…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5184"/>
+        <location filename="../ui/main_window.py" line="5457"/>
         <source>Export Project &amp;Bundle…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5185"/>
+        <location filename="../ui/main_window.py" line="5458"/>
         <source>I&amp;mport Project Bundle…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5186"/>
+        <location filename="../ui/main_window.py" line="5459"/>
         <source>&amp;Theme</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5187"/>
+        <location filename="../ui/main_window.py" line="5460"/>
         <source>&amp;Language</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5188"/>
+        <location filename="../ui/main_window.py" line="5461"/>
         <source>&amp;Help</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5189"/>
+        <location filename="../ui/main_window.py" line="5462"/>
         <source>&amp;User Guide</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4206,33 +4232,33 @@
 <context>
     <name>Palette_Panel</name>
     <message>
-        <location filename="../ui/main_window.py" line="499"/>
+        <location filename="../ui/main_window.py" line="510"/>
         <source>Colour palette</source>
         <extracomment>Stable cloud recovery-slot key for the working document when no named cloud project is active (presentation-only identifier, not a domain tuning value). A sensible starter palette for a new document (usability, not a spec value). Swatch icon edge, px (presentation-only sizing, not a domain tuning value). Filename of the app-level Favourites store under AppConfigLocation (ADR-0004). Longest edge of a RotSprite preview thumbnail, px (presentation-only sizing, not a domain tuning value — cf. _SWATCH_PX). Tool ids whose stroke WRITES the active colour to the buffer (CL-18, 2026-08-24 ruling UR-HUBFILL-2): the value written is ``ctx.paint_value()`` / ``ctx.active_color`` itself, not merely a live-preview tint. These five run under REQ-P3-UI-006 leg (2) from a completed colour-hub pick; the other six tool ids (eraser, the three selection tools, picker, dither) hide the hub&apos;s wheel/value/numeric/harmony pick surface (``set_pick_surface_visible``) and never run from a hub pick, even a Favourites activation (SC-U006-13). Tool identifiers, not numeric tuning values, so this stays a set of the tools&apos; own ``tool_id`` class attributes rather than a `constants.py` entry. FIX 3 (2026-08-24 field defect, RC-1 follow-up). Every right-hand &quot;workflow&quot; panel is tabified into ONE dock group (``_add_workflow_dock``), and a Qt tab group&apos;s minimum width is the MAXIMUM over its members&apos; own content-derived ``minimumSizeHint()`` — verified up to 766 px for one panel (probe-runtime-canvas-20260824.py). That floor overrides FIX 1&apos;s ``CANVAS_PANE_WIDTH_RATIO`` split regardless of window width, so no per-panel edit can fix it: the override has to happen once, here, at the single place every workflow dock is created. Overriding ``QWidget.setMinimumWidth()`` on the panel (verified empirically to lower ``QDockWidget.minimumSizeHint()`` even though the panel&apos;s own ``minimumSizeHint()`` is unchanged and content can clip below it — Qt&apos;s dock layout consults the explicit minimum, not the generic ``QLayoutItem.minimumSize()`` ``expandedTo`` rule) is presentation sizing, not a domain tuning value, so it stays local exactly like _SWATCH_PX / _PREVIEW_MAX_EDGE_PX above — see the FIX-3 report note requesting this be promoted to logic/constants.py (AGT-03 surface) as e.g. ``WORKFLOW_DOCK_MIN_WIDTH_PX`` rather than reached into from here. FIX 3 (2026-08-24 field defect). Bound on ``Main_Window._settle_width()``&apos;s event-flush loop (presentation-only startup timing, not a domain tuning value — cf. _SWATCH_PX / _PREVIEW_MAX_EDGE_PX above). Observed settling in 2 passes on the probe&apos;s offscreen run; this leaves generous headroom without risking an unbounded/hanging wait on a layout that never settles. FIX 1 (2026-08-24 field defect, RC-1 follow-up on the earlier FIX 1). The window was never given an explicit default size; Qt sized it to its layout hint, which on a real desktop happened to land the canvas at only ~10% of the window even after the FIX 1/FIX 3 dock-splitting work above, because that split is a RATIO of whatever width the window already has -- a window with no deliberate width defeats a width RATIO. Fraction of the primary screen&apos;s *available* geometry (excludes taskbars/docks) the window claims on first launch, absent any saved geometry restore (presentation-only startup sizing, not a domain tuning value -- cf. _WORKFLOW_DOCK_MIN_WIDTH_PX / _SWATCH_PX above). Report note: a candidate for promotion to logic/constants.py as e.g. DEFAULT_LAUNCH_SIZE_RATIO, exactly like that floor&apos;s own promotion note -- left local here on the same precedent.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="500"/>
+        <location filename="../ui/main_window.py" line="511"/>
         <source>Palette panel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="501"/>
+        <location filename="../ui/main_window.py" line="512"/>
         <source>Colour mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="506"/>
+        <location filename="../ui/main_window.py" line="517"/>
         <source>Mode: Indexed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="508"/>
+        <location filename="../ui/main_window.py" line="519"/>
         <source>Mode: RGBA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="510"/>
+        <location filename="../ui/main_window.py" line="521"/>
         <source>Mode: —</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4918,93 +4944,94 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Reference_Board</name>
     <message>
-        <location filename="../ui/reference_board.py" line="307"/>
-        <source>Reference board full</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/reference_board.py" line="308"/>
-        <source>The board already holds the maximum of {0} images.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../ui/reference_board.py" line="317"/>
-        <source>Cannot load image</source>
+        <source>Reference board full</source>
+        <extracomment>Emitted with the picked RGBA tuple when a plain wheel notch travels the shared Favourites cursor (REQ-IS-UI-008, D-16). The board never touches the document/buffers/undo stack (REQ-P9-UI-010); this only sets the app-wide active colour/palette state, same as every other surface. The persisted Favourites model bound via :meth:`set_favourites_model` (T-21/D-16); ``None`` until the shell binds one.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../ui/reference_board.py" line="318"/>
+        <source>The board already holds the maximum of {0} images.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/reference_board.py" line="327"/>
+        <source>Cannot load image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/reference_board.py" line="328"/>
         <source>The file could not be read as an image: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="389"/>
+        <location filename="../ui/reference_board.py" line="399"/>
         <source>Save Reference Board</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="391"/>
-        <location filename="../ui/reference_board.py" line="405"/>
+        <location filename="../ui/reference_board.py" line="401"/>
+        <location filename="../ui/reference_board.py" line="415"/>
         <source>Reference board (*.pixboard)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="398"/>
+        <location filename="../ui/reference_board.py" line="408"/>
         <source>Save failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="403"/>
+        <location filename="../ui/reference_board.py" line="413"/>
         <source>Open Reference Board</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="413"/>
+        <location filename="../ui/reference_board.py" line="423"/>
         <source>Open failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="420"/>
+        <location filename="../ui/reference_board.py" line="430"/>
         <source>Add Reference Image</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="422"/>
+        <location filename="../ui/reference_board.py" line="432"/>
         <source>Images (*.png *.jpg *.jpeg *.bmp *.gif)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="446"/>
+        <location filename="../ui/reference_board.py" line="493"/>
         <source>Reference Board</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="447"/>
+        <location filename="../ui/reference_board.py" line="494"/>
         <source>Reference board</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="448"/>
+        <location filename="../ui/reference_board.py" line="495"/>
         <source>Reference board canvas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="449"/>
+        <location filename="../ui/reference_board.py" line="496"/>
         <source>Add Image…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="450"/>
+        <location filename="../ui/reference_board.py" line="497"/>
         <source>Save…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="451"/>
+        <location filename="../ui/reference_board.py" line="498"/>
         <source>Open…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="452"/>
+        <location filename="../ui/reference_board.py" line="499"/>
         <source>Always on Top</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5012,13 +5039,13 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Reference_Item</name>
     <message>
-        <location filename="../ui/reference_board.py" line="243"/>
+        <location filename="../ui/reference_board.py" line="244"/>
         <source>Raise</source>
         <extracomment>Per-wheel-notch board zoom step. Corner grab-handle edge, in item-local px (REQ-P9-UI-006 resize gesture). No matching UI-metric constant exists in ``logic/constants.py`` today (gap reported in this task&apos;s EXIT_STATUS); this module already keeps its own UI-only metrics locally (see ``_BOARD_ZOOM_STEP`` above), so the same convention is followed here rather than inlining a literal (S12). Minimum absolute scale factor a corner-drag resize may reach (guards against a degenerate/zero-size or inverted reference item). Opposite-corner anchor used while resizing (the anchor stays fixed).</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="246"/>
+        <location filename="../ui/reference_board.py" line="247"/>
         <source>Lower</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5546,48 +5573,48 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Tilemap_Canvas</name>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="698"/>
+        <location filename="../ui/tilemap_canvas.py" line="717"/>
         <source>Auto-tile</source>
-        <extracomment>Initial scene window (px) for a fresh infinite map; grows to include stamps. Edge (px) of one checker square drawn behind the map (presentation-only). Platform name Qt reports with no windowing system (keep the raster viewport). MiB budget of the chunk pixmap LRU (D1). A 16x16 chunk at 16 px tiles is a 256x256 RGBA pixmap (~256 KiB), so ~128 MiB keeps a large working set resident while staying bounded on an infinite / fully filled map. Presentation/resource sizing (like frame_cache&apos;s budget), so it lives here in ui/, not logic/constants. Max cold chunks rendered *inline* per paint before the rest stream off-thread (D4). A cold chunk is ~0.84 ms (AGT-10), so a handful stays well under the 16 ms budget and keeps a stamp / small pan instant; a full cold viewport streams. Bounded wait (ms) for an in-flight off-thread chunk render to finish on rebind / window close before the pool is torn down (mirrors canvas_scene&apos;s shutdown wait). Emitted after a layer&apos;s auto-tile mode changes (drives the panel checkbox). Emitted when a stamp/fill is refused because the tilemap has no tileset bound yet (CI-red field defect, 2026-08-24: the original FIX 5 routed this refusal through a blocking ``QMessageBox.warning``, which hangs a headless parallel worker with nothing to dismiss it). Follows the ``Canvas_View.lockedLayerEditRejected`` precedent exactly -- a signal the shell surfaces non-blockingly, never a modal, for a refusal reachable from a plain mouse gesture. Emitted when a stamp/fill is refused because no tile is selected as the active brush (a tileset IS bound; the brush gid is 0). Kept distinct from ``noTilesetBoundRejected`` so the shell shows the honest message for each case, exactly as the two ``_warn_no_active_brush`` branches already did.</extracomment>
+        <extracomment>Initial scene window (px) for a fresh infinite map; grows to include stamps. Edge (px) of one checker square drawn behind the map (presentation-only). Platform name Qt reports with no windowing system (keep the raster viewport). MiB budget of the chunk pixmap LRU (D1). A 16x16 chunk at 16 px tiles is a 256x256 RGBA pixmap (~256 KiB), so ~128 MiB keeps a large working set resident while staying bounded on an infinite / fully filled map. Presentation/resource sizing (like frame_cache&apos;s budget), so it lives here in ui/, not logic/constants. Max cold chunks rendered *inline* per paint before the rest stream off-thread (D4). A cold chunk is ~0.84 ms (AGT-10), so a handful stays well under the 16 ms budget and keeps a stamp / small pan instant; a full cold viewport streams. Bounded wait (ms) for an in-flight off-thread chunk render to finish on rebind / window close before the pool is torn down (mirrors canvas_scene&apos;s shutdown wait). Emitted after a layer&apos;s auto-tile mode changes (drives the panel checkbox). Emitted when a stamp/fill is refused because the tilemap has no tileset bound yet (CI-red field defect, 2026-08-24: the original FIX 5 routed this refusal through a blocking ``QMessageBox.warning``, which hangs a headless parallel worker with nothing to dismiss it). Follows the ``Canvas_View.lockedLayerEditRejected`` precedent exactly -- a signal the shell surfaces non-blockingly, never a modal, for a refusal reachable from a plain mouse gesture. Emitted when a stamp/fill is refused because no tile is selected as the active brush (a tileset IS bound; the brush gid is 0). Kept distinct from ``noTilesetBoundRejected`` so the shell shows the honest message for each case, exactly as the two ``_warn_no_active_brush`` branches already did. Emitted with the picked RGBA tuple when a plain wheel notch / an unmodified middle click travels the shared Favourites cursor (REQ-IS-UI-008/-012, T-21). Mirrors ``Canvas_View.colorPicked`` — the tilemap has no colour of its own to paint with, but the app-wide active colour/palette state is shared across every surface. A middle press awaiting the click/drag verdict — see ``Canvas_View._middle_pending`` (REQ-IS-UI-011); same behaviour here. The persisted Favourites model bound via :meth:`set_favourites_model` (T-21); ``None`` until the shell binds one.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="875"/>
+        <location filename="../ui/tilemap_canvas.py" line="972"/>
         <source>Stamp</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="877"/>
+        <location filename="../ui/tilemap_canvas.py" line="974"/>
         <source>Stamp Tile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="886"/>
+        <location filename="../ui/tilemap_canvas.py" line="983"/>
         <source>Erase</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="888"/>
+        <location filename="../ui/tilemap_canvas.py" line="985"/>
         <source>Erase Tile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="906"/>
+        <location filename="../ui/tilemap_canvas.py" line="1003"/>
         <source>Fill</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="908"/>
+        <location filename="../ui/tilemap_canvas.py" line="1005"/>
         <source>Fill Rectangle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="966"/>
+        <location filename="../ui/tilemap_canvas.py" line="1063"/>
         <source>Tilemap canvas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="969"/>
+        <location filename="../ui/tilemap_canvas.py" line="1066"/>
         <source>Tilemap: left-click to stamp/erase/fill, middle-drag to pan, H/V flip, R rotate</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6028,58 +6055,63 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Timeline_Grid_View</name>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="546"/>
+        <location filename="../ui/timeline_grid_view.py" line="553"/>
         <source>Toggle Cel Visibility</source>
-        <extracomment>Emitted with the frame index a selection (of any kind) settled on (REQ-P5-UI-023). Pushes no command. Emitted with the ``layer_id`` a cell/row-header selection settled on (REQ-P5-UI-023). Pushes no command. Emitted with the frame index the cursor is scrubbing over during a body drag away from any occupied cell (REQ-P5-UI-025). Pushes no command.</extracomment>
+        <extracomment>Emitted with the frame index a selection (of any kind) settled on (REQ-P5-UI-023). Pushes no command. Emitted with the ``layer_id`` a cell/row-header selection settled on (REQ-P5-UI-023). Pushes no command. Emitted with the frame index the cursor is scrubbing over during a body drag away from any occupied cell (REQ-P5-UI-025). Pushes no command. Emitted when a Ctrl+right-click removal was refused because the target document has only one frame left (D-22). ``Document._ensure_frame_removable`` is the single, unconditional owner of that invariant; this view asks the bound document itself (``len(document.frames)``) rather than keeping a second, independently-maintained notion of &quot;removable&quot; — so the two can never drift apart. Pushes no command; the gesture stays inert.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="574"/>
+        <location filename="../ui/timeline_grid_view.py" line="589"/>
         <source>Create Cel Here</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="576"/>
+        <location filename="../ui/timeline_grid_view.py" line="591"/>
         <source>Create a new drawing on this track in this frame</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="594"/>
+        <location filename="../ui/timeline_grid_view.py" line="609"/>
         <source>Create Cel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="618"/>
+        <location filename="../ui/timeline_grid_view.py" line="642"/>
+        <source>Remove Frame</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/timeline_grid_view.py" line="666"/>
         <source>Reorder Frame</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="768"/>
+        <location filename="../ui/timeline_grid_view.py" line="816"/>
         <source>Copy Cel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="776"/>
+        <location filename="../ui/timeline_grid_view.py" line="824"/>
         <source>Move Cel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="803"/>
+        <location filename="../ui/timeline_grid_view.py" line="851"/>
         <source>Timeline grid</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="806"/>
+        <location filename="../ui/timeline_grid_view.py" line="854"/>
         <source>Frames as columns, layer tracks as rows; drag a header to reorder, drag a drawing to move it (hold Ctrl to copy), or open the context menu on an empty cell to create a cel there</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="811"/>
+        <location filename="../ui/timeline_grid_view.py" line="859"/>
         <source>Frame headers</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="812"/>
+        <location filename="../ui/timeline_grid_view.py" line="860"/>
         <source>Layer track headers</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6647,13 +6679,13 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>_WheelPad</name>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="275"/>
+        <location filename="../ui/colour_wheel_widget.py" line="306"/>
         <source>Colour wheel</source>
-        <extracomment>Hue at the top of the circle, in degrees (achromatic fallback keeps this hue). Number of conical-gradient stops sweeping the hue circle (six primaries + wrap). Edge of a harmony/preview swatch button, px (presentation-only sizing). Minimum wheel diameter, px (presentation-only sizing). Marker radius drawn at the current hue/saturation, px. Keyboard nudge steps for the wheel (hue degrees / saturation fraction). Emitted with this swatch&apos;s RGBA tuple when the button is activated. Emitted with ``(hue_degrees, saturation)`` when the user picks on the wheel.</extracomment>
+        <extracomment>Hue at the top of the circle, in degrees (achromatic fallback keeps this hue). Number of conical-gradient stops sweeping the hue circle (six primaries + wrap). Edge of a harmony/preview swatch button, px (presentation-only sizing). Minimum wheel diameter, px (presentation-only sizing). Marker radius drawn at the current hue/saturation, px. Keyboard nudge steps for the wheel (hue degrees / saturation fraction). Single left click — paint this swatch&apos;s colour, leave the wheel alone. Double left click / Space / Return — adopt this swatch&apos;s colour into the wheel, paint nothing. Emitted with ``(hue_degrees, saturation)`` when the user picks on the wheel.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="278"/>
+        <location filename="../ui/colour_wheel_widget.py" line="309"/>
         <source>Hue and saturation wheel; use the arrow keys or the numeric fields to pick a colour without a mouse</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6718,6 +6750,25 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
     <message>
         <location filename="../ui/tilemap_io_actions.py" line="77"/>
         <source>Could not import the map: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>tool_icons</name>
+    <message>
+        <location filename="../ui/tool_icons.py" line="125"/>
+        <source>unknown tool glyph id: %1</source>
+        <extracomment>The importable package the glyph bundle is shipped inside (package data), matching ``data/guide_content.py``&apos;s ``BUNDLE_PACKAGE`` convention. Package-data subdirectory holding the eleven glyphs, relative to :data:`_ICON_PACKAGE` (``pixelart_creator/icons/tools/``). SVG file extension for a glyph resource. Square render size, in device-independent pixels, for the rasterised glyph and its tinted pixmap. One named constant, referenced everywhere a size is needed in this module (S12) — this module owns no other size. The theme role whose colour tints every glyph (`ui/theme.py`&apos;s role palette; `text` exists in both themes, QT-D1). The eleven shipped `tool_id`s, one per authored glyph stem (`pixelart_creator/icons/tools/&lt;id&gt;.svg`) — the exact `tool_id` class attributes carried by `ui/tools/*.py` (pencil, eraser, fill, line, picker, rectangle, ellipse, select_rect, select_lasso, select_wand, dither). Kept as a literal tuple here (not imported from each tool class) so this module has no dependency on the tool-strategy classes themselves — only on the glyph *ids* they happen to share.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/tool_icons.py" line="132"/>
+        <source>missing tool glyph asset for: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/tool_icons.py" line="150"/>
+        <source>unknown theme: %1</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

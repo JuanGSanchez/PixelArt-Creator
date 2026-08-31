@@ -11,7 +11,8 @@ to pick a colour — a curated **Favourites** list and a full **colour wheel** w
 Right-click anywhere on the [canvas](canvas-and-view.md). The colour hub appears
 anchored at the cursor, so you never travel to a far-off panel to change colour. Pick a
 colour and it becomes the **active colour** at once; the active swatch updates to
-reflect it.
+reflect it. **Right-click again while the hub is open dismisses it** without
+picking anything, so you can back out and keep painting exactly where you were.
 
 ## Favourites
 
@@ -23,6 +24,12 @@ reflect it.
 
 Your Favourites list **persists** between sessions, so your working palette is always
 there when you reopen the app. Clicking a favourite applies it immediately.
+
+There is also a gesture that reaches Favourites without opening the hub at all:
+
+| Gesture | Result |
+| --- | --- |
+| **Middle-click** | Selects the first Favourites entry and makes it the active colour, on the spot, whether or not the hub is open. |
 
 ## The colour wheel
 
@@ -45,12 +52,22 @@ without guessing:
 | **Split-complementary** | The two hues either side of the complement (±150°). |
 | **Shade / tint ramps** | Darker (shade) and lighter (tint) steps of your colour. |
 
-**Double-click a harmony swatch to apply it** — that makes it your active colour. A
-single click only **selects** the swatch (and moves keyboard focus to it); it does not
-change your active colour. This is a deliberate change from a single-click apply, so
-if a click alone no longer picks up the colour, double-click it instead. Keyboard
-activation is unchanged: focus a swatch with Tab and press **Space** or **Enter** to
-apply it. The harmonies recompute live as you move around the wheel.
+The wheel itself and the harmony swatches — the small circles arranged around it —
+behave differently, and the two are worth keeping apart:
+
+- **The wheel pad is not a swatch.** Dragging it sets the colour of whichever
+  harmony circle is currently selected; it has no double-click of its own.
+- **A single click on a harmony circle paints with that circle's colour right
+  away**, and leaves the circle's own colour untouched — nothing about the wheel
+  or the circle changes, only your canvas does.
+- **Double-click a circle to adopt its colour instead** — that makes it your
+  active colour without painting anything. Keyboard activation does the same:
+  focus a circle with Tab and press **Space** or **Enter** to adopt it.
+
+So a single click is for painting on the fly with a harmony colour without
+disturbing your active colour, and a double-click (or Space / Enter on a
+focused circle) is for committing to it as your active colour. The harmonies
+recompute live as you move around the wheel.
 
 ## Applying and saving
 

@@ -12,7 +12,9 @@ elección de inmediato.
 Haz clic derecho en cualquier parte del [lienzo](canvas-and-view.md). El centro de
 color aparece anclado en el cursor, así que nunca tienes que ir a un panel lejano
 para cambiar de color. Elige un color y se convierte de inmediato en el **color
-activo**; la muestra activa se actualiza para reflejarlo.
+activo**; la muestra activa se actualiza para reflejarlo. **Un nuevo clic derecho
+mientras el centro está abierto lo descarta** sin elegir nada, así que puedes
+salir y seguir pintando exactamente donde estabas.
 
 ## Favoritos
 
@@ -25,6 +27,12 @@ activo**; la muestra activa se actualiza para reflejarlo.
 Tu lista de Favoritos **persiste** entre sesiones, así que tu paleta de trabajo
 siempre está ahí cuando vuelves a abrir la aplicación. Hacer clic en un favorito lo
 aplica de inmediato.
+
+También hay un gesto que llega a Favoritos sin abrir el centro:
+
+| Gesto | Resultado |
+| --- | --- |
+| **Middle-click** | Selecciona la primera entrada de Favoritos y la convierte en el color activo, al instante, esté o no abierto el centro. |
 
 ## La rueda de color
 
@@ -47,13 +55,24 @@ coherente sin adivinar:
 | **Complementario dividido** | Los dos tonos a cada lado del complementario (±150°). |
 | **Rampas de sombra / tinte** | Pasos más oscuros (sombra) y más claros (tinte) de tu color. |
 
-**Haz doble clic en una muestra de armonía para aplicarla** — así se convierte en tu
-color activo. Un solo clic solo **selecciona** la muestra (y le da el foco de
-teclado); no cambia tu color activo. Es un cambio deliberado respecto a la aplicación
-con un solo clic, así que si un clic ya no aplica el color, haz doble clic. La
-activación por teclado no cambia: da el foco a una muestra con Tab y pulsa
-**Espacio** o **Intro** para aplicarla. Las armonías se recalculan en vivo mientras te
-mueves por la rueda.
+La rueda en sí y las muestras de armonía — los pequeños círculos dispuestos a su
+alrededor — se comportan de forma distinta, y conviene diferenciarlos:
+
+- **El área de la rueda no es una muestra.** Arrastrarla fija el color del
+  círculo de armonía que esté seleccionado en ese momento; no tiene doble clic
+  propio.
+- **Un solo clic en un círculo de armonía pinta con el color de ese círculo al
+  instante**, y deja el color del propio círculo sin cambios — nada de la rueda
+  ni del círculo cambia, solo tu lienzo.
+- **Haz doble clic en un círculo para adoptar su color en su lugar** — así se
+  convierte en tu color activo sin pintar nada. La activación por teclado hace
+  lo mismo: da el foco a un círculo con Tab y pulsa **Space** o **Enter** para
+  adoptarlo.
+
+Así que un solo clic sirve para pintar sobre la marcha con un color de armonía sin
+alterar tu color activo, y un doble clic (o Space/Enter sobre un círculo con
+foco) sirve para adoptarlo como tu color activo. Las armonías se recalculan en
+vivo mientras te mueves por la rueda.
 
 ## Aplicar y guardar
 

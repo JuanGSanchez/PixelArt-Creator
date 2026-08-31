@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from PySide6.QtCore import QCoreApplication, QEvent, QPointF, QRectF, Qt
+from PySide6.QtCore import QCoreApplication, QEvent, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QPainter, QPixmap, QTransform, QWheelEvent
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -46,6 +46,7 @@ from pixelart_creator.data.reference_board_io import (
     save_board,
 )
 from pixelart_creator.logic.constants import MAX_REFERENCE_IMAGES
+from pixelart_creator.logic.favourites import Favourites
 
 #: Per-wheel-notch board zoom step.
 _BOARD_ZOOM_STEP = 1.15
@@ -263,6 +264,12 @@ class Reference_Item(QGraphicsPixmapItem):
 class Reference_Board(QWidget):
     """A PureRef-style floating-reference board (separate scene; .pixboard I/O)."""
 
+    #: Emitted with the picked RGBA tuple when a plain wheel notch travels the
+    #: shared Favourites cursor (REQ-IS-UI-008, D-16). The board never touches
+    #: the document/buffers/undo stack (REQ-P9-UI-010); this only sets the
+    #: app-wide active colour/palette state, same as every other surface.
+    colorPicked = Signal(object)
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """Build the board window (own scene, add/save/load/on-top controls)."""
         super().__init__(parent)
@@ -271,6 +278,9 @@ class Reference_Board(QWidget):
         self._view.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self._view.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         self._items: List[Reference_Item] = []
+        #: The persisted Favourites model bound via :meth:`set_favourites_model`
+        #: (T-21/D-16); ``None`` until the shell binds one.
+        self._favourites: Optional[Favourites] = None
 
         self._add_button = QPushButton(self)
         self._add_button.clicked.connect(self._on_add_image)
@@ -432,12 +442,49 @@ class Reference_Board(QWidget):
             window.show()  # re-apply the flag change
         _ = flags
 
+    def set_favourites_model(self, favourites: Favourites) -> None:
+        """Bind the persisted Favourites model a plain wheel notch travels
+        (REQ-IS-UI-008, T-21/D-16)."""
+        self._favourites = favourites
+
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802 (Qt override)
-        """Zoom the board in/out on a wheel notch (Qt override)."""
+        """``Shift``+wheel zooms the board (D-16); plain wheel travels
+        Favourites (REQ-IS-UI-008, D-16)."""
+        if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            self._zoom_wheel(event)
+        else:
+            self._favourites_wheel(event)
+
+    def _zoom_wheel(self, event: QWheelEvent) -> None:
+        """Zoom the board in/out on a wheel notch.
+
+        Relocated from plain wheel to ``Shift``+wheel (D-16); this board's own
+        step is otherwise unmodified.
+        """
         factor = _BOARD_ZOOM_STEP
         if event.angleDelta().y() < 0:
             factor = 1.0 / factor
         self._view.scale(factor, factor)
+        event.accept()
+
+    def _favourites_wheel(self, event: QWheelEvent) -> None:
+        """Plain wheel steps the Favourites cursor (REQ-IS-UI-008, D-16).
+
+        Wheel down **advances**, wheel up **retreats** (``CL-IS-02`` — see
+        ``Canvas_View._favourites_wheel``). A silent no-op with no favourites
+        bound or an empty list (never zooms, never errors). The board never
+        touches the document/undo stack (REQ-P9-UI-010) — this only sets the
+        app-wide active colour, exactly like every other surface's gesture.
+        """
+        if self._favourites is None:
+            event.accept()
+            return
+        if event.angleDelta().y() < 0:
+            color = self._favourites.advance()
+        else:
+            color = self._favourites.retreat()
+        if color is not None:
+            self.colorPicked.emit(color)
         event.accept()
 
     # -- i18n -------------------------------------------------------------

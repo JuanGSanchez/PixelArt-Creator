@@ -15,10 +15,10 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, cast
+from typing import Any, Callable, Dict, Final, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
-from PySide6.QtCore import QEvent, QRectF, QStandardPaths, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, QRectF, QStandardPaths, Qt, QTimer
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -31,6 +31,7 @@ from PySide6.QtGui import (
     QIcon,
     QImage,
     QKeySequence,
+    QMouseEvent,
     QPixmap,
     QUndoGroup,
     QUndoStack,
@@ -179,12 +180,14 @@ from pixelart_creator.ui.commands import (
     AssistantCommand,
     AutomationCommand,
     CanvasResizeCommand,
+    FrameCommand,
     LogicCommand,
     PaintCommand,
     TilemapCommand,
     TilesetCommand,
 )
 from pixelart_creator.ui.comments_panel import Comments_Panel
+from pixelart_creator.ui.cursor_feedback_overlay import Cursor_Feedback_Overlay
 from pixelart_creator.ui.dependency_graph_view import Dependency_Graph_View
 from pixelart_creator.ui.document_transform_runner import run_document_transform
 from pixelart_creator.ui.export_actions import (
@@ -231,6 +234,7 @@ from pixelart_creator.ui.rotsprite_dialog import RotSprite_Dialog
 from pixelart_creator.ui.script_runner_panel import Script_Runner_Panel
 from pixelart_creator.ui.shade_ramp_picker import Shade_Ramp_Picker
 from pixelart_creator.ui.shared_projects_panel import Shared_Projects_Panel
+from pixelart_creator.ui.shortcut_focus_guard import Shortcut_Focus_Guard
 from pixelart_creator.ui.symmetry_panel import Symmetry_Panel
 from pixelart_creator.ui.theme import (
     THEME_DARK,
@@ -250,7 +254,9 @@ from pixelart_creator.ui.tilemap_layer_panel import Tilemap_Layer_Panel
 from pixelart_creator.ui.tileset_editor_panel import Tileset_Editor_Panel
 from pixelart_creator.ui.timelapse_controls import Timelapse_Controls
 from pixelart_creator.ui.timelapse_frame_view import Timelapse_Frame_View
+from pixelart_creator.ui.timeline_grid_view import Timeline_Grid_View
 from pixelart_creator.ui.timeline_panel import Timeline_Panel
+from pixelart_creator.ui.tool_icons import tool_icon
 from pixelart_creator.ui.tools import (
     DitherTool,
     EllipseTool,
@@ -383,6 +389,11 @@ class _DocTab:
     # (other collaborators' cursors; never persisted). ``None`` until aids attach.
     live_cursors: Optional[Live_Cursors_Overlay] = None
     perspective_overlay: Optional[Perspective_Grid_Overlay] = None
+    # T-20 (REQ-IS-UI-024..026): this tab's transient cursor-feedback square,
+    # a child of ``view.viewport()`` (never the scene — REQ-IS-UI-026 clause
+    # 2). Created with the tab in ``_create_tab_aids``; ``None`` only in the
+    # narrow window between tab construction and that call.
+    feedback_overlay: Optional[Cursor_Feedback_Overlay] = None
     # D-13: the remote CloudVersion.version_id this tab's document was last saved
     # to / restored from, or None if it has no remote lineage yet. Feeds the
     # read-only, Qt-free ``compute_sync_state`` for the Cloud menu / version
@@ -526,6 +537,14 @@ class Main_Window(QMainWindow):
         app = QApplication.instance()
         assert isinstance(app, QApplication)  # a QApplication must already exist
         self._app = app
+        # REQ-IS-UI-006: consumes ShortcutOverride for a plain/Shift'd character
+        # key while a text-entry widget has focus, so the home-row tool keys
+        # (A S D W E F Q + Shift forms) type into a hex-colour/layer-name field
+        # instead of switching tools (plan Section 2, M4). Installed once on the
+        # live QApplication -- app-level, not per-widget -- and parented to it,
+        # not to self, so it outlives every window the guard must protect.
+        self._shortcut_focus_guard = Shortcut_Focus_Guard(app)
+        app.installEventFilter(self._shortcut_focus_guard)
         self._language_manager = LanguageManager(app, parent=self)
         self._undo_group = QUndoGroup(self)
         self._tabs_data: List[_DocTab] = []
@@ -556,6 +575,22 @@ class Main_Window(QMainWindow):
         # bundle — NO off-thread worker/timer — so there is no teardown wiring; the
         # dialog is parented to this window, so it is disposed with it.
         self._user_guide_dialog: Optional[User_Guide_Dialog] = None
+
+        # T-20 (REQ-IS-UI-026): true while the left button is down on a
+        # painting-surface viewport, tracked via an event filter installed on
+        # each tab's ``Canvas_View.viewport()`` below (``_add_document_tab``) —
+        # ``eventFilter`` toggles this flag and never consumes the event, so
+        # every click/drag still reaches the view underneath unchanged.
+        # Approximation, disclosed: this mirrors "a mouse button is down on a
+        # painting surface" but not the stricter "...with a tool armed" half
+        # of REQ-IS-UI-026 — ``Canvas_View``'s own ``_drawing``/``_stroke_anchor``
+        # state (armed-tool-only) is private to ``ui/canvas_view.py``, which is
+        # outside this task's sole write target (``ui/main_window.py``), so a
+        # left press that starts a guide-drag or a space-held pan is also
+        # (over-)suppressed here. That is the safe direction — it can only
+        # suppress a square, never leak one mid-stroke — and is reported as a
+        # named gap rather than silently narrowed.
+        self._stroke_active = False
 
         self._rectangle_tool = RectangleTool()
         self._ellipse_tool = EllipseTool()
@@ -648,6 +683,19 @@ class Main_Window(QMainWindow):
         # Grid cell surface (REQ-P5-UI-023, BF-G1): a cell selection reaches the
         # layer panel through the sibling seam ``Layer_Panel.select_layer``.
         self._timeline_panel.layerSelected.connect(self._layer_panel.select_layer)
+        # D-22: the grid's Ctrl+right-click removal on the document's last
+        # remaining frame is inert by invariant, so it explains itself in the
+        # status bar instead of asking a Yes/No question whose answer cannot
+        # change the outcome. ``Timeline_Panel`` exposes no public seam for its
+        # grid child (T4 keeps it an internal cell surface), so this reaches the
+        # real child instance the same way ``findChildren(QDockWidget)`` already
+        # does elsewhere in this shell, rather than duplicating the grid's own
+        # last-frame test here.
+        timeline_grid = self._timeline_panel.findChild(Timeline_Grid_View)
+        if timeline_grid is not None:
+            timeline_grid.lastFrameRemovalRefused.connect(
+                self._notify_last_frame_removal_refused
+            )
         self._playback_controls = Playback_Controls(self)
         self._playback_controls.frameAdvanced.connect(self._on_frame_advanced)
         self._playback_controls.playbackActiveChanged.connect(self._on_playback_active)
@@ -747,6 +795,12 @@ class Main_Window(QMainWindow):
         self._colour_hub.colorApplied.connect(self._on_hub_color_applied)
         self._colour_hub.colorCommitted.connect(self._on_hub_color_committed)
         self._colour_hub.favouritesChanged.connect(self._save_favourites)
+        # T-21 (REQ-IS-UI-008/-012): the tilemap canvas shares the same
+        # Favourites model — a plain wheel notch / an unmodified middle click
+        # there still travels the app-wide active colour, even though the
+        # tilemap paints tiles rather than pixels.
+        self._tilemap_canvas.set_favourites_model(self._favourites)
+        self._tilemap_canvas.colorPicked.connect(self._on_color_picked)
 
         # Copy-mode status hint for a live floating move (REQ-P2-UI-032/-036,
         # NFR-8): tr()-wrapped, shown only while a float is active. A11y: the
@@ -1112,20 +1166,24 @@ class Main_Window(QMainWindow):
     # -- actions / toolbar / menu ----------------------------------------
 
     def _build_actions(self) -> None:
-        # Aseprite-conventional single-key tool shortcuts (REQ-P1-UI-024). The
-        # Phase-2 keys avoid the Phase-1 set (B/E/G/L/I).
+        # Home-row single-key tool shortcuts (REQ-IS-UI-001). A bijection onto the
+        # eleven shipped tool_ids; the Shift-modified forms live alongside the
+        # bare keys here (picker/ellipse/dither/lasso-wand) rather than as a
+        # separate action, since each is a distinct tool_id, not a toggle.
+        # Displaces the old Aseprite-style set (B/E/G/L/I/R/O/M/Q/W/D); those
+        # seven freed letters (B G I L M O R) are bound to nothing (REQ-IS-UI-002).
         tool_shortcuts = {
-            PencilTool.tool_id: "B",
-            EraserTool.tool_id: "E",
-            FloodFillTool.tool_id: "G",
-            LineTool.tool_id: "L",
-            PickerTool.tool_id: "I",
-            RectangleTool.tool_id: "R",
-            EllipseTool.tool_id: "O",
-            RectSelectTool.tool_id: "M",
-            LassoTool.tool_id: "Q",
-            MagicWandTool.tool_id: "W",
-            DitherTool.tool_id: "D",
+            PencilTool.tool_id: "A",
+            PickerTool.tool_id: "Shift+A",
+            EraserTool.tool_id: "Q",
+            RectangleTool.tool_id: "S",
+            LineTool.tool_id: "W",
+            EllipseTool.tool_id: "Shift+W",
+            RectSelectTool.tool_id: "D",
+            FloodFillTool.tool_id: "F",
+            DitherTool.tool_id: "Shift+F",
+            LassoTool.tool_id: "E",
+            MagicWandTool.tool_id: "Shift+E",
         }
         self._tool_action_group = QActionGroup(self)
         self._tool_action_group.setExclusive(True)
@@ -1141,6 +1199,12 @@ class Main_Window(QMainWindow):
             self._tool_action_group.addAction(action)
             self._tool_actions[tool_id] = action
         self._tool_actions[self._active_tool_id].setChecked(True)
+        # T-36: mount the eleven glyphs (REQ-IS-UI-027, UI half). Text and
+        # accessible name are untouched here and set/retranslated separately
+        # (see the labels loop in _retranslate) -- an icon must never displace
+        # either (Article V.1). Re-tinted on every theme switch by
+        # _apply_tool_icons, called once more below and again from set_theme.
+        self._apply_tool_icons()
 
         self._undo_action = self._undo_group.createUndoAction(self, self.tr("&Undo"))
         self._undo_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_Z)
@@ -1163,7 +1227,8 @@ class Main_Window(QMainWindow):
             lambda: self.close_document(self._tab_widget.currentIndex())
         )
         # Export action (REQ-P7-UI-001): opens the export dialog. Ctrl+Shift+E is
-        # free (the tool key E is unmodified; Ctrl+Shift+A is the only other combo).
+        # a distinct QKeySequence from the tool shortcuts Shift+E (magic wand) and
+        # Shift+A (colour picker), so it does not shadow either (REQ-IS-UI-001).
         self._export_action = QAction(self)
         self._export_action.setShortcut(
             Qt.Modifier.CTRL | Qt.Modifier.SHIFT | Qt.Key.Key_E
@@ -1258,6 +1323,12 @@ class Main_Window(QMainWindow):
         self._zoom_out_action.triggered.connect(self._on_zoom_out)
         self._fit_action = QAction(self)
         self._fit_action.triggered.connect(self._on_fit)
+        # REQ-IS-UI-018: a separately reachable action — "fit the document" and
+        # "fit what is drawn" are different actions and both belong (a11y,
+        # NFR-6: a gesture-only feature is unreachable by keyboard/screen
+        # reader). `_fit_action` above stays unchanged.
+        self._fit_content_action = QAction(self)
+        self._fit_content_action.triggered.connect(self._on_fit_content)
         self._grid_action = QAction(self)
         self._grid_action.setCheckable(True)
         self._grid_action.setChecked(True)
@@ -1273,9 +1344,11 @@ class Main_Window(QMainWindow):
         # Shape + drawing-mode toggles (REQ-P2-UI-003, -012, -015).
         self._filled_action = QAction(self)
         self._filled_action.setCheckable(True)
+        self._filled_action.setShortcut(QKeySequence("Shift+S"))  # REQ-IS-UI-003
         self._filled_action.toggled.connect(self._on_filled_toggled)
         self._pixel_perfect_action = QAction(self)
         self._pixel_perfect_action.setCheckable(True)
+        self._pixel_perfect_action.setShortcut(QKeySequence("Shift+R"))  # REQ-IS-UI-004
         self._pixel_perfect_action.toggled.connect(self._on_pixel_perfect_toggled)
         self._tiled_action = QAction(self)
         self._tiled_action.setCheckable(True)
@@ -1294,7 +1367,10 @@ class Main_Window(QMainWindow):
         self._invert_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_I)
         self._invert_action.triggered.connect(self._on_invert_selection)
         self._clear_action = QAction(self)
-        self._clear_action.setShortcut(Qt.Key.Key_Delete)
+        # REQ-IS-UI-005: Shift+Q is added alongside Delete, not substituted for it.
+        self._clear_action.setShortcuts(
+            [QKeySequence(Qt.Key.Key_Delete), QKeySequence("Shift+Q")]
+        )
         self._clear_action.triggered.connect(self._on_clear_selection)
 
         # Transform + RotSprite actions (REQ-P2-UI-009, -010). Flips get direct
@@ -1467,6 +1543,7 @@ class Main_Window(QMainWindow):
         self._view_menu.addAction(self._zoom_in_action)
         self._view_menu.addAction(self._zoom_out_action)
         self._view_menu.addAction(self._fit_action)
+        self._view_menu.addAction(self._fit_content_action)
         self._view_menu.addSeparator()
         self._view_menu.addAction(self._grid_action)
         self._view_menu.addAction(self._snap_action)
@@ -1671,9 +1748,14 @@ class Main_Window(QMainWindow):
         # Reference board: a separate window (PureRef-style; optional always-on-top).
         self._reference_board = Reference_Board()
         self._reference_board.setWindowFlag(Qt.WindowType.Window, True)
+        # T-21/D-16 (REQ-IS-UI-008): a plain wheel notch on the reference board
+        # also travels the shared Favourites cursor; Shift+wheel keeps zoom.
+        self._reference_board.set_favourites_model(self._favourites)
+        self._reference_board.colorPicked.connect(self._on_color_picked)
 
         # Multi-view of ONE document: extra views on the active tab's shared scene.
         self._multi_view = Multi_View(QGraphicsScene(self))
+        self._multi_view.set_favourites_model(self._favourites)
 
         # Aids menu (checkable per-tab overlays + window/dock toggles).
         bar = self.menuBar()
@@ -1745,6 +1827,11 @@ class Main_Window(QMainWindow):
         record.live_cursors = Live_Cursors_Overlay(scene_rect)
         record.scene.addItem(record.live_cursors)
         self._apply_aid_theme(record)
+        # T-20 (REQ-IS-UI-024..026): a viewport child, never a QGraphicsItem —
+        # never added to ``record.scene`` and so never reached by a
+        # QGraphicsScene.render() call, structurally (module docstring of
+        # cursor_feedback_overlay.py).
+        record.feedback_overlay = Cursor_Feedback_Overlay(record.view.viewport())
 
         # Wrap the view with the ruler strips (top + left) in a grid container.
         container = QWidget()
@@ -1947,6 +2034,9 @@ class Main_Window(QMainWindow):
     def _on_new_view(self) -> None:
         view = self._multi_view.open_view()
         if view is not None:
+            # T-21/D-16 (REQ-IS-UI-008): a plain wheel notch on this extra view
+            # travels the same shared Favourites cursor as the primary canvas.
+            view.colorPicked.connect(self._on_color_picked)
             view.show()
 
     def _on_show_reference_board(self) -> None:
@@ -2161,13 +2251,26 @@ class Main_Window(QMainWindow):
         stack = QUndoStack(self)
         self._undo_group.addStack(stack)
         view = Canvas_View(scene, stack)
+        # T-20 (REQ-IS-UI-026): watch this viewport's left-button press/release
+        # to suppress the feedback squares for the life of a stroke. Never
+        # consumes the event (Main_Window.eventFilter always returns False),
+        # so every click/drag still reaches the view underneath unchanged.
+        view.viewport().installEventFilter(self)
         view.colorPicked.connect(self._on_color_picked)
+        # T-21 (REQ-IS-UI-008/-012): the plain-wheel / unmodified-middle-click
+        # Favourites travel binds to the same shared model the colour hub uses.
+        view.set_favourites_model(self._favourites)
         view.floatingStateChanged.connect(self._on_floating_state_changed)
         view.lockedLayerEditRejected.connect(self._notify_layer_locked)
         view.outOfDocumentClickRejected.connect(self._notify_out_of_document)
         view.nonEditableLayerEditRejected.connect(self._notify_layer_not_editable)
         view.toolRunNoChange.connect(self._notify_tool_run_no_change)
         view.set_menu_hook(self._open_colour_hub)
+        # T-23 (REQ-IS-UI-010/-014/-016): the Ctrl frame gestures route through
+        # the shipped frame-selection path / the shipped undoable add-frame
+        # command — this view builds no domain result of its own (Article I).
+        view.frameNavigationRequested.connect(self._navigate_to_frame)
+        view.addFrameRequested.connect(self._on_canvas_add_frame_requested)
         # T-12: a drop delivered straight to the canvas viewport is routed
         # through the same handler as Main_Window.dropEvent (REQ-DDI-UI-001).
         view.set_drop_router(self._route_dropped_files)
@@ -2500,6 +2603,42 @@ class Main_Window(QMainWindow):
         self._layer_panel.set_frame_index(index)
         record.view.viewport().update()
 
+    def _navigate_to_frame(self, index: int) -> None:
+        """Route a Ctrl+wheel / Ctrl+middle-click frame gesture (REQ-IS-UI-010/
+        -014) through the shipped frame-selection path — the same update a
+        timeline click performs (:meth:`_on_frame_selected`) — then syncs the
+        timeline's own highlight, mirroring :meth:`_on_frame_advanced`'s
+        playback pattern. Pushes no command (frame navigation is view state,
+        CL-13)."""
+        self._on_frame_selected(index)
+        self._timeline_panel.select_frame(index)
+
+    def _on_canvas_add_frame_requested(self) -> None:
+        """Ctrl+left-click on the canvas adds a frame after the active one
+        (REQ-IS-UI-016), through the same shipped undoable ``FrameCommand`` /
+        ``make_add_frame_command`` the timeline's own Add-Frame toolbar
+        action uses (``Timeline_Panel._on_add``). A no-op, never raising, with
+        no active tab or when the document is already at ``MAX_FRAMES``."""
+        record = self.active_tab()
+        if record is None:
+            return
+        try:
+            command = record.document.make_add_frame_command(
+                after_index=self._active_frame
+            )
+        except DocumentError:
+            return
+        record.stack.push(
+            FrameCommand(command, self._on_canvas_frame_added, self.tr("Add Frame"))
+        )
+
+    def _on_canvas_frame_added(self) -> None:
+        """The Ctrl+left-click ``FrameCommand``'s Qt-side follow-up: mirrors
+        ``Timeline_Panel._refresh`` — recomposite + rebuild the timeline strip
+        so it reflects the new frame."""
+        self._on_timeline_frames_changed()
+        self._timeline_panel.rebuild()
+
     def _on_frame_scrubbed(self, index: int) -> None:
         """Scrub on a timeline drag, showing the frame under the cursor (no undo)."""
         record = self.active_tab()
@@ -2708,6 +2847,11 @@ class Main_Window(QMainWindow):
         """
         self._playback_controls.stop()
         self.shutdown_prewarm()
+        # Uninstall the REQ-IS-UI-006 focus guard so a closed window's filter
+        # does not keep intercepting keys on a QApplication instance that
+        # outlives it (e.g. a test process constructing several Main_Window
+        # instances against one shared QApplication).
+        self._app.removeEventFilter(self._shortcut_focus_guard)
         super().closeEvent(event)
 
     def active_tab(self) -> Optional[_DocTab]:
@@ -2763,6 +2907,27 @@ class Main_Window(QMainWindow):
         event.acceptProposedAction()
         # A zero-file drop is a no-op (SC-U008-5); otherwise route each path.
         self._route_dropped_files(paths)
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        """Track a stroke's left-button span on a painting viewport (REQ-IS-UI-026).
+
+        Installed on every tab's ``Canvas_View.viewport()`` (``_add_document_tab``).
+        Toggles ``self._stroke_active``, consumed by ``_set_active_color`` /
+        ``_on_tool_action`` to suppress the feedback squares for the life of a
+        stroke — never consumes the event itself (always falls through to
+        ``super().eventFilter``), so every click and drag still reaches the
+        view underneath in full, exactly like ``Cursor_Feedback_Overlay``'s own
+        filter on the same viewport.
+        """
+        if (
+            isinstance(event, QMouseEvent)
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            if event.type() == QEvent.Type.MouseButtonPress:
+                self._stroke_active = True
+            elif event.type() == QEvent.Type.MouseButtonRelease:
+                self._stroke_active = False
+        return super().eventFilter(watched, event)
 
     def _route_dropped_files(self, paths: List[str]) -> None:
         """Route each dropped path by classified TYPE, in stable order (UI-002/-008).
@@ -2902,6 +3067,22 @@ class Main_Window(QMainWindow):
         """
         self.statusBar().showMessage(
             self.tr("Layer is locked."),
+            UI_NOTICE_DURATION_MS,
+        )
+
+    def _notify_last_frame_removal_refused(self) -> None:
+        """Non-blocking notice that a last-frame removal was refused (D-22).
+
+        A document must keep at least one frame (``Document._ensure_frame_removable``);
+        asking Yes/No when the answer cannot change that outcome was worse than
+        not asking, so the timeline grid's Ctrl+right-click on the last
+        remaining frame reaches here instead of a confirmation dialog.
+        Follows the ``_notify_layer_locked`` precedent.
+        """
+        self.statusBar().showMessage(
+            self.tr(
+                "This is the last remaining frame; a document must keep at least one."
+            ),
             UI_NOTICE_DURATION_MS,
         )
 
@@ -3050,6 +3231,16 @@ class Main_Window(QMainWindow):
         self._refresh_registration_actions_ui()
         self._refresh_ingress_actions_ui()
 
+    #: Incoming tool ids that discard the active selection on entry
+    #: (REQ-IS-UI-029, CL-IS-08/-09). Re-activating an already-active
+    #: selection tool is included deliberately, so it doubles as a
+    #: start-fresh gesture — an assumption (CL-IS-08), flagged and cheap to
+    #: reverse. Every other incoming tool leaves the selection untouched, so
+    #: mask-constrained drawing (REQ-P2-LOGIC-006) survives a tool switch.
+    _SELECTION_ENTRY_TOOL_IDS: Final[frozenset[str]] = frozenset(
+        {"select_rect", "select_lasso", "select_wand"}
+    )
+
     def _on_tool_action(self) -> None:
         action = self.sender()
         if isinstance(action, QAction):
@@ -3060,6 +3251,20 @@ class Main_Window(QMainWindow):
             self._active_tool_id = action.data()
             if record is not None:
                 record.view.set_tool(self._tools[self._active_tool_id])
+                # Discard the selection only when ENTERING a selection tool,
+                # and only after the float above was committed (REQ-IS-UI-029).
+                # No QUndoCommand is pushed here, matching _on_deselect.
+                if self._active_tool_id in self._SELECTION_ENTRY_TOOL_IDS:
+                    record.view.clear_selection()
+                # T-20 (REQ-IS-UI-025/-026): raise the tool square for EVERY
+                # tool change, whatever the source (shortcut, toolbar,
+                # menu) — ``action`` is the one that fired regardless of
+                # origin — suppressed for the life of a stroke. ``action.icon()``
+                # is the exact theme-tinted glyph already mounted on the
+                # toolbar (REQ-IS-UI-027's own "must also be" clause), never
+                # re-resolved here.
+                if not self._stroke_active and record.feedback_overlay is not None:
+                    record.feedback_overlay.show_icon(action.icon())
 
     def _on_floating_state_changed(self, active: bool, copy: bool) -> None:
         """Update the copy-mode status hint from a view's float state (UI-032/-036)."""
@@ -3113,6 +3318,20 @@ class Main_Window(QMainWindow):
                 self._set_active_index(index)
         self._palette_editor.set_active_color(color)
         self._ramp_picker.set_base_color(color)
+        # T-20 (REQ-IS-UI-024/-026, CL-IS-07): raise the colour square for
+        # EVERY caller of this method — the wheel, a middle-click, a hub pick,
+        # a palette/ramp/favourite click all route through here — suppressed
+        # for the life of a stroke. Deliberately NOT raised for the tab-
+        # activation/tab-creation paths (``_on_tab_changed``, this method's own
+        # 2246-area sibling) that push the existing colour into a newly-shown
+        # view: those call ``record.view.set_active_color`` directly and never
+        # reach ``_set_active_color`` at all, so nothing here can fire on a tab
+        # switch or a session/document restore — no real colour CHANGE
+        # occurred from the user's point of view, so none is drawn (that
+        # distinction is structural, not a flag added here).
+        if record is not None and not self._stroke_active:
+            if record.feedback_overlay is not None:
+                record.feedback_overlay.show_colour(color)
 
     def _set_active_index(self, index: int) -> None:
         """Set the paint-by-index value and push it to every view (P3-UI-014)."""
@@ -3712,7 +3931,16 @@ class Main_Window(QMainWindow):
         tool at this same pixel. Also sets the pick-surface visibility
         (CL-18): the wheel/value/numeric/harmony surface shows only for the
         five colour-consuming tools.
+
+        D-19 (2026-08-31): a right-click that closes the already-open hub
+        (the ``Qt.WindowType.Popup`` auto-close on an outside click) reaches
+        this seam too, on the same physical click — without this guard it
+        would reopen the hub at the new anchor and the popup would never
+        appear to dismiss. ``consume_just_closed`` is scoped to that one
+        event-loop turn, so a later, deliberate right-click still opens it.
         """
+        if self._colour_hub.consume_just_closed():
+            return
         self._colour_hub.set_color(self._active_color)
         record = self.active_tab()
         if record is not None:
@@ -3755,13 +3983,34 @@ class Main_Window(QMainWindow):
         ``Canvas_View.run_tool_at``'s own — reused, not reimplemented here
         (clause 5) — via the same rejection signals the left-click path
         already surfaces to the status bar.
+
+        2026-08-31 fix: ``run_tool_at`` paints with the VIEW's own current
+        ``active_color`` (``_make_context``), not with whatever this signal
+        carries — and since the 2026-08-31 hub amendment a single Favourites
+        or harmony/shade/tint swatch click emits ``colorCommitted`` WITHOUT a
+        preceding ``colorApplied`` (leg 1 is skipped on purpose, "paints
+        without adopting"), so the view's active colour can be genuinely
+        stale here. The picked ``color`` is pushed onto the view for the
+        span of this one run and then restored, so the tool paints with the
+        colour the signal actually carries while the persisted active
+        colour/swatch — never touched by ``_set_active_color`` here — stays
+        exactly what leg 1 left it (unchanged, for this gesture). The wheel
+        pad's own release still commits the colour ``colorApplied`` already
+        pushed during the drag, so ``previous_color`` there already equals
+        ``color`` and the restore is a no-op — that path is unaffected.
         """
         if self._active_tool_id not in _COLOUR_CONSUMING_TOOL_IDS:
             return  # SC-U006-13: favourites still set the colour only.
         if self._hub_anchor is None or self._hub_anchor_view is None:
             return
         x, y = self._hub_anchor
-        self._hub_anchor_view.run_tool_at(x, y)
+        view = self._hub_anchor_view
+        previous_color = view.active_color()
+        view.set_active_color(color)
+        try:
+            view.run_tool_at(x, y)
+        finally:
+            view.set_active_color(previous_color)
 
     def _on_open(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -4208,6 +4457,13 @@ class Main_Window(QMainWindow):
         if record is not None:
             record.view.fit()
 
+    def _on_fit_content(self) -> None:
+        """View > Fit to Content (REQ-IS-UI-018): the named, keyboard/screen-
+        reader-reachable twin of the ``Shift``+middle-click gesture."""
+        record = self.active_tab()
+        if record is not None:
+            record.view.fit_content()
+
     def _on_grid_toggled(self, enabled: bool) -> None:
         for record in self._tabs_data:
             record.view.set_grid_enabled(enabled)
@@ -4600,6 +4856,22 @@ class Main_Window(QMainWindow):
             self._apply_theme_to_scene(record.scene)
             self._apply_aid_theme(record)
         self._tilemap_canvas.set_theme_colors(*canvas_roles(self._theme))
+        # T-36: the resolver bakes the tint into the QIcon at build time, so a
+        # runtime theme switch must re-resolve every tool glyph or the
+        # toolbar keeps the OLD theme's ink on the NEW theme's background.
+        self._apply_tool_icons()
+
+    def _apply_tool_icons(self) -> None:
+        """(Re)apply the eleven theme-tinted tool glyphs (`REQ-IS-UI-027`).
+
+        Called once from `_build_actions` and again from every `set_theme`
+        call, since `tool_icon` bakes the tint into the returned `QIcon` at
+        build time (`ui/tool_icons.py`) rather than following the theme
+        live. Text and accessible name are set/retranslated elsewhere
+        (`_retranslate`) and are never touched here (Article V.1).
+        """
+        for tool_id, action in self._tool_actions.items():
+            action.setIcon(tool_icon(tool_id, theme=self._theme))
 
     def _apply_theme_to_scene(self, scene: CanvasScene) -> None:
         checker_light, checker_dark, grid = canvas_roles(self._theme)
@@ -5104,6 +5376,7 @@ class Main_Window(QMainWindow):
         self._zoom_in_action.setText(self.tr("Zoom &In"))
         self._zoom_out_action.setText(self.tr("Zoom &Out"))
         self._fit_action.setText(self.tr("&Fit to View"))
+        self._fit_content_action.setText(self.tr("Fit to &Content"))
         self._grid_action.setText(self.tr("Show &Grid"))
         self._snap_action.setText(self.tr("&Snap to Grid"))
         self._aa_off_action.setText(self.tr("&Anti-aliasing Off"))

@@ -23,12 +23,40 @@ Usa las herramientas de selección para definir la región en la que quieres tra
 | **Lazo** | Una región a mano alzada que dibujas alrededor. |
 | **Varita mágica** | Un área contigua de color similar bajo el clic. |
 
-Puedes refinar una selección con gestos modificadores mientras la construyes:
+**Duración de la selección.** Cambiar a una de las tres herramientas de
+selección de arriba siempre **descarta** la selección actual y empieza de
+cero — una selección nueva nunca hereda la forma de la anterior. Cambiar a
+cualquier otra herramienta (Lápiz, Borrador, Relleno, …) en cambio **conserva**
+la selección actual, así que el dibujo enmascarado sigue funcionando: tus
+trazos siguen recortados a la selección mientras pintas con otra herramienta.
 
-| Gesto | Resultado |
+Mientras una de las tres herramientas de selección de arriba está activa,
+**Shift** y **Alt** significan algo distinto que en el resto del lienzo —
+consulta [Desplazar frente a construir una selección](#desplazar-frente-a-construir-una-seleccion)
+más abajo:
+
+| Modificador | Resultado con una herramienta de selección activa |
 | --- | --- |
 | Arrastre con **Shift** | **Añadir** a la selección actual. |
 | Arrastre con **Alt** | **Restar** de la selección actual. |
+
+### Desplazar frente a construir una selección
+
+| Gesto | Resultado |
+| --- | --- |
+| **Shift+left-drag** | Desplaza el lienzo — **excepto** con una herramienta de selección activa, donde en cambio **añade** a la selección, exactamente como describe la tabla de arriba. |
+
+### Seleccionar todo el lienzo, invertir y deseleccionar
+
+| Atajo | Acción |
+| --- | --- |
+| **Ctrl+A** | Selecciona todo el lienzo. |
+| **Ctrl+I** | Invierte la selección actual. |
+| **Ctrl+Shift+A** | Deselecciona (borra la selección actual). |
+
+Vaciar el **contenido** de la selección (en vez de la selección en sí) es una
+acción distinta con sus propios atajos, **Shift+Q** y **Delete** — consulta la
+tabla de [Primeros pasos](app-basics.md).
 
 ## Levantar y mover (arrastrar)
 
@@ -68,7 +96,7 @@ mover y copiar **durante** el arrastre pulsando o soltando Ctrl.
 | *sin modificador* | Levantar/**mover** la selección (el origen se vacía al confirmar) |
 | **Ctrl** | **Copiar** la selección (el origen se conserva) |
 | **Alt** | **Restar** de la selección (gesto de construcción) |
-| **Shift** | **Añadir** a la selección (gesto de construcción) |
+| **Shift** | **Añadir** a la selección (gesto de construcción) — fuera de una herramienta de selección activa, **Shift+left-drag** desplaza el lienzo en vez de añadir; consulta [Desplazar frente a construir una selección](#desplazar-frente-a-construir-una-seleccion) más arriba. |
 
 ## Confirmar o cancelar
 
@@ -126,6 +154,11 @@ arrastrado.
 cada fotograma — siempre que no haya nada seleccionado. Con una selección activa,
 esas mismas acciones siguen transformando solo la región enmascarada de la capa
 activa, igual que antes.
+
+| Atajo | Acción |
+| --- | --- |
+| **Shift+H** | Voltea la selección (o todo el documento) horizontalmente. |
+| **Shift+V** | Voltea la selección (o todo el documento) verticalmente. |
 
 RotSprite es la única excepción: siempre transforma solo la capa activa, haya o no
 selección, porque su giro nunca cambia las dimensiones del búfer y nunca necesitó

@@ -1250,3 +1250,47 @@ screen-space scalar of the four canvas-grid-semantics constants; distinct from
 :data:`CHECKER_CELL_PX` and :data:`CHECKER_MIN_ON_SCREEN_EDGE_PX` by unit (a
 fixed-width pen stroke, not a document-space size or a zoom-compared LOD
 threshold) rather than by value."""
+
+# --- input-scheme feedback + gesture scalars (T-04; Article II single-source) ----
+# The cursor-feedback square, its animation and the click/drag split all read
+# their numbers from here — none is ever inlined into ui/ (REQ-IS-LOGIC-004,
+# SC-L004-1..2, plan.md §4.5). Every value is traced, not invented (Article II):
+# the square edge is a D-8 ruling matching the pre-existing colour-hub swatch
+# size (``_FAVOURITE_PX = 24`` on ui/colour_hub_menu.py:55) — the user rejected
+# an OS cursor-metric approach because it has no stable Qt referent and would
+# make the feature untestable headless (spec.md NFR-5). This module stays a
+# leaf (no intra-package imports).
+
+FEEDBACK_SQUARE_PX: int = 24
+"""Edge length, in logical px, of the transient colour-feedback square
+(REQ-IS-UI-024..026). Source: D-8 ruling (round 2, plan.md §4.5) — a fixed
+24 px DPI-scaled value matching ``_FAVOURITE_PX = 24``, the swatch already
+used in the colour hub. Deliberately NOT an OS cursor-size metric: Qt has no
+reliable API for "the same size as the mouse", and an OS-metric approach
+would make the feedback square untestable under the headless offscreen
+harness (spec.md NFR-5)."""
+
+FEEDBACK_SQUARE_PAD_RATIO: float = 0.10
+"""Padding between the feedback square and the cursor hot-spot, as a
+fraction of :data:`FEEDBACK_SQUARE_PX`. Source: spec.md §2.5, verbatim
+("10% of that edge"). The padding itself (``FEEDBACK_SQUARE_PX *
+FEEDBACK_SQUARE_PAD_RATIO`` = 2.4 logical px) is computed at the call site
+and never written down as its own literal (plan.md §4.5, Article II)."""
+
+FEEDBACK_DURATION_MS: int = 1000
+"""Total lifetime, in milliseconds, of the colour-feedback square's
+show-then-fade animation (REQ-IS-UI-024..026). Source: spec.md §2.5,
+verbatim ("1 second")."""
+
+FEEDBACK_FADE_TAIL_RATIO: float = 0.40
+"""Fraction of :data:`FEEDBACK_DURATION_MS`, counted from the end, over
+which the feedback square's opacity falls from full to zero; the leading
+``1 - FEEDBACK_FADE_TAIL_RATIO`` (~60%) of the duration is held at full
+opacity. Source: ``CL-IS-06``, the D-8 recommendation adopted at spec.md §7."""
+
+CLICK_DRAG_THRESHOLD_PX: int = 10
+"""Movement threshold, in logical px, below which a middle-button or
+``Ctrl``+left press/release pair is a **click** and at/above which it is a
+**drag** (REQ-IS-UI-011). Source: measured ``QApplication.startDragDistance()
+== 10`` (plan.md §4.5) — the value the D-6 assumption in force (spec.md
+§4.5) left for the plan to name rather than guess at."""

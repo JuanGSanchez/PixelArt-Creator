@@ -19,11 +19,12 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from PySide6.QtCore import QEvent, Qt
+from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtGui import QPainter, QWheelEvent
 from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QWidget
 
 from pixelart_creator.logic.constants import MAX_DOCUMENT_VIEWS
+from pixelart_creator.logic.favourites import Favourites
 
 #: Per-wheel-notch zoom step for an extra view (independent of the primary view).
 _WHEEL_ZOOM_STEP = 1.15
@@ -36,6 +37,12 @@ class Document_View(QGraphicsView):
     document — edits arrive live via ``scene.changed`` (REQ-P9-UI-008).
     """
 
+    #: Emitted with the picked RGBA tuple when a plain wheel notch travels the
+    #: shared Favourites cursor (REQ-IS-UI-008, T-21/D-16 — this surface is a
+    #: navigate-only view of the SAME live document scene as the primary
+    #: Canvas_View, so the active colour it sets is real document context).
+    colorPicked = Signal(object)
+
     def __init__(
         self,
         scene: QGraphicsScene,
@@ -45,6 +52,9 @@ class Document_View(QGraphicsView):
         """Build an extra navigate-only viewport on the shared ``scene``."""
         super().__init__(scene, parent)
         self._index = index
+        #: The persisted Favourites model bound via :meth:`set_favourites_model`
+        #: (T-21); ``None`` until the shell binds one.
+        self._favourites: Optional[Favourites] = None
         self.setInteractive(True)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setRenderHint(QPainter.RenderHint.Antialiasing, False)
@@ -55,12 +65,47 @@ class Document_View(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self._retranslate()
 
+    def set_favourites_model(self, favourites: Favourites) -> None:
+        """Bind the persisted Favourites model a plain wheel notch travels
+        (REQ-IS-UI-008, T-21)."""
+        self._favourites = favourites
+
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802 (Qt override)
-        """Cursor-anchored independent zoom for this viewport."""
+        """``Shift``+wheel zooms (REQ-IS-UI-009, D-16); plain wheel travels
+        Favourites (REQ-IS-UI-008, D-16)."""
+        if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            self._zoom_wheel(event)
+        else:
+            self._favourites_wheel(event)
+
+    def _zoom_wheel(self, event: QWheelEvent) -> None:
+        """Cursor-anchored independent zoom for this viewport.
+
+        Relocated from plain wheel to ``Shift``+wheel (D-16); this view's own
+        step and anchor are otherwise unmodified.
+        """
         factor = _WHEEL_ZOOM_STEP
         if event.angleDelta().y() < 0:
             factor = 1.0 / factor
         self.scale(factor, factor)
+        event.accept()
+
+    def _favourites_wheel(self, event: QWheelEvent) -> None:
+        """Plain wheel steps the Favourites cursor (REQ-IS-UI-008, D-16).
+
+        Wheel down **advances**, wheel up **retreats** (``CL-IS-02`` — see
+        ``Canvas_View._favourites_wheel``). A silent no-op with no favourites
+        bound or an empty list (never zooms, never errors).
+        """
+        if self._favourites is None:
+            event.accept()
+            return
+        if event.angleDelta().y() < 0:
+            color = self._favourites.advance()
+        else:
+            color = self._favourites.retreat()
+        if color is not None:
+            self.colorPicked.emit(color)
         event.accept()
 
     def _retranslate(self) -> None:
@@ -89,12 +134,22 @@ class Multi_View:
         """Bind the controller to the shared document ``scene``."""
         self._scene = scene
         self._views: List[Document_View] = []
+        #: The persisted Favourites model applied to every view opened from
+        #: now on (T-21); ``None`` until the shell binds one.
+        self._favourites: Optional[Favourites] = None
 
     def set_scene(self, scene: QGraphicsScene) -> None:
         """Rebind every open extra view to a new shared scene (tab switch)."""
         self._scene = scene
         for view in self._views:
             view.setScene(scene)
+
+    def set_favourites_model(self, favourites: Favourites) -> None:
+        """Bind the persisted Favourites model every current AND future extra
+        view's plain wheel notch travels (REQ-IS-UI-008, T-21)."""
+        self._favourites = favourites
+        for view in self._views:
+            view.set_favourites_model(favourites)
 
     def open_view(self) -> Optional[Document_View]:
         """Open one extra viewport on the shared scene (``<= MAX_DOCUMENT_VIEWS``).
@@ -108,6 +163,8 @@ class Multi_View:
         view = Document_View(self._scene, index=len(self._views) + 2)
         view.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         view.destroyed.connect(lambda *_a, v=view: self._forget(v))
+        if self._favourites is not None:
+            view.set_favourites_model(self._favourites)
         self._views.append(view)
         return view
 
