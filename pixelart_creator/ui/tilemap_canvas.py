@@ -722,11 +722,19 @@ class Tilemap_Canvas(QGraphicsView):
         )
 
     def _clamp_zoom(self, value: float) -> float:
-        # Same correction as Canvas_View._clamp_zoom (FIX 4, 2026-08-24 field
-        # defect): the floor is min(ZOOM_MIN, fit_zoom), not a flat fit_zoom --
-        # see that method's comment for why a flat floor breaks either a small
-        # tilemap's 1.0 preset stop or a huge tilemap's whole-grid view.
-        return max(min(ZOOM_MIN, self._fit_zoom()), min(value, ZOOM_MAX))
+        # ZOOM_MIN is a flat, absolute floor (user ruling 2026-08-25;
+        # `logic/constants.py`'s ZOOM_MIN docstring), applied here to match
+        # `Canvas_View._clamp_zoom` (D-20, 2026-08-31). The 2026-08-24
+        # `min(ZOOM_MIN, fit_zoom)` formula this superseded is the SAME defect
+        # class the paint canvas carried until 92f09d5: below 1:1 this view is
+        # minified by a painter with smoothing off (nearest-neighbour point
+        # sampling), and this scene draws its own 1-device-pixel grid overlay
+        # lines (`_Tilemap_Scene.drawBackground`) -- sparse, single-pixel-wide
+        # content that point-sampling can drop between sample points exactly
+        # as the checker border did. A document larger than the viewport is
+        # viewed by panning at 1:1 rather than a fractional whole-grid fit,
+        # the same accepted trade-off `Canvas_View` made.
+        return max(ZOOM_MIN, min(value, ZOOM_MAX))
 
     def set_zoom(self, value: float) -> None:
         """Set an absolute zoom (clamped), anchored on the view centre."""
