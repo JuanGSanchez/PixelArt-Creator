@@ -1,124 +1,4 @@
 # =============================================================================
-# *** TEMPORARY: CI SCOPED TO SELF-HOSTED WINDOWS ONLY — READ BEFORE EDITING ***
-# User decision, 2026-08-02: the repository is private and Included Actions
-# minutes (metered, Free plan) were exhausted once already; self-hosted
-# minutes are free. Until the repository goes PUBLIC, quality-gate runs ONLY
-# on the windows-selfhosted leg and (as of WP-6.2, 2026-08-16, D-16/D-17) the
-# integration job ALSO runs on that same self-hosted label set instead of
-# being fully disabled — so this workflow still consumes ZERO GitHub-hosted
-# minutes, but the deployment-acceptance tests are no longer dark. The
-# quality gate is kept REAL (not gutted): the thirteen OS-invariant
-# static/coverage/JS-unit checks below were un-gated from
-# `if: runner.os == 'Linux'` so they still run on the Windows leg, instead of
-# collapsing to "checkout + install + pytest".
-#
-# tests/deploy/'s @pytest.mark.integration tests (test_vps_localhost.py,
-# test_nginx_wss_localhost.py — ADR-0043) NOW EXECUTE on the self-hosted
-# Windows leg of the `integration` job below (WP-6.2): 9 tests collected,
-# all label-runnable; the Docker-container case and the opt-in real-Nginx
-# 60s+ idle case keep their existing, reasoned self-skips (no `docker`, and
-# no `nginx` + `PIXELART_NGINX_IDLE_TEST=1`, on this runner) rather than a
-# forced pass or a forced install. The quality-gate job's own pytest
-# invocation still explicitly deselects `integration` (see the
-# `-m "... and not integration"` filter on the "Tests" step and its
-# "Measure non-client coverage" companion) — the `integration` job below
-# remains the ONLY place those tests are selected; it is simply no longer
-# commented out.
-#
-# STATE THIS EXPLICITLY (so this paragraph cannot go stale the way the one it
-# replaces did): the `integration:` job is a LIVE, uncommented job in this
-# file, running on the self-hosted Windows leg — it is NOT preserved as a
-# commented-out block the way the disabled hosted `ubuntu-latest` /
-# `macos-latest` quality-gate matrix legs are (see those two `# - os: ...`
-# entries below). Hosted-runner CI minutes remain ZERO either way: the
-# integration job's live form still targets `[self-hosted, Windows, X64]`,
-# not a GitHub-hosted runner, so reactivating it spent no hosted minutes.
-#
-# REVERT — do all four steps together, when the repository goes public
-# (cross-reference the PUBLIC-REPO HAZARD comment on the windows-selfhosted
-# matrix entry below for WHY step 3 is mandatory, not optional):
-#   1. In quality-gate's `strategy.matrix.include`, UNCOMMENT the commented-out
-#      `ubuntu-latest` and `macos-latest` entries verbatim (remove the leading
-#      "# " from every line of both blocks — nothing was deleted).
-#   2. REPOINT the `integration` job (already active as of WP-6.2, 2026-08-16 —
-#      it is no longer commented out) from the self-hosted Windows label set
-#      back to a hosted `ubuntu-latest` runner: change its `runs-on:` from
-#      `[self-hosted, Windows, X64]` to `ubuntu-latest`; restore its
-#      Ubuntu-only "Install Nginx + OpenSSL + Qt runtime OS libraries (apt)"
-#      step (removed on the self-hosted leg — Windows has no apt and needs
-#      none of those); drop the PUBLIC-REPO HAZARD comment on its `runs-on:`
-#      (same hazard/reasoning as step 3 below); and restore its original
-#      30-minute `timeout-minutes` (the 45-minute value in the self-hosted
-#      form is a cold-runner allowance that a hosted runner does not need).
-#   3. REMOVE the `windows-selfhosted` matrix entry and its
-#      `runs_on: [self-hosted, Windows, X64]` target ENTIRELY (do NOT keep it,
-#      even commented) — GitHub documents self-hosted runners as compromisable
-#      by any pull request against a public repository.
-#   4. RESTORE `if: runner.os == 'Linux'` immediately under each step's `name:`
-#      line for these THIRTEEN steps in quality-gate (each currently has NO
-#      condition), so the 3-OS matrix stops paying for the same lint/type/
-#      coverage/docs/JS-unit work three times over:
-#        - Lint (flake8)
-#        - Format check (black + isort)
-#        - Type check (mypy)
-#        - Path-portability lint (P11 script)
-#        - Architecture layering + cycle checks (P11 scripts)
-#        - I18n string audit (report, P11 script; AGT-07)
-#        - Docs build (mkdocs --strict, F14)
-#        - Docstring lint (pydocstyle, PEP 257) [TIME-BOXED EXCEPTION, expires 2026-08-31]
-#        - Coverage gate — client package (>=90 line / >=80 branch, S13)
-#        - Measure non-client coverage (sync_backend + web_viewer)
-#        - Coverage gate — non-client packages (>=90 line / >=80 branch, S13)
-#        - Set up Node.js (web-viewer JS-unit)
-#        - Web-viewer JS-unit tests (node, framework-free)
-#
-# LEFT UNCHANGED by this temporary scoping — do NOT touch these on revert:
-#   - `Install Qt runtime OS libraries (Ubuntu)` stays Linux-gated (apt-only,
-#     Ubuntu-specific by nature, not a cost-avoidance gate).
-#   - All thirteen perf gates (8K paint/redraw D-32; compositor; tilemap x2;
-#     visual-aids x6 — the five FHD/zoomed/combined scenarios plus the D-29
-#     8K-overlay catastrophic ceiling; realtime apply-remote; full-frame
-#     flatten; viewport-recomposite) stay Linux-gated — their budgets/
-#     ceilings are calibrated to (or, for D-32's unrelaxed Tier-1 budget,
-#     simply measured against) the 2-core Ubuntu hosted runner and would mean
-#     nothing measured on a developer laptop. The two added 2026-08-16
-#     (WP-6.4, D-32/D-29) join the other eleven under the SAME
-#     `if: runner.os == 'Linux'` gate and therefore stay documented-unrun
-#     under the current self-hosted-Windows-only quality-gate leg — see the
-#     perf-model governance record's honest run-state phrasing
-#     (design-docs/auxiliary/perf-model-governance-20260816.md §5). They
-#     execute for the first time only once a self-hosted Linux runner exists
-#     (WP-6.3, WSL2 the candidate, user question Q-3) or the repository goes
-#     public and the hosted ubuntu-latest leg returns.
-#   - `build-installers` and `regenerate-constraints` are untouched and still
-#     target hosted runners (see the metered-minutes note on each).
-#   - The `push` trigger's `branches: [main, "feat-*", "fix-*"]` filter (below)
-#     is a PERMANENT branch-naming convention (2026-08-02), independent of
-#     this self-hosted scoping — it outlives the arrangement this block
-#     describes and is NOT one of the four revert steps above. Do not fold it
-#     into the revert; it stays exactly as-is when the repository goes public.
-#
-# WP-6.7 (2026-08-16) — summary for the eventual flip-to-hosted. GitHub-hosted
-# Actions minutes become FREE again the moment this repository's visibility
-# changes to PUBLIC (the Included-minutes metering above applies to private
-# repos only) — nothing else about the account or the workflow needs to
-# change for that. The pins that flip THEN are exactly the four REVERT steps
-# above: (1) uncomment the ubuntu-latest/macos-latest quality-gate matrix
-# entries, (2) repoint the integration job from self-hosted labels back to
-# ubuntu-latest, (3) delete the windows-selfhosted matrix entry entirely
-# (never merely comment it — the PUBLIC-REPO HAZARD reasoning on that entry
-# is why), (4) restore `if: runner.os == 'Linux'` on the thirteen
-# OS-invariant steps. No other workflow file, script, or `logic/constants.py`
-# value changes with visibility — D-22's string_audit_check blocking flip
-# (below) and the D-32/D-29 perf gates (WP-6.4, above) are UNAFFECTED by the
-# public flip: they stay exactly as authored, on whichever leg(s) end up
-# Linux-gated after the revert runs.
-#
-# Delete this block once the revert above is complete — it describes a
-# temporary state, not a permanent one.
-# =============================================================================
-
-# =============================================================================
 # CI pipeline (GitHub Actions) — PixelArt Creator
 # Owner: AGT-09 GitHub/DevOps. Grounded by F11 (headless PySide6 CI) + F14
 # (pyproject manifest). Mandatory software-dev extension (spec-driven-development
@@ -219,287 +99,59 @@ env:
 
 jobs:
   quality-gate:
-    # Display name deliberately interpolates matrix.os, NOT matrix.runs_on: the
-    # self-hosted leg's os label is windows-selfhosted (see the matrix below),
-    # so this still resolves to three distinct, readable leg names in the UI —
-    # "quality-gate (ubuntu-latest)", "quality-gate (windows-selfhosted)",
-    # "quality-gate (macos-latest)" — instead of collapsing the renamed leg
-    # back to a bare "windows-latest" a reader could mistake for the hosted
-    # runner it replaces.
     name: quality-gate (${{ matrix.os }})
-    runs-on: ${{ matrix.runs_on }}
+    runs-on: ${{ matrix.os }}
     strategy:
       # fail-fast OFF: a genuine platform-specific regression on one leg must NOT
       # cancel the other legs — we need every OS's result (13A discovery signal,
       # BUILD-001). Windows/macOS surface the suite for the FIRST time here.
       fail-fast: false
       matrix:
-        # SELF-HOSTED WINDOWS LEG (user decision, 2026-08-02): GitHub Actions
-        # resumed billing against the Free-plan 2,000 included minutes/month on
-        # 2026-08-02 (monthly reset) after this same matrix exhausted them
-        # before; macOS bills at ~10x and Windows at ~1.67x the Linux minute,
-        # so the window will exhaust again on an unchanged matrix. Self-hosted
-        # runner minutes are FREE and unmetered per GitHub's own billing
-        # reference, and exactly ONE self-hosted runner exists right now:
-        # `pixelart-local-probe` (labels: self-hosted, Windows, X64,
-        # selfhosted-probe) — a Windows x64 machine. There is no Linux and no
-        # macOS self-hosted runner, and none can be created on this host (no
-        # Docker/Podman, no WSL, Windows 11 Home has no Hyper-V so no Windows
-        # containers either, and macOS cannot be virtualised on non-Apple
-        # hardware at all) — so ONLY the Windows leg moves. ubuntu-latest and
-        # macos-latest stay hosted, unchanged, on purpose: this is
-        # additive/substitutive ONLY where possible, not a wholesale switch
-        # (user directive, verbatim: "state self-hosted runner for GitHub
-        # Actions for the legs that are possible, and the rest leave them as
-        # they are now").
-        #
-        # `include:` (rather than a flat `os:` list) is used because the
-        # self-hosted leg's runs-on target must be a LABEL ARRAY
-        # ([self-hosted, Windows, X64]), not a hosted-runner string, so `os`
-        # (the identity/display label — unchanged in meaning for the ubuntu and
-        # macos legs) and `runs_on` (the literal runs-on target) are split into
-        # two matrix keys. `os: windows-selfhosted` (not `windows-latest`) is
-        # deliberate — see the job `name:` comment above.
-        #
-        # `timeout` is a PER-LEG matrix key (see `timeout-minutes:` below):
-        # applying the shared 75-minute job cap to a runner that may not be
-        # online turns a dead/offline self-hosted runner into a worst-case
-        # 75-minute hang once a runner does pick the job up (a job that is
-        # never picked up at all queues under GitHub's own ~24h queued-job
-        # ceiling, which nothing in this file can shorten). The self-hosted leg
-        # gets a much shorter cap instead — 45 minutes, MEASURED, not a guess:
-        # run 30749285915 (the last all-hosted run before this change) timed
-        # the hosted `windows-latest` leg at 15 min wall-clock, WARM (Python
-        # already in the hosted tool cache, pip mostly cache-hit, git
-        # pre-provisioned). 45 min is 3x that 15-min measured figure —
-        # headroom sized for what a warm run does NOT pay for but a genuinely
-        # COLD first run on this bare runner does: (a) actions/setup-python
-        # downloading and installing the pinned Python version (read from
-        # .python-version via python-version-file: — no version literal here
-        # to go stale on the next bump) from the actions/python-versions
-        # release instead of hitting a pre-populated tool cache, (b)
-        # `pip install -c constraints.txt -e ".[dev]"`
-        # resolving/downloading the full runtime+dev closure with no local
-        # wheel cache, and (c) the first-ever `actions/checkout` on this
-        # machine. 25 min (the earlier, unmeasured value) gave only 10 min of
-        # headroom over the same 15-min figure — too tight to survive a cold
-        # run's extra cost without the cold run itself looking like a timeout
-        # defect. If genuine warm runs start approaching or exceeding 45 min,
-        # raise this value against a NEW measurement, same as this one — do
-        # not reflexively raise it back to 75.
-        include:
-          # DISABLED (see the TEMPORARY revert block at the top of this file):
-          # hosted Ubuntu leg commented out verbatim, ZERO hosted minutes
-          # while this is in effect. Uncomment to restore.
-          # - os: ubuntu-latest
-          #   runs_on: ubuntu-latest
-          #   timeout: 75
-          - os: windows-selfhosted
-            # PUBLIC-REPO HAZARD — READ BEFORE MAKING THIS REPOSITORY PUBLIC:
-            # GitHub's own documentation says self-hosted runners "should
-            # almost never be used for public repositories... because any user
-            # can open pull requests against the repository and compromise the
-            # environment." THIS LEG MUST BE REVERTED to a hosted
-            # `windows-latest` runner (collapse `os`/`runs_on` back into a flat
-            # `os: [ubuntu-latest, windows-latest, macos-latest]` list, restore
-            # `runs-on: ${{ matrix.os }}` and the original `name:` /
-            # `timeout-minutes: 75`) BEFORE this repository's visibility
-            # changes to public. Do not carry this configuration into a public
-            # repo.
-            runs_on: [self-hosted, Windows, X64]
-            timeout: 45
-          # DISABLED (see the TEMPORARY revert block at the top of this file):
-          # hosted macOS leg commented out verbatim, ZERO hosted minutes
-          # while this is in effect. Uncomment to restore.
-          # - os: macos-latest
-          #   runs_on: macos-latest
-          #   timeout: 75
+        os: [ubuntu-latest, windows-latest, macos-latest]
     # Job-level wall-clock cap: a hung/deadlocked test can no longer pin a runner
     # for ~6h. The full offscreen-Qt UI suite measures ~46-48 min on the 2-core
     # Ubuntu runner (see run 28635312681, cancelled at 98% by an earlier 45-min
-    # cap), so the two hosted legs (75 min, via matrix.timeout above) are set
-    # comfortably above that with headroom for runner variance. The self-hosted
-    # Windows leg uses a distinct, shorter 45-minute cap instead — MEASURED
-    # against run 30749285915's 15-min warm hosted `windows-latest` figure (3x
-    # headroom for a cold first run's extra setup-python/pip/checkout cost);
-    # see the matrix comment above for the full rationale and tradeoff. The
-    # per-test --timeout below (120s, thread) is the fine-grained guard that
-    # fails fast and names a genuinely hung test; this job cap is only the
-    # coarse backstop (FU-12).
-    timeout-minutes: ${{ matrix.timeout }}
-    # Run every step under bash on ALL three legs so the SAME pytest invocation
+    # cap), so this is set comfortably above that with headroom for runner
+    # variance (Windows/macOS runners vary). The per-test --timeout below (120s,
+    # thread) is the fine-grained guard that fails fast and names a genuinely hung
+    # test; this job cap is only the coarse backstop (FU-12).
+    timeout-minutes: 75
+    # Run every step under bash on ALL three OSes so the SAME pytest invocation
     # (with `\` line continuations) executes identically — the Windows default
     # shell (pwsh) would otherwise break the multi-line command (portability).
-    # This still applies to the self-hosted Windows leg: `shell: bash` needs a
-    # bash executable on PATH, which Git for Windows (commonly present on a dev
-    # machine such as this one) provides.
-    #
-    # UPDATE (2026-08-18, no longer "UNVERIFIED"): this WAS exercised, and it
-    # failed six consecutive runs with `##[error]bash: command not found` —
-    # Git for Windows was present, but only on the interactive user's PATH,
-    # invisible to the Actions Runner's own SYSTEM-service PATH.
-    #
-    # UPDATE 2 (2026-08-18, run 32128981766): an in-workflow `GITHUB_ENV`
-    # PATH-repair step was tried NEXT and RAN CORRECTLY, reporting Git for
-    # Windows found and PATH appended — and the very next `shell: bash` step
-    # still failed with the IDENTICAL bare error. Runner diagnostic logs
-    # (`_diag/Worker_*.log`) show why, conclusively: the failure is thrown
-    # inside `Handler.PrepareExecution` -> `ScriptHandler.PrintActionDetails`
-    # -> `WhichUtil.Which('bash', ...)`, which resolves the interpreter
-    # against the Actions Runner WORKER PROCESS's own inherited PATH — fixed
-    # at that process's launch from the `actions.runner...` Windows service
-    # (confirmed running as `NT AUTHORITY\SYSTEM` on this host), and this
-    # resolution happens BEFORE the step's script exists and BEFORE
-    # `GITHUB_ENV` is applied to any child process. `ProcessInvokerWrapper`
-    # (which WOULD honour the `GITHUB_ENV`-updated environment dictionary)
-    # is never reached for the failing step. No step in ANY job of this
-    # workflow can repair a `shell: bash` step's own interpreter lookup —
-    # the failure precedes the workflow. MACHINE REQUIREMENT for whichever
-    # host carries the `[self-hosted, Windows, X64]` labels (a rebuilt
-    # runner needs this too): Git for Windows must be installed at
-    # `C:\Program Files\Git` (or the x86 equivalent) AND that install's
-    # `bin`/`usr\bin` must be on the MACHINE (System) PATH, with the runner
-    # service restarted afterward to pick it up — see the AGT-09 report's
-    # 2026-08-18 follow-up for the exact elevated command and its
-    # verification. The "Diagnose Git-for-Windows bash resolvability" step
-    # below (renamed from "Ensure ... (self-hosted-safe PATH fix)" to stop
-    # overclaiming what it does) no longer pretends to repair this: it
-    # reports whether bash is already resolvable and, if not, FAILS FAST
-    # with a named cause instead of letting the job reach the same bare
-    # "command not found" one step later.
     defaults:
       run:
         shell: bash
-    # SELF-HOSTED WINDOWS LEG — per-`uses:` compatibility assessment (this leg
-    # only; the ubuntu-latest and macos-latest legs are unchanged hosted
-    # runners and none of this applies to them):
-    #   actions/checkout@v5      - needs a `git` executable on PATH. VERIFIED
-    #                              working: every one of the six runs that
-    #                              failed on the bash-PATH defect above
-    #                              (2026-08-17/18) reached and passed this
-    #                              step first, failing only at the first
-    #                              `shell: bash` run step that followed it —
-    #                              `git.exe` (Git\cmd) is on this runner's
-    #                              MACHINE PATH even though bash.exe (Git\bin)
-    #                              was not, which is exactly what the fix step
-    #                              above now repairs.
-    #   actions/setup-python@v6  - hosted runners ship a pre-populated tool
-    #     (cache: pip)             cache for common versions; this bare runner
-    #                              does not, so the action will most likely
-    #                              DOWNLOAD and install the pinned Python
-    #                              version (from .python-version via
-    #                              python-version-file:) from the
-    #                              actions/python-versions release the first
-    #                              time it runs here (slower, needs network
-    #                              egress) rather than hitting a local cache.
-    #                              `cache: pip` itself keys off GitHub's remote
-    #                              Actions cache service (not local disk), so it
-    #                              should behave the same as on a hosted runner
-    #                              PROVIDED this runner has outbound network
-    #                              access to that service — UNVERIFIED here.
-    #                              Because the runner process is currently a
-    #                              foreground temp-dir process, not an
-    #                              installed service (see the risk comment on
-    #                              the matrix above), even a locally-populated
-    #                              tool cache would not reliably survive
-    #                              between sessions.
-    #   actions/setup-node@v4    - Linux-gated (`if: runner.os == 'Linux'`), so
-    #                              it never runs on this leg — not a
-    #                              self-hosted concern here.
-    # CONCURRENCY: exactly one self-hosted runner is registered against this
-    # repository, so this leg now SERIALISES against any other job/run that
-    # also targets [self-hosted, Windows, X64] — two pushes in flight, or a
-    # future job added to the same label set, will queue behind one another
-    # instead of running in parallel the way two hosted-runner jobs would.
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          # fetch-depth: 0 (full history), NOT the actions/checkout default
+          # (depth-1 shallow clone). testing/suites/ui/test_input_scheme_regression.py
+          # hardcodes commit 1244cd5 and shells out to `git diff --name-only
+          # 1244cd5 HEAD -- web_viewer sync_backend`, which needs that commit
+          # to exist in the local object graph. A depth-1 clone does not
+          # contain it (`exit status 128`) -- this passed for a month only
+          # because the retired self-hosted runner reused a persistent
+          # workspace that still held full history; a hosted runner clones
+          # fresh every time (measured: run 33427869334, all three
+          # quality-gate legs, 4 log hits each). Scoped to THIS job only: the
+          # `integration` job below never collects testing/suites/ui, so it
+          # has no need of full history and keeps the cheaper shallow clone.
+          # Repository cost is negligible (~510 commits).
+          fetch-depth: 0
 
-      # INCIDENT (2026-08-17/18) for the repeated `##[error]bash: command
-      # not found` failures on the self-hosted Windows leg (runner
-      # `pixelart-local-probe`, labels [self-hosted, Windows, X64]): six
-      # consecutive CI runs failed here because this job's
-      # `defaults.run.shell: bash` (see the comment on that key above) needs
-      # bash.exe, which Git for Windows ships at
-      # `<GitInstallRoot>\bin\bash.exe`. That directory sits on the
-      # INTERACTIVE USER's PATH only; the Actions Runner on this machine runs
-      # as a SERVICE under NT AUTHORITY\SYSTEM, which sees only the MACHINE
-      # PATH -- so every `shell: bash` step failed with "command not found".
-      #
-      # ATTEMPT 1 -- machine-local file (rejected, unversioned): a prior
-      # remediation wrote the machine PATH (plus Git's two bin dirs, appended
-      # at the end) to `D:\ci-runner\.path` on the runner host. That file is
-      # UNVERSIONED, machine-local configuration: invisible to anyone reading
-      # this repository, silently lost if the runner is ever
-      # re-registered/moved/rebuilt, and -- empirically confirmed by
-      # re-running CI before touching the service and reproducing the
-      # identical failure -- read by the Runner Listener ONLY at the
-      # Listener's OWN process startup, not per job.
-      #
-      # ATTEMPT 2 -- in-workflow `GITHUB_ENV` PATH repair (2026-08-18, run
-      # 32128981766: RAN CORRECTLY AND DID NOT WORK). This step used to
-      # append Git's `bin`/`usr\bin` to `PATH` via `GITHUB_ENV` whenever it
-      # found Git for Windows, on the theory that this would repair PATH "for
-      # the rest of this job". It ran, reported success -- and the VERY NEXT
-      # step (`shell: bash` by job default) still failed with the IDENTICAL
-      # bare "command not found". The runner's own diagnostic logs
-      # (`_diag/Worker_*.log`) show why, conclusively: resolving the
-      # executable for a step's `shell:` directive happens via
-      # `WhichUtil.Which`, called from `Handler.PrepareExecution` ->
-      # `ScriptHandler.PrintActionDetails`, BEFORE the step's own script
-      # exists and BEFORE `GITHUB_ENV` is applied to any child process --
-      # `ProcessInvokerWrapper` (which WOULD honour the `GITHUB_ENV`-updated
-      # environment) is never reached for the failing step. `WhichUtil.Which`
-      # reads the Actions Runner WORKER PROCESS's own inherited PATH,
-      # fixed at that process's launch from the `actions.runner...` Windows
-      # SERVICE (confirmed running as `NT AUTHORITY\SYSTEM` on this host,
-      # whose MACHINE PATH is confirmed to carry `Git\cmd` but NOT `Git\bin`
-      # or `Git\usr\bin` -- which is exactly why `actions/checkout@v5`
-      # (needs only `git.exe`) has always worked while every `shell: bash`
-      # step has always failed). A `GITHUB_ENV` PATH edit changes what a
-      # LATER step's own script (once ITS interpreter is already running) or
-      # something THAT script explicitly spawns can see; it can never change
-      # which interpreter the runner looks up in order to START that script
-      # in the first place. NO STEP IN ANY JOB OF THIS WORKFLOW CAN REPAIR A
-      # `shell: bash` STEP'S OWN INTERPRETER LOOKUP -- the failure precedes
-      # the workflow.
-      #
-      # THE ACTUAL FIX is therefore back on the machine, but done right this
-      # time: the runner's MACHINE (System) PATH itself must carry Git's
-      # `bin`/`usr\bin`, and the `actions.runner...pixelart-local-probe`
-      # service must be restarted so its own process re-inherits that PATH at
-      # launch. Unlike Attempt 1, this is exactly the configuration GitHub's
-      # own hosted `windows-latest` images ship with, survives runner
-      # re-registration (it is OS configuration, not a runner-internal file),
-      # and needs no unversioned file -- see the AGT-09 report's 2026-08-18
-      # follow-up for the exact elevated command and its verification. This
-      # is the user's step (elevation required); it is NOT executed by this
-      # workflow or by any CI job.
-      #
-      # THIS STEP's role, given the above: a PRE-FLIGHT DIAGNOSTIC, not a
-      # repair. `shell: powershell` (Windows PowerShell 5.1) overrides the
-      # job default for this ONE step so it can run before bash exists at
-      # all -- unlike bash, `powershell.exe` ships inside every Windows
-      # installation under `System32` and is on the SYSTEM account's MACHINE
-      # PATH by construction, so it never hits this same defect. It reports
-      # whether bash is ALREADY resolvable (true once the machine-PATH fix
-      # above has been applied and the service restarted, and true on every
-      # hosted `windows-latest` leg regardless -- so this step is a
-      # documented no-op there, safe to leave in place across the eventual
-      # revert to a hosted Windows leg; see the TEMPORARY revert block at the
-      # top of this file). If bash is NOT resolvable, the step FAILS FAST
-      # with a named, actionable `::error::` instead of letting the job limp
-      # one more step to the same bare "command not found" -- naming either
-      # "Git for Windows is not installed at all" (the well-known-location
-      # search comes up empty) or "Git for Windows is installed but its
-      # `bin`/`usr\bin` are not on the MACHINE PATH" (found, but a
-      # `GITHUB_ENV` PATH extension is written anyway before failing, since
-      # that DOES still help any step whose OWN shell is NOT bash and that
-      # shells out to bash itself -- a real, narrower benefit the step's
-      # message states honestly rather than implying a general repair). Not
-      # added to the `build-installers`/`regenerate-constraints` jobs below,
-      # whose hosted-only Windows/Linux legs have no incident evidence of
-      # this defect (Git for Windows ships fully on-PATH on those images).
+      # PRE-FLIGHT DIAGNOSTIC, not a repair: `shell: powershell` overrides the
+      # job default for this ONE step so it can run before bash exists at all.
+      # It reports whether bash is resolvable on this runner's own PATH before
+      # any `shell: bash` step below depends on it, failing fast with a named
+      # cause instead of a bare "command not found" one step later. On every
+      # hosted `windows-latest` leg this is a documented no-op (Git for Windows
+      # ships on PATH there already) — kept in place as a harmless safety net,
+      # not removed merely because its history once involved a runner that no
+      # longer exists here. Not added to the `build-installers`/
+      # `regenerate-constraints` jobs below, whose hosted-only Windows/Linux
+      # legs carry no evidence of ever needing it.
       - name: "Diagnose Git-for-Windows bash resolvability (does NOT repair 'shell: bash')"
         if: runner.os == 'Windows'
         shell: powershell
@@ -521,7 +173,7 @@ jobs:
           $usrBinDir = Join-Path $gitRoot "usr\bin"
           $newPath = "$($env:PATH);$binDir;$usrBinDir"
           Add-Content -Path $env:GITHUB_ENV -Value "PATH=$newPath"
-          Write-Host "Found Git for Windows at $gitRoot. Appended $binDir and $usrBinDir to PATH via GITHUB_ENV for the rest of this job -- but that ONLY helps a step whose own shell is not bash and that shells out to bash itself. It CANNOT make 'shell: bash' steps in this job work: GitHub Actions resolves that interpreter from the runner service's OWN process PATH before any step (including this one) runs, and a job-level PATH edit can never reach that lookup. THE REAL FIX is the runner's MACHINE PATH (System 'Environment Variables', or the elevated setx/registry command in the AGT-09 report) plus a restart of the 'actions.runner...pixelart-local-probe' service so it re-inherits that PATH at its own process start. Failing this job now, with this cause named, instead of letting it repeat the bare 'bash: command not found' one step later."
+          Write-Host "Found Git for Windows at $gitRoot. Appended $binDir and $usrBinDir to PATH via GITHUB_ENV for the rest of this job -- but that ONLY helps a step whose own shell is not bash and that shells out to bash itself. It CANNOT make 'shell: bash' steps in this job work: GitHub Actions resolves that interpreter from the runner service's OWN process PATH before any step (including this one) runs, and a job-level PATH edit can never reach that lookup. On a hosted windows-latest runner this branch should not normally be reached at all -- Git for Windows ships preinstalled and is already resolvable via 'Get-Command bash' (see the branch above) -- so arriving here means this hosted image's bundled Git for Windows was not found at either checked location. There is no persistent machine to reconfigure and no local service to restart: every hosted run is a fresh, disposable VM, so a PATH edit made here would not even survive past this run. Failing this job now, with this cause named, instead of letting it repeat the bare 'bash: command not found' one step later."
           exit 1
 
       - name: Set up CI temp root (CI-PixelArtCreator)
@@ -583,27 +235,25 @@ jobs:
       # ----- Static / lint / type gates: Ubuntu-only (OS-invariant source lints;
       # keep the shipped Ubuntu gate as-is, plan §3.1). -----
       - name: Lint (flake8)
-        # UN-GATED (temporary, see revert block at top of file): this check is
-        # OS-invariant and was only Linux-gated to avoid paying for it three
-        # times across the hosted matrix, not because it needs Linux.
+        if: runner.os == 'Linux'
         run: flake8 pixelart_creator scripts
 
       - name: Format check (black + isort)
-        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
+        if: runner.os == 'Linux'
         run: |
           black --check pixelart_creator scripts
           isort --check-only pixelart_creator scripts
 
       - name: Type check (mypy)
-        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
+        if: runner.os == 'Linux'
         run: mypy pixelart_creator
 
       - name: Path-portability lint (P11 script)
-        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
+        if: runner.os == 'Linux'
         run: python scripts/path_portability_check.py --root .
 
       - name: Architecture layering + cycle checks (P11 scripts)
-        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
+        if: runner.os == 'Linux'
         # check_layering is run over BOTH roots, because ONE root is not enough:
         #   --root pixelart_creator  enforces the three client layers (ui/logic/
         #                            data), whose rules key on parts[0] RELATIVE
@@ -629,10 +279,7 @@ jobs:
           python scripts/check_cycles.py --root web_viewer
 
       - name: I18n string audit (report, P11 script; AGT-07)
-        # UN-GATED for OS (temporary, see revert block at top of file): the
-        # `if: runner.os == 'Linux'` guard removed here is OS-invariance
-        # scoping only, unrelated to the pass/fail flip below.
-        #
+        if: runner.os == 'Linux'
         # BLOCKING (D-22, WP-6.5, decision batch 2026-08-16): this step was
         # warn-and-continue (exit 1 findings swallowed to a `::warning::`,
         # only exit 2 script-error failed the build) because the script's own
@@ -653,7 +300,7 @@ jobs:
       # never wired, so a red docs build or a docstring regression could never
       # have blocked a merge. Ubuntu-only, same as the other static gates. -----
       - name: Docs build (mkdocs --strict, F14)
-        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
+        if: runner.os == 'Linux'
         # main/docs/site/mkdocs.yml (AGT-08 mkdocs-site skill). --strict turns
         # every warning (broken internal link, a nav entry with no matching
         # page, etc.) into a build failure so the published User Guide can
@@ -663,7 +310,7 @@ jobs:
         run: mkdocs build -f docs/site/mkdocs.yml --strict
 
       - name: Docstring lint (pydocstyle, PEP 257) [TIME-BOXED EXCEPTION, expires 2026-08-31]
-        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
+        if: runner.os == 'Linux'
         # Ruleset: [tool.pydocstyle] convention="pep257" in pyproject.toml (see
         # that file's comment for why pep257 — the project's own documented
         # docstring discipline — and not google/numpy, which would manufacture
@@ -870,7 +517,7 @@ jobs:
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 
       - name: Coverage gate — client package (>=90 line / >=80 branch, S13)
-        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
+        if: runner.os == 'Linux'
         # SCOPE (made explicit): this gate reads the coverage.xml produced by the
         # pytest step above, which measures `--cov=pixelart_creator` ONLY. It
         # therefore says NOTHING about the two shipped non-three-layer packages
@@ -894,7 +541,7 @@ jobs:
       # files. The omit drops the test modules themselves from the measurement so
       # only shipped code is graded.
       - name: Measure non-client coverage (sync_backend + web_viewer)
-        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
+        if: runner.os == 'Linux'
         env:
           COVERAGE_FILE: .coverage.nonclient
         run: |
@@ -908,7 +555,7 @@ jobs:
           python -m coverage xml --omit="*/tests/*" -o coverage/nonclient.xml
 
       - name: Coverage gate — non-client packages (>=90 line / >=80 branch, S13)
-        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
+        if: runner.os == 'Linux'
         # Formerly a time-boxed exception (expired scaffolding removed
         # 2026-07-30): sync_backend/web_viewer measured below the
         # constitutional 90/80 on 2026-07-29 (sync_backend 93.57%/76.00%,
@@ -930,10 +577,7 @@ jobs:
       # integer-scale + render-fidelity vs the shipped Python reference (+/-1 LSB).
       # A distinct step: a JS-unit failure fails THIS leg. -----
       - name: Set up Node.js (web-viewer JS-unit)
-        # UN-GATED (temporary, see revert block at top of file): OS-invariant
-        # (Node runs fine on the self-hosted Windows leg; setup-node installs
-        # its own toolchain rather than relying on a pre-provisioned one).
-        #
+        if: runner.os == 'Linux'
         # actions/setup-node@v7 (was @v4, CI-warning fix, 2026-08-18): v4 is
         # the only stale action in this file -- its own manifest declares
         # `using: node20`, a runtime GitHub has deprecated and is
@@ -972,7 +616,7 @@ jobs:
           node-version: "24"
 
       - name: Web-viewer JS-unit tests (node, framework-free)
-        # UN-GATED (temporary, see revert block at top of file): OS-invariant.
+        if: runner.os == 'Linux'
         run: node web_viewer/tests/test_viewer_core.mjs
 
       # ----- Perf gates: Ubuntu-only. The ceilings are calibrated to the Ubuntu
@@ -1186,82 +830,18 @@ jobs:
   # (BACKEND-001) and the Nginx TLS/WSS config + idle-survival tuning
   # (BACKEND-002).
   # ===========================================================================
-  # ACTIVE, SELF-HOSTED WINDOWS LEG (WP-6.2, D-16/D-17, re-enabled
-  # 2026-08-16 — see the TEMPORARY revert block at the top of this file,
-  # revert step 2): this job now targets the SAME self-hosted label set as
-  # the quality-gate windows-selfhosted leg, [self-hosted, Windows, X64] —
-  # ZERO GitHub-hosted minutes, the same hard constraint. It was originally
-  # authored for a hosted `ubuntu-latest` runner (Docker + nginx preinstalled
-  # there); on this Windows leg the Docker-container test and the opt-in
-  # real-Nginx 60s+ idle test both self-skip with a stated reason (no
-  # `docker` / no `nginx`+`openssl` on this runner's PATH) rather than fail —
-  # the SAME reasoned-skip contract those tests already carry for any
-  # environment lacking the binary, not a new exception carved out here. All
-  # 9 `integration`-marked tests under tests/deploy/ remain collected and
-  # runnable; only the two opt-in/Docker cases skip. The Ubuntu-only
-  # "Install Nginx + OpenSSL + Qt runtime OS libraries (apt)" step the hosted
-  # form used is REMOVED for this leg: apt does not exist on Windows, and
-  # Windows needs no extra system libs for offscreen Qt (same reasoning as
-  # the quality-gate job's own Ubuntu-only Qt-libs step) — nginx/openssl
-  # absence is exactly what makes the opt-in idle test self-skip, which is
-  # the intended, documented behaviour here, not a gap.
   integration:
-    name: integration (windows-selfhosted)
-    # PUBLIC-REPO HAZARD — READ BEFORE MAKING THIS REPOSITORY PUBLIC: the same
-    # hazard as the quality-gate windows-selfhosted leg above (GitHub's own
-    # guidance: self-hosted runners "should almost never be used for public
-    # repositories... because any user can open pull requests against the
-    # repository and compromise the environment"). THIS JOB MUST BE REVERTED
-    # to a hosted `ubuntu-latest` runner (see revert step 2 at the top of
-    # this file) BEFORE this repository's visibility changes to public. Do
-    # not carry this configuration into a public repo.
-    runs-on: [self-hosted, Windows, X64]
-    # Cold-setup headroom: this job re-installs the project on the same bare
-    # runner as the quality-gate windows-selfhosted leg, so it pays the same
-    # cold actions/setup-python / pip-install cost the first time it runs
-    # here (see that leg's matrix comment for the full measured rationale).
-    # 30 min (the original hosted-Ubuntu cap) is under-provisioned for that
-    # cold path; 45 min matches the same measured/derived cap used there.
-    timeout-minutes: 45
+    name: integration (ubuntu-latest)
+    runs-on: ubuntu-latest
+    # Ample cap for a Docker image build (self-skips if the daemon is unusable)
+    # plus the fast launcher/socket/config tests; far under the 6h default.
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
-      # PRE-FLIGHT DIAGNOSTIC, NOT A REPAIR (2026-08-18 correction) -- SAME
-      # defect and SAME corrected step as the identically-named step in the
-      # quality-gate job above (this job runs on the SAME self-hosted Windows
-      # runner with the SAME `defaults.run.shell: bash`, and a PATH fix in
-      # one job does not carry into another job, so the step is duplicated
-      # here rather than shared). See that step's comment for the full
-      # runner-log evidence of WHY a `GITHUB_ENV` write cannot repair a
-      # `shell: bash` step's own interpreter resolution; not repeated
-      # verbatim here to keep this job's own history readable.
-      - name: "Diagnose Git-for-Windows bash resolvability (does NOT repair 'shell: bash')"
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          if (Get-Command bash -ErrorAction SilentlyContinue) {
-            Write-Host "bash already resolvable on the runner's own PATH -- 'shell: bash' steps in this job will work. Nothing to do."
-            exit 0
-          }
-          $candidates = @(
-            "C:\Program Files\Git",
-            "C:\Program Files (x86)\Git"
-          )
-          $gitRoot = $candidates | Where-Object { Test-Path (Join-Path $_ "bin\bash.exe") } | Select-Object -First 1
-          if (-not $gitRoot) {
-            Write-Host "::error::Git for Windows was not found at any known location ($($candidates -join ', ')), so this job's 'shell: bash' steps have no bash.exe to run. Install Git for Windows on this runner (https://git-scm.com/download/win) -- required, not optional, for this workflow -- then re-run."
-            exit 1
-          }
-          $binDir = Join-Path $gitRoot "bin"
-          $usrBinDir = Join-Path $gitRoot "usr\bin"
-          $newPath = "$($env:PATH);$binDir;$usrBinDir"
-          Add-Content -Path $env:GITHUB_ENV -Value "PATH=$newPath"
-          Write-Host "Found Git for Windows at $gitRoot. Appended $binDir and $usrBinDir to PATH via GITHUB_ENV for the rest of this job -- but that ONLY helps a step whose own shell is not bash and that shells out to bash itself. It CANNOT make 'shell: bash' steps in this job work: GitHub Actions resolves that interpreter from the runner service's OWN process PATH before any step (including this one) runs, and a job-level PATH edit can never reach that lookup. THE REAL FIX is the runner's MACHINE PATH plus a restart of the 'actions.runner...pixelart-local-probe' service so it re-inherits that PATH at its own process start (see the AGT-09 report). Failing this job now, with this cause named, instead of letting it repeat the bare 'bash: command not found' one step later."
-          exit 1
 
       - name: Set up CI temp root (CI-PixelArtCreator)
         # Same routing as the quality-gate job's identically-named step (see
@@ -1286,6 +866,23 @@ jobs:
           python-version-file: .python-version
           cache: pip
 
+      # nginx: the opt-in real idle-past-60s WSS proxy test (self-skips unless
+      # PIXELART_NGINX_IDLE_TEST=1). openssl: mints the self-signed loopback cert
+      # for that proxy. The Docker daemon is preinstalled on ubuntu-latest.
+      # The Qt runtime libs (libegl1/libgl1/xcb/...) are also required even though
+      # the deploy tests are Qt-free: the pytest-qt plugin (from [dev]) imports
+      # QtGui at pytest_configure, which needs libEGL.so.1 to load the offscreen
+      # platform plugin — without it pytest INTERNALERRORs before collecting.
+      # Mirrors the quality-gate Ubuntu leg (QT_QPA_PLATFORM=offscreen is global).
+      - name: Install Nginx + OpenSSL + Qt runtime OS libraries (apt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            nginx openssl \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
+
       - name: Install project (runtime + dev) from manifest
         # -c constraints.txt: reproducibility lock (R-11) — pins the full
         # resolved dependency closure (direct + transitive) so this install
@@ -1308,13 +905,13 @@ jobs:
         # `pytest -m integration tests/backend/` collects 0 and exits 5, failing
         # the job. Verified locally: 9 collected across the two roots. The fast
         # tests (launcher-subprocess convergence, Nginx config assertions, short
-        # idle-survival) RUN and must pass on this leg. The Docker-container test
-        # self-skips (no `docker` on this runner's PATH). The SLOW real-nginx 60s+
-        # idle test stays OPT-IN and self-skips (PIXELART_NGINX_IDLE_TEST is unset
-        # here; nginx/openssl are not installed on this leg) — it is NOT forced on
-        # every push. No Qt-libs install needed on Windows: the PySide6 wheel
-        # bundles its own Qt binaries (mirrors the quality-gate windows-selfhosted
-        # leg, which needs none either).
+        # idle-survival) RUN and must pass. The Docker-container test builds the
+        # shipped deploy/Dockerfile on the ubuntu daemon (self-skips if the daemon
+        # is unusable). The SLOW real-nginx 60s+ idle test stays OPT-IN and
+        # self-skips because PIXELART_NGINX_IDLE_TEST is unset here (CI-time
+        # budget) — it is NOT forced on every push. No extra Qt libs beyond the
+        # apt step above are needed: these tests import only the Qt-free
+        # data/logic layer.
         run: pytest -m integration testing/suites/deploy/ testing/suites/backend/ --basetemp="${CI_TEMP_ROOT}/pytest"
 
       - name: Clean up CI temp root (CI-PixelArtCreator)

@@ -34,6 +34,8 @@ does not exercise anything theme-related on top of it.
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QUndoStack, QWheelEvent
@@ -258,7 +260,40 @@ def test_sc_cgs_ui_008_3_zoom_in_still_reaches_zoom_max(make_view):
 # REQ-CGS-UI-009 -- every corner is reachable at the viewport centre.        #
 # --------------------------------------------------------------------------- #
 
+#: KNOWN DEFECT, macOS only -- diagnosed by AGT-06, ruled by the user
+#: (2026-08-31): mark rather than silently widen ``CORNER_TOLERANCE_DOC_PX``.
+#: Measured on hosted run 33432594426 (head ``55c73a3``): corner (512, 0) --
+#: "viewport centre reached scene (509.0, 0.0) -- x shortfall 3.0 exceeds the
+#: 0.5-doc-px tolerance". ``Canvas_View._apply_pan_margin`` adds a hardcoded
+#: ``+ 1.0 / zoom`` slack whose own docstring says it exists to absorb Qt
+#: scrollbar-range rounding; on macOS that rounding evidently costs more than
+#: the one document pixel of slack budgeted, so the margin under-compensates
+#: on that platform only -- Windows and Linux measure within tolerance and
+#: must keep enforcing REQ-CGS-UI-009, hence the macOS-only condition below.
+#: The product fix belongs to AGT-05, tracked by a GitHub issue filed
+#: separately (not by this agent). ``strict=True``: if ``_apply_pan_margin``
+#: is corrected and these pass on macOS again, the unexpected pass becomes a
+#: failure -- the signal to delete this marker, not to let it rot in place.
+_MACOS_PAN_MARGIN_XFAIL_REASON = (
+    "REQ-CGS-UI-009: on macOS only, Canvas_View._apply_pan_margin's hardcoded "
+    "'+ 1.0 / zoom' slack (docstring: absorbs Qt scrollbar-range rounding) "
+    "under-compensates -- measured corner (512, 0): viewport centre reached "
+    "scene (509.0, 0.0), x shortfall 3.0 doc-px vs. the 0.5-doc-px "
+    "CORNER_TOLERANCE_DOC_PX tolerance (hosted run 33432594426, head "
+    "55c73a3). Windows/Linux are unaffected and stay enforced (condition is "
+    "macOS-only). Product fix owned by AGT-05; tracked by a separate GitHub "
+    "issue. strict=True so a fix that stops reproducing this is caught as an "
+    "unexpected pass, not silently masked."
+)
 
+_macos_pan_margin_xfail = pytest.mark.xfail(
+    condition=sys.platform == "darwin",
+    reason=_MACOS_PAN_MARGIN_XFAIL_REASON,
+    strict=True,
+)
+
+
+@_macos_pan_margin_xfail
 def test_sc_cgs_ui_009_1_every_corner_reaches_the_viewport_centre(make_scene, qtbot):
     """SC-CGS-UI-009-1: each of the document's four corners can be positioned
     at the centre of the viewport, within half a document pixel.
@@ -294,6 +329,7 @@ def test_sc_cgs_ui_009_1_every_corner_reaches_the_viewport_centre(make_scene, qt
         )
 
 
+@_macos_pan_margin_xfail
 def test_sc_cgs_ui_009_2_reachable_again_after_panning_back(make_scene, qtbot):
     """SC-CGS-UI-009-2: no part of the canvas becomes unreachable.
 
