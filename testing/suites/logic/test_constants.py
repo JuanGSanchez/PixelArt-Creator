@@ -110,7 +110,8 @@ class TestFeedbackAndGestureScalarsAreNamed:
 # each traced to a different, legitimately-named, pre-existing constant that
 # predates this feature (_FAVOURITE_PX, _SWATCH_PX x3, _TICK_MS's `1000` fps
 # conversion x2, iso_grid_dialog's ratio bounds x3, main_window's iteration
-# cap, realtime_worker's ms<->s conversion, reference_board's handle size).
+# cap, realtime_worker's ms<->s conversion, reference_board's handle size,
+# tool_icons's glyph raster edge).
 # None of these is FEEDBACK_SQUARE_PX / FEEDBACK_SQUARE_PAD_RATIO /
 # FEEDBACK_DURATION_MS / FEEDBACK_FADE_TAIL_RATIO / CLICK_DRAG_THRESHOLD_PX
 # re-typed -- each was read at its own source line and confirmed to belong to
@@ -120,7 +121,7 @@ class TestFeedbackAndGestureScalarsAreNamed:
 # literal beyond this documented baseline", so it stays meaningful as ui/
 # grows and starts consuming these five constants in T-09/T-11/T-13 and
 # later -- a future author who inlines 24 or 1000 instead of importing
-# FEEDBACK_SQUARE_PX / FEEDBACK_DURATION_MS fails this test; the thirteen
+# FEEDBACK_SQUARE_PX / FEEDBACK_DURATION_MS fails this test; the fourteen
 # already-explained hits below do not.
 
 _UI_ROOT = pathlib.Path(__file__).resolve().parents[3] / "pixelart_creator" / "ui"
@@ -143,13 +144,21 @@ _BASELINE_COINCIDENCES = {
     ("iso_grid_dialog.py", 42, 13, "0.1"): "_MIN_RATIO iso aspect-ratio bound",
     ("iso_grid_dialog.py", 43, 13, "10.0"): "_MAX_RATIO iso aspect-ratio bound",
     ("iso_grid_dialog.py", 64, 39, "0.1"): "ratio spin box single-step",
-    ("main_window.py", 301, 13, "24"): "_SWATCH_PX swatch edge",
-    ("main_window.py", 353, 32, "10"): "_LAYOUT_SETTLE_MAX_ITERATIONS",
+    ("main_window.py", 302, 13, "24"): "_SWATCH_PX swatch edge",
+    ("main_window.py", 354, 32, "10"): "_LAYOUT_SETTLE_MAX_ITERATIONS",
     ("palette_editor_panel.py", 48, 13, "24"): "_SWATCH_PX swatch edge",
     ("realtime_worker.py", 291, 47, "1000.0"): "ms<->s join-timeout conversion",
     ("reference_board.py", 57, 22, "10.0"): "_RESIZE_HANDLE_SIZE",
     ("shade_ramp_picker.py", 33, 13, "24"): "_SWATCH_PX swatch edge",
     ("timelapse_controls.py", 918, 32, "1000"): "ms<->fps conversion",
+    ("tool_icons.py", 60, 35, "24"): (
+        "_ICON_RENDER_SIZE_PX glyph raster edge (REQ-IS-UI-027) -- a "
+        "distinct concept from FEEDBACK_SQUARE_PX that coincides at 24 by "
+        "chance; each is independently named and documented at its "
+        "assignment, and merging them would be false coupling (a toolbar "
+        "glyph size and a cursor-feedback square size have no reason to "
+        "change together)"
+    ),
 }
 
 
