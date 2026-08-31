@@ -125,6 +125,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          # fetch-depth: 0 (full history), NOT the actions/checkout default
+          # (depth-1 shallow clone). testing/suites/ui/test_input_scheme_regression.py
+          # hardcodes commit 1244cd5 and shells out to `git diff --name-only
+          # 1244cd5 HEAD -- web_viewer sync_backend`, which needs that commit
+          # to exist in the local object graph. A depth-1 clone does not
+          # contain it (`exit status 128`) -- this passed for a month only
+          # because the retired self-hosted runner reused a persistent
+          # workspace that still held full history; a hosted runner clones
+          # fresh every time (measured: run 33427869334, all three
+          # quality-gate legs, 4 log hits each). Scoped to THIS job only: the
+          # `integration` job below never collects testing/suites/ui, so it
+          # has no need of full history and keeps the cheaper shallow clone.
+          # Repository cost is negligible (~510 commits).
+          fetch-depth: 0
 
       # PRE-FLIGHT DIAGNOSTIC, not a repair: `shell: powershell` overrides the
       # job default for this ONE step so it can run before bash exists at all.

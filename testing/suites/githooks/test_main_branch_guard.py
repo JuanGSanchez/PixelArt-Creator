@@ -64,6 +64,7 @@ four that are legitimate — the creation commit, a merge, a post-merge store
 refresh, and a one-time furniture bootstrap.
 """
 
+import shutil
 import subprocess
 
 import pytest
@@ -136,12 +137,26 @@ def repo(tmp_path, request):
     git(work, "config", "commit.gpgsign", "false")
 
     # The real hooks, copied from the branch this suite ships in.
+    #
+    # shutil.copy2, not a read_bytes()/write_bytes() round trip: copy2 copies
+    # the file's MODE along with its content (and mtime), so a hook that is
+    # 100755 in .githooks/ lands 100755 here too, and a hook that regresses to
+    # 100644 lands 100644 -- unexecutable, exactly as POSIX git would then
+    # find it, and exactly what this suite must still be able to catch. A
+    # blind chmod(0o755) here would sever that: the fixture would always
+    # install an executable hook regardless of what shipped, so this suite
+    # could never again notice the shipped mode regressing (as it did before
+    # commit e3bc50d corrected the three tracked hooks from 100644 to
+    # 100755). Content-only write_bytes() created every destination at the
+    # process default (0644) and never touched mode at all, which is why
+    # POSIX git refused every copied hook here as "not set as executable"
+    # (ubuntu-latest/macos-latest; Windows does not enforce the bit).
     src = request.config.rootpath / ".githooks"
     dst = work / ".githooks"
     dst.mkdir()
     for hook in ("pre-commit", "post-merge", "post-checkout"):
         if (src / hook).is_file():
-            (dst / hook).write_bytes((src / hook).read_bytes())
+            shutil.copy2(src / hook, dst / hook)
     git(work, "config", "core.hooksPath", ".githooks")
 
     # A store, so "bookkeeping" has something real to be about.
