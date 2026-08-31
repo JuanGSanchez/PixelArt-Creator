@@ -443,13 +443,18 @@ class Reference_Board(QWidget):
         _ = flags
 
     def set_favourites_model(self, favourites: Favourites) -> None:
-        """Bind the persisted Favourites model a plain wheel notch travels
-        (REQ-IS-UI-008, T-21/D-16)."""
+        """Bind the persisted Favourites model a plain wheel notch travels.
+
+        REQ-IS-UI-008, T-21/D-16.
+        """
         self._favourites = favourites
 
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802 (Qt override)
-        """``Shift``+wheel zooms the board (D-16); plain wheel travels
-        Favourites (REQ-IS-UI-008, D-16)."""
+        """Zoom the board on ``Shift``+wheel, otherwise travel Favourites.
+
+        ``Shift``+wheel zooms the board (D-16); plain wheel travels
+        Favourites (REQ-IS-UI-008, D-16).
+        """
         if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             self._zoom_wheel(event)
         else:

@@ -142,9 +142,10 @@ class Favourites:
         return self._colors[self._cursor]
 
     def advance(self) -> Optional[RGBA]:
-        """Step the cursor to the next entry, wrapping past the last to the
-        first (REQ-IS-LOGIC-001, ``CL-IS-04``). A silent no-op — never
-        raises — on an empty list, returning ``None``.
+        """Step the cursor to the next entry, wrapping past the last to the first.
+
+        REQ-IS-LOGIC-001, ``CL-IS-04``. A silent no-op — never raises — on
+        an empty list, returning ``None``.
         """
         if not self._colors:
             return None
@@ -152,9 +153,10 @@ class Favourites:
         return self._colors[self._cursor]
 
     def retreat(self) -> Optional[RGBA]:
-        """Step the cursor to the previous entry, wrapping before the first
-        to the last (REQ-IS-LOGIC-001, ``CL-IS-04``). A silent no-op — never
-        raises — on an empty list, returning ``None``.
+        """Step the cursor to the previous entry, wrapping before the first to the last.
+
+        REQ-IS-LOGIC-001, ``CL-IS-04``. A silent no-op — never raises — on
+        an empty list, returning ``None``.
         """
         if not self._colors:
             return None
@@ -162,8 +164,9 @@ class Favourites:
         return self._colors[self._cursor]
 
     def first(self) -> Optional[RGBA]:
-        """Place the cursor on entry 0 and return it (REQ-IS-LOGIC-002); a
-        silent no-op returning ``None`` on an empty list.
+        """Place the cursor on entry 0 and return it.
+
+        REQ-IS-LOGIC-002. A silent no-op returning ``None`` on an empty list.
         """
         if not self._colors:
             return None
