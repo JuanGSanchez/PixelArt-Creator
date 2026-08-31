@@ -233,6 +233,7 @@ from pixelart_creator.ui.rotsprite_dialog import RotSprite_Dialog
 from pixelart_creator.ui.script_runner_panel import Script_Runner_Panel
 from pixelart_creator.ui.shade_ramp_picker import Shade_Ramp_Picker
 from pixelart_creator.ui.shared_projects_panel import Shared_Projects_Panel
+from pixelart_creator.ui.shortcut_focus_guard import Shortcut_Focus_Guard
 from pixelart_creator.ui.symmetry_panel import Symmetry_Panel
 from pixelart_creator.ui.theme import (
     THEME_DARK,
@@ -534,6 +535,14 @@ class Main_Window(QMainWindow):
         app = QApplication.instance()
         assert isinstance(app, QApplication)  # a QApplication must already exist
         self._app = app
+        # REQ-IS-UI-006: consumes ShortcutOverride for a plain/Shift'd character
+        # key while a text-entry widget has focus, so the home-row tool keys
+        # (A S D W E F Q + Shift forms) type into a hex-colour/layer-name field
+        # instead of switching tools (plan Section 2, M4). Installed once on the
+        # live QApplication -- app-level, not per-widget -- and parented to it,
+        # not to self, so it outlives every window the guard must protect.
+        self._shortcut_focus_guard = Shortcut_Focus_Guard(app)
+        app.installEventFilter(self._shortcut_focus_guard)
         self._language_manager = LanguageManager(app, parent=self)
         self._undo_group = QUndoGroup(self)
         self._tabs_data: List[_DocTab] = []
@@ -2758,6 +2767,11 @@ class Main_Window(QMainWindow):
         """
         self._playback_controls.stop()
         self.shutdown_prewarm()
+        # Uninstall the REQ-IS-UI-006 focus guard so a closed window's filter
+        # does not keep intercepting keys on a QApplication instance that
+        # outlives it (e.g. a test process constructing several Main_Window
+        # instances against one shared QApplication).
+        self._app.removeEventFilter(self._shortcut_focus_guard)
         super().closeEvent(event)
 
     def active_tab(self) -> Optional[_DocTab]:
