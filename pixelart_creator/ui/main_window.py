@@ -3835,7 +3835,16 @@ class Main_Window(QMainWindow):
         tool at this same pixel. Also sets the pick-surface visibility
         (CL-18): the wheel/value/numeric/harmony surface shows only for the
         five colour-consuming tools.
+
+        D-19 (2026-08-31): a right-click that closes the already-open hub
+        (the ``Qt.WindowType.Popup`` auto-close on an outside click) reaches
+        this seam too, on the same physical click — without this guard it
+        would reopen the hub at the new anchor and the popup would never
+        appear to dismiss. ``consume_just_closed`` is scoped to that one
+        event-loop turn, so a later, deliberate right-click still opens it.
         """
+        if self._colour_hub.consume_just_closed():
+            return
         self._colour_hub.set_color(self._active_color)
         record = self.active_tab()
         if record is not None:
@@ -3878,13 +3887,34 @@ class Main_Window(QMainWindow):
         ``Canvas_View.run_tool_at``'s own — reused, not reimplemented here
         (clause 5) — via the same rejection signals the left-click path
         already surfaces to the status bar.
+
+        2026-08-31 fix: ``run_tool_at`` paints with the VIEW's own current
+        ``active_color`` (``_make_context``), not with whatever this signal
+        carries — and since the 2026-08-31 hub amendment a single Favourites
+        or harmony/shade/tint swatch click emits ``colorCommitted`` WITHOUT a
+        preceding ``colorApplied`` (leg 1 is skipped on purpose, "paints
+        without adopting"), so the view's active colour can be genuinely
+        stale here. The picked ``color`` is pushed onto the view for the
+        span of this one run and then restored, so the tool paints with the
+        colour the signal actually carries while the persisted active
+        colour/swatch — never touched by ``_set_active_color`` here — stays
+        exactly what leg 1 left it (unchanged, for this gesture). The wheel
+        pad's own release still commits the colour ``colorApplied`` already
+        pushed during the drag, so ``previous_color`` there already equals
+        ``color`` and the restore is a no-op — that path is unaffected.
         """
         if self._active_tool_id not in _COLOUR_CONSUMING_TOOL_IDS:
             return  # SC-U006-13: favourites still set the colour only.
         if self._hub_anchor is None or self._hub_anchor_view is None:
             return
         x, y = self._hub_anchor
-        self._hub_anchor_view.run_tool_at(x, y)
+        view = self._hub_anchor_view
+        previous_color = view.active_color()
+        view.set_active_color(color)
+        try:
+            view.run_tool_at(x, y)
+        finally:
+            view.set_active_color(previous_color)
 
     def _on_open(self) -> None:
         path, _ = QFileDialog.getOpenFileName(

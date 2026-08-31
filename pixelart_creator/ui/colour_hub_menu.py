@@ -25,16 +25,32 @@ this module stays Qt-plumbing only — the run/guard/undo decision lives in
 ``ui/canvas_view.py``'s ``run_tool_at`` and ``ui/main_window.py``. Strings are
 ``tr()``-wrapped and re-set on :data:`QEvent.Type.LanguageChange` (F5); the hub
 is keyboard-openable and navigable.
+
+**Amended 2026-08-31 (REQ-IS-UI-019/-020/-021/-022/-023, REQ-IS-UI-030 FIX,
+D-19).** A single left click on a Favourites entry or a harmony/shade/tint
+swatch now PAINTS (leg 2, :attr:`colorCommitted`) and leaves the active
+colour unchanged; a double click, or ``Space``/``Return`` on a focused
+swatch, ADOPTS (leg 1, :attr:`colorApplied`) and paints nothing. The two
+gestures are wired to distinct signals throughout — never one slot shared
+between ``itemClicked``/``itemActivated`` — so a double click can no longer
+also fire the single-click path. The wheel pad is **not** a swatch and is
+unchanged: its drag still streams :attr:`colorApplied` live and its release
+still commits once. The completion handler, :meth:`Colour_Hub_Menu.
+_on_pick_completed`, now commits the colour of the control that actually
+completed the pick rather than always reading the wheel's (possibly stale)
+colour — this was the shared root cause of both defects (`REQ-IS-UI-030`).
+Separately, D-19: a right-click while the hub is already open now closes it
+and does not reopen it — see :meth:`Colour_Hub_Menu.consume_just_closed`.
 """
 
 from __future__ import annotations
 
 from typing import List, Optional
 
-from PySide6.QtCore import QEvent, QObject, QPoint, Qt, Signal
-from PySide6.QtGui import QColor, QIcon, QKeyEvent, QMouseEvent, QPixmap
+from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QHideEvent, QIcon, QKeyEvent, QMouseEvent, QPixmap
 from PySide6.QtWidgets import (
-    QAbstractButton,
+    QApplication,
     QDialog,
     QHBoxLayout,
     QLabel,
@@ -63,9 +79,34 @@ _WHEEL_NUDGE_KEYS = frozenset(
 
 
 class Favourites_Panel(QWidget):
-    """A list of persisted favourite colours with add / remove / reorder (S3a/S4)."""
+    """A list of persisted favourite colours with add / remove / reorder (S3a/S4).
 
-    #: Emitted with an RGBA tuple when a favourite is chosen (click or Enter).
+    Two gestures, two distinct signals (REQ-IS-UI-019/-022, D-11):
+
+    * :attr:`favouritePicked` — a single left click. PAINT-only.
+    * :attr:`favouriteActivated` — a double left click, or ``Enter``/``Return``
+      on the focused row (``QListWidget``'s native ``itemActivated``).
+      ADOPT-only.
+
+    ``QListWidget.itemClicked`` fires on every click, including the first
+    half of a double click, so the single-click paint is deferred by the
+    platform's double-click interval and cancelled if ``itemActivated``
+    follows — the same disambiguation pattern used by the wheel's harmony
+    swatches (``colour_wheel_widget.py``'s ``_SwatchButton``).
+    """
+
+    #: Single left click on a favourite — paint that colour, leave the wheel
+    #: alone.
+    favouritePicked = Signal(object)
+    #: Double left click / Enter / Return on a favourite — adopt that colour
+    #: into the wheel, paint nothing.
+    favouriteActivated = Signal(object)
+    #: Deprecated alias of :attr:`favouriteActivated`, kept for pre-2026-08-31
+    #: callers of the pre-split single ``favouriteChosen`` signal. Emitted
+    #: alongside :attr:`favouriteActivated` ONLY — never alongside
+    #: :attr:`favouritePicked`, so it never resurrects the fused-gesture
+    #: defect this split fixes (REQ-IS-UI-019). New code should connect
+    #: :attr:`favouritePicked` / :attr:`favouriteActivated` directly.
     favouriteChosen = Signal(object)
     #: Emitted whenever the underlying model is mutated (so the shell persists it).
     favouritesChanged = Signal()
@@ -74,10 +115,14 @@ class Favourites_Panel(QWidget):
         """Build the favourites list backed by an empty model."""
         super().__init__(parent)
         self._model = Favourites()
+        self._pending_item: Optional[QListWidgetItem] = None
+        self._click_timer = QTimer(self)
+        self._click_timer.setSingleShot(True)
+        self._click_timer.timeout.connect(self._emit_pending_pick)
 
         self._list = QListWidget(self)
         self._list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
-        self._list.itemClicked.connect(self._on_item_activated)
+        self._list.itemClicked.connect(self._on_item_clicked)
         self._list.itemActivated.connect(self._on_item_activated)
 
         self._remove_button = QPushButton(self)
@@ -151,10 +196,30 @@ class Favourites_Panel(QWidget):
                 self._list.setCurrentRow(row)
                 return
 
-    def _on_item_activated(self, item: QListWidgetItem) -> None:
+    def _on_item_clicked(self, item: QListWidgetItem) -> None:
+        # Defer: this click may turn out to be the first half of a double
+        # click, in which case `_on_item_activated` below cancels it.
+        self._pending_item = item
+        self._click_timer.start(QApplication.doubleClickInterval())
+
+    def _emit_pending_pick(self) -> None:
+        item = self._pending_item
+        self._pending_item = None
+        if item is None:
+            return
         color = item.data(Qt.ItemDataRole.UserRole)
         if color is not None:
-            self.favouriteChosen.emit(color)
+            self.favouritePicked.emit(color)
+
+    def _on_item_activated(self, item: QListWidgetItem) -> None:
+        # Double click / Enter / Return: adopt, and cancel the deferred
+        # single-click paint the first half of a double click scheduled.
+        self._click_timer.stop()
+        self._pending_item = None
+        color = item.data(Qt.ItemDataRole.UserRole)
+        if color is not None:
+            self.favouriteActivated.emit(color)
+            self.favouriteChosen.emit(color)  # deprecated alias, see above
 
     def _on_remove(self) -> None:
         row = self._list.currentRow()
@@ -198,9 +263,12 @@ class Colour_Hub_Menu(QDialog):
     colorApplied = Signal(object)
     #: Emitted with an RGBA tuple on a COMPLETED pick only — one emission per
     #: discrete gesture (a wheel-drag release, a keyboard nudge release, a
-    #: numeric spin's editingFinished, a swatch click, or a favourite chosen).
-    #: The shell (``ui/main_window.py``) uses this to run the active tool at
-    #: the hub's anchor pixel as leg 2 (REQ-P3-UI-006 clauses 2-6).
+    #: numeric spin's editingFinished, a single click on a harmony/shade/tint
+    #: swatch, or a single click on a Favourites entry). A DOUBLE click / a
+    #: keyboard activation on either swatch surface adopts instead and never
+    #: reaches this signal (REQ-IS-UI-019/-020/-022, D-11). The shell
+    #: (``ui/main_window.py``) uses this to run the active tool at the hub's
+    #: anchor pixel as leg 2 (REQ-P3-UI-006 clauses 2-6).
     colorCommitted = Signal(object)
     #: Re-emitted when the Favourites model changes (so the shell persists it).
     favouritesChanged = Signal()
@@ -212,12 +280,15 @@ class Colour_Hub_Menu(QDialog):
         self.setWindowFlags(Qt.WindowType.Popup)
 
         self._favourites = Favourites_Panel(self)
-        self._favourites.favouriteChosen.connect(self._on_favourite_chosen)
+        self._favourites.favouritePicked.connect(self._on_favourite_picked)
+        self._favourites.favouriteActivated.connect(self._on_favourite_activated)
         self._favourites.favouritesChanged.connect(self.favouritesChanged)
 
         self._wheel = Colour_Wheel_Widget(self)
         self._wheel.colorPicked.connect(self._on_wheel_picked)
+        self._wheel.swatchPicked.connect(self._on_pick_completed)
         self._pick_completion_targets = self._install_pick_completion_watchers()
+        self._just_closed = False
 
         self._add_button = QPushButton(self)
         self._add_button.clicked.connect(self._on_add_current)
@@ -277,6 +348,33 @@ class Colour_Hub_Menu(QDialog):
         self.show()
         self._wheel.setFocus()
 
+    def consume_just_closed(self) -> bool:
+        """Return True once if this hub closed during the current event turn.
+
+        D-19: "right-click when this menu is already present must trigger
+        its disappearance, like when left-clicking in the canvas." The hub
+        is a ``Qt.WindowType.Popup``, so an outside click already closes it —
+        but the SAME right-click then reaches the shell's seam hook, which
+        would otherwise reopen the hub at the new anchor and make it appear
+        never to dismiss. The shell (``_open_colour_hub``) calls this at the
+        top of the reopen path and aborts if it returns True. The flag is
+        cleared on the next event-loop turn (see :meth:`hideEvent`), so it
+        only ever suppresses the reopen belonging to the click that closed
+        it — a later, deliberate right-click is never affected.
+        """
+        was = self._just_closed
+        self._just_closed = False
+        return was
+
+    def hideEvent(self, event: QHideEvent) -> None:  # noqa: N802 (Qt override)
+        """Flag a just-closed hub for one event-loop turn (D-19, see above)."""
+        self._just_closed = True
+        QTimer.singleShot(0, self._clear_just_closed)
+        super().hideEvent(event)
+
+    def _clear_just_closed(self) -> None:
+        self._just_closed = False
+
     def set_pick_surface_visible(self, visible: bool) -> None:
         """Show/hide the wheel + numeric + harmony surface (REQ-P3-UI-006 clause 7).
 
@@ -297,10 +395,15 @@ class Colour_Hub_Menu(QDialog):
     # ``Colour_Wheel_Widget.colorPicked`` is a live preview stream (SC-U006-10 /
     # REQ-P3-UI-006 clause 3): it fires on every wheel-drag mouse-move sample
     # and on every numeric-spin/value-slider change. Binding the tool-run leg
-    # to it directly would run the active tool once per sample. This hub may
-    # not edit ``colour_wheel_widget.py`` (outside this dispatch's write
-    # targets), so a completed pick is detected here, from the outside, off
-    # each control's own release/edit-finish event rather than off the stream.
+    # to it directly would run the active tool once per sample, so a completed
+    # pick is detected here, from the outside, off each control's own
+    # release/edit-finish event rather than off the stream.
+    #
+    # A harmony/shade/tint swatch is different: its single click must commit
+    # THAT SWATCH's own colour (REQ-IS-UI-020/-030), never the wheel's, and
+    # must NOT adopt into the wheel — so it is wired directly off
+    # ``Colour_Wheel_Widget.swatchPicked`` in ``__init__`` instead of through
+    # this generic watcher, and is not one of ``targets`` below.
 
     def _install_pick_completion_watchers(self) -> List[QWidget]:
         """Wire the wheel's live-stream controls to a discrete completion signal.
@@ -311,11 +414,13 @@ class Colour_Hub_Menu(QDialog):
           slider's arrow-key stepping too — caught via an installed event
           filter (:meth:`eventFilter` below);
         * each RGB/HSV numeric spin: ``editingFinished`` (Enter or focus-out),
-          never ``valueChanged``, which fires per keystroke while typing;
-        * each harmony/shade/tint swatch button: ``clicked`` — already one
-          atomic gesture with no drag to debounce.
-        Returns the widgets an event filter was installed on, kept referenced
-        for the hub's lifetime (Qt keeps no reference of its own).
+          never ``valueChanged``, which fires per keystroke while typing.
+
+        For all of the above, the wheel's own current colour IS the
+        completing control's colour (REQ-IS-UI-030, REQ-IS-UI-021), so
+        :meth:`_on_pick_completed` is called with no argument. Returns the
+        widgets an event filter was installed on, kept referenced for the
+        hub's lifetime (Qt keeps no reference of its own).
         """
         targets: List[QWidget] = []
         wheel_pad = self._find_wheel_pad()
@@ -326,8 +431,6 @@ class Colour_Hub_Menu(QDialog):
             widget.installEventFilter(self)
         for spin in self._wheel.findChildren(QSpinBox):
             spin.editingFinished.connect(self._on_pick_completed)
-        for button in self._wheel.findChildren(QAbstractButton):
-            button.clicked.connect(self._on_pick_completed)
         return targets
 
     def _find_wheel_pad(self) -> Optional[QWidget]:
@@ -356,9 +459,25 @@ class Colour_Hub_Menu(QDialog):
                 self._on_pick_completed()
         return super().eventFilter(obj, event)
 
-    def _on_pick_completed(self) -> None:
-        """Emit :attr:`colorCommitted` for the wheel's current colour (leg 2)."""
-        self.colorCommitted.emit(self._wheel.current_rgba())
+    def _on_pick_completed(self, color: Optional[RGBA] = None) -> None:
+        """Emit :attr:`colorCommitted` for the completing control's own colour.
+
+        REQ-IS-UI-030 (defect fix): the completing control's colour is
+        committed, never a stale ``self._wheel.current_rgba()`` read for a
+        control other than the one that actually completed the pick.
+
+        Called with no argument for the wheel pad, the value slider and the
+        RGB/HSV numeric entries — those set the wheel directly, so the
+        wheel's current colour already IS the completing control's own
+        colour (this is also how REQ-IS-UI-021's wheel-pad release is
+        satisfied, by the same rule rather than by an exception). Called
+        with an explicit ``color`` for a harmony/shade/tint swatch's single
+        click (wired to :attr:`Colour_Wheel_Widget.swatchPicked`), whose own
+        colour must be committed WITHOUT ever touching the wheel's state.
+        """
+        if color is None:
+            color = self._wheel.current_rgba()
+        self.colorCommitted.emit(color)
 
     # -- slots ------------------------------------------------------------
 
@@ -368,14 +487,16 @@ class Colour_Hub_Menu(QDialog):
             (color.red(), color.green(), color.blue(), color.alpha())
         )
 
-    def _on_favourite_chosen(self, color: RGBA) -> None:
-        # A favourite activation is itself one discrete, already-completed
-        # pick (SC-U006-2) — both legs fire; the shell gates leg 2's tool run
-        # on the active tool (SC-U006-13: no tool for the six non-consuming
-        # tools, even though this hub emits colorCommitted uniformly here).
+    def _on_favourite_picked(self, color: RGBA) -> None:
+        # Single click (REQ-IS-UI-019): paint-only, leg 2. The active colour
+        # in the circle is deliberately left unchanged — no colorApplied.
+        self.colorCommitted.emit(color)
+
+    def _on_favourite_activated(self, color: RGBA) -> None:
+        # Double click / Enter / Return (REQ-IS-UI-022): adopt-only, leg 1.
+        # Paints nothing — no colorCommitted.
         self._wheel.set_color(QColor(*color))
         self.colorApplied.emit(color)
-        self.colorCommitted.emit(color)
 
     def _on_add_current(self) -> None:
         # Explicit save-to-Favourites, distinct from applying (SC-U006-4, CL-5).

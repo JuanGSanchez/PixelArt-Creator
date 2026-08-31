@@ -644,7 +644,45 @@ def test_req_p3_ui_006_consuming_tool_pencil_click_favourite_runs_exactly_once(
 ):
     """A companion positive leg for a DIFFERENT colour-consuming tool
     (pencil): a completed Favourites pick under an active pencil runs the
-    tool exactly once (leg 2), at the hub's anchor pixel."""
+    tool exactly once (leg 2), at the hub's anchor pixel.
+
+    **UPDATED 2026-08-31 for T-25/T-26 (REQ-IS-UI-019/-030).** This test
+    used to drive ``_on_item_activated`` (a double click / Enter) and assert
+    that gesture both adopted the colour AND painted it, because before
+    T-25 a single fused handler did both. T-25 split Favourites into two
+    gestures on two signals (``colour_hub_menu.py`` module docstring,
+    2026-08-31 amendment): ``_on_item_activated`` now ADOPTS ONLY (paints
+    nothing, active colour changes) and ``_on_item_clicked`` (a single left
+    click, deferred by ``QApplication.doubleClickInterval()`` so a
+    following double click can still cancel it) now PAINTS ONLY (leg 2, the
+    active colour is deliberately left unchanged, SC-U019-2). The gesture
+    driven below is changed to the single click accordingly, and the
+    active-colour assertion is corrected to "unchanged" — under the new
+    split, painting is no longer coupled to adopting.
+
+    The property this regression test exists to guard --- **a
+    colour-consuming tool runs EXACTLY ONCE, not twice, on a favourite
+    pick** (the 2026-08-24 field defect) --- still holds under the new
+    split: ``record.stack.count() - before_count == 1`` below is measured,
+    not assumed, and it is exactly 1 on this tree.
+
+    **CONFIRMED PRODUCT DEFECT, found while updating this test (reported,
+    NOT fixed here -- P9/C2; see the AGT-06 T-26 report for the full
+    write-up and a throwaway-probe reproduction):**
+    ``Main_Window._on_hub_color_committed`` (``ui/main_window.py:3891-3896``)
+    receives ``colorCommitted``'s ``color`` argument -- now correctly the
+    FAVOURITE's own colour, per T-25's fix -- but never reads it; it calls
+    ``self._hub_anchor_view.run_tool_at(x, y)`` with no colour argument, and
+    ``run_tool_at`` paints with ``Canvas_View._active_color``, which a
+    paint-only single click deliberately never updates (SC-U019-2). The
+    pixel painted below is therefore the STALE active colour, not
+    ``target``. The final assertion is kept at the spec-correct expectation
+    (SC-U019-1: "pixel (7,9) is RED" / here, pixel (6,6) is ``target``) and
+    is NOT weakened to match the observed (wrong) behaviour -- per this
+    task's own instruction, this is reported and the test is left failing,
+    not adjusted to pass. Routed to AGT-05 (owner of ``ui/main_window.py``)
+    via the orchestrator.
+    """
     app, win = create_app([])
     qtbot.addWidget(win)
     _settle(app)
@@ -655,6 +693,7 @@ def test_req_p3_ui_006_consuming_tool_pencil_click_favourite_runs_exactly_once(
 
     win._open_colour_hub(6, 6)
     before_count = record.stack.count()
+    before_active_color = win._active_color
 
     target = (44, 55, 66, 255)
     win._colour_hub.favourites_model().add(target)
@@ -665,12 +704,13 @@ def test_req_p3_ui_006_consuming_tool_pencil_click_favourite_runs_exactly_once(
         for i in range(listw.count())
         if listw.item(i).data(Qt.ItemDataRole.UserRole) == target
     )
-    win._colour_hub._favourites._on_item_activated(item)
+    with qtbot.waitSignal(win._colour_hub.colorCommitted, timeout=2000):
+        win._colour_hub._favourites._on_item_clicked(item)  # single click: paints
     _settle(app)
 
-    assert win._active_color == target
-    assert record.stack.count() - before_count == 1
-    assert record.scene.active_buffer().get_pixel(6, 6) == target
+    assert win._active_color == before_active_color  # SC-U019-2: left unchanged
+    assert record.stack.count() - before_count == 1  # the guarded property: still 1
+    assert record.scene.active_buffer().get_pixel(6, 6) == target  # SC-U019-1
 
 
 # --------------------------------------------------------------------------- #

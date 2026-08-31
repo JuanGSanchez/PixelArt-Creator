@@ -16,7 +16,16 @@ As the selection changes, the widget recomputes the theory harmonies
 renders and binds. ``QColor`` HSV APIs are used here only, in ``ui/`` (CL-2).
 Every user-facing string is ``tr()``-wrapped and re-set on
 :data:`QEvent.Type.LanguageChange` (F5). Emits :attr:`colorPicked` with the
-picked :class:`~PySide6.QtGui.QColor` on any user-initiated change.
+picked :class:`~PySide6.QtGui.QColor` on any change that ADOPTS into the
+wheel — a drag/nudge/spin edit, or a swatch double-click/keyboard activation.
+
+**Amended 2026-08-31 (REQ-IS-UI-019/-020/-022/-030).** A harmony/shade/tint
+swatch's SINGLE click no longer adopts into the wheel at all: it emits
+:attr:`swatchPicked` with that swatch's own colour, paint-only, so the
+circle's active colour is left unchanged. Only a swatch's double click or a
+``Space``/``Return`` activation still adopts (:attr:`colorPicked`), and it
+never paints. See ``_SwatchButton`` for the click/double-click
+disambiguation this relies on.
 """
 
 from __future__ import annotations
@@ -24,7 +33,7 @@ from __future__ import annotations
 import math
 from typing import List, Optional
 
-from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QConicalGradient,
@@ -39,6 +48,7 @@ from PySide6.QtGui import (
     QRadialGradient,
 )
 from PySide6.QtWidgets import (
+    QApplication,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -77,10 +87,28 @@ _KEY_SAT_STEP = 0.05
 
 
 class _SwatchButton(QToolButton):
-    """A small keyboard-reachable button showing one RGBA colour."""
+    """A small keyboard-reachable button showing one RGBA colour.
 
-    #: Emitted with this swatch's RGBA tuple when the button is activated.
+    Two gestures, two distinct signals (REQ-IS-UI-019/-020/-022, D-11):
+
+    * :attr:`picked` — a single left click. PAINT-only: the caller must
+      leave the active colour (the wheel) unchanged.
+    * :attr:`activated` — a double left click, or ``Space``/``Return`` while
+      focused. ADOPT-only: the caller must not paint.
+
+    ``QAbstractButton.clicked`` fires on every press/release, including the
+    first half of a double click, so a plain click→paint connection would
+    also paint on the click that turns into a double click. The single-click
+    paint is therefore deferred by the platform's double-click interval and
+    cancelled if :meth:`mouseDoubleClickEvent` follows — the standard
+    click/double-click disambiguation pattern.
+    """
+
+    #: Single left click — paint this swatch's colour, leave the wheel alone.
     picked = Signal(object)
+    #: Double left click / Space / Return — adopt this swatch's colour into
+    #: the wheel, paint nothing.
+    activated = Signal(object)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -88,34 +116,37 @@ class _SwatchButton(QToolButton):
         self._group = ""
         self.setFixedSize(_SWATCH_PX, _SWATCH_PX)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self._single_click_timer = QTimer(self)
+        self._single_click_timer.setSingleShot(True)
+        self._single_click_timer.timeout.connect(self._emit_picked)
+        self.clicked.connect(self._on_clicked)
 
     def _on_clicked(self) -> None:
+        # Defer: this click may turn out to be the first half of a double
+        # click, in which case mouseDoubleClickEvent below cancels it.
+        self._single_click_timer.start(QApplication.doubleClickInterval())
+
+    def _emit_picked(self) -> None:
         self.picked.emit(self._color)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # noqa: N802
-        """Promote this swatch's colour on a left double click only.
+        """Adopt this swatch's colour on a left double click; paint nothing.
 
-        A single click still focuses the swatch (StrongFocus). Promotion is
-        reserved for the double-click gesture, not the single click that
-        ``QToolButton.clicked`` would otherwise fire.
+        Cancels the deferred single-click paint the first half of the
+        gesture scheduled.
         """
         if event.button() == Qt.MouseButton.LeftButton:
-            self._on_clicked()
+            self._single_click_timer.stop()
+            self.activated.emit(self._color)
             event.accept()
             return
         super().mouseDoubleClickEvent(event)
 
     def keyPressEvent(self, event) -> None:  # noqa: N802 (Qt override)
-        """Keep Space/Enter promoting the swatch (keyboard activation path).
-
-        ``QToolButton`` normally synthesises ``clicked`` from Space/Enter, but
-        that signal is no longer connected to promotion (double-click owns the
-        mouse gesture) — so the keyboard route is preserved explicitly here
-        rather than lost along with the single-click connection.
-        """
+        """Space/Enter adopt this swatch's colour, identically to a double click."""
         key = event.key()
         if key in (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter):
-            self._on_clicked()
+            self.activated.emit(self._color)
             event.accept()
             return
         super().keyPressEvent(event)
@@ -290,8 +321,15 @@ class _WheelPad(QWidget):
 class Colour_Wheel_Widget(QWidget):
     """Canva-style RGB colour wheel with a value slider and live harmonies."""
 
-    #: Emitted with the picked :class:`QColor` on any user-initiated change.
+    #: Emitted with the picked :class:`QColor` on any user-initiated change
+    #: that ADOPTS into the wheel (wheel-pad drag, value slider, numeric
+    #: entries, and a harmony/shade/tint swatch's double-click/keyboard
+    #: activation — never a swatch's single click).
     colorPicked = Signal(QColor)
+    #: Emitted with a harmony/shade/tint swatch's own RGBA tuple on a single
+    #: left click (REQ-IS-UI-020). PAINT-only: the wheel's own selection is
+    #: deliberately left unchanged, unlike :attr:`colorPicked`.
+    swatchPicked = Signal(object)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """Build the wheel, value slider, numeric entries, and harmony swatches."""
@@ -369,7 +407,8 @@ class Colour_Wheel_Widget(QWidget):
         buttons: List[_SwatchButton] = []
         for _ in range(count):
             button = _SwatchButton(self)
-            button.picked.connect(self._on_swatch_picked)
+            button.picked.connect(self.swatchPicked)
+            button.activated.connect(self._on_swatch_activated)
             buttons.append(button)
         return buttons
 
@@ -561,7 +600,11 @@ class Colour_Wheel_Widget(QWidget):
         self._val = self._spin_v.value() / CHANNEL_MAX
         self._emit_change()
 
-    def _on_swatch_picked(self, rgba: RGBA) -> None:
+    def _on_swatch_activated(self, rgba: RGBA) -> None:
+        # Double-click / keyboard activation: ADOPT this swatch's colour into
+        # the wheel (REQ-IS-UI-022). Never reached by a single click, which
+        # is routed through `swatchPicked` instead and never touches the
+        # wheel's own state.
         if self._updating:
             return
         self._ingest(QColor(*rgba))
