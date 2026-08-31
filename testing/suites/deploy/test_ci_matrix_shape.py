@@ -1,7 +1,8 @@
 """CI-matrix SHAPE test for the ``quality-gate`` and ``integration`` jobs
 (T-40, remediation register; WP-6.6 extended it to ``integration``, decision
 batch 2026-08-16; brought to the post-revert flat-matrix truth by the
-hosted-runner revert that landed as d7daaa3).
+hosted-runner revert that landed as d7daaa3; brought to the event-conditional
+``setup``-job truth by the trigger-scoping change of 2026-09-01, PR #39).
 
 Placed under ``testing/suites/deploy/`` (moved from ``tests/deploy/`` on
 2026-08-30, see ADR-0065) -- AGT-09's owned surface (ADR-0043 §1 covers
@@ -22,17 +23,43 @@ of the workflow file. Likewise a silent repoint of ``integration``'s
 ``runs-on`` (hosted <-> self-hosted, or to a different hosted OS) or a
 dropped test root from its ``pytest -m integration`` invocation.
 
-CURRENT SHAPE (post-revert, matches ci.yml as committed at d7daaa3): both
-jobs run on PLAIN HOSTED GitHub runners -- there is no self-hosted leg or
-self-hosted label anywhere in this workflow any more. ``quality-gate`` is a
-FLAT ``matrix: {os: [...]}`` (no per-leg ``include:`` map, so there is no
-per-leg ``runs_on``/``timeout`` to assert -- see the job-level
-``timeout-minutes`` assertion below, which is the shape this table's old
-per-leg ``timeout`` field was replaced by). ``integration`` runs on a single
-``ubuntu-latest`` string, not a self-hosted label array.
+CURRENT SHAPE (post-trigger-scoping, matches ci.yml as of PR #39): both jobs
+run on PLAIN HOSTED GitHub runners -- there is no self-hosted leg or
+self-hosted label anywhere in this workflow any more. ``quality-gate`` no
+longer carries a literal ``matrix: {os: [...]}`` list -- a static YAML parse
+of that key now yields the UNRESOLVED runtime expression string
+``${{ fromJSON(needs.setup.outputs.os) }}``, because ``quality-gate needs:
+setup`` and its matrix is computed by a dedicated ``setup`` job at run time:
+the full 3-OS list (``ubuntu-latest``, ``windows-latest``, ``macos-latest``)
+on ``pull_request`` (required because ``main``'s ruleset requires all three
+``quality-gate (<os>)`` check names by exact string with no bypass), and a
+single-leg ``["ubuntu-latest"]`` on every other trigger (post-merge ``push``,
+``workflow_dispatch``), where nothing is required-check-gated and the content
+was already fully tested by the ``pull_request`` run that gated the merge.
+
+THE PROPERTY THIS FILE PROTECTS DID NOT DISAPPEAR WITH THE LITERAL LIST -- IT
+MOVED. A static parse of ``ci.yml`` can no longer read the resolved OS list
+off ``strategy.matrix.os`` (that key is now an opaque expression string), so
+the tests below assert the SAME narrowing/widening protection at its new
+location: (1) that ``quality-gate`` still depends on ``setup`` and still
+reads its matrix from ``setup``'s output rather than a re-hard-coded list;
+(2) the exact two lists the ``setup`` job's own ``run:`` shell script emits,
+parsed out of that script and compared against named constants, exactly as
+``EXPECTED_QUALITY_GATE_OS_LIST`` did for the old literal matrix; and (3) that
+the ``quality-gate``/``integration`` ``name:`` templates still render the
+four exact check-name strings ``main``'s branch-protection ruleset requires
+with no bypass -- the load-bearing assertion, since a silent rename there
+would block every future pull request permanently.
+
+``integration`` runs on a single ``ubuntu-latest`` string, not a self-hosted
+label array -- unchanged by the trigger-scoping change and asserted below as
+before.
 """
 
 from __future__ import annotations
+
+import json
+import re
 
 import yaml
 
@@ -40,15 +67,26 @@ from .conftest import REPO_ROOT
 
 CI_YAML = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 
-# EXPECTATION TABLE (T-40) -- the quality-gate matrix's CURRENT truth, named
-# explicitly so any silent narrowing OR widening is caught here.
+# EXPECTATION TABLE (T-40, re-pointed 2026-09-01 to the setup job's emitted
+# lists) -- the quality-gate matrix's CURRENT truth, named explicitly so any
+# silent narrowing OR widening is caught here.
 #
-# *** WHEN THE MATRIX CHANGES, THIS TABLE MUST BE UPDATED IN THE SAME COMMIT
-# *** THAT CHANGES ci.yml's quality-gate matrix -- that is the entire point
-# *** of asserting against a named constant instead of a bare leg count: a
-# *** maintainer who forgets leaves a RED test, not a green one that quietly
-# *** stopped meaning anything.
-EXPECTED_QUALITY_GATE_OS_LIST = ["ubuntu-latest", "windows-latest", "macos-latest"]
+# *** WHEN THE SETUP JOB'S EMITTED LISTS CHANGE, THESE CONSTANTS MUST BE
+# *** UPDATED IN THE SAME COMMIT THAT CHANGES ci.yml's `setup` job -- that is
+# *** the entire point of asserting against a named constant instead of a
+# *** bare leg count: a maintainer who forgets leaves a RED test, not a green
+# *** one that quietly stopped meaning anything. The matrix itself
+# *** (`quality-gate.strategy.matrix.os`) is now the unresolved expression
+# *** `${{ fromJSON(needs.setup.outputs.os) }}` and can no longer be read
+# *** directly by a static parse -- these constants describe what that
+# *** expression resolves to at runtime, read instead from the `setup` job's
+# *** own `run:` script (see `_extract_setup_os_lists` below).
+EXPECTED_QUALITY_GATE_OS_LIST_PULL_REQUEST = [
+    "ubuntu-latest",
+    "windows-latest",
+    "macos-latest",
+]
+EXPECTED_QUALITY_GATE_OS_LIST_OTHER_TRIGGERS = ["ubuntu-latest"]
 
 # The per-leg ``timeout`` field the old ``include:``-shaped table used to
 # carry no longer exists (the flat matrix has no per-leg key to hang it on);
@@ -61,27 +99,91 @@ def _load_ci_yaml() -> dict:
     return yaml.safe_load(CI_YAML.read_text(encoding="utf-8"))
 
 
-def test_quality_gate_matrix_leg_count_matches_expectation_table():
+def _extract_setup_os_lists(run_script: str) -> tuple[list, list]:
+    """Parse the two ``echo 'os=[...]'`` JSON list literals out of the
+    ``setup`` job's ``run:`` shell script and return them
+    ``(pull_request_branch_list, else_branch_list)``, IN SOURCE ORDER --
+    the script's own ``if [[ ... == "pull_request" ]]; then ... else ...
+    fi`` shape means the first literal encountered is always the
+    ``pull_request`` branch and the second is always the fallback branch.
+
+    A static parse cannot ask GitHub Actions to *evaluate* this script --
+    only a real run can -- so this is deliberately a source-level regex
+    extraction of the two JSON literals the script echoes verbatim, not a
+    shell interpreter. If the script's shape changes so that this no longer
+    finds exactly two ``os=[...]`` literals, that is itself a shape change
+    this test must catch, not silently work around.
+    """
+    matches = re.findall(r"os=(\[[^\]]*\])", run_script)
+    assert len(matches) == 2, (
+        f"expected exactly 2 `os=[...]` echo literals in the setup job's "
+        f"run script (one per branch of the event_name check), found "
+        f"{len(matches)}: {matches}. The setup job's shape has changed -- "
+        "update this parser (and the EXPECTED_QUALITY_GATE_OS_LIST_* "
+        "constants) in the SAME commit."
+    )
+    return json.loads(matches[0]), json.loads(matches[1])
+
+
+def test_quality_gate_matrix_is_driven_by_setup_job_output():
+    """``quality-gate`` must still ``needs: setup`` and read its matrix from
+    ``setup``'s output rather than a hard-coded list -- this is what catches
+    a future edit that silently re-pins the matrix back to a single literal
+    platform (or drops the ``setup`` dependency entirely), since such an edit
+    would otherwise sail past a test that only checked the resolved OS
+    lists."""
     data = _load_ci_yaml()
-    observed_oses = data["jobs"]["quality-gate"]["strategy"]["matrix"]["os"]
-    assert len(observed_oses) == len(EXPECTED_QUALITY_GATE_OS_LIST), (
-        f"quality-gate matrix now has {len(observed_oses)} leg(s): "
-        f"{observed_oses} -- EXPECTED_QUALITY_GATE_OS_LIST in this test "
-        f"still declares {len(EXPECTED_QUALITY_GATE_OS_LIST)}: "
-        f"{EXPECTED_QUALITY_GATE_OS_LIST}. If this narrowing/widening was "
-        "deliberate, update EXPECTED_QUALITY_GATE_OS_LIST in this test in "
-        "the SAME commit that changed ci.yml."
+    quality_gate = data["jobs"]["quality-gate"]
+
+    needs = quality_gate["needs"]
+    needs_list = [needs] if isinstance(needs, str) else list(needs)
+    assert "setup" in needs_list, (
+        f"quality-gate.needs no longer includes 'setup' (observed: "
+        f"{needs!r}) -- if the matrix source was deliberately changed, "
+        "update this test in the SAME commit."
+    )
+
+    observed_matrix_os = quality_gate["strategy"]["matrix"]["os"]
+    assert observed_matrix_os == "${{ fromJSON(needs.setup.outputs.os) }}", (
+        f"quality-gate's matrix.os is no longer driven by the setup job's "
+        f"output -- observed {observed_matrix_os!r}. This is exactly the "
+        "silent narrowing/widening this test exists to catch: a matrix "
+        "reshaped back to a hard-coded list would not be flagged by any "
+        "other assertion in this file. If deliberate, update this test in "
+        "the SAME commit."
     )
 
 
-def test_quality_gate_matrix_legs_match_expectation_table_exactly():
-    """Not just the count: the exact OS list, IN ORDER, must match the
-    declared table -- a silent reorder, rename (e.g. ``windows-latest`` ->
-    a pinned ``windows-2025``) or swap-in of a self-hosted label is caught
-    here even when the leg COUNT happens to stay the same."""
+def test_setup_job_emits_full_matrix_on_pull_request_and_single_leg_otherwise():
+    """The property the old literal-matrix table protected has MOVED into
+    the ``setup`` job's ``run:`` script, not disappeared: assert the two
+    exact OS lists it emits, IN ORDER, against the named constants above --
+    a silent narrowing (dropping a leg from the ``pull_request`` branch, which
+    would leave one of ``main``'s required checks permanently PENDING), a
+    silent widening (adding an unplanned leg to the fallback branch, re-
+    inflating post-merge CI cost), or a reorder/rename is caught here even
+    when a leg COUNT happens to stay the same."""
     data = _load_ci_yaml()
-    observed_oses = data["jobs"]["quality-gate"]["strategy"]["matrix"]["os"]
-    assert observed_oses == EXPECTED_QUALITY_GATE_OS_LIST
+    steps = data["jobs"]["setup"]["steps"]
+    run_step = next(step for step in steps if "run" in step)
+    pull_request_list, other_list = _extract_setup_os_lists(run_step["run"])
+
+    assert pull_request_list == EXPECTED_QUALITY_GATE_OS_LIST_PULL_REQUEST, (
+        f"setup job's pull_request-branch OS list is now {pull_request_list} "
+        f"-- EXPECTED_QUALITY_GATE_OS_LIST_PULL_REQUEST in this test still "
+        f"declares {EXPECTED_QUALITY_GATE_OS_LIST_PULL_REQUEST}. If this was "
+        "deliberate, update the constant in this test in the SAME commit "
+        "that changed ci.yml -- and note that shrinking this list below the "
+        "three OS names main's ruleset requires would leave a required "
+        "check permanently PENDING on every future pull request."
+    )
+    assert other_list == EXPECTED_QUALITY_GATE_OS_LIST_OTHER_TRIGGERS, (
+        f"setup job's fallback-branch OS list is now {other_list} -- "
+        f"EXPECTED_QUALITY_GATE_OS_LIST_OTHER_TRIGGERS in this test still "
+        f"declares {EXPECTED_QUALITY_GATE_OS_LIST_OTHER_TRIGGERS}. If this "
+        "was deliberate, update the constant in this test in the SAME "
+        "commit that changed ci.yml."
+    )
 
 
 def test_quality_gate_strategy_fail_fast_and_job_timeout():
@@ -105,6 +207,40 @@ def test_quality_gate_strategy_fail_fast_and_job_timeout():
     assert (
         data["jobs"]["quality-gate"]["timeout-minutes"]
         == EXPECTED_QUALITY_GATE_JOB_TIMEOUT_MINUTES
+    )
+
+
+def test_quality_gate_and_integration_name_templates_render_pinned_check_names():
+    """THE LOAD-BEARING TEST IN THIS FILE. ``main``'s branch-protection
+    ruleset requires ``quality-gate (ubuntu-latest)``,
+    ``quality-gate (windows-latest)``, ``quality-gate (macos-latest)`` and
+    ``integration (ubuntu-latest)`` BY EXACT STRING, with NO bypass -- a
+    rename of either job's ``name:`` template, or a change to how
+    ``${{ matrix.os }}`` is substituted into it, would silently block every
+    future pull request from merging forever (the PR that fixed the naming
+    would itself be unable to merge). Render the ``quality-gate`` template
+    against each of the three pull_request-branch OS values and the
+    ``integration`` job's own literal name, and assert the four resulting
+    strings exactly."""
+    data = _load_ci_yaml()
+
+    quality_gate_name_template = data["jobs"]["quality-gate"]["name"]
+    for os_value in EXPECTED_QUALITY_GATE_OS_LIST_PULL_REQUEST:
+        rendered = quality_gate_name_template.replace("${{ matrix.os }}", os_value)
+        assert rendered == f"quality-gate ({os_value})", (
+            f"quality-gate's name template {quality_gate_name_template!r} "
+            f"no longer renders to 'quality-gate ({os_value})' -- this "
+            "would leave one of main's required checks permanently PENDING "
+            "and block every future pull request. If deliberate, this is a "
+            "ruleset change too, not just a test update."
+        )
+
+    integration_name = data["jobs"]["integration"]["name"]
+    assert integration_name == "integration (ubuntu-latest)", (
+        f"integration job's name is now {integration_name!r}, not the "
+        "'integration (ubuntu-latest)' string main's ruleset requires with "
+        "no bypass. If deliberate, this is a ruleset change too, not just a "
+        "test update."
     )
 
 
