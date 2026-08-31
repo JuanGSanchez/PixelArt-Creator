@@ -100,7 +100,26 @@ def test_injected_roots_are_never_the_real_per_user_location(tmp_path):
 
     Every root this module binds a session to is a ``tmp_path`` descendant; none is, or
     contains, or is contained by, :func:`default_asset_root` — the real per-user location
-    the shipped application resolves via ``QStandardPaths``/``Path.home()``.
+    the shipped application resolves via ``Path.home()``.
+
+    Checked twice: once on the raw ``Path`` values (catches a plain identity/containment
+    bug outright) and once ``.resolve()``d (catches the same bug hiding behind a
+    case-insensitive filesystem or a symlinked temp root — e.g. macOS's ``/tmp`` ->
+    ``/private/tmp`` — where the raw strings would differ but the real, on-disk location
+    would not).
+
+    This deliberately does NOT assert that ``injected_root`` avoids ``Path.home()``
+    altogether: a hosted CI runner's own temp root legitimately nests under the actor's
+    home directory (``RUNNER_TEMP`` under ``/home/runner`` on the Ubuntu/macOS hosted
+    runners), so "is it under home" is a fact about the CI environment, not about whether
+    this is the real *per-user asset* location — that is the narrower, correct claim this
+    test's name makes, and it is what every assertion below actually checks. An earlier
+    version of this test also asserted the broader "not under Path.home() at all" claim as
+    a proxy for the real one; that proxy held only by coincidence of the retired
+    self-hosted Windows runner's temp path living outside the user's home directory, and
+    it stopped holding the moment CI moved to hosted runners — it was never a true
+    positive for a durability defect, so removing it in favour of the precise, resolved
+    checks below is a strictly better test, not a widened tolerance.
     """
     real_root = default_asset_root()
     injected_root = tmp_path / "isolation_check_root"
@@ -108,7 +127,12 @@ def test_injected_roots_are_never_the_real_per_user_location(tmp_path):
     assert real_root not in injected_root.parents
     assert injected_root not in real_root.parents
     assert str(injected_root).startswith(str(tmp_path))
-    assert not str(injected_root).lower().startswith(str(Path.home()).lower())
+
+    resolved_injected = injected_root.resolve()
+    resolved_real = real_root.resolve()
+    assert resolved_injected != resolved_real
+    assert resolved_real not in resolved_injected.parents
+    assert resolved_injected not in resolved_real.parents
 
 
 # --------------------------------------------------------------------------- #
