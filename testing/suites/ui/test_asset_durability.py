@@ -41,6 +41,7 @@ Every test runs under BOTH light and dark themes via the autouse ``theme`` fixtu
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -424,7 +425,53 @@ def test_sc_p11_ui_018_2_the_six_surfaces_cannot_disagree(tmp_path, qtbot):
 # SC-P11-UI-019-1 — N assets registered + tagged in one session, restart      #
 # --------------------------------------------------------------------------- #
 
+#: KNOWN CRASH, macOS only — diagnosed by AGT-06, ruled by the user
+#: (2026-08-31): skip rather than let it kill the xdist worker with no test
+#: outcome to record. First observed at commit ``55c73a3`` — this file's own
+#: fix, tightening ``test_injected_roots_are_never_the_real_per_user_location``
+#: to assert the real per-user-asset-location claim in place of a broad
+#: ``Path.home()`` proxy that had been failing early on macOS before that
+#: commit. Three hosted runs, same leg (quality-gate, macos-latest):
+#: 33427869334 (head ``e3bc50d``, before the fix — this test PASSED),
+#: 33432594426 (head ``55c73a3``, the fix — SEGFAULT), 33437883062 (head
+#: ``331146a`` — SEGFAULT again). Never reproduced on ubuntu or windows.
+#: UNRESOLVED whether the fault is in the product's own Qt/PySide6 object
+#: lifecycle (this test builds two full session/CAS/revision-store stacks via
+#: ``_bound_session()`` plus an ``Asset_Tagging_Panel`` and an
+#: ``Asset_Library_Panel``, none explicitly torn down before the next is
+#: constructed) or in the offscreen-QPA / pytest-xdist harness itself. The
+#: product/harness investigation belongs to a follow-up PR, tracked by a
+#: GitHub issue filed separately (not by this agent). ``xfail`` is not used
+#: here: a segmentation fault kills the worker process outright, so there is
+#: no test outcome for pytest to mark as expected-failing — only ``skipif``
+#: can express "do not run this on macOS" for a crash.
+_MACOS_XDIST_SEGFAULT_SKIP_REASON = (
+    "SC-P11-UI-019-1: segfaults the pytest-xdist worker on macOS only — "
+    "never reproduced on ubuntu or windows. First observed at commit "
+    "55c73a3 (this file's own fix, tightening "
+    "test_injected_roots_are_never_the_real_per_user_location to assert the "
+    "real per-user-asset-location claim instead of a broad Path.home() "
+    "proxy that had been failing early on macOS): before that commit this "
+    "test passed (hosted run 33427869334, head e3bc50d); at that commit "
+    "(33432594426, head 55c73a3) and the next (33437883062, head 331146a) "
+    "it segfaulted the worker instead. UNRESOLVED whether the fault "
+    "originates in the product's own Qt/PySide6 object lifecycle (this test "
+    "builds two full session/CAS/revision-store stacks via _bound_session() "
+    "plus an Asset_Tagging_Panel and an Asset_Library_Panel, none explicitly "
+    "torn down before the next is constructed) or in the offscreen-QPA / "
+    "pytest-xdist harness itself — investigate in a follow-up PR before "
+    "removing this marker. A GitHub issue has been filed separately (not by "
+    "this agent). xfail cannot be used here: a segfault kills the worker "
+    "process outright, leaving no test outcome to mark as expected-failing."
+)
 
+_macos_xdist_segfault_skip = pytest.mark.skipif(
+    condition=sys.platform == "darwin",
+    reason=_MACOS_XDIST_SEGFAULT_SKIP_REASON,
+)
+
+
+@_macos_xdist_segfault_skip
 def test_sc_p11_ui_019_1_library_repopulated_after_restart(tmp_path, qtbot):
     """N assets registered and tagged in one session are all present, intact, after a restart."""
     root = tmp_path / "n_assets_root"
