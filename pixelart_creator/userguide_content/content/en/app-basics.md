@@ -55,17 +55,55 @@ otherwise it falls back to the default (English) text.
 
 ## Keyboard shortcuts
 
-Common commands have keyboard shortcuts, shown next to their menu entries. A few you
-will use constantly:
+This is the complete table of the application's keyboard shortcuts — every tool
+key, both toggles, the two ways to clear a selection, and the core file/edit/help
+actions. Every other page in this guide that mentions a keyboard shortcut links
+back to this table rather than repeating it.
 
 | Shortcut | Action |
 | --- | --- |
-| **F1** | Open this User Guide |
-| **Ctrl+Z** / **Ctrl+Y** | Undo / Redo |
-| **Space** | Toggle animation play/pause |
-| **Ctrl+Shift+E** | Open the Export dialog |
-| **Esc** | Cancel the current in-progress action (e.g. a floating move) |
-| **Enter** | Commit the current in-progress action |
+| **A** | Pencil tool — freehand pixel painting. |
+| **Shift+A** | Colour selector (eyedropper) tool — pick up a colour from the canvas. |
+| **Q** | Eraser tool. |
+| **S** | Rectangle tool. |
+| **W** | Line tool. |
+| **Shift+W** | Ellipse tool. |
+| **D** | Rectangular-marquee selector tool. |
+| **F** | Fill tool. |
+| **Shift+F** | Dither tool. |
+| **E** | Lasso selector tool (free-hand). |
+| **Shift+E** | Magic-wand selector tool (contiguous colour). |
+| **Shift+S** | Toggle **Filled Shapes**, shared by the rectangle and ellipse tools. |
+| **Shift+R** | Toggle **Pixel Perfect** on every open tab's canvas view. |
+| **Shift+Q** | Clear the selection contents. |
+| **Delete** | Clear the selection contents (a second shortcut for the same action). |
+| **Ctrl+N** | New document. |
+| **Ctrl+O** | Open an existing project. |
+| **Ctrl+S** | Save the active project. |
+| **Ctrl+Z** | Undo the last reversible operation. |
+| **Ctrl+Y** | Redo the last undone operation. |
+| **F1** | Open this User Guide. |
+
+The eleven tool keys above sit on the home row and its neighbours by design, so
+your hand never has to leave typing position while you draw. **Shift+Q** and
+**Delete** do the same thing — clearing a selection's contents — so whichever one
+your hand is already near works.
+
+A few more shortcuts live on the page they belong to, because they only make
+sense once you know the feature: **Ctrl+Shift+E** opens Export, see
+[Export & pipeline integration](export-and-pipeline.md); **Ctrl++** / **Ctrl+-**
+zoom the canvas, and the pointer gestures that pan, zoom and pick colours by
+wheel or middle-click, see [The canvas](canvas-and-view.md); **Ctrl+A** /
+**Ctrl+I** / **Ctrl+Shift+A** / **Shift+H** / **Shift+V** and the selection-drag
+gestures, see [Selection & floating move/copy](selection-and-transform.md);
+**Ctrl+wheel**, **Ctrl+middle-click**, **Ctrl+left-click** and
+**Ctrl+right-click** on the timeline, see [The animation timeline](animation-timeline.md).
+**Space** toggles animation play/pause and is not a menu shortcut at all — it
+only works while a document with more than one frame is open. **Esc** cancels
+and **Enter** commits whatever in-progress action is active (most often a
+floating selection move) — see
+[Selection & floating move/copy](selection-and-transform.md) for exactly what
+that covers.
 
 ## Where to go next
 

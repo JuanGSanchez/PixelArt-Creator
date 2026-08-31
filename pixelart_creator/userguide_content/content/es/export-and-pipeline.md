@@ -18,6 +18,10 @@ Abre el diálogo de exportación desde el menú Exportar o con **Ctrl+Shift+E**.
 > **idénticas byte a byte**. La garantía es de *mismo entorno* (una cadena de
 > herramientas fijada), no garantizada entre máquinas distintas.
 
+| Atajo | Acción |
+| --- | --- |
+| **Ctrl+Shift+E** | Abre el diálogo de exportación. |
+
 ## Exportación ráster (PNG / GIF)
 
 - **PNG** exporta el **fotograma 0** como una única imagen RGBA — el objetivo de

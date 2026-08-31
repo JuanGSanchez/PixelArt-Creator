@@ -24,12 +24,11 @@ debe verse el pixel art.
   para el tamaño completo del documento, desplazarse por un lienzo de 8K se mantiene
   fluido — solo se dibuja la parte del lienzo visible en el viewport, así que las
   regiones fuera de pantalla no cuestan nada al desplazarse.
-- **Acercar / Alejar** (en inglés, **Zoom In** / **Zoom Out** en el código fuente) —
-  estas dos acciones de vista saltan entre los mismos puntos fijos que usan los
-  atajos de teclado (100 %, 200 %, 400 %, 800 %, 1600 %, 3200 %, 6400 %):
-  **Acercar** salta al siguiente punto y **Alejar** salta al anterior. Es un salto
-  discreto, a diferencia del zoom continuo anclado al cursor que obtienes al
-  desplazar la rueda del ratón sobre el lienzo.
+- **Acercar / Alejar** — **Ctrl++** y **Ctrl+-** saltan entre los mismos puntos
+  fijos (100 %, 200 %, 400 %, 800 %, 1600 %, 3200 %, 6400 %): **Ctrl++** salta al
+  siguiente punto y **Ctrl+-** salta al anterior. Es un salto discreto, a
+  diferencia del zoom continuo anclado al cursor que obtienes con
+  **Shift+wheel**, más abajo.
 
 > **Los lienzos grandes se mantienen fluidos.** El renderizador dibuja solo la región
 > actualmente expuesta en el viewport y repinta solo la pequeña área que una edición
@@ -93,6 +92,26 @@ deshacible.
 Esta es una operación distinta de remuestrear la obra a un nuevo tamaño — Tamaño del
 lienzo solo cambia cuánto lienzo hay; nunca estira ni encoge los píxeles que ya
 tienes.
+
+## Atajos de teclado y de puntero
+
+Viven aquí en lugar de solo en la tabla de [Primeros pasos](app-basics.md)
+porque son operaciones de la vista de lienzo, no herramientas:
+
+| Atajo | Acción |
+| --- | --- |
+| **Ctrl++** | Acerca el zoom del lienzo activo un paso fijo. |
+| **Ctrl+-** | Aleja el zoom del lienzo activo un paso fijo. |
+
+El lienzo también responde a algunos gestos de puntero que nunca tocan tu obra —
+cada uno es una acción de **vista**, igual que el zoom, así que ninguno es un
+paso de deshacer:
+
+| Gesto | Resultado |
+| --- | --- |
+| **Wheel** | Avanza el mismo cursor de **Favoritos** que usa el [centro de color](colour-hub.md) y establece el color activo — una forma de recorrer tus colores favoritos sin abrir el centro. |
+| **Shift+wheel** | El zoom continuo anclado al cursor mencionado arriba — el punto bajo el cursor se mantiene fijo mientras acercas o alejas. |
+| **Shift+middle-click** | Encuadra el viewport sobre los píxeles pintados, así que una parte de la obra de la que te has alejado o desplazado queda a un gesto de volver a la vista. |
 
 ## Temas relacionados
 

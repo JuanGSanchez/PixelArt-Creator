@@ -124,7 +124,10 @@ loses your place.
 
 - **Move / copy a cel** — press-drag a cell holding a cel to move it to a new
   frame/track; hold **Ctrl** while dragging to copy it instead, leaving the source in
-  place. Both are a single undo step.
+  place. Both are a single undo step. This is a **different** gesture from
+  **Ctrl+drag** on the canvas, which still copies a floating selection — see
+  [Selection & floating move/copy](selection-and-transform.md#copy-instead-of-move-hold-ctrl)
+  — the modifier is the same, but which one applies depends on where you drag.
 - **Overwrite confirmation** — dropping onto a cell that already holds a cel opens the
   **Overwrite Existing Cel?** dialog. Tick its **"Don't ask again for this project"**
   checkbox to stop being asked for the rest of this project; see
@@ -147,6 +150,18 @@ The Grid View's overwrite confirmation is one of the app's per-project preferenc
 suppressed with "Don't ask again for this project," it stays off for that project until
 you restore it from **Edit -> Project confirmations**, which lists every suppressed
 confirmation and turns each back on individually.
+
+## Pointer gestures
+
+The frame strip answers four **Ctrl**-modified pointer gestures, in addition to
+the toolbar buttons in [Managing frames](#managing-frames) above:
+
+| Gesture | Result |
+| --- | --- |
+| **Ctrl+wheel** | Steps the active document to the next / previous frame. |
+| **Ctrl+middle-click** | Jumps straight to frame 1 of the active document. |
+| **Ctrl+left-click** | Adds a frame after the active frame — the same undoable action as the **Add Frame** button. |
+| **Ctrl+right-click** | Removes the active frame — the same undoable action as the **Remove Frame** button, and **timeline-only**: it has no Grid View equivalent. Like the button, it is refused on a document's last remaining frame, which a document always keeps at least one of. |
 
 ## Persistence
 

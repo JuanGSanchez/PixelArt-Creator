@@ -142,7 +142,10 @@ tira — alternar entre ambas vistas nunca pierde tu posición.
 - **Mover/copiar una celda** — presiona y arrastra una celda que contenga contenido
   para moverlo a un fotograma/pista nuevo; mantén pulsado **Ctrl** mientras arrastras
   para copiarlo en su lugar, dejando el origen intacto. Ambas acciones son un único
-  paso de deshacer.
+  paso de deshacer. Este es un gesto **distinto** de **Ctrl+drag** en el lienzo, que
+  sigue copiando una selección flotante — consulta
+  [Selección y movimiento/copia flotante](selection-and-transform.md#copiar-en-lugar-de-mover-manten-pulsado-ctrl)
+  — el modificador es el mismo, pero cuál se aplica depende de dónde arrastres.
 - **Confirmación de sobrescritura** — soltar sobre una celda que ya tiene contenido
   abre el diálogo **¿Sobrescribir celda existente?** pidiéndote confirmación
   antes de reemplazarlo. Marca su casilla
@@ -174,6 +177,19 @@ preferencias por proyecto de la aplicación: una vez suprimida con
 proyecto hasta que la restaures desde el menú **Project confirmations** (bajo
 Editar; también pendiente de traducción), que lista todas las confirmaciones
 suprimidas y reactiva cada una individualmente.
+
+## Gestos de puntero
+
+La tira de fotogramas responde a cuatro gestos de puntero modificados con
+**Ctrl**, además de los botones de la barra de herramientas de
+[Gestionar fotogramas](#gestionar-fotogramas) arriba:
+
+| Gesto | Resultado |
+| --- | --- |
+| **Ctrl+wheel** | Avanza el documento activo al fotograma siguiente/anterior. |
+| **Ctrl+middle-click** | Salta directamente al fotograma 1 del documento activo. |
+| **Ctrl+left-click** | Añade un fotograma después del activo — la misma acción deshacible que el botón **Añadir fotograma**. |
+| **Ctrl+right-click** | Elimina el fotograma activo — la misma acción deshacible que el botón **Eliminar fotograma**, y **solo en la línea de tiempo**: no tiene equivalente en la Grid View. Igual que el botón, se rechaza en el último fotograma restante de un documento, del que siempre se conserva al menos uno. |
 
 ## Persistencia
 

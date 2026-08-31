@@ -62,17 +62,57 @@ cuando hay una versión localizada incluida, y si no, recae en el texto predeter
 
 ## Atajos de teclado
 
-Los comandos habituales tienen atajos de teclado, mostrados junto a sus entradas de
-menú. Algunos que usarás constantemente:
+Esta es la tabla completa de los atajos de teclado de la aplicación — cada tecla
+de herramienta, ambos alternadores, las dos formas de vaciar una selección y las
+acciones básicas de archivo/edición/ayuda. Cualquier otra página de esta guía que
+mencione un atajo de teclado enlaza de vuelta a esta tabla en vez de repetirla.
 
 | Atajo | Acción |
 | --- | --- |
-| **F1** | Abrir esta Guía del usuario |
-| **Ctrl+Z** / **Ctrl+Y** | Deshacer / Rehacer |
-| **Espacio** | Alternar reproducción/pausa de la animación |
-| **Ctrl+Shift+E** | Abrir el diálogo de exportación |
-| **Esc** | Cancelar la acción en curso (por ejemplo, un movimiento flotante) |
-| **Enter** | Confirmar la acción en curso |
+| **A** | Herramienta Lápiz — pintura de píxeles a mano alzada. |
+| **Shift+A** | Herramienta selector de color (cuentagotas) — toma un color del lienzo. |
+| **Q** | Herramienta Borrador. |
+| **S** | Herramienta Rectángulo. |
+| **W** | Herramienta Línea. |
+| **Shift+W** | Herramienta Elipse. |
+| **D** | Herramienta selectora rectangular (marquesina). |
+| **F** | Herramienta Relleno. |
+| **Shift+F** | Herramienta Dither. |
+| **E** | Herramienta selectora Lazo (a mano alzada). |
+| **Shift+E** | Herramienta selectora de varita mágica (color contiguo). |
+| **Shift+S** | Alterna **Formas rellenas**, compartido por las herramientas rectángulo y elipse. |
+| **Shift+R** | Alterna **Pixel Perfect** en la vista de lienzo de cada pestaña abierta. |
+| **Shift+Q** | Vacía el contenido de la selección. |
+| **Delete** | Vacía el contenido de la selección (un segundo atajo para la misma acción). |
+| **Ctrl+N** | Nuevo documento. |
+| **Ctrl+O** | Abrir un proyecto existente. |
+| **Ctrl+S** | Guardar el proyecto activo. |
+| **Ctrl+Z** | Deshacer la última operación reversible. |
+| **Ctrl+Y** | Rehacer la última operación deshecha. |
+| **F1** | Abrir esta Guía del usuario. |
+
+Las once teclas de herramienta de arriba están en la fila central del teclado y
+sus vecinas por diseño, así que tu mano nunca tiene que salir de la posición de
+escritura mientras dibujas. **Shift+Q** y **Delete** hacen lo mismo — vaciar el
+contenido de una selección —, así que sirve el que tengas más cerca la mano.
+
+Unos pocos atajos más viven en la página a la que pertenecen, porque solo tienen
+sentido una vez que conoces la función: **Ctrl+Shift+E** abre Exportación, ver
+[Exportación y canalización](export-and-pipeline.md); **Ctrl++** / **Ctrl+-**
+hacen zoom en el lienzo, y los gestos de puntero que desplazan, hacen zoom y
+eligen color con la rueda o el clic central, ver [El lienzo](canvas-and-view.md);
+**Ctrl+A** / **Ctrl+I** / **Ctrl+Shift+A** / **Shift+H** / **Shift+V** y los
+gestos de arrastre de selección, ver
+[Selección y movimiento/copia flotante](selection-and-transform.md);
+**Ctrl+wheel**, **Ctrl+middle-click**, **Ctrl+left-click** y
+**Ctrl+right-click** en la línea de tiempo, ver
+[La línea de tiempo de animación](animation-timeline.md). **Espacio** alterna
+reproducir/pausar la animación y no es un atajo de menú — solo funciona con un
+documento de más de un fotograma abierto. **Esc** cancela y **Enter** confirma
+la acción en curso que esté activa (casi siempre un movimiento de selección
+flotante) — consulta
+[Selección y movimiento/copia flotante](selection-and-transform.md) para ver
+exactamente qué cubre.
 
 ## Adónde ir a continuación
 

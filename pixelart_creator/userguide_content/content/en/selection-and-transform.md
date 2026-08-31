@@ -23,12 +23,39 @@ Use the selection tools to define the region you want to work on:
 | **Lasso** | A free-hand region you draw around. |
 | **Magic wand** | A contiguous area of similar colour under the click. |
 
-You can refine a selection with modifier gestures while building it:
+**Selection lifetime.** Switching to one of the three selection tools above
+always **discards** the current selection and starts fresh — a new selection
+never inherits the previous one's shape. Switching to any other tool (Pencil,
+Eraser, Fill, …) instead **keeps** the current selection alive, so
+mask-constrained drawing keeps working: your strokes stay clipped to the
+selection while you paint with a different tool.
+
+While one of the three selection tools above is active, **Shift** and **Alt**
+mean something different than everywhere else on the canvas — see
+[Panning vs. building a selection](#panning-vs-building-a-selection) below:
+
+| Modifier | Result while a selection tool is active |
+| --- | --- |
+| **Shift**+drag | **Add** to the current selection. |
+| **Alt**+drag | **Subtract** from the current selection. |
+
+### Panning vs. building a selection
 
 | Gesture | Result |
 | --- | --- |
-| **Shift**-drag | **Add** to the current selection. |
-| **Alt**-drag | **Subtract** from the current selection. |
+| **Shift+left-drag** | Pans the canvas — **except** while a selection tool is active, where it still **adds** to the selection instead, exactly as the table above describes. |
+
+### Selecting the whole canvas, inverting, and clearing
+
+| Shortcut | Action |
+| --- | --- |
+| **Ctrl+A** | Select the entire canvas. |
+| **Ctrl+I** | Invert the current selection. |
+| **Ctrl+Shift+A** | Deselect (clear the current selection). |
+
+Clearing the selection's **contents** (rather than the selection itself) is a
+separate action with its own shortcuts, **Shift+Q** and **Delete** — see the
+[Application Basics](app-basics.md) table.
 
 ## Lift and move (drag)
 
@@ -64,7 +91,7 @@ move and copy **during** the drag by pressing or releasing Ctrl.
 | *no modifier* | Lift / **move** the selection (origin vacated on commit) |
 | **Ctrl** | **Copy** the selection (origin kept) |
 | **Alt** | **Subtract** from the selection (build gesture) |
-| **Shift** | **Add** to the selection (build gesture) |
+| **Shift** | **Add** to the selection (build gesture) — outside an active selection tool, **Shift+left-drag** pans instead of adding; see [Panning vs. building a selection](#panning-vs-building-a-selection) above. |
 
 ## Commit or cancel
 
@@ -118,6 +145,11 @@ dragged.
 on the **whole document** — every layer and mask, across every frame — whenever
 nothing is selected. With an active selection, these same actions still transform
 only the active layer's masked region, exactly as before.
+
+| Shortcut | Action |
+| --- | --- |
+| **Shift+H** | Flip the selection (or the whole document) horizontally. |
+| **Shift+V** | Flip the selection (or the whole document) vertically. |
 
 RotSprite is the one exception: it always transforms only the active layer, with or
 without a selection, because its rotation never changes the buffer's dimensions and
