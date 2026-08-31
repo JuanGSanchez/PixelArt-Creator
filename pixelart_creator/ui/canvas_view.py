@@ -38,6 +38,7 @@ from PySide6.QtWidgets import QGraphicsView, QMenu, QWidget
 
 from pixelart_creator.logic.color import BLACK, RGBA
 from pixelart_creator.logic.constants import (
+    CLICK_DRAG_THRESHOLD_PX,
     DEFAULT_SNAP_TOLERANCE_PX,
     OPENGL_VIEWPORT_ENABLED,
     SCALE_FACTOR,
@@ -47,6 +48,7 @@ from pixelart_creator.logic.constants import (
 )
 from pixelart_creator.logic.document import Document
 from pixelart_creator.logic.edit_trace import EditTarget
+from pixelart_creator.logic.favourites import Favourites
 from pixelart_creator.logic.guides import (
     Guide,
     GuideOrientation,
@@ -165,6 +167,11 @@ class Canvas_View(QGraphicsView):
     #: with silence even when it changed nothing.
     toolRunNoChange = Signal()
 
+    #: The three selection tools whose Shift/Alt modifiers stay the shipped
+    #: add/subtract combine gesture (REQ-IS-UI-015) — Shift+drag pans for
+    #: every other tool. Mirrors ``Main_Window._SELECTION_ENTRY_TOOL_IDS``.
+    _SELECTION_TOOL_IDS = frozenset({"select_rect", "select_lasso", "select_wand"})
+
     def __init__(
         self,
         scene: CanvasScene,
@@ -193,9 +200,18 @@ class Canvas_View(QGraphicsView):
         self._active_index: int = 0
         self._zoom = 1.0
         self._panning = False
+        #: A middle press awaiting the click/drag verdict (REQ-IS-UI-011):
+        #: ``True`` between a middle press and either its release under
+        #: ``CLICK_DRAG_THRESHOLD_PX`` (a click) or its promotion to
+        #: ``_panning`` once the cursor travels past the threshold (a drag).
+        self._middle_pending = False
         self._space_held = False
         self._drawing = False
         self._pan_origin = QPoint()
+        #: The persisted Favourites model a plain wheel notch / unmodified
+        #: middle click travel (REQ-IS-UI-008/-012); ``None`` until the shell
+        #: binds one via :meth:`set_favourites_model` (T-21).
+        self._favourites: Optional[Favourites] = None
         self._ctx: Optional[ToolContext] = None
         self._menu_hook: Optional[Callable[[int, int], None]] = None
         # File-drop routing seam (CF: T-12) — a real drag/drop delivered to
@@ -332,6 +348,11 @@ class Canvas_View(QGraphicsView):
     def active_tool(self) -> Optional[Tool]:
         """Return the active tool controller."""
         return self._tool
+
+    def set_favourites_model(self, favourites: Favourites) -> None:
+        """Bind the persisted Favourites model a plain wheel notch / an
+        unmodified middle click travel (REQ-IS-UI-008/-012, T-21)."""
+        self._favourites = favourites
 
     def floating_controller(self) -> FloatingMoveController:
         """Return this view's floating move/copy controller."""
@@ -579,7 +600,20 @@ class Canvas_View(QGraphicsView):
         self.fit()
 
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802 (Qt override)
-        """Geometric cursor-anchored zoom by the ``SCALE_FACTOR`` step (CL-2/-15)."""
+        """``Shift``+wheel zooms (REQ-IS-UI-009); plain wheel travels
+        Favourites (REQ-IS-UI-008, T-21 — displaces the zoom that plain wheel
+        performed until 2026-08-31)."""
+        if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            self._zoom_wheel(event)
+        else:
+            self._favourites_wheel(event)
+
+    def _zoom_wheel(self, event: QWheelEvent) -> None:
+        """Geometric cursor-anchored zoom by the ``SCALE_FACTOR`` step (CL-2/-15).
+
+        Relocated from plain wheel to ``Shift``+wheel (REQ-IS-UI-009); the
+        step, anchor, floor and ceiling are otherwise unmodified.
+        """
         factor = 1.0 + SCALE_FACTOR
         if event.angleDelta().y() < 0:
             factor = 1.0 / factor
@@ -594,6 +628,25 @@ class Canvas_View(QGraphicsView):
         self.zoomChanged.emit(target)
         self._apply_pan_margin()  # the pan headroom scales with zoom too
         self._scene.recomposite_exposed()  # zoom-out may expose stale area (D2)
+        event.accept()
+
+    def _favourites_wheel(self, event: QWheelEvent) -> None:
+        """Plain wheel steps the Favourites cursor (REQ-IS-UI-008).
+
+        Wheel down **advances**, wheel up **retreats** — ``CL-IS-02``, a
+        flagged assumption chosen to match list-scroll convention and cheap
+        to reverse if the user disagrees. A silent no-op with no favourites
+        bound or an empty list (never zooms, never errors).
+        """
+        if self._favourites is None:
+            event.accept()
+            return
+        if event.angleDelta().y() < 0:
+            color = self._favourites.advance()
+        else:
+            color = self._favourites.retreat()
+        if color is not None:
+            self._on_color_picked(color)
         event.accept()
 
     # -- lazy off-screen recomposite (D2 follow-up) ----------------------
@@ -787,12 +840,40 @@ class Canvas_View(QGraphicsView):
             self.toolRunNoChange.emit()
         return True
 
+    def _is_selection_tool_active(self) -> bool:
+        return self._tool is not None and self._tool.tool_id in self._SELECTION_TOOL_IDS
+
+    def _shift_pans(self, event: QMouseEvent) -> bool:
+        """Whether ``Shift``+left-drag should pan instead of paint (REQ-IS-UI-015).
+
+        ``True`` only when ``Shift`` is held and the active tool is not one of
+        the three selection tools — those keep ``Shift``/``Alt`` as their
+        shipped add/subtract combine modifiers, untouched.
+        """
+        if not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+            return False
+        return not self._is_selection_tool_active()
+
+    def _pick_first_favourite(self) -> None:
+        """An unmodified middle click sets the first favourite (REQ-IS-UI-012)."""
+        if self._favourites is None:
+            return
+        color = self._favourites.first()
+        if color is not None:
+            self._on_color_picked(color)
+
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         """Start a pan, open the right-click menu, or start a paint stroke."""
         button = event.button()
-        if button == Qt.MouseButton.MiddleButton or (
-            button == Qt.MouseButton.LeftButton and self._space_held
-        ):
+        if button == Qt.MouseButton.MiddleButton:
+            # Deferred: a middle press is a click or a drag depending on how far
+            # it travels before release (REQ-IS-UI-011) — decided in
+            # mouseMoveEvent/mouseReleaseEvent, never here.
+            self._middle_pending = True
+            self._pan_origin = event.position().toPoint()
+            event.accept()
+            return
+        if button == Qt.MouseButton.LeftButton and self._space_held:
             self._panning = True
             self._pan_origin = event.position().toPoint()
             self.viewport().setCursor(Qt.CursorShape.ClosedHandCursor)
@@ -809,6 +890,12 @@ class Canvas_View(QGraphicsView):
                 # A press on an existing guide starts a drag-to-move (D-11); the
                 # guides aid owns the gesture instead of the active paint tool.
                 self._guide_drag = guide_hit
+                event.accept()
+                return
+            if self._shift_pans(event):
+                self._panning = True
+                self._pan_origin = event.position().toPoint()
+                self.viewport().setCursor(Qt.CursorShape.ClosedHandCursor)
                 event.accept()
                 return
         if button == Qt.MouseButton.LeftButton and self._tool is not None:
@@ -848,6 +935,19 @@ class Canvas_View(QGraphicsView):
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         """Continue an active pan, guide drag, or paint drag, tracking the cursor."""
+        if self._middle_pending:
+            here = event.position().toPoint()
+            travel = (here - self._pan_origin).manhattanLength()
+            if travel >= CLICK_DRAG_THRESHOLD_PX:
+                # The press has crossed the click/drag threshold (REQ-IS-UI-011):
+                # promote to a real pan, anchored from here so the next move's
+                # delta is not a jump back to the original press point.
+                self._middle_pending = False
+                self._panning = True
+                self._pan_origin = here
+                self.viewport().setCursor(Qt.CursorShape.ClosedHandCursor)
+            event.accept()
+            return
         if self._panning:
             delta = event.position().toPoint() - self._pan_origin
             self._pan_origin = event.position().toPoint()
@@ -884,6 +984,16 @@ class Canvas_View(QGraphicsView):
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         """End an active pan, or commit the active paint stroke on release."""
+        if self._middle_pending and event.button() == Qt.MouseButton.MiddleButton:
+            # Released before crossing the threshold: a click (REQ-IS-UI-011).
+            # An unmodified click picks the first favourite (REQ-IS-UI-012); a
+            # modified one is left for the modifier-specific gesture that owns
+            # it (T-23) and is a deliberate no-op here.
+            self._middle_pending = False
+            if event.modifiers() == Qt.KeyboardModifier.NoModifier:
+                self._pick_first_favourite()
+            event.accept()
+            return
         if self._panning and event.button() in (
             Qt.MouseButton.MiddleButton,
             Qt.MouseButton.LeftButton,

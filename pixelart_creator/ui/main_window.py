@@ -780,6 +780,12 @@ class Main_Window(QMainWindow):
         self._colour_hub.colorApplied.connect(self._on_hub_color_applied)
         self._colour_hub.colorCommitted.connect(self._on_hub_color_committed)
         self._colour_hub.favouritesChanged.connect(self._save_favourites)
+        # T-21 (REQ-IS-UI-008/-012): the tilemap canvas shares the same
+        # Favourites model — a plain wheel notch / an unmodified middle click
+        # there still travels the app-wide active colour, even though the
+        # tilemap paints tiles rather than pixels.
+        self._tilemap_canvas.set_favourites_model(self._favourites)
+        self._tilemap_canvas.colorPicked.connect(self._on_color_picked)
 
         # Copy-mode status hint for a live floating move (REQ-P2-UI-032/-036,
         # NFR-8): tr()-wrapped, shown only while a float is active. A11y: the
@@ -1720,9 +1726,14 @@ class Main_Window(QMainWindow):
         # Reference board: a separate window (PureRef-style; optional always-on-top).
         self._reference_board = Reference_Board()
         self._reference_board.setWindowFlag(Qt.WindowType.Window, True)
+        # T-21/D-16 (REQ-IS-UI-008): a plain wheel notch on the reference board
+        # also travels the shared Favourites cursor; Shift+wheel keeps zoom.
+        self._reference_board.set_favourites_model(self._favourites)
+        self._reference_board.colorPicked.connect(self._on_color_picked)
 
         # Multi-view of ONE document: extra views on the active tab's shared scene.
         self._multi_view = Multi_View(QGraphicsScene(self))
+        self._multi_view.set_favourites_model(self._favourites)
 
         # Aids menu (checkable per-tab overlays + window/dock toggles).
         bar = self.menuBar()
@@ -2001,6 +2012,9 @@ class Main_Window(QMainWindow):
     def _on_new_view(self) -> None:
         view = self._multi_view.open_view()
         if view is not None:
+            # T-21/D-16 (REQ-IS-UI-008): a plain wheel notch on this extra view
+            # travels the same shared Favourites cursor as the primary canvas.
+            view.colorPicked.connect(self._on_color_picked)
             view.show()
 
     def _on_show_reference_board(self) -> None:
@@ -2221,6 +2235,9 @@ class Main_Window(QMainWindow):
         # so every click/drag still reaches the view underneath unchanged.
         view.viewport().installEventFilter(self)
         view.colorPicked.connect(self._on_color_picked)
+        # T-21 (REQ-IS-UI-008/-012): the plain-wheel / unmodified-middle-click
+        # Favourites travel binds to the same shared model the colour hub uses.
+        view.set_favourites_model(self._favourites)
         view.floatingStateChanged.connect(self._on_floating_state_changed)
         view.lockedLayerEditRejected.connect(self._notify_layer_locked)
         view.outOfDocumentClickRejected.connect(self._notify_out_of_document)

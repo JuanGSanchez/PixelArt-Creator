@@ -50,14 +50,16 @@ from pixelart_creator.ui.reference_board import Reference_Board
 from pixelart_creator.ui.timelapse_controls import Timelapse_Controls
 
 
-def _wheel(delta_y: int) -> QWheelEvent:
+def _wheel(
+    delta_y: int, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier
+) -> QWheelEvent:
     return QWheelEvent(
         QPointF(1.0, 1.0),
         QPointF(1.0, 1.0),
         QPoint(0, delta_y),
         QPoint(0, delta_y),
         Qt.MouseButton.NoButton,
-        Qt.KeyboardModifier.NoModifier,
+        modifiers,
         Qt.ScrollPhase.NoScrollPhase,
         False,
     )
@@ -516,7 +518,18 @@ def test_timelapse_rebind_disconnects_previous_stack(qtbot):
 
 
 def test_document_view_wheel_and_change_event(qtbot, make_view):
-    """Document_View.wheelEvent zooms; changeEvent retranslates."""
+    """Document_View.wheelEvent zooms under Shift; changeEvent retranslates.
+
+    INVERTED 2026-08-31 (T-22, D-16/REQ-IS-UI-008,-009): a plain wheel notch
+    on an extra document view now travels Favourites instead of zooming --
+    D-16 extended the wheel split to all four scrollable surfaces, not only
+    the two painting surfaces D-2 originally scoped. This test's job was
+    always "prove an extra view zooms on a wheel notch"; it still does that
+    job, now under the modifier the gesture actually lives on. The
+    plain-wheel Favourites-travel side of this surface is proven fresh in
+    ``test_input_scheme_pointer.py`` (D-16 extension test), not duplicated
+    here.
+    """
     from PySide6.QtWidgets import QApplication
 
     from pixelart_creator.ui.multi_view import Multi_View
@@ -525,9 +538,9 @@ def test_document_view_wheel_and_change_event(qtbot, make_view):
     mv = Multi_View(scene)
     v = mv.open_view()
     qtbot.addWidget(v)
-    v.wheelEvent(_wheel(120))
+    v.wheelEvent(_wheel(120, Qt.KeyboardModifier.ShiftModifier))
     assert v.transform().m11() > 1.0
-    v.wheelEvent(_wheel(-120))
+    v.wheelEvent(_wheel(-120, Qt.KeyboardModifier.ShiftModifier))
     QApplication.sendEvent(v, QEvent(QEvent.Type.LanguageChange))
     assert v.accessibleName() != ""
     mv.close_all()

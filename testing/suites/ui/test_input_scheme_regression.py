@@ -27,6 +27,26 @@ suite read were taken:
   ``Main_Window._on_tool_action`` — the exact function T-15 will change) ·
   R-33 (``web_viewer/``/``sync_backend/`` untouched — a static git-diff check).
 
+**T-22 addendum (2026-08-31, wave 8, post-implementation).** T-21 (pointer
+surface) landed with the D-16 amendment: plain wheel travels Favourites and
+``Shift``+wheel zooms on all four scrollable surfaces, not only the two
+painting surfaces D-2 originally scoped. T-22's own ``Satisfies:`` list names
+seven rows (``SC-R-01,02,03,06,07,08,09``) for re-verification against the
+now-implemented code. Five (R-1/R-2/R-3/R-8/R-9) were re-run this session
+against the current branch head and are unaffected — their wave-0 citations
+still hold and are not duplicated here. Two (R-6/R-7) needed fresh coverage:
+D-16 explicitly INVERTS what "still zooms" means for the reference board and
+an extra document view — "plain wheel" becomes "Shift+wheel" — and the
+wave-0 citation for R-6 (``test_aids_edges.py::
+test_reference_board_wheel_clear_and_always_on_top``) never carried a zoom
+assertion to invert in the first place (confirmed directly, not assumed),
+so the row's real content had no test proving it at all until now. R-7's own
+wave-0 citation (``test_document_view_wheel_and_change_event``) WAS one of
+the 12 measured, now-inverted regressions (T-22, in ``test_aids_edges.py``
+itself) and remains its citation; the two tests below add the two clauses
+neither prior test carried: the active colour stays unchanged, and (R-7) the
+MAIN canvas's own zoom is unaffected by an extra view's independent zoom.
+
 Both themes are covered structurally: ``testing/suites/ui/conftest.py``'s
 ``theme`` fixture is ``autouse`` and parametrized over light/dark for the
 whole UI suite, so every test in this module already runs twice without a
@@ -42,16 +62,19 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QEvent, QPointF, QRectF, Qt
-from PySide6.QtGui import QKeyEvent, QKeySequence, QMouseEvent
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, Qt
+from PySide6.QtGui import QKeyEvent, QKeySequence, QMouseEvent, QWheelEvent
 
+from pixelart_creator.logic.favourites import Favourites
 from pixelart_creator.logic.selection import rect_mask
 from pixelart_creator.ui.guides_rulers_overlay import (
     GuideOrientation,
     Guides_Rulers_Overlay,
 )
 from pixelart_creator.ui.main_window import Main_Window
+from pixelart_creator.ui.multi_view import Multi_View
 from pixelart_creator.ui.playback_controls import Playback_Controls
+from pixelart_creator.ui.reference_board import Reference_Board
 from pixelart_creator.ui.tilemap_canvas import Tilemap_Canvas
 from pixelart_creator.ui.tools import (
     DitherTool,
@@ -439,3 +462,58 @@ def test_r33_web_viewer_and_sync_backend_untouched_since_branch_point(
         "web_viewer/ or sync_backend/ changed since 1244cd5, which "
         f"REQ-IS-UI-028/SC-R-33 forbids for this job: {changed}"
     )
+
+
+# =========================================================================
+# T-22 -- SC-R-06 / SC-R-07 (D-16-inverted, REQ-IS-UI-028) -- see the module
+# docstring's T-22 addendum for why R-1/R-2/R-3/R-8/R-9 need no new test.
+# =========================================================================
+
+
+def _shift_wheel(delta_y: int) -> QWheelEvent:
+    return QWheelEvent(
+        QPointF(5, 5),
+        QPointF(5, 5),
+        QPoint(0, 0),
+        QPoint(0, delta_y),
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.ShiftModifier,
+        Qt.ScrollPhase.NoScrollPhase,
+        False,
+    )
+
+
+def test_sc_r06_reference_board_still_zooms_now_under_shift_wheel(qtbot):
+    """SC-R-06 (D-16-inverted): the reference board still zooms by its own
+    step -- on ``Shift``+wheel now, not plain wheel -- and the active
+    colour is unchanged (no ``colorPicked`` emission)."""
+    board = Reference_Board()
+    qtbot.addWidget(board)
+    board.set_favourites_model(Favourites([(10, 20, 30, 255)]))
+    picks: list = []
+    board.colorPicked.connect(picks.append)
+    before_zoom = board._view.transform().m11()
+
+    board.wheelEvent(_shift_wheel(120))
+
+    assert board._view.transform().m11() > before_zoom
+    assert picks == []  # the active colour is unchanged
+
+
+def test_sc_r07_extra_document_view_still_zooms_now_under_shift_wheel(qtbot, make_view):
+    """SC-R-07 (D-16-inverted): an extra document view still zooms -- on
+    ``Shift``+wheel now -- the MAIN canvas zoom is unaffected, and the
+    active colour is unchanged."""
+    view, scene, _stack = make_view(16, 16)
+    main_zoom_before = view.zoom()
+    before_colour = view.active_color()
+    mv = Multi_View(scene)
+    v = mv.open_view()
+    qtbot.addWidget(v)
+
+    v.wheelEvent(_shift_wheel(120))
+
+    assert v.transform().m11() > 1.0
+    assert view.zoom() == pytest.approx(main_zoom_before)
+    assert view.active_color() == before_colour
+    mv.close_all()

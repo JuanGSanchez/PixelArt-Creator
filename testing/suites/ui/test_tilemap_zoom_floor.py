@@ -94,8 +94,18 @@ def _build_canvas(qtbot, width: int | None = None, height: int | None = None):
 
 
 def _wheel_event(*, zoom_in: bool) -> QWheelEvent:
-    """Build a real ``QWheelEvent`` notch (matches the sibling suite's
-    ``Canvas_View`` wheel-zoom-floor construction exactly)."""
+    """Build a real ``QWheelEvent`` zoom notch (matches the sibling suite's
+    ``Canvas_View`` wheel-zoom-floor construction exactly).
+
+    INVERTED 2026-08-31 (T-22, D-16/REQ-IS-UI-008,-009): carries
+    ``ShiftModifier`` -- the wheel-zoom route this helper feeds
+    (``Tilemap_Canvas._zoom_wheel``) now requires ``Shift`` held; plain wheel
+    travels Favourites instead (REQ-IS-UI-008) and never reaches
+    ``_clamp_zoom`` at all. Both callers below (``D20-3`` zoom-out-floor and
+    ``D20-4`` zoom-in-ceiling-control) are proving the clamp holds via the
+    wheel-zoom route specifically, so both still need this event to actually
+    reach that route.
+    """
     delta = QPoint(0, 120 if zoom_in else -120)
     return QWheelEvent(
         QPointF(5, 5),
@@ -103,7 +113,7 @@ def _wheel_event(*, zoom_in: bool) -> QWheelEvent:
         QPoint(0, 0),
         delta,
         Qt.MouseButton.NoButton,
-        Qt.KeyboardModifier.NoModifier,
+        Qt.KeyboardModifier.ShiftModifier,
         Qt.ScrollPhase.NoScrollPhase,
         False,
     )
@@ -177,7 +187,10 @@ def test_d20_set_zoom_boundary_at_exactly_zoom_min(qtbot):
 def test_d20_wheel_zoom_out_floor_holds(qtbot):
     """D20-3: repeated wheel-out notches never drop the observable zoom
     below ``ZOOM_MIN``, and land exactly on it once reached -- mirrors the
-    sibling ``Canvas_View`` wheel-floor test's shape and notch count."""
+    sibling ``Canvas_View`` wheel-floor test's shape and notch count.
+
+    INVERTED 2026-08-31 (T-22): the notches ``_wheel_event`` builds now carry
+    ``Shift`` -- see that helper's own docstring."""
     canvas = _build_canvas(qtbot)
     canvas.set_zoom(ZOOM_MIN * 2)  # start above the floor, well within range
     wheel_out = _wheel_event(zoom_in=False)
@@ -225,7 +238,10 @@ def test_d20_wheel_zoom_in_ceiling_still_holds(qtbot):
     """D20-4 (control): repeated wheel-in notches from the floor still climb
     all the way to ``ZOOM_MAX`` and stop there -- proves the floor fix did
     not silently invert the clamp direction, which would pass every D20-1/
-    D20-2/D20-3 test above while breaking zoom-in entirely."""
+    D20-2/D20-3 test above while breaking zoom-in entirely.
+
+    INVERTED 2026-08-31 (T-22): the notches ``_wheel_event`` builds now carry
+    ``Shift`` -- see that helper's own docstring."""
     canvas = _build_canvas(qtbot)
     canvas.set_zoom(ZOOM_MIN)
     wheel_in = _wheel_event(zoom_in=True)
