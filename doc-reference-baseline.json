@@ -331,8 +331,8 @@
   },
   {
     "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
-    "line": 3827,
+    "kind": "es-documentation-stale",
+    "line": 5420,
     "value": "Deselect"
   },
   {
@@ -400,12 +400,6 @@
     "kind": "undocumented-control-label",
     "line": 3820,
     "value": "Extract from Image"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
-    "line": 3812,
-    "value": "Filled Shapes"
   },
   {
     "file": "pixelart_creator/ui/main_window.py",
@@ -535,8 +529,8 @@
   },
   {
     "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
-    "line": 3813,
+    "kind": "es-documentation-stale",
+    "line": 5406,
     "value": "Pixel Perfect"
   },
   {
