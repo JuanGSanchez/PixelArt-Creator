@@ -46,6 +46,7 @@ from pixelart_creator.logic.constants import (
     ZOOM_MIN,
     ZOOM_PRESET_STOPS,
 )
+from pixelart_creator.logic.content_bounds import content_bounds
 from pixelart_creator.logic.document import Document
 from pixelart_creator.logic.edit_trace import EditTarget
 from pixelart_creator.logic.favourites import Favourites
@@ -166,6 +167,15 @@ class Canvas_View(QGraphicsView):
     #: (a completed colour-hub pick, REQ-P3-UI-006 clause 6) must never answer
     #: with silence even when it changed nothing.
     toolRunNoChange = Signal()
+    #: Emitted with the target frame index a ``Ctrl``+wheel / ``Ctrl``+middle-
+    #: click frame gesture resolved to (REQ-IS-UI-010/-014); the shell routes
+    #: it through the shipped frame-selection path. Pushes no command — frame
+    #: navigation is view state (CL-13).
+    frameNavigationRequested = Signal(int)
+    #: Emitted when a confirmed ``Ctrl``+left-click (no floating move live)
+    #: should add a frame after the active one (REQ-IS-UI-016); the shell
+    #: builds and pushes the shipped undoable ``make_add_frame_command``.
+    addFrameRequested = Signal()
 
     #: The three selection tools whose Shift/Alt modifiers stay the shipped
     #: add/subtract combine gesture (REQ-IS-UI-015) — Shift+drag pans for
@@ -205,6 +215,13 @@ class Canvas_View(QGraphicsView):
         #: ``CLICK_DRAG_THRESHOLD_PX`` (a click) or its promotion to
         #: ``_panning`` once the cursor travels past the threshold (a drag).
         self._middle_pending = False
+        #: A ``Ctrl``+left press awaiting the click/drag verdict (REQ-IS-UI-016,
+        #: mirrors ``_middle_pending``): ``True`` between the press and either
+        #: its release under ``CLICK_DRAG_THRESHOLD_PX`` (adds a frame) or its
+        #: promotion to an ordinary paint/floating-move drag once the cursor
+        #: travels past the threshold.
+        self._ctrl_left_pending = False
+        self._ctrl_left_origin = QPoint()
         self._space_held = False
         self._drawing = False
         self._pan_origin = QPoint()
@@ -583,6 +600,46 @@ class Canvas_View(QGraphicsView):
         """Zoom so the whole scene fits the viewport (the zoom minimum)."""
         self.set_zoom(self._fit_zoom())
 
+    def fit_content(self) -> None:
+        """Zoom and centre on the painted-pixel bounding box (REQ-IS-UI-013/-018).
+
+        ``logic.content_bounds`` answers the geometry (Article I); this view
+        only maps its rectangle to scene coordinates, clamps to the shipped
+        zoom floor/ceiling, and centres. Falls back to the existing
+        :meth:`fit` when the active frame has no non-transparent pixel, or
+        when no document is bound yet — never errors.
+        """
+        document = self._recording_document
+        if document is None:
+            self.fit()
+            return
+        frame_index = self._scene.frame_index
+        if not 0 <= frame_index < len(document.frames):
+            self.fit()
+            return
+        bounds = content_bounds(
+            document.frames[frame_index], document.width, document.height
+        )
+        if bounds is None:
+            self.fit()
+            return
+        x0, y0, x1, y1 = bounds
+        rect = QRectF(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
+        vp = self.viewport().rect()
+        if (
+            rect.width() <= 0
+            or rect.height() <= 0
+            or vp.width() <= 0
+            or vp.height() <= 0
+        ):
+            self.fit()
+            return
+        zoom = self._clamp_zoom(
+            min(vp.width() / rect.width(), vp.height() / rect.height())
+        )
+        self.set_zoom(zoom)
+        self.centerOn(rect.center())
+
     def zoom_in(self) -> None:
         """Snap up to the next keyboard preset stop (CL-2)."""
         for stop in ZOOM_PRESET_STOPS:
@@ -600,13 +657,44 @@ class Canvas_View(QGraphicsView):
         self.fit()
 
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802 (Qt override)
-        """``Shift``+wheel zooms (REQ-IS-UI-009); plain wheel travels
-        Favourites (REQ-IS-UI-008, T-21 — displaces the zoom that plain wheel
-        performed until 2026-08-31)."""
-        if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+        """``Ctrl``+wheel steps frames (REQ-IS-UI-010); ``Shift``+wheel zooms
+        (REQ-IS-UI-009); plain wheel travels Favourites (REQ-IS-UI-008, T-21 —
+        displaces the zoom that plain wheel performed until 2026-08-31)."""
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self._frame_step_wheel(event)
+        elif event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             self._zoom_wheel(event)
         else:
             self._favourites_wheel(event)
+
+    def _frame_count(self) -> int:
+        """Return the active document's frame count, or ``0`` with none bound."""
+        document = self._recording_document
+        return 0 if document is None else len(document.frames)
+
+    def _frame_step_wheel(self, event: QWheelEvent) -> None:
+        """``Ctrl``+wheel steps the active frame by one per notch (REQ-IS-UI-010).
+
+        Wheel down advances, wheel up retreats, through the shipped frame-
+        selection path (``Main_Window._navigate_to_frame``) so the timeline,
+        the canvas and any onion-skin display all follow. Never zooms, never
+        touches the active colour. Silent no-op on a single-frame document,
+        or while a floating move is live — the REQ-IS-UI-016 suppression
+        guard applies to every ``Ctrl`` frame gesture, not only the click one.
+        """
+        if self._floating_controller.is_active():
+            event.accept()
+            return
+        count = self._frame_count()
+        if count <= 1:
+            event.accept()
+            return
+        delta = 1 if event.angleDelta().y() < 0 else -1
+        current = self._scene.frame_index
+        target = max(0, min(count - 1, current + delta))
+        if target != current:
+            self.frameNavigationRequested.emit(target)
+        event.accept()
 
     def _zoom_wheel(self, event: QWheelEvent) -> None:
         """Geometric cursor-anchored zoom by the ``SCALE_FACTOR`` step (CL-2/-15).
@@ -693,10 +781,13 @@ class Canvas_View(QGraphicsView):
 
     # -- mouse: paint / pan / seam ---------------------------------------
 
-    def _pixel_at(self, event: QMouseEvent) -> Coord:
-        pt = self.mapToScene(event.position().toPoint())
+    def _pixel_at_point(self, pos: QPoint) -> Coord:
+        pt = self.mapToScene(pos)
         snapped = self._snap_scene_point(pt)
         return math.floor(snapped.x()), math.floor(snapped.y())
+
+    def _pixel_at(self, event: QMouseEvent) -> Coord:
+        return self._pixel_at_point(event.position().toPoint())
 
     def _snap_scene_point(self, point: QPointF) -> QPointF:
         """Resolve the cursor through the winning Phase-9 aid's snap (D-08).
@@ -843,6 +934,28 @@ class Canvas_View(QGraphicsView):
     def _is_selection_tool_active(self) -> bool:
         return self._tool is not None and self._tool.tool_id in self._SELECTION_TOOL_IDS
 
+    def _press_would_float(self, pos: QPoint) -> bool:
+        """Whether a left press at ``pos`` would start a floating move.
+
+        Mirrors the entry guard ``SelectionTool.on_press`` uses (a selection
+        tool that allows moving, a live non-empty selection, the press lands
+        inside it) so the REQ-IS-UI-016 Ctrl-click/drag split never gates a
+        press that is really the shipped Ctrl-drag float-copy gesture
+        (REQ-P2-UI-032) — that gesture starts on press with no distance
+        threshold at all, today, and must keep doing so unmodified. Geometry
+        only (``SelectionMask.is_selected``, an existing query, not a new
+        domain decision) — Article I is unaffected.
+        """
+        if not self._is_selection_tool_active():
+            return False
+        if not getattr(self._tool, "_allow_move", True):
+            return False  # the magic wand never moves on an interior press.
+        selection = self._selection
+        if selection is None or selection.is_empty:
+            return False
+        x, y = self._pixel_at_point(pos)
+        return selection.is_selected(x, y)
+
     def _shift_pans(self, event: QMouseEvent) -> bool:
         """Whether ``Shift``+left-drag should pan instead of paint (REQ-IS-UI-015).
 
@@ -861,6 +974,59 @@ class Canvas_View(QGraphicsView):
         color = self._favourites.first()
         if color is not None:
             self._on_color_picked(color)
+
+    def _goto_first_frame(self) -> None:
+        """``Ctrl``+middle-click selects frame 1 (REQ-IS-UI-014).
+
+        Suppressed while a floating move is live (the REQ-IS-UI-016 guard
+        applies to every ``Ctrl`` frame gesture, not only the click one); a
+        no-op that pushes nothing and never errors when already on frame 1.
+        """
+        if self._floating_controller.is_active():
+            return
+        if self._scene.frame_index != 0:
+            self.frameNavigationRequested.emit(0)
+
+    def _begin_paint_stroke(self, pos: QPoint, modifiers: Qt.KeyboardModifier) -> None:
+        """Start a paint/floating-move press at ``pos`` (REQ-IS-UI-016 replay seam).
+
+        Shared by the direct left-press dispatch below and the promoted
+        ``Ctrl``+left-drag replay in :meth:`mouseMoveEvent`, so a drag that
+        crosses the click/drag threshold begins its stroke at the ORIGINAL
+        press point — exactly where an unmodified press would have — leaving
+        the shipped Ctrl-drag float-copy re-sampling (REQ-P2-UI-032)
+        untouched.
+        """
+        if self._tool is None:
+            return
+        # A locked or reference active layer rejects paint (P4-UI-004/-010);
+        # the guard lives in the scene (it knows the active layer/mask). A
+        # rejection creates no undo entry — the tool is never armed below.
+        if not self._scene.is_active_editable():
+            # Three non-editable classes, not two (REQ-P3-UI-006 clause 5):
+            # locked, reference, and smart all fail ``is_active_editable()``,
+            # and none may refuse silently.
+            if self._scene.active_layer().locked:
+                self.lockedLayerEditRejected.emit()
+            else:
+                self.nonEditableLayerEditRejected.emit()
+            return
+        x, y = self._pixel_at_point(pos)
+        buf = self._scene.active_buffer()
+        if not (0 <= x < buf.width and 0 <= y < buf.height):
+            # Out-of-document click (FIX 5): must not arm a stroke, and must
+            # not fail silently (no-silent-result rule) — surfaced by the
+            # shell exactly like the locked-layer rejection above.
+            self.outOfDocumentClickRejected.emit()
+            return
+        self._ctx = self._make_context()
+        self._ctx.modifiers = modifiers
+        # The raw (pre-snap) press point anchors a perspective direction-lock
+        # for the rest of this stroke (D-08; logic.grids.perspective_snap).
+        raw_pt = self.mapToScene(pos)
+        self._stroke_anchor = (raw_pt.x(), raw_pt.y())
+        self._drawing = True
+        self._tool.on_press(x, y, self._ctx)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         """Start a pan, open the right-click menu, or start a paint stroke."""
@@ -883,6 +1049,28 @@ class Canvas_View(QGraphicsView):
             self._dispatch_menu(event)
             event.accept()
             return
+        if (
+            button == Qt.MouseButton.LeftButton
+            and event.modifiers() == Qt.KeyboardModifier.ControlModifier
+            and not self._floating_controller.is_active()
+            and not self._press_would_float(event.position().toPoint())
+        ):
+            # Deferred exactly like the middle button above (REQ-IS-UI-011
+            # pattern): a release under CLICK_DRAG_THRESHOLD_PX adds a frame
+            # (REQ-IS-UI-016); a release past it is promoted to an ordinary
+            # press+drag at the ORIGINAL press point in mouseMoveEvent, so the
+            # shipped Ctrl-drag float-copy re-sampling (REQ-P2-UI-032) starts
+            # exactly where it would without this click/drag split. Suppressed
+            # entirely while a floating move is already live, or while THIS
+            # very press would itself start one (an interior press on a
+            # selection tool's live selection) — that gesture has never had a
+            # distance threshold and must not gain one here (_press_would_float).
+            # Either way this whole branch is skipped and the press falls
+            # through unchanged below.
+            self._ctrl_left_pending = True
+            self._ctrl_left_origin = event.position().toPoint()
+            event.accept()
+            return
         if button == Qt.MouseButton.LeftButton:
             scene_pt = self.mapToScene(event.position().toPoint())
             guide_hit = self._hit_test_guide(scene_pt)
@@ -899,36 +1087,7 @@ class Canvas_View(QGraphicsView):
                 event.accept()
                 return
         if button == Qt.MouseButton.LeftButton and self._tool is not None:
-            # A locked or reference active layer rejects paint (P4-UI-004/-010);
-            # the guard lives in the scene (it knows the active layer/mask). A
-            # rejection creates no undo entry — the tool is never armed below.
-            if not self._scene.is_active_editable():
-                # Three non-editable classes, not two (REQ-P3-UI-006 clause 5):
-                # locked, reference, and smart all fail ``is_active_editable()``,
-                # and none may refuse silently.
-                if self._scene.active_layer().locked:
-                    self.lockedLayerEditRejected.emit()
-                else:
-                    self.nonEditableLayerEditRejected.emit()
-                event.accept()
-                return
-            x, y = self._pixel_at(event)
-            buf = self._scene.active_buffer()
-            if not (0 <= x < buf.width and 0 <= y < buf.height):
-                # Out-of-document click (FIX 5): must not arm a stroke, and must
-                # not fail silently (no-silent-result rule) — surfaced by the
-                # shell exactly like the locked-layer rejection above.
-                self.outOfDocumentClickRejected.emit()
-                event.accept()
-                return
-            self._ctx = self._make_context()
-            self._ctx.modifiers = event.modifiers()
-            # The raw (pre-snap) press point anchors a perspective direction-lock
-            # for the rest of this stroke (D-08; logic.grids.perspective_snap).
-            raw_pt = self.mapToScene(event.position().toPoint())
-            self._stroke_anchor = (raw_pt.x(), raw_pt.y())
-            self._drawing = True
-            self._tool.on_press(x, y, self._ctx)
+            self._begin_paint_stroke(event.position().toPoint(), event.modifiers())
             event.accept()
             return
         super().mousePressEvent(event)
@@ -946,6 +1105,23 @@ class Canvas_View(QGraphicsView):
                 self._panning = True
                 self._pan_origin = here
                 self.viewport().setCursor(Qt.CursorShape.ClosedHandCursor)
+            event.accept()
+            return
+        if self._ctrl_left_pending:
+            here = event.position().toPoint()
+            travel = (here - self._ctrl_left_origin).manhattanLength()
+            if travel >= CLICK_DRAG_THRESHOLD_PX:
+                # Promoted to a drag (REQ-IS-UI-016): replay the deferred press
+                # at its ORIGINAL point via _begin_paint_stroke, then apply
+                # this move too, so the shipped floating-move/copy path
+                # (REQ-P2-UI-032) starts exactly where an ordinary press
+                # would have.
+                self._ctrl_left_pending = False
+                self._begin_paint_stroke(self._ctrl_left_origin, event.modifiers())
+                if self._drawing and self._tool is not None and self._ctx is not None:
+                    self._ctx.modifiers = event.modifiers()
+                    x, y = self._pixel_at(event)
+                    self._tool.on_move(x, y, self._ctx)
             event.accept()
             return
         if self._panning:
@@ -983,15 +1159,27 @@ class Canvas_View(QGraphicsView):
         self._guide_drag = overlay.overlay_item().move_guide(guide, position)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
-        """End an active pan, or commit the active paint stroke on release."""
+        """End an active pan, resolve a deferred click, or commit a paint stroke."""
         if self._middle_pending and event.button() == Qt.MouseButton.MiddleButton:
             # Released before crossing the threshold: a click (REQ-IS-UI-011).
-            # An unmodified click picks the first favourite (REQ-IS-UI-012); a
-            # modified one is left for the modifier-specific gesture that owns
-            # it (T-23) and is a deliberate no-op here.
+            # Unmodified picks the first favourite (REQ-IS-UI-012); Ctrl goes
+            # to frame 1 (REQ-IS-UI-014); Shift frames the painted pixels
+            # (REQ-IS-UI-013). Any other combination is a deliberate no-op.
             self._middle_pending = False
-            if event.modifiers() == Qt.KeyboardModifier.NoModifier:
+            mods = event.modifiers()
+            if mods == Qt.KeyboardModifier.NoModifier:
                 self._pick_first_favourite()
+            elif mods == Qt.KeyboardModifier.ControlModifier:
+                self._goto_first_frame()
+            elif mods == Qt.KeyboardModifier.ShiftModifier:
+                self.fit_content()
+            event.accept()
+            return
+        if self._ctrl_left_pending and event.button() == Qt.MouseButton.LeftButton:
+            # Released before crossing the threshold: a click (REQ-IS-UI-011
+            # pattern) — add a frame (REQ-IS-UI-016) instead of painting.
+            self._ctrl_left_pending = False
+            self.addFrameRequested.emit()
             event.accept()
             return
         if self._panning and event.button() in (

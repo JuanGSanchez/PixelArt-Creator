@@ -180,6 +180,7 @@ from pixelart_creator.ui.commands import (
     AssistantCommand,
     AutomationCommand,
     CanvasResizeCommand,
+    FrameCommand,
     LogicCommand,
     PaintCommand,
     TilemapCommand,
@@ -253,6 +254,7 @@ from pixelart_creator.ui.tilemap_layer_panel import Tilemap_Layer_Panel
 from pixelart_creator.ui.tileset_editor_panel import Tileset_Editor_Panel
 from pixelart_creator.ui.timelapse_controls import Timelapse_Controls
 from pixelart_creator.ui.timelapse_frame_view import Timelapse_Frame_View
+from pixelart_creator.ui.timeline_grid_view import Timeline_Grid_View
 from pixelart_creator.ui.timeline_panel import Timeline_Panel
 from pixelart_creator.ui.tool_icons import tool_icon
 from pixelart_creator.ui.tools import (
@@ -681,6 +683,19 @@ class Main_Window(QMainWindow):
         # Grid cell surface (REQ-P5-UI-023, BF-G1): a cell selection reaches the
         # layer panel through the sibling seam ``Layer_Panel.select_layer``.
         self._timeline_panel.layerSelected.connect(self._layer_panel.select_layer)
+        # D-22: the grid's Ctrl+right-click removal on the document's last
+        # remaining frame is inert by invariant, so it explains itself in the
+        # status bar instead of asking a Yes/No question whose answer cannot
+        # change the outcome. ``Timeline_Panel`` exposes no public seam for its
+        # grid child (T4 keeps it an internal cell surface), so this reaches the
+        # real child instance the same way ``findChildren(QDockWidget)`` already
+        # does elsewhere in this shell, rather than duplicating the grid's own
+        # last-frame test here.
+        timeline_grid = self._timeline_panel.findChild(Timeline_Grid_View)
+        if timeline_grid is not None:
+            timeline_grid.lastFrameRemovalRefused.connect(
+                self._notify_last_frame_removal_refused
+            )
         self._playback_controls = Playback_Controls(self)
         self._playback_controls.frameAdvanced.connect(self._on_frame_advanced)
         self._playback_controls.playbackActiveChanged.connect(self._on_playback_active)
@@ -1308,6 +1323,12 @@ class Main_Window(QMainWindow):
         self._zoom_out_action.triggered.connect(self._on_zoom_out)
         self._fit_action = QAction(self)
         self._fit_action.triggered.connect(self._on_fit)
+        # REQ-IS-UI-018: a separately reachable action — "fit the document" and
+        # "fit what is drawn" are different actions and both belong (a11y,
+        # NFR-6: a gesture-only feature is unreachable by keyboard/screen
+        # reader). `_fit_action` above stays unchanged.
+        self._fit_content_action = QAction(self)
+        self._fit_content_action.triggered.connect(self._on_fit_content)
         self._grid_action = QAction(self)
         self._grid_action.setCheckable(True)
         self._grid_action.setChecked(True)
@@ -1522,6 +1543,7 @@ class Main_Window(QMainWindow):
         self._view_menu.addAction(self._zoom_in_action)
         self._view_menu.addAction(self._zoom_out_action)
         self._view_menu.addAction(self._fit_action)
+        self._view_menu.addAction(self._fit_content_action)
         self._view_menu.addSeparator()
         self._view_menu.addAction(self._grid_action)
         self._view_menu.addAction(self._snap_action)
@@ -2244,6 +2266,11 @@ class Main_Window(QMainWindow):
         view.nonEditableLayerEditRejected.connect(self._notify_layer_not_editable)
         view.toolRunNoChange.connect(self._notify_tool_run_no_change)
         view.set_menu_hook(self._open_colour_hub)
+        # T-23 (REQ-IS-UI-010/-014/-016): the Ctrl frame gestures route through
+        # the shipped frame-selection path / the shipped undoable add-frame
+        # command — this view builds no domain result of its own (Article I).
+        view.frameNavigationRequested.connect(self._navigate_to_frame)
+        view.addFrameRequested.connect(self._on_canvas_add_frame_requested)
         # T-12: a drop delivered straight to the canvas viewport is routed
         # through the same handler as Main_Window.dropEvent (REQ-DDI-UI-001).
         view.set_drop_router(self._route_dropped_files)
@@ -2575,6 +2602,42 @@ class Main_Window(QMainWindow):
         record.scene.set_frame_index(index, scrub=False)
         self._layer_panel.set_frame_index(index)
         record.view.viewport().update()
+
+    def _navigate_to_frame(self, index: int) -> None:
+        """Route a Ctrl+wheel / Ctrl+middle-click frame gesture (REQ-IS-UI-010/
+        -014) through the shipped frame-selection path — the same update a
+        timeline click performs (:meth:`_on_frame_selected`) — then syncs the
+        timeline's own highlight, mirroring :meth:`_on_frame_advanced`'s
+        playback pattern. Pushes no command (frame navigation is view state,
+        CL-13)."""
+        self._on_frame_selected(index)
+        self._timeline_panel.select_frame(index)
+
+    def _on_canvas_add_frame_requested(self) -> None:
+        """Ctrl+left-click on the canvas adds a frame after the active one
+        (REQ-IS-UI-016), through the same shipped undoable ``FrameCommand`` /
+        ``make_add_frame_command`` the timeline's own Add-Frame toolbar
+        action uses (``Timeline_Panel._on_add``). A no-op, never raising, with
+        no active tab or when the document is already at ``MAX_FRAMES``."""
+        record = self.active_tab()
+        if record is None:
+            return
+        try:
+            command = record.document.make_add_frame_command(
+                after_index=self._active_frame
+            )
+        except DocumentError:
+            return
+        record.stack.push(
+            FrameCommand(command, self._on_canvas_frame_added, self.tr("Add Frame"))
+        )
+
+    def _on_canvas_frame_added(self) -> None:
+        """The Ctrl+left-click ``FrameCommand``'s Qt-side follow-up: mirrors
+        ``Timeline_Panel._refresh`` — recomposite + rebuild the timeline strip
+        so it reflects the new frame."""
+        self._on_timeline_frames_changed()
+        self._timeline_panel.rebuild()
 
     def _on_frame_scrubbed(self, index: int) -> None:
         """Scrub on a timeline drag, showing the frame under the cursor (no undo)."""
@@ -3004,6 +3067,22 @@ class Main_Window(QMainWindow):
         """
         self.statusBar().showMessage(
             self.tr("Layer is locked."),
+            UI_NOTICE_DURATION_MS,
+        )
+
+    def _notify_last_frame_removal_refused(self) -> None:
+        """Non-blocking notice that a last-frame removal was refused (D-22).
+
+        A document must keep at least one frame (``Document._ensure_frame_removable``);
+        asking Yes/No when the answer cannot change that outcome was worse than
+        not asking, so the timeline grid's Ctrl+right-click on the last
+        remaining frame reaches here instead of a confirmation dialog.
+        Follows the ``_notify_layer_locked`` precedent.
+        """
+        self.statusBar().showMessage(
+            self.tr(
+                "This is the last remaining frame; a document must keep at least one."
+            ),
             UI_NOTICE_DURATION_MS,
         )
 
@@ -4378,6 +4457,13 @@ class Main_Window(QMainWindow):
         if record is not None:
             record.view.fit()
 
+    def _on_fit_content(self) -> None:
+        """View > Fit to Content (REQ-IS-UI-018): the named, keyboard/screen-
+        reader-reachable twin of the ``Shift``+middle-click gesture."""
+        record = self.active_tab()
+        if record is not None:
+            record.view.fit_content()
+
     def _on_grid_toggled(self, enabled: bool) -> None:
         for record in self._tabs_data:
             record.view.set_grid_enabled(enabled)
@@ -5290,6 +5376,7 @@ class Main_Window(QMainWindow):
         self._zoom_in_action.setText(self.tr("Zoom &In"))
         self._zoom_out_action.setText(self.tr("Zoom &Out"))
         self._fit_action.setText(self.tr("&Fit to View"))
+        self._fit_content_action.setText(self.tr("Fit to &Content"))
         self._grid_action.setText(self.tr("Show &Grid"))
         self._snap_action.setText(self.tr("&Snap to Grid"))
         self._aa_off_action.setText(self.tr("&Anti-aliasing Off"))
