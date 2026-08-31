@@ -117,7 +117,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [not-a-real-os-latest, also-not-a-real-os-latest]
     steps:
       - name: No match step
         run: echo "no match"
@@ -298,7 +298,21 @@ def test_matrix_no_matching_os_leg_exits_1_not_2_per_observed_behaviour(
     error" bucket, even though this is a usage/config mismatch and zero steps
     ever ran. Asserted here as the REAL, observed value (verified-testing
     principle: assert against the system's own behaviour, not the header's
-    aspirational mapping)."""
+    aspirational mapping).
+
+    The fixture's ``no-match-job`` lists ``matrix.os: [not-a-real-os-latest,
+    also-not-a-real-os-latest]`` -- two labels that are not keys of
+    ``_RUNNER_OS_BY_LABEL`` (which only knows ``ubuntu-latest``,
+    ``windows-latest``, ``macos-latest``), so ``_select_matrix_os`` looks
+    up ``None`` for every leg and that can never equal ``_LOCAL_RUNNER_OS``
+    on ANY host. This is deliberate: an earlier version of this fixture used
+    ``[ubuntu-latest, macos-latest]``, chosen only to avoid the author's own
+    Windows machine, and that made the test pass locally while failing on
+    hosted ``ubuntu-latest``/``macos-latest`` CI runners, where one of those
+    two real labels DOES match the runner's own OS and the "no match" branch
+    is never reached (observed failure: ``assert 3 == 1``). Fictional labels
+    make the "no leg matches" condition true unconditionally, independent of
+    which OS actually runs this test."""
     result = run_script(
         SCRIPT,
         ["--workflow", str(fixture_workflow), "--job", "no-match-job", "--dry-run"],
