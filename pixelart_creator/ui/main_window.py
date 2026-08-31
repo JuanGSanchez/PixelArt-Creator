@@ -15,7 +15,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, cast
+from typing import Any, Callable, Dict, Final, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, QRectF, QStandardPaths, Qt, QTimer
@@ -3121,6 +3121,16 @@ class Main_Window(QMainWindow):
         self._refresh_registration_actions_ui()
         self._refresh_ingress_actions_ui()
 
+    #: Incoming tool ids that discard the active selection on entry
+    #: (REQ-IS-UI-029, CL-IS-08/-09). Re-activating an already-active
+    #: selection tool is included deliberately, so it doubles as a
+    #: start-fresh gesture — an assumption (CL-IS-08), flagged and cheap to
+    #: reverse. Every other incoming tool leaves the selection untouched, so
+    #: mask-constrained drawing (REQ-P2-LOGIC-006) survives a tool switch.
+    _SELECTION_ENTRY_TOOL_IDS: Final[frozenset[str]] = frozenset(
+        {"select_rect", "select_lasso", "select_wand"}
+    )
+
     def _on_tool_action(self) -> None:
         action = self.sender()
         if isinstance(action, QAction):
@@ -3131,6 +3141,11 @@ class Main_Window(QMainWindow):
             self._active_tool_id = action.data()
             if record is not None:
                 record.view.set_tool(self._tools[self._active_tool_id])
+                # Discard the selection only when ENTERING a selection tool,
+                # and only after the float above was committed (REQ-IS-UI-029).
+                # No QUndoCommand is pushed here, matching _on_deselect.
+                if self._active_tool_id in self._SELECTION_ENTRY_TOOL_IDS:
+                    record.view.clear_selection()
                 # T-20 (REQ-IS-UI-025/-026): raise the tool square for EVERY
                 # tool change, whatever the source (shortcut, toolbar,
                 # menu) — ``action`` is the one that fired regardless of
