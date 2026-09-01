@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Canva-style RGB colour wheel with live harmony swatches (REQ-P3-UI-005).
 
 ``Colour_Wheel_Widget`` renders a hue/saturation wheel — a

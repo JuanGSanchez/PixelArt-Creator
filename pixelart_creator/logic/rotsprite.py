@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """RotSprite clean arbitrary-angle rotation (zero Qt, S11).
 
 Implements the grounded four-stage RotSprite pipeline (research Topic 1) with the

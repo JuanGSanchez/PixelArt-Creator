@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Per-edit library-decision ledger (`REQ-P11-DATA-010`, ADR-0062, ruling P11-R13).
 
 The user's 2026-08-22 durability ruling states plainly: *"user's decision in the

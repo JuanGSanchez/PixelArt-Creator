@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """QImage-backed image decode → RGBA ``PixelBuffer`` (Qt lives here; ADR-0010).
 
 The drag-drop import feature must turn a dropped ``.png`` / ``.jpg`` /

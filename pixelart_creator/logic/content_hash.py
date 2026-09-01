@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Deterministic content-hash primitive — pure, zero Qt (S11).
 
 The content-hash primitive Phase 11 **introduces** (ADR-0030 §3; the shipped tree has

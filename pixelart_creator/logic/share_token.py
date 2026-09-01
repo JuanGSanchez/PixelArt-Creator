@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pure signed share-link token — mint + verify (zero Qt, zero ``data/``, S11).
 
 Phase-13 Slice-13E (ADR-0036 §1 + Addendum A; spec REQ-P13-WEB-002/-005, Article VII).

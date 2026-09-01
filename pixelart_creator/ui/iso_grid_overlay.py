@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Isometric-grid overlay item (REQ-P9-UI-004) — Qt only, binds to logic/grids.
 
 ``Iso_Grid_Overlay`` is a high-``z`` :class:`QGraphicsItem` added to the shared

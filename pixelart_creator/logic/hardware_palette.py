@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """NES + Game Boy hardware-palette reference data (zero Qt, S11).
 
 Exposes the fixed reference colour sets for the **NES** (Nintendo Entertainment

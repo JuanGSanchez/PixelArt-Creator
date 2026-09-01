@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Asset-tagging panel — add / remove tags on the selected asset (REQ-P11-UI-002).
 
 ``Asset_Tagging_Panel`` is a presentation-only :class:`~PySide6.QtWidgets.QWidget` that

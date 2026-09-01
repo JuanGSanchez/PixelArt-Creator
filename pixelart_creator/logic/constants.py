@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Centralised numeric parameters (S12). No magic numbers elsewhere.
 
 Every numeric tuning value used across ui/, logic/, and data/ is defined here

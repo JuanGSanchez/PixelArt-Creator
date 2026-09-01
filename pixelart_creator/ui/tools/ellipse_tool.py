@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Ellipse shape tool (REQ-P2-UI-002, -003): live preview, commit as one command."""
 
 from __future__ import annotations

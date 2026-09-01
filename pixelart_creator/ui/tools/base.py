@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Tool-controller contract + stroke helper (REQ-P1-UI-011; CL-9/-12).
 
 A :class:`Tool` maps floored pixel coordinates (CL-12) to ``logic/drawing.py``

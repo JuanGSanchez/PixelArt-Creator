@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Guides & rulers overlay (REQ-P9-UI-003) — Qt only, binds to logic/guides.
 
 Three cooperating presentation pieces, all bound to the pure

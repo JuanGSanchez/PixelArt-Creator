@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Revision-history index + per-asset sidecar persistence — zero Qt (S11; ADR-0030 §6).
 
 Persist and reload the append-only, content-hash-addressed revision DAG the

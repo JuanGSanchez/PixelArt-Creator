@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Canvas scene — buffer rendering + tiled background (D1/D2/D3/D7).
 
 ``CanvasScene`` presents the active document layer's

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Script runner panel — run a data-driven DSL script (REQ-P8-UI-004).
 
 ``Script_Runner_Panel`` lets a power user author a **data-driven DSL script** — a

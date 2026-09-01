@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Write-ahead journal for library-edit decisions (ADR-0062, ruling P11-R13).
 
 `REQ-P11-DATA-010`'s durability half is answered here, not by writing the

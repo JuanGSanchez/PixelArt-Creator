@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Seeded, deterministic procedural generators (zero Qt, S11).
 
 Five in-house generators — **value noise**, **gradient (Perlin-style) noise**, an

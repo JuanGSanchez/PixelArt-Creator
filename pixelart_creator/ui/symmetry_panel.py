@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Symmetry-axis selector + position panel (REQ-P2-UI-011, D-28/CF-93).
 
 ``Symmetry_Panel`` exposes the active symmetry axis (none / vertical / horizontal

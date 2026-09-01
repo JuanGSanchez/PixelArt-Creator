@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Shared credential-gating + config base for the real LLM adapters (private).
 
 Phase-14 Slice 14D (skill ``llm-adapter-normalization`` step 5; ADR-0040 §5). Both real

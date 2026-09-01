@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Live collaborator-cursor overlay (REQ-P10-UI-013) — Qt only, ephemeral.
 
 Phase-10 Slice C. :class:`Live_Cursors_Overlay` is a doc-space

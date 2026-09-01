@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Persist the Favourites list to an app-level JSON store (zero Qt, S11).
 
 A small, defensive JSON reader/writer for the colour-hub Favourites, mirroring

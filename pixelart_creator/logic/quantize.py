@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Palette constraint + auto-extraction (median-cut / k-means) (zero Qt, S11).
 
 Three capabilities over the Phase-1 buffer/palette model:

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Runtime internationalisation manager (REQ-P1-UI-021, -022; F5/F6).
 
 ``LanguageManager`` selects the UI language from the system :class:`QLocale`

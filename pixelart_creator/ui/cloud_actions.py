@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Cloud save/load + provider-agnostic connect/disconnect (REQ-P10-UI-001/-004/-005).
 
 Thin Qt front-end over the frozen, Qt-free cloud port

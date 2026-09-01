@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Tiled-drawing wrap model and repeating preview (zero Qt, S11).
 
 Tiled mode treats the canvas as a torus: any paint coordinate maps to

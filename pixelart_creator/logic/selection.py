@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Selection mask model, builders, ops, and mask-constrained editing (zero Qt).
 
 :class:`SelectionMask` is a boolean region over a buffer's ``(width, height)`` —

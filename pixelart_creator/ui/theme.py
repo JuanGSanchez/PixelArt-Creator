@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Light + dark QSS themes with a runtime switch (REQ-P1-UI-025; CL-13).
 
 Colours are defined **once per role** for each theme (never hard-coded per

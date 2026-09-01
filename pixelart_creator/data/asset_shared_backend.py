@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Optional Phase-10 cloud-backed blob backend — local-first, zero Qt (S11; ADR-0032).
 
 The local-first / cloud-optional storage substrate (REQ-P11-DATA-006 / CL-3).

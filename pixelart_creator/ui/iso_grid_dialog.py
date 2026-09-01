@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Isometric-grid configuration dialog (REQ-P9-UI-004).
 
 ``Iso_Grid_Dialog`` mirrors the shipped

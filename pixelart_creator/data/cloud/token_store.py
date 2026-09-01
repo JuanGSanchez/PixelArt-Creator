@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """OS-keyring token isolation for cloud providers — zero Qt (S11).
 
 Phase-10 Slice A (ADR-0026 §3; spec REQ-P10-DATA-008, CL-B3, Article VII §3). Wraps

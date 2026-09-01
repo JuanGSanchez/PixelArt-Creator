@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Perspective-grid overlay item (REQ-P9-UI-005) — Qt only, binds to logic/grids.
 
 ``Perspective_Grid_Overlay`` is a high-``z`` :class:`QGraphicsItem` on the shared

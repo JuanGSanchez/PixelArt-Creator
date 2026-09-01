@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Palette import/export encode/decode (defensive, zero Qt, S11).
 
 Pure, Qt-free text transforms between a

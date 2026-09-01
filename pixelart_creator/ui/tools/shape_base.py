@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Shared shape-tool controller: live preview + commit-on-release (P2-UI-001..003).
 
 :class:`ShapeTool` factors the rectangle/ellipse controllers' common behaviour: a

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Real WebSocket client transport (zero Qt, S11) — Phase-10 Slice C.
 
 ADR-0027 §2/§3; spec REQ-P10-DATA-010. A concrete

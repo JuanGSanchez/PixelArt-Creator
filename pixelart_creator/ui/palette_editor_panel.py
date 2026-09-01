@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Palette editor panel — add / remove / reorder + import/export (REQ-P3-UI-001/-002).
 
 ``Palette_Editor_Panel`` extends the Phase-1 palette surface with editing: add a

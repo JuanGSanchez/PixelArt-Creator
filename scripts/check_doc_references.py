@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 # =============================================================================
 # SCRIPT: check_doc_references  (standalone P11 script — PixelArt Creator)
 # =============================================================================

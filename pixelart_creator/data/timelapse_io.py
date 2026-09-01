@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Read/write the ``.pixtimelapse`` session manifest (zero Qt, S11; DEP-4).
 
 Defensive, ``eval``-free (de)serialisation of a

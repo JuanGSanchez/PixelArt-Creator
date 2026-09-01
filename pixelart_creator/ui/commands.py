@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Qt undo bridge — the sole Qt-aware undo module (REQ-P1-UI-009, -010; C1/F1).
 
 ``PaintCommand`` wraps a Qt-free :class:`~pixelart_creator.logic.history.PixelEdit`

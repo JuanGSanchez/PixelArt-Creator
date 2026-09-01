@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Headless, Qt-free CLI export driver (the ``pixelart-export`` entrypoint).
 
 This is the automation entrypoint (REQ-P7-LOGIC-013, REQ-P7-DATA-003): it loads a

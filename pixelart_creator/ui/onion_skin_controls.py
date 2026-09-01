@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Onion-skin controls — toggle + prev/next counts + tint (REQ-P5-UI-011/-012).
 
 ``Onion_Skin_Controls`` is a **view-settings** panel (no undo, CL-13): an enable

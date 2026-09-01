@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pure pixel-drawing algorithms over a :class:`PixelBuffer` (zero Qt, S11).
 
 These are the raster primitives the Phase 1 tools (pencil, eraser, line, fill,

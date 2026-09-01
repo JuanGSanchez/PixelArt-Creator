@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Per-colour / per-index usage analytics (read-only, vectorised, zero Qt, S11).
 
 Computes how often each colour or palette index is used across a buffer or a

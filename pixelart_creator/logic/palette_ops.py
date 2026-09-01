@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Colour cycling, palette swap/remap, and indexed-mode conversion (zero Qt, S11).
 
 * :func:`cycle_palette` rotates the colours within a palette index range — the

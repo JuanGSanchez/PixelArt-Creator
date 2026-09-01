@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Portable, deterministic writers for export bytes + engine-preset artifacts.
 
 This is the Qt-free ``data/`` file layer for Phase-7 export (REQ-P7-DATA-001/-002).

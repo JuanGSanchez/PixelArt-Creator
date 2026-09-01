@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Shared OAuth session + base provider adapter (zero Qt, S11).
 
 Phase-10 Slice A tail (ADR-0026 §1/§2/§3; spec REQ-P10-DATA-001/-007/-008; Researcher

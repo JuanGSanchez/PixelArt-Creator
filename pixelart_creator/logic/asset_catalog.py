@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pure asset-catalog model — deterministic, zero Qt (S11).
 
 The catalog identity model (ADR-0030 §1; REQ-P11-DATA-001 / REQ-P11-LOGIC-001): every

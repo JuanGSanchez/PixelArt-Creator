@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """PySide6 presentation layer (S11).
 
 Every Qt import in the project lives under this package. UI modules bind to the

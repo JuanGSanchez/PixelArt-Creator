@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Edit traces + a live document + a session stamp -> convergence ``Operation`` s.
 
 Phase 10 slice ``phase-10-branch-diff`` (plan §3, step 4; ``REQ-P10-UI-025``). The

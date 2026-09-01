@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Off-GUI-thread cloud execution + deterministic teardown (REQ-P10-UI-005).
 
 A cloud ``put`` / ``get`` / ``list_versions`` / autosave against the

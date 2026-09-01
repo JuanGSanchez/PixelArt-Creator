@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Reproducible timelapse session model — pure, per-command, zero Qt (S11).
 
 Records a **reproducible** edit-session frame sequence (ADR-0024 §2, research §6):

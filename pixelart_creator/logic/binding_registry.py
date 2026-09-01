@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """The declarative binding registry — every key/gesture, once (S11, `REQ-IS-LOGIC-005`).
 
 A single Qt-free table declares every binding this product has **after** the

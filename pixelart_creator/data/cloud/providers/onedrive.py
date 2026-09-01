@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """OneDrive (Microsoft Graph) real cloud adapter — credential-gated, out of CI.
 
 Zero Qt (S11). Phase-10 Slice A tail (ADR-0026 §1/§2; spec REQ-P10-DATA-001/-002/-003/

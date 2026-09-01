@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pure untrusted-input validators for collaboration payloads (zero Qt, S11).
 
 Phase-10 Slice B/C (ADR-0028 §1; spec REQ-P10-DATA-009/-010, REQ-P10-BACKEND-002,

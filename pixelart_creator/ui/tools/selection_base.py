@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Shared selection-tool controller: build masks, combine, and move (P2-UI-004..007).
 
 :class:`SelectionTool` factors the rectangle / lasso / magic-wand controllers'

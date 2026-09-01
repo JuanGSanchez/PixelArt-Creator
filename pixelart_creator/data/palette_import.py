@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Palette path loader for drag-drop import (zero Qt, S11).
 
 Bridges a filesystem path to the shipped, defensive palette parser: reads UTF-8

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pure, content-hash-gated reference-validation pass — deterministic, zero Qt (S11).
 
 Break detection is the **passive flag** Phase 11 raises when a referenced asset goes

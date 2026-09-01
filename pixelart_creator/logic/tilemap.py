@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Tilemap model — layered, chunked-sparse, infinite grid of linked instances.
 
 Zero Qt (S11). A :class:`Tilemap` is an ordered stack of :class:`TilemapLayer`

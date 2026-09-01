@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Tool glyph resolver and runtime tinter (`REQ-IS-UI-027`, code half).
 
 Resolves one of the eleven original, single-fill monochrome SVG tool glyphs

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Lasso selection tool (REQ-P2-UI-005): freehand path -> auto-closed mask."""
 
 from __future__ import annotations

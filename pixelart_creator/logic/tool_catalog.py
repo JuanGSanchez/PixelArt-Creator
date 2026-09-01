@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Safe tool-catalog + JSON-schema introspection over the DSL registry (zero Qt, S11).
 
 **Article VII, by construction (ADR-0039).** This module is a *read-only*

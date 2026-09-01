@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Content-addressable blob storage port + local backend — zero Qt (S11; ADR-0032).
 
 The local-vs-cloud seam (REQ-P11-DATA-006 / CL-3). :class:`BlobBackend` is the single

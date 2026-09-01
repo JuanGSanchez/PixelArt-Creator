@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Low-level pixel buffer — the RGBA / indexed core (zero Qt, S11).
 
 :class:`PixelBuffer` is the raw storage every higher layer draws into. It wraps

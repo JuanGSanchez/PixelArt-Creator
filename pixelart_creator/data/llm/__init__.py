@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Model-agnostic LLM subpackage (zero Qt, S11) — Phase-14 Slice 14B.
 
 A normal ``data/`` subpackage (governed by the existing ``data`` layering rule: no Qt,

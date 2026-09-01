@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Provider / endpoint / API-key configuration for the AI assistant (REQ-P14-UI-002).
 
 Phase-14 Slice 14E. Lets the user pick a provider (an OpenAI-compatible endpoint or

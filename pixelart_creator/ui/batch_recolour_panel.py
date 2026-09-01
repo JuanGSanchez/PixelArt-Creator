@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Batch recolour panel — recolour many targets in one action (REQ-P8-UI-006).
 
 ``Batch_Recolour_Panel`` lets the user assemble a recolour **mapping** (an index

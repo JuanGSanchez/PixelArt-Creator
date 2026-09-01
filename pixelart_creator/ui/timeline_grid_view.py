@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Timeline grid view — frames (columns) x layer-tracks (rows).
 
 REQ-P5-UI-022..025, -027..-031. ``Timeline_Grid_View`` is a ``QTableView`` +

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Rectangle selection tool (REQ-P2-UI-004): drag a rectangle mask + combine."""
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """The one cloud-storage port — normalized types + transport codec (zero Qt, S11).
 
 Phase-10 Slice A (ADR-0026 §1/§5/§6; spec REQ-P10-DATA-001/-002/-006/-007). Defines

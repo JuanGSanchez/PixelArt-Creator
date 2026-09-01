@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Reversible-command undo/redo stack (zero Qt, S11).
 
 This is the pure-Python core of the command pattern (Architecture §2.1). The Qt

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pre-merge branch diff view (T16, ``REQ-P10-UI-015..019``, ``-021..026``).
 
 ``Branch_Diff_Dialog`` is a **modeless** dialog (never a dock — Qt persists dock

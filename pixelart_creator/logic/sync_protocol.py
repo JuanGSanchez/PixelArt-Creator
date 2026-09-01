@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pure real-time sync wire protocol — framing + validation (zero Qt, S11).
 
 Phase-10 Slice C (ADR-0027 §4; spec REQ-P10-DATA-010, REQ-P10-BACKEND-001/-002,

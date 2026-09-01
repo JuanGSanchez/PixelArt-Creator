@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Cloud version-history browser (REQ-P10-UI-002).
 
 ``Version_History_Browser`` is a presentation-only :class:`~PySide6.QtWidgets.QDialog`

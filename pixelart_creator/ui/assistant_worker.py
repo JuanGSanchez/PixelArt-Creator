@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Off-GUI-thread AI-assistant turn execution + tiered-confirm marshalling.
 
 Phase-14 Slice 14E (REQ-P14-UI-004; DEP-5). A single agentic turn

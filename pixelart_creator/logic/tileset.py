@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Tileset model — slice a source image into indexed tiles (zero Qt, S11).
 
 A :class:`Tileset` references a source

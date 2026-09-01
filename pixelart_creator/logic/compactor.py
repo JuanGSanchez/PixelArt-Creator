@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 # =============================================================================
 # SCRIPT (importable library): maxrects_compactor
 #   pixelart_creator/logic/compactor.py  — PixelArt Creator system

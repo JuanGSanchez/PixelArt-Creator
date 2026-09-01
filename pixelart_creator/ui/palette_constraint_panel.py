@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Hardware palette-constraint presets (REQ-P3-UI-009).
 
 ``Palette_Constraint_Panel`` offers NES / Game Boy preset buttons that constrain

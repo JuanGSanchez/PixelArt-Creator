@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Vanishing-point configuration dialog (REQ-P9-UI-005, D-09).
 
 ``Vanishing_Point_Dialog`` is the minimal build the D-09 answer asked for: a

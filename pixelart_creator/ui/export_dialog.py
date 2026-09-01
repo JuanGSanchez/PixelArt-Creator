@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Export dialog — format, per-format options, engine preset, destination.
 
 ``Export_Dialog`` is the Qt front-end over the frozen, Qt-free export engine

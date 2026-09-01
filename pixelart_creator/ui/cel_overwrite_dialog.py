@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Cel overwrite confirmation — blocking, cancellable (REQ-P5-UI-033).
 
 ``Cel_Overwrite_Dialog`` is shown by ``ui/timeline_grid_view.py`` before any part

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """PureRef-style reference board (REQ-P9-UI-006) — Qt only, .pixboard persistence.
 
 ``Reference_Board`` is a **separate** window over its own

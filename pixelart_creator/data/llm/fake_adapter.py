@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 r"""Deterministic scripted fake LLM adapter — the CI contract (zero Qt, S11).
 
 Phase-14 Slice 14B (ADR-0040 §4; spec REQ-P14-DATA-002; SC-D002-1). A fully functional

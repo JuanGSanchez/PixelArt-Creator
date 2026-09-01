@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Application shell — toolbar, palette, tabs, actions, menu (REQ-P1-UI-017..020).
 
 ``Main_Window`` wires the presentation together: an exclusive tool toolbar (017),

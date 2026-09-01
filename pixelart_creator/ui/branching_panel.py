@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Art-branching UI (REQ-P10-UI-012) — Qt only, binds to logic/realtime_apply.
 
 Phase-10 Slice C. The panel lets the user **branch** the current project, edit a branch

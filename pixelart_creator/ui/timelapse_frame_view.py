@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """The display target for a **reopened** timelapse recording (D-12, T11).
 
 ``Timelapse_Frame_View`` renders the reconstructed RGBA frames of a **loaded**

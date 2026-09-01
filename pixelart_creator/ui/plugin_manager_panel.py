@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Plugin manager panel — deny-by-default, consent-gated (REQ-P8-UI-005, -008).
 
 ``Plugin_Manager_Panel`` surfaces the frozen, trusted-with-consent plugin host

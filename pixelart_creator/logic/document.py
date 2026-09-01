@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Document model — the project state tree (zero Qt, S11).
 
 Mirrors the Architecture state manager: ``Document -> frames[] -> layers[] ->

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Symmetry-axis model & mirrored-coordinate generation (zero Qt, S11).
 
 Given a source pixel and an axis, :func:`mirror` returns the set of coordinates a

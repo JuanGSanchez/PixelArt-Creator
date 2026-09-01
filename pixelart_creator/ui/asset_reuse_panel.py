@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Cross-project reuse panel — reference a shared asset, no copy (REQ-P11-UI-007).
 
 ``Asset_Reuse_Panel`` is a presentation-only :class:`~PySide6.QtWidgets.QWidget` that

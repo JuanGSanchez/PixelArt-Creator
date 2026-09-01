@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """The zero-scope floor every guide-enforcement check calls (zero Qt, S11).
 
 This module exists to design out one specific, five-times-recorded defect on

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Shipped GUI entry point — application factory + launcher (REQ-P13-*).
 
 This module is the single, testable seam that turns the documented README

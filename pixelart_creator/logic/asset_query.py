@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pure, deterministic catalog search/filter — zero Qt (S11).
 
 Search and filter over an :class:`~pixelart_creator.logic.asset_catalog.AssetCatalog`

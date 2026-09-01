@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pencil tool (REQ-P1-UI-012): paint pixels with the active colour.
 
 Extended for Phase 2 with three orthogonal freehand modes routed through the

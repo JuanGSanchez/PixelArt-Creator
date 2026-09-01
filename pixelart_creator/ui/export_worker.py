@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Off-GUI-thread export execution + deterministic teardown (REQ-P7-UI-010).
 
 Exporting a large (up to 8K) document or a big batch is a slow, batch-IO

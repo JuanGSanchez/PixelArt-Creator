@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Batch export panel — select many targets, export in one action (REQ-P7-UI-005).
 
 ``Batch_Export_Panel`` lets the user assemble a list of export **targets** (each

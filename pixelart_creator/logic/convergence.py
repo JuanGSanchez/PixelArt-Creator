@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Deterministic HYBRID convergence model for a ``.pixproj`` (zero Qt, S11).
 
 Phase-10 Slice B (ADR-0028 §1/§2/§3; spec REQ-P10-LOGIC-006, CL-B5). Concurrent edits

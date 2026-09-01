@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pure derivation of an asset's content hash and descriptor (REQ-P11-LOGIC-009).
 
 This module is the ``logic/`` half of the determinism split recorded at

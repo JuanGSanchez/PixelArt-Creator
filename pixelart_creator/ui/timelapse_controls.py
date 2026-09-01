@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Timelapse recorder + playback controls (REQ-P9-UI-009/-015..-022) — Qt only.
 
 ``Timelapse_Controls`` records a **reproducible** edit session: one frame per

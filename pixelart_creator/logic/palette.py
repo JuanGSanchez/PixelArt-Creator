@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Indexed-colour palette model (zero Qt, S11).
 
 A :class:`Palette` is an ordered list of RGBA colours addressed by index. It

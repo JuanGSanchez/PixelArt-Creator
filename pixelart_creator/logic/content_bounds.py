@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Non-transparent-pixel bounding box of a frame (zero Qt, REQ-IS-LOGIC-003).
 
 :func:`content_bounds` answers a single question for the "fit to content"

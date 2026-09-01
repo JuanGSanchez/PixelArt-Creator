@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Headless, Qt-free assistant CLI driver (the ``pixelart-assistant`` entrypoint).
 
 Phase-14 Slice 14F (REQ-P14-DATA-008; ADR-0042 §2). The headless embedding of the

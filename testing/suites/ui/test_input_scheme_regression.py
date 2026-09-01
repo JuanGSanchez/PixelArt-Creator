@@ -25,7 +25,10 @@ suite read were taken:
   R-26 (the hub's tool gate, widened from 2 of 11 tool ids to all 11) ·
   R-32 (selection persists across a REAL tool-switch dispatch through
   ``Main_Window._on_tool_action`` — the exact function T-15 will change) ·
-  R-33 (``web_viewer/``/``sync_backend/`` untouched — a static git-diff check).
+  R-33 (``web_viewer/``/``sync_backend/`` untouched — a static git-diff check;
+  RETIRED 2026-09-01, see the comment where it used to live, near the tail
+  of this module — the constraint was scoped to this job and PR #34 closed
+  the job it protected).
 
 **T-22 addendum (2026-08-31, wave 8, post-implementation).** T-21 (pointer
 surface) landed with the D-16 amendment: plain wheel travels Favourites and
@@ -57,9 +60,6 @@ Headless: ``QT_QPA_PLATFORM=offscreen`` is forced by the suite's own
 """
 
 from __future__ import annotations
-
-import subprocess
-from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, Qt
@@ -425,43 +425,40 @@ def test_r32_selection_survives_a_real_tool_switch_to_a_non_selection_tool(qtbot
 
 
 # =========================================================================
-# R-33 — web_viewer/ and sync_backend/ are not modified by this job
+# R-33 — RETIRED (2026-09-01, AGT-06). Was: web_viewer/ and sync_backend/
+# are not modified by this job.
 # =========================================================================
-
-
-def test_r33_web_viewer_and_sync_backend_untouched_since_branch_point(
-    pytestconfig,
-):
-    """SC-R-33: a git diff of ``web_viewer/`` and ``sync_backend/`` against
-    the branch point ``1244cd5`` is empty. Static, cheap, and meaningful at
-    every wave of this job — not just wave 0."""
-    repo_root = Path(__file__).resolve()
-    while not (repo_root / ".git").exists():
-        if repo_root.parent == repo_root:
-            pytest.fail("could not locate the product repository root (.git)")
-        repo_root = repo_root.parent
-
-    result = subprocess.run(
-        [
-            "git",
-            "diff",
-            "--name-only",
-            "1244cd5",
-            "HEAD",
-            "--",
-            "web_viewer",
-            "sync_backend",
-        ],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    changed = [line for line in result.stdout.splitlines() if line.strip()]
-    assert changed == [], (
-        "web_viewer/ or sync_backend/ changed since 1244cd5, which "
-        f"REQ-IS-UI-028/SC-R-33 forbids for this job: {changed}"
-    )
+# R-33 was a scope constraint on the input-scheme job alone: a static
+# `git diff 1244cd5 HEAD -- web_viewer sync_backend` asserted empty, to keep
+# that job's edits out of two directories it had no business touching. It
+# held for the whole of that job. PR #34 merged and the input-scheme job
+# closed — R-33's job is done.
+#
+# The test outlived the job because it was pinned to a fixed commit with no
+# expiry, which quietly turns a job-scoped constraint into a permanent
+# freeze on web_viewer/ and sync_backend/: it now forbids ANY future change
+# to those directories, by anyone, for any reason, forever — not just
+# changes belonging to the input-scheme job. PR #44 (Apache-2.0 copyright
+# headers on all 247 shipped files, including 3 under sync_backend/ and 2
+# under web_viewer/) tripped it for exactly this reason: the diff it
+# measures is real and its assertion was never wrong about the facts, but
+# by 2026-09-01 the constraint it encodes no longer means anything — the
+# job it protected shipped and closed. Per the maintainer's standing
+# ruling, the shipped software is the reference and tests adapt to it
+# unless a real bug is revealed; a copyright notice on owned source is not
+# a bug.
+#
+# Removed rather than re-pinned to a newer commit: re-pinning defers the
+# identical failure to the next legitimate change to either directory and
+# keeps asserting a constraint that no longer describes anything true about
+# the product. Not weakened into a vacuous form either (e.g. "diff is
+# small", or filtering out header lines) — a test that cannot fail is worse
+# than no test, because it still looks like coverage.
+#
+# If web_viewer/ or sync_backend/ ever need a real ongoing invariant (e.g.
+# "no product code changes web_viewer/ without a matching web_viewer/tests/
+# update"), that is a new, deliberately-scoped test written against a
+# rolling condition — never another `git diff <fixed-commit> HEAD` freeze.
 
 
 # =========================================================================

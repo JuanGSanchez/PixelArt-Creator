@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Cloud storage subpackage (zero Qt, S11) — Phase-10 Slice A.
 
 A normal ``data/`` subpackage (already governed by the ``data`` layering rule: no Qt,

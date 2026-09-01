@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Chunk-aligned pixmap cache + off-GUI-thread cold warm for the tilemap (D1/D4).
 
 The tilemap canvas renders through the frozen, Qt-free

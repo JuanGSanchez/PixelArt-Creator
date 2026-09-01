@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """In-memory loopback transport for CI (zero Qt, S11) — Phase-10 Slice C.
 
 ADR-0027 §3; spec REQ-P10-DATA-010, REQ-P10-BACKEND-001. A hermetic, deterministic

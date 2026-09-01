@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Modal surfaces for a whole-document geometry transform (canvas-scale-defects).
 
 Presentation only (S11): no enumeration, no cost maths, no resampling — both

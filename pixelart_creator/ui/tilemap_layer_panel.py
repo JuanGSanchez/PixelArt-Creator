@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Tilemap layer panel — ordered layer CRUD + auto-tile toggle (Slice 6F).
 
 ``Tilemap_Layer_Panel`` lists a :class:`~pixelart_creator.logic.tilemap.Tilemap`'s

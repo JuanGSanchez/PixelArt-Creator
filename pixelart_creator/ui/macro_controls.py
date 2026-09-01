@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Macro record / replay / manage panel (REQ-P8-UI-001, -002, -003).
 
 ``Macro_Controls`` is the UI over the frozen macro engine: it **records** the

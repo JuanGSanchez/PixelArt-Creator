@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Canvas view — navigation, paint dispatch, right-click seam (D4/D5/D6).
 
 ``Canvas_View`` provides zoom (fit-to-view … ``ZOOM_MAX``, cursor-anchored,

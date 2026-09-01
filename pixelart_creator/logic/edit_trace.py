@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Edit-trace vocabulary — what a reversible command changed (zero Qt, S11).
 
 Phase 10 slice ``phase-10-branch-diff`` (plan §3, §3.1; ``REQ-P10-UI-025``). A

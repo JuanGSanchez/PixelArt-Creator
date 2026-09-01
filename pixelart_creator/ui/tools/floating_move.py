@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Floating-selection move/copy controller (REQ-P2-UI-030..035).
 
 :class:`FloatingMoveController` routes the lift → move/copy → commit/cancel

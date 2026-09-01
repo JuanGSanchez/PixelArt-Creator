@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Fast deterministic unique-RGBA reduction over a pixel buffer (zero Qt, S11).
 
 The naive way to find the distinct colours of an ``(N, 4)`` RGBA buffer is
