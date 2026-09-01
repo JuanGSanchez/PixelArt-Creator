@@ -41,28 +41,44 @@ name: ci
 
 on:
   push:
-    # Branch-naming convention, user decision 2026-08-02: dev branches are
-    # named `feat-<something>` / `fix-<something>` — HYPHEN, not slash. The
-    # container directory is its own git repository versioning the
-    # orchestration system separately, and branch worktrees are created as
-    # sibling folders of `main/`; a branch named `feat/foo` would produce a
-    # NESTED `feat/foo` directory that a top-level ignore pattern cannot
-    # exclude cleanly, whereas `feat-foo` is one flat folder. This filter is
-    # PERMANENT (see the "LEFT UNCHANGED" note in the temporary-scoping block
-    # above) — it is not undone when the repository goes public.
+    # NARROWED TO `main` ONLY (this change, 2026-09-01) — previously
+    # `[main, "feat-*", "fix-*"]`, so a bookkeeping commit on a branch that
+    # already had an open pull request fired BOTH a `push` run and a
+    # `pull_request` run for the SAME commit, duplicating the full 3-OS
+    # matrix. Measured on `fix-memory-map-after-merge`: runs `33443984892`
+    # (push) and `33443990141` (pull_request), both complete, both green, for
+    # one commit. Merging then fired a THIRD full 3-OS matrix on `main`,
+    # re-testing code the pull request had already cleared — one trivial
+    # change cost three complete matrices. `main` carries a no-bypass
+    # ruleset, so every commit that reaches it is a PR merge, never a direct
+    # push; narrowing `push` to `main` removes the feature-branch duplicate
+    # entirely and leaves exactly one run per feature-branch commit (from
+    # `pull_request`) plus one lightweight post-merge canary run (from
+    # `push`, see the `setup` job below for how that run is scoped down).
     #
-    # Deliberately `feat-*` / `fix-*`, NOT `feat-**` / `fix-**`: in GitHub's
-    # branch-filter glob syntax, `*` does not match `/`, while `**` does. Using
-    # the single star means this CI filter itself refuses to match a nested
-    # name like `feat-foo/bar` — a second, independent enforcement of the
-    # flatness rule on top of the container's own naming gate. Do NOT
-    # "generalise" this to `**` in a future edit; that would silently remove
-    # this guarantee.
+    # GROUNDING (design-docs/research/research-github-actions-trigger-scoping.md
+    # Q1): the `branches` filter MECHANISM is officially documented
+    # ("Workflow syntax for GitHub Actions", docs.github.com). Naming
+    # "restrict `push` to `main`, leave `pull_request` unrestricted" as *the*
+    # documented fix for push/pull_request duplication is NOT found in
+    # GitHub's own docs — that framing is community corroboration only (a
+    # named blog post + a GitHub Community discussion), flagged low
+    # reliability by the Researcher. It is applied here because it follows
+    # directly from the documented filter semantics plus the duplicate-run
+    # evidence measured above, not because GitHub names it as "the" fix —
+    # do not restate it elsewhere as officially documented.
     #
-    # No migration needed: verified this session, the repository has exactly
-    # one local branch (`main`) and exactly one remote branch (`origin/main`)
-    # — no `feat/` branch exists anywhere, so this change strands nothing.
-    branches: [main, "feat-*", "fix-*"]
+    # STALE COMMENT CORRECTED: a prior version of this block called the
+    # `feat-*`/`fix-*` push filter a "PERMANENT" convention from 2026-08-02
+    # that survived an earlier revert untouched. That claim no longer holds —
+    # this change removes those patterns from `push` outright. The
+    # underlying branch-naming convention itself (hyphen, never a slash — a
+    # documented container-level layout rule, not something this workflow
+    # enforces) is unaffected and still governs how branches are named; only
+    # this workflow's `push` trigger no longer filters on it. Recorded here
+    # rather than left silently contradicted, because a stale comment
+    # asserting the opposite of the file is worse than no comment at all.
+    branches: [main]
     # Phase-13 Slice 13D (ADR-0038 §3): a v* tag is the release BUILD trigger for
     # the native-installer matrix below. Branch/PR pushes do NOT build installers
     # (the build-installers job self-guards) so PR CI is not slowed.
@@ -98,8 +114,58 @@ env:
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
 jobs:
+  # ===========================================================================
+  # Event-conditional OS matrix for quality-gate (this change, 2026-09-01):
+  # `pull_request` always gets the full 3-OS matrix — `main`'s ruleset
+  # requires `quality-gate (ubuntu-latest)` / `(windows-latest)` /
+  # `(macos-latest)` by exact job name, with NO bypass, so a pull request
+  # missing any one of the three would block merging indefinitely. Per
+  # docs.github.com's own troubleshooting page (Researcher report Q3,
+  # verbatim): a job skipped by `if:` reports Success and does not block
+  # merging, but a matrix leg that is never PRODUCED at all leaves its
+  # required check PENDING and blocks merging indefinitely — remediation
+  # stated on that same page: "Avoid requiring workflows that can be
+  # skipped." So this reduction NEVER touches the `pull_request` matrix; it
+  # only shrinks the matrix on every OTHER trigger (post-merge `push` to
+  # `main`, `workflow_dispatch`), where nothing is required-check-gated and
+  # the content was already fully tested by the `pull_request` run that
+  # gated the merge — re-testing it on Windows/macOS a second time is
+  # exactly the inverted weighting this change fixes.
+  #
+  # GROUNDING (Researcher report Q2): the
+  # `${{ cond && fromJSON('[...]') || fromJSON('[...]') }}` ternary idiom in
+  # matrix position is NOT documented — no operator-precedence table or
+  # worked ternary example was found on the official expressions-reference
+  # page. What that same page DOES demonstrate is a job that computes a
+  # matrix and exposes it via `outputs`, consumed downstream via
+  # `${{ fromJSON(needs.<job>.outputs.<name>) }}` — that documented pattern
+  # is what this job implements, not the ternary idiom.
+  #
+  # FAILURE MODE, WRITTEN DOWN: if this job itself fails, `quality-gate`
+  # never runs (it `needs: setup`), so none of its three required checks are
+  # ever produced for that pull request, and `main`'s no-bypass ruleset means
+  # the PR cannot merge until a new run succeeds. Accepted trade — this job's
+  # only work is reading `github.event_name`, a value GitHub itself supplies
+  # for every run and that cannot be absent or malformed.
+  # ===========================================================================
+  setup:
+    name: setup
+    runs-on: ubuntu-latest
+    outputs:
+      os: ${{ steps.set-os.outputs.os }}
+    steps:
+      - name: Determine quality-gate OS matrix by trigger event
+        id: set-os
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo 'os=["ubuntu-latest", "windows-latest", "macos-latest"]' >> "${GITHUB_OUTPUT}"
+          else
+            echo 'os=["ubuntu-latest"]' >> "${GITHUB_OUTPUT}"
+          fi
+
   quality-gate:
     name: quality-gate (${{ matrix.os }})
+    needs: setup
     runs-on: ${{ matrix.os }}
     strategy:
       # fail-fast OFF: a genuine platform-specific regression on one leg must NOT
@@ -107,7 +173,11 @@ jobs:
       # BUILD-001). Windows/macOS surface the suite for the FIRST time here.
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # Resolved from the `setup` job's outputs (this change, 2026-09-01):
+        # ["ubuntu-latest","windows-latest","macos-latest"] on `pull_request`,
+        # ["ubuntu-latest"] on every other trigger. Full grounding and the
+        # accepted failure mode are recorded on the `setup` job above.
+        os: ${{ fromJSON(needs.setup.outputs.os) }}
     # Job-level wall-clock cap: a hung/deadlocked test can no longer pin a runner
     # for ~6h. The full offscreen-Qt UI suite measures ~46-48 min on the 2-core
     # Ubuntu runner (see run 28635312681, cancelled at 98% by an earlier 45-min
