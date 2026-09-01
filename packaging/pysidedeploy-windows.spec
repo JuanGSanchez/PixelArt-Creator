@@ -10,8 +10,11 @@ input_file = pixelart_creator/__main__.py
 project_file =
 # Where the produced executable is written.
 exec_directory = dist
-# Application icon (none shipped yet — Nuitka uses a default; TODO: add .ico).
-icon =
+# Application icon: the committed Windows .ico (the derived icon family,
+# pixelart_creator/icons/app/CONSTRUCTION-TABLE.md), assembled explicitly
+# from unblurred nearest-neighbour members (16/24/32/48/64/128/256 px) with
+# no size left to Pillow's own resize fallback.
+icon = pixelart_creator/icons/app/pixelart-creator.ico
 
 [python]
 # Use the CI-provided interpreter (Python 3.12 pinned by setup-python).

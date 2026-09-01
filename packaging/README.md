@@ -52,6 +52,41 @@ mirroring the `pyproject.toml` wheel `exclude` list (ADR-0027 / ADR-0035): the
 launcher imports only `pixelart_creator`, and each spec additionally passes
 `--nofollow-import-to=` for those packages so nothing leaks in transitively.
 
+## Application icon (Slice 13D, derived family)
+
+The three specs' `[app] icon` fields, plus `build_appimage.sh`'s AppDir icon,
+all consume the raster family derived by scripts/derive_app_icons.py from the committed provenance
+master `pixelart_creator/icons/app/logo-source-64.png` (see that directory's
+`CONSTRUCTION-TABLE.md` for the full per-size construction record — mark,
+integer scale factor, art box, plate treatment, residual margin). Every
+member is an INTEGER nearest-neighbour derivation: never redrawn, never
+resampled.
+
+| Consumer | File |
+| --- | --- |
+| `pysidedeploy-windows.spec` `[app] icon` | `pixelart_creator/icons/app/pixelart-creator.ico` |
+| `pysidedeploy-linux.spec` `[app] icon` | `pixelart_creator/icons/app/pixelart-creator.png` |
+| `pysidedeploy-macos.spec` `[app] icon` | `pixelart_creator/icons/app/pixelart-creator.icns` |
+| `build_appimage.sh` AppDir icon (`Icon=pixelart-creator` in the generated `.desktop` entry) | `pixelart_creator/icons/app/pixelart-creator.png`, copied verbatim into the AppDir — no placeholder is synthesised at build time any more |
+
+The runtime app/window icon (`QApplication` / `Main_Window`,
+`pixelart_creator/ui/app_icon.py`) is a **separate loader** that reads the
+same family's `app-icon-{16,24,32,48,64,128,256,512}.png` members through
+`importlib.resources` at process start — it does not touch this directory's
+files at all. `logo-source-64.png` (the provenance master) and
+`app-icon-1024.png` (an ICNS-container-only member, never a Nuitka/AppImage
+input) are consumed by neither the runtime loader nor anything in this
+directory.
+
+Regenerate the whole family from the committed master:
+
+    python scripts/derive_app_icons.py
+
+Verify the committed bytes still match what the deriver would produce — run
+this before packaging a release, exactly as CI does:
+
+    python scripts/derive_app_icons.py --check
+
 ## macOS signing (credential-gated, NON-blocking — ADR-0038 §4, Article XI)
 
 The macOS leg ships an **unsigned / ad-hoc-signed** `.app`/`.dmg` now. A

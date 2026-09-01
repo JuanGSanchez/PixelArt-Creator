@@ -151,6 +151,16 @@ _TRACED_VALUES = {24, 10, 1000, 0.10, 0.40}
 # separators, enclosing name, literal source text) -- see the KEYING note
 # above for why a line number is no longer part of the key.
 _BASELINE_COINCIDENCES = {
+    ("app_icon.py", "RUNTIME_ICON_SIZES_PX", "24"): (
+        "one member of the OS runtime icon-size set (512/256/128/64/48/32/"
+        "24/16 px) -- fixed by platform .ico/.icns icon-slot "
+        "conventions and CONSTRUCTION-TABLE.md, not by this project's input "
+        "scheme; coincides with FEEDBACK_SQUARE_PX=24 by chance only. "
+        "Importing FEEDBACK_SQUARE_PX here would couple two unrelated "
+        "quantities: re-tuning the click-feedback square would silently "
+        "resize an icon member and desync the tuple from the shipped "
+        "icon containers"
+    ),
     ("colour_cycling_panel.py", "_TICK_MS", "1000"): "_TICK_MS ms<->fps conversion",
     ("colour_hub_menu.py", "_FAVOURITE_PX", "24"): "_FAVOURITE_PX swatch edge",
     (

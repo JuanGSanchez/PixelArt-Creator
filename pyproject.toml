@@ -173,6 +173,31 @@ pixelart_creator = [
     "i18n/*.qm",
     "i18n/*.ts",
     "icons/tools/*.svg",
+    # The runtime app-icon family (ui/app_icon.py's RUNTIME_ICON_SIZES_PX)
+    # -- the exact eight sizes the loader reads via importlib.resources at
+    # startup, named explicitly (fnmatch, which setuptools uses for these
+    # globs, has no brace-expansion, so "icons/app/*.png" is the nearest
+    # wildcard and it over-matches -- see the exclusions below). A missing
+    # entry here is invisible from a source checkout and fails only for an
+    # installed user; proven by building the wheel and listing it,
+    # not by reading this glob.
+    "icons/app/app-icon-16.png",
+    "icons/app/app-icon-24.png",
+    "icons/app/app-icon-32.png",
+    "icons/app/app-icon-48.png",
+    "icons/app/app-icon-64.png",
+    "icons/app/app-icon-128.png",
+    "icons/app/app-icon-256.png",
+    "icons/app/app-icon-512.png",
+    # Deliberately NOT shipped in the wheel (packaging-only per
+    # app_icon.py's own docstring and CONSTRUCTION-TABLE.md, consumed
+    # directly from the committed source tree by the packaging toolchain,
+    # never through importlib.resources at runtime):
+    #   - logo-source-64.png   the provenance master, never loaded at runtime
+    #   - app-icon-1024.png    exists only to satisfy the ICNS container
+    #   - pixelart-creator.ico/.icns/.png   read straight off disk by the
+    #     three pysidedeploy specs and by build_appimage.sh, not imported
+    #   - CONSTRUCTION-TABLE.md   documentation, not a code-consumed asset
 ]
 
 # ------------------------------- tool config ---------------------------------

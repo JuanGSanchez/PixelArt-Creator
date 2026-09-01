@@ -4,7 +4,11 @@ project_dir = .
 input_file = pixelart_creator/__main__.py
 project_file =
 exec_directory = dist
-icon =
+# Application icon: the committed 256x256 PNG (the derived icon family,
+# pixelart_creator/icons/app/CONSTRUCTION-TABLE.md) -- the same file
+# build_appimage.sh copies into the AppDir, so the .desktop entry's
+# Icon=pixelart-creator key and this Nuitka-embedded icon agree.
+icon = pixelart_creator/icons/app/pixelart-creator.png
 
 [python]
 python_path =

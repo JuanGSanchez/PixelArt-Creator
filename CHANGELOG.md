@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The user-authored pixel-art logo now appears on both README banners and in the opening topic of the in-app User Guide, in English and Spanish alike.
 - Workspace and canvas-border theme roles, in both the light and dark themes, so the drawing surface is visually distinguishable from the space around it (REQ-CGS-UI-005, REQ-CGS-UI-006).
 - The pixel grid overlay is now on by default for a new document (REQ-CGS-UI-003 – REQ-CGS-UI-010).
 - A Tetradic (four-colour) harmony row in the colour wheel (REQ-CGS-LOGIC-001, REQ-CGS-UI-011).

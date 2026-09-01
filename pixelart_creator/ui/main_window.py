@@ -142,6 +142,7 @@ from pixelart_creator.logic.transform import (
     scale_nearest,
 )
 from pixelart_creator.logic.version_history import CloudVersion
+from pixelart_creator.ui.app_icon import app_icon
 from pixelart_creator.ui.asset_library_actions import Asset_Library_Session
 from pixelart_creator.ui.asset_library_panel import Asset_Library_Panel
 from pixelart_creator.ui.asset_reuse_panel import Asset_Reuse_Panel
@@ -536,6 +537,12 @@ class Main_Window(QMainWindow):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """Build the shell, apply the theme, and open one default document."""
         super().__init__(parent)
+        # The title-bar/frame icon, set ONCE here at construction --
+        # NEVER re-set from _retranslate() (an icon is not a translatable
+        # string; re-setting it on every language change would redo work for
+        # no observable change). A missing/unreadable asset degrades to a
+        # null QIcon (app_icon.py), leaving Qt's own default in place.
+        self.setWindowIcon(app_icon())
         app = QApplication.instance()
         assert isinstance(app, QApplication)  # a QApplication must already exist
         self._app = app

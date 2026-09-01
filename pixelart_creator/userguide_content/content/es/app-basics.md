@@ -1,6 +1,8 @@
 <!-- surface-only: bundle — contenido de orientación en la app; solo cubierto ligeramente por el texto de index.md del sitio, sin página dedicada por diseño (WP-8 unidad 2d) -->
 # Primeros pasos y el espacio de trabajo
 
+![PixelArt Creator](pac-logo.png)
+
 Bienvenido a **PixelArt Creator** — un estudio de pixel art de escritorio con un lienzo
 de 8K, un sistema de capas no destructivo, una línea de tiempo de animación, un editor
 de tileset/mapa de tiles, una canalización de exportación, automatización y scripting,
