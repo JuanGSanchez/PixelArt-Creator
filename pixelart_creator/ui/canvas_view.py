@@ -367,8 +367,11 @@ class Canvas_View(QGraphicsView):
         return self._tool
 
     def set_favourites_model(self, favourites: Favourites) -> None:
-        """Bind the persisted Favourites model a plain wheel notch / an
-        unmodified middle click travel (REQ-IS-UI-008/-012, T-21)."""
+        """Bind the persisted Favourites model this view reads and steps.
+
+        A plain wheel notch travels it and an unmodified middle click picks
+        its first entry (REQ-IS-UI-008/-012, T-21).
+        """
         self._favourites = favourites
 
     def floating_controller(self) -> FloatingMoveController:
@@ -657,9 +660,12 @@ class Canvas_View(QGraphicsView):
         self.fit()
 
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802 (Qt override)
-        """``Ctrl``+wheel steps frames (REQ-IS-UI-010); ``Shift``+wheel zooms
+        """Step frames, zoom, or travel Favourites depending on the modifier held.
+
+        ``Ctrl``+wheel steps frames (REQ-IS-UI-010); ``Shift``+wheel zooms
         (REQ-IS-UI-009); plain wheel travels Favourites (REQ-IS-UI-008, T-21 —
-        displaces the zoom that plain wheel performed until 2026-08-31)."""
+        displaces the zoom that plain wheel performed until 2026-08-31).
+        """
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             self._frame_step_wheel(event)
         elif event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
@@ -968,7 +974,7 @@ class Canvas_View(QGraphicsView):
         return not self._is_selection_tool_active()
 
     def _pick_first_favourite(self) -> None:
-        """An unmodified middle click sets the first favourite (REQ-IS-UI-012)."""
+        """Set the first favourite on an unmodified middle click (REQ-IS-UI-012)."""
         if self._favourites is None:
             return
         color = self._favourites.first()

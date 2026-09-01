@@ -605,8 +605,11 @@ class Tilemap_Canvas(QGraphicsView):
         return self._tool
 
     def set_favourites_model(self, favourites: Favourites) -> None:
-        """Bind the persisted Favourites model a plain wheel notch / an
-        unmodified middle click travel (REQ-IS-UI-008/-012, T-21)."""
+        """Bind the persisted Favourites model this view reads and steps.
+
+        A plain wheel notch travels it and an unmodified middle click picks
+        its first entry (REQ-IS-UI-008/-012, T-21).
+        """
         self._favourites = favourites
 
     def set_active_layer(self, index: int) -> None:
@@ -764,8 +767,11 @@ class Tilemap_Canvas(QGraphicsView):
         self._zoom = target
 
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802
-        """``Shift``+wheel zooms (REQ-IS-UI-009); plain wheel travels
-        Favourites (REQ-IS-UI-008, T-21)."""
+        """Zoom on ``Shift``+wheel, otherwise travel the Favourites list.
+
+        ``Shift``+wheel zooms (REQ-IS-UI-009); a plain wheel notch travels
+        Favourites (REQ-IS-UI-008, T-21).
+        """
         if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             self._zoom_wheel(event)
         else:
@@ -840,7 +846,7 @@ class Tilemap_Canvas(QGraphicsView):
         return (int(math.floor(point.x() / tw)), int(math.floor(point.y() / th)))
 
     def _pick_first_favourite(self) -> None:
-        """An unmodified middle click sets the first favourite (REQ-IS-UI-012)."""
+        """Set the first favourite on an unmodified middle click (REQ-IS-UI-012)."""
         if self._favourites is None:
             return
         color = self._favourites.first()

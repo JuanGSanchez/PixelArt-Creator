@@ -85,6 +85,15 @@ class Cursor_Feedback_Overlay(QWidget):
     """
 
     def __init__(self, viewport: QWidget) -> None:
+        """Build the hidden overlay and wire it to track ``viewport``'s cursor.
+
+        Makes the widget input-transparent and translucent, fixes it to the
+        24-logical-px feedback square, sets its accessible name, builds the
+        three-keyframe show-then-fade :attr:`animation` (started later by
+        :meth:`_restart`), then enables mouse tracking on ``viewport`` and
+        installs ``self`` as its event filter so cursor moves reposition the
+        square (``SC-U024-6``). The overlay starts hidden.
+        """
         super().__init__(viewport)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
@@ -144,6 +153,7 @@ class Cursor_Feedback_Overlay(QWidget):
     # ------------------------------------------------------------------ #
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override name)
+        """Re-set the accessible name on ``QEvent.LanguageChange`` (F5)."""
         if event.type() == QEvent.Type.LanguageChange:
             self.setAccessibleName(self.tr("Cursor feedback"))
         super().changeEvent(event)
@@ -183,6 +193,12 @@ class Cursor_Feedback_Overlay(QWidget):
         self.move(round(x), round(y))
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        """Track the host viewport's mouse moves and reposition while visible.
+
+        Installed on the host viewport in :meth:`__init__`; never consumes
+        the event (always returns ``False``), so every click and move still
+        reaches the widget underneath in full (``SC-U024-7``).
+        """
         if event.type() == QEvent.Type.MouseMove and isinstance(event, QMouseEvent):
             self._cursor_pos = event.position().toPoint()
             if self.isVisible():
@@ -190,6 +206,7 @@ class Cursor_Feedback_Overlay(QWidget):
         return False  # never consume — the square takes no input (REQ-IS-UI-024)
 
     def paintEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override name)
+        """Fill or paint the feedback square at the current fade opacity."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         painter.setOpacity(self._opacity)
