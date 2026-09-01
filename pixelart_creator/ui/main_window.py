@@ -2604,21 +2604,25 @@ class Main_Window(QMainWindow):
         record.view.viewport().update()
 
     def _navigate_to_frame(self, index: int) -> None:
-        """Route a Ctrl+wheel / Ctrl+middle-click frame gesture (REQ-IS-UI-010/
-        -014) through the shipped frame-selection path — the same update a
-        timeline click performs (:meth:`_on_frame_selected`) — then syncs the
-        timeline's own highlight, mirroring :meth:`_on_frame_advanced`'s
-        playback pattern. Pushes no command (frame navigation is view state,
-        CL-13)."""
+        """Route a Ctrl+wheel / Ctrl+middle-click frame gesture to frame selection.
+
+        REQ-IS-UI-010/-014, through the shipped frame-selection path — the
+        same update a timeline click performs (:meth:`_on_frame_selected`) —
+        then syncs the timeline's own highlight, mirroring
+        :meth:`_on_frame_advanced`'s playback pattern. Pushes no command
+        (frame navigation is view state, CL-13).
+        """
         self._on_frame_selected(index)
         self._timeline_panel.select_frame(index)
 
     def _on_canvas_add_frame_requested(self) -> None:
-        """Ctrl+left-click on the canvas adds a frame after the active one
-        (REQ-IS-UI-016), through the same shipped undoable ``FrameCommand`` /
+        """Add a frame after the active one on a Ctrl+left-click on the canvas.
+
+        REQ-IS-UI-016, through the same shipped undoable ``FrameCommand`` /
         ``make_add_frame_command`` the timeline's own Add-Frame toolbar
         action uses (``Timeline_Panel._on_add``). A no-op, never raising, with
-        no active tab or when the document is already at ``MAX_FRAMES``."""
+        no active tab or when the document is already at ``MAX_FRAMES``.
+        """
         record = self.active_tab()
         if record is None:
             return
@@ -2633,9 +2637,11 @@ class Main_Window(QMainWindow):
         )
 
     def _on_canvas_frame_added(self) -> None:
-        """The Ctrl+left-click ``FrameCommand``'s Qt-side follow-up: mirrors
-        ``Timeline_Panel._refresh`` — recomposite + rebuild the timeline strip
-        so it reflects the new frame."""
+        """Run the Ctrl+left-click ``FrameCommand``'s Qt-side follow-up.
+
+        Mirrors ``Timeline_Panel._refresh`` — recomposite + rebuild the
+        timeline strip so it reflects the new frame.
+        """
         self._on_timeline_frames_changed()
         self._timeline_panel.rebuild()
 
@@ -4458,8 +4464,11 @@ class Main_Window(QMainWindow):
             record.view.fit()
 
     def _on_fit_content(self) -> None:
-        """View > Fit to Content (REQ-IS-UI-018): the named, keyboard/screen-
-        reader-reachable twin of the ``Shift``+middle-click gesture."""
+        """Run View > Fit to Content.
+
+        REQ-IS-UI-018: the named, keyboard/screen-reader-reachable twin of
+        the ``Shift``+middle-click gesture.
+        """
         record = self.active_tab()
         if record is not None:
             record.view.fit_content()

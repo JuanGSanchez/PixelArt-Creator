@@ -82,6 +82,13 @@ class ScopeFloorError(ValueError):
         examined: int | None = None,
         root: str | None = None,
     ) -> None:
+        """Store the error code and diagnostic attributes, then build the message.
+
+        Sets ``error``, ``check_name``, ``of``, ``examined`` and ``root``
+        from the keyword arguments and initialises the base
+        :class:`ValueError` with the rendered text from :meth:`_as_text`, so
+        ``str(self)`` is available immediately without a separate call.
+        """
         self.error = error
         self.check_name = check_name
         self.of = of

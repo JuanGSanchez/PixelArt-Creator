@@ -66,13 +66,18 @@ class Document_View(QGraphicsView):
         self._retranslate()
 
     def set_favourites_model(self, favourites: Favourites) -> None:
-        """Bind the persisted Favourites model a plain wheel notch travels
-        (REQ-IS-UI-008, T-21)."""
+        """Bind the persisted Favourites model a plain wheel notch travels.
+
+        REQ-IS-UI-008, T-21.
+        """
         self._favourites = favourites
 
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802 (Qt override)
-        """``Shift``+wheel zooms (REQ-IS-UI-009, D-16); plain wheel travels
-        Favourites (REQ-IS-UI-008, D-16)."""
+        """Zoom on ``Shift``+wheel, otherwise travel the Favourites list.
+
+        ``Shift``+wheel zooms (REQ-IS-UI-009, D-16); plain wheel travels
+        Favourites (REQ-IS-UI-008, D-16).
+        """
         if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             self._zoom_wheel(event)
         else:
@@ -145,8 +150,11 @@ class Multi_View:
             view.setScene(scene)
 
     def set_favourites_model(self, favourites: Favourites) -> None:
-        """Bind the persisted Favourites model every current AND future extra
-        view's plain wheel notch travels (REQ-IS-UI-008, T-21)."""
+        """Bind the persisted Favourites model every extra view's wheel travels.
+
+        Applies to every current AND future extra view's plain wheel notch
+        (REQ-IS-UI-008, T-21).
+        """
         self._favourites = favourites
         for view in self._views:
             view.set_favourites_model(favourites)
