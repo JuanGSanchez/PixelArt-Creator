@@ -1,6 +1,8 @@
 <!-- surface-only: bundle — in-app orientation content; only lightly covered by the site's index.md framing prose, no dedicated site page by design (WP-8 unit 2d) -->
 # Getting started & the workspace
 
+![PixelArt Creator](pac-logo.png)
+
 Welcome to **PixelArt Creator** — a desktop pixel-art studio with an 8K canvas, a
 non-destructive layer system, an animation timeline, a tileset/tilemap editor, an
 export pipeline, automation and scripting, visual aids, and cloud collaboration.

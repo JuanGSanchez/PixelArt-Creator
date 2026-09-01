@@ -1,3 +1,5 @@
+![PixelArt Creator](pixelart_creator/icons/app/app-icon-256.png)
+
 # PixelArt Creator
 
 *[Leer en español](README.es.md)*

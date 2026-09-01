@@ -31,6 +31,7 @@ from typing import List, Optional, Tuple
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
+from pixelart_creator.ui.app_icon import app_icon
 from pixelart_creator.ui.main_window import Main_Window
 
 #: Application + organisation identity, used by :class:`QApplication` for
@@ -38,6 +39,17 @@ from pixelart_creator.ui.main_window import Main_Window
 #: OS-integration on a packaged build. Defined once here (the startup seam).
 APPLICATION_NAME = "PixelArt Creator"
 ORGANIZATION_NAME = "PixelArt Creator"
+
+#: The ``.desktop`` entry basename (no ``.desktop`` suffix) the AppImage build
+#: installs, so a Linux shell associates the *running* window with the
+#: *installed* entry. Verified against ``packaging/build_appimage.sh``,
+#: which names the file from its own ``APP_NAME="PixelArtCreator"`` as
+#: ``"${APP_NAME}.desktop"`` -- i.e. ``PixelArtCreator.desktop`` -- so the
+#: basename handed to :meth:`QGuiApplication.setDesktopFileName` is
+#: ``PixelArtCreator`` (that call's documented convention omits the
+#: ``.desktop`` suffix). Defined once here, next to the other identity
+#: constants this startup seam owns.
+DESKTOP_FILE_NAME = "PixelArtCreator"
 
 
 def create_app(argv: Optional[List[str]] = None) -> Tuple[QApplication, Main_Window]:
@@ -63,6 +75,15 @@ def create_app(argv: Optional[List[str]] = None) -> Tuple[QApplication, Main_Win
         app = QApplication(sys.argv if argv is None else list(argv))
     app.setApplicationName(APPLICATION_NAME)
     app.setOrganizationName(ORGANIZATION_NAME)
+    # The application-level icon is what the OS taskbar/dock reads (a
+    # separate call from Main_Window's own title-bar icon). A missing/
+    # unreadable asset degrades to a null QIcon (app_icon.py) -- Qt then
+    # falls back to its own default, never an exception here.
+    app.setWindowIcon(app_icon())
+    # Lets a Linux desktop shell associate this *running* window with the
+    # *installed* .desktop entry the AppImage build writes (see
+    # DESKTOP_FILE_NAME's docstring for the verified basename).
+    app.setDesktopFileName(DESKTOP_FILE_NAME)
 
     window = Main_Window()
     # FIX 1 (2026-08-24 field defect, RC-1 follow-up): give the window an

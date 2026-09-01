@@ -42,6 +42,7 @@ from __future__ import annotations
 from typing import Callable, Dict, Iterable, Optional
 
 from PySide6.QtCore import QEvent, Qt, QUrl
+from PySide6.QtGui import QTextDocument
 from PySide6.QtWidgets import (
     QDialog,
     QLineEdit,
@@ -70,6 +71,7 @@ from pixelart_creator.logic.guide_model import (
     resolve_content_ref,
 )
 from pixelart_creator.logic.guide_search import query
+from pixelart_creator.ui.app_icon import guide_logo_image
 
 #: Qt roles that would resolve an anchor to the network or the local filesystem;
 #: the viewer is fully offline (REQ-UG-UI-007), so a click on such a link is a
@@ -78,6 +80,12 @@ _EXTERNAL_SCHEMES = frozenset({"http", "https", "ftp", "ftps", "file", "mailto"}
 
 #: The UserRole slot carrying a topic id on a ToC / results item.
 _TOPIC_ID_ROLE = Qt.ItemDataRole.UserRole
+
+#: The in-guide markdown image URL the mark resolves against. Another
+#: agent's guide content writes ``![PixelArt Creator](pac-logo.png)`` under
+#: this EXACT string -- it is the contract between the content and this
+#: widget's document-resource registration; do not change it here.
+_LOGO_RESOURCE_URL = QUrl("pac-logo.png")
 
 #: A reader callable: a bundle-relative content ref -> the Markdown text. Defaults
 #: to the defensive ``data`` reader; injectable so headless tests can substitute a
@@ -293,6 +301,41 @@ class User_Guide_Dialog(QDialog):
             )
             return
         self._content_view.setMarkdown(text)
+        # The mark reaches the browser ONLY as an in-memory QTextDocument
+        # resource -- never a filesystem search path (setSearchPaths) and
+        # never a path from importlib.resources.as_file, whose temporary
+        # directory would vanish under a long-lived dialog.
+        #
+        # Registered AFTER setMarkdown, not before, on a measured deviation
+        # from the naive reading of "before": QTextDocument.setMarkdown()
+        # clears the document's resource cache as part of parsing (measured
+        # here — a resource added before setMarkdown reads back as None
+        # immediately afterwards), while the parsed ``![…](pac-logo.png)``
+        # reference itself survives as a named QTextImageFormat and is
+        # resolved from the resource cache lazily, at paint time. Adding the
+        # resource after setMarkdown is therefore the order that actually
+        # displays the mark; adding it before is silently lost the moment
+        # parsing clears the cache. Re-registered on EVERY render (not once
+        # at construction) so the resource is present for a reloaded
+        # document too, including a locale-switch re-render through
+        # _retranslate -> _render_topic.
+        self._register_logo_resource()
+
+    def _register_logo_resource(self) -> None:
+        """Register the mark as an in-memory document resource.
+
+        A missing/unreadable asset degrades to leaving the resource
+        unregistered (:func:`guide_logo_image` returns ``None``) — the
+        guide still renders its Markdown text, just without the mark; the
+        markdown's own ``![PixelArt Creator](pac-logo.png)`` reference then
+        simply resolves to a broken-image placeholder, not a crash.
+        """
+        image = guide_logo_image()
+        if image is None:
+            return
+        self._content_view.document().addResource(
+            QTextDocument.ResourceType.ImageResource, _LOGO_RESOURCE_URL, image
+        )
 
     def _show_load_error(self) -> None:
         """Show the bundle load-error message and disable navigation controls."""

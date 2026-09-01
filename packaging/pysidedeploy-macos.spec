@@ -4,7 +4,11 @@ project_dir = .
 input_file = pixelart_creator/__main__.py
 project_file =
 exec_directory = dist
-icon =
+# Application icon: the committed macOS .icns (the derived icon family,
+# pixelart_creator/icons/app/CONSTRUCTION-TABLE.md), assembled explicitly
+# from unblurred nearest-neighbour members (32/64/128/256/512/1024 px)
+# rather than delegated to Pillow's own single-input ICNS resize.
+icon = pixelart_creator/icons/app/pixelart-creator.icns
 
 [python]
 python_path =

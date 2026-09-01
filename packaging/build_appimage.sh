@@ -53,9 +53,21 @@ Categories=Graphics;
 Terminal=false
 EOF
 
-# Icon (required by appimagetool). Placeholder transparent PNG generated with
-# Pillow (a shipped runtime dep) — TODO: replace with a real app icon.
-python -c "from PIL import Image; Image.new('RGBA', (256, 256), (0, 0, 0, 0)).save('${APPDIR}/pixelart-creator.png')"
+# Icon (required by appimagetool). Ships the committed 256x256 raster
+# (the derived icon family, pixelart_creator/icons/app/CONSTRUCTION-TABLE.md)
+# under the SAME basename the .desktop entry's Icon= key already expects
+# (verified below, not assumed) -- no more transparent placeholder.
+ICON_SRC="pixelart_creator/icons/app/pixelart-creator.png"
+if [ ! -f "${ICON_SRC}" ]; then
+    echo "error: committed app icon not found at ${ICON_SRC}" >&2
+    exit 1
+fi
+DESKTOP_ICON_KEY="$(sed -n 's/^Icon=//p' "${APPDIR}/${APP_NAME}.desktop")"
+if [ "${DESKTOP_ICON_KEY}" != "pixelart-creator" ]; then
+    echo "error: .desktop Icon= key '${DESKTOP_ICON_KEY}' does not match the shipped icon basename 'pixelart-creator'" >&2
+    exit 1
+fi
+cp "${ICON_SRC}" "${APPDIR}/${DESKTOP_ICON_KEY}.png"
 
 # Fetch appimagetool (pinned to the continuous release channel).
 if [ ! -x appimagetool ]; then
