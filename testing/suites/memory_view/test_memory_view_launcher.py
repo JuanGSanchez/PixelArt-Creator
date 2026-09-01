@@ -33,7 +33,6 @@ What IS this repository's business, and is tested here:
 
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -190,7 +189,18 @@ def test_the_store_still_holds_its_own_role_and_map():
     assert (STORE / "MEMORY-INDEX.md").is_file()
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="cmd is Windows-only")
 def test_the_cmd_launcher_is_batch_not_shell():
+    """Not Windows-only despite the file it reads: this is a plain text-content
+    assertion (AGT-06, CI-gate audit, 2026-09-01). A prior ``skipif(sys.platform
+    != "win32", ...)`` on this test assumed the ``.cmd`` extension meant the
+    check needed a real Windows/cmd.exe environment, but the body below never
+    invokes cmd.exe — it only reads ``memory-view.cmd`` as text and asserts its
+    first line, exactly like the unguarded
+    ``test_the_cmd_launcher_probes_the_interpreter_by_running_it`` a few lines
+    above, which already makes the identical kind of assertion on the same file
+    with no platform gate at all. Removing the gate makes this run — and
+    actually verify the batch-file marker — on the ubuntu-latest and
+    macos-latest CI legs too, not only windows-latest.
+    """
     body = (STORE / "memory-view.cmd").read_text("utf-8", errors="replace")
     assert body.lstrip().lower().startswith("@echo off")
