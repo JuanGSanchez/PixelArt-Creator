@@ -23,6 +23,12 @@ Covers:
     files + ``build_appimage.sh``) exist on disk, are referenced by the
     workflow steps that build from them, and the ``build-installers`` matrix
     declares three OSes with ``fail-fast: false`` and three artifact uploads.
+    ``build-installers`` moved out of ``ci.yml`` into its own dedicated
+    workflow file, ``.github/workflows/build-installers.yml`` (2026-09-01,
+    the lean-push change -- a job that could only ever run on a `v*` tag push
+    or a manual dispatch was still being EVALUATED and LISTED as "skipped" on
+    every ordinary push/PR run of ``ci.yml``, forever); the three tests below
+    read that file now, not ``ci.yml``, and are otherwise unchanged.
   T-37 -- ``pyproject.toml``'s ``[tool.setuptools.package-data]`` block ships
     ``userguide_content/**/*.md`` and ``userguide_content/*.json`` (T-UG-09's
     acceptance criterion, previously unasserted by any test).
@@ -43,12 +49,19 @@ import yaml
 from .conftest import REPO_ROOT
 
 CI_YAML = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+# build-installers moved out of ci.yml into its own file (2026-09-01, the
+# lean-push change) -- see the module docstring's T-36 note above.
+BUILD_INSTALLERS_YAML = REPO_ROOT / ".github" / "workflows" / "build-installers.yml"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 PACKAGING_DIR = REPO_ROOT / "packaging"
 
 
 def _load_ci_yaml() -> dict:
     return yaml.safe_load(CI_YAML.read_text(encoding="utf-8"))
+
+
+def _load_build_installers_yaml() -> dict:
+    return yaml.safe_load(BUILD_INSTALLERS_YAML.read_text(encoding="utf-8"))
 
 
 def _load_pyproject() -> dict:
@@ -76,18 +89,20 @@ def test_packaging_artifact_file_exists(filename):
 
 def test_ci_build_installers_job_references_every_packaging_artifact():
     """Read-only substring check: each of the four artifacts named above is
-    actually referenced somewhere in ci.yml's step commands -- not merely
-    present on disk with nothing wiring it into the build."""
-    raw = CI_YAML.read_text(encoding="utf-8")
+    actually referenced somewhere in build-installers.yml's step commands
+    (moved out of ci.yml, 2026-09-01) -- not merely present on disk with
+    nothing wiring it into the build."""
+    raw = BUILD_INSTALLERS_YAML.read_text(encoding="utf-8")
     for filename in _EXPECTED_ARTIFACTS:
         assert f"packaging/{filename}" in raw, (
-            f"ci.yml never references packaging/{filename} -- the artifact "
-            "exists on disk but the workflow does not build from it"
+            f"build-installers.yml never references packaging/{filename} -- "
+            "the artifact exists on disk but the workflow does not build "
+            "from it"
         )
 
 
 def test_ci_build_installers_matrix_declares_three_oses_fail_fast_false():
-    data = _load_ci_yaml()
+    data = _load_build_installers_yaml()
     job = data["jobs"]["build-installers"]
     assert job["strategy"]["fail-fast"] is False
     assert job["strategy"]["matrix"]["os"] == [
@@ -98,7 +113,7 @@ def test_ci_build_installers_matrix_declares_three_oses_fail_fast_false():
 
 
 def test_ci_build_installers_uploads_three_artifacts():
-    data = _load_ci_yaml()
+    data = _load_build_installers_yaml()
     steps = data["jobs"]["build-installers"]["steps"]
     upload_steps = [
         step

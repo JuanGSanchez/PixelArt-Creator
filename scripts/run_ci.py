@@ -40,7 +40,10 @@
 #                 recent run on the branch is used instead (reported as such,
 #                 never silently).
 #   --gh-limit    (CLI, optional, default 20): how many recent runs `gh run
-#                 list` fetches to search for a HEAD match.
+#                 list` fetches to search for a HEAD match -- scoped to the
+#                 ci.yml workflow only (CI_WORKFLOW_FILE, see
+#                 fetch_recent_runs()'s own note) so a build-installers/
+#                 regenerate-constraints run never outranks a real CI run.
 #   --classify-only (CLI flag): print the classification and STOP. Never runs
 #                 the local fallback and never dispatches. This is the
 #                 read-only inspection mode this script's default behaviour
@@ -52,29 +55,32 @@
 #                 any other flag. Only takes effect when classification is
 #                 HEALTHY; requires --dispatch-target for CLARITY, not because
 #                 quality-gate/integration lack a manual-dispatch path.
-#                 CORRECTED 2026-08-02 (a prior version of this comment was
-#                 wrong): `workflow_dispatch` is a trigger for the WHOLE
-#                 workflow (added to ci.yml's top-level `on:`, not scoped per
-#                 job), and neither `quality-gate` nor `integration` carries a
-#                 job-level `if:` anywhere in ci.yml -- verified by counting
-#                 `^    if:` occurrences across ci.yml lines 74-547 (the
-#                 quality-gate + integration job bodies): zero. The only two
-#                 job-level `if:`s in the whole file gate `build-installers`
-#                 (ci.yml:631) and `regenerate-constraints` (ci.yml:550) on
-#                 `inputs.target`. So a plain `gh workflow run ci.yml` (what
-#                 do_dispatch() issues) DOES run quality-gate's full 3-OS
-#                 matrix and integration -- --dispatch-target only selects
-#                 which of the two self-guarded on-demand jobs additionally
-#                 runs alongside them. Run 30567099577 is consistent with this:
-#                 the four un-gated jobs (quality-gate x3 + integration) were
-#                 BLOCKED_AT_JOB_START (billing), while build-installers and
-#                 regenerate-constraints show as `skipped` because neither
-#                 target matched that run's inputs -- not because
-#                 quality-gate/integration have no dispatch path.
-#                 --dispatch-target stays required here so this script never
-#                 silently falls back to ci.yml's own declared default
-#                 ("build-installers") without the caller choosing on purpose;
-#                 it is a usability choice, not evidence of a workflow gap.
+#                 REWRITTEN 2026-09-01 (CI lean-push split, AGT-09): the
+#                 2026-08-02 note this replaced explained a `target` input on
+#                 ci.yml's own shared `workflow_dispatch` -- that analysis was
+#                 CORRECT THEN and is OBSOLETE NOW, because the mechanism it
+#                 described no longer exists. As of this change,
+#                 `build-installers` and `regenerate-constraints` each moved
+#                 out of ci.yml into their OWN workflow file
+#                 (.github/workflows/build-installers.yml,
+#                 .github/workflows/regenerate-constraints.yml), each with a
+#                 bare `workflow_dispatch:` trigger and NO input at all -- the
+#                 job-level `if:` guard both used to carry is gone too, because
+#                 each file's own trigger already scopes its one job. ci.yml
+#                 itself now holds only `setup`, `quality-gate` and
+#                 `integration`; none of the three carries a job-level `if:`
+#                 either, so a plain `gh workflow run ci.yml` always runs all
+#                 three. --dispatch-target therefore now selects WHICH WORKFLOW
+#                 FILE to dispatch, not which of two jobs additionally runs
+#                 alongside ci.yml's always-on jobs:
+#                 `--dispatch-target build-installers` dispatches
+#                 build-installers.yml; `--dispatch-target
+#                 regenerate-constraints` dispatches
+#                 regenerate-constraints.yml; neither call passes any `-f`
+#                 input (neither file has one to accept) and neither touches
+#                 ci.yml at all. --dispatch-target stays required here so this
+#                 script never guesses which of the three workflow files the
+#                 caller meant.
 #   --local       (CLI flag): force the local fallback to run even when
 #                 classification is HEALTHY (e.g. to sanity-check locally
 #                 without spending hosted minutes). Fallback already runs
@@ -176,6 +182,17 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RUN_CI_LOCALLY = REPO_ROOT / "scripts" / "run_ci_locally.py"
+
+#: --dispatch-target value -> the workflow FILE it dispatches (CI
+#: lean-push split, 2026-09-01, AGT-09): `build-installers` and
+#: `regenerate-constraints` each moved out of ci.yml into their own file,
+#: each with a bare `workflow_dispatch:` trigger and no input -- do_dispatch()
+#: below issues a plain `gh workflow run <file>` per target, with no
+#: `-f target=...` (that input no longer exists anywhere).
+DISPATCH_TARGET_WORKFLOWS = {
+    "build-installers": "build-installers.yml",
+    "regenerate-constraints": "regenerate-constraints.yml",
+}
 
 SUPERVISION_BANNER = (
     "=" * 78
@@ -399,9 +416,38 @@ def current_branch() -> str:
     return _run_text(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip()
 
 
+#: The CI workflow file `fetch_recent_runs()` scopes to by default (CI
+#: lean-push split, 2026-09-01 follow-up, AGT-09): before the split this
+#: repository had exactly one workflow file, so an unfiltered `gh run list`
+#: could only ever return ci.yml runs. As of the split there are three
+#: (ci.yml, build-installers.yml, regenerate-constraints.yml), and
+#: build-installers.yml fires on `v*` tags -- release time, exactly when a
+#: caller is most likely to ask "is CI healthy?" and exactly when the most
+#: recent run on the repo may NOT be a ci.yml run at all. Left unfiltered,
+#: classify_current_state() could read a build-installers run's job shape (a
+#: single per-OS matrix job, no quality-gate/integration at all) as the CI
+#: verdict.
+CI_WORKFLOW_FILE = "ci.yml"
+
+
 def fetch_recent_runs(
-    repo: str, branch: Optional[str], limit: int
+    repo: str,
+    branch: Optional[str],
+    limit: int,
+    workflow: Optional[str] = CI_WORKFLOW_FILE,
 ) -> List[Dict[str, Any]]:
+    """List recent workflow runs, scoped to ``workflow`` by default.
+
+    ``workflow`` defaults to :data:`CI_WORKFLOW_FILE` ("ci.yml") because the
+    production caller inside `classify_current_state()` is asking a
+    CI-health question, and CI health is judged from CI runs, not from an
+    unrelated workflow's runs (see the module-level note above). Pass
+    ``workflow=None`` explicitly for the (currently unused) case of wanting
+    every workflow's runs unfiltered, or a different file name to scope to a
+    DIFFERENT workflow -- `do_dispatch()` below does exactly that for its
+    post-dispatch run-URL lookup, scoping to whichever file it just
+    dispatched rather than inheriting this default.
+    """
     cmd = [
         "gh",
         "run",
@@ -416,6 +462,8 @@ def fetch_recent_runs(
     ]
     if branch:
         cmd += ["--branch", branch]
+    if workflow:
+        cmd += ["--workflow", workflow]
     try:
         return json.loads(_run_text(cmd))
     except json.JSONDecodeError as exc:
@@ -545,34 +593,31 @@ def do_dispatch(repo: str, args: argparse.Namespace) -> int:
     if not args.dispatch_target:
         print(
             "run_ci: --dispatch requires --dispatch-target "
-            "{build-installers,regenerate-constraints}. This is a usability "
-            "choice, NOT because quality-gate/integration lack a manual-"
-            "dispatch path (CORRECTED 2026-08-02): `workflow_dispatch` "
-            "triggers the WHOLE workflow (it is a top-level `on:` trigger, "
-            "not scoped per job), and neither `quality-gate` nor "
-            "`integration` carries a job-level `if:` anywhere in ci.yml "
-            "(verified: zero `^    if:` matches across ci.yml lines 74-547, "
-            "the two job bodies) -- only `build-installers` (ci.yml:631) and "
-            "`regenerate-constraints` (ci.yml:550) self-guard on "
-            "`inputs.target`. So a plain `gh workflow run ci.yml` DOES run "
-            "quality-gate's full 3-OS matrix and integration regardless of "
-            "this flag; --dispatch-target only picks which of the two "
-            "self-guarded on-demand jobs additionally runs alongside them. "
-            "It is required here only so this script never silently falls "
-            'back to ci.yml\'s own declared default ("build-installers") '
-            "without the caller choosing on purpose.",
+            "{build-installers,regenerate-constraints}. REWRITTEN 2026-09-01 "
+            "(CI lean-push split, AGT-09): each target now names its OWN "
+            "workflow file, not a `target` input on a shared "
+            "`workflow_dispatch` in ci.yml -- ci.yml itself now holds only "
+            "`setup`, `quality-gate` and `integration`, none gated by a "
+            "job-level `if:`, so a plain `gh workflow run ci.yml` always runs "
+            "all three. `--dispatch-target build-installers` instead "
+            "dispatches .github/workflows/build-installers.yml, and "
+            "`--dispatch-target regenerate-constraints` dispatches "
+            ".github/workflows/regenerate-constraints.yml -- neither of "
+            "those two files accepts any workflow_dispatch input any more, "
+            "so neither call passes `-f`. --dispatch-target stays required "
+            "here so this script never guesses which of the three workflow "
+            "files the caller meant.",
             file=sys.stderr,
         )
         return 2
+    workflow_file = DISPATCH_TARGET_WORKFLOWS[args.dispatch_target]
     cmd = [
         "gh",
         "workflow",
         "run",
-        "ci.yml",
+        workflow_file,
         "--repo",
         repo,
-        "-f",
-        f"target={args.dispatch_target}",
     ]
     print(
         "run_ci: DISPATCHING an Actions run -- outward-facing, opt-in action: "
@@ -584,7 +629,7 @@ def do_dispatch(repo: str, args: argparse.Namespace) -> int:
         return 2
     time.sleep(2)  # give GitHub a moment to register the new run before we look it up
     try:
-        runs = fetch_recent_runs(repo, args.branch, 1)
+        runs = fetch_recent_runs(repo, args.branch, 1, workflow=workflow_file)
     except RouterError as exc:
         print(f"run_ci: dispatched, but could not look up the new run: {exc}")
         return 0

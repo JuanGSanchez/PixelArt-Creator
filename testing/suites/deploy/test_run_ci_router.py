@@ -13,13 +13,19 @@ lets this module serve as this session's own proof that the router's
 classification logic behaves correctly -- see the accompanying report for
 the real, observed `pytest` run.
 
-No test in this module makes a network call. Every ``gh``/``git``-calling
-function the router exposes (`fetch_recent_runs`, `fetch_run_jobs`,
-`fetch_job_annotations`) is replaced with a canned fake via
-`classify_current_state`'s injectable `fetch_runs`/`fetch_jobs`/
-`fetch_annotations` parameters, or exercised directly as a pure function
-(`classify_dispatch`, `overall_exit`, `macos_leg`, `linux_leg`) that never
-shells out.
+No test in this module makes a real network or ``gh`` call. Every
+``gh``/``git``-calling function the router exposes is exercised one of
+three ways: `fetch_recent_runs`/`fetch_run_jobs`/`fetch_job_annotations`
+are replaced with a canned fake via `classify_current_state`'s injectable
+`fetch_runs`/`fetch_jobs`/`fetch_annotations` parameters; `run_windows_leg`,
+`do_dispatch`, and `fetch_recent_runs`/`classify_current_state` called
+directly (not through the injectable parameters, added 2026-09-01 to pin
+the ci.yml workflow-scoping fix -- see the tests near the end of this
+file) monkeypatch `run_ci.subprocess.run` itself to capture the
+constructed command and return a canned completed-process stand-in,
+never shelling out; and the rest (`classify_dispatch`, `overall_exit`,
+`macos_leg`, `linux_leg`) are exercised directly as pure functions that
+never shell out at all.
 
 The router's local fallback covers ONLY the Windows leg (natively); the
 Linux leg it once ran inside a container (Docker/Podman + a bind-mounted
@@ -57,6 +63,8 @@ macos_leg = run_ci.macos_leg
 linux_leg = run_ci.linux_leg
 run_windows_leg = run_ci.run_windows_leg
 LegResult = run_ci.LegResult
+fetch_recent_runs = run_ci.fetch_recent_runs
+do_dispatch = run_ci.do_dispatch
 
 
 # --------------------------------------------------------------------------- #
@@ -421,3 +429,107 @@ def test_run_windows_leg_maps_subprocess_return_codes(monkeypatch):
         )
         leg = run_windows_leg(args, "Windows")
         assert leg.outcome == expected_outcome, f"rc={rc}"
+
+
+# --------------------------------------------------------------------------- #
+# ci.yml workflow-scoping fix (coordinator-requested, 2026-09-01 follow-up to
+# the CI lean-push split): before the split this repository had exactly one
+# workflow file, so an unfiltered `gh run list` could only ever return ci.yml
+# runs. After the split there are three (ci.yml, build-installers.yml,
+# regenerate-constraints.yml), and build-installers.yml fires on `v*` tags --
+# release time, exactly when a caller is most likely to ask run_ci.py "is CI
+# healthy?" and exactly when the most recent run on the repo may NOT be a
+# ci.yml run at all. CI health must be judged from CI runs, not from an
+# installer run -- these tests pin exactly that.
+# --------------------------------------------------------------------------- #
+def _capture_gh_calls(monkeypatch):
+    """Monkeypatch run_ci.subprocess.run to capture every constructed `gh`
+    command (as a list, never a shell string) and return a canned completed
+    process (`returncode=0`, `stdout="[]"`, a valid empty JSON array) --
+    never touching the network. Returns the list the calls are appended to."""
+    captured: List[List[str]] = []
+
+    class _FakeCompleted:
+        returncode = 0
+        stdout = "[]"
+        stderr = ""
+
+    def fake_run(cmd, *args, **kwargs):
+        captured.append(list(cmd))
+        return _FakeCompleted()
+
+    monkeypatch.setattr(run_ci.subprocess, "run", fake_run)
+    return captured
+
+
+def test_fetch_recent_runs_scopes_to_ci_workflow_by_default(monkeypatch):
+    captured = _capture_gh_calls(monkeypatch)
+
+    fetch_recent_runs("owner/repo", "main", 20)
+
+    assert len(captured) == 1
+    cmd = captured[0]
+    assert "--workflow" in cmd, (
+        f"fetch_recent_runs()'s default call built {cmd!r} with no "
+        "--workflow filter -- gh run list would return runs from EVERY "
+        "workflow in the repo, so a build-installers or "
+        "regenerate-constraints run could be read as the CI verdict"
+    )
+    assert cmd[cmd.index("--workflow") + 1] == run_ci.CI_WORKFLOW_FILE == "ci.yml"
+
+
+def test_classify_current_state_production_default_scopes_to_ci_workflow(monkeypatch):
+    """Same regression, proven one level up: `classify_current_state`'s own
+    PRODUCTION default (no injected `fetch_runs` fake -- every other test in
+    this file injects one) must build the same ci.yml-scoped `gh run list`
+    command. This is the actual call path a real invocation of run_ci.py
+    takes when asking "is CI healthy?"."""
+    captured = _capture_gh_calls(monkeypatch)
+
+    classify_current_state("owner/repo", "main", "deadbeef", 20)
+
+    assert len(captured) == 1
+    cmd = captured[0]
+    assert cmd[cmd.index("--workflow") + 1] == "ci.yml"
+
+
+def test_fetch_recent_runs_workflow_none_is_explicitly_unfiltered(monkeypatch):
+    """The escape hatch stays available and explicit, never silent: passing
+    ``workflow=None`` opts OUT of the ci.yml default -- confirms the default
+    is a parameter a caller can override, not a hard-coded narrowing nobody
+    could undo."""
+    captured = _capture_gh_calls(monkeypatch)
+
+    fetch_recent_runs("owner/repo", None, 5, workflow=None)
+
+    assert "--workflow" not in captured[0]
+
+
+def test_do_dispatch_scopes_post_dispatch_lookup_to_dispatched_workflow(monkeypatch):
+    """`do_dispatch()` issues TWO `gh` calls: the dispatch itself, then a
+    lookup for the new run's URL. The dispatch must name the workflow FILE
+    the target maps to (no `-f target=...` -- neither new file accepts an
+    input any more); the lookup must scope to that SAME file, not silently
+    fall back to the ci.yml default, or a concurrently-running ci.yml run
+    could be reported as the just-dispatched run's URL."""
+    captured = _capture_gh_calls(monkeypatch)
+    monkeypatch.setattr(run_ci.time, "sleep", lambda *_: None)
+
+    args = types.SimpleNamespace(
+        dispatch_target="build-installers", branch="fix-ci-lean-push"
+    )
+    rc = do_dispatch("JuanGSanchez/PixelArt-Creator", args)
+
+    assert rc == 0
+    assert len(captured) == 2
+    dispatch_cmd, lookup_cmd = captured
+    assert dispatch_cmd == [
+        "gh",
+        "workflow",
+        "run",
+        "build-installers.yml",
+        "--repo",
+        "JuanGSanchez/PixelArt-Creator",
+    ]
+    assert "-f" not in dispatch_cmd
+    assert lookup_cmd[lookup_cmd.index("--workflow") + 1] == "build-installers.yml"
