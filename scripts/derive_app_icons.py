@@ -378,7 +378,8 @@ def construction_table_text() -> str:
         "or the deriver's own `--check` fails it by name. Plateless members",
         "are exempt (full-bleed by construction, no plate margin to under-fill).",
         "",
-        "| File | Canvas | Mark | Scale k | Art box | Fill | Plate | Margin (l,t) | Note |",
+        "| File | Canvas | Mark | Scale k | Art box | Fill | Plate "
+        "| Margin (l,t) | Note |",
         "|---|---|---|---|---|---|---|---|---|---|"[:-1],
     ]
     for m in ALL_MEMBERS:
@@ -396,7 +397,7 @@ def construction_table_text() -> str:
             f"{aw}x{ah} | {fill} | {plate} | {left}px, {top}px | {note} |"
         )
     lines.append("")
-    lines.append(f"## Container assembly")
+    lines.append("## Container assembly")
     lines.append("")
     lines.append(
         f"- `{ICO_NAME}` (Windows): members {', '.join(str(s) for s in ICO_SIZES)} px, "
@@ -422,7 +423,8 @@ def _compare(path: Path, data: bytes, mismatches: list[str]) -> bool:
         existing = fh.read()
     if existing != data:
         mismatches.append(
-            f"{path.name}: {len(existing)} bytes committed != {len(data)} bytes re-derived"
+            f"{path.name}: {len(existing)} bytes committed != "
+            f"{len(data)} bytes re-derived"
         )
         return False
     return True
@@ -449,7 +451,8 @@ def run(app_dir: Path, check: bool) -> int:
             if _compare(app_dir / name, data, mismatches):
                 identical += 1
         print(
-            f"derive_app_icons --check: compared {len(outputs)} files, {identical} identical"
+            f"derive_app_icons --check: compared {len(outputs)} files, "
+            f"{identical} identical"
         )
         if mismatches:
             for line in mismatches:
