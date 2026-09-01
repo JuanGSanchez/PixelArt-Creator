@@ -6,7 +6,7 @@ Phase-10 Slice A tail (ADR-0026 §1/§2; spec REQ-P10-DATA-001/-002/-003/-007/-0
 Researcher §1.1/§1.2). A real :class:`~pixelart_creator.data.cloud.port.CloudPort` over
 the Dropbox v2 HTTP API, isolated behind the injectable
 :class:`~pixelart_creator.data.cloud.providers._http.HttpClient` seam (mock-testable by
-AGT-04; live-gated under ``cloud_live``).
+the test suite; live-gated under ``cloud_live``).
 
 Storage model: each project's ``.pixproj`` is one file at ``/{project_id}.pixproj``; a
 separate ``/{project_id}.recovery`` file backs the recovery slot. Dropbox

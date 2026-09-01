@@ -19,7 +19,7 @@ class RectSelectTool(SelectionTool):
     tool_id = "select_rect"
 
     def label(self) -> str:
-        """Distinct translated name / undo-menu label for this tool (AGT-07)."""
+        """Distinct translated name / undo-menu label for this tool."""
         return QCoreApplication.translate("tools", "Rectangle Select")
 
     def begin(self, x: int, y: int, ctx: ToolContext) -> None:

@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Provider / endpoint / API-key configuration for the AI assistant (REQ-P14-UI-002).
 
-Phase-14 Slice 14E. Lets the user pick a provider (an OpenAI-compatible endpoint or
-native Anthropic), set the base URL + model, and enter an API key — then constructs the
+Part of Phase 14, the AI-assistant phase. Lets the user pick a provider (an
+OpenAI-compatible endpoint or native Anthropic), set the base URL + model,
+and enter an API key — then constructs the
 matching :class:`~pixelart_creator.data.llm.port.LLMPort` adapter behind the frozen,
 provider-agnostic port. The app behaves identically regardless of provider (the port is
 the seam); a missing/incomplete configuration degrades to a clear "not configured"

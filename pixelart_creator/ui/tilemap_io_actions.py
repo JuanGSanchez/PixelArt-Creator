@@ -1,6 +1,6 @@
 # Copyright 2026 Juan Garcia Sanchez
 # SPDX-License-Identifier: Apache-2.0
-"""Tiled JSON import/export UI actions (Slice 6G).
+"""Tiled JSON import/export UI actions (part of Phase 6).
 
 Thin Qt front-end over ``data/tiled_io``: a **file dialog** + a defensive call
 that surfaces the typed :class:`~pixelart_creator.data.project_io.ProjectIOError`
@@ -8,7 +8,7 @@ that surfaces the typed :class:`~pixelart_creator.data.project_io.ProjectIOError
 :class:`QMessageBox` — **never** a crash (REQ-P6-UI-011/-012, SC-UI-012-1). All
 serialisation, validation and round-trip logic lives in ``data/tiled_io`` (Qt-free,
 Article I / S11); this module only chooses a portable path and reports errors.
-Dialog / error strings are ``tr()``-wrapped so AGT-07 can extract them
+Dialog / error strings are ``tr()``-wrapped so the localisation layer can extract them
 (REQ-P6-UI-017).
 """
 

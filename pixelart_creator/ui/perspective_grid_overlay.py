@@ -13,7 +13,8 @@ POINTS``). **The construction + snap maths live in ``logic/grids``** (Article I)
 overlay only maps the returned segments/points to Qt paint calls.
 
 Performance (Article VI, 16 ms): ``DeviceCoordinateCache`` so a pan/zoom that leaves
-the config unchanged reuses the rasterised fan (research §5.3; AGT-10 tunable, DEP-3).
+the config unchanged reuses the rasterised fan (research §5.3; tunable by the
+rendering/performance layer, DEP-3).
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 # Copyright 2026 Juan Garcia Sanchez
 # SPDX-License-Identifier: Apache-2.0
-"""In-app AI-assistant chat dock (REQ-P14-UI-001/-003/-004; Slice 14E).
+"""In-app AI-assistant chat dock (REQ-P14-UI-001/-003/-004).
 
 A dockable PySide6 panel where the user converses with the model-agnostic assistant
 and watches it drive the real, undoable action surface. It **drives the ``logic/``

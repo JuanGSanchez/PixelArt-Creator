@@ -148,7 +148,7 @@ def default_content_store(
     survives a restart instead of ending with the session.
 
     This factory is the application's composition root for the byte store
-    (ruling P11-R4, `design-docs/specs/phase-11-asset-ingress/plan.md` §3.6): it
+    (ruling P11-R4): it
     composes a :class:`~pixelart_creator.data.asset_shared_backend.SharedBlobBackend`
     over the resolved local backend UNCONDITIONALLY, passing ``port`` through
     unchanged. With ``port=None`` (the default), the shared backend's cloud path

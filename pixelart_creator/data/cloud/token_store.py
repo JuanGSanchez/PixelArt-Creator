@@ -14,7 +14,7 @@ provider-agnostic ``is_connected`` notion; ``ui/`` never receives a raw token.
 at module load, so all of Slice A (the port, the fake adapter, sync-state / autosave /
 version-history models) imports and runs **without ``keyring`` installed** and the
 local gate stays clean. ``keyring`` becomes a required dependency only for the (later,
-out-of-Slice-A) real Drive/OneDrive/Dropbox adapters — flagged to AGT-09 as a manifest
+out-of-Slice-A) real Drive/OneDrive/Dropbox adapters — flagged as a packaging manifest
 dependency for that work. :func:`is_keyring_available` lets callers degrade gracefully.
 """
 

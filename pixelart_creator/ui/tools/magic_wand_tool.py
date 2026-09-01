@@ -32,7 +32,7 @@ class MagicWandTool(SelectionTool):
         self.tolerance = int(tolerance)
 
     def label(self) -> str:
-        """Distinct translated name for this tool (AGT-07; move is disabled)."""
+        """Distinct translated name for this tool (move is disabled)."""
         return QCoreApplication.translate("tools", "Magic Wand")
 
     def build(

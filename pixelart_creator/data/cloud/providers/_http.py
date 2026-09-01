@@ -13,7 +13,8 @@ matter:
   and no provider-specific exception, ever appears in the adapters' own public
   surface — HTTP failures are normalised to :class:`HttpError` (a ``CloudError``).
 * **Testability without live credentials (Article IV / CL-B2).** Because the adapters
-  depend only on the :class:`HttpClient` *protocol*, AGT-04's contract tests inject a
+  depend only on the :class:`HttpClient` *protocol*, the test suite's contract
+  tests inject a
   **mock / recorded** client and drive the whole ``CloudPort`` contract with **no
   network and no credentials**. The real :class:`UrllibHttpClient` (stdlib ``urllib``,
   no new dependency) is the credential-/network-gated path exercised only under the

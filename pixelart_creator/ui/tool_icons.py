@@ -3,7 +3,7 @@
 """Tool glyph resolver and runtime tinter (`REQ-IS-UI-027`, code half).
 
 Resolves one of the eleven original, single-fill monochrome SVG tool glyphs
-authored under ``pixelart_creator/icons/tools/`` (T-06, AGT-15) and returns it
+authored under ``pixelart_creator/icons/tools/`` and returns it
 as a theme-tinted :class:`~PySide6.QtGui.QIcon`.
 
 Resolution follows the **same portable form** already shipped by

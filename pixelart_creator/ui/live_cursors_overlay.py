@@ -11,7 +11,8 @@ collaborators' cursors + selection live, from the ephemeral presence/awareness c
 **no** persisted state — the overlay is never saved into the ``.pixproj`` or the CRDT
 sidecar.
 
-**Per-frame design (for AGT-10's FLAG-PERFRAME assessment, ADR-0027 §7).** This overlay
+**Per-frame design (for the rendering/performance layer's FLAG-PERFRAME
+assessment, ADR-0027 §7).** This overlay
 sits on the interactive loop, so it is deliberately minimal:
 
 * **No item cache** — cursors move nearly every frame, so a
@@ -24,7 +25,8 @@ sits on the interactive loop, so it is deliberately minimal:
 * **Cosmetic, zoom-invariant marks** — a small crosshair + a short name label, drawn in
   device space so they stay a constant size at any zoom (no per-pixel work).
 
-AGT-10 profiles the combined *remote-apply + this draw* against ``FRAME_BUDGET_MS`` and
+The rendering/performance layer profiles the combined *remote-apply + this draw*
+against ``FRAME_BUDGET_MS`` and
 may direct coalescing (e.g. throttling presence repaints); the item exposes
 :meth:`cursor_count` and :meth:`set_cursor` as the seam for that. Every user-visible
 string is ``tr()``-wrapped via a translatable member label built by the caller; the
@@ -94,7 +96,7 @@ class Live_Cursors_Overlay(QGraphicsItem):
         super().__init__()
         self.setZValue(_CURSORS_Z)
         self.setVisible(False)
-        # Deliberately NO cache: cursors move per frame (see module docstring / AGT-10).
+        # Deliberately NO cache: cursors move per frame (see module docstring).
         self._rect = QRectF(scene_rect)
         self._cursors: Dict[str, _Cursor] = {}
         # The local member never renders its own cursor from presence.
@@ -175,7 +177,7 @@ class Live_Cursors_Overlay(QGraphicsItem):
             self.update()
 
     def cursor_count(self) -> int:
-        """Return how many collaborator cursors are drawn (test/AGT-10 seam)."""
+        """Return how many collaborator cursors are drawn (test/profiling seam)."""
         return len(self._cursors)
 
     def cursor_ids(self) -> Tuple[str, ...]:
@@ -196,7 +198,7 @@ class Live_Cursors_Overlay(QGraphicsItem):
     ) -> None:
         """Draw each visible collaborator cursor + selection, exposedRect-culled.
 
-        Per-frame minimal (AGT-10): no anti-aliasing, cosmetic pens, and every cursor
+        Per-frame minimal: no anti-aliasing, cosmetic pens, and every cursor
         outside the exposed rect is skipped so off-screen collaborators cost nothing.
         """
         if not self._cursors:

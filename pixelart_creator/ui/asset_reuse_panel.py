@@ -374,7 +374,7 @@ class Asset_Reuse_Panel(QWidget):
         local_catalog = self._session.catalog()
         resolved = resolve_states(reference_set, local_catalog)
         unresolved = missing(reference_set, local_catalog)
-        # DEV-41: reference_states refines resolve_states' boolean into three states —
+        # reference_states refines resolve_states' boolean into three states —
         # a STATE_EDITED reference is present under a changed content_hash, and reads
         # here the same as a STATE_RESOLVED one (REQ-P11-UI-021). missing()'s call and
         # meaning, and the unresolved count label below, are untouched by this.

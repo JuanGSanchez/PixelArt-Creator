@@ -361,8 +361,7 @@ def onion_overlay(
     each composite (CL-12). The active frame is not part of the set and is
     unchanged. Pure and Qt-free; **not** rendered during playback (CL-11).
 
-    This is the **single source of onion-tint truth** (D-33/R-24 ruling,
-    ``design-docs/specs/phase-5-animation/analyze-report.md`` §8): a caller
+    This is the **single source of onion-tint truth** (D-33/R-24 ruling): a caller
     (e.g. ``ui/canvas_scene.py``) passes its own live tint colours through
     ``tint_prev``/``tint_next`` and must not recolour the returned buffers
     again — the RGB this function returns *is* the display colour.

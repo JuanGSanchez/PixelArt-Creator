@@ -17,7 +17,7 @@ the full catalog. Selecting a row emits :data:`~Asset_Library_Panel.assetSelecte
 the entry's stable ``asset_id`` (or ``""`` when the selection clears) so the tagging
 panel can follow the selection.
 
-Slice 2 adds a **passive break surface** (REQ-P11-UI-006, CL-4): a Status column that
+This panel adds a **passive break surface** (REQ-P11-UI-006, CL-4): a Status column that
 flags any listed asset whose outgoing reference is broken, reflecting the pure
 :func:`~pixelart_creator.logic.break_detection.find_broken` reference-validation pass
 over the session's dependency graph + catalog. It **refreshes on catalog change** (and
@@ -29,7 +29,7 @@ Every user-visible string is ``tr()``-wrapped with a ``changeEvent`` retranslate
 REQ-P11-UI-010); every interactive control carries an accessible name and is
 keyboard-reachable (REQ-P11-UI-008); colours come from the active QSS theme by role, so
 both themes render correctly with no per-widget colour (REQ-P11-UI-009). All work is
-synchronous over the in-memory catalog / graph — no worker thread / timer (Slice 1/2).
+synchronous over the in-memory catalog / graph — no worker thread / timer.
 """
 
 from __future__ import annotations
@@ -89,7 +89,7 @@ class Asset_Library_Panel(QWidget):
         """Bind the panel to a :class:`Asset_Library_Session` and refresh the view."""
         self._session = session
         session.catalogChanged.connect(self._refresh)
-        # The passive break surface (Slice 2) refreshes on a graph change too.
+        # The passive break surface refreshes on a graph change too.
         session.graphChanged.connect(self._refresh)
         self._refresh()
 

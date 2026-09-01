@@ -45,7 +45,7 @@ split):**
   preference through the same seam and neither depends on the other
   existing.
 - *The per-asset "don't ask again for THIS edit, but a further edit asks
-  again" memory* **is** built here (DEV-40, corrective unit under
+  again" memory* **is** built here (a corrective unit under
   ``20260821-reachability-remediation``) — see
   :meth:`Asset_Update_Prompt_Dialog.decide`'s own docstring for the
   session-memory shape and its disclosed limitation. What remains **not**
@@ -163,8 +163,8 @@ class Asset_Update_Prompt_Dialog(QDialog):
     #: non-modally (``open()``); :meth:`decide` does not need it.
     decided = Signal(str, bool)
 
-    #: **Per-edit session memory** (DEV-40, extended by plan §3.11 (2b) /
-    #: DEV-40a): "the same edit does not ask again" for :meth:`decide`
+    #: **Per-edit session memory** (extended by plan §3.11 (2b)):
+    #: "the same edit does not ask again" for :meth:`decide`
     #: (``REQ-P11-UI-022``'s own acceptance clause), scoped to one project's
     #: session bucket so a different project (:data:`ProjectPrefs`,
     #: ``SC-P11-UI-023-3``) is never affected by another project's session
@@ -279,7 +279,7 @@ class Asset_Update_Prompt_Dialog(QDialog):
         self._outcome = None
         super().reject()
 
-    # -- per-edit session memory (DEV-40) --------------------------------
+    # -- per-edit session memory ------------------------------------------
 
     @classmethod
     def _session_bucket(
@@ -396,7 +396,7 @@ class Asset_Update_Prompt_Dialog(QDialog):
 
         Otherwise this **edit** — ``(asset_id, edit_token)``, scoped to
         ``prefs``'s own project (``SC-P11-UI-023-3``) — is checked against
-        this session's in-memory decision cache (DEV-40,
+        this session's in-memory decision cache (
         ``REQ-P11-UI-022``'s "that same edit does not ask again" clause). A
         cache hit skips the dialog and returns the cached outcome with
         ``prefs`` unchanged. A cache miss shows the dialog modally; a
@@ -532,7 +532,7 @@ def resolve_library_edits(
 ) -> Tuple[ReferenceSet, ProjectPrefs]:
     """Run :meth:`Asset_Update_Prompt_Dialog.decide` over every edited reference.
 
-    ``decide()``'s **one production caller** (DEV-40a, plan §3.11 (2)/(2b),
+    ``decide()``'s **one production caller** (plan §3.11 (2)/(2b),
     ``tasks.md`` T31). Iterates ``reference_set.entries()`` in its
     deterministic ``asset_id`` order (so the prompt order is testable) and
     calls :meth:`Asset_Update_Prompt_Dialog.decide` **once** for each

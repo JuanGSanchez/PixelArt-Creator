@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """OS-keyring API-key isolation for LLM providers — zero Qt (S11).
 
-Phase-14 Slice 14B (ADR-0040 §5; spec REQ-P14-DATA-003/-006, Article VII §3). Wraps
+Part of the AI-assistant feature, Phase 14 (ADR-0040 §5; spec
+REQ-P14-DATA-003/-006, Article VII §3). Wraps
 the OS-managed ``keyring`` credential store (Windows Credential Locker / macOS
 Keychain / Linux Secret Service), keyed ``pixelart-creator:assistant:{provider}`` with
 the provider account id as the username. Provider API keys are acquired, stored, and
@@ -14,7 +15,8 @@ to a ``.pixproj`` or a log, never committed. The port exposes only a provider-ag
 at module load, so all of Slices 14A–14C (the tool-catalog, the assistant loop, the
 value types) and the fake adapter import and run **without ``keyring`` installed**
 (SC-D003-2) and the local gate stays clean. ``keyring`` becomes required only for the
-(14D) real OpenAI-compatible / Anthropic adapters — declared by AGT-09 as the
+(14D) real OpenAI-compatible / Anthropic adapters — declared in the packaging
+manifest as the
 ``assistant_live`` optional extra (``keyring==25.7.0``, the ``cloud_live`` pin).
 :func:`is_keyring_available` lets callers degrade gracefully.
 

@@ -10,7 +10,7 @@
 #   S11). Importable library: callers use the return value, not a process exit.
 # FLAVOUR: standalone (importable library; not a CLI)
 # LOCATION: pixelart_creator/logic/compactor.py
-# INVOKED BY: AGT-03 (logic; primary owner) and AGT-05 (ui) via import
+# INVOKED BY: the logic layer (primary owner) and the ui layer via import
 #   `from pixelart_creator.logic.compactor import compact, CompactionError`.
 # RUNTIME: Python 3.8+ (CPython, stdlib only). No Qt, no NumPy required.
 # ENTRYPOINT (library): compact(rects, max_width, max_height) -> Packing
@@ -40,7 +40,7 @@
 #   P13.
 # Custom: (none)
 #
-# SOURCES: Dossier §2 F8 (MaxRects), §9 C-none, §6.5/§8 (owner AGT-03/05);
+# SOURCES: Dossier §2 F8 (MaxRects), §9 C-none, §6.5/§8 (owned by logic/ and ui/);
 #   Jukka Jylanki, "A Thousand Ways to Pack the Bin" (MaxRects BSSF, standard);
 #   User req S11 (pure logic, zero Qt).
 # =============================================================================

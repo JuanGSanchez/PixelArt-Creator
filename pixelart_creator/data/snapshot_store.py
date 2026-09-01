@@ -31,7 +31,7 @@ this module needs, enumerated from ``project_io``'s serialisers
 ``"source"``; ``_encode_u32``-encoded tilemap chunks are emitted under
 ``"data"`` too). It is deliberately **not** exhaustively verified against every
 serialiser body (plan §3.1) — the drift guard (``tests/data/test_snapshot_store.py``,
-AGT-04, T12) is what makes a future ``project_io`` addition at an unlisted key
+the test suite, T12) is what makes a future ``project_io`` addition at an unlisted key
 cheap to catch, rather than a silently un-deduplicated (and therefore oversized)
 payload.
 

@@ -284,7 +284,7 @@ ediciones) en la rama principal"*).
 > **Abrir diferencias** es opcional — puedes fusionar directamente sin revisar antes las
 > diferencias.
 
-<!-- split-with: docs/site/pages/es/usage/hosting.md (esa página extrae y amplía el detalle de despliegue de esta sección; esta sección sigue siendo la única mención en el bundle — WP-8 unidad 2d) -->
+<!-- split-with: docs/site/pages/es/usage/hosting.md (esa página extrae y amplía el detalle de despliegue de esta sección; esta sección sigue siendo la única mención en el bundle) -->
 
 ## Nota para operadores: ejecutar el backend de sincronización
 

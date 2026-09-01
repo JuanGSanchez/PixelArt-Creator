@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 r"""Deterministic scripted fake LLM adapter — the CI contract (zero Qt, S11).
 
-Phase-14 Slice 14B (ADR-0040 §4; spec REQ-P14-DATA-002; SC-D002-1). A fully functional
+Part of the AI-assistant feature, Phase 14 (ADR-0040 §4; spec REQ-P14-DATA-002;
+SC-D002-1). A fully functional
 :class:`~pixelart_creator.data.llm.port.LLMPort` driven by a **scripted response
 program** — no network, no provider key — so the **entire agentic contract** (the 14C
 loop, tiered safety, whitelist enforcement, injection defence, and the 14D

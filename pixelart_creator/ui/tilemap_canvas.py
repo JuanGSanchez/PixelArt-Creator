@@ -1,6 +1,6 @@
 # Copyright 2026 Juan Garcia Sanchez
 # SPDX-License-Identifier: Apache-2.0
-"""Tilemap canvas — composited render + stamping tools (Slice 6F).
+"""Tilemap canvas — composited render + stamping tools (part of Phase 6).
 
 ``Tilemap_Canvas`` is a :class:`QGraphicsView` over ``_Tilemap_Scene``, a
 :class:`QGraphicsScene` whose :meth:`drawBackground` renders the composited layer
@@ -10,7 +10,7 @@ REQ-P6-LOGIC-013). It mirrors the shipped
 neighbour, AA off, ``MinimalViewportUpdate``, cursor-anchored wheel zoom, and
 middle-/space-drag pan (view state, no undo, CL-13, REQ-P6-UI-010).
 
-**Render seam & performance (DEP-3, AGT-10 D1-D5).**
+**Render seam & performance (DEP-3, rendering/performance directives D1-D5).**
 ``drawBackground(painter, rect)`` assembles the exposed ``rect`` from a
 **chunk-aligned QPixmap cache** (:class:`~pixelart_creator.ui.tilemap_chunk_cache.
 ChunkPixmapCache`): each ``TILEMAP_CHUNK_SIZE`` chunk is rendered once through the
@@ -117,7 +117,7 @@ _OFFSCREEN_PLATFORM = "offscreen"
 _CHUNK_CACHE_BUDGET_BYTES = 128 * 1024 * 1024
 
 #: Max cold chunks rendered *inline* per paint before the rest stream off-thread
-#: (D4). A cold chunk is ~0.84 ms (AGT-10), so a handful stays well under the 16 ms
+#: (D4). A cold chunk is ~0.84 ms (measured), so a handful stays well under the 16 ms
 #: budget and keeps a stamp / small pan instant; a full cold viewport streams.
 _SYNC_CHUNK_BUDGET = 8
 
@@ -511,7 +511,7 @@ class Tilemap_Canvas(QGraphicsView):
     noActiveBrushRejected = Signal()
     #: Emitted with the picked RGBA tuple when a plain wheel notch / an
     #: unmodified middle click travels the shared Favourites cursor
-    #: (REQ-IS-UI-008/-012, T-21). Mirrors ``Canvas_View.colorPicked`` — the
+    #: (REQ-IS-UI-008/-012). Mirrors ``Canvas_View.colorPicked`` — the
     #: tilemap has no colour of its own to paint with, but the app-wide
     #: active colour/palette state is shared across every surface.
     colorPicked = Signal(object)
@@ -540,7 +540,7 @@ class Tilemap_Canvas(QGraphicsView):
         self._drawing = False
         self._fill_start: Optional[Tuple[int, int]] = None
         #: The persisted Favourites model bound via :meth:`set_favourites_model`
-        #: (T-21); ``None`` until the shell binds one.
+        #: ``None`` until the shell binds one.
         self._favourites: Optional[Favourites] = None
 
         self.setRenderHint(QPainter.RenderHint.Antialiasing, False)
@@ -610,7 +610,7 @@ class Tilemap_Canvas(QGraphicsView):
         """Bind the persisted Favourites model this view reads and steps.
 
         A plain wheel notch travels it and an unmodified middle click picks
-        its first entry (REQ-IS-UI-008/-012, T-21).
+        its first entry (REQ-IS-UI-008/-012).
         """
         self._favourites = favourites
 
@@ -772,7 +772,7 @@ class Tilemap_Canvas(QGraphicsView):
         """Zoom on ``Shift``+wheel, otherwise travel the Favourites list.
 
         ``Shift``+wheel zooms (REQ-IS-UI-009); a plain wheel notch travels
-        Favourites (REQ-IS-UI-008, T-21).
+        Favourites (REQ-IS-UI-008).
         """
         if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             self._zoom_wheel(event)
@@ -930,7 +930,7 @@ class Tilemap_Canvas(QGraphicsView):
         if self._middle_pending and event.button() == Qt.MouseButton.MiddleButton:
             # Released before crossing the threshold: a click (REQ-IS-UI-011).
             # An unmodified click picks the first favourite (REQ-IS-UI-012); a
-            # modified one is left for its own gesture (T-23), a no-op here.
+            # modified one is left for its own gesture, a no-op here.
             self._middle_pending = False
             if event.modifiers() == Qt.KeyboardModifier.NoModifier:
                 self._pick_first_favourite()

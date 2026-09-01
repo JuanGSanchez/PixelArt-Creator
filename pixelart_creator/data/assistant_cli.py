@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Headless, Qt-free assistant CLI driver (the ``pixelart-assistant`` entrypoint).
 
-Phase-14 Slice 14F (REQ-P14-DATA-008; ADR-0042 §2). The headless embedding of the
+Part of the AI-assistant feature, Phase 14 (REQ-P14-DATA-008; ADR-0042 §2).
+The headless embedding of the
 model-agnostic AI assistant: it **mirrors the shipped** ``pixelart-run`` automation CLI
 (:mod:`pixelart_creator.data.automation_cli`) so the assistant is drivable without a GUI
 — in scripts, CI, or automation. It loads a ``.pixproj`` through the shipped defensive
@@ -43,8 +44,8 @@ endpoint) → a clear "configure a provider/key first" message + a non-zero exit
 network, no crash.
 
 ``pyproject`` wires ``pixelart-assistant =
-"pixelart_creator.data.assistant_cli:main"`` as a console script — that edit is
-**AGT-09's** (Article IX, T14F-02), not here.
+"pixelart_creator.data.assistant_cli:main"`` as a console script — that edit
+belongs to the packaging layer (Article IX), not here.
 
 Exit codes: ``0`` ok / ``1`` runtime error (``AssistantError``/``LLMError``/write
 error) / ``2`` bad args or a defensive load failure (``ProjectIOError``) / ``3`` not
@@ -259,7 +260,8 @@ def main(
     not configured). See the module docstring.
 
     The ``backend`` and ``load_document``/``save_document`` parameters are **injectable
-    seams** (mirroring the dock's ``build_backend`` seam): AGT-04 passes a deterministic
+    seams** (mirroring the dock's ``build_backend`` seam): the test suite
+    passes a deterministic
     fake :class:`~pixelart_creator.logic.assistant.ChatBackend` (no key/network) and, if
     desired, in-memory document I/O, so the default-gate tests need no provider.
 

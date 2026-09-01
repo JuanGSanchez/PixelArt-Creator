@@ -152,9 +152,9 @@ class AssetDescriptor:
             ``MAX_METADATA_BYTES``.
         path: The advisory current location (display/fallback only); resolved *through*
             ``asset_id``, never authoritative. ``None`` when unknown.
-        reference_key: The content-only reference-derivation key (ruling P11-R8,
-            ``design-docs/specs/phase-11-asset-ingress/plan.md`` §3.10) — a hex
-            content hash of :func:`~pixelart_creator.logic.asset_edges.reference_bytes`,
+        reference_key: The content-only reference-derivation key (ruling P11-R8)
+            — a hex content hash of
+            :func:`~pixelart_creator.logic.asset_edges.reference_bytes`,
             distinct from ``content_hash``: this key answers *"is this the same
             pictorial content?"* (edge derivation only, ``REQ-P11-LOGIC-010``),
             while ``content_hash`` answers *"are these the same stored bytes?"*

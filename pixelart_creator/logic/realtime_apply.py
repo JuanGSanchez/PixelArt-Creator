@@ -7,14 +7,16 @@ over the shipped hybrid convergence model (:mod:`pixelart_creator.logic.converge
 
 1. **Real-time apply (REQ-P10-LOGIC-007).** :func:`apply_remote` folds an inbound,
    untrusted CRDT-update blob onto the **live** ``Document`` deterministically. It is
-   built for **Article VI per-frame re-entry** (ADR-0027 §7, the AGT-10 FLAG-PERFRAME
+   built for **Article VI per-frame re-entry** (ADR-0027 §7, the
+   rendering-performance FLAG-PERFRAME
    obligation): unlike the batch :func:`~pixelart_creator.logic.convergence.converge`
    (which deep-copies ``base`` — ~126 MB at 8K), it mutates the passed document **in
    place** via the dirty-region-scoped
    :func:`~pixelart_creator.logic.convergence.apply_operations`, so a single patch apply
    costs the size of the *patch*, not the canvas. :func:`dirty_regions` reports exactly
-   which raster tiles a patch touches so AGT-10's overlay/redraw path can coalesce and
-   redraw only those rects. A :class:`RealtimeState` carries the per-register LWW clocks
+   which raster tiles a patch touches so the rendering-performance
+   overlay/redraw path can coalesce and redraw only those rects.
+   A :class:`RealtimeState` carries the per-register LWW clocks
    across a stream so **out-of-order delivery still converges** (strong eventual
    consistency): a stale patch (older ``(logical_clock, site_id)`` than what is already
    applied) is dropped, never clobbering a newer edit.
@@ -90,8 +92,9 @@ class RealtimeError(ValueError):
 class DirtyRegion:
     """A raster rectangle a remote patch touches — the dirty-rect redraw unit (F4/F7).
 
-    Given to AGT-10's per-frame overlay/redraw path so only the changed pixels are
-    repainted after a remote apply (Article VI, ADR-0027 §7). Coordinates are in the
+    Given to the rendering-performance per-frame overlay/redraw path so only
+    the changed pixels are repainted after a remote apply (Article VI,
+    ADR-0027 §7). Coordinates are in the
     target layer's buffer space (pixels).
 
     Attributes:
@@ -390,7 +393,8 @@ def apply_remote(
     folds them onto the live ``document`` through the dirty-region-scoped
     :func:`~pixelart_creator.logic.convergence.apply_operations` — **no** deep copy,
     so a single patch apply is bounded by the patch, not the 8K canvas (Article VI
-    re-entry, ADR-0027 §7; AGT-10 FLAG-PERFRAME profiles exactly this call).
+    re-entry, ADR-0027 §7; the rendering-performance FLAG-PERFRAME profiling
+    covers exactly this call).
 
     Determinism (REQ-P10-LOGIC-007): with a shared ``state`` across a session,
     applying a given set of updates in **any** order converges to the same document —

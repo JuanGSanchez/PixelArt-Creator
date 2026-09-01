@@ -229,11 +229,11 @@ class Canvas_View(QGraphicsView):
         self._pan_origin = QPoint()
         #: The persisted Favourites model a plain wheel notch / unmodified
         #: middle click travel (REQ-IS-UI-008/-012); ``None`` until the shell
-        #: binds one via :meth:`set_favourites_model` (T-21).
+        #: binds one via :meth:`set_favourites_model`.
         self._favourites: Optional[Favourites] = None
         self._ctx: Optional[ToolContext] = None
         self._menu_hook: Optional[Callable[[int, int], None]] = None
-        # File-drop routing seam (CF: T-12) — a real drag/drop delivered to
+        # File-drop routing seam — a real drag/drop delivered to
         # QGraphicsView's viewport is otherwise translated into a
         # QGraphicsSceneDragDropEvent and swallowed by the scene (no item
         # accepts it), so it never reaches Main_Window.dropEvent. Only a
@@ -372,7 +372,7 @@ class Canvas_View(QGraphicsView):
         """Bind the persisted Favourites model this view reads and steps.
 
         A plain wheel notch travels it and an unmodified middle click picks
-        its first entry (REQ-IS-UI-008/-012, T-21).
+        its first entry (REQ-IS-UI-008/-012).
         """
         self._favourites = favourites
 
@@ -438,7 +438,7 @@ class Canvas_View(QGraphicsView):
         self._menu_hook = hook
 
     def set_drop_router(self, router: Optional[Callable[[List[str]], None]]) -> None:
-        """Register the window's dropped-file router (CF: T-12, REQ-DDI-UI-001).
+        """Register the window's dropped-file router (REQ-DDI-UI-001).
 
         ``router`` receives the local file paths of a URL drag delivered to
         THIS viewport — the same routing ``Main_Window.dropEvent`` uses, so a
@@ -665,7 +665,7 @@ class Canvas_View(QGraphicsView):
         """Step frames, zoom, or travel Favourites depending on the modifier held.
 
         ``Ctrl``+wheel steps frames (REQ-IS-UI-010); ``Shift``+wheel zooms
-        (REQ-IS-UI-009); plain wheel travels Favourites (REQ-IS-UI-008, T-21 —
+        (REQ-IS-UI-009); plain wheel travels Favourites (REQ-IS-UI-008 —
         displaces the zoom that plain wheel performed until 2026-08-31).
         """
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
@@ -1298,7 +1298,7 @@ class Canvas_View(QGraphicsView):
         view_point = self.mapFromScene(QPointF(x + 0.5, y + 0.5))
         return self.viewport().mapToGlobal(view_point)
 
-    # -- file-drop routing (CF: T-12, REQ-DDI-UI-001) ---------------------
+    # -- file-drop routing (REQ-DDI-UI-001) --------------------------------
 
     @staticmethod
     def _is_url_drag(event: QDragEnterEvent | QDragMoveEvent | QDropEvent) -> bool:
@@ -1326,7 +1326,7 @@ class Canvas_View(QGraphicsView):
         super().dragMoveEvent(event)
 
     def dropEvent(self, event: QDropEvent) -> None:  # noqa: N802
-        """Route a URL drop through the window's file-drop handling (T-12).
+        """Route a URL drop through the window's file-drop handling.
 
         A drop delivered straight to this viewport used to be silently
         swallowed by the scene (no import, no notice, no crash) — this closes

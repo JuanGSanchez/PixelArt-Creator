@@ -26,7 +26,7 @@ class LassoTool(SelectionTool):
         self._points: List[Coord] = []
 
     def label(self) -> str:
-        """Distinct translated name / undo-menu label for this tool (AGT-07)."""
+        """Distinct translated name / undo-menu label for this tool."""
         return QCoreApplication.translate("tools", "Lasso Select")
 
     def begin(self, x: int, y: int, ctx: ToolContext) -> None:

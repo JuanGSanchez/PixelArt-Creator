@@ -1,6 +1,7 @@
 # Copyright 2026 Juan Garcia Sanchez
 # SPDX-License-Identifier: Apache-2.0
-"""Model-agnostic LLM subpackage (zero Qt, S11) — Phase-14 Slice 14B.
+"""Model-agnostic LLM subpackage (zero Qt, S11) — part of the AI-assistant
+feature, Phase 14.
 
 A normal ``data/`` subpackage (governed by the existing ``data`` layering rule: no Qt,
 no ``ui/`` import) mirroring ``data/cloud/``. Exposes the one provider-agnostic

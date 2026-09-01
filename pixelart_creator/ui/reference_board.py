@@ -281,7 +281,7 @@ class Reference_Board(QWidget):
         self._view.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         self._items: List[Reference_Item] = []
         #: The persisted Favourites model bound via :meth:`set_favourites_model`
-        #: (T-21/D-16); ``None`` until the shell binds one.
+        #: (D-16); ``None`` until the shell binds one.
         self._favourites: Optional[Favourites] = None
 
         self._add_button = QPushButton(self)
@@ -447,7 +447,7 @@ class Reference_Board(QWidget):
     def set_favourites_model(self, favourites: Favourites) -> None:
         """Bind the persisted Favourites model a plain wheel notch travels.
 
-        REQ-IS-UI-008, T-21/D-16.
+        REQ-IS-UI-008, D-16.
         """
         self._favourites = favourites
 

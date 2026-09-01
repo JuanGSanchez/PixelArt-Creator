@@ -34,7 +34,8 @@ Teardown: content loading is **synchronous** from the committed bundle — this
 widget introduces **NO** off-thread worker, timer, or network client, so it needs
 no ``shutdown_*``/``closeEvent`` wiring. It is an ordinary disposable
 :class:`QDialog` (parented to the main window when opened from the menu, so it is
-disposed with its parent; AGT-06 also registers it in the UI drain fixture).
+disposed with its parent; the QA test suite also registers it in the UI drain
+fixture).
 """
 
 from __future__ import annotations

@@ -61,7 +61,7 @@ consuming panel maps to a translated label; this module has no widget context to
 ``tr()`` from.
 
 Since ``logic.scripting.dispatch`` / ``logic.macro.replay`` now accept an
-optional ``on_target(index, total)`` callback (AGT-03 follow-up, additive), the
+optional ``on_target(index, total)`` callback (a logic-layer follow-up, additive), the
 ``job`` closures built by :func:`make_dispatch_job` / :func:`make_replay_job`
 thread it straight through, and :class:`Automation_Worker` supplies a closure
 that emits ``progress`` for every completed target *during* the run — true

@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Shared credential-gating + config base for the real LLM adapters (private).
 
-Phase-14 Slice 14D (skill ``llm-adapter-normalization`` step 5; ADR-0040 §5). Both real
+Part of the AI-assistant feature, Phase 14 (skill ``llm-adapter-normalization``
+step 5; ADR-0040 §5). Both real
 adapters share the same non-secret configuration (provider name, base URL, model,
 timeout, retry budget) and the same credential posture: the API key is pulled from the
 OS keyring via :mod:`pixelart_creator.data.llm.token_store` **lazily, at request time**,

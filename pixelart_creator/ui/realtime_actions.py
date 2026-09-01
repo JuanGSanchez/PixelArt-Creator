@@ -13,7 +13,8 @@ Qt-free real-time stack:
   :mod:`pixelart_creator.logic.sync_protocol` (Article VII — never ``eval``/``exec``),
   and for a CRDT ``UPDATE`` folds it onto the *live* ``Document`` via
   :func:`~pixelart_creator.logic.realtime_apply.apply_remote` (in place, dirty-region
-  scoped — the Article VI re-entry point AGT-10 profiles) then reports the touched
+  scoped — the Article VI re-entry point the rendering/performance layer
+  profiles) then reports the touched
   rects via :func:`~pixelart_creator.logic.realtime_apply.dirty_regions` so the caller
   repaints **only** those tiles; a ``PRESENCE`` frame drives the live-cursor overlay.
 

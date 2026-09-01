@@ -32,9 +32,9 @@ ISO_GRID_MIN_ON_SCREEN_EDGE_PX: int = 32
 """Isometric analogue of :data:`GRID_MIN_PIXEL_EDGE_PX`: the LOD threshold for
 the isometric grid overlay. When a tile's on-screen edge (``tile_width * zoom``)
 falls below this many device px, the iso grid overlay skips painting — preventing
-the 722 ms fine-grid zoom-out blowup AGT-10 measured. Larger than the per-pixel
+the 722 ms fine-grid zoom-out blowup that was measured. Larger than the per-pixel
 grid floor (=8) because an iso tile carries far more overlay geometry per cell
-(AGT-10 overlay-perf directive; DIR-1)."""
+(rendering-performance overlay-perf directive; DIR-1)."""
 
 OPENGL_VIEWPORT_ENABLED: bool = True
 """Use a QOpenGLWidget viewport for the canvas; raster fallback applies when
@@ -118,7 +118,7 @@ spec.md §5.2/§5.3; plan.md §4.4; PL-CSD-D1).
 Spelled in terms of :data:`MAX_CANVAS_WIDTH` / :data:`MAX_CANVAS_HEIGHT`, never
 as the bare literal (Article II.3), so the threshold tracks the platform
 ceiling. Named ``DOCUMENT_TRANSFORM_CONFIRM_BYTES`` rather than a
-``SCALE_``-prefixed name (AGT-01 ruling PL-CSD-D1): ``logic/transform.py``'s
+``SCALE_``-prefixed name (architecture ruling PL-CSD-D1): ``logic/transform.py``'s
 own module docstring — "Buffer transforms: flip / rotate-90 / scale-NN" — is
 this codebase's own noun for the whole four-operation family, and all four
 consult this constant.
@@ -229,7 +229,7 @@ region-path p95 (~0.5 ms, dev-measured) yet orders of magnitude below the eager
 full-canvas / O(full-canvas) region regression class (hundreds of ms to tens of
 seconds). It catches the SC-UI-015-1 regression class on a noisy 2-core CI runner
 without flaking on scheduler jitter — the wrong altitude for the 16 ms budget.
-(ADR / AGT-10 rendering-performance directive; S12 single-source.)"""
+(ADR / rendering-performance directive; S12 single-source.)"""
 
 # --- Phase-5 animation tuning (phase-5 T5A-01; Article II single-source) ---------
 # Named bounds/defaults consumed by logic/animation.py (playback + onion) and the
@@ -338,9 +338,9 @@ ceiling for part-2, the catastrophic full-8K tilemap-viewport CI gate. Like
 :data:`COMPOSITE_REGION_CEILING_MS` (FU-15), it sits far above the correct
 tilemap-viewport p95 yet orders of magnitude below the O(full-canvas) regression
 class, so it never flakes on a noisy 2-core CI runner yet always catches a
-catastrophic viewport-render regression. AGT-09 wires ci.yml to pass this value as
+catastrophic viewport-render regression. ci.yml is wired to pass this value as
 ``perf_profile.py --tilemap --budget-ms``.
-(AGT-10 rendering-performance re-profile / perf-gate spec; S12 single-source.)"""
+(Rendering-performance re-profile / perf-gate spec; S12 single-source.)"""
 
 # --- Phase-7 export & pipeline tuning (phase-7 T7A-01; Article II single-source) --
 # Named bounds/defaults consumed by logic/export.py (raster/sprite-sheet pipeline)
@@ -373,7 +373,7 @@ is :data:`MAX_CANVAS_WIDTH` (=7680) x :data:`MAX_CANVAS_HEIGHT` (=4320). A forme
 value of 8192 EXCEEDED that width ceiling, so a sheet packed wider/taller than the
 buildable buffer raised :class:`PixelBufferError` (a DIFFERENT class than
 :class:`~pixelart_creator.logic.atlas.AtlasError`) when the sheet was allocated —
-an inconsistency (S2 defect, found by AGT-10). Defining the atlas edge bound AS the
+an inconsistency (S2 defect). Defining the atlas edge bound AS the
 canvas width ceiling makes the default un-exceedable by the buffer. Note the height
 axis is further clamped to :data:`MAX_CANVAS_HEIGHT` inside
 :func:`~pixelart_creator.logic.atlas.pack_atlas` (the buffer is not square), so the
@@ -524,17 +524,17 @@ DEP-12e; Article II).
 Valued at ``2_821_573 * (4096 // 256) = 2_821_573 * 16 = 45_145_168`` bytes
 (43.054 MiB). ``2_821_573`` is P4's measured **schema-3** file size —
 1280x720, 256 frames, byte-identical across all 5 repeat runs — the largest
-of the T43 re-measurement campaign's four points
-(``design-docs/reports/perf-timelapse-payload-campaign-schema3-20260818.md``
-§3), extended to the shipped :data:`MAX_TIMELAPSE_FRAMES` (= 4096) frame cap
+of the T43 re-measurement campaign's four points (measured 2026-08-18, §3),
+extended to the shipped :data:`MAX_TIMELAPSE_FRAMES` (= 4096) frame cap
 by the unchanged ``* (MAX_TIMELAPSE_FRAMES // 256)`` step (plan §11.1). Never
 inlined: every consumer reads this name, never the literal.
 
 Superseded value (2026-08-17): ``2_397_487`` (-> a ``38_359_792``-byte bound),
 P4's **schema-2** file size measured by the original T19 campaign
-(``design-docs/reports/perf-timelapse-payload-campaign-20260817.md`` §3).
-That campaign's fixture-generator script was ephemeral (per AGT-10's role
-contract) and could not be re-invoked, so the schema-3 anchor above is a
+(measured 2026-08-17, §3).
+That campaign's fixture-generator script was ephemeral (per the
+rendering-performance role's remit) and could not be re-invoked, so the
+schema-3 anchor above is a
 FRESH measurement on a freshly-generated fixture with its own stroke
 placement — it is **not** the old anchor plus identity's cost, and the two
 anchors are not directly comparable (plan §11.2). In particular: the anchor
@@ -601,20 +601,19 @@ budget): this is the deliberately *loose* CI ceiling for the ``--overlay`` frame
 perf gate. Like :data:`COMPOSITE_REGION_CEILING_MS` (FU-15) and
 :data:`TILEMAP_VIEWPORT_CEILING_MS`, it sits far above the correct overlay/multi-view
 p95 yet well below the O(full-canvas) fine-grid regression class (the 722 ms
-zoom-out blowup AGT-10 measured), so it never flakes on a noisy 2-core CI runner
-yet always catches a catastrophic overlay-render regression. AGT-09 wires ci.yml to
+zoom-out blowup that was measured), so it never flakes on a noisy 2-core CI runner
+yet always catches a catastrophic overlay-render regression. ci.yml is wired to
 pass this value as ``perf_profile.py --overlay --budget-ms``.
-(AGT-10 overlay-perf directive; S12 single-source.)"""
+(Overlay-perf directive; S12 single-source.)"""
 
-# --- Phase-9 8K iso-overlay cache-miss gate tuning (WP-6.4 D-29; Article II
+# --- Phase-9 8K iso-overlay cache-miss gate tuning (D-29; Article II
 # single-source) ------------------------------------------------------------------
 # Ceiling for the missing literal-8K overlay-viewport CI scenario
 # (``--overlay --ov-viewport 7680 4320 --ov-tile 32``), distinct from the
 # 1920x1080 scenario every wired ``--overlay`` step exercises today (perf-model
-# governance record `design-docs/auxiliary/perf-model-governance-20260816.md`
-# §7, D-29). Consumed by scripts/perf_profile.py --overlay (passed as
-# --budget-ms by .github/workflows/ci.yml, mirroring the FU-15 overlay/tilemap
-# ceilings above).
+# governance record, §7, D-29). Consumed by scripts/perf_profile.py --overlay
+# (passed as --budget-ms by .github/workflows/ci.yml, mirroring the FU-15
+# overlay/tilemap ceilings above).
 
 OVERLAY_8K_CEILING_MS: int = 2000
 """Catastrophic-regression ceiling for the 8K iso-overlay CPU-raster cache-miss
@@ -627,12 +626,12 @@ governance §3) for the literal 8K overlay viewport
 (``--overlay --ov-viewport 7680 4320 --ov-tile 32``), the scenario the
 governance record's D-29 forward pointer names as missing entirely — no wired
 job exercised the CPU-raster fallback risk at 8K before this. Derived from
-AGT-10's 2026-08-16 measurement: worst local p95 297.5 ms, scaled for the
+the 2026-08-16 measurement: worst local p95 297.5 ms, scaled for the
 2-core CI runner per the Phase-12 spec's CI-scaling factor to ~744 ms, leaving
 ~2.7x headroom to this 2000 ms bound — loose enough to never flake on a noisy
-runner yet well below the O(full-canvas) regression class it must catch. AGT-09
-wires ci.yml to pass this value as ``perf_profile.py --overlay --budget-ms``.
-(AGT-10 D-29 measurement; perf-model governance §3 rule 3; S12 single-source.)"""
+runner yet well below the O(full-canvas) regression class it must catch. ci.yml
+is wired to pass this value as ``perf_profile.py --overlay --budget-ms``.
+(D-29 measurement; perf-model governance §3 rule 3; S12 single-source.)"""
 
 # --- Phase-10 Slice-A cloud/sync tuning (phase-10 T10A-01; Article II) ------------
 # Named bounds/defaults consumed by the new zero-Qt cloud/sync models
@@ -656,7 +655,8 @@ MAX_CLOUD_VERSIONS: int = 100
 :class:`~pixelart_creator.logic.version_history.CloudVersion` entries a
 :class:`~pixelart_creator.logic.version_history.VersionHistory` may hold before
 ``append`` raises ``VersionHistoryError``. Aligns the Dropbox 100-revision limit
-(Researcher §1.2). Retention *policy* beyond the bound is an AGT-01 HOW (plan §8;
+(Researcher §1.2). Retention *policy* beyond the bound is an
+architecture-level HOW (plan §8;
 spec REQ-P10-DATA-003/LOGIC-003/005; SC-L003-1)."""
 
 MAX_CLOUD_PROJECT_BYTES: int = 268435456
@@ -730,7 +730,7 @@ REALTIME_APPLY_CEILING_MS: int = 10
 
 Slice C real-time remote-patch application RE-ENTERS the 16 ms per-frame budget
 (:data:`FRAME_BUDGET_MS`), unlike the batch Slice-A/B sync path. This is the
-DELIBERATELY TIGHTER per-patch sub-budget AGT-10 specified for the ``--realtime`` CI
+DELIBERATELY TIGHTER per-patch sub-budget specified for the ``--realtime`` CI
 perf gate: applying a single remote patch (validate + converge) must finish inside
 ``REALTIME_APPLY_CEILING_MS`` so that patch-apply plus the live-cursor overlay draw
 (REQ-P10-UI-013) still leave headroom within the 16 ms frame. Sourced by
@@ -739,7 +739,7 @@ perf gate: applying a single remote patch (validate + converge) must finish insi
 render budget) and from the loose catastrophic-regression ceilings
 (:data:`COMPOSITE_REGION_CEILING_MS` / :data:`TILEMAP_VIEWPORT_CEILING_MS` /
 :data:`OVERLAY_FRAME_CEILING_MS`): this one is a genuine sub-frame apply target, not an
-order-of-magnitude catch-all. (AGT-10 FLAG-PERFRAME / DEP-3; S12 single-source.)"""
+order-of-magnitude catch-all. (FLAG-PERFRAME / DEP-3; S12 single-source.)"""
 
 # --- In-app User Guide tuning (user-guide T-UG-03; Article II single-source) ------
 # Named numerics consumed by logic/guide_model.py, logic/guide_search.py and
@@ -775,9 +775,9 @@ plan §3.4; spec REQ-UG-LOGIC-001/002/NFR-6)."""
 # ADR-0030 / ADR-0032): every name is DISTINCT from every shipped constant. The
 # AssetKind enum is a module-local enumerated *vocabulary* and lives in
 # logic/asset_catalog.py, NOT here (ADR-0001 / BF-2, the BlendMode/PlaybackMode/
-# SyncState precedent). MAX_DEPENDENCY_DEPTH (Slice 2) and MAX_ASSET_VERSIONS (Slice 3)
-# land with their slices (plan §8), not here. This module stays a leaf (no intra-package
-# imports).
+# SyncState precedent). MAX_DEPENDENCY_DEPTH and MAX_ASSET_VERSIONS each
+# land with the later feature that introduces them (plan §8), not here.
+# This module stays a leaf (no intra-package imports).
 
 MAX_CATALOG_ASSETS: int = 65536
 """Defensive cap on the number of asset entries in one catalog (Article VII).
@@ -887,7 +887,7 @@ budget) and from every other shipped ceiling. The cold full-frame
 a **batch / on-demand** op (flatten, export, merge-visible), **not** a per-frame
 render path — so Article VI's 16 ms budget does not govern it and is neither
 applied nor relaxed here (spec §5; ADR-0033 §5; FU-15). This is a deliberately
-*loose* order-of-magnitude bound RE-PROFILE-confirmed by AGT-10 against the
+*loose* order-of-magnitude bound RE-PROFILE-confirmed against the
 **realistic-content 8-layer** flatten (≈2.7 s on a fast desktop; ≈5–8 s on the
 slow 2-core CI runner). The former 3000 ms mirror of the full-8K
 :data:`TILEMAP_VIEWPORT_CEILING_MS` was too tight for that realistic gate and
@@ -895,10 +895,10 @@ would flake on healthy code on the 2-core runner (the FU-15 loose-ceiling
 caution / failure mode). 15000 ms gives ~1.85–2.5x margin over realistic content
 while staying ~2.5–4x **below** the ~38–63 s catastrophic-regression cost it must
 catch (the measured 20 244 ms (4L) / 42 669 ms (8L) class scales worse on the
-2-core runner). AGT-09 wires ci.yml to pass this value as
+2-core runner). ci.yml is wired to pass this value as
 ``perf_profile.py --full-frame --budget-ms`` (the ``--full-frame`` gate already
 reads this constant as its default ceiling)
-(AGT-10 RE-PROFILE + FU-15 loose-ceiling caution; plan §8;
+(RE-PROFILE + FU-15 loose-ceiling caution; plan §8;
 spec REQ-P12-LOGIC-001/-003; ADR-0033; baseline §6; S12 single-source)."""
 
 FLATTEN_TILE_EDGE_PX: int = 1024
@@ -935,7 +935,8 @@ plan §3; spec REQ-P12-LOGIC-001)."""
 # logic/blend.py (composite_range + the NN LOD helpers) and by
 # scripts/perf_profile.py --viewport-recomposite (passed as --budget-ms by
 # .github/workflows/ci.yml, mirroring the FU-15 composite / full-frame gates).
-# BF (AGT-10 Slice-B directive §6.1 / ADR-0034): both names are DISTINCT from every
+# BF (rendering-performance Slice-B directive §6.1 / ADR-0034): both names
+# are DISTINCT from every
 # shipped ceiling (COMPOSITE_REGION_CEILING_MS / TILEMAP_VIEWPORT_CEILING_MS /
 # OVERLAY_FRAME_CEILING_MS / REALTIME_APPLY_CEILING_MS / COMPOSITE_FULL_CEILING_MS)
 # and from every shipped working-set/pixel constant. This module stays a leaf (no
@@ -953,7 +954,8 @@ budget does not govern it and is neither applied nor relaxed here (spec §5; ADR
 §3/§4; FU-15). Only the *during-drag downsampled preview* (REQ-P12-UI-001) holds the
 16 ms budget; this ceiling gates the *commit*.
 
-**AGT-10 RAISED the plan's candidate 2000 ms to 3000 ms** (Slice-B directive §5.1): the
+**The rendering-performance directive RAISED the plan's candidate 2000 ms to 3000 ms**
+(Slice-B directive §5.1): the
 naive full 12-layer recomposite is already measured **2191 ms @ 1080²** and ~7000 ms @
 1920² on a fast 8-core desktop, and the 2-core CI runner is ~1.5–2.5× slower — so a
 2000 ms bound is **unmeetable** and would flake on healthy code (the FU-15 loose-ceiling
@@ -963,10 +965,10 @@ culled viewport for realistic predominantly-NORMAL content) is sub-second to ~1 
 below the ~7 s (8-core) / ~14–17 s (2-core) naive-recomposite catastrophe it must catch
 — exactly the Slice-A precedent (:data:`COMPOSITE_FULL_CEILING_MS` was likewise raised
 from a too-tight mirror to a loose RE-PROFILE-confirmed bound). The value is a candidate
-until AGT-10's RE-PROFILE ship gate measures the optimised 2-core split-cache commit and
-finalises it; it must stay well below the catastrophe so the gate still bites. AGT-09
-wires ci.yml to pass this value as
-``perf_profile.py --viewport-recomposite --budget-ms`` (AGT-10 Slice-B directive §5.1;
+until the RE-PROFILE ship gate measures the optimised 2-core split-cache commit and
+finalises it; it must stay well below the catastrophe so the gate still bites. ci.yml
+is wired to pass this value as
+``perf_profile.py --viewport-recomposite --budget-ms`` (Slice-B directive §5.1;
 ADR-0034 §4; FU-15; plan §8; spec REQ-P12-LOGIC-004/-005; S12 single-source)."""
 
 OPACITY_PREVIEW_MAX_PX: int = 16384
@@ -979,12 +981,12 @@ is *derived* from this single-source pixel budget over the culled viewport rect 
 ``D = max(1, ceil(sqrt(area(V) / OPACITY_PREVIEW_MAX_PX)))``. Halving the working set
 (a 128×128 set) halves the downsampled re-blend + upsample cost, so the ~2-blend
 preview holds the 16 ms budget up to a LARGER viewport before the low-zoom Slice-A
-handoff. Grounded in AGT-10's on-box measurement (≈183 ms/layer/1080²): a 2-blend
+handoff. Grounded in an on-box measurement (≈183 ms/layer/1080²): a 2-blend
 re-blend over ≤16 384 px costs ≈ few ms per tick and holds 16 ms up to ~1080–1280²
 viewports on the 2-core runner, degrading gracefully beyond (the low-zoom Slice-A
 handoff).
 
-The value was LOWERED 65536 → 16384 by AGT-10's Slice-B RE-PROFILE (directive §1.3):
+The value was LOWERED 65536 → 16384 by the Slice-B RE-PROFILE (directive §1.3):
 the former 65 536-px working set held 16 ms at 1080² but exceeded it at 1920² (the
 float64 re-blend floor over the preview budget + upsample cost); halving the
 downsampled working set restores 16 ms headroom up to ~1080–1280² on the 2-core runner.
@@ -992,7 +994,7 @@ This ONLY affects PREVIEW fidelity/speed — the preview is already a deliberate
 *approximate* during-drag LOD view — and does NOT affect the byte-exact COMMIT
 recomposite (REQ-P12-LOGIC-004; ADR-0034 §3). DISTINCT from every shipped pixel/edge
 constant (:data:`FLATTEN_TILE_EDGE_PX`, :data:`TILE_SIZE`, the MAX_*_DIMENSION bounds)
-— this is the *preview LOD working-set budget*, a different concern (AGT-10 Slice-B
+— this is the *preview LOD working-set budget*, a different concern (Slice-B
 RE-PROFILE / directive §1.3; ADR-0034 §2; FU-15; plan §8; spec REQ-P12-UI-001;
 S12 single-source)."""
 
@@ -1253,7 +1255,7 @@ screen-space scalar of the four canvas-grid-semantics constants; distinct from
 fixed-width pen stroke, not a document-space size or a zoom-compared LOD
 threshold) rather than by value."""
 
-# --- input-scheme feedback + gesture scalars (T-04; Article II single-source) ----
+# --- input-scheme feedback + gesture scalars (Article II single-source) ----
 # The cursor-feedback square, its animation and the click/drag split all read
 # their numbers from here — none is ever inlined into ui/ (REQ-IS-LOGIC-004,
 # SC-L004-1..2, plan.md §4.5). Every value is traced, not invented (Article II):

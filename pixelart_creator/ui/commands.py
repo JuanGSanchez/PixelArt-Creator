@@ -54,11 +54,13 @@ ApplyDescriptorCallback = Callable[[AssetDescriptor], None]
 
 #: Called (no args) on both redo and undo of a pixel edit to drop the LayerGroup
 #: flatten caches so a stale composite can never be served after the edit (D4;
-#: AGT-03 ``Document.invalidate_caches`` via ``CanvasScene.invalidate_group_caches``).
+#: the logic layer's ``Document.invalidate_caches`` via
+#: ``CanvasScene.invalidate_group_caches``).
 InvalidateCallback = Callable[[], None]
 
 #: Called (no args) after a whole-buffer / dimension-changing op so the view can
-#: rebind the scene and repaint (dirty-rect scope is AGT-10's concern).
+#: rebind the scene and repaint (dirty-rect scope belongs to the rendering
+#: and performance layer, not here).
 RebindCallback = Callable[[], None]
 
 #: Called with the traces one reversible op produced and whether they describe

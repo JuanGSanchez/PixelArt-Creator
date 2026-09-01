@@ -58,8 +58,8 @@ colour-change and tool-change events and decides *when* to call :meth:`show_colo
 *exactly* ``PySide6.QtCore``, ``PySide6.QtGui``, ``PySide6.QtWidgets`` plus one
 ``pixelart_creator.logic.constants`` import for the four feedback scalars — nothing
 else, ever. ``check_layering`` cannot see a ``ui -> ui`` edge, so a second domain
-import here is a back door that script cannot catch; task T-19 adds an AST-based test
-that is the actual gate.
+import here is a back door that script cannot catch; an AST-based test
+is the actual gate.
 """
 
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QVariantAnimation

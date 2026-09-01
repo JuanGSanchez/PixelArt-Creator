@@ -5,7 +5,7 @@
 The tilemap canvas renders through the frozen, Qt-free
 :meth:`~pixelart_creator.logic.tilemap.Tilemap.render_region` seam. Re-running it
 for the whole exposed viewport every frame is over the 16 ms budget on a large /
-cold map (AGT-10: full 8K viewport cold ~307 ms, and the original S1/S4 froze for
+cold map (measured: full 8K viewport cold ~307 ms, and the original S1/S4 froze for
 seconds). This module supplies the two pieces the scene assembles into a
 budget-hitting incremental render:
 

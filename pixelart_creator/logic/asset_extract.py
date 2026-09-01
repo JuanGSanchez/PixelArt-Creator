@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Pure derivation of an asset's content hash and descriptor (REQ-P11-LOGIC-009).
 
-This module is the ``logic/`` half of the determinism split recorded at
-``design-docs/specs/phase-11-asset-ingress/plan.md`` §3.2: turning an in-app
-source into an asset's **content hash and descriptor** is a pure, Qt-free,
+This module is the ``logic/`` half of a deliberate determinism split:
+turning an in-app source into an asset's **content hash and descriptor** is a
+pure, Qt-free,
 deterministic computation — the same canonical bytes always yield the same
 hash and (given the same caller-supplied choices) the same descriptor, with
 no dependence on wall-clock, randomness, locale or filesystem state, and no
@@ -125,8 +125,7 @@ def descriptor_for(
         metadata: An optional JSON-scalar metadata bag.
         path: An optional advisory display/fallback path.
         reference_key: The content-only reference-derivation key (ruling
-            P11-R8, ``design-docs/specs/phase-11-asset-ingress/plan.md``
-            §3.10), already computed by the caller — this function performs
+            P11-R8), already computed by the caller — this function performs
             no derivation of its own, the same "bytes/key in, descriptor out"
             contract as ``content_hash``. Defaults to ``""`` (*unknown* — no
             derived edge), so a caller that predates this field, or a kind

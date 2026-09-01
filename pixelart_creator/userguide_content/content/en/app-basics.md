@@ -1,4 +1,4 @@
-<!-- surface-only: bundle — in-app orientation content; only lightly covered by the site's index.md framing prose, no dedicated site page by design (WP-8 unit 2d) -->
+<!-- surface-only: bundle — in-app orientation content; only lightly covered by the site's index.md framing prose, no dedicated site page by design -->
 # Getting started & the workspace
 
 ![PixelArt Creator](pac-logo.png)
