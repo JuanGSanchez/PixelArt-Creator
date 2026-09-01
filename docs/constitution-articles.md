@@ -7,13 +7,13 @@
 ```
 generator: sync_constitution_extract.py
 generator-version: 1.2.0
-constitution-version: v1.1
-constitution-date: 2026-08-01
+constitution-version: v1.2
+constitution-date: 2026-08-30
 articles: I..XI (11)
-clauses-redacted: 1
+clauses-redacted: 2
 clauses-exempted: IX §4
-source-region-sha256: 41f39f6890a0bc1d96eca0fa858a23ebb048cec157f374a920ecd9cc729c9591
-body-sha256: 66e138026a09fbe4a591ddaadd40161a2939247aa490b81cc44e5cecfa7f89c4
+source-region-sha256: 5f429df9b7542a69b90c9fa3984655eb416a245f35172a316f6236921f8b1dea
+body-sha256: 18785e5ef00fff07d220193bab18ceb9b5ff31c3579a3a413a8c29f71c19b762
 ```
 
 <!-- END PROVENANCE -->
@@ -251,10 +251,7 @@ the same numbered clause here as in the source.
 
 ## Article X — REQ-ID Scheme and Traceability
 
-1. Requirement identifiers follow the scheme
-   **`REQ-P<phase>-<LAYER>-<NNN>`** — e.g. `REQ-P1-LOGIC-001`, where `<phase>`
-   is the roadmap phase, `<LAYER>` ∈ {`UI`, `LOGIC`, `DATA`}, and `<NNN>` is a
-   zero-padded sequence.
+1. *[Redacted — internal governance detail, not required to resolve a repository citation. The clause number is preserved so that citations of this section still resolve.]*
 2. Every REQ-ID traces forward to at least
    one acceptance criterion and one passing test. An untraced requirement is an *analyze*-gate finding.
 
