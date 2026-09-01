@@ -629,9 +629,7 @@ def do_dispatch(repo: str, args: argparse.Namespace) -> int:
         return 2
     time.sleep(2)  # give GitHub a moment to register the new run before we look it up
     try:
-        runs = fetch_recent_runs(
-            repo, args.branch, 1, workflow=workflow_file
-        )
+        runs = fetch_recent_runs(repo, args.branch, 1, workflow=workflow_file)
     except RouterError as exc:
         print(f"run_ci: dispatched, but could not look up the new run: {exc}")
         return 0
