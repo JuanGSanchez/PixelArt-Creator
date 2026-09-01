@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Macro model — data-driven DSL list + record / deterministic replay (zero Qt, S11).
 
 A **macro is data**, never code (Article VII; ADR-0021): an ordered tuple of

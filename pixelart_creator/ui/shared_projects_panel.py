@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Shared-projects panel — share a project + manage the member roster (REQ-P10-UI-009).
 
 ``Shared_Projects_Panel`` is a presentation-only :class:`~PySide6.QtWidgets.QWidget`

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Dropbox v2 real cloud adapter — credential-gated, out of CI (zero Qt, S11).
 
 Phase-10 Slice A tail (ADR-0026 §1/§2; spec REQ-P10-DATA-001/-002/-003/-007/-008;

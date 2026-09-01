@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Autosave-recovery prompt on restart (REQ-P10-UI-003).
 
 ``Recovery_Prompt`` is a presentation-only :class:`~PySide6.QtWidgets.QDialog`

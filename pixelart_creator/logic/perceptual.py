@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Perceptual colour difference: sRGB→Lab + CIEDE2000 (ΔE00) (zero Qt, S11).
 
 Implements the CIEDE2000 perceptual colour-difference metric and a perceptual

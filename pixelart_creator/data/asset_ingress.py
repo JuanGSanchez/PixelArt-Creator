@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """The atomic asset-ingress boundary — defensive, zero Qt (S11; REQ-P11-DATA-009).
 
 The single write path through which content becomes a catalog entry

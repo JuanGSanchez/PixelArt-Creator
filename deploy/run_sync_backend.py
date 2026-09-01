@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Persistent launch entry for the shipped ``sync_backend/`` relay on a VPS.
 
 Phase-13 Slice 13C (REQ-P13-BACKEND-001, Researcher Q4). The shipped

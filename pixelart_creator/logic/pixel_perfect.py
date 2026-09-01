@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pixel-perfect freehand stroke corner removal (zero Qt, S11).
 
 :func:`pixel_perfect` thins a freehand stroke's coordinate sequence to a clean

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Real-time collaboration session seam (REQ-P10-UI-013; ADR-0027 §7).
 
 Phase-10 Slice C. :class:`Realtime_Session` is the **GUI-thread** provider-agnostic

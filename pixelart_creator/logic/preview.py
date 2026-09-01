@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Real-size preview scale — pure device-independent math, zero Qt (S11).
 
 The one pure geometry input the real-size preview needs (ADR-0023 §4, research §4):

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Tiled-drawing mode wiring (REQ-P2-UI-015).
 
 Single wiring point for the seamless-pattern tiled mode: it toggles the scene's

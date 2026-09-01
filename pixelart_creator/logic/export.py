@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Deterministic, headless export engine — PNG / GIF / sprite-sheet / atlas + JSON.
 
 This is the pure, Qt-free (S11, Article I) export pipeline the GUI and the CLI

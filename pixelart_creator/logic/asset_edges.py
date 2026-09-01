@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pure derivation of an asset's dependency edges (REQ-P11-LOGIC-010).
 
 This module derives, over **values**, the direct :class:`DependencyEdge` s a

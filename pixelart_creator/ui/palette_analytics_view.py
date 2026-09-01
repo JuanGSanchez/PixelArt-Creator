@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Palette analytics view (REQ-P3-UI-011): per-colour / per-index usage counts.
 
 ``Palette_Analytics_View`` is a **read-only**, sortable table of how often each

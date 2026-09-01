@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Catalog + per-asset sidecar persistence — defensive, zero Qt (S11; ADR-0030 §1/§2).
 
 Persist and reload an :class:`~pixelart_creator.logic.asset_catalog.AssetCatalog`

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Registration prompt — the one shared collection surface (RP-1..RP-5).
 
 ``Asset_Register_Dialog`` is the single prompt every in-app registration action

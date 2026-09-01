@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Whole-document geometry transform engine (zero Qt, S11).
 
 The four whole-document `Image` operations (Scale, Rotate 90, Flip

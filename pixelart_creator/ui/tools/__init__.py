@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Tool controllers (REQ-P1-UI-011..016).
 
 Thin presentation controllers that translate canvas mouse events into

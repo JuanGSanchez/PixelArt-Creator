@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Local-development static file server for the ``web_viewer/static/`` client.
 
     LOCAL DEV ONLY — **NOT FOR PRODUCTION.**

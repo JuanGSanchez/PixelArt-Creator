@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Application-level shortcut guard for text-entry widgets (REQ-IS-UI-006).
 
 The eleven tool actions in ``main_window.py`` carry ``QAction`` shortcuts on

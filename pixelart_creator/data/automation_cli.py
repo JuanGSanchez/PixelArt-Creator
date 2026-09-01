@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Headless, Qt-free automation CLI driver (the ``pixelart-run`` entrypoint).
 
 The automation entrypoint (REQ-P8-LOGIC-014, REQ-P8-UI-010; ADR-0022 §3): it loads

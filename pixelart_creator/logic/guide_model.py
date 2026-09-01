@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """In-app User Guide content model — the section→topic tree (zero Qt, S11).
 
 Pure, deterministic domain model for the offline User Guide (ADR-0029; spec

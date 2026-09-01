@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Auto-extract-from-image dialog (REQ-P3-UI-010).
 
 ``Extract_Palette_Dialog`` loads an image, then extracts a palette of at most ``N``

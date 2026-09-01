@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Frame-tags panel — named-animation CRUD + play (REQ-P5-UI-013/-014).
 
 ``Frame_Tags_Panel`` lists the active document's ordered frame **tags** (named

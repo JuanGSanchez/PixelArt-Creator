@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Cross-project reuse export — reference-set bundling, defensive, zero Qt (S11).
 
 Export the assets a project references into a **self-contained, portable artifact**

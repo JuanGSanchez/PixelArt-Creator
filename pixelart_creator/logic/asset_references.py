@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Per-project asset reference set and its two predicates (REQ-P11-UI-021, -DATA-010).
 
 A project's reference set is what makes cross-project reuse (``REQ-P11-UI-021``) real

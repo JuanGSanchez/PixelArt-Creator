@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Asset-library session — the shared in-memory catalog the panels bind to (Phase 11).
 
 ``Asset_Library_Session`` is a presentation-only :class:`~PySide6.QtCore.QObject`

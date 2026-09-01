@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Immutable, content-hash-addressed asset-revision DAG — pure, zero Qt (S11).
 
 The per-asset version model Phase 11 introduces (ADR-0030 §6; REQ-P11-LOGIC-006). It

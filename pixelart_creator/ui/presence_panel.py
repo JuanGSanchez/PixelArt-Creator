@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Presence panel — show WHO is present in a shared project (REQ-P10-UI-011).
 
 ``Presence_Panel`` is a presentation-only :class:`~PySide6.QtWidgets.QWidget` over the

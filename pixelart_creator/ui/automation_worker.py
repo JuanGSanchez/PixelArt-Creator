@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Off-GUI-thread automation execution + deterministic teardown (REQ-P8-UI-011).
 
 A long macro replay, a large batch recolour, or a big (up to 8K) procedural

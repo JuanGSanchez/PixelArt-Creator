@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Client-side real-time transport port (zero Qt, S11) — Phase-10 Slice C.
 
 ADR-0027 §3; spec REQ-P10-DATA-010. A provider-agnostic :class:`TransportPort` carries

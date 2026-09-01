@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Local-filesystem / in-memory fake cloud adapter — the CI contract (zero Qt, S11).
 
 Phase-10 Slice A (ADR-0026 §2/§4; spec REQ-P10-DATA-002/-003/-004/-005). A fully

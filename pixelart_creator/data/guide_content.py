@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Offline bundled-content reader for the in-app User Guide (zero Qt, S11).
 
 The defensive ``data/`` reader for the committed, distributable content bundle

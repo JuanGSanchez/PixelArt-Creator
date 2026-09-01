@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """In-app User Guide viewer (REQ-UG-UI-003..011; ADR-0029).
 
 ``User_Guide_Dialog`` is the navigable, **read-only**, fully **offline** guide

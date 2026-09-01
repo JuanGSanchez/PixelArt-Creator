@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Shared stdlib-``urllib`` JSON POST + bounded retry for the real adapters (private).
 
 Phase-14 Slice 14D (skill ``llm-adapter-normalization`` step 5; Researcher ``ad2616c7``

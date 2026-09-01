@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Drag-drop file classification + shared import-error family (zero Qt, S11).
 
 A pure, Qt-free helper for the drag-drop import feature (REQ-NEW-A). It answers

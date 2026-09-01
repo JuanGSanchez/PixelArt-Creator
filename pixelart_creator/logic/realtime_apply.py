@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Real-time CRDT apply layer + git-like art branching (zero Qt, S11).
 
 Phase-10 Slice C (ADR-0028 §1/§3, ADR-0027 §7; spec REQ-P10-LOGIC-007). Two capabilities

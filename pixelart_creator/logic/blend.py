@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Layer blend modes and the stack compositor (zero Qt, S11).
 
 This module owns the Phase-4 compositing maths: the :class:`BlendMode`

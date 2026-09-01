@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Package launch hook so ``python -m pixelart_creator`` starts the GUI.
 
 Thin shim only — the real launcher lives in :func:`pixelart_creator.ui.app.main`.

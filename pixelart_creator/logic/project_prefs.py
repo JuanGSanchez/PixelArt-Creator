@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Per-project preference registry (zero Qt, S11 — ADR-0056).
 
 Settles the four-claimant "per-project confirmation preference" decision once

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Read/write the ``.pixproj`` project format (zero Qt, S11).
 
 The on-disk format is JSON with zlib+base64-compressed pixel data. Loading is

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Procedural-generation panel — seeded, deterministic content (REQ-P8-UI-007).
 
 ``Procgen_Panel`` lets the user choose a generation **algorithm**, a **seed** and

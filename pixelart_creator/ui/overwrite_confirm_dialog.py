@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Floating-selection overwrite confirmation — blocking, cancellable (REQ-P2-UI-037).
 
 ``Overwrite_Confirm_Dialog`` is shown by ``ui/tools/floating_move.py`` before a

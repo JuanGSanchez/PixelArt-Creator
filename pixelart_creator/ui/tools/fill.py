@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Flood-fill tool (REQ-P1-UI-014): fill the contiguous region as one command."""
 
 from __future__ import annotations

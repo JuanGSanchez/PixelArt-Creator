@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Off-GUI-thread real-time transport worker + deterministic teardown (Slice C).
 
 Phase-10 Slice C (REQ-P10-DATA-010, REQ-P10-UI-013; ADR-0027 §3/§7). The real-time

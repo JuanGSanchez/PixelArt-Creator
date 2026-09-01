@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Backend-side persistence of the per-document CRDT update log (Phase-10 Slice C).
 
 ADR-0027 §4; spec REQ-P10-BACKEND-001. The relay persists the **ordered** CRDT-update

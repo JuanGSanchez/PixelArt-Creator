@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """In-app User Guide search — a pure query over indexed topic text (zero Qt, S11).
 
 A single pure, deterministic, case-insensitive :func:`query` over the built

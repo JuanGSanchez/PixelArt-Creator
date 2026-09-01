@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Persisted Favourites colour model — ordered, de-duplicated (zero Qt, S11).
 
 The Qt-free model backing the colour-hub Favourites list: an ordered,

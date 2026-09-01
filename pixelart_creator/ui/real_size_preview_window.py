@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Real-size preview window (REQ-P9-UI-001/-002) — Qt only, binds to logic/preview.
 
 ``Real_Size_Preview_Window`` shows the document at true physical size and mirrors

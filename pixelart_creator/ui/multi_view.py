@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Multi-view editing (REQ-P9-UI-007/-008) — Qt only, one shared scene.
 
 ``Multi_View`` opens extra :class:`QGraphicsView` viewports onto the **one** shared

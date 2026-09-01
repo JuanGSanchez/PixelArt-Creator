@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """``web_viewer`` — vanilla browser companion viewer for shared pixel-art projects.
 
 A NEW top-level package **outside** the three desktop layers (ADR-0035): headless,

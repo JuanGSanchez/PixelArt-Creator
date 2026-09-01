@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Asyncio WebSocket sync-relay server (Phase-10 Slice C) — OUTSIDE the three layers.
 
 ADR-0027 §1/§2/§4/§6; spec REQ-P10-BACKEND-001/-002, CL-B4. :class:`SyncServer` relays

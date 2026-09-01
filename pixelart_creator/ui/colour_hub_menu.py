@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Right-click colour hub: Favourites + wheel (REQ-P3-UI-003/-004/-006).
 
 The **marquee S3/S4 colour hub**: a cursor-anchored contextual popup opened from

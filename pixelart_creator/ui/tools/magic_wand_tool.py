@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Magic-wand selection tool (REQ-P2-UI-006): contiguous colour region + tolerance."""
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Tilemap canvas — composited render + stamping tools (Slice 6F).
 
 ``Tilemap_Canvas`` is a :class:`QGraphicsView` over ``_Tilemap_Scene``, a

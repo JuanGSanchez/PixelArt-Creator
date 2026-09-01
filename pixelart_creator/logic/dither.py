@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Ordered (Bayer) + Floyd–Steinberg dithering onto a palette (zero Qt, S11).
 
 Both routines map a source RGBA buffer onto a **target palette**: the output's

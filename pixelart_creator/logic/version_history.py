@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Ordered, immutable cloud version-history model — pure, zero Qt (S11).
 
 The version model for the Phase-10 cloud layer (Slice A, ADR-0026 §5). A cloud

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Colour-cycling controls (REQ-P3-UI-012): non-destructive index-range cycling.
 
 ``Colour_Cycling_Panel`` selects a palette index range and plays / stops a

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Colour-picker tool (REQ-P1-UI-016): read a pixel, set the active colour."""
 
 from __future__ import annotations

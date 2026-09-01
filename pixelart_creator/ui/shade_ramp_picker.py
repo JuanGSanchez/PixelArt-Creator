@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Shade / tint / tone ramp picker (REQ-P3-UI-007).
 
 ``Shade_Ramp_Picker`` shows the shade, tint, and tone ramps of a base colour —

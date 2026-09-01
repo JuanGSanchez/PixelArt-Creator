@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Qt orchestration for a whole-document geometry transform (canvas-scale-defects).
 
 Bridges the Qt-free ``logic/doc_transform.py`` engine into a modal cost gate,

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Reversible asset-tag operations — pure, zero Qt (S11; HIS-1 pattern).
 
 Tagging expressed as pure **do/undo pairs** (REQ-P11-LOGIC-002 / REQ-P11-DATA-003): each

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Transient cursor-feedback overlay (REQ-IS-UI-024..026) — Qt only, presentation-only.
 
 :class:`Cursor_Feedback_Overlay` is a small ``QWidget`` **child of a painting view's

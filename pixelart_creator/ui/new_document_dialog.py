@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """New-document size dialog (File > New, Ctrl+N).
 
 ``New_Document_Dialog`` collects a width/height for a brand-new

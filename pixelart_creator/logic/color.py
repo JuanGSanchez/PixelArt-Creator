@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """RGBA colour value type and pure colour operations (zero Qt, S11).
 
 Colours are plain ``(r, g, b, a)`` tuples of four ints in ``0..255``. Qt colour

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Project confirmations submenu — the restore path for suppressed preferences.
 
 ``build_project_prefs_menu`` renders **one entry per registered**

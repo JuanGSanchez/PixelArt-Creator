@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Content-addressable store (CAS) over a blob backend — zero Qt (S11; ADR-0030 §4).
 
 Store asset bytes **once**, keyed by their content hash (the Git-blob / IPFS-CID model,

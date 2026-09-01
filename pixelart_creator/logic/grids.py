@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Isometric & perspective grid geometry — pure, invertible, zero Qt (S11).
 
 The "tested geometry logic" the ROADMAP names (Phase-9 §2): every transform / snap

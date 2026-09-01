@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """OS-keyring API-key isolation for LLM providers — zero Qt (S11).
 
 Phase-14 Slice 14B (ADR-0040 §5; spec REQ-P14-DATA-003/-006, Article VII §3). Wraps

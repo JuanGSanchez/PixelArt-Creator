@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Guides & rulers geometry — pure snap + tick computation, zero Qt (S11).
 
 Document-coordinate guides (the Photoshop/Aseprite model, ADR-0023 §3): a guide is

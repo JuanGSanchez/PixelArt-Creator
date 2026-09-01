@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Eraser tool (REQ-P1-UI-013): clear pixels to the buffer default."""
 
 from __future__ import annotations

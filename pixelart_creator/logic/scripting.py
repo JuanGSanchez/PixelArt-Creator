@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Data-driven command DSL + trusted dispatcher — the automation surface (zero Qt, S11).
 
 **Article VII, by construction (ADR-0021):** the automation engine executes

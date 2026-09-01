@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Batch recolour — many targets, one transactional reversible command (zero Qt, S11).
 
 Batch recolour **composes the shipped** :mod:`logic.palette_ops` (PS-1 —

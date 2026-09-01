@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """The timeline grid's model: a pure frames x layer-track table (zero Qt, S11).
 
 Implements ``REQ-P5-LOGIC-015``: given a document and its active frame, derive

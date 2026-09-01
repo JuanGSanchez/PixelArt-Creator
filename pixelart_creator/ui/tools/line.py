@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Line tool (REQ-P1-UI-015): preview on drag, commit one command on release."""
 
 from __future__ import annotations

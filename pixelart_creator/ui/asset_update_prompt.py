@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Library-edit prompt — pick up or keep, per asset (REQ-P11-UI-022, -023).
 
 ``Asset_Update_Prompt_Dialog`` is shown when the library asset a project

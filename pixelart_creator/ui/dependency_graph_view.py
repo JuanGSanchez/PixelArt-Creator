@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Dependency-graph view + passive break surface (REQ-P11-UI-005 / -006).
 
 ``Dependency_Graph_View`` is a presentation-only :class:`~PySide6.QtWidgets.QWidget`

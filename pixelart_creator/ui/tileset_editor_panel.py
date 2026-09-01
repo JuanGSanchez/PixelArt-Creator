@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Tileset editor panel — slice, select and edit source tiles (Slice 6E).
 
 ``Tileset_Editor_Panel`` shows a :class:`~pixelart_creator.logic.tileset.Tileset`'s

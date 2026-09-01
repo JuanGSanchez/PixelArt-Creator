@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Asset version browser — inspect + restore an asset's revisions (REQ-P11-UI-004).
 
 ``Asset_Version_Browser`` is a presentation-only :class:`~PySide6.QtWidgets.QWidget`

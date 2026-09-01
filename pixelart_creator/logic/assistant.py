@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Assistant conversation value types + the ``ChatBackend`` bridge (zero Qt, S11).
 
 Phase-14 Slice 14B (ADR-0040 §2; spec REQ-P14-DATA-001). This module single-sources

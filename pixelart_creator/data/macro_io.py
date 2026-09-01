@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Read/write the ``.pixmacro`` macro format + plugin manifests (zero Qt, S11).
 
 Defensive, ``eval``-free (de)serialisation reusing the ``data.project_io`` IO-3

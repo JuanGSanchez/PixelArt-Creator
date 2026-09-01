@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Plugin host — trusted-with-consent, default-deny, no auto-run (zero Qt, S11).
 
 Realises ADR-0021's plugin model (REQ-P8-LOGIC-008/-009/-010): plugins are

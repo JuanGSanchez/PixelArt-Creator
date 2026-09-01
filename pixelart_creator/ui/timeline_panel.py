@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Timeline panel — frame strip, scrub, duration + frame ops (REQ-P5-UI-001..007).
 
 ``Timeline_Panel`` presents the active document's frames as a horizontal strip of

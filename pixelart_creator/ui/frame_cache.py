@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """LRU-bounded per-frame composite cache (D3, F7-safe).
 
 ``FrameCompositeCache`` bounds the **derived** per-frame flattened composites by a

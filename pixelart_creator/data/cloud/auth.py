@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Provider-agnostic OAuth helpers: PKCE, loopback capture, token exchange.
 
 Phase-10 Slice A (ADR-0026 §3; spec REQ-P10-DATA-008; Researcher §2). Zero Qt, zero

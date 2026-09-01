@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Scale dialog — nearest-neighbour resize target (REQ-P2-UI-009).
 
 ``Scale_Dialog`` collects a new width/height (or a uniform factor that drives

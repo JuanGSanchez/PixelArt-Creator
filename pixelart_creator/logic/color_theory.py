@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Colour-theory maths: HSV/HSL conversion, harmonies, and ramps (zero Qt, S11).
 
 Pure tuple maths over the Phase-1 :data:`~pixelart_creator.logic.color.RGBA`

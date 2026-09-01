@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pre-merge branch divergence + op-log supervision (zero Qt, S11).
 
 Phase 10 slice ``phase-10-branch-diff`` (plan §3, §4). Two pure, read-only

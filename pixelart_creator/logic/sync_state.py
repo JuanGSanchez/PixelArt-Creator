@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pure, deterministic local-vs-remote sync-state model — zero Qt (S11).
 
 Phase-10 Slice A (ADR-0026; spec REQ-P10-LOGIC-001). :func:`compute_sync_state` is a

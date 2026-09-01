@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """RotSprite angle dialog with a live preview (REQ-P2-UI-010).
 
 ``RotSprite_Dialog`` collects an arbitrary rotation angle and shows a small live

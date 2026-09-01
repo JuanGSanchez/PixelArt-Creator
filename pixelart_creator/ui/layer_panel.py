@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Layer panel — the layer/group tree + per-row controls (REQ-P4-UI-001..011).
 
 ``Layer_Panel`` lists the active frame's layer/group tree **top-to-bottom,

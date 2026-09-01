@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Stdlib-``urllib`` OpenAI-compatible ``LLMPort`` adapter (zero Qt, S11).
 
 Phase-14 Slice 14D (skill ``llm-adapter-normalization`` steps 1/4/5; ADR-0040 §1/§3;

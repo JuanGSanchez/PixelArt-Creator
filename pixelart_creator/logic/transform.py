@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Buffer transforms: flip / rotate-90 / scale-NN (zero Qt, S11).
 
 Pure transforms return a new :class:`PixelBuffer`; flip and rotate-90 are pure

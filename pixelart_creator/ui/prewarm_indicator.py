@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Non-blocking playback pre-warm progress indicator (D1).
 
 ``Prewarm_Indicator`` is a small status-bar strip shown while cold animation

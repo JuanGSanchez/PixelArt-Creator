@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Real-time sync backend — a first-class component OUTSIDE the three layers.
 
 Phase-10 Slice C (ADR-0027; spec REQ-P10-BACKEND-001/-002, CL-B4). This is a **separate

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Blob-47 auto-tiling resolver (zero Qt, S11).
 
 Auto-tiling resolves a cell's **display tile** as a deterministic function of the

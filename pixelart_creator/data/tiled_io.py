@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Tiled 1.12.2 JSON map export / lossless import (zero Qt, S11; ADR-0014).
 
 Exports a :class:`~pixelart_creator.logic.tilemap.Tilemap` to a Tiled-compatible

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Append-only, content-addressable asset-revision store — zero Qt (S11; ADR-0030 §6).
 
 Record and retrieve an asset's revisions (REQ-P11-DATA-004). The store composes two

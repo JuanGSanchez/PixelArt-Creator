@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Shared-project collaboration session seam (REQ-P10-UI-009/-010/-011).
 
 Phase-10 **Slice B** binds the shared-projects / comments / presence panels to the

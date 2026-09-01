@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Document <-> content-addressed snapshot store (zero Qt, S11).
 
 The shared, single persisted-history payload for the whole product

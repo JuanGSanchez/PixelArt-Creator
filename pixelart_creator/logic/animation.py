@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Animation engine — playback, onion-skin and frame tags (zero Qt, S11).
 
 Phase 5 turns the shipped ``Document -> frames -> layers -> PixelBuffer`` tree

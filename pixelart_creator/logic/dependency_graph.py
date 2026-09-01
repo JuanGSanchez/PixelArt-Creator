@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Pure, queryable asset-dependency graph — deterministic, zero Qt (S11).
 
 Asset→asset references form a **directed acyclic graph** of stable

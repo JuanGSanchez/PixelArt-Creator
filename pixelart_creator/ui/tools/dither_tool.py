@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Dithering brush tool (REQ-P3-UI-008): ordered / Floyd–Steinberg onto a palette.
 
 ``DitherTool`` is a rectangular-region controller: a click-drag defines the target

@@ -1,3 +1,5 @@
+# Copyright 2026 Juan Garcia Sanchez
+# SPDX-License-Identifier: Apache-2.0
 """Playback controls — transport + mode selector + QTimer (REQ-P5-UI-008..010).
 
 ``Playback_Controls`` offers **play / pause / stop** transport and a **global
