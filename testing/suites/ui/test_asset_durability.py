@@ -471,7 +471,18 @@ _macos_xdist_segfault_skip = pytest.mark.skipif(
 )
 
 
-@_macos_xdist_segfault_skip
+# PROBE — DO NOT MERGE (issue #37, throwaway diagnostic branch
+# fix-macos-segfault-probe): the macOS skip below is temporarily
+# disabled so the hosted macos-latest quality-gate leg actually EXECUTES
+# this test instead of skipping it -- a skipped test proves nothing about
+# which of the two standing hypotheses (product Qt object-lifetime defect
+# vs. pytest-xdist harness artifact, see the diagnostic step added to
+# .github/workflows/ci.yml's quality-gate job) is correct. Restore
+# the marker (delete this comment block and the leading "# " on the
+# decorator line below) before this branch is discarded -- it must NEVER
+# be merged in this state, since an unskipped, still-crashing test would
+# take down the macOS quality-gate leg on every future PR.
+# @_macos_xdist_segfault_skip
 def test_sc_p11_ui_019_1_library_repopulated_after_restart(tmp_path, qtbot):
     """N assets registered and tagged in one session are all present, intact, after a restart."""
     root = tmp_path / "n_assets_root"

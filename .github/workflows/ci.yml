@@ -586,6 +586,88 @@ jobs:
             --timeout=120 --timeout-method=thread --durations=15 \
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 
+      - name: "PROBE — SC-P11-UI-019-1 segfault isolation, macOS only (diagnostic, DO NOT MERGE, issue #37)"
+        # THROWAWAY DIAGNOSTIC on branch fix-macos-segfault-probe -- this step
+        # exists to buy ONE measurement settling issue #37 and is never
+        # intended to merge. ADDITIVE ONLY: it does not touch the real Tests
+        # step above, runs after it, is gated to the macos-latest leg only,
+        # and can never fail this job (continue-on-error PLUS an explicit
+        # `exit 0` after capturing both real exit codes below).
+        #
+        # Runs testing/suites/ui/test_asset_durability.py -- the module
+        # containing test_sc_p11_ui_019_1_library_repopulated_after_restart,
+        # temporarily un-skipped on macOS above -- TWICE, to separate the two
+        # standing, currently-equal hypotheses:
+        #   1. Qt object-lifetime defect: this test builds two full
+        #      _bound_session() stacks plus two Qt panels in one body, none
+        #      torn down before the next is constructed -- a genuine product
+        #      teardown defect, more fatal on macOS Qt backend, that would
+        #      crash BOTH runs below regardless of xdist.
+        #   2. xdist harness artifact: the crash depends on what else the
+        #      worker had already run, not on this test alone -- serial
+        #      execution (no xdist) would then PASS while parallel execution
+        #      (the real Tests step's own -n auto) still crashes.
+        #
+        # Run A (PROBE-SERIAL): `-p no:xdist` fully disables the pytest-xdist
+        # plugin (not merely `-n 0`, which would still load it) -- this repo's
+        # own pyproject.toml carries no `-n`/xdist default in [tool.pytest.
+        # ini_options] addopts, so xdist here is opt-in only via an explicit
+        # `-n` flag, exactly as the real Tests step above supplies it.
+        # Run B (PROBE-XDIST): `-n auto`, the SAME xdist setting the real
+        # Tests step above uses, so this leg's result is comparable to what
+        # the real Tests step already told us (segfault, hosted runs
+        # 33432594426 and 33437883062).
+        #
+        # Each run's pytest exit code is captured EXPLICITLY into a shell
+        # variable and echoed on its own delimited line
+        # (`PROBE-SERIAL: exit=<n>` / `PROBE-XDIST: exit=<n>`) so the answer
+        # is greppable straight from the log without interpretation, and so a
+        # segfault (pytest never returns an ordinary exit code; the worker/
+        # process dies) is distinguishable from a plain assertion failure
+        # (pytest returns 1) purely from the captured code -- `set +e` is
+        # used so the step's own shell never aborts partway and both runs
+        # always execute.
+        #
+        # Interpretation (verdict computed and echoed below, not left to the
+        # reader): serial passing (exit 0) + xdist crashing (nonzero/absent)
+        # points at hypothesis 2 (harness artifact -- adapt the test
+        # honestly). BOTH crashing points at hypothesis 1 (real product
+        # defect -- escalate to AGT-05). Any other combination is reported as
+        # inconclusive under this rubric, with both codes printed for a human
+        # to read directly.
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          set +e
+          echo "::group::PROBE-SERIAL (xdist disabled: -p no:xdist)"
+          pytest testing/suites/ui/test_asset_durability.py \
+            -m "not slow and not gpu and not cloud_live and not assistant_live and not integration" \
+            -p no:xdist \
+            --basetemp="${CI_TEMP_ROOT}/pytest-probe-serial" \
+            --timeout=120 --timeout-method=thread
+          serial_exit=$?
+          echo "::endgroup::"
+          echo "::group::PROBE-XDIST (same -n auto setting as the real Tests step above)"
+          pytest testing/suites/ui/test_asset_durability.py \
+            -m "not slow and not gpu and not cloud_live and not assistant_live and not integration" \
+            -n auto \
+            --basetemp="${CI_TEMP_ROOT}/pytest-probe-xdist" \
+            --timeout=120 --timeout-method=thread
+          xdist_exit=$?
+          echo "::endgroup::"
+          echo "PROBE-SERIAL: exit=${serial_exit}"
+          echo "PROBE-XDIST: exit=${xdist_exit}"
+          if [[ "${serial_exit}" -eq 0 && "${xdist_exit}" -ne 0 ]]; then
+            echo "PROBE-VERDICT: serial passed, xdist did not -> points at hypothesis 2 (pytest-xdist harness artifact; adapt the test)."
+          elif [[ "${serial_exit}" -ne 0 && "${xdist_exit}" -ne 0 ]]; then
+            echo "PROBE-VERDICT: both runs failed -> points at hypothesis 1 (product Qt object-lifetime defect; escalate to AGT-05)."
+          elif [[ "${serial_exit}" -eq 0 && "${xdist_exit}" -eq 0 ]]; then
+            echo "PROBE-VERDICT: both runs passed -> could not reproduce the segfault on this run; re-run before drawing a conclusion."
+          else
+            echo "PROBE-VERDICT: inconclusive under this rubric (serial_exit=${serial_exit}, xdist_exit=${xdist_exit}) -- read both exit codes and the two log groups above directly."
+          fi
+          exit 0
+
       - name: Coverage gate — client package (>=90 line / >=80 branch, S13)
         if: runner.os == 'Linux'
         # SCOPE (made explicit): this gate reads the coverage.xml produced by the
