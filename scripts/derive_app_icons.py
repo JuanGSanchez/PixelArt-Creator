@@ -49,23 +49,45 @@
 #     only fitting whole-number scale) measured 53%/55% fill, a defect that
 #     passed every prior structural/provenance/contrast check because none
 #     of them measured fill.
+#   - `--check` compares DECODED PIXELS, not raw bytes, for every re-encoded
+#     PNG/.ico/.icns member -- fixed 2026-09-01 after CI's Linux leg caught
+#     what the maintainer's own Windows-only local runs could not: the same
+#     NEAREST-scaled pixels compress to a different zlib/libpng byte stream
+#     depending on the platform's Pillow/libpng build (one member even came
+#     out SMALLER on Linux while every other came out larger -- a compressor
+#     difference, never a content one). Byte-identity of a re-encoded PNG is
+#     not a promise this repository can keep across platforms; pixel-identity
+#     is the promise every acceptance criterion here was actually reaching
+#     for. The ONE exception is `logo-source-64.png`: it is copied verbatim,
+#     never re-encoded, so its byte-identity (pinned as SOURCE_SHA256 above)
+#     is a real, portable guarantee and `--check` still asserts it exactly.
 # =============================================================================
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, Optional
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 # --- the provenance master --------------------------------------------------
 
 SOURCE_NAME: Final[str] = "logo-source-64.png"
 SOURCE_SIZE: Final[tuple[int, int]] = (64, 64)
+
+#: sha256 of the committed master, copied verbatim from the maintainer's own
+#: file and never re-encoded by this script (see the "--check compares
+#: decoded pixels" note below: this ONE file is the exception, because it is
+#: the one guarantee this repository can actually keep bytewise -- there is
+#: no encoder in the loop to make non-portable).
+SOURCE_SHA256: Final[str] = (
+    "b8ff4705e89232ad1cda1379c6118fe45dc29c21a3fb6adc45f7d80fbc3adf69"
+)
 
 # --- mark geometry, measured against the committed master (do not guess -
 #     re-derive with Image.getbbox()/getcolors() if the master ever changes) -
@@ -415,7 +437,77 @@ def construction_table_text() -> str:
 # --- driver ----------------------------------------------------------------
 
 
-def _compare(path: Path, data: bytes, mismatches: list[str]) -> bool:
+def _open_rgba(path: Path) -> Image.Image:
+    """Read ``path`` in BINARY and decode it to RGBA -- the same load path
+    ``load_source`` uses, so a committed file is decoded identically here and
+    when the family is regenerated."""
+    with open(path, "rb") as fh:
+        data = fh.read()
+    im = Image.open(io.BytesIO(data))
+    im.load()
+    if im.mode != "RGBA":
+        im = im.convert("RGBA")
+    return im
+
+
+def _pixel_diff(committed: Image.Image, derived: Image.Image) -> Optional[str]:
+    """Describe the first difference between two RGBA images, or ``None`` if
+    they are pixel-for-pixel identical -- size AND every channel of every
+    pixel, no tolerance: every mark in this family is an exact integer
+    nearest-neighbour crop-and-scale or a flat fill, so an exact match is
+    always the right bar, unlike the re-encoded byte stream a PNG/.ico/.icns
+    container wraps it in (see the module docstring's 2026-09-01 note).
+
+    ``ImageChops.difference().getbbox()`` is a fast all-pass short-circuit
+    for the common (CI-green) case; the per-pixel scan below only runs once a
+    real difference is already known to exist, to name the differing-pixel
+    COUNT and the first differing COORDINATE rather than merely "they
+    differ".
+    """
+    if committed.size != derived.size:
+        cw, ch = committed.size
+        dw, dh = derived.size
+        return f"{cw}x{ch} committed != {dw}x{dh} re-derived"
+
+    if ImageChops.difference(committed, derived).getbbox() is None:
+        return None
+
+    c_px = committed.load()
+    d_px = derived.load()
+    w, h = committed.size
+    differing = 0
+    first = None
+    for y in range(h):
+        for x in range(w):
+            cv = c_px[x, y]
+            dv = d_px[x, y]
+            if cv != dv:
+                differing += 1
+                if first is None:
+                    first = (x, y, cv, dv)
+    assert first is not None  # getbbox() already proved a difference exists
+    x, y, cv, dv = first
+    return (
+        f"{differing} pixel(s) differ (of {w * h}), first at ({x}, {y}): "
+        f"committed {cv} != re-derived {dv}"
+    )
+
+
+def _compare_png(path: Path, derived: Image.Image, mismatches: list[str]) -> bool:
+    if not path.exists():
+        mismatches.append(f"{path.name}: missing on disk")
+        return False
+    diff = _pixel_diff(_open_rgba(path), derived)
+    if diff is not None:
+        mismatches.append(f"{path.name}: {diff}")
+        return False
+    return True
+
+
+def _compare_bytes(path: Path, data: bytes, mismatches: list[str]) -> bool:
+    """Byte comparison, kept ONLY for the generated construction table -- a
+    deterministic text file with no encoder in the loop to make
+    non-portable."""
     if not path.exists():
         mismatches.append(f"{path.name}: missing on disk")
         return False
@@ -430,6 +522,180 @@ def _compare(path: Path, data: bytes, mismatches: list[str]) -> bool:
     return True
 
 
+def _extract_ico_frame(path: Path, size: int) -> Image.Image:
+    """The Pillow-documented way to read a SPECIFIC size out of a
+    multi-image .ico: reopen the file and set ``.size`` before ``.load()``
+    -- the same extraction path
+    ``testing/suites/scripts/test_derive_app_icons.py`` uses in its own
+    pixel-identity proof, so the CLI check and the test suite trust one
+    mechanism."""
+    frame = Image.open(path)
+    frame.size = (size, size)
+    frame.load()
+    return frame.convert("RGBA")
+
+
+def _compare_ico(
+    path: Path, rendered: dict[str, Image.Image], mismatches: list[str]
+) -> bool:
+    if not path.exists():
+        mismatches.append(f"{path.name}: missing on disk")
+        return False
+    ok = True
+    for size in ICO_SIZES:
+        intended = rendered[_ICO_MEMBER_NAMES[size]]
+        try:
+            extracted = _extract_ico_frame(path, size)
+        except Exception as exc:  # a genuinely corrupt/foreign .ico
+            mismatches.append(f"{path.name} [{size}px member]: could not read - {exc}")
+            ok = False
+            continue
+        diff = _pixel_diff(extracted, intended)
+        if diff is not None:
+            mismatches.append(f"{path.name} [{size}px member]: {diff}")
+            ok = False
+    return ok
+
+
+def _extract_icns_frames(path: Path) -> dict[int, Image.Image]:
+    with Image.open(path) as icns:
+        by_physical_size: dict[int, Image.Image] = {}
+        for entry in icns.info["sizes"]:
+            frame = icns.icns.getimage(entry)
+            by_physical_size.setdefault(frame.size[0], frame.convert("RGBA"))
+        return by_physical_size
+
+
+def _compare_icns(
+    path: Path, rendered: dict[str, Image.Image], mismatches: list[str]
+) -> bool:
+    if not path.exists():
+        mismatches.append(f"{path.name}: missing on disk")
+        return False
+    try:
+        frames = _extract_icns_frames(path)
+    except Exception as exc:  # a genuinely corrupt/foreign .icns
+        mismatches.append(f"{path.name}: could not read - {exc}")
+        return False
+    ok = True
+    for size in ICNS_SIZES:
+        intended = rendered[_ICNS_MEMBER_NAMES[size]]
+        frame = frames.get(size)
+        if frame is None:
+            mismatches.append(f"{path.name} [{size}px member]: missing from container")
+            ok = False
+            continue
+        diff = _pixel_diff(frame, intended)
+        if diff is not None:
+            mismatches.append(f"{path.name} [{size}px member]: {diff}")
+            ok = False
+    return ok
+
+
+def _compare_source_hash(app_dir: Path, mismatches: list[str]) -> bool:
+    """``logo-source-64.png`` is never re-derived -- it IS the master, copied
+    verbatim by the maintainer, never re-encoded by this script. Its
+    guarantee is real byte-identity (a sha256 pin), not pixel-identity: a
+    portable guarantee a re-encoded PNG cannot make (see the module
+    docstring), and the one this file can actually keep."""
+    path = app_dir / SOURCE_NAME
+    if not path.exists():
+        mismatches.append(f"{SOURCE_NAME}: missing on disk")
+        return False
+    with open(path, "rb") as fh:
+        data = fh.read()
+    digest = hashlib.sha256(data).hexdigest()
+    if digest != SOURCE_SHA256:
+        mismatches.append(
+            f"{SOURCE_NAME}: sha256 {digest} != expected {SOURCE_SHA256} "
+            "(the provenance master itself has changed)"
+        )
+        return False
+    return True
+
+
+def _check(app_dir: Path, rendered: dict[str, Image.Image]) -> int:
+    """Re-derive every member in memory and compare it against the committed
+    tree: DECODED PIXELS for every re-encoded PNG/.ico/.icns member (a
+    PNG/.ico/.icns byte stream is not portable across platforms/encoder
+    versions -- see the module docstring), real BYTES for the generated
+    construction table and for the provenance master's sha256 (neither has an
+    encoder in the loop), plus the minimum-fill floor."""
+    mismatches: list[str] = []
+    identical = 0
+    total = 0
+
+    for member in ALL_MEMBERS:
+        total += 1
+        if _compare_png(app_dir / member.name, rendered[member.name], mismatches):
+            identical += 1
+
+    total += 1
+    if _compare_ico(app_dir / ICO_NAME, rendered, mismatches):
+        identical += 1
+
+    total += 1
+    if _compare_icns(app_dir / ICNS_NAME, rendered, mismatches):
+        identical += 1
+
+    total += 1
+    construction_data = construction_table_text().encode("utf-8")
+    if _compare_bytes(app_dir / CONSTRUCTION_TABLE_NAME, construction_data, mismatches):
+        identical += 1
+
+    if total == 0:
+        print("derive_app_icons --check: FAILED - compared zero files", file=sys.stderr)
+        return 1
+
+    print(
+        f"derive_app_icons --check: compared {total} files, {identical} identical "
+        "(decoded pixels for PNG/.ico/.icns members; re-encoded byte streams "
+        "are not compared - see the module docstring)"
+    )
+    if mismatches:
+        for line in mismatches:
+            print(f"  MISMATCH: {line}")
+
+    provenance_mismatches: list[str] = []
+    provenance_ok = _compare_source_hash(app_dir, provenance_mismatches)
+    print(
+        f"derive_app_icons --check: provenance master - {SOURCE_NAME} "
+        f"{'sha256 matches' if provenance_ok else 'CHANGED, sha256 mismatch'} "
+        f"(expected {SOURCE_SHA256})"
+    )
+    if provenance_mismatches:
+        for line in provenance_mismatches:
+            print(f"  MISMATCH: {line}")
+
+    # Fill is part of correctness. Every PLATED member's larger
+    # dimension must be >= FILL_RATIO_MIN of its canvas; plateless
+    # members are exempt because they carry no plate margin to
+    # under-fill (fill_exempt() docstring). Checked over ALL_MEMBERS
+    # (not just FAMILY) so pixelart-creator.png is covered too.
+    checked = [m for m in ALL_MEMBERS if not fill_exempt(m)]
+    fill_failures: list[str] = []
+    for m in checked:
+        ratio = fill_ratio(m)
+        if ratio < FILL_RATIO_MIN:
+            fill_failures.append(
+                f"{m.name}: {m.size}px canvas, fill {ratio:.0%} "
+                f"< required {FILL_RATIO_MIN:.0%}"
+            )
+    print(
+        f"derive_app_icons --check: minimum-fill check - "
+        f"{len(checked)} plated members checked, "
+        f"{len(checked) - len(fill_failures)} pass, "
+        f"{len(fill_failures)} below {FILL_RATIO_MIN:.0%}"
+    )
+    if fill_failures:
+        for line in fill_failures:
+            print(f"  FILL FAIL: {line}")
+
+    if mismatches or provenance_mismatches or fill_failures:
+        return 1
+    return 0
+
+
 def run(app_dir: Path, check: bool) -> int:
     source = load_source(app_dir)
 
@@ -437,54 +703,15 @@ def run(app_dir: Path, check: bool) -> int:
     for member in ALL_MEMBERS:
         rendered[member.name] = render_member(source, member)
 
+    if check:
+        return _check(app_dir, rendered)
+
     outputs: list[tuple[str, bytes]] = [
         (m.name, _png_bytes(rendered[m.name])) for m in ALL_MEMBERS
     ]
     outputs.append((ICO_NAME, _render_ico(rendered)))
     outputs.append((ICNS_NAME, _render_icns(rendered)))
     outputs.append((CONSTRUCTION_TABLE_NAME, construction_table_text().encode("utf-8")))
-
-    if check:
-        mismatches: list[str] = []
-        identical = 0
-        for name, data in outputs:
-            if _compare(app_dir / name, data, mismatches):
-                identical += 1
-        print(
-            f"derive_app_icons --check: compared {len(outputs)} files, "
-            f"{identical} identical"
-        )
-        if mismatches:
-            for line in mismatches:
-                print(f"  MISMATCH: {line}")
-
-        # Fill is part of correctness. Every PLATED member's larger
-        # dimension must be >= FILL_RATIO_MIN of its canvas; plateless
-        # members are exempt because they carry no plate margin to
-        # under-fill (fill_exempt() docstring). Checked over ALL_MEMBERS
-        # (not just FAMILY) so pixelart-creator.png is covered too.
-        checked = [m for m in ALL_MEMBERS if not fill_exempt(m)]
-        fill_failures: list[str] = []
-        for m in checked:
-            ratio = fill_ratio(m)
-            if ratio < FILL_RATIO_MIN:
-                fill_failures.append(
-                    f"{m.name}: {m.size}px canvas, fill {ratio:.0%} "
-                    f"< required {FILL_RATIO_MIN:.0%}"
-                )
-        print(
-            f"derive_app_icons --check: minimum-fill check - "
-            f"{len(checked)} plated members checked, "
-            f"{len(checked) - len(fill_failures)} pass, "
-            f"{len(fill_failures)} below {FILL_RATIO_MIN:.0%}"
-        )
-        if fill_failures:
-            for line in fill_failures:
-                print(f"  FILL FAIL: {line}")
-
-        if mismatches or fill_failures:
-            return 1
-        return 0
 
     written = 0
     for name, data in outputs:
@@ -515,8 +742,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--check",
         action="store_true",
-        help="re-derive into memory and compare against the committed files; "
-        "exit non-zero on any mismatch (does not write)",
+        help="re-derive into memory and compare against the committed files "
+        "(decoded pixels for PNG/.ico/.icns members, real bytes for the "
+        "construction table and the provenance master's sha256); exit "
+        "non-zero on any mismatch (does not write)",
     )
     args = ap.parse_args(argv)
 

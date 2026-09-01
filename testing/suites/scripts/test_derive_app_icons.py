@@ -30,11 +30,26 @@ and asserts its raw pixel data is BYTE-FOR-BYTE identical to the matching
 ``app-icon-<N>.png`` family member -- the strongest available proof that the
 container assembly path (``_render_ico``/``_render_icns``) never reaches
 Pillow's own internal resize/blur fallback.
+
+``--check``'s own contract, fixed 2026-09-01 (CI's Linux leg, PR #52): it
+compares DECODED PIXELS for every re-encoded PNG/.ico/.icns member, not raw
+bytes -- a PNG byte stream is not portable across platforms/Pillow-libpng
+builds even when every pixel is identical (see
+``scripts/derive_app_icons.py``'s module docstring). Real bytes are still
+compared for the generated construction table (deterministic text, no
+encoder involved) and for ``logo-source-64.png``'s own sha256 (the
+provenance master is copied verbatim, never re-encoded, so its
+byte-identity is a real, portable guarantee).
+``test_check_detects_a_single_changed_pixel_in_a_derived_member`` and
+``test_check_accepts_a_reencoded_but_pixel_identical_png`` below exercise
+that corrected contract directly, against a scratch copy of the real tree
+(never the committed assets themselves).
 """
 
 from __future__ import annotations
 
 import configparser
+import shutil
 from pathlib import Path
 from typing import Dict, FrozenSet, Tuple
 
@@ -58,16 +73,28 @@ def _colors(path: Path) -> FrozenSet[RGBA]:
         return frozenset(color for _count, color in im.getcolors(maxcolors=1_000_000))
 
 
+def _scratch_app_dir(tmp_path: Path) -> Path:
+    """A COPY of the real, committed ``pixelart_creator/icons/app/`` tree
+    under ``tmp_path`` -- the real assets are read to seed it, never mutated
+    themselves (the "never mutate a real user artifact" rule)."""
+    scratch = tmp_path / "icons_app"
+    shutil.copytree(_APP_ICON_DIR, scratch)
+    return scratch
+
+
 # --------------------------------------------------------------------------- #
-# Every raster re-derives byte-identically from the committed master.         #
+# Every raster re-derives pixel-identically from the committed master.        #
 # --------------------------------------------------------------------------- #
 
 
-def test_check_reports_zero_mismatches_against_committed_bytes():
-    """``--check`` re-derives every member in memory and compares committed bytes.
+def test_check_reports_zero_mismatches_against_committed_pixels():
+    """``--check`` re-derives every member in memory and compares committed pixels.
 
     Run against the real, committed ``pixelart_creator/icons/app/`` tree --
-    proven by re-running the deriver and comparing bytes, not by inspection.
+    proven by re-running the deriver and comparing decoded pixels, not by
+    inspection. Byte-identity is NOT asserted here (a re-encoded PNG's byte
+    stream is platform-dependent, see the module docstring above) -- the
+    portability-control test below proves that directly.
     """
     result = run_script(SCRIPT, ["--check"])
     assert result.returncode == 0, (
@@ -75,12 +102,100 @@ def test_check_reports_zero_mismatches_against_committed_bytes():
         f"committed tree:\nstdout={result.stdout!r}\nstderr={result.stderr!r}"
     )
     assert "MISMATCH" not in result.stdout, (
-        f"derive_app_icons --check reported a byte mismatch against the "
+        f"derive_app_icons --check reported a pixel mismatch against the "
         f"committed tree:\n{result.stdout}"
     )
     assert (
         "compared" in result.stdout and "identical" in result.stdout
     ), f"derive_app_icons --check produced no summary line: {result.stdout!r}"
+    assert "sha256 matches" in result.stdout, (
+        f"derive_app_icons --check produced no provenance-master summary "
+        f"line: {result.stdout!r}"
+    )
+
+
+def test_check_detects_a_single_changed_pixel_in_a_derived_member(tmp_path):
+    """A pixel comparison that cannot detect a changed pixel is worse than
+    the byte check it replaced -- this is the required negative proof.
+
+    Flip exactly ONE pixel of one committed member in a SCRATCH COPY of the
+    tree (never the real asset) and confirm ``--check`` still fails, and
+    names that file.
+    """
+    scratch = _scratch_app_dir(tmp_path)
+    target = scratch / "app-icon-128.png"
+
+    with Image.open(target) as im:
+        im = im.convert("RGBA")
+        original = im.getpixel((0, 0))
+        # A fully-opaque colour guaranteed to differ from the transparent
+        # corner pixel of a plated, centred mark on a BxB canvas.
+        changed = (
+            (original[0] + 1) % 256,
+            original[1],
+            original[2],
+            255,
+        )
+        im.putpixel((0, 0), changed)
+        with open(target, "wb") as fh:
+            im.save(fh, format="PNG")
+
+    result = run_script(SCRIPT, ["--check", "--app-dir", str(scratch)])
+    assert result.returncode != 0, (
+        "derive_app_icons --check exited 0 against a scratch tree with a "
+        f"deliberately altered pixel:\n{result.stdout}"
+    )
+    assert "app-icon-128.png" in result.stdout and "MISMATCH" in result.stdout, (
+        f"derive_app_icons --check did not name the altered file: " f"{result.stdout!r}"
+    )
+    assert "differ" in result.stdout, (
+        "derive_app_icons --check did not report a pixel-level difference "
+        f"description: {result.stdout!r}"
+    )
+
+
+def test_check_accepts_a_reencoded_but_pixel_identical_png(tmp_path):
+    """The portability control -- the exact condition the Linux CI leg hit.
+
+    Re-save one committed member through Pillow with DIFFERENT compression
+    settings, in a scratch copy, so its BYTES differ but its pixels do not.
+    ``--check`` must still accept it: this proves the fix actually addresses
+    the cross-platform re-encoding difference, not merely this machine's own
+    encoder output.
+    """
+    scratch = _scratch_app_dir(tmp_path)
+    target = scratch / "app-icon-256.png"
+    original_bytes = target.read_bytes()
+
+    with Image.open(target) as im:
+        im = im.convert("RGBA")
+        with open(target, "wb") as fh:
+            im.save(fh, format="PNG", compress_level=1, optimize=False)
+
+    reencoded_bytes = target.read_bytes()
+    assert reencoded_bytes != original_bytes, (
+        "the re-encoded app-icon-256.png is byte-identical to the original "
+        "-- this test proves nothing unless the bytes actually changed"
+    )
+    with (
+        Image.open(target) as reencoded,
+        Image.open(_APP_ICON_DIR / target.name) as committed,
+    ):
+        assert (
+            reencoded.convert("RGBA").tobytes() == committed.convert("RGBA").tobytes()
+        ), (
+            "the re-encoded app-icon-256.png is no longer pixel-identical to "
+            "the committed original -- this test's own re-encode step is broken"
+        )
+
+    result = run_script(SCRIPT, ["--check", "--app-dir", str(scratch)])
+    assert result.returncode == 0, (
+        "derive_app_icons --check rejected a re-encoded-but-pixel-identical "
+        f"PNG (the exact condition the Linux CI leg hit):\n{result.stdout}"
+    )
+    assert "app-icon-256.png" not in "\n".join(
+        line for line in result.stdout.splitlines() if "MISMATCH" in line
+    ), f"derive_app_icons --check flagged the re-encoded file:\n{result.stdout}"
 
 
 # --------------------------------------------------------------------------- #
