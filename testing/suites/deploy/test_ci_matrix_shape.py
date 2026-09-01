@@ -23,19 +23,30 @@ of the workflow file. Likewise a silent repoint of ``integration``'s
 ``runs-on`` (hosted <-> self-hosted, or to a different hosted OS) or a
 dropped test root from its ``pytest -m integration`` invocation.
 
-CURRENT SHAPE (post-trigger-scoping, matches ci.yml as of PR #39): both jobs
-run on PLAIN HOSTED GitHub runners -- there is no self-hosted leg or
-self-hosted label anywhere in this workflow any more. ``quality-gate`` no
-longer carries a literal ``matrix: {os: [...]}`` list -- a static YAML parse
-of that key now yields the UNRESOLVED runtime expression string
+CURRENT SHAPE (post-lean-push change, matches ci.yml as of the 2026-09-01
+maintainer-requested revision): both jobs run on PLAIN HOSTED GitHub
+runners -- there is no self-hosted leg or self-hosted label anywhere in this
+workflow any more. ``quality-gate`` no longer carries a literal
+``matrix: {os: [...]}`` list -- a static YAML parse of that key now yields
+the UNRESOLVED runtime expression string
 ``${{ fromJSON(needs.setup.outputs.os) }}``, because ``quality-gate needs:
 setup`` and its matrix is computed by a dedicated ``setup`` job at run time:
 the full 3-OS list (``ubuntu-latest``, ``windows-latest``, ``macos-latest``)
 on ``pull_request`` (required because ``main``'s ruleset requires all three
 ``quality-gate (<os>)`` check names by exact string with no bypass), and a
-single-leg ``["ubuntu-latest"]`` on every other trigger (post-merge ``push``,
-``workflow_dispatch``), where nothing is required-check-gated and the content
-was already fully tested by the ``pull_request`` run that gated the merge.
+single-leg ``["windows-latest"]`` on every other trigger (post-merge
+``push``, ``workflow_dispatch`` -- changed from ``["ubuntu-latest"]`` on
+2026-09-01, maintainer decision after inspecting the CI run lists), where
+nothing is required-check-gated and the content was already fully tested by
+the ``pull_request`` run that gated the merge. The two on-demand jobs
+(``build-installers``, ``regenerate-constraints``) that used to live in this
+same file behind a job-level ``if:`` -- and therefore listed as permanently
+``skipped`` on every ordinary push/PR run, since GitHub still evaluates and
+lists a job even when its own ``if:`` is false -- were moved out to their
+own dedicated workflow files (``.github/workflows/build-installers.yml``,
+``.github/workflows/regenerate-constraints.yml``) on the same date; this
+file's ``jobs`` mapping now holds only ``setup``, ``quality-gate`` and
+``integration``, and neither moved job is asserted on here.
 
 THE PROPERTY THIS FILE PROTECTS DID NOT DISAPPEAR WITH THE LITERAL LIST -- IT
 MOVED. A static parse of ``ci.yml`` can no longer read the resolved OS list
@@ -86,7 +97,7 @@ EXPECTED_QUALITY_GATE_OS_LIST_PULL_REQUEST = [
     "windows-latest",
     "macos-latest",
 ]
-EXPECTED_QUALITY_GATE_OS_LIST_OTHER_TRIGGERS = ["ubuntu-latest"]
+EXPECTED_QUALITY_GATE_OS_LIST_OTHER_TRIGGERS = ["windows-latest"]
 
 # The per-leg ``timeout`` field the old ``include:``-shaped table used to
 # carry no longer exists (the flat matrix has no per-leg key to hang it on);

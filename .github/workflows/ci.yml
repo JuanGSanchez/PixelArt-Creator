@@ -79,26 +79,19 @@ on:
     # rather than left silently contradicted, because a stale comment
     # asserting the opposite of the file is worse than no comment at all.
     branches: [main]
-    # Phase-13 Slice 13D (ADR-0038 §3): a v* tag is the release BUILD trigger for
-    # the native-installer matrix below. Branch/PR pushes do NOT build installers
-    # (the build-installers job self-guards) so PR CI is not slowed.
-    tags: ["v*"]
   pull_request:
     branches: [main]
-  # Manual trigger, shared by two independent on-demand jobs below (each reads
-  # this input and self-guards; the input decides WHICH runs, so an ordinary
-  # manual dispatch does not pay for both):
-  #   - build-installers (ADR-0038 §3): the native-installer matrix.
-  #   - regenerate-constraints (#31, R-11 residual): the Linux constraints
-  #     regeneration review job.
+  # Manual dispatch re-runs quality-gate + integration for this ref on
+  # demand (e.g. retrying after a transient infra failure) without a new
+  # push. No inputs: the on-demand release/maintenance jobs that used to
+  # share this trigger via a `target` chooser input -- build-installers and
+  # regenerate-constraints -- moved to their own dedicated workflow files
+  # (this change, 2026-09-01), each self-triggering on workflow_dispatch in
+  # its OWN file, so this input had nothing left to select between and is
+  # removed rather than left as a chooser that selects nothing. See
+  # .github/workflows/build-installers.yml and
+  # .github/workflows/regenerate-constraints.yml.
   workflow_dispatch:
-    inputs:
-      target:
-        description: "Which on-demand job to run"
-        required: true
-        default: "build-installers"
-        type: choice
-        options: ["build-installers", "regenerate-constraints"]
 
 # Single-run concurrency guard: a new run for the same ref cancels the older one
 # so two runs never contend for a shared runner (flaky-timeout avoidance, F11).
@@ -160,7 +153,16 @@ jobs:
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo 'os=["ubuntu-latest", "windows-latest", "macos-latest"]' >> "${GITHUB_OUTPUT}"
           else
-            echo 'os=["ubuntu-latest"]' >> "${GITHUB_OUTPUT}"
+            # Post-merge push leg runs on windows-latest, NOT
+            # ubuntu-latest (changed 2026-09-01, maintainer decision after
+            # inspecting the CI run lists) -- only the OS picked here
+            # changed; the `pull_request` branch above is untouched, still
+            # the full 3-OS matrix `main`'s ruleset requires.
+            # `integration (ubuntu-latest)` is unaffected by this change and
+            # stays on push unconditionally (see that job below) -- the
+            # maintainer's own explicit call: it costs about a minute and is
+            # a cheap post-merge canary.
+            echo 'os=["windows-latest"]' >> "${GITHUB_OUTPUT}"
           fi
 
   quality-gate:
@@ -173,9 +175,11 @@ jobs:
       # BUILD-001). Windows/macOS surface the suite for the FIRST time here.
       fail-fast: false
       matrix:
-        # Resolved from the `setup` job's outputs (this change, 2026-09-01):
+        # Resolved from the `setup` job's outputs (pull_request leg
+        # unchanged; the other-trigger leg changed from ubuntu-latest to
+        # windows-latest 2026-09-01, maintainer decision):
         # ["ubuntu-latest","windows-latest","macos-latest"] on `pull_request`,
-        # ["ubuntu-latest"] on every other trigger. Full grounding and the
+        # ["windows-latest"] on every other trigger. Full grounding and the
         # accepted failure mode are recorded on the `setup` job above.
         os: ${{ fromJSON(needs.setup.outputs.os) }}
     # Job-level wall-clock cap: a hung/deadlocked test can no longer pin a runner
@@ -990,409 +994,6 @@ jobs:
         # CI_TEMP_ROOT is non-empty, under ${RUNNER_TEMP}, and still shaped
         # CI-PixelArtCreator/<name>; reads the SAME exported variable rather
         # than recomputing the path; no wildcard.
-        if: always()
-        run: |
-          if [[ -z "${CI_TEMP_ROOT:-}" ]]; then
-            echo "::error::CI_TEMP_ROOT is not set; refusing to guess a path to delete."
-            exit 1
-          fi
-          case "${CI_TEMP_ROOT}" in
-            "${RUNNER_TEMP}"/CI-PixelArtCreator/*) ;;
-            *)
-              echo "::error::CI_TEMP_ROOT (${CI_TEMP_ROOT}) does not resolve under \${RUNNER_TEMP}/CI-PixelArtCreator/<name>; refusing to delete."
-              exit 1
-              ;;
-          esac
-          if [[ -d "${CI_TEMP_ROOT}" ]]; then
-            echo "Removing CI temp root: ${CI_TEMP_ROOT}"
-            rm -rf "${CI_TEMP_ROOT}"
-            echo "Removed: ${CI_TEMP_ROOT}"
-          else
-            echo "CI temp root already absent (nothing to remove): ${CI_TEMP_ROOT}"
-          fi
-
-  # ===========================================================================
-  # R-11 residual (#31, 2026-07-31): constraints.txt closure gap on Linux/macOS.
-  # constraints.txt was generated on Windows (its own header explains the
-  # implication in full) — a package resolved ONLY on Linux or macOS by a
-  # `sys_platform` marker this project's graph does not currently exhibit would
-  # be silently absent from that file. This job closes the gap by resolving on
-  # the REAL Linux target and publishing the result for a human to diff and
-  # decide whether to commit — it deliberately does NOT commit on its own:
-  # auto-committing regenerated dependency pins without a human reviewing the
-  # diff is a decision for this file's owner (AGT-09), not something CI should
-  # do unattended. Manual trigger only (workflow_dispatch) — this is a review
-  # tool run on demand when a manifest dependency changes or the lock needs a
-  # refresh, not a gate on every push.
-  # ===========================================================================
-  # NOTE (2026-08-02, cost-avoidance change): left FUNCTIONAL, NOT disabled —
-  # this still targets a hosted ubuntu-latest runner and WILL consume metered
-  # hosted minutes if manually dispatched with target=regenerate-constraints.
-  # It is workflow_dispatch-only, so it only bills on a deliberate manual act,
-  # not on every push. Not touched because tagging/manual-dispatch is a
-  # deliberate act, unlike the always-on quality-gate matrix above.
-  regenerate-constraints:
-    name: regenerate-constraints (ubuntu-latest, manual)
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'regenerate-constraints' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Set up CI temp root (CI-PixelArtCreator)
-        # Same routing as the quality-gate job's identically-named step (see
-        # that step's comment for the full rationale). This job has no
-        # matrix; deterministic name is just the job name. Covers the venv
-        # creation + pip scratch below, not only pytest (this job runs none).
-        run: |
-          CI_TEMP_ROOT="${RUNNER_TEMP}/CI-PixelArtCreator/ci-regenerate-constraints"
-          rm -rf "${CI_TEMP_ROOT}"
-          mkdir -p "${CI_TEMP_ROOT}"
-          echo "CI_TEMP_ROOT=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
-          echo "TMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
-          echo "TEMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
-          echo "TMPDIR=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
-          echo "CI temp root for this leg: ${CI_TEMP_ROOT}"
-
-      - name: Set up Python (pinned via .python-version; matches ci.yml + constraints.txt)
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: .python-version
-
-      # Deliberately a CLEAN venv, not the runner's system/cached pip
-      # environment, so the freeze reflects only this project's own resolved
-      # closure — mirrors the POSIX command constraints.txt's own header
-      # documents as the regeneration procedure.
-      - name: Resolve the full dependency closure on Linux (clean venv)
-        run: |
-          python -m venv venv-lock
-          venv-lock/bin/python -m pip install --upgrade pip
-          venv-lock/bin/python -m pip install -e ".[dev]"
-          venv-lock/bin/python -m pip freeze | grep -v '^-e ' > constraints.linux.txt
-
-      - name: Diff against the committed (Windows-generated) constraints.txt
-        # Informational only (never fails the job): surfaces exactly what a
-        # Linux resolution adds/changes/removes relative to the committed
-        # file, so the human reviewer sees the real delta at a glance instead
-        # of having to diff the two artifacts by hand.
-        run: |
-          echo "--- diff constraints.txt (committed, Windows) vs constraints.linux.txt (this run, Linux) ---"
-          diff -u constraints.txt constraints.linux.txt || true
-
-      # Uploaded as an artifact, NOT committed or pushed — the human reviewer
-      # downloads it, reviews the diff above, and decides whether/how to merge
-      # it into the committed constraints.txt (C1: no unattended commit).
-      - name: Upload the Linux-resolved constraints file for review
-        uses: actions/upload-artifact@v4
-        with:
-          name: constraints-linux
-          path: constraints.linux.txt
-          if-no-files-found: error
-
-      - name: Clean up CI temp root (CI-PixelArtCreator)
-        # Same guard shape as the quality-gate job's identically-named step:
-        # if: always() so a red run still cleans up; refuses to delete unless
-        # CI_TEMP_ROOT is non-empty, under ${RUNNER_TEMP}, and still shaped
-        # CI-PixelArtCreator/<name>; reads the SAME exported variable rather
-        # than recomputing the path; no wildcard.
-        if: always()
-        run: |
-          if [[ -z "${CI_TEMP_ROOT:-}" ]]; then
-            echo "::error::CI_TEMP_ROOT is not set; refusing to guess a path to delete."
-            exit 1
-          fi
-          case "${CI_TEMP_ROOT}" in
-            "${RUNNER_TEMP}"/CI-PixelArtCreator/*) ;;
-            *)
-              echo "::error::CI_TEMP_ROOT (${CI_TEMP_ROOT}) does not resolve under \${RUNNER_TEMP}/CI-PixelArtCreator/<name>; refusing to delete."
-              exit 1
-              ;;
-          esac
-          if [[ -d "${CI_TEMP_ROOT}" ]]; then
-            echo "Removing CI temp root: ${CI_TEMP_ROOT}"
-            rm -rf "${CI_TEMP_ROOT}"
-            echo "Removed: ${CI_TEMP_ROOT}"
-          else
-            echo "CI temp root already absent (nothing to remove): ${CI_TEMP_ROOT}"
-          fi
-
-  # ===========================================================================
-  # Phase-13 Slice 13D (REQ-P13-BUILD-002/-003/-004/-005, ADR-0038): native
-  # installer BUILD matrix. SEPARATE from the always-on quality-gate TEST matrix
-  # so PR CI is not slowed by full packaging on every push. Runs ONLY on a
-  # build/tag trigger (ADR-0038 §3): `workflow_dispatch` (manual) or a `v*` tag
-  # push — the job-level `if` blocks it on ordinary branch/PR pushes.
-  #
-  # One matrix over ubuntu/windows/macos builds all three native distributables
-  # on their respective OS legs and publishes each as a downloadable artifact
-  # (actions/upload-artifact). fail-fast is OFF so a per-leg build failure fails
-  # THAT leg VISIBLY without cancelling the others (BUILD-005). Python version
-  # is read from .python-version via python-version-file: (single parametric
-  # source, see the file header), not pinned as a literal here.
-  #
-  # OWN, PER-OS concurrency group (BUILD-005, ADR-0038): the build matrix uses a
-  # DISTINCT group (build-installers-<ref>-<os>) instead of inheriting the
-  # top-level ci-<ref> quality-gate guard. A routine quality-gate push to the ref
-  # therefore can no longer cancel an in-flight native-installer build (the
-  # Windows+Linux legs of run 28888610411 were cancelled mid-Nuitka-compile by
-  # exactly that shared-guard collision). The group MUST include ${{ matrix.os }}:
-  # a job-level group that did not vary per leg would place all three matrix legs
-  # in ONE group and cancel-in-progress would make them cancel EACH OTHER (run
-  # 28891596191: the macos+ubuntu legs were cancelled at t=0 by the windows leg
-  # entering the same group). Per-OS groups keep cancel-in-progress:true useful —
-  # a NEW build dispatch's per-OS leg still supersedes a stale same-OS leg for the
-  # ref — while letting all three legs of one dispatch run concurrently.
-  #
-  # Deterministic smoke: PIXELART_SMOKE_EXIT_MS makes the packaged app boot the
-  # full UI + bundled Qt plugins headless (QT_QPA_PLATFORM=offscreen, global env)
-  # then auto-quit with exit 0 — proving the frozen binary launches on a clean
-  # runner without a display (the shipped pixelart_creator/ui/app.py:main honours
-  # the env var). PIXELART_SMOKE_EXIT_MS is set at job env level below and is thus
-  # inherited by every smoke step; each smoke step asserts a zero exit explicitly.
-  # ===========================================================================
-  # NOTE (2026-08-02, cost-avoidance change): left FUNCTIONAL, NOT disabled —
-  # this matrix still targets three HOSTED runners (ubuntu/windows/macos-latest)
-  # and WILL consume metered hosted minutes (macOS at ~10x, Windows at ~1.67x
-  # the Linux minute) if a `v*` tag is pushed or workflow_dispatch selects
-  # target=build-installers. Not touched because tagging/manual-dispatch is a
-  # deliberate act, unlike the always-on quality-gate matrix above.
-  build-installers:
-    name: build-installers (${{ matrix.os }})
-    # BUILD/TAG trigger only — never on a normal branch/PR push (ADR-0038 §3).
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.target == 'build-installers') || startsWith(github.ref, 'refs/tags/v') }}
-    # Isolated PER-OS concurrency group (see job header): distinct from the
-    # top-level ci-<ref> quality-gate guard so a routine push to the ref cannot
-    # cancel an in-flight installer build, and varied by ${{ matrix.os }} so the
-    # three matrix legs do NOT share a group and cancel each other.
-    # cancel-in-progress:true supersedes only a stale same-OS leg for the ref.
-    concurrency:
-      group: build-installers-${{ github.ref }}-${{ matrix.os }}
-      cancel-in-progress: true
-    runs-on: ${{ matrix.os }}
-    strategy:
-      # fail-fast OFF: a per-leg packaging failure must fail THAT leg visibly
-      # without cancelling the other two legs (BUILD-005).
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    # Nuitka compile times can be long per leg (ADR-0038 negative/risk); ample
-    # cap, still far under the 6h default.
-    timeout-minutes: 90
-    env:
-      # Credential-gated macOS signing (ADR-0038 §4, Article XI). ABSENT by
-      # default → the signing step self-skips and the leg ships the unsigned/
-      # ad-hoc artifact; its absence does NOT fail the build. NEVER commit a
-      # credential — these read GitHub secrets at CI time only.
-      APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
-      APPLE_NOTARY_APPLE_ID: ${{ secrets.APPLE_NOTARY_APPLE_ID }}
-      APPLE_NOTARY_TEAM_ID: ${{ secrets.APPLE_NOTARY_TEAM_ID }}
-      APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
-      # Deterministic headless smoke-launch window (ms) — see job header.
-      PIXELART_SMOKE_EXIT_MS: "5000"
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Set up CI temp root (CI-PixelArtCreator)
-        # Same routing as the quality-gate job's identically-named step (see
-        # that step's comment for the full rationale). Deterministic leg name
-        # includes ${{ matrix.os }} so the three parallel legs (ubuntu/
-        # windows/macos) never collide. This job runs no pytest, but Nuitka's
-        # own C-build intermediates and pip's install scratch both honour
-        # TMP/TEMP/TMPDIR, so they are routed here too rather than left on
-        # whatever default the runner OS would otherwise use.
-        run: |
-          CI_TEMP_ROOT="${RUNNER_TEMP}/CI-PixelArtCreator/ci-build-installers-${{ matrix.os }}"
-          rm -rf "${CI_TEMP_ROOT}"
-          mkdir -p "${CI_TEMP_ROOT}"
-          echo "CI_TEMP_ROOT=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
-          echo "TMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
-          echo "TEMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
-          echo "TMPDIR=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
-          echo "CI temp root for this leg: ${CI_TEMP_ROOT}"
-
-      - name: Set up Python (pinned via .python-version)
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: .python-version
-          cache: pip
-
-      # Ubuntu: the same Qt runtime libs the test matrix installs (needed for
-      # Nuitka to bundle Qt + for the offscreen smoke-launch) plus patchelf
-      # (Nuitka standalone RPATH fixups + AppImage packaging).
-      - name: Install Qt runtime OS libraries + patchelf (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
-            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
-            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
-            patchelf
-
-      - name: Install project + packaging toolchain (pyside6-deploy / Nuitka)
-        # -c constraints.txt on the project install only (R-11): pins the
-        # same runtime-dependency versions as the quality-gate/integration
-        # jobs so a packaged installer is built from the SAME resolved
-        # numpy/Pillow/PySide6/pycrdt/websockets versions the test matrix
-        # verified. Nuitka itself is a build-toolchain dep, not part of the
-        # project's dependency closure, so it is left unconstrained.
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -c constraints.txt -e .
-          python -m pip install nuitka
-        # pyside6-deploy ships inside the PySide6 wheel (a project runtime dep);
-        # pre-installing Nuitka keeps the build non-interactive & reproducible.
-
-      # ---------------- Windows leg (T13D-02, BUILD-002): onefile .exe --------
-      - name: Build Windows .exe (pyside6-deploy / Nuitka onefile)
-        if: runner.os == 'Windows'
-        run: |
-          pyside6-deploy -c packaging/pysidedeploy-windows.spec --force --keep-deployment-files
-          mkdir -p artifact
-          cp dist/PixelArtCreator.exe "artifact/PixelArtCreator-windows.exe"
-
-      - name: Smoke-launch the Windows .exe (offscreen, auto-quit)
-        if: runner.os == 'Windows'
-        run: |
-          BIN="./artifact/PixelArtCreator-windows.exe"
-          echo "smoke binary: ${BIN}"
-          if "${BIN}"; then
-            echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"
-          else
-            rc=$?
-            echo "::error::Windows smoke-launch FAILED (exit ${rc})"
-            exit "${rc}"
-          fi
-        # Exit 0 proves the packaged onefile .exe started, loaded the offscreen
-        # platform plugin + full UI, and quit cleanly via PIXELART_SMOKE_EXIT_MS;
-        # any non-zero exit or crash fails this leg visibly.
-
-      - name: Upload Windows artifact
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: pixelart-creator-windows
-          path: artifact/PixelArtCreator-windows.exe
-          if-no-files-found: error
-
-      # ---------------- Linux leg (T13D-03, BUILD-004): AppImage --------------
-      - name: Build Linux standalone (pyside6-deploy / Nuitka)
-        if: runner.os == 'Linux'
-        run: pyside6-deploy -c packaging/pysidedeploy-linux.spec --force --keep-deployment-files
-
-      - name: Smoke-launch the Linux standalone binary (offscreen, auto-quit)
-        if: runner.os == 'Linux'
-        run: |
-          # Nuitka standalone names the dist folder + binary after the input-file
-          # stem (pixelart_creator/__main__.py → `__main__`); see the linux spec.
-          BIN="dist/__main__.dist/__main__"
-          echo "smoke binary: ${BIN}"
-          if "${BIN}"; then
-            echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"
-          else
-            rc=$?
-            echo "::error::Linux standalone smoke-launch FAILED (exit ${rc})"
-            exit "${rc}"
-          fi
-
-      - name: Package Linux AppImage (appimagetool)
-        if: runner.os == 'Linux'
-        run: bash packaging/build_appimage.sh
-
-      - name: Smoke-launch the AppImage (offscreen, auto-quit)
-        if: runner.os == 'Linux'
-        run: |
-          chmod +x artifact/PixelArtCreator-x86_64.AppImage
-          # --appimage-extract-and-run is intercepted by the AppImage runtime
-          # (FUSE-free); AppRun then execs usr/bin/__main__, which self-exits via
-          # PIXELART_SMOKE_EXIT_MS.
-          if ./artifact/PixelArtCreator-x86_64.AppImage --appimage-extract-and-run; then
-            echo "smoke OK: AppImage launched offscreen and self-exited 0"
-          else
-            rc=$?
-            echo "::error::Linux AppImage smoke-launch FAILED (exit ${rc})"
-            exit "${rc}"
-          fi
-
-      - name: Upload Linux artifact
-        if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: pixelart-creator-linux
-          path: artifact/PixelArtCreator-x86_64.AppImage
-          if-no-files-found: error
-
-      # ---------------- macOS leg (T13D-04, BUILD-003): .app in .dmg ----------
-      - name: Build macOS .app (pyside6-deploy / Nuitka standalone bundle)
-        if: runner.os == 'macOS'
-        run: pyside6-deploy -c packaging/pysidedeploy-macos.spec --force --keep-deployment-files
-
-      - name: Ad-hoc sign + smoke-launch + wrap .dmg (unsigned baseline)
-        if: runner.os == 'macOS'
-        run: |
-          APP="$(find dist -maxdepth 2 -type d -name '*.app' | head -n1)"
-          echo "app bundle: ${APP}"
-          # Ad-hoc sign so a local run of the unsigned build is permitted.
-          codesign --force --deep --sign - "${APP}"
-          # Smoke: launch the inner binary offscreen (auto-quits via env). The
-          # standalone .app's inner Mach-O is located inside the bundle, so the
-          # produced-artifact path is discovered via `find`, not a fixed stem.
-          BIN="$(find "${APP}/Contents/MacOS" -maxdepth 1 -type f -perm +111 | head -n1)"
-          echo "smoke binary: ${BIN}"
-          if "${BIN}"; then
-            echo "smoke OK: .app inner binary launched offscreen and self-exited 0"
-          else
-            rc=$?
-            echo "::error::macOS .app smoke-launch FAILED (exit ${rc})"
-            exit "${rc}"
-          fi
-          mkdir -p artifact
-          hdiutil create -volname "PixelArt Creator" -srcfolder "${APP}" \
-            -ov -format UDZO artifact/PixelArtCreator-macos.dmg
-
-      - name: Developer-ID sign + notarize + staple (credential-gated, NON-blocking)
-        # Runs ONLY when an Apple Developer ID secret is supplied (ADR-0038 §4,
-        # Article XI). Its ABSENCE self-skips this step and does NOT fail the leg
-        # — the unsigned/ad-hoc .dmg above is the accepted Phase-13 artifact.
-        if: ${{ runner.os == 'macOS' && env.APPLE_DEVELOPER_ID != '' }}
-        run: |
-          APP="$(find dist -maxdepth 2 -type d -name '*.app' | head -n1)"
-          codesign --force --deep --options=runtime --timestamp \
-            --sign "${APPLE_DEVELOPER_ID}" "${APP}"
-          hdiutil create -volname "PixelArt Creator" -srcfolder "${APP}" \
-            -ov -format UDZO artifact/PixelArtCreator-macos.dmg
-          xcrun notarytool submit artifact/PixelArtCreator-macos.dmg \
-            --apple-id "${APPLE_NOTARY_APPLE_ID}" \
-            --team-id "${APPLE_NOTARY_TEAM_ID}" \
-            --password "${APPLE_NOTARY_PASSWORD}" --wait
-          xcrun stapler staple artifact/PixelArtCreator-macos.dmg
-
-      - name: Upload macOS artifact
-        if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
-        with:
-          name: pixelart-creator-macos
-          path: artifact/PixelArtCreator-macos.dmg
-          if-no-files-found: error
-
-      - name: Clean up CI temp root (CI-PixelArtCreator)
-        # Same guard shape as the quality-gate job's identically-named step:
-        # if: always() so a failed/cancelled leg still cleans up; refuses to
-        # delete unless CI_TEMP_ROOT is non-empty, under ${RUNNER_TEMP}, and
-        # still shaped CI-PixelArtCreator/<name>; reads the SAME exported
-        # variable rather than recomputing the path; no wildcard. Runs on
-        # every OS leg of this matrix — the guard and the variable are
-        # OS-invariant even though `rm -rf`/`mkdir -p` are POSIX commands,
-        # because `defaults.run.shell: bash` (job-level, above) makes every
-        # step in this job — Windows included — run under bash.
         if: always()
         run: |
           if [[ -z "${CI_TEMP_ROOT:-}" ]]; then

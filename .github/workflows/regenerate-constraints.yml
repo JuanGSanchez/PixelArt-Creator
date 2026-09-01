@@ -1,0 +1,165 @@
+# =============================================================================
+# CI workflow (GitHub Actions) — PixelArt Creator — Linux constraints.txt
+# regeneration review job.
+# Owner: AGT-09 GitHub/DevOps.
+#
+# SPLIT OUT OF ci.yml (this change, 2026-09-01): same reasoning as
+# build-installers.yml's own header — a job gated by a job-level `if:` still
+# gets EVALUATED and LISTED on every trigger of the workflow file it lives
+# in, so this job showed as skipped on every ordinary push and pull request
+# even though it can only ever run via a deliberate manual dispatch. Moving
+# it to its own file, triggered ONLY by `workflow_dispatch`, removes it from
+# ci.yml's per-push/per-PR job list entirely.
+#
+# ONE FILE PER ON-DEMAND JOB, not combined with build-installers.yml behind
+# one shared `workflow_dispatch` + a `target` chooser input (the shape both
+# jobs used inside ci.yml): combining them here would still show whichever
+# job the caller did NOT select as skipped on every dispatch of the other —
+# the identical defect this split exists to remove, just moved one file over
+# instead of eliminated. Two independent files, two independent triggers,
+# neither job's run ever lists the other as skipped.
+#
+# Carried over from ci.yml's top level (verified, not assumed — see the
+# handoff report for the explicit per-setting walk-through): `permissions:
+# contents: read`. `PIP_DISABLE_PIP_VERSION_CHECK: "1"` is also carried over
+# (this job's own two `pip install` steps benefit from it the same way every
+# other pip-installing job in this project does). `QT_QPA_PLATFORM:
+# offscreen` is deliberately NOT carried over: this job never touches Qt (it
+# only resolves and freezes the dependency closure in a clean venv), so
+# carrying a Qt env var here would be a dead inheritance, not a need.
+# ci.yml's top-level `concurrency: ci-${{ github.ref }}` is NOT reused
+# verbatim either: reusing that exact group name would let a manual dispatch
+# of this job cancel an in-flight `quality-gate`/`integration` run on the
+# same ref in ci.yml (and vice versa) purely because they happened to share
+# a group name — a coupling that was incidental to both jobs living in one
+# file, not a deliberate design. This file declares its OWN single-run guard
+# below, scoped to itself only.
+# =============================================================================
+name: regenerate-constraints
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: regenerate-constraints-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  # ===========================================================================
+  # R-11 residual (#31, 2026-07-31): constraints.txt closure gap on Linux/macOS.
+  # constraints.txt was generated on Windows (its own header explains the
+  # implication in full) — a package resolved ONLY on Linux or macOS by a
+  # `sys_platform` marker this project's graph does not currently exhibit would
+  # be silently absent from that file. This job closes the gap by resolving on
+  # the REAL Linux target and publishing the result for a human to diff and
+  # decide whether to commit — it deliberately does NOT commit on its own:
+  # auto-committing regenerated dependency pins without a human reviewing the
+  # diff is a decision for this file's owner (AGT-09), not something CI should
+  # do unattended. Manual trigger only (workflow_dispatch) — this is a review
+  # tool run on demand when a manifest dependency changes or the lock needs a
+  # refresh, not a gate on every push.
+  # ===========================================================================
+  # NOTE (2026-08-02, cost-avoidance change): left FUNCTIONAL, NOT disabled —
+  # this still targets a hosted ubuntu-latest runner and WILL consume metered
+  # hosted minutes if manually dispatched. It is workflow_dispatch-only, so it
+  # only bills on a deliberate manual act, not on every push. Not touched
+  # because tagging/manual-dispatch is a deliberate act, unlike the always-on
+  # quality-gate matrix in ci.yml.
+  regenerate-constraints:
+    name: regenerate-constraints (ubuntu-latest, manual)
+    # Manual-only (this file's own `on: workflow_dispatch:` above) — no `if:`
+    # here any more: this job lived in ci.yml behind an `if:` guard until this
+    # change (2026-09-01), which is exactly what made it list as skipped on
+    # every ordinary push/PR run there. No guard is needed now that the file
+    # itself only ever triggers on the one event this job is meant for.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up CI temp root (CI-PixelArtCreator)
+        # Same routing as the quality-gate job's identically-named step (see
+        # that step's comment for the full rationale). This job has no
+        # matrix; deterministic name is just the job name. Covers the venv
+        # creation + pip scratch below, not only pytest (this job runs none).
+        run: |
+          CI_TEMP_ROOT="${RUNNER_TEMP}/CI-PixelArtCreator/ci-regenerate-constraints"
+          rm -rf "${CI_TEMP_ROOT}"
+          mkdir -p "${CI_TEMP_ROOT}"
+          echo "CI_TEMP_ROOT=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TEMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMPDIR=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "CI temp root for this leg: ${CI_TEMP_ROOT}"
+
+      - name: Set up Python (pinned via .python-version; matches ci.yml + constraints.txt)
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+
+      # Deliberately a CLEAN venv, not the runner's system/cached pip
+      # environment, so the freeze reflects only this project's own resolved
+      # closure — mirrors the POSIX command constraints.txt's own header
+      # documents as the regeneration procedure.
+      - name: Resolve the full dependency closure on Linux (clean venv)
+        run: |
+          python -m venv venv-lock
+          venv-lock/bin/python -m pip install --upgrade pip
+          venv-lock/bin/python -m pip install -e ".[dev]"
+          venv-lock/bin/python -m pip freeze | grep -v '^-e ' > constraints.linux.txt
+
+      - name: Diff against the committed (Windows-generated) constraints.txt
+        # Informational only (never fails the job): surfaces exactly what a
+        # Linux resolution adds/changes/removes relative to the committed
+        # file, so the human reviewer sees the real delta at a glance instead
+        # of having to diff the two artifacts by hand.
+        run: |
+          echo "--- diff constraints.txt (committed, Windows) vs constraints.linux.txt (this run, Linux) ---"
+          diff -u constraints.txt constraints.linux.txt || true
+
+      # Uploaded as an artifact, NOT committed or pushed — the human reviewer
+      # downloads it, reviews the diff above, and decides whether/how to merge
+      # it into the committed constraints.txt (C1: no unattended commit).
+      - name: Upload the Linux-resolved constraints file for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: constraints-linux
+          path: constraints.linux.txt
+          if-no-files-found: error
+
+      - name: Clean up CI temp root (CI-PixelArtCreator)
+        # Same guard shape as the quality-gate job's identically-named step:
+        # if: always() so a red run still cleans up; refuses to delete unless
+        # CI_TEMP_ROOT is non-empty, under ${RUNNER_TEMP}, and still shaped
+        # CI-PixelArtCreator/<name>; reads the SAME exported variable rather
+        # than recomputing the path; no wildcard.
+        if: always()
+        run: |
+          if [[ -z "${CI_TEMP_ROOT:-}" ]]; then
+            echo "::error::CI_TEMP_ROOT is not set; refusing to guess a path to delete."
+            exit 1
+          fi
+          case "${CI_TEMP_ROOT}" in
+            "${RUNNER_TEMP}"/CI-PixelArtCreator/*) ;;
+            *)
+              echo "::error::CI_TEMP_ROOT (${CI_TEMP_ROOT}) does not resolve under \${RUNNER_TEMP}/CI-PixelArtCreator/<name>; refusing to delete."
+              exit 1
+              ;;
+          esac
+          if [[ -d "${CI_TEMP_ROOT}" ]]; then
+            echo "Removing CI temp root: ${CI_TEMP_ROOT}"
+            rm -rf "${CI_TEMP_ROOT}"
+            echo "Removed: ${CI_TEMP_ROOT}"
+          else
+            echo "CI temp root already absent (nothing to remove): ${CI_TEMP_ROOT}"
+          fi
