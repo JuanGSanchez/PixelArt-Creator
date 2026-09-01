@@ -6,9 +6,9 @@ ops config** (Article X §1) — it is **not** part of the shipped
 `pixelart_creator` package and is **not** scanned by `check_layering`. It
 changes **no** product code.
 
-The actual build runs in the CI **build matrix** in
-`.github/workflows/ci.yml` (`build-installers` job), on a **build/tag** trigger
-(`workflow_dispatch` or a `v*` tag) — never on a normal branch/PR push, so PR CI
+The actual build runs in the CI **build matrix** in its own workflow file,
+`.github/workflows/build-installers.yml` (split out of `ci.yml`), on a **build/tag**
+trigger (`workflow_dispatch` or a `v*` tag) — never on a normal branch/PR push, so PR CI
 is not slowed.
 
 ## Files

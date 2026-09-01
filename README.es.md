@@ -218,9 +218,13 @@ limitado a solo lectura, y se verifica sin almacenarse nunca, así que un enlace
 una ventana de solo lectura a un proyecto.
 
 El cliente vive en `web_viewer/` y el bloque de servicio de producción en
-`deploy/nginx-sync.conf`; la receta completa para operadores (generación de enlaces de
-compartición, servicio, la postura de token/seguridad, y la comprobación de fidelidad de
-píxel entre navegadores) está en la guía (privada) del visor web.
+`deploy/nginx-sync.conf`. El formato de la conexión y el contrato del token firmado están
+especificados en [ADR-0036](docs/adr/0036-web-viewer-wire-and-signed-token-contract.md); la
+generación de enlaces de compartición y la postura de token/seguridad están implementadas en
+`web_viewer/dev_server.py` (véanse las docstrings en línea y
+`web_viewer/tests/test_share_token.py`), y la comprobación de fidelidad de píxel entre
+navegadores vive en `web_viewer/tests/test_render_fidelity.py`. Actualmente no existe una
+guía única y consolidada para operadores que reúna todo esto.
 
 ## Documentación
 

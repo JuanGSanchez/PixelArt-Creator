@@ -192,9 +192,13 @@ existing WSS relay, presenting the signed token. The token is short-lived, view-
 verified-never-stored, so a link only ever grants a read-only window onto one project.
 
 The client lives in `web_viewer/` and the production serving block in
-`deploy/nginx-sync.conf`; the full operator recipe (share-link generation, serving, the
-token/security posture, and the cross-browser pixel-fidelity check) is in the (private)
-web-viewer guide.
+`deploy/nginx-sync.conf`. The wire format and the signed-token contract are specified in
+[ADR-0036](docs/adr/0036-web-viewer-wire-and-signed-token-contract.md); share-link
+generation and the token/security posture are implemented in `web_viewer/dev_server.py`
+(see the inline docstrings and `web_viewer/tests/test_share_token.py`), and the
+cross-browser pixel-fidelity check lives in `web_viewer/tests/test_render_fidelity.py`.
+A single consolidated operator walkthrough tying these together does not currently
+exist as one document.
 
 ## Documentation
 
