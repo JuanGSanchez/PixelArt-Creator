@@ -195,7 +195,7 @@ def make_dither_command(
         mode: ``'ordered'`` or ``'floyd_steinberg'``.
         mask: If given, only masked pixels change; others are untouched.
         target: Where this edit landed, or ``None`` if unknown — **required,
-            no default** (plan §8.2, task T27); passed straight through to
+            no default** (plan §8.2); passed straight through to
             :class:`history.PixelEdit`.
 
     Returns:

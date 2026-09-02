@@ -27,7 +27,7 @@ for *any* of the three referenced shapes (a ``PixelBuffer``'s pixels, a
 frame's composited sprite, a tileset's serialised form) come only from the
 same canonical serialiser an asset's own registration goes through — a
 ``data/`` concern (``data/project_io``, via ``data/asset_catalog_io`` /
-``data/asset_ingress``, T3). ``logic/`` may not import ``data/`` (Article I
+``data/asset_ingress``). ``logic/`` may not import ``data/`` (Article I
 §3), so this module cannot reproduce that serialisation without becoming a
 **second serialiser** — precisely the defect REQ-P11-DATA-007 forbids. This
 module therefore takes each reference candidate as bytes **already**
@@ -47,7 +47,7 @@ never-to-be-registered) content degrades to "no edge", never a wrong one,
 and a ``content`` sequence with no candidates at all (a source that
 references nothing) yields an **empty edge set, no error**.
 
-**[T8-B, ruling P11-R8, plan §3.10 — the Item-2 fix, amending the paragraph
+**[ruling P11-R8, plan §3.10 — the Item-2 fix, amending the paragraph
 above.]** Whole-project canonical bytes bake in the **layer display name**
 (the caller's canonical serialiser round-trips the document *as the user
 named its layers*), so matching on them derives **zero** edges for every
@@ -222,7 +222,7 @@ def edges_for(
 
 
 # --------------------------------------------------------------------------- #
-# candidates_of — the per-kind reference-candidate rule (T8-A, ruling P11-R6) #
+# candidates_of — the per-kind reference-candidate rule (ruling P11-R6)       #
 # --------------------------------------------------------------------------- #
 
 
@@ -244,8 +244,9 @@ def _sprite_document(buffer: PixelBuffer) -> Document:
 def _tileset_document(tileset: Tileset) -> Document:
     """Wrap ``tileset`` the way a standalone ``TILESET`` registration would.
 
-    **Unverified against a real caller (report, don't invent — T8-A's escape
-    hatch).** Unlike :func:`_sprite_document`, no factory anywhere in this
+    **Unverified against a real caller (report, don't invent — the
+    documented escape hatch for exactly this case).** Unlike
+    :func:`_sprite_document`, no factory anywhere in this
     tree builds a "just this tileset" :class:`Document` today: a
     :class:`Tileset` is normally attached to an already-open working document
     (:meth:`Document.make_add_tileset_command`), never built standalone for
@@ -254,9 +255,9 @@ def _tileset_document(tileset: Tileset) -> Document:
     carrying exactly that one tileset and nothing else — so a tilemap's
     reference to a tileset asset degrades to "no edge" rather than a wrong
     one when the shapes disagree. **Byte-identical agreement with whatever
-    document a future tileset-registration path (T9 or its successor) builds
-    is not proven here** — see this module's report for the finding; T17
-    extends coverage once that caller exists.
+    document a future tileset-registration path builds is not proven
+    here** — see this module's report for the finding; coverage extends
+    once that caller exists.
     """
     document = Document(
         tileset.source.width, tileset.source.height, mode=tileset.source.mode
@@ -278,7 +279,7 @@ def candidates_of(document: Document, kind: AssetKind) -> Tuple[Document, ...]:
     Each candidate is returned **wrapped as the ``Document`` it would itself
     have been registered as** (:func:`_sprite_document` /
     :func:`_tileset_document`) — never as the raw domain value — because the
-    caller's next step (T9, ``data/asset_ingress.canonical_bytes``) only
+    caller's next step (``data/asset_ingress.canonical_bytes``) only
     knows how to canonicalise a :class:`Document`; recognising *which*
     sub-object is a candidate is this function's job, not the caller's
     (ruling P11-R6, plan §3.8). This function performs **no I/O and no
@@ -288,7 +289,7 @@ def candidates_of(document: Document, kind: AssetKind) -> Tuple[Document, ...]:
     ``document``: tilesets/tilemaps in their list order, frame tags in their
     list order, frames within a tag from ``from_frame`` to ``to_frame``
     ascending — the same iteration order :class:`Document` itself keeps
-    (T17 tests this).
+    (covered by dedicated tests).
 
     Args:
         document: The just-registered (or about-to-be-registered) source —
@@ -339,7 +340,7 @@ def candidates_of(document: Document, kind: AssetKind) -> Tuple[Document, ...]:
 
 
 # --------------------------------------------------------------------------- #
-# reference_bytes / candidate_keys — content-only keying (T8-B, ruling P11-R8)#
+# reference_bytes / candidate_keys — content-only keying (ruling P11-R8)      #
 # --------------------------------------------------------------------------- #
 
 #: Field separator for :func:`reference_bytes`'s header — never a byte that
@@ -387,7 +388,7 @@ def _reference_layers(nodes: Sequence[LayerNode]) -> List[LayerNode]:
     each node's ``opacity``, ``blend_mode`` and ``mask`` in addition to its
     pixel content (``blend.py:696``). Feeding it a document's *real* layer
     tree therefore bakes those three presentation attributes into the
-    composite, which is exactly what T8-B's own contract forbids for
+    composite, which is exactly what this function's own contract forbids for
     ``reference_bytes`` ("NOT the layer name, opacity, blend mode, mask, ppi,
     palette, tags or metadata", plan §3.10 / `tasks.md`:460). This function
     builds a **new** tree of :class:`~pixelart_creator.logic.document.Layer`
@@ -436,7 +437,7 @@ def reference_bytes(document: Document, kind: AssetKind) -> bytes:
     """Return ``document``'s content-only reference bytes for ``kind``, purely.
 
     **The TILESET canonicalisation definition (this module's to define, per
-    T8-B step 1 / ruling P11-R8) — UNCHANGED by this task.** Ruling P11-R8
+    ruling P11-R8) — UNCHANGED by this task.** Ruling P11-R8
     (plan §3.10) names the shape only in prose — "source + tile grid for a
     TILESET" — and leaves the exact byte layout to this task. Defined here
     as: the kind tag, the **source image's** geometry (``width``/``height``)
@@ -471,8 +472,8 @@ def reference_bytes(document: Document, kind: AssetKind) -> bytes:
     -012) — a document differing *only* in a single layer's opacity produced
     genuinely different reference bytes (measured, `subagent-report-agt-04-
     python-tester-a104edec-20260822T111623.md` §4: ``opacity-only equal:
-    False``), contradicting this function's own docstring promise and T8-B's
-    Done-when clause 3. Same "geometry + colour mode + pixels" shape as
+    False``), contradicting this function's own docstring promise and the
+    applicable Done-when clause. Same "geometry + colour mode + pixels" shape as
     before, with no tile grid because a sprite has none — only *how* the
     pixels are produced changed.
 
@@ -541,13 +542,13 @@ def reference_bytes(document: Document, kind: AssetKind) -> bytes:
 def candidate_keys(document: Document, kind: AssetKind) -> Tuple[bytes, ...]:
     """Return ``document``'s reference-candidate keys for ``kind``, purely.
 
-    Built **over** :func:`candidates_of` — T8-A's per-kind rule stays the
+    Built **over** :func:`candidates_of` — its per-kind rule stays the
     single statement of "which sub-object is a candidate"; this function adds
     nothing of its own except turning each candidate :func:`candidates_of`
     already identified into its :func:`reference_bytes`. Re-expressing the
     per-kind rule here (instead of calling :func:`candidates_of`) would leave
     that function with no production caller — the exact dead-seam defect
-    ruling P11-R8 exists to close (T8-B step 2).
+    ruling P11-R8 exists to close.
 
     Every candidate :func:`candidates_of` returns is already wrapped as the
     shape its own :func:`reference_bytes` call needs: a ``TILEMAP``
@@ -567,7 +568,7 @@ def candidate_keys(document: Document, kind: AssetKind) -> Tuple[bytes, ...]:
         deterministic order. This is the direct replacement for the
         ``tuple(canonical_bytes(d) for d in candidates_of(...))`` recipe
         ruling P11-R6 named — ``ui/asset_library_actions._derive_and_emit_edges``
-        (T9-A) calls this function instead.
+        calls this function instead.
 
     Raises:
         AssetEdgesError: Propagated from :func:`candidates_of` (bad

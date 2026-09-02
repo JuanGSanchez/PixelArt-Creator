@@ -15,7 +15,7 @@ relay in :class:`~pixelart_creator.ui.main_window.Main_Window` (a user-facing
 ``tr()``-wrapped via ``QCoreApplication.translate`` so a module-level call still
 extracts (REQ-P7-UI-013).
 
-T7-A (ruling P11-R7, REQ-P11-UI-014): this module cannot perform the asset
+Per ruling P11-R7 (REQ-P11-UI-014): this module cannot perform the asset
 registration the export dialog's opt-in requests — the export itself runs
 off-thread, so success is known only later, at the window's completion
 handlers. Instead it carries the opt-in's answer back to the caller as an
@@ -41,7 +41,7 @@ class Export_Registration_Request:
     """The export dialog's opt-in answer, carried back to the caller.
 
     Never acted on here — ``ui/main_window.py`` holds this until the export it
-    describes actually succeeds (T7-A, ruling P11-R7), then calls
+    describes actually succeeds (ruling P11-R7), then calls
     :meth:`~pixelart_creator.ui.asset_library_actions.Asset_Library_Session.
     register_export_artifact` with these exact fields.
     """
@@ -88,7 +88,7 @@ def run_export_dialog(
 
     Returns an :class:`Export_Registration_Request` when the user both
     submitted a target AND checked the dialog's "also add to the asset
-    library" opt-in (T7-A); ``None`` in every other case (no document,
+    library" opt-in; ``None`` in every other case (no document,
     cancelled, no path, or the opt-in was left unchecked — REQ-P11-UI-014's
     negative: the export's default behaviour is unchanged).
     """

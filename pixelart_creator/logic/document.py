@@ -87,7 +87,7 @@ class DocumentError(ValueError):
 
 
 class _TracedCommand(FunctionCommand):
-    """A :class:`FunctionCommand` that reports a fixed :meth:`edit_trace` (T8/T9/T10).
+    """A :class:`FunctionCommand` that reports a fixed :meth:`edit_trace`.
 
     ``REQ-P10-UI-025``: the four op classes' commands describe their own change
     at build time (the new value / resulting order is already known then), so
@@ -339,7 +339,7 @@ def _group_depth(node: "LayerNode") -> int:
 
 
 # --------------------------------------------------------------------------- #
-# Group-cache invalidation (D4 — ADR-0007 §Amendment (T13))                    #
+# Group-cache invalidation (D4 — ADR-0007 §Amendment)                          #
 # --------------------------------------------------------------------------- #
 
 
@@ -1098,7 +1098,7 @@ class Document:
 
         Invalidation is MANDATORY and fires on both directions — an undo also
         changes the composite, so a stale cache would render wrongly
-        (SC-UI-012-2, ADR-0007 §Amendment (T13) D4).
+        (SC-UI-012-2, ADR-0007 §Amendment D4).
         """
         if not groups:
             return command
@@ -1152,13 +1152,13 @@ class Document:
         When ``frame_index`` is given (only the call sites for ``name``,
         ``visible`` and ``locked`` pass it — the attrs
         :data:`~pixelart_creator.logic.convergence.LAYER_ATTRS` actually
-        converges, task T8), the returned command reports a
+        converges), the returned command reports a
         :class:`~pixelart_creator.logic.edit_trace.LayerAttrTrace` naming
         ``(frame_index, node.layer_id, attr, value)``. ``document.py`` cannot
         import ``logic/convergence.py`` to check membership directly —
         ``convergence.py`` already imports ``document.py``, and the reverse
         edge would close a two-module cycle (Article I §4) — so the call sites
-        below encode the membership instead: ``opacity`` (not in T8's scope)
+        below encode the membership instead: ``opacity`` (out of scope)
         and ``blend_mode`` (not in ``LAYER_ATTRS`` at all) omit ``frame_index``
         and keep the default, honest, empty trace.
         """
@@ -1197,14 +1197,14 @@ class Document:
         )
 
     def make_set_metadata_command(self, key: str, value: str) -> Command:
-        """Build a command reversibly setting ``self.metadata[key] = value`` (task T10).
+        """Build a command reversibly setting ``self.metadata[key] = value``.
 
         The metadata-setting command's op class (``REQ-P10-UI-025``): reports a
         :class:`~pixelart_creator.logic.edit_trace.MetadataTrace` naming
         ``(key, value)``. No reversible metadata-setting command existed
         before this task — ``Document.metadata`` was a plain dict, written
-        directly with no undo support. After T7-T10 all four convergence op
-        classes are reachable from a real, reversible edit.
+        directly with no undo support. All four convergence op
+        classes are now reachable from a real, reversible edit.
 
         Raises:
             DocumentError: If ``key`` is not a non-empty ``str``.
@@ -1230,11 +1230,11 @@ class Document:
     def set_layer_name(
         self, ref: LayerRef, value: str, *, frame_index: int = 0
     ) -> Command:
-        """Reversibly set a node's display name (LOGIC-008, task T8).
+        """Reversibly set a node's display name (LOGIC-008).
 
         The name setter's op class (``REQ-P10-UI-025``): ``name`` is one of
         :data:`~pixelart_creator.logic.convergence.LAYER_ATTRS`, so this is the
-        fourth of the four commands task T8 wires to a
+        fourth of the four commands wired to a
         :class:`~pixelart_creator.logic.edit_trace.LayerAttrTrace`. No
         reversible name-setting command existed before this task.
         """
@@ -1286,7 +1286,7 @@ class Document:
         :data:`~pixelart_creator.logic.convergence.LAYER_ATTRS` — the structured
         convergence model does not converge it — so this command keeps the
         default, empty :meth:`~pixelart_creator.logic.history.Command.edit_trace`
-        (task T8's own scope: only ``name``/``visible``/``locked`` are traced).
+        (only ``name``/``visible``/``locked`` are traced).
         """
         frame = self._check_frame(frame_index)
         container, _index, node = self._resolve(frame, ref)
@@ -1372,7 +1372,7 @@ class Document:
         top-level index, or a path whose last element is the index inside a
         target group).
 
-        When the move is **top-level to top-level** (LOGIC-009 §T9), the
+        When the move is **top-level to top-level** (LOGIC-009), the
         returned command reports a
         :class:`~pixelart_creator.logic.edit_trace.LayerOrderTrace` naming the
         resulting ``(frame_index, order)``. A move into/out of a nested group

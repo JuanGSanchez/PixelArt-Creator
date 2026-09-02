@@ -74,7 +74,7 @@ unreachable code. A save refused for exceeding the payload size limit is told
 apart from every other save failure **by exception type**
 (:class:`~pixelart_creator.data.timelapse_io.TimelapsePayloadTooLargeError`, a
 :class:`~pixelart_creator.data.timelapse_io.TimelapseIOError` subclass), never
-by reading ``str(exc)`` — plan §8.2 B-3, T28. The words shown are this
+by reading ``str(exc)`` — plan §8.2 B-3. The words shown are this
 widget's own ``tr()``-wrapped sentence; none of the subclass's size/bound
 attributes reach a user-visible surface.
 
@@ -89,7 +89,7 @@ way — caught **by exception type**, shown only as this widget's own
 exception detail ever reaching the surface. ``_on_save``/``_on_load`` catch
 ``TimelapsePayloadTooLargeError`` and ``TimelapseIOError`` by type, each with
 its own distinct sentence so an oversize refusal never reads like a malformed
-payload (plan §8.2 B-3, T28). ``_record_committed`` catches ``TimelapseError``
+payload (plan §8.2 B-3). ``_record_committed`` catches ``TimelapseError``
 by type and shows a fixed sentence for the ``MAX_TIMELAPSE_FRAMES`` refusal —
 the only cause reachable through this widget's call (``record_frame`` reuses
 ``TimelapseError`` for a ``command_id`` contract violation too, but that
@@ -454,7 +454,7 @@ class Timelapse_Controls(QWidget):
             # widget can actually reach is the MAX_TIMELAPSE_FRAMES refusal —
             # one exception type, one reachable cause, one tr()-wrapped
             # sentence (mirrors the TimelapsePayloadTooLargeError/TimelapseIOError
-            # treatment in _on_save/_on_load below; plan §8.2 B-3, T28). The
+            # treatment in _on_save/_on_load below; plan §8.2 B-3). The
             # ordinal drawn above is simply never reused for another frame —
             # (b) forbids reuse, it does not forbid a gap.
             self._recording = False
@@ -575,7 +575,7 @@ class Timelapse_Controls(QWidget):
         try:
             save_session_payload(updated_session, snapshots, blobs, path)
         except TimelapsePayloadTooLargeError:
-            # T28 (plan §8.2 B-3): dispatch on the TYPE, never on str(exc)/exc.args
+            # Per plan §8.2 B-3: dispatch on the TYPE, never on str(exc)/exc.args
             # or any developer-only size/bound attribute of the subclass — none of
             # those may reach a user-visible surface, tooltips included. This
             # sentence is deliberately distinct from the generic TimelapseIOError

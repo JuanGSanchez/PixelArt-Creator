@@ -3,7 +3,7 @@
 """Registration prompt — the one shared collection surface (RP-1..RP-5).
 
 ``Asset_Register_Dialog`` is the single prompt every in-app registration action
-(register-document, register-selection, the export opt-in — T7) shows before an
+(register-document, register-selection, the export opt-in) shows before an
 asset enters the library. Per the ruling contracted once at ``spec.md``'s
 "registration prompt" section (CL-P11-6, RP-1..RP-5) it collects **only** a
 **display name**, an **asset kind** chosen from the five shipped
@@ -12,8 +12,8 @@ asset enters the library. Per the ruling contracted once at ``spec.md``'s
 **dependency edges** are computed elsewhere, never typed here, so this dialog
 holds no domain logic and calls into no ``logic/`` construction function
 (Article I / S11): it hands the caller three plain values
-(:meth:`display_name`, :meth:`kind`, :meth:`tags`) and lets the caller (T7,
-then T3's ingress boundary via ``logic/asset_extract.descriptor_for``) do the
+(:meth:`display_name`, :meth:`kind`, :meth:`tags`) and lets the caller (via
+the ingress boundary in ``logic/asset_extract.descriptor_for``) do the
 computing.
 
 The dialog may open **prefilled** with a suggested name/kind (RP-2), but only

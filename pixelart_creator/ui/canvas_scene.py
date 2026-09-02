@@ -636,7 +636,7 @@ class _FloatingPreviewItem(QGraphicsItem):
 
     The scene instantiates it **twice** so a MOVE drag never recomposites an
     area that grows with the drag distance (rendering/performance fix FB-8 /
-    ADR-0009 D3 / ADR-0007 T13): a **floated-colours** layer bounded to the
+    ADR-0009 D3 / ADR-0007): a **floated-colours** layer bounded to the
     selection bbox,
     recomposited per drag frame (z ``_Z``); and a **vacated-origin** layer
     bounded to the fixed origin bbox, composited **once** at lift and reused for
@@ -1200,7 +1200,7 @@ class CanvasScene(QGraphicsScene):
         """Recompose only ``rect`` into the composite buffer (dirty-rect path, D1).
 
         ``composite_stack(region=(x,y,w,h))`` now returns a **region-sized**
-        ``(h, w, 4)`` buffer whose origin is ``(x, y)`` (task T13 / ADR-0007 D1),
+        ``(h, w, 4)`` buffer whose origin is ``(x, y)`` (ADR-0007 D1),
         so the returned data blits straight into the resident scene buffer at that
         origin — no full-canvas indexing. The region is clamped to the canvas here
         (0 ≤ x0 < x1 ≤ w, 0 ≤ y0 < y1 ≤ h) so the compositor's bounds check never
@@ -2306,7 +2306,7 @@ class CanvasScene(QGraphicsScene):
         origin is composited **once** here into a separate persistent overlay
         (:meth:`_origin_vacate`). Neither is ever unioned into a distance-growing
         region, and the base display buffer is untouched until commit (ADR-0009
-        D3 / ADR-0007 T13; the 16 ms budget is never relaxed, Article VI §2).
+        D3 / ADR-0007; the 16 ms budget is never relaxed, Article VI §2).
         """
         self._floating_prev = QRectF()
         self._ensure_composite()
@@ -2401,7 +2401,7 @@ class CanvasScene(QGraphicsScene):
         off-canvas. Computed **once** when the float is lifted and reused for the
         whole gesture (the origin bbox and mask never change), so a long MOVE
         drag never re-composites the origin per frame nor grows the recomposited
-        area (rendering/performance fix FB-8 / ADR-0009 D3 / ADR-0007 task T13).
+        area (rendering/performance fix FB-8 / ADR-0009 D3 / ADR-0007).
 
         The vacate maths stay in ``logic.composite_preview`` (Article I): the
         stamp is displaced a full float-width past the origin's right edge so the

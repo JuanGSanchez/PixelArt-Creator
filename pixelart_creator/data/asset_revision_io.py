@@ -189,8 +189,8 @@ def write_history(
     """Write ``asset_id``'s sidecar as ``<root>/revisions/<asset_id>.json``.
 
     Creates the revisions directory on demand. Does **not** touch the index — call
-    :func:`write_index` after every sidecar in a batch has been written (T40's commit
-    point issues the two in order; they are two functions on purpose).
+    :func:`write_index` after every sidecar in a batch has been written. The commit
+    point issues the two in order; they are two functions on purpose.
 
     Raises:
         AssetRevisionIOError: If ``asset_id`` is not a safe filename, ``history`` is

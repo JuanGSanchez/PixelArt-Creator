@@ -92,7 +92,7 @@ from pixelart_creator.logic.asset_edit_decisions import AssetEditDecisions
 
 # Also a side-effect import: registers ASSET_LIBRARY_EDIT into
 # project_prefs.REGISTRY at module scope, before the confirmations submenu is
-# built below (plan §3.4, ruling P11-R2). Referenced by name (T51) to filter
+# built below (plan §3.4, ruling P11-R2). Referenced by name to filter
 # the journal's admitted-prefs write to this one key.
 from pixelart_creator.logic.asset_references import ASSET_LIBRARY_EDIT, ReferenceSet
 from pixelart_creator.logic.assistant import ChatBackend
@@ -402,18 +402,18 @@ class _DocTab:
     # read-only, Qt-free ``compute_sync_state`` for the Cloud menu / version
     # browser status line — never computed here.
     local_version_id: Optional[str] = None
-    # T43 (ruling P11-R12, finding 1): this tab's session-scoped binding
+    # Per ruling P11-R12 (finding 1): this tab's session-scoped binding
     # to the catalog entry it was last registered/re-registered as, or None
     # when the tab has never been registered. Session-scoped only — never
     # written to the project file, never carried by a format-version event —
     # so re-registering the SAME changed document appends a revision to the
     # SAME asset (REQ-P11-UI-020's reachability) instead of always minting a
     # new one. Cleared by _on_register_active_document itself when the bound
-    # id is found to no longer be in the catalog (T43's own pre-check); the
+    # id is found to no longer be in the catalog (this tab's own pre-check); the
     # session's own stale-id guard (asset_library_actions.py's
     # _register_via_prompt) remains the last line of defence for a race.
     registered_asset_id: Optional[str] = None
-    # T30 (plan §3.11 (2)/(2b)): this tab's real, durable reference set — held
+    # Per plan §3.11 (2)/(2b): this tab's real, durable reference set — held
     # here, never on ``document`` (data/project_io.py's own "the open projects'
     # reference sets are held by the caller" contract) — and the key that
     # scopes it, both in the reuse panel's ``_projects`` dict and in the
@@ -423,7 +423,7 @@ class _DocTab:
     # branch-switch/restore).
     reference_set: ReferenceSet = field(default_factory=ReferenceSet)
     project_key: str = ""
-    # T51 (ruling P11-R13, ADR-0062): the durable project identity that keys the
+    # Per ruling P11-R13 (ADR-0062): the durable project identity that keys the
     # write-ahead decision journal — the resolved absolute ``.pixproj`` path, set
     # by ``open_document``/``save_document`` only. Deliberately **not**
     # ``project_key``: that key also scopes the reuse panel's bucket and the
@@ -432,7 +432,7 @@ class _DocTab:
     # for a never-saved document — a never-saved project's decisions live only
     # on ``decided_edits`` below and the journal writes no record for it.
     file_path: Optional[str] = None
-    # T51: this tab's per-edit library-decision ledger (T47's
+    # This tab's per-edit library-decision ledger (the
     # ``AssetEditDecisions``), hydrated at open from the project file merged
     # with any journal record (journal wins per key), advanced by the resolve
     # prompt's ``on_decided`` callback, and forwarded to ``save_project`` on
@@ -696,7 +696,7 @@ class Main_Window(QMainWindow):
         # remaining frame is inert by invariant, so it explains itself in the
         # status bar instead of asking a Yes/No question whose answer cannot
         # change the outcome. ``Timeline_Panel`` exposes no public seam for its
-        # grid child (T4 keeps it an internal cell surface), so this reaches the
+        # grid child (kept as an internal cell surface), so this reaches the
         # real child instance the same way ``findChildren(QDockWidget)`` already
         # does elsewhere in this shell, rather than duplicating the grid's own
         # last-frame test here.
@@ -796,7 +796,7 @@ class Main_Window(QMainWindow):
         # refused). Amended 2026-08-24 (UR-HUBFILL-1/B, CL-17): the premise
         # that a pick "never touches the undo stack" is RETIRED — a COMPLETED
         # pick also runs the active tool at the hub's anchor pixel as one
-        # undoable command (REQ-P3-UI-006 leg 2, T17), via
+        # undoable command (REQ-P3-UI-006 leg 2), via
         # ``_on_hub_color_committed`` below.
         self._favourites = self._load_favourites()
         self._colour_hub = Colour_Hub_Menu(self)
@@ -835,13 +835,13 @@ class Main_Window(QMainWindow):
         self._export_controller.busyChanged.connect(self._on_export_busy)
         self._export_run_failures: List[str] = []
         self._export_run_ok = 0
-        # T7-A (ruling P11-R7): the export dialog's opt-in answer, carried back by
+        # Per ruling P11-R7: the export dialog's opt-in answer, carried back by
         # run_export_dialog and consumed only on the completion handlers below —
         # export runs off-thread, so success is known only there, never at
         # submission (REQ-P11-UI-014's negative: an un-opted-in export must leave
         # the catalog/store/revision history unchanged).
         self._pending_export_registration: Optional[Export_Registration_Request] = None
-        # T10 WIRE follow-up: the target directory chosen by
+        # WIRE follow-up: the target directory chosen by
         # _on_import_project_bundle, consumed exactly once by
         # _on_project_bundle_imported to title the new tab — the session's
         # own projectBundleImported signal carries only (document, catalog),
@@ -1047,10 +1047,10 @@ class Main_Window(QMainWindow):
         self._branching_panel = Branching_Panel(self)
         self._branching_panel.set_session(self._branching_session)
         self._branching_dock = self._add_workflow_dock(self._branching_panel)
-        # T15 (REQ-P10-UI-014/-025/-026): the open-diff affordance names a branch;
+        # REQ-P10-UI-014/-025/-026: the open-diff affordance names a branch;
         # this window supplies the active tab's live Document to `supervise` (plan
         # §3.2 — only `ui/` holds it) and builds/shows the modeless
-        # `Branch_Diff_Dialog` (T16, landed).
+        # `Branch_Diff_Dialog`.
         self._last_supervision: Optional[SupervisionResult] = None
         self._branch_diff_dialog: Optional[Branch_Diff_Dialog] = None
         self._branching_panel.openDiffRequested.connect(self._on_open_diff_requested)
@@ -1058,7 +1058,7 @@ class Main_Window(QMainWindow):
         # Phase-11's asset library (REQ-P11-UI-001/-002/-003): browse the
         # catalog, tag assets, and search/filter — three docked panels bound to one
         # Asset_Library_Session that holds the shared AssetCatalog, LOADED FROM DISK
-        # at bind time and persisted on every mutation (T5, REQ-P11-DATA-008), and the
+        # at bind time and persisted on every mutation (REQ-P11-DATA-008), and the
         # shared undo stack the tag QUndoCommands push onto (PL11-D3). Every Slice-1
         # library op (enumerate, filter, tag) is a SYNCHRONOUS in-memory call over the
         # immutable catalog value — no network, no off-GUI-thread worker / timer /
@@ -1099,14 +1099,14 @@ class Main_Window(QMainWindow):
         self._asset_library_panel.assetSelected.connect(
             self._dependency_graph_view.set_asset
         )
-        # T9 (REQ-P11-LOGIC-010, REQ-P11-UI-018, ruling P11-R6): give
+        # Per REQ-P11-LOGIC-010, REQ-P11-UI-018, ruling P11-R6: give
         # show_edges its first production caller. The session derives no
         # edge itself and never calls set_graph or imports the view (see
         # Asset_Library_Session's own docstring) — show_edges alone decides
         # whether the accumulated edge set it receives is accepted or
         # passively rejected as cyclic.
         self._asset_session.edgesDerived.connect(self._dependency_graph_view.show_edges)
-        # T10 WIRE follow-up: a bundle import reconstructs a NEW
+        # WIRE follow-up: a bundle import reconstructs a NEW
         # project (never merged into this session's open library, plan
         # Section 3.7's "Import lands in" row); the window is what opens it
         # into a tab.
@@ -1129,11 +1129,12 @@ class Main_Window(QMainWindow):
         # precedent), so shutdown_prewarm is unchanged and nothing survives into GC.
         self._asset_content_store = default_content_store(self._asset_root())
         self._asset_revision_store = AssetRevisionStore(self._asset_content_store)
-        # T41 (P11-R11): adopt persisted revision history before any consumer reads it
+        # Per ruling P11-R11: adopt persisted revision history before any
+        # consumer reads it
         self._asset_revision_store.bind_root(self._asset_root())
-        # T7-A (ruling P11-R7): bind both stores to the session so
+        # Per ruling P11-R7: bind both stores to the session so
         # register_active_document / register_selection / register_export_artifact
-        # (T7) stop failing _require_ingress_ready on their first call. Neither
+        # stop failing _require_ingress_ready on their first call. Neither
         # store is constructed here — both already exist on the two lines above
         # (ADR-0051's injected-root ruling; the session never re-resolves a root).
         self._asset_session.bind_content_store(self._asset_content_store)
@@ -1282,8 +1283,8 @@ class Main_Window(QMainWindow):
         self._live_cursors_action.setCheckable(True)
         self._live_cursors_action.toggled.connect(self._on_live_cursors_toggled)
 
-        # T7-A (ruling P11-R7, REQ-P11-UI-017): the two registration command
-        # entries T7 shipped as unreachable methods on Asset_Library_Session.
+        # Per ruling P11-R7 (REQ-P11-UI-017): the two registration command
+        # entries shipped as unreachable methods on Asset_Library_Session.
         # Enablement is refreshed by _refresh_registration_actions_ui, not set
         # here (both start disabled until a document is open).
         self._register_active_document_action = QAction(self)
@@ -1295,8 +1296,8 @@ class Main_Window(QMainWindow):
         self._register_selection_action.setEnabled(False)
         self._register_selection_action.triggered.connect(self._on_register_selection)
 
-        # T10 WIRE follow-up (ruling P11-R5, plan Section 3.7): the
-        # four import/export commands T10 shipped as unreachable methods on
+        # WIRE follow-up (ruling P11-R5, plan Section 3.7): the
+        # four import/export commands shipped as unreachable methods on
         # Asset_Library_Session. Two separately-labelled command PAIRS —
         # library artifact (import/export) and project bundle
         # (export/import) — never sharing a menu entry or a dialog filter
@@ -1428,7 +1429,7 @@ class Main_Window(QMainWindow):
         self._swap_action = QAction(self)
         self._swap_action.triggered.connect(self._on_palette_swap)
 
-        # Indexed-mode conversion actions (REQ-P3-UI-014, T22). No standalone
+        # Indexed-mode conversion actions (REQ-P3-UI-014). No standalone
         # QKeySequence — menu items only, so they never clash with the reserved
         # single-key tool shortcuts; the mnemonics are unique within &Palette.
         self._to_indexed_action = QAction(self)
@@ -1651,7 +1652,7 @@ class Main_Window(QMainWindow):
         self._library_menu.addAction(self._dependency_dock.toggleViewAction())
         self._library_menu.addAction(self._version_browser_dock.toggleViewAction())
         self._library_menu.addAction(self._reuse_dock.toggleViewAction())
-        # T7-A (ruling P11-R7): the command surface for T7's three registration
+        # Per ruling P11-R7: the command surface for the three registration
         # methods — no new UI module (plan §3.9's "why no new module"). Enablement
         # is refreshed on every tab switch and right before the menu opens, so a
         # selection made after the last tab switch is still reflected
@@ -1659,7 +1660,7 @@ class Main_Window(QMainWindow):
         self._library_menu.addSeparator()
         self._library_menu.addAction(self._register_active_document_action)
         self._library_menu.addAction(self._register_selection_action)
-        # T10 WIRE follow-up (P11-R5): the library-artifact pair and
+        # WIRE follow-up (P11-R5): the library-artifact pair and
         # the project-bundle pair, each behind its own separator so neither
         # pair, nor either command within a pair, is read as one menu entry.
         self._library_menu.addSeparator()
@@ -1880,7 +1881,7 @@ class Main_Window(QMainWindow):
 
     @staticmethod
     def _render_timelapse_frame(document: Document, frame_index: int) -> np.ndarray:
-        """Composite one ``Document`` frame to an RGBA ``ndarray`` (D-12, T9/T10).
+        """Composite one ``Document`` frame to an RGBA ``ndarray`` (D-12).
 
         The ``Timelapse_Controls`` renderer (``Document -> np.ndarray``, S11 — no
         domain/composite maths authored here): binds to
@@ -2085,21 +2086,21 @@ class Main_Window(QMainWindow):
     def open_document(self, path: str) -> Document:
         """Open a ``.pixproj`` via ``data/project_io`` into a new tab (020).
 
-        Loads through :func:`load_project_bundle` (T30/T49, plan §3.11 (2),
+        Loads through :func:`load_project_bundle` (plan §3.11 (2),
         ``REQ-P11-DATA-010``) so the project's reference set **and** its
         per-edit decision ledger travel with it — a v1-v5 file, or a v6 file
         that never recorded a decision, loads with an **empty** ledger. The
         tab's key is the opened file's absolute path, which is what makes it
         stable across a later save-in-place and what the reuse panel and the
         update-prompt's per-project session memory both key on (plan §3.11
-        (2b)); ``file_path`` (T51) is set to the same resolved path — the
+        (2b)); ``file_path`` is set to the same resolved path — the
         durable identity that keys the decision journal, deliberately kept
         separate from ``project_key`` (see ``_DocTab.file_path``'s own
         docstring).
 
         Once the tab exists — so the prompt has a parent and the user can see
         which project is asking — and **before** the loaded set is bound to
-        the reuse panel or used to resolve anything, this method (T51, ruling
+        the reuse panel or used to resolve anything, this method (per ruling
         P11-R13):
 
         1. Reads the journal's record for this resolved path, if any, and
@@ -2114,12 +2115,12 @@ class Main_Window(QMainWindow):
 
         Only **then** does it run
         :func:`~pixelart_creator.ui.asset_update_prompt.resolve_library_edits`
-        **once** over the newly-created tab's own reference set (T31, plan
+        **once** over the newly-created tab's own reference set (plan
         §3.11 (2)): each ``STATE_EDITED`` reference raises
         ``Asset_Update_Prompt_Dialog.decide`` exactly once; the resolved
         ``(reference_set, prefs)`` pair is written back onto the tab, and a
         fresh decision is written straight to the journal by the resolve
-        callback (T51 step 4) before this method returns.
+        callback before this method returns.
         """
         document, reference_set, decisions = load_project_bundle(path)
         project_key = str(Path(path).resolve())
@@ -2216,11 +2217,11 @@ class Main_Window(QMainWindow):
         Marks the tab's undo stack **clean** at the saved state so the drag-drop
         dirty guard (REQ-DDI-UI-004) can trust ``QUndoStack.isClean()`` — a saved,
         un-edited document no longer prompts on a ``.pixproj`` drop. Forwards the
-        tab's held reference set (T30, plan §3.11 (2)) so a bound set is written
+        tab's held reference set (plan §3.11 (2)) so a bound set is written
         back rather than dropped on the next save; a project referencing nothing
         still writes no ``asset_refs`` key (``data/project_io.py``'s own
         ``reference_set.entries()`` guard). Also forwards the tab's per-edit
-        decision ledger (T51, ``decisions=``, ruling P11-R13) so it becomes part
+        decision ledger (``decisions=``, ruling P11-R13) so it becomes part
         of the saved file, then sets ``record.file_path`` to the saved,
         suffix-corrected path and **retires** that path's journal record —
         after the file write has already succeeded, never before. A failed
@@ -2308,7 +2309,7 @@ class Main_Window(QMainWindow):
             project_key=project_key,
         )
         self._tabs_data.append(record)
-        # T31 (plan §3.11 (2)): the tab now exists (has a project_key and a
+        # Per plan §3.11 (2): the tab now exists (has a project_key and a
         # document.prefs to resolve against) but nothing has bound or used
         # its reference set yet — exactly where the ordering clause places
         # the update-prompt pass, when the caller (open_document) supplies
@@ -2317,7 +2318,7 @@ class Main_Window(QMainWindow):
         # mismatch) is unaffected.
         if after_tab_created is not None:
             after_tab_created(record)
-        # T30 (plan §3.11 (2)): bind this tab's real, durable set to the reuse
+        # Per plan §3.11 (2): bind this tab's real, durable set to the reuse
         # panel now, under its project_key, so the resolve-/shared-state
         # indicators (REQ-P11-UI-021) are computed over what the application
         # actually holds rather than a set only a test ever bound.
@@ -2757,7 +2758,7 @@ class Main_Window(QMainWindow):
         A preference is not document content (REQ-P5-DATA-004): no recomposite,
         no undo entry — ``ui/project_prefs_actions.py`` has already assigned
         the new value directly onto the active document's ``prefs`` by the
-        time this fires. T51 (ruling P11-R13) adds one further step: write the
+        time this fires. Ruling P11-R13 adds one further step: write the
         active tab's current record through the decision journal, so the
         journal is never staler than the file — the precondition the whole
         journal-wins-per-key precedence rule in ``open_document`` rests on. A
@@ -2793,7 +2794,7 @@ class Main_Window(QMainWindow):
         record.scene.shutdown_prewarm()
         self._undo_group.removeStack(record.stack)
         self._tab_widget.removeTab(index)
-        # T31 (plan §3.11 (2b)): release this tab's update-prompt session
+        # Per plan §3.11 (2b): release this tab's update-prompt session
         # memory, keyed by project_key now that decide()/resolve_library_edits
         # scope the bucket that way (bounds retention; not required for
         # correctness — see forget_session's own docstring).
@@ -3532,10 +3533,10 @@ class Main_Window(QMainWindow):
             )
         )
 
-    # -- indexed-mode conversion (REQ-P3-UI-014, T22) --------------------
+    # -- indexed-mode conversion (REQ-P3-UI-014) --------------------------
 
     def _on_convert_to_indexed(self) -> None:
-        """Convert the whole document RGBA→indexed as one undoable command (T22).
+        """Convert the whole document RGBA→indexed as one undoable command.
 
         Colour mode is a document-wide authority (ADR-0008 D1/D5): the logic
         command flips every frame's buffer(s) **and** ``Document.mode`` together,
@@ -3562,7 +3563,7 @@ class Main_Window(QMainWindow):
         )
 
     def _on_convert_to_rgba(self) -> None:
-        """Convert the whole document indexed→RGBA as one undoable command (T22).
+        """Convert the whole document indexed→RGBA as one undoable command.
 
         The inverse of :meth:`_on_convert_to_indexed`: the logic command flips
         every frame's single indexed layer to RGBA **and** ``Document.mode`` in one
@@ -3598,7 +3599,7 @@ class Main_Window(QMainWindow):
         - ``scene.set_document`` re-reads the tree, resets the active leaf and
           rebuilds the composite off ``Document.mode`` (now the single authority) —
           so on →indexed the RGBA-only compositor is not run over indexed buffers
-          (the T14 crash path is gone);
+          (the prior crash path is gone);
         - ``layer_panel.rebuild`` repopulates the tree so the panel collapses to one
           layer on →indexed and re-expands the multi-layer tree on undo→RGBA;
         - the selection is dropped (indices/structure changed) and the mode
@@ -3631,7 +3632,7 @@ class Main_Window(QMainWindow):
         self._to_indexed_action.setEnabled(mode is ColorMode.RGBA)
         self._to_rgba_action.setEnabled(mode is ColorMode.INDEXED)
 
-    # -- asset-library registration reachability (T7-A, ruling P11-R7,
+    # -- asset-library registration reachability (ruling P11-R7,
     #    REQ-P11-UI-012/-013/-017) ------------------------------------------
 
     def _refresh_registration_actions_ui(self) -> None:
@@ -3655,7 +3656,7 @@ class Main_Window(QMainWindow):
     def _on_register_active_document(self) -> None:
         """Register the document open in the active tab (REQ-P11-UI-012).
 
-        T43 (ruling P11-R12, finding 1): reads this tab's session-scoped
+        Per ruling P11-R12 (finding 1): reads this tab's session-scoped
         ``registered_asset_id`` binding and passes it through as
         ``existing_asset_id`` so a second registration of a changed document
         appends a revision to the SAME catalog entry (REQ-P11-UI-020's
@@ -3711,11 +3712,11 @@ class Main_Window(QMainWindow):
                     return
         self._asset_session.register_selection(document, parent=self)
 
-    # -- asset-library import/export reachability (T10 WIRE follow-up,
+    # -- asset-library import/export reachability (WIRE follow-up,
     #    ruling P11-R5, REQ-P11-UI-015/-016) -------------------------------
 
     def _refresh_ingress_actions_ui(self) -> None:
-        """Sync the four T10 import/export actions' enablement.
+        """Sync the four import/export actions' enablement.
 
         The two import actions (library artifact, project bundle) need only
         the library session, which is bound once at construction — before
@@ -3736,19 +3737,19 @@ class Main_Window(QMainWindow):
         )
 
     def _on_import_library_artifact(self) -> None:
-        """Import one library-artifact file into the open library (T10).
+        """Import one library-artifact file into the open library.
 
         Delegates entirely to :meth:`Asset_Library_Session.import_library_artifact`
         — the file-open dialog, the ``ARTIFACT_SUFFIX`` filter, the atomic
         merge-and-commit, and both the success/failure/cancellation
         reporting (a ``QMessageBox`` on failure, silence on cancel) all live
-        on the session, exactly as the T7 registration actions already
+        on the session, exactly as the registration actions already
         delegate their own reporting.
         """
         self._asset_session.import_library_artifact(parent=self)
 
     def _on_export_library_artifact(self) -> None:
-        """Export the selected asset, or the whole catalog, as one artifact (T10).
+        """Export the selected asset, or the whole catalog, as one artifact.
 
         :class:`Asset_Library_Panel` supports only a single current
         selection (:meth:`~Asset_Library_Panel.current_asset_id`); with
@@ -3768,7 +3769,7 @@ class Main_Window(QMainWindow):
         self._asset_session.export_library_subset(asset_ids, parent=self)
 
     def _on_export_project_bundle(self) -> None:
-        """Export the active document plus its references as a project bundle (T10).
+        """Export the active document plus its references as a project bundle.
 
         ``reference_ids`` is taken as every asset currently in the open
         library catalog. Disclosed simplification: no mechanism reachable
@@ -3787,7 +3788,7 @@ class Main_Window(QMainWindow):
         )
 
     def _on_import_project_bundle(self) -> None:
-        """Import a ``.pixbundle`` into a new project directory (T10).
+        """Import a ``.pixbundle`` into a new project directory.
 
         The session's own file-open dialog (inside
         :meth:`Asset_Library_Session.import_project_bundle_from_file`)
@@ -3814,7 +3815,7 @@ class Main_Window(QMainWindow):
         self._asset_session.import_project_bundle_from_file(target_dir, parent=self)
 
     def _on_project_bundle_imported(self, payload: object) -> None:
-        """Open a reconstructed project into a new tab (T10, ``projectBundleImported``).
+        """Open a reconstructed project into a new tab (``projectBundleImported``).
 
         ``payload`` is the session's ``(document, catalog)`` pair; the
         bundle's own catalog is never merged into the open library (plan
@@ -3844,7 +3845,7 @@ class Main_Window(QMainWindow):
         return directory / _FAVOURITES_FILE
 
     def _decision_journal_path(self) -> Path:
-        """Return the app-level decision-journal path (T51, ADR-0062).
+        """Return the app-level decision-journal path (ADR-0062).
 
         The app-config directory is resolved here in ``ui/`` — beside the
         Favourites store above, in the same style — and passed to the Qt-free
@@ -3863,7 +3864,7 @@ class Main_Window(QMainWindow):
     ) -> Optional[Dict[str, Any]]:
         """Return ``project_path``'s journal record, or ``None`` if absent/unreadable.
 
-        A malformed journal is treated the same as an absent record (T51) —
+        A malformed journal is treated the same as an absent record —
         the same safe-failure direction the module's own atomicity posture
         already chooses for a kill mid-write: the decision is lost and the
         user is asked again, rather than the application failing to open the
@@ -3876,7 +3877,7 @@ class Main_Window(QMainWindow):
         return journal.get(project_path)
 
     def _write_decision_journal_record(self, record: "_DocTab") -> None:
-        """Write ``record``'s current prefs + ledger to the journal (T51).
+        """Write ``record``'s current prefs + ledger to the journal.
 
         A no-op when ``record.file_path`` is ``None`` — a never-saved project
         writes no record; its decision lives on the tab only (the user's own
@@ -3941,7 +3942,7 @@ class Main_Window(QMainWindow):
         than the mouse cursor — makes the hub open in the right place for BOTH a
         right-click and a keyboard Menu-key request (A11Y-COLHUB-1).
 
-        T16(a) (2026-08-24 amendment): the anchor now SURVIVES for the life of
+        The 2026-08-24 amendment: the anchor now SURVIVES for the life of
         the hub session — ``self._hub_anchor`` / ``self._hub_anchor_view`` —
         instead of being discarded once the popup position is computed, so a
         later completed pick (``_on_hub_color_committed``) can run the active
@@ -4224,7 +4225,7 @@ class Main_Window(QMainWindow):
         ``Branching_Session.get_branch`` — the selected branch is the diff's
         *source*, the mainline (always ``branch_names()[0]``, ``Branching_Session``'s
         own documented ordering) is the *target* — and hands them to
-        ``Branch_Diff_Dialog`` (T16), which computes the divergence and the
+        ``Branch_Diff_Dialog``, which computes the divergence and the
         supervision verdict itself, once, at construction. No domain maths happens
         here (Article I): this only looks up and supplies the arguments the pure
         functions/dialog need. The result is also retained on
@@ -5119,7 +5120,7 @@ class Main_Window(QMainWindow):
     def _on_export_target_ok(self, _index: int, _result: object) -> None:
         """Count a successful export target (summarised at run end).
 
-        T7-A (ruling P11-R7): registration follows a **successful** export,
+        Per ruling P11-R7: registration follows a **successful** export,
         never submission — ``run_export_dialog`` cannot register itself
         because export runs off-thread. A pending opt-in is consumed exactly
         once here and never re-applied to a later, unrelated run (the export
@@ -5137,7 +5138,7 @@ class Main_Window(QMainWindow):
     def _on_export_target_failed(self, _index: int, message: str) -> None:
         """Collect a failed target's message (summarised at run end, UI-008).
 
-        T7-A: a failed export target is never registered — REQ-P11-UI-014's
+        A failed export target is never registered — REQ-P11-UI-014's
         negative requires an un-opted-in (and, by the same logic, a failed)
         export to leave the catalog/store/revision history unchanged.
         """

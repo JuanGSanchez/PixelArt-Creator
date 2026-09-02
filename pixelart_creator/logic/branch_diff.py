@@ -119,7 +119,7 @@ class OpEntry:
             ``"layer_order"`` or ``"raster"``).
         target: The op's target, rendered as a tuple for grouping/sorting.
         region: The buffer-space rectangle this op touches, or ``None`` for a
-            non-raster op (task T11: "non-raster ops produce no region").
+            non-raster op ("non-raster ops produce no region").
     """
 
     op: Operation

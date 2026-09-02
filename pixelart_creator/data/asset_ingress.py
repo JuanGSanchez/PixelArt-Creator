@@ -11,7 +11,7 @@ canonical asset **bytes** with the shipped serialiser
 (:func:`~pixelart_creator.data.project_io.serialize` +
 :func:`~pixelart_creator.logic.content_hash.canonical_json_bytes` — no second
 serialiser, parent REQ-P11-DATA-007) and derives every descriptor **through**
-:func:`~pixelart_creator.logic.asset_extract.descriptor_for` (T2) — this
+:func:`~pixelart_creator.logic.asset_extract.descriptor_for` — this
 module never re-implements descriptor validation.
 
 **The atomic order (ruling P11-R1, plan §3.3) — followed exactly:**
@@ -231,7 +231,7 @@ _REFERENCE_TARGET_KINDS = (AssetKind.SPRITE, AssetKind.TILESET)
 def _reference_key_for(document: Document, kind: AssetKind) -> str:
     """Return ``document``'s ``reference_key`` for ``kind``, degrading to ``""``.
 
-    T8-B step 5 (ruling P11-R8, plan §3.10): computes
+    Ruling P11-R8 (plan §3.10) step 5: computes
     ``content_hash(reference_bytes(document, kind))`` for the kinds that can
     **be** a reference target (``SPRITE``, ``TILESET``) and returns ``""``
     for every other kind. An **ambiguous** ``TILESET`` document — zero or
@@ -274,7 +274,7 @@ def register(
     only display data: ``name``/``kind``/``tags``, never an identity, per the
     ``logic/asset_extract`` split), serialises ``document`` to its canonical
     PIO-1 bytes with the shipped serialiser, computes its ``reference_key``
-    (T8-B, ruling P11-R8, plan §3.10 — ``""`` for a ``kind`` that is never a
+    (ruling P11-R8, plan §3.10 — ``""`` for a ``kind`` that is never a
     reference target, or an ambiguous ``TILESET``), derives the descriptor
     through :func:`~pixelart_creator.logic.asset_extract.descriptor_for`, and
     applies the atomic order of the module docstring exactly.
@@ -444,7 +444,7 @@ def _parse_artifact_entry(entry: Any, root: Path) -> Tuple[AssetDescriptor, byte
     if path_value is not None:
         _require(isinstance(path_value, str), "entry path must be a string or null")
         _resolve_within(root, path_value)
-    # T8-B, ruling P11-R8 (plan §3.10): additive and optional — an artifact
+    # ruling P11-R8 (plan §3.10): additive and optional — an artifact
     # written before this field existed has no "reference_key" key at all,
     # and `.get(..., "")` reads that as "unknown" (no derived edge on
     # import), not a missing-field rejection. `ARTIFACT_SCHEMA_VERSION` is
@@ -658,7 +658,7 @@ def export_subset(
                 "metadata": dict(descriptor.metadata),
                 "path": None,
                 "payload": payload,
-                # T8-B, ruling P11-R8 (plan §3.10): the round trip must
+                # ruling P11-R8 (plan §3.10): the round trip must
                 # preserve the reference key, or every asset imported on the
                 # far machine derives no edges — SC-P11-UI-016-2's "identical
                 # content hashes" promise would be green and the feature dead.

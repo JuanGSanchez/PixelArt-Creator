@@ -136,7 +136,7 @@ class TimelapseIOError(ProjectIOError):
 class TimelapsePayloadTooLargeError(TimelapseIOError):
     """Raised when a schema-2 payload exceeds :data:`TIMELAPSE_PAYLOAD_MAX_BYTES`.
 
-    A named subclass (not a message string) so ``ui/`` (T28) can distinguish
+    A named subclass (not a message string) so ``ui/`` can distinguish
     an oversize refusal from a malformed/truncated payload **by type** rather
     than by parsing English (plan §8.4, amended 2026-08-18 F-7). Subclassing
     :class:`TimelapseIOError` keeps every existing
@@ -352,7 +352,7 @@ def serialize_payload(
         TimelapsePayloadTooLargeError: If the resulting payload exceeds
             :data:`TIMELAPSE_PAYLOAD_MAX_BYTES` — a
             :class:`TimelapseIOError` subclass, distinguishable by type
-            (plan §8.4, T8 amendment).
+            (plan §8.4).
     """
     if not isinstance(session, TimelapseSession):
         raise TimelapseIOError(f"expected a TimelapseSession, got {session!r}")

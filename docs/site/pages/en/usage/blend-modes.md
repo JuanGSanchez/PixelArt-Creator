@@ -50,6 +50,6 @@ attribute change that repaints a large viewport across many layers — are
 currently CPU-bound and can exceed the budget; full GPU-shader compositing is a
 planned later enhancement.
 
-<!-- surface-only: site — the changelog pointer below assumes a reader outside the app; the bundle's equivalent page ends the paragraph without it by design (WP-8 unit 2d) -->
+<!-- surface-only: site — the changelog pointer below assumes a reader outside the app; the bundle's equivalent page ends the paragraph without it by design -->
 
 See the changelog **Known limitations** for details.

@@ -1,6 +1,6 @@
 <!-- derived-from: pixelart_creator/userguide_content/content/es/ai-assistant.md
      (dirección inversa — no existía una fuente previa en el sitio para este tema;
-     la guía integrada es la fuente de referencia aquí. WP-8 unidad 2d.) -->
+     la guía integrada es la fuente de referencia aquí.) -->
 # El asistente de IA: chatea para manejar el editor
 
 El **asistente de IA** te permite manejar el editor en **lenguaje natural**.
@@ -8,7 +8,7 @@ Escribes lo que quieres en un panel de chat, y el asistente lo lleva a cabo
 ejecutando las **propias** operaciones de la aplicación — los mismos comandos de
 [automatización](automation.md) que puedes grabar, programar con scripts y
 procesar por lotes a mano. Es **agnóstico de modelo**: lo apuntas al proveedor de
-IA que prefieras y aportas tu propia clave (`ADR-0040`, Fase 14 Rebanada 14B).
+IA que prefieras y aportas tu propia clave (`ADR-0040`, entregado en la Fase 14).
 También es **completamente opcional** — la aplicación es totalmente usable sin
 configurarlo nunca.
 

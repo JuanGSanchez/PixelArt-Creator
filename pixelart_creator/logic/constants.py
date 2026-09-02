@@ -20,7 +20,7 @@ MAX_PALETTE_SIZE = 256  # indexed-palette entry cap (8-bit index space) (S12-1)
 DEFAULT_FRAME_DURATION_MS = 100  # default animation frame duration, ms (S12-2)
 PROJECT_ZLIB_LEVEL = 9  # .pixproj pixel-data compression level (S12-6)
 
-# --- UI canvas tuning (phase-1-ui-canvas T1; Article II single-source) ---------
+# --- UI canvas tuning (phase-1-ui-canvas; Article II single-source) ---------
 # Pure-Python numerics consumed by the ui/ layer; defined here so the UI inlines
 # no magic numbers. Zero Qt (this stays a leaf module).
 
@@ -80,7 +80,7 @@ DEFAULT_CANVAS_WIDTH: int = 64
 DEFAULT_CANVAS_HEIGHT: int = 64
 """Default height, px, for a new document (8K still supported) (CL-7)."""
 
-# --- Phase-2 advanced-drawing tuning (phase-2 T1; Article II single-source) -----
+# --- Phase-2 advanced-drawing tuning (phase-2; Article II single-source) -----
 # Numeric parameters consumed by the new logic/ modules (selection, transform,
 # rotsprite, tiled). Defined here so no call site inlines a magic number (S12).
 # This module stays a leaf (no intra-package imports).
@@ -103,7 +103,7 @@ TILED_PREVIEW_REPEAT: int = 3
 """Tiled-mode repeating preview arrangement: TILED_PREVIEW_REPEAT x
 TILED_PREVIEW_REPEAT tiles (3x3, centre tile editable) (CL-13; plan §8)."""
 
-# --- canvas-scale-defects whole-document transform tuning (T01; Article II
+# --- canvas-scale-defects whole-document transform tuning (Article II
 # single-source) --------------------------------------------------------------
 # Consumed by logic/doc_transform.py and the four whole-document geometry
 # operations it drives (Scale, Rotate 90, Flip H, Flip V). This module stays a
@@ -131,7 +131,7 @@ must strictly exceed 2 units. 3 units leaves under half a unit of headroom, so
 an ordinary two-layer 8K operation would already prompt. 4 is the smallest
 power-of-two multiple of a unit that clears the forced floor with headroom."""
 
-# --- Phase-3 colour & palette tuning (phase-3 T1; Article II single-source) -----
+# --- Phase-3 colour & palette tuning (phase-3; Article II single-source) -----
 # Tuning scalars consumed by the new logic/ colour modules. The ΔE00 formula
 # magic numbers, sRGB/Lab constants, Bayer matrix values, and Floyd–Steinberg
 # coefficients are intrinsic → local to their module (plan §5, ADR-0001); the
@@ -195,7 +195,7 @@ FAVOURITES_MAX: int = 64
 """Soft cap on the persisted Favourites list (defensive bound, Article VII; suits
 a hub swatch grid) (plan §8; spec REQ-P3-LOGIC-015)."""
 
-# --- Phase-4 layer & canvas tuning (phase-4 T1; Article II single-source) --------
+# --- Phase-4 layer & canvas tuning (phase-4; Article II single-source) --------
 # Tuning scalars consumed by the new logic/blend.py compositor and the extended
 # logic/document.py layer model. The 13-member BlendMode enum is an enumerated
 # *vocabulary* and lives in logic/blend.py (BF-2); the W3C blend-formula magic
@@ -231,7 +231,7 @@ seconds). It catches the SC-UI-015-1 regression class on a noisy 2-core CI runne
 without flaking on scheduler jitter — the wrong altitude for the 16 ms budget.
 (ADR / rendering-performance directive; S12 single-source.)"""
 
-# --- Phase-5 animation tuning (phase-5 T5A-01; Article II single-source) ---------
+# --- Phase-5 animation tuning (phase-5; Article II single-source) ---------
 # Named bounds/defaults consumed by logic/animation.py (playback + onion) and the
 # reversible frame ops in logic/document.py. DEFAULT_FRAME_DURATION_MS (above) is
 # REUSED for per-frame timing (FR-2). The PlaybackMode enum is an enumerated
@@ -277,7 +277,7 @@ ONION_SKIN_OPACITY_MIN: float = 0.15
 distance falloff floor from :data:`ONION_SKIN_OPACITY`) (research Q1 — *medium
 reliability*; plan §8; spec REQ-P5-LOGIC-012)."""
 
-# --- Phase-6 tilemap & level-design tuning (phase-6 T6A-01; Article II) ----------
+# --- Phase-6 tilemap & level-design tuning (phase-6; Article II) ----------
 # Named bounds/defaults consumed by logic/tileset.py, logic/tilemap.py and
 # logic/autotile.py. BF-2 (spec §8 / ADR-0015): these are DISTINCT from the
 # shipped TILE_SIZE (=64, the viewport-culling *rendering* edge) and TILE_BUFFER —
@@ -342,7 +342,7 @@ catastrophic viewport-render regression. ci.yml is wired to pass this value as
 ``perf_profile.py --tilemap --budget-ms``.
 (Rendering-performance re-profile / perf-gate spec; S12 single-source.)"""
 
-# --- Phase-7 export & pipeline tuning (phase-7 T7A-01; Article II single-source) --
+# --- Phase-7 export & pipeline tuning (phase-7; Article II single-source) --
 # Named bounds/defaults consumed by logic/export.py (raster/sprite-sheet pipeline)
 # and logic/atlas.py (MaxRects atlas over CP-1). BF-1 (plan §8 / ADR-0019): every
 # name is DISTINCT from every shipped constant — notably PNG_EXPORT_COMPRESS_LEVEL
@@ -405,7 +405,7 @@ GIF_FRAME_DISPOSAL: int = 2
 per-frame pixel-art default (ADR-0019; plan §8; spec REQ-P7-LOGIC-004;
 SC-L004-1)."""
 
-# --- Phase-8 automation & extensibility tuning (phase-8 T8A-01; Article II) ------
+# --- Phase-8 automation & extensibility tuning (phase-8; Article II) ------
 # Named bounds/defaults consumed by logic/scripting.py (DSL dispatcher),
 # logic/macro.py (record/replay), logic/plugins.py (plugin host), logic/procgen.py
 # (seeded generators) and logic/batch_ops.py (batch recolour). BF-1 (plan §8 /
@@ -447,7 +447,7 @@ DEFAULT_PROCGEN_SEED: int = 0
 """Deterministic default seed for procedural generation (P2; parallels the shipped
 :data:`KMEANS_SEED` = 0) (plan §8; spec REQ-P8-LOGIC-012; SC-L012-1)."""
 
-# --- Phase-9 visual-aids tuning (phase-9 T9A-01; Article II single-source) --------
+# --- Phase-9 visual-aids tuning (phase-9; Article II single-source) --------
 # Named bounds/defaults consumed by the new pure-geometry logic modules
 # (logic/grids.py, logic/guides.py, logic/preview.py, logic/timelapse.py) and the
 # document-PPI field. BF-1 (plan §8 / ADR-0023/0024): every name is DISTINCT from
@@ -524,13 +524,13 @@ DEP-12e; Article II).
 Valued at ``2_821_573 * (4096 // 256) = 2_821_573 * 16 = 45_145_168`` bytes
 (43.054 MiB). ``2_821_573`` is P4's measured **schema-3** file size —
 1280x720, 256 frames, byte-identical across all 5 repeat runs — the largest
-of the T43 re-measurement campaign's four points (measured 2026-08-18, §3),
+of the re-measurement campaign's four points (measured 2026-08-18, §3),
 extended to the shipped :data:`MAX_TIMELAPSE_FRAMES` (= 4096) frame cap
 by the unchanged ``* (MAX_TIMELAPSE_FRAMES // 256)`` step (plan §11.1). Never
 inlined: every consumer reads this name, never the literal.
 
 Superseded value (2026-08-17): ``2_397_487`` (-> a ``38_359_792``-byte bound),
-P4's **schema-2** file size measured by the original T19 campaign
+P4's **schema-2** file size measured by the original campaign
 (measured 2026-08-17, §3).
 That campaign's fixture-generator script was ephemeral (per the
 rendering-performance role's remit) and could not be re-invoked, so the
@@ -550,8 +550,8 @@ guards.
 ANCHOR INVARIANT: any future change to ``data/timelapse_io.py``'s
 serialisation that moves the bytes ``serialize_payload`` produces —
 separators, key order, field addition/removal, encoding — invalidates this
-anchor and requires the full re-measure -> re-value -> re-write chain
-(mirroring T43 -> T44 -> T45's shape) in the same unit of review as that
+anchor and requires the full re-measure -> re-value -> re-write chain, done
+in the same unit of review as that
 change. Patching this constant by arithmetic instead of re-measuring is
 forbidden (plan §11.3)."""
 
@@ -563,7 +563,7 @@ REQ-P9-LOGIC-022(b); REQ-P9-DATA-005; plan §10.4).
 narrower than the shipped ``secrets.token_urlsafe(24)`` at
 ``data/cloud/providers/base.py:181``, because that token must resist an
 adversary and this one only has to not collide, while being paid on every
-frame minted in a recording session (``ui/timelapse_controls.py``, T34)."""
+frame minted in a recording session (``ui/timelapse_controls.py``)."""
 
 TIMELAPSE_FRAME_ID_MAX_LEN: int = 2 * TIMELAPSE_RECORDING_ID_BYTES + 1 + 19
 """Maximum length of one frame's stable identity string (Q-21,
@@ -573,7 +573,7 @@ REQ-P9-LOGIC-022(b); REQ-P9-DATA-005; plan §10.4).
 random half, ``+ 1`` is the ``":"`` separator, and ``19`` is the decimal
 width of a 64-bit ordinal. **The ordinal is NOT bounded by
 :data:`MAX_TIMELAPSE_FRAMES`** — it is monotone across discards while the
-session's live frame count is not (T34: a discard-and-rewrite never resets
+session's live frame count is not (a discard-and-rewrite never resets
 or rewinds the ordinal)."""
 
 MAX_DOCUMENT_VIEWS: int = 8
@@ -633,7 +633,7 @@ runner yet well below the O(full-canvas) regression class it must catch. ci.yml
 is wired to pass this value as ``perf_profile.py --overlay --budget-ms``.
 (D-29 measurement; perf-model governance §3 rule 3; S12 single-source.)"""
 
-# --- Phase-10 Slice-A cloud/sync tuning (phase-10 T10A-01; Article II) ------------
+# --- Phase-10 Slice-A cloud/sync tuning (phase-10; Article II) ------------
 # Named bounds/defaults consumed by the new zero-Qt cloud/sync models
 # (logic/sync_state.py, logic/autosave.py, logic/version_history.py) and the
 # data/cloud/ port + fake adapter. BF-1 (plan §8 / ADR-0026): every name is DISTINCT
@@ -672,7 +672,7 @@ CLOUD_RETRY_LIMIT: int = 3
 fails to the caller (BF-1; bounds a provider adapter's retry loop; the fake adapter
 never fails transiently) (plan §8; spec REQ-P10-LOGIC-005; SC-L005-1)."""
 
-# --- Phase-10 Slice-B/C collaboration tuning (phase-10 T10B-01/T10C-01; Article II)
+# --- Phase-10 Slice-B/C collaboration tuning (phase-10; Article II)
 # Named bounds/defaults consumed by the new zero-Qt collaboration models
 # (logic/cloud_validation.py, logic/convergence.py) and the data/cloud/ shared
 # adapter — and, in Slice C, by the client transport port and the sync_backend/
@@ -768,7 +768,7 @@ shipped model is 2 levels (sections -> topics); ``build_model`` validates the
 achieved depth stays ``<= GUIDE_MAX_TOC_DEPTH`` so a future nested manifest cannot
 grow an unbounded tree (Article VII; Article XI extensibility bound) (ADR-0029 §6;
 plan §3.4; spec REQ-UG-LOGIC-001/002/NFR-6)."""
-# --- Phase-11 team & asset-management tuning (phase-11 T11-1-01; Article II) -------
+# --- Phase-11 team & asset-management tuning (phase-11; Article II) -------
 # Named bounds/defaults consumed by the new zero-Qt asset models
 # (logic/asset_catalog.py, logic/asset_tags.py, logic/asset_query.py) and the new
 # zero-Qt asset stores (data/asset_cas.py, data/asset_catalog_io.py). BF-1 (plan §8 /
@@ -823,7 +823,7 @@ the shipped :data:`MAX_CLOUD_PROJECT_BYTES` (=268435456) but is a DISTINCT named
 — the CAS blob ceiling, not the cloud project ceiling (plan §8; spec
 REQ-P11-DATA-004/-005/LOGIC-007; ADR-0030 §4)."""
 
-# --- Phase-11 Slice-2 dependency-graph tuning (phase-11 T11-2-01; Article II) -----
+# --- Phase-11 Slice-2 dependency-graph tuning (phase-11; Article II) -----
 # Named bound consumed by the new zero-Qt dependency-graph model
 # (logic/dependency_graph.py) and, through it, the break-detection pass
 # (logic/break_detection.py). BF-1 (plan §8 / ADR-0031): the name is DISTINCT from
@@ -846,7 +846,7 @@ but the depth bound backstops any deep legitimate chain). Parallels the shipped
 ``1024``/``256``-scale defensive bounds; a DISTINCT named concern from the layer-nesting
 ``MAX_GROUP_NESTING_DEPTH`` (=8) (plan §8; spec REQ-P11-LOGIC-004/-007; ADR-0031 §2)."""
 
-# --- Phase-11 Slice-3 asset-version tuning (phase-11 T11-3-01; Article II) ---------
+# --- Phase-11 Slice-3 asset-version tuning (phase-11; Article II) ---------
 # Named bound consumed by the new zero-Qt asset-version model
 # (logic/asset_version.py) and, through it, the append-only revision store
 # (data/asset_revision_store.py). BF-1 (plan §8 / ADR-0030 §6): the name is DISTINCT
@@ -868,7 +868,7 @@ cloud project's version history. Parallels the shipped ``256``-scale defensive b
 (e.g. :data:`MAX_LAYERS_PER_FRAME`) (plan §8; spec REQ-P11-LOGIC-006/-007;
 ADR-0030 §6)."""
 
-# --- Phase-12 Slice-A full-frame flatten tuning (phase-12 T12-A-01; Article II) ---
+# --- Phase-12 Slice-A full-frame flatten tuning (phase-12; Article II) ---
 # Named ceiling + working-set tuning consumed by the optimised full-frame flatten
 # path in logic/blend.py (composite_stack(region=None)) and by
 # scripts/perf_profile.py --full-frame (passed as --budget-ms by
@@ -929,7 +929,7 @@ Bounding by ``os.cpu_count()`` avoids oversubscription on small hosts; the cap
 matches the 8-way parallelism the baseline measured on (baseline §environment;
 plan §3; spec REQ-P12-LOGIC-001)."""
 
-# --- Phase-12 Slice-B opacity-drag / viewport-recomposite tuning (phase-12 T12-B;
+# --- Phase-12 Slice-B opacity-drag / viewport-recomposite tuning (phase-12;
 # Article II single-source) -------------------------------------------------------
 # Named ceiling + preview LOD budget consumed by the Slice-B split-cache seam in
 # logic/blend.py (composite_range + the NN LOD helpers) and by
@@ -998,7 +998,7 @@ constant (:data:`FLATTEN_TILE_EDGE_PX`, :data:`TILE_SIZE`, the MAX_*_DIMENSION b
 RE-PROFILE / directive §1.3; ADR-0034 §2; FU-15; plan §8; spec REQ-P12-UI-001;
 S12 single-source)."""
 
-# --- Phase-13 Slice-13B portable-bundle caps (phase-13 T13B-01; Article II) --------
+# --- Phase-13 Slice-13B portable-bundle caps (phase-13; Article II) --------
 # Named defensive caps consumed by the single-file portable-bundle export/import
 # functions on data/asset_export.py (export_project_bundle / import_project_bundle).
 # BF (ADR-0037 §2 / plan §8): every name is DISTINCT from every shipped constant.
@@ -1049,7 +1049,7 @@ under-reports its size (a zip bomb) cannot exhaust memory/disk (REQ-P13-DATA-008
 ADR-0037 §2 — "enforced during streamed extraction so a lying header cannot exhaust
 memory/disk"; plan §8)."""
 
-# --- Phase-13 Slice-13E web-viewer share-token cap (phase-13 T13E-B01; Article II) --
+# --- Phase-13 Slice-13E web-viewer share-token cap (phase-13; Article II) --
 # Named lifetime cap consumed by the pure share-link-token seam
 # (logic/share_token.py) and, through it, the sync_backend/ handshake extension
 # (sync_backend/server.py process_request). BF (ADR-0036 §1 / plan §8): the name is
@@ -1093,7 +1093,7 @@ headroom, while staying finite. DISTINCT named concern from the shipped byte cap
 count of a compact bearer token before decode (spec REQ-P13-WEB-005; plan §8;
 ADR-0036 §1 / Addendum A.8)."""
 
-# --- Phase-14 Slice-14C assistant agentic-loop caps (phase-14 T14C-01; Article II) --
+# --- Phase-14 Slice-14C assistant agentic-loop caps (phase-14; Article II) --
 # Named bounds consumed by the pure-``logic`` agentic conversation loop + tiered-safety
 # gate + prompt-injection / untrusted-tool-result defence (logic/assistant.py, ADR-0041
 # §4). BF-1 (ADR-0041 §4 / plan §8): every name below is DISTINCT from every shipped
@@ -1170,7 +1170,7 @@ and the fake adapter make no network call, so this does not gate them. DISTINCT 
 concern from SHARE_TOKEN_MAX_TTL_S (=14400, a token lifetime) and from every millisecond
 render budget/ceiling (spec REQ-P14-LOGIC-007 / REQ-P14-DATA-004..007; ADR-0041 §4)."""
 
-# --- Phase-14 Slice-14D real-adapter transport tuning (phase-14 T14D-01; Article II) --
+# --- Phase-14 Slice-14D real-adapter transport tuning (phase-14; Article II) --
 # Named bounds consumed ONLY by the Slice-14D real stdlib-``urllib`` provider adapters
 # (data/llm/openai_compatible.py + data/llm/anthropic_translator.py). BF-1: both names
 # are DISTINCT from every shipped constant. The pure loop and the fake adapter make no
@@ -1209,7 +1209,7 @@ Formerly an inline literal in the UI layer; centralised here so a change is made
 in exactly one place. Pure numeric tuning only — the UI widget that shows/hides
 the notice remains ui/'s concern (S11)."""
 
-# --- canvas-grid-semantics fix (T5; Article II single-source) -------------------
+# --- canvas-grid-semantics fix (Article II single-source) -------------------
 # The canvas checkerboard was drawn at TILE_SIZE document px per square. TILE_SIZE
 # is 64 and its declared meaning is the viewport-culling render edge — a
 # performance quantity that had been conflated with a transparency-checker

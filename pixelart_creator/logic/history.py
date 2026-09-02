@@ -63,7 +63,7 @@ class Command(abc.ABC):
 class PixelEdit(Command):
     """A batch of pixel changes on one buffer, replayable both ways.
 
-    ``target`` is a **required** keyword argument (plan §8.2, task T27) — it
+    ``target`` is a **required** keyword argument (plan §8.2) — it
     replaced the earlier additive ``frame_index: int = 0, layer_id: int = 0``
     pair. That defaulted pair was worse than no threading at all (plan §8.1):
     ``layer_id = 0`` is the documented *unminted* sentinel that
@@ -123,7 +123,7 @@ class PixelEdit(Command):
         """Return one RasterTrace per distinct tile this edit's extent covers.
 
         Returns one :class:`RasterTrace` per distinct ``(tile_x, tile_y)`` pair
-        touched by ``changes`` (task T7/T27). Derived purely from the recorded
+        touched by ``changes``. Derived purely from the recorded
         ``(x, y)`` coordinates via ``CRDT_TILE_SIZE_PX`` — no tile is invented
         that the recorded extent did not touch, and no tile bytes travel in the
         trace (those are read from the live buffer at op-minting time).
@@ -304,7 +304,7 @@ def record_edit(
     Args:
         target: Where this edit landed (frame + layer track), or ``None`` if
             the caller genuinely does not know — **required, no default**
-            (plan §8.2, task T27); passed straight through to
+            (plan §8.2); passed straight through to
             :class:`PixelEdit`, inventing nothing.
 
     Returns:

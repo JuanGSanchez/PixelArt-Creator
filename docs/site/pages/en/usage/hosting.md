@@ -1,5 +1,5 @@
 <!-- REQ-P13-BACKEND-003 -->
-<!-- surface-only: site — deployment/installation content; split out of the bundle's collaboration.md "Operator note: running the sync backend" section, which stays the bundle's single mention of this material (WP-8 unit 2d) -->
+<!-- surface-only: site — deployment/installation content; split out of the bundle's collaboration.md "Operator note: running the sync backend" section, which stays the bundle's single mention of this material -->
 # Hosting the real-time relay: three co-equal options
 
 Real-time collaboration (live co-editing, cursors, and branching) is carried by

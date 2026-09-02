@@ -18,8 +18,8 @@ mutating op reuses, so the QUndoStack in this module stays the only undo system
 
 Phase-3 note: a colour-hub pick (wheel / harmony / favourite) sets the **active
 paint colour** — a tool-state change, not a buffer mutation — so it creates **no**
-``QUndoCommand`` and never touches the undo stack (REQ-P3-UI-006, T17). The Slice-3C
-mutating ops all reuse :class:`LogicCommand` (T21): the buffer ops
+``QUndoCommand`` and never touches the undo stack (REQ-P3-UI-006). The Slice-3C
+mutating ops all reuse :class:`LogicCommand`: the buffer ops
 (dither / constraint / cycle / swap) pass the unapplied ``PixelEdit`` returned by
 their ``logic`` builder, and the palette-editor edits (add / remove / reorder /
 import) pass a :class:`~pixelart_creator.logic.history.FunctionCommand` whose
@@ -65,14 +65,14 @@ RebindCallback = Callable[[], None]
 
 #: Called with the traces one reversible op produced and whether they describe
 #: an undo, so an attached branching session can append them to the active
-#: branch's op-log (T13, ``REQ-P10-UI-025``; binds to
+#: branch's op-log (``REQ-P10-UI-025``; binds to
 #: ``Branching_Session.record_traces``, ``ui/branching_panel.py``). Fired after
 #: a successful ``redo()`` with the command's own :meth:`Command.edit_trace`
 #: (``inverse=False``) and after a successful ``undo()`` with the **inverse**
 #: of those same traces (``inverse=True``) — the log is append-only and
 #: last-writer-wins (plan §3.3), so an undo appends the inverse rather than
 #: popping the forward entry. ``None`` on every command class when no
-#: branching session is attached (T14/T15 wiring); this module mints no op and
+#: branching session is attached; this module mints no op and
 #: computes no domain maths of its own (Article I) — it only calls the Qt-free
 #: :func:`~pixelart_creator.logic.branch_recording.inverse_traces` to turn a
 #: command's fixed, build-time trace into the value an undo must record, then
@@ -87,7 +87,7 @@ def _fire_record_trace(
     *,
     inverse: bool,
 ) -> None:
-    """Report ``command``'s traces to ``record_trace``, inverted on undo (T13).
+    """Report ``command``'s traces to ``record_trace``, inverted on undo.
 
     A no-op whenever ``record_trace`` is ``None`` (no branching session
     attached) or the command reports no traces at all (the honest empty
@@ -161,7 +161,7 @@ class PaintCommand(QUndoCommand):
         Args:
             record_trace: Optional callback reporting this edit's
                 :class:`~pixelart_creator.logic.edit_trace.RasterTrace` s to an
-                attached branching session (T13, ``REQ-P10-UI-025``).
+                attached branching session (``REQ-P10-UI-025``).
             document: The live :class:`~pixelart_creator.logic.document.Document`
                 this edit's buffer belongs to; required whenever ``record_trace``
                 is given (used to invert the traces on undo).
@@ -257,7 +257,7 @@ class LogicCommand(QUndoCommand):
         Args:
             record_trace: Optional callback reporting this command's
                 :meth:`~pixelart_creator.logic.history.Command.edit_trace` to an
-                attached branching session (T13, ``REQ-P10-UI-025``).
+                attached branching session (``REQ-P10-UI-025``).
             document: The live :class:`~pixelart_creator.logic.document.Document`
                 this command acts on; required whenever ``record_trace`` is given
                 (used to invert the traces on undo).
@@ -303,7 +303,7 @@ class LogicCommand(QUndoCommand):
 
 
 class FrameCommand(LogicCommand):
-    """One ``QUndoCommand`` per frame/tag operation (T5C-02/-05, REQ-P5-UI-015).
+    """One ``QUndoCommand`` per frame/tag operation (REQ-P5-UI-015).
 
     Wraps the **unapplied** :class:`~pixelart_creator.logic.history.Command` a
     ``logic/document`` frame or tag builder returns — add / remove / reorder /
@@ -346,7 +346,7 @@ class FrameCommand(LogicCommand):
 
 
 class LayerCommand(LogicCommand):
-    """One ``QUndoCommand`` per layer-tree operation (T12, REQ-P4-UI-013).
+    """One ``QUndoCommand`` per layer-tree operation (REQ-P4-UI-013).
 
     Wraps the **unapplied** :class:`~pixelart_creator.logic.history.Command` a
     ``logic/document`` layer op returns — set opacity / visibility / lock /
@@ -387,7 +387,7 @@ class LayerCommand(LogicCommand):
 
 
 class TilesetCommand(LogicCommand):
-    """One ``QUndoCommand`` per tileset edit (T6E-02/-03, REQ-P6-UI-002/-003/-013).
+    """One ``QUndoCommand`` per tileset edit (REQ-P6-UI-002/-003/-013).
 
     Wraps the **unapplied** :class:`~pixelart_creator.logic.history.Command` a
     ``logic/tileset`` builder returns — ``make_reslice_command`` (re-slice the
@@ -426,7 +426,7 @@ class TilesetCommand(LogicCommand):
 
 
 class AutomationCommand(LogicCommand):
-    """One ``QUndoCommand`` per automation **edit** (T8E-06, REQ-P8-UI-009).
+    """One ``QUndoCommand`` per automation **edit** (REQ-P8-UI-009).
 
     Wraps the single reversible :class:`~pixelart_creator.logic.history.Command`
     an automation run produces — a script run / macro replay (a
@@ -473,7 +473,7 @@ class AutomationCommand(LogicCommand):
 
 
 class AssistantCommand(QUndoCommand):
-    """One grouped ``QUndoCommand`` per AI-assistant turn (REQ-P14-UI-003, T14E-04).
+    """One grouped ``QUndoCommand`` per AI-assistant turn (REQ-P14-UI-003).
 
     A single agentic turn (``logic.assistant.run_turn``) may apply **several**
     allow-listed DSL ops — each already a reversible
@@ -523,7 +523,7 @@ class AssistantCommand(QUndoCommand):
         Args:
             record_trace: Optional callback reporting each sub-command's own
                 :meth:`~pixelart_creator.logic.history.Command.edit_trace` to an
-                attached branching session (T13, ``REQ-P10-UI-025``) — fired once
+                attached branching session (``REQ-P10-UI-025``) — fired once
                 per sub-command, in the same order they execute/undo, so a
                 multi-op turn is recorded as the same ordered sequence of traces
                 a single-command bridge would produce.
@@ -556,7 +556,7 @@ class AssistantCommand(QUndoCommand):
 
 
 class TilemapCommand(LogicCommand):
-    """One ``QUndoCommand`` per tilemap edit (T6F-02/-03/-04, REQ-P6-UI-005..008).
+    """One ``QUndoCommand`` per tilemap edit (REQ-P6-UI-005..008).
 
     Wraps the **unapplied** :class:`~pixelart_creator.logic.history.Command` a
     ``logic/tilemap`` builder returns — ``make_stamp_command`` /

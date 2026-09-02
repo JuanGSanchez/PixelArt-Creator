@@ -1,13 +1,13 @@
 <!-- derived-from: pixelart_creator/userguide_content/content/en/ai-assistant.md
      (reverse direction — no prior site source existed for this topic; the
-     in-app guide is the source of record here. WP-8 unit 2d.) -->
+     in-app guide is the source of record here.) -->
 # The AI assistant: chat to drive the editor
 
 The **AI assistant** lets you drive the editor in **plain language**. You type
 what you want in a chat panel, and the assistant carries it out by running the
 app's **own** operations — the same [automation](automation.md) commands you can
 record, script and batch by hand. It is **model-agnostic**: you point it at any
-AI provider you like and supply your own key (`ADR-0040`, Phase-14 Slice 14B).
+AI provider you like and supply your own key (`ADR-0040`, delivered in Phase 14).
 It is also **entirely optional** — the app is fully usable without ever
 configuring it.
 

@@ -324,7 +324,7 @@ def _blend_over_arrays(
     REQ-P4-LOGIC-003 / ADR-0005 — ``blend_arrays(NORMAL)`` equals ``blend_over``
     applied elementwise (and therefore equals ``blend_pixels(NORMAL)``) with
     **zero tolerance**. The float32 generic separable path (kept for the eleven
-    non-normal modes, T13 D5) diverged by ≤ 1 LSB at rounding boundaries, which
+    non-normal modes) diverged by ≤ 1 LSB at rounding boundaries, which
     this dedicated float64 path removes for the DEFAULT mode.
 
     For ``opacity < 1.0`` and/or a ``mask``, the source's effective alpha is
@@ -391,7 +391,7 @@ def blend_arrays(
     :func:`~pixelart_creator.logic.color.blend_over` (and thus with
     :func:`blend_pixels` ``NORMAL``) for the base case (REQ-P4-LOGIC-003,
     ADR-0005). The eleven non-normal separable modes work in **float32**
-    straight alpha (ADR-0005; T13 D5 — the perf directive stands; those modes
+    straight alpha (ADR-0005 — the perf directive stands; those modes
     are ``uint8``-invisible at float32). ``opacity`` (``0..1``) scales the
     source's effective alpha (LOGIC-005); ``mask`` — an ``(H, W)`` /
     ``(H, W, 1)`` single-channel or ``(H, W, 4)`` RGBA (alpha used) array —
@@ -458,7 +458,7 @@ def _validate_region(region: Region, width: int, height: int) -> Region:
 
     The region MUST lie fully within ``(0, 0, width, height)`` with ``w >= 1``
     and ``h >= 1``. The compositor **validates, it never silently clamps** (P2
-    determinism, ADR-0007 §Amendment (T13) D1) — the caller clamps its dirty
+    determinism, ADR-0007 §Amendment D1) — the caller clamps its dirty
     rect to the canvas before calling.
 
     Raises:
@@ -508,7 +508,7 @@ def _flatten_group(
 
     The flattened intermediate (the children composited *before* the group's
     own opacity/blend-mode/mask are applied by the parent) is **cached** on the
-    node and reused while the subtree is unchanged (ADR-0007 §Amendment (T13)
+    node and reused while the subtree is unchanged (ADR-0007 §Amendment
     D4). The cache is a single-entry MRU keyed by the region tuple; document.py
     invalidates it (sets ``node._composite_cache = None``) up the whole ancestor
     chain on any child/attribute/order/mask change, so a stale cache can never
@@ -699,7 +699,7 @@ def composite_stack(
     (LOGIC-012); a group is flattened first then blended as one (LOGIC-011).
     Source buffers are never mutated (LOGIC-004).
 
-    Return shape (ADR-0007 §Amendment (T13) D1 — the mandatory full-canvas
+    Return shape (ADR-0007 §Amendment D1 — the mandatory full-canvas
     allocation was the ~140 ms 8K region-path floor):
 
     - ``region=None`` → a **full-canvas** ``PixelBuffer(width, height)`` (numpy
