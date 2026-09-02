@@ -8,8 +8,8 @@
 #   (default) tiling: measure per-frame render time of the REAL, SHIPPED
 #     ui.canvas_scene.CanvasScene.drawBackground (D-32, REQ-P1-UI-023) vs
 #     FRAME_BUDGET_MS (16 ms => 60 fps, S12, unrelaxed Tier-1 interactive
-#     budget); the report AGT-10 uses to issue render directives (AGT-05
-#     implements them). --width/--height build a real Document of that
+#     budget); the report render-optimisation directives are issued from (the
+#     UI layer implements them). --width/--height build a real Document of that
 #     geometry and are LIVE: the exposed rect is intersected with the real
 #     scene's own sceneRect (what a QGraphicsView does), so tiles/frame
 #     tracks the scene geometry, not just the viewport (D-32 fixes the audit's
@@ -20,7 +20,7 @@
 #     multi-layer document, comparing median ms to COMPOSITE_REGION_CEILING_MS
 #     (200 ms, a loose catastrophic-regression bound, NOT the 16 ms frame
 #     budget). This branch is Qt-FREE: numpy + pixelart_creator.logic only, NO
-#     PySide6 import (per AGT-10 rendering-performance directive).
+#     PySide6 import (per the rendering-performance directive).
 #   --full-frame: Slice-A (FU-P5-PERF) cold full-frame flatten regression gate.
 #     Measure the WHOLE-CANVAS flatten path — blend.composite_stack(region=None)
 #     over the full (H, W, 4) 8K canvas — the path the 16-px --composite gate is
@@ -31,8 +31,8 @@
 #     spec REQ-P12-LOGIC-001). Qt-FREE: numpy + logic only, NO PySide6.
 # FLAVOUR: standalone
 # LOCATION: scripts/perf_profile.py
-# INVOKED BY: AGT-10 Rendering & Performance (frame-budget profiling); the
-#   --composite gate runs in CI (AGT-09 wires .github/workflows/ci.yml).
+# INVOKED BY: render-performance work, for frame-budget profiling; the
+#   --composite gate runs in CI (.github/workflows/ci.yml).
 # RUNTIME: Python 3.12 target (3.8+ ok). Tiling mode needs PySide6 (Qt6) under
 #   QT_QPA_PLATFORM=offscreen (no display, CI-safe); composite mode needs only
 #   numpy + the logic package (no Qt).
@@ -76,7 +76,7 @@
 #     the pass/fail rule (median <= budget) is fixed. (Rationale: perf profiling
 #     is inherently host-sensitive; P2 applies to the scenario + decision rule.)
 #
-# SOURCES: Dossier §2 F2/F3/F4/F7, §6.5/§8 (owner AGT-10); User req S12
+# SOURCES: Dossier §2 F2/F3/F4/F7, §6.5/§8; User req S12
 #   (FRAME_BUDGET_MS=16, FPS_TARGET=60); Qt QGraphicsScene.drawBackground /
 #   QGraphicsView docs (grounded via Researcher); asset-templates.md §Script.
 # =============================================================================
@@ -162,13 +162,13 @@ D_VP_LAYERS = 12
 D_VP_REGION_SIZE = 1920
 D_VP_NONNORMAL = 1
 
-# Composite-mode defaults (AGT-10 directive §3a).
+# Composite-mode defaults (render-performance directive §3a).
 D_LAYERS = 8
 D_REGION_SIZE = 16
 
-# Tilemap-mode defaults (AGT-10 DEP-3 Phase-6 render-seam profiling). Qt-FREE:
+# Tilemap-mode defaults (DEP-3 Phase-6 render-seam profiling). Qt-FREE:
 # times logic/tilemap.render_region — the single tunable call the tilemap
-# drawBackground seam issues per exposed rect (AGT-05 report, DEP-3). Distinct
+# drawBackground seam issues per exposed rect (the DEP-3 report). Distinct
 # from the composite gate: this measures the tilemap per-cell resolve+blit+
 # composite cost against FRAME_BUDGET_MS (16 ms), not the region-recomposite
 # catastrophic ceiling.
@@ -574,7 +574,7 @@ def _run_tilemap(args):
     chunked-sparse layers, optionally auto-tiled) and times ``args.frames``
     ``render_region(x, y, rw, rh)`` calls over an ``rw`` x ``rh`` pixel region —
     the exact viewport-cull seam the tilemap ``drawBackground`` issues per exposed
-    rect (AGT-05 render-seam report). Qt-FREE: numpy + logic only, so it runs in
+    rect (the render-seam report). Qt-FREE: numpy + logic only, so it runs in
     CI under no display. Compares the median to ``args.budget_ms`` (16 ms, S12).
 
     Returns 0 (median <= budget), 1 (over budget), 2 (construction error).
@@ -704,7 +704,7 @@ def _run_tilemap(args):
 # Tilemap CACHE mode (DEP-3 loop-back) — the ACTUAL interactive per-frame slice #
 # --------------------------------------------------------------------------- #
 # Models the shipped drawBackground path WITH the D1 chunk-pixmap cache in place
-# (AGT-05 tilemap_canvas._draw_map), NOT a cold full re-render. The GUI-thread
+# (ui/tilemap_canvas._draw_map), NOT a cold full re-render. The GUI-thread
 # per-frame cost is:
 #   * up to _SYNC_CHUNK_BUDGET (8) COLD chunks rendered INLINE via render_region
 #     (each a chunk-sized region == TILEMAP_CHUNK_SIZE*tile px square); the rest
@@ -932,7 +932,7 @@ def _run_tilemap_cache(args):
 # exposedRect (the faithful cost paid whenever DeviceCoordinateCache is invalid —
 # i.e. a zoom / config change / first paint), and models the dirty-rect per-view
 # and preview repaint cost of an active edit. Needs PySide6 (offscreen) -> exit 2
-# if absent. AGT-10 render-perf profiling; the report feeds AGT-05 directives.
+# if absent. Render-perf profiling; the report feeds the UI render directives.
 _OV_WARMUP = 2
 
 
@@ -2042,7 +2042,7 @@ def main():
         # --ceiling-ms shares the composite-region default (D_CEILING); when the
         # caller does not override it, resolve to the Slice-B loose ceiling
         # VIEWPORT_RECOMPOSITE_CEILING_MS (D_VP_CEILING) — single-source (S12), so
-        # AGT-09's CI step needs no literal: `--viewport-recomposite` alone gates
+        # the CI step needs no literal: `--viewport-recomposite` alone gates
         # against the constant.
         if args.ceiling_ms == D_CEILING:
             args.ceiling_ms = D_VP_CEILING

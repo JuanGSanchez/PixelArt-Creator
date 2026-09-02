@@ -1,6 +1,6 @@
 # =============================================================================
 # Packaging / dependency manifest — PixelArt Creator
-# Owner: AGT-09 GitHub/DevOps (+ coding agents keep deps current). Grounded by
+# Owner: GitHub/DevOps (+ coding agents keep deps current). Grounded by
 # F14 (build backend + runtime & dev deps + tool config). Mandatory software-dev
 # extension (spec-driven-development.md §5): declares BOTH runtime and dev deps so
 # CI installs exactly what tests import — no "works on my machine" gaps.
@@ -19,7 +19,7 @@ readme = "NOTICE"
 # pinned to "3.13.13" (CPython 3.13.13, released 2026-04-07; the 3.13 line is
 # bugfix-supported until 2029-10, versus 3.12's security-only track ending
 # 2028-10 — confirmed by
-# design-docs/research/research-ci-python-3-13-13-pins.md). ci.yml reads this
+# research findings kept outside this repository). ci.yml reads this
 # SAME file via actions/setup-python's `python-version-file:` input, so CI and
 # any local pyenv/pyenv-win/uv/asdf/IDE Python-version picker that reads
 # `.python-version` resolve to the IDENTICAL interpreter — the local/CI
@@ -74,7 +74,7 @@ cloud_live = [
     "keyring==25.7.0",
 ]
 
-# Phase-14 Slice 14B (ADR-0040 §5, DEP-4): live-provider credential access for
+# Phase-14 (ADR-0040 §5, DEP-4): live-provider credential access for
 # the AI assistant ONLY (out-of-CI, credential-gated — REQ-P14-DATA-003/-006).
 # NOT a core dep: 14A–14C + the fake adapter monkeypatch token_store and import
 # keyring LAZILY, so CI must NOT require a real OS keyring backend. The real LLM
@@ -100,7 +100,7 @@ dev = [
     "mypy>=1.10",
     "pydocstyle>=6.3",
     # REMEDIATION 2026-07-30: `mkdocs build --strict` (main/docs/site/mkdocs.yml,
-    # AGT-08's mkdocs-site skill) was runnable locally but NEVER declared as a
+    # the mkdocs-site skill) was runnable locally but NEVER declared as a
     # project dependency, so a clean CI runner installing only `.[dev]` did not
     # have it — the docs-build gate could not have passed in CI even though it
     # passes here. Declared so the new CI step actually has the tool it invokes.
@@ -127,8 +127,8 @@ dev = [
     "mkdocs-material>=9.7",
 ]
 
-# Console entry points (installed on `pip install`). T7C-07 (REQ-P7-DATA-004);
-# pixelart-run added by T8D-04 (Phase-8 automation CLI).
+# Console entry points (installed on `pip install`). REQ-P7-DATA-004;
+# pixelart-run added (Phase-8 automation CLI).
 [project.scripts]
 pixelart-export = "pixelart_creator.data.export_cli:main"
 pixelart-run = "pixelart_creator.data.automation_cli:main"
@@ -136,7 +136,7 @@ pixelart-assistant = "pixelart_creator.data.assistant_cli:main"
 
 # GUI entry point (installed on `pip install`). gui-scripts (NOT console-scripts)
 # so no console window pops up alongside the app on Windows (pythonw launcher).
-# Targets the SHIPPED launcher pixelart_creator.ui.app:main (T13D). Equivalent to
+# Targets the SHIPPED launcher pixelart_creator.ui.app:main. Equivalent to
 # `python -m pixelart_creator` (pixelart_creator/__main__.py).
 [project.gui-scripts]
 pixelart-creator = "pixelart_creator.ui.app:main"
@@ -228,7 +228,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-# Phase-13 Slice 13E (T13E-G04): web_viewer is a SEPARATE package (its own
+# Phase-13: web_viewer is a SEPARATE package (its own
 # build/runtime, excluded from the desktop wheel) whose Python tests live under
 # web_viewer/tests — OUTSIDE the default "tests" root. Add it here so the DEFAULT
 # `pytest` invocation collects the 13E web_viewer suite (in-process SyncServer,
@@ -278,7 +278,7 @@ exclude_lines = [
 # pydocstyle: the docstring-discipline gate (F14, mkdocs-site skill, REMEDIATION
 # 2026-07-30). convention="pep257" is chosen deliberately, NOT left implicit,
 # because it is the ONLY convention that matches what this codebase already
-# does: logic-scaffold (AGT-03's owned skill) mandates "module + function
+# does: logic-scaffold mandates "module + function
 # docstrings (PEP 257)" project-wide — there is no Google-style Args/Returns
 # section discipline and no NumPy-style underlined-section discipline anywhere
 # in pixelart_creator/. Selecting "google" or "numpy" here would not reveal a

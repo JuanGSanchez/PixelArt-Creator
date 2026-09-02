@@ -4,7 +4,7 @@ Closes the ``web_viewer`` half of the time-boxed non-client coverage exception (
 #32, ci.yml "Coverage gate — non-client packages", expires 2026-08-31).
 ``dev_server.py`` is explicitly documented as dev-only, never production (module
 docstring, ADR-0035 §1) — production static serving is the Nginx ``location`` block
-owned by AGT-09. These tests
+These tests
 therefore prove only what the module genuinely guarantees:
 
 * it binds loopback-only by default (never ``0.0.0.0``) — the "local-only binding

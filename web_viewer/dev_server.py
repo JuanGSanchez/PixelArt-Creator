@@ -4,8 +4,8 @@
 
     LOCAL DEV ONLY — **NOT FOR PRODUCTION.**
 
-Phase-13 Slice 13E (ADR-0035 §1, ADR-0036 §2; spec REQ-P13-WEB-001/-004). Production
-static serving is the 13C **Nginx** ``location`` block (owned by AGT-09); this module
+This local-dev server (ADR-0035 §1, ADR-0036 §2; spec REQ-P13-WEB-001/-004). Production
+static serving is the **Nginx** ``location`` block; this module
 exists **only** so a developer can serve the vanilla client locally without Nginx, over
 plain HTTP on loopback. It is Qt-free and imports **stdlib only** (``http.server``) — it
 adds no Python dependency (D1) and honours the ``WEB_PKG`` layering rule (no import of

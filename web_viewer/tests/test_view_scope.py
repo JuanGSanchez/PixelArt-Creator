@@ -1,6 +1,6 @@
 """View-only scope + cross-document isolation over the live token-mode relay.
 
-Phase-13 Slice-13E, task T13E-B06 (ADR-0036 §1 + Addendum A.3/A.4; spec
+(ADR-0036 §1 + Addendum A.3/A.4; spec
 REQ-P13-WEB-002/-005; acceptance **SC-P13-WEB-002-1**, **SC-P13-WEB-005-2**). Drives the
 in-process :class:`~sync_backend.server.SyncServer` in token mode and proves the
 per-connection binding the verified token establishes:

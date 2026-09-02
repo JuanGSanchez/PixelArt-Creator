@@ -6,7 +6,7 @@
 # NOTE: under the container standard (project-structure.md §1) the orchestration
 # system lives OUTSIDE this repository, beside it in the container:
 #     PixelArt-Creator/            <- container (not a repo)
-#     |-- .claude/  design-docs/  memory/  scripts/
+#     |-- .claude/  memory/  scripts/  (+ a private documentation folder)
 #     |-- CLAUDE.md  STRUCTURE.md  DEPLOYMENT.md  constitution.md
 #     `-- main/                    <- THIS REPOSITORY
 # The layer (a) entries below are belt-and-suspenders for any session launched

@@ -1,14 +1,14 @@
 /*
- * web_viewer/tests/test_viewer_core.mjs — framework-free node unit tests (T13E-B07).
+ * web_viewer/tests/test_viewer_core.mjs — framework-free node unit tests.
  * Renamed from viewer_core.test.mjs (R-42) so the citation/traceability matrix tool,
  * which indexes only files whose NAME starts with `test_`, actually sees this suite.
  *
- * Owned by AGT-13 (Web Verification). Plain `node:assert/strict` — NO test framework,
+ * Plain `node:assert/strict` — NO test framework,
  * NO bundler (D3). Run with a bare node:
  *
  *     node web_viewer/tests/test_viewer_core.mjs
  *
- * WHAT IT NEEDS TO RUN (see the AGT-06 report — "pure-logic extraction"):
+ * WHAT IT NEEDS TO RUN ("pure-logic extraction"):
  *   viewer.js today wraps ALL its pure logic (decodeMessage / decodeUpdate /
  *   accept / registerKey / the tile-composite + integer-scale math) in an IIFE that
  *   ALSO runs DOM/Canvas/WebSocket code at import time (document.getElementById,

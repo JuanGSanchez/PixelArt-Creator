@@ -1,6 +1,6 @@
 # =============================================================================
 # CI pipeline (GitHub Actions) — PixelArt Creator
-# Owner: AGT-09 GitHub/DevOps. Grounded by F11 (headless PySide6 CI) + F14
+# Owned by the GitHub/DevOps role. Grounded by F11 (headless PySide6 CI) + F14
 # (pyproject manifest). Mandatory software-dev extension (spec-driven-development
 # .md §5) — may not be scoped out.
 #
@@ -23,7 +23,7 @@
 # mechanism, the exact regeneration command, and why one file safely serves
 # all three OS legs of the matrix below.
 #
-# Phase-13 Slice 13A (REQ-P13-BUILD-001, T13A-12): the quality-gate job is a
+# Phase-13 (REQ-P13-BUILD-001): the quality-gate job is a
 # 3-OS matrix — ubuntu-latest + windows-latest + macos-latest — each leg running
 # the FULL test suite headless (QT_QPA_PLATFORM=offscreen; the SAME pytest
 # invocation on every OS via `shell: bash`) so the platform is provably portable
@@ -56,7 +56,7 @@ on:
     # `pull_request`) plus one lightweight post-merge canary run (from
     # `push`, see the `setup` job below for how that run is scoped down).
     #
-    # GROUNDING (design-docs/research/research-github-actions-trigger-scoping.md
+    # GROUNDING (research on GitHub Actions trigger scoping,
     # Q1): the `branches` filter MECHANISM is officially documented
     # ("Workflow syntax for GitHub Actions", docs.github.com). Naming
     # "restrict `push` to `main`, leave `pull_request` unrestricted" as *the*
@@ -251,7 +251,7 @@ jobs:
           exit 1
 
       - name: Set up CI temp root (CI-PixelArtCreator)
-        # CI temp standardization (supersedes DEV-36a's D:\tmp\ci\<workflow>-
+        # CI temp standardization (supersedes the previous D:\tmp\ci\<workflow>-
         # <job> naming): the root is ONE product-owned segment under the
         # runner's OWN ${RUNNER_TEMP} -- no drive letter and no other path
         # segment is hardcoded into this file (the segment below,
@@ -260,7 +260,7 @@ jobs:
         # timestamp) is DETERMINISTIC, so a re-run of the same leg resolves to
         # the identical path; the `rm -rf` before `mkdir -p` makes that an
         # OVERWRITE, not an accumulation, of whatever a previous run left (the
-        # ~68 randomly-named dirs + stray `pytest-of-<machine>` tree DEV-36a
+        # ~68 randomly-named dirs + stray `pytest-of-<machine>` tree a prior audit
         # recorded). Every temp-producing surface in this job is routed under
         # this one root: the pytest steps below via --basetemp, and the
         # process TMP/TEMP/TMPDIR env so a bare `tempfile.mkdtemp()` call
@@ -352,9 +352,9 @@ jobs:
           python scripts/check_cycles.py --root sync_backend
           python scripts/check_cycles.py --root web_viewer
 
-      - name: I18n string audit (report, P11 script; AGT-07)
+      - name: I18n string audit (report, P11 script)
         if: runner.os == 'Linux'
-        # BLOCKING (D-22, WP-6.5, decision batch 2026-08-16): this step was
+        # BLOCKING (D-22, decision batch 2026-08-16): this step was
         # warn-and-continue (exit 1 findings swallowed to a `::warning::`,
         # only exit 2 script-error failed the build) because the script's own
         # contract is report-not-fix and pixelart_creator/ui carried findings.
@@ -363,7 +363,7 @@ jobs:
         # clean surface makes blocking cost-free, so the swallow is removed.
         # Exit codes, now both fatal to this step: 0 clean (pass); 1 findings
         # (FAILS the build — a future unwrapped string is caught at commit
-        # time, AGT-07 clears it); 2 script error (FAILS the build, as
+        # time, the localisation owner clears it); 2 script error (FAILS the build, as
         # before — an audit that could not run is not an audit that found
         # nothing). No swallowing of any non-zero exit remains.
         run: python scripts/string_audit_check.py --root pixelart_creator/ui
@@ -375,7 +375,7 @@ jobs:
       # have blocked a merge. Ubuntu-only, same as the other static gates. -----
       - name: Docs build (mkdocs --strict, F14)
         if: runner.os == 'Linux'
-        # main/docs/site/mkdocs.yml (AGT-08 mkdocs-site skill). --strict turns
+        # main/docs/site/mkdocs.yml (mkdocs-site skill). --strict turns
         # every warning (broken internal link, a nav entry with no matching
         # page, etc.) into a build failure so the published User Guide can
         # never drift silently out of sync with docs_dir. Measured 2026-07-30:
@@ -402,12 +402,12 @@ jobs:
         # magic-method docstring), plus D101/D209/D301/D402 (minor,
         # single-digit each). Concentrated in Phase 1-3 modules; this
         # redness is TRUE, not a tooling artefact — the gate simply never ran
-        # before. Clearing the findings is AGT-08's job (docs content), not
+        # before. Clearing the findings is the documentation owner's job (docs content), not
         # this workflow's.
         #
         # DEBT REPAID, THEN REGRESSED, THEN REPAID AGAIN -- history kept, not
         # deleted (CI-warning fix, 2026-08-18):
-        #   - Repaid 2026-08-16 (AGT-08, job
+        #   - Repaid 2026-08-16 (job
         #     20260816-spec-audit-test-rebuild-docs-move): `pydocstyle
         #     pixelart_creator` exited 0.
         #   - Regressed: PRs #9 and #10 reintroduced 15 findings across 4
@@ -467,12 +467,12 @@ jobs:
             BREAKDOWN="(no per-code breakdown parsed -- see step log above for the full pydocstyle output)"
           fi
           if [[ "${TODAY}" > "${EXPIRY}" ]]; then
-            echo "::error::Time-boxed pydocstyle exception EXPIRED on ${EXPIRY}. pixelart_creator still fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see step log above for the full findings). This now BLOCKS: clear the findings (AGT-08) -- do not extend the box without an explicit decision."
+            echo "::error::Time-boxed pydocstyle exception EXPIRED on ${EXPIRY}. pixelart_creator still fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see step log above for the full findings). This now BLOCKS: clear the findings (the documentation owner) -- do not extend the box without an explicit decision."
             exit 1
           fi
-          echo "::warning::pixelart_creator fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see pyproject.toml [tool.pydocstyle] for the ruleset and the step log above for the full findings). KNOWN and time-boxed until ${EXPIRY} (owner AGT-08). This step BLOCKS the build after ${EXPIRY}."
+          echo "::warning::pixelart_creator fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see pyproject.toml [tool.pydocstyle] for the ruleset and the step log above for the full findings). KNOWN and time-boxed until ${EXPIRY} (owner: documentation). This step BLOCKS the build after ${EXPIRY}."
 
-      - name: Documentation-reference gate (ADR citations + control-label currency, P11 script; AGT-09)
+      - name: Documentation-reference gate (ADR citations + control-label currency, P11 script)
         # scripts/check_doc_references.py checks two independent legs, both
         # over the WHOLE checkout (no OS-gate needed -- pure-Python, stdlib
         # only, deterministic):
@@ -502,9 +502,8 @@ jobs:
         # doc-reference-baseline.json (repository root -- NOT docs/, which is
         # gitignored by a deliberate privacy allowlist and would silently
         # strand this CI-gate state file as untracked); the human-readable
-        # accounting of
-        # that debt is design-docs/auxiliary/doc-currency-debt-20260819.md --
-        # in the CONTAINER, not this repository, so searching this repo will
+        # accounting of that debt is tracked separately, outside this
+        # repository, so searching this repo will
         # not find it. The ratchet: a baselined finding does not fail the
         # build, but ANY finding NOT already in the baseline does -- the debt
         # is frozen at 145, never allowed to grow silently, and the user
@@ -573,7 +572,7 @@ jobs:
         # in-process real-time backend suite (tests/backend/) is collected via
         # testpaths=["tests", "web_viewer/tests"] and runs with the mocked
         # loopback/ws transports.
-        # -m also deselects `integration` (Phase-13 13C, T13C-06): the deploy/ VPS
+        # -m also deselects `integration` (Phase-13 13C): the deploy/ VPS
         # acceptance tests — since ADR-0043 in their OWN root tests/deploy/
         # (test_vps_localhost.py, test_nginx_wss_localhost.py) — reach outside the
         # process (launcher subprocess / Docker / Nginx / real socket) and would need
@@ -641,7 +640,7 @@ jobs:
         # the packages are NOT excluded.
         run: python scripts/coverage_gate.py --xml coverage/nonclient.xml --line 90 --branch 80
 
-      # ----- Web-viewer JS-unit gate (Phase-13 Slice 13E, T13E-G04, F11).
+      # ----- Web-viewer JS-unit gate (Phase-13, F11).
       # Ubuntu-only: node is available on the ubuntu runner (absent on the local
       # Windows host, where it is a documented SKIP). Frame-work-free, no bundler
       # (ADR-0036 D3) — the .mjs test file carries its OWN assert-based runner and
@@ -698,7 +697,7 @@ jobs:
       # wrong baseline (plan §6, invoker directive). -----
       - name: 8K paint/redraw perf gate (P-A scenario, D-32, REQ-P1-UI-023)
         if: runner.os == 'Linux'
-        # Phase-1 (AGT-10 D-32 rebuild -> AGT-09 wiring, WP-6.4, decision
+        # Phase-1 (D-32 rebuild, then CI wiring, decision
         # batch 2026-08-16). The rebuilt scripts/perf_profile.py default
         # (tiling) mode now imports and drives the REAL
         # `ui.canvas_scene.CanvasScene.drawBackground` against a real
@@ -708,14 +707,13 @@ jobs:
         # intersected with the real scene's own `sceneRect()`, exactly as a
         # QGraphicsView does. The invocation below is the **P-A scenario** —
         # 8K full-view at fit zoom, the gating case named in
-        # design-docs/specs/phase-1-ui-canvas/render-strategy.md §9 — and
+        # the render-strategy spec §9 — and
         # exits non-zero if the median exceeds the UNRELAXED Tier-1
         # FRAME_BUDGET_MS (16 ms, logic/constants.py, the --budget-ms
-        # default). Perf-model governance record
-        # design-docs/auxiliary/perf-model-governance-20260816.md §7
+        # default). Perf-model governance record §7
         # forbids manufacturing a Tier-2 ceiling for this REQ to make the
         # gate easier to pass — none is used here. Measured locally
-        # 2026-08-16 (AGT-10, this Windows host — host-dependent, not a CI
+        # 2026-08-16 (this Windows host — host-dependent, not a CI
         # result): 9.92 ms median, ~40% margin under budget.
         run: python scripts/perf_profile.py --width 7680 --height 4320 --zoom 0.25 --viewport 1920 1080 --frames 60
 
@@ -730,7 +728,7 @@ jobs:
 
       - name: Tilemap render_region perf gate — part 1 (interactive frame budget)
         if: runner.os == 'Linux'
-        # Standalone, Qt-free P11 gate (Phase-6, AGT-10/AGT-01). Times
+        # Standalone, Qt-free P11 gate (Phase-6). Times
         # logic/tilemap.render_region over a typical interactive viewport tile
         # (256x256 px @ 16 px tiles = 16x16 cells) and exits non-zero if the
         # median exceeds FRAME_BUDGET_MS (16 ms, logic/constants.py — the default
@@ -750,7 +748,7 @@ jobs:
 
       - name: Visual-aids overlay perf gate — part 1 (worst-case iso overlay)
         if: runner.os == 'Linux'
-        # Phase-9 (AGT-10/AGT-01, REQ-P9-UI-011). Times the REAL shipped iso-grid
+        # Phase-9 (REQ-P9-UI-011). Times the REAL shipped iso-grid
         # overlay item's paint() over the full-scene worst case (fine 2 px tiles,
         # 1920x1080 viewport) and exits non-zero if the median frame exceeds
         # OVERLAY_FRAME_CEILING_MS (48 ms, logic/constants.py — passed via
@@ -776,7 +774,7 @@ jobs:
 
       - name: Visual-aids overlay perf gate — part 4 (Slice-C live cursors)
         if: runner.os == 'Linux'
-        # Phase-10 Slice C (AGT-10 report §5, REQ-P10-UI-013). Times the REAL
+        # Phase-10 Slice C (report §5, REQ-P10-UI-013). Times the REAL
         # shipped Live_Cursors_Overlay.paint() with the worst case of
         # MAX_SHARED_MEMBERS (32) collaborator cursors all inside the exposed rect
         # (no cull) and exits non-zero if the median frame exceeds
@@ -795,7 +793,7 @@ jobs:
 
       - name: Visual-aids overlay perf gate — part 6 (D-29, 8K overlay catastrophic ceiling)
         if: runner.os == 'Linux'
-        # Phase-9/Phase-12 (AGT-10 D-29 -> AGT-09 wiring, WP-6.4, decision
+        # Phase-9/Phase-12 (D-29 rebuild, then CI wiring, decision
         # batch 2026-08-16). The literal 8K overlay viewport
         # (`--ov-viewport 7680 4320`) was missing entirely from every wired
         # `--overlay` step above (all five run at 1920x1080), so no job
@@ -808,18 +806,17 @@ jobs:
         # code inspection), not a steady-state per-frame path
         # (DeviceCoordinateCache absorbs steady-state redraws; only
         # zoom/config-change frames pay this cost). Ceiling value derived
-        # from AGT-10's 2026-08-16 measurement (worst local p95 297.5 ms
+        # from the 2026-08-16 measurement (worst local p95 297.5 ms
         # across three runs; CI-scaled ~744 ms; ~2.7x headroom, consistent
         # with the other Tier-2 ceilings' margin discipline) — perf-model
-        # governance record
-        # design-docs/auxiliary/perf-model-governance-20260816.md §3 rule 3
+        # governance record §3 rule 3
         # (a ceiling's value is set by measurement, never invented to clear a
         # scenario).
         run: python scripts/perf_profile.py --overlay --ov-kind iso --ov-tile 32 --ov-viewport 7680 4320 --frames 30 --budget-ms 2000
 
       - name: Realtime apply-remote perf gate (Slice-C, sub-frame ceiling)
         if: runner.os == 'Linux'
-        # Phase-10 Slice C (AGT-10, REQ-P10-LOGIC — realtime_apply). Standalone
+        # Phase-10 Slice C (REQ-P10-LOGIC — realtime_apply). Standalone
         # Qt-free P11 gate: times a single realtime_apply.apply_remote of a 47-tile
         # remote update on an 8K document and exits non-zero if the median exceeds
         # REALTIME_APPLY_CEILING_MS (10 ms, logic/constants.py — the --rt-ceiling-ms
@@ -831,7 +828,7 @@ jobs:
 
       - name: Full-frame flatten perf gate (Slice-A, realistic-content ceiling)
         if: runner.os == 'Linux'
-        # Phase-12 Slice A (AGT-10 RE-PROFILE, REQ-P12-LOGIC-001/-002/-003).
+        # Phase-12 Slice A (RE-PROFILE, REQ-P12-LOGIC-001/-002/-003).
         # Standalone, Qt-free P11 gate: times the OPTIMISED cold full-frame flatten
         # — blend.composite_stack(region=None) over an 8K, 8-layer realistic stack
         # (sparse, predominantly NORMAL — the tiled + threaded fast-path the Slice-A
@@ -845,7 +842,7 @@ jobs:
 
       - name: Viewport-recomposite commit perf gate (Slice-B, opacity-drag)
         if: runner.os == 'Linux'
-        # Phase-12 Slice B (AGT-10 RE-PROFILE, REQ-P12-LOGIC-004/-005 + UI-001).
+        # Phase-12 Slice B (RE-PROFILE, REQ-P12-LOGIC-004/-005 + UI-001).
         # Standalone, Qt-free P11 gate: times the opacity-drag split-cache COMMIT
         # path — blend.composite_range suffix re-blend over the worst-case culled
         # viewport (1920x1920 px, 12-layer stack) — and exits non-zero if the
@@ -893,7 +890,7 @@ jobs:
           fi
 
   # ===========================================================================
-  # Phase-13 Slice 13C (REQ-P13-BACKEND-001/-002/-003, T13C-06): dedicated
+  # Phase-13 (REQ-P13-BACKEND-001/-002/-003): dedicated
   # integration job for the deploy/ VPS self-hosting artifacts.
   #
   # SEPARATE from the cross-OS quality-gate matrix above (which deselects
@@ -968,8 +965,8 @@ jobs:
 
       - name: Integration tests (deploy/ launcher, Docker, Nginx WSS — localhost)
         # Runs the `integration`-marked deployment acceptance, which ADR-0043 moved
-        # out of tests/backend/ into its OWN root tests/deploy/ (AGT-09 owns
-        # deployment; the sync-backend service agent owns tests/backend/).
+        # out of tests/backend/ into its OWN root tests/deploy/ (this workflow's
+        # owner owns deployment; the sync-backend service agent owns tests/backend/).
         # BOTH roots are named on purpose. tests/deploy/ holds all 9 integration
         # tests today; tests/backend/ holds none. Naming only tests/deploy/ would
         # silently stop running any integration test a future backend change adds

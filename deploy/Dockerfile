@@ -1,5 +1,5 @@
 # Container image for the shipped sync_backend/ asyncio-websockets relay.
-# Phase-13 Slice 13C (REQ-P13-BACKEND-001, Researcher Q4). Builds an image that runs
+# Phase-13 (REQ-P13-BACKEND-001, Researcher Q4). Builds an image that runs
 # the EXISTING, UNMODIFIED sync_backend/ on a generic VPS via the deploy/ launcher —
 # NO backend source change (artifacts only).
 #
@@ -10,7 +10,7 @@
 
 # Base pinned to the project's single parametric source: the repo-root
 # `.python-version` file ("3.13.13"), confirmed on Docker Hub 2026-05-20
-# (design-docs/research/research-ci-python-3-13-13-pins.md, Q3). Kept in sync
+# (research findings on CI Python 3.13.13 pins, Q3). Kept in sync
 # by scripts/check_python_version.py (exact-patch precision for this site).
 FROM python:3.13.13-slim-bookworm
 

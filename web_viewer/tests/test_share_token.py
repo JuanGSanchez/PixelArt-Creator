@@ -1,6 +1,6 @@
 """Share-link token: pure verify surface + the live token-enforcing handshake.
 
-Phase-13 Slice-13E, task T13E-B06 (ADR-0036 §1 + Addendum A; spec REQ-P13-WEB-002/-005;
+(ADR-0036 §1 + Addendum A; spec REQ-P13-WEB-002/-005;
 acceptance **SC-P13-WEB-005-1/-2**, **SC-P13-WEB-002-1**). Two layers, one file:
 
 * **Pure** unit + Hypothesis coverage of

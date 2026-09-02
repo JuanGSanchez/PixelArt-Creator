@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # build_appimage.sh — wrap the Nuitka STANDALONE dist into a self-contained
-# AppImage (Slice 13D, REQ-P13-BUILD-004, ADR-0038 §2). Owner AGT-09 (BUILD).
+# AppImage (REQ-P13-BUILD-004, ADR-0038 §2). Owned by the GitHub/DevOps role (BUILD).
 #
 # Consumes the folder produced by:
 #     pyside6-deploy -c packaging/pysidedeploy-linux.spec --force

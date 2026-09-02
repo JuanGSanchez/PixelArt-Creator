@@ -32,8 +32,8 @@
 #     a capability a user looks up by name.
 # FLAVOUR: standalone
 # LOCATION: scripts/check_doc_references.py
-# INVOKED BY: AGT-09 CI (doc-currency gate); AGT-08 Documenter (pre-flight
-#   before publishing CHANGELOG/ADR/site updates).
+# INVOKED BY: CI, as the doc-currency gate; and as a pre-flight check before
+#   publishing CHANGELOG/ADR/site updates.
 # RUNTIME: Python 3.8+ (CPython, stdlib only: ast, argparse, json, os, re,
 #   sys, xml.etree.ElementTree).
 # ENTRYPOINT: python scripts/check_doc_references.py [--root .]
@@ -118,7 +118,7 @@
 #
 # ## Principles Applied
 # Inherited: P1 (grounded in ADR-0029's in-app guide + the mkdocs site, both
-#   AGT-08-owned; the label set is grounded in the shipped UI source, never
+#   documented here; the label set is grounded in the shipped UI source, never
 #   guessed), P2, P3, P4, P6 (stdlib only), P7, P9 (one job: doc-reference
 #   currency; report-only, fixes nothing), P10, P11 (programmatic gate, exit
 #   code is the verdict), P12 (ADR-citation-resolution + label-currency +
@@ -144,8 +144,8 @@
 #   from the allowlist:
 #     allowlist = "needs no documentation, ever"      (a permanent exemption)
 #     baseline  = "documentation owed, not yet written" (a TEMPORARY, tracked
-#                 debt -- see design-docs/auxiliary/doc-currency-debt-20260819.md
-#                 for the human-readable breakdown AGT-08 owes against it)
+#                 debt -- the baseline file itself enumerates, entry by entry,
+#                 the documentation still owed against it)
 #   The two are never merged: an allowlisted finding never reaches the
 #   baseline comparison at all (it is filtered out upstream, same as today).
 #

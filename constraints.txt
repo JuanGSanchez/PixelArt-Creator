@@ -29,7 +29,7 @@
 # and its diff reviewed, treat this file as a WINDOWS-VERIFIED lock, not a
 # cross-platform one.
 #
-# Owner: AGT-09 GitHub/DevOps. Addresses R-11 (dependency-reproducibility gap):
+# Owner: GitHub/DevOps. Addresses R-11 (dependency-reproducibility gap):
 # pyproject.toml's `dependencies` intentionally FLOOR-pins the public install
 # contract (PySide6>=6.6, numpy>=1.26, Pillow>=10.0) plus exact-pins two
 # compiled deps (pycrdt==0.14.1, websockets==16.0) — that is correct there,
@@ -61,9 +61,9 @@
 # rather than silently added.
 #
 # MECHANISM CHOICE, AND WHY: this project uses plain pip with a `[dev]` extra
-# and has no lock tool installed (no pip-tools, no uv, no poetry) — see
-# design-docs/reports/subagent-report-agt-09-github-devops-lock11-20260730T190000Z.md
-# for the fuller comparison. A committed, pip-native constraints file is the
+# and has no lock tool installed (no pip-tools, no uv, no poetry) — see the
+# fuller comparison, recorded outside this repository. A committed, pip-native
+# constraints file is the
 # lowest-friction fit: it needs no new tool to CONSUME (plain `pip install -c`
 # is stdlib pip), only to REGENERATE (plain pip is enough for that too — see
 # below), and it slots into ci.yml as one extra `-c constraints.txt` flag on

@@ -1,6 +1,6 @@
-"""Render-fidelity reference generator for the web viewer (T13E-B07).
+"""Render-fidelity reference generator for the web viewer.
 
-Owned by AGT-06 (QA). This is a **test helper**, not product code, and it IS part
+This is a **test helper**, not product code, and it IS part
 of the default pytest suite: ``pyproject.toml`` pins
 ``testpaths = ["tests", "web_viewer/tests"]``, so ``web_viewer/tests`` runs on
 every push, not separately from it. It has two jobs, both grounded in the shipped
@@ -305,7 +305,7 @@ def main() -> int:
     print(f"exact-match pixels     : {exact}/{total}")
 
     fixture = {
-        "note": "T13E-B07 render-fidelity fixture (shipped-path reference).",
+        "note": "render-fidelity fixture (shipped-path reference).",
         "document_id": DOC_ID,
         "width": int(reference.shape[1]),
         "height": int(reference.shape[0]),

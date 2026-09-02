@@ -12,7 +12,7 @@
 #   docs/adr/0045-local-ci-execution-strategy.md.
 # FLAVOUR: standalone
 # LOCATION: scripts/run_ci_locally.py
-# INVOKED BY: AGT-09 GitHub/DevOps; any developer wanting a local CI-shaped run.
+# INVOKED BY: any developer wanting a local, CI-shaped run of the gates.
 # RUNTIME: Python 3.10+ (CPython). Needs PyYAML (`import yaml`) to parse the
 #   workflow -- available transitively via the `mkdocs` dev dependency
 #   ([project.optional-dependencies].dev in pyproject.toml), or installable

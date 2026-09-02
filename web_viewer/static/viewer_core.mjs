@@ -3,7 +3,7 @@
  *
  * The PURE logic of the VIEW-ONLY web companion viewer, extracted from viewer.js so
  * it is importable in node for framework-free unit tests (web_viewer/tests/
- * viewer_core.test.mjs, T13E-B07) AND re-imported by viewer.js as the single source
+ * viewer_core.test.mjs) AND re-imported by viewer.js as the single source
  * of truth for the browser client. BEHAVIOUR-NEUTRAL vs the previous inlined copy.
  *
  * This module contains NO DOM, NO WebSocket, NO Canvas, and NO top-level side

@@ -7,7 +7,7 @@
  * decode, op-replay + LWW convergence, the tile composite, and the integer-scale/DPR
  * render math) lives in the DOM-free, node-importable module ./viewer_core.mjs and is
  * imported here as the SINGLE SOURCE OF TRUTH (shared verbatim with the node unit
- * tests, T13E-B07). It:
+ * tests). It:
  *   1. Presents a signed share-link token to the shipped sync_backend/ over a WSS
  *      connection as the `?token=` query parameter (Addendum A.1); token in MEMORY
  *      ONLY, never localStorage (a4c7da21 D2).
@@ -384,7 +384,7 @@ window.addEventListener("resize", () => { applyDisplayScale(); });
 connect();
 render();
 
-// Expose a tiny read-only surface for headless render-fidelity tests (T13E-B07):
+// Expose a tiny read-only surface for headless render-fidelity tests:
 // pure functions (from viewer_core) + the current model, no mutation of shared
 // state. Attached only for test/debug; it constructs no wire message.
 window.__webViewer = {

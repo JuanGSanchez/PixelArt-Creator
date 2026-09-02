@@ -1,10 +1,10 @@
-"""Pytest wrapper for the web-viewer render-fidelity check (T13E-B07).
+"""Pytest wrapper for the web-viewer render-fidelity check.
 
-Owned by AGT-06 (QA). Turns the standalone ``generate_reference.py`` parity check
+Turns the standalone ``generate_reference.py`` parity check
 into a repeatable test so the byte-exact (0 LSB) fidelity assertion runs in the
 web_viewer CI job. It IS part of the default gate: ``pyproject.toml`` pins
 ``testpaths = ["tests", "web_viewer/tests"]``, so these tests run on every push
-alongside AGT-04's web integration tests, not separately from them.
+alongside the web integration tests, not separately from them.
 
 It asserts that the faithful Python mirror of ``viewer.js`` (op-replay + LWW
 winner selection + source-over ``blendTile`` with ``Uint8ClampedArray``

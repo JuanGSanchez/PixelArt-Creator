@@ -1,4 +1,4 @@
-"""Python-side runner for the framework-free Node ESM unit suite (T-32, job
+"""Python-side runner for the framework-free Node ESM unit suite (job
 20260816-spec-audit-test-rebuild-docs-move).
 
 ``web_viewer/tests/test_viewer_core.mjs`` (renamed from ``viewer_core.test.mjs`` by

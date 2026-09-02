@@ -1,7 +1,7 @@
 # =============================================================================
 # CI workflow (GitHub Actions) — PixelArt Creator — Linux constraints.txt
 # regeneration review job.
-# Owner: AGT-09 GitHub/DevOps.
+# Owned by the GitHub/DevOps role.
 #
 # SPLIT OUT OF ci.yml (this change, 2026-09-01): same reasoning as
 # build-installers.yml's own header — a job gated by a job-level `if:` still
@@ -60,7 +60,7 @@ jobs:
   # the REAL Linux target and publishing the result for a human to diff and
   # decide whether to commit — it deliberately does NOT commit on its own:
   # auto-committing regenerated dependency pins without a human reviewing the
-  # diff is a decision for this file's owner (AGT-09), not something CI should
+  # diff is a decision for this file's owner (the GitHub/DevOps role), not something CI should
   # do unattended. Manual trigger only (workflow_dispatch) — this is a review
   # tool run on demand when a manifest dependency changes or the lock needs a
   # refresh, not a gate on every push.
