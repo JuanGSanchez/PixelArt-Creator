@@ -20,7 +20,7 @@
 #   (REQ-P10-DATA-010), never by a Python import. `data/cloud/` itself is a
 #   normal `data/` subpackage and is already governed by the `data` rule
 #   (zero Qt, no ui/ import) — no provider SDK/transport type leaks above it.
-#   PHASE-13 (cross-platform, Slice 13E): the web companion viewer is a SECOND
+#   PHASE-13 (cross-platform): the web companion viewer is a SECOND
 #   first-class top-level package `web_viewer/` outside the three layers
 #   (ADR-0035, mirroring ADR-0027). Same shape as the backend rule: it must not
 #   import Qt, ui/, data/, or `sync_backend` (it reaches the backend over the
@@ -37,8 +37,8 @@
 #   this replaces.
 # FLAVOUR: standalone
 # LOCATION: scripts/check_layering.py  (CONVENTIONS standalone-script location)
-# INVOKED BY: AGT-01 Architecture (pre-flight + sdd-analyze gate); AGT-09 CI.
-#   Agents invoke via their harness/ephemeral step; not called by an LLM inline.
+# INVOKED BY: the architecture pre-flight check, and by CI as a gate. It is a
+#   command-line script, run as a build step; it is never called inline.
 # RUNTIME: Python 3.8+ (CPython, stdlib only: ast, os, sys, json, argparse).
 # ENTRYPOINT: python scripts/check_layering.py [--root pixelart_creator] [--json]
 # INPUTS:
@@ -66,7 +66,7 @@
 #   P13 (fewest tokens).
 # Custom: (none)
 #
-# SOURCES: User req S11/S12 (Dossier §1); Dossier §6.5/§8 (script owner AGT-01);
+# SOURCES: User req S11/S12 (Dossier §1); Dossier §6.5/§8;
 #   asset-templates.md §Script; Python `ast` stdlib docs (grounded, standard lib).
 # =============================================================================
 import argparse
@@ -84,7 +84,7 @@ QT = ("PySide6", "PySide2", "PyQt6", "PyQt5", "shiboken6", "shiboken2")
 # import ui/, data/, or Qt (it may reuse pure logic/).
 BACKEND_PKG = "sync_backend"
 
-# Phase-13 (Slice 13E): the web companion viewer is a NEW first-class top-level
+# Phase-13: the web companion viewer is a NEW first-class top-level
 # package outside the three layers (ADR-0035, mirroring ADR-0027). It is headless
 # and MUST NOT import Qt, ui/, data/, or the sync backend (it reaches the backend
 # over the wire — WS — at run time, never by Python import); it MAY reuse pure,
@@ -105,7 +105,7 @@ WEB_PKG = "web_viewer"
 # to betray it. Enforcement is now fail-CLOSED: every top-level name a scan
 # meets MUST appear in exactly one of the three tables below, or the run FAILS
 # and names it. Registering a new package is thus a deliberate, reviewed act by
-# the layering owner (AGT-01), not an accident of `os.walk`.
+# the layering owner, not an accident of `os.walk`.
 #
 #   FORBIDDEN            -> governed HERE by an explicit import rule (enforced).
 #   DELEGATED_TOPLEVEL   -> governed, but by a DIFFERENT dedicated --root run.

@@ -7,11 +7,11 @@
 # PURPOSE: Report (not fix) user-visible string literals in ui/ code that are
 #   NOT wrapped in a translation call (self.tr(...)/tr(...)/QCoreApplication
 #   .translate(...)/QObject.tr), and flag `+`-concatenation of translatable
-#   strings (which breaks i18n word order). Backs AGT-07's string audit.
+#   strings (which breaks i18n word order). Backs the localisation audit.
 # FLAVOUR: standalone
 # LOCATION: scripts/string_audit_check.py
-# INVOKED BY: AGT-07 Localisation (string audit on every AGT-05 output);
-#   AGT-09 CI (optional lint step).
+# INVOKED BY: the localisation string audit, over every changed UI file; and
+#   by CI as an optional lint step.
 # RUNTIME: Python 3.8+ (CPython, stdlib only: ast, argparse, json, os, sys).
 # ENTRYPOINT: python scripts/string_audit_check.py [paths ...]
 #             [--root pixelart_creator/ui]
@@ -22,8 +22,8 @@
 # OUTPUTS:
 #   stdout: JSON {"findings":[{file,line,kind,text}], "scanned":N}.
 #   stderr: human summary. exit code per EXIT CODES.
-# EXIT CODES: 0 clean -> COMPLETED ; 1 findings (report) -> reported to AGT-07,
-#   maps to PARTIAL for the audited change (report-not-fix) ; 2 error -> BLOCKED.
+# EXIT CODES: 0 clean -> COMPLETED ; 1 findings reported for review -> maps to
+#   PARTIAL for the audited change (report-not-fix) ; 2 error -> BLOCKED.
 # PRECONDITIONS: target paths exist and are Python source.
 # DETERMINISM NOTE: deterministic; a fixed set of user-facing Qt setter method
 #   names is checked; findings sorted by (file, line). Heuristic (AST), report-only.
@@ -34,7 +34,7 @@
 #   P12 (setter-arg + concatenation checks), P13.
 # Custom: (none)
 #
-# SOURCES: Dossier §6.5/§8 (owner AGT-07); FIX-06/07 (Dossier §2 F5/F6);
+# SOURCES: Dossier §6.5/§8; FIX-06/07 (Dossier §2 F5/F6);
 #   Qt for Python i18n docs (tr/translate); asset-templates.md §Script.
 # =============================================================================
 import argparse
@@ -199,7 +199,7 @@ def main():
     )
     if findings:
         sys.stderr.write(
-            "string_audit_check: %d finding(s) for AGT-07 review.\n" % len(findings)
+            "string_audit_check: %d finding(s) reported for review.\n" % len(findings)
         )
         return 1
     sys.stderr.write("string_audit_check: clean (%d files).\n" % len(files))

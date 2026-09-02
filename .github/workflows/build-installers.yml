@@ -1,7 +1,7 @@
 # =============================================================================
 # CI workflow (GitHub Actions) — PixelArt Creator — native installer BUILD
 # matrix.
-# Owner: AGT-09 GitHub/DevOps.
+# Owned by the GitHub/DevOps role.
 #
 # SPLIT OUT OF ci.yml (this change, 2026-09-01): this job used to live inside
 # ci.yml, self-guarded by a job-level `if:` so it only ever executed on a
@@ -46,7 +46,7 @@ env:
 
 jobs:
   # ===========================================================================
-  # Phase-13 Slice 13D (REQ-P13-BUILD-002/-003/-004/-005, ADR-0038): native
+  # Phase-13 (REQ-P13-BUILD-002/-003/-004/-005, ADR-0038): native
   # installer BUILD matrix. SEPARATE from the always-on quality-gate TEST matrix
   # in ci.yml so PR CI is not slowed by full packaging on every push. Runs ONLY
   # on a build/tag trigger (ADR-0038 §3): `workflow_dispatch` (manual) or a
@@ -183,7 +183,7 @@ jobs:
         # pyside6-deploy ships inside the PySide6 wheel (a project runtime dep);
         # pre-installing Nuitka keeps the build non-interactive & reproducible.
 
-      # ---------------- Windows leg (T13D-02, BUILD-002): onefile .exe --------
+      # ---------------- Windows leg (BUILD-002): onefile .exe --------
       - name: Build Windows .exe (pyside6-deploy / Nuitka onefile)
         if: runner.os == 'Windows'
         run: |
@@ -215,7 +215,7 @@ jobs:
           path: artifact/PixelArtCreator-windows.exe
           if-no-files-found: error
 
-      # ---------------- Linux leg (T13D-03, BUILD-004): AppImage --------------
+      # ---------------- Linux leg (BUILD-004): AppImage --------------
       - name: Build Linux standalone (pyside6-deploy / Nuitka)
         if: runner.os == 'Linux'
         run: pyside6-deploy -c packaging/pysidedeploy-linux.spec --force --keep-deployment-files
@@ -262,7 +262,7 @@ jobs:
           path: artifact/PixelArtCreator-x86_64.AppImage
           if-no-files-found: error
 
-      # ---------------- macOS leg (T13D-04, BUILD-003): .app in .dmg ----------
+      # ---------------- macOS leg (BUILD-003): .app in .dmg ----------
       - name: Build macOS .app (pyside6-deploy / Nuitka standalone bundle)
         if: runner.os == 'macOS'
         run: pyside6-deploy -c packaging/pysidedeploy-macos.spec --force --keep-deployment-files

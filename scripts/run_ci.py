@@ -21,7 +21,7 @@
 #   CONSTRAINT below).
 # FLAVOUR: standalone
 # LOCATION: scripts/run_ci.py
-# INVOKED BY: AGT-09 GitHub/DevOps; any developer who wants "just make CI run,
+# INVOKED BY: any developer who wants "just make CI run,
 #   whichever way is actually available right now."
 # RUNTIME: Python 3.10+ (CPython, stdlib only -- `gh` CLI (authenticated) and
 #   `git` on PATH for classification and for the Windows leg).
@@ -55,7 +55,7 @@
 #                 any other flag. Only takes effect when classification is
 #                 HEALTHY; requires --dispatch-target for CLARITY, not because
 #                 quality-gate/integration lack a manual-dispatch path.
-#                 REWRITTEN 2026-09-01 (CI lean-push split, AGT-09): the
+#                 REWRITTEN 2026-09-01 (CI lean-push split): the
 #                 2026-08-02 note this replaced explained a `target` input on
 #                 ci.yml's own shared `workflow_dispatch` -- that analysis was
 #                 CORRECT THEN and is OBSOLETE NOW, because the mechanism it
@@ -158,7 +158,7 @@
 #   3-5s / zero-`steps` job shape quoted in BILLING_BLOCK_ANNOTATION_SUBSTRING
 #   and BLOCKED_MAX_JOB_ELAPSED_S below were read from that run directly, not
 #   copied from a report; docs/adr/0045-local-ci-execution-strategy.md;
-#   design-docs/research/research-local-ci-github-docker.md (E2: `gh run
+#   the GitHub Actions REST/CLI documentation (`gh run
 #   list`/REST `GET /repos/{owner}/{repo}/actions/runs` is the correct,
 #   official mechanism for this); scripts/run_ci_locally.py (reused, not
 #   duplicated). The Linux-container leg this file once carried (and the
@@ -184,7 +184,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 RUN_CI_LOCALLY = REPO_ROOT / "scripts" / "run_ci_locally.py"
 
 #: --dispatch-target value -> the workflow FILE it dispatches (CI
-#: lean-push split, 2026-09-01, AGT-09): `build-installers` and
+#: lean-push split, 2026-09-01): `build-installers` and
 #: `regenerate-constraints` each moved out of ci.yml into their own file,
 #: each with a bare `workflow_dispatch:` trigger and no input -- do_dispatch()
 #: below issues a plain `gh workflow run <file>` per target, with no
@@ -417,7 +417,7 @@ def current_branch() -> str:
 
 
 #: The CI workflow file `fetch_recent_runs()` scopes to by default (CI
-#: lean-push split, 2026-09-01 follow-up, AGT-09): before the split this
+#: lean-push split, 2026-09-01 follow-up): before the split this
 #: repository had exactly one workflow file, so an unfiltered `gh run list`
 #: could only ever return ci.yml runs. As of the split there are three
 #: (ci.yml, build-installers.yml, regenerate-constraints.yml), and
@@ -594,7 +594,7 @@ def do_dispatch(repo: str, args: argparse.Namespace) -> int:
         print(
             "run_ci: --dispatch requires --dispatch-target "
             "{build-installers,regenerate-constraints}. REWRITTEN 2026-09-01 "
-            "(CI lean-push split, AGT-09): each target now names its OWN "
+            "(CI lean-push split): each target now names its OWN "
             "workflow file, not a `target` input on a shared "
             "`workflow_dispatch` in ci.yml -- ci.yml itself now holds only "
             "`setup`, `quality-gate` and `integration`, none gated by a "

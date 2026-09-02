@@ -8,7 +8,7 @@
 #   the intra-package import graph (AST) and reporting any dependency cycle.
 # FLAVOUR: standalone
 # LOCATION: scripts/check_cycles.py
-# INVOKED BY: AGT-01 Architecture (pre-flight + sdd-analyze gate); AGT-09 CI.
+# INVOKED BY: the architecture pre-flight check, and by CI as a gate.
 #   PHASE-10: run a second time over the sync backend so its internal graph is
 #   also cycle-checked (the backend is a separate top-level package, ADR-0027;
 #   the check is generic over --root, so no rule change is needed):
@@ -35,7 +35,7 @@
 #   P13.
 # Custom: (none)
 #
-# SOURCES: Dossier §6.5/§8 (owner AGT-01); asset-templates.md §Script;
+# SOURCES: Dossier §6.5/§8; asset-templates.md §Script;
 #   Tarjan (1972) SCC algorithm (standard); Python `ast` docs.
 # =============================================================================
 import argparse

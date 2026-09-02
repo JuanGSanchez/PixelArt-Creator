@@ -14,7 +14,7 @@
 #   next time one of them is hand-edited.
 # FLAVOUR: standalone
 # LOCATION: scripts/check_python_version.py
-# INVOKED BY: AGT-09 GitHub/DevOps (CI step + local pre-flight before "done").
+# INVOKED BY: CI, as a step; and locally as a pre-flight check before "done".
 # RUNTIME: Python 3.8+ (CPython, stdlib only: re, sys, json, argparse, pathlib).
 # ENTRYPOINT: python scripts/check_python_version.py [--root .]
 # INPUTS:
@@ -90,8 +90,8 @@
 # Custom: (none)
 #
 # SOURCES: user decision (Python 3.13.13 everywhere, ONE parametric source =
-#   `.python-version`; install floor ">=3.13"); design-docs/research/
-#   research-ci-python-3-13-13-pins.md (CPython 3.13.13 real, released
+#   `.python-version`; install floor ">=3.13"); the upstream CPython and
+#   Docker Hub release records (CPython 3.13.13 real, released
 #   2026-04-07, bugfix-supported until 2029-10 vs 3.12's security-only track
 #   ending 2028-10; python:3.13.13-slim-bookworm confirmed on Docker Hub,
 #   last_updated 2026-05-20); asset-templates.md Script template. Sites 8-9

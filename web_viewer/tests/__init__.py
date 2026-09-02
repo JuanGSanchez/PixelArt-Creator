@@ -1,7 +1,7 @@
 """Python integration tests for the ``web_viewer`` share-token viewer path.
 
-Phase-13 Slice-13E (task T13E-B06; ADR-0036 §1 + Addendum A; spec
-REQ-P13-WEB-002/-005; acceptance SC-P13-WEB-005-1/-2, SC-P13-WEB-002-1). These are
+ADR-0036 §1 + Addendum A; spec
+REQ-P13-WEB-002/-005; acceptance SC-P13-WEB-005-1/-2, SC-P13-WEB-002-1. These are
 Qt-free, in-process integration tests: they spin up the shipped
 :class:`~sync_backend.server.SyncServer` in **web-viewer token mode**
 (``share_secret=…``) on an ephemeral loopback port and drive it with the real

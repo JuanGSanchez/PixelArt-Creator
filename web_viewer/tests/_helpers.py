@@ -3,7 +3,7 @@
 Reuses the ``tests/backend`` harness shape: an in-process
 :class:`~sync_backend.server.SyncServer` on an ephemeral loopback port, driven by the
 real blocking ``websockets`` client from an executor thread so the server's asyncio
-loop keeps the main thread (AGT-03 harness note). Adds share-link-token minting/forging
+loop keeps the main thread. Adds share-link-token minting/forging
 helpers built with **stdlib only** (mirroring
 :mod:`pixelart_creator.logic.share_token`), so a test can mint a valid token or forge a
 tampered / ``alg:"none"`` / wrong-claim one and present it at the live handshake.

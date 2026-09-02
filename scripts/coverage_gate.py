@@ -9,7 +9,7 @@
 #   line rate < 90% or branch rate < 80%.
 # FLAVOUR: standalone
 # LOCATION: scripts/coverage_gate.py
-# INVOKED BY: AGT-09 GitHub/DevOps (CI quality gate step); AGT-04 local pre-flight.
+# INVOKED BY: CI, as the coverage quality gate; and locally as a pre-flight check.
 # RUNTIME: Python 3.8+ (CPython, stdlib only: xml.etree, argparse, json, os, sys, re).
 # ENTRYPOINT: python scripts/coverage_gate.py [--xml coverage.xml]
 #             [--line 90] [--branch 80]
@@ -55,7 +55,7 @@
 #   AND overall), P13.
 # Custom: (none)
 #
-# SOURCES: User req S13 (Dossier §1); Dossier §6.5/§8 (owner AGT-09 CI);
+# SOURCES: User req S13 (Dossier §1); Dossier §6.5/§8 (the CI gate);
 #   Cobertura XML schema (coverage.py `xml` report, standard); asset-templates §Script;
 #   Issue #30 (per-file <classes> rates present in Cobertura XML, never read).
 # =============================================================================

@@ -1,6 +1,6 @@
-# `packaging/` — native-installer build config (Slice 13D, ADR-0038)
+# `packaging/` — native-installer build config (ADR-0038)
 
-Committed, reproducible packaging configuration for the Phase-13 Slice 13D
+Committed, reproducible packaging configuration for the Phase-13
 **native installers** (Windows / macOS / Linux). This directory is **`BUILD`
 ops config** (Article X §1) — it is **not** part of the shipped
 `pixelart_creator` package and is **not** scanned by `check_layering`. It
@@ -34,7 +34,7 @@ the Qt-provided hooks and `--collect-all PySide6`.
 ## App entry point (READ THIS)
 
 Every spec's `input_file` points at the **shipped** GUI entry point
-`pixelart_creator/__main__.py` (owned by AGT-05/AGT-03), which calls
+`pixelart_creator/__main__.py` (owned by the UI and application-logic teams), which calls
 `pixelart_creator.ui.app:main` — the same launcher that
 `python -m pixelart_creator` and the `pixelart-creator` `gui-script` (see
 `pyproject.toml [project.gui-scripts]`) invoke. There is **no** BUILD-only
@@ -52,7 +52,7 @@ mirroring the `pyproject.toml` wheel `exclude` list (ADR-0027 / ADR-0035): the
 launcher imports only `pixelart_creator`, and each spec additionally passes
 `--nofollow-import-to=` for those packages so nothing leaks in transitively.
 
-## Application icon (Slice 13D, derived family)
+## Application icon (derived family)
 
 The three specs' `[app] icon` fields, plus `build_appimage.sh`'s AppDir icon,
 all consume the raster family derived by scripts/derive_app_icons.py from the committed provenance
@@ -101,7 +101,7 @@ only.
 Until a Developer ID is supplied, a user opening the unsigned `.app` must
 bypass Gatekeeper once: right-click the app → **Open** → confirm, or run
 `xattr -dr com.apple.quarantine /path/to/PixelArt\ Creator.app`. Full per-OS
-install/run docs are AGT-08's `T13D-06`.
+install/run docs are the documentation team's responsibility.
 
 ## Reproducibility
 

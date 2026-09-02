@@ -1,13 +1,13 @@
-"""Static VIEW-ONLY / eval-free + a11y audit of the web viewer (T13E-B07/-B08).
+"""Static VIEW-ONLY / eval-free + a11y audit of the web viewer.
 
-Owned by AGT-06 (QA). A framework-free static analyser (no browser, no node, no
+A framework-free static analyser (no browser, no node, no
 bundler) over the shipped ``web_viewer/static`` sources. It corroborates two
 guarantees the frontend agent claimed and runs the *automatable-now* slice of the
-T13E-B08 accessibility criteria:
+accessibility criteria:
 
 1. **VIEW-ONLY (WEB-002) + eval-free (Article VII)** over BOTH the DOM/WS wiring
    file ``viewer.js`` AND the extracted pure-logic module ``viewer_core.mjs`` (the
-   wire-decode ``JSON.parse`` now lives in the module, T13E-B07). The sources are
+   wire-decode ``JSON.parse`` now lives in the module). The sources are
    listed explicitly in ``VIEW_ONLY_SOURCES`` so a future ``.mjs`` split is covered
    by extending that tuple:
    * no ``eval(`` / ``new Function(`` in ANY source;
@@ -48,7 +48,7 @@ INDEX_HTML = os.path.join(STATIC, "index.html")
 # The pure-logic sources carrying the VIEW-ONLY / eval-free / wire-parse invariants.
 # viewer.js owns the DOM/WebSocket/Canvas wiring; viewer_core.mjs owns the extracted
 # wire-decode logic (JSON.parse). Listed explicitly so a future .mjs split is covered
-# by extending this tuple (T13E-B07).
+# by extending this tuple.
 VIEW_ONLY_SOURCES = (VIEWER_JS, VIEWER_CORE)
 
 Result = Tuple[str, bool, str]  # (label, passed, detail)

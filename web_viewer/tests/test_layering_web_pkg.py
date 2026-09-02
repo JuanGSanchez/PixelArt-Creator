@@ -1,6 +1,6 @@
 """Contract test proving ``scripts/check_layering.py`` actually catches a
 ``web_viewer`` (WEB_PKG) layering violation, not just that the registry entry exists
-(T-31, job 20260816-spec-audit-test-rebuild-docs-move).
+(job 20260816-spec-audit-test-rebuild-docs-move).
 
 ADR-0035 governs ``web_viewer/`` as a headless, third top-level package: it must not
 import Qt, ``ui/``, ``data/`` or ``sync_backend`` (script's own ``FORBIDDEN[WEB_PKG]``

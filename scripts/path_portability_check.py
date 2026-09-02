@@ -10,8 +10,8 @@
 #   POSIX absolute roots used as literals, and `os.sep`-free manual joins.
 # FLAVOUR: standalone
 # LOCATION: scripts/path_portability_check.py
-# INVOKED BY: AGT-09 GitHub/DevOps (local pre-flight gate + CI lint step);
-#   AGT-03/AGT-05 local pre-flight before asserting "done".
+# INVOKED BY: CI, as a lint step; and locally as a pre-flight gate, before any
+#   change is called "done".
 # RUNTIME: Python 3.8+ (CPython, stdlib only: ast, re, argparse, json, os, sys).
 # ENTRYPOINT: python scripts/path_portability_check.py [--root .]
 #             [--include pixelart_creator scripts testing/suites]
@@ -35,7 +35,7 @@
 # Custom: (none)
 #
 # SOURCES: spec-driven-development.md §5 (machine-agnostic harness); Dossier
-#   §6.5/§8 (owner AGT-09); asset-templates.md §Script; Python os.path docs.
+#   §6.5/§8 (the CI gate); asset-templates.md §Script; Python os.path docs.
 # =============================================================================
 import argparse
 import ast
