@@ -205,7 +205,7 @@ def test_wheel_arrow_keys_move_selection(wheel, qtbot):
 def test_live_harmony_recompute_is_prompt(wheel):
     """A batch of live recomputes stays well under a generous bound (perf sanity).
 
-    Not a frame-budget gate (that is AGT-10's harness); this only flags gross
+    Not a frame-budget gate (that is the performance harness); this only flags gross
     lag in the qtbot timing so QA can route a perf check if it ever regresses.
     """
     start = time.perf_counter()

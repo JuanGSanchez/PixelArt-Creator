@@ -1,8 +1,8 @@
-"""T20 — the ingress-actions acceptance suite (phase-11-asset-ingress).
+"""The ingress-actions acceptance suite (phase-11-asset-ingress).
 
 This is the slice's load-bearing test module: it carries the assertions that make
-T7-A (registration reachability), T9-A (content-key edge derivation) and T10 +
-DEV-37 (import/export reachability) provably reachable, not merely present as
+registration reachability, content-key edge derivation and
+import/export reachability provably reachable, not merely present as
 dead code (CF-34's class of defect). Every test drives the **shipped**
 :class:`~pixelart_creator.ui.main_window.Main_Window` — its real Library-menu
 ``QAction``\\ s and its real, construction-time-bound
@@ -11,9 +11,9 @@ a test-constructed session with stores bound by the test itself, which is exactl
 the shape that would hide the shipped defect (ruling P11-R7, plan §3.9).
 
 Scope boundary (so this module is not read as duplicating a sibling task):
-durability across a simulated "restart" is T21's job
+durability across a simulated "restart" is a sibling module's job
 (``testing/suites/ui/test_asset_durability.py``); cross-project reuse and the two
-resolve/shared indicators are T22's (``testing/suites/ui/test_asset_reference_reuse.py``).
+resolve/shared indicators are covered by ``testing/suites/ui/test_asset_reference_reuse.py``.
 This module borrows the "two independently bound root" idiom for SC-P11-UI-015-1
 and SC-P11-UI-016-2 only because those two scenarios are on **this** task's own
 ``Satisfies:`` line.
@@ -444,7 +444,7 @@ def test_sc_p11_ui_015_1_and_016_2_import_export_round_trip_with_identical_hashe
 ):
     """SC-P11-UI-015-1 (imported content retrievable+verified "after a restart")
     and SC-P11-UI-016-2 (identical content hashes on another, empty library).
-    Also proves "import does not re-prompt" (RP-5, T10's own Done-when)."""
+    Also proves "import does not re-prompt" (RP-5, this task's own Done-when)."""
     win_a = _window(qtbot)
     exec_calls: list[int] = []
     real_exec = _accept_dialog("Roundtrip", _KIND_SPRITE)

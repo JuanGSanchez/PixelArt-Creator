@@ -1,4 +1,4 @@
-"""T-01: the real tree passes the architecture gates (REQ-P1-LOGIC-013).
+"""The real tree passes the architecture gates (REQ-P1-LOGIC-013).
 
 ``scripts/check_layering.py`` and ``scripts/check_cycles.py`` each ship their
 own synthetic-fixture contract suites under ``testing/suites/scripts/`` — those tests

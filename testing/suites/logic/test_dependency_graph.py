@@ -7,7 +7,7 @@ cycle rejection (a cycle-inducing edge / self-loop raises, and the acyclic graph
 hangs on a query); idempotent re-add + conflicting-``pinned_hash`` rejection; the
 transitive depth bound imported from ``logic/constants`` (``MAX_DEPENDENCY_DEPTH`` — no
 inlined literal); and — via Hypothesis over permuted edge-insertion orders — that the
-built graph and its queries are order-independent / byte-identical. T11-2-04.
+built graph and its queries are order-independent / byte-identical.
 """
 
 from __future__ import annotations

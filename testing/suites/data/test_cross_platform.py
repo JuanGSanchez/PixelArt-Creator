@@ -1,4 +1,4 @@
-"""Cross-platform portability tests for the ``data/`` I/O layer (Slice 13A, no Qt).
+"""Cross-platform portability tests for the ``data/`` I/O layer (no Qt).
 
 Proves the Researcher-Q5 portability invariants of REQ-P13-DATA-001..005 at the
 BYTE / behaviour level so they hold identically on every leg of the Win/Linux/macOS
@@ -6,7 +6,7 @@ CI matrix (no assertion depends on the host OS):
 
 * **DATA-003 (line endings).** ``write_engine_preset`` (Unity ``.meta`` + Godot
   ``.tres``) emits LF and never CRLF regardless of the authoring OS — the regression
-  test for the AGT-03 fix that pinned ``newline="\\n"`` — and a ``.pixproj`` artifact
+  test for the fix that pinned ``newline="\\n"`` — and a ``.pixproj`` artifact
   written then re-read round-trips byte-identically (no newline translation).
 * **DATA-002 (encoding).** A project + a catalog carrying non-ASCII (accented / CJK /
   emoji) names, tags, and metadata save and reload faithfully as UTF-8, with no
@@ -98,14 +98,14 @@ def _descriptor(asset_id="asset-1", **kwargs) -> AssetDescriptor:
 
 
 # --------------------------------------------------------------------------- #
-# DATA-003 — line-ending determinism (regression for the AGT-03 newline fix)    #
+# DATA-003 — line-ending determinism (regression for the newline fix)         #
 # --------------------------------------------------------------------------- #
 
 
 def test_unity_meta_is_lf_only_no_crlf(tmp_path: Path) -> None:
     """REQ-P13-DATA-003: the Unity ``.meta`` is LF-only on any OS (no CRLF).
 
-    Regression for the AGT-03 fix pinning ``newline="\\n"`` — without it, a Windows
+    Regression for the fix pinning ``newline="\\n"`` — without it, a Windows
     write would translate every ``\\n`` to ``\\r\\n`` and the artifact would differ by
     authoring OS. Asserted on the raw bytes, so it holds on every CI matrix leg.
     """

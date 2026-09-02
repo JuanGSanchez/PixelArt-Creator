@@ -1,14 +1,14 @@
 """Tests for pixelart_creator.logic.binding_registry (zero Qt).
 
 Covers REQ-IS-LOGIC-005, REQ-IS-LOGIC-009 (D-15) — Gherkin SC-L005-1..8,
-SC-L009-1..6 (`design-docs/specs/input-scheme/tasks.md` T-35).
+SC-L009-1..6 (the input-scheme task list).
 
-T-35 exists because the `sdd-analyze` reconciling pass of 2026-08-30 found
-that T-32 built this module with no paired test task (finding F-12): the
+This module exists because a reconciling pass of 2026-08-30 found
+that the registry had been built with no paired test task (finding F-12): the
 registry's shape is asserted here, Qt-free, against the module's own
 declared invariants rather than a copy of them.
 
-FOLLOW-UP to T-35: the registry gained a deliberate THIRD kind,
+FOLLOW-UP: the registry gained a deliberate THIRD kind,
 ``"key_proof"``, after check (b) (the guide cross-check) found three real
 key bindings — `Esc`, `Enter` (float commit/cancel, `Canvas_View.
 keyPressEvent`) and `Space` (playback play/pause, a widget-scoped
@@ -135,7 +135,7 @@ class TestRegistryShape:
 
     def test_every_row_section_id_is_a_real_required_area(self) -> None:
         # Checked against the guide model's own tuple, not a copy of it
-        # (T-35's explicit instruction).
+        # (this module's explicit instruction).
         for row in REGISTRY:
             assert row.section_id in REQUIRED_AREAS
 

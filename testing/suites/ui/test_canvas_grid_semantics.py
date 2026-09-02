@@ -103,7 +103,7 @@ def test_req_cgs_ui_006_scene_reports_the_roles_it_was_given(make_scene, theme):
 
 
 # --------------------------------------------------------------------------- #
-# T12 — the rendering half of this batch: the checker is one document pixel   #
+# The rendering half of this batch: the checker is one document pixel        #
 # per square, clipped to the canvas, on a flat workspace ground, with a       #
 # cosmetic 1-device-px border painted last (REQ-CGS-UI-003/-004/-005/-006/    #
 # -010). Every test below renders the real drawBackground/_fill_checker path  #

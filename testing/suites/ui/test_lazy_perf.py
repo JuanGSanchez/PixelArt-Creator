@@ -7,7 +7,7 @@ These tests lock in the two UI-level laziness contracts that fixed the ~56 s
 * **Lazy palette analytics** — while the analytics dock is HIDDEN, a
   document-open / document-change must trigger ZERO full-buffer scan; the
   deferred (debounced) scan runs only when the view becomes visible. Backs the
-  AGT-05 ``request_refresh`` / ``on_dock_visibility_changed`` mechanism.
+  ``request_refresh`` / ``on_dock_visibility_changed`` mechanism.
 * **Lazy initial composite** — a freshly constructed RGBA ``CanvasScene`` starts
   ``_composite_dirty`` (no eager full-stack composite in ``__init__``); the
   composite is computed on the first ``drawBackground`` / paint and is correct.

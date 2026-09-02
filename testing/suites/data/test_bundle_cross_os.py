@@ -1,4 +1,4 @@
-"""Cross-OS portable-bundle import round-trip tests (Slice 13B, no Qt).
+"""Cross-OS portable-bundle import round-trip tests (no Qt).
 
 Covers REQ-P13-DATA-007 / SC-P13-DATA-007-1 (ADR-0037 §3): a ``.pixbundle`` exported on
 one OS imports **model-equal** on another — same layers/frames/tilemaps/palettes/tags —
@@ -11,8 +11,6 @@ POSIX forward-slash internal archive paths (never OS backslashes), UTF-8 text, a
 case-distinct names. Per ADR-0037 the contract is **model-equality on import** — not a
 byte-identical archive — so equality is asserted on the reconstructed model, using the
 deterministic canonical PIO-1 payload. Hypothesis drives the display-name property.
-
-T13B-05.
 """
 
 from __future__ import annotations

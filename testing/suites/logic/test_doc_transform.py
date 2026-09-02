@@ -1,13 +1,13 @@
 """Tests for pixelart_creator.logic.doc_transform (REQ-CSD-LOGIC-003).
 
-canvas-scale-defects spec.md / tasks.md T05. This module did not exist before
+canvas-scale-defects spec.md. This module did not exist before
 this batch, so SC-CSD-L003-1..4 are DEFECT: every one of them fails against
 the unfixed tree (import fails outright). Their pre-fix failure is recorded
-in the AGT-04 report rather than re-demonstrated here, since "the module does
+in the accompanying report rather than re-demonstrated here, since "the module does
 not exist" cannot be proven by a test written against a module that must
 import it to run at all.
 
-Also covers (per T05's "add coverage for..." instruction): enumerate_targets
+Also covers (per the "add coverage for..." instruction): enumerate_targets
 order across multi-frame/multi-layer/masked documents, DocumentTransformRun's
 total/done/finished/results()/step() contract and its logic-level atomicity
 (REQ-CSD-UI-012's structural half), and make_document_transform_command's

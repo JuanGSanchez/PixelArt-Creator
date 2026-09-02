@@ -1,6 +1,6 @@
 """Search / filter acceptance (REQ-P11-UI-003, Gherkin: Search and filter).
 
-Slice 1: the search panel collects a name substring, comma-split tag(s), and a kind and
+The search panel collects a name substring, comma-split tag(s), and a kind and
 emits ``queryChanged(name, tags, kind)``; wired to ``Asset_Library_Panel.set_query`` it
 drives the pure ``logic/asset_query.query`` so the library narrows to the matching
 entries. The three filters INTERSECT (name AND tags AND kind); ``clear()`` restores the

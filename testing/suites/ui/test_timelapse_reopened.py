@@ -1,4 +1,4 @@
-"""Reopened cross-session timelapse recording acceptance tests (T17, D-12).
+"""Reopened cross-session timelapse recording acceptance tests (D-12).
 
 Covers ``SC-UI-024-1``..``-4`` (a saved, payload-carrying recording reopens and
 plays through the SAME shipped controls, on a dedicated, unmistakably-labelled
@@ -12,11 +12,11 @@ reason, never partially played) — driven **headlessly**
 there is no in-memory state shared between them, exactly as a real process
 restart would leave none.
 
-**Repaired 2026-08-18 (T48, Q-21/REQ-P9-LOGIC-022).** ``_record_and_save``'s
+**Repaired 2026-08-18 (Q-21/REQ-P9-LOGIC-022).** ``_record_and_save``'s
 "ground truth" step used to read the recorded frames' content by stepping the
 SAME, live, listened-to ``stack`` through a raw ``History_Document_Provider``
 built outside the widget. That stepping is now itself visible to
-``Timelapse_Controls._on_stack_index_changed`` (T34's forward-move eviction
+``Timelapse_Controls._on_stack_index_changed`` (the forward-move eviction
 watches every index change on its bound stack), so it silently evicted and
 dropped frames from the very session ``_on_save`` was about to snapshot — a
 bug in the TEST, not the product (self-corrected in the open, per this
@@ -98,10 +98,10 @@ def _record_and_save(qtbot, make_view, tmp_path, monkeypatch, name="clip"):
 
     provider = History_Document_Provider(stack, lambda: document)
     # Stepping the SAME, live, listened-to stack here is otherwise
-    # indistinguishable, to the widget's own T34 forward-move eviction, from
+    # indistinguishable, to the widget's own forward-move eviction, from
     # a real commit or discard boundary (REQ-P9-UI-018) -- suspend its
     # bookkeeping for this read exactly as the widget's own internal replay
-    # paths do (fixed 2026-08-18, T48: this ground-truth read used to mutate
+    # paths do (fixed 2026-08-18: this ground-truth read used to mutate
     # -- and shrink -- the very session ``_on_save`` was about to snapshot,
     # a bug in the TEST, not the product; corrected in the open per this
     # dispatch's own report).
@@ -164,7 +164,7 @@ def test_sc_ui_024_1_full_workflow_matches_the_in_session_sequence(
     for got, want in zip(displayed, expected):
         assert np.array_equal(got, want)
 
-    # Play/pause, seek and speed behave exactly as the in-session case (T16).
+    # Play/pause, seek and speed behave exactly as the in-session case.
     reopened._play_button.setChecked(True)
     reopened._pause_playback()
     seen = []
@@ -309,7 +309,7 @@ def test_sc_ui_019_4_incomplete_payload_refused_names_first_bad_frame_no_leak(
     # from this payload's own table -- the payload itself stays well-formed;
     # only the session now outruns what it can resolve. The extra frame DOES
     # carry a (locally-fabricated but valid-shaped) identity: NO_IDENTITY is
-    # evaluated before PAYLOAD_INCOMPLETE (T33's precedence, SC-D005-3), so an
+    # evaluated before PAYLOAD_INCOMPLETE (precedence, SC-D005-3), so an
     # identity-less frame would take that branch instead and this test would
     # no longer be exercising PAYLOAD_INCOMPLETE at all.
     extra = TimelapseFrame(

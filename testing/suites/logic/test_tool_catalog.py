@@ -1,6 +1,6 @@
 """Tests for pixelart_creator.logic.tool_catalog — the safe tool-catalog facade.
 
-Slice 14A (Phase-14 AI assistant). This is the *logic-layer* (zero Qt) proof that
+Phase-14 AI assistant. This is the *logic-layer* (zero Qt) proof that
 the provider-neutral tool-catalog + JSON-schema introspection facade over the shipped
 Phase-8 DSL registry (``logic.scripting``) is:
 

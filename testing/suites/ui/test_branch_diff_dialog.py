@@ -1,4 +1,4 @@
-"""Tests for ``ui/branch_diff_dialog.py`` (T16, ``REQ-P10-UI-015..019``, ``-021..026``).
+"""Tests for ``ui/branch_diff_dialog.py`` (``REQ-P10-UI-015..019``, ``-021..026``).
 
 ``Branch_Diff_Dialog`` is a **modeless** pre-merge diff view: it computes the
 divergence (``logic/branch_diff.derive_divergence``) and the supervision

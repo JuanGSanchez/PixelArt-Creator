@@ -1,7 +1,7 @@
-"""T-19 (AGT-06) acceptance tests for ``Cursor_Feedback_Overlay`` (T-18).
+"""Acceptance tests for ``Cursor_Feedback_Overlay``.
 
 Covers the WIDGET half of ``REQ-IS-UI-024``, ``-025``, ``-026`` -- the part
-built by T-18 and reachable without ``ui/main_window.py`` (T-20, same wave,
+built here and reachable without ``ui/main_window.py`` (a sibling task, same wave,
 not a dependency of this task): geometry (edge/padding from the named
 constants, never re-typed numbers), the restart-on-change contract, cursor
 tracking while visible, and the never-takes-input/never-takes-focus
@@ -11,14 +11,14 @@ guarantee -- plus the import allow-list AST gate that stands in for the
 **Not exercised here (recorded, not silently skipped):** ``SC-U026-1``
 (suppressed during a stroke) and ``SC-U026-2`` (a suppressed square is not
 queued) are the SHELL's decision -- ``ui/main_window.py``'s
-``_set_active_color`` / ``_on_tool_action`` (T-20) -- and T-20 is not a
-dependency of T-19 (same wave, W6). ``SC-U026-3`` (never in an export /
+``_set_active_color`` / ``_on_tool_action`` -- and that sibling task is not a
+dependency of this one (same wave, W6). ``SC-U026-3`` (never in an export /
 saved project / rendered frame) is likewise a shell + export-path property.
 This widget is, BY CONSTRUCTION, a ``viewport()`` child rather than a
 ``QGraphicsItem`` (module docstring, plan.md §3.3 RULING) -- which is exactly
-what makes ``SC-U026-3`` a structural fact once T-20 parents it correctly --
-but that parenting and the stroke-suppression decision are T-20's to test.
-Recorded as **could not verify here -- depends on T-20, not yet built**;
+what makes ``SC-U026-3`` a structural fact once that sibling task parents it correctly --
+but that parenting and the stroke-suppression decision are that sibling task's to test.
+Recorded as **could not verify here -- depends on that sibling task, not yet built**;
 counted as NOT covered by this module (never presumed passing).
 
 Both themes run automatically via the suite's autouse ``theme`` fixture;
@@ -444,7 +444,7 @@ def test_sc_u024_7_installed_event_filter_never_consumes_input(qtbot):
 
 
 # --------------------------------------------------------------------------- #
-# T-19's namesake: the import allow-list AST gate                            #
+# This module's own gate: the import allow-list AST gate                     #
 #                                                                              #
 # check_layering cannot see a ui -> ui edge (plan.md §3.3), so this is the    #
 # ONLY gate standing between the overlay and a domain back door. It states    #
@@ -482,7 +482,7 @@ def _scan_imports(source: str, filename: str = "<module>"):
 
 
 def test_t19_import_allow_list_gate_examines_the_real_module():
-    """T-19: AST-parse ``ui/cursor_feedback_overlay.py``; every
+    """AST-parse ``ui/cursor_feedback_overlay.py``; every
     ``Import``/``ImportFrom`` target must be ``PySide6.*`` or exactly
     ``pixelart_creator.logic.constants``. Fails loudly, naming the exact
     line and target added, if the set is ever a superset of the allow-list.

@@ -3,7 +3,7 @@
 Covers the reversible do/undo tag ops (HIS-1 pattern; REQ-P11-LOGIC-002,
 REQ-P11-DATA-003): add/remove, idempotence (add-present / remove-absent = no-op),
 the do/undo reversibility contract, and the factory-time bound checks driven from
-``logic/constants`` (not literals). T11-1-06.
+``logic/constants`` (not literals).
 """
 
 from __future__ import annotations

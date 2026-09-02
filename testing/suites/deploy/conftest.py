@@ -2,12 +2,12 @@
 
 Moved here from ``tests/backend/conftest.py`` by ADR-0043 (this whole tree was
 later relocated to ``testing/suites/`` on 2026-08-30, ADR-0065): every symbol in
-this module is deployment-acceptance machinery (AGT-09), used **only** by
+this module is deployment-acceptance machinery, used **only** by
 ``test_vps_localhost.py`` and ``test_nginx_wss_localhost.py``. No test remaining
 under ``testing/suites/backend/`` referenced it, so the split leaves both
 directories self-contained.
 
-Phase-13 Slice 13C (REQ-P13-BACKEND-001/-002). The VPS artifacts are proven by
+Phase-13 (REQ-P13-BACKEND-001/-002). The VPS artifacts are proven by
 **launching the shipped, unmodified** ``sync_backend/`` the way a container / systemd
 unit does — through the ``deploy/run_sync_backend.py`` launcher as a *subprocess* bound
 to an ephemeral loopback port (``PIXELART_SYNC_PORT=0``). The helpers below spawn that
@@ -35,7 +35,7 @@ import pytest
 
 #: Repo root: testing/suites/deploy/conftest.py -> parents[3] is the working tree root.
 REPO_ROOT = Path(__file__).resolve().parents[3]
-#: The Phase-13 Slice 13C persistent launcher (deploy/, outside sync_backend/).
+#: The Phase-13 persistent launcher (deploy/, outside sync_backend/).
 LAUNCHER = REPO_ROOT / "deploy" / "run_sync_backend.py"
 
 #: The launcher prints ``pixelart sync-backend listening on ws://<host>:<port>``.

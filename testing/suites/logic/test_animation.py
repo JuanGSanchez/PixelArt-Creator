@@ -1,4 +1,4 @@
-"""Tests for the Phase-5 animation engine (Slice 5A, zero Qt).
+"""Tests for the Phase-5 animation engine (zero Qt).
 
 Covers :mod:`pixelart_creator.logic.animation`: the :class:`PlaybackMode`
 vocabulary + default, deterministic frame sequencing for every mode
@@ -280,7 +280,7 @@ def _layer_stack(color, *, visible=True):
 
 
 # --------------------------------------------------------------------------- #
-# REQ-P5-LOGIC-013 (T-05) — SC-L013-1, literal: per-frame render ==             #
+# REQ-P5-LOGIC-013 — SC-L013-1, literal: per-frame render ==                   #
 # composite_stack of that frame's (stack's) layers, not re-implemented.        #
 # --------------------------------------------------------------------------- #
 
@@ -388,7 +388,7 @@ def test_onion_defaults_and_tints_come_from_constants():
 # D-33/R-24 — single-source onion-tint byte-fidelity (logic/animation.py,      #
 # commit d6f5d72). ``_tint_and_fade`` is the shipped private recolour step;    #
 # these tests encode the EXPECTED recolour math independently (full RGB       #
-# replace + two-stage rounded alpha, per agt-03's report §3/§6) rather than    #
+# replace + two-stage rounded alpha, per the fix report's §3/§6) rather than  #
 # by calling the module's own implementation, so a broken formula cannot      #
 # pass by agreeing with itself.                                                #
 # --------------------------------------------------------------------------- #
@@ -538,11 +538,11 @@ def test_tint_and_fade_recolour_invariants_property(values, tint, opacity):
 
 
 def test_tint_and_fade_pins_our_math_at_the_qt_premultiply_boundary():
-    """D-33(d): pins OUR recolour math at the exact boundary agt-03 flagged —
+    """D-33(d): pins OUR recolour math at the exact boundary the fix report flagged —
     a partial-alpha tint combined with very low pre-fade silhouette alpha.
 
-    agt-03's report (subagent-report-agt-03-python-dev-abfdd7b1) §7 discloses
-    that Qt's internal premultiply/unpremultiply round-trip in
+    The originating fix report §7 discloses that Qt's internal
+    premultiply/unpremultiply round-trip in
     ``QPainter.CompositionMode_SourceIn`` can diverge from this pure model by
     at most +/-1 per RGB channel for partial-alpha tints at very low source
     alpha (~10% of 500 randomised extreme samples; never for the opaque
@@ -551,7 +551,7 @@ def test_tint_and_fade_pins_our_math_at_the_qt_premultiply_boundary():
     in UI-side compositing, not in this function's documented contract) — the
     contract this function owns is the formula itself, which is what this
     test pins, not Qt's raster-engine internals. UI-side fidelity against a
-    live Qt render (if ever needed) belongs to AGT-06/pytest-qt, not here.
+    live Qt render (if ever needed) belongs to pytest-qt, not here.
     """
     rgb = np.array([[[9, 9, 9]]])
     alpha = np.array([[1]])  # very low pre-fade silhouette alpha

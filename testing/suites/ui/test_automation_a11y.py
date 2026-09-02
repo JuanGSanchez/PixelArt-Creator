@@ -1,13 +1,13 @@
 """Automation UI accessibility + both themes — SC-UI-012-1, SC-UI-013-1.
 
-SC-UI-012-1 (REQ-P8-UI-012, R-25 annotation, AGT-06 audit) — every interactive
+SC-UI-012-1 (REQ-P8-UI-012, R-25 annotation) — every interactive
 automation control (macro record/run/list, script runner, plugin manager list +
 install/enable/disable + permission display, batch-recolour editors + list,
 procgen parameter/seed fields) exposes a non-empty accessible name, is
 keyboard-reachable, and the app themes a visible focus indicator. SC-UI-013-1 —
 the panels render under a role-based stylesheet in BOTH themes (no per-widget
 hard-coded colour). Every test also runs twice via the autouse ``theme``
-fixture. Findings feed the ``a11y-audit`` report; AGT-05 fixes.
+fixture. Findings feed the ``a11y-audit`` report; the UI layer fixes.
 """
 
 from __future__ import annotations

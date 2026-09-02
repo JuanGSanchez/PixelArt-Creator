@@ -1,6 +1,6 @@
-"""Entry-point smoke tests for the shipped GUI launcher (REQ-P13-* / Slice 13D).
+"""Entry-point smoke tests for the shipped GUI launcher (REQ-P13-*).
 
-Phase-13 Slice 13D added a packaged entry point so ``python -m pixelart_creator``
+Phase-13 added a packaged entry point so ``python -m pixelart_creator``
 launches the app. These tests cover the headless-testable seam
 :func:`pixelart_creator.ui.app.create_app` and its :func:`~pixelart_creator.ui.app.main`
 wrapper WITHOUT entering the Qt event loop:
@@ -17,7 +17,7 @@ wrapper WITHOUT entering the Qt event loop:
   no-op returning 0, ``main([])`` returns 0 and a window was created. ``main`` is
   NEVER called unpatched EXCEPT via the bounded smoke-exit hook below (it would
   otherwise block on the real event loop).
-* The ``PIXELART_SMOKE_EXIT_MS`` self-exit hook (Slice 13D): with the env var set to
+* The ``PIXELART_SMOKE_EXIT_MS`` self-exit hook: with the env var set to
   a small POSITIVE integer, a REAL (unpatched) ``main()`` — run in a FRESH subprocess
   so a genuine ``exec()`` is exercised without poisoning pytest-qt's session event
   loop — launches, reaches the event loop, and self-quits via

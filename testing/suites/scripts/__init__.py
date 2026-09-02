@@ -1,4 +1,4 @@
-"""Behavioural contract tests for this repository's own CI gate scripts (AGT-09).
+"""Behavioural contract tests for this repository's own CI gate scripts.
 
 Created by ADR-0047, closing structural-audit finding PA-04 (S1): seven of the
 eight gate scripts under ``scripts/`` had no test at all, and a gate that has

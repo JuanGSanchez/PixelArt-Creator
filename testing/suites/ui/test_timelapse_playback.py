@@ -1,8 +1,8 @@
-"""Historical-timelapse playback surface acceptance tests (T16, D-12).
+"""Historical-timelapse playback surface acceptance tests (D-12).
 
 One pytest-qt test per acceptance criterion (``SC-UI-015-*``..``SC-UI-022-*``,
 excluding ``SC-UI-019-4`` and the ``SC-UI-024-*`` family, which the
-reopened-recording module (T17) owns), driven **headlessly**
+reopened-recording module owns), driven **headlessly**
 (``QT_QPA_PLATFORM=offscreen``) against a real :class:`Canvas_View` +
 ``QUndoStack`` so every recorded frame is a genuinely distinct, real pixel
 edit — never a no-op stand-in. Both themes are exercised automatically (the
@@ -21,7 +21,7 @@ Coverage map:
   wiring ``frameReady``/``playbackEditLockChanged`` to an actual read-only
   canvas — is not present in ``ui/main_window.py`` in this worktree; see the
   dispatch report for that finding. This module verifies the *widget's own*
-  contract, which is what T10 actually implements.)
+  contract, which is what the widget actually implements.)
 * **SC-UI-017-1** — seeking shows the frame ``k`` state, the readout reads
   ``k of n``, and the recorded session itself never changes.
 * **SC-UI-018-1** — play/pause/seek/speed-change/stop push **no**
@@ -41,12 +41,12 @@ Coverage map:
 * **SC-UI-022-1** — every control this slice adds has an accessible name, is
   keyboard-reachable, and retranslates cleanly on ``QEvent.LanguageChange``.
 
-**Re-keyed onto identity 2026-08-18 (T48, Q-21/REQ-P9-LOGIC-022; plan §10.2).**
+**Re-keyed onto identity 2026-08-18 (Q-21/REQ-P9-LOGIC-022; plan §10.2).**
 ``ReconstructionExtent``'s old position-set field (a ``FrozenSet[int]`` of
 undo-stack ordinals) no longer exists — every extent below is built as
 ``reachable_frame_ids: FrozenSet[FrameId]``. Neither that old field's name
 nor the old count-derived-range expression it used to be filled from appears
-anywhere in this file any more (grep-checkable, T48's own observable). Two
+anywhere in this file any more (grep-checkable, this rework's own observable). Two
 tests needed more than a field rename because the OLD trick they used to
 fabricate a "beyond the live history" state no longer produces one under
 identity-keyed reachability:
@@ -56,7 +56,7 @@ identity-keyed reachability:
   stepping the SAME, live, listened-to ``stack`` through a raw
   ``History_Document_Provider`` instance built OUTSIDE the widget. That
   stepping is now itself visible to ``Timelapse_Controls._on_stack_index_changed``
-  (T34's forward-move eviction watches every index change on its bound
+  (the forward-move eviction watches every index change on its bound
   stack), so it silently evicted and dropped the very frames the test was
   about to assert on — a bug in the TEST, not the product (self-corrected in
   the open, per this dispatch's own report). Fixed by suspending the same
@@ -71,14 +71,14 @@ identity-keyed reachability:
   (``_id_at_index``), which is not implicitly invalidated by a stack rebind —
   rebinding to an unrelated, empty stack while keeping the same
   ``document_id`` is not a scenario the shipped widget is specified to
-  handle (T34 established no such rebind path; see the dispatch report for
+  handle (a prior audit established no such rebind path; see the dispatch report for
   this finding, not fixed here). The substituted construction instead directly
   models the mechanism plan §10.2 actually specifies: a frame's identity
   evicted from the widget's own live extent (``_id_at_index``) while its
   position stays nominally in range — the exact case ``SC-L022-5``/R5 names.
 
-**The QA pin is DELETED here, as an explicit, recorded supersession (T48,
-analyze F-15, spec §0b.2).**
+**The QA pin is DELETED here, as an explicit, recorded supersession
+(analyze F-15, spec §0b.2).**
 *Superseded text (2026-08-18): the module used to carry*
 ``test_req_p9_logic_017_a_discarded_frame_must_never_replay_wrong_content``,
 *added as a RED pin (spec §0b.2) asserting that the frame recorded for one
@@ -89,7 +89,7 @@ the user's verification demand (*"check carefully the fix with several tests
 of reordering casuistics"*) is aimed at.* It is deleted, not merely fixed,
 because ``test_frame_identity_reordering.py``'s
 ``test_r4_sc_l022_2_reference_held_across_a_discard_never_resolves_to_new_content``
-(T38, the R4/``SC-L022-2`` case the pin's own docstring named as its
+(the R4/``SC-L022-2`` case the pin's own docstring named as its
 scenario) now covers the identical situation against a real ``QUndoStack``
 and asserts on **both** legitimate outcomes (resolution succeeds with the
 frame's own content, or fails naming it) with a real assertion on whichever
@@ -216,7 +216,7 @@ def test_sc_ui_016_1_frameready_emits_reconstructed_states_in_order(qtbot, make_
     provider = History_Document_Provider(stack, lambda: document)
     session_before = controls.session()
     # Stepping the SAME, live, listened-to stack here is otherwise
-    # indistinguishable, to the widget's own T34 forward-move eviction, from
+    # indistinguishable, to the widget's own forward-move eviction, from
     # a real commit or discard boundary (REQ-P9-UI-018) -- suspend its
     # bookkeeping for this read exactly as the widget's own internal replay
     # paths do, so reading ground truth never itself mutates the session
@@ -375,7 +375,7 @@ def test_req_p9_ui_018_playing_while_still_recording_must_not_modify_the_session
     REQ-P9-UI-018 makes no exception for "unless recording is also on" --
     "modifies no recorded frame" is unconditional. This test asserts the
     REQUIRED behaviour and is expected to FAIL against the current
-    ``ui/timelapse_controls.py`` — reported to AGT-05 (owner) with this
+    ``ui/timelapse_controls.py`` — reported to the UI layer (owner) with this
     reproduction, not fixed here (C2 is not implicated: this is not an
     S1/S2 criterion).
     """
@@ -465,13 +465,13 @@ def test_sc_ui_019_3_unreachable_position_refused_not_partially_played(
     Models "history that no longer reaches every recorded position"
     (REQ-P9-UI-019(d)) directly on the identity-keyed mechanism (plan §10.2):
     the widget's OWN live extent (``_id_at_index``) loses the third recorded
-    frame's identity, exactly as a real forward-move eviction would (T34) --
+    frame's identity, exactly as a real forward-move eviction would --
     never a count- or range-derived boundary. (The pre-re-key version of this
     test rebound to a second, empty ``QUndoStack`` for the SAME document to
     fabricate a "shorter history", exploiting the OLD extent's being
     recomputed fresh from ``stack.count()`` on every check; reachability is
     now the recording session's own persistent identity map, which a stack
-    rebind does not implicitly invalidate -- a real gap, reported to AGT-05,
+    rebind does not implicitly invalidate -- a real gap, reported to the UI layer,
     not fixed here since C2/S1/S2 is not implicated.)
     """
     controls, view, scene, stack, document = _record_three_real_frames(qtbot, make_view)
@@ -519,7 +519,7 @@ def test_reconstructability_detail_never_rendered_in_any_blocker_message(qtbot):
     )
     # A frame that DOES carry an identity, simply absent from the extent's
     # reachable set -- BEYOND_EXTENT. A frame_id of None would instead take
-    # the NO_IDENTITY branch (its own case, T41/SC-UI-019-5), which this
+    # the NO_IDENTITY branch (its own case, SC-UI-019-5), which this
     # test does not claim.
     beyond_extent_session = TimelapseSession(
         frames=(
@@ -621,12 +621,12 @@ def test_sc_ui_021_1_dropped_frames_are_reported_with_count(qtbot, make_view):
 
 # The former QA pin,
 # ``test_req_p9_logic_017_a_discarded_frame_must_never_replay_wrong_content``,
-# was DELETED here 2026-08-18 (T48, analyze F-15, spec §0b.2) -- see this
+# was DELETED here 2026-08-18 (analyze F-15, spec §0b.2) -- see this
 # module's docstring for the full, recorded reasoning. Its replacement,
 # asserting on both legitimate outcomes rather than returning on one of them,
 # is ``testing/suites/ui/test_frame_identity_reordering.py::
 # test_r4_sc_l022_2_reference_held_across_a_discard_never_resolves_to_new_content``
-# (T38, R4/SC-L022-2).
+# (R4/SC-L022-2).
 
 
 # --------------------------------------------------------------------------- #

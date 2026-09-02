@@ -6,7 +6,7 @@ Covers the pure, pull-based reference-validation pass (ADR-0031 §3; REQ-P11-LOG
 unchanged/present/hash-matching target, gates revalidation to the dependents of
 ``changed_ids`` (a stale-but-unchanged reference elsewhere is NOT reflagged), returns a
 stable ``(source_id, target_id)``-sorted result, and — via Hypothesis over permuted
-edge-insertion orders — is order-independent / byte-identical. T11-2-04.
+edge-insertion orders — is order-independent / byte-identical.
 """
 
 from __future__ import annotations

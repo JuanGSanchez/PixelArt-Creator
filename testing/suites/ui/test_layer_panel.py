@@ -6,11 +6,11 @@ headlessly (``QT_QPA_PLATFORM=offscreen``, forced in ``conftest``). Every test a
 runs under **both** themes via the autouse ``theme`` fixture, satisfying the global
 "executed identically under light and dark" rule and REQ-P4-UI-017.
 
-Scope note (AGT-06 / T14): these are UI/integration tests only — the blend maths,
-compositor invariants and reversible ``document`` ops are AGT-04's logic tests. Here
+Scope note: these are UI/integration tests only — the blend maths,
+compositor invariants and reversible ``document`` ops are the logic suite's logic tests. Here
 we assert the *wiring*: a panel action produces exactly one ``QUndoCommand``, the
 canvas composite reflects the change, guards no-op paint, and tabs stay isolated.
-Canvas sizes are modest (64x64) — the 8K recomposite frame budget is AGT-10's closed
+Canvas sizes are modest (64x64) — the 8K recomposite frame budget is the performance work's closed
 domain and is never exercised functionally here.
 """
 
@@ -385,7 +385,7 @@ def test_sc_ui_011_1_smart_layer_mirrors_source(layer_env):
 
 
 def test_t19_paint_on_smart_layer_is_rejected(layer_env):
-    """T-19 (AGT-06 audit, regression for C-04): a paint tool driven at a smart
+    """QA audit, regression for C-04: a paint tool driven at a smart
     layer lands NO stroke and pushes NO undo entry — ``CanvasScene.is_active_editable``
     now rejects a smart layer (``self._active_layer.smart_source is not None``)
     exactly like a locked or reference layer (REQ-P4-UI-004/-010; the smart
@@ -673,7 +673,7 @@ def test_multi_layer_convert_to_indexed_collapses_panel_and_undo_restores(qtbot,
 
     Driven through ``Main_Window`` so the real convert handler + full
     ``_mode_switch_rebind`` (set_document + layer_panel.rebuild) is exercised on
-    apply and undo — the T14 crash path. Modest 64x64 canvas.
+    apply and undo — the reported crash path. Modest 64x64 canvas.
     """
     from pixelart_creator.ui.main_window import Main_Window
 

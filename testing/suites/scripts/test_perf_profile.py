@@ -54,7 +54,7 @@ FAILED (not just COMPLETED) -- the exact property this tranche exists to
 establish.
 
 The ``--full-frame`` and ``--viewport-recomposite`` modes ARE covered, added
-in the C-08/T-35 follow-up pass: their basic invalid-input / huge-vs-negative-
+in a follow-up pass (C-08): their basic invalid-input / huge-vs-negative-
 ceiling / exit-code contract (the same shape as the composite-mode pair
 above), PLUS a dedicated assertion that each mode's ``ceiling_ms`` in the
 JSON report is resolved from the real, imported ``pixelart_creator.logic.

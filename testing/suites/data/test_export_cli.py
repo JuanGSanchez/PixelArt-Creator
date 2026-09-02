@@ -187,7 +187,7 @@ def test_cli_output_is_byte_identical_to_direct_export(
 
 
 def test_cli_max_dimension_parity_non_default(tmp_path: Path) -> None:
-    """T-11: --max-dimension at a NON-default value is byte-identical CLI==GUI.
+    """--max-dimension at a NON-default value is byte-identical CLI==GUI.
 
     Pairs with C-09 (the --max-dimension flag exists). A larger atlas needs a
     larger max-dimension bound, so this exercises a value that actually differs

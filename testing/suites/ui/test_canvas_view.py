@@ -51,7 +51,7 @@ def test_sc_ui_004_1_zoom_clamped_to_range(make_view):
 def test_sc_ui_004_2_wheel_notch_scales_by_step(make_view):
     """SC-UI-004-2: one wheel notch scales zoom by the SCALE_FACTOR step.
 
-    INVERTED 2026-08-31 (T-22, D-16/REQ-IS-UI-008,-009): a plain wheel notch
+    INVERTED 2026-08-31 (D-16/REQ-IS-UI-008,-009): a plain wheel notch
     now travels the Favourites cursor instead of zooming (REQ-IS-UI-008) --
     zoom relocated to ``Shift``+wheel (REQ-IS-UI-009), same step, same
     anchor, same floor/ceiling. This test's job was always "prove the
@@ -109,7 +109,7 @@ def _mouse(view, etype, x, y, button, buttons):
 def test_sc_ui_005_1_middle_drag_pans_without_painting(make_view):
     """SC-UI-005-1: middle-drag pans; no pixel changes, no command pushed.
 
-    INVERTED 2026-08-31 (T-22, REQ-IS-UI-011): a middle press no longer
+    INVERTED 2026-08-31 (REQ-IS-UI-011): a middle press no longer
     engages a pan immediately -- it defers into ``_middle_pending`` until the
     drag crosses ``CLICK_DRAG_THRESHOLD_PX`` (click/drag split). The
     immediately-after-press assertion is updated from ``_panning is True`` to

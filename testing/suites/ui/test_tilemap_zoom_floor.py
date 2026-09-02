@@ -8,7 +8,7 @@ larger than the viewport (where ``_fit_zoom()`` is genuinely sub-1.0) the
 ``ZOOM_MIN`` an ABSOLUTE floor -- ``max(ZOOM_MIN, min(value, ZOOM_MAX))`` --
 matching ``Canvas_View._clamp_zoom`` exactly (see
 ``pixelart_creator/ui/tilemap_canvas.py`` around line 724, and
-``design-docs/jobs/20260830-input-scheme/job-specification.md`` §15).
+the input-scheme job specification §15).
 
 **What this module proves, and what it deliberately does NOT claim.** These
 tests prove the FLOOR HOLDS -- through ``_clamp_zoom`` directly, through the
@@ -34,9 +34,8 @@ computes a genuinely sub-1.0 value whenever the (always at-least-1024x1024,
 below with the same disproportionate viewport/scene pairing the sibling
 ``Canvas_View`` suite uses. As of this session ``_fit_zoom`` has **no live
 caller anywhere in ``tilemap_canvas.py``** (``Tilemap_Canvas`` exposes no
-``fit()``/fit-to-window action, per the AGT-05 report that made this change --
-``design-docs/reports/subagent-report-agt-05-ui-expert-aa685275-
-20260831T085754.md``). This module therefore exercises the private method
+``fit()``/fit-to-window action, per the UI implementation report that made
+this change). This module therefore exercises the private method
 directly to prove the boundary MATH holds should a future caller ever feed
 its result to ``set_zoom`` -- it is not exercising a currently-reachable UI
 route, and the docstrings below say so at the point it matters.
@@ -97,7 +96,7 @@ def _wheel_event(*, zoom_in: bool) -> QWheelEvent:
     """Build a real ``QWheelEvent`` zoom notch (matches the sibling suite's
     ``Canvas_View`` wheel-zoom-floor construction exactly).
 
-    INVERTED 2026-08-31 (T-22, D-16/REQ-IS-UI-008,-009): carries
+    INVERTED 2026-08-31 (D-16/REQ-IS-UI-008,-009): carries
     ``ShiftModifier`` -- the wheel-zoom route this helper feeds
     (``Tilemap_Canvas._zoom_wheel``) now requires ``Shift`` held; plain wheel
     travels Favourites instead (REQ-IS-UI-008) and never reaches
@@ -189,7 +188,7 @@ def test_d20_wheel_zoom_out_floor_holds(qtbot):
     below ``ZOOM_MIN``, and land exactly on it once reached -- mirrors the
     sibling ``Canvas_View`` wheel-floor test's shape and notch count.
 
-    INVERTED 2026-08-31 (T-22): the notches ``_wheel_event`` builds now carry
+    INVERTED 2026-08-31: the notches ``_wheel_event`` builds now carry
     ``Shift`` -- see that helper's own docstring."""
     canvas = _build_canvas(qtbot)
     canvas.set_zoom(ZOOM_MIN * 2)  # start above the floor, well within range
@@ -240,7 +239,7 @@ def test_d20_wheel_zoom_in_ceiling_still_holds(qtbot):
     not silently invert the clamp direction, which would pass every D20-1/
     D20-2/D20-3 test above while breaking zoom-in entirely.
 
-    INVERTED 2026-08-31 (T-22): the notches ``_wheel_event`` builds now carry
+    INVERTED 2026-08-31: the notches ``_wheel_event`` builds now carry
     ``Shift`` -- see that helper's own docstring."""
     canvas = _build_canvas(qtbot)
     canvas.set_zoom(ZOOM_MIN)

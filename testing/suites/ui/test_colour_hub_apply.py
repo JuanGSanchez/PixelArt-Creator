@@ -9,7 +9,7 @@ One test per acceptance criterion for the pick -> active-swatch path:
 * SC-U006-4 saving to Favourites is an explicit action, distinct from applying.
 
 The active swatch is the shell's active paint colour (``Main_Window`` tool
-state); a pick sets it without touching the undo stack (T17). Every test runs in
+state); a pick sets it without touching the undo stack. Every test runs in
 both themes via the autouse ``theme`` fixture. Headless.
 """
 
@@ -54,7 +54,7 @@ def test_sc_u006_1_wheel_pick_sets_active_swatch(window):
     picked = hub.current_rgba()
     assert window._active_color == picked  # active swatch equals the pick
     stack = window.active_tab().stack
-    assert stack.count() == 0  # a pick is tool state, never an undo entry (T17)
+    assert stack.count() == 0  # a pick is tool state, never an undo entry
 
 
 def test_sc_u006_1_hub_emits_applied_on_wheel_pick(hub, qtbot):

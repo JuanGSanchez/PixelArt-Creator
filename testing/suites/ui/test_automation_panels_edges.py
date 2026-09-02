@@ -6,10 +6,10 @@ guards, parse-error paths, and inert refresh/disable — so the Phase-8 automati
 UI modules meet the coverage gate (≥90 line / ≥80 branch) without worker-thread
 blind spots. Headless; both themes.
 
-REQ-P8-UI-014 (R-25, AGT-06 audit): the ``_lang_change(widget)`` calls above are
+REQ-P8-UI-014 (R-25): the ``_lang_change(widget)`` calls above are
 bare smoke-only invocations (they prove ``changeEvent`` does not raise, never
 that a retranslated string is actually non-empty). The ``test_t25_*`` section
-below (T-25) supplies REAL post-condition assertions for the four automation
+below supplies REAL post-condition assertions for the four automation
 panels that previously had none — closing REQ-P8-UI-014's i18n-retranslate gap
 for this UI family — including the new Cancel button's retranslation (C-07).
 """
@@ -275,7 +275,7 @@ def test_procgen_retranslate_branch(qtbot):
 
 
 # --------------------------------------------------------------------------- #
-# T-25 (AGT-06 audit) — REAL LanguageChange post-condition assertions, the     #
+# REAL LanguageChange post-condition assertions, the                          #
 # four automation panels that previously only had a bare smoke call above.    #
 # Labelled SC-UI-014-1 (REQ-P8-UI-014, R-25). Includes the new Cancel         #
 # button's retranslation (pairs with C-07).                                   #

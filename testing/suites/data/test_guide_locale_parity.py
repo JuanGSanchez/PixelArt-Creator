@@ -1,12 +1,13 @@
 """Check (c) — ``en`` and ``es`` keep step, both structurally and per token.
 
-``design-docs/specs/input-scheme/tasks.md`` T-29. Covers ``REQ-IS-LOGIC-007``
+The input-scheme task list. Covers ``REQ-IS-LOGIC-007``
 — Gherkin ``SC-D001-*`` .. ``SC-D008-*``, ``SC-R-31``, and D-12 (key names stay
 literal and untranslated).
 
 **Authored against the registry / the bundle's own structure, before the
-guide is rewritten.** Shares tasks.md T-29 with ``test_guide_bindings.py``
-(check (b)); both depend on T-32, not T-28, and land in the same commit
+guide is rewritten.** Shares its task with ``test_guide_bindings.py``
+(check (b)); both depend on the registry landing first, not the guide
+rewrite, and land in the same commit
 (group C14). It is legitimately RED wherever the two locales already diverge
 today.
 
@@ -298,8 +299,8 @@ def test_every_manifest_stem_resolves_in_both_locales_and_dirs_are_a_bijection()
 
 
 def test_every_shortcut_token_in_en_binding_tables_matches_es_identically() -> None:
-    """Authored against the registry's D-12 ruling before T-28 rewrites the
-    guide -- expected RED wherever an existing en/es table pair already
+    """Authored against the registry's D-12 ruling before the guide rewrite lands --
+    expected RED wherever an existing en/es table pair already
     diverges (see this task's report for what it finds today).
     """
     result = check_shortcut_token_lockstep(_stem_text_pairs())

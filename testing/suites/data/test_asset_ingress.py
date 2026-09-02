@@ -1,7 +1,7 @@
 """Unit tests for :mod:`pixelart_creator.data.asset_ingress` (S11, no Qt).
 
-T18 (``design-docs/specs/phase-11-asset-ingress/tasks.md``, D2 re-scope
-2026-08-21, ruling P11-R1 / plan.md §3.3): the untrusted-input attack matrix
+D2 re-scope
+2026-08-21, ruling P11-R1 / plan.md §3.3: the untrusted-input attack matrix
 (malformed / oversized / cap-violating / hash-mismatched / path-escaping,
 each rejected at step 1 before any write) plus the atomic order's own
 assertions —
@@ -22,7 +22,7 @@ The old ``has_blob``-based rollback text (a removed blob after a failed
 run) is superseded and is NOT asserted anywhere in this module — no removal
 API exists on the CAS/blob stack and none is added to make a test pass.
 
-Also covers the T3-A seams (ruling P11-R5/P11-R6): ``ARTIFACT_SUFFIX``
+Also covers the artifact-format seams (ruling P11-R5/P11-R6): ``ARTIFACT_SUFFIX``
 distinctness, ``canonical_bytes`` equals what ``register`` stores, and the
 ``.pixbundle`` / ``pixassetartifact`` format boundary.
 """
@@ -174,7 +174,7 @@ def test_ingress_error_is_project_io_error() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# ARTIFACT_SUFFIX (T3-A)                                                       #
+# ARTIFACT_SUFFIX                                                             #
 # --------------------------------------------------------------------------- #
 
 
@@ -186,7 +186,7 @@ def test_artifact_suffix_is_pixasset_and_distinct_from_bundle_suffix() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# canonical_bytes (T3-A) — equals what register stores                       #
+# canonical_bytes — equals what register stores                              #
 # --------------------------------------------------------------------------- #
 
 
@@ -452,7 +452,7 @@ class TestRegisterAtomicOrder:
 
 
 # --------------------------------------------------------------------------- #
-# register — reference_key computation (T17-A, ruling P11-R8, plan §3.10)    #
+# register — reference_key computation (ruling P11-R8, plan §3.10)           #
 # --------------------------------------------------------------------------- #
 
 
@@ -579,7 +579,7 @@ class TestImportArtifactUntrustedInput:
         self, tmp_path: Path
     ) -> None:
         """A .pixbundle's bytes handed to import_artifact are rejected on the
-        format marker (T18's extended clause) — the artifact parser is where
+        format marker (the extended validation clause) — the artifact parser is where
         the two formats are kept apart."""
         backend = _SpyBackend()
         cas = _cas(backend)
@@ -941,11 +941,11 @@ class TestExportSubset:
     def test_export_then_import_round_trip_preserves_reference_key(
         self, tmp_path: Path, tmp_path_factory: pytest.TempPathFactory
     ) -> None:
-        """T17-A Done-when #5: an artifact written by ``export_subset``
+        """An artifact written by ``export_subset``
         carries the ``reference_key`` and ``import_artifact`` restores it
         exactly — the assertion that keeps a cross-machine share graph-
         reachable (SC-P11-UI-016-2's "identical content hashes" promise
-        would be green over a dead feature otherwise, T8-B module docstring
+        would be green over a dead feature otherwise, per the module docstring
         note at ``export_subset``'s ``reference_key`` field)."""
         source_cas = _cas()
         buf = PixelBuffer(4, 4, ColorMode.RGBA, fill=(255, 0, 0, 255))
@@ -970,13 +970,13 @@ class TestExportSubset:
     def test_import_pre_reference_key_artifact_entry_parses_as_empty_no_edge(
         self, tmp_path: Path
     ) -> None:
-        """T17-A binding call 3: a pre-``reference_key`` artifact/sidecar
+        """A pre-``reference_key`` artifact/sidecar
         imports with the key as ``""`` and produces no edge (backward-compat
         read path, no schema bump) — the entry carries no
         ``"reference_key"`` key at all, the exact shape an artifact exported
-        before T8-B would have."""
+        before the fix would have."""
         entry = _artifact_entry(asset_id="legacy", payload={"a": 1})
-        assert "reference_key" not in entry  # the pre-T8-B artifact shape
+        assert "reference_key" not in entry  # the pre-fix artifact shape
         catalog, imported = import_artifact(
             _artifact_bytes([entry]), AssetCatalog(), _cas(), tmp_path
         )

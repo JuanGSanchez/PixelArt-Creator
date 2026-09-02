@@ -1,7 +1,7 @@
 """Check (d) -- every gesture row's proof_node_ids is a COLLECTABLE pytest id.
 
-``tasks.md`` T-34 (AGT-04), ``REQ-IS-LOGIC-008``, ``REQ-IS-LOGIC-009`` (D-15,
-``design-docs/specs/input-scheme/tasks.md`` §"T-34"). Check (a)
+``REQ-IS-LOGIC-008``, ``REQ-IS-LOGIC-009`` (D-15,
+the input-scheme task list). Check (a)
 (``testing/suites/ui/test_binding_registry_reality.py``) proves the
 registry's ``key`` rows equal the app's real ``QAction`` shortcuts, but Qt
 exposes no introspection API for a pointer gesture -- "middle-click on
@@ -217,7 +217,7 @@ def test_every_real_gesture_proof_node_id_is_collectable(tmp_path: Path) -> None
     result = check_gesture_proof_links(binding_registry.gestures(), basetemp=tmp_path)
     assert result.ok, (
         "check (d) FAILS: the following gesture proof_node_ids are NOT "
-        "collectable by pytest (finding for AGT-03/AGT-06, not a defect to "
+        "collectable by pytest (finding for the owning teams, not a defect to "
         "repair here):\n"
         + "\n".join(
             f"  {item.node_id!r} (subprocess exit {item.exit_code})\n"

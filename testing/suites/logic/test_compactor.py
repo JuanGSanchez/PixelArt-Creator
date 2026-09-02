@@ -93,7 +93,7 @@ def test_smoke_entrypoint_returns_zero():
 
 
 def test_compaction_error_is_valueerror_subclass():
-    # Regression (T6, CL-8): CompactionError must share the ValueError domain base
+    # Regression (CL-8): CompactionError must share the ValueError domain base
     # used by ColorError/PaletteError/PixelBufferError/DocumentError/ProjectIOError.
     assert issubclass(CompactionError, ValueError)
 

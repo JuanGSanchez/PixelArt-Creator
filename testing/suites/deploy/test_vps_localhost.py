@@ -1,4 +1,4 @@
-"""Localhost-provable VPS deployment acceptance (Phase-13 Slice 13C, T13C-04).
+"""Localhost-provable VPS deployment acceptance (Phase-13).
 
 Proves REQ-P13-BACKEND-001 / SC-P13-BACKEND-001-1: the shipped deployment artifacts run
 the **unchanged** ``sync_backend/`` relay, and a client connecting **over
@@ -21,7 +21,7 @@ a VPS would:
 
 Every test is ``@pytest.mark.integration`` (module-level ``pytestmark``): it reaches
 outside the process, so the default gate deselects it — it runs in the dedicated 13C
-integration job (T13C-06) or a documented manual run. The backend source is never
+integration job or a documented manual run. The backend source is never
 modified; these tests only *launch* it via the ``deploy/`` artifacts.
 """
 

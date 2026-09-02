@@ -1,4 +1,4 @@
-"""The Tetradic harmony row + the double-click promotion gesture (T28).
+"""The Tetradic harmony row + the double-click promotion gesture.
 
 One test per acceptance criterion for the Tetradic related-colour row and the
 narrowed promotion gesture on :class:`Colour_Wheel_Widget`:

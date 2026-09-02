@@ -89,14 +89,14 @@ def test_sc_ui_012_1_export_import_round_trip_is_equivalent(
 
 
 # --------------------------------------------------------------------------- #
-# T-23 (AGT-06 audit, regression for C-02) — window-level import is ONE macro #
+# Regression for C-02 — window-level import is ONE macro                     #
 # --------------------------------------------------------------------------- #
 
 
 def test_t23_window_import_tiled_is_one_undo_removing_everything(
     qtbot, monkeypatch, tmp_path, make_tilemap_setup
 ):
-    """T-23 (regression for C-02): ``Main_Window._on_import_tiled`` pushes the
+    """Regression for C-02: ``Main_Window._on_import_tiled`` pushes the
     imported tileset attach(es) + the tilemap add as ONE undo macro — a single
     undo removes the imported tilemap AND detaches every imported tileset
     (CF-15). Builds a genuine standalone imported ``Tilemap`` via a real

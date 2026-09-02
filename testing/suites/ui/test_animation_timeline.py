@@ -1,16 +1,16 @@
 """Phase-5 animation-timeline UI acceptance tests (REQ-P5-UI-001..019).
 
 One pytest-qt test per UI acceptance criterion of ``specs/phase-5-animation``
-(the ``SC-UI-*`` scenarios plus the pre-warm-UX seam AGT-05 flagged), driving the
+(the ``SC-UI-*`` scenarios plus the pre-warm-UX seam the UI layer flagged), driving the
 PySide6 timeline / playback / onion / frame-tag widgets and the composited
 ``CanvasScene`` headlessly (``QT_QPA_PLATFORM=offscreen``, forced in ``conftest``).
 Every test also runs under **both** themes via the autouse ``theme`` fixture,
 satisfying the spec global rule ("executed identically under light and dark") and
 REQ-P5-UI-018.
 
-Scope note (AGT-06 / T5C-QA): these are UI/integration tests only — the pure
-sequencing engine, onion-overlay maths and reversible ``document`` ops are AGT-04's
-logic tests; the 8K frame budget is AGT-10's closed domain. Here we assert the
+Scope note: these are UI/integration tests only — the pure
+sequencing engine, onion-overlay maths and reversible ``document`` ops are the logic suite's
+logic tests; the 8K frame budget is the performance work's closed domain. Here we assert the
 *wiring*: a panel action produces **exactly one** ``QUndoCommand`` and undo/redo
 restores the exact prior state; the transport advances each ``PlaybackMode``
 correctly and honours per-frame ``duration_ms``; onion shows/hides + is suppressed
@@ -528,7 +528,7 @@ def test_ui_015_view_ops_push_no_command(timeline_env, make_doc, make_scene):
 
 
 # --------------------------------------------------------------------------- #
-# Pre-warm UX (AGT-05 a64cd908 seam: prewarm signals + streaming)             #
+# Pre-warm UX (a64cd908 seam: prewarm signals + streaming)                    #
 # --------------------------------------------------------------------------- #
 
 

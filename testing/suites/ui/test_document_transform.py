@@ -7,14 +7,14 @@ Every scenario here drives the REAL Qt surfaces introduced by this batch —
 and :class:`~pixelart_creator.ui.document_transform_dialogs.Document_Transform_Progress_Dialog`
 — headless, through the real ``QTimer``/``QEventLoop`` chain the runner uses
 (`plan.md` §5.2/§5.3). None of the runner's internals are mocked; only the
-*dialog result* (accept/decline/cancel) is driven, exactly as `tasks.md` T15
+*dialog result* (accept/decline/cancel) is driven, exactly as this task
 directs ("connecting to the runner's ``stepped`` signal and calling
 ``cancel()`` inside the slot").
 
 **A resource note, disclosed rather than silently substituted.** Several
 Gherkin ``Given`` clauses in `spec.md` §7 use literal figures sized for the
-LOGIC-layer cost-estimator tests (`testing/suites/logic/test_doc_transform.py`, T05,
-AGT-04's module) — e.g. an 8-frame x 4-layer 4096x2304 document scaled to
+LOGIC-layer cost-estimator tests (`testing/suites/logic/test_doc_transform.py`,
+the logic suite's module) — e.g. an 8-frame x 4-layer 4096x2304 document scaled to
 7680x4320 (a real ~5.08 GiB transient peak). Reproducing every such figure
 here, at the UI layer, with real backing pixel data would make this module
 prohibitively slow/heavy for a routine suite run. Where a scenario's point is
@@ -26,14 +26,14 @@ several small-source layers whose RESAMPLED RESULTS alone exceed the
 threshold (the ``projected_peak_bytes`` "results" term does not require the
 source to be large). The ONE scenario that is exact-numbers-critical
 (SC-CSD-U015-3, the exactly-on-the-boundary case) lives in
-``test_transform_actions.py`` per `tasks.md` T14 and uses the spec's own real
+``test_transform_actions.py`` and uses the spec's own real
 8K figures (530,841,600 / 796,262,400 bytes), verified affordable in this
 session (<1s, <800MB).
 
 Every test in this module also runs under **both** themes via the autouse
 ``theme`` fixture (`testing/suites/ui/conftest.py`); this module adds no explicit
 theme parametrisation of its own, only the accessibility assertions that are
-theme-relevant (T27, `plan.md` §8.1 — Article V.1/V.3/V.4, a constitution gate,
+theme-relevant (`plan.md` §8.1 — Article V.1/V.3/V.4, a constitution gate,
 not a REQ-ID).
 """
 
@@ -152,7 +152,7 @@ def test_sc_csd_u008_1_confirm_shows_real_figure_before_resample(qtbot, monkeypa
 
     Pre-change: no such surface exists at all (``Document_Transform_Runner``
     is new code) — this scenario cannot even be exercised against the
-    unfixed code, which is itself the DEFECT (`tasks.md` T15).
+    unfixed code, which is itself the DEFECT.
     """
     document = _build_document(8, 8, [5])  # 5 tiny sources, 1 frame
     target = (MAX_CANVAS_WIDTH, MAX_CANVAS_HEIGHT)
@@ -573,7 +573,7 @@ def test_error_inside_a_step_surfaces_synchronously_not_a_hang(qtbot):
     exception raised from a Qt slot invoked off ``QTimer.singleShot``, which
     does NOT propagate through the nested ``QEventLoop.exec()`` on its own —
     see ``document_transform_runner.py``'s own comment on this exact hazard,
-    found and hardened by AGT-05 during this batch) is caught, stashed, and
+    found and hardened by the UI layer during this batch) is caught, stashed, and
     RE-RAISED synchronously to the caller once the loop quits — never left to
     hang the modal loop forever. ``@pytest.mark.timeout(15)`` is a deliberate
     safety net: if a regression removed the stash/re-raise, this test would
@@ -592,17 +592,17 @@ def test_error_inside_a_step_surfaces_synchronously_not_a_hang(qtbot):
         assert (layer.buffer.width, layer.buffer.height) == (64, 48)
 
 
-# -- T20: SC-CSD-U012-3, the ONE post-change-only proof in this batch --------
+# -- SC-CSD-U012-3, the ONE post-change-only proof in this batch -------------
 
 
 @pytest.mark.timeout(30)
 def test_sc_csd_u012_3_no_layer_mutated_before_every_buffer_resampled(qtbot):
-    """SC-CSD-U012-3 (DEFECT — the batch's ONLY post-change proof, T20).
+    """SC-CSD-U012-3 (DEFECT — the batch's ONLY post-change proof).
 
     Against the UNFIXED code this scenario PASSES for the wrong reason: the
     old single-buffer swap is atomic by accident (there is only ever one
     buffer to swap), so a pre-change run of an equivalent assertion proves
-    nothing and is not recorded as one (`tasks.md` T20, `spec.md` §0). This
+    nothing and is not recorded as one (`spec.md` §0). This
     test can only meaningfully run against the NEW multi-buffer pipeline
     (``pixelart_creator.ui.document_transform_runner`` did not exist before
     this batch), where "no layer is mutated before every buffer is
@@ -647,12 +647,12 @@ def test_sc_csd_u012_3_no_layer_mutated_before_every_buffer_resampled(qtbot):
         assert layer.buffer is not orig  # all six changed, together, only now
 
 
-# -- T27: accessibility + both-theme verification of the new dialogs --------
+# -- Accessibility + both-theme verification of the new dialogs -------------
 #
 # Both dialogs run under both themes automatically (the autouse `theme`
 # fixture in conftest.py). This section adds the Article V.1/V.3 assertions
 # the spec itself does not name (`plan.md` §8.1, `analysis.md` F-7): a11y is
-# report-and-verify -- any finding routes to AGT-05, never fixed here.
+# report-and-verify -- any finding routes to the UI layer, never fixed here.
 #
 # A static scan was also run over the two new modules this session:
 #   python scripts/a11y_scan.py --root fix-canvas-grid-semantics/pixelart_creator/ui

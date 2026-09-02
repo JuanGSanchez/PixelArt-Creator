@@ -6,7 +6,7 @@ descriptor and stores the bytes once in the CAS; re-recording bytes whose hash e
 the current head is a dedup no-op (no new revision AND no new CAS blob); ``fetch`` is
 content-hash-verified and a tampered blob is rejected; the store is append-only (no
 in-place mutate/delete path and earlier revisions survive later records); and the module
-routes revisions through the CAS only — it imports no CRDT/cloud code. T11-3-07.
+routes revisions through the CAS only — it imports no CRDT/cloud code.
 """
 
 from __future__ import annotations
@@ -230,7 +230,7 @@ def test_module_imports_no_crdt_no_cloud_no_qt() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Durability — bind_root (T40; SC-P11-INGRESS-E2E-1's restart clause, unit    #
+# Durability — bind_root (SC-P11-INGRESS-E2E-1's restart clause, unit         #
 # level; REQ-P11-DATA-008's revision half)                                    #
 # --------------------------------------------------------------------------- #
 

@@ -3,7 +3,7 @@
 This is an off-GUI-thread worker slice — the exact recurring PySide6 native-
 segfault class. After a ``Main_Window`` (or a standalone ``Cloud_Controller``) that
 used the cloud worker is disposed, NO cloud worker thread or connected signal
-carrier may survive into a later test's GC. AGT-05 folded
+carrier may survive into a later test's GC. The UI layer folded
 ``Cloud_Controller.shutdown()`` (and ``_autosave_timer.stop()``) into
 ``Main_Window.shutdown_prewarm`` -> ``closeEvent``; the ``testing/suites/ui/conftest.py``
 drain fixture calls ``shutdown_prewarm`` on every tracked ``Main_Window`` at

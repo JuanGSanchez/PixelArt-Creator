@@ -1,4 +1,4 @@
-"""Tests for the .pixproj schema's optional "prefs" root key (T15).
+"""Tests for the .pixproj schema's optional "prefs" root key.
 
 Covers ``pixelart_creator.data.project_io`` (REQ-P5-DATA-004, ADR-0056):
 ``SC-D004-1``..``-4``. Set -> save -> reopen preserves the preference; a
@@ -7,7 +7,7 @@ reads as "ask me" (the default); an out-of-domain value is refused, not
 coerced; the serialised key set gains exactly one key ("prefs") and no
 second key is smuggled in beside it; setting/clearing "prefs" does not, on
 its own, change ``payload["version"]`` (independent of whatever
-``FORMAT_VERSION`` currently is -- ADR-0058/T19 addendum, 2026-08-21: this
+``FORMAT_VERSION`` currently is -- ADR-0058, 2026-08-21 addendum: this
 field's version-independence used to be pinned by asserting
 ``FORMAT_VERSION == 5`` outright, which stopped being a valid proof of that
 claim the moment an unrelated feature, phase-11's "asset_refs", legitimately
@@ -32,13 +32,13 @@ from pixelart_creator.logic.project_prefs import (
 
 
 def test_setting_a_preference_does_not_change_the_serialised_version():
-    # Rewritten 2026-08-21 (T19 addendum). The OLD test pinned a fixed value
+    # Rewritten 2026-08-21 (schema addendum). The OLD test pinned a fixed value
     # ("assert pio.FORMAT_VERSION == 5") as proof that adding the "prefs"
     # field, back when it shipped (ADR-0056), did not require a
     # FORMAT_VERSION bump. That was a true claim at the time, but pinning it
     # to a bare constant made it indistinguishable from "the schema's current
     # version happens to be 5" -- and once a LATER, unrelated feature
-    # (phase-11's "asset_refs", T12) legitimately bumped FORMAT_VERSION to 6
+    # (phase-11's "asset_refs") legitimately bumped FORMAT_VERSION to 6
     # for its own reasons, the old assertion started failing even though the
     # thing it meant to prove ("prefs" is still version-independent) remains
     # just as true as it ever was. A version-value literal cannot express
@@ -193,7 +193,7 @@ def test_v1_to_v5_fixture_still_loads_at_current_format_version(version):
     loaded = pio.deserialize(payload)
     assert isinstance(loaded.prefs, ProjectPrefs)
     # The trailing `assert pio.FORMAT_VERSION == 5` this line used to carry
-    # was removed 2026-08-21 (T19 addendum): it tested nothing about "does a
+    # was removed 2026-08-21 (schema addendum): it tested nothing about "does a
     # v1-v5 fixture still load" (the `isinstance` line above already covers
     # that), only "is the format version currently N" -- a claim unrelated to
     # this test's own name, and one that goes stale on every future bump for

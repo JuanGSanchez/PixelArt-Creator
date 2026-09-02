@@ -5,7 +5,7 @@ Slice F-A LOGIC: :class:`FloatMode`, :class:`FloatingSelection`,
 :func:`commit_floating` in ``pixelart_creator.logic.selection`` (MOVE reuses
 the shipped :func:`move_selection`).
 
-One test per acceptance criterion (SC-L030..036 / FA-T1..T7), plus Hypothesis
+One test per acceptance criterion (SC-L030..036), plus Hypothesis
 invariants for the non-destructive (NFR-3) and reversibility (NFR-4) properties.
 Zero Qt; deterministic and portable (NFR-1/-2).
 """
@@ -52,7 +52,7 @@ def _block_mask(w: int = 6, h: int = 6) -> "object":
     return rect_mask(w, h, 1, 1, 2, 2)
 
 
-# --- FA-T1 / SC-L030: floating-selection model / lift ---------------------
+# --- SC-L030: floating-selection model / lift -----------------------------
 
 
 def test_sc_l030_1_lift_captures_colours_source_unchanged():
@@ -96,10 +96,10 @@ def test_sc_l030_5_non_floatmode_raises_selection_error():
         lift_selection(buf, _block_mask(), "move")  # type: ignore[arg-type]
 
 
-# --- T-10: REQ-P2-LOGIC-036 -- single-buffer / mask-source contract --------
+# --- REQ-P2-LOGIC-036 -- single-buffer / mask-source contract --------------
 # (traceability.md names test_sc_l036_1_.../test_sc_l036_2_... directly; those
-# names already existed further below under "FA-T7 / SC-L036" (missed by the
-# initial grep, which searched product/design-docs but not this test file
+# names already existed further below under "SC-L036" (missed by the
+# initial grep, which searched product source but not this test file
 # itself) -- F811 caught the collision. The two pairs' bodies differ (this
 # pair checks a non-empty lifted mask.count() for every builder and the
 # dimension-mismatch error MESSAGE; the pre-existing pair checks
@@ -155,7 +155,7 @@ def test_floating_selection_direct_construction_normalises_offset():
     assert fs.mask() is not mask
 
 
-# --- FA-T2 / SC-L031: non-destructive preview composite -------------------
+# --- SC-L031: non-destructive preview composite --------------------------
 
 
 def test_sc_l031_1_move_preview_vacates_origin_and_stamps_offset():
@@ -268,7 +268,7 @@ def test_sc_l031_preview_base_dimension_mismatch_raises():
         composite_preview(floating, other_base)
 
 
-# --- FA-T3 / SC-L032: MOVE commit -----------------------------------------
+# --- SC-L032: MOVE commit -------------------------------------------------
 
 
 def test_sc_l032_1_move_commit_vacates_origin_and_stamps():
@@ -340,7 +340,7 @@ def test_sc_l032_move_commit_equals_move_selection_regression():
     assert buf1 == buf2
 
 
-# --- FA-T4 / SC-L033: COPY commit -----------------------------------------
+# --- SC-L033: COPY commit -------------------------------------------------
 
 
 def test_sc_l033_1_copy_commit_stamps_dest_keeps_origin():
@@ -427,7 +427,7 @@ def test_copy_selection_validates_arguments():
         )  # type: ignore[arg-type]
 
 
-# --- FA-T5 / SC-L034: cancel is a non-destructive no-op -------------------
+# --- SC-L034: cancel is a non-destructive no-op ---------------------------
 
 
 def test_sc_l034_1_cancel_discards_float_buffer_unchanged():
@@ -443,7 +443,7 @@ def test_sc_l034_1_cancel_discards_float_buffer_unchanged():
     assert buf == before
 
 
-# --- FA-T6 / SC-L035: off-canvas clipping at commit -----------------------
+# --- SC-L035: off-canvas clipping at commit -------------------------------
 
 
 def test_sc_l035_1_off_canvas_pixels_discarded_on_commit_not_wrapped():
@@ -479,7 +479,7 @@ def test_sc_l035_3_off_canvas_clipping_is_deterministic():
     assert _commit_result() == _commit_result()
 
 
-# --- FA-T7 / SC-L036: single-buffer / mask-source contract ----------------
+# --- SC-L036: single-buffer / mask-source contract ------------------------
 
 
 def test_sc_l036_1_lift_from_rect_lasso_wand_masks():

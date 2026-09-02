@@ -1,6 +1,6 @@
-"""Selection lifetime on tool entry (AGT-06, tasks.md T-17, wave 5).
+"""Selection lifetime on tool entry (wave 5).
 
-One test per named scenario in ``design-docs/specs/input-scheme/spec.md``
+One test per named scenario in the input-scheme spec
 §9.1 "Feature: Selection lifetime on tool change (REQ-IS-UI-029)":
 ``SC-U029-1..7``, plus the shape half of the regression scenario
 ``SC-R-32`` (REQ-IS-UI-028 / REQ-P2-LOGIC-006) that this same tool-change
@@ -10,7 +10,7 @@ worktree's current ``main_window.py`` — they had drifted from an earlier
 draft's citation due to unrelated concurrent edits elsewhere in that file
 from other wave-5 tasks; the function's own content is unchanged.)
 
-The shipped handler (T-15) discards the active selection when the
+The shipped handler discards the active selection when the
 **incoming** tool is one of ``{select_rect, select_lasso, select_wand}``
 (``_SELECTION_ENTRY_TOOL_IDS``), strictly AFTER committing any live
 floating move, and via the same no-undo-entry path the existing deselect
@@ -51,7 +51,7 @@ stroke was painted, inside AND outside the mask**:
 ``Canvas_View``'s mouse dispatch (``mousePressEvent``/``mouseMoveEvent`` in
 ``canvas_view.py``) never filters a coordinate by the active mask before
 calling the tool. **The shipped PencilTool is not mask-constrained at all**
-— that is pre-existing behaviour, wholly unrelated to T-17, and not a
+— that is pre-existing behaviour, wholly unrelated to this fix, and not a
 defect this task's change touches.
 
 The REQ this task's property protects — REQ-P2-LOGIC-006 — and its own
@@ -68,10 +68,10 @@ reason.
 
 So ``test_sc_r32_...`` below uses the RECTANGLE tool, matching the REQ's
 own grounding and the existing regression pin, and asserts through a REAL
-``_on_tool_action`` dispatch (the exact function T-17 changed) rather than
+``_on_tool_action`` dispatch (the exact function this fix changed) rather than
 a hand-built substitute. Writing the check against PencilTool as literally
 instructed would have produced a test that fails on unmodified, un-broken
-code for a reason that has nothing to do with T-17 — a false defect report
+code for a reason that has nothing to do with the fix — a false defect report
 against the wrong tool. This substitution is reported to the dispatching
 agent alongside this module.
 
@@ -367,14 +367,14 @@ def test_sc_u029_7_clear_also_fires_from_the_toolbar(qtbot):
 def test_sc_r32_mask_constrained_drawing_survives_a_real_tool_switch(qtbot):
     """SC-R-32 / property 3: select a region, switch to a NON-selection
     drawing tool through the REAL ``_on_tool_action`` dispatch (the exact
-    function T-17 changed), draw across the selection boundary, and assert
+    function this fix changed), draw across the selection boundary, and assert
     the commit is CLIPPED to the mask — pixels inside stay editable, pixels
     outside stay untouched, exactly as before this job (REQ-P2-LOGIC-006).
 
     Uses the RECTANGLE tool, not the pencil literally named in the dispatch
     order — see the module docstring's "PENCIL vs. RECTANGLE" note for the
     probed evidence that the shipped ``PencilTool`` is not mask-constrained
-    at all (a pre-existing, T-17-unrelated characteristic), and for why the
+    at all (a pre-existing, unrelated characteristic), and for why the
     rectangle tool is what REQ-P2-LOGIC-006 and the existing ``SC-R-32``
     regression pin (``test_input_scheme_regression.py``,
     ``test_shape_mode.py::test_shape_commit_is_mask_constrained``) actually

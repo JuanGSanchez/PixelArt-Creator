@@ -10,7 +10,7 @@ already on a grid intersection, so the ``snap`` flag has no *differential* effec
 snap-on and snap-off produce the same endpoint. This test verifies the flag is
 wired end-to-end into the tool context and that endpoints are grid-aligned; it does
 NOT verify a distinct snapped-vs-unsnapped outcome (there is none to observe). See
-the QA report — routed to AGT-01 (spec) / AGT-05.
+the QA report — routed to architecture (spec) / the UI layer.
 """
 
 from __future__ import annotations

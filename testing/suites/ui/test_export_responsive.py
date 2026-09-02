@@ -4,7 +4,7 @@ Export runs on the window-owned single-thread ``QThreadPool`` off the GUI thread
 so submitting a large/batch export never freezes the window: ``submit`` returns
 immediately and the GUI event loop keeps processing while the worker runs. Cancel
 is cooperative and returns the UI to idle. (Mid-encode cancel of a single huge
-target is a known FU-1 per AGT-10 §3/§6 — deliberately NOT asserted as a blocker
+target is a known FU-1 per the performance report §3/§6 — deliberately NOT asserted as a blocker
 here.) Headless, both themes (autouse ``theme`` fixture).
 
 **D-15 repair.** ``Export_Worker.run()`` no longer calls ``export_document``

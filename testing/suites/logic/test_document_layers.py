@@ -1,4 +1,4 @@
-"""Tests for the Phase-4 layer model of pixelart_creator.logic.document (T5).
+"""Tests for the Phase-4 layer model of pixelart_creator.logic.document.
 
 Covers the extended :class:`Layer` / :class:`LayerGroup`, node addressing
 (``resolve_layer`` / ``layer_count`` / ``iter_layers`` through nested groups),
@@ -447,7 +447,7 @@ def test_resize_canvas_recurses_groups_and_masks():
 
 
 # --------------------------------------------------------------------------- #
-# T13 D4 / B5 — group-composite cache invalidation (SC-UI-012-2).             #
+# D4 / B5 — group-composite cache invalidation (SC-UI-012-2).                #
 #                                                                             #
 # The cache is populated by blend._flatten_group during composite_stack and   #
 # invalidated (set to None) up the ancestor chain by the reversible ops. A    #

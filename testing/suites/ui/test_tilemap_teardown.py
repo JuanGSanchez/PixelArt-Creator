@@ -4,7 +4,7 @@ The tilemap canvas owns an off-GUI-thread chunk warmer (``_Tilemap_Scene``
 ``QThreadPool`` + ``TilemapChunkWarmSignals`` carrier). If a live worker or a
 connected carrier survives a disposed window, a later test's GC cross-thread-GCs Qt
 C++ objects and crashes PySide6 natively — the Phase-5 xdist ``worker 'gwN' crashed``
-segfault class. AGT-05 wired ``Tilemap_Canvas.shutdown_warm()`` into
+segfault class. The UI layer wired ``Tilemap_Canvas.shutdown_warm()`` into
 ``MainWindow.shutdown_prewarm()`` (hence ``closeEvent``). These tests DISPATCH a real
 off-thread warm, then prove the deterministic teardown drains the pool and releases
 the carrier — for a standalone canvas AND for a whole ``Main_Window``. The module is

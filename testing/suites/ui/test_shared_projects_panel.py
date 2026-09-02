@@ -8,7 +8,7 @@ empty-name / empty-roster guards, and the ``SharedProjectError`` surfacing path 
 adapter's defensive rejection shown as a warning, never a crash).
 
 Every test runs under BOTH light and dark themes via the autouse ``theme`` fixture.
-The session is the injectable, synchronous loopback seam AGT-05 gave — no worker, so a
+The session is the injectable, synchronous loopback seam the UI layer gave — no worker, so a
 read-back assertion follows the call immediately with no ``qtbot.wait``.
 """
 

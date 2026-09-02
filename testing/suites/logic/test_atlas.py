@@ -124,7 +124,7 @@ def test_pack_atlas_defaults_from_constants() -> None:
     """REQ-P7-LOGIC-012: default padding / max_dimension come from constants."""
     result = pack_atlas([sprite("0", 4, 4, RED)])
     assert DEFAULT_ATLAS_PADDING == 0
-    # D-1b (AGT-03): MAX_ATLAS_DIMENSION is re-aligned to the buildable platform
+    # D-1b: MAX_ATLAS_DIMENSION is re-aligned to the buildable platform
     # 8K width ceiling (7680), NOT the former 8192 which exceeded MAX_CANVAS_WIDTH
     # and let a packed sheet raise PixelBufferError at allocation. Compare against
     # the constant, not a literal, so the two can never silently drift apart again.
@@ -183,7 +183,7 @@ def test_pack_atlas_collective_overflow_raises() -> None:
 
 
 def test_pack_atlas_oversized_axis_raises_atlas_error_not_pixelbuffer() -> None:
-    """D-1b (AGT-03 S2 regression): an atlas that exceeds the *buildable* per-axis
+    """D-1b (S2 regression): an atlas that exceeds the *buildable* per-axis
     ceiling surfaces :class:`AtlasError`, never an escaping :class:`PixelBufferError`.
 
     A 10x4320 frame with padding=1 inflates to a padded cell of 11x4321. Even with
@@ -212,7 +212,7 @@ def test_pack_atlas_oversized_axis_raises_atlas_error_not_pixelbuffer() -> None:
 
 
 def test_pack_atlas_boundary_sheet_builds_successfully() -> None:
-    """D-1b (AGT-03): a frame that fills the buildable ceiling EXACTLY still packs.
+    """D-1b: a frame that fills the buildable ceiling EXACTLY still packs.
 
     A single 7680x4320 (=MAX_CANVAS_WIDTH x MAX_CANVAS_HEIGHT) frame with padding=0 sits
     right on the per-axis ceiling, so the feasibility guard admits it and the sheet is

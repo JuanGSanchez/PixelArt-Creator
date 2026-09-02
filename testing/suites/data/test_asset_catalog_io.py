@@ -6,7 +6,6 @@ via the shipped PIO-1 serialiser (no second serialiser) with content-hash dedup,
 the Article VII UNTRUSTED-load defence — JSON-only, schema+caps rejection of malformed/
 oversized/wrong-type input, metadata scalar guard, and that ``AssetCatalogError`` is a
 ``ProjectIOError`` subclass. Path-traversal rejection lives in ``test_asset_paths.py``.
-T11-1-10.
 """
 
 from __future__ import annotations
@@ -442,13 +441,12 @@ def test_load_asset_rejects_non_json_payload() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# reference_key persistence (T17-A, ruling P11-R8, plan §3.10) — additive     #
-# append per the T17-A dispatch                                               #
+# reference_key persistence (ruling P11-R8, plan §3.10) — additive            #
 # --------------------------------------------------------------------------- #
 
 
 def test_catalog_roundtrip_preserves_reference_key(tmp_path) -> None:
-    """T17-A Done-when #5: a descriptor with a non-empty ``reference_key``
+    """A descriptor with a non-empty ``reference_key``
     round-trips through ``save_catalog``/``load_catalog``."""
     ref_key = content_hash(b"the reference-candidate bytes")
     catalog = AssetCatalog().add(
@@ -492,13 +490,13 @@ def test_sidecar_written_by_current_code_carries_reference_key_key(tmp_path) -> 
 
 
 def test_sidecar_without_reference_key_parses_as_empty_string(tmp_path) -> None:
-    """T17-A Done-when #5: a sidecar written **before** ``reference_key``
-    existed (no such key at all in its JSON — the pre-T8-B shape) parses
+    """A sidecar written **before** ``reference_key``
+    existed (no such key at all in its JSON — the pre-fix shape) parses
     with ``reference_key == ""`` and raises nothing — the backward-compat
-    read path, no schema bump (T8-B report, measured: ``payload.get(...)``
+    read path, no schema bump (measured: ``payload.get(...)``
     already tolerated unknown/absent keys)."""
     pre_reference_key_sidecar = _good_sidecar()
-    assert "reference_key" not in pre_reference_key_sidecar  # the pre-T8-B shape
+    assert "reference_key" not in pre_reference_key_sidecar  # the pre-fix shape
     _write_sidecar(tmp_path, "a", pre_reference_key_sidecar)
 
     reloaded = load_catalog(tmp_path)

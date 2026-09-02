@@ -78,7 +78,7 @@ def test_accepted_with_path_submits_to_controller(
 def test_t24_undo_stack_unchanged_across_a_full_export_run(
     qtbot, monkeypatch, tmp_path
 ):
-    """T-24 (AGT-06 audit) — REQ-P7-UI-009 behavioural: a completed export run
+    """REQ-P7-UI-009 behavioural: a completed export run
     pushes NO ``QUndoCommand``. Driven at the ``Main_Window`` level (through the
     real ``_on_export`` -> off-thread ``Export_Controller`` -> ``batchFinished``
     path a user actually exercises) rather than a bare submission-only check, so

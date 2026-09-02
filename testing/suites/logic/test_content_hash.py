@@ -1,10 +1,10 @@
 """Unit + property tests for :mod:`pixelart_creator.logic.content_hash` (S11, no Qt).
 
-Covers the Phase-11 Slice-1 content-hash primitive (ADR-0030 §3; REQ-P11-DATA-004,
+Covers the Phase-11 content-hash primitive (ADR-0030 §3; REQ-P11-DATA-004,
 REQ-P11-LOGIC-006): determinism of :func:`content_hash`, the byte-exact
 canonicalization of :func:`canonical_json_bytes`, and the defensive
 :func:`is_valid_hash` gate. Hypothesis proves determinism/idempotence and
-key-order-independence hold across generated inputs (T11-1-06).
+key-order-independence hold across generated inputs.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Tests for ``ui/commands.py``'s branch-recording bridge (T13, ``REQ-P10-UI-025``).
+"""Tests for ``ui/commands.py``'s branch-recording bridge (``REQ-P10-UI-025``).
 
 Covers the recording-bind guards added for Phase-10 Slice C:
 

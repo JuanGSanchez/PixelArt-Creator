@@ -9,5 +9,5 @@ gate.
 
 Deployment acceptance for the shipped ``deploy/`` artifacts (launcher subprocess,
 Dockerfile, Nginx WSS config) lives in ``testing/suites/deploy/`` (moved from
-``tests/deploy/`` on 2026-08-30, ADR-0065) and is owned by AGT-09.
+``tests/deploy/`` on 2026-08-30, ADR-0065).
 """

@@ -153,7 +153,7 @@ _PHASE9_DISPOSABLE = (
     Real_Size_Preview_Window,
     Reference_Board,
     Document_View,
-    # Phase-10 Slice A cloud dialogs (AGT-06). Both are parented ``QDialog``s that
+    # Phase-10 Slice A cloud dialogs. Both are parented ``QDialog``s that
     # own NO worker thread (the off-thread cloud work lives in ``Cloud_Controller``,
     # which is drained via ``Main_Window.shutdown_prewarm`` — see the drain fixture
     # below). But a test may build either dialog directly (parent-less, or over the
@@ -166,10 +166,10 @@ _PHASE9_DISPOSABLE = (
     # cross-thread-GC-of-Qt-C++ segfault-hygiene contract).
     Version_History_Browser,
     Recovery_Prompt,
-    # Phase-10 Slice B collaboration panels (AGT-06). The three new dock panels are
+    # Phase-10 Slice B collaboration panels. The three new dock panels are
     # top-level ``QWidget``s bound to a synchronous, worker-free
     # ``Collaboration_Session`` (Slice B is synchronous over the loopback adapter —
-    # AGT-05 introduced NO off-thread worker, so there is no new drain/teardown
+    # The UI implementation introduced NO off-thread worker, so there is no new drain/teardown
     # wiring). STILL, a test may build a panel directly (parent-less) + register it
     # with ``qtbot.addWidget``; headless (offscreen, no running event loop) that
     # widget's ``deleteLater`` never fires, so ``QApplication`` keeps it in
@@ -181,7 +181,7 @@ _PHASE9_DISPOSABLE = (
     Shared_Projects_Panel,
     Comments_Panel,
     Presence_Panel,
-    # Phase-10 Slice C real-time + branching disposables (AGT-06). ``Branching_Panel``
+    # Phase-10 Slice C real-time + branching disposables. ``Branching_Panel``
     # is a top-level ``QWidget`` and ``Live_Cursors_Overlay`` is a per-tab
     # ``QGraphicsItem`` on the shared scene; a test may build either directly (a
     # parent-less panel, or an overlay not yet added to a tracked window's scene), and
@@ -196,9 +196,9 @@ _PHASE9_DISPOSABLE = (
     # (drained separately below, FIRST, exactly as ``Main_Window.shutdown_prewarm`` does).
     Branching_Panel,
     Live_Cursors_Overlay,
-    # User Guide (AGT-06, REQ-UG-UI-*). ``User_Guide_Dialog`` is a read-only,
+    # User Guide (REQ-UG-UI-*). ``User_Guide_Dialog`` is a read-only,
     # fully-offline ``QDialog`` that loads its content SYNCHRONOUSLY from the
-    # committed ``userguide_content/`` bundle — AGT-05 introduced NO off-thread
+    # committed ``userguide_content/`` bundle — the UI implementation introduced NO off-thread
     # worker, timer, or network client, so there is NO new drain/teardown wiring
     # (disposal only, no ``shutdown_*`` call). When opened from the Help menu it is
     # parented to ``Main_Window`` (disposed with it), but a guide test may build one
@@ -210,10 +210,10 @@ _PHASE9_DISPOSABLE = (
     # across the suite under ``pytest -n auto`` (the disposal-hygiene contract; here a
     # regression guard even though no worker was added).
     User_Guide_Dialog,
-    # Phase-11 Slice 1 asset-library panels (AGT-06). The three new dock panels
+    # Phase-11 asset-library panels. The three new dock panels
     # (asset library / tagging / search-filter) are top-level ``QWidget``s bound to a
-    # synchronous, worker-free ``Asset_Library_Session`` (Slice 1 browse/tag/search is
-    # purely in-memory over the immutable ``AssetCatalog`` value — AGT-05 introduced NO
+    # synchronous, worker-free ``Asset_Library_Session`` (browse/tag/search is
+    # purely in-memory over the immutable ``AssetCatalog`` value — the UI implementation introduced NO
     # off-thread worker, timer, or poller, so there is NO new drain/shutdown wiring).
     # STILL, a test may build a panel directly (parent-less) + register it with
     # ``qtbot.addWidget``; headless (offscreen, no running event loop) that widget's
@@ -228,27 +228,27 @@ _PHASE9_DISPOSABLE = (
     Asset_Library_Panel,
     Asset_Tagging_Panel,
     Asset_Search_Panel,
-    # Phase-11 Slice 2 dependency-graph view (AGT-06). ``Dependency_Graph_View`` is a
+    # Phase-11 dependency-graph view. ``Dependency_Graph_View`` is a
     # top-level ``QWidget`` bound to the SAME synchronous, worker-free
     # ``Asset_Library_Session`` — but on ``set_session`` it connects to the session's
     # ``catalogChanged`` AND ``graphChanged`` signals (its passive break surface refreshes
-    # on both). No off-GUI-thread worker, timer, or poller is added (Slice-2 graph/break
-    # queries are microsecond in-memory calls over the immutable graph value — AGT-05
+    # on both). No off-GUI-thread worker, timer, or poller is added (graph/break
+    # queries are microsecond in-memory calls over the immutable graph value — the UI implementation
     # kept them synchronous), so there is NO new drain/shutdown wiring. STILL, a test may
     # build the view directly (parent-less) + register it with ``qtbot.addWidget``;
     # headless (offscreen, no running event loop) its ``deleteLater`` never fires, so
     # ``QApplication`` keeps it in ``topLevelWidgets()`` and it survives the test with its
     # session signal connections live. Registering it here disposes it SYNCHRONOUSLY
-    # (``shiboken6.delete``) at teardown exactly like the Slice-1 asset panels — deleting
+    # (``shiboken6.delete``) at teardown exactly like the earlier asset panels — deleting
     # the receiver drops its ``catalogChanged`` / ``graphChanged`` connections cleanly, so
     # no dangling connection survives into a later test's event loop (the recurring
     # PySide6 cross-thread/GC-of-Qt-C++ xdist native-segfault guard; Phase-5/6/9 disposal
     # contract, here a regression guard even though no worker was added).
     Dependency_Graph_View,
-    # Phase-11 Slice 3 version-browser + reuse panels (AGT-06). ``Asset_Version_Browser``
+    # Phase-11 version-browser + reuse panels. ``Asset_Version_Browser``
     # and ``Asset_Reuse_Panel`` are top-level ``QWidget``s bound to the SAME synchronous,
-    # worker-free ``Asset_Library_Session`` (Slice-3 revision read/record + reference-not-
-    # copy are microsecond in-memory / CAS calls — AGT-05 added NO off-thread worker,
+    # worker-free ``Asset_Library_Session`` (revision read/record + reference-not-
+    # copy are microsecond in-memory / CAS calls — the UI implementation added NO off-thread worker,
     # timer, or poller, so there is NO new drain/shutdown wiring). On ``set_session`` the
     # version browser connects to the session's ``catalogChanged`` signal (so a restore's
     # ``replace_descriptor`` reflection reaches the other panels), and the reuse panel
@@ -257,14 +257,14 @@ _PHASE9_DISPOSABLE = (
     # ``qtbot.addWidget``; headless (offscreen, no running event loop) its ``deleteLater``
     # never fires, so ``QApplication`` keeps it in ``topLevelWidgets()`` and it survives
     # the test with its session signal connections live. Registering them here disposes
-    # them SYNCHRONOUSLY (``shiboken6.delete``) at teardown exactly like the Slice-1/2
+    # them SYNCHRONOUSLY (``shiboken6.delete``) at teardown exactly like the earlier
     # asset panels — deleting the receiver drops its ``catalogChanged`` connection cleanly,
     # so no dangling connection survives into a later test's event loop (the recurring
     # PySide6 cross-thread/GC-of-Qt-C++ xdist native-segfault guard; Phase-5/6/9 disposal
     # contract, here a regression guard even though no worker was added).
     Asset_Version_Browser,
     Asset_Reuse_Panel,
-    # Phase-9 guides/rulers overlay (AGT-06, decision-batch D-08/D-09/D-11/D-28
+    # Phase-9 guides/rulers overlay (decision-batch D-08/D-09/D-11/D-28
     # test wave). ``Guides_Rulers_Overlay`` builds two standalone, parent-less
     # top-level ``Ruler_Strip`` ``QWidget``s (``horizontal_ruler``/
     # ``vertical_ruler``) — a test that constructs the overlay directly (over
@@ -549,7 +549,7 @@ def make_view(make_scene, qtbot):
 
 
 # --------------------------------------------------------------------------- #
-# Phase-6 tilemap builders (AGT-06). Pure-logic factories the UI binds to; no  #
+# Phase-6 tilemap builders. Pure-logic factories the UI binds to; no        #
 # Qt is needed to construct them, so they exercise the frozen logic/data API   #
 # exactly as the widgets do (Article I / S11).                                 #
 # --------------------------------------------------------------------------- #
@@ -606,7 +606,7 @@ def make_blob_setup(make_tilemap_setup):
 
 
 # --------------------------------------------------------------------------- #
-# Phase-8 automation fixtures (AGT-06). The window-owned Automation_Controller  #
+# Phase-8 automation fixtures. The window-owned Automation_Controller          #
 # is already reached by the ``_drain_prewarm_after_test`` fixture above, since  #
 # ``Main_Window.shutdown_prewarm`` calls ``self._automation_controller`.        #
 # ``shutdown()`` (main_window.py) — so a window-owned controller drains and     #

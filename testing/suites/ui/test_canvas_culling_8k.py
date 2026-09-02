@@ -1,4 +1,4 @@
-"""T-15 (AGT-06 audit) — viewport tile-culling contract AT the 8K scene size.
+"""Viewport tile-culling contract AT the 8K scene size.
 
 ``test_canvas_scene.py::test_sc_ui_003_1_draw_background_only_exposed_rect``
 proves the exposed-rect cull on a small (64x64) scene. This module drives the
@@ -32,7 +32,7 @@ from pixelart_creator.logic.constants import MAX_CANVAS_HEIGHT, MAX_CANVAS_WIDTH
 def test_t15_8k_scene_paints_far_fewer_tiles_than_the_full_scene(
     make_scene, monkeypatch
 ):
-    """T-15: a small exposed rect on an 8K scene paints << the full-scene area.
+    """A small exposed rect on an 8K scene paints << the full-scene area.
 
     The AREA union of everything ``drawBackground`` painted is (a) bounded by
     the exposed rect intersected with the document canvas -- independent of

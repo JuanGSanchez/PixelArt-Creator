@@ -1,4 +1,4 @@
-"""Deployment-acceptance tests for the shipped ``deploy/`` artifacts (AGT-09, DevOps).
+"""Deployment-acceptance tests for the shipped ``deploy/`` artifacts.
 
 Split out of ``tests/backend/`` by ADR-0043 (now ``testing/suites/backend/`` and
 ``testing/suites/deploy/`` respectively, after the 2026-08-30 test-tree
@@ -12,6 +12,6 @@ container / systemd unit / Nginx front-end does.
 Every test here is ``@pytest.mark.integration`` (module-level ``pytestmark``):
 it reaches outside the process (subprocess, Docker daemon, real socket, Nginx),
 so the default gate deselects it. They run in the dedicated ``integration`` CI
-job (T13C-06) or a documented manual run, and they **skip** — never error — when
+job or a documented manual run, and they **skip** — never error — when
 the environment cannot provide what they need.
 """

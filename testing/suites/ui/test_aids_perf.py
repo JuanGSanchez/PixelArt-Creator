@@ -1,4 +1,4 @@
-"""T-26 (AGT-06 audit) — bounded overlay-render timing (REQ-P9-UI-011).
+"""Bounded overlay-render timing (REQ-P9-UI-011).
 
 The Phase-9 render-budget matrix names ``testing/suites/ui/test_aids_perf.py`` as the
 UI-level overlay-render timing module; until now the file did not exist. This
@@ -7,11 +7,11 @@ drives the REAL shipped :class:`~pixelart_creator.ui.iso_grid_overlay.Iso_Grid_O
 note below — :mod:`scripts.perf_profile`'s ``--overlay`` mode measures) over a
 worst-case dense, fully-exposed rect and asserts against the NAMED shipped
 CI-gate constant ``OVERLAY_FRAME_CEILING_MS`` — never a bare literal or an
-invented number (S12 / AGT-06 constitution).
+invented number (S12 / this suite's constitution).
 
 **Two-tier model (provisional, pending ruling D-21).** As in
-``test_composite_region_perf.py`` (T-18) and ``test_opacity_drag.py``, the
-16 ms ``FRAME_BUDGET_MS`` is the correct INTERACTIVE render budget (AGT-10's
+``test_composite_region_perf.py`` and ``test_opacity_drag.py``, the
+16 ms ``FRAME_BUDGET_MS`` is the correct INTERACTIVE render budget (the performance work's
 frame-profile owns that measurement); this UI-level pytest-qt test instead
 asserts the looser, already-shipped CI regression gate
 (``OVERLAY_FRAME_CEILING_MS`` = 48 ms) that ``perf_profile.py --overlay``
@@ -19,7 +19,7 @@ uses, because a pytest-qt process is not the dedicated profiling harness.
 Which tier a UI-level test should assert against is exactly what ruling D-21
 is expected to settle.
 
-**Sampling fix (DEV-21, found 2026-08-18 to 2026-08-20).** This test already
+**Sampling fix (found 2026-08-18 to 2026-08-20).** This test already
 did warm-up + median-of-3 and it was NOT enough: it failed CI at
 ``50.75 ms`` against the 48 ms ceiling (+5.7 %) under measured shared
 self-hosted-runner contention (suite duration 671 s against a 275-340 s quiet
@@ -43,13 +43,13 @@ uncontended cost, and a genuine regression would raise the cost floor itself
 — raising every sample including the minimum — so detection is not weakened.
 This was proved empirically at the time of this fix: an artificial
 ``time.sleep`` injected into the timed ``paint()`` call made this assertion
-fail; removing it made it pass again (see the DEV-21 handoff notes for the
+fail; removing it made it pass again (see the handoff notes for the
 paired exit codes).
 
 This diverges from ``scripts/perf_profile.py``'s own module docstring, which
 declares its pass/fail rule "median <= budget" FIXED (its CP1 note) for the
-modes AGT-10 owns as the frame-budget MEASUREMENT instrument — that rule is
-UNCHANGED here and ``perf_profile.py`` is not edited by this fix. AGT-10's
+modes the performance work owns as the frame-budget MEASUREMENT instrument — that rule is
+UNCHANGED here and ``perf_profile.py`` is not edited by this fix. That
 harness is invoked deliberately on a quiet machine to produce a trustworthy
 number; this file is a CI regression GATE that runs unattended on a shared
 runner and must hold under the load that instrument is never exposed to.
@@ -77,14 +77,14 @@ _TILE_WIDTH = 32
 _SCALE = 2.0
 _VIEWPORT = 800
 _WARMUP = 2
-_SAMPLES = 7  # DEV-21: raised from 3; min-of-N replaces median-of-N (module docstring)
+_SAMPLES = 7  # raised from 3; min-of-N replaces median-of-N (module docstring)
 
 
 def test_t26_iso_overlay_paint_holds_the_named_overlay_ceiling(qtbot, theme):
-    """REQ-P9-UI-011 (T-26): a dense, fully-exposed iso-grid overlay paint holds
+    """REQ-P9-UI-011: a dense, fully-exposed iso-grid overlay paint holds
     ``OVERLAY_FRAME_CEILING_MS`` — the real ``QGraphicsItem.paint()`` call,
     warm-up excluded, asserted against the MINIMUM of ``_SAMPLES`` timed
-    calls (module docstring's DEV-21 note — this diverges from
+    calls (the module docstring's sampling note — this diverges from
     ``scripts/perf_profile.py --overlay``'s own fixed median rule, and says
     so there)."""
     overlay = Iso_Grid_Overlay(

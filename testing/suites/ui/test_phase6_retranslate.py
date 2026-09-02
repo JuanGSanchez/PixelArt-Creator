@@ -1,4 +1,4 @@
-"""T-22 (AGT-06 audit) — REQ-P6-UI-017 LanguageChange retranslate (zero-test close).
+"""REQ-P6-UI-017 LanguageChange retranslate (zero-test close).
 
 Modelled on the Phase-4 blend-label retranslate test
 (``test_layer_panel.py::test_sc_ui_018_1_blend_labels_translatable_and_retranslate``):

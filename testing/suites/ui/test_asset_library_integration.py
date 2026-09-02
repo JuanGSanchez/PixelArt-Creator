@@ -1,4 +1,4 @@
-"""Main_Window Slice-1 asset-library wiring + teardown (REQ-P11-UI-001/-002/-003).
+"""Main_Window asset-library wiring + teardown (REQ-P11-UI-001/-002/-003).
 
 The window builds one ``Asset_Library_Session`` and the three dock panels (library /
 tagging / search), binds each panel to that session, wires
@@ -7,7 +7,7 @@ them via the workflow-dock helper, joins the session's undo stack to the window 
 group, and exposes their toggle actions + the ``&Library`` menu (retranslated). This is
 the end-to-end integration seam the panels' unit tests build on. Runs under BOTH themes.
 
-Also a teardown regression guard (AGT-05 §3: NO worker was introduced — the session and
+Also a teardown regression guard (NO worker was introduced — the session and
 panels are ordinary parent-owned Qt objects, so this asserts they dispose cleanly with
 the window under the ``_drain_prewarm_after_test`` fixture, and that the three panels
 are registered in the conftest ``_PHASE9_DISPOSABLE`` drain set).
@@ -139,13 +139,13 @@ def test_library_dock_title_retranslates(qtbot):
     assert win._library_menu.title() != ""
 
 
-# -- Teardown regression guard (AGT-05 §3: no worker introduced) -------------- #
+# -- Teardown regression guard (no worker introduced) -------------------------- #
 
 
 def test_standalone_panels_are_registered_in_the_drain_set():
     """The three panels are in the conftest ``_PHASE9_DISPOSABLE`` disposal set.
 
-    AGT-05 introduced NO worker (synchronous, in-memory), so there is nothing to
+    The UI implementation introduced NO worker (synchronous, in-memory), so there is nothing to
     shut down — but the panels must still be disposed at teardown so no standalone
     instance accumulates across the suite under ``pytest -n auto`` (the disposal-
     hygiene contract; here a regression guard).

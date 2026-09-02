@@ -1,6 +1,6 @@
 """Client-side no-secrets-in-logs assertion (REQ-P10-DATA-008, Article VII §3).
 
-Covers item T-33 (CF-66). The BACKEND half of the no-secrets-in-logs contract is
+Covers item CF-66. The BACKEND half of the no-secrets-in-logs contract is
 already enforced and tested: :class:`sync_backend.server._TokenRedactingFilter`
 scrubs the ``token=<value>`` query parameter from every record the relay's own
 ``websockets`` server logger emits
@@ -39,7 +39,7 @@ NO OFFICIAL GUIDANCE covers testing a WebSocket client's own logging output
 for handshake-token leakage; this module follows the in-tree pattern at
 ``testing/suites/backend/test_sync_backend.py`` (asyncio-ws-harness) and the client
 module at ``pixelart_creator/data/cloud/ws_transport.py`` as the reference,
-per the AGT-12 GROUNDING NOTE.
+per the grounding note for this pattern.
 """
 
 from __future__ import annotations

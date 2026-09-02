@@ -108,11 +108,11 @@ def test_record_frame_rejects_when_at_capacity():
 
 
 # --------------------------------------------------------------------------- #
-# T15 (spec §8, plan R-2) — replay(session, provider, renderer) is genuinely   #
+# (spec §8, plan R-2) — replay(session, provider, renderer) is genuinely      #
 # historical: a DocumentProvider places the document at each frame's own      #
 # recorded state; replay is FORBIDDEN to fall back to N renders of one        #
 # already-available document (REQ-P9-LOGIC-013, -014). Rewrite authorised in  #
-# advance; the other ten tests in this module are untouched (T15 done-when).  #
+# advance; the other ten tests in this module are untouched.                  #
 # --------------------------------------------------------------------------- #
 
 

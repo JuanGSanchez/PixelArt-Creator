@@ -6,7 +6,7 @@ SyncServer` in-process on an ephemeral loopback port and drives it with the real
 ``websockets`` client (through the shipped
 :class:`~pixelart_creator.data.cloud.ws_transport.WebSocketTransport`, so the client path
 is exercised too). The blocking client runs on an executor thread while the server's
-event loop owns the main thread (AGT-03 harness note); every scenario tears the server
+event loop owns the main thread (see the harness note); every scenario tears the server
 down in ``finally`` so no loop/task/socket leaks under ``pytest -n auto``.
 
 Proven:

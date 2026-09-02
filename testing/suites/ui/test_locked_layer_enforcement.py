@@ -3,8 +3,7 @@
 One pytest-qt test per acceptance element of the D-05 ruling ("Forbid by default
 mask edits on locked layers, check if there is an explicit path to unlock layers
 if one wants to edit anyway ... implement it and test mask edits in locked and
-unlocked layers through all the workflow" — the user's answer, WP-2 of
-``design-docs/jobs/20260816-decision-batch``). The guard lives in
+unlocked layers through all the workflow" — the user's answer). The guard lives in
 ``ui/canvas_scene.py CanvasScene.is_active_editable()`` (paint path, consumed by
 ``ui/canvas_view.py Canvas_View.mousePressEvent``) and in
 ``ui/layer_panel.py Layer_Panel._on_toggle_mask()`` (attach/remove panel path);
@@ -19,12 +18,12 @@ the autouse ``theme`` fixture in ``conftest.py`` (parametrised automatically —
 no per-test action needed), satisfying the "both themes" rule for every
 UI-visible criterion.
 
-Scope note (AGT-06): this module is UI/integration-only, mirroring
+Scope note: this module is UI/integration-only, mirroring
 ``test_layer_panel.py``'s ``layer_env`` fixture (duplicated here, not imported,
 so this module stays self-contained and independently runnable for the
 reversion proof in the QA report). The reversible-op maths themselves
 (``document.set_layer_locked`` / ``make_attach_mask_command`` /
-``make_detach_mask_command``) are AGT-04's logic-layer tests; here we assert
+``make_detach_mask_command``) are the logic suite's logic-layer tests; here we assert
 the *wiring*: a rejection on a locked layer touches no command, no undo entry,
 and the correct signal + notice; an unlocked round-trip pushes exactly the
 commands it should.
@@ -130,7 +129,7 @@ def _top_level(doc: Document):
 
 
 class _FakeTranslator(QTranslator):
-    """Stand-in for a future AGT-07 catalogue entry (out of this dispatch's scope).
+    """Stand-in for a future localisation catalogue entry (out of this dispatch's scope).
 
     D-05's ``"Layer is locked."`` string has not yet been extracted into the
     shipped ``i18n/*.ts`` catalogues; this proves the RETRANSLATION MECHANISM —
@@ -289,7 +288,7 @@ def test_d05_unlocked_layer_mask_attach_edit_remove_round_trip(layer_env):
 def test_d05_workflow_lock_reject_unlock_then_mask_attach_succeeds(layer_env, qtbot):
     """D-05 full workflow (REQ-P4-LOGIC-010 + REQ-P4-UI-004): a rejected mask
     attach becomes possible again the moment the SAME per-layer lock toggle
-    that rejected it is switched off — no other path is needed (AGT-05's
+    that rejected it is switched off — no other path is needed (the UI layer's
     verdict: the toggle is never disabled by lock state, so it is reachable
     immediately from the rejection moment)."""
     env = layer_env(names=("Background", "Top"))
@@ -408,7 +407,7 @@ def test_d05_notice_retranslates_on_language_change(win, qtbot):
     """i18n NFR: ``_notify_layer_locked()`` re-resolves ``tr()`` against the
     CURRENTLY installed translator at call time (no cached/stale string) — the
     same mechanism a real language switch relies on (install translator +
-    ``LanguageChange`` event, F5/F6). AGT-05's report: correctly not a
+    ``LanguageChange`` event, F5/F6). The UI implementation's report: correctly not a
     persisted-label ``changeEvent`` re-set, because this is a transient
     status-bar message generated fresh on every emission, exactly like its
     ``_notify_unsupported``/``_notify_no_document`` siblings."""
@@ -446,7 +445,7 @@ def test_d05_a11y_lock_toggle_reachable_and_named_when_locked(layer_env):
     """a11y (D-05, REQ-P4-UI-004): the per-layer lock toggle — the only
     affordance a user needs to discover from the rejection moment — stays
     enabled, keyboard-reachable (non-``NoFocus`` policy) and accessibly named
-    on a LOCKED layer; no new affordance was added, so this pins AGT-05's
+    on a LOCKED layer; no new affordance was added, so this pins the UI implementation's
     verdict rather than a fresh widget."""
     env = layer_env(names=("Background", "Top"))
     env.panel._select_path((1,))

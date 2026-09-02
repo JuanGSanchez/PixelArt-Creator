@@ -1,6 +1,6 @@
 """THE D-1 INVARIANT — the export worker/controller can never strand the UI.
 
-AGT-10's prescription (report af36e502 §5/§7) and the D-1a fix (AGT-05): on a
+The performance report's prescription (report af36e502 §5/§7) and the D-1a fix: on a
 FAILING target the worker MUST still emit its terminal ``batchFinished`` and drive
 ``busyChanged(False)`` so the UI returns to idle and surfaces the error, and the
 batch MUST continue past the failing target (continue-on-failure). S2-level: a
@@ -14,7 +14,7 @@ the returned ``BatchResult`` (fe311a6). The six tests below that used to patch
 ``export_worker.export_document`` (a name no longer imported into this module —
 patching it now raises ``AttributeError``, confirmed against the shipped code
 this session) are rewritten to patch ``export_worker.run_batch`` and feed it a
-CRAFTED ``BatchResult`` (per AGT-05's own handoff, §"Open items" in report
+CRAFTED ``BatchResult`` (per the UI implementation's own handoff, §"Open items" in report
 a24fa5e0), proving the worker's own consumption contract: mixed success/failure,
 order stability, ``write_export`` only on the success branch.
 
@@ -30,7 +30,7 @@ non-typed exception raised from INSIDE ``run_batch``'s own per-target loop.
 ``test_d1_regression_unforeseen_export_exception_no_longer_isolated_per_target``
 below reproduces this against the REAL, unmocked ``run_batch`` (patching only
 ``logic.export.export_document``, the actual seam ``run_batch`` calls) and is
-LEFT FAILING — a real defect, reported here with evidence, not fixed (AGT-06
+LEFT FAILING — a real defect, reported here with evidence, not fixed (this suite
 never edits product code). The ``finally`` block still fires (so
 ``batchFinished``/``busyChanged(False)`` are NOT lost — the UI does not hang),
 but continue-on-failure and per-target error reporting are broken for any

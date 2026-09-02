@@ -1,4 +1,4 @@
-"""Nginx TLS/WSS reverse-proxy tuning acceptance (Phase-13 Slice 13C, T13C-04).
+"""Nginx TLS/WSS reverse-proxy tuning acceptance (Phase-13).
 
 Proves REQ-P13-BACKEND-002 / SC-P13-BACKEND-002-1: the shipped
 ``deploy/nginx-sync.conf`` terminates TLS, proxies **WSS -> plain WS** forwarding the

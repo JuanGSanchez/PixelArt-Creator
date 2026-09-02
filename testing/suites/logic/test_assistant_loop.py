@@ -1,4 +1,4 @@
-"""Security-core tests for the Phase-14 Slice 14C agentic loop (no Qt).
+"""Security-core tests for the Phase-14 agentic loop (no Qt).
 
 Proves the *security-critical* behaviour of the bounded agentic loop + tiered-safety
 gate + prompt-injection defence added in ``pixelart_creator.logic.assistant`` (ADR-0041;

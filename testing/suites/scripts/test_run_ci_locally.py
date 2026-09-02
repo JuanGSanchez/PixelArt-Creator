@@ -38,7 +38,7 @@ error" bucket than to "a step failed". This is a genuine mismatch between the
 documented exit-code contract and the observed behaviour, not smoothed over
 here: ``test_matrix_no_matching_os_leg_exits_1_not_2_per_observed_behaviour``
 asserts the REAL, currently-observed exit code (1), and this docstring is
-where the discrepancy is recorded for AGT-09/AGT-01 to reconcile (either the
+where the discrepancy is recorded for the CI and architecture owners to reconcile (either the
 header's own wording, or the ``SystemExit`` call site).
 
 A second, more minor observation, not a header mismatch and not asserted as

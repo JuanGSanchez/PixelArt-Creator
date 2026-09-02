@@ -1,4 +1,4 @@
-"""Portable-bundle import-defence tests (Slice 13B, Article VII, no Qt).
+"""Portable-bundle import-defence tests (Article VII, no Qt).
 
 Covers REQ-P13-DATA-008 / SC-P13-DATA-008-1 and -008-2 (ADR-0037 §2): the ``.pixbundle``
 importer treats its input as **fully untrusted** and
@@ -13,7 +13,7 @@ importer treats its input as **fully untrusted** and
 * rejects a **hash-mismatch** blob;
 * is proven **``eval``/``exec``-free** on the import path by a source audit.
 
-Malicious archives are hand-crafted with stdlib :mod:`zipfile`. T13B-06.
+Malicious archives are hand-crafted with stdlib :mod:`zipfile`.
 """
 
 from __future__ import annotations

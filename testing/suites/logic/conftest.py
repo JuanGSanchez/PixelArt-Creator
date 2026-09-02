@@ -30,7 +30,7 @@ settings.load_profile("ci")
 def registry_guard():
     """Isolate the module-global DSL op registry (``logic.scripting``).
 
-    Phase-8's op registry is a module-global (AGT-03 report §8): a test that
+    Phase-8's op registry is a module-global: a test that
     registers/unregisters ops must not leak into its neighbours. This snapshots
     the registered op-names on entry and unregisters any op added during the test
     on exit, so built-ins survive and per-test ops are cleaned up.

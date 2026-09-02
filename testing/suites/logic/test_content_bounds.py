@@ -1,7 +1,7 @@
 """Tests for pixelart_creator.logic.content_bounds (REQ-IS-LOGIC-003).
 
-One test per acceptance scenario ``SC-L003-1..7`` (design-docs/specs/
-input-scheme/spec.md). Zero Qt; no wall-clock, no randomness, no ordering
+One test per acceptance scenario ``SC-L003-1..7`` (the input-scheme
+spec). Zero Qt; no wall-clock, no randomness, no ordering
 dependence, no network.
 """
 

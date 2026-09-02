@@ -1,5 +1,5 @@
-"""Tests for the .pixtimelapse schema-2 (payload-carrying) manifest (T14,
-REQ-P9-DATA-004; plan §4.1). Schema 1 stays untouched and unmodified
+"""Tests for the .pixtimelapse schema-2 (payload-carrying) manifest
+(REQ-P9-DATA-004; plan §4.1). Schema 1 stays untouched and unmodified
 (testing/suites/data/test_timelapse_io.py, REQ-P9-DATA-003) -- this module covers only
 the additive ``*_payload`` functions. Zero Qt.
 
@@ -8,14 +8,14 @@ field, either form), SC-D004-1..5 (round trip incl. blobs; both versions
 load; a pre-slice build's clean refusal of schema 2; the size-bound refusal;
 malformed/truncated/fingerprint-mismatch rejections).
 
-**Re-keyed 2026-08-18 (Q-21, T33/T35/T47) onto the stable frame identity**
+**Re-keyed 2026-08-18 (Q-21) onto the stable frame identity**
 (REQ-P9-LOGIC-022, REQ-P9-DATA-005). ``serialize_payload``/
 ``save_session_payload`` now write **only** schema 3 (identity-bearing) and
 raise ``TimelapseIOError`` if handed a schema-2 session -- schema 2 is
 read-only legacy (a build that could still *emit* it could still *create*
 the identity-less population REQ-P9-DATA-005 exists to stop creating).
 **Substitutions this re-keying made (old assertion -> new assertion), listed
-per the T47 done-when -- no assertion below was deleted:**
+per this re-key's done-when -- no assertion below was deleted:**
 
 1. ``test_schema2_payload_carries_no_playability_field`` -- OLD: built a
    schema-2 session and called ``tio.serialize_payload`` directly (now
@@ -34,8 +34,8 @@ per the T47 done-when -- no assertion below was deleted:**
    one at test time; every original assertion (round-trips its frames and
    blobs, replays to the recorded pixel sequence, loads and reports its own
    schema version) is made against the loaded fixture, unchanged in
-   substance. Per T47's own instruction, these gain **nothing** about
-   identity -- that is T40's file (``test_timelapse_io_schema3.py``).
+   substance. Per this re-key's own instruction, these gain **nothing** about
+   identity -- that is the companion file's job (``test_timelapse_io_schema3.py``).
 3. ``test_refusal_fires_above_the_shipped_bound`` /
    ``test_refusal_does_not_fire_below_the_shipped_bound`` /
    ``test_oversized_payload_refused_at_serialize_time`` /
@@ -58,7 +58,7 @@ per the T47 done-when -- no assertion below was deleted:**
    a swallowed one). NEW: ``_recorded_payload_session`` is re-keyed to build
    an **identity-bearing (schema-3)** session (every frame carrying a
    ``frame_id``, the session carrying a ``recording_id``) -- the same shape
-   ``ui/timelapse_controls.py`` (T34) now always produces -- so
+   ``ui/timelapse_controls.py`` now always produces -- so
    ``serialize_payload`` passes the schema gate and each test's
    ``pytest.raises`` is again reached by, and therefore actually proves, the
    specific size/fingerprint/blob-completeness branch it names.
@@ -114,7 +114,7 @@ _LEGACY_SCHEMA2_FIXTURE = (
     Path(__file__).parent / "fixtures" / "timelapse_schema2_legacy.pixtimelapse"
 )
 
-#: A fixed, 32-lowercase-hex-char per-module recording id (Q-21, T47
+#: A fixed, 32-lowercase-hex-char per-module recording id (Q-21
 #: re-key) -- matches the shape `data/timelapse_io.py` validates.
 _RECORDING_ID = "beadbeadbeadbeadbeadbeadbeadbead"
 
@@ -134,8 +134,8 @@ def _recorded_payload_session(pixels):
     tables: one frame per pixel value in ``pixels``, each frame's document
     snapshotted (mirrors what a real Snapshot_Document_Provider recording
     would persist) AND carrying its own ``frame_id`` (mirrors what
-    ``ui/timelapse_controls.py``, T34, now always mints). **Re-keyed
-    2026-08-18 (T47, module docstring substitution #3)**: this helper used
+    ``ui/timelapse_controls.py`` now always mints). **Re-keyed
+    2026-08-18 (module docstring substitution #3)**: this helper used
     to build a schema-2 session, which ``serialize_payload`` now refuses
     outright -- every caller of this helper needs to reach the
     size/fingerprint/blob logic *past* the schema gate, which only a
@@ -321,7 +321,7 @@ def test_unsupported_future_schema_version_is_refused():
 
 
 # --------------------------------------------------------------------------- #
-# Plan §9.2 (T21/T22, 2026-08-18) -- TIMELAPSE_PAYLOAD_MAX_BYTES is now VALUED #
+# Plan §9.2 (2026-08-18) -- TIMELAPSE_PAYLOAD_MAX_BYTES is now VALUED         #
 # at 45_145_168 bytes (int, no longer Optional). The pin that held the honest #
 # "unvalued" claim (test_payload_bound_is_unvalued_until_the_campaign) is     #
 # deleted here -- its own removal is the review-visible proof the valuation   #
@@ -338,12 +338,12 @@ def test_unsupported_future_schema_version_is_refused():
 # wrong reason) -- kept exactly per plan §8.1's warning, now applied to a     #
 # valued bound instead of an unvalued one.                                    #
 #                                                                              #
-# **T49 (this session, 2026-08-18): repointed onto the schema-3 anchor.**     #
+# **(this session, 2026-08-18): repointed onto the schema-3 anchor.**        #
 # `constants.py`'s `TIMELAPSE_PAYLOAD_MAX_BYTES` now derives from P4's        #
 # freshly measured schema-3 figure -- `2_821_573` bytes at 1280x720 / 256     #
-# frames (T43 re-measurement campaign, largest of its four points; see        #
-# `design-docs/reports/perf-timelapse-payload-campaign-schema3-20260818.md`   #
-# §3) -- extended by the unchanged `* (MAX_TIMELAPSE_FRAMES // 256)` frame-cap #
+# frames (re-measurement campaign, largest of its four points; see the        #
+# payload-campaign-schema3 performance report, §3) -- extended by the         #
+# unchanged `* (MAX_TIMELAPSE_FRAMES // 256)` frame-cap                       #
 # ratio: `2_821_573 * (4096 // 256) == 45_145_168`. The schema-3 anchor is a  #
 # FRESH measurement on a freshly generated fixture, not the old schema-2      #
 # anchor plus any fixed per-byte cost of the new schema -- the two anchors    #
@@ -353,11 +353,11 @@ def test_unsupported_future_schema_version_is_refused():
 
 
 def test_payload_bound_is_valued_at_the_measured_campaign_derivation():
-    """(T22, plan §9.2; repointed T49) The bound is a real int, derived from
+    """(plan §9.2; repointed onto the schema-3 anchor) The bound is a real int, derived from
     P4's measured schema-3 payload size extended to the shipped frame cap:
     ``2_821_573 * (4096 // 256) == 45_145_168`` bytes. Asserts the derivation
     itself, not just the literal: if this fails, the constant moved without
-    the measure -> value -> write chain (T43 -> T44 -> T45's shape) being
+    the measure -> value -> write chain being
     re-run in the same review as whatever changed
     ``data/timelapse_io.py``'s serialised bytes -- re-run that chain rather
     than patching either side's arithmetic (Article II; constants.py's
@@ -371,7 +371,7 @@ def test_payload_bound_is_valued_at_the_measured_campaign_derivation():
         "TIMELAPSE_PAYLOAD_MAX_BYTES no longer matches its derivation "
         f"({measured_schema3_anchor_bytes} * {frame_cap_ratio} = {expected}). "
         "The shipped constant moved without a fresh measure -> value -> "
-        "write chain: re-run the T43-style re-measurement campaign against "
+        "write chain: re-run the re-measurement campaign against "
         "the current data/timelapse_io.py serialisation, re-value this "
         "constant from that measurement, and re-write both in the same "
         "unit of review as whatever changed the serialised bytes -- do not "
@@ -386,7 +386,7 @@ def test_refusal_fires_above_the_shipped_bound(monkeypatch):
     :class:`TimelapsePayloadTooLargeError` -- not just any
     :class:`TimelapseIOError` -- so callers can tell "too large" apart from
     "malformed" without parsing the message. **Re-keyed onto a schema-3
-    session (T47, module docstring substitution #3)** -- with the old
+    session (module docstring substitution #3)** -- with the old
     schema-2 session this raised too, but from the schema gate, never
     reaching the size check this test names.
     """
@@ -401,7 +401,7 @@ def test_refusal_does_not_fire_below_the_shipped_bound(monkeypatch):
     the refusal is a genuine boundary check, not an always-raise stub.
     Re-keyed onto a schema-3 session (substitution #3): the old schema-2
     session could never reach this "serializes cleanly" branch at all once
-    T35 landed, since serialize_payload now refuses it unconditionally.
+    the schema-3 requirement landed, since serialize_payload now refuses it unconditionally.
     """
     session, snapshots, blobs = _recorded_payload_session([RED])
     exact_size = len(json.dumps(tio.serialize_payload(session, snapshots, blobs)))

@@ -1,6 +1,6 @@
-"""Home-row keyboard scheme acceptance (AGT-06, tasks.md T-10, wave 3).
+"""Home-row keyboard scheme acceptance (wave 3).
 
-One test per named scenario from ``design-docs/specs/input-scheme/spec.md``
+One test per named scenario from the input-scheme spec
 §9.1: ``SC-U001-1..3`` (REQ-IS-UI-001, the eleven-tool bijection),
 ``SC-U002-1..2`` (REQ-IS-UI-002, the seven released letters bind nothing),
 ``SC-U003-1..3`` (REQ-IS-UI-003, Shift+S Filled Shapes), ``SC-U004-1..3``

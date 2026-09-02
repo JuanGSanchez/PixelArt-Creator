@@ -6,7 +6,7 @@ because both drive the identical pure ``export_document`` + ``write_export`` eng
 and the GUI adds no encoding/layout of its own. Here the GUI path is the real
 off-thread ``Export_Controller`` worker; the CLI path is ``export_cli.main`` called
 in-process on the same document saved as a ``.pixproj`` (the installed
-``pixelart-export`` console script IS wired — R-28 correction, AGT-06 audit;
+``pixelart-export`` console script IS wired — R-28 correction;
 ``pyproject.toml`` ``[project.scripts]`` maps it to
 ``pixelart_creator.data.export_cli:main`` — this test calls the same ``main`` in
 process rather than shelling out, for speed).

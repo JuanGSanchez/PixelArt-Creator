@@ -1,6 +1,6 @@
 """Tests for the stable frame identity (Q-21, REQ-P9-LOGIC-022; plan §10).
 
-No Qt import: identity is **minted** in ``ui/timelapse_controls.py`` (T34,
+No Qt import: identity is **minted** in ``ui/timelapse_controls.py`` (
 a recording-scoped monotonic ordinal beside a per-recording ``secrets``
 draw), but this module never mints -- it only *validates* what it is given
 (``record_frame``), decides removal/reachability by it (``drop_discarded``,
@@ -9,10 +9,10 @@ below stands in for the minting a real ``ui/`` widget would do, using a
 fixed recording id -- exactly the split the module docstring in
 ``logic/timelapse.py`` describes.
 
-**T37** (this file's first half): identity minting refusal/acceptance,
+**This file's first half**: identity minting refusal/acceptance,
 non-reuse, two-outcome resolution -- SC-L022-2's logic half.
 
-**T39** (this file's second half): a Hypothesis property over generated
+**This file's second half**: a Hypothesis property over generated
 commit/undo sequences, run against the REAL (identity-addressed)
 implementation -- which must hold for every generated sequence -- and
 against a REJECTED position-addressed model, built only inside this test
@@ -58,7 +58,7 @@ def _frame_id(ordinal: int) -> str:
 
 
 # =========================================================================== #
-# T37 -- identity minting, non-reuse and two-outcome resolution (SC-L022-2)   #
+# Identity minting, non-reuse and two-outcome resolution (SC-L022-2)          #
 # =========================================================================== #
 
 
@@ -74,7 +74,7 @@ class TestRecordFrameRequiresIdentityOnIdentityBearingSessions:
         assert session.frames[0].frame_id == _frame_id(0)
 
     def test_record_frame_does_not_require_a_frame_id_on_a_schema1_session(self):
-        # Additive, defaulted (T32): the shipped two-argument construction
+        # Additive, defaulted: the shipped two-argument construction
         # still works unchanged (REQ-P9-DATA-003).
         session = new_session()
         session = record_frame(session, command_id=0)
@@ -147,8 +147,8 @@ class TestResolveFrameHasExactlyTwoOutcomes:
         with pytest.raises(TimelapseFrameUnresolved) as excinfo:
             resolve_frame(pruned, _frame_id(0))
         # The raise branch asserts on the MESSAGE, not merely the type --
-        # "it failed somehow" is not "it failed naming the frame" (T37's
-        # own done-when).
+        # "it failed somehow" is not "it failed naming the frame" (this
+        # module's own done-when).
         assert _frame_id(0) in str(excinfo.value)
 
     def test_resolve_frame_never_returns_a_different_frames_content(self):
@@ -186,7 +186,7 @@ def test_two_frames_with_the_same_snapshot_id_carry_distinct_frame_ids():
 
 
 # =========================================================================== #
-# T39 -- the invariant over generated rewrite sequences (SC-L022-6)           #
+# The invariant over generated rewrite sequences (SC-L022-6)                 #
 # =========================================================================== #
 
 
@@ -206,9 +206,9 @@ _events_strategy = st.lists(
 def _run_real_model(
     events: List[Event],
 ) -> Tuple["TimelapseSession", List[Tuple[str, int]], Dict[str, int]]:
-    """Drive record_frame + drop_discarded directly (T39: "the rewrite
+    """Drive record_frame + drop_discarded directly ("the rewrite
     ALGEBRA is pure logic/, only the events come from ui/"). Mirrors
-    ui/timelapse_controls.py's own algorithm (T34): on every forward
+    ui/timelapse_controls.py's own algorithm: on every forward
     index change to the current stack position, every id_at_index entry
     at or past it is evicted BEFORE the new identity is minted.
 
@@ -307,7 +307,7 @@ def _position_model_returns_wrong_content(events: List[Event]) -> bool:
 
 
 def test_sc_l022_6_falsifier_position_addressed_model_is_shown_broken():
-    """The falsifier is EXHIBITED, not assumed (T39's done-when): Hypothesis
+    """The falsifier is EXHIBITED, not assumed (this module's done-when): Hypothesis
     is asked to find the minimal event sequence that makes the
     position-addressed model return the wrong content for a reference it
     issued, and the search is required to SUCCEED -- `find` raises

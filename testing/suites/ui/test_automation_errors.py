@@ -8,11 +8,11 @@ Single-op failures (unknown op, out-of-range procgen, runaway MAX_SCRIPT_OPS) me
 this: the failing op raises before it applies, nothing lands on the undo stack,
 and the document is untouched — verified below.
 
-The ATOMICITY nuance AGT-05 flagged was a real defect: for a MULTI-op script where
+The ATOMICITY nuance the UI layer flagged was a real defect: for a MULTI-op script where
 op[0] applied and a later op failed, ``logic.scripting.dispatch`` raised WITHOUT
 rolling back op[0], so the off-thread worker (which reverts only a returned
 command) never reverted it — leaving op[0] applied on the live document, off the
-undo stack. AGT-03 has since made dispatch ATOMIC (validate-all-up-front → one
+undo stack. The implementation has since made dispatch ATOMIC (validate-all-up-front → one
 GroupCommand → reverse-order rollback on failure): a failed multi-op dispatch now
 leaves the document byte-identical, and a valid one is a single reversible command
 (macro replay inherits it). The strict-xfail that pinned the defect has therefore
@@ -94,7 +94,7 @@ def test_sc_ui_008_runaway_script_hits_bound_gracefully(qtbot, mute_message_boxe
 def test_sc_ui_008_multiop_script_failure_is_atomic(qtbot, mute_message_boxes):
     """SC-UI-008-1: a mid-script failure rolls back — the document stays uncorrupted.
 
-    Post AGT-03 atomic dispatch, un-xfailed and asserting the REAL contract: a
+    Post the atomic-dispatch fix, un-xfailed and asserting the REAL contract: a
     multi-op run whose later op fails must leave the document byte-identical to the
     pre-run state (no op applied off the undo stack) and push NOTHING onto the stack.
     """
@@ -116,7 +116,7 @@ def test_sc_ui_008_multiop_script_failure_is_atomic(qtbot, mute_message_boxes):
 def test_sc_ui_008_valid_multiop_run_is_one_undoable_step(qtbot, mute_message_boxes):
     """SC-UI-008-1: a VALID multi-op run lands as exactly one reversible command.
 
-    The other half of AGT-03's atomic contract: when every op validates, the whole
+    The other half of the atomic-dispatch contract: when every op validates, the whole
     multi-op script is applied as one grouped :class:`AutomationCommand`, so a single
     undo restores the exact pre-run document (byte-identical).
     """

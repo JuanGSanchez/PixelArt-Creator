@@ -6,7 +6,7 @@ pytest-qt, headless, both themes (autouse ``theme`` fixture). Drives
 / visibility (SC-UI-008-1); selecting the active layer is view state (no undo,
 CL-13). Also verifies that a layer op fires the tilemap canvas's **whole-cache
 invalidation** (the ``chunk_version`` counter does not cover layer structure, so the
-canvas must drop its whole chunk pixmap cache — AGT-05 D-whole-cache).
+canvas must drop its whole chunk pixmap cache — D-whole-cache).
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ def test_move_up_down_reorder_matches_visible_direction(qtbot, make_tilemap_setu
     z-order"). So **Move Up** must move the selected layer TOWARD row 0 (it rises /
     composites above its neighbour) and **Move Down** must move it toward the bottom.
 
-    REGRESSION EXPOSING AN S3 UX DEFECT (do not xfail -- routes to AGT-05).
+    REGRESSION EXPOSING AN S3 UX DEFECT (do not xfail -- routes to the UI layer).
     ``_on_move_up`` currently calls ``_move(+1)`` (target_row = row+1), which moves
     the selected layer DOWN the *visible* list, and ``_on_move_down`` calls
     ``_move(-1)`` -- both inverted versus the button labels and the image-panel
@@ -91,7 +91,7 @@ def test_move_up_down_reorder_matches_visible_direction(qtbot, make_tilemap_setu
     3-layer map [top: Layer 3, Layer 2, bottom: Layer 1]:
       * Move Up   -> "Layer 2" at visible row 0 (EXPECTED); currently row 2 (ACTUAL).
       * Move Down -> "Layer 2" at visible row 2 (EXPECTED); currently row 0 (ACTUAL).
-    Fix (AGT-05, product code): swap the mappings so ``_on_move_up`` -> ``_move(-1)``
+    Fix (product code): swap the mappings so ``_on_move_up`` -> ``_move(-1)``
     and ``_on_move_down`` -> ``_move(+1)`` (Move Up on the topmost row then becomes a
     correct no-op via the existing bounds guard). This test does NOT paper over the
     defect: it asserts the correct user-facing direction and will pass only once the
@@ -164,7 +164,7 @@ def test_active_layer_selection_pushes_no_command(qtbot, make_tilemap_setup):
 def test_selected_layer_row_maps_to_its_layer_index(qtbot, make_tilemap_setup):
     """SC-UI-008-1 / SC-UI-005-1: the SELECTED row must target its OWN layer.
 
-    REGRESSION EXPOSING AN S2 DEFECT (do not xfail — routes to AGT-05).
+    REGRESSION EXPOSING AN S2 DEFECT (do not xfail — routes to the UI layer).
     ``rebuild`` lists layers top-first (reversed) and stores each row's true layer
     index in the item's ``UserRole``, but ``Tilemap_Layer_Panel.active_layer()``
     returns the raw ``currentRow()`` instead of that stored index. With >= 2 layers,
@@ -185,7 +185,7 @@ def test_selected_layer_row_maps_to_its_layer_index(qtbot, make_tilemap_setup):
 
 
 def test_layer_op_fires_whole_cache_invalidation(qtbot, theme, make_tilemap_setup):
-    """A layer op fires the canvas whole-cache invalidation (AGT-05 D-whole-cache).
+    """A layer op fires the canvas whole-cache invalidation (D-whole-cache).
 
     ``chunk_version`` does not cover layer structure, so the canvas must drop its
     whole chunk pixmap cache on a layer op. Populate the cache by rendering a chunk,

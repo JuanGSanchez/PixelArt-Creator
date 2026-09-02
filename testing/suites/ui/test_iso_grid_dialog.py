@@ -1,8 +1,7 @@
-"""Isometric-grid configuration dialog acceptance tests (job REC-4/R-5/C-5,
-DEV-27).
+"""Isometric-grid configuration dialog acceptance tests (job R-5/C-5).
 
 Before this fix, ``Iso_Grid_Overlay.set_config`` had zero production callers
-(the DEV-27 finding) -- every document's iso grid was hard-wired to
+(a prior finding) -- every document's iso grid was hard-wired to
 ``tile_width=32`` with no way to change it. The fix adds
 ``pixelart_creator/ui/iso_grid_dialog.py`` (``Iso_Grid_Dialog``) plus a
 ``main_window.py`` menu entry point (``_iso_config_action`` ->

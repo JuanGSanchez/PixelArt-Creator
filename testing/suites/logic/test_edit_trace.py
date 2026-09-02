@@ -22,7 +22,7 @@ TRANSPARENT = (0, 0, 0, 0)
 
 
 class TestEditTargetIsRequired:
-    """(a) ``target`` is a required keyword with no default (plan §8.2, T27):
+    """(a) ``target`` is a required keyword with no default (plan §8.2):
     a missing value is a construction-time ``TypeError``, never a silently
     wrong record (frame 0 / unminted layer)."""
 
@@ -75,7 +75,7 @@ class TestRealTargetAttributesTheTraceToItsOwnFrame:
         defaulted/half-threaded one (silently resolves to frame 0) produce
         IDENTICAL output, because frame 0's layer id is also a valid frame-0
         node either way. Such a test would not be weak evidence -- it would
-        be NO evidence, and must never be counted as coverage of the T26/T27
+        be NO evidence, and must never be counted as coverage of the
         threading fix. Only frame_index >= 1 with a track genuinely absent
         from frame 0 can tell the two implementations apart.
         """

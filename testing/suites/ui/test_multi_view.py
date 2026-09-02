@@ -98,7 +98,7 @@ def test_sc_ui_008_1_set_scene_rebinds_all_views(qtbot, make_view):
 
 
 def test_t27_edit_through_primary_view_is_visible_via_the_other_view(qtbot, make_view):
-    """T-27 (AGT-06 audit) — REQ-P9-LOGIC-012, UI-level: an edit committed through
+    """REQ-P9-LOGIC-012, UI-level: an edit committed through
     ONE view (the primary paint-capable ``Canvas_View``) is visible RENDERED
     through the OTHER (extra ``Document_View``) — not merely proven by scene
     identity, but by actually rasterising the second view's scene and reading

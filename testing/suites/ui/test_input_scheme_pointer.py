@@ -1,16 +1,14 @@
-"""Pointer acceptance: colour travel and view control (T-22, AGT-06).
+"""Pointer acceptance: colour travel and view control.
 
 One test per named scenario of `REQ-IS-UI-008` (plain wheel travels
 Favourites), `-009` (``Shift``+wheel zooms), `-011` (middle click/drag
 split), `-012` (middle-click picks the first favourite) and `-015`
 (``Shift``+left-drag pans except under a selection tool) —
-``design-docs/specs/input-scheme/spec.md`` §9.3, scenarios ``SC-U008-1..6``,
+the input-scheme spec §9.3, scenarios ``SC-U008-1..6``,
 ``SC-U009-1..5``, ``SC-U011-1..4``, ``SC-U012-1..4``, ``SC-U015-1..5``.
 
-Exercised against the implementation AGT-05 landed on ``feat-input-scheme``
-(``design-docs/reports/subagent-report-agt-05-ui-expert-aa7ef3aa-
-20260831T091042.md``), including the **D-16 amendment**
-(``design-docs/jobs/20260830-input-scheme/job-specification.md`` §14.1):
+Exercised against the implementation landed on ``feat-input-scheme``,
+including the **D-16 amendment**:
 plain wheel travels Favourites and ``Shift``+wheel zooms on **all four**
 scrollable surfaces — the main canvas, the tilemap canvas, each extra
 document view, and the reference board — not only the two painting

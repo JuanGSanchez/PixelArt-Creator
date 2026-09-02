@@ -707,9 +707,9 @@ def test_run_batch_all_succeeded_false_when_any_target_fails() -> None:
 
 # NOTE (follow-up, not written here): a "one implementation only" grep-gate
 # test over pixelart_creator/ui/export_worker.py — asserting it no longer
-# re-implements its own per-target try/except once AGT-05 rewires it to
-# consume run_batch's BatchResult — is deferred until that UI rewiring lands
-# (per the WP-4 dispatch). See the subagent report §5 follow-up note.
+# re-implements its own per-target try/except once the UI layer rewires it to
+# consume run_batch's BatchResult — is deferred until that UI rewiring lands.
+# See the accompanying report §5 follow-up note.
 
 
 # --------------------------------------------------------------------------- #

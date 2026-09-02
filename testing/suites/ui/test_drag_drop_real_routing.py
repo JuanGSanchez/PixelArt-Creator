@@ -1,10 +1,10 @@
-"""T-12 — REAL Qt drag/drop event routing onto the canvas viewport.
+"""REAL Qt drag/drop event routing onto the canvas viewport.
 
 ``testing/suites/ui/test_drag_drop_import.py`` proves the drop-handling *logic*
 (``Main_Window.dragEnterEvent`` / ``dropEvent``) by calling those handlers
 directly. That is a legitimate unit test of the routing/dispatch logic, but it
 never proves the event actually **reaches** ``Main_Window`` when a real drag is
-delivered to the canvas — the audit's suspicion (AGT-06 dispatch, T-12) is that
+delivered to the canvas — the audit's suspicion is that
 the canvas viewport is a :class:`~PySide6.QtWidgets.QGraphicsView` viewport
 CHILD widget, and Qt drag/drop events are targeted at the widget under the
 cursor, not the top-level window. ``Main_Window.setAcceptDrops(True)`` does
@@ -17,11 +17,11 @@ that would be "under the cursor" for a drop landing on the canvas) — never
 calling ``Main_Window.dropEvent`` directly.
 
 **Fixed (regression test for the drop-routing fix — proven by reversion in
-the commit pass).** T-12 originally discovered — and this module PINNED as a
+the commit pass).** This module originally discovered — and PINNED as a
 strict ``xfail`` — that a drop delivered to ``Canvas_View.viewport()`` never
 reached ``Main_Window.dropEvent`` (``QGraphicsView.dropEvent`` swallowed it
 into a ``QGraphicsSceneDragDropEvent`` the scene never accepted, so it never
-bubbled up). AGT-05 fixed the routing (``Canvas_View`` drag/drop overrides +
+bubbled up). The UI layer fixed the routing (``Canvas_View`` drag/drop overrides +
 a ``set_drop_router`` seam wired in ``Main_Window._add_document_tab``); the
 ``xfail`` marker was removed once the fix made the test XPASS.
 """
@@ -51,7 +51,7 @@ def _mime(paths) -> QMimeData:
 
 
 def test_t12_real_drop_on_canvas_viewport_reaches_main_window_import(qtbot, tmp_path):
-    """T-12: a REAL drop delivered to the canvas viewport widget opens a new tab.
+    """A REAL drop delivered to the canvas viewport widget opens a new tab.
 
     Builds ``QDragEnterEvent``/``QDropEvent`` and delivers them via
     ``QApplication.sendEvent`` directly to ``Canvas_View.viewport()`` — the
@@ -60,15 +60,15 @@ def test_t12_real_drop_on_canvas_viewport_reaches_main_window_import(qtbot, tmp_
     real Qt event-routing path (the same one a native drag would take).
 
     Regression test for the drop-routing fix — proven by reversion in the
-    commit pass. T-12 originally discovered that a drop delivered to
+    commit pass. This module originally discovered that a drop delivered to
     ``Canvas_View.viewport()`` never reached ``Main_Window.dropEvent`` (Qt's
     ``QGraphicsView.dropEvent`` override swallowed it into a
-    ``QGraphicsSceneDragDropEvent`` the scene never accepted). AGT-05 fixed
+    ``QGraphicsSceneDragDropEvent`` the scene never accepted). The UI layer fixed
     this with ``Canvas_View`` drag/drop overrides plus a ``set_drop_router``
     seam wired in ``Main_Window._add_document_tab`` — a real drop on the
     canvas viewport now reaches the import routing.
     """
-    # Regression test for the T-12 drop-routing fix — proven by reversion in
+    # Regression test for the drop-routing fix — proven by reversion in
     # the commit pass.
     win = Main_Window()
     qtbot.addWidget(win)

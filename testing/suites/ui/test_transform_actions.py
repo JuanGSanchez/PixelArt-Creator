@@ -7,7 +7,7 @@ introducing NO new colours, as one undoable command) and SC-U009-3 (the actions
 are tr()-wrapped, keyboard-reachable, correct in both themes). Undo/redo integrity
 is asserted for each mutating op. Both themes via the autouse ``theme`` fixture.
 
-The SC-CSD-* tests below (`tasks.md` T14) prove the shipped `&Image` menu
+The SC-CSD-* tests below prove the shipped `&Image` menu
 actions now route the UNMASKED path through the whole-document runner
 (`ui/document_transform_runner.py`) while leaving the MASKED/selection path
 byte-for-byte untouched (verified against `git diff HEAD --
@@ -168,7 +168,7 @@ def test_sc_u009_2_scale_nearest_no_new_colours(qtbot, monkeypatch):
 
 
 def test_t16_scale_with_active_selection_affects_only_the_selection(qtbot, monkeypatch):
-    """T-16 (AGT-06 audit, pairs with CF-07): scaling with an active selection
+    """QA audit, pairs with CF-07: scaling with an active selection
     affects only the selected region, per the ``logic/transform`` mask contract
     (``make_transform_command`` routes to ``_masked_transform_changes`` when a
     mask is supplied) — driven through the shipped UI action
@@ -356,7 +356,7 @@ def test_sc_csd_u003_1_a_masked_scale_changes_no_dimension_anywhere(qtbot, monke
     unchanged code the shipped
     `test_t16_scale_with_active_selection_affects_only_the_selection` already
     proves passes; it extends that proof to a multi-frame document, per
-    `tasks.md` T14's "do not weaken the shipped test_t16_... sibling."
+    this task's "do not weaken the shipped test_t16_... sibling."
     """
     from pixelart_creator.logic.selection import rect_mask
     from testing.suites.ui._ui_helpers import prepare_for_click
@@ -581,7 +581,7 @@ def test_sc_csd_u015_3_flip_is_subject_to_the_family_cost_guard_at_the_boundary(
     Uses the spec's own real 8K figures and the REAL, unpatched
     `DOCUMENT_TRANSFORM_CONFIRM_BYTES` (no threshold monkeypatching) --
     measured in this session at <1s / <800 MiB, so no scaling-down was
-    needed for this one boundary-critical scenario (`tasks.md` T14).
+    needed for this one boundary-critical scenario.
     """
     win = _window(qtbot)
 

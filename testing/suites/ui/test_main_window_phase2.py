@@ -128,7 +128,7 @@ def test_scale_dialog_factor_size_sync(qtbot):
 
 
 # =========================================================================== #
-# REQ-CSD-UI-004 (canvas-scale-defects `tasks.md` T16, DEFECT):               #
+# REQ-CSD-UI-004 (canvas-scale-defects, DEFECT):                              #
 # the Scale dialog's factor and target fields never contradict each other     #
 # =========================================================================== #
 

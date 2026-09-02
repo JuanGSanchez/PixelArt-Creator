@@ -438,7 +438,7 @@ def test_procgen_factory_rejects_non_string_algorithm_directly():
 
 
 # --------------------------------------------------------------------------- #
-# ATOMIC DISPATCH — REQ-P8-UI-008 / SC-UI-008-1 (AGT-03 Phase-8 fix)            #
+# ATOMIC DISPATCH — REQ-P8-UI-008 / SC-UI-008-1 (Phase-8 fix)                  #
 #                                                                              #
 # The invariant: dispatch either yields ONE complete reversible GroupCommand   #
 # (success) or raises with the Document byte/state-IDENTICAL to before the     #
@@ -449,7 +449,7 @@ def test_procgen_factory_rejects_non_string_algorithm_directly():
 
 
 def test_dispatch_atomic_invalid_last_op_leaves_document_identical():
-    # AGT-06 reproduction: [valid procgen op, unknown op]. Phase-1 validation
+    # QA reproduction: [valid procgen op, unknown op]. Phase-1 validation
     # rejects op[1] before op[0] is ever built or applied → NO partial mutation.
     doc = _rgba_doc()
     before = _doc_hash(doc)
@@ -600,9 +600,9 @@ def test_dispatch_group_with_seeded_procgen_replays_identically():
 
 # --------------------------------------------------------------------------- #
 # D-06 — dispatch()/replay() on_target(index, total) progress callback         #
-# (per agt-03's callback report subagent-report-agt-03-python-dev-a777d9ae     #
-# §10 proposals). ``dispatch`` is the sole atomic entry point the automation   #
-# worker's counted job walks; ``macro.replay`` forwards to it unchanged.       #
+# (per the originating callback fix report §10 proposals). ``dispatch`` is     #
+# the sole atomic entry point the automation worker's counted job walks;       #
+# ``macro.replay`` forwards to it unchanged.                                   #
 # --------------------------------------------------------------------------- #
 
 

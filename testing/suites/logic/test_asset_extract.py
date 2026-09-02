@@ -1,9 +1,9 @@
-"""Unit tests for :mod:`pixelart_creator.logic.asset_extract` (T16, S11, no Qt).
+"""Unit tests for :mod:`pixelart_creator.logic.asset_extract` (S11, no Qt).
 
 Covers the pure derivation of an asset's content hash and descriptor
 (REQ-P11-LOGIC-009): ``hash_of`` and ``descriptor_for`` are exercised for
 their happy path, every documented exception, and the determinism/edge
-behaviours ``tasks.md`` T16 names explicitly —
+behaviours the task list names explicitly —
 
 * ``SC-P11-LOGIC-009-1`` — one unchanged source extracted twice yields
   byte-identical bytes and the identical content hash

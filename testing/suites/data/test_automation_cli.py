@@ -4,7 +4,7 @@ Covers REQ-P8-LOGIC-014 (exit codes 0/1/2 with defensive .pixproj + .pixmacro
 loading) and REQ-P8-UI-010 support (CLI==GUI parity: running a macro via
 ``automation_cli.main`` equals running it via the dispatcher/``replay``
 in-process — the SAME trusted engine). Tests ``main`` directly (the
-``pixelart-run`` console script is wired by AGT-09, not here).
+``pixelart-run`` console script is wired by the release tooling, not here).
 """
 
 from __future__ import annotations

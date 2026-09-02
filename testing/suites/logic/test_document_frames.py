@@ -1,4 +1,4 @@
-"""Tests for the Phase-5 reversible frame + tag ops of logic.document (Slice 5A).
+"""Tests for the Phase-5 reversible frame + tag ops of logic.document.
 
 Covers :mod:`pixelart_creator.logic.document`: the reversible frame commands
 (add / remove-refuses-last / move / duplicate-deep-copy / set-duration), the

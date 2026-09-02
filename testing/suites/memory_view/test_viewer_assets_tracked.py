@@ -1,4 +1,4 @@
-"""The memory viewer's page assets ship with the store (WP-7, R-11/C-11).
+"""The memory viewer's page assets ship with the store (R-11/C-11).
 
 Companion to ``test_memory_view_launcher.py``: that module proves the two
 LAUNCHER files ship, are executable and self-describing. This module proves
@@ -9,8 +9,7 @@ repo-relative file the launchers reference at run time is tracked too.
 WHY THE IGNORE CHECK USES ``--no-index``: the default, index-aware
 ``git check-ignore`` never reports an already-TRACKED path as ignored, even
 when a matching ``.gitignore`` pattern exists — confirmed empirically against
-this exact store in
-``design-docs/reports/wp7-memory-view-assets-20260816.md`` §2b, where the
+this exact store, where the
 container engine's ``ensure()`` silently re-appended the three ``graph-view.*``
 lines to ``memory/.gitignore`` after they had been removed, and the default
 check kept reporting "not ignored" throughout because the files were already
@@ -41,7 +40,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 STORE = REPO_ROOT / "memory"
 
-# The three page assets WP-7 tracks (ground truth: the WP-7 findings report).
+# The three page assets this store tracks (ground truth: the original findings report).
 VIEWER_ASSETS = ("graph-view.html", "graph-view.css", "graph-view.js")
 
 # A repo-relative reference inside a launcher looks like `$HERE/<file>` in
@@ -202,7 +201,7 @@ def test_viewer_asset_is_not_ignored(name):
     assert not _is_ignored(REPO_ROOT, "memory/" + name), (
         "%s matches a live .gitignore pattern -- if it were ever "
         "`git rm --cached`, the pattern would silently re-ignore it "
-        "(design-docs/reports/wp7-memory-view-assets-20260816.md §2b)" % name
+        "(see this store's own history for the finding)" % name
     )
 
 
@@ -248,7 +247,7 @@ def test_ignore_checker_is_mutation_proof(tmp_path):
     )
     assert _is_ignored(repo, "memory/graph-view.html"), (
         "the checker did not flag a freshly re-added ignore line against a "
-        "tracked file -- it would have missed the exact regression WP-7 "
+        "tracked file -- it would have missed the exact regression this suite "
         "found in this repository's own history"
     )
 

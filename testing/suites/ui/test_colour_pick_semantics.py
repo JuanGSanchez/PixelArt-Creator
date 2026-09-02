@@ -1,6 +1,6 @@
-"""Acceptance tests for the corrected colour-hub pick semantics (T-26).
+"""Acceptance tests for the corrected colour-hub pick semantics.
 
-One test per named Gherkin scenario in ``design-docs/specs/input-scheme/spec.md``
+One test per named Gherkin scenario in the input-scheme spec
 under REQ-IS-UI-019, -020, -021 (no-change control), -022, -023, -030 (the
 defect FIX), and the REQ-IS-UI-028 regression scenarios this task's slice of
 that requirement owns: SC-R-26, SC-R-27, SC-R-28, SC-R-29, SC-R-30, SC-R-34.
@@ -24,10 +24,10 @@ session, not inferred from reading source) — reported, not fixed here
 (P9/C2):**
 
 ``Main_Window._on_hub_color_committed`` (``ui/main_window.py:3891-3896``,
-outside T-25's write scope of ``colour_hub_menu.py``/``colour_wheel_widget.py``
+outside the fix's write scope of ``colour_hub_menu.py``/``colour_wheel_widget.py``
 and outside this module's own write scope) receives ``Colour_Hub_Menu``'s
 ``colorCommitted`` signal WITH the completing control's own colour as its
-``color`` argument — T-25's fix at the widget level is correct, proven by
+``color`` argument — the fix at the widget level is correct, proven by
 :func:`test_sc_u030_1_harmony_swatch_commits_its_own_colour_not_wheels_stale`
 below — but the handler **never reads that argument**. It calls
 ``self._hub_anchor_view.run_tool_at(x, y)`` with no colour parameter at all,
@@ -57,7 +57,7 @@ widget-level fix (SC-U030-1/-3/-4) being correct. The tests below assert the
 literal, spec-correct expectation in every case (never weakened to match the
 observed defect, per the verified-testing hard rule) — the ones enumerated
 above are therefore EXPECTED TO FAIL on this tree, and their failure IS the
-report. Routed to AGT-05 (owner of ``ui/main_window.py``) via the
+report. Routed to the UI layer (owner of ``ui/main_window.py``) via the
 orchestrator; not fixed here (P9).
 
 Every test in this module also runs against both the light and the dark
@@ -657,7 +657,7 @@ def test_sc_u023_3_wheel_pad_still_paints_its_own_release_colour(qtbot):
 def test_sc_u030_1_harmony_swatch_commits_its_own_colour_not_wheels_stale(qtbot):
     """SC-U030-1: signal level, exact Gherkin colours.
 
-    PASSES -- proves the T-25 widget-level fix (``_on_pick_completed``
+    PASSES -- proves the widget-level fix (``_on_pick_completed``
     committing the completing control's OWN colour) is correct in isolation.
     The gap this module reports is downstream of this signal, in
     ``ui/main_window.py``, not here.
@@ -754,7 +754,7 @@ def test_sc_u030_4_the_fix_does_not_regress_the_two_controls(hub, qtbot):
 # job 2 of this task rewrote
 # testing/suites/ui/test_colour_hub_pick_semantics_characterisation.py's
 # assertions to the corrected expectations, and step 7 (RUN THE SUITE) of
-# the AGT-06 report re-runs that module and records it green. A dedicated
+# the QA report re-runs that module and records it green. A dedicated
 # assertion in THIS module re-testing that file's own content would be
 # circular; the concrete verification is the characterisation module's own
 # green run, reported alongside this one.

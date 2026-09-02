@@ -1,4 +1,4 @@
-"""Tests for pixelart_creator.data.llm.token_store (Phase-14 Slice 14B, no Qt).
+"""Tests for pixelart_creator.data.llm.token_store (Phase-14, no Qt).
 
 Covers the OS-keyring API-key isolation contract for the assistant providers
 (ADR-0040 §5; spec REQ-P14-DATA-003/-006; acceptance SC-D003-1/-2, SC-D006-1,

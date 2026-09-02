@@ -1,6 +1,6 @@
-"""Accessibility re-verification for the Slice-3B colour hub (A11Y-COLHUB-1/2/3).
+"""Accessibility re-verification for the colour hub (A11Y-COLHUB-1/2/3).
 
-Confirms the three 3B accessibility fixes are resolved, in BOTH themes:
+Confirms three accessibility fixes are resolved, in BOTH themes:
 
 * A11Y-COLHUB-1 the hub opens from the keyboard (Menu key / Shift+F10) via the
   canvas ``contextMenuEvent`` seam, with no mouse.

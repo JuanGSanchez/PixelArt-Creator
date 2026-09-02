@@ -1,4 +1,4 @@
-"""Tests for pixelart_creator.data.llm.port (Phase-14 Slice 14B, no Qt).
+"""Tests for pixelart_creator.data.llm.port (Phase-14, no Qt).
 
 Covers the one model-agnostic ``LLMPort`` ABC + its ``LLMError`` family
 (ADR-0040 §1/§3; spec REQ-P14-DATA-001/-007; acceptance SC-D001-1 / SC-D007-1):

@@ -1,7 +1,7 @@
 """Phase-5 canvas frame-navigation / onion / pre-warm UI coverage (both themes).
 
 Drives the ``CanvasScene`` frame-switch, onion-overlay and off-thread warm branches
-that back the timeline seams (REQ-P5-UI-002/-011/-012 and the AGT-05 streaming
+that back the timeline seams (REQ-P5-UI-002/-011/-012 and the UI layer's streaming
 pre-warm), so the ``pixelart_creator.ui`` branch gate holds (FU-9). UI-level only —
 the onion/composite maths live in ``logic`` (Article I). Modest 64x64 canvases.
 """

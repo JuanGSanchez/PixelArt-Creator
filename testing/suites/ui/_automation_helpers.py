@@ -1,4 +1,4 @@
-"""Shared builders + drivers for the Phase-8 automation UI tests (AGT-06).
+"""Shared builders + drivers for the Phase-8 automation UI tests.
 
 Kept out of ``conftest`` fixtures so the macro / script / plugin / batch /
 procgen / parity / responsiveness / teardown modules share one vocabulary. The

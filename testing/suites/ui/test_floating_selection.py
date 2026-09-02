@@ -1,6 +1,6 @@
 """Floating-selection move/copy UI acceptance (REQ-P2-UI-030..036).
 
-One test per acceptance criterion for Slice F-B (tasks FB-T1..T7), driving the
+One test per acceptance criterion for Slice F-B, driving the
 real :class:`~pixelart_creator.ui.canvas_view.Canvas_View` /
 :class:`~pixelart_creator.ui.canvas_scene.CanvasScene` /
 :class:`~pixelart_creator.ui.main_window.Main_Window` headlessly
@@ -9,27 +9,27 @@ autouse ``theme`` fixture in ``conftest.py``.
 
 Mapping (spec §11 Gherkin ↔ REQ ↔ task):
 
-- FB-T1 / REQ-P2-UI-030 — lift on press-inside (SC-U030-1); press-outside builds
+- REQ-P2-UI-030 — lift on press-inside (SC-U030-1); press-outside builds
   a new selection (SC-U030-2).
-- FB-T2 / REQ-P2-UI-031 — drag = MOVE, non-destructive preview (SC-U031-1);
+- REQ-P2-UI-031 — drag = MOVE, non-destructive preview (SC-U031-1);
   offset tracks the cursor in integer pixels (SC-U031-2).
-- FB-T3 / REQ-P2-UI-032 — Ctrl-only drag = COPY, origin intact (SC-U032-1; CL-F5
+- REQ-P2-UI-032 — Ctrl-only drag = COPY, origin intact (SC-U032-1; CL-F5
   reconciled to Ctrl only, whether Ctrl is held from the lift or applied mid-drag);
   copy-mode affordance (SC-U032-2); Ctrl copies as ONE command without touching the
   CL-4 combine, while an Alt interior drag stays the shipped subtract (SC-U032-3).
-- FB-T4 / REQ-P2-UI-033 — release / Enter / tool-switch / tab-switch each commit
+- REQ-P2-UI-033 — release / Enter / tool-switch / tab-switch each commit
   ONE command (SC-U033-1..3); mask follows to destination (SC-U033-4).
-- FB-T5 / REQ-P2-UI-034 — ESC restores exactly (SC-U034-1); no undo entry, mask
+- REQ-P2-UI-034 — ESC restores exactly (SC-U034-1); no undo entry, mask
   returns (SC-U034-2).
-- FB-T6 / REQ-P2-UI-035 — one-step undo/redo (SC-U035-1); NN/AA-off preview
+- REQ-P2-UI-035 — one-step undo/redo (SC-U035-1); NN/AA-off preview
   (SC-U035-2); legible in both themes (SC-U035-3).
-- FB-T7 / REQ-P2-UI-036 — active-layer scope (SC-U036-1); off-canvas discard on
+- REQ-P2-UI-036 — active-layer scope (SC-U036-1); off-canvas discard on
   commit (SC-U036-2); a11y hint tr()-wrapped + keyboard-reachable + visible focus
   (SC-U036-3).
 
 The base buffer is asserted **byte-for-byte unchanged during a float** and only
 mutated at commit — the core REQ-NEW-C non-destructive contract. Preview content
-correctness lives in the logic suite (AGT-04); here we verify the UI observable
+correctness lives in the logic suite; here we verify the UI observable
 surface: controller state, the scene overlay geometry/visibility, the committed
 buffer, the undo stack, and the a11y/theme wiring.
 """
@@ -155,7 +155,7 @@ def _prep_window_move(win):
 
 
 # =========================================================================
-# FB-T1 / REQ-P2-UI-030 — lift/float interaction
+# REQ-P2-UI-030 — lift/float interaction
 # =========================================================================
 
 
@@ -199,7 +199,7 @@ def test_sc_u030_2_press_outside_starts_new_selection(make_scene, qtbot):
 
 
 # =========================================================================
-# FB-T2 / REQ-P2-UI-031 — drag = move preview
+# REQ-P2-UI-031 — drag = move preview
 # =========================================================================
 
 
@@ -238,7 +238,7 @@ def test_sc_u031_2_offset_tracks_cursor_in_integer_pixels(make_scene, qtbot):
 
 
 # =========================================================================
-# FB-T3 / REQ-P2-UI-032 — modifier + drag = copy
+# REQ-P2-UI-032 — modifier + drag = copy
 # =========================================================================
 
 
@@ -304,7 +304,7 @@ def test_sc_u032_3_ctrl_copy_commits_one_command_origin_intact(make_scene, qtbot
 
 
 # =========================================================================
-# FB-T4 / REQ-P2-UI-033 — commit triggers
+# REQ-P2-UI-033 — commit triggers
 # =========================================================================
 
 
@@ -385,7 +385,7 @@ def test_sc_u033_4_mask_follows_to_destination(make_scene, qtbot):
 
 
 # =========================================================================
-# FB-T5 / REQ-P2-UI-034 — ESC cancels and restores
+# REQ-P2-UI-034 — ESC cancels and restores
 # =========================================================================
 
 
@@ -422,7 +422,7 @@ def test_sc_u034_2_cancel_returns_mask_and_records_no_undo(make_scene, qtbot):
 
 
 # =========================================================================
-# FB-T6 / REQ-P2-UI-035 — reversibility, single command, render policy
+# REQ-P2-UI-035 — reversibility, single command, render policy
 # =========================================================================
 
 
@@ -500,7 +500,7 @@ def test_sc_u035_3_preview_legible_in_both_themes(make_scene, qtbot, theme):
 
 
 # =========================================================================
-# FB-T7 / REQ-P2-UI-036 — active-layer scope, off-canvas, a11y
+# REQ-P2-UI-036 — active-layer scope, off-canvas, a11y
 # =========================================================================
 
 
