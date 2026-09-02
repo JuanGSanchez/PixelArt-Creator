@@ -316,7 +316,7 @@ def dispatch(
 
 
 # --------------------------------------------------------------------------- #
-# Built-in DSL commands (T8C-03) — batch recolour + procedural generation      #
+# Built-in DSL commands — batch recolour + procedural generation               #
 # --------------------------------------------------------------------------- #
 
 

@@ -1,6 +1,6 @@
 # Copyright 2026 Juan Garcia Sanchez
 # SPDX-License-Identifier: Apache-2.0
-"""The two ``DocumentProvider`` implementations for historical replay (D-12, T9).
+"""The two ``DocumentProvider`` implementations for historical replay (D-12).
 
 Qt only (S11) — binds :mod:`pixelart_creator.logic.timelapse`'s substrate-blind
 ``DocumentProvider`` port (plan §2, corrected by plan §8.3) to the product's two

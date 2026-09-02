@@ -1,6 +1,6 @@
 # Copyright 2026 Juan Garcia Sanchez
 # SPDX-License-Identifier: Apache-2.0
-"""The display target for a **reopened** timelapse recording (D-12, T11).
+"""The display target for a **reopened** timelapse recording (D-12).
 
 ``Timelapse_Frame_View`` renders the reconstructed RGBA frames of a **loaded**
 recording — one produced by
@@ -11,7 +11,7 @@ current work (REQ-P9-UI-024, ``DEP-12f``). It **touches no open document**: it
 does not alter one, pushes no ``QUndoCommand``, and does not disturb any
 document's history — it only paints the RGBA arrays it is handed.
 
-**The controls are the shipped ones** (``ui/timelapse_controls.py``, T10): this
+**The controls are the shipped ones** (``ui/timelapse_controls.py``): this
 view is a display target only, not a second control surface — the user learns
 one set of play/pause/seek/speed controls and this widget is simply where a
 loaded recording's frames appear, distinct from the active canvas

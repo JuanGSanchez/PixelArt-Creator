@@ -20,7 +20,7 @@ thread, timer, or poller** (the Phase-10 Slice-B ``Shared_Projects_Panel`` prece
 The session therefore owns **nothing to tear down** beyond ordinary Qt parent ownership
 (no ``shutdown_*`` is needed; the recurring cross-thread GC-of-Qt-C++ segfault cannot
 arise here — there is no off-GUI-thread object). Catalog durability
-(``REQ-P11-DATA-008``, Phase-11 T4) is wired through the shipped
+(``REQ-P11-DATA-008``) is wired through the shipped
 ``data/asset_catalog_io`` functions:
 :meth:`bind_root` loads whatever catalog persists at an already-resolved root (an
 absent index reads as an empty catalog, not an error), and every mutation thereafter
@@ -40,11 +40,11 @@ break surface read one source of truth: :meth:`set_graph` swaps the graph and em
 construction), so — like the catalog — the session runs **synchronously on the GUI
 thread with no worker / timer** and has nothing to tear down.
 
-**The three in-app registration actions (Phase 11 T7 — REQ-P11-UI-012/-013/-014/
+**The three in-app registration actions (REQ-P11-UI-012/-013/-014/
 -017/-020).** :meth:`register_active_document`, :meth:`register_selection` and
 :meth:`register_export_artifact` are the **only** production entry points into
-:func:`~pixelart_creator.data.asset_ingress.register` (T3) — one shared registration
-prompt (:class:`~pixelart_creator.ui.asset_register_dialog.Asset_Register_Dialog`, T6)
+:func:`~pixelart_creator.data.asset_ingress.register` — one shared registration
+prompt (:class:`~pixelart_creator.ui.asset_register_dialog.Asset_Register_Dialog`)
 and one shared ingress path, exactly as the task requires. Each is presentation
 orchestration only (S11): the dialog collects display data, ``data/asset_ingress``
 decides whether a registration is valid, and this session never computes a hash, a
@@ -60,8 +60,8 @@ this file itself enforces (an unbound content/revision store, an unknown
 ``existing_asset_id``) is raised as that same type rather than a second one, so a
 caller has exactly one type to catch, matching that type's own documented intent.
 
-**Revision recording (plan §0's discharged confirmation — "T7 owes the first
-record").** A first-time registration mints a fresh ``asset_id`` (T3's ``register``)
+**Revision recording (plan §0's discharged confirmation that registration owes the
+first record).** A first-time registration mints a fresh ``asset_id`` (via ``register``)
 and this session immediately records it as the asset's **first** revision through the
 already-wired :class:`~pixelart_creator.data.asset_revision_store.AssetRevisionStore`
 — the store was wired for *re*-record only (the restore path in
@@ -81,8 +81,8 @@ for any other mutation. Restoring an earlier revision remains
 unmodified job — this file only ensures the history it restores *from* is no longer
 always empty.
 
-**Dependency-edge derivation (Phase 11 T9 — REQ-P11-LOGIC-010, REQ-P11-UI-018,
-ruling P11-R6, amended by ruling P11-R8/T9-A).** Every successful registration
+**Dependency-edge derivation (REQ-P11-LOGIC-010, REQ-P11-UI-018,
+ruling P11-R6, amended by ruling P11-R8).** Every successful registration
 (first-time or re-registration) is followed, post-commit, by deriving the
 newly registered descriptor's direct dependency edges and emitting
 :data:`edgesDerived` with the **accumulated** edge set (this session's
@@ -106,7 +106,7 @@ passively rejected as cyclic (the prior graph kept).
 :class:`~pixelart_creator.data.asset_cas.ContentAddressableStore` and
 :class:`~pixelart_creator.data.asset_revision_store.AssetRevisionStore` the
 registration actions write through, on the same carried-in terms as
-:meth:`bind_root` (T4): **taken as given, never re-resolved, no backend named here**.
+:meth:`bind_root`: **taken as given, never re-resolved, no backend named here**.
 Until both are bound (alongside :meth:`bind_root`), every registration action reports
 a plain, translatable "not ready yet" failure rather than raising past this file or
 touching the catalog/store.
@@ -185,7 +185,7 @@ class RegistrationOutcome:
 class Asset_Library_Session(QObject):
     """Hold the shared catalog + undo stack for the library panels.
 
-    In-memory until :meth:`bind_root` is called; bound, it is durable (T4).
+    In-memory until :meth:`bind_root` is called; bound, it is durable.
 
     Args:
         parent: Optional Qt parent (typically the main window).
@@ -201,20 +201,20 @@ class Asset_Library_Session(QObject):
     graphChanged = Signal()
 
     #: Emitted after a registration action commits — carries the
-    #: :class:`RegistrationOutcome` (T7, REQ-P11-UI-017).
+    #: :class:`RegistrationOutcome` (REQ-P11-UI-017).
     registrationSucceeded = Signal(object)
 
     #: Emitted when a registration action cannot commit — carries a
     #: translatable message; the catalog, store and revision history are all
-    #: left unchanged (T7, REQ-P11-UI-017).
+    #: left unchanged (REQ-P11-UI-017).
     registrationFailed = Signal(str)
 
     #: Emitted when the user cancels the registration prompt — cancelling is
-    #: not a failure (T7, REQ-P11-UI-017; RP-4).
+    #: not a failure (REQ-P11-UI-017; RP-4).
     registrationCancelled = Signal()
 
     #: Emitted after a successful registration's derived dependency edges are
-    #: computed (T9, ruling P11-R6, REQ-P11-LOGIC-010 / REQ-P11-UI-018) —
+    #: computed (ruling P11-R6, REQ-P11-LOGIC-010 / REQ-P11-UI-018) —
     #: carries the **accumulated** edge set (this session's current graph
     #: edges plus the newly derived ones), because the bound consumer
     #: (:meth:`~pixelart_creator.ui.dependency_graph_view.Dependency_Graph_View.
@@ -226,43 +226,43 @@ class Asset_Library_Session(QObject):
     edgesDerived = Signal(object)
 
     #: Emitted after a single library artifact (``.pixasset``) is imported and
-    #: merged + committed into the already-open library (T10, ruling P11-R5,
+    #: merged + committed into the already-open library (ruling P11-R5,
     #: REQ-P11-UI-015/-016) — carries the imported ``Tuple[AssetDescriptor, ...]``.
     libraryImportSucceeded = Signal(object)
 
     #: Emitted when a library-artifact import cannot commit — a translatable
-    #: message; the catalog and store are unchanged (T10).
+    #: message; the catalog and store are unchanged.
     libraryImportFailed = Signal(str)
 
     #: Emitted when the user cancels the "Import asset artifact" file dialog.
     libraryImportCancelled = Signal()
 
     #: Emitted after a chosen catalog subset is written to a library artifact
-    #: file (T10, REQ-P11-UI-016) — carries the destination path as ``str``.
+    #: file (REQ-P11-UI-016) — carries the destination path as ``str``.
     libraryExportSucceeded = Signal(str)
 
     #: Emitted when a library-subset export cannot complete — a translatable
-    #: message; no file is written (T10).
+    #: message; no file is written.
     libraryExportFailed = Signal(str)
 
     #: Emitted when the user cancels the "Export asset artifact" file dialog.
     libraryExportCancelled = Signal()
 
     #: Emitted after a project + its whole reference set is written to a
-    #: ``.pixbundle`` file (T10, the shipped
+    #: ``.pixbundle`` file (the shipped
     #: :func:`~pixelart_creator.data.asset_export.export_project_bundle`,
     #: unchanged) — carries the destination path as ``str``.
     projectBundleExportSucceeded = Signal(str)
 
     #: Emitted when a project-bundle export cannot complete — a translatable
-    #: message; no file is written (T10).
+    #: message; no file is written.
     projectBundleExportFailed = Signal(str)
 
     #: Emitted when the user cancels the "Export project bundle" file dialog.
     projectBundleExportCancelled = Signal()
 
     #: Emitted after a ``.pixbundle`` is reconstructed into a new project
-    #: directory (T10, the shipped
+    #: directory (the shipped
     #: :func:`~pixelart_creator.data.asset_export.import_project_bundle`,
     #: unchanged) — carries the ``(Document, AssetCatalog)`` tuple. This
     #: session's own catalog is untouched: the bundle reconstructs a
@@ -270,7 +270,7 @@ class Asset_Library_Session(QObject):
     projectBundleImported = Signal(object)
 
     #: Emitted when a project-bundle import cannot complete — a translatable
-    #: message; ``target_dir`` is left exactly as it was (T10, the shipped
+    #: message; ``target_dir`` is left exactly as it was (the shipped
     #: function's own atomic-move guarantee).
     projectBundleImportFailed = Signal(str)
 
@@ -289,14 +289,14 @@ class Asset_Library_Session(QObject):
         self._graph: DependencyGraph = graph if graph is not None else DependencyGraph()
         #: The shared undo stack the tag commands push onto (REQ-P11-UI-002).
         self._undo_stack = QUndoStack(self)
-        #: The durable catalog root once bound (T4, REQ-P11-DATA-008); ``None`` until
+        #: The durable catalog root once bound (REQ-P11-DATA-008); ``None`` until
         #: :meth:`bind_root` is called, so an unbound session stays purely in-memory.
         self._root: Optional[Path] = None
         #: The content-addressable store the registration actions write blobs
-        #: through, once bound (T7); ``None`` until :meth:`bind_content_store`.
+        #: through, once bound; ``None`` until :meth:`bind_content_store`.
         self._cas: Optional[ContentAddressableStore] = None
         #: The revision store the registration actions record through, once
-        #: bound (T7); ``None`` until :meth:`bind_revision_store`.
+        #: bound; ``None`` until :meth:`bind_revision_store`.
         self._revision_store: Optional[AssetRevisionStore] = None
 
     # -- queries ----------------------------------------------------------
@@ -313,7 +313,7 @@ class Asset_Library_Session(QObject):
         """Return the shared undo stack the tag commands are pushed onto."""
         return self._undo_stack
 
-    # -- catalog durability (REQ-P11-DATA-008, T4) -------------------------
+    # -- catalog durability (REQ-P11-DATA-008) ------------------------------
 
     def bind_root(self, root: Union[str, Path]) -> None:
         """Bind the durable catalog root and adopt whatever catalog persists there.
@@ -350,7 +350,7 @@ class Asset_Library_Session(QObject):
         if self._root is not None:
             save_catalog(self._catalog, self._root)
 
-    # -- registration wiring (T7, REQ-P11-UI-012/-013/-014/-017/-020) -----
+    # -- registration wiring (REQ-P11-UI-012/-013/-014/-017/-020) -----------
 
     def bind_content_store(self, cas: ContentAddressableStore) -> None:
         """Bind the content-addressable store the registration actions write to.
@@ -421,7 +421,7 @@ class Asset_Library_Session(QObject):
 
         Delegates to :meth:`AssetCatalog.add`, whose ``AssetCatalogModelError`` (a
         duplicate id or an over-cap catalog) propagates to the caller to surface.
-        Saved to the bound root (if any) after the panels are notified (T4).
+        Saved to the bound root (if any) after the panels are notified.
         """
         self._catalog = self._catalog.add(descriptor)
         self.catalogChanged.emit()
@@ -432,7 +432,7 @@ class Asset_Library_Session(QObject):
 
         Delegates to :meth:`AssetCatalog.remove`, whose ``AssetCatalogModelError``
         (unknown id) propagates to the caller to surface. Saved to the bound root (if
-        any) after the panels are notified (T4).
+        any) after the panels are notified.
         """
         self._catalog = self._catalog.remove(asset_id)
         self.catalogChanged.emit()
@@ -448,8 +448,8 @@ class Asset_Library_Session(QObject):
         (the immutable catalog keeps its ``asset_id``-sorted order, so the entry keeps
         its position), then notifies the panels. No domain logic lives here — the new
         descriptor is produced by the pure ``logic/asset_tags`` do/undo pair. Saved to
-        the bound root (if any) after the panels are notified, on redo *and* on undo
-        (T4) — a tag undo is durable the same way a tag redo is.
+        the bound root (if any) after the panels are notified, on redo *and* on undo —
+        a tag undo is durable the same way a tag redo is.
 
         Args:
             descriptor: The descriptor (already tag-mutated by the logic op) to install.
@@ -458,11 +458,11 @@ class Asset_Library_Session(QObject):
         self.catalogChanged.emit()
         self._persist()
 
-    # -- import / export actions (T10, ruling P11-R5, plan Section 3.7) ---
+    # -- import / export actions (ruling P11-R5, plan Section 3.7) ----------
     #
     # Two user commands, never one — they move two different units of
-    # transfer (plan Section 3.7 / T10's D2 scope correction): the LIBRARY
-    # ARTIFACT path (a chosen set of library assets, T3's ``asset_ingress``
+    # transfer (plan Section 3.7's scope correction): the LIBRARY
+    # ARTIFACT path (a chosen set of library assets, the ``asset_ingress``
     # shared atomic order) and the PROJECT BUNDLE path (a project plus its
     # whole reference set, the shipped ``asset_export`` bundle functions used
     # AS THEY ARE, unchanged). Obligation (a): the four methods below never
@@ -477,7 +477,7 @@ class Asset_Library_Session(QObject):
         Opens a file-open dialog filtered by
         :data:`~pixelart_creator.data.asset_ingress.ARTIFACT_SUFFIX`, then
         imports the chosen file's bytes through the shared, untrusted-input
-        ingress path (T3's :func:`~pixelart_creator.data.asset_ingress.
+        ingress path (:func:`~pixelart_creator.data.asset_ingress.
         import_artifact`) — merged into the already-open catalog and
         committed once (the atomic order, plan Section 3.3). Import does
         **not** re-prompt for name/kind/tags (RP-5): the artifact carries its
@@ -550,7 +550,7 @@ class Asset_Library_Session(QObject):
 
         Opens a file-save dialog filtered by
         :data:`~pixelart_creator.data.asset_ingress.ARTIFACT_SUFFIX`, encodes
-        the chosen subset through the shared ``asset_ingress`` path (T3's
+        the chosen subset through the shared ``asset_ingress`` path (its
         :func:`~pixelart_creator.data.asset_ingress.export_subset`, which
         returns bytes), and this method writes the file — matching the
         table in plan Section 3.7 ("this file writes the file").
@@ -694,7 +694,7 @@ class Asset_Library_Session(QObject):
 
         Import needs only the durable root and the content store — never the
         revision store (which :meth:`_require_ingress_ready` also requires
-        for the registration actions, T7); an artifact's own descriptors
+        for the registration actions); an artifact's own descriptors
         carry no revision to record, so gating import on an unrelated
         binding would misreport why it cannot run.
         """
@@ -751,7 +751,7 @@ class Asset_Library_Session(QObject):
         if parent is not None:
             QMessageBox.warning(parent, self.tr("Import project bundle"), message)
 
-    # -- registration actions (T7, REQ-P11-UI-012/-013/-014/-017/-020) ----
+    # -- registration actions (REQ-P11-UI-012/-013/-014/-017/-020) ----------
 
     def register_active_document(
         self,
@@ -763,9 +763,9 @@ class Asset_Library_Session(QObject):
         """Register the document currently open in the editor (REQ-P11-UI-012).
 
         Opens the shared registration prompt
-        (:class:`~pixelart_creator.ui.asset_register_dialog.Asset_Register_Dialog`,
-        T6); on acceptance registers ``document`` through the shared ingress
-        path (T3). When ``existing_asset_id`` names an entry already in the
+        (:class:`~pixelart_creator.ui.asset_register_dialog.Asset_Register_Dialog`);
+        on acceptance registers ``document`` through the shared ingress
+        path. When ``existing_asset_id`` names an entry already in the
         catalog, this is a **re-registration**: the prompt is prefilled from
         that entry and, on acceptance, changed content is recorded as a new
         revision of the **same** asset instead of adding a duplicate entry
@@ -780,8 +780,8 @@ class Asset_Library_Session(QObject):
 
         Returns:
             The :class:`RegistrationOutcome` on success, or ``None`` on
-            cancellation or failure (T43). Additive: every caller that
-            predates T43 ignores the return value, so this breaks nothing.
+            cancellation or failure. Additive: every earlier caller that
+            ignores the return value keeps working, so this breaks nothing.
         """
         return self._register_via_prompt(
             document, parent=parent, existing_asset_id=existing_asset_id
@@ -811,7 +811,7 @@ class Asset_Library_Session(QObject):
 
         Returns:
             The :class:`RegistrationOutcome` on success, or ``None`` on "no
-            selection", cancellation or failure (T43).
+            selection", cancellation or failure.
         """
         if document is None:
             message = self.tr("There is no active selection to register.")
@@ -849,7 +849,7 @@ class Asset_Library_Session(QObject):
 
         Returns:
             The :class:`RegistrationOutcome` on success, or ``None`` on
-            cancellation or failure (T43).
+            cancellation or failure.
         """
         return self._register_via_prompt(
             document, parent=parent, metadata=export_metadata
@@ -866,14 +866,14 @@ class Asset_Library_Session(QObject):
         """Run the one shared registration prompt + ingress path for one action.
 
         Shared by :meth:`register_active_document`, :meth:`register_selection`
-        and :meth:`register_export_artifact` — the "one shared prompt (T6),
-        one shared ingress path (T3)" the task requires. No domain logic
+        and :meth:`register_export_artifact` — the "one shared prompt,
+        one shared ingress path" the task requires. No domain logic
         lives here: this method only orchestrates the dialog and the calls
         into ``data/asset_ingress`` and ``data/asset_revision_store``.
 
         Returns:
             The :class:`RegistrationOutcome` on success, or ``None`` on
-            cancellation or failure (T43) — additive to the pre-existing
+            cancellation or failure — additive to the pre-existing
             signal-only reporting, which is unchanged.
         """
         try:
@@ -942,17 +942,17 @@ class Asset_Library_Session(QObject):
     ) -> None:
         """Derive ``descriptor``'s dependency edges and emit them, accumulated.
 
-        T9-A (ruling P11-R8, plan §3.10): the one-call recipe the task
+        The one-call recipe (ruling P11-R8, plan §3.10) the task
         prescribes, and **no rule of its own** — the per-kind reference rule
         and its content-only canonicalisation both live in
-        :func:`~pixelart_creator.logic.asset_edges.candidate_keys` (T8-B,
-        ``logic/``), which replaces the prior two-call pairing of
-        ``candidates_of`` with the whole-project ``canonical_bytes`` (T3-A,
-        ``data/``): that pairing bakes in presentation state — a layer's
+        :func:`~pixelart_creator.logic.asset_edges.candidate_keys`
+        (``logic/``), which replaces the prior two-call pairing of
+        ``candidates_of`` with the whole-project ``canonical_bytes``
+        (``data/``): that pairing bakes in presentation state — a layer's
         display name — that no document shape the running application
         produces ever matches, so it derived no edge in production. The
         hash-match still lives in
-        :func:`~pixelart_creator.logic.asset_edges.edges_for` (T8, ``logic/``),
+        :func:`~pixelart_creator.logic.asset_edges.edges_for` (``logic/``),
         now matching on each catalog entry's ``reference_key`` instead of its
         ``content_hash``. This method neither serialises (it does not import
         ``logic.content_hash.canonical_json_bytes`` nor call
@@ -1001,7 +1001,7 @@ class Asset_Library_Session(QObject):
 
         Returns the outcome alongside the freshly minted descriptor, so the
         caller (:meth:`_register_via_prompt`) can derive that descriptor's
-        dependency edges (T9) without re-reading it from the catalog.
+        dependency edges without re-reading it from the catalog.
         """
         new_catalog, descriptor, already_present = ingress_register(
             document,
@@ -1054,7 +1054,7 @@ class Asset_Library_Session(QObject):
         Returns the outcome alongside the descriptor now on record for this
         ``asset_id`` (the updated one when a revision was recorded, else the
         unchanged ``existing``), so the caller (:meth:`_register_via_prompt`)
-        can derive that descriptor's dependency edges (T9).
+        can derive that descriptor's dependency edges.
         """
         blob = canonical_bytes(document)
         marker = self._next_revision_marker(revision_store, existing.asset_id)

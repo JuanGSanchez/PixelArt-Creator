@@ -15,7 +15,7 @@ The computation mutates nothing — not the document, not a frame, not a node �
 reads no Qt type, and stays inside the shipped ``MAX_FRAMES`` /
 ``MAX_LAYERS_PER_FRAME`` without introducing any new bound or constant
 (``ui/timeline_grid_view.py`` is the ``QTableView`` + ``QAbstractTableModel``
-that renders this table, T3/T12 — not this module's concern).
+that renders this table — not this module's concern).
 """
 
 from __future__ import annotations

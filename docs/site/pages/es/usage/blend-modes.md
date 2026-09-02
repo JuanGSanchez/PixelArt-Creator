@@ -55,6 +55,6 @@ viewport grande a través de muchas capas — están actualmente limitadas por l
 CPU y pueden superar el presupuesto; la composición completa por shader de
 GPU es una mejora planificada para más adelante.
 
-<!-- surface-only: site — la referencia al changelog asume un lector fuera de la app; la página equivalente del bundle termina el párrafo sin ella, por diseño (WP-8 unidad 2d) -->
+<!-- surface-only: site — la referencia al changelog asume un lector fuera de la app; la página equivalente del bundle termina el párrafo sin ella, por diseño -->
 
 Consulta las **Limitaciones conocidas** del changelog para más detalles.

@@ -94,7 +94,7 @@ class AssetRevisionStore:
         names a backend, ADR-0051).
 
         Once bound, :meth:`record` persists every recorded revision under ``root``
-        (T40's durable half of ``REQ-P11-DATA-008``).
+        (the durable half of ``REQ-P11-DATA-008``).
 
         Args:
             root: The already-resolved project root revisions are persisted under.

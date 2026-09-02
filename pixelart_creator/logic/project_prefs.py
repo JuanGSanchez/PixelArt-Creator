@@ -19,7 +19,7 @@ no key on their behalf and mints no id it does not own.
 This is deliberately **not** a settings framework: no UI schema, no grouping,
 no migration engine, no per-machine scope (plan §3.3) — persistence is
 ``data/project_io.py``'s job, and rendering the registry into a menu is
-``ui/project_prefs_actions.py``'s (T9). This module is pure, Qt-free and does
+``ui/project_prefs_actions.py``'s. This module is pure, Qt-free and does
 no I/O.
 """
 

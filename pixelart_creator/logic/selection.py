@@ -396,7 +396,7 @@ def move_selection(
 
     Args:
         target: Where this edit landed, or ``None`` if unknown — **required,
-            no default** (plan §8.2, task T27); passed straight through to
+            no default** (plan §8.2); passed straight through to
             :class:`history.PixelEdit`.
 
     Raises:
@@ -706,7 +706,7 @@ def copy_selection(
 
     Args:
         target: Where this edit landed, or ``None`` if unknown — **required,
-            no default** (plan §8.2, task T27); passed straight through to
+            no default** (plan §8.2); passed straight through to
             :class:`history.PixelEdit`.
 
     Raises:
@@ -749,7 +749,7 @@ def commit_floating(
 
     Args:
         target: Where this edit landed, or ``None`` if unknown — **required,
-            no default** (plan §8.2, task T27); passed straight through to
+            no default** (plan §8.2); passed straight through to
             :func:`move_selection` / :func:`copy_selection`.
 
     Raises:

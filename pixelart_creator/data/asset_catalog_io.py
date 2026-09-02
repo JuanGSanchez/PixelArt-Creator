@@ -123,7 +123,7 @@ def safe_asset_id(asset_id: str) -> str:
     return asset_id
 
 
-#: Promoted public alias (ruling P11-R11, T39 step 1) — the underscore name is
+#: Promoted public alias (ruling P11-R11) — the underscore name is
 #: retained so every existing reference still resolves; change nothing else.
 _safe_asset_id = safe_asset_id
 
@@ -146,7 +146,7 @@ def resolve_within(root: Path, candidate: str) -> Path:
     return resolved
 
 
-#: Promoted public alias (ruling P11-R11, T39 step 1) — the underscore name is
+#: Promoted public alias (ruling P11-R11) — the underscore name is
 #: retained so every existing reference still resolves; change nothing else.
 _resolve_within = resolve_within
 
@@ -166,7 +166,7 @@ def _serialise_descriptor(descriptor: AssetDescriptor) -> Dict[str, Any]:
         "tags": sorted(descriptor.tags),
         "metadata": dict(descriptor.metadata),
         "path": descriptor.path,
-        # T8-B, ruling P11-R8 (plan §3.10): additive, defaulted on read
+        # ruling P11-R8 (plan §3.10): additive, defaulted on read
         # (`_parse_descriptor` below) — a sidecar written before this field
         # existed still parses, as `reference_key = ""` (no derived edge).
         "reference_key": descriptor.reference_key,
@@ -230,7 +230,7 @@ def _parse_descriptor(payload: Any, root: Path) -> AssetDescriptor:
         _require(isinstance(path_value, str), "sidecar path must be a string or null")
         # Defend the advisory path: it must resolve within the catalog root.
         _resolve_within(root, path_value)
-    # T8-B, ruling P11-R8 (plan §3.10): additive and optional — a sidecar
+    # ruling P11-R8 (plan §3.10): additive and optional — a sidecar
     # written before this field existed has no "reference_key" key at all,
     # and `.get(..., "")` reads that as "unknown" (no derived edge), not a
     # missing-field error.

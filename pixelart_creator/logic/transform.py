@@ -178,7 +178,7 @@ def make_transform_command(
 
     Args:
         target: Where this edit landed, or ``None`` if unknown — **required,
-            no default** (plan §8.2, task T27); passed straight through to
+            no default** (plan §8.2); passed straight through to
             :class:`history.PixelEdit` (the dimension-changing path returns a
             :class:`history.FunctionCommand`, which has no target to carry).
     """

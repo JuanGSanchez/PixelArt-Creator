@@ -12,7 +12,7 @@ the table gives native row/column/count semantics to assistive technology
 drag Qt itself never routes to the body — the direct fix for CF-56's "one gesture,
 two claimants, no test" defect.
 
-Three gesture zones, disjoint by construction (REQ-P5-UI-025, T12):
+Three gesture zones, disjoint by construction (REQ-P5-UI-025):
 
 - **Header** — ``QHeaderView.setSectionsMovable(True)`` is Qt's own reorder; this
   view only translates the resulting ``sectionMoved`` into one
@@ -98,7 +98,7 @@ from pixelart_creator.ui.cel_overwrite_dialog import Cel_Overwrite_Dialog
 
 #: Longest edge (px) of a cached per-cell thumbnail. Mirrors
 #: ``timeline_panel._THUMBNAIL_EDGE`` exactly (visual consistency between the two
-#: cell surfaces the toggle swaps between, T4); a presentation-only sizing literal,
+#: cell surfaces the toggle swaps between); a presentation-only sizing literal,
 #: not a domain tuning value (Article II does not reach it, like its strip twin).
 _THUMBNAIL_EDGE = 48
 
@@ -384,7 +384,7 @@ class _Grid_Delegate(QStyledItemDelegate):
 
 
 class Timeline_Grid_View(QTableView):
-    """Frames x layer-tracks matrix, the grid's optional cell surface (T3/T4/T12)."""
+    """Frames x layer-tracks matrix, the grid's optional cell surface."""
 
     #: Emitted with the frame index a selection (of any kind) settled on
     #: (REQ-P5-UI-023). Pushes no command.
@@ -408,7 +408,7 @@ class Timeline_Grid_View(QTableView):
 
         Binds an empty :class:`_Track_Table_Model`, disables Qt's own
         drag-and-drop on the body so the hand-discriminated cell gestures
-        (T12) are the only claimant, enables the header's own reorder drag
+        are the only claimant, enables the header's own reorder drag
         (CF-56 fix), and connects header/cell click signals to their
         handlers. No document is attached yet — that happens through
         :meth:`set_context`.
@@ -426,7 +426,7 @@ class Timeline_Grid_View(QTableView):
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        # Body/cell gestures are hand-discriminated (T12: indexAt + occupancy);
+        # Body/cell gestures are hand-discriminated (indexAt + occupancy);
         # Qt's own DnD must not also claim the body.
         self.setDragDropMode(QAbstractItemView.DragDropMode.NoDragDrop)
         self.setMouseTracking(True)
@@ -449,7 +449,7 @@ class Timeline_Grid_View(QTableView):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._on_context_menu_requested)
 
-        # Gesture-drag state (T12): press position/index, whether the press
+        # Gesture-drag state: press position/index, whether the press
         # landed on an occupied cell, and whether the movement threshold fired.
         self._press_pos: Optional[QPoint] = None
         self._press_index: Optional[QModelIndex] = None
@@ -470,7 +470,7 @@ class Timeline_Grid_View(QTableView):
         """Bind the grid to a document + its undo stack + the owner's push path.
 
         ``push`` is the owner's (``Timeline_Panel``) single ``FrameCommand`` push
-        path (T4) — this view builds no ``QUndoCommand`` of its own kind; every
+        path — this view builds no ``QUndoCommand`` of its own kind; every
         mutation it originates is wrapped exactly like a strip frame op.
         """
         self._document = document

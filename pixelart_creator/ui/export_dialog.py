@@ -111,7 +111,7 @@ class Export_Dialog(QDialog):
         path_row.addWidget(self._path_edit, 1)
         path_row.addWidget(self._browse_button)
 
-        # T7-A (ruling P11-R7, REQ-P11-UI-014): the export flow's own opt-in into
+        # Per ruling P11-R7 (REQ-P11-UI-014): the export flow's own opt-in into
         # the asset library. Unchecked by default so the export's existing default
         # behaviour (write the file, touch nothing else) is unchanged; the window
         # (ui/main_window.py) performs the registration only after this export
@@ -265,7 +265,7 @@ class Export_Dialog(QDialog):
     def register_on_export(self) -> bool:
         """Return whether the user opted to also add this export to the library.
 
-        REQ-P11-UI-014, T7-A: calling this is the only way the caller learns
+        REQ-P11-UI-014: calling this is the only way the caller learns
         the opt-in was taken — the dialog itself performs no registration.
         """
         return self._register_check.isChecked()

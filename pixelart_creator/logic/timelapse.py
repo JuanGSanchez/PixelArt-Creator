@@ -400,7 +400,7 @@ class ReconstructionBlocker(Enum):
     neither translated (``tr()`` wrapping is a ``ui/`` obligation, Article V)
     nor audited (``string_audit_check`` scans for unwrapped *literals*, and
     ``str(verdict.reason)`` is not one). Each code maps to exactly one
-    ``tr()``-wrapped sentence in the surface (``ui/``, T10/T16).
+    ``tr()``-wrapped sentence in the surface (``ui/``).
     """
 
     NO_PAYLOAD = "no-payload"  # REQ-P9-UI-019(a) -- schema-1, no snapshot table
@@ -548,7 +548,7 @@ def reconstructability(
     *substrate is not the one recorded against* half, reported via
     ``extent.matches_session``; and (c), an empty session, for which this
     returns ``ok=True`` **correctly** (an empty session is trivially
-    reconstructible). Both are ``ui/`` checks (T10).
+    reconstructible). Both are ``ui/`` checks.
 
     Raises:
         TimelapseError: If ``extent`` is not a :class:`ReconstructionExtent`.

@@ -57,7 +57,7 @@ class EditTraceError(ValueError):
 class EditTarget:
     """Where an edit landed: the frame it was made in and the layer track it hit.
 
-    A **required** value object (plan §8.2, task T26) — replaces the earlier
+    A **required** value object (plan §8.2) — replaces the earlier
     ``frame_index: int = 0, layer_id: int = 0`` defaulted pair, which admitted a
     half-threaded state worse than no threading at all (plan §8.1): ``layer_id
     = 0`` is the documented *unminted* sentinel

@@ -11,7 +11,7 @@ was referenced). It is a blocking, cancellable modal
 ``Cel_Overwrite_Dialog`` shape: two named outcome buttons instead of a bare
 Yes/Cancel, plus one "Don't ask again" checkbox.
 
-**What this file builds, precisely (T14's Done-when, phase-11-asset-ingress
+**What this file builds, precisely (the Done-when, phase-11-asset-ingress
 ``tasks.md:560-570``):**
 
 - The dialog itself: message + two outcome buttons + the checkbox — pure
@@ -33,11 +33,10 @@ Yes/Cancel, plus one "Don't ask again" checkbox.
   "asked before anything about the project changes ... until they choose,
   the project keeps resolving the version it references" contract.
 
-**What this file deliberately does NOT build (boundary applied, T15/T11
-split):**
+**What this file deliberately does NOT build (boundary applied by design):**
 
 - *The three-state rendering inside the* ``&Edit → Project confirmations``
-  *submenu* is **T15**'s, under ruling P11-R2 (plan §3.4) — it extends
+  *submenu* belongs elsewhere, under ruling P11-R2 (plan §3.4) — it extends
   ``ui/project_prefs_actions.py``'s renderer generically by domain size.
   This prompt's own "Don't ask again" checkbox is a **separate** suppression
   surface for the same registry key, exactly as ``Cel_Overwrite_Dialog``'s
@@ -58,13 +57,13 @@ split):**
   side, from "the same edit asked about before"). The caller is still
   responsible for the eventual content-hash-scoped identity via
   :meth:`decide`'s optional ``edit_token`` — see below.
-  **Update (T50, ADR-0062, ruling P11-R13):** this per-process session
+  **Update (ADR-0062, ruling P11-R13):** this per-process session
   memory was, until this task, the *only* home this decision had — closing
   the tab discarded it, unticked and ticked alike, even though the user's
   ruling requires both branches to be saved automatically. It is no longer
   the only home: the unticked half now also lands in the durable, per-edit
-  ledger built by T47 (:mod:`pixelart_creator.logic.asset_edit_decisions`)
-  and T48/T49 (the write-ahead journal and project-file persistence). This
+  ledger (:mod:`pixelart_creator.logic.asset_edit_decisions`)
+  and the write-ahead journal and project-file persistence. This
   module's own session bucket is now a **runtime cache** in front of that
   ledger, seeded from it by :meth:`Asset_Update_Prompt_Dialog.prime_session`
   and observed, on every fresh decision, through :meth:`decide`'s optional
@@ -72,8 +71,8 @@ split):**
   payload into the durable ledger; this module still performs no I/O of its
   own (see below).
 - *Computing which reference is "edited" in the first place* (the
-  hash-mismatch predicate) is **T13**'s resolve-state surface
-  (``ui/asset_reuse_panel.py``) plus T11's ``resolve_states`` /
+  hash-mismatch predicate) is the resolve-state surface's
+  (``ui/asset_reuse_panel.py``) plus ``resolve_states`` /
   :class:`~pixelart_creator.logic.asset_references.AssetReference` model —
   this dialog is handed an already-identified ``asset_id`` and display name
   by its caller; it derives nothing about resolve state itself.
@@ -126,7 +125,7 @@ from pixelart_creator.logic.project_prefs import with_value as prefs_with_value
 #: prompt resolved to for ONE edit; the preference is what to do about
 #: FUTURE edits without asking.
 #:
-#: **Promoted aliases (T50, ADR-0062, ruling P11-R13 — same "one definition of
+#: **Promoted aliases (ADR-0062, ruling P11-R13 — same "one definition of
 #: a control, aliases kept so no call site moves" move ruling P11-R11 made for
 #: ``data/asset_catalog_io.py``'s ``_safe_asset_id`` / ``_resolve_within``,
 #: applied here in the other direction):** the canonical outcome domain now
@@ -182,14 +181,14 @@ class Asset_Update_Prompt_Dialog(QDialog):
     #: disk, and it is never written through ``logic/project_prefs.py`` (that
     #: seam is reserved for the "Don't ask again" preference,
     #: ``REQ-P11-UI-023``, a materially different, explicit, durable choice).
-    #: **Corrected (T50, ADR-0062, ruling P11-R13):** this bucket is no longer
+    #: **Corrected (ADR-0062, ruling P11-R13):** this bucket is no longer
     #: the *only* record of an unticked decision — it can be **hydrated** at
     #: the start of a session from the durable, per-edit ledger
-    #: (:class:`~pixelart_creator.logic.asset_edit_decisions.AssetEditDecisions`,
-    #: T47) via :meth:`prime_session`, and every fresh decision made through
+    #: (:class:`~pixelart_creator.logic.asset_edit_decisions.AssetEditDecisions`)
+    #: via :meth:`prime_session`, and every fresh decision made through
     #: :meth:`decide` is handed to that method's optional ``on_decided``
-    #: callback so the caller can persist it (T48's write-ahead journal /
-    #: T49's project-file save) — this module performs no I/O of its own;
+    #: callback so the caller can persist it (the write-ahead journal /
+    #: the project-file save) — this module performs no I/O of its own;
     #: it only calls out. Disclosed cost, unchanged: a decided
     #: ``ProjectPrefs`` snapshot (or a live ``project_key`` bucket) is
     #: retained for the life of the process; call :meth:`forget_session` when
@@ -361,9 +360,9 @@ class Asset_Update_Prompt_Dialog(QDialog):
                 through to :meth:`_session_bucket` exactly as :meth:`decide`
                 threads it — this method mints or reuses no bucket of its
                 own.
-            decisions: The durable ledger to hydrate from (T47's
-                :class:`~pixelart_creator.logic.asset_edit_decisions.AssetEditDecisions`,
-                loaded by T49's ``load_project_bundle``/
+            decisions: The durable ledger to hydrate from
+                (:class:`~pixelart_creator.logic.asset_edit_decisions.AssetEditDecisions`,
+                loaded by ``load_project_bundle``/
                 ``parse_asset_edit_decisions``).
         """
         bucket = cls._session_bucket(prefs, project_key)
@@ -403,11 +402,11 @@ class Asset_Update_Prompt_Dialog(QDialog):
         decision made **without** ticking "Don't ask again" is cached here
         for this ``(asset_id, edit_token)`` pair, for this ``prefs`` only.
         This module still writes nothing to disk and still never calls
-        ``logic/project_prefs.py`` for it — but (T50, ADR-0062, ruling
+        ``logic/project_prefs.py`` for it — but (ADR-0062, ruling
         P11-R13) that unticked decision is no longer *undurable* by
         construction: it is handed, alongside the ticked branch, to the
-        optional ``on_decided`` callback below, and the caller (T48's
-        write-ahead journal / T49's project-file save) is the one that
+        optional ``on_decided`` callback below, and the caller (the
+        write-ahead journal / the project-file save) is the one that
         actually persists it, matching the user's ruling that both the
         ticked and the unticked choice are saved automatically. Ticking it,
         instead, writes the outcome back through
@@ -450,7 +449,7 @@ class Asset_Update_Prompt_Dialog(QDialog):
                 ``prefs_after`` carries the new "always" preference;
                 ``prefs_after`` is this call's returned ``prefs``. This
                 method never persists anything itself; the callback is the
-                caller's own seam for doing so (T48/T49).
+                caller's own seam for doing so.
 
         The caller is responsible for invoking this **before** applying any
         project-side effect of the edit (``REQ-P11-UI-022``'s ordering
@@ -533,7 +532,7 @@ def resolve_library_edits(
     """Run :meth:`Asset_Update_Prompt_Dialog.decide` over every edited reference.
 
     ``decide()``'s **one production caller** (plan §3.11 (2)/(2b),
-    ``tasks.md`` T31). Iterates ``reference_set.entries()`` in its
+    ``tasks.md``). Iterates ``reference_set.entries()`` in its
     deterministic ``asset_id`` order (so the prompt order is testable) and
     calls :meth:`Asset_Update_Prompt_Dialog.decide` **once** for each
     :data:`~pixelart_creator.logic.asset_references.STATE_EDITED` reference,
@@ -574,7 +573,7 @@ def resolve_library_edits(
     may raise; performs no I/O of its own.
 
     Args:
-        reference_set: The project's reference set, as loaded (T30).
+        reference_set: The project's reference set, as loaded.
         catalog: The local library catalog to classify references against.
         prefs: The project's confirmation-preferences snapshot.
         project_key: This project's stable, unique key (plan §3.11 (2b)) —
@@ -584,7 +583,7 @@ def resolve_library_edits(
             project asking about it.
         on_decided: Forwarded unchanged, per edited reference, to
             :meth:`Asset_Update_Prompt_Dialog.decide` — see that method's own
-            ``on_decided`` doc for exactly when it fires (T50, ADR-0062).
+            ``on_decided`` doc for exactly when it fires (ADR-0062).
 
     Returns:
         ``(reference_set, prefs)`` — the pair to write back onto the tab.

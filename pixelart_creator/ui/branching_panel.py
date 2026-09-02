@@ -201,9 +201,9 @@ class Branching_Session(QObject):
         self._branches[self._active].record(ops)
 
     def record_traces(self, traces: Sequence[EditTrace], inverse: bool) -> None:
-        """Mint ``traces`` into ops and record them on the active branch (T14/-025).
+        """Mint ``traces`` into ops and record them on the active branch.
 
-        Called by the Qt undo bridge (``ui/commands.py``, T13) after every successful
+        Called by the Qt undo bridge (``ui/commands.py``) after every successful
         ``redo()`` with the command's own traces (``inverse=False``), and after
         ``undo()`` with the already-computed inverse traces (``inverse=True`` — plan
         §3.3: the *caller* runs
@@ -261,7 +261,7 @@ class Branching_Session(QObject):
     def get_branch(self, name: str) -> Branch:
         """Return the named branch (mainline or feature) for read-only inspection.
 
-        Lets a caller (``ui/main_window.py``, T15) pass the live branch object to
+        Lets a caller (``ui/main_window.py``) pass the live branch object to
         :func:`~pixelart_creator.logic.branch_diff.supervise` without this module
         computing anything itself (Article I) — it only looks the object up; the
         same lookup :meth:`switch_to` and :meth:`merge_to_mainline` already use.
@@ -300,7 +300,7 @@ class Branching_Panel(QWidget):
     #: ``(name,)`` — the user activated the open-diff affordance for the selected
     #: feature branch (REQ-P10-UI-014). The caller (``ui/main_window.py``) supplies
     #: the active tab's live ``Document`` to ``logic/branch_diff.supervise`` and, once
-    #: T16 (``ui/branch_diff_dialog.py``) exists, opens the pre-merge diff view from it.
+    #: ``ui/branch_diff_dialog.py`` exists, opens the pre-merge diff view from it.
     openDiffRequested = Signal(str)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -400,7 +400,7 @@ class Branching_Panel(QWidget):
         """Request the pre-merge diff for the selected feature branch (REQ-P10-UI-014).
 
         This panel computes nothing itself (Article I) — it only announces which
-        branch the caller should diff; ``ui/main_window.py`` (T15) supplies the
+        branch the caller should diff; ``ui/main_window.py`` supplies the
         active tab's live ``Document`` to ``logic/branch_diff.supervise``.
         """
         if self._session is None:

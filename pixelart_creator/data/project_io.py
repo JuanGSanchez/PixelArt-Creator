@@ -76,7 +76,7 @@ FORMAT_NAME = "pixproj"
 #: Current schema version (ADR-0025, ADR-0058). v6 adds the optional ``asset_refs``
 #: root array (a project's per-project asset reference set, ``REQ-P11-UI-021``
 #: persistence half) — **the only field in this format whose loss the bump protects**,
-#: because it is content the user cannot reconstruct (plan.md §2.2, ``phase-11``'s T12).
+#: because it is content the user cannot reconstruct (plan.md §2.2, phase-11).
 #: The bump is unconditional: every save from this build writes ``6`` whether or not the
 #: project actually has any references, because a version that depends on whether a
 #: feature happens to be used would not describe the schema. v5 adds the first-class
@@ -301,7 +301,7 @@ def serialize(
     prefs_mapping = document.prefs.to_mapping()
     if prefs_mapping:
         payload["prefs"] = prefs_mapping
-    # Another optional root key (REQ-P11-UI-021, T12): omitted entirely when no
+    # Another optional root key (REQ-P11-UI-021): omitted entirely when no
     # reference set was supplied or it is empty, matching "prefs"'s own convention —
     # unlike "prefs" this key's presence is what bumps FORMAT_VERSION (plan §2.2), so
     # the bump itself is unconditional even while the key stays optional.
@@ -448,7 +448,7 @@ def _parse_asset_ref(entry: Any) -> AssetReference:
 def parse_asset_refs(value: Any) -> ReferenceSet:
     """Parse the optional ``asset_refs`` root array.
 
-    v6+; ``REQ-P11-UI-021`` persistence half, T12. An absent array (v1–v5 files,
+    v6+; ``REQ-P11-UI-021`` persistence half. An absent array (v1–v5 files,
     and a v6 file that never referenced a library asset)
     reads as an **empty** :class:`~pixelart_creator.logic.asset_references.ReferenceSet`
     — correct, not a migration: a pre-v6 project never had a reference set to lose.

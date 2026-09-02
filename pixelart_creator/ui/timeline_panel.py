@@ -121,7 +121,7 @@ class Timeline_Panel(QWidget):
 
         # The grid is the optional second cell surface (REQ-P5-UI-020/-022); the
         # toolbar, duration editor and tag markers stay siblings, untouched by
-        # the swap (T4). It pushes through this panel's own FrameCommand path
+        # the swap. It pushes through this panel's own FrameCommand path
         # (_push), so the strip and the grid share one undo discipline.
         self._grid = Timeline_Grid_View(self)
         self._grid.frameActivated.connect(self._on_grid_frame_activated)
@@ -341,7 +341,7 @@ class Timeline_Panel(QWidget):
         self._sync_duration_spin()
         self._update_actions()
 
-    # -- grid forwarding (T4: the same signals serve both cell surfaces) -----
+    # -- grid forwarding (the same signals serve both cell surfaces) --------
 
     def _on_grid_frame_activated(self, index: int) -> None:
         self._active_index = index
