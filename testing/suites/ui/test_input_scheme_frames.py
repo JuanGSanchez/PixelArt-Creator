@@ -1,15 +1,15 @@
-"""T-24 acceptance: the four Ctrl frame gestures + the content-fit action.
+"""Acceptance: the four Ctrl frame gestures + the content-fit action.
 
 One test per acceptance criterion of `REQ-IS-UI-010` (Ctrl+wheel travels
 frames), `-013` (Shift+middle-click frames the painted pixels), `-014`
 (Ctrl+middle-click goes to frame 1), `-016` (Ctrl+left-click adds a frame;
 Ctrl+left-drag still copies), `-017` (Ctrl+right-click removes a frame, on
 the timeline only) and `-018` (the content-fit view action) --
-``design-docs/specs/input-scheme/spec.md`` SS9.3/9.4, scenarios
+the input-scheme spec SS9.3/9.4, scenarios
 ``SC-U010-1..4``, ``SC-U013-1..3``, ``SC-U014-1..3``, ``SC-U016-1..6``,
 ``SC-U017-1..6``, ``SC-U018-1..5`` -- plus the regression scenarios this
 task's own edited handlers (``canvas_view.py``, ``main_window.py``,
-``timeline_grid_view.py``) are named against in ``tasks.md`` T-24's "Done
+``timeline_grid_view.py``) are named against in this task's "Done
 when" clause: ``SC-R-04``, ``SC-R-05``, ``SC-R-10``, ``SC-R-11``, ``SC-R-13``,
 ``SC-R-14``.
 
@@ -45,7 +45,7 @@ suite's own ``pytest_configure``.
   (``timeline_grid_view.py``'s LEFT-drag ``_finish_drag`` reads its OWN live
   ``event.modifiers()``; ``tilemap_canvas.py`` is unchanged by this task's
   diff entirely -- confirmed via ``git diff --stat``). SC-R-05 is still
-  pinned below per tasks.md T-24's explicit "Done when" clause (same view
+  pinned below per this task's explicit "Done when" clause (same view
   class this task edited); SC-R-15 is left to REQ-IS-UI-028's own dedicated
   regression suite (``test_input_scheme_regression.py``,
   ``testing/suites/ui``), which is that requirement's one canonical home
@@ -862,7 +862,7 @@ def test_sc_r14_plain_right_click_on_an_empty_cell_still_offers_create_cel_here(
     qtbot, monkeypatch
 ):
     """SC-R-14 (this task's own edited handler, the code path adjacent to
-    T-24's change): the new Ctrl-branch this task added at the TOP of
+    this task's change): the new Ctrl-branch this task added at the TOP of
     ``_on_context_menu_requested`` (before the empty-cell affordance) must
     not disturb an UNMODIFIED right-click. ``QApplication.keyboardModifiers()``
     reports no Ctrl here, so the new branch's ``if`` is false and control
@@ -871,7 +871,7 @@ def test_sc_r14_plain_right_click_on_an_empty_cell_still_offers_create_cel_here(
     SC-R-14's other three sub-behaviours -- touch code this task's diff
     never modified and are already covered by
     ``test_timeline_grid_gestures.py``; this pin targets specifically the
-    code path T-24 changed.)"""
+    code path this task changed.)"""
     doc, _outline_id = _empty_cell_doc()
     panel, grid, stack = _make_panel(qtbot, doc)
     before = stack.count()
@@ -899,7 +899,7 @@ def test_sc_r14_plain_right_click_on_an_empty_cell_still_offers_create_cel_here(
 
 
 def test_sc_r05_ctrl_drag_still_copies_a_cel_in_the_timeline_grid(qtbot):
-    """SC-R-05 (tasks.md T-24's own "Done when" clause -- asserted on the
+    """SC-R-05 (this task's own "Done when" clause -- asserted on the
     same modifier, same view class this task edited): an occupied cel
     Ctrl-dragged onto an empty cell still COPIES (``_finish_drag``'s own,
     entirely separate ``event.modifiers()`` check on a LEFT-button drag --

@@ -1,7 +1,7 @@
 """Tests for the input-scheme feedback + gesture scalars added to
 ``pixelart_creator.logic.constants`` (REQ-IS-LOGIC-004, SC-L004-1..2).
 
-T-07 (input-scheme). Covers the five named constants T-04 added:
+Covers the five named constants added for the input-scheme feature:
 ``FEEDBACK_SQUARE_PX``, ``FEEDBACK_SQUARE_PAD_RATIO``, ``FEEDBACK_DURATION_MS``,
 ``FEEDBACK_FADE_TAIL_RATIO``, ``CLICK_DRAG_THRESHOLD_PX`` — every number
 ``REQ-IS-LOGIC-004`` introduces (spec.md §5.3), each traced to the user's own
@@ -90,7 +90,7 @@ class TestFeedbackAndGestureScalarsAreNamed:
 # must be executable and it must not be noisy. A bare substring/word-boundary
 # search for "24" or "10" across ui/*.py is USELESS here: those are common
 # small integers and ui/ already contains dozens of unrelated hits merely
-# from identifiers and comments -- REQ-P10-UI-025, "AGT-10", "T10",
+# from identifiers and comments -- REQ-P10-UI-025, "WIDGET-10", "X10",
 # "2026-08-24" dates, and (concretely, measured on this branch) THREE
 # pre-existing, differently-named, unrelated constants that happen to share
 # the value 24 (_FAVOURITE_PX, two counts of _SWATCH_PX). A naive scan would
@@ -101,7 +101,7 @@ class TestFeedbackAndGestureScalarsAreNamed:
 # The line is drawn with Python's own AST instead of text search: a genuine
 # numeric literal is an ``ast.Constant`` whose value is an int/float, so a
 # digit sequence living inside a string (an f-string CSS rule, a docstring, a
-# REQ-ID) or inside an identifier (AGT-10, P10, T10 -- letter-digit runs with
+# REQ-ID) or inside an identifier (WIDGET-10, P10, X10 -- letter-digit runs with
 # no token boundary) is never a Constant node and is never reported here.
 #
 # KEYING (repaired 2026-08-31, second line-drift breakage). The baseline used
@@ -132,8 +132,8 @@ class TestFeedbackAndGestureScalarsAreNamed:
 #
 # This is a RATCHET, not a snapshot: the assertion is "no NEW offending
 # literal beyond this documented baseline", so it stays meaningful as ui/
-# grows and starts consuming these five constants in T-09/T-11/T-13 and
-# later -- a future author who inlines 24 or 1000 instead of importing
+# grows and starts consuming these five constants in later features --
+# a future author who inlines 24 or 1000 instead of importing
 # FEEDBACK_SQUARE_PX / FEEDBACK_DURATION_MS fails this test; the fourteen
 # already-explained hits below do not.
 

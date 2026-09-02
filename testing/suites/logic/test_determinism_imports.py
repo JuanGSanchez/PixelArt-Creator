@@ -1,11 +1,11 @@
-"""T-07 / T-08: static determinism + reachability guards (no execution).
+"""Static determinism + reachability guards (no execution).
 
-T-07 (REQ-P7-LOGIC-002): ``logic/export.py`` and ``logic/atlas.py`` must stay
+Determinism guard (REQ-P7-LOGIC-002): ``logic/export.py`` and ``logic/atlas.py`` must stay
 byte-reproducible (ADR-0019) -- neither imports ``time``, ``random``, or
 ``locale`` (nor any of their submodules), which would make output depend on
 wall-clock / seed state / the host locale.
 
-T-08 (REQ-P11-LOGIC-008): no Phase-11 (Asset Library) logic/data module or
+Reachability guard (REQ-P11-LOGIC-008): no Phase-11 (Asset Library) logic/data module or
 operation is reachable from a ``paintEvent``/``timerEvent`` path -- the AST is
 scanned rather than importing/instantiating any ui/ widget (Qt-free, S11).
 
@@ -23,7 +23,7 @@ _ROOT = Path(__file__).resolve().parents[3]
 _PIXELART = _ROOT / "pixelart_creator"
 
 # --------------------------------------------------------------------------- #
-# T-07 — no time/random/locale import in the byte-reproducible export path.    #
+# Determinism guard — no time/random/locale import in the byte-reproducible export path. #
 # --------------------------------------------------------------------------- #
 
 _FORBIDDEN_TOP_MODULES = {"time", "random", "locale"}
@@ -56,7 +56,7 @@ def test_atlas_module_imports_no_time_random_or_locale():
 
 
 # --------------------------------------------------------------------------- #
-# T-08 — no Phase-11 logic/data module reachable from paintEvent/timerEvent.   #
+# Reachability guard — no Phase-11 logic/data module reachable from paintEvent/timerEvent. #
 # --------------------------------------------------------------------------- #
 
 # The Phase-11 (Asset Library) logic/data module basenames (REQ-P11-*).
@@ -157,7 +157,7 @@ def test_no_paint_or_timer_event_file_imports_a_phase11_module():
 # C-05 -- UI_NOTICE_DURATION_MS single-sourced from logic/constants.py         #
 # (mirrors testing/suites/data/test_project_io.py::                           #
 # test_tuning_constants_single_sourced_from_constants' identity-check idiom,  #
-# combined with this module's own AST/static-scan idiom for T-07/T-08.)       #
+# combined with this module's own AST/static-scan idiom for the guards above.) #
 # --------------------------------------------------------------------------- #
 
 # Regression test for C-05 — proven by reversion in the commit pass

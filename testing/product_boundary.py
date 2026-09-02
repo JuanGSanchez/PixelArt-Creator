@@ -2,7 +2,7 @@
 """The one line the container's tooling may not cross.
 
 A container repository IS the orchestration system: its scripts, its gates,
-its store, its `design-docs/`. A product repository is a different thing with
+its store, its own documentation tree. A product repository is a different thing with
 a different owner — it carries its OWN orchestration furniture, installed and
 maintained by its OWN system — and the container's Mode D has no authority
 inside it.

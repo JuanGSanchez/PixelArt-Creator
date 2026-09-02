@@ -4,7 +4,7 @@ Covers the pure catalog identity model (ADR-0030 §1; REQ-P11-DATA-001,
 REQ-P11-LOGIC-001): descriptor validation (identity/kind/name/hash/tags/metadata/
 path), the tag/metadata caps enforced from ``logic/constants`` (not literals), and the
 immutable, deterministic :class:`AssetCatalog` (add/remove/get/entries, stable id
-ordering, uniqueness + count cap). T11-1-06.
+ordering, uniqueness + count cap).
 """
 
 from __future__ import annotations

@@ -6,7 +6,6 @@ opens self-contained on a fresh CAS; import is defended against a path-traversal
 (``..`` / absolute) and against oversized / malformed input, raising
 ``AssetExportError`` (a ``ProjectIOError`` subclass); the advisory path is dropped so
 the bundle is relocatable; and the module uses no ``eval``/``exec``/``pickle``.
-T11-3-07.
 """
 
 from __future__ import annotations

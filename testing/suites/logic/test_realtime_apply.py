@@ -540,7 +540,7 @@ def test_two_replicas_receiving_different_orders_converge(ops, data):
 
 # --------------------------------------------------------------------------- #
 # Regression: metadata-key canonicalisation -> RAW .pixproj byte identity.     #
-# AGT-03 fix — convergence._apply_structured re-sorts Document.metadata to      #
+# Fix — convergence._apply_structured re-sorts Document.metadata to           #
 # canonical (sorted) key order on EVERY fold, so the realtime one-op-at-a-time  #
 # path serialises BYTE-IDENTICAL to the sorting batch converge no matter what   #
 # order newly-inserted keys arrive in. This LOCKS byte-level SEC (not just the  #
@@ -554,7 +554,7 @@ def _metadata_op_sets(draw):
 
     Distinct keys => every op is the lone winner for its register, so all ops
     survive under any delivery order (no LWW drops); the ONLY variable left is the
-    byte-serial insertion order of the metadata dict — exactly what the AGT-03
+    byte-serial insertion order of the metadata dict — exactly what the
     canonical-sort fix pins down. Keys are drawn from a wide pool so their arrival
     order is almost never already sorted, exercising the re-sort on the incremental
     realtime path (which appends new keys in arrival order before the canonicalise).
@@ -596,7 +596,7 @@ def _apply_stream(ops, *, site_id):
 @settings(max_examples=120)
 @given(ops=_metadata_op_sets(), data=st.data())
 def test_metadata_keys_converge_byte_identical_regardless_of_arrival_order(ops, data):
-    """Regression (AGT-03): metadata keys arriving in NON-sorted order serialise to a
+    """Regression: metadata keys arriving in NON-sorted order serialise to a
     BYTE-IDENTICAL ``.pixproj`` through the realtime apply path.
 
     ``serialize_project(forward) == serialize_project(reversed) ==

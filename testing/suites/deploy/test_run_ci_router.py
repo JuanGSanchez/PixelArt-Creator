@@ -1,7 +1,7 @@
 """Unit tests for `scripts/run_ci.py`, the GitHub-Actions/local-fallback router.
 
 Placed under ``testing/suites/deploy/`` (moved from ``tests/deploy/`` on
-2026-08-30, ADR-0065) per this task's direction (AGT-09's owned
+2026-08-30, ADR-0065) per this task's direction (an owned
 surface, ADR-0043) even though these tests differ in shape from
 ``test_vps_localhost.py``/``test_nginx_wss_localhost.py``: they exercise the
 router's pure classification logic and its exit-code contract, not the

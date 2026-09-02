@@ -1,7 +1,7 @@
 """Phase-5 animation UI wiring/branch coverage (REQ-P5-UI-001..019, both themes).
 
 Companion to ``test_animation_timeline.py``: this module exercises the remaining
-branches of the Phase-5 ``ui/`` modules AGT-05 built — dialog field collection,
+branches of the Phase-5 ``ui/`` modules the UI layer built — dialog field collection,
 ``_retranslate`` on ``QEvent.LanguageChange`` (F5), tint/colour pickers, guard and
 error paths, the off-thread pre-warm gating + streaming resume, the progress
 indicator, the off-thread warm runnable, and the derived-cache API — so the

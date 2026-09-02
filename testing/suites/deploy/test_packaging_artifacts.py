@@ -1,7 +1,7 @@
-"""Static packaging-artifact contract tests (T-36/T-37/T-39, remediation register).
+"""Static packaging-artifact contract tests (remediation register).
 
 Placed under ``testing/suites/deploy/`` (moved from ``tests/deploy/`` on
-2026-08-30, ADR-0065) -- AGT-09's owned surface (ADR-0043 §1: this
+2026-08-30, ADR-0065) -- an owned surface (ADR-0043 §1: this
 agent owns ``packaging/**`` and the pipeline vehicles that build/ship the
 product) -- but deliberately **NOT** ``@pytest.mark.integration``, on the same
 precedent as ``test_run_ci_router.py`` already in this directory: nothing
@@ -18,7 +18,7 @@ requires. Reading the workflow YAML is explicitly permitted by this task;
 nothing here writes to it.
 
 Covers:
-  T-36 (REQ-P13-BUILD-002..005) -- the four packaging artifacts the
+  REQ-P13-BUILD-002..005 -- the four packaging artifacts the
     ``build-installers`` job's CI legs name (the three ``pysidedeploy-*.spec``
     files + ``build_appimage.sh``) exist on disk, are referenced by the
     workflow steps that build from them, and the ``build-installers`` matrix
@@ -29,10 +29,10 @@ Covers:
     or a manual dispatch was still being EVALUATED and LISTED as "skipped" on
     every ordinary push/PR run of ``ci.yml``, forever); the three tests below
     read that file now, not ``ci.yml``, and are otherwise unchanged.
-  T-37 -- ``pyproject.toml``'s ``[tool.setuptools.package-data]`` block ships
+  ``pyproject.toml``'s ``[tool.setuptools.package-data]`` block ships
     ``userguide_content/**/*.md`` and ``userguide_content/*.json`` (T-UG-09's
     acceptance criterion, previously unasserted by any test).
-  T-39 -- the three ``[project.scripts]`` console entry points
+  the three ``[project.scripts]`` console entry points
     (``pixelart-export``, ``pixelart-run``, ``pixelart-assistant``) resolve
     via ``importlib.metadata`` and each invoked callable's ``--help`` exits 0.
 """
@@ -50,7 +50,7 @@ from .conftest import REPO_ROOT
 
 CI_YAML = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 # build-installers moved out of ci.yml into its own file (2026-09-01, the
-# lean-push change) -- see the module docstring's T-36 note above.
+# lean-push change) -- see the module docstring's packaging-artifact note above.
 BUILD_INSTALLERS_YAML = REPO_ROOT / ".github" / "workflows" / "build-installers.yml"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 PACKAGING_DIR = REPO_ROOT / "packaging"
@@ -70,7 +70,7 @@ def _load_pyproject() -> dict:
 
 
 # --------------------------------------------------------------------------- #
-# T-36 -- the four packaging artifacts exist, and CI's build-installers job
+# The four packaging artifacts exist, and CI's build-installers job
 # references and ships from them.
 # --------------------------------------------------------------------------- #
 _EXPECTED_ARTIFACTS = (
@@ -133,7 +133,7 @@ def test_ci_build_installers_uploads_three_artifacts():
 
 
 # --------------------------------------------------------------------------- #
-# T-37 -- package-data ships the offline User Guide bundle (T-UG-09).
+# package-data ships the offline User Guide bundle (T-UG-09).
 # --------------------------------------------------------------------------- #
 def test_pyproject_package_data_ships_userguide_content():
     data = _load_pyproject()
@@ -144,7 +144,7 @@ def test_pyproject_package_data_ships_userguide_content():
 
 
 # --------------------------------------------------------------------------- #
-# T-39 -- console entry points resolve and answer --help with exit 0.
+# Console entry points resolve and answer --help with exit 0.
 #
 # Resolution is via importlib.metadata, NOT a subprocess call to a PATH
 # shim: this suite must pass in an environment where the project is
@@ -204,5 +204,5 @@ def test_console_script_path_shim_availability_is_recorded_not_required():
 
     on_path = {name: shutil.which(name) is not None for name in _CONSOLE_SCRIPTS}
     # No assertion: this is a recorded observation, not a requirement. The
-    # entry-point resolution tests above are the actual T-39 acceptance.
+    # entry-point resolution tests above are the actual acceptance criterion.
     assert isinstance(on_path, dict)

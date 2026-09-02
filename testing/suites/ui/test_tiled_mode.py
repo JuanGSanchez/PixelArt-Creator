@@ -66,7 +66,7 @@ def test_sc_u015_4_toggle_translatable_and_reachable(qtbot):
 def test_sc_u015_2_painting_past_edge_wraps(make_view):
     """SC-U015-2: painting past the right edge wraps to the opposite (left) edge.
 
-    Re-verifies the AGT-05 fix for DEFECT UI-P2-01: ``PencilTool`` in tiled mode
+    Re-verifies the UI fix for DEFECT UI-P2-01: ``PencilTool`` in tiled mode
     now wraps each raw coord via ``logic.tiled`` before stamping, so a stroke
     crossing the canvas edge paints the opposite side both live and on commit.
     The strict-xfail marker was removed once the fix landed (asserts REAL pass).

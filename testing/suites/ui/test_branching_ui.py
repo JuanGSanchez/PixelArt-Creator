@@ -235,7 +235,7 @@ def test_window_loads_switched_branch_document_into_active_tab(qtbot, make_docum
 
 
 # --------------------------------------------------------------------------- #
-# Branching_Session.record_traces (T14, REQ-P10-UI-025) — minting + guards.   #
+# Branching_Session.record_traces (REQ-P10-UI-025) — minting + guards.        #
 # --------------------------------------------------------------------------- #
 
 
@@ -320,7 +320,7 @@ def test_record_traces_wraps_a_mapping_failure(qtbot, make_document):
 
 
 # --------------------------------------------------------------------------- #
-# Branching_Session.get_branch (T15) — read-only lookup for the diff dialog.  #
+# Branching_Session.get_branch — read-only lookup for the diff dialog.       #
 # --------------------------------------------------------------------------- #
 
 

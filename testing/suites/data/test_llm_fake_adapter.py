@@ -1,4 +1,4 @@
-"""Tests for pixelart_creator.data.llm.fake_adapter (Phase-14 Slice 14B, no Qt).
+"""Tests for pixelart_creator.data.llm.fake_adapter (Phase-14, no Qt).
 
 The deterministic scripted fake is the CI contract for the whole ``LLMPort``
 (ADR-0040 §4; spec REQ-P14-DATA-002; acceptance SC-D002-1) — no network, no key:

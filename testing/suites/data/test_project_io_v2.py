@@ -1,4 +1,4 @@
-"""Tests for the .pixproj schema-v2 layer model + v1 back-compat (T7/T8).
+"""Tests for the .pixproj schema-v2 layer model + v1 back-compat.
 
 Covers pixelart_creator.data.project_io: the v2 round-trip (per-node attributes,
 nested groups, mask bytes, smart-source index-path links), v1 back-compat (flat

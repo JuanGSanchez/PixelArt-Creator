@@ -1,4 +1,4 @@
-"""Tests for pixelart_creator.logic.blend (Phase-4 Slice 4A, T4).
+"""Tests for pixelart_creator.logic.blend (Phase-4, zero Qt).
 
 Covers the 13-member :class:`BlendMode` vocabulary, the per-channel W3C blend
 functions, alpha-aware :func:`blend_arrays` (opacity / mask / immutability), the
@@ -115,7 +115,7 @@ def test_enum_matches_grounded_w3c_separable_set():
 # blend_channel — documented known values + full-mode oracle agreement.        #
 # --------------------------------------------------------------------------- #
 
-# The verified known values quoted in the research report / AGT-03 report.
+# The verified known values quoted in the research report / implementation report.
 KNOWN_VALUES = [
     (BlendMode.MULTIPLY, 128, 128, 64),
     (BlendMode.SCREEN, 0, 200, 200),
@@ -150,7 +150,7 @@ def test_blend_channel_documented_known_values(mode, cb, cs, expected):
 )
 def test_blend_channel_matches_w3c_oracle(mode, cb, cs):
     # Every mode, every representative pair, vs the independent W3C formula.
-    # T13 D5/B4: the compositor now works in float32 (~1e-7 relative precision),
+    # D5/B4: the compositor now works in float32 (~1e-7 relative precision),
     # so the float comparison uses a float32-appropriate 1e-6 tolerance (the
     # float64-era 1e-9 no longer holds); uint8 outputs stay identical (below).
     got = blend_channel(mode, cb / 255.0, cs / 255.0)
@@ -162,7 +162,7 @@ def test_soft_light_cubic_branch_cb_le_quarter():
     # REQ-P4-LOGIC: SOFT_LIGHT D(Cb) cubic branch (Cb <= 0.25) with Cs > 0.5.
     cb, cs = 50 / 255.0, 200 / 255.0  # cb ~= 0.196 -> cubic branch
     assert cb <= 0.25
-    # 1e-6 tolerance: float32 working space (T13 D5); uint8 result asserted below.
+    # 1e-6 tolerance: float32 working space (D5); uint8 result asserted below.
     assert blend_channel(BlendMode.SOFT_LIGHT, cb, cs) == pytest.approx(
         _oracle_b(BlendMode.SOFT_LIGHT, cb, cs), abs=1e-6
     )
@@ -253,9 +253,9 @@ def _grid(seed: int, h: int = 3, w: int = 4) -> np.ndarray:
     return rng.integers(0, 256, size=(h, w, 4), dtype=np.uint8)
 
 
-# T13 B4: for every W3C mode, blend_pixels routes through blend_arrays, so the
+# B4: for every W3C mode, blend_pixels routes through blend_arrays, so the
 # vectorised and per-pixel paths are the SAME float32 computation -> bit-exact.
-# NORMAL is now ALSO bit-exact: AGT-03 gave blend_arrays(NORMAL) a dedicated
+# NORMAL is now ALSO bit-exact: the implementation gave blend_arrays(NORMAL) a dedicated
 # float64 source-over path that matches color.blend_over / blend_pixels(NORMAL)
 # with ZERO tolerance (verified bit-exact over ~4.2M exhaustive pixels). The
 # earlier ±1 LSB float32 drift on the NORMAL cross-path is gone, so every mode
@@ -296,7 +296,7 @@ def test_blend_arrays_normal_base_case_equals_blend_over_exactly():
     # LOGIC-003 (tightened): the NORMAL base case (opacity=1.0, mask=None) is
     # bit-exact -- blend_arrays(NORMAL, src, dst) equals color.blend_over applied
     # elementwise AND equals blend_pixels(NORMAL), with ZERO tolerance. This was
-    # a ±1 LSB comparison while the compositor was float32; AGT-03's dedicated
+    # a ±1 LSB comparison while the compositor was float32; the dedicated
     # float64 source-over path restores exact equality (verified over ~4.2M px).
     src = _grid(1)
     dst = _grid(2)
@@ -509,7 +509,7 @@ def test_composite_hidden_group_is_a_noop():
 
 
 def test_composite_region_scopes_recomposite():
-    # ADR-0007 §Amendment (T13) D1 / B1: region=(x,y,w,h) returns a region-SIZED
+    # ADR-0007 §Amendment D1 / B1: region=(x,y,w,h) returns a region-SIZED
     # (h, w, 4) buffer with implied scene origin (x, y) -- NOT a full-canvas
     # buffer with the outside left transparent. Only in-region reads are valid.
     bottom = _layer(4, 4, RED)
@@ -586,7 +586,7 @@ def test_composite_mask_modulates_layer():
 
 
 # --------------------------------------------------------------------------- #
-# T13 D1/B1/B2 regressions — region-sized return + scene-coordinate mapping.  #
+# D1/B1/B2 regressions — region-sized return + scene-coordinate mapping.     #
 # --------------------------------------------------------------------------- #
 
 
@@ -651,7 +651,7 @@ def test_composite_region_equals_full_canvas_when_region_is_whole_canvas():
 
 
 # --------------------------------------------------------------------------- #
-# T13 D5/B4 regression — float32 working dtype is uint8-invisible for W3C.     #
+# D5/B4 regression — float32 working dtype is uint8-invisible for W3C.       #
 # --------------------------------------------------------------------------- #
 
 # Canonical W3C separable known values (independent of the implementation).
@@ -706,7 +706,7 @@ def test_float32_working_arrays_are_not_float64():
 
 
 # --------------------------------------------------------------------------- #
-# T13 D4/B5 regressions — group flatten cache reuse + no-stale-composite.      #
+# D4/B5 regressions — group flatten cache reuse + no-stale-composite.        #
 # --------------------------------------------------------------------------- #
 
 

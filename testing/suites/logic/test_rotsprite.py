@@ -121,7 +121,7 @@ def test_sc_l013_5_upscale_factor_from_constants():
     assert big.shape[1] == 4 * constants.ROTSPRITE_UPSCALE_FACTOR
 
 
-# --- T-02: the three unasserted ADR-0002 RotSprite pins --------------------
+# --- The three unasserted ADR-0002 RotSprite pins ---------------------------
 
 
 def test_rotsprite_similarity_threshold_is_100_by_identity():

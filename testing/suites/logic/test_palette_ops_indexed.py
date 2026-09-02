@@ -1,6 +1,6 @@
 """Tests for the pure indexed-mode converters in ``logic.palette_ops`` (no Qt).
 
-Covers the RGBA<->indexed *pure* functions AGT-03 kept (REQ-P3-UI-014 logic
+Covers the RGBA<->indexed *pure* functions kept (REQ-P3-UI-014 logic
 support). The reversible **mode-conversion commands** moved up to
 :class:`~pixelart_creator.logic.document.Document` (ADR-0008 D3/D6 — the
 buffer-level ``make_to_indexed_command`` / ``make_to_rgba_command`` and the

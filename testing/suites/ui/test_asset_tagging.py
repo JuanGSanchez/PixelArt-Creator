@@ -1,18 +1,18 @@
 """Asset-tagging + tag undo/redo acceptance (REQ-P11-UI-002, Gherkin: Tagging assets).
 
-Slice 1: the tagging panel adds / removes tags on the selected asset through
+The tagging panel adds / removes tags on the selected asset through
 ``AddTagCommand`` / ``RemoveTagCommand`` pushed on the shared ``QUndoStack`` the
 ``Asset_Library_Session`` owns — so a tag edit is UNDOABLE and, when undone, restores
 the exact prior tag set (and REDO re-applies). The reversible maths lives in the Qt-free
 ``logic/asset_tags`` do/undo pair; the panel only bridges it. Covers add, remove, undo,
 redo, idempotence, and the over-cap rejection.
 
-The over-cap-tag caveat (AGT-05 §7): a bound-exceeding tag raises ``AssetTagError`` at
+The over-cap-tag caveat (UI implementation, §7): a bound-exceeding tag raises ``AssetTagError`` at
 the ``asset_tags`` factory BEFORE any command is built, so no command enters the stack.
 The panel surfaces it as a blocking ``QMessageBox.warning`` — which would hang
 headless — so this suite drives the panel path ONLY under ``mute_message_boxes`` (which
 patches the modal to record-and-return), and additionally asserts the rejection directly
-at the factory (``make_add_tag(desc, oversized)`` raising) per AGT-05's directive.
+at the factory (``make_add_tag(desc, oversized)`` raising) per the UI implementation's directive.
 
 Every test runs under BOTH themes via the autouse ``theme`` fixture; the session is
 synchronous and worker-free, so undo/redo read-backs are immediate.
@@ -148,14 +148,14 @@ def test_remove_with_no_tag_selected_is_a_noop(tagging):
     assert session.undo_stack().count() == 0
 
 
-# -- REQ-P11-UI-002: over-cap tag rejection (the AGT-05 §7 caveat) ------------ #
+# -- REQ-P11-UI-002: over-cap tag rejection (the §7 caveat) --------------------- #
 
 
 def test_over_byte_tag_rejected_at_factory_without_command(tagging, mute_message_boxes):
     """An over-``MAX_TAG_BYTES`` tag is rejected at the factory (no command pushed).
 
     Driven through the panel handler ONLY under ``mute_message_boxes`` so the blocking
-    ``QMessageBox.warning`` (which would hang headless — AGT-05 §7) records instead. The
+    ``QMessageBox.warning`` (which would hang headless — §7) records instead. The
     factory raises before a command is built, so the stack stays empty.
     """
     widget, session = tagging
@@ -168,7 +168,7 @@ def test_over_byte_tag_rejected_at_factory_without_command(tagging, mute_message
 
 
 def test_over_byte_tag_raises_at_the_factory_directly(tagging):
-    """AGT-05 §7 directive: assert the rejection at the pure factory, not the modal."""
+    """The §7 directive: assert the rejection at the pure factory, not the modal."""
     _widget, session = tagging
     descriptor = session.catalog().get("a1")
     with pytest.raises(AssetTagError):

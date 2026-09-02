@@ -1,4 +1,4 @@
-"""T-18 (AGT-06 audit) — REQ-P4-UI-015 budget test at a STATED ceiling.
+"""REQ-P4-UI-015 budget test at a STATED ceiling.
 
 REQ-P4-UI-015 (NFR, Article VI) requires an 8K multi-layer recomposite to hold
 ``FRAME_BUDGET_MS`` (16 ms / 60 fps). ADR-0007 records that the 16 ms figure is
@@ -18,14 +18,14 @@ SHIPPED region-recomposite path (``CanvasScene.refresh_rect``, ADR-0007's
 ``scripts/perf_profile.py --composite`` uses — rather than the tighter 16 ms
 interactive budget, because a UI-level pytest-qt run (import overhead, no
 GPU/driver warm state, shared CI runner) is not the frame-profile harness
-AGT-10 owns; a bare-literal millisecond number is never asserted here (S12 /
-AGT-06 constitution: "NEVER produce a frame-time number" — this test QUOTES
+the performance work owns; a bare-literal millisecond number is never asserted here (S12 /
+this suite's constitution: "NEVER produce a frame-time number" — this test QUOTES
 the shipped constant, it does not invent one). Which tier is the CORRECT
 default gate for a UI-level test is exactly the open question ruling D-21 is
 expected to settle; until then this test uses the loose, already-shipped CI
 tier so it holds without flaking.
 
-**Sampling fix (DEV-21, found 2026-08-18 to 2026-08-20).** This test was
+**Sampling fix (found 2026-08-18 to 2026-08-20).** This test was
 previously a SINGLE cold ``time.perf_counter()`` call with no warm-up and no
 repetition. It failed CI twice under measured shared self-hosted-runner
 contention (suite duration 442-671 s against a 275-340 s quiet baseline — the
@@ -36,7 +36,7 @@ indistinguishable to a single-shot timer from a real regression):
 once the machine was quiet. A median-of-N alone does not fix this: under
 SUSTAINED contention (not a transient spike) every sample in the window is
 slow, so the median is inflated right along with the mean — evidenced
-directly by the sibling overlay test (T-26), which already ran a
+directly by the sibling overlay test, which already ran a
 median-of-3 and still failed at +5.7 %.
 
 The fix taken here is warm-up + **minimum-of-N**, not median-of-N, because
@@ -53,15 +53,15 @@ median" were considered and rejected: both still average across a mix of
 contended and uncontended samples, so both stay inflated for as long as the
 contention itself lasts, which the evidence above shows can span an entire
 671 s suite run — they buy nothing a plain median-of-N did not already buy,
-which the T-26 failure shows is not enough.
+which that sibling failure shows is not enough.
 
 This diverges from ``scripts/perf_profile.py``'s own module docstring, which
 declares its pass/fail rule "median <= budget" FIXED (its CP1 note) for the
-tiling/composite/full-frame profiling modes AGT-10 owns as the frame-budget
+tiling/composite/full-frame profiling modes the performance work owns as the frame-budget
 MEASUREMENT instrument. That rule is UNCHANGED and this file does not touch
 it — ``perf_profile.py`` is not edited by this fix. The two live under
 different constraints: perf_profile.py is invoked deliberately, on a quiet
-machine, by AGT-10, expressly to produce a trustworthy frame-time number;
+machine, by that dedicated harness, expressly to produce a trustworthy frame-time number;
 this file is a CI regression GATE that runs unattended, every push, on a
 shared runner, and needs to hold under exactly the kind of transient load
 perf_profile.py is never run under. COMPOSITE_REGION_CEILING_MS is NOT
@@ -86,12 +86,12 @@ STARTER = [(0, 0, 0, 255), (255, 255, 255, 255), (230, 30, 30, 255)]
 
 #: A modest viewport region + a realistic multi-layer stack (>= 8 layers) — a
 #: mechanism proof of the region-scoped recomposite contract, not a full 8K
-#: exercise (AGT-10's frame-profile owns the measured 8K number).
+#: exercise (the performance work's frame-profile owns the measured 8K number).
 _REGION_W = 256
 _REGION_H = 256
 _LAYERS = 8
 
-#: DEV-21 sampling fix. ``_WARMUP`` calls are timed and discarded (pay the
+#: Sampling fix. ``_WARMUP`` calls are timed and discarded (pay the
 #: scene's one-time compositor state once); ``_SAMPLES`` timed calls feed the
 #: MINIMUM statistic below (module docstring). Both counts are small on
 #: purpose: this scenario's per-call cost is tens of ms (~73-83 ms quiet
@@ -102,14 +102,14 @@ _SAMPLES = 5
 
 
 def test_t18_region_recomposite_holds_the_named_ceiling(qtbot, theme):
-    """REQ-P4-UI-015 (T-18): ``refresh_rect`` over a modest region holds
+    """REQ-P4-UI-015: ``refresh_rect`` over a modest region holds
     ``COMPOSITE_REGION_CEILING_MS`` — the shipped region-scoped recomposite
     path (ADR-0007 D1: a region call allocates only the region, not the whole
     canvas), driven through the real UI-facing entry point.
 
     Asserted against the MINIMUM of ``_SAMPLES`` timed calls (``_WARMUP``
     discarded first), not a single cold call and not a median — see the
-    module docstring's DEV-21 note for why minimum is the correct statistic
+    module docstring's sampling note for why minimum is the correct statistic
     for a ceiling assertion running on a contended shared CI runner.
     """
     doc = Document(_REGION_W * 4, _REGION_H * 4, palette=Palette(STARTER))

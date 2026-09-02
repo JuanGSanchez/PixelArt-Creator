@@ -224,7 +224,7 @@ def test_swap_reversibility_property(a, b):
 
 
 # --------------------------------------------------------------------------- #
-# T-04 — CYCLE_DEFAULT_FPS consumed by identity from constants                 #
+# CYCLE_DEFAULT_FPS consumed by identity from constants                       #
 # --------------------------------------------------------------------------- #
 
 

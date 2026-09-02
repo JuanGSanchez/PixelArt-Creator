@@ -1,4 +1,4 @@
-"""UI/integration test suite (pytest-qt, headless, both themes) — AGT-06.
+"""UI/integration test suite (pytest-qt, headless, both themes).
 
 One test per Phase-1 UI acceptance criterion (Gherkin scenario) from
 ``specs/phase-1-ui-canvas/spec.md`` §11, driven headlessly under

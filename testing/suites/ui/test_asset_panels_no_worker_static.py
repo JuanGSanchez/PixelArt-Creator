@@ -1,4 +1,4 @@
-"""T-28 (AGT-06 audit) — REQ-P11-UI-011 static no-worker / no-shutdown_* guard.
+"""REQ-P11-UI-011 static no-worker / no-shutdown_* guard.
 
 REQ-P11-UI-011 was re-adjudicated (``specs/phase-11-team-asset-management``):
 asset operations complete SYNCHRONOUSLY on the GUI thread — no off-thread

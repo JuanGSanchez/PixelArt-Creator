@@ -222,7 +222,7 @@ def test_export_fixed_map_negative_cell_raises_naming_the_cell():
 
 
 def test_export_infinite_map_negative_cell_still_roundtrips():
-    """T-06: the same negative-coordinate cell on an INFINITE map round-trips.
+    """The same negative-coordinate cell on an INFINITE map round-trips.
 
     Infinite maps store per-chunk data (chunk coordinates may be negative), so
     the bound check that rejects fixed maps must not reject infinite ones.

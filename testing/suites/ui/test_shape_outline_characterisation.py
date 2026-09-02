@@ -1,4 +1,4 @@
-"""Characterisation of outline (hollow) rectangle/ellipse commit, AGT-06 diagnosis.
+"""Characterisation of outline (hollow) rectangle/ellipse commit.
 
 Investigates a hands-on user report: "the rectangle and ellipse tools do not put
 colour when hollow -- they only paint when the filled option is enabled." A

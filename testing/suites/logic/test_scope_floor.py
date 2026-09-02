@@ -1,7 +1,7 @@
 """Tests for pixelart_creator.logic.scope_floor (zero Qt).
 
 Covers REQ-IS-LOGIC-005, REQ-IS-LOGIC-009 (D-15) — Gherkin SC-L005-6,
-SC-L009-1..6 (`design-docs/specs/input-scheme/tasks.md` T-35).
+SC-L009-1..6 (the input-scheme task list).
 
 Besides the floor's own contract (return-silently / raise-on-zero /
 distinguish missing-root from existing-but-empty), SC-L009-3 requires this
@@ -10,10 +10,10 @@ four D-15 guide-enforcement check modules, because the other five D-15
 requirements depend on the floor actually being invoked — a floor nobody
 calls is decoration.
 
-As of this task's authoring (T-35, wave 10) NONE of the four check modules
-have landed yet: check (a) is T-33 (wave 10, AGT-06), checks (b)/(c) are
-T-29 (wave 11, AGT-04) and check (d) is T-34 (wave 11, AGT-04) — all three
-depend on T-32 and, per `tasks.md`, land in later waves than this one. This
+As of this module's authoring NONE of the four check modules
+have landed yet: check (a) is a later wave, checks (b)/(c) are
+a later wave and check (d) is a later wave — all three
+depend on a prior wave and, per the task list, land in later waves than this one. This
 suite does NOT skip that gap quietly: :class:`TestFloorIsCalledByEveryCheckModule`
 enumerates all four expected paths, asserts explicitly (in the pytest
 output, not via ``pytest.skip``) which are present versus not-yet-landed,
@@ -39,7 +39,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 # The four D-15 guide-enforcement check modules that MUST import and call
 # require_non_empty_scope before reporting a verdict (module docstring;
-# tasks.md T-33/T-29/T-34). Path is relative to the repo root.
+# the task list). Path is relative to the repo root.
 _EXPECTED_CHECK_MODULES: dict[str, Path] = {
     "check-a-registry-to-reality": Path(
         "testing/suites/ui/test_binding_registry_reality.py"
@@ -250,16 +250,16 @@ class TestFloorIsCalledByEveryCheckModule:
             # in the pytest summary as an explicit, named "xfailed" entry
             # with this reason attached — visible, not swept under a
             # "passed" count — while still letting the suite exit 0 for a
-            # gap that is EXPECTED and RECORDED (T-33/T-29/T-34 all depend
-            # on T-32 and land in later waves than T-35, per tasks.md).
-            # Once the module lands, this same assertion starts verifying
-            # its import-and-call automatically — nothing here needs an
-            # edit.
+            # gap that is EXPECTED and RECORDED (the check modules all depend
+            # on a prior wave and land in later waves than this one, per the
+            # task list). Once the module lands, this same assertion starts
+            # verifying its import-and-call automatically — nothing here
+            # needs an edit.
             pytest.xfail(
                 reason=(
                     f"{check_name}: {relative_path} does not exist yet "
-                    f"(its owning task has not landed as of T-35, "
-                    f"tasks.md wave ordering — NOT a defect in this test)"
+                    f"(its owning task has not landed as of this module, "
+                    f"task-list wave ordering — NOT a defect in this test)"
                 )
             )
 

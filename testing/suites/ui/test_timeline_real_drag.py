@@ -1,4 +1,4 @@
-"""T-21 (AGT-06 audit) — REAL mouse-drag timeline gestures: scrub vs reorder.
+"""REAL mouse-drag timeline gestures: scrub vs reorder.
 
 ``test_animation_timeline.py`` proves the scrub SEAM
 (``test_ui_002_scrub_updates_without_undo_entry`` emits ``frameScrubbed``
@@ -42,7 +42,7 @@ def _item_center(panel: Timeline_Panel, row: int) -> QPoint:
 
 
 def test_t21_real_mouse_drag_scrubs(qtbot):
-    """T-21: a REAL button-held mouse drag across the strip scrubs (frameScrubbed),
+    """A REAL button-held mouse drag across the strip scrubs (frameScrubbed),
     pushing no undo command — driven with genuine ``qtbot`` mouse events on the
     strip's viewport, not a direct signal emit."""
     doc = _make_doc(3)
@@ -75,7 +75,7 @@ def test_t21_real_mouse_drag_scrubs(qtbot):
 
 
 def test_t21_real_mouse_drag_reorders_or_is_an_honest_discovery(qtbot):
-    """T-21: a REAL mouse drag-and-drop of a frame cell onto another slot should
+    """A REAL mouse drag-and-drop of a frame cell onto another slot should
     reorder the frames (``rowsMoved`` -> exactly one ``FrameCommand``). Qt's
     internal item-view drag needs a genuine ``QDrag::exec()`` — under the
     offscreen QPA platform this may never complete, in which case this is an
@@ -115,7 +115,7 @@ def test_t21_real_mouse_drag_reorders_or_is_an_honest_discovery(qtbot):
         pytest.xfail(
             "CF: a real mouse drag-and-drop on the timeline strip's viewport "
             "never produces a reorder (Qt's internal QDrag does not complete "
-            "under the offscreen QPA platform) — discovered by T-21; the "
+            "under the offscreen QPA platform) — discovered here; the "
             "shipped SC-UI-005-1 coverage only proves the rowsMoved handler, "
             "never a real drag delivering that signal."
         )

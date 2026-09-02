@@ -1,5 +1,5 @@
 """UI acceptance tests for `REQ-IS-UI-027` -- the eleven tool glyphs and their
-loader (T-16).
+loader.
 
 Covers every scenario `tasks.md` assigns to this task, `SC-U027-1..6`:
 
@@ -15,7 +15,7 @@ Covers every scenario `tasks.md` assigns to this task, `SC-U027-1..6`:
   ``text()``), and a tooltip naming the tool and its key.
 - SC-U027-5: the tinted pixmap differs between the light and dark themes at
   the same coordinate, proving the tint is live rather than baked, and a
-  runtime theme switch re-tints the already-mounted icons (T-36's wiring),
+  runtime theme switch re-tints the already-mounted icons (the icon-mounting wiring),
   not just icons resolved fresh.
 - SC-U027-6 (spec-only, review -- authorship of the SVGs is a human
   judgement; the one part of it this module CAN assert in code is D-10's
@@ -27,10 +27,11 @@ catches a renamed tool, a missing glyph, and a stray twelfth file in a single
 line, with a failure message naming which side of the symmetric difference is
 wrong.
 
-This module depends on T-36 (the mounting task), not on T-14 alone --
-`tasks.md`'s 2026-08-30 dependency correction: T-14 only builds the resolver,
-nothing mounted an icon on a `QAction` until T-36, so the bijection and
-non-null-icon assertions could not have passed against T-14 alone.
+This module depends on the icon-mounting wiring, not on the resolver alone --
+a 2026-08-30 dependency correction: the resolver alone only builds the
+lookup; nothing mounted an icon on a `QAction` until that wiring landed, so
+the bijection and non-null-icon assertions could not have passed against the
+resolver alone.
 
 Every test in this module also runs under both the light and the dark QSS
 theme via the autouse ``theme`` fixture in ``conftest.py`` (app-level
@@ -287,7 +288,7 @@ def test_sc_u027_5_tinted_pixmap_differs_between_light_and_dark_theme(qapp, tool
 
 
 def test_sc_u027_5_runtime_theme_switch_retints_mounted_icons(qtbot):
-    """T-36 wired `set_theme` to call `_apply_tool_icons` again.
+    """The icon-mounting wiring wired `set_theme` to call `_apply_tool_icons` again.
 
     Without that wiring the toolbar would keep dark glyphs on a light ground
     (or vice versa) after a runtime switch -- a defect invisible to any test

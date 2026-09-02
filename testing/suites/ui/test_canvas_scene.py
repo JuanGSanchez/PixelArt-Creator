@@ -96,7 +96,7 @@ def test_sc_ui_002_2_resize_updates_scene_rect(make_scene):
     """SC-UI-002-2 (legacy seam): ``on_document_resized`` also updates the scene
     rect, but this entry point is NOT called by any shipped UI action today —
     ``grep`` finds no caller of ``CanvasScene.on_document_resized`` anywhere in
-    ``pixelart_creator/`` (AGT-06 audit, T-14). Kept as a direct-API regression
+    ``pixelart_creator/`` (QA audit). Kept as a direct-API regression
     guard on the method itself; the criterion's SHIPPED coverage is
     ``test_sc_ui_002_2_scale_via_shipped_on_scale_updates_scene_rect`` below,
     which drives the real ``Main_Window._on_scale`` -> ``rebind_active`` ->
@@ -109,7 +109,7 @@ def test_sc_ui_002_2_resize_updates_scene_rect(make_scene):
 
 
 def test_sc_ui_002_2_scale_via_shipped_on_scale_updates_scene_rect(qtbot, monkeypatch):
-    """SC-UI-002-2 (T-14, AGT-06 audit): the scene rect updates through the
+    """SC-UI-002-2 (QA audit): the scene rect updates through the
     SHIPPED, user-reachable resize path — ``Main_Window._on_scale`` accepting
     the ``Scale_Dialog`` -> ``_apply_buffer_command`` (dims-changing) ->
     ``CanvasScene.rebind_active`` -> ``CanvasScene._apply_scene_rect`` — not the
@@ -242,7 +242,7 @@ def test_sc_ui_007_2_grid_appears_past_threshold(make_scene):
 
 # -- REQ-CSD-UI-005 (document geometry is never derived from a single layer) --
 #
-# canvas-scale-defects `spec.md` §4.1/§6, T13 (AGT-06 audit): the shared seam
+# canvas-scale-defects `spec.md` §4.1/§6 (QA audit): the shared seam
 # `CanvasScene.rebind_active` must not author `Document.width`/`height` from
 # any one layer's buffer. The negative invariant rots silently if only
 # pinned by a happy-path number, so SC-CSD-U005-1 below deliberately
@@ -262,7 +262,7 @@ def _build_multi_layer_document(width, height, frame_layer_counts, masks=(), mod
     attribute assignment for test setup, not the reversible
     ``make_attach_mask_command`` path -- no ``Command`` is pushed by it).
     Mirrors the equivalent local helper in ``test_transform_actions.py`` and
-    ``test_document_transform.py``; kept local here (T13's declared write
+    ``test_document_transform.py``; kept local here (this module's declared write
     target is this module alone) rather than imported cross-module.
 
     ``mode`` defaults to :attr:`ColorMode.RGBA` (the ``Document`` default)

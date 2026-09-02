@@ -395,7 +395,7 @@ def test_property_lasso_mask_stays_in_bounds(verts):
         assert xs.max() < 8 and ys.max() < 8
 
 
-# --- T38: extract_masked (SC-P11-UI-013-1 payload clause, unit level) -----
+# --- extract_masked (SC-P11-UI-013-1 payload clause, unit level) ----------
 
 
 def _unique_pixel_buf(w: int, h: int) -> PixelBuffer:

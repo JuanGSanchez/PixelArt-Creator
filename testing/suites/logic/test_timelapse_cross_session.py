@@ -1,12 +1,12 @@
-"""Tests for cross-session replay (T23, REQ-P9-LOGIC-019): a saved,
+"""Tests for cross-session replay (REQ-P9-LOGIC-019): a saved,
 payload-carrying recording replays with NO live history and NO open
 document. No Qt import -- the real Snapshot_Document_Provider is
-ui/timelapse_playback.py (T9); here a local helper built only from
+ui/timelapse_playback.py; here a local helper built only from
 data/snapshot_store.py + data/timelapse_io.py's *_payload functions stands
 in for it, exercising exactly the logic-layer contract those two modules
 hand to `replay`.
 
-**Written against plan.md §8.2/§8.3 (2026-08-17 addendum, AGT-01 Ruling B)**:
+**Written against plan.md §8.2/§8.3 (2026-08-17 addendum, Ruling B)**:
 ``ReconstructionExtent`` is substrate-keyed (``SNAPSHOT`` here, addressed by
 ``reachable_snapshot_ids`` -- a set of content-hash ids, never a count, per
 Ruling B (B-2)), ``Reconstructability`` carries a ``blocker`` code rather
@@ -14,34 +14,33 @@ than an English ``reason``, and ``DocumentProvider`` is keyed by the
 ``TimelapseFrame`` itself (``Callable[[TimelapseFrame], Document]``), not by
 ordinal. This supersedes the shape shipped in this worktree at dispatch
 time; until `logic/timelapse.py` is updated to match, this module fails to
-import -- reported to AGT-03, not silently accommodated (Decision A4-D3).
+import -- reported upstream, not silently accommodated (Decision A4-D3).
 
 SC-L019-1..4 (a saved recording replays after the session ended, is
 deterministic across two application sessions, an incomplete payload is
 reported unplayable rather than partially played, and replaying a loaded
 recording disturbs no open document).
 
-SC-L020-*/SC-L021-* (the measurement campaign + extrapolation model, T19/T20,
-owned by AGT-10) are NOT covered here: as of this session neither
-`design-docs/reports/perf-timelapse-payload-campaign-20260817.md` nor
-`design-docs/reports/timelapse-cost-extrapolation-model-20260817.md` exists
-(T23 depends on both). Per T23's own done-when, no test in this file may
+SC-L020-*/SC-L021-* (the measurement campaign + extrapolation model,
+owned by the performance work) are NOT covered here: as of this session neither
+the payload-campaign report nor the cost-extrapolation-model report exists
+yet. No test in this file may
 assert a projected number or an 8K threshold in any case; asserting on the
-reports' *existence* before AGT-10 has produced them would be a test
+reports' *existence* before they have been produced would be a test
 authored to fail, which is not what a dependency gap calls for -- reported
-as BLOCKED on AGT-10 instead (see the accompanying report).
+as BLOCKED on that upstream work instead (see the accompanying report).
 
-**Re-keyed 2026-08-18 (Q-21, T33/T35/T47) onto the stable frame identity**
+**Re-keyed 2026-08-18 (Q-21) onto the stable frame identity**
 (REQ-P9-LOGIC-022, REQ-P9-DATA-005). ``data/timelapse_io.py``'s
 ``serialize_payload``/``save_session_payload`` now write **only** schema 3
 (identity-bearing) -- a schema-2 (payload-carrying, no-identity) session
 raises ``TimelapseIOError`` if handed to either. Every session this module
 builds and SAVES is therefore now schema 3: a per-recording id plus one
 ``recording_id:command_id`` identity per frame (mirroring the shape
-``ui/timelapse_controls.py`` mints, T34), matching the
+``ui/timelapse_controls.py`` mints), matching the
 ``^[0-9a-f]{32}:[0-9]+$`` pattern `data/timelapse_io.py` itself checks on
-load. **Substitution (old assertion -> new assertion, listed per T47's
-done-when -- no assertion was deleted):**
+load. **Substitution (old assertion -> new assertion, listed per this
+re-key's done-when -- no assertion was deleted):**
 
 - ``_record_and_save`` -- OLD: built a schema-2
   ``TimelapseSession(schema_version=TIMELAPSE_PAYLOAD_SCHEMA_VERSION, ...)``
@@ -92,10 +91,10 @@ RED = (255, 0, 0, 255)
 BLUE = (0, 0, 255, 255)
 GREEN = (0, 255, 0, 255)
 
-#: A fixed, 32-lowercase-hex-char per-module recording id (Q-21, T47
+#: A fixed, 32-lowercase-hex-char per-module recording id (Q-21
 #: re-key) -- matches the shape `data/timelapse_io.py` validates
 #: (`^[0-9a-f]{32}:[0-9]+$`, prefixed by this value). This module is
-#: Qt-free and mints nothing itself (that stays ui/'s job, T34); a fixed
+#: Qt-free and mints nothing itself (that stays ui/'s job); a fixed
 #: string is all a *validating* test needs.
 _RECORDING_ID = "cafecafecafecafecafecafecafecafe"
 
@@ -113,9 +112,9 @@ def _document(pixel) -> Document:
 def _record_and_save(tmp_path, pixels, name="rec"):
     """Build+save an identity-bearing (schema-3) session, one frame per pixel
     value -- mirrors what a real in-session Snapshot_Document_Provider
-    recording (T9) would persist through save_session_payload, now that
+    recording would persist through save_session_payload, now that
     schema 2 is read-only legacy and the write path requires identity
-    (Q-21, T47 substitution, module docstring)."""
+    (Q-21 substitution, module docstring)."""
     snapshots = {}
     blobs = {}
     frames = []
@@ -142,7 +141,7 @@ def _record_and_save(tmp_path, pixels, name="rec"):
 
 
 def _provider_from_payload(payload):
-    """The logic-layer contract a real Snapshot_Document_Provider (T9)
+    """The logic-layer contract a real Snapshot_Document_Provider
     fulfils: given a FRAME (Ruling B §8.3 -- not an ordinal), resolve its
     persisted snapshot -- no live history, no open document involved."""
 
@@ -238,9 +237,9 @@ def test_sc_l019_3_incomplete_payload_reports_unplayable_naming_the_frame(tmp_pa
     # snapshot -- a legitimate schema-3 shape (snapshot_id is optional) that
     # models a truncated/incomplete recording at the logic layer (the data
     # layer's own malformed/fingerprint-mismatch rejections are covered by
-    # testing/suites/data/test_timelapse_io_schema3.py, T40). Every frame -- including
+    # testing/suites/data/test_timelapse_io_schema3.py). Every frame -- including
     # the deliberately-incomplete one -- still carries its identity: identity
-    # and payload-completeness are orthogonal (T47 substitution, module
+    # and payload-completeness are orthogonal (this re-key's substitution, module
     # docstring), and NO_PAYLOAD must be reached before PAYLOAD_INCOMPLETE
     # would ever apply, never masked by a missing identity.
     pixels = [RED, BLUE, GREEN]

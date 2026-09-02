@@ -1,14 +1,14 @@
-"""Cross-project reuse over DURABLE, persisted reference sets (T22, REQ-P11-UI-021).
+"""Cross-project reuse over DURABLE, persisted reference sets (REQ-P11-UI-021).
 
 ``test_asset_reuse.py`` already proves ``Asset_Reuse_Panel``'s reference-not-copy
 mechanics and the shared/not-shared marker over its own in-panel scratch state
 (``add_project`` + ``_on_reference`` building a project's set from nothing, in one
 process, never touching disk). This file does **not** restate those assertions
-(D2 re-scope, ``tasks.md`` T22). It extends them along the one axis that file never
+(D2 re-scope). It extends them along the one axis that file never
 exercises: **real ``.pixproj`` persistence** — ``data/project_io.save_project`` /
 ``load_project_with_asset_refs`` round trips at ``FORMAT_VERSION 6`` — bound into the
 panel through ``Asset_Reuse_Panel.set_project_reference_set``, the durable code path
-T13 added over the pure :class:`~pixelart_creator.logic.asset_references.ReferenceSet`
+this module adds over the pure :class:`~pixelart_creator.logic.asset_references.ReferenceSet`
 model.
 
 Six acceptance scenarios (``SC-P11-UI-021-1``..``-6``, spec.md "Reuse without
@@ -40,7 +40,7 @@ Every test runs under BOTH light and dark themes via the autouse ``theme`` fixtu
 UI-visible and are asserted on the rendered tree text in every run, so both themes
 exercise the same assertions (light/dark differ only in styling, never in text).
 
-Temp hygiene (DEV-36a): every project file and every CAS blob lives under pytest's
+Temp hygiene: every project file and every CAS blob lives under pytest's
 own ``tmp_path`` (per-test, self-cleaned, never a real per-user location); the suite
 is invoked with ``--basetemp`` rooted under ``D:\\tmp`` — never ``C:``.
 """
@@ -245,7 +245,7 @@ def test_sc_021_4_asset_in_two_open_disk_backed_projects_is_marked_shared(
 ):
     """An asset referenced by two OPEN, disk-backed projects is marked Shared; one
     referenced by a single project is not (SC-P11-UI-021-4), over the durable
-    ``set_project_reference_set`` path T13 added — never the panel's own
+    ``set_project_reference_set`` path this module adds — never the panel's own
     ``add_project`` + ``_on_reference`` scratch state ``test_asset_reuse.py`` already
     covers.
     """
@@ -391,11 +391,11 @@ def test_sc_021_6_renaming_a_library_asset_breaks_no_project_reference(tmp_path,
     assert hero_row.text(0) == "Champion"
 
 
-# -- T35 (DEV-41's proof): a kept-edited reference reads as resolved ---------- #
+# -- A kept-edited reference reads as resolved -------------------------------- #
 
 
 def test_t35_kept_edited_reference_resolves_missing_stays_not_found(tmp_path, qtbot):
-    """T34's fix is a partition of one predicate; asserting one branch proves
+    """The fix is a partition of one predicate; asserting one branch proves
     nothing about the other, so both are asserted here, in the same run.
 
     ``"hero"`` is IN the catalog but under a content_hash that DIFFERS from the
@@ -405,7 +405,7 @@ def test_t35_kept_edited_reference_resolves_missing_stays_not_found(tmp_path, qt
     the reference's stale ``last_known_name``. ``"ghost"`` is absent from the
     catalog entirely (``STATE_MISSING``, untouched by the fix) and must still
     render ``"Not found in library"`` under its own ``last_known_name``. The
-    missing COUNT is unaffected by the fix (T34 Step 1 — ``missing()`` is not
+    missing COUNT is unaffected by the fix (step 1 — ``missing()`` is not
     widened): both references are unresolved by ``resolve_states``' boolean, so
     the count is 2, same as it would have been before the fix.
     """

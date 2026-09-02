@@ -1,6 +1,6 @@
 """Dependency-graph view acceptance (REQ-P11-UI-005, Gherkin: Dependency graph queryable).
 
-Slice 2: ``Dependency_Graph_View`` visualises the depends-on (``dependencies_of``) and
+``Dependency_Graph_View`` visualises the depends-on (``dependencies_of``) and
 referenced-by (``dependents_of``) relations for the whole catalog or the selected asset,
 reading exactly the pure ``logic/dependency_graph`` queries (no domain logic in the
 widget — Article I / S11). It renders only the DIRECT neighbours the model returns, so a
@@ -10,7 +10,7 @@ last good graph.
 
 Every test runs under BOTH light and dark themes via the autouse ``theme`` fixture. All
 graph/break queries are synchronous, worker-free, in-memory calls over the immutable
-:class:`DependencyGraph` value (the Slice-1 ``Asset_Library_Session`` precedent), so a
+:class:`DependencyGraph` value (the ``Asset_Library_Session`` precedent), so a
 read-back assertion follows the call immediately with no ``qtbot.wait``.
 
 The canonical fixture is the ROADMAP ``sprite -> animation -> tileset -> tilemap`` graph:

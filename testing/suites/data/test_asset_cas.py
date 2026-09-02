@@ -3,7 +3,7 @@
 Covers the content-addressable store (ADR-0030 §4; REQ-P11-DATA-004/-005): DEDUP
 (same content stored once — a Hypothesis property over byte blobs), content-hash
 VERIFICATION on fetch (a tampered blob is rejected), invalid-key rejection, and the
-``MAX_BLOB_BYTES`` boundary enforced from ``logic/constants`` (not a literal). T11-1-10.
+``MAX_BLOB_BYTES`` boundary enforced from ``logic/constants`` (not a literal).
 """
 
 from __future__ import annotations

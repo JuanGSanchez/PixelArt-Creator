@@ -1,5 +1,5 @@
 """Tests for the reversible cross-frame cel operations on
-pixelart_creator.logic.document (REQ-P5-LOGIC-016, T14): make_move_cel_command,
+pixelart_creator.logic.document (REQ-P5-LOGIC-016): make_move_cel_command,
 make_copy_cel_command and make_create_cel_command.
 
 Covers ``SC-L016-1``..``-7``. The load-bearing assertions: undo after an

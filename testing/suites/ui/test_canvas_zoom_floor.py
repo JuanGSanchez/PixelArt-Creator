@@ -230,7 +230,7 @@ def test_sc_cgs_ui_008_1_floor_holds_via_wheel_gesture(make_view):
     into ``view.wheelEvent`` -- enough of them to reach and then try to pass
     the floor.
 
-    INVERTED 2026-08-31 (T-22, D-16/REQ-IS-UI-008,-009): the wheel gesture
+    INVERTED 2026-08-31 (D-16/REQ-IS-UI-008,-009): the wheel gesture
     that reaches this route now requires ``Shift`` held -- plain wheel
     travels Favourites instead (REQ-IS-UI-008) and does not reach
     ``_zoom_wheel``/``_clamp_zoom`` at all. This test's job -- proving the

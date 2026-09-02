@@ -1,6 +1,6 @@
-"""Phase-14 Slice 14E — AI-assistant chat dock UI/integration tests (AGT-06).
+"""Phase-14 — AI-assistant chat dock UI/integration tests.
 
-One pytest-qt test per Slice-14E acceptance criterion (``SC-UI-001-1`` ..
+One pytest-qt test per acceptance criterion (``SC-UI-001-1`` ..
 ``SC-UI-006-1``), driven **headlessly** (offscreen) against the deterministic scripted
 :class:`~pixelart_creator.data.llm.fake_adapter.FakeLLMAdapter` — **no network, no real
 key, no real keyring**. Both themes are exercised automatically (the autouse ``theme``
@@ -598,7 +598,7 @@ def test_dock_and_dialog_render_in_current_theme(qtbot, make_dock, theme):
 
 
 # --------------------------------------------------------------------------- #
-# i18n retranslate smoke (SC-UI-007-1 is owned by AGT-07; this guards the dock)  #
+# i18n retranslate smoke (SC-UI-007-1 is owned by localisation; this guards the dock) #
 # --------------------------------------------------------------------------- #
 
 
@@ -727,7 +727,7 @@ def test_main_window_shutdown_drains_assistant_controller(qtbot):
 
 
 # --------------------------------------------------------------------------- #
-# T-29 (AGT-06 audit) — REQ-P14-UI-004 literal Given: the GUI stays live       #
+# REQ-P14-UI-004 literal Given: the GUI stays live                            #
 # during a slow turn (a fake adapter with an injected delay).                 #
 # --------------------------------------------------------------------------- #
 
@@ -750,7 +750,7 @@ class _SlowFakeAdapter(FakeLLMAdapter):
 
 
 def test_t29_gui_stays_responsive_during_a_slow_turn(qtbot, make_dock):
-    """REQ-P14-UI-004 (T-29): with a scripted reply delayed on the worker thread,
+    """REQ-P14-UI-004: with a scripted reply delayed on the worker thread,
     the GUI event loop keeps pumping (heartbeat processEvents calls succeed and
     accumulate) WHILE the turn is in flight — proving the agentic loop truly
     runs off the GUI thread, not just that it eventually finishes."""

@@ -1,4 +1,4 @@
-"""Portable-bundle export / round-trip tests for ``asset_export`` (Slice 13B, no Qt).
+"""Portable-bundle export / round-trip tests for ``asset_export`` (no Qt).
 
 Covers REQ-P13-DATA-006 / SC-P13-DATA-006-1 (ADR-0037): a single ``.pixbundle`` file
 is **self-contained** — it embeds the ``.pixproj`` project payload AND every referenced
@@ -8,7 +8,7 @@ resolution** (no re-implemented CAS: the bundled blob set is exactly the resolve
 reference set, dedup honoured, unreferenced blobs excluded). A project WITH referenced
 assets and the empty/no-reference edge both round-trip model-equal on import.
 
-Zero Qt; deterministic; Hypothesis for the blob-set property. T13B-04.
+Zero Qt; deterministic; Hypothesis for the blob-set property.
 """
 
 from __future__ import annotations

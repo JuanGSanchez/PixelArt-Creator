@@ -1,4 +1,4 @@
-"""Default-unchanged hosting behaviour (Phase-13 Slice 13C, T13C-05).
+"""Default-unchanged hosting behaviour (Phase-13).
 
 Proves REQ-P13-BACKEND-003 / SC-P13-BACKEND-003-1: VPS self-hosting is **one** option,
 not a forced default. With the 13C artifacts ignored, the app + backend behave

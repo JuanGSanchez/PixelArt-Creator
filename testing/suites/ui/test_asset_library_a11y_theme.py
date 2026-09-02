@@ -1,6 +1,6 @@
-"""Asset-library a11y, both themes, i18n (REQ-P11-UI-008/-009/-010 for Slice 1).
+"""Asset-library a11y, both themes, i18n (REQ-P11-UI-008/-009/-010).
 
-Every interactive control on the three Slice-1 panels (library / tagging / search)
+Every interactive control on the three asset-library panels (library / tagging / search)
 exposes a non-empty accessible name, is keyboard-reachable (focus policy other than
 ``NoFocus``), and the single-selection views make an unambiguous target
 (REQ-P11-UI-008); the panels render under both QSS themes with role-based colours and no
@@ -28,7 +28,7 @@ from pixelart_creator.ui.asset_tagging_panel import Asset_Tagging_Panel
 
 @pytest.fixture
 def panels(qtbot):
-    """The three bound Slice-1 panels over one session holding a selected asset."""
+    """The three bound asset-library panels over one session holding a selected asset."""
     session = Asset_Library_Session(
         catalog=AssetCatalog(
             descriptors=(

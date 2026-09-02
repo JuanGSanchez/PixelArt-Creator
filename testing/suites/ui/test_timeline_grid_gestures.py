@@ -1,4 +1,4 @@
-"""Timeline grid gesture acceptance tests (T17; REQ-P5-UI-025, -031).
+"""Timeline grid gesture acceptance tests (REQ-P5-UI-025, -031).
 
 Every drag here is driven by **real qtbot mouse events** on the grid's
 viewport/header viewports, never by calling the internal seam
@@ -10,7 +10,7 @@ document. Both themes run via the autouse ``theme`` fixture.
 Coverage note (correction, dated after the wiring landed): ``REQ-P5-UI-031``'s
 "empty cell offers 'create a cel here'" affordance (``SC-UI-031-5``) was
 previously recorded here as blocked on UI wiring for
-``Document.make_create_cel_command``. AGT-05 landed the two call sites in
+``Document.make_create_cel_command``. The UI layer landed the two call sites in
 ``ui/timeline_grid_view.py`` (``_on_context_menu_requested`` /
 ``_create_cel_here``) concurrently with an earlier run of this module; the
 ``pytest.skip`` below was stale by the time this file was next touched and is
@@ -633,7 +633,7 @@ def test_sc_ui_031_5_no_create_affordance_at_max_layers_per_frame(qtbot, monkeyp
 
 
 # --------------------------------------------------------------------------- #
-# Branch-coverage close-out (T17 gate; REQ-P5-UI-025/-031) — the refusal      #
+# Branch-coverage close-out (REQ-P5-UI-025/-031) — the refusal                #
 # paths, the drops that land outside the grid, and the defensive races a     #
 # real single-user gesture sequence never happens to trigger. Every gesture  #
 # below is still a real qtbot mouse/key event or a real public Qt signal     #
@@ -843,7 +843,7 @@ def test_header_section_moved_same_position_pushes_nothing(qtbot):
 # branch some other way — the two lines they targeted
 # (ui/timeline_grid_view.py: the `new_visual` range check and the
 # `except DocumentError` around `make_move_frame_command`) remain NOT
-# covered by this suite; reported to AGT-05 as a finding below rather than
+# covered by this suite; reported to the UI layer as a finding below rather than
 # risked again here.
 
 

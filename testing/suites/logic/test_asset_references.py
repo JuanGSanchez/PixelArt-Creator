@@ -1,17 +1,17 @@
 """Unit tests for :mod:`pixelart_creator.logic.asset_references` (S11, no Qt).
 
-Covers the T29 three-state predicate (``REQ-P11-UI-021``, ``-022``; plan.md ruling
+Covers the three-state predicate (``REQ-P11-UI-021``, ``-022``; plan.md ruling
 P11-R9 §3.11 (1)/(1b)): the three states (``STATE_RESOLVED`` / ``STATE_EDITED`` /
 ``STATE_MISSING``) constructed from concrete values, the invariant tying
 ``missing()``'s membership to ``reference_states()`` (the regression contract named
-in plan §3.11 (1b) and task T32's Done-when — "the test that catches a future
+in plan §3.11 (1b) — "the test that catches a future
 widening of ``missing()``"), the ``edited_ids`` / ``edit_tokens`` subset and keys
 relationship, the token's source (the catalog entry's *current* ``content_hash``,
 never the reference's own), and ground 4 of the same ruling: a restored earlier
 revision presents as ``STATE_EDITED`` by design, never as a false-positive
 ``STATE_RESOLVED``.
 
-Pure logic only: no Qt import, no ``data/`` import, no I/O. T32.
+Pure logic only: no Qt import, no ``data/`` import, no I/O.
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ def make_descriptor(
 
 
 # --------------------------------------------------------------------------- #
-# Module hygiene: zero Qt, zero data/ import (S11; T32 Done-when)             #
+# Module hygiene: zero Qt, zero data/ import (S11)                           #
 # --------------------------------------------------------------------------- #
 
 
@@ -165,7 +165,7 @@ def _mixed_fixture():
 def test_missing_equality_holds_over_a_set_mixing_all_three_states() -> None:
     """``missing(...) == {id : state != STATE_RESOLVED}`` — the widening guard.
 
-    This is the test task T32's Done-when names explicitly as "the test that
+    This is what the regression contract names explicitly as "the test that
     catches a future widening of ``missing()``": if a future change made
     ``missing()`` disagree with ``reference_states()`` (e.g. by adding a fourth
     state that ``missing()`` failed to treat as unresolved, or by narrowing

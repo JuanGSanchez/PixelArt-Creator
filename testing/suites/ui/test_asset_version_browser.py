@@ -1,6 +1,6 @@
 """Asset version browser acceptance (REQ-P11-UI-004, Gherkin: version browser restore).
 
-Slice 3: ``Asset_Version_Browser`` lists a selected asset's revisions **in order** with
+``Asset_Version_Browser`` lists a selected asset's revisions **in order** with
 their metadata (created marker / author), lets the user **inspect** a revision, and
 **restores** a prior one as a **new head** (append-only — the earlier revisions remain).
 It holds NO domain logic (Article I / S11): the history it shows is exactly the ordered
@@ -11,7 +11,7 @@ the session's ``catalogChanged`` fires and the other panels revalidate.
 
 Every test runs under BOTH light and dark themes via the autouse ``theme`` fixture. The
 store is synchronous and worker-free (in-memory CAS), so a read-back assertion follows
-each call immediately with no ``qtbot.wait`` (the Slice-1/2 precedent).
+each call immediately with no ``qtbot.wait`` (the established precedent).
 
 The canonical fixture records three distinct revisions of one sprite asset (v1 -> v2 ->
 v3) so the head is v3, all three are ordered in the browser, and restoring v1 appends a
@@ -281,7 +281,7 @@ def test_buttons_enable_only_when_a_revision_is_selected(browser):
     assert widget._restore_button.isEnabled()
 
 
-# -- Criterion 7: a11y (TG-05 Slice-3) ---------------------------------------- #
+# -- Criterion 7: a11y (TG-05) ------------------------------------------------ #
 
 
 def test_browser_controls_have_accessible_names(browser):

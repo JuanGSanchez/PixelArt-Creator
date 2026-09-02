@@ -8,7 +8,7 @@ UI*), driving the PySide6 canvas + layer panel headlessly
 **both** themes via the autouse ``theme`` fixture (the global light/dark rule +
 REQ-P12-UI-001 "both themes behave identically").
 
-Grounded in ADR-0034 (incl. the 2026-07-07 amendment) and the AGT-10 Slice-B
+Grounded in ADR-0034 (incl. the 2026-07-07 amendment) and the performance work's Slice-B
 directive ``docs/perf/phase12-sliceB-directive.md``. Bindings under test (shipped):
 
 - ``CanvasScene.begin_opacity_drag`` builds the drag-scoped ``_OpacityDragCache``
@@ -24,12 +24,12 @@ directive ``docs/perf/phase12-sliceB-directive.md``. Bindings under test (shippe
   separable modes (the ADR amendment: NOT the ``above``-pre-flatten fast path,
   which can diverge <= 2 LSB on partial-alpha content).
 
-Scope note (AGT-06): these are UI/integration tests. The pure-logic byte-exactness
-of ``composite_range`` across all modes + the perf gate are AGT-04's logic tests;
+Scope note: these are UI/integration tests. The pure-logic byte-exactness
+of ``composite_range`` across all modes + the perf gate are the logic suite's logic tests;
 here we assert the *wired UI lifecycle* (preview path engaged + bounded, commit
 byte-exact from the panel, cache invalidation, a11y) — one per acceptance criterion.
 
-T12-B-03 scale note (AGT-06, 2026-07-30): T12-B-03 requires byte-exact viewport
+Scale-ceiling clause note (2026-07-30): the scale-ceiling clause requires byte-exact viewport
 recomposite "up to 1920x1920, >= 12 layers". Every byte-exact test above this note
 runs at 300x300/12 layers (a mechanism proof, not the clause's own scale). The
 clause's literal ceiling is covered by ONE opt-in, ``slow``-marked test further
@@ -78,7 +78,7 @@ _H = 300
 #: Many-layer stack (>= 12) — the FU-16b modelled case (baseline 2.2-7 s cache-cold).
 _LAYERS = 12
 
-#: T12-B-03's own scale ceiling ("byte-exact viewport recomposite up to 1920x1920,
+#: The scale-ceiling clause's own scale ceiling ("byte-exact viewport recomposite up to 1920x1920,
 #: >= 12 layers"). Measured at ~50-90 s for the two theme-parametrised invocations
 #: (see test docstring below), so it is opt-in (env-gated + ``slow``-marked, the
 #: SAME double-gate convention as ``testing/suites/deploy/test_nginx_wss_localhost.py`` and
@@ -132,7 +132,7 @@ def _make_env(
     whole canvas is the culled viewport region ``V`` (a genuine LOD factor > 1).
     ``width``/``height`` default to the module's ``_W``/``_H`` (300x300) so every
     existing call site is unaffected; a caller may pass a larger canvas (e.g. the
-    T12-B-03 opt-in scale test) without changing the default env for any other test.
+    the scale-ceiling clause's opt-in scale test) without changing the default env for any other test.
     ``show`` defaults to ``False`` (existing behaviour, unshown widget): an UNSHOWN
     ``QGraphicsView``'s viewport keeps a fixed initial layout size on this Qt build
     (observed 624x464 under the offscreen platform) regardless of ``resize()``, which
@@ -199,7 +199,7 @@ def _region_ref(
     ``composite_stack(region=...)`` is the shipped compositor the commit must match
     byte-for-byte (REQ-P12-LOGIC-004 / ADR-0034 §3). ``width``/``height`` default to
     the module's ``_W``/``_H`` (300x300, matching every existing call site's default
-    ``region``); the T12-B-03 scale test passes its own 1920x1920 canvas size.
+    ``region``); the scale-ceiling clause's scale test passes its own 1920x1920 canvas size.
     """
     return composite_stack(nodes, width, height, region=region).data
 
@@ -369,16 +369,16 @@ def test_commit_is_deterministic(qtbot, theme):
 
 
 # --------------------------------------------------------------------------- #
-# T12-B-03 — byte-exact commit at the task's OWN scale ceiling (opt-in, slow)  #
+# The scale-ceiling clause — byte-exact commit at its OWN scale ceiling (opt-in, slow) #
 # --------------------------------------------------------------------------- #
 
 
 @pytest.mark.slow
 def test_commit_byte_exact_at_1920_scale_12_layers_opt_in(qtbot, theme):
-    """T12-B-03: byte-exact viewport recomposite AT its own stated scale.
+    """The scale-ceiling clause: byte-exact viewport recomposite AT its own stated scale.
 
     Every other byte-exact test in this module runs at 300x300/12 layers — a
-    correctness proof of the *mechanism*, not of the ``T12-B-03`` clause itself
+    correctness proof of the *mechanism*, not of the scale-ceiling clause itself
     ("byte-exact viewport recomposite up to 1920x1920, >= 12 layers"). This test
     exercises the identical commit path
     (``begin_opacity_drag`` -> live opacity change -> ``refresh_visible`` commit)
@@ -392,7 +392,7 @@ def test_commit_byte_exact_at_1920_scale_12_layers_opt_in(qtbot, theme):
     ``testing/suites/deploy/test_vps_localhost.py``'s Docker path): a single commit
     at this scale costs several seconds of vectorised NumPy work (measured
     locally, Python 3.13.13 / PySide6 6.11.1 / offscreen: ~24 s per theme
-    instance, ~48 s for both together — see AGT-06's report for the exact
+    instance, ~48 s for both together — see the QA report for the exact
     command + output), and this suite runs under both light AND dark automatically (the
     autouse ``theme`` fixture) — a bad trade for the DEFAULT gate to pay on
     every run just to prove one documentation clause. It is genuinely GREEN
@@ -437,10 +437,10 @@ def test_commit_byte_exact_at_1920_scale_12_layers_opt_in(qtbot, theme):
 
 
 # --------------------------------------------------------------------------- #
-# T-30 (AGT-06 audit) — 16 ms per-tick preview assertion AT >= 1080^2 (opt-in) #
+# 16 ms per-tick preview assertion AT >= 1080^2 (opt-in)                       #
 # --------------------------------------------------------------------------- #
 
-#: T-30's own scale floor ("16 ms per-tick opacity-drag preview ... at >= 1080^2").
+#: This clause's own scale floor ("16 ms per-tick opacity-drag preview ... at >= 1080^2").
 #: OPACITY_PREVIEW_MAX_PX's own docstring grounds the preview holding 16 ms "up
 #: to ~1080-1280^2 viewports on the 2-core runner" — this test exercises that
 #: literal floor. Same double-gate opt-in convention as
@@ -453,7 +453,7 @@ _TICK_EDGE = 1080
 
 @pytest.mark.slow
 def test_per_tick_preview_holds_16ms_at_1080_squared_opt_in(qtbot, theme):
-    """T-30: a single throttled preview tick, at the literal >= 1080^2 floor,
+    """A single throttled preview tick, at the literal >= 1080^2 floor,
     holds ``FRAME_BUDGET_MS`` (16 ms).
 
     **Two-tier model (provisional, pending ruling D-21).** ``FRAME_BUDGET_MS``
@@ -463,7 +463,7 @@ def test_per_tick_preview_holds_16ms_at_1080_squared_opt_in(qtbot, theme):
     a loose CI-gate constant like ``COMPOSITE_REGION_CEILING_MS``) is deliberate
     here because that IS this path's own designed contract. It is still opt-in
     (env var + ``slow`` marker) because a single tick on a shared, noisy 2-core CI
-    runner is not the dedicated frame-profile harness (AGT-10 owns that
+    runner is not the dedicated frame-profile harness (the performance work owns that
     measurement) and a bare per-test wall-clock assertion at exactly the design
     edge would flake there; run explicitly to verify the contract on demand.
 

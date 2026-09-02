@@ -1,7 +1,7 @@
 """Visual-aids i18n retranslate tests (REQ-P9-UI-014, behavioural).
 
-Scenario SC-UI-014-1 is enforced at ship by AGT-07's ``string_audit_check`` (no
-bare literals). This module verifies the *behavioural* half AGT-06 owns: the
+Scenario SC-UI-014-1 is enforced at ship by the localisation owner's ``string_audit_check`` (no
+bare literals). This module verifies the *behavioural* half this suite owns: the
 hand-built aid widgets re-set their user-visible text on ``QEvent.LanguageChange``
 without error and never expose an empty label. Both themes via the autouse fixture.
 """

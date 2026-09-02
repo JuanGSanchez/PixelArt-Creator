@@ -1,6 +1,6 @@
 """Asset-library browse + session acceptance (REQ-P11-UI-001, Gherkin: Asset catalog).
 
-Slice 1: the library panel lists the shared session catalog's entries by name / kind /
+The library panel lists the shared session catalog's entries by name / kind /
 tags via the injected ``Asset_Library_Session`` seam (NO filesystem — the catalog is fed
 in memory via ``set_catalog`` / ``add_descriptor``), re-reads on ``catalogChanged`` so
 adding / removing an asset updates the panel, and follows the selection by emitting
@@ -10,7 +10,7 @@ replace_descriptor) that all three panels share.
 
 Every test runs under BOTH light and dark themes via the autouse ``theme`` fixture. The
 session is synchronous and worker-free, so a read-back assertion follows the call
-immediately with no ``qtbot.wait`` (AGT-05 §7).
+immediately with no ``qtbot.wait``.
 """
 
 from __future__ import annotations

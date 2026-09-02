@@ -1,4 +1,4 @@
-"""Cross-platform UI portability acceptance tests (Slice 13A; Researcher Q5).
+"""Cross-platform UI portability acceptance tests (Researcher Q5).
 
 Covers the two Q5-flagged GUI risks:
 

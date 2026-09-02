@@ -1,4 +1,4 @@
-"""Cel overwrite confirmation acceptance tests (T18; REQ-P5-UI-033,
+"""Cel overwrite confirmation acceptance tests (REQ-P5-UI-033,
 REQ-P5-DATA-004).
 
 Two layers of coverage:

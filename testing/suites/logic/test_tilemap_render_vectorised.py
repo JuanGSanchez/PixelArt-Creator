@@ -1,4 +1,4 @@
-"""Re-test of the vectorised ``Tilemap.render_region`` (AGT-03 perf rewrite).
+"""Re-test of the vectorised ``Tilemap.render_region`` (perf rewrite).
 
 The Phase-6 render path was rewritten to a per-chunk numpy gather -> resolve
 -> vectorised flip -> scatter -> assemble -> crop pipeline, with a single-layer
@@ -7,7 +7,7 @@ an exact per-cell blit fallback for non-uniform tile sizes. A new O(1)
 ``Tilemap.chunk_version(cx, cy)`` per-chunk cache-version API was added.
 
 These tests lock the rewrite against regressions (the render signature and
-pixel-space semantics are UNCHANGED, per AGT-03's report):
+pixel-space semantics are UNCHANGED, per the implementation report):
 
 * fast (vectorised) vs fallback (per-cell blit) byte-identity via an independent
   per-cell oracle renderer (never calls the vectorised gather/scatter code);

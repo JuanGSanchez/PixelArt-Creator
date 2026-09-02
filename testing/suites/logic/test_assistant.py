@@ -1,4 +1,4 @@
-"""Tests for pixelart_creator.logic.assistant (Phase-14 Slice 14B, no Qt).
+"""Tests for pixelart_creator.logic.assistant (Phase-14, no Qt).
 
 Covers the wire-neutral assistant vocabulary + the ``ChatBackend`` bridge
 (ADR-0040 §2; spec REQ-P14-DATA-001; acceptance SC-D001-1):
@@ -214,7 +214,7 @@ def test_assistant_module_contains_no_eval_or_exec():
 
 
 # --------------------------------------------------------------------------- #
-# T-09 — widen the zero-eval/exec audit to every Phase-14 assistant-path       #
+# Widen the zero-eval/exec audit to every Phase-14 assistant-path             #
 # module (Article VII): source-text scan, no Qt ever imported (this file      #
 # stays pure ``logic``). The ui/ modules are located by file path and their   #
 # TEXT is scanned -- never imported, so no QApplication/widget is ever built. #

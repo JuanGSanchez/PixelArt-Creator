@@ -1,5 +1,5 @@
 """Tests for pixelart_creator.data.snapshot_store — Document <-> content-addressed
-snapshot (T12, REQ-P9-DATA-004 store half; plan §3.1).
+snapshot (REQ-P9-DATA-004 store half; plan §3.1).
 
 Covers: a round trip over a "maximal" document (multiple layers, a mask, a
 tileset, a tilemap with a literal and an auto-tile layer) yields an equal
@@ -8,7 +8,7 @@ missing blob raises SnapshotStoreError; and a DRIFT GUARD that fails if any
 string value above a stated length sits at a key outside BLOB_KEYS in
 ``project_io.serialize``'s own output -- so a future ``project_io`` addition
 is caught by a red test rather than by a silently un-deduplicated payload
-(plan §3.1, T12 done-when). Zero Qt.
+(plan §3.1, done-when). Zero Qt.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def _maximal_document() -> Document:
     testing/suites/data/test_project_io_v2.py::_rich_document and
     testing/suites/data/test_project_io_tilemap.py::_document_with_tilemap)."""
     doc = Document(
-        8, 8, palette=Palette([RED, BLUE, GREEN]), metadata={"author": "agt-04"}
+        8, 8, palette=Palette([RED, BLUE, GREEN]), metadata={"author": "test-fixture"}
     )
     base = doc.frames[0].layers[0]
     base.buffer.set_pixel(1, 1, RED)
@@ -211,7 +211,7 @@ def test_document_of_raises_naming_the_missing_key():
 
 
 # --------------------------------------------------------------------------- #
-# The BLOB_KEYS drift guard (plan §3.1, T12 done-when)                        #
+# The BLOB_KEYS drift guard (plan §3.1, done-when)                           #
 # --------------------------------------------------------------------------- #
 
 

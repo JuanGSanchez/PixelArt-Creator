@@ -1,8 +1,8 @@
-"""Oversize-payload refusal reaches the user as one translated sentence (T30).
+"""Oversize-payload refusal reaches the user as one translated sentence.
 
 ``SC-D004-4`` (surface half) / ``REQ-P9-DATA-004`` — driven **headlessly**
 (``QT_QPA_PLATFORM=offscreen``), both themes via the autouse ``theme``
-fixture. Asserts the boundary T28 exists to enforce: a record/save that
+fixture. Asserts the boundary that exists to enforce: a record/save that
 raises :class:`TimelapsePayloadTooLargeError` puts **exactly one**
 ``tr()``-wrapped sentence, written in ``ui/timelapse_controls.py``, in front
 of the user — never ``str(exc)``, ``exc.args``, or the subclass's
@@ -11,7 +11,7 @@ tooltips — and that sentence reads **differently** from the generic
 ``TimelapseIOError`` (malformed-payload) refusal, so the two reasons are
 never confused.
 
-**xdist native-crash guard (AGT-06, 2026-08-18).** The "reads differently"
+**xdist native-crash guard (2026-08-18).** The "reads differently"
 test below is the only one in this module that builds TWO
 ``Timelapse_Controls``/``Canvas_View``/``CanvasScene`` hierarchies inside a
 single test function. Diagnosed against CI runs 32156576152 (two cases
@@ -159,7 +159,7 @@ def test_oversize_refusal_reads_differently_from_a_malformed_payload_refusal(
     _dispose_between_hierarchies(oversize_controls)
 
     # -- generic malformed/unwritable (raised as the base TimelapseIOError,
-    # never the TimelapsePayloadTooLargeError subclass T28 dispatches on) --
+    # never the TimelapsePayloadTooLargeError subclass this dispatches on) --
     monkeypatch.setattr(tio, "TIMELAPSE_PAYLOAD_MAX_BYTES", _SHIPPED_BOUND)
 
     def _raise_generic(*_a, **_k):

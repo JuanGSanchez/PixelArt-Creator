@@ -5,7 +5,7 @@ is keyboard-reachable, and the app themes a visible focus indicator; the Export 
 action is keyboard-operable (Ctrl+Shift+E). SC-UI-012-1 — the export dialog + batch
 panel render under a role-based stylesheet in BOTH themes. Every test also runs
 twice via the autouse ``theme`` fixture, so the assertions below hold in light and
-dark. Findings feed the ``a11y-audit`` report; AGT-05 owns any fix.
+dark. Findings feed the ``a11y-audit`` report; the UI layer owns any fix.
 """
 
 from __future__ import annotations

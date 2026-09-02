@@ -1,6 +1,6 @@
-"""Regression net for the input-scheme remap — T-01, wave 0 (AGT-06).
+"""Regression net for the input-scheme remap — wave 0.
 
-Pins the behaviours ``design-docs/specs/input-scheme/spec.md`` §8 lists as
+Pins the behaviours the input-scheme spec §8 lists as
 "must be proven unchanged" (rows R-1..R-34, scenarios ``SC-R-01..34``), on
 **unmodified** ``be10b9c`` product code. Every test here must be green
 BEFORE any wave-1+ product edit lands — a failure here is a wave-0 defect,
@@ -9,13 +9,13 @@ never "a discovery about the feature" (tasks.md §0 rule 2).
 **This module does not re-test every row.** Per the task's own instruction,
 a row already protected by an existing suite is CITED, not duplicated. The
 full 34-row citation table (which rows are pinned here vs. which existing
-file already pins them) lives in the AGT-06 subagent report for this task,
+file already pins them) lives in the QA subagent report for this task,
 not in this docstring, so the map is not duplicated in two places that can
 drift apart.
 
 This module writes ONLY new coverage for the rows that had none, or had only
 a partial/weak pin, when the branch's baseline
-(``design-docs/auxiliary/baseline-input-scheme-20260830.md``) and a follow-up
+(a recorded branch baseline) and a follow-up
 suite read were taken:
 
   R-13 (guide creation, the untested half) · R-15 (the tilemap stamp keys,
@@ -24,16 +24,16 @@ suite read were taken:
   R-24 (Space toggles playback — zero coverage before this module) ·
   R-26 (the hub's tool gate, widened from 2 of 11 tool ids to all 11) ·
   R-32 (selection persists across a REAL tool-switch dispatch through
-  ``Main_Window._on_tool_action`` — the exact function T-15 will change) ·
+  ``Main_Window._on_tool_action`` — the exact function a later wave will change) ·
   R-33 (``web_viewer/``/``sync_backend/`` untouched — a static git-diff check;
   RETIRED 2026-09-01, see the comment where it used to live, near the tail
   of this module — the constraint was scoped to this job and PR #34 closed
   the job it protected).
 
-**T-22 addendum (2026-08-31, wave 8, post-implementation).** T-21 (pointer
+**Addendum (2026-08-31, wave 8, post-implementation).** The pointer-surface work
 surface) landed with the D-16 amendment: plain wheel travels Favourites and
 ``Shift``+wheel zooms on all four scrollable surfaces, not only the two
-painting surfaces D-2 originally scoped. T-22's own ``Satisfies:`` list names
+painting surfaces D-2 originally scoped. This addendum's own ``Satisfies:`` list names
 seven rows (``SC-R-01,02,03,06,07,08,09``) for re-verification against the
 now-implemented code. Five (R-1/R-2/R-3/R-8/R-9) were re-run this session
 against the current branch head and are unaffected — their wave-0 citations
@@ -45,7 +45,7 @@ test_reference_board_wheel_clear_and_always_on_top``) never carried a zoom
 assertion to invert in the first place (confirmed directly, not assumed),
 so the row's real content had no test proving it at all until now. R-7's own
 wave-0 citation (``test_document_view_wheel_and_change_event``) WAS one of
-the 12 measured, now-inverted regressions (T-22, in ``test_aids_edges.py``
+the 12 measured, now-inverted regressions (this addendum, in ``test_aids_edges.py``
 itself) and remains its citation; the two tests below add the two clauses
 neither prior test carried: the active colour stays unchanged, and (R-7) the
 MAIN canvas's own zoom is unaffected by an extra view's independent zoom.
@@ -148,7 +148,7 @@ def test_r13_ruler_press_creates_a_guide_via_the_public_wiring(make_view):
 # The existing ``test_flip_rotate_keys`` only asserts "some flag changed OR
 # the brush gid is non-base" after all three keys — it cannot tell H from V
 # from R, and never checks the widget's own tool state. This job touches
-# ``tilemap_canvas.py`` (T-21), so a real per-key pin matters here.
+# ``tilemap_canvas.py`` (the pointer-surface work), so a real per-key pin matters here.
 
 
 def test_r15_h_v_r_stamp_keys_each_toggle_their_own_axis_only(
@@ -242,7 +242,7 @@ def test_r20_ctrl_shift_a_deselect_exact_binding_and_effect(qtbot):
 
     The OTHER half of SC-R-20 — that the NEW ``Shift+A`` (picker) does not
     shadow it — needs the post-remap binding to exist and is out of scope
-    for a wave-0 pin on unmodified code; it is T-10's (tasks.md wave 3,
+    for a wave-0 pin on unmodified code; it is a later wave's (wave 3,
     ``SC-R-16..R-25``), run after the remap lands.
     """
     win = _window(qtbot)
@@ -399,7 +399,7 @@ def test_r26_consuming_and_non_consuming_sets_are_exactly_the_shipped_eleven(qtb
 # What it does NOT prove — because it drives the tool via
 # ``view.set_tool()`` directly — is that the selection SURVIVES a real
 # tool switch dispatched through ``Main_Window._on_tool_action``, which is
-# the exact function T-15 (wave 4) is about to add a selection-CLEAR
+# the exact function a later wave (wave 4) is about to add a selection-CLEAR
 # branch to. That survival, for a non-selection tool, is the part this
 # job puts genuinely at risk and it has zero coverage today.
 
@@ -425,7 +425,7 @@ def test_r32_selection_survives_a_real_tool_switch_to_a_non_selection_tool(qtbot
 
 
 # =========================================================================
-# R-33 — RETIRED (2026-09-01, AGT-06). Was: web_viewer/ and sync_backend/
+# R-33 — RETIRED (2026-09-01). Was: web_viewer/ and sync_backend/
 # are not modified by this job.
 # =========================================================================
 # R-33 was a scope constraint on the input-scheme job alone: a static
@@ -462,8 +462,8 @@ def test_r32_selection_survives_a_real_tool_switch_to_a_non_selection_tool(qtbot
 
 
 # =========================================================================
-# T-22 -- SC-R-06 / SC-R-07 (D-16-inverted, REQ-IS-UI-028) -- see the module
-# docstring's T-22 addendum for why R-1/R-2/R-3/R-8/R-9 need no new test.
+# SC-R-06 / SC-R-07 (D-16-inverted, REQ-IS-UI-028) -- see the module
+# docstring's addendum for why R-1/R-2/R-3/R-8/R-9 need no new test.
 # =========================================================================
 
 

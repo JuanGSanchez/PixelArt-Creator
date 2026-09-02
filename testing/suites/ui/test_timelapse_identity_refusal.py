@@ -1,4 +1,4 @@
-"""Identity-less (schema-2) recording refusal, at the user surface (T41).
+"""Identity-less (schema-2) recording refusal, at the user surface.
 
 ``SC-UI-019-5`` / ``REQ-P9-UI-019``(f) / ``SC-D005-2`` (surface half) — driven
 **headlessly** (``QT_QPA_PLATFORM=offscreen``), both themes via the autouse
@@ -15,7 +15,7 @@ upgrade or "play anyway" affordance exists anywhere in the surface; and no
 ``str(exc)`` fragment, blocker code, identity string or ``detail`` text
 appears in any visible surface, tooltips included (plan §8.2 B-3).
 
-**Schema 2 is READ-ONLY LEGACY as of this slice (T35): ``serialize_payload``
+**Schema 2 is READ-ONLY LEGACY as of this point: ``serialize_payload``
 refuses to WRITE it.** The schema-2 fixture this module needs is therefore
 built by taking a genuinely-produced schema-3 payload (real recorded pixel
 edits, through the real save path, with real snapshot/blob tables) and
@@ -288,8 +288,8 @@ def test_sc_ui_019_5_reason_is_exposed_to_assistive_technology(
     identity-less refusal -- EVERY refusal reason this widget shows
     (schema-1, different-document, beyond-extent, incomplete-payload,
     identity-less) is affected identically, so this is filed once here where
-    T41 first names the accessible-exposure obligation, rather than repeated
-    per blocker. Routed to AGT-05 (owner of ``ui/``); AGT-06 does not fix a11y
+    This first names the accessible-exposure obligation, rather than repeated
+    per blocker. Routed to the UI layer (owner of ``ui/``); this suite does not fix a11y
     defects.
     """
     schema2_path, _schema3_path = _write_schema2_and_schema3_files(

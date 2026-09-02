@@ -1,6 +1,6 @@
 """Phase-2 accessibility re-verification: menu reachability + distinct names.
 
-Re-verifies the AGT-05 Slice-2B a11y fixes:
+Re-verifies the UI layer's a11y fixes:
 
 * **A11Y-P2-1** — the *filled shapes*, *pixel-perfect*, and *forced AA-off* drawing
   modes are reachable from the **View** menu with a keyboard **mnemonic**

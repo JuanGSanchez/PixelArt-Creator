@@ -4,7 +4,7 @@ The fake adapter is the CI-tested implementation of the whole ``CloudPort``
 (REQ-P10-DATA-002/-003/-004/-005). Covers the full verb set, optimistic
 concurrency, the ``MAX_CLOUD_PROJECT_BYTES`` + ``MAX_CLOUD_VERSIONS`` bounds
 (boundary + over), the crash-safe recovery slot and the restart-recovery recipe
-from AGT-03 report §7, and a regression test for the Windows blob-filename bug
+from the implementation report §7, and a regression test for the Windows blob-filename bug
 (blobs keyed by ordinal, never by a ``version_id`` containing ``:``).
 """
 
@@ -260,7 +260,7 @@ def test_load_ignores_stray_files_at_root(tmp_path):
     assert a.list_versions("stray.txt") == ()
 
 
-# --- restart-recovery recipe (AGT-03 report §7) ----------------------------- #
+# --- restart-recovery recipe (implementation report §7) --------------------- #
 
 
 def test_recovery_survives_unclean_restart(tmp_path):
@@ -306,7 +306,7 @@ def test_in_memory_mode_does_not_persist(tmp_path):
 def test_regression_blob_keyed_by_ordinal_not_version_id(tmp_path):
     """Blobs are stored under ``<ordinal>.blob`` on disk, never under a filename
     derived from ``version_id`` — which is ``"{project_id}:{ordinal}"`` and whose
-    ``:`` is an INVALID filename character on Windows (the AGT-03 fix).
+    ``:`` is an INVALID filename character on Windows (the underlying fix).
     """
     a = FakeCloudAdapter(tmp_path)
     v0 = a.put(PID, b"v0")

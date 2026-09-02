@@ -1,7 +1,7 @@
-"""Tests for the .pixproj schema's v6 "asset_refs" root array and back-compat (T19).
+"""Tests for the .pixproj schema's v6 "asset_refs" root array and back-compat.
 
 Covers ``pixelart_creator.data.project_io`` (``REQ-P11-UI-021`` persistence half,
-``REQ-P11-DATA-010``..``-3``, ``phase-11-asset-ingress`` T12/T19): a populated
+``REQ-P11-DATA-010``..``-3``, ``phase-11-asset-ingress``): a populated
 reference set round-trips at v6 with the key present exactly when non-empty (both
 in the returned mapping and in the on-disk bytes); v1-v5 documents -- and a v6
 document that never referenced anything -- load with an **empty** ``ReferenceSet``,
@@ -59,7 +59,7 @@ def _sample_reference_set() -> ReferenceSet:
 
 
 def test_format_version_is_six():
-    # v6 (ADR-0058, T12) is this slice's own documented current value -- a
+    # v6 (ADR-0058) is this slice's own documented current value -- a
     # deliberate pin, not a stale literal (contrast the disposition table in
     # this task's report for the 8 pre-existing "== 5" literals this bump made
     # stale elsewhere -- this assertion is the replacement for those, scoped to
@@ -380,7 +380,7 @@ def test_asset_library_edit_pre_field_project_opens_without_error():
 
 
 # --------------------------------------------------------------------------- #
-# Data-layer-only import proof (T19's P11-R2 addition)                        #
+# Data-layer-only import proof (P11-R2 addition)                             #
 # --------------------------------------------------------------------------- #
 
 
@@ -429,7 +429,7 @@ def test_data_layer_only_import_registers_the_pref_key_no_ui_import():
 
 
 # --------------------------------------------------------------------------- #
-# T52: the "asset_edit_decisions" root key (REQ-P11-DATA-010, ruling P11-R13) #
+# The "asset_edit_decisions" root key (REQ-P11-DATA-010, ruling P11-R13)     #
 # --------------------------------------------------------------------------- #
 
 _DECISION_HASH_A = "a" * 64

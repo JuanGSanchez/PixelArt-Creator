@@ -25,7 +25,7 @@ Every fixture below is a hand-built tiny repo tree under ``tmp_path``, passed
 to the script via its own ``--root``/``--allowlist``/``--baseline`` flags.
 The real repository tree (today's 145 live, 145-baselined findings) is never
 scanned by these tests -- a test bound to that number breaks the moment
-AGT-08 documents anything, training people to edit tests until green rather
+the documentation owner writes anything, training people to edit tests until green rather
 than trusting the gate.
 
 Per the user's explicit "regression tests" requirement, each test below

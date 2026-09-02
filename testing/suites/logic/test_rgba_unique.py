@@ -1,6 +1,6 @@
 """Tests for pixelart_creator.logic._rgba_unique (fast RGBA-unique reduction).
 
-AGT-03 replaced ``np.unique(pixels, axis=0, ...)`` with a packed-uint32 1-D unique
+The implementation replaced ``np.unique(pixels, axis=0, ...)`` with a packed-uint32 1-D unique
 (``unique_rgba_counts`` / ``unique_rgba_inverse``) to kill the 8K palette hotspot,
 claiming *byte-for-byte identical* output with the ascending-(R,G,B,A) order
 contract (SC-L012-4) preserved by re-sorting the small unique set via ``np.lexsort``.

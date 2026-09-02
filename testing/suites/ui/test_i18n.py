@@ -2,10 +2,10 @@
 
 Scenarios SC-UI-021-1 (LanguageManager installs a translator by locale, English
 fallback), SC-UI-022-1 (changeEvent re-translates on LanguageChange). Both
-themes. REQ-P1-UI-026 (no bare literals) is verified by AGT-07 `string_audit_check`
+themes. REQ-P1-UI-026 (no bare literals) is verified by the localisation owner's `string_audit_check`
 and referenced in the checklist rather than duplicated as a pytest here.
 
-SC-CSD-U014-1 (canvas-scale-defects REQ-CSD-UI-014, `tasks.md` T19) below adds
+SC-CSD-U014-1 (canvas-scale-defects REQ-CSD-UI-014) below adds
 the two new whole-document-transform dialogs: every user-visible string is
 `tr()`-wrapped, the projected size and target geometry arrive via FORMAT
 PLACEHOLDERS (never a concatenated fragment + raw number), and each dialog
@@ -69,7 +69,9 @@ def test_sc_ui_022_1_palette_panel_retranslates(qtbot):
 
 def test_available_languages_discovers_catalogues(qtbot, qapp, tmp_path):
     """SC-UI-021-1 (discovery): a packaged pixelart_<code>.qm is offered as a language."""
-    (tmp_path / "pixelart_es.qm").write_bytes(b"")  # placeholder catalogue (AGT-07)
+    (tmp_path / "pixelart_es.qm").write_bytes(
+        b""
+    )  # placeholder catalogue (localisation)
     manager = LanguageManager(qapp, translations_dir=tmp_path)
     langs = manager.available_languages()
     assert FALLBACK_LANGUAGE in langs
@@ -88,7 +90,7 @@ def test_set_language_missing_catalogue_falls_back(qtbot, qapp, tmp_path):
 def test_sc_ui_021_2_default_dir_resolves_to_repo_i18n():
     """SC-UI-021-2 (A11Y/i18n fix): the default translations dir is the repo i18n/.
 
-    Re-verifies the AGT-05 fix making the default resolve portably (no baked-in
+    Re-verifies the UI fix making the default resolve portably (no baked-in
     absolute path): the folder is named ``i18n`` and holds the es catalogue."""
     d = _default_translations_dir()
     assert d.name == "i18n"
@@ -133,7 +135,7 @@ def test_sc_ui_022_2_default_es_retranslates_live(qtbot):
 
 
 # =========================================================================== #
-# SC-CSD-U014-1 (REQ-CSD-UI-014, DEFECT, `tasks.md` T19)                      #
+# SC-CSD-U014-1 (REQ-CSD-UI-014, DEFECT)                                      #
 # =========================================================================== #
 
 

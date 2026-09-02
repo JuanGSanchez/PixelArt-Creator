@@ -1,16 +1,16 @@
-"""T27 — the end-to-end journey the user ruled for (phase-11-asset-ingress).
+"""The end-to-end journey the user ruled for (phase-11-asset-ingress).
 
-Single source: ``design-docs/specs/phase-11-asset-ingress/spec.md`` §6,
+Single source: the phase-11-asset-ingress spec §6,
 ``Feature: End-to-end acceptance`` / ``SC-P11-INGRESS-E2E-1``. This module
-asserts the ONE scenario every sibling task asserts piecewise (T20/T21/T22)
+asserts the ONE scenario every sibling task asserts piecewise
 composes: one asset, tracked through one continuous session, across all six
 panels, a revision, a restore, and a restart.
 
 **Driven through the shipped application's own command surface**, per the
-task's own binding correction (``tasks.md`` T27): *register the active
+task's own binding correction: *register the active
 document* — BOTH the first registration and the re-registration — is
 triggered through the real ``_register_active_document_action`` ``QAction``
-(T7-A's reachability route), never by calling
+(a sibling task's reachability route), never by calling
 ``Asset_Library_Session.register_active_document`` directly for either step
 the Gherkin names. Selection propagates through the SAME signal cascade the
 shipped ``Main_Window`` wires — ``Asset_Library_Panel.assetSelected`` fans out
@@ -32,9 +32,9 @@ report:
    derived edge is only non-vacuous when a SECOND, already-registered asset
    exists to reference (``edges_for`` matches a candidate's key against
    another catalog entry's ``reference_key`` — a document cannot reference
-   itself). The task's own added dependency note names exactly this: T9-A
+   itself). The task's own added dependency note names exactly this: a sibling task
    exists so "Dependency_Graph_View shows its node and its derived edges" is
-   not "vacuously satisfied by an empty set." T20 resolved the identical
+   not "vacuously satisfied by an empty set." A sibling task resolved the identical
    requirement the identical way (registering a sprite directly through the
    session, disclosed in its own module docstring) for the identical reason.
    The ONE registration the Gherkin actually narrates — "the user registers
@@ -56,7 +56,7 @@ used to call the session's own PUBLIC ``register_active_document(...,
 existing_asset_id=...)`` for that one step, as a disclosed trust-boundary
 shortcut.
 
-**T43 (ruling P11-R12, DEV-43 finding 1) closed it.** ``Main_Window`` now
+**Ruling P11-R12 (finding 1) closed it.** ``Main_Window`` now
 binds ``registered_asset_id`` to the active tab record and
 ``_on_register_active_document`` (``main_window.py:2753-2786``) reads that
 binding and supplies it as ``existing_asset_id`` on every trigger after the
@@ -80,7 +80,7 @@ confirmed by reading the module at the time. Only the catalog
 (``asset_catalog_io``) and the CAS blobs were durable across a restart;
 revision METADATA was not, and the Gherkin's restart clause — "the asset and
 its revisions are still present and hash-verified" — was expected, on that
-reading, to fail. **T40/T41's durable revision index fixed exactly this
+reading, to fail. **The durable revision index fixed exactly this
 gap**: ``AssetRevisionStore.bind_root`` now loads any persisted histories via
 ``data/asset_revision_io.load_histories``, and ``record`` persists every
 recorded revision under that root (``asset_revision_store.py``'s own
@@ -97,7 +97,7 @@ autouse ``_isolate_app_config`` fixture points ``QStandardPaths`` at; every
 ``Main_Window`` built in this module (including the "restarted" one) resolves
 to the SAME root because that redirection is fixed once per test, which is
 exactly what makes the second window a faithful restart rather than another
-machine (contrast T20's own use of the identical fixture to reach a
+machine (contrast the sibling module's own use of the identical fixture to reach a
 DIFFERENT, "another machine" root by monkeypatching ``_asset_root`` itself —
 this module never does that).
 """
@@ -117,7 +117,7 @@ from pixelart_creator.ui.main_window import Main_Window
 RED = (255, 0, 0, 255)
 
 # ``asset_register_dialog._KIND_ORDER`` combo-index mapping (matches
-# ``test_asset_ingress_ui.py``'s own named constants, T20).
+# ``test_asset_ingress_ui.py``'s own named constants).
 _KIND_SPRITE = 0
 _KIND_TILESET = 2
 
@@ -133,7 +133,7 @@ def _window(qtbot) -> Main_Window:
 def _accept_dialog(name: str, kind_index: int, tags: str = ""):
     """Return an ``Asset_Register_Dialog.exec`` replacement that fills + accepts.
 
-    The same fake-exec idiom ``test_asset_ingress_ui.py`` (T20) and
+    The same fake-exec idiom ``test_asset_ingress_ui.py`` uses and
     ``test_export_actions.py`` already use: the modal ``exec()`` cannot run
     headlessly with real user input, so the fields are set directly on the
     real, constructed dialog instance before returning ``Accepted``.
@@ -149,7 +149,7 @@ def _accept_dialog(name: str, kind_index: int, tags: str = ""):
 
 
 def _blob_count(win: Main_Window) -> int:
-    """The same helper T20 uses — count of ``*.blob`` files under the asset root."""
+    """The same helper the sibling module uses — count of ``*.blob`` files under the asset root."""
     root = win._asset_root()
     return len(list(root.glob("*.blob"))) if root.exists() else 0
 
@@ -158,7 +158,7 @@ def _find_row(tree, asset_id: str, *, col: int = 0, role=_ROLE_ID):
     """Return the top-level ``QTreeWidgetItem`` whose ``role`` data at ``col``
     equals ``asset_id``, or ``None`` — a small helper needed because this
     module's catalog holds TWO entries (the setup sprite + the tracked asset)
-    rather than T21's single-asset fixtures.
+    rather than the sibling module's single-asset fixtures.
     """
     for i in range(tree.topLevelItemCount()):
         item = tree.topLevelItem(i)
@@ -187,7 +187,7 @@ def test_sc_p11_ingress_e2e_1_asset_goes_in_seen_everywhere_restored_reused(
 
     # ---------------------------------------------------------------- #
     # SETUP (not a Gherkin step): a sprite the tracked tileset can      #
-    # reference, registered directly through the session (T20's own,   #
+    # reference, registered directly through the session (the sibling's own, #
     # identically-justified precedent — see module docstring point 1). #
     # ---------------------------------------------------------------- #
     sprite_buf = PixelBuffer(8, 8, ColorMode.RGBA, fill=RED)
@@ -202,9 +202,9 @@ def test_sc_p11_ingress_e2e_1_asset_goes_in_seen_everywhere_restored_reused(
     # ---------------------------------------------------------------- #
     # STEP 1 (the Gherkin's own step): "the user registers the active  #
     # document as an asset" -- through the SHIPPED command surface     #
-    # (T7-A), the whole point of this journey.                         #
+    # (the reachability route), the whole point of this journey.       #
     # ---------------------------------------------------------------- #
-    tracked_doc = win.new_document(8, 8)  # becomes the active tab (T27 binding note)
+    tracked_doc = win.new_document(8, 8)  # becomes the active tab (binding note)
     tileset = Tileset(sprite_buf, tile_width=4, tile_height=4, name="Tiles")
     tracked_doc.tilesets.append(tileset)
     assert win.active_document() is tracked_doc
@@ -227,7 +227,7 @@ def test_sc_p11_ingress_e2e_1_asset_goes_in_seen_everywhere_restored_reused(
     assert entry.name == "Dungeon Tiles"
     v1_hash = entry.content_hash
 
-    # Non-vacuity (P11-R6/T9-A): the derived edge is REAL, not an empty set.
+    # Non-vacuity (P11-R6): the derived edge is REAL, not an empty set.
     assert session.graph().dependencies_of(asset_id) == (sprite_id,)
     assert session.graph().dependents_of(sprite_id) == (asset_id,)
 
@@ -293,7 +293,7 @@ def test_sc_p11_ingress_e2e_1_asset_goes_in_seen_everywhere_restored_reused(
     # ------------------------------------------------------------------ #
     # STEP 2: "the user changes the document and registers it again for  #
     # the same asset" -- through the SAME `_register_active_document_    #
-    # action` QAction as STEP 1 (module docstring: T43, ruling P11-R12,  #
+    # action` QAction as STEP 1 (module docstring: ruling P11-R12,        #
     # closed the reachability gap this module used to characterise). The #
     # active tab's own `registered_asset_id` binding, written back when  #
     # STEP 1's trigger succeeded, is what lets THIS trigger reach         #
@@ -376,7 +376,7 @@ def test_sc_p11_ingress_e2e_1_asset_goes_in_seen_everywhere_restored_reused(
     # in a plain in-memory dict with no save/load of its own (confirmed by
     # reading data/asset_revision_store.py at the time), so this clause was
     # EXPECTED, on that reading, to fail here -- and it did, as its own
-    # reported finding. T40/T41's durable revision index closed the gap:
+    # reported finding. The durable revision index closed the gap:
     # AssetRevisionStore.bind_root now loads any persisted histories via
     # data/asset_revision_io.load_histories, and record() persists every
     # recorded revision under the bound root (confirmed by re-reading the
@@ -391,17 +391,17 @@ def test_sc_p11_ingress_e2e_1_asset_goes_in_seen_everywhere_restored_reused(
         "durable root sees the catalog entry and its CURRENT content (both "
         "asserted above, and both correctly durable) but "
         f"{len(revisions2)} revisions were found for this asset_id, "
-        "expected 3. This clause was a known, disclosed gap before T40/T41 "
+        "expected 3. This clause was a known, disclosed gap before the fix "
         "added AssetRevisionStore.bind_root's persisted-history load "
         "(data/asset_revision_io.py) -- if it fails again here, that is a "
         "regression in that durability path, not a test defect, and is "
-        "reported as a finding rather than patched around (AGT-06 owns no "
+        "reported as a finding rather than patched around (this suite owns no "
         "product code)."
     )
 
 
 # --------------------------------------------------------------------------- #
-# Regression test for ruling P11-R12 (T43, DEV-43 finding 1): the command     #
+# Regression test for ruling P11-R12 (finding 1): the command                #
 # surface CAN now re-register an existing asset through its own QAction --   #
 # see module docstring for the closed finding's before/after.                #
 # --------------------------------------------------------------------------- #
@@ -424,7 +424,7 @@ def test_p11_r12_register_active_document_action_reaches_existing_asset_id(
     test's own assertions (``second_id != first_id``, two catalog entries,
     one revision each).
 
-    T43 closed it (ruling P11-R12): the active tab's own
+    The fix closed it (ruling P11-R12): the active tab's own
     ``registered_asset_id`` binding, written back on every successful
     registration, is now read and supplied as ``existing_asset_id`` on the
     next trigger of the SAME QAction for the SAME tab. This module keeps the

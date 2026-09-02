@@ -194,7 +194,7 @@ def test_sc_ui_014_stamp_bumps_only_touched_chunk_version(
 
     The UI keys its per-chunk QPixmap cache by ``chunk_version``; a stamp must dirty
     only its own chunk (viewport-cull / dirty-rect), leaving other chunks at 0 so a
-    sparse/8K map recomposites only what changed (AGT-10 confirmed the 16 ms budget).
+    sparse/8K map recomposites only what changed (the performance report confirmed the 16 ms budget).
     """
     tileset, tilemap = make_tilemap_setup()
     canvas, _stack = _canvas(qtbot, tilemap, tileset, theme)

@@ -1,8 +1,8 @@
-"""Tests for the .pixtimelapse schema-3 (identity-bearing) manifest (T40,
+"""Tests for the .pixtimelapse schema-3 (identity-bearing) manifest (
 Q-21, REQ-P9-DATA-005; plan §10.3). Schema 1 stays untouched
 (``testing/suites/data/test_timelapse_io.py``'s 13 shipped tests, REQ-P9-DATA-003,
 are not touched by this file and stay green). Schema 2 is read-only legacy
-(``testing/suites/data/test_timelapse_io_schema2.py``, T47) -- this module covers the
+(``testing/suites/data/test_timelapse_io_schema2.py``) -- this module covers the
 identity-bearing form and the refusal of identity-less payloads. Zero Qt.
 
 SC-D005-1 (round-trips identities exactly; two identical-content frames
@@ -48,7 +48,7 @@ RED = (255, 0, 0, 255)
 BLUE = (0, 0, 255, 255)
 GREEN = (0, 255, 0, 255)
 
-#: The T47 fixture (a payload-carrying file written before this amendment,
+#: The pre-amendment fixture (a payload-carrying file written before this amendment,
 #: carrying no stable identity) -- SC-D005-2's own scenario, and nothing a
 #: post-amendment build can create anymore (serialize_payload refuses to
 #: emit schema 2). Reused here rather than duplicated.
@@ -72,7 +72,7 @@ def _document(pixel) -> Document:
 def _recorded_identity_session(pixels):
     """Build an identity-bearing (schema-3) session + snapshot/blob tables,
     one frame per pixel value -- mirrors what ``ui/timelapse_controls.py``
-    (T34) now always persists."""
+    now always persists."""
     snapshots = {}
     blobs = {}
     frames = []
@@ -232,7 +232,7 @@ def test_schema1_frames_carry_exactly_index_and_command_id_no_identity_field(
 
 
 def test_schema1_refuses_for_no_payload_not_no_identity():
-    # SC-D005-3's precedence (T33): a schema-1 frame has neither a snapshot
+    # SC-D005-3's precedence: a schema-1 frame has neither a snapshot
     # nor an identity and must refuse for its OWN reason.
     from pixelart_creator.logic.timelapse import (
         ReconstructionBlocker,

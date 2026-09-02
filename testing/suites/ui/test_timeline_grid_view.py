@@ -1,4 +1,4 @@
-"""Timeline grid view acceptance tests (T16; REQ-P5-UI-020, -022, -023, -024,
+"""Timeline grid view acceptance tests (REQ-P5-UI-020, -022, -023, -024,
 -026..-029).
 
 One pytest-qt test per listed acceptance scenario, driven headlessly
@@ -625,7 +625,7 @@ def test_grid_retranslate_on_an_unbound_empty_grid_does_not_raise(qtbot):
 
 
 # --------------------------------------------------------------------------- #
-# Branch-coverage close-out (T16/T18 gate; REQ-P5-UI-022/-023/-024) --         #
+# Branch-coverage close-out (REQ-P5-UI-022/-023/-024) --                       #
 # the model's own public role/query surface, exercised with the boundary and  #
 # refusal-path values a real click/drag never happens to produce, plus the    #
 # nested-group visibility path a flat two-track document never reaches.       #

@@ -1,4 +1,4 @@
-"""T-20 (AGT-06 audit) — REQ-P5-UI-017: tab order + visible focus indicator.
+"""REQ-P5-UI-017: tab order + visible focus indicator.
 
 ``test_animation_timeline.py``'s ``REQ-P5-UI-017`` section asserts non-empty
 accessible names and one focus-policy spot check (Space toggling play/pause),
@@ -22,7 +22,7 @@ def _window(qtbot) -> Main_Window:
 
 
 def test_t20_representative_controls_are_keyboard_reachable(qtbot):
-    """REQ-P5-UI-017 (T-20): a representative control in each of the four
+    """REQ-P5-UI-017: a representative control in each of the four
     animation surfaces accepts keyboard (Tab) focus."""
     win = _window(qtbot)
     for control in (
@@ -35,7 +35,7 @@ def test_t20_representative_controls_are_keyboard_reachable(qtbot):
 
 
 def test_t20_tab_order_chain_connects_all_four_panels(qtbot):
-    """REQ-P5-UI-017 (T-20): the natural (unmodified) Qt tab-order chain is ONE
+    """REQ-P5-UI-017: the natural (unmodified) Qt tab-order chain is ONE
     connected cycle reaching every one of the four animation surfaces — proving
     none of them is a keyboard-focus island (e.g. a dock whose contents can be
     reached by mouse only). Qt builds this chain automatically from widget
@@ -72,6 +72,6 @@ def test_t20_tab_order_chain_connects_all_four_panels(qtbot):
 
 
 def test_t20_visible_focus_indicator_themed(qtbot, theme):
-    """REQ-P5-UI-017 (T-20): a visible-focus QSS rule is themed (both themes)."""
+    """REQ-P5-UI-017: a visible-focus QSS rule is themed (both themes)."""
     _window(qtbot)
     assert ":focus" in QApplication.instance().styleSheet()

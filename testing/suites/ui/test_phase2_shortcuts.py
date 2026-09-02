@@ -1,13 +1,13 @@
 """Phase-2 tool keyboard-shortcut acceptance (a11y, REQ-P2-UI-001..006).
 
 Every new Phase-2 tool must be reachable by a single-key shortcut (keyboard
-operability, Article V). Re-verifies the AGT-05 shortcut assignment for the shape
+operability, Article V). Re-verifies the UI layer's shortcut assignment for the shape
 (rectangle/ellipse) and selection (select_rect/select_lasso/select_wand) tools,
 avoiding the OTHER six shipped tools' keys. Runs under both themes via the
 autouse ``theme`` fixture (shortcut binding is theme-invariant).
 
-**Updated for the input-scheme home-row remap** (``design-docs/specs/input-scheme``,
-tasks.md T-09/T-10, REQ-IS-UI-001/-002): the Aseprite-adjacent letters this module
+**Updated for the input-scheme home-row remap** (the input-scheme spec,
+REQ-IS-UI-001/-002): the Aseprite-adjacent letters this module
 used to assert (R/O/M/Q/W for these five tools, disjoint from the old B/E/G/L/I
 Phase-1 set) were retired wholesale — none of B G I L M O R is bound to anything
 any more. ``_NEW_TOOL_SHORTCUTS`` now carries the CURRENT letters the remap
@@ -26,7 +26,7 @@ from PySide6.QtGui import QKeySequence
 
 from pixelart_creator.ui.main_window import Main_Window
 
-#: New-tool id -> expected shortcut, post input-scheme remap (AGT-05).
+#: New-tool id -> expected shortcut, post input-scheme remap.
 _NEW_TOOL_SHORTCUTS = {
     "rectangle": "S",
     "ellipse": "Shift+W",

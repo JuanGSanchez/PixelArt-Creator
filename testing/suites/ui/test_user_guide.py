@@ -8,7 +8,7 @@ One test per acceptance criterion (Gherkin scenarios SC-U001..U011 in
 make an explicit theme-parity or a11y assertion take the ``theme`` param.
 
 Layer boundary: the viewer binds to the pure ``logic``/``data`` guide model +
-defensive reader (both **injectable** — AGT-05 test seams), so most UI tests drive
+defensive reader (both **injectable** test seams), so most UI tests drive
 a deterministic fixture model/reader; the coverage-contract + content-present tests
 exercise the **real committed bundle** at the UI/integration boundary (mirroring the
 logic check of REQ-UG-LOGIC-005). Content is rendered as text/markup and never
@@ -39,7 +39,7 @@ from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.user_guide import User_Guide_Dialog
 
 # --------------------------------------------------------------------------- #
-# Deterministic fixture model + reader (the AGT-05 injectable test seams).      #
+# Deterministic fixture model + reader (the injectable test seams).            #
 # --------------------------------------------------------------------------- #
 
 

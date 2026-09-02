@@ -1,8 +1,8 @@
 """Check (a) — the binding registry equals reality, in both directions.
 
-``tasks.md`` T-33 (AGT-06), ``REQ-IS-UI-031``, ``SC-U031-1..6``
-(``design-docs/specs/input-scheme/spec.md`` §9). This is the check that makes
-``pixelart_creator/logic/binding_registry.py`` (T-32, AGT-03) trustworthy
+``REQ-IS-UI-031``, ``SC-U031-1..6``
+(the input-scheme spec §9). This is the check that makes
+``pixelart_creator/logic/binding_registry.py`` trustworthy
 without rebuilding the UI on top of it: the registry was deliberately NOT
 made the construction source for ``Main_Window``'s ``QAction``s (68 actions
 vs. ~30 documented bindings — see that module's own docstring, "ruling 2"),
@@ -330,7 +330,7 @@ def test_sc_u031_6b_this_module_imports_and_calls_the_scope_floor():
 
 
 # ============================================================================
-# The two things T-33 calls out to get right, pinned directly.
+# The two things this task calls out to get right, pinned directly.
 # ============================================================================
 
 

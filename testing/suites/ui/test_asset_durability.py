@@ -1,21 +1,21 @@
-"""Asset durability across a restart (T21, REQ-P11-DATA-008 + the six-panel/revision
+"""Asset durability across a restart (REQ-P11-DATA-008 + the six-panel/revision
 acceptance it is grouped with).
 
-Scope, precisely (plan §0's placement ruling; task T21's own scope-boundary note): this
+Scope, precisely (plan §0's placement ruling; this task's own scope-boundary note): this
 module asserts **durability** of whatever gets registered — that a catalog entry, its
 content and its within-session revision history behave correctly once bound to a real
 on-disk root, and that a fresh set of session/store objects pointed at the **same** root
 sees exactly what an earlier set left there. It does **not** assert *reachability* — that
 the shipped application's own menu actions / signal wiring reach
 ``Asset_Library_Session.bind_content_store`` / ``bind_revision_store`` or the registration
-actions themselves. That is T20's and T27's job. This suite binds its own
+actions themselves. That is a sibling module's job. This suite binds its own
 ``Asset_Library_Session`` + stores directly (the task's own "may bind ... in its own
 fixture" allowance) and drives registration through
 ``Asset_Library_Session._register_new`` / ``._reregister`` — the exact orchestration
 :meth:`~pixelart_creator.ui.asset_library_actions.Asset_Library_Session.
 register_active_document` runs *after* the shared ``Asset_Register_Dialog`` is accepted.
 Bypassing only the modal prompt itself keeps this module about durability, not about
-driving that dialog (T20/T6's surface) — the existing suite already reaches into
+driving that dialog (a sibling module's surface) — the existing suite already reaches into
 underscore-prefixed methods this way (``test_asset_version_browser.py``'s ``_on_restore``).
 
 **"Restart" is simulated exactly**: a fresh ``Asset_Library_Session`` +
@@ -144,8 +144,8 @@ def test_injected_roots_are_never_the_real_per_user_location(tmp_path):
 def _make_document(width: int = 4, height: int = 4) -> Document:
     """A document shape the application actually produces: one seeded "Background"
     layer (``Document.__init__``, ``logic/document.py``) — never the from_buffer/
-    factory-default ``"Imported"`` shape no user can produce (tasks.md T20's ITEM-2
-    consequence note; not this task's own concern, since T21 derives no dependency
+    factory-default ``"Imported"`` shape no user can produce (a sibling task's ITEM-2
+    consequence note; not this task's own concern, since it derives no dependency
     edge, but the same reachable-shape discipline costs nothing to keep here too).
     """
     return Document(width, height)
@@ -269,7 +269,7 @@ def test_sc_p11_data_008_2_opening_without_registering_creates_no_store_director
 
 
 def _bind_six_panels(qtbot, session, cas, revision_store, asset_id):
-    """Bind all six asset surfaces to ``session`` (T21's own fixture; five ``set_session``
+    """Bind all six asset surfaces to ``session`` (this task's own fixture; five ``set_session``
     bindings plus the search panel's ``queryChanged -> set_query`` signal wiring, per the
     D2 re-scope: ``Asset_Search_Panel`` has no ``set_session`` of its own,
     ``main_window.py:829-831``).
@@ -425,7 +425,7 @@ def test_sc_p11_ui_018_2_the_six_surfaces_cannot_disagree(tmp_path, qtbot):
 # SC-P11-UI-019-1 — N assets registered + tagged in one session, restart      #
 # --------------------------------------------------------------------------- #
 
-#: KNOWN CRASH, macOS only, INTERMITTENT — diagnosed by AGT-06, ruled by the
+#: KNOWN CRASH, macOS only, INTERMITTENT — diagnosed here, ruled by the
 #: user (2026-08-31, reaffirmed 2026-09-01): skip rather than let it kill the
 #: xdist worker with no test outcome to record. First observed at commit
 #: ``55c73a3`` — this file's own fix, tightening

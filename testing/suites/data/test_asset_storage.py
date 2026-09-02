@@ -4,7 +4,7 @@ Covers the provider-agnostic :class:`BlobBackend` port and the offline
 :class:`LocalBlobBackend` (ADR-0032; REQ-P11-DATA-006): in-memory + filesystem
 put/get/has, write-once dedup, malformed-key rejection (Article VII path-traversal
 defence — a hex-only key can never escape ``root``), and non-bytes / missing-blob /
-I/O error paths. T11-1-10.
+I/O error paths.
 """
 
 from __future__ import annotations

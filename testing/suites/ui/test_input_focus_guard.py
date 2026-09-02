@@ -1,9 +1,9 @@
-"""Text-entry shortcut guard acceptance (AGT-06, tasks.md T-13, wave 4).
+"""Text-entry shortcut guard acceptance (wave 4).
 
-One test per named scenario from ``design-docs/specs/input-scheme/spec.md``
+One test per named scenario from the input-scheme spec
 "Feature: Text-entry focus guard (REQ-IS-UI-006)": ``SC-U006-1..4``. Exercises
 ``pixelart_creator.ui.shortcut_focus_guard.Shortcut_Focus_Guard``, the
-application-level ``ShortcutOverride`` event filter T-11 installed on
+application-level ``ShortcutOverride`` event filter installed on
 ``Main_Window``'s live ``QApplication`` so the new home-row tool keys
 (``A S D W E F Q`` + ``Shift`` forms, plus ``Shift+R``) do not fire while a
 text-entry widget has keyboard focus.

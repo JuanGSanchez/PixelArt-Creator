@@ -3,7 +3,7 @@
 After a window (or a standalone controller) that used the automation worker is
 disposed, NO automation worker thread or connected signal carrier may survive
 into a later test's GC — the Phase-5 cross-thread-GC-of-Qt-C++ segfault class the
-whole UI suite guards against under ``pytest -n auto``. AGT-05 folded
+whole UI suite guards against under ``pytest -n auto``. The UI layer folded
 ``Automation_Controller.shutdown()`` into ``Main_Window.shutdown_prewarm`` (hence
 ``closeEvent``); the ``testing/suites/ui/conftest.py`` drain fixture calls
 ``shutdown_prewarm`` on every tracked ``Main_Window`` at teardown, so a

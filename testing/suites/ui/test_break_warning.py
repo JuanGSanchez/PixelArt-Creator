@@ -1,9 +1,9 @@
 """Passive break surface + a11y + both-theme render (REQ-P11-UI-006 / -008 / -009).
 
-Slice 2 surfaces broken references PASSIVELY on two seams that share one
+This module surfaces broken references PASSIVELY on two seams that share one
 ``Asset_Library_Session``: a Status column on ``Asset_Library_Panel`` (this module's
 focus) and the per-edge status on ``Dependency_Graph_View`` (covered alongside it here for
-the a11y + both-theme gates, TG-05 / TG-06 Slice-2 slice). The indicator reflects the pure
+the a11y + both-theme gates, TG-05 / TG-06). The indicator reflects the pure
 ``logic/break_detection.find_broken`` pass exactly, refreshes on ``catalogChanged`` /
 ``graphChanged`` (triggered revalidation), and raises NO dialog / push notification — an
 asset whose outgoing reference is broken shows the flag; a valid-only asset shows none.

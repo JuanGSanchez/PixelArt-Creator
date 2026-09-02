@@ -1,6 +1,6 @@
 """Cross-project reuse acceptance (REQ-P11-UI-007, Gherkin: reuse without copying).
 
-Slice 3: ``Asset_Reuse_Panel`` references an existing shared asset into a project by
+``Asset_Reuse_Panel`` references an existing shared asset into a project by
 ``asset_id``/``content_hash`` — **never a byte copy** (reference-not-copy). The panel
 holds NO domain logic (Article I / S11): a project's references are a pure ``logic``
 ``AssetCatalog`` of the *shared* descriptors, referencing is ``catalog.add`` of a
@@ -11,7 +11,7 @@ Shared (a trivial count over the reference catalogs, not domain maths).
 
 Every test runs under BOTH light and dark themes via the autouse ``theme`` fixture. The
 panel is synchronous and worker-free, so a read-back assertion follows each call
-immediately (the Slice-1/2 precedent).
+immediately (the established precedent).
 
 The fixture stores two shared blobs (hero, dungeon) ONCE in the CAS and catalogs their
 real content hashes, so referencing exercises the has()-check path with genuine hashes
@@ -288,7 +288,7 @@ def test_reference_with_no_project_is_a_noop(panel):
     assert widget.current_project() == ""
 
 
-# -- Criterion 7: a11y (TG-05 Slice-3) ---------------------------------------- #
+# -- Criterion 7: a11y (TG-05) ------------------------------------------------ #
 
 
 def test_reuse_controls_have_accessible_names(panel):

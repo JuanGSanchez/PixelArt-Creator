@@ -8,7 +8,7 @@ nothing on disk" contract, asserted as a directory listing; the Article VII
 untrusted-load defence (malformed index, unsupported schema_version, invalid hash,
 unsafe id, path escape all raising ``AssetRevisionIOError``); and that a history
 exceeding ``MAX_ASSET_VERSIONS`` or breaking the DAG invariant is rejected by the
-logic-layer model and surfaced the same way. T42.
+logic-layer model and surfaced the same way.
 """
 
 from __future__ import annotations

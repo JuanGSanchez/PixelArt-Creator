@@ -1,4 +1,4 @@
-"""REGRESSION PIN — recording behaviour is unchanged (T18, REQ-P9-UI-023).
+"""REGRESSION PIN — recording behaviour is unchanged (REQ-P9-UI-023).
 
 ``SC-UI-023-1``..``-5``, asserted against the **changed** widget (D-12 added
 playback/save-refusal behaviour around the same recording path) so these are a
@@ -139,10 +139,10 @@ def test_sc_ui_023_5_reset_clears_and_persistence_still_round_trips(
 ):
     """Persistence round trip -- re-keyed for identity (Q-21/Amendment 3).
 
-    **Repaired 2026-08-18 (accounting gap closed here rather than by T48 --
-    T48 re-keys T16/T17's files, not this one; see the dispatch report for
-    AGT-06's finding).** ``controls.session()`` is identity-bearing (schema
-    3) unconditionally since T34, and the plain ``save_session``/
+    **Repaired 2026-08-18 (accounting gap closed here directly, rather than
+    deferred to the sibling files this belongs beside; see the dispatch report
+    for the finding).** ``controls.session()`` is identity-bearing (schema
+    3) unconditionally, and the plain ``save_session``/
     ``load_session`` pair (schema-1 command-manifest-only, untouched by
     design) drops ``recording_id`` and every ``TimelapseFrame.frame_id`` on
     write -- it can no longer round-trip this session to an equal one.

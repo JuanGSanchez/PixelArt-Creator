@@ -1,4 +1,4 @@
-"""Tests for the .pixproj schema-v3 animation persistence (Slice 5B).
+"""Tests for the .pixproj schema-v3 animation persistence.
 
 Covers :mod:`pixelart_creator.data.project_io`: the v3 round-trip of document
 ``frame_tags`` (native :class:`PlaybackMode` value strings), per-node stable

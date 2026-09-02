@@ -1,4 +1,4 @@
-"""Project confirmations submenu acceptance tests (T18 continuation;
+"""Project confirmations submenu acceptance tests (
 REQ-P5-UI-033's restorability half, ADR-0056).
 
 ``build_project_prefs_menu`` is the **restore path** for a suppressed

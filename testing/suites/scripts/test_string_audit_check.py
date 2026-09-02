@@ -6,7 +6,7 @@ Contract asserted here, taken verbatim from the script's own header::
                 [--root pixelart_creator/ui]
     OUTPUTS: stdout: JSON {"findings":[{file,line,kind,text}], "scanned":N}.
     EXIT CODES: 0 clean -> COMPLETED ; 1 findings (report) -> reported to
-        AGT-07, maps to PARTIAL for the audited change (report-not-fix) ;
+        the localisation owner, maps to PARTIAL for the audited change (report-not-fix) ;
         2 error -> BLOCKED.
 
 Every fixture is a hand-built tiny ``ui/``-shaped tree written under
@@ -34,7 +34,7 @@ def _write(root: Path, rel: str, content: str) -> Path:
 
 # --------------------------------------------------------------------------- #
 # The essential pair: a clean ui/ tree exits 0, a deliberately broken one
-# exits 1 and names AGT-07 in its own stderr summary (report-not-fix, header).
+# exits 1 and names the localisation owner in its own stderr summary (report-not-fix, header).
 # --------------------------------------------------------------------------- #
 def test_clean_tree_exits_0(tmp_path):
     root = tmp_path / "ui"

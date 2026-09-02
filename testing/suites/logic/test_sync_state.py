@@ -2,7 +2,7 @@
 
 Covers the pure, deterministic :func:`compute_sync_state` classifier
 (REQ-P10-LOGIC-001) — every documented transition (UP_TO_DATE / LOCAL_AHEAD /
-REMOTE_AHEAD / DIVERGED) per AGT-03 report §7, plus malformed-input errors and
+REMOTE_AHEAD / DIVERGED) per the implementation report §7, plus malformed-input errors and
 determinism.
 """
 

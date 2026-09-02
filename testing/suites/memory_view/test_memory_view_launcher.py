@@ -191,7 +191,7 @@ def test_the_store_still_holds_its_own_role_and_map():
 
 def test_the_cmd_launcher_is_batch_not_shell():
     """Not Windows-only despite the file it reads: this is a plain text-content
-    assertion (AGT-06, CI-gate audit, 2026-09-01). A prior ``skipif(sys.platform
+    assertion (CI-gate audit, 2026-09-01). A prior ``skipif(sys.platform
     != "win32", ...)`` on this test assumed the ``.cmd`` extension meant the
     check needed a real Windows/cmd.exe environment, but the body below never
     invokes cmd.exe — it only reads ``memory-view.cmd`` as text and asserts its

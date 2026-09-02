@@ -240,7 +240,7 @@ def test_property_replay_is_reproducible(ops):
 
 # --------------------------------------------------------------------------- #
 # ATOMIC REPLAY — replay inherits dispatch's all-or-nothing contract           #
-# (REQ-P8-UI-008 / SC-UI-008-1, AGT-03 Phase-8 fix). A macro whose op-list      #
+# (REQ-P8-UI-008 / SC-UI-008-1, Phase-8 fix). A macro whose op-list           #
 # contains an invalid op must leave the Document byte-IDENTICAL; a valid macro  #
 # replays as ONE reversible group (a single undo reverts every op).            #
 # --------------------------------------------------------------------------- #

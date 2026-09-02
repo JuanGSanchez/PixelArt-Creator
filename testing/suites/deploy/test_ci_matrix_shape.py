@@ -1,11 +1,11 @@
 """CI-matrix SHAPE test for the ``quality-gate`` and ``integration`` jobs
-(T-40, remediation register; WP-6.6 extended it to ``integration``, decision
+(remediation register; a later change extended it to ``integration``, decision
 batch 2026-08-16; brought to the post-revert flat-matrix truth by the
 hosted-runner revert that landed as d7daaa3; brought to the event-conditional
 ``setup``-job truth by the trigger-scoping change of 2026-09-01, PR #39).
 
 Placed under ``testing/suites/deploy/`` (moved from ``tests/deploy/`` on
-2026-08-30, see ADR-0065) -- AGT-09's owned surface (ADR-0043 §1 covers
+2026-08-30, see ADR-0065) -- an owned surface (ADR-0043 §1 covers
 the pipeline vehicles this agent runs; ``.github/workflows/ci.yml`` itself is
 this agent's surface too) -- but deliberately **NOT**
 ``@pytest.mark.integration``, same ruling and precedent as
@@ -78,7 +78,7 @@ from .conftest import REPO_ROOT
 
 CI_YAML = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 
-# EXPECTATION TABLE (T-40, re-pointed 2026-09-01 to the setup job's emitted
+# EXPECTATION TABLE (re-pointed 2026-09-01 to the setup job's emitted
 # lists) -- the quality-gate matrix's CURRENT truth, named explicitly so any
 # silent narrowing OR widening is caught here.
 #
@@ -199,7 +199,7 @@ def test_setup_job_emits_full_matrix_on_pull_request_and_single_leg_otherwise():
 
 def test_quality_gate_strategy_fail_fast_and_job_timeout():
     """Two independent shape facts kept in one test so the table stays at
-    six tests (the number this file has carried since T-40), not because
+    six tests (the number this file has carried since it was first written), not because
     they are conceptually the same check:
 
     - fail-fast: false is load-bearing (ci.yml's own comment: a genuine
@@ -263,13 +263,13 @@ EXPECTED_INTEGRATION_RUNS_ON = "ubuntu-latest"
 
 def test_integration_job_exists_and_is_not_commented_out():
     """The ``integration`` job must be real YAML, not prose inside a comment
-    block. Before WP-6.2 the entire job was commented out, so
+    block. It was previously commented out entirely, so
     ``data["jobs"]`` never had an ``"integration"`` key at all -- this is the
     exact silent-disable shape a future edit could reintroduce."""
     data = _load_ci_yaml()
     assert "integration" in data["jobs"], (
         "the integration job is missing from the parsed workflow -- either it "
-        "was commented out again (WP-6.2 re-enabled it) or renamed; update "
+        "was commented out again or renamed; update "
         "this test in the SAME commit if the rename/removal was deliberate"
     )
 

@@ -1,6 +1,6 @@
 """Unit tests for the injectable HTTP seam (``data/cloud/providers/_http.py``).
 
-Pure, network-free coverage (no Qt) of the seam AGT-04 uses to mock the whole
+Pure, network-free coverage (no Qt) of the seam this suite uses to mock the whole
 ``CloudPort`` contract: :class:`HttpResponse` normalization, the ``with_query`` query
 builder, the Article VII defensive body helpers (:func:`read_body` size cap /
 :func:`decode_json` JSON-only decode), :class:`HttpError`, and the

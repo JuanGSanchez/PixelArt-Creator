@@ -1,7 +1,7 @@
-"""Main-window Slice-3C / T22 workflow-wiring tests (branch coverage of slots).
+"""Main-window workflow-wiring tests (branch coverage of slots).
 
 These drive the shell slots that bind the Phase-3 palette workflows to the
-Slice-3A logic — the happy paths plus the defensive guard / error branches that
+Workflow-wiring logic — the happy paths plus the defensive guard / error branches that
 the per-widget acceptance tests do not reach (cycle-apply, extract, swap guards,
 mode-switch errors, mode-indicator refresh). Each op stays exactly one undoable
 command; guards warn rather than crash. Both themes via the autouse fixture.

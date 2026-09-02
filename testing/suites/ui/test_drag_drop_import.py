@@ -5,7 +5,7 @@ One pytest-qt test per acceptance criterion of the ``drag-drop-import`` feature
 (``QT_QPA_PLATFORM=offscreen``). Every test also runs under **both** the light
 and dark themes via the autouse ``theme`` fixture in ``conftest.py`` (REQ-DDI-UI-009).
 
-Test seams (per the AGT-05 A-B report):
+Test seams (per the UI implementation's A-B report):
     * drive ``dragEnterEvent`` / ``dropEvent`` with synthetic Qt drag events, or
       call ``_route_dropped_files([...])`` directly;
     * monkeypatch ``QMessageBox.warning`` (dirty guard + error notice) and
@@ -719,7 +719,7 @@ def test_ui009_window_renders_after_drop_in_active_theme(win, tmp_path, theme):
 
 
 # --------------------------------------------------------------------------- #
-# REQ-DDI-UI-009 (T-13, AGT-06 audit) — the three previously-unasserted        #
+# REQ-DDI-UI-009 (QA audit) — the three previously-unasserted                 #
 # clauses: keyboard reachability, visible focus, LanguageChange retranslate.  #
 # --------------------------------------------------------------------------- #
 
@@ -727,7 +727,7 @@ def test_ui009_window_renders_after_drop_in_active_theme(win, tmp_path, theme):
 def test_ui009_error_notices_use_a_keyboard_operable_message_box(
     win, tmp_path, monkeypatch
 ):
-    """SC-U009-2 (T-13): every import error surfaces via ``QMessageBox`` — a
+    """SC-U009-2: every import error surfaces via ``QMessageBox`` — a
     native, inherently keyboard-reachable dialog (Enter/Esc dismiss it; a
     single default ``Ok`` button gets focus automatically) — for each of the
     three error-notice call sites (corrupt image / malformed palette / invalid
@@ -765,14 +765,14 @@ def test_ui009_error_notices_use_a_keyboard_operable_message_box(
 
 
 def test_ui009_visible_focus_indicator_themed(win, theme):
-    """SC-U009 (T-13): a visible-focus QSS rule is themed (both themes, autouse)."""
+    """SC-U009: a visible-focus QSS rule is themed (both themes, autouse)."""
     from PySide6.QtWidgets import QApplication
 
     assert ":focus" in QApplication.instance().styleSheet()
 
 
 def test_ui009_notices_still_render_after_language_change(win, tmp_path):
-    """SC-U009 (T-13): a ``QEvent.LanguageChange`` does not break later drop
+    """SC-U009: a ``QEvent.LanguageChange`` does not break later drop
     notices — ``Main_Window.changeEvent`` retranslates its own persistent
     strings (existing 022 contract) and a drop-triggered notice generated
     *after* the event is still a non-empty, correctly-populated ``tr()``

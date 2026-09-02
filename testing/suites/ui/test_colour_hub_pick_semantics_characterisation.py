@@ -1,15 +1,15 @@
 """Characterisation probe: colour-hub pick-COMPLETION signal semantics for a
 harmony/shade/tint swatch (measurement task, not an acceptance-criterion
-module) — **INVERTED 2026-08-31 for REQ-IS-UI-030 (T-26, SC-U030-5),
-deliberately, in the same commit as T-25's fix.**
+module) — **INVERTED 2026-08-31 for REQ-IS-UI-030 (SC-U030-5),
+deliberately, in the same commit as the pick-completion fix.**
 
 **This module originally pinned the BUGGY pre-fix behaviour** (single click
 on a harmony swatch silently committed the WHEEL's stale colour; a favourite
 click's mechanics description referenced a fused ``itemClicked`` handler that
-no longer exists). T-25 landed the fix — ``_on_pick_completed`` now commits
+no longer exists). The fix landed — ``_on_pick_completed`` now commits
 the colour of the control that actually COMPLETED the pick, and
 ``Favourites_Panel``/``_SwatchButton`` each split their single-click and
-double-click paths into distinct signals. **T-26 is the licence to invert
+double-click paths into distinct signals. **This inversion is the licence to invert
 this module's assertions to the corrected expectations, and it is bounded to
 that: only the two items measured below as genuinely wrong (item 1's commit
 colour, and the favourites control's stale mechanics description + signal
@@ -161,7 +161,7 @@ def test_single_left_click_on_harmony_swatch_characterisation(hub, qtbot):
 
 def test_double_left_click_on_harmony_swatch_characterisation(hub, qtbot):
     """RE-CONFIRMED CORRECT (framing corrected 2026-08-31; assertions
-    UNCHANGED by the T-26 inversion — this test already measured the right
+    UNCHANGED by this inversion — this test already measured the right
     numbers before the fix, per REQ-IS-UI-022's "adopt, paint nothing").
 
     Measured (``qtbot.mouseDClick``, one full double-click gesture — press,
@@ -205,7 +205,7 @@ def test_double_left_click_on_harmony_swatch_characterisation(hub, qtbot):
 
 def test_keyboard_space_on_harmony_swatch_characterisation(hub, qtbot):
     """RE-CONFIRMED CORRECT (framing corrected 2026-08-31; assertions
-    UNCHANGED by the T-26 inversion) — same intended shape as the
+    UNCHANGED by this inversion) — same intended shape as the
     double-click case above, via Space (REQ-IS-UI-022, SC-U022-3).
 
     Measured (swatch focused, ``qtbot.keyClick(swatch, Qt.Key.Key_Space)``):
@@ -236,7 +236,7 @@ def test_keyboard_space_on_harmony_swatch_characterisation(hub, qtbot):
 
 def test_keyboard_return_on_harmony_swatch_characterisation(hub, qtbot):
     """RE-CONFIRMED CORRECT (framing corrected 2026-08-31; assertions
-    UNCHANGED by the T-26 inversion) — same intended shape as the Space
+    UNCHANGED by this inversion) — same intended shape as the Space
     case above, via Return (REQ-IS-UI-022, SC-U022-3).
 
     Measured (swatch focused, ``qtbot.keyClick(swatch, Qt.Key.Key_Return)``):
@@ -275,7 +275,7 @@ def test_control_favourite_click_characterisation(hub, qtbot):
     the pre-inversion version of this test described the mechanics as
     ``QListWidget.itemClicked`` -> ``_on_item_activated`` -> a single fused
     handler that set the wheel AND emitted both signals — that handler no
-    longer exists. T-25 split ``Favourites_Panel`` into
+    longer exists. The fix split ``Favourites_Panel`` into
     ``_on_item_clicked`` (deferred single click -> ``favouritePicked`` ->
     ``Colour_Hub_Menu._on_favourite_picked``, paint-only) and
     ``_on_item_activated`` (double click / Enter -> ``favouriteActivated``,

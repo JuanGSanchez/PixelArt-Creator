@@ -1,11 +1,11 @@
-"""Phase-6 chunk pixmap cache + off-thread warm-worker unit tests (AGT-05 D1/D4).
+"""Phase-6 chunk pixmap cache + off-thread warm-worker unit tests.
 
 pytest-qt, headless, both themes (autouse fixture). Exercises the LRU cache the
 tilemap canvas keys by ``(cx, cy, chunk_version)`` (version-validated hit/miss,
 eviction under the MiB budget, discard/clear) and the off-GUI-thread warm worker /
 carrier (``TilemapChunkWarmRunnable`` emits a rendered ``PixelBuffer`` through the
 ``TilemapChunkWarmSignals`` carrier; a set cancel event is an early exit). These are
-the pieces behind REQ-P6-UI-014's incremental render (AGT-10 confirmed the 16 ms
+the pieces behind REQ-P6-UI-014's incremental render (measured to hold the 16 ms
 budget); this module proves their behaviour deterministically.
 """
 

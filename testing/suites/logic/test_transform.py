@@ -163,11 +163,11 @@ def test_sc_l009_5_scale_down_stays_within_source_palette():
 
 # --- REQ-CSD-LOGIC-001/002: the scale target is bounded by resulting
 # dimension, not by the old ratio-factor guard (canvas-scale-defects
-# spec.md; tasks.md T03). The old test_scale_factor_out_of_bounds_raises
+# spec.md). The old test_scale_factor_out_of_bounds_raises
 # asserted the DELETED SCALE_MIN_FACTOR/SCALE_MAX_FACTOR ratio guard: both
 # of its bodies (200x1 -> 1x1, factor 0.005; 1x1 -> 65x1, factor 65.0) are
 # now within [1, MAX_CANVAS_WIDTH/HEIGHT] and must NOT raise. It is
-# replaced below by the per-scenario class table T03 specifies.
+# replaced below by the per-scenario class table this module specifies.
 
 
 class TestScDimensionClamp:

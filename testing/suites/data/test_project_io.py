@@ -29,7 +29,7 @@ TRANSPARENT = (0, 0, 0, 0)
 
 
 def test_tuning_constants_single_sourced_from_constants():
-    # Regression (T4, S12): project_io imports its tuning values from
+    # Regression (S12): project_io imports its tuning values from
     # logic.constants (no inlined zlib level 9 / duration 100 / palette cap 256).
     assert pio.PROJECT_ZLIB_LEVEL is constants.PROJECT_ZLIB_LEVEL
     assert pio.DEFAULT_FRAME_DURATION_MS is constants.DEFAULT_FRAME_DURATION_MS
@@ -40,7 +40,7 @@ def test_tuning_constants_single_sourced_from_constants():
 
 
 def test_missing_duration_defaults_to_constant():
-    # Regression (T4): a frame with no "duration_ms" key falls back to the
+    # Regression: a frame with no "duration_ms" key falls back to the
     # single-sourced DEFAULT_FRAME_DURATION_MS on load.
     payload = pio.serialize(_sample_document())
     for frame in payload["frames"]:
@@ -95,7 +95,7 @@ def test_serialize_shape():
     # constant, and only the constant, stops this assertion going stale on the
     # next bump (the redundant `assert pio.FORMAT_VERSION == <N>` this line
     # used to carry alongside it was dropped 2026-08-21 for exactly that
-    # reason -- T19 addendum).
+    # reason -- schema addendum).
     assert payload["version"] == pio.FORMAT_VERSION
     assert payload["canvas"] == {"width": 2, "height": 2, "mode": "rgba"}
 
@@ -181,7 +181,7 @@ def test_defaults_applied_for_optional_fields():
 
 # =========================================================================
 # REQ-CSD-DATA-001..004: whole-document geometry round-trips
-# (canvas-scale-defects spec.md / tasks.md T17)
+# (canvas-scale-defects spec.md)
 #
 # Every scenario here asserts PIXEL IDENTITY, never merely the absence of
 # a ProjectIOError -- rotate-90 preserves the byte count of a 64x48 RGBA
@@ -238,7 +238,7 @@ def _apply_whole_document_transform(
 class TestScCsdD001Scale:
     """SC-CSD-D001-1: a scaled document round-trips through pxproj.
 
-    DEFECT: proven to fail pre-fix in a scratch reconstruction (AGT-04
+    DEFECT: proven to fail pre-fix in a scratch reconstruction (accompanying
     report) -- "layer payload is 12288 bytes, expected 49152" -- because the
     pre-fix seam resampled only the active layer while declaring the new
     document dimensions for all of them. Not re-provable here without
@@ -280,7 +280,7 @@ class TestScCsdD001Scale:
 class TestScCsdD002Rotate90:
     """SC-CSD-D002-1: a rotated document round-trips through pxproj, PIXEL-identical.
 
-    DEFECT: proven to fail pre-fix in a scratch reconstruction (AGT-04
+    DEFECT: proven to fail pre-fix in a scratch reconstruction (accompanying
     report). Against the pre-fix seam the load SUCCEEDS (64*48*4 ==
     48*64*4 == 12,288 bytes, so the decoder's length check cannot catch
     it) while the sibling layers are silently scrambled -- only the

@@ -108,7 +108,7 @@ htmlcov/
 testing/coverage.json
 # The portable default temp root testing/run and run.cmd fall back to
 # when $ORCH_TEST_TMP is unset (never a literal drive letter in either
-# wrapper - see testing/README.md).
+# wrapper - kept portable rather than hardcoding a drive letter).
 .tmp/
 
 # ---- Editors / OS -----------------------------------------------------------

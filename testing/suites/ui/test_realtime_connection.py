@@ -3,12 +3,12 @@
 Phase-10 Slice C. Drives the ``ui/`` real-time seam headlessly, two ways:
 
 * **Two in-process clients over an in-memory loopback transport** (no network, no
-  credentials — ``LoopbackHub`` + ``LoopbackTransport``, the CI seam AGT-05 exposed via
+  credentials — ``LoopbackHub`` + ``LoopbackTransport``, the CI seam the UI layer exposed via
   ``Realtime_Session(transport_factory=...)``). This exercises the OFF-GUI-THREAD worker
   end to end: a *local* op broadcast by client A is relayed by the hub, polled by client
   B's worker thread, marshalled back onto the GUI thread over the queued carrier, and
   *applied to B's live ``Document``* — the two replicas converge (SEC).
-* **A fake ``Realtime_Client``** (the second AGT-05 seam) that emits ``frameReceived``
+* **A fake ``Realtime_Client``** (the second such seam) that emits ``frameReceived``
   directly, to assert the GUI-thread routing + Article VII rejection *without* a worker
   thread: a valid CRDT update mutates the bound document and reports dirty regions; a
   valid presence frame drives the presence route; a malformed frame surfaces

@@ -1,4 +1,4 @@
-"""Indexed-mode workflow acceptance tests (REQ-P3-UI-014, T22).
+"""Indexed-mode workflow acceptance tests (REQ-P3-UI-014).
 
 One test per acceptance criterion, driven through :class:`Main_Window`:
 

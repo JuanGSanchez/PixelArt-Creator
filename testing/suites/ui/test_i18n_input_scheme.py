@@ -1,6 +1,6 @@
-"""T-30 (AGT-06) acceptance tests for the input-scheme catalogues (REQ-IS-BUILD-002).
+"""Acceptance tests for the input-scheme catalogues (REQ-IS-BUILD-002).
 
-Covers `SC-B002-1..3` for the eight strings T-27 wrapped, extracted and
+Covers `SC-B002-1..3` for the eight strings the input-scheme work wrapped, extracted and
 translated: "Cursor feedback", "Add Frame", "Remove Frame", "Fit to
 &Content", the last-remaining-frame status notice, the two ``tool_icons``
 ``ToolGlyphError`` messages, and "unknown theme: %1". Every assertion below
@@ -12,7 +12,7 @@ assertion raises, or the Spanish literal simply never appears).
 
 ``pixelart_en.ts`` is a deliberately unfinished IDENTITY catalogue (0
 compiled translations, source-text fallback) and is not asserted "against"
-here beyond the load check T-30 requires -- an app that shows the English
+here beyond the load check this module requires -- an app that shows the English
 source under ``en`` is correct, not a defect (see the module under test's
 own docstring / the task brief).
 

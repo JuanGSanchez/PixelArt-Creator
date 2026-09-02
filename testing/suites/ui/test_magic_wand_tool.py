@@ -61,7 +61,7 @@ def test_sc_u006_2_tolerance_changes_extent(make_view):
 
 
 def test_t17_press_inside_existing_mask_does_not_lift(make_view):
-    """T-17 (AGT-06 audit): a wand press inside an existing selection does NOT
+    """A wand press inside an existing selection does NOT
     start a floating move — it (re)selects, per the ratified ``_allow_move``
     narrowing on :class:`~pixelart_creator.ui.tools.selection_base.SelectionTool`
     (``MagicWandTool._allow_move = False``, documented: "the wand's click always
@@ -88,11 +88,11 @@ def test_t17_press_inside_existing_mask_does_not_lift(make_view):
 
 
 def test_t17_frame_select_commits_a_live_float(qtbot):
-    """T-17 (AGT-06 audit): switching the active (canvas-displayed) frame while a
+    """Switching the active (canvas-displayed) frame while a
     floating selection is live commits it as one command first — the shipped
     ``Main_Window._on_frame_selected`` calls ``record.view.commit_active_float()``
     before switching frames (mirrors the tool-switch / tab-switch commit
-    triggers already proven in ``test_floating_selection.py`` FB-T4)."""
+    triggers already proven in ``test_floating_selection.py``)."""
     from PySide6.QtCore import QEvent, QPointF, Qt
     from PySide6.QtGui import QMouseEvent
 

@@ -1,8 +1,6 @@
-"""In-session timelapse playback overlay acceptance tests (REQ-P9-UI-016, REC-3).
+"""In-session timelapse playback overlay acceptance tests (REQ-P9-UI-016).
 
-Verifies AGT-10's binding render-strategy directive
-(``design-docs/reports/subagent-report-agt-10-p9playback-20260821-140500.md``,
-"AGT-06 acceptance list") against AGT-05's implementation of
+Verifies the render-strategy directive against the UI implementation of
 ``CanvasScene._PlaybackOverlayItem`` / ``show_playback_frame`` /
 ``end_playback_frame`` (``pixelart_creator/ui/canvas_scene.py``) and its
 wiring in ``pixelart_creator/ui/main_window.py``'s
@@ -20,9 +18,9 @@ frame directly and never reads a theme role.
 
 No frame-time/fps/ms-per-tick figure is asserted anywhere in this module,
 per the directive's own D6 deferral (item 7 of its acceptance list) -- that
-measurement is AGT-10's re-profile, not this module's job.
+measurement is the performance work's re-profile, not this module's job.
 
-Coverage map (AGT-10 acceptance-list item -> test):
+Coverage map (acceptance-list item -> test):
 
 * item 1 -- ``test_ui016_1_overlay_hidden_at_construction_and_after_stop``
 * item 2 -- ``test_ui016_2_in_session_playback_shows_reconstructed_state_via_overlay``
@@ -84,7 +82,7 @@ def _record_three_real_frames(qtbot, win):
 
 
 def test_ui016_1_overlay_hidden_at_construction_and_after_stop(qtbot):
-    """AGT-10 item 1: the overlay item exists and is hidden right after
+    """Acceptance item 1: the overlay item exists and is hidden right after
     ``CanvasScene.__init__`` (reached here via ``Main_Window``'s own
     ``new_document()``), and hidden again after playback stops."""
     win = _window(qtbot)
@@ -110,7 +108,7 @@ def test_ui016_1_overlay_hidden_at_construction_and_after_stop(qtbot):
 
 
 def test_ui016_2_in_session_playback_shows_reconstructed_state_via_overlay(qtbot):
-    """AGT-10 item 2: after the first ``frameReady`` tick the overlay is
+    """Acceptance item 2: after the first ``frameReady`` tick the overlay is
     visible, and for EVERY tick the overlay's own displayed frame is the
     exact array the production ``frameReady`` emission carried -- not just
     'some' data. By connection order ``Main_Window.__init__``'s own
@@ -150,7 +148,7 @@ def test_ui016_2_in_session_playback_shows_reconstructed_state_via_overlay(qtbot
 def test_ui016_3_document_buffer_byte_identical_and_identity_preserved_across_playback(
     qtbot,
 ):
-    """AGT-10 item 3: extends the existing
+    """Acceptance item 3: extends the existing
     ``test_sc_ui_016_2_stack_and_document_restored_after_playback`` byte-
     identity proof with the NEW identity check the directive asks for --
     ``record.scene._item._buffer`` is the SAME OBJECT before and after a full
@@ -181,10 +179,10 @@ def test_ui016_3_document_buffer_byte_identical_and_identity_preserved_across_pl
 
 
 def test_ui016_4_no_new_undo_command_and_no_dirty_flag_from_playback(qtbot):
-    """AGT-10 item 4: the stack's depth/index/clean state is unchanged by a
+    """Acceptance item 4: the stack's depth/index/clean state is unchanged by a
     full in-session play/stop cycle through the production ``Main_Window``
     path -- the overlay mechanism adds no new write to ``Document``/
-    ``QUndoStack`` (confirmed by inspection in AGT-05's report; this pins it
+    ``QUndoStack`` (confirmed by inspection in the UI implementation's report; this pins it
     behaviourally)."""
     win = _window(qtbot)
     record = _record_three_real_frames(qtbot, win)
@@ -214,7 +212,7 @@ def test_ui016_4_no_new_undo_command_and_no_dirty_flag_from_playback(qtbot):
 def test_ui016_6a_overlay_update_bounded_and_no_unrelated_scene_invalidate(
     qtbot, monkeypatch
 ):
-    """AGT-10 item 6: the overlay's own ``update()`` is called roughly once
+    """Acceptance item 6: the overlay's own ``update()`` is called roughly once
     per ``frameReady`` tick (bounded -- not blown up by a full-scene
     repaint), and NONE of ``CanvasScene``'s existing background/tiled-dirty
     ``self.invalidate(...)`` call sites (``_mark_tiled_dirty()``, onion
@@ -255,7 +253,7 @@ def test_ui016_6a_overlay_update_bounded_and_no_unrelated_scene_invalidate(
 
 
 def test_ui016_6b_no_qpixmap_fromimage_in_the_playback_tick_window(qtbot, monkeypatch):
-    """AGT-10 item 6 (conversion-cost clause): a behavioural proxy for the
+    """Acceptance item 6 (conversion-cost clause): a behavioural proxy for the
     code-shape rule 'no ``QPixmap.fromImage`` in the per-tick path' -- spies
     on ``QPixmap.fromImage`` itself and asserts it is NEVER called anywhere
     during a full record/play/stop cycle. A pass over the whole window is a

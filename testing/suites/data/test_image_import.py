@@ -1,4 +1,4 @@
-"""T-03: direct contract tests for ``pixelart_creator.ui.image_import.decode_image``
+"""Direct contract tests for ``pixelart_creator.ui.image_import.decode_image``
 (REQ-DDI-DATA-002, ADR-0010).
 
 ``decode_image`` is a Qt (QImage) consumer and therefore lives in ``ui/`` per

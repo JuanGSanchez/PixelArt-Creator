@@ -1,4 +1,4 @@
-"""Shared builders for the Phase-7 export UI tests (AGT-06, testing/suites/ui only).
+"""Shared builders for the Phase-7 export UI tests (testing/suites/ui only).
 
 Pure-logic document factories the export UI binds to — no Qt is needed to build
 them, so they exercise the frozen ``logic``/``data`` export engine exactly as the

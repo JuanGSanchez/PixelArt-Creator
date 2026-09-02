@@ -1,4 +1,4 @@
-"""Tests for pixelart_creator.logic.track_table (REQ-P5-LOGIC-015, T13).
+"""Tests for pixelart_creator.logic.track_table (REQ-P5-LOGIC-015).
 
 Covers ``SC-L015-1``..``-5``: a duplicated frame shares the source's tracks
 (``make_duplicate_frame_command`` preserves ``layer_id``); a frame missing a

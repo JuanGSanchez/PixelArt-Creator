@@ -84,7 +84,7 @@ def test_sc_ui_009_1_recording_pushes_no_undo_command(qtbot):
 def test_sc_ui_009_1_session_round_trips_and_replays_identically(qtbot, tmp_path):
     """SC-UI-009-1: save -> load yields an equal session (the round-trip pin).
 
-    **Re-specified 2026-08-18 (T18, tasks.md amendment, plan §8.2).** The
+    **Re-specified 2026-08-18 (plan §8.2).** The
     round-trip half is unchanged (the pin): a saved-then-reloaded session is
     an equal :class:`TimelapseSession`. The *replay* half is NOT re-asserted
     here as it originally was — this session is a **schema-1**
@@ -97,13 +97,14 @@ def test_sc_ui_009_1_session_round_trips_and_replays_identically(qtbot, tmp_path
     ``reconstructability`` reports ``NO_PAYLOAD`` at frame 0, reached as a
     **value** (plan §8.2), never by string-matching a ``logic/`` reason. The
     replayable, payload-carrying case is covered end-to-end by
-    ``testing/suites/ui/test_timelapse_reopened.py`` (T17).
+    ``testing/suites/ui/test_timelapse_reopened.py``.
 
     **Re-specified a second time, same day (identity re-keying, Q-21/Amendment
-    3; an accounting gap closed here rather than by T48 -- T48 re-keys T16/T17's
-    files, not this one; see the dispatch report for AGT-06's finding).**
+    3; an accounting gap closed here directly, rather than
+    deferred to the sibling files this belongs beside; see the dispatch report
+    for the finding).**
     ``Timelapse_Controls.__init__`` now calls ``new_session(recording_id=...)``
-    unconditionally (T34), so ``controls.session()`` is **never** schema-1
+    unconditionally, so ``controls.session()`` is **never** schema-1
     any more -- every session it returns is identity-bearing (schema 3,
     ``TIMELAPSE_IDENTITY_SCHEMA_VERSION``). The plain ``save_session`` /
     ``load_session`` pair is, by this module's own docstring, the untouched

@@ -199,7 +199,7 @@ def test_sc_ui_013_dialog_retranslates_on_language_change(qtbot):
     assert dialog.windowTitle() != ""
     assert dialog._format_label.text() != ""
     # Delivering LanguageChange re-runs _retranslate without error (the changeEvent
-    # override path); text stays populated (string_audit_check owned by AGT-07).
+    # override path); text stays populated (string_audit_check owned by localisation).
     QApplication.sendEvent(dialog, QEvent(QEvent.Type.LanguageChange))
     assert dialog.windowTitle() != ""
     assert dialog._browse_button.text() != ""

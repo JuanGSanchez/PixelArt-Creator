@@ -1,15 +1,15 @@
-"""Ruler cursor-coordinate readout acceptance tests (job REC-4/R-5/C-5, DEV-27).
+"""Ruler cursor-coordinate readout acceptance tests (job R-5/C-5).
 
 Covers **REQ-P9-UI-003**'s live coordinate readout half specifically: before
-this fix, ``Ruler_Strip.set_cursor_readout`` had zero production callers (the
-DEV-27 finding) and its ``paintEvent`` never read the ``_cursor_doc`` field it
+this fix, ``Ruler_Strip.set_cursor_readout`` had zero production callers (a
+prior finding) and its ``paintEvent`` never read the ``_cursor_doc`` field it
 wrote. The fix installs a real ``QObject.eventFilter`` on the
 ``Canvas_View``'s viewport (``Guides_Rulers_Overlay.__init__`` ->
 ``view.viewport().installEventFilter(self)``); this module drives that exact
 production path by delivering real ``QMouseEvent``/``QEvent.Leave`` events
 THROUGH ``QApplication.sendEvent`` at the viewport (which is what dispatches
 to installed event filters) -- not by calling ``Ruler_Strip.set_cursor_readout``
-directly, which would prove nothing about the DEV-27 gap (a direct call was
+directly, which would prove nothing about the gap (a direct call was
 already possible before the fix; the defect was that nothing production made
 that call).
 
@@ -64,17 +64,17 @@ def _move_event(view, x: int, y: int) -> QMouseEvent:
 def test_c5_viewport_mouse_move_feeds_the_ruler_readout_via_event_filter(make_view):
     """REQ-P9-UI-003: a real mouse-move over the canvas viewport reaches
     ``Ruler_Strip.set_cursor_readout`` through the installed event filter --
-    the production feed that did not exist before this fix (DEV-27).
+    the production feed that did not exist before this fix.
 
     SC-UI-003-1's own contract is the observable one asserted here: a cursor
     genuinely over document pixel (30, 10) reads out (30, 10) -- not a
     reproduction of ``Guides_Rulers_Overlay._update_cursor_readout``'s
-    internal formula. See this module's docstring / the AGT-06 report for why
+    internal formula. See this module's docstring / the QA report for why
     this currently fails: ``_update_cursor_readout`` feeds an
     already-``view.mapToScene``-mapped point into ``Ruler_Strip.set_cursor_readout``,
     which itself re-applies the pan offset via ``coordinate_readout`` --
     double-counting the offset whenever it is non-zero. That is a product
-    defect (reported to AGT-05), not a test-side coordinate assumption, and it
+    defect (reported to the UI layer), not a test-side coordinate assumption, and it
     is left failing here rather than papered over.
     """
     controller, view, _scene, _stack = _controller(make_view)

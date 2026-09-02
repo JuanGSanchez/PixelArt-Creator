@@ -1,4 +1,4 @@
-"""Frame-identity reordering casuistics (T38, REQ-P9-LOGIC-022(g)).
+"""Frame-identity reordering casuistics (REQ-P9-LOGIC-022(g)).
 
 One pytest-qt test per enumerated collision case **R1-R5**
 (``SC-L022-1``, ``-2``, ``-3``, ``-4``, ``-5``) — the user's own verification
@@ -8,7 +8,7 @@ a **real** :class:`~pixelart_creator.ui.canvas_view.Canvas_View` +
 ``QUndoStack`` + :class:`~pixelart_creator.ui.timelapse_controls.Timelapse_Controls`,
 never a logic-only stand-in for the stack: this is precisely where a
 position-addressed implementation fails and a mocked stack would not
-discharge the case (T38's own done-when). Both themes are exercised
+discharge the case (this task's own done-when). Both themes are exercised
 automatically (the autouse ``theme`` fixture in ``testing/suites/ui/conftest.py``).
 
 Every scenario here is written, per spec §11's preamble, so a

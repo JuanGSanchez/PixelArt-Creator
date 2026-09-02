@@ -8,7 +8,7 @@ change-detector reports "unchanged" for an identical hash and "changed" otherwis
 count is bounded by ``MAX_ASSET_VERSIONS`` imported from ``logic/constants`` (no
 inlined literal 256); the pure model imports no Qt and has no CRDT dependency; and — via
 Hypothesis over permuted append sequences — the built history is deterministic /
-byte-identical across runs. T11-3-03.
+byte-identical across runs.
 """
 
 from __future__ import annotations

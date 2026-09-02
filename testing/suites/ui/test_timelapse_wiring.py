@@ -1,4 +1,4 @@
-"""Timelapse production-wiring acceptance tests (job REC-3/R-4/C-4, DEV-27).
+"""Timelapse production-wiring acceptance tests (job R-4/C-4).
 
 Everything in ``testing/suites/ui/test_timelapse_playback.py`` and
 ``testing/suites/ui/test_timelapse_reopened.py`` deliberately builds a bare
@@ -10,12 +10,12 @@ than asserts. This module is the complement: it drives the SAME production
 seam (``ui/main_window.py``) that a real user actually reaches — a real
 ``Main_Window``, its own docked ``Timelapse_Controls`` / ``Timelapse_Frame_View``,
 its own Aids-menu-toggleable docks, its own ``_undo_action``/``_redo_action`` —
-so the wiring DEV-27 found dead (``frameReady``/``playbackEditLockChanged``/
+so the wiring a prior audit found dead (``frameReady``/``playbackEditLockChanged``/
 ``framesDropped`` with zero production consumers; ``Timelapse_Frame_View``
 never constructed) is proven live end to end, not merely present on the
 widget.
 
-Covers job criterion **C-4** (REC-3/R-4):
+Covers job criterion **C-4** (R-4):
 
 * **(1)** a reopened, payload-carrying recording's frames reach the
   production-docked ``Timelapse_Frame_View`` (``frameReady`` consumed).
@@ -37,14 +37,13 @@ Both themes run automatically (the autouse ``theme`` fixture in
 The paragraph immediately following this one is kept verbatim as the
 historical record of the gap this module used to report rather than assert.
 It is superseded, not deleted, per this codebase's own convention (see the
-"re-keyed onto identity" note in ``test_timelapse_playback.py``): AGT-10's
+"re-keyed onto identity" note in ``test_timelapse_playback.py``): the
 render-strategy directive
-(``design-docs/reports/subagent-report-agt-10-p9playback-20260821-140500.md``)
-and AGT-05's implementation of it (``CanvasScene._PlaybackOverlayItem`` /
+and the UI implementation of it (``CanvasScene._PlaybackOverlayItem`` /
 ``show_playback_frame`` / ``end_playback_frame``, wired from THIS module's own
 ``_on_timelapse_frame_ready`` / ``_on_timelapse_playback_lock_changed``) now
 close it. The overlay-visible/reconstructed-content assertions live in
-``testing/suites/ui/test_playback_overlay.py`` (AGT-10 acceptance-list items 1-4, 6);
+``testing/suites/ui/test_playback_overlay.py`` (acceptance-list items 1-4, 6);
 THIS module adds the remaining wiring-integration items: reopened-session
 isolation (item 5, run alongside the pre-existing banner test below so both
 ``is_reopened_recording()`` branches are proven mutually exclusive in the same
@@ -52,12 +51,12 @@ suite run), teardown on stop AND on a paused/scrubbed stop, and confirmation
 that the pre-existing edit-lock behaviour is unaffected by the new wiring.
 
 *Superseded text (2026-08-21):* REQ-P9-UI-016
-(``design-docs/specs/phase-9-timelapse-replay/spec.md:709-715``) reads,
+(the phase-9-timelapse-replay spec, lines 709-715) reads,
 verbatim: *"Playing steps the bound document through the recorded positions in
 order, so the **active canvas shows each historical state as it is
 reconstructed** (the document genuinely is at that state — §4.3)."* That is a
 visual-display requirement on the active canvas during IN-SESSION playback,
-separate from the read-only edit lock. AGT-05's S3 dispatch wired the lock
+separate from the read-only edit lock. A prior UI dispatch wired the lock
 (``playbackEditLockChanged`` -> ``record.view.setEnabled``) but explicitly did
 NOT build a mechanism for the active canvas to paint the reconstructed
 historical pixels — confirmed by reading ``ui/main_window.py``:
@@ -72,9 +71,9 @@ user (the document is provably byte-identical before/after, per the existing
 ``test_sc_ui_016_2_stack_and_document_restored_after_playback``) — so it does
 not meet this procedure's BLOCKED bar. It was reported as a real, owed
 follow-up dispatch (scope: ``ui/canvas_scene.py``/``ui/canvas_view.py``, a
-render-strategy question AGT-05's own report already flagged as needing
+render-strategy question a prior UI report already flagged as needing
 either a new display-override hook or a render/restore timing re-architecture
--- AGT-10's territory) -- and that dispatch is what closed it.
+-- the performance work's territory) -- and that dispatch is what closed it.
 """
 
 from __future__ import annotations
@@ -257,7 +256,7 @@ def test_c4_reopened_recording_frames_reach_the_production_docked_frame_view(
 ):
     """C-4/REQ-P9-UI-024: a saved, payload-carrying recording's frames reach
     ``Main_Window``'s OWN docked ``Timelapse_Frame_View`` (never constructed
-    before this fix, per DEV-27), and its dock is revealed to the user."""
+    before this fix), and its dock is revealed to the user."""
     win1 = _window(qtbot)
     _record_three_real_frames(qtbot, win1)
     saved = _save_current_session(qtbot, monkeypatch, win1, tmp_path)
@@ -306,7 +305,7 @@ def test_c4_reopened_recording_banner_identifies_itself_through_production_dock(
 
 
 # --------------------------------------------------------------------------- #
-# AGT-10 acceptance-list item 5 -- reopened review never shows the in-session #
+# Acceptance-list item 5 -- reopened review never shows the in-session       #
 # overlay; run in the SAME suite as the banner test directly above.          #
 # --------------------------------------------------------------------------- #
 
@@ -314,7 +313,7 @@ def test_c4_reopened_recording_banner_identifies_itself_through_production_dock(
 def test_ui016_reopened_session_never_shows_the_in_session_playback_overlay(
     qtbot, tmp_path, monkeypatch
 ):
-    """REQ-P9-UI-016/-024, AGT-10 acceptance item 5: reviewing a reopened
+    """REQ-P9-UI-016/-024, acceptance item 5: reviewing a reopened
     (payload-carrying) recording must NEVER construct/show the in-session
     canvas overlay on any open tab -- only ``Timelapse_Frame_View`` serves
     it. This runs in the SAME suite as
@@ -358,7 +357,7 @@ def test_ui016_reopened_session_never_shows_the_in_session_playback_overlay(
 def test_ui016_teardown_hides_overlay_on_stop_and_after_pause_scrub_stop(
     qtbot,
 ):
-    """AGT-10 acceptance list / task instruction 'stop AND scrub-end': the
+    """Acceptance list / task instruction 'stop AND scrub-end': the
     overlay teardown (``record.scene.end_playback_frame()``, driven by
     ``playbackEditLockChanged(False)``) fires identically whether Stop is
     clicked while actively ticking, or after the transport was paused and
@@ -408,7 +407,7 @@ def test_ui016_teardown_hides_overlay_on_stop_and_after_pause_scrub_stop(
 
 
 def test_ui016_edit_lock_engagement_unchanged_with_overlay_wired(qtbot):
-    """AGT-10 acceptance list / task instruction 'edit lock engagement
+    """Acceptance list / task instruction 'edit lock engagement
     unchanged': the pre-existing REQ-P9-UI-016 lock behaviour (view/undo/redo
     disabled while playing, restored on stop) is unaffected by wiring the
     overlay into the SAME two handlers -- same shape as
@@ -445,17 +444,17 @@ def test_ui016_edit_lock_engagement_unchanged_with_overlay_wired(qtbot):
 
 
 # --------------------------------------------------------------------------- #
-# REC-3 tab-close teardown fix (Main_Window._on_tab_changed's ``record is    #
+# Tab-close teardown fix (Main_Window._on_tab_changed's ``record is         #
 # None`` branch now calls ``bind_undo_stack(None)``) -- permanent regression #
-# encoding of AGT-06's own ephemeral probe (a), Scenario A + Scenario B      #
-# (subagent-report-agt-06-qa-expert-ab0bc12c-20260821T145232.md).           #
+# encoding of this suite's own ephemeral probe (a), Scenario A + Scenario B  #
+# (recorded in the QA dispatch report for this finding).                    #
 # --------------------------------------------------------------------------- #
 
 
 def test_tabclose_a_only_tab_playing_stops_timer_and_releases_lock_same_turn(
     qtbot,
 ):
-    """REC-3 fix: closing the ONLY open tab while its in-session timelapse
+    """Tab-close fix: closing the ONLY open tab while its in-session timelapse
     playback is active stops the ``Timelapse_Controls`` ``QTimer`` and
     releases ``_playback_locked`` in the SAME event-loop turn that
     ``close_document(...)`` returns -- no ``qtbot.wait``/``processEvents``
@@ -465,7 +464,7 @@ def test_tabclose_a_only_tab_playing_stops_timer_and_releases_lock_same_turn(
     so ``Timelapse_Controls.bind_undo_stack`` (and its unconditional
     ``_on_stop()`` safety net) was never reached and the timer/lock leaked
     until a new document was opened or Stop was clicked manually. Encodes
-    AGT-06's own probe (a), Scenario A."""
+    this suite's own probe (a), Scenario A."""
     win = _window(qtbot)
     _record_three_real_frames(qtbot, win)
     assert len(win._tabs_data) == 1  # the only tab -- Scenario A's precondition
@@ -491,12 +490,12 @@ def test_tabclose_a_only_tab_playing_stops_timer_and_releases_lock_same_turn(
 def test_tabclose_b_closing_non_last_tab_stays_regression_pinned(qtbot):
     """Regression pin: closing a NON-last tab (a next tab remains) while ITS
     playback is active must keep behaving exactly as it did before the
-    REC-3 fix -- the pre-existing rebind path
+    tab-close fix -- the pre-existing rebind path
     (``_on_tab_changed`` -> ``_bind_visual_aids_to_active`` ->
     ``Timelapse_Controls.bind_undo_stack`` -> unconditional ``_on_stop()``)
     fires synchronously inside ``removeTab``'s own ``currentChanged``, so the
     timer stops and the lock releases immediately, same-turn, exactly as
-    Scenario B in AGT-06's probe (a) showed against the UNFIXED code. The
+    Scenario B in this suite's probe (a) showed against the UNFIXED code. The
     fix touches only the ``record is None`` branch, never this path, so this
     test's outcome is unaffected by the fix either way (see the reversion
     proof, where this test PASSES both before and after)."""

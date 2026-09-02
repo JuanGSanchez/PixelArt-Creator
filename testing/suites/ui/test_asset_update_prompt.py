@@ -1,7 +1,7 @@
-"""Library-edit prompt, its memory, and its restore control (T23,
-phase-11-asset-ingress; REQ-P11-UI-022, -023, -024).
+"""Library-edit prompt, its memory, and its restore control
+(phase-11-asset-ingress; REQ-P11-UI-022, -023, -024).
 
-Unblocked by ruling P11-R2 (plan §3.4): T15's domain-size-driven renderer in
+Unblocked by ruling P11-R2 (plan §3.4): the domain-size-driven renderer in
 ``ui/project_prefs_actions.py`` can now show the current REMEMBERED OUTCOME
 of a three-value preference, distinguishing *always pick up the change* from
 *always keep the referenced version* -- not merely "checked". Every test that
@@ -199,8 +199,8 @@ def test_sc_p11_ui_022_3_keeping_the_referenced_version_changes_nothing(
         "clause is not satisfied -- decide() re-presented the dialog for an "
         "identical (asset_id, display_name) pair with no suppression set. "
         "decide() has no per-edit identity/state; see asset_update_prompt.py's "
-        "own module docstring boundary note. Report to AGT-05/AGT-03; not "
-        "fixed by AGT-06."
+        "own module docstring boundary note. Report to the UI/implementation owners; not "
+        "fixed here."
     )
 
 
@@ -429,12 +429,12 @@ def test_sc_p11_ui_024_4_ready_for_the_future_settings_dialog_no_second_one_here
 
 
 # --------------------------------------------------------------------------- #
-# Cross-phase regression contract (T23's own "Additionally assert" clause)   #
+# Cross-phase regression contract (this task's own "Additionally assert" clause) #
 # --------------------------------------------------------------------------- #
 
 
 def test_phase5_key_still_renders_as_a_single_checkable_entry(qtbot):
-    """Cross-phase regression (task T23, plan §3.4): the phase-5
+    """Cross-phase regression (plan §3.4): the phase-5
     ``confirm_cel_overwrite`` key is UNTOUCHED by this slice's renderer
     extension -- it still renders as a single checkable ``QAction`` (not a
     submenu) whose activation restores its default. This test file asserts

@@ -7,7 +7,7 @@ responses, **no network, no credentials, no OS keyring**. These are the CI contr
 tests (they carry **NO** ``cloud_live`` marker); only genuinely live end-to-end runs
 would be ``cloud_live``.
 
-Coverage focus (per the AGT-04 charge):
+Coverage focus:
 
 * the full ``CloudPort`` verb set per provider — put / get / list_versions / latest /
   delete / put_recovery / get_recovery / capabilities / is_connected — asserting each

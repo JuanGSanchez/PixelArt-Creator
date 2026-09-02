@@ -1,25 +1,25 @@
-"""T33 -- reachability of the library-edit prompt through ``Main_Window.open_document``
+"""Reachability of the library-edit prompt through ``Main_Window.open_document``
 (phase-11-asset-ingress, job ``20260821-reachability-remediation``; ruling P11-R9,
-``plan.md`` §3.11; DEV-40/DEV-40a chain).
+``plan.md`` §3.11; chain of prior findings).
 
-``testing/suites/ui/test_asset_update_prompt.py`` (T23) tests
+``testing/suites/ui/test_asset_update_prompt.py`` tests
 :meth:`~pixelart_creator.ui.asset_update_prompt.Asset_Update_Prompt_Dialog.decide` at its
 own seam and DISCLOSES, in its own module docstring, that no production caller reaches it
 and that ``SC-P11-UI-022-2``'s reference-resolution half is asserted at decision level
-only. T31 (:func:`~pixelart_creator.ui.asset_update_prompt.resolve_library_edits`) and T30
-(``ui/main_window.py``'s per-tab reference-set holding/loading/saving/binding) landed the
+only. A prior fix added :func:`~pixelart_creator.ui.asset_update_prompt.resolve_library_edits`
+and ``ui/main_window.py``'s per-tab reference-set holding/loading/saving/binding, landing the
 missing caller and its wiring; this module is the CALLER-side assertion that closes the
 loop -- it never calls ``resolve_library_edits`` directly (that is exactly the line the
-task's own "why this is not a clause of T23 or T27" note draws) and always drives
+task's own "why this is not a clause of the prompt module's own tests" note draws) and always drives
 :meth:`~pixelart_creator.ui.main_window.Main_Window.open_document`, the one production
 entry point plan §3.11 (2) names (measured there: the only two GUI callers are the drop
 router and File → Open; both funnel through this method). The absence of exactly this
-assertion is what let T14 ship a surface nothing reached -- DEV-40/DEV-40a -- and this is
+assertion is what let an earlier task ship a surface nothing reached -- and this is
 the reachability clause that closes it.
 
-Scope boundary: T23 stays unmodified (its own regression obligation, confirmed unmodified
-by T31's report); this module asserts nothing about the dialog's own button/checkbox
-mechanics (T23's job) -- only that opening a REAL project through the REAL caller raises
+Scope boundary: the prompt module stays unmodified (its own regression obligation, confirmed unmodified
+by that prior fix's report); this module asserts nothing about the dialog's own button/checkbox
+mechanics (the prompt module's job) -- only that opening a REAL project through the REAL caller raises
 the prompt, resolves it correctly for each of the three answers, and leaves the membership
 invariant intact for a mix of edited and missing references (SC-P11-UI-021-5's boundary).
 
@@ -34,7 +34,7 @@ constructed fresh under ``tmp_path`` and discarded with it.
 
 The prompt itself is driven through the same ``Asset_Update_Prompt_Dialog.exec``
 monkeypatch idiom ``testing/suites/ui/test_asset_update_prompt.py``'s own ``answer_prompt`` fixture
-and T31's offscreen smoke script both use -- patched at the ``QDialog.exec`` boundary, so
+and a prior fix's offscreen smoke script both use -- patched at the ``QDialog.exec`` boundary, so
 ``resolve_library_edits``/``open_document`` are never bypassed, only the blocking modal
 loop headless Qt cannot drive with real input. This module's own ``answer_prompt`` records
 each PRESENTED ``asset_id`` (not merely ``True``), so "the edited one only" is assertable
@@ -44,16 +44,16 @@ Headless (``QT_QPA_PLATFORM=offscreen``, forced by ``testing/suites/ui/conftest.
 here runs under BOTH the light and dark theme via the autouse ``theme`` fixture -- no
 per-test parametrisation is needed for that.
 
-**T53 addition (ruling P11-R13, plan.md §3.15, ``tasks.md`` T53).** The block below the
+**A later addition (ruling P11-R13, plan.md §3.15).** The block below the
 existing five functions asserts ``SC-P11-DATA-010-4`` and ``-5`` (both new; no test
-existed for either before T51 landed) and the three previously-unasserted clauses of
+existed for either before an earlier fix landed) and the three previously-unasserted clauses of
 ``SC-P11-DATA-010-3`` -- the pre-existing "no asset revision is appended" clause plus
 the two the 2026-08-22 durability ruling added ("not reported as having unsaved
 changes because of it", "the unsaved canvas work is still unsaved"). It also covers
 ``CL-P11-8`` (spec.md §10.4) -- explicitly NOT a scenario id, and named as such in its
 own test's docstring -- and the "never record an outcome the user did not choose"
 requirement for both a dismissed dialog and a remembered-"always" short-circuit. None
-of the five functions above is touched; T53 only appends.
+of the five functions above is touched; this addition only appends.
 """
 
 from __future__ import annotations
@@ -163,7 +163,7 @@ def _write_project(tmp_path: Path, name: str, references) -> Path:
 def answer_prompt(monkeypatch):
     """Patch ``Asset_Update_Prompt_Dialog.exec`` to answer immediately (headless
     modal automation -- the same idiom as ``testing/suites/ui/test_asset_update_prompt.py``'s
-    own ``answer_prompt`` fixture and T31's offscreen smoke script), patched at the
+    own ``answer_prompt`` fixture and a prior fix's offscreen smoke script), patched at the
     ``QDialog.exec`` boundary so ``resolve_library_edits``/``open_document`` are
     never bypassed. Returns a controller: ``answer_prompt(action="pick_up" | "keep"
     | "dismiss", dont_ask=False)``; the returned list records each PRESENTED
@@ -202,10 +202,11 @@ def answer_prompt(monkeypatch):
 def test_sc_p11_ui_022_2_open_document_raises_prompt_and_pick_up_resolves(
     qtbot, tmp_path, answer_prompt
 ):
-    """T33: opening a project via ``Main_Window.open_document`` raises the prompt
+    """Opening a project via ``Main_Window.open_document`` raises the prompt
     for a stale reference, and choosing PICK UP leaves the project's reference
     resolving to the edited content while the earlier revision stays in the
-    asset's history (SC-P11-UI-022-2, end to end -- T23's own disclosed gap)."""
+    asset's history (SC-P11-UI-022-2, end to end -- the prompt module's own disclosed gap).
+    """
     win = _window(qtbot)
     asset_id, hash_v1, hash_v2 = _make_edited_asset(win, qtbot)
     stale_reference = AssetReference(asset_id, hash_v1, AssetKind.SPRITE, "Hero")
@@ -241,7 +242,7 @@ def test_sc_p11_ui_022_2_open_document_raises_prompt_and_pick_up_resolves(
 def test_sc_p11_ui_022_3_open_document_keep_leaves_reference_unchanged_and_content_retrievable(  # noqa: E501
     qtbot, tmp_path, answer_prompt
 ):
-    """T33: choosing KEEP through the real caller leaves P's reference unchanged
+    """Choosing KEEP through the real caller leaves P's reference unchanged
     and its content still retrievable (SC-P11-UI-022-3, first two clauses)."""
     win = _window(qtbot)
     asset_id, hash_v1, _hash_v2 = _make_edited_asset(win, qtbot)
@@ -265,12 +266,12 @@ def test_sc_p11_ui_022_3_open_document_keep_leaves_reference_unchanged_and_conte
 def test_sc_p11_ui_022_3_that_same_edit_does_not_ask_again_through_the_real_caller(
     qtbot, tmp_path, answer_prompt
 ):
-    """T33: SC-P11-UI-022-3's own third clause -- "that same edit does not ask
+    """SC-P11-UI-022-3's own third clause -- "that same edit does not ask
     again" -- proven through the CALLER (``open_document``), not the ``decide()``
-    seam T23 already covers (and where T23 itself proves the shipped code does
+    seam the prompt module already covers (and where it itself proves the shipped code does
     NOT hold this clause when driven directly, unscoped by a project key). Opening
     the SAME project a second time, with the library unchanged since, must not
-    re-present the dialog: the session memory T31 scoped by ``project_key`` (plan
+    re-present the dialog: the session memory a prior fix scoped by ``project_key`` (plan
     §3.11 (2b)) is what makes this true in production, and this test is what
     proves the caller actually reaches it."""
     win = _window(qtbot)
@@ -303,7 +304,7 @@ def test_sc_p11_ui_022_3_that_same_edit_does_not_ask_again_through_the_real_call
 def test_sc_p11_ui_022_5_open_document_dismissing_keeps_referenced_version(
     qtbot, tmp_path, answer_prompt
 ):
-    """T33: dismissing the prompt (Esc/close, no button clicked) through the real
+    """Dismissing the prompt (Esc/close, no button clicked) through the real
     caller keeps the referenced version and records no preference
     (SC-P11-UI-022-5)."""
     win = _window(qtbot)
@@ -331,7 +332,7 @@ def test_sc_p11_ui_022_5_open_document_dismissing_keeps_referenced_version(
 def test_sc_p11_ui_021_5_boundary_mixed_edited_and_missing_prompts_only_for_edited(
     qtbot, tmp_path, answer_prompt
 ):
-    """T33: a reference set holding BOTH an edited and a missing asset prompts for
+    """A reference set holding BOTH an edited and a missing asset prompts for
     the edited one only; the missing one is still named and counted by the reuse
     surface, and no reference is dropped or substituted --
     ``out.asset_ids() == in.asset_ids()`` (SC-P11-UI-021-5 boundary, plan §3.11)."""
@@ -370,7 +371,7 @@ def test_sc_p11_ui_021_5_boundary_mixed_edited_and_missing_prompts_only_for_edit
 
 
 # --------------------------------------------------------------------------- #
-# T53 (ruling P11-R13) -- the durability chain: SC-P11-DATA-010-4/-5, the      #
+# Ruling P11-R13 -- the durability chain: SC-P11-DATA-010-4/-5, the           #
 # three owed clauses of -3, CL-P11-8, and "never record a choice not made".    #
 # --------------------------------------------------------------------------- #
 
@@ -378,10 +379,10 @@ def test_sc_p11_ui_021_5_boundary_mixed_edited_and_missing_prompts_only_for_edit
 def test_sc_p11_data_010_4_ticked_decision_survives_closing_without_saving(
     qtbot, tmp_path, answer_prompt
 ):
-    """T53: SC-P11-DATA-010-4 -- ticking "Don't ask again" and choosing KEEP is
+    """SC-P11-DATA-010-4 -- ticking "Don't ask again" and choosing KEEP is
     written to the journal at the MOMENT OF THE CLICK (asserted on the journal
     FILE, not on an in-memory object -- an in-memory assertion would pass
-    against the pre-T51 defect); the project still reports no unsaved changes
+    against the earlier defect); the project still reports no unsaved changes
     because of it; and the remembered outcome survives closing the project
     WITHOUT saving and reopening it, with the next library-side edit of the
     same asset handled without a prompt. Also covers the companion half of
@@ -439,7 +440,7 @@ def test_sc_p11_data_010_4_ticked_decision_survives_closing_without_saving(
 def test_sc_p11_data_010_5_unticked_decision_survives_and_stays_scoped_to_its_edit(
     qtbot, tmp_path, answer_prompt
 ):
-    """T53: SC-P11-DATA-010-5 -- an UNTICKED decision (pick up, "Don't ask
+    """SC-P11-DATA-010-5 -- an UNTICKED decision (pick up, "Don't ask
     again" left unchecked) is also written to the journal at the moment of the
     click (asserted on the file), survives closing the project WITHOUT saving
     and reopening it (the SAME edit is not asked about again and the change is
@@ -503,7 +504,7 @@ def test_sc_p11_data_010_5_unticked_decision_survives_and_stays_scoped_to_its_ed
 def test_sc_p11_data_010_3_owed_clauses_no_revision_not_dirtied_still_unsaved(
     qtbot, tmp_path
 ):
-    """T53: SC-P11-DATA-010-3's three owed clauses, asserted together because
+    """SC-P11-DATA-010-3's three owed clauses, asserted together because
     they need a real window -- with an asset that HAS a revision history and
     UNSAVED canvas work already present in the project, changing the
     confirmation preference through the real ``Edit -> Project confirmations``
@@ -555,7 +556,7 @@ def test_sc_p11_data_010_3_owed_clauses_no_revision_not_dirtied_still_unsaved(
 def test_dismissed_prompt_leaves_the_decision_journal_untouched(
     qtbot, tmp_path, answer_prompt
 ):
-    """T53: "never record an outcome the user did not choose", the dismissal
+    """ "Never record an outcome the user did not choose", the dismissal
     half. Dismissing the prompt (Esc/close, no button clicked) through the
     real caller leaves the decision journal untouched -- no file is even
     created -- because ``decide()`` never invokes ``on_decided`` when
@@ -580,7 +581,7 @@ def test_dismissed_prompt_leaves_the_decision_journal_untouched(
 def test_cl_p11_8_never_saved_project_writes_no_journal_record_until_first_save(
     qtbot, tmp_path
 ):
-    """T53: CL-P11-8 (spec.md §10.4) -- NOT a scenario id, and named as such
+    """CL-P11-8 (spec.md §10.4) -- NOT a scenario id, and named as such
     here so it is never mistaken for scenario coverage; it holds no REQ id and
     no acceptance clause by the spec's own design. The reading this test
     proves (spec's proposed reading, still awaiting confirmation): a decision
@@ -590,14 +591,14 @@ def test_cl_p11_8_never_saved_project_writes_no_journal_record_until_first_save(
     already made is IN that first saved file.
 
     ``resolve_library_edits`` has no production caller other than
-    ``Main_Window.open_document`` (T33's own disclosed reachability
+    ``Main_Window.open_document`` (this module's own disclosed reachability
     boundary), and ``open_document`` always assigns ``record.file_path``
     immediately on load -- so there is no real caller through which a
     never-saved (``new_document()``) tab could reach the update prompt at all.
     This test therefore drives the SAME private seam ``open_document``'s own
     resolve callback drives -- ``Main_Window._write_decision_journal_record``
     -- directly against a ``new_document()`` tab, exactly as
-    ``testing/suites/ui/test_asset_update_prompt.py`` (T23) asserts ``decide()`` at its
+    ``testing/suites/ui/test_asset_update_prompt.py`` asserts ``decide()`` at its
     own seam when no caller reaches it, and exactly as this module's own
     docstring already discloses for the reachability boundary it closed.
     """

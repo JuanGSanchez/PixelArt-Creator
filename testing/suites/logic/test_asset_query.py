@@ -4,7 +4,6 @@ Covers the pure, deterministic search/filter query (REQ-P11-LOGIC-003): filter b
 name substring (case-insensitive), by tag(s) (AND), by kind, their intersection,
 empty-query-returns-full, no-match, bounded result count, argument validation, and —
 via Hypothesis — determinism (same catalog + same query = byte-identical result).
-T11-1-06.
 """
 
 from __future__ import annotations

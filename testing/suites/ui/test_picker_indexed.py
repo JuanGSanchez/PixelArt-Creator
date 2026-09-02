@@ -2,7 +2,7 @@
 
 `test_tools_guards.py` proves `PickerTool.on_press`'s own resolve-then-set
 branch in isolation, against a hand-built resolver. This module proves the
-*wiring* DEV-25/DEV-26 named: a real :class:`Canvas_View` bound to a live
+*wiring* named: a real :class:`Canvas_View` bound to a live
 INDEXED :class:`Document` via `set_recording` (mirrors
 `main_window._add_document_tab`), driving `Canvas_View._make_context` ->
 `Canvas_View._resolve_palette_color`, which reads the document's own
@@ -71,7 +71,7 @@ def test_req_p1_ui_016_018_indexed_pick_resolves_palette_color(qtbot, theme):
 def test_req_p1_ui_016_indexed_pick_out_of_range_index_is_noop(qtbot, theme):
     """A stale/out-of-range palette index resolves to `None` -> silent no-op.
 
-    The implementer's own choice (AGT-05 report, "Semantics chosen for the
+    The implementer's own choice ("Semantics chosen for the
     out-of-range case"): a pixel value left behind by a since-shrunk palette
     must not crash and must not set a colour. Verified here against
     REQ-P1-UI-016's "pushes no undo command... mutates nothing" contract by

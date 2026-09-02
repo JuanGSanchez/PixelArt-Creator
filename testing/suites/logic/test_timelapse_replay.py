@@ -1,4 +1,4 @@
-"""Tests for in-session historical reconstruction (T13): DocumentProvider,
+"""Tests for in-session historical reconstruction: DocumentProvider,
 reconstructability, drop_discarded and historical replay
 (REQ-P9-LOGIC-013..-018). No Qt import -- the QUndoStack stepper is a `ui/`
 concern (DEP-12b); here a plain dict keyed by ``command_id`` stands in for
@@ -7,12 +7,12 @@ concern (DEP-12b); here a plain dict keyed by ``command_id`` stands in for
 OWN recorded state via an injected DocumentProvider, never falls back to N
 renders of one document, and never mutates what it borrows.
 
-**Written against plan.md §8.2/§8.3 (2026-08-17 addendum, AGT-01 Ruling B)**,
+**Written against plan.md §8.2/§8.3 (2026-08-17 addendum, Ruling B)**,
 NOT against the shape shipped in this worktree at dispatch time
 (``ReconstructionExtent(reachable_count, matches_session)``,
 ``DocumentProvider = Callable[[int], Document]``). Ruling B is dated after
-and supersedes what AGT-03 implemented; per Decision A4-D3 the tests follow
-the ruling and the (currently stale) product code is reported to AGT-03,
+and supersedes what was implemented; per Decision A4-D3 the tests follow
+the ruling and the (currently stale) product code is reported upstream,
 not silently accommodated. Until `logic/timelapse.py` is updated to the
 ruled shape, this module fails to import (`ReconstructionSubstrate`,
 `ReconstructionBlocker` do not exist yet) -- that failure IS the evidence.
@@ -20,7 +20,7 @@ ruled shape, this module fails to import (`ReconstructionSubstrate`,
 SC-L013-1/-2, SC-L014-1/-2, SC-L015-1/-2, SC-L016-1/-2, SC-L017-1/-2,
 SC-L018-1/-2.
 
-**Re-keyed 2026-08-18 (Q-21, T33/T47) onto the stable frame identity**
+**Re-keyed 2026-08-18 (Q-21) onto the stable frame identity**
 (REQ-P9-LOGIC-022). ``ReconstructionExtent``'s old command-id-keyed reachable
 set field was superseded by ``reachable_frame_ids: FrozenSet[FrameId]`` and
 ``drop_discarded``'s old integer position keyword by
@@ -36,7 +36,7 @@ lets these tests keep exercising ``BEYOND_EXTENT`` / ``SUBSTRATE_MISMATCH`` /
 survivor-preservation the way they did before the re-key.
 
 **Substitutions this re-keying made (old assertion -> new assertion), listed
-per the T47 done-when -- no assertion below was deleted, each was replaced
+per this re-key's done-when -- no assertion below was deleted, each was replaced
 by its identity-keyed equivalent:**
 
 1. ``test_sc_l017_1_frames_above_a_discarded_branch_are_removed`` /
@@ -45,7 +45,7 @@ by its identity-keyed equivalent:**
    NEW: ``drop_discarded(session, surviving_ids=frozenset({...frame_id}))``
    (the set of identities to keep) -- same kept/dropped frames for these
    fixtures, restated as *which identities survive*, plus a new assertion
-   that each survivor's ``frame_id`` is preserved unchanged (T33's stated
+   that each survivor's ``frame_id`` is preserved unchanged (a newly stated
    guarantee, not claimed before this re-key).
 2. ``test_drop_discarded_rejects_negative_position`` -- OLD: asserted a
    negative integer position keyword is refused. That parameter no longer exists
@@ -72,7 +72,7 @@ by its identity-keyed equivalent:**
 5. ``test_sc_l018_2_no_frame_carries_a_timestamp`` -- OLD:
    ``field_names == {"index", "command_id", "snapshot_id"}``. NEW: the same
    set plus ``"frame_id"`` -- ``TimelapseFrame`` gained the field
-   additively (T32); the "no timestamp" assertion is unchanged and still
+   additively; the "no timestamp" assertion is unchanged and still
    the point of the test.
 """
 
@@ -104,12 +104,12 @@ from pixelart_creator.logic.timelapse import (
 # A fake, pure "live history" -- a dict keyed by command_id (NOT by ordinal;  #
 # plan §8.2 B-1: frame.index is not the key either substrate is addressed    #
 # by), standing in for a QUndoStack stepped to a given command position (the #
-# real stepper is ui/timelapse_playback.py, T9, out of scope for a Qt-free   #
+# real stepper is ui/timelapse_playback.py, out of scope for a Qt-free       #
 # logic test).                                                               #
 # --------------------------------------------------------------------------- #
 
-#: A fixed per-module recording id (Q-21, T47 re-key) -- this module is
-#: Qt-free and mints nothing itself (that stays ui/'s job, T34); a constant
+#: A fixed per-module recording id (Q-21 re-key) -- this module is
+#: Qt-free and mints nothing itself (that stays ui/'s job); a constant
 #: string is all a *validating* test needs, since `record_frame` only checks
 #: shape and non-reuse, never provenance.
 _RECORDING_ID = "test-recording-replay"
@@ -124,7 +124,7 @@ def _session_with_command_ids(command_ids):
     """Build an identity-bearing session whose frames carry the GIVEN command
     ids, in order -- deliberately not equal to the frame's own index for some
     fixtures, since that divergence is exactly what Ruling B (B-1) is about.
-    **Identity-bearing since the 2026-08-18 re-key (Q-21, T47)**: a schema-1
+    **Identity-bearing since the 2026-08-18 re-key (Q-21)**: a schema-1
     (no-identity) session would block every HISTORY reconstructability check
     on NO_IDENTITY before BEYOND_EXTENT/SUBSTRATE_MISMATCH could ever be
     observed, which is not what SC-L015/-L017 are testing."""
@@ -160,8 +160,8 @@ class _SteppingProvider:
     """A stateful fake DocumentProvider tracking (position, undo/redo
     availability) like a real QUndoStack -- so this module can prove
     REQ-P9-LOGIC-016's restoration contract is COMPATIBLE with `replay`
-    (the actual borrow/restore implementation is ui/timelapse_playback.py,
-    T9; the mechanism -- wrap the call in try/finally -- is what's proven
+    (the actual borrow/restore implementation is ui/timelapse_playback.py;
+    the mechanism -- wrap the call in try/finally -- is what's proven
     here). Keyed by command_id, per Ruling B."""
 
     def __init__(self, store: dict, fail_at_command_id=None):
@@ -261,7 +261,7 @@ def test_sc_l014_2_never_falls_back_to_n_renders_of_current_document():
 # --------------------------------------------------------------------------- #
 # SC-L015 -- reconstructability decided before anything is rendered           #
 #            (plan §8.2 ruled shape: substrate-keyed extent, blocker codes)   #
-#            **Re-keyed onto identity 2026-08-18 (Q-21, T47) -- substitution  #
+#            **Re-keyed onto identity 2026-08-18 (Q-21) -- substitution     #
 #            #3 in the module docstring.**                                    #
 # --------------------------------------------------------------------------- #
 
@@ -394,7 +394,7 @@ def test_sc_l016_1_restored_after_a_replay_stopped_part_way():
 
     # "Stopped part way": only the first 2 frames were played before the
     # user pressed stop -- a truncated session stands in for that, since
-    # `replay` itself has no cancellation token (that lives in ui/, T10).
+    # `replay` itself has no cancellation token (that lives in ui/).
     partial_session = TimelapseSession(
         schema_version=full_session.schema_version,
         frames=full_session.frames[:2],
@@ -437,7 +437,7 @@ def test_sc_l016_2_replay_adds_no_history_entry_and_session_is_unchanged():
 
 # --------------------------------------------------------------------------- #
 # SC-L017 -- discarded-branch frames leave the session                        #
-#            **Re-keyed onto identity 2026-08-18 (Q-21, T47) -- substitution  #
+#            **Re-keyed onto identity 2026-08-18 (Q-21) -- substitution     #
 #            #1 in the module docstring: the old int position keyword became  #
 #            `surviving_ids=frozenset(FrameId)`.**                            #
 # --------------------------------------------------------------------------- #
@@ -452,7 +452,7 @@ def test_sc_l017_1_frames_above_a_discarded_branch_are_removed():
     pruned = drop_discarded(session, surviving_ids=surviving)
     assert [f.command_id for f in pruned.frames] == [0, 1, 2]
     assert [f.index for f in pruned.frames] == [0, 1, 2]
-    # New assertion (not claimed before this re-key, T33's stated guarantee):
+    # New assertion (not claimed before this re-key; a newly stated guarantee):
     # every survivor's frame_id is preserved unchanged, not re-minted.
     assert [f.frame_id for f in pruned.frames] == [_frame_id(c) for c in (0, 1, 2)]
 
@@ -510,7 +510,7 @@ def test_sc_l018_1_same_session_replayed_twice_is_byte_identical():
 
 def test_sc_l018_2_no_frame_carries_a_timestamp():
     # Substitution #5 (module docstring): `frame_id` was added additively
-    # (T32) -- the field-name set is widened by exactly that name, and the
+    # -- the field-name set is widened by exactly that name, and the
     # "no timestamp" assertion (the actual point of this test) is unchanged.
     field_names = {f.name for f in dataclasses.fields(TimelapseFrame)}
     assert "timestamp" not in field_names

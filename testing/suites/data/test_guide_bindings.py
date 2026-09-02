@@ -1,13 +1,13 @@
 """Check (b) — the in-app User Guide agrees with the binding registry (Qt-free).
 
-``design-docs/specs/input-scheme/tasks.md`` T-29. Covers ``REQ-IS-LOGIC-006``,
+The input-scheme task list. Covers ``REQ-IS-LOGIC-006``,
 ``REQ-IS-DATA-001..005``, ``-007``, ``-008``, ``REQ-IS-UI-028`` — Gherkin
 ``SC-D001-*`` .. ``SC-D008-*``, ``SC-R-31``.
 
-**Authored against the registry, before the guide is rewritten.** T-29 depends
-on T-32 (the registry), not on T-28 (the guide rewrite) — the two land in one
+**Authored against the registry, before the guide is rewritten.** This module depends
+on the registry landing first, not on the guide rewrite — the two land in one
 commit (group C14) precisely so this module cannot be shaped to fit whatever
-the prose happens to say. It is legitimately RED until T-28 lands.
+the prose happens to say. It is legitimately RED until the guide rewrite lands.
 
 Both directions are checked, independently, because either alone is
 insufficient (a one-directional check lets the guide rot silently in the
@@ -22,7 +22,7 @@ direction nobody is watching):
 * **guide -> registry**: every first-column cell of a *recognised binding
   table* — a Markdown pipe table whose header row contains "Shortcut" or
   "Gesture" (case-insensitive; the vocabulary the project's own tables and
-  ``tasks.md`` T-28 already use) — must equal some registry ``literal``
+  the guide rewrite task already use) — must equal some registry ``literal``
   exactly. A stale/fictional documented shortcut fails. **This direction is
   intentionally scoped to recognised binding tables** — free Markdown prose is
   not scanned for shortcut-shaped tokens, because there is no reliable way to
@@ -73,7 +73,7 @@ _EMPHASIS_CHARS = str.maketrans("", "", "*`_")
 
 #: Header cell substrings that mark a table as a *binding table* for the
 #: guide -> registry direction (case-insensitive). Matches the vocabulary
-#: already used by the existing tables and by tasks.md T-28's own prose
+#: already used by the existing tables and by the guide rewrite task's own prose
 #: ("documents the view gestures", "the four Ctrl frame gestures", the
 #: existing `| Shortcut | Action |` shape).
 _BINDING_HEADER_MARKERS = ("shortcut", "gesture")
@@ -266,9 +266,9 @@ def test_registry_matches_the_real_guide_both_directions() -> None:
     """The actual claim: the shipped registry and the shipped ``en`` guide
     content agree, in both directions.
 
-    Authored against ``REGISTRY`` before T-28 rewrites the guide — this is
-    expected to be RED until that task lands (tasks.md T-29 depends on T-32,
-    not T-28; the two share one commit, group C14).
+    Authored against ``REGISTRY`` before the guide rewrite lands — this is
+    expected to be RED until that task lands (this module depends on the
+    registry landing first, not the guide rewrite; the two share one commit, group C14).
     """
     section_text = _load_section_text(DEFAULT_GUIDE_LOCALE)
     result = check_registry_matches_guide(binding_registry.REGISTRY, section_text)

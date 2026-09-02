@@ -152,7 +152,7 @@ def test_sc_ui_025_2_text_on_accent_contrast_meets_aa(theme_name):
     """SC-UI-025-2 (A11Y-2): text-on-accent contrast ≥ 4.5:1 in BOTH themes.
 
     Computed from the theme's own role colours (accent vs accent_text), so the
-    assertion tracks the QSS the widgets actually render. Re-verifies the AGT-05
+    assertion tracks the QSS the widgets actually render. Re-verifies the
     accent recolour (light 5.28:1, dark 4.92:1)."""
     roles = theme_module._ROLES[theme_name]
     ratio = _contrast_ratio(roles["accent"], roles["accent_text"])

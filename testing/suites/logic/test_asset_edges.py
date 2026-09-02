@@ -1,27 +1,26 @@
 """Unit tests for :mod:`pixelart_creator.logic.asset_edges` (S11, no Qt).
 
-Covers ``REQ-P11-LOGIC-010`` (T17, tasks.md lines 641-657; **T17-A**,
-tasks.md lines 869-911, ruling **P11-R8**, plan §3.10): the pure
-hash-matching half (``edges_for``, T8) and the per-kind reference-candidate
-rule (``candidates_of``, T8-A, ruling P11-R6), **re-pointed onto the
+Covers ``REQ-P11-LOGIC-010`` (ruling **P11-R8**, plan §3.10): the pure
+hash-matching half (``edges_for``) and the per-kind reference-candidate
+rule (``candidates_of``, ruling P11-R6), **re-pointed onto the
 content-only ``reference_key`` mechanism** (``reference_bytes`` /
-``candidate_keys``, T8-B).
+``candidate_keys``).
 
 This module deliberately proves the pipeline **end to end** —
 ``candidate_keys`` -> ``edges_for`` — for all three named relationships
 (tileset->sprite, animation->sprites, tilemap->tileset), because a suite
 that only ever asserts an empty edge set is indistinguishable from the
-CF-34 defect this slice exists to close (non-vacuity, per the T17
-dispatch). It also proves the **rename invariance** ruling P11-R8 exists to
-buy: a sprite registered under a **user-produced** layer name (the
-image-import shape) is still found as a tileset's dependency — and proves
-that invariance is a genuine regression test by reproducing the pre-T8-B
-(content-hash-matching) semantics through a controlled, fully-reverted
-defect injection (``monkeypatch``), never by mutating shipped code on disk.
+CF-34 defect this slice exists to close (non-vacuity). It also proves the
+**rename invariance** ruling P11-R8 exists to buy: a sprite registered
+under a **user-produced** layer name (the image-import shape) is still
+found as a tileset's dependency — and proves that invariance is a genuine
+regression test by reproducing the pre-fix (content-hash-matching)
+semantics through a controlled, fully-reverted defect injection
+(``monkeypatch``), never by mutating shipped code on disk.
 
 Importing ``data.asset_ingress.canonical_bytes`` here (a ``data/`` module,
-inside ``testing/suites/logic/``) is deliberate and required by the T17/T17-A
-dispatch: a catalog entry's ``content_hash`` (still recorded on every
+inside ``testing/suites/logic/``) is deliberate and required to prove the
+pipeline end to end: a catalog entry's ``content_hash`` (still recorded on every
 produced edge, ruling P11-R8) can only be derived through the *real*
 canonical-bytes pairing a production registration would use, not a
 hand-rolled stand-in that could silently drift from it. No Qt import
@@ -72,7 +71,7 @@ def _reference_key_for(document: Document, kind: AssetKind) -> str:
     """Return ``document``'s ``reference_key`` for ``kind``, degrading to ``""``.
 
     Mirrors exactly what ``data/asset_ingress._reference_key_for`` computes
-    (T8-B) — expressed here over ``logic/`` names only (no ``data/`` import
+    — expressed here over ``logic/`` names only (no ``data/`` import
     needed for this half), so a test built on this helper is proving the
     real per-kind rule, not a stand-in for it.
     """
@@ -95,8 +94,8 @@ def _register(
     """Register ``document`` into ``catalog`` through the real canonical pairing.
 
     Mirrors exactly what ``data/asset_ingress.register`` hashes, keys and
-    stores (``canonical_bytes`` -> ``reference_key`` -> ``descriptor_for``,
-    T8-B), so a test built on this helper is proving the real pipeline, not
+    stores (``canonical_bytes`` -> ``reference_key`` -> ``descriptor_for``),
+    so a test built on this helper is proving the real pipeline, not
     a stand-in for it.
     """
     blob = canonical_bytes(document)
@@ -113,9 +112,9 @@ def _derive(
     descriptor: AssetDescriptor,
     catalog: AssetCatalog,
 ) -> Tuple[DependencyEdge, ...]:
-    """Run the exact recipe T9-A's ``_derive_and_emit_edges`` call performs.
+    """Run the exact recipe the production ``_derive_and_emit_edges`` call performs.
 
-    ``candidate_keys`` (T8-B) is the direct replacement for the pre-T8-B
+    ``candidate_keys`` is the direct replacement for the pre-fix
     ``tuple(canonical_bytes(d) for d in candidates_of(...))`` recipe — see
     :func:`_derive_pre_fix` below for that superseded recipe, kept only for
     the regression proof.
@@ -130,7 +129,7 @@ def _derive_pre_fix(
     descriptor: AssetDescriptor,
     catalog: AssetCatalog,
 ) -> Tuple[DependencyEdge, ...]:
-    """Reproduce the **pre-T8-B** derivation recipe exactly (regression proof only).
+    """Reproduce the **pre-fix** derivation recipe exactly (regression proof only).
 
     Ruling P11-R6's original recipe: whole-project canonical bytes per
     candidate, matched against ``entry.content_hash``. Used **only** by
@@ -225,7 +224,7 @@ def test_tilemap_to_tileset_positive_edge_end_to_end() -> None:
     private helper — proving the registered TILESET asset and the derived
     candidate are byte-identical because they come from the same function,
     the honest form of this assertion given ``_tileset_document`` has no
-    other shipped precedent (T8-A report §6).
+    other shipped precedent (prior investigation §6).
     """
     tile_buf = PixelBuffer(4, 4, ColorMode.RGBA, fill=BLUE)
     tileset = Tileset(tile_buf, tile_width=4, tile_height=4, name="MapTiles")
@@ -234,7 +233,7 @@ def test_tilemap_to_tileset_positive_edge_end_to_end() -> None:
 
     tilemap_doc = Document(16, 16, mode=ColorMode.RGBA)
     tilemap_doc.tilemaps.append(tilemap)
-    # Required precondition (T8-A report §4, second finding): project_io.serialize
+    # Required precondition (prior investigation §4, second finding): project_io.serialize
     # raises unless a tilemap's referenced tileset is ALSO in document.tilesets.
     tilemap_doc.tilesets.append(tileset)
 
@@ -273,12 +272,12 @@ def test_tilemap_to_tileset_positive_edge_end_to_end() -> None:
 
 
 def test_rename_invariance_image_import_shape_edge_still_found() -> None:
-    """T17-A Done-when #1/#2: the image-import shape is a fixture, not an afterthought.
+    """The image-import shape is a fixture, not an afterthought.
 
     A sprite registered from a document whose layer carries a
     **user-produced** name — ``Document.from_buffer(buffer, name=Path(path).stem)``,
     ``ui/main_window.py:2007`` — is still found as a tileset's dependency.
-    This is exactly the shape T8-A's live smoke run showed derived **zero**
+    This is exactly the shape a prior live smoke run showed derived **zero**
     edges before this ruling (plan §3.10's measured table, row 1); this test
     pins the fixed outcome as the standing behaviour.
     """
@@ -316,7 +315,7 @@ def test_rename_invariance_image_import_shape_edge_still_found() -> None:
 
 
 def test_rename_invariance_new_document_background_shape_edge_still_found() -> None:
-    """T17-A Done-when #2: the ``Document()`` shape (seeded layer ``"Background"``,
+    """The ``Document()`` shape (seeded layer ``"Background"``,
     ``logic/document.py:461``, corrected 2026-08-21) is a fixture, not an
     afterthought either — plan §3.10's measured table, row 2, also derived
     **zero** edges before this ruling.
@@ -357,23 +356,23 @@ def test_rename_invariance_new_document_background_shape_edge_still_found() -> N
 
 
 def test_rename_invariance_regression_proof(monkeypatch: pytest.MonkeyPatch) -> None:
-    """T17-A Done-when #1 (binding call 2): proves the invariance test above is a
+    """Proves the invariance test above is a
     REGRESSION test, not a tautology, by showing the *same* scenario fails
-    under the pre-T8-B matching semantics and passes under the shipped ones.
+    under the pre-fix matching semantics and passes under the shipped ones.
 
-    **Method (disclosed per the dispatch's binding call 2).** The whole
-    phase-11 stack is uncommitted (no pre-T8-B commit exists to check out),
+    **Method (disclosed per binding call 2).** The whole
+    phase-11 stack is uncommitted (no pre-fix commit exists to check out),
     so the pre-fix code path is reproduced by a **controlled, fully-reverted
     defect injection**: ``AssetDescriptor.reference_key`` is monkeypatched to
     a ``property`` that reads ``content_hash`` instead — the exact matching
-    field the pre-T8-B ``edges_for`` used (``entry.content_hash``) — for the
+    field the pre-fix ``edges_for`` used (``entry.content_hash``) — for the
     duration of this test only (``monkeypatch`` reverts it unconditionally at
     teardown, pass or fail). This exercises the real, shipped ``edges_for``
     code unmodified; only the *field* it reads through the patched
     descriptor is swapped, and only for this test's process. No product file
     on disk is touched.
 
-    ``_derive_pre_fix`` additionally reproduces the pre-T8-B **candidate**
+    ``_derive_pre_fix`` additionally reproduces the pre-fix **candidate**
     recipe (whole-project ``canonical_bytes`` per candidate, ruling P11-R6),
     since that is the recipe that was paired with content-hash matching
     before P11-R8.
@@ -445,7 +444,7 @@ def _descriptor(
     the abstract (not the full registration pipeline), where the two values
     coinciding is the simplest faithful stand-in for "this entry's reference
     key is known and equals the candidate's digest". Tests that need the two
-    fields to genuinely differ (T17-A Done-when #4) pass ``reference_key``
+    fields to genuinely differ pass ``reference_key``
     explicitly.
     """
     if reference_key is None:
@@ -531,7 +530,7 @@ def test_edges_for_is_deterministic_across_repeat_calls() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# edges_for — T17-A Done-when #4: reference_key decides the match, but the   #
+# edges_for — reference_key decides the match, but the                      #
 #             edge stays pinned to content_hash (the ruling narrows what is  #
 #             matched, never what is recorded)                               #
 # --------------------------------------------------------------------------- #
@@ -560,7 +559,7 @@ def test_edges_for_pins_edge_to_content_hash_not_reference_key() -> None:
     """A produced edge's ``pinned_hash`` is the matched entry's
     ``content_hash`` even when it differs from the ``reference_key`` that
     decided the match — the ruling narrows *what is matched*, never *what
-    is recorded* (T17-A Done-when #4)."""
+    is recorded*."""
     blob = b"reference-candidate bytes"
     ref_digest = content_hash(blob)
     stored_hash = content_hash(b"the stored project bytes, unrelated content")
@@ -736,8 +735,8 @@ def test_candidates_of_animation_frame_order_ascending() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# reference_bytes / candidate_keys — content-only keying (T8-B/T17-A,        #
-# ruling P11-R8)                                                              #
+# reference_bytes / candidate_keys — content-only keying                     #
+# (ruling P11-R8)                                                             #
 # --------------------------------------------------------------------------- #
 
 
@@ -791,7 +790,7 @@ def test_reference_bytes_is_deterministic_and_pure() -> None:
 
 
 def test_reference_bytes_sprite_ignores_layer_name() -> None:
-    """T17-A Done-when #3: layer name never affects the reference bytes."""
+    """Layer name never affects the reference bytes."""
     buf = PixelBuffer(4, 4, ColorMode.RGBA, fill=RED)
     doc_a = Document.from_buffer(buf, name="hero")
     doc_b = Document.from_buffer(buf, name="totally-different-name")
@@ -801,7 +800,7 @@ def test_reference_bytes_sprite_ignores_layer_name() -> None:
 
 
 def test_reference_bytes_sprite_ignores_ppi_and_metadata() -> None:
-    """T17-A Done-when #3: ppi/metadata (document-level, never read by
+    """Ppi/metadata (document-level, never read by
     ``reference_bytes``) never affect the reference bytes."""
     buf_a = PixelBuffer(4, 4, ColorMode.RGBA, fill=RED)
     doc_a = Document.from_buffer(buf_a, name="hero")
@@ -816,7 +815,7 @@ def test_reference_bytes_sprite_ignores_ppi_and_metadata() -> None:
 
 
 def test_reference_bytes_sprite_single_layer_ignores_blend_mode() -> None:
-    """T17-A Done-when #3: for the single-layer shape every SPRITE
+    """For the single-layer shape every SPRITE
     registration actually builds (``Document.from_buffer``), the layer's
     blend mode composites against a fully transparent background and so
     never changes the resulting pixels."""
@@ -833,15 +832,14 @@ def test_reference_bytes_sprite_single_layer_ignores_blend_mode() -> None:
 
 
 def test_reference_bytes_sprite_ignores_opacity() -> None:
-    """T17-A Done-when #3: two documents differing only in layer opacity
+    """Two documents differing only in layer opacity
     produce identical reference bytes.
 
-    DEV-38 (agt-03 report, subagent-report-agt-03-python-dev-aec0ed49-
-    20260822T113845.md): ``reference_bytes``'s SPRITE branch previously
+    Historical defect: ``reference_bytes``'s SPRITE branch previously
     flattened via ``export.flatten_frame`` -> ``blend.composite_stack``
     over the document's real layer objects, so ``Layer.opacity`` leaked
     into the composited bytes and this test failed (pinned here as
-    ``xfail(strict=True)`` by T17-A pending the fix). The fix routes
+    ``xfail(strict=True)`` pending the fix). The fix routes
     through a presentation-normalised copy of the layer stack
     (``_reference_layers``) that pins opacity/blend-mode/mask to their
     identity values before compositing, so this now passes as a plain
@@ -859,7 +857,7 @@ def test_reference_bytes_sprite_ignores_opacity() -> None:
 
 
 def test_reference_bytes_sprite_sensitive_to_one_pixel_difference() -> None:
-    """T17-A Done-when #3: a one-pixel difference DOES change the bytes."""
+    """A one-pixel difference DOES change the bytes."""
     buf_a = PixelBuffer(4, 4, ColorMode.RGBA, fill=RED)
     doc_a = Document.from_buffer(buf_a)
 
@@ -873,7 +871,7 @@ def test_reference_bytes_sprite_sensitive_to_one_pixel_difference() -> None:
 
 
 def test_reference_bytes_sprite_sensitive_to_geometry_difference() -> None:
-    """T17-A Done-when #3: a geometry difference DOES change the bytes."""
+    """A geometry difference DOES change the bytes."""
     doc_a = Document.from_buffer(PixelBuffer(4, 4, ColorMode.RGBA, fill=RED))
     doc_b = Document.from_buffer(PixelBuffer(4, 5, ColorMode.RGBA, fill=RED))
 
@@ -883,7 +881,7 @@ def test_reference_bytes_sprite_sensitive_to_geometry_difference() -> None:
 
 
 def test_reference_bytes_tileset_sensitive_to_tile_grid_difference() -> None:
-    """T17-A Done-when #3, TILESET branch: two tilesets sliced from the
+    """TILESET branch: two tilesets sliced from the
     SAME source image but with a different tile grid must hash differently
     (this module's own rationale, ``reference_bytes`` docstring)."""
     source = PixelBuffer(8, 8, ColorMode.RGBA, fill=RED)
@@ -942,7 +940,7 @@ def test_candidate_keys_rejects_non_document() -> None:
 
 
 def test_candidate_keys_stays_in_step_with_candidates_of() -> None:
-    """T17-A Done-when #3: ``candidate_keys`` returns one key per candidate
+    """``candidate_keys`` returns one key per candidate
     ``candidates_of`` names — the two stay in step."""
     buf_a = PixelBuffer(4, 4, ColorMode.RGBA, fill=RED)
     buf_b = PixelBuffer(4, 4, ColorMode.RGBA, fill=BLUE)
@@ -998,7 +996,7 @@ def test_reference_bytes_sprite_property_pixel_equality_iff_key_equality(
 ) -> None:
     """Property: two single-layer, fully-opaque SPRITE documents produce
     EQUAL reference bytes if and only if their pixels are equal —
-    independent of the layer name generated for each (T17-A Done-when #3)."""
+    independent of the layer name generated for each."""
     buf_a = PixelBuffer(3, 3, ColorMode.RGBA, fill=fill_a)
     buf_b = PixelBuffer(3, 3, ColorMode.RGBA, fill=fill_b)
     doc_a = Document.from_buffer(buf_a, name=name_a)

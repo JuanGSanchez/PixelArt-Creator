@@ -5,8 +5,8 @@ remove + move behave as specified, ``to_serializable``/``from_serializable``
 round-trips (persistence substrate), and malformed colours raise the domain
 error. Soft cap ``FAVOURITES_MAX`` is enforced defensively (Article VII).
 
-T-02 (input-scheme, REQ-IS-UI-028 / SC-R-27 + R-27a, plan.md §7 RK-2): this
-module is run on UNMODIFIED code, before a later wave (T-04) adds a cursor
+(input-scheme, REQ-IS-UI-028 / SC-R-27 + R-27a, plan.md §7 RK-2): this
+module is run on UNMODIFIED code, before a later wave adds a cursor
 (current-index) field to ``Favourites`` for wheel-gesture navigation. Two
 tests below exist specifically to survive that change unmodified and to fail
 loudly if the change is done wrong:
@@ -101,7 +101,7 @@ def test_serialise_round_trip():
 def test_eq_stays_blind_to_future_cursor_field__R27a():
     """R-27a (plan.md §7 RK-2): pin that equality compares COLOURS ONLY.
 
-    No cursor field exists yet on ``Favourites`` — a later wave (T-04) adds
+    No cursor field exists yet on ``Favourites`` — a later wave adds
     one (``__slots__`` gains ``"_cursor"``) so a mouse-wheel gesture can
     travel the list. The point of this test is not that equality "works"
     today; every field that exists today is already covered by
@@ -191,7 +191,7 @@ def test_custom_max_size():
         fav.add(BLUE)
 
 
-# --- T-07 (input-scheme, REQ-IS-LOGIC-001/-002): cursor + first-entry ------------
+# --- (input-scheme, REQ-IS-LOGIC-001/-002): cursor + first-entry -----------------
 # One test per Gherkin scenario, spec.md §9.2 ("Favourites cursor" /
 # "First-entry accessor"). YELLOW is a fourth colour so the four-entry
 # fixtures used throughout §9.2 ("a Favourites list of four colours") can be

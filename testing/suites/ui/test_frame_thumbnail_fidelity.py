@@ -19,8 +19,8 @@ The three scenarios below satisfy ``SC-CGS-UI-012-1..3``:
   exists to be recognised; a canvas exists to be authored pixel-for-pixel, at
   every zoom -- this is re-asserted at 100% and at 6400% (``ZOOM_MAX``).
 
-Scope note (AGT-06): this is a UI/integration test only -- the compositor
-(``logic.blend.composite_stack``) and the pixel buffer are AGT-04's logic
+Scope note: this is a UI/integration test only -- the compositor
+(``logic.blend.composite_stack``) and the pixel buffer are the logic suite's
 tests; this file only drives the shipped ``Timeline_Panel`` / ``Canvas_View``
 surfaces headlessly and asserts on their observable output (the displayed
 cell icon, the view's own render hints). Canvases are modest (64x64) -- never
@@ -177,7 +177,7 @@ def test_sc_cgs_ui_012_1_dab_at_derived_unsampled_coord_is_present(
     itself -- to never be sampled by any of the 48 destination pixels on
     either axis. Proven to fail against the unfixed
     ``Qt.TransformationMode.FastTransformation`` path (recorded verbatim in
-    the AGT-06 report).
+    the QA report).
     """
     x0, y0 = unsampled_source_coords[0]
     edge = DEFAULT_CANVAS_WIDTH

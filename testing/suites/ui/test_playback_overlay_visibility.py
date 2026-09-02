@@ -3,11 +3,9 @@
 "those overlays must be hidden while playback runs, and shown when it's not",
 extended the same day to "every inert edit-affordance overlay ... hidden while
 playback runs and restored to its exact prior state when it is not" and
-audited by AGT-05
-(``design-docs/reports/subagent-report-agt-05-playbackoverlays-20260822-191500.md``,
-``design-docs/reports/subagent-report-agt-05-overlayaudit-20260822-192500.md``).
+audited by the UI layer.
 
-Verifies AGT-05's implementation in ``pixelart_creator/ui/canvas_scene.py``
+Verifies the UI implementation in ``pixelart_creator/ui/canvas_scene.py``
 (``_OverlayVisibilitySnapshot`` / ``_hide_edit_affordance_overlays`` /
 ``_restore_edit_affordance_overlays``, wired into the existing
 ``show_playback_frame`` / ``end_playback_frame`` entry points) against BOTH
@@ -34,14 +32,14 @@ and ``test_playback_overlay.py``'s own conventions) -- and the playback
 mechanism itself is driven through ``CanvasScene.show_playback_frame`` /
 ``end_playback_frame``, the exact two methods ``main_window.py`` calls from
 the real ``Timelapse_Controls`` signal wiring (unchanged by this ruling, per
-AGT-05's report). Only the four EXCLUDED overlays -- which ``CanvasScene``
-holds no reference to at all (AGT-05's audit table) -- are attached to the
+the report). Only the four EXCLUDED overlays -- which ``CanvasScene``
+holds no reference to at all (the audit table) -- are attached to the
 scene directly with their own real public constructors/``setVisible`` (the
 same calls ``canvas_view.py``/``main_window.py`` make), since no tool
 interaction reaches them. Assertions read ``isVisible()`` on named
 ``CanvasScene``-owned attributes (``_preview_item``, ``_shape_preview``,
 ``_float_item``, ``_origin_item``, ``_selection_overlay``) -- the same
-attribute names AGT-05's own report and ``test_playback_overlay.py`` /
+attribute names the UI implementation's own report and ``test_playback_overlay.py`` /
 ``test_selection_overlay.py`` already couple to; this is disclosed as
 attribute-coupling, not a private implementation detail invented for this
 module, in the accompanying subagent report.
@@ -66,7 +64,7 @@ Coverage map (dispatch item -> test(s)):
   ``test_edgecase_state_changing_during_playback_is_ignored_by_restore``;
 * edge case 3 (teardown route, commit 37bd0ff) ->
   ``test_edgecase_last_tab_close_teardown_does_restore`` -- a REGRESSION GUARD
-  for the fix landed after this module's first pass (AGT-05 routed
+  for the fix landed after this module's first pass (the UI layer routed
   ``end_playback_frame()`` through the existing teardown before
   ``bind_undo_stack(None)``); see its docstring for the finding's history and
   the fix that closed it;
@@ -109,7 +107,7 @@ def _frame(w: int, h: int) -> np.ndarray:
 def test_covered_line_preview_hidden_then_restored_visible_mid_drag(make_view):
     """Line-tool preview (Z 1.0): a drag in progress WHEN PLAYBACK STARTS
     (edge case 1, mid-interaction) is hidden for the span and restored to
-    visible on stop -- the least-surprising reading AGT-05's own docstring
+    visible on stop -- the least-surprising reading the UI implementation's own docstring
     states, since editing is locked for the whole span so the drag cannot
     advance while hidden."""
     view, scene, _stack = make_view(16, 16)
@@ -270,12 +268,12 @@ def test_covered_restore_is_noop_when_playback_never_ran(make_view):
 
 
 def test_edgecase_state_changing_during_playback_is_ignored_by_restore(make_view):
-    """AGT-05's documented (defensive) claim: 'the restore path reapplies the
+    """A documented (defensive) claim: 'the restore path reapplies the
     captured pre-playback booleans verbatim, ignoring anything that happened
     in between.' Nothing in the production UI can legitimately change these
     overlays while the edit lock is held, so this test drives the CanvasScene
     API directly (bypassing the view-level lock main_window.py applies) to
-    exercise that defensive path for real, per AGT-05's own disclosure that
+    exercise that defensive path for real, per the UI implementation's own disclosure that
     it is 'a defensive statement of intent rather than an observed path.'
 
     Sequence: nothing active -> playback starts (captures False/False,
@@ -376,8 +374,7 @@ def test_edgecase_last_tab_close_teardown_does_restore(qtbot):
     prior state when [playback] stops', with no stated exception for this
     route.
 
-    AGT-05's own report
-    (``subagent-report-agt-05-playbackoverlays-20260822-191500.md``) traced
+    The UI implementation's own report traced
     this exact chain and disclosed it explicitly at the time, arguing it was
     moot because the scene is discarded immediately after and nothing can
     observe its overlays again. That argument was a PRODUCT judgement, not a
@@ -386,7 +383,7 @@ def test_edgecase_last_tab_close_teardown_does_restore(qtbot):
     ran, so the literal 'restored to exact prior state when it stops'
     guarantee did not hold on this route as stated.
 
-    THE FIX: AGT-05 subsequently routed ``end_playback_frame()`` through the
+    THE FIX: the UI layer subsequently routed ``end_playback_frame()`` through the
     existing teardown BEFORE ``bind_undo_stack(None)`` runs, so the closing
     scene's overlays are restored before ``_tabs_data`` goes empty. This test
     now PASSES and has become the regression guard for that fix: it must
@@ -411,7 +408,7 @@ def test_edgecase_last_tab_close_teardown_does_restore(qtbot):
 
     # The stated general guarantee: restored to its exact prior state (True)
     # once playback stops, on ANY route that stops it. This assertion FAILED
-    # before AGT-05's teardown-ordering fix (see docstring above) and is the
+    # before the teardown-ordering fix (see docstring above) and is the
     # regression guard for it now that it passes.
     assert record.scene._selection_overlay.isVisible() is True
     assert record.scene._pre_playback_overlay_visibility is None

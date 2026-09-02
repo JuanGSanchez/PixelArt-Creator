@@ -1,4 +1,4 @@
-"""Path-traversal defence tests for the asset catalog (Article VII; T11-1-10).
+"""Path-traversal defence tests for the asset catalog (Article VII).
 
 Exercises the two containment surfaces of ``data/asset_catalog_io`` (ADR-0030;
 Researcher §5): :func:`_safe_asset_id` (an ``asset_id`` used as a sidecar filename) and

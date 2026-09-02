@@ -16,7 +16,7 @@ These tests call the production route directly — ``view.setViewport(...)`` is
 exactly what ``Canvas_View._install_viewport`` calls — so no mode-decision seam
 is mocked or monkeypatched.
 
-The module also carries the REQ-CGS-UI-001 acceptance tests (added T4,
+The module also carries the REQ-CGS-UI-001 acceptance tests (added for
 job ``20260825-canvas-grid-semantics``): a pencil dab, an eraser stroke and a
 committed line, each driven through its real tool controller — a genuine
 ``QTest`` press/move/release delivered to ``Canvas_View.viewport()``, running

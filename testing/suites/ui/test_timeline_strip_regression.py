@@ -1,4 +1,4 @@
-"""Strip regression pin (T19; REQ-P5-UI-021, SC-UI-021-6..8).
+"""Strip regression pin (REQ-P5-UI-021, SC-UI-021-6..8).
 
 Three things this module proves, each with its own scenario id:
 
@@ -14,13 +14,12 @@ Three things this module proves, each with its own scenario id:
   there, then switching back, leaves the strip's own signals and undo
   discipline exactly as they were.
 - ``SC-UI-021-7``/``SC-UI-021-8``: a real ``qtbot`` mouse-driven press-drag
-  across the strip is asserted here as an ongoing regression pin. Per T20's
-  measurement (``design-docs/reports/strip-drag-measurement-20260817.md``),
-  the strip's left-drag was found to already scrub correctly, so REQ-P5-UI-032
+  across the strip is asserted here as an ongoing regression pin. A prior
+  measurement found the strip's left-drag already scrubs correctly, so REQ-P5-UI-032
   steps (ii)/(iii) were recorded as **not required** — this test is therefore
   the forward-looking guard that keeps that measured-good state honest, not a
-  reversion-proof of a fix (there was no fix to prove; a positive T20 result
-  closes T-21 as measured, per the requirement's own text).
+  reversion-proof of a fix (there was no fix to prove; a positive measurement
+  closes this as measured, per the requirement's own text).
 """
 
 from __future__ import annotations
@@ -201,8 +200,7 @@ def test_sc_ui_021_6_strip_unaffected_by_grid_existence_and_use(qtbot):
 def test_sc_ui_021_7_and_8_real_mouse_drag_scrubs_and_is_recorded(qtbot):
     """A real qtbot press-move-release across the strip body scrubs (reaches
     each frame under the cursor) and pushes no command — the SAME measurement
-    T20 recorded (design-docs/reports/strip-drag-measurement-20260817.md).
-    T20 found this ALREADY correct (no defect), so REQ-P5-UI-032 steps
+    recorded earlier. That measurement found this ALREADY correct (no defect), so REQ-P5-UI-032 steps
     (ii)/(iii) were not required; this test is the forward regression pin
     that keeps that finding true, not a reversion-proof of a fix that was
     never applied."""

@@ -8,7 +8,7 @@ adapter — no network, no credentials); a cloud-fetched blob is content-hash ve
 a mismatch is rejected; and the write path is write-once. Provider isolation ("no
 provider type above the port") is not asserted by importing a provider here — it is
 backed by ``check_layering --root pixelart_creator`` exit 0 and by this test depending
-only on the provider-agnostic port. T11-3-07.
+only on the provider-agnostic port.
 """
 
 from __future__ import annotations
