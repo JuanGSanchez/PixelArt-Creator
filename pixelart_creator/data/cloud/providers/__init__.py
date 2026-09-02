@@ -9,7 +9,8 @@ Dropbox adapters that implement the SAME
 provider REST APIs. Each is built on:
 
 * the injectable :class:`~pixelart_creator.data.cloud.providers._http.HttpClient` seam
-  (a mock drives the ``CloudPort`` contract with no network/credentials — AGT-04);
+  (a mock drives the ``CloudPort`` contract with no network/credentials —
+  the test suite);
 * the real OAuth Authorization-Code + PKCE-over-loopback flow (reusing the shipped
   ``cloud.auth`` PKCE core) and real OS-keyring token storage (reusing
   ``cloud.token_store`` — the REAL ``keyring`` path).

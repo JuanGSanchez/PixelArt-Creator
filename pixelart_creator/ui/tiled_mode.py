@@ -37,6 +37,6 @@ def build_preview(buffer: PixelBuffer) -> PixelBuffer:
 
     Exposed for consumers/tests that want the repeating-tile buffer directly; the
     interactive scene renders the same arrangement without materialising the full
-    (repeat x repeat) buffer at 8K (perf; AGT-10).
+    (repeat x repeat) buffer at 8K (perf).
     """
     return preview_tiling(buffer)

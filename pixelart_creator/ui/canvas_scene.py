@@ -116,7 +116,8 @@ _DEFAULT_BORDER = QColor(120, 120, 120)
 #: Longest-edge cap (px) of the cached downscaled tiled-preview pixmap. The dimmed
 #: neighbour tiles are context only, so they render from one small cached pixmap
 #: instead of the full-resolution 8K image blitted per neighbour per frame (OD-1,
-#: AGT-10). Presentation-only sizing — not a domain tuning value (cf. _SWATCH_PX,
+#: per the rendering/performance layer's directive). Presentation-only sizing —
+#: not a domain tuning value (cf. _SWATCH_PX,
 #: _preview_thumbnail max_edge in main_window); the resident buffer is never culled.
 _TILED_PREVIEW_CACHE_MAX_EDGE = 512
 
@@ -141,7 +142,8 @@ class _OpacityDragCache:
 
     Built once at drag-start over the culled viewport rect ``(x, y, w, h)`` for a
     fixed top-level dragged index ``k`` and LOD factor ``factor`` (ADR-0034 §2 /
-    the AGT-10 Slice-B directive §1). Holds the three **downsampled** inputs so
+    the rendering/performance layer's Slice-B directive §1). Holds the three
+    **downsampled** inputs so
     each throttled tick re-blends ≈2 low-resolution buffers (holding the 16 ms
     ``FRAME_BUDGET_MS``) instead of recompositing the whole stack. It is discarded
     on commit / drag-end and invalidated on any non-opacity op, edit, pan/zoom,
@@ -441,7 +443,8 @@ class _TiledPreviewItem(QGraphicsItem):
     x ``TILED_PREVIEW_REPEAT`` neighbour offsets (the centre tile is the real
     :class:`_BufferPixmapItem`, which keeps the single 8K bound). The cache is
     rebuilt only when the buffer changes (an edit marks it dirty) — never the full
-    8K image blitted per neighbour per frame (OD-1, AGT-10). Nearest-neighbour, AA
+    8K image blitted per neighbour per frame (OD-1, per the rendering/performance
+    layer's directive). Nearest-neighbour, AA
     off; only the exposed neighbour rectangles are blitted (culling, D4/F7).
     Neighbours are dimmed so the editable tile reads as primary.
     """
@@ -632,8 +635,9 @@ class _FloatingPreviewItem(QGraphicsItem):
     blitted. Nearest-neighbour, anti-aliasing off, legible in **both** themes.
 
     The scene instantiates it **twice** so a MOVE drag never recomposites an
-    area that grows with the drag distance (AGT-10 FB-8 / ADR-0009 D3 /
-    ADR-0007 T13): a **floated-colours** layer bounded to the selection bbox,
+    area that grows with the drag distance (rendering/performance fix FB-8 /
+    ADR-0009 D3 / ADR-0007 T13): a **floated-colours** layer bounded to the
+    selection bbox,
     recomposited per drag frame (z ``_Z``); and a **vacated-origin** layer
     bounded to the fixed origin bbox, composited **once** at lift and reused for
     the whole gesture (z ``_ORIGIN_Z``, just below, so the floated colours draw
@@ -817,7 +821,8 @@ class _PlaybackOverlayItem(QGraphicsPixmapItem):
     the exposed rect. Hidden by default and whenever playback is not running, so
     it never risks being mistaken for the live document. It never reads or writes
     ``self._composite``/the buffer item's ``_buffer`` — the document is untouched
-    for the whole span an in-session playback is shown (D6/AGT-10 directive).
+    for the whole span an in-session playback is shown (D6, per the
+    rendering/performance layer's directive).
     """
 
     _Z = 0.5
@@ -919,7 +924,8 @@ class CanvasScene(QGraphicsScene):
         self._composite: Optional[PixelBuffer] = None
         # Deferred-composite guard: __init__ allocates the resident composite
         # buffer but does NOT composite the stack into it (the eager full pass was
-        # ~4.4 s at 8K and froze document open — AGT-10 standing flag). The buffer
+        # ~4.4 s at 8K and froze document open — a standing rendering/performance
+        # flag). The buffer
         # starts zero-filled; the initial full composite is computed lazily on the
         # first paint (drawBackground, before the pixmap item blits it) or on any
         # earlier explicit read via _ensure_composite(). Scene construction is O(1).
@@ -1016,7 +1022,8 @@ class CanvasScene(QGraphicsScene):
         # The floated colours are recomposited per drag frame over ONLY their
         # (bounded) destination bbox; the vacated origin is a SEPARATE one-shot
         # layer just below, composited once at lift — so a long MOVE drag never
-        # unions the two into a distance-growing region (AGT-10 FB-8).
+        # unions the two into a distance-growing region (rendering/performance
+        # fix FB-8).
         canvas_rect = QRectF(0, 0, document.width, document.height)
         self._float_item = _FloatingPreviewItem()
         self._float_item.set_roles(self._checker_brush, canvas_rect)
@@ -1117,7 +1124,7 @@ class CanvasScene(QGraphicsScene):
 
         ``__init__`` allocates the resident composite buffer but leaves it
         zero-filled and marks it dirty rather than running the ~4.4 s full-stack
-        composite eagerly (AGT-10 standing flag: "CanvasScene.__init__
+        composite eagerly (a standing rendering/performance flag: "CanvasScene.__init__
         full-composites every RGBA doc"). This guard fills it exactly once — from
         :meth:`drawBackground` before the pixmap item blits it, or from any earlier
         explicit read of ``self._composite``. It is idempotent: a no-op once the
@@ -1132,7 +1139,8 @@ class CanvasScene(QGraphicsScene):
         follow-up on the next event-loop tick, never inline here, because a
         caller may be :meth:`drawBackground` itself (paint already in
         progress — an inline ``update()`` there risks a repaint
-        recursion/churn). FLAGGED for an AGT-10 render-strategy re-profile.
+        recursion/churn). FLAGGED for a render-strategy re-profile by the
+        rendering/performance layer.
         """
         if self._composite_dirty:
             self._recomposite_all()
@@ -1192,7 +1200,7 @@ class CanvasScene(QGraphicsScene):
         """Recompose only ``rect`` into the composite buffer (dirty-rect path, D1).
 
         ``composite_stack(region=(x,y,w,h))`` now returns a **region-sized**
-        ``(h, w, 4)`` buffer whose origin is ``(x, y)`` (AGT-03 T13 / ADR-0007 D1),
+        ``(h, w, 4)`` buffer whose origin is ``(x, y)`` (task T13 / ADR-0007 D1),
         so the returned data blits straight into the resident scene buffer at that
         origin — no full-canvas indexing. The region is clamped to the canvas here
         (0 ≤ x0 < x1 ≤ w, 0 ≤ y0 < y1 ≤ h) so the compositor's bounds check never
@@ -1999,7 +2007,8 @@ class CanvasScene(QGraphicsScene):
             self._live_timer.start()
 
     # -- live opacity-drag split-cache preview + byte-exact commit -------
-    #    (Phase-12 Slice B / FU-16b / ADR-0034; AGT-10 Slice-B directive §1-§4)
+    #    (Phase-12 Slice B / FU-16b / ADR-0034; the rendering/performance
+    #    layer's Slice-B directive §1-§4)
 
     def _lod_factor(self, w: int, h: int) -> int:
         """NN LOD factor bounding the preview to :data:`OPACITY_PREVIEW_MAX_PX` px.
@@ -2192,7 +2201,8 @@ class CanvasScene(QGraphicsScene):
         """Drop the frame's LayerGroup flatten caches after a pixel edit (D4 hook).
 
         Wired into :class:`~pixelart_creator.ui.commands.PaintCommand` on BOTH
-        redo and undo (AGT-03 ``Document.invalidate_caches``) so a group's cached
+        redo and undo (the logic layer's ``Document.invalidate_caches``) so a
+        group's cached
         flatten can never serve a stale composite for the edited region
         (ADR-0007 D4). The whole active frame is cleared (``ref=None``): this is
         robust to active-layer / tree drift across undo history and costs only a
@@ -2289,7 +2299,8 @@ class CanvasScene(QGraphicsScene):
     def begin_floating(self, floating: FloatingSelection) -> None:
         """Show the non-destructive floating preview for ``floating`` (D3 path).
 
-        Two bounded layers are shown (AGT-10 FB-8 fix): the floated colours are
+        Two bounded layers are shown (rendering/performance fix FB-8): the
+        floated colours are
         rendered per drag frame from the **region-scoped** ``composite_preview``
         over their (bounded) destination bbox, and — for a MOVE — the vacated
         origin is composited **once** here into a separate persistent overlay
@@ -2322,7 +2333,7 @@ class CanvasScene(QGraphicsScene):
         floated colours are composited over their bounded destination bbox
         alone; the vacated origin is the separate one-shot overlay set at lift
         (:meth:`begin_floating`), toggled here with the live mode (a COPY keeps
-        the origin intact). No full-canvas allocation (AGT-10 FB-8).
+        the origin intact). No full-canvas allocation (rendering/performance fix FB-8).
         """
         self._ensure_composite()
         # Toggle the one-shot vacated-origin overlay with the live mode. A
@@ -2390,7 +2401,7 @@ class CanvasScene(QGraphicsScene):
         off-canvas. Computed **once** when the float is lifted and reused for the
         whole gesture (the origin bbox and mask never change), so a long MOVE
         drag never re-composites the origin per frame nor grows the recomposited
-        area (AGT-10 FB-8 / ADR-0009 D3 / ADR-0007 T13).
+        area (rendering/performance fix FB-8 / ADR-0009 D3 / ADR-0007 task T13).
 
         The vacate maths stay in ``logic.composite_preview`` (Article I): the
         stamp is displaced a full float-width past the origin's right edge so the
@@ -2429,7 +2440,8 @@ class CanvasScene(QGraphicsScene):
         implementation it is **never** unioned with the fixed origin bbox: the
         vacated origin is handled once by the separate origin overlay, so this
         region stays a single selection bbox and never grows with the drag
-        distance (AGT-10 FB-8). Returns ``None`` when nothing lies on-canvas.
+        distance (rendering/performance fix FB-8). Returns ``None`` when
+        nothing lies on-canvas.
         """
         fx0, fy0, fx1, fy1 = floating.bounds()
         w, h = self._document.width, self._document.height

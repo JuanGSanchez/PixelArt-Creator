@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Assistant conversation value types + the ``ChatBackend`` bridge (zero Qt, S11).
 
-Phase-14 Slice 14B (ADR-0040 §2; spec REQ-P14-DATA-001). This module single-sources
-the **wire-neutral vocabulary** the model-agnostic assistant speaks — the normalized,
+Part of the AI-assistant feature, Phase 14 (ADR-0040 §2; spec REQ-P14-DATA-001).
+This module single-sources the **wire-neutral vocabulary** the model-agnostic
+assistant speaks — the normalized,
 pure-``logic`` value types (:class:`Role`, :class:`Message`, :class:`Conversation`,
 :class:`AssistantReply`) and the PEP 544 :class:`ChatBackend` **Protocol** the (14C)
 agentic loop is typed against.
@@ -212,7 +213,7 @@ class ChatBackend(Protocol):
 
 
 # ==========================================================================================
-# Slice 14C — the security core: agentic loop + tiered-safety gate + injection defence
+# The security core: agentic loop + tiered-safety gate + injection defence
 # (ADR-0041; spec REQ-P14-LOGIC-004/-005/-006/-007/-008). Everything below is pure
 # ``logic`` — deterministic given a fixed ``ChatBackend``, zero Qt, no ``data/`` import,
 # no ``eval``/``exec``/``compile``/``__import__``.

@@ -24,7 +24,7 @@ Every user-visible string is ``tr()``-wrapped with a ``changeEvent`` retranslate
 REQ-P11-UI-010); every interactive control carries an accessible name and is
 keyboard-reachable (REQ-P11-UI-008); colours come from the active QSS theme by role
 (REQ-P11-UI-009). All work is synchronous over the in-memory catalog — no worker thread
-/ timer (Slice 1).
+/ timer.
 """
 
 from __future__ import annotations

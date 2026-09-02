@@ -731,7 +731,7 @@ def composite_stack(
 
 # --------------------------------------------------------------------------- #
 # Phase-12 Slice-B — contiguous-range composite seam + NN LOD helpers          #
-# (opacity-drag split-cache; ADR-0034 / AGT-10 Slice-B directive §6.1)         #
+# (opacity-drag split-cache; ADR-0034, rendering-performance directive §6.1)  #
 # --------------------------------------------------------------------------- #
 
 

@@ -15,7 +15,8 @@ placed in ``data/`` so ``check_layering`` guards its Qt-freedom (ADR-0020, a
 top-level ``cli/`` package would be an unscanned blind spot).
 
 ``pyproject`` wires ``pixelart-export = "pixelart_creator.data.export_cli:main"``
-as a console script — that edit is **AGT-09's** (Article IX), not authored here.
+as a console script — that edit belongs to the packaging layer (Article IX),
+not authored here.
 
 Exit codes: ``0`` ok / ``1`` export-or-pack/write error / ``2`` bad args or
 ``ProjectIOError``.

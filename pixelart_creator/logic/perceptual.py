@@ -19,7 +19,7 @@ parametric weights ``CIEDE2000_KL/KC/KH`` are tuning scalars in
 :mod:`~pixelart_creator.logic.constants`. REQ-P3-LOGIC-004, -005.
 
 The implementation MUST be validated against Sharma et al.'s supplementary
-test-data pairs within a documented tolerance (AGT-04, plan §7) before ship.
+test-data pairs within a documented tolerance (the test suite, plan §7) before ship.
 """
 
 from __future__ import annotations

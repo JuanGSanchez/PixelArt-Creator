@@ -6,7 +6,8 @@ Phase-10 Slice A tail (ADR-0026 §1/§2; spec REQ-P10-DATA-001/-002/-003/-007/-0
 Researcher §1.1/§1.2). A real :class:`~pixelart_creator.data.cloud.port.CloudPort`
 over the Drive v3 REST API, isolated behind the injectable
 :class:`~pixelart_creator.data.cloud.providers._http.HttpClient` seam so its contract
-conformance is testable with a mocked transport (AGT-04), while live verification is
+conformance is testable with a mocked transport (the test suite), while live
+verification is
 **credential-/network-gated** under the ``cloud_live`` marker.
 
 Storage model (grounded on Researcher §1): each project's ``.pixproj`` is one Drive

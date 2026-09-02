@@ -11,7 +11,7 @@ bindings that are not `QAction`s at all — `Esc`/`Enter` (float commit/cancel,
 `Canvas_View.keyPressEvent`) and `Space` (playback play/pause, a
 widget-scoped `QShortcut`). Four checks read this one table instead of
 re-deriving the binding set from four different places: (a) the app's real
-`QAction` shortcuts (`REQ-IS-UI-031`, Qt, `AGT-06`'s suite), (b) the shipped
+`QAction` shortcuts (`REQ-IS-UI-031`, Qt, the QA test suite), (b) the shipped
 guide content (`REQ-IS-LOGIC-006`), (c) the `en`/`es` locale lockstep
 (`REQ-IS-LOGIC-007`), and (d) that every proof-linked row's proof node id is
 collectable (`REQ-IS-LOGIC-008`).
@@ -288,10 +288,10 @@ _KEY_ROWS: tuple[Binding, ...] = (
     ),
 )
 
-# --- FOLLOW-UP to T-32: the fourteen pre-existing bindings the feature never
+# --- Follow-up: the fourteen pre-existing bindings the feature never
 # touched, added so check (a) (`REQ-IS-UI-031`) holds exact set equality
 # against every real `QAction` shortcut, not only the fifteen this feature
-# changed (`design-docs/reports/`, T-32 follow-up). Section assignment is
+# changed. Section assignment is
 # deliberate, not uniform: new/open/save, undo/redo and the guide key are
 # application-level operations independent of any tool or canvas state, so
 # they join the eleven remapped tool keys already homed in "app-basics";
@@ -424,9 +424,9 @@ _KEY_ROWS_FOLLOWUP: tuple[Binding, ...] = (
 # shift. `proof_node_ids` cites the pre-existing acceptance tests that
 # already exercise each key (verified pytest-collectable this session,
 # `pytest --collect-only`); `key_proofs()` below is the accessor a future
-# extension of check (d) — owned by AGT-04/AGT-06, `testing/suites/data/`
-# and `testing/suites/ui/` respectively — would iterate to also demand proof
-# for these three (see this task's handoff report).
+# extension of check (d) — owned by the data and UI test suites,
+# `testing/suites/data/` and `testing/suites/ui/` respectively — would
+# iterate to also demand proof for these three.
 
 _KEY_PROOF_ROWS: tuple[Binding, ...] = (
     Binding(
@@ -476,7 +476,7 @@ _KEY_PROOF_ROWS: tuple[Binding, ...] = (
 # The nine pointer gestures of spec §5.4 (REQ-IS-UI-008..017, excluding the
 # click/drag-split enabler REQ-IS-UI-011, which has no literal of its own).
 # `proof_node_ids` point at the pytest-qt acceptance tests already shipped
-# for T-09/T-21/T-23 (`testing/suites/ui/test_input_scheme_pointer.py`,
+# for these gestures (`testing/suites/ui/test_input_scheme_pointer.py`,
 # `test_input_scheme_frames.py`) — check (d), REQ-IS-LOGIC-008, asserts each
 # id is collectable; it is a link to evidence, not the evidence.
 

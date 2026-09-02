@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Stdlib-``urllib`` native-Anthropic translator ``LLMPort`` adapter (zero Qt, S11).
 
-Phase-14 Slice 14D (skill ``llm-adapter-normalization`` steps 3/4/5; ADR-0040 §1/§3;
+Part of the AI-assistant feature, Phase 14 (skill ``llm-adapter-normalization``
+steps 3/4/5; ADR-0040 §1/§3;
 spec REQ-P14-DATA-005/-006/-007; Researcher ``ad2616c7`` R1.4/R1.5). Anthropic is the
 sole named provider whose wire differs **structurally** from the OpenAI-compatible core
 (:mod:`~pixelart_creator.data.llm.openai_compatible`), so this thin translator maps the

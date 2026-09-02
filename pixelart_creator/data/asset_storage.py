@@ -16,8 +16,9 @@ shared.
 :class:`LocalBlobBackend` is the **offline default** (ADR-0032 §2): an in-memory store,
 or — when a ``root`` directory is given — a local-filesystem store that writes each blob
 once to a file named by its ``content_hash``. It requires no cloud, no network, no
-credentials, so Slice 1 ships and CI-tests fully headless. The optional
-``SharedBlobBackend`` (Slice 3) implements the *same* port over Phase-10 shared storage.
+credentials, so it ships and CI-tests fully headless. The optional
+``SharedBlobBackend`` (added later) implements the *same* port over
+Phase-10 shared storage.
 
 :func:`default_asset_root` is the data layer's stdlib-only (no Qt) durable-by-default
 location for the filesystem-mode backend (D-26 / CF-119): a bare ``LocalBlobBackend()``

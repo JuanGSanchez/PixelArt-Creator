@@ -9,7 +9,7 @@ colours with add / remove / reorder and a JSON-serialisable form
 UI/data layer persists it (``data/favourites_io.py``, ADR-0004). A soft cap
 (``FAVOURITES_MAX``) bounds the list defensively (Article VII). REQ-P3-LOGIC-015.
 
-T-04 (input-scheme, REQ-IS-LOGIC-001/-002): the model also carries a
+As part of the input-scheme feature (REQ-IS-LOGIC-001/-002): the model also carries a
 **cursor** — an index into the ordered list, or ``-1`` meaning "no entry" —
 consumed by wheel-gesture colour navigation. ``cursor_index()``/``current()``
 read it; ``advance()``/``retreat()`` step it with wrap-around at both ends and

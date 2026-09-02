@@ -287,7 +287,7 @@ def import_project_assets(
 
 # --------------------------------------------------------------------------- #
 # Single-file portable bundle (.pixbundle) — deterministic zip, defensive      #
-# (Slice 13B; ADR-0037; REQ-P13-DATA-006/-007/-008)                            #
+# (part of the packaging feature, Phase 13; ADR-0037; REQ-P13-DATA-006/-007/-008) #
 # --------------------------------------------------------------------------- #
 
 

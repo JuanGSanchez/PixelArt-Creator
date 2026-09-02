@@ -8,8 +8,8 @@ px and converted to doc space via ``screen_tolerance_to_doc`` so perceived
 "stickiness" is constant at every zoom. Ruler ticks use a **nice-number**
 ``{1, 2, 5}·10ⁿ`` ladder with **locale-independent** integer labels. Every function
 is a pure, deterministic function of its inputs — no Qt, no wall-clock, no locale
-formatting — the same math the ``ui/`` overlay calls and AGT-04 unit-tests
-(Article I; REQ-P9-LOGIC-005/-006/-009).
+formatting — the same math the ``ui/`` overlay calls and the test suite
+unit-tests (Article I; REQ-P9-LOGIC-005/-006/-009).
 
 Constants come from :mod:`pixelart_creator.logic.constants` (S12).
 """

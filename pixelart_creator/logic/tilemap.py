@@ -401,11 +401,11 @@ class Tilemap:
         #: aggregated across *all* layers. Bumped by every reversible cell edit
         #: (stamp/erase/fill and each auto-tile neighbour re-resolution) that
         #: touches the chunk, on both apply and undo. The UI keys a per-chunk
-        #: QPixmap cache by ``(chunk coord, version)`` (AGT-05 D1); an unseen key
+        #: QPixmap cache by ``(chunk coord, version)`` (UI ruling D1); an unseen key
         #: reads ``0``. O(1), zero Qt.
         self._chunk_versions: Dict[Tuple[int, int], int] = {}
 
-    # -- per-chunk cache-invalidation version (AGT-05 D1) -----------------
+    # -- per-chunk cache-invalidation version (UI ruling D1) -----------------
 
     def chunk_version(self, cx: int, cy: int) -> int:
         """Return the mutation counter for chunk-origin ``(cx, cy)`` (O(1)).
@@ -891,7 +891,8 @@ class Tilemap:
         """Render the composited visible layer stack over a pixel region (PB-1/CO-4).
 
         Resolves only the cells intersecting the ``(x, y, w, h)`` **pixel** region
-        (the viewport-culling seam AGT-10 plugs into, DEP-3), applies each
+        (the viewport-culling seam the rendering-performance layer plugs into,
+        DEP-3), applies each
         instance's flip vectorised over the chunk (:meth:`_render_layer_region`),
         and flattens the visible layer stack via ``blend.composite_stack`` (CO-4).
         Non-destructive: the tileset source buffers and the cell data are

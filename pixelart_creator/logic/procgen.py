@@ -9,7 +9,7 @@ shipped :mod:`logic.dither` ordered-Bayer / Floyd–Steinberg) — each a **pure
 deterministic function of ``(params, seed)``** (same seed + params → identical
 output; REQ-P8-LOGIC-012). All are pure NumPy/Python: **no new third-party
 dependency** is introduced (consistent with the project's no-new-dep ADRs — nothing
-to flag to AGT-01).
+to flag as a follow-up architecture concern).
 
 Generated content is written into the document **through the reversible-command
 path** (HIS-1): :func:`make_procgen_command` returns an efficient

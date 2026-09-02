@@ -281,7 +281,7 @@ def dispatch(
 
     # Phase 1 — validate the WHOLE list before touching the document. No factory
     # runs and no command is applied here, so any failure raises with the document
-    # untouched (the AGT-06 [valid op, unknown op] partial-mutation defect).
+    # untouched (the QA-found [valid op, unknown op] partial-mutation defect).
     plan: list[Tuple[_RegisteredOp, Dict[str, object], Optional[int]]] = []
     for position, op in enumerate(ops):
         if not isinstance(op, Op):

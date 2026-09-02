@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 r"""The one model-agnostic LLM port — provider-neutral chat/tool-calling (zero Qt, S11).
 
-Phase-14 Slice 14B (ADR-0040 §1/§3; spec REQ-P14-DATA-001/-007). Defines the **single**
+Part of the AI-assistant feature, Phase 14 (ADR-0040 §1/§3; spec
+REQ-P14-DATA-001/-007). Defines the **single**
 provider-agnostic :class:`LLMPort` ABC every adapter implements — the deterministic
 fake adapter (14B) and, later, the real stdlib-``urllib`` OpenAI-compatible client and
 the native-Anthropic translator (14D) — plus the port's own :class:`LLMError` family.

@@ -40,7 +40,7 @@ class Document_View(QGraphicsView):
     """
 
     #: Emitted with the picked RGBA tuple when a plain wheel notch travels the
-    #: shared Favourites cursor (REQ-IS-UI-008, T-21/D-16 — this surface is a
+    #: shared Favourites cursor (REQ-IS-UI-008, D-16 — this surface is a
     #: navigate-only view of the SAME live document scene as the primary
     #: Canvas_View, so the active colour it sets is real document context).
     colorPicked = Signal(object)
@@ -54,8 +54,8 @@ class Document_View(QGraphicsView):
         """Build an extra navigate-only viewport on the shared ``scene``."""
         super().__init__(scene, parent)
         self._index = index
-        #: The persisted Favourites model bound via :meth:`set_favourites_model`
-        #: (T-21); ``None`` until the shell binds one.
+        #: The persisted Favourites model bound via :meth:`set_favourites_model`;
+        #: ``None`` until the shell binds one.
         self._favourites: Optional[Favourites] = None
         self.setInteractive(True)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
@@ -70,7 +70,7 @@ class Document_View(QGraphicsView):
     def set_favourites_model(self, favourites: Favourites) -> None:
         """Bind the persisted Favourites model a plain wheel notch travels.
 
-        REQ-IS-UI-008, T-21.
+        REQ-IS-UI-008.
         """
         self._favourites = favourites
 
@@ -142,7 +142,7 @@ class Multi_View:
         self._scene = scene
         self._views: List[Document_View] = []
         #: The persisted Favourites model applied to every view opened from
-        #: now on (T-21); ``None`` until the shell binds one.
+        #: now on; ``None`` until the shell binds one.
         self._favourites: Optional[Favourites] = None
 
     def set_scene(self, scene: QGraphicsScene) -> None:
@@ -155,7 +155,7 @@ class Multi_View:
         """Bind the persisted Favourites model every extra view's wheel travels.
 
         Applies to every current AND future extra view's plain wheel notch
-        (REQ-IS-UI-008, T-21).
+        (REQ-IS-UI-008).
         """
         self._favourites = favourites
         for view in self._views:

@@ -19,7 +19,7 @@ Importing :mod:`logic.scripting` here wires the trusted dispatcher into
 :mod:`logic.macro` (so ``replay`` works) and registers the built-in DSL ops.
 
 ``pyproject`` wires ``pixelart-run = "pixelart_creator.data.automation_cli:main"``
-as a console script — that edit is **AGT-09's** (Article IX, T8D-04), not here.
+as a console script — that edit belongs to the packaging layer (Article IX), not here.
 
 Exit codes: ``0`` ok / ``1`` automation failure (``ScriptError``/``MacroError``/
 ``PluginError``/``BatchError``/``ProcgenError``/write error) / ``2`` bad args or a

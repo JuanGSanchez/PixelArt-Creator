@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Off-GUI-thread AI-assistant turn execution + tiered-confirm marshalling.
 
-Phase-14 Slice 14E (REQ-P14-UI-004; DEP-5). A single agentic turn
+Part of Phase 14, the AI-assistant phase (REQ-P14-UI-004; DEP-5). A single agentic turn
 (:func:`~pixelart_creator.logic.assistant.run_turn`) interleaves **network** LLM
 round-trips (``ChatBackend.respond``) with **CPU** DSL dispatch; running it on the GUI
 thread would freeze the 16 ms render loop. This module runs the **Qt-free** loop off

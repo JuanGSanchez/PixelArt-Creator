@@ -9,9 +9,10 @@ makes Qt post a :data:`QEvent.Type.LanguageChange` to every widget, which each
 hand-built widget handles in ``changeEvent`` to re-set its ``tr()``-wrapped text
 (live retranslation, no restart — F5).
 
-The binary ``.qm`` catalogues are produced by AGT-07 (``ts-qm-build``); this
-module only discovers and loads them, so it degrades gracefully to the built-in
-English source strings when no catalogue is present.
+The binary ``.qm`` catalogues are build output, compiled from the ``.ts``
+source catalogues with ``pyside6-lrelease``; this module only discovers and
+loads them, so it degrades gracefully to the built-in English source strings
+when no catalogue is present.
 """
 
 from __future__ import annotations
@@ -25,7 +26,8 @@ from PySide6.QtCore import QCoreApplication, QLocale, QObject, QTranslator, Sign
 #: the source language of the ``tr()`` literals, so it needs no ``.qm`` file.
 FALLBACK_LANGUAGE = "en"
 
-#: Prefix of a compiled catalogue file, e.g. ``pixelart_es.qm`` (AGT-07 output).
+#: Prefix of a compiled catalogue file, e.g. ``pixelart_es.qm`` (build output
+#: of ``pyside6-lrelease``, not hand-authored).
 _CATALOGUE_PREFIX = "pixelart_"
 _CATALOGUE_SUFFIX = ".qm"
 

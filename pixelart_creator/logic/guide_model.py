@@ -151,7 +151,8 @@ REQUIRED_AREAS: tuple[str, ...] = (
 )
 
 #: Default human-readable titles for the required areas (used only to seed the
-#: committed scaffold manifest; AGT-08 owns the authored titles/prose). Kept aligned
+#: committed scaffold manifest; the documentation owner authors the
+#: titles/prose). Kept aligned
 #: with :data:`REQUIRED_AREAS` for reference; not part of the coverage check.
 REQUIRED_AREA_TITLES: dict[str, str] = {
     "app-basics": "Application Basics",

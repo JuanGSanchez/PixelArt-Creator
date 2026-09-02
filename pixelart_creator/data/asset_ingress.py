@@ -6,8 +6,7 @@ The single write path through which content becomes a catalog entry
 (``register``), an untrusted external artifact becomes catalog entries
 (``import_artifact``), or a chosen set of catalog entries leaves the library
 as a self-contained artifact (``export_subset``). This module is the
-``data/`` half of the determinism split recorded at
-``design-docs/specs/phase-11-asset-ingress/plan.md`` §3.2: it produces the
+``data/`` half of a deliberate determinism split: it produces the
 canonical asset **bytes** with the shipped serialiser
 (:func:`~pixelart_creator.data.project_io.serialize` +
 :func:`~pixelart_creator.logic.content_hash.canonical_json_bytes` — no second

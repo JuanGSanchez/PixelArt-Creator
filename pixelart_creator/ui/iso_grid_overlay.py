@@ -17,8 +17,9 @@ drawing is culled to the ``exposedRect`` — only the ``(i, j)`` lattice lines
 crossing the visible viewport are stroked and rasterisation is clipped to that rect
 (DIR-2) — and the item uses ``DeviceCoordinateCache`` so a pan/zoom that does not
 change the config reuses the rasterised grid (research §5.3). Together these restore
-the fine-grid zoom-out budget AGT-10 measured at 722 ms. Cache mode / cull scope are
-AGT-10-tunable (DEP-3); the geometry is never re-authored here.
+the fine-grid zoom-out budget the rendering/performance layer measured at 722 ms.
+Cache mode / cull scope are tunable by that layer (DEP-3); the geometry is never
+re-authored here.
 """
 
 from __future__ import annotations
@@ -68,7 +69,8 @@ class Iso_Grid_Overlay(QGraphicsItem):
         self.setVisible(False)
         # DeviceCoordinateCache: a pan/zoom that leaves the config unchanged reuses
         # the rasterised grid rather than re-stroking every line (research §5.3;
-        # AGT-10 may re-tune this per its render directive, DEP-3).
+        # the rendering/performance layer may re-tune this per its render
+        # directive, DEP-3).
         self.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
         self._rect = QRectF(scene_rect)
         self._config = config if config is not None else IsoGridConfig()
@@ -131,7 +133,7 @@ class Iso_Grid_Overlay(QGraphicsItem):
         """Stroke the visible iso lattice, LOD-gated and culled (Qt override)."""
         # DIR-1 LOD gate: when a tile's on-screen edge (tile_width * zoom) falls
         # below ISO_GRID_MIN_ON_SCREEN_EDGE_PX the lattice is too dense to read
-        # and painting every line blows the 16 ms budget (AGT-10: 722 ms worst
+        # and painting every line blows the 16 ms budget (measured: 722 ms worst
         # case). Skip entirely — mirrors the GRID_MIN_PIXEL_EDGE_PX gate.
         if self._tile_on_screen_edge_px(painter) < ISO_GRID_MIN_ON_SCREEN_EDGE_PX:
             return

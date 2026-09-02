@@ -32,7 +32,7 @@ purely in-memory, touching the filesystem not at all.
 Only **tag add / remove** is undoable (PL11-D3); adding or removing a whole catalog
 entry is library/session state and pushes **no** ``QUndoCommand``.
 
-Slice 2 adds the shared, immutable
+This module adds the shared, immutable
 :class:`~pixelart_creator.logic.dependency_graph.DependencyGraph` (asset→asset
 references) alongside the catalog so the dependency-graph view and the passive
 break surface read one source of truth: :meth:`set_graph` swaps the graph and emits
@@ -196,7 +196,7 @@ class Asset_Library_Session(QObject):
     #: bound panels re-read and repaint. No payload — panels pull the fresh catalog.
     catalogChanged = Signal()
 
-    #: Emitted after the dependency graph is replaced (Slice 2) so the dependency-graph
+    #: Emitted after the dependency graph is replaced so the dependency-graph
     #: view and the passive break surface re-read and repaint. No payload.
     graphChanged = Signal()
 
@@ -306,7 +306,7 @@ class Asset_Library_Session(QObject):
         return self._catalog
 
     def graph(self) -> DependencyGraph:
-        """Return the current in-memory, immutable dependency graph value (Slice 2)."""
+        """Return the current in-memory, immutable dependency graph value."""
         return self._graph
 
     def undo_stack(self) -> QUndoStack:
@@ -398,7 +398,7 @@ class Asset_Library_Session(QObject):
         self._persist()
 
     def set_graph(self, graph: DependencyGraph) -> None:
-        """Replace the whole dependency graph and notify (Slice 2, library state).
+        """Replace the whole dependency graph and notify (library state).
 
         The supplied graph is a pure ``logic`` value that is **acyclic by
         construction** (:class:`DependencyGraph` rejects a cycle-inducing edge set at

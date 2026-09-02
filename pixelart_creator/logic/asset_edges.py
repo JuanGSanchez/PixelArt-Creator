@@ -4,10 +4,9 @@
 
 This module derives, over **values**, the direct :class:`DependencyEdge` s a
 just-derived asset (its :class:`~pixelart_creator.logic.asset_catalog.AssetDescriptor`)
-carries to the catalog entries it references — the three relationships
-``design-docs/specs/phase-11-asset-ingress/tasks.md`` T8 names: a tileset →
-its source-image sprite, a named animation → the sprites its frames are
-built from, a tilemap → its tileset.
+carries to the catalog entries it references — the three relationships this
+module derives: a tileset → its source-image sprite, a named animation →
+the sprites its frames are built from, a tilemap → its tileset.
 
 **Why matching, not an id field (plan risk R-3, discharged 2026-08-21).** None
 of the three referencing domain shapes carries an asset id:
@@ -383,7 +382,7 @@ def _pack_reference(
 def _reference_layers(nodes: Sequence[LayerNode]) -> List[LayerNode]:
     """Return a presentation-normalised copy of a layer/group tree, recursively.
 
-    **[DEV-38 fix, this task.]** :func:`composite_stack` (the shipped, single
+    **[Fix made in this task.]** :func:`composite_stack` (the shipped, single
     compositor — reused here, never re-implemented, per Article I) honours
     each node's ``opacity``, ``blend_mode`` and ``mask`` in addition to its
     pixel content (``blend.py:696``). Feeding it a document's *real* layer
@@ -455,9 +454,9 @@ def reference_bytes(document: Document, kind: AssetKind) -> bytes:
     definition reads a raw :class:`~pixelart_creator.logic.pixel_buffer.PixelBuffer`
     (``tileset.source``) directly — it was never routed through
     :func:`~pixelart_creator.logic.blend.composite_stack` and so never had an
-    opacity/blend/mask leak to begin with; DEV-38 does not touch it.
+    opacity/blend/mask leak to begin with; this fix does not touch it.
 
-    **The SPRITE canonicalisation definition — AMENDED, DEV-38 (this task).**
+    **The SPRITE canonicalisation definition — amended in this task.**
     A ``SPRITE``'s reference bytes are the kind tag, ``document``'s geometry
     and colour mode, then the pixel bytes of frame 0's layer stack composited
     through :func:`~pixelart_creator.logic.blend.composite_stack` **over a

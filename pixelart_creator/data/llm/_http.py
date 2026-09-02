@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Shared stdlib-``urllib`` JSON POST + bounded retry for the real adapters (private).
 
-Phase-14 Slice 14D (skill ``llm-adapter-normalization`` step 5; Researcher ``ad2616c7``
+Part of the AI-assistant feature, Phase 14 (skill ``llm-adapter-normalization``
+step 5; Researcher ``ad2616c7``
 R4.1/R4.3). The single transport seam both real :class:`~pixelart_creator.data.llm.port.
 LLMPort` adapters (the OpenAI-compatible core + the native-Anthropic translator) POST
 through, so the ``urllib`` handling (which gives no pooling/retry/timeout niceties) is

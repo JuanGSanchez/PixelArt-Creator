@@ -1,4 +1,4 @@
-<!-- site-counterpart: docs/site/pages/en/usage/ai-assistant.md (derived FROM this bundle file, reverse direction — WP-8 unit 2d) -->
+<!-- site-counterpart: docs/site/pages/en/usage/ai-assistant.md (derived FROM this bundle file, reverse direction) -->
 # The AI assistant — chat to drive the editor
 
 The **AI assistant** lets you drive the editor in **plain language**. You type what you want

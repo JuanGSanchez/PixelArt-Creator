@@ -350,7 +350,7 @@ _COLOUR_CONSUMING_TOOL_IDS = frozenset(
 #: ``QLayoutItem.minimumSize()`` ``expandedTo`` rule) is presentation sizing,
 #: not a domain tuning value, so it stays local exactly like _SWATCH_PX /
 #: _PREVIEW_MAX_EDGE_PX above — see the FIX-3 report note requesting this be
-#: promoted to logic/constants.py (AGT-03 surface) as e.g.
+#: promoted to logic/constants.py (a logic-layer surface) as e.g.
 #: ``WORKFLOW_DOCK_MIN_WIDTH_PX`` rather than reached into from here.
 _WORKFLOW_DOCK_MIN_WIDTH_PX = 220
 
@@ -392,7 +392,7 @@ class _DocTab:
     # (other collaborators' cursors; never persisted). ``None`` until aids attach.
     live_cursors: Optional[Live_Cursors_Overlay] = None
     perspective_overlay: Optional[Perspective_Grid_Overlay] = None
-    # T-20 (REQ-IS-UI-024..026): this tab's transient cursor-feedback square,
+    # (REQ-IS-UI-024..026): this tab's transient cursor-feedback square,
     # a child of ``view.viewport()`` (never the scene — REQ-IS-UI-026 clause
     # 2). Created with the tab in ``_create_tab_aids``; ``None`` only in the
     # narrow window between tab construction and that call.
@@ -402,7 +402,7 @@ class _DocTab:
     # read-only, Qt-free ``compute_sync_state`` for the Cloud menu / version
     # browser status line — never computed here.
     local_version_id: Optional[str] = None
-    # T43 (ruling P11-R12, DEV-43 finding 1): this tab's session-scoped binding
+    # T43 (ruling P11-R12, finding 1): this tab's session-scoped binding
     # to the catalog entry it was last registered/re-registered as, or None
     # when the tab has never been registered. Session-scoped only — never
     # written to the project file, never carried by a format-version event —
@@ -585,7 +585,7 @@ class Main_Window(QMainWindow):
         # dialog is parented to this window, so it is disposed with it.
         self._user_guide_dialog: Optional[User_Guide_Dialog] = None
 
-        # T-20 (REQ-IS-UI-026): true while the left button is down on a
+        # (REQ-IS-UI-026): true while the left button is down on a
         # painting-surface viewport, tracked via an event filter installed on
         # each tab's ``Canvas_View.viewport()`` below (``_add_document_tab``) —
         # ``eventFilter`` toggles this flag and never consumes the event, so
@@ -804,7 +804,7 @@ class Main_Window(QMainWindow):
         self._colour_hub.colorApplied.connect(self._on_hub_color_applied)
         self._colour_hub.colorCommitted.connect(self._on_hub_color_committed)
         self._colour_hub.favouritesChanged.connect(self._save_favourites)
-        # T-21 (REQ-IS-UI-008/-012): the tilemap canvas shares the same
+        # (REQ-IS-UI-008/-012): the tilemap canvas shares the same
         # Favourites model — a plain wheel notch / an unmodified middle click
         # there still travels the app-wide active colour, even though the
         # tilemap paints tiles rather than pixels.
@@ -841,7 +841,7 @@ class Main_Window(QMainWindow):
         # submission (REQ-P11-UI-014's negative: an un-opted-in export must leave
         # the catalog/store/revision history unchanged).
         self._pending_export_registration: Optional[Export_Registration_Request] = None
-        # T10 WIRE follow-up (DEV-37): the target directory chosen by
+        # T10 WIRE follow-up: the target directory chosen by
         # _on_import_project_bundle, consumed exactly once by
         # _on_project_bundle_imported to title the new tab — the session's
         # own projectBundleImported signal carries only (document, catalog),
@@ -1015,7 +1015,8 @@ class Main_Window(QMainWindow):
         # the loopback in CI, WebSocket out of CI) that polls/writes the relay; it hands
         # inbound framed bytes back over a queued signal and THIS session decodes +
         # applies them onto the live Document ON THE GUI THREAD (apply_remote is
-        # dirty-region scoped — the Article VI re-entry AGT-10 profiles). Its worker has
+        # dirty-region scoped — the Article VI re-entry the rendering/performance
+        # layer profiles). Its worker has
         # an idempotent, event-loop-free shutdown (shutdown()) wired FIRST into
         # shutdown_prewarm so no worker thread / socket survives into GC (the recurring
         # PySide6 cross-thread xdist segfault — the highest-risk teardown this slice).
@@ -1054,7 +1055,7 @@ class Main_Window(QMainWindow):
         self._branch_diff_dialog: Optional[Branch_Diff_Dialog] = None
         self._branching_panel.openDiffRequested.connect(self._on_open_diff_requested)
 
-        # Phase-11 Slice 1 asset library (REQ-P11-UI-001/-002/-003): browse the
+        # Phase-11's asset library (REQ-P11-UI-001/-002/-003): browse the
         # catalog, tag assets, and search/filter — three docked panels bound to one
         # Asset_Library_Session that holds the shared AssetCatalog, LOADED FROM DISK
         # at bind time and persisted on every mutation (T5, REQ-P11-DATA-008), and the
@@ -1085,7 +1086,7 @@ class Main_Window(QMainWindow):
         self._asset_search_dock = self._add_workflow_dock(self._asset_search_panel)
         self._asset_tagging_dock = self._add_workflow_dock(self._asset_tagging_panel)
 
-        # Phase-11 Slice 2 dependency-graph view + passive break surface
+        # Phase-11's dependency-graph view + passive break surface
         # (REQ-P11-UI-005/-006): visualise depends-on / dependents for the whole
         # catalog or the selected asset, and flag broken references passively. It
         # binds to the SAME Asset_Library_Session (single source of catalog + graph)
@@ -1105,7 +1106,7 @@ class Main_Window(QMainWindow):
         # whether the accumulated edge set it receives is accepted or
         # passively rejected as cyclic.
         self._asset_session.edgesDerived.connect(self._dependency_graph_view.show_edges)
-        # T10 WIRE follow-up (DEV-37): a bundle import reconstructs a NEW
+        # T10 WIRE follow-up: a bundle import reconstructs a NEW
         # project (never merged into this session's open library, plan
         # Section 3.7's "Import lands in" row); the window is what opens it
         # into a tab.
@@ -1114,7 +1115,7 @@ class Main_Window(QMainWindow):
         )
         self._dependency_dock = self._add_workflow_dock(self._dependency_graph_view)
 
-        # Phase-11 Slice 3 version browser + cross-project reuse
+        # Phase-11's version browser + cross-project reuse
         # (REQ-P11-UI-004/-007): browse an asset's revisions and restore one
         # append-only; reference a shared asset into a project without copying its
         # bytes. Both bind to the SAME Asset_Library_Session (single source of the
@@ -1208,7 +1209,7 @@ class Main_Window(QMainWindow):
             self._tool_action_group.addAction(action)
             self._tool_actions[tool_id] = action
         self._tool_actions[self._active_tool_id].setChecked(True)
-        # T-36: mount the eleven glyphs (REQ-IS-UI-027, UI half). Text and
+        # Mount the eleven glyphs (REQ-IS-UI-027, UI half). Text and
         # accessible name are untouched here and set/retranslated separately
         # (see the labels loop in _retranslate) -- an icon must never displace
         # either (Article V.1). Re-tinted on every theme switch by
@@ -1294,7 +1295,7 @@ class Main_Window(QMainWindow):
         self._register_selection_action.setEnabled(False)
         self._register_selection_action.triggered.connect(self._on_register_selection)
 
-        # T10 WIRE follow-up (DEV-37, ruling P11-R5, plan Section 3.7): the
+        # T10 WIRE follow-up (ruling P11-R5, plan Section 3.7): the
         # four import/export commands T10 shipped as unreachable methods on
         # Asset_Library_Session. Two separately-labelled command PAIRS —
         # library artifact (import/export) and project bundle
@@ -1640,7 +1641,7 @@ class Main_Window(QMainWindow):
         self._cloud_menu.addAction(self._live_cursors_action)
         self._cloud_menu.addAction(self._branching_dock.toggleViewAction())
 
-        # Library menu (Phase-11 Slice 1): consistent with the existing menu bar; the
+        # Library menu (Phase-11): consistent with the existing menu bar; the
         # asset-library / search / tagging dock toggles (UI-001/-002/-003), each
         # discoverable + keyboard-reachable.
         self._library_menu = bar.addMenu("")
@@ -1658,7 +1659,7 @@ class Main_Window(QMainWindow):
         self._library_menu.addSeparator()
         self._library_menu.addAction(self._register_active_document_action)
         self._library_menu.addAction(self._register_selection_action)
-        # T10 WIRE follow-up (DEV-37, P11-R5): the library-artifact pair and
+        # T10 WIRE follow-up (P11-R5): the library-artifact pair and
         # the project-bundle pair, each behind its own separator so neither
         # pair, nor either command within a pair, is read as one menu entry.
         self._library_menu.addSeparator()
@@ -1757,7 +1758,7 @@ class Main_Window(QMainWindow):
         # Reference board: a separate window (PureRef-style; optional always-on-top).
         self._reference_board = Reference_Board()
         self._reference_board.setWindowFlag(Qt.WindowType.Window, True)
-        # T-21/D-16 (REQ-IS-UI-008): a plain wheel notch on the reference board
+        # D-16 (REQ-IS-UI-008): a plain wheel notch on the reference board
         # also travels the shared Favourites cursor; Shift+wheel keeps zoom.
         self._reference_board.set_favourites_model(self._favourites)
         self._reference_board.colorPicked.connect(self._on_color_picked)
@@ -1832,11 +1833,12 @@ class Main_Window(QMainWindow):
         record.view.set_perspective_overlay(record.perspective_overlay)
         # Phase-10 Slice C: the ephemeral live-cursor overlay (other collaborators'
         # cursors, REQ-P10-UI-013). Above the aids (z ~9); hidden until real-time is
-        # connected. No item cache — cursors move per frame (AGT-10 will profile).
+        # connected. No item cache — cursors move per frame (the rendering/
+        # performance layer will profile).
         record.live_cursors = Live_Cursors_Overlay(scene_rect)
         record.scene.addItem(record.live_cursors)
         self._apply_aid_theme(record)
-        # T-20 (REQ-IS-UI-024..026): a viewport child, never a QGraphicsItem —
+        # (REQ-IS-UI-024..026): a viewport child, never a QGraphicsItem —
         # never added to ``record.scene`` and so never reached by a
         # QGraphicsScene.render() call, structurally (module docstring of
         # cursor_feedback_overlay.py).
@@ -2043,7 +2045,7 @@ class Main_Window(QMainWindow):
     def _on_new_view(self) -> None:
         view = self._multi_view.open_view()
         if view is not None:
-            # T-21/D-16 (REQ-IS-UI-008): a plain wheel notch on this extra view
+            # D-16 (REQ-IS-UI-008): a plain wheel notch on this extra view
             # travels the same shared Favourites cursor as the primary canvas.
             view.colorPicked.connect(self._on_color_picked)
             view.show()
@@ -2260,13 +2262,13 @@ class Main_Window(QMainWindow):
         stack = QUndoStack(self)
         self._undo_group.addStack(stack)
         view = Canvas_View(scene, stack)
-        # T-20 (REQ-IS-UI-026): watch this viewport's left-button press/release
+        # (REQ-IS-UI-026): watch this viewport's left-button press/release
         # to suppress the feedback squares for the life of a stroke. Never
         # consumes the event (Main_Window.eventFilter always returns False),
         # so every click/drag still reaches the view underneath unchanged.
         view.viewport().installEventFilter(self)
         view.colorPicked.connect(self._on_color_picked)
-        # T-21 (REQ-IS-UI-008/-012): the plain-wheel / unmodified-middle-click
+        # (REQ-IS-UI-008/-012): the plain-wheel / unmodified-middle-click
         # Favourites travel binds to the same shared model the colour hub uses.
         view.set_favourites_model(self._favourites)
         view.floatingStateChanged.connect(self._on_floating_state_changed)
@@ -2275,12 +2277,12 @@ class Main_Window(QMainWindow):
         view.nonEditableLayerEditRejected.connect(self._notify_layer_not_editable)
         view.toolRunNoChange.connect(self._notify_tool_run_no_change)
         view.set_menu_hook(self._open_colour_hub)
-        # T-23 (REQ-IS-UI-010/-014/-016): the Ctrl frame gestures route through
+        # (REQ-IS-UI-010/-014/-016): the Ctrl frame gestures route through
         # the shipped frame-selection path / the shipped undoable add-frame
         # command — this view builds no domain result of its own (Article I).
         view.frameNavigationRequested.connect(self._navigate_to_frame)
         view.addFrameRequested.connect(self._on_canvas_add_frame_requested)
-        # T-12: a drop delivered straight to the canvas viewport is routed
+        # A drop delivered straight to the canvas viewport is routed
         # through the same handler as Main_Window.dropEvent (REQ-DDI-UI-001).
         view.set_drop_router(self._route_dropped_files)
         # T-DRAW-01/REQ-P10-UI-025: bind this tab's branch-recording sink at
@@ -3271,7 +3273,7 @@ class Main_Window(QMainWindow):
                 # No QUndoCommand is pushed here, matching _on_deselect.
                 if self._active_tool_id in self._SELECTION_ENTRY_TOOL_IDS:
                     record.view.clear_selection()
-                # T-20 (REQ-IS-UI-025/-026): raise the tool square for EVERY
+                # (REQ-IS-UI-025/-026): raise the tool square for EVERY
                 # tool change, whatever the source (shortcut, toolbar,
                 # menu) — ``action`` is the one that fired regardless of
                 # origin — suppressed for the life of a stroke. ``action.icon()``
@@ -3333,7 +3335,7 @@ class Main_Window(QMainWindow):
                 self._set_active_index(index)
         self._palette_editor.set_active_color(color)
         self._ramp_picker.set_base_color(color)
-        # T-20 (REQ-IS-UI-024/-026, CL-IS-07): raise the colour square for
+        # (REQ-IS-UI-024/-026, CL-IS-07): raise the colour square for
         # EVERY caller of this method — the wheel, a middle-click, a hub pick,
         # a palette/ramp/favourite click all route through here — suppressed
         # for the life of a stroke. Deliberately NOT raised for the tab-
@@ -3653,7 +3655,7 @@ class Main_Window(QMainWindow):
     def _on_register_active_document(self) -> None:
         """Register the document open in the active tab (REQ-P11-UI-012).
 
-        T43 (ruling P11-R12, DEV-43 finding 1): reads this tab's session-scoped
+        T43 (ruling P11-R12, finding 1): reads this tab's session-scoped
         ``registered_asset_id`` binding and passes it through as
         ``existing_asset_id`` so a second registration of a changed document
         appends a revision to the SAME catalog entry (REQ-P11-UI-020's
@@ -3710,7 +3712,7 @@ class Main_Window(QMainWindow):
         self._asset_session.register_selection(document, parent=self)
 
     # -- asset-library import/export reachability (T10 WIRE follow-up,
-    #    DEV-37, ruling P11-R5, REQ-P11-UI-015/-016) -----------------------
+    #    ruling P11-R5, REQ-P11-UI-015/-016) -------------------------------
 
     def _refresh_ingress_actions_ui(self) -> None:
         """Sync the four T10 import/export actions' enablement.
@@ -4874,7 +4876,7 @@ class Main_Window(QMainWindow):
             self._apply_theme_to_scene(record.scene)
             self._apply_aid_theme(record)
         self._tilemap_canvas.set_theme_colors(*canvas_roles(self._theme))
-        # T-36: the resolver bakes the tint into the QIcon at build time, so a
+        # The resolver bakes the tint into the QIcon at build time, so a
         # runtime theme switch must re-resolve every tool glyph or the
         # toolbar keeps the OLD theme's ink on the NEW theme's background.
         self._apply_tool_icons()

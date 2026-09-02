@@ -26,7 +26,8 @@ Phase-10 Slice A tail (ADR-0026 §1/§2/§3; spec REQ-P10-DATA-001/-007/-008; Re
 Nothing here (or in the subclasses) exposes a provider SDK type, a ``urllib`` type, a
 token, or a provider-specific exception above the ``data/cloud/`` boundary
 (REQ-P10-DATA-007). The whole surface is driveable by a mock :class:`HttpClient`, so
-AGT-04 can assert ``CloudPort``-contract conformance with no network/credentials.
+the test suite can assert ``CloudPort``-contract conformance with no
+network/credentials.
 """
 
 from __future__ import annotations
