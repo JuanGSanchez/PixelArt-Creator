@@ -19,7 +19,7 @@
  *       web_viewer/static/viewer_core.mjs
  *
  *   exporting the pure functions verbatim (no behaviour change), which viewer.js then
- *   imports. Until that module exists (a frontend/agt-11-web-client task) OR node is
+ *   imports. Until that module exists (the extraction is pending) OR node is
  *   installed, this file SKIPS cleanly (exit 0) and prints why. Once both are present
  *   it runs for real and FAILS loudly (exit 1) on any divergence.
  *
@@ -45,7 +45,7 @@ try {
 } catch (err) {
   console.log(
     "SKIP: cannot import web_viewer/static/viewer_core.mjs — the pure-logic\n" +
-      "      extraction from viewer.js is pending (frontend/agt-11-web-client).\n" +
+      "      extraction from viewer.js is still pending.\n" +
       "      Reason: " + err.message
   );
   // A6/C4 (node-esm-harness skill, "make a skip loud"): a skip is never a pass.

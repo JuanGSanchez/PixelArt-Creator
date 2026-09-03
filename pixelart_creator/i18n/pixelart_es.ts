@@ -276,175 +276,175 @@
 <context>
     <name>Asset_Reuse_Panel</name>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="250"/>
+        <location filename="../ui/asset_reuse_panel.py" line="249"/>
         <source>The selected asset is not available.</source>
         <extracomment>Columns of the in-project reference list (REQ-P11-UI-021 indicators). The selected asset row&apos;s ``asset_id`` is stashed on the name column (both trees). Emitted with ``(asset_id, project)`` after a successful reference. Each open project&apos;s real, durable reference set (REQ-P11-UI-021), bound through :meth:`set_project_reference_set` or created empty by :meth:`add_project`. Never a predicate&apos;s own scratch state. In-project reference list — the resolve-state / shared-state indicators (REQ-P11-UI-021), over the *current* project&apos;s real reference set.</extracomment>
         <translation>El recurso seleccionado no está disponible.</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="257"/>
+        <location filename="../ui/asset_reuse_panel.py" line="256"/>
         <source>Shared content for %1 is not available.</source>
         <translation>El contenido compartido de %1 no está disponible.</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="272"/>
+        <location filename="../ui/asset_reuse_panel.py" line="271"/>
         <source>%1 is already referenced in %2.</source>
         <translation>%1 ya está referenciado en %2.</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="278"/>
+        <location filename="../ui/asset_reuse_panel.py" line="277"/>
         <source>Referenced %1 into %2.</source>
         <translation>Se ha referenciado %1 en %2.</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="341"/>
-        <location filename="../ui/asset_reuse_panel.py" line="404"/>
-        <location filename="../ui/asset_reuse_panel.py" line="466"/>
-        <location filename="../ui/asset_reuse_panel.py" line="480"/>
+        <location filename="../ui/asset_reuse_panel.py" line="340"/>
+        <location filename="../ui/asset_reuse_panel.py" line="403"/>
+        <location filename="../ui/asset_reuse_panel.py" line="465"/>
+        <location filename="../ui/asset_reuse_panel.py" line="479"/>
         <source>Shared</source>
         <translation>Compartido</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="353"/>
-        <location filename="../ui/asset_reuse_panel.py" line="421"/>
+        <location filename="../ui/asset_reuse_panel.py" line="352"/>
+        <location filename="../ui/asset_reuse_panel.py" line="420"/>
         <source>Referenced by another open project</source>
         <translation>Referenciado por otro proyecto abierto</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="400"/>
+        <location filename="../ui/asset_reuse_panel.py" line="399"/>
         <source>In library</source>
         <translation>En la biblioteca</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="402"/>
+        <location filename="../ui/asset_reuse_panel.py" line="401"/>
         <source>Not found in library</source>
         <translation>No encontrado en la biblioteca</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="417"/>
+        <location filename="../ui/asset_reuse_panel.py" line="416"/>
         <source>This reference could not be found in the local library.</source>
         <translation>No se pudo encontrar esta referencia en la biblioteca local.</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="426"/>
+        <location filename="../ui/asset_reuse_panel.py" line="425"/>
         <source>%1 unresolved reference(s) in this project.</source>
         <translation>%1 referencia(s) sin resolver en este proyecto.</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="432"/>
+        <location filename="../ui/asset_reuse_panel.py" line="431"/>
         <source>All references resolve in the local library.</source>
         <translation>Todas las referencias se resuelven en la biblioteca local.</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="448"/>
+        <location filename="../ui/asset_reuse_panel.py" line="447"/>
         <source>Sprite</source>
         <translation>Sprite</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="449"/>
+        <location filename="../ui/asset_reuse_panel.py" line="448"/>
         <source>Animation</source>
         <translation>Animación</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="450"/>
+        <location filename="../ui/asset_reuse_panel.py" line="449"/>
         <source>Tileset</source>
         <translation>Conjunto de tiles</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="451"/>
+        <location filename="../ui/asset_reuse_panel.py" line="450"/>
         <source>Tilemap</source>
         <translation>Mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="452"/>
+        <location filename="../ui/asset_reuse_panel.py" line="451"/>
         <source>Palette</source>
         <translation>Paleta</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="458"/>
+        <location filename="../ui/asset_reuse_panel.py" line="457"/>
         <source>Cross-project reuse</source>
         <translation>Reutilización entre proyectos</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="459"/>
+        <location filename="../ui/asset_reuse_panel.py" line="458"/>
         <source>Project:</source>
         <translation>Proyecto:</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="460"/>
+        <location filename="../ui/asset_reuse_panel.py" line="459"/>
         <source>Target project</source>
         <translation>Proyecto de destino</translation>
     </message>
     <message>
+        <location filename="../ui/asset_reuse_panel.py" line="460"/>
         <location filename="../ui/asset_reuse_panel.py" line="461"/>
-        <location filename="../ui/asset_reuse_panel.py" line="462"/>
         <source>New project name</source>
         <translation>Nombre del nuevo proyecto</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="463"/>
+        <location filename="../ui/asset_reuse_panel.py" line="462"/>
         <source>Add Project</source>
         <translation>Añadir proyecto</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="464"/>
+        <location filename="../ui/asset_reuse_panel.py" line="463"/>
         <source>Add a project</source>
         <translation>Añadir un proyecto</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="466"/>
-        <location filename="../ui/asset_reuse_panel.py" line="477"/>
+        <location filename="../ui/asset_reuse_panel.py" line="465"/>
+        <location filename="../ui/asset_reuse_panel.py" line="476"/>
         <source>Name</source>
         <translation>Nombre</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="466"/>
-        <location filename="../ui/asset_reuse_panel.py" line="478"/>
+        <location filename="../ui/asset_reuse_panel.py" line="465"/>
+        <location filename="../ui/asset_reuse_panel.py" line="477"/>
         <source>Kind</source>
         <translation>Tipo</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="466"/>
+        <location filename="../ui/asset_reuse_panel.py" line="465"/>
         <source>Projects</source>
         <translation>Proyectos</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="468"/>
+        <location filename="../ui/asset_reuse_panel.py" line="467"/>
         <source>Shared assets</source>
         <translation>Recursos compartidos</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="469"/>
+        <location filename="../ui/asset_reuse_panel.py" line="468"/>
         <source>Reference into Project</source>
         <translation>Referenciar en el proyecto</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="471"/>
+        <location filename="../ui/asset_reuse_panel.py" line="470"/>
         <source>Reference the selected asset into the project</source>
         <translation>Referenciar el recurso seleccionado en el proyecto</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="473"/>
+        <location filename="../ui/asset_reuse_panel.py" line="472"/>
         <source>Reuse status</source>
         <translation>Estado de reutilización</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="474"/>
+        <location filename="../ui/asset_reuse_panel.py" line="473"/>
         <source>References in this project:</source>
         <translation>Referencias en este proyecto:</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="479"/>
+        <location filename="../ui/asset_reuse_panel.py" line="478"/>
         <source>Resolve state</source>
         <translation>Estado de resolución</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="484"/>
+        <location filename="../ui/asset_reuse_panel.py" line="483"/>
         <source>References in the current project</source>
         <translation>Referencias en el proyecto actual</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="486"/>
+        <location filename="../ui/asset_reuse_panel.py" line="485"/>
         <source>Missing reference count</source>
         <translation>Recuento de referencias faltantes</translation>
     </message>
@@ -662,92 +662,92 @@
 <context>
     <name>Asset_Version_Browser</name>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="194"/>
+        <location filename="../ui/asset_version_browser.py" line="193"/>
         <source>%1 (current)</source>
         <extracomment>The selected row&apos;s revision ``content_hash`` is stashed on the order column. How many leading characters of a content hash the browser shows (the full hash is kept on the tooltip / item data — this is display abbreviation only, not identity). Emitted with the new head&apos;s ``content_hash`` after a successful restore (so a caller / test can react); no payload semantics beyond the reinstated head hash. The asset whose revisions are shown (``&quot;&quot;`` when none is selected).</extracomment>
         <translation>%1 (actual)</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="195"/>
-        <location filename="../ui/asset_version_browser.py" line="234"/>
+        <location filename="../ui/asset_version_browser.py" line="194"/>
+        <location filename="../ui/asset_version_browser.py" line="233"/>
         <source>(unknown)</source>
         <translation>(desconocido)</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="232"/>
-        <location filename="../ui/asset_version_browser.py" line="253"/>
-        <location filename="../ui/asset_version_browser.py" line="263"/>
+        <location filename="../ui/asset_version_browser.py" line="231"/>
+        <location filename="../ui/asset_version_browser.py" line="252"/>
+        <location filename="../ui/asset_version_browser.py" line="262"/>
         <source>Version history</source>
         <translation>Historial de versiones</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="236"/>
+        <location filename="../ui/asset_version_browser.py" line="235"/>
         <source>Revision %1 — %2 bytes, marker %3, author %4</source>
         <translation>Revisión %1 — %2 bytes, marca %3, autor %4</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="315"/>
-        <location filename="../ui/asset_version_browser.py" line="320"/>
+        <location filename="../ui/asset_version_browser.py" line="314"/>
+        <location filename="../ui/asset_version_browser.py" line="319"/>
         <source>Revisions of: %1</source>
         <translation>Revisiones de: %1</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="323"/>
+        <location filename="../ui/asset_version_browser.py" line="322"/>
         <source>No asset selected</source>
         <translation>Ningún recurso seleccionado</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="327"/>
+        <location filename="../ui/asset_version_browser.py" line="326"/>
         <source>Asset version browser</source>
         <translation>Explorador de versiones del recurso</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="329"/>
+        <location filename="../ui/asset_version_browser.py" line="328"/>
         <source>#</source>
         <translation>#</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="329"/>
+        <location filename="../ui/asset_version_browser.py" line="328"/>
         <source>Created</source>
         <translation>Creado</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="329"/>
+        <location filename="../ui/asset_version_browser.py" line="328"/>
         <source>Author</source>
         <translation>Autor</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="329"/>
+        <location filename="../ui/asset_version_browser.py" line="328"/>
         <source>Content</source>
         <translation>Contenido</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="331"/>
+        <location filename="../ui/asset_version_browser.py" line="330"/>
         <source>Asset revisions</source>
         <translation>Revisiones del recurso</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="332"/>
+        <location filename="../ui/asset_version_browser.py" line="331"/>
         <source>Revision details</source>
         <translation>Detalles de la revisión</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="333"/>
+        <location filename="../ui/asset_version_browser.py" line="332"/>
         <source>Inspect</source>
         <translation>Inspeccionar</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="334"/>
+        <location filename="../ui/asset_version_browser.py" line="333"/>
         <source>Inspect selected revision</source>
         <translation>Inspeccionar la revisión seleccionada</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="335"/>
+        <location filename="../ui/asset_version_browser.py" line="334"/>
         <source>Restore</source>
         <translation>Restaurar</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="337"/>
+        <location filename="../ui/asset_version_browser.py" line="336"/>
         <source>Restore selected revision as a new head</source>
         <translation>Restaurar la revisión seleccionada como nueva versión principal</translation>
     </message>
@@ -6746,7 +6746,7 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
     <message>
         <location filename="../ui/theme.py" line="160"/>
         <source>unknown theme: %1</source>
-        <extracomment>Cross-OS UI-font fallback chain (REQ-P13-UI-001, Researcher Q5). Defined **once, by role** here (never per-widget): the UI names no specific family (the QSS below carries no ``font-family`` and the app sets no :class:`QFont`), so each OS already resolves its own default system UI font. This map is the belt-and- braces guard for the single-OS families that a platform default *reports* as its name (e.g. Windows &quot;Segoe UI&quot;, macOS &quot;.AppleSystemUIFont&quot;/&quot;Helvetica Neue&quot;): if such a family is ever requested on an OS that lacks it (a cross-OS project theme, a future stylesheet, a canvas glyph label), Qt substitutes the first available entry instead of rendering ``.notdef`` boxes. Where the named family exists (its native OS) Qt uses it directly, so this changes nothing on the platform that owns the font — it only adds a resolvable fallback on the others. The tail generics are resolved by the Qt platform plugin to a present family on every OS. Role palette per theme. Every role key exists in both themes (QT-D1) so no widget ever needs a single-theme literal.</extracomment>
+        <extracomment>Cross-OS UI-font fallback chain (REQ-P13-UI-001). Defined **once, by role** here (never per-widget): the UI names no specific family (the QSS below carries no ``font-family`` and the app sets no :class:`QFont`), so each OS already resolves its own default system UI font. This map is the belt-and- braces guard for the single-OS families that a platform default *reports* as its name (e.g. Windows &quot;Segoe UI&quot;, macOS &quot;.AppleSystemUIFont&quot;/&quot;Helvetica Neue&quot;): if such a family is ever requested on an OS that lacks it (a cross-OS project theme, a future stylesheet, a canvas glyph label), Qt substitutes the first available entry instead of rendering ``.notdef`` boxes. Where the named family exists (its native OS) Qt uses it directly, so this changes nothing on the platform that owns the font — it only adds a resolvable fallback on the others. The tail generics are resolved by the Qt platform plugin to a present family on every OS. Role palette per theme. Every role key exists in both themes (QT-D1) so no widget ever needs a single-theme literal.</extracomment>
         <translation>tema desconocido: %1</translation>
     </message>
 </context>

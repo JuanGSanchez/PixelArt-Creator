@@ -1,7 +1,7 @@
 """Path-traversal defence tests for the asset catalog (Article VII).
 
 Exercises the two containment surfaces of ``data/asset_catalog_io`` (ADR-0030;
-Researcher §5): :func:`_safe_asset_id` (an ``asset_id`` used as a sidecar filename) and
+research §5): :func:`_safe_asset_id` (an ``asset_id`` used as a sidecar filename) and
 :func:`_resolve_within` (``resolve()`` + ``relative_to`` containment for the advisory
 ``path`` field). One test per traversal class — ``..`` escape, absolute-path escape,
 deep/escaping traversal, and a Windows drive-letter escape — plus the safe-path pass and

@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-04 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-7-export` |
 | Supersedes | — |
 | Superseded by | — |
@@ -13,8 +13,8 @@
 
 Phase 7 must ship **engine presets** — at minimum **Unity** and **Godot** — whose output a named
 engine's importer consumes as sprites/animations **without manual fixup** (REQ-P7-LOGIC-011,
-REQ-P7-DATA-002, REQ-P7-UI-006). The spec deferred the **exact artifact set** to AGT-01 (DEP-2/CL-7);
-the observable contract (engine-ready re-import + byte-reproducible) is fixed. The Researcher
+REQ-P7-DATA-002, REQ-P7-UI-006). The spec deferred the **exact artifact set** to architecture (DEP-2/CL-7);
+the observable contract (engine-ready re-import + byte-reproducible) is fixed. Prior research
 (`docs/research-phase-7-export-20260704.md`, Topic 3 + Open decision 3, flags F-4/F-5) laid out the
 options and their fragilities:
 
@@ -87,13 +87,13 @@ PNG sheet/atlas, pinned to one target engine version each:**
 
 **Positive.** Each preset produces a single deterministic, in-repo-testable artifact that imports 1:1
 into the pinned engine version with no manual fixup, reusing the ADR-0017 rotation-free layout +
-Phase-5 tags. AGT-04 can golden-file both artifacts headlessly.
+Phase-5 tags. The test suite can golden-file both artifacts headlessly.
 
 **Negative / risk.** The `.meta`/`.tres` formats are version-fragile; a user on a different
 Unity/Godot version may need a re-import or a minor field tweak — bounded by the declared pin and an
 Article XI path to add versions/adapters. Unity's bottom-left origin requires a y-flip on `rect.y`
 (a documented, tested transform) that Godot does not; the writer must not conflate the two coordinate
-conventions (asserted by AGT-04 round-trip tests).
+conventions (asserted by the test suite round-trip tests).
 
 ## Grounding
 

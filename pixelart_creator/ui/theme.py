@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QApplication
 THEME_LIGHT = "light"
 THEME_DARK = "dark"
 
-#: Cross-OS UI-font fallback chain (REQ-P13-UI-001, Researcher Q5). Defined
+#: Cross-OS UI-font fallback chain (REQ-P13-UI-001). Defined
 #: **once, by role** here (never per-widget): the UI names no specific family (the
 #: QSS below carries no ``font-family`` and the app sets no :class:`QFont`), so each
 #: OS already resolves its own default system UI font. This map is the belt-and-

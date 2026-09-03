@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Dropbox v2 real cloud adapter — credential-gated, out of CI (zero Qt, S11).
 
-Phase-10 Slice A tail (ADR-0026 §1/§2; spec REQ-P10-DATA-001/-002/-003/-007/-008;
-Researcher §1.1/§1.2). A real :class:`~pixelart_creator.data.cloud.port.CloudPort` over
+Phase-10 Slice A tail (ADR-0026 §1/§2; spec REQ-P10-DATA-001/-002/-003/-007/-008).
+A real :class:`~pixelart_creator.data.cloud.port.CloudPort` over
 the Dropbox v2 HTTP API, isolated behind the injectable
 :class:`~pixelart_creator.data.cloud.providers._http.HttpClient` seam (mock-testable by
 the test suite; live-gated under ``cloud_live``).
@@ -13,7 +13,7 @@ separate ``/{project_id}.recovery`` file backs the recovery slot. Dropbox
 **``files/list_revisions``** IS the version history, keyed by the immutable ``rev``;
 each ``files/upload`` (``mode=overwrite``) creates a new ``rev``. Change tracking is the
 folder ``list_folder`` cursor, surfaced only as an opaque :class:`Cursor`. Capability
-model (Researcher §1.2): Dropbox has **no named/pinned revisions**, **no per-revision
+model: Dropbox has **no named/pinned revisions**, **no per-revision
 delete**, a hard **revision-count cap of 100** (``max_versions_per_call``), a
 **folder-scoped** change cursor, and ``rev``-based optimistic concurrency — surfaced via
 :class:`CloudCapabilities`, never leaked (REQ-P10-DATA-007). No Dropbox/``urllib`` type
@@ -55,7 +55,7 @@ _NOT_FOUND_STATUS = 409
 #: The provider key used for the keyring service name (``cloud.token_store``).
 PROVIDER = "dropbox"
 
-#: Grounded Dropbox OAuth endpoints (Researcher §2). The public client id (app key) is
+#: Grounded Dropbox OAuth endpoints. The public client id (app key) is
 #: supplied by the caller; no secret is embedded here.
 _AUTHORIZE = "https://www.dropbox.com/oauth2/authorize"
 _TOKEN = "https://api.dropboxapi.com/oauth2/token"
@@ -213,7 +213,7 @@ class DropboxAdapter(BaseProviderAdapter):
             raise
 
     def capabilities(self) -> CloudCapabilities:
-        """Return Dropbox's normalized capability model (Researcher §1.2)."""
+        """Return Dropbox's normalized capability model."""
         return CloudCapabilities(
             supports_named_revisions=False,
             supports_revision_delete=False,

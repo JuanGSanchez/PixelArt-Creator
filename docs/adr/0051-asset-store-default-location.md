@@ -4,9 +4,9 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-08-16 |
-| Author | AGT-01 (Architecture) |
-| Feature | `phase-11-team-asset-management` — D-26, the durable app asset store (decision-batch WP-4.3) |
-| Grounded by | D-26 / CF-119 (qualified `20260816-decision-batch:R-7`); REQ-P11-DATA-006 (local-first / cloud-optional storage behind an abstraction), REQ-P11-DATA-007; Article I / S11 (layer purity); the placement ruling in `design-docs/auxiliary/module-map.md`, "Placement ruling — 2026-08-16 (D-26 / WP-4.3)" |
+| Author | Architecture |
+| Feature | `phase-11-team-asset-management` — D-26, the durable app asset store |
+| Grounded by | D-26 / CF-119 (qualified `20260816-decision-batch:R-7`); REQ-P11-DATA-006 (local-first / cloud-optional storage behind an abstraction), REQ-P11-DATA-007; Article I / S11 (layer purity); the placement ruling (an internal design record, outside this repository), "Placement ruling — 2026-08-16 (D-26)" |
 | Supersedes | — |
 | Superseded by | — |
 | Relates to | ADR-0004 (the sibling precedent this deliberately diverges from), ADR-0030 (no new payload serialiser), ADR-0032 (local-first / cloud-optional backend swap), ADR-0038 (native installers) |
@@ -121,7 +121,7 @@ the composition point 3 forbids. And `ui/` now imports one `data/` name purely a
 fallback, which is a coupling that has to be kept to a single expression on purpose.
 
 **What this enables.** ADR-0032's local→shared backend swap stays a `data/`-only change,
-because no `ui/` file names a backend. WP-5.1 (D-02 asset ingress) can make this store
+because no `ui/` file names a backend. The asset-ingress work (D-02) can make this store
 the destination of real user content with its location already correct and user-visible.
 ADR-0038's installers get a root an uninstaller can reason about. And UI tests get asset
 isolation **for free**, from a fixture that already exists and already carries its
@@ -169,7 +169,7 @@ rewiring is rejected on that ground alone.
 `mkdir`, or that `ui/` called the factory rather than composing a backend. Points 1, 3
 and 5 are enforced by review plus two grep-shaped gates a reviewer must actually run
 (`LocalBlobBackend` and `default_asset_root` in `pixelart_creator/ui/`), and by the
-AGT-06 assertion named below. That is accepted risk, recorded here so it is not
+QA assertion named below. That is accepted risk, recorded here so it is not
 mistaken for coverage.
 
 ## What this record does not verify
@@ -179,8 +179,8 @@ mistaken for coverage.
   factory has been widened. This record fixes the decision, not its landing.
 - **The test-isolation gain is read, not measured.** The autouse fixture was read and its
   `writableLocation` patch quoted above, but no suite has been run under the new wiring.
-  AGT-06 must confirm it with one assertion that the constructed store's root is under
-  `tmp_path`; if that cannot be made to hold, the decision returns to AGT-01 *before* the
+  QA must confirm it with one assertion that the constructed store's root is under
+  `tmp_path`; if that cannot be made to hold, the decision returns to architecture *before* the
   rewiring lands.
 - **Headless reach into the CAS is grep-inferred, not proven.** The only *production*
   construction site found is `ui/main_window.py:803` (`asset_export.py` builds
@@ -189,5 +189,5 @@ mistaken for coverage.
 - **The `QStandardPaths` value under an unset application/organisation identity was not
   measured.** `ui/app.py` sets both, but a `Main_Window` can be constructed without
   `create_app`; the fallback covers the empty-string case only.
-- `ui/asset_library_actions.py` (WP-5.1's ingress home) was not read. This decision fixes
+- `ui/asset_library_actions.py` (the asset-ingress home) was not read. This decision fixes
   the **root**; it says nothing about the ingress path.

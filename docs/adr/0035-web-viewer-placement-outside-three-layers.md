@@ -1,20 +1,20 @@
-# ADR-0035 — `web_viewer/` placement: a new top-level, Qt-free component outside the three layers + the `check_layering` rule (Phase-13 Slice 13E)
+# ADR-0035 — `web_viewer/` placement: a new top-level, Qt-free component outside the three layers + the `check_layering` rule (Phase-13)
 
 | Field | Value |
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-07 |
-| Author | AGT-01 (Architecture) |
-| Feature | `phase-13-cross-platform` (Slice 13E — web companion viewer) |
+| Author | Architecture |
+| Feature | `phase-13-cross-platform` (web companion viewer) |
 | Supersedes | — |
 | Superseded by | — |
 | Relates to | ADR-0027 (sync-backend placement + layering-rule precedent — **MIRRORED here**), ADR-0036 (web viewer wire + token contract) |
 
 ## Context
 
-Phase-13 Slice 13E delivers a **web companion viewer** — a lightweight browser client that lets a
+Phase-13 delivers a **web companion viewer** — a lightweight browser client that lets a
 collaborator **view + lightly interact with** a **shared** project from a phone browser (the platform-neutral
-mobile-access path, since Researcher Q1b confirms there is **no supported native iOS PySide6 deployment in
+mobile-access path, since research finding Q1b confirms there is **no supported native iOS PySide6 deployment in
 2026**). The USER decided its three sub-questions on 2026-07-07 (spec §10, research `a4c7da21`): **D1** reuse
 the existing stack with **NO new Python dependency** (static client served by the 13C Nginx; data over the
 shipped `sync_backend/` `websockets`; stdlib `http.server` for local dev only); **D2** a **signed share-link
@@ -33,7 +33,7 @@ import; (3) the `check_layering.py` rule update; (4) the invocation.
 
 The viewer lives at repo root as **`web_viewer/`** — a sibling of `pixelart_creator/` and `sync_backend/`,
 **not** under any of the three layers and **not** inside the desktop wheel (`pyproject`
-`packages.find` includes `pixelart_creator*` only; AGT-09 adds `web_viewer` to the `exclude` defence-in-depth
+`packages.find` includes `pixelart_creator*` only; DevOps adds `web_viewer` to the `exclude` defence-in-depth
 list exactly as `sync_backend*` is excluded). Rationale (mirroring ADR-0027): "outside the three layers" is
 realised structurally as a **peer top-level package**, not a fourth layer inside the client; the viewer is an
 independently-servable deployable; and keeping it at repo top level keeps it **inside the repo and
@@ -63,7 +63,7 @@ validation are **single-sourced** with the backend (the `sync_protocol` preceden
 
 ### 3. `check_layering.py` rule update (Article I) — mirror `BACKEND_PKG`
 
-Owned by **AGT-03/AGT-09** (script edit + CI wiring; specified here by AGT-01). Add a
+Owned by **the implementation/DevOps** (script edit + CI wiring; specified here by architecture). Add a
 **`WEB_PKG = "web_viewer"`** constant and extend `FORBIDDEN`:
 
 - **`WEB_PKG` rule:** `QT + ("pixelart_creator.ui", "pixelart_creator.data", "..ui", "..data", BACKEND_PKG)`
@@ -73,7 +73,7 @@ Owned by **AGT-03/AGT-09** (script edit + CI wiring; specified here by AGT-01). 
 - **Peer decoupling:** add `WEB_PKG` to the `BACKEND_PKG` forbidden set — the backend does not import the web
   serving layer (the two non-three-layer deployables communicate over the wire).
 
-### 4. Invocation (CI, AGT-09)
+### 4. Invocation (CI, DevOps)
 
 Unchanged in shape from ADR-0027's twin run: `check_layering.py --root pixelart_creator` (client three layers)
 and `--root .` (governs `sync_backend/` **and now** `web_viewer/` via `parts[0]`). `check_cycles.py` runs a
@@ -109,14 +109,14 @@ optional Node unit step.
 
 **Negative / risk.** A third top-level package widens the repo's mental surface; CI now runs `check_cycles`
 three times and `check_layering --root .` governs two non-three-layer packages. The `web_viewer/` frontend is
-owned by a **newly-generated** `agt-11-web-client` agent (The Metaprompter, sequenced in `tasks.md` after this
+owned by a **newly-generated** web-client agent (sequenced in `tasks.md` after this
 ADR + the layering rule) — a coordination dependency, not an architectural one.
 
 ## Grounding
 
 - Spec §2/§2b (13E scope + D1/D2/D3 DECIDED), §4 REQ-P13-WEB-001..005 (esp. WEB-004 placement, WEB-005 token),
   §5 (Article I/VII invariants), §8 DEP-5; `acceptance.md` SC-P13-WEB-004-1; `traceability.md` WEB rows.
-- Researcher `acaae022` Q2a (browser WS viewer over the existing backend; iOS Safari + Android Chrome), Q1b
+- Research note `acaae022` Q2a (browser WS viewer over the existing backend; iOS Safari + Android Chrome), Q1b
   (no native iOS PySide6 path); `a4c7da21` D1 (reuse existing stack / reverse proxy for static / no new dep),
   D3 (vanilla).
 - **ADR-0027** (`sync_backend/` placement + `BACKEND_PKG` layering rule — the mirrored precedent);

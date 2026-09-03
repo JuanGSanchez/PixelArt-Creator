@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Proposed** (the mechanism this record describes has not been implemented yet — T47-T54 land it) |
+| Status | **Proposed** (the mechanism this record describes has not been implemented yet) |
 | Date | Decided 2026-08-22 (`phase-11-asset-ingress` plan §3.15 — ruling P11-R13, mid-execution, the user's `REQ-P11-DATA-010` durability ruling); recorded 2026-08-22 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-11-asset-ingress` (job `20260821-reachability-remediation`) — `REQ-P11-DATA-010`, `SC-P11-DATA-010-1` through `-5` |
 | Grounded by | `spec.md` §0.4 and `REQ-P11-DATA-010`'s amendment ("Neither is the DURABILITY mechanism, and that omission is deliberate"); the user's 2026-08-22 behaviour ruling and the `CL-P11-8` never-saved-project ruling, both quoted verbatim below; ADR-0056 (the registry this decision consumes, not revises); ADR-0004 (the app-level-file, temp-and-replace contract this decision follows) |
 | Supersedes | — |
@@ -16,7 +16,7 @@
 `REQ-P11-DATA-010` asks the asset-library-edit prompt to remember the user's answer. The
 requirement's own amendment states plainly that the durability mechanism was left open on
 purpose: *"Neither is the DURABILITY mechanism, and that omission is deliberate."* This record
-is the architecture answer that closes it, routed to AGT-01 by `spec.md` §0.4.
+is the architecture answer that closes it, routed to architecture by `spec.md` §0.4.
 
 **The two user rulings this must satisfy, quoted rather than paraphrased** (both 2026-08-22):
 
@@ -244,8 +244,8 @@ skipped. Those are review invariants against this decision's mechanism, not a ga
 
 ## What this record does not verify
 
-- **This decision is not yet implemented.** T47-T54 (owned elsewhere in the feature plan) are the
-  tasks that write `logic/asset_edit_decisions.py`, `data/asset_decision_journal.py`, the
+- **This decision is not yet implemented.** Tasks owned elsewhere in the feature plan
+  write `logic/asset_edit_decisions.py`, `data/asset_decision_journal.py`, the
   `data/project_io.py` extensions, and the `ui/` wiring this record describes. This ADR is
   authored first, deliberately, because CI's documentation-reference gate requires every
   `ADR-NNNN` citation in product source to resolve to a file under `docs/adr/` before that source

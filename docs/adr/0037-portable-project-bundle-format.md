@@ -1,18 +1,18 @@
-# ADR-0037 — Portable project-bundle format: a single-file, deterministic, zip-slip-defended archive extending `data/asset_export.py` (Phase-13 Slice 13B)
+# ADR-0037 — Portable project-bundle format: a single-file, deterministic, zip-slip-defended archive extending `data/asset_export.py` (Phase-13)
 
 | Field | Value |
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-07 |
-| Author | AGT-01 (Architecture) |
-| Feature | `phase-13-cross-platform` (Slice 13B — portable bundle) |
+| Author | Architecture |
+| Feature | `phase-13-cross-platform` (portable bundle) |
 | Supersedes | — |
 | Superseded by | — |
 | Relates to | ADR-0030 (asset-catalog CAS reference-not-copy), ADR-0032 (local-first storage abstraction), Phase-11 `data/asset_export.py` (the extended module) |
 
 ## Context
 
-Phase-13 Slice 13B delivers a **self-contained, cross-OS project bundle** so a collaborator can hand a project
+Phase-13 delivers a **self-contained, cross-OS project bundle** so a collaborator can hand a project
 + its assets to a teammate on a different OS with no missing/renamed/mis-cased file and no path-traversal risk
 (REQ-P13-DATA-006..008). The spec directs this as an **extension of the shipped `data/asset_export.py`**
 (Phase-11 REQ-P11-DATA-005), which already resolves a project's reference set → bundles exactly the referenced
@@ -103,14 +103,14 @@ the CI matrix asserts the former. Streamed per-entry cap enforcement adds a litt
 
 - Spec §2 (13B scope), §4 REQ-P13-DATA-006/-007/-008, §5 (Article VII invariant), §8 DEP-4; `acceptance.md`
   SC-P13-DATA-006-1/-007-1/-008-1/-008-2; `traceability.md` 13B rows.
-- Researcher `acaae022` Q5 (path separators/UNC → forward-slash internal + `pathlib`; UTF-8; CRLF/LF; case
+- Research note `acaae022` Q5 (path separators/UNC → forward-slash internal + `pathlib`; UTF-8; CRLF/LF; case
   sensitivity). Shipped `data/asset_export.py` (reference-set resolution + directory-bundle import defence —
   the extended module), `data/asset_catalog_io.py` (`json`-only + `resolve()`+containment), `data/asset_cas.py`
   (hash-verified fetch, `MAX_BLOB_BYTES`), `data/project_io.py` (PIO-1 deterministic payload).
 - Constitution Article I (pure `data/`, no re-implementation), II (named caps in `constants.py`), IV
   (cross-OS regression in the matrix), VII (untrusted input, no `eval`/`exec`). ADR-0030 (reference-not-copy).
 
-## Addendum A — implementation import note (2026-07-07, AGT-01; private, not committed)
+## Addendum A — implementation import note (2026-07-07, architecture; private, not committed)
 
 The shipped `data/asset_export.py` bundle implementation (`export_project_bundle` / `import_project_bundle`)
 additionally imports `logic.content_hash` (canonical-JSON encoder for the deterministic manifest) and

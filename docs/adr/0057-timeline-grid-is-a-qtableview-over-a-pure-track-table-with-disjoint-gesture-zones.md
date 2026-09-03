@@ -4,10 +4,10 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | Decided 2026-08-17 (`phase-5-timeline-grid` plan §2, §7); **recorded 2026-08-19** |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-5-timeline-grid` (D-04) — the optional frames × layer-tracks grid view |
-| Grounded by | `REQ-P5-UI-022`..`-025`, `-027`..`-031`; `REQ-P5-LOGIC-015` (the pure track-table derivation); `REQ-P5-UI-032` and audit finding **CF-56 / T-21**; `phase-2-floating-selection` `REQ-P2-UI-032` (the product's fixed drag-to-copy modifier); Article I / S11 (no domain logic in a widget) |
-| Owed by | `phase-5-timeline-grid` **T25** (owner AGT-08) — see "Why this record is late" |
+| Grounded by | `REQ-P5-UI-022`..`-025`, `-027`..`-031`; `REQ-P5-LOGIC-015` (the pure track-table derivation); `REQ-P5-UI-032` and audit finding **CF-56**; `phase-2-floating-selection` `REQ-P2-UI-032` (the product's fixed drag-to-copy modifier); Article I / S11 (no domain logic in a widget) |
+| Owed by | `phase-5-timeline-grid` (owner the documentation) — see "Why this record is late" |
 | Relates to | ADR-0011 (the animation model this view presents), ADR-0056 (the preference registry the overwrite confirmation consults) |
 
 ## Context
@@ -23,7 +23,7 @@ different directions:
 - `REQ-P5-UI-025` — **three** gestures share one widget: reorder a frame (header), move or copy
   a cel (an occupied cell), scrub (the body away from any cel).
 
-The third is not a hypothetical. Audit finding **CF-56 / T-21** recorded exactly this failure in
+The third is not a hypothetical. Audit finding **CF-56** recorded exactly this failure in
 the *existing* timeline strip: *"One gesture, two claimants, and no test drives either. Whether
 the user-facing left-drag reaches scrub at all is unproven."* Two handlers claimed one left-drag,
 the discrimination between them lived in hand-written conditions inside a `mousePressEvent`, and
@@ -145,7 +145,7 @@ Zero violations means no Qt symbol has reached `logic/track_table.py` and no `lo
 exists; `logic/track_table.py`'s import block (`typing`, `logic/document.py`) was read directly and
 agrees.
 
-Behavioural coverage is AGT-06's pytest-qt suite for the grid — one test per acceptance criterion,
+Behavioural coverage is QA's pytest-qt suite for the grid — one test per acceptance criterion,
 both themes, headless — including the `REQ-P5-UI-032` reversion proof, which had to **fail against
 the unfixed strip** before the fix was accepted. Accessibility is covered by the a11y scan.
 
@@ -159,7 +159,7 @@ is not mistaken for coverage.
 
 - **No measurement of the culling claim is recorded here.** That `QTableView` calls `data()` only
   for the exposed viewport is Qt's documented behaviour and the shipped design's premise; the grid
-  open/scroll profiling the plan assigned to AGT-10 was Tier 1 (measured and reported, **no gate,
+  open/scroll profiling the plan assigned to Rendering & Performance was Tier 1 (measured and reported, **no gate,
   no ceiling, no constant**) and its numbers are not restated in this ADR.
 - **`ui/timeline_grid_view.py` was read at its module docstring, its class/`header` wiring and its
   overwrite-confirmation path — not in full** (≈800+ lines). The three-zone description above is
@@ -173,8 +173,8 @@ is not mistaken for coverage.
 
 ## Why this record is late
 
-The decision was made on 2026-08-17 and its ADR was assigned to `phase-5-timeline-grid` **T25**
-(owner AGT-08), which was never executed while the code that cites it shipped
+The decision was made on 2026-08-17 and its ADR was assigned as a task in `phase-5-timeline-grid`
+(owner the documentation), which was never executed while the code that cites it shipped
 (`pixelart_creator/ui/timeline_grid_view.py:6`). The number is fixed by that citation, not chosen
 here: writing at `0057` rather than at `highest + 1` is the deliberate exception to the adr-author
 numbering rule, because renumbering would break the trail this record exists to restore.

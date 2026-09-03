@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-04 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-10-cloud-collaboration` (Slice C) |
 | Supersedes | — |
 | Superseded by | — |
@@ -16,7 +16,7 @@ Phase-10 Slice C delivers an **actual real-time sync backend** — a real server
 **persists** CRDT updates + awareness/presence across multiple clients (REQ-P10-BACKEND-001/-002), NOT
 merely a loopback shim. The spec adjudicated (CL-B4, FLAG-BACKEND) that this backend is a **NEW
 first-class, top-level component that sits OUTSIDE the desktop app's three-layer (`logic/`/`data/`/`ui/`)
-architecture** and that **AGT-01 owns its placement + this ADR**: where it lives, its framework, how it is
+architecture** and that **Architecture owns its placement + this ADR**: where it lives, its framework, how it is
 spun up in-process/subprocess for CI, and the client↔backend protocol. It **MUST be CI-testable over
 localhost** (in-process/subprocess, loopback integration tests) so real-time stays **in the CI gate** —
 distinct from the out-of-CI live-provider OAuth (CL-B2). The desktop client's three-layer purity must be
@@ -27,7 +27,7 @@ This ADR rules: (1) the backend's repository placement + packaging; (2) its fram
 client-side transport port + loopback/real split; (4) the client↔backend protocol + persistence; (5) the
 **layering-rule update** (`check_layering.py` / `check_cycles.py`) that governs the new package while
 keeping the client's three-layer purity intact; (6) backend untrusted-input defence + no-tokens rule; and
-(7) the Article VI split (real-time re-enters the per-frame budget — the AGT-10 obligation).
+(7) the Article VI split (real-time re-enters the per-frame budget — the Rendering & Performance obligation).
 
 ## Decision
 
@@ -35,7 +35,7 @@ keeping the client's three-layer purity intact; (6) backend untrusted-input defe
 
 The backend lives at repo root as **`sync_backend/`** — a sibling of `pixelart_creator/`, **not** under
 any of the three layers. It is a separate deployable, so it is **excluded from the desktop wheel**
-(`pyproject` `packages.find` includes `pixelart_creator*` only; AGT-09 adds `sync_backend` as a separate
+(`pyproject` `packages.find` includes `pixelart_creator*` only; DevOps adds `sync_backend` as a separate
 package / test-installed target). Rationale: "outside the three layers" is realised structurally (a peer
 top-level package, not a fourth layer inside the client), the backend can be deployed/run independently,
 and — critically — placing it at repo top level keeps it **inside the repo and CI-scannable** so the
@@ -46,7 +46,7 @@ Modules: `sync_backend/server.py` (the relay/persist server + spin-up API), `syn
 
 ### 2. Framework + transport: asyncio WebSocket relay
 
-The backend is an **asyncio WebSocket relay** (the Researcher's simplest real-time path — §4.5) using the
+The backend is an **asyncio WebSocket relay** (the simplest real-time path per prior research — §4.5) using the
 well-maintained **`websockets`** library. It broadcasts encoded CRDT updates to connected peers of a shared
 document and relays ephemeral awareness/presence, and it **persists** the update log per document so a
 late-joining client can catch up. WebRTC/P2P is a documented future alternative behind the same client
@@ -91,7 +91,7 @@ three-layer purity holds:
 - **Reciprocal client rule:** `logic/`, `data/`, and `ui/` may **not** import `sync_backend` — the desktop
   client reaches the backend only over the `data/cloud/` transport port at run time, never by a Python
   import.
-- **Invocation (CI, AGT-09):** run layering twice — `--root pixelart_creator` (client three layers) and
+- **Invocation (CI, DevOps):** run layering twice — `--root pixelart_creator` (client three layers) and
   `--root .` (governs `sync_backend/` via `parts[0] == "sync_backend"`; client files are skipped in that
   run). Run cycles twice — `--root pixelart_creator` and `--root sync_backend` (the cycle check is generic
   over `--root`; no code change). Both scripts verified **exit 0** on the current tree after the rule
@@ -107,15 +107,15 @@ clear error — never a crash, code execution, or memory exhaustion. Bounds are 
 The backend **never receives or stores provider OAuth tokens**: tokens stay in the client's `data/cloud/` +
 OS keyring (CL-B3, ADR-0026), enforced by the §5 rule (backend cannot import `data/`).
 
-### 7. Article VI split — real-time re-enters the per-frame budget (AGT-10 obligation)
+### 7. Article VI split — real-time re-enters the per-frame budget (Rendering & Performance obligation)
 
 Batch Slice-A/B cloud/sync + hybrid convergence are **off** the per-frame render loop
 (REQ-P10-LOGIC-004/-006). **Slice C is the one place the 16 ms `FRAME_BUDGET_MS` re-enters cloud scope:**
 real-time **remote-patch application** (REQ-P10-LOGIC-007) and the **live-cursor overlay draw**
-(REQ-P10-UI-013) run on the interactive loop. This ADR records the **REQUIRED AGT-10 per-frame assessment
-(FLAG-PERFRAME, DEP-3):** AGT-10 must profile remote-patch apply + cursor draw against the 16 ms budget and
+(REQ-P10-UI-013) run on the interactive loop. This ADR records the **REQUIRED Rendering & Performance per-frame assessment
+(FLAG-PERFRAME, DEP-3):** Rendering & Performance must profile remote-patch apply + cursor draw against the 16 ms budget and
 direct batching/coalescing/dirty-rect strategy; the budget is never relaxed. A **CI perf-gate** over the
-Slice-C real-time apply/cursor path on the 8K canvas is recommended (AGT-10 `frame-profile` + AGT-09 CI).
+Slice-C real-time apply/cursor path on the 8K canvas is recommended (Rendering & Performance `frame-profile` + DevOps CI).
 
 ## Alternatives Considered
 
@@ -130,7 +130,7 @@ Slice-C real-time apply/cursor path on the 8K canvas is recommended (AGT-10 `fra
 - **Backend imports `data/cloud` validators.** Rejected: it would force the backend to depend on the
   client's `data/` layer (network/keyring). The shared validators are moved to **pure `logic/`** so both
   sides import them without the backend touching `data/`.
-- **WebRTC/P2P now.** Deferred: a WebSocket relay is the simplest correct real-time path (Researcher §4.5);
+- **WebRTC/P2P now.** Deferred: a WebSocket relay is the simplest correct real-time path (research §4.5);
   WebRTC is a future transport behind the same client port.
 
 ## Consequences
@@ -142,8 +142,8 @@ backend; untrusted payloads cannot execute code or exhaust memory. Shared pure v
 caps single-sourced.
 
 **Negative / risk.** A new top-level package + two new runtime deps (`websockets` for the backend/transport;
-the CRDT lib per ADR-0028) widen the manifest (AGT-09/AGT-01 decision; Article VII/VII implications). The
-Article VI per-frame re-entry (Slice C) is a real perf risk that **must** be discharged by AGT-10
+the CRDT lib per ADR-0028) widen the manifest (DevOps/architecture decision; Article VII/VII implications). The
+Article VI per-frame re-entry (Slice C) is a real perf risk that **must** be discharged by Rendering & Performance
 (FLAG-PERFRAME) before Slice C ships. CI must spin up/tear down the backend cleanly (in-process/subprocess);
 flaky async teardown is the main CI risk (mitigated by deterministic loopback + timeouts).
 
@@ -153,15 +153,15 @@ flaky async teardown is the main CI risk (mitigated by deterministic loopback + 
   §5 (Article VI split, Article IV localhost backend), §8 (FLAG-BACKEND, FLAG-PERFRAME, DEP-3), §9 Article
   I/IV/VI/VII, §10.2 (CL-B4), §11 (SC-D010-1, SC-L007-1/-2, SC-BK-001-1/-002-1, SC-UI-013-1); `traceability.md`
   FLAG-BACKEND, FLAG-PERFRAME, backend rows.
-- Researcher §4.5 (WebSocket relay / awareness / transport), §5 (untrusted-input caps, no eval/exec), §6
+- Prior research §4.5 (WebSocket relay / awareness / transport), §5 (untrusted-input caps, no eval/exec), §6
   (real-time multi-client needs a live/local server; localhost test server narrows it into CI).
 - Shipped `scripts/check_layering.py` / `check_cycles.py` (Article I gate), constitution Article I (three
   layers), IV (CI-testable), VI (16 ms budget), VII (untrusted input, no secrets), XI (extensibility).
   ADR-0026 (transport port lives in `data/cloud/`; tokens in keyring), ADR-0028 (convergence in `logic/`).
 
-## Addendum A — Slice-C implementation reconciliation (2026-07-04, AGT-01 final gate)
+## Addendum A — Slice-C implementation reconciliation (2026-07-04, architecture final gate)
 
-Status: **Accepted (addendum).** During Slice-C implementation (AGT-03) three refinements diverged from the
+Status: **Accepted (addendum).** During Slice-C implementation (the implementation) three refinements diverged from the
 letter of §3/§4 above. The final cross-artifact gate reviewed each and finds them **consistent with the
 decision's intent** — all remain pure/ZERO-Qt, single-sourced, and preserve the three-layer + backend
 layering (both `check_layering` roots and both `check_cycles` roots exit 0). They are recorded here so the
@@ -185,7 +185,7 @@ ADR matches the shipped code; **no decision is reversed.**
    consistent with the ADR-0028 §1 placement.
 
 3. **`TransportPort` exposes explicit `join`/`leave` control methods.** §3 described the port "carrying CRDT
-   updates + awareness/presence"; the tasks-sketch (T10C-04) listed `send_update`/`send_presence`/`poll`. As
+   updates + awareness/presence"; the tasks-sketch listed `send_update`/`send_presence`/`poll`. As
    shipped, the ABC also declares `join(document_id)` / `leave(document_id)` — which correspond exactly to the
    §4 protocol's `{join, ..., leave}` message vocabulary, so the port surface now mirrors the wire protocol.
    Additive and consistent; no type leaks above the port.

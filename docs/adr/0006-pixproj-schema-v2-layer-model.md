@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-02 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-4-layer-canvas` |
 | Supersedes | — |
 | Superseded by | — |
@@ -14,7 +14,7 @@
 Phase 4 enriches the layer model: a per-layer `blend_mode`, layer **groups** (nested nodes),
 **masks**, and **reference** / minimal **smart** layer flags/links (REQ-P4-LOGIC-011..014).
 The ROADMAP "Done means" requires that opacity / visibility / lock **and** groups / masks
-round-trip through `.pixproj`. DEP-3 directs AGT-01 to allocate the `REQ-P4-DATA-*` IDs
+round-trip through `.pixproj`. DEP-3 directs architecture to allocate the `REQ-P4-DATA-*` IDs
 (done in plan §7) and to rule the persistence extension.
 
 The shipped `data/project_io.py` serialises a **flat** layer list with `name` / `opacity` /
@@ -66,8 +66,8 @@ loader read legacy v1 files (accept `version in {1, 2}`).**
 old projects keep opening (REQ-P4-DATA-005); the version field makes the format self-describing
 for future phases (animation timeline, tilemaps). One save/open path, one defensive validator.
 
-**Negative / risk.** The loader now has two branches (v1 / v2); both are covered by AGT-04
-tests, including a **checked-in v1 fixture** that must load and re-save as v2 (T7). The
+**Negative / risk.** The loader now has two branches (v1 / v2); both are covered by the test suite
+tests, including a **checked-in v1 fixture** that must load and re-save as v2. The
 smart-source ref must be addressable stably within a document; the serializer pins a
 document-local ref scheme and the loader rejects dangling refs (fail-closed, Article VII).
 

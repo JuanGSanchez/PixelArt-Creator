@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """The one line the container's tooling may not cross.
 
-A container repository IS the orchestration system: its scripts, its gates,
-its store, its own documentation tree. A product repository is a different thing with
-a different owner — it carries its OWN orchestration furniture, installed and
-maintained by its OWN system — and the container's Mode D has no authority
-inside it.
+The container and a product repository are different kinds of thing with
+different owners: a product carries its own tooling, installed and
+maintained on its own terms, and the container has no authority inside it.
 
 WHAT THIS WAS WRITTEN FOR, AND WHAT IT COST TO LEARN IT. `redistribute.py
 apply` already refused a product target and said so in its named exit. The
@@ -87,7 +85,7 @@ def store_role(store):
 
 
 def enclosing_container(path):
-    """The container repository `path` sits inside, or None.
+    """The container `path` sits inside, or None.
 
     A repository inside a container is a product of that container whatever
     its own store says — including when it has no store at all, which is the
@@ -97,8 +95,9 @@ def enclosing_container(path):
     """
     path = Path(path).resolve()
     for parent in path.parents:
-        if (parent / "design-docs").is_dir() and \
-                store_role(parent / "memory") == CONTAINER_ROLE:
+        if (parent / "design-docs").is_dir() and store_role(
+            parent / "memory"
+        ) == CONTAINER_ROLE:
             return parent
     return None
 
@@ -128,25 +127,38 @@ def describe(path):
     target = Path(path).resolve()
     repo = repository_root(target)
     if repo is None:
-        return {"product": False, "repo": None, "container": None,
-                "why": "no repository at or above %s" % target}
+        return {
+            "product": False,
+            "repo": None,
+            "container": None,
+            "why": "no repository at or above %s" % target,
+        }
 
     role = store_role(repo / "memory")
     if role == PRODUCT_ROLE:
-        return {"product": True, "repo": repo,
-                "container": enclosing_container(repo),
-                "why": "%s declares role `product`"
-                       % (repo / "memory" / STORE_MARKER)}
+        return {
+            "product": True,
+            "repo": repo,
+            "container": enclosing_container(repo),
+            "why": "%s declares role `product`" % (repo / "memory" / STORE_MARKER),
+        }
 
     container = enclosing_container(repo)
     if container is not None:
-        return {"product": True, "repo": repo, "container": container,
-                "why": "%s is a repository inside the container %s"
-                       % (repo, container)}
+        return {
+            "product": True,
+            "repo": repo,
+            "container": container,
+            "why": "%s is a repository inside the container %s" % (repo, container),
+        }
 
-    return {"product": False, "repo": repo, "container": None,
-            "why": "%s is not a product repository (store role: %s)"
-                   % (repo, role or "undeclared")}
+    return {
+        "product": False,
+        "repo": repo,
+        "container": None,
+        "why": "%s is not a product repository (store role: %s)"
+        % (repo, role or "undeclared"),
+    }
 
 
 def refusal(verb, path, facts, legitimate):
@@ -164,10 +176,9 @@ def refusal(verb, path, facts, legitimate):
         "repository": str(facts["repo"]) if facts["repo"] else "",
         "container": str(facts["container"]) if facts["container"] else "",
         "error": "%s would write into a PRODUCT repository — %s. The "
-                 "container's tooling has no authority inside a product; the "
-                 "product's own orchestration system installs and maintains "
-                 "its furniture (repository-policy.md §2.2)."
-                 % (verb, facts["why"]),
+        "container's tooling has no authority inside a product; the "
+        "product's own tooling installs and maintains "
+        "its furniture (repository-policy.md §2.2)." % (verb, facts["why"]),
         "legitimate": legitimate,
         "exit_code": EXIT_REFUSED,
     }
@@ -190,13 +201,16 @@ def guard(verb, path, legitimate=None, product_self=False):
         return facts
 
     if legitimate is None:
-        legitimate = ("run this from the product's OWN orchestration system, "
-                      "or pass --product-self to say that is what this is")
+        legitimate = (
+            "run this from the product's OWN tooling, "
+            "or pass --product-self to say that is what this is"
+        )
     verdict = refusal(verb, path, facts, legitimate)
     if product_self and delegated:
         verdict["error"] += (
             " --product-self was passed by a Mode D child (%s is set), which "
-            "is the one caller it can never mean." % DELEGATION_MARKER)
+            "is the one caller it can never mean." % DELEGATION_MARKER
+        )
     raise ProductBoundary(verdict)
 
 
@@ -216,32 +230,41 @@ def enforce(verb, path, legitimate=None, product_self=False):
 def add_product_self_flag(parser):
     """Give a writing verb the one override, worded the same way everywhere."""
     parser.add_argument(
-        "--product-self", action="store_true",
-        help="this IS the product's own orchestration system acting on its "
-             "own repository (refused inside a Mode D run)")
+        "--product-self",
+        action="store_true",
+        help="this IS the product's own tooling acting on its "
+        "own repository (refused inside a Mode D run)",
+    )
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="product_boundary.py",
-        description="Is this path inside a product repository?")
+        description="Is this path inside a product repository?",
+    )
     sub = parser.add_subparsers(dest="verb", required=True)
     check = sub.add_parser("check", help="report the boundary verdict")
     check.add_argument("path", nargs="?", default=".")
     add_product_self_flag(check)
     args = parser.parse_args(argv)
 
-    facts, code = enforce("product_boundary.py check", args.path,
-                          product_self=args.product_self)
+    facts, code = enforce(
+        "product_boundary.py check", args.path, product_self=args.product_self
+    )
     if code is not None:
         return code
-    print(json.dumps({
-        "status": "COMPLETED",
-        "target": str(Path(args.path).resolve()),
-        "repository": str(facts["repo"]) if facts["repo"] else "",
-        "product": facts["product"],
-        "why": facts["why"],
-    }, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "status": "COMPLETED",
+                "target": str(Path(args.path).resolve()),
+                "repository": str(facts["repo"]) if facts["repo"] else "",
+                "product": facts["product"],
+                "why": facts["why"],
+            },
+            ensure_ascii=False,
+        )
+    )
     return 0
 
 

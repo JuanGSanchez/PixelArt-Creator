@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-03 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-6-tilemap` |
 | Supersedes | — |
 | Superseded by | — |
@@ -15,7 +15,7 @@ Phase 6 must **export a tilemap to Tiled-compatible JSON** and **re-import it lo
 (REQ-P6-DATA-001/-002), behind a **defensive validated load** (REQ-P6-DATA-003, IO-3). The spec
 fixes only the WHAT (a valid Tiled map, lossless round-trip, defensive load) and defers the
 **encoding set** — CSV vs base64+{gzip/zlib/zstd} layer data, embedded vs external tilesets, the
-exact GID flag handling, and the round-trip fidelity policy — to AGT-01 (DEP-2). The Researcher
+exact GID flag handling, and the round-trip fidelity policy — to architecture (DEP-2). Prior research
 (`docs/research-phase-6-tilemap-20260703.md`, Topic 2/3) confirmed against **Tiled 1.12.2**: the map
 object fields, the four layer-data encodings, the `chunks[]` infinite structure, and the exact GID
 flag masks. Two hard constraints bound the choice: **no new technology (S8)** and **no `eval`/`exec`,
@@ -90,7 +90,7 @@ fail-closed (Article VII).
 documented scope boundary (both would need new tech/parsing); users hitting them get a clear error,
 not a crash. The verbatim-passthrough store must be threaded through export→import without mutation
 (asserted by the SC-D002-1 round-trip test). The diagonal-clear rule is easy to miss — it is a
-named, tested step (T6D-03).
+named, tested step.
 
 ## Grounding
 

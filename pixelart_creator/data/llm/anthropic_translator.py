@@ -4,7 +4,7 @@
 
 Part of the AI-assistant feature, Phase 14 (skill ``llm-adapter-normalization``
 steps 3/4/5; ADR-0040 §1/§3;
-spec REQ-P14-DATA-005/-006/-007; Researcher ``ad2616c7`` R1.4/R1.5). Anthropic is the
+spec REQ-P14-DATA-005/-006/-007). Anthropic is the
 sole named provider whose wire differs **structurally** from the OpenAI-compatible core
 (:mod:`~pixelart_creator.data.llm.openai_compatible`), so this thin translator maps the
 SAME neutral :class:`~pixelart_creator.logic.assistant` types onto the native Messages

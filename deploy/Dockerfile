@@ -1,5 +1,5 @@
 # Container image for the shipped sync_backend/ asyncio-websockets relay.
-# Phase-13 (REQ-P13-BACKEND-001, Researcher Q4). Builds an image that runs
+# Phase-13 (REQ-P13-BACKEND-001, research finding Q4). Builds an image that runs
 # the EXISTING, UNMODIFIED sync_backend/ on a generic VPS via the deploy/ launcher —
 # NO backend source change (artifacts only).
 #

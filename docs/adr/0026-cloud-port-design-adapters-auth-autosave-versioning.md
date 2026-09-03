@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-04 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-10-cloud-collaboration` (Slice A) |
 | Supersedes | — |
 | Superseded by | — |
@@ -17,8 +17,8 @@ defensive `eval`-free load, `ProjectIOError`, `_SUPPORTED_VERSIONS = 1..5`, zlib
 `pathlib`). The spec fixes the observable contracts (one provider-agnostic port; `.pixproj` round-trip;
 ordered version history; autosave/recovery surviving an unclean restart; a fully-testable fake adapter;
 untrusted-cloud-data defence; provider isolation) and defers the HOW to this ADR (spec DEP-2, BF-1, BF-2;
-§10.2 CL-B2/CL-B3). The Researcher grounds the shape (report
-`docs/subagent-report-the-researcher-a80a5c6a-20260704T102747.md`): Drive v3 / Graph / Dropbox v2 share
+§10.2 CL-B2/CL-B3). The shape is grounded (an internal design record,
+outside this repository): Drive v3 / Graph / Dropbox v2 share
 auth/upload/download/list/revisions/change-tracking with capability differences (revision naming,
 retention, count caps, per-file vs whole-drive change feeds) modelled as an **opaque cursor**; desktop
 auth = Authorization Code + **PKCE (S256)** over a loopback redirect (RFC 8252/7636) with **Device Grant**
@@ -54,7 +54,7 @@ ordinal: int, created_marker: int, size_bytes: int, is_pinned: bool, parent_vers
 remote_revision_id: str | None)`; `CloudCapabilities(supports_named_revisions, supports_revision_delete,
 max_versions_per_call, change_feed_scope, supports_optimistic_concurrency)`; change tracking is an
 **opaque `Cursor`** the port persists and replays (unifies Drive changes-token / Graph `deltaLink` /
-Dropbox folder-cursor — Researcher §1.3). No provider SDK type, HTTP type, credential type, or
+Dropbox folder-cursor — research §1.3). No provider SDK type, HTTP type, credential type, or
 provider-specific exception appears in the port's public signatures, in `logic/`, or in `ui/`.
 
 ### 2. Adapter contract; fake adapter in CI, real providers out-of-CI (REQ-P10-DATA-005, CL-B2)
@@ -89,7 +89,7 @@ provider-specific exception appears in the port's public signatures, in `logic/`
 
 - **Atomic local write:** the autosave path writes to a temp file in the target directory →
   `flush` + `os.fsync` → `os.replace` over the target (cross-platform atomic rename; Windows-safe —
-  Researcher §3.1). An interrupted autosave never corrupts the last good file.
+  research §3.1). An interrupted autosave never corrupts the last good file.
 - **Sidecar recovery journal:** the working `.pixproj` is autosaved to a discoverable sidecar
   (`<recovery_dir>/<project_id>.pixproj~` + a small journal record) via `put_recovery`. On startup the app
   scans the recovery dir; a recovery **newer than the last explicit save** is offered for restore
@@ -109,7 +109,7 @@ provider-specific exception appears in the port's public signatures, in `logic/`
   (`version_id`, `ordinal`, `parent_version_id`, `created_marker`, `size_bytes`, `remote_revision_id`),
   stored alongside — **not** inside — the `.pixproj` (the artwork file is unchanged; no `.pixproj` schema
   bump this slice). A local `local_version_id → remote_revision_id` map reconciles with provider
-  `list_revisions` (Researcher §3.3); providers prune auto-revisions, so a durable version is pinned where
+  `list_revisions` (research §3.3); providers prune auto-revisions, so a durable version is pinned where
   `supports_named_revisions` (Drive `keepForever`).
 
 ### 6. Untrusted-cloud-data defence (REQ-P10-DATA-006, Article VII)
@@ -128,7 +128,7 @@ validated through the shipped PIO-1 defensive path (type/bounds-checked, size-va
 - **A serialiser per provider / a cloud-specific format.** Rejected: violates Article I (fork of PIO-1);
   the `.pixproj` is the atomic sync unit (REQ-P10-DATA-002).
 - **Encrypted-file token store instead of the OS keyring.** Rejected for the default: the OS keyring is
-  the Researcher's grounded default (§2.3), OS-managed and encrypted at rest; CL-B3 adjudicated keyring.
+  the grounded default (research §2.3), OS-managed and encrypted at rest; CL-B3 adjudicated keyring.
   An encrypted-file fallback stays possible behind the same `token_store` seam.
 - **Versioning in-place (overwrite) instead of an ordered history.** Rejected: version history is a fixed
   capability (REQ-P10-DATA-003); the envelope model preserves ordered, retrievable, restorable versions.
@@ -147,10 +147,10 @@ data cannot execute code or crash the app. `check_layering` keeps `data/cloud/` 
 leak above the port.
 
 **Negative / risk.** Modelling every provider's capability differences behind one port is the main design
-risk (Researcher: re-verify field schemas/limits at implementation time — Drive rev `v3-rev20260322`);
+risk (prior research: re-verify field schemas/limits at implementation time — Drive rev `v3-rev20260322`);
 mitigated by `CloudCapabilities` + the fake adapter fixing the contract. Real-provider adapters carry
 out-of-CI drift risk (mitigated: integration-flagged, manually verified). The keyring dependency adds a
-runtime dep (`keyring`) — an AGT-09/AGT-01 manifest decision (Article VII implications: OS-managed secrets,
+runtime dep (`keyring`) — a DevOps/architecture manifest decision (Article VII implications: OS-managed secrets,
 no plaintext).
 
 ## Grounding
@@ -158,7 +158,7 @@ no plaintext).
 - Spec `specs/phase-10-cloud-collaboration/spec.md` §4 (REQ-P10-DATA-001..008), §7, §9 Article I/VII,
   §10.1 (CL-1..CL-8), §10.2 (CL-B2/CL-B3), §11 (SC-D001-1..006-1, SC-L002-1..005-1); `traceability.md`
   DEP-2, BF-1, BF-2, PIO-1/DOC-1 forward traces.
-- Researcher `docs/subagent-report-the-researcher-a80a5c6a-20260704T102747.md` §1 (provider port + opaque
+- Prior internal research (an internal research note, outside this repository) §1 (provider port + opaque
   cursor + capabilities), §2 (PKCE/loopback RFC 8252/7636, Device Grant RFC 8628, `keyring`), §3 (atomic
   write + `os.replace` + sidecar recovery, revision mapping), §5 (untrusted JSON, no eval/exec, caps), §6
   (~70% offline-testable).

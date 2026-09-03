@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-04 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-8-automation` |
 | Supersedes | — |
 | Superseded by | — |
@@ -12,7 +12,7 @@
 ## Context
 
 ADR-0021 fixes the automation **security model** (data-driven command DSL; trusted-with-consent
-plugins; no `eval`/`exec`). This ADR rules the remaining HOW decisions the spec deferred to AGT-01
+plugins; no `eval`/`exec`). This ADR rules the remaining HOW decisions the spec deferred to architecture
 (DEP-2c/d/e/f, DEP-4, BF-1/BF-2) so the DATA/UI slices bind to a stable, layered contract:
 
 1. the **macro/DSL serialisation format + versioning + deterministic replay** capture (DEP-2d, CL-11);
@@ -28,7 +28,7 @@ Two load-bearing shipped facts constrain placement:
   is `logic/` or `data/` (`FORBIDDEN = {"logic": …, "data": …}`); `ui/` is unrestricted and a **new
   top-level sibling package (e.g. `cli/`) matches no rule key and is not scanned** — a Qt blind spot.
   This is the Phase-7 `data/export_cli.py` lesson (ADR-0020) and it applies identically here.
-- The Researcher: capturing *inputs, not just operations* (resolved params, mandatory RNG seeds,
+- Capturing *inputs, not just operations* (resolved params, mandatory RNG seeds,
   stable IDs, a versioned format) is the requirement for identical replay (Topic 2).
 
 ## Decision
@@ -44,7 +44,7 @@ Two load-bearing shipped facts constrain placement:
 - **Versioning.** The document carries `schema_version` (`MACRO_SCHEMA_VERSION`, a module-local
   format-intrinsic string — ADR-0001), a `min_app_version`, and a per-op **`api_version`** so a v1
   macro replayed against a v2 command whose semantics changed fails **loudly** rather than
-  mis-replaying (Researcher Topic 2.4/2.5). Unknown/unsupported version → `MacroIOError`.
+  mis-replaying (research Topic 2.4/2.5). Unknown/unsupported version → `MacroIOError`.
 - **Captures inputs, not just ops.** Each step records its **fully-resolved parameters** (coordinates,
   colour values, sizes), **stable references** (reuse the shipped Phase-5 `layer_id`; frame/tileset
   IDs — never "the active layer" positional refs), and a **mandatory recorded `seed`** for any
@@ -75,7 +75,7 @@ Two load-bearing shipped facts constrain placement:
   Qt-freedom* (the ADR-0020 blind-spot lesson). CLI = command-line I/O + orchestration, the same
   layer as `project_io`/`export_cli`.
 - **Console entrypoint:** `[project.scripts]` → `pixelart-run =
-  "pixelart_creator.data.automation_cli:main"` — an **AGT-09** `pyproject` edit (Article IX), flagged
+  "pixelart_creator.data.automation_cli:main"` — an **DevOps** `pyproject` edit (Article IX), flagged
   in `tasks.md`, not authored here.
 - **Grammar:** `pixelart-run --input PROJECT.pixproj --macro MACRO.pixmacro --output OUT.pixproj
   [--seed N] [--param KEY=VALUE ...]`. Loads the `.pixproj` via the defensive
@@ -98,7 +98,7 @@ Two load-bearing shipped facts constrain placement:
 ### 5. Procedural-generation set + batch-recolour scope (DEP-2f / CL-9/CL-10)
 
 - **Procgen set (`logic/procgen.py`, new, pure, seeded):** **OpenSimplex noise** (patent-safe —
-  preferred over classic Simplex per Researcher §4.1/flag), **value/gradient (Perlin-style) noise**,
+  preferred over classic Simplex per research §4.1/flag), **value/gradient (Perlin-style) noise**,
   **cellular automata**, and **dithered gradients** (reuse the shipped Phase-3 `logic/dither`
   ordered-Bayer + Floyd–Steinberg — not re-implemented). Every generator is a **deterministic function
   of `(params, seed)`** with a **mandatory** `seed` (default `DEFAULT_PROCGEN_SEED`), writes pixels
@@ -170,7 +170,7 @@ The DSL op-name vocabulary, macro `schema_version` string, and the plugin capabi
   keeps the driver Qt-free-enforced (ADR-0020 lesson, re-applied).
 - **Allocating a `REQ-P8-DATA-*` prefix.** Rejected (see §4): fragments one fixed acceptance; the
   `data/tiled_io.py` precedent shows a `data/` serialiser can be pinned by its `logic/` model's REQ.
-- **Classic Simplex noise.** Rejected: patent history (Researcher flag); **OpenSimplex** is the
+- **Classic Simplex noise.** Rejected: patent history (research flag); **OpenSimplex** is the
   patent-safe equivalent.
 - **Re-implementing recolour in batch_ops.** Rejected: composes the shipped `palette_ops` (PS-1),
   Article I (no re-implementation).
@@ -193,7 +193,7 @@ byte/state-identical to before the call; **Phase 2** applies every op in order a
 `GroupCommand`, and if any factory rejects the live document state mid-run the already-applied
 sub-commands are **undone in reverse order before the error is re-raised**, so a failed multi-op leaves
 the `Document` exactly as it started. `macro.replay` routes through this same atomic path, so a failing
-op mid-replay leaves the document intact. This closes the AGT-06 `[valid op, unknown op]`
+op mid-replay leaves the document intact. This closes the QA `[valid op, unknown op]`
 partial-mutation defect (SC-UI-008-1) without weakening the ADR-0021 no-`eval`/`exec` invariant (ops
 remain data mapped to allow-listed factories). The off-thread worker relies on the same guarantee: it
 BUILDs-and-reverts on the worker thread and marshals the unapplied reversible command back to the GUI
@@ -203,8 +203,8 @@ GUI thread (no cross-thread leak).
 **Negative / risk.** `data/macro_io.py` hosting plugin-manifest validation slightly broadens its remit
 (mitigated: it is all defensive `eval`-free JSON validation, the `project_io` posture). The
 `ui/automation_worker.py` off-thread runner must construct no Qt off the GUI thread and call only the
-Qt-free engine (the Phase-5/6/7 warmer precedent); AGT-10 owns the DEP-3 responsiveness directive,
-AGT-05 implements it. The `pyproject` `pixelart-run` entry is AGT-09's edit (out of AGT-01 scope).
+Qt-free engine (the Phase-5/6/7 warmer precedent); Rendering & Performance owns the DEP-3 responsiveness directive,
+the UI implementation implements it. The `pyproject` `pixelart-run` entry is DevOps's edit (out of architecture scope).
 
 ## Grounding
 

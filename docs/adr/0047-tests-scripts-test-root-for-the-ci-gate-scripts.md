@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-08-15 |
-| Author | AGT-09 (GitHub/DevOps) |
+| Author | GitHub/DevOps |
 | Feature | Test-tree ownership boundary — closing structural-audit finding PA-04 (S1) |
 | Supersedes | — |
 | Superseded by | — |
@@ -27,7 +27,7 @@ always exits 0.
 **The boundary that created the gap.** The test tree already has a root for every layer and every
 peer package that ships: `tests/logic`, `tests/data`, `tests/ui`, `tests/backend`,
 `tests/deploy` (ADR-0043), and `web_viewer/tests`. None of those is a legitimate home for a test
-of `scripts/coverage_gate.py`: `tests/logic`/`tests/data`/`tests/ui` are AGT-04/AGT-06 surfaces
+of `scripts/coverage_gate.py`: `tests/logic`/`tests/data`/`tests/ui` are the test suite/QA surfaces
 that test `pixelart_creator/`, not this repository's own tooling, and `check_layering.py` itself
 enumerates `scripts` under `UNGOVERNED_TOPLEVEL` with the reason "standalone P11 dev/CI
 scripts — not shipped, not in the import graph" — it is explicitly outside the product's own
@@ -40,19 +40,19 @@ any test-owning agent.
 
 **Why this agent, not the logic/data test owner.** These seven scripts are not product logic —
 they are the deterministic CI gates (P11) that decide FAILED/BLOCKED/COMPLETED for this
-repository's own pipeline, invoked by AGT-09 CI steps and by other agents' pre-flight checks.
-ADR-0043 already established the precedent that AGT-09 owns a test root for tooling it owns and
+repository's own pipeline, invoked by DevOps CI steps and by other agents' pre-flight checks.
+ADR-0043 already established the precedent that DevOps owns a test root for tooling it owns and
 runs, on the reasoning that deployment acceptance IS DevOps work because it launches the shipped
 artifact rather than importing product code as a library. The same reasoning applies one level
 up: these scripts are not imported by `pixelart_creator/` and are not exercised by product logic
-tests: they are AGT-09's own tooling, they gate AGT-09's own CI job, and AGT-09 is the agent that
+tests: they are DevOps's own tooling, they gate DevOps's own CI job, and DevOps is the agent that
 already runs `coverage_gate` and `path_portability_check` in CI (SCOPE). Routing this work to
-AGT-04 (`tests/logic`, `tests/data`) or AGT-06 (`tests/ui`) would hand a CI-gate test to an agent
+the test suite (`tests/logic`, `tests/data`) or QA (`tests/ui`) would hand a CI-gate test to an agent
 that does not own CI and has no standing reason to touch `scripts/`.
 
 ## Decision
 
-### 1. `tests/scripts/` is a peer root under `tests/`, owned by AGT-09
+### 1. `tests/scripts/` is a peer root under `tests/`, owned by DevOps
 
 Create `tests/scripts/` as a regular package (`__init__.py`), a sibling of `tests/logic`,
 `tests/data`, `tests/ui`, `tests/backend` and `tests/deploy`. It holds behavioural tests for the
@@ -64,8 +64,8 @@ Ownership after this ADR:
 
 | Path | Owner | Remit |
 | --- | --- | --- |
-| `scripts/*.py` | AGT-09 (already, via SCOPE) | the CI gate scripts themselves |
-| `tests/scripts/**` | AGT-09 (GitHub/DevOps) | behavioural contract tests for `scripts/*.py` — CLI entrypoint, documented exit codes, structured JSON output |
+| `scripts/*.py` | DevOps (already, via SCOPE) | the CI gate scripts themselves |
+| `tests/scripts/**` | DevOps | behavioural contract tests for `scripts/*.py` — CLI entrypoint, documented exit codes, structured JSON output |
 
 ### 2. The manifest needs NO change — verified by collection, not by inspection
 
@@ -138,5 +138,5 @@ because of this ADR, and `tests/` itself remains `UNGOVERNED_TOPLEVEL`/exempt vi
 1. A follow-up tranche under `tests/scripts/` for `path_portability_check.py`, `perf_profile.py`,
    `string_audit_check.py` and `run_ci_locally.py`, using the same clean/broken-fixture,
    documented-exit-code, structured-JSON method as the first tranche.
-2. `main/docs/module-map.md` (owned by AGT-01) does not yet list `tests/scripts/**` in its test-tree
+2. `main/docs/module-map.md` (owned by architecture) does not yet list `tests/scripts/**` in its test-tree
    ownership table; it should gain the same row shape ADR-0043 obligated for `tests/deploy/**`.

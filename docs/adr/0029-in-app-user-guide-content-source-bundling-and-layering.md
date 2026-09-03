@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-04 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `user-guide` (cross-cutting; `REQ-UG-*`) |
 | Supersedes | — |
 | Superseded by | — |
@@ -19,7 +19,7 @@ bundling** HOW to this ADR (spec §8, DEP-2/DEP-3; REQ-UG-DATA-002).
 
 **The spec's DEP-2 recommends single-sourcing the guide content from `docs/site`.** This recommendation
 **conflicts with the constitution's publication hygiene (S19)**: `docs/**` is **gitignored AND purged
-from git history** (`.gitignore` lines 55–60 — `docs/` and `DEPLOYMENT.md` are intentionally absent from
+from git history** (`.gitignore` lines 55–60 — `docs/` is intentionally absent from
 the repository, present only on the author's local disk). Therefore `docs/site`:
 
 - is **not committed** to the repository,
@@ -50,22 +50,22 @@ pixelart_creator/userguide_content/
 ```
 
 - `pixelart_creator/userguide_content/` is **committed to git** and **shipped in the wheel** as package
-  data (an AGT-09 `pyproject`/`package-data` edit — T-UG-09). It is the **SINGLE SHIPPED SOURCE** the
+  data (a DevOps `pyproject`/`package-data` edit). It is the **SINGLE SHIPPED SOURCE** the
   app bundles, discovers, and renders **fully offline** (REQ-UG-DATA-001, REQ-UG-UI-007). The app has
   **ZERO** runtime or build dependency on the gitignored `docs/site` path — nothing in `logic/`,
   `data/`, `ui/`, or CI ever references `docs/site`.
 
 - **Relationship to the private `docs/site` (resolves the spec's "single-source / no-drift" intent,
-  C1-compliant).** `docs/site` (AGT-08-owned) remains the **private, public-facing mkdocs HTML site**
+  C1-compliant).** `docs/site` (the documentation-owned) remains the **private, public-facing mkdocs HTML site**
   and is a **separate artifact**. Drift is prevented at the **editorial** level, not by a runtime path:
-  AGT-08 authors the guide prose **once** and keeps the two rendering targets — the committed
+  the documentation authors the guide prose **once** and keeps the two rendering targets — the committed
   `userguide_content/` bundle (in-app) and the private `docs/site` pages (public HTML) — **in sync via
-  a local derivation/sync step** run where `docs/site` exists (T-UG-02b). The spec's REQ-UG-DATA-002
+  a local derivation/sync step** run where `docs/site` exists. The spec's REQ-UG-DATA-002
   observable contract ("the guide's content **is** the durable usage content, not a hand-maintained
-  divergent fork") is honoured: both targets share AGT-08's single editorial source. What changes from
+  divergent fork") is honoured: both targets share the documentation's single editorial source. What changes from
   DEP-2's literal wording is only the **shipped mechanism** — a committed bundle, not a read into a
   private path — which is mandatory under S19. The acceptance scenarios SC-D002-1/-2 hold: each guide
-  topic corresponds to the same usage content AGT-08 publishes; there is no separately-maintained
+  topic corresponds to the same usage content the documentation publishes; there is no separately-maintained
   divergent copy.
 
 - **This is the "committed shippable mirror" option (spec §8 option (b)), not "authored fresh" (a).**
@@ -80,7 +80,7 @@ pixelart_creator/userguide_content/
   (no `eval`/`exec`, REQ-UG-DATA-003). In-guide links are resolved to other bundled topics **within**
   the guide; `QTextBrowser.setOpenExternalLinks(False)` + a link handler that only navigates to known
   topic ids — **no external/network fetch** (REQ-UG-UI-005, REQ-UG-UI-007). The exact widget is an
-  AGT-05 HOW detail; `QTextBrowser`+`setMarkdown` is the grounded default.
+  the UI implementation HOW detail; `QTextBrowser`+`setMarkdown` is the grounded default.
 
 ### 3. Loader + discovery model: manifest-driven, extensible with no code change (REQ-UG-LOGIC-002, Article XI)
 
@@ -105,7 +105,7 @@ pixelart_creator/userguide_content/
   pure function in `logic/guide_model.py` over the discovered set — localised docs are **added as more
   bundled files** (no code change). Initially only the default locale (`en`) ships; the contract is
   language-agnostic so acceptance depends on no particular translation. The `docs/site` i18n directory
-  layout that localised docs derive from remains an AGT-08/AGT-01 flag (DEP-4) and is **not
+  layout that localised docs derive from remains a documentation/architecture flag (DEP-4) and is **not
   acceptance-changing**.
 
 ### 5. Trusted-but-validated load; bundle-root guard (REQ-UG-DATA-003, Article VII)
@@ -141,7 +141,7 @@ pixelart_creator/userguide_content/
 ### 7. Performance / undo posture
 
 - The guide is **read-only** (NFR-5): opening/navigating pushes **no** `QUndoCommand`; `ui/commands.py`
-  is untouched. The viewer is **not** on the 16 ms canvas render loop (Article VI), so **no AGT-10 perf
+  is untouched. The viewer is **not** on the 16 ms canvas render loop (Article VI), so **no Rendering & Performance perf
   directive is required** (it is document-viewer IO, like the Phase-7/8 batch surfaces).
 
 ## Alternatives Considered
@@ -151,11 +151,11 @@ pixelart_creator/userguide_content/
   resolves via a committed bundle (Article VIII / C1).
 - **Author the in-app content fresh, independent of the docs (spec §8 option (a)).** Rejected — would
   create exactly the divergent fork REQ-UG-DATA-002 forbids; option (b) (committed mirror sharing
-  AGT-08's editorial source) preserves no-drift.
+  the documentation's editorial source) preserves no-drift.
 - **Bundle the built HTML from `docs/site/_build`.** Rejected — the built site carries Bootstrap/JS/lunr
   assets and a full-page chrome unsuited to an embedded `QTextBrowser`; Markdown source pages are the
   clean, small, diffable unit and match the editorial source 1:1.
-- **Content as a Qt resource (`.qrc`/`rcc`).** Deferred as an AGT-05/AGT-09 packaging refinement behind
+- **Content as a Qt resource (`.qrc`/`rcc`).** Deferred as a UI implementation/DevOps packaging refinement behind
   the same reader seam; `importlib.resources` over package data is the portable, zero-Qt default that
   keeps the reader in `data/` (Article I).
 - **Full-text search index now.** Deferred (CL-2) — the observable "search finds a topic" contract is
@@ -168,15 +168,15 @@ pixelart_creator/userguide_content/
 dependency on any private path; it is fully CI-testable (fixture bundles + the real bundle); layer
 purity is preserved (model/search/reader zero-Qt, viewer the only Qt surface); content grows per-phase
 by adding data files (Article XI); content is rendered as text and never executed, with a bundle-root
-guard (Article VII); no-drift is preserved editorially through AGT-08's single authoring source.
+guard (Article VII); no-drift is preserved editorially through the documentation's single authoring source.
 
-**Negative / risk.** No-drift becomes an **authoring discipline** (AGT-08's sync step run where
+**Negative / risk.** No-drift becomes an **authoring discipline** (the documentation's sync step run where
 `docs/site` exists), **not** a CI gate against `docs/site` — because CI cannot see the private path. Any
 CI drift check must compare against the **committed** bundle, not `docs/site`. The committed content
 duplicates prose on disk (in-app bundle + private site) — accepted, since S19 makes a shared shipped
-path impossible. AGT-08 must **author committed topics for areas `docs/site` currently lacks as
+path impossible. The documentation must **author committed topics for areas `docs/site` currently lacks as
 dedicated pages** (canvas & view, colour hub, selection/transform, app-wide basics) to satisfy the
-coverage contract (REQ-UG-LOGIC-005) — a real authoring scope item (T-UG-02).
+coverage contract (REQ-UG-LOGIC-005) — a real authoring scope item.
 
 ## Grounding
 
@@ -185,8 +185,8 @@ coverage contract (REQ-UG-LOGIC-005) — a real authoring scope item (T-UG-02).
   `traceability.md` (19 REQ, 0 uncovered).
 - Constitution Article I (three-layer purity), II (constants), V (a11y/i18n/themes), VII (offline, no
   exec, path validation, defensive load), VIII/C1 (supremacy — plan conformed over spec DEP-2), X (REQ
-  scheme), XI (extensibility). **S19** publication hygiene (`.gitignore` lines 55–60 — `docs/` +
-  `DEPLOYMENT.md` gitignored and purged).
+  scheme), XI (extensibility). **S19** publication hygiene (`.gitignore` lines 55–60 — `docs/`
+  gitignored and purged).
 - Shipped tree: `pixelart_creator/{logic,data,ui}/`; `docs/site/pages/usage/*.md` +
   `docs/site/mkdocs.yml` nav (12 usage pages incl. `cloud.md` + `collaboration.md` already authored);
   `check_layering`/`check_cycles` baseline clean. ADR-0025 (sidecar-vs-embedded precedent),
@@ -236,7 +236,7 @@ no-drift item below is actionable rather than impossible.
 
 ### c. No-drift is an OPEN item (D-23), not a resolved property
 
-The original text records no-drift as "preserved editorially through AGT-08's single authoring source"
+The original text records no-drift as "preserved editorially through the documentation's single authoring source"
 and reads SC-D002-1/-2 as holding. **Measured on 2026-08-16, that is not true at the byte level**: the
 committed bundle carries **19 topics** against **15** `docs/site` usage pages; the two sets share
 **8 stems**, of which **0 are byte-identical**; **11** are bundle-only and **7** docs-only. There is

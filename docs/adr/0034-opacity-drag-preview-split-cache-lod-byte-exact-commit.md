@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-07 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-12-performance-scalability` (`REQ-P12-LOGIC-004`, `REQ-P12-UI-001`, `REQ-P12-LOGIC-005`; FU-16b / Slice B) |
 | Supersedes | — |
 | Superseded by | — |
@@ -12,7 +12,7 @@
 
 ## Context
 
-AGT-10's baseline found the whole-viewport / low-zoom multi-layer recomposite driving the **live
+Rendering & Performance's baseline found the whole-viewport / low-zoom multi-layer recomposite driving the **live
 opacity-slider drag** costs **2 231 ms @ 1080² / 7 024 ms @ 1920² for a 12-layer stack**, cache-cold each
 tick (baseline §2 #2/#2b). A slider drag fires many recomposites/sec, so the interaction stalls for
 seconds. It is **effectively ungated**: the shipped `perf_profile --composite` gate only exercises a 16×16
@@ -20,7 +20,7 @@ region, so it cannot catch a whole-viewport recomposite blow-up (baseline §1/§
 
 Two distinct follow-ups were both historically labelled **"FU-16"** (spec §2c): **(a)** a cache-invalidation
 micro-optimisation (non-`document` buffer ops not self-invalidating the `LayerGroup` flatten cache; owner
-AGT-03; **not** this subject) and **(b)** the whole-viewport / opacity-drag recomposite CPU cost. **This
+the implementation; **not** this subject) and **(b)** the whole-viewport / opacity-drag recomposite CPU cost. **This
 ADR is FU-16b only.** Slice F assigns distinct identifiers so the two are never conflated.
 
 The recomposite has a dual nature: the *committed* result (mouse-release) must be **byte-exact** vs today
@@ -75,8 +75,8 @@ pixels to today.**
   12 layers); CI gates it at the **single-source named constant `VIEWPORT_RECOMPOSITE_CEILING_MS`**
   (`logic/constants.py`, candidate **2000 ms**) — a **loose catastrophic-regression bound** sized above the
   split-cache-optimised commit cost with 2-core headroom (FU-15), below the 2–7 s catastrophe so the gate
-  bites, **not** 16 ms. AGT-10's RE-PROFILE ship gate confirms the value + gate scenario before AGT-09
-  wires CI; scenario = AGT-10 HOW, CI wiring = AGT-09 HOW, value = AGT-01 HOW.
+  bites, **not** 16 ms. Rendering & Performance's RE-PROFILE ship gate confirms the value + gate scenario before DevOps
+  wires CI; scenario = Rendering & Performance HOW, CI wiring = DevOps HOW, value = architecture HOW.
 
 **No new undoable operation** — the opacity change is already undoable via the shipped Phase-4 D3 path;
 **`ui/commands.py` is unchanged**. No new module, no new import edge, no `data/` work — `check_layering` /
@@ -108,7 +108,7 @@ the FU-16 label collision is resolved so FU-16a (cache-invalidation) is never co
 **Negative / risk.** The preview/commit split adds drag-lifecycle state to `ui/layer_panel.py` (mitigated
 by reusing the D3 debounce + warmer). The LOD preview is a deliberately *approximate* during-drag view —
 acceptable because the **commit** is byte-exact (the observable final pixels match today). The
-`VIEWPORT_RECOMPOSITE_CEILING_MS` value is a candidate until AGT-10's RE-PROFILE ship gate measures the
+`VIEWPORT_RECOMPOSITE_CEILING_MS` value is a candidate until Rendering & Performance's RE-PROFILE ship gate measures the
 optimised 2-core cost and confirms the gate scenario (mitigated: loose bound with headroom; RE-PROFILE
 precedes CI wiring).
 
@@ -126,7 +126,7 @@ precedes CI wiring).
 
 ## Amendment — 2026-07-07 (byte-exactness scope of the `above`-pre-flatten shortcut)
 
-**Author:** AGT-01 (Architecture). **Trigger:** AGT-03 empirical characterisation during
+**Author:** Architecture. **Trigger:** the implementation's empirical characterisation during
 Slice-B logic implementation. **Immutable-append:** the original Decision §1/§2/§3 text above is
 retained unchanged; this amendment narrows one over-broad claim and records the shipped resolution.
 The ADR is **not** superseded — its core decision stands (see §c).
@@ -136,7 +136,7 @@ The ADR is **not** superseded — its core decision stands (see §c).
 The original §2.2-anchor claim (the `above`-pre-flatten associativity shortcut — pre-flattening the
 `above` sub-range over transparent and compositing it as one source-over buffer,
 `above OVER (layer·o OVER below)`) is byte-exact **when all above layers are NORMAL/source-over** is
-**OVER-BROAD**. AGT-03 measured that this holds byte-for-byte **ONLY for hard-edged pixel-art content
+**OVER-BROAD**. The implementation measured that this holds byte-for-byte **ONLY for hard-edged pixel-art content
 (alpha ∈ {0, 255})**. On **partial-alpha / anti-aliased** content the pre-flatten diverges by **≤ 2 LSB**
 from the in-line re-blend **even under the `is_range_source_over` predicate** — the divergence is
 intermediate-uint8 quantisation of the pre-flattened `above`, not a blend-mode error. Measured:
@@ -172,7 +172,7 @@ not from the `above`-pre-flatten associativity shortcut. Correctness was preserv
 throughout; this amendment corrects the ADR text so it does not mislead future work. **ADR-0033 (flatten
 byte-exact invariant) is untouched.**
 
-## Amendment (2026-08-16) — Ceiling finalised at 3000 ms (AGT-10 Slice-B RE-PROFILE)
+## Amendment (2026-08-16) — Ceiling finalised at 3000 ms (Rendering & Performance Slice-B RE-PROFILE)
 
 *Immutable-append, mirroring ADR-0033's "Ceiling finalised at 15000 ms" amendment (2026-07-07). The
 original Decision §4 and Consequences text above is retained unchanged; this note supersedes only the
@@ -184,7 +184,7 @@ record of what was planned at the time. The finalised single source of truth is 
 remediation item R-36 — which found this ADR to be the one record of the change that was never
 amended, unlike its sibling ADR-0033.
 
-AGT-10's Phase-12 Slice-B directive §5.1 recommended **RAISING** the plan's candidate 2000 ms: the
+Rendering & Performance's Phase-12 Slice-B directive §5.1 recommended **RAISING** the plan's candidate 2000 ms: the
 naive full 12-layer recomposite measures **2191 ms @ 1080²** (and ~7000 ms @ 1920²) on a fast 8-core
 desktop, and the 2-core CI runner is ~1.5–2.5× slower — so a 2000 ms bound is **unmeetable** and would
 flake on healthy code (the FU-15 loose-ceiling failure mode). The gate was therefore **loosened, not
@@ -198,7 +198,7 @@ headroom, while sitting far below the ~7 s (8-core) / ~14–17 s (2-core) naive-
 the gate must catch.
 
 **Reader guidance.** Wherever Decision §4 names the "candidate **2000 ms**", read the finalised bound
-as **3000 ms**; the Consequences' caveat that the value "is a candidate until AGT-10's RE-PROFILE ship
+as **3000 ms**; the Consequences' caveat that the value "is a candidate until Rendering & Performance's RE-PROFILE ship
 gate measures the optimised 2-core cost" is hereby **discharged**.
 
 The gate's **posture is unchanged**: a **loose catastrophic-regression bound** on the **commit** path
@@ -210,13 +210,13 @@ split-cache seam, the byte-exact commit via `composite_range(nodes, k, N, base=b
 
 **Where the raise was already narrated** — this ADR was the only record missing it:
 
-- AGT-10's Phase-12 Slice-B directive §5.1, "recommend RAISING the candidate 2000 ms", with the
-  measured 2191 ms @ 1080² (a design-docs artifact, outside this repository);
-- the `VIEWPORT_RECOMPOSITE_CEILING_MS` docstring in `logic/constants.py` — "**AGT-10 RAISED the
+- Rendering & Performance's Phase-12 Slice-B directive §5.1, "recommend RAISING the candidate 2000 ms", with the
+  measured 2191 ms @ 1080² (an internal design record, outside this repository);
+- the `VIEWPORT_RECOMPOSITE_CEILING_MS` docstring in `logic/constants.py` — "**Rendering & Performance RAISED the
   plan's candidate 2000 ms to 3000 ms**", with the same measurement and the Slice-A precedent;
 - the Phase-12 Slice-B entry in `docs/CHANGELOG.md` (`VIEWPORT_RECOMPOSITE_CEILING_MS = 3000`);
-- the session log's single-sourced-constants note (a design-docs artifact, outside this repository).
+- the session log's single-sourced-constants note (an internal design record, outside this repository).
 
-`specs/phase-12-performance-scalability/plan.md` §8 and tasks `T12-A-01` / `T12-B-01` still state the
+`specs/phase-12-performance-scalability/plan.md` §8 and its task list still state the
 superseded candidates; their revision notes are a **separate open remediation item** and are not
 covered by this amendment.

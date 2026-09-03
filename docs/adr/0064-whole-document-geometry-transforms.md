@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | Decided 2026-08-25 (four user rulings Q-1..Q-4, recorded in `spec.md` §4.3, §5, §8); recorded 2026-08-25 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `canvas-scale-defects` (job `20260825-canvas-grid-semantics`, work item `canvas-scale-defects`) — `REQ-CSD-UI-001`..`-015`, `REQ-CSD-LOGIC-001`..`-003`, `REQ-CSD-DATA-001`..`-004` |
 | Grounded by | `ui/canvas_scene.py:1758-1774` (`CanvasScene.rebind_active`, the seam); `ui/main_window.py:4330-4358` (`_apply_buffer_command`), `:4362-4375`, `:4411`, `:4461` (the three call sites); `logic/transform.py:1,19,29-38,94-102`; `logic/rotsprite.py:291-296,299,325,376-386`; `logic/document.py:313,1005-1019`; `ui/commands.py:220,659-760`; `data/project_io.py:97,283-286,539-543,554,564,591`; `logic/constants.py:9-10,641-647`. All read on branch `fix-canvas-grid-semantics` at HEAD `35b63bf` |
 | Supersedes | The Phase-2 active-layer scope of `Image ▸ Scale…`, `Rotate 90 CW/CCW` and `Flip H/V`; the `SCALE_MIN_FACTOR` / `SCALE_MAX_FACTOR` factor cap (deleted, see decision 5) |
@@ -373,7 +373,7 @@ exit of 2 is unresolved → BLOCKED, never "clean."**
   carries.
 - **It does not claim the threshold was measured.** `DOCUMENT_TRANSFORM_CONFIRM_BYTES` is
   **derived** from the platform's resident unit and a forced floor, not measured against
-  real memory behaviour. A frame/memory-budget review by AGT-10 is scheduled; if it
+  real memory behaviour. A frame/memory-budget review by Rendering & Performance is scheduled; if it
   contradicts the derivation, the constant moves and this section is why that is not a
   contradiction of the record.
 - **It does not claim the per-buffer step time was measured.** Decision 4 reason 3 calls a

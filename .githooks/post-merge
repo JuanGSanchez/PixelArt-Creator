@@ -4,9 +4,10 @@
 # re-generate with `container_repo.py install-hooks`, never hand-edit).
 #
 # A branch that lands on the product's default branch has been accepted,
-# and that is the moment its lessons become the orchestration system's.
-# They are moved into the container's store and removed from this one, so
-# there is exactly one owner and no second place to consult.
+# and that is the moment its lessons are promoted out of local development.
+# They are moved into the shared store above this repository and removed
+# from this one, so there is exactly one owner and no second place to
+# consult.
 #
 # This runs AFTER the merge: it can report, but it must never fail it. A
 # merge already recorded and then reversed by a hook is worse than a
@@ -45,8 +46,8 @@ done
 if [ -z "$container_found" ]; then
     echo "post-merge: no container found above $repo_root; the following" >&2
     echo "post-merge: container-backed duties did NOT run (this clone has no" >&2
-    echo "post-merge: orchestration container above it, and its gate scripts" >&2
-    echo "post-merge: are deliberately not vendored into the product):" >&2
+    echo "post-merge: parent tooling folder above it, and its gate scripts are" >&2
+    echo "post-merge: deliberately not vendored into the product):" >&2
     echo "post-merge:   - lesson promotion (container_repo.py promote-merged) -" >&2
     echo "post-merge:     NOT run: would have moved this merge's memory/insight" >&2
     echo "post-merge:     entries into the container's store." >&2
@@ -101,8 +102,9 @@ fi
 # --- refresh this repository's own memory store -------------------------
 # The working tree just changed, so the map that describes it is stale and
 # the index that answers from it is staler. The duty belongs to the hook and
-# never to an agent (`memory-graph-operations.md` §6.1): a map that depends on somebody
-# remembering is wrong exactly when it matters. The scan is incremental and
+# never to a human or an agent to remember by hand: a map that depends on
+# somebody remembering is wrong exactly when it matters. The scan is
+# incremental and
 # its scope is what this repository's git carries (§5.3a rule 6), so this
 # repository maps itself and no other.
 if [ -f "$repo_root/memory/store-role.json" ]; then

@@ -5,9 +5,9 @@
 The drag-drop import feature must turn a dropped ``.png`` / ``.jpg`` /
 ``.jpeg`` / ``.bmp`` / ``.gif`` into an RGBA
 :class:`~pixelart_creator.logic.pixel_buffer.PixelBuffer`.
-The Researcher and ADR-0010 fix the decode backend as **QImage** (no new dependency)
-and rule that — being Qt — it must live in ``ui/`` (Article I / S11). This module is
-the *only* new Qt consumer for the feature: it decodes with QImage, normalises to a
+ADR-0010 fixes the decode backend as **QImage** (no new dependency)
+and rules that — being Qt — it must live in ``ui/`` (Article I / S11). This module
+is the *only* new Qt consumer for the feature: it decodes with QImage, normalises to a
 packed ``Format_RGBA8888`` ``(H, W, 4)`` uint8 array (honouring ``bytesPerLine()`` to
 strip 32-bit scanline padding), bounds-checks the dimensions, and hands a plain
 ``PixelBuffer`` down to ``logic/`` — **no** Qt object crosses the layer boundary.

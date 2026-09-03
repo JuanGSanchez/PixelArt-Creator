@@ -1,24 +1,24 @@
-# ADR-0038 — Native-installer / packaging approach: `pyside6-deploy` + PyInstaller per-OS, a CI build matrix, and credential-gated macOS signing (Phase-13 Slice 13D)
+# ADR-0038 — Native-installer / packaging approach: `pyside6-deploy` + PyInstaller per-OS, a CI build matrix, and credential-gated macOS signing (Phase-13)
 
 | Field | Value |
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-07 |
-| Author | AGT-01 (Architecture) — packaging/CI executed by AGT-09 (DevOps) |
-| Feature | `phase-13-cross-platform` (Slice 13D — native installers) |
+| Author | Architecture — packaging/CI executed by DevOps |
+| Feature | `phase-13-cross-platform` (native installers) |
 | Supersedes | — |
 | Superseded by | — |
 | Relates to | ADR-0027 (`sync_backend`/`web_viewer` excluded from the desktop wheel), the shipped `.github/workflows/ci.yml` + `pyproject.toml` |
 
 ## Context
 
-Phase-13 Slice 13D packages the shipped PySide6 desktop app as **native installers** for Windows, macOS, and
+Phase-13 packages the shipped PySide6 desktop app as **native installers** for Windows, macOS, and
 Linux so a non-technical user can install and launch it **without a Python environment** (REQ-P13-BUILD-002..
 005), built by a **CI build matrix**. macOS store-distribution **mandates** Developer-ID signing +
-notarization + hardened runtime + stapling (Researcher Q3) — a hard requirement needing the **user's Apple
+notarization + hardened runtime + stapling (research Q3) — a hard requirement needing the **user's Apple
 Developer ID**, a credential not yet available. This ADR rules the packaging **tool selection**, the **per-OS
 targets**, the **CI build matrix** shape, and the **credential-gated, non-blocking** macOS signing posture
-(Article XI). This is a **`BUILD`** (non-three-layer DevOps) concern owned by AGT-09; it changes **no** product
+(Article XI). This is a **`BUILD`** (non-three-layer DevOps) concern owned by DevOps; it changes **no** product
 code.
 
 ## Decision
@@ -87,7 +87,7 @@ upgrade path to notarization; no product code changes (a pure `BUILD` concern); 
 (ADR-0027/0035) keep `sync_backend`/`web_viewer` out of the desktop distributable.
 
 **Negative / risk.** Three OS build legs add significant CI minutes (mitigated by the build/tag trigger, not
-every push). Nuitka compile times can be long (a build-leg wall-time risk AGT-09 tunes per leg). The unsigned
+every push). Nuitka compile times can be long (a build-leg wall-time risk DevOps tunes per leg). The unsigned
 macOS artifact requires a documented Gatekeeper bypass until a Developer ID is supplied — an accepted,
 communicated limitation (spec non-goal).
 
@@ -96,7 +96,7 @@ communicated limitation (spec non-goal).
 - Spec §2 (13D scope), §4 REQ-P13-BUILD-002/-003/-004/-005, §5 (Article XI credential-gating; Article X §1
   `BUILD` tag), §8 DEP-1/DEP-2; `acceptance.md` SC-P13-BUILD-002-1/-003-1/-004-1/-005-1; `traceability.md`
   13D rows.
-- Researcher `acaae022` Q3 (`pyside6-deploy` = Qt-recommended Nuitka wrapper; PyInstaller most popular;
+- Research note `acaae022` Q3 (`pyside6-deploy` = Qt-recommended Nuitka wrapper; PyInstaller most popular;
   Nuitka fastest/smallest; Qt plugins must be bundled; Windows exe/MSI, Linux AppImage/Flatpak, macOS
   .app/.dmg; macOS Developer-ID signing + notarization + hardened runtime + stapling MANDATORY for store dist;
   `notarytool` + `stapler`).
@@ -143,7 +143,7 @@ only) and imports **upward** into `ui/` (`ui.app.main`) — no logic/data module
 **Gate result.** `check_layering.py` is clean on **both** roots (`--root pixelart_creator`: 179 modules;
 `--root .`: 3 modules) and `check_cycles.py` reports **no cycles** (181 modules) — all exit `0`. `packaging/`
 is **not** scanned (no `__init__.py`; ops config, per Decision §1). The new entry point adds **no forbidden
-layer edge and no cycle**. Slice 13D is **architecturally clear to commit**.
+layer edge and no cycle**. This feature is **architecturally clear to commit**.
 
 **Grounding (addendum).** Spec §4 REQ-P13-BUILD-002..005 (a launchable installed app); README launch snippet
 (the pre-existing, unshipped recipe this canonicalises); Constitution Article I (layer discipline), Article XI

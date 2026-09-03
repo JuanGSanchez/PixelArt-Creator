@@ -37,7 +37,7 @@ is curated by hand and preserved across regenerations.
 looking for it here.** A product store is split by record: `graph/` — what
 this repository is made of — is committed, and is what the block above
 summarises; `insight/`, `cards/`, `promotions.jsonl` and `archive/` are
-gitignored, because lessons belong to the orchestration system and reach the
+gitignored, because lessons belong outside this repository and reach the
 container's store through `promote` on this repository's `post-merge` hook
 (`memory-graph.md` §5.3b). With every branch merged, 0 decisions / 0 lessons /
 0 incidents here is the correct steady state, not a gap to fill.

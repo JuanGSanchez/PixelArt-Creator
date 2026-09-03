@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Provider-agnostic OAuth helpers: PKCE, loopback capture, token exchange.
 
-Phase-10 Slice A (ADR-0026 §3; spec REQ-P10-DATA-008; Researcher §2). Zero Qt, zero
+Phase-10 Slice A (ADR-0026 §3; spec REQ-P10-DATA-008). Zero Qt, zero
 provider SDK. Holds the desktop-auth building blocks that are pure and testable
 without a live provider:
 

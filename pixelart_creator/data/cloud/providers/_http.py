@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Injectable HTTP seam for the real cloud provider adapters (zero Qt, S11).
 
-Phase-10 Slice A tail (ADR-0026 §2/§3; spec REQ-P10-DATA-007/-008; Researcher §1/§6).
+Phase-10 Slice A tail (ADR-0026 §2/§3; spec REQ-P10-DATA-007/-008).
 The real Drive / OneDrive / Dropbox adapters talk to their REST APIs through **one
 small, injectable transport** defined here — never a provider SDK type. Two things
 matter:

@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-03 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-6-tilemap` |
 | Supersedes | — |
 | Superseded by | — |
@@ -14,8 +14,8 @@
 Phase 6 requires auto-tiling that resolves a cell's **display tile** as a **deterministic,
 reversible function of the placed (logical) tile and its neighbours** (REQ-P6-LOGIC-010/-011). The
 spec fixes only the *observable* contract (determinism + edge-neighbour dependence; at minimum the 4
-edge-adjacent neighbours, 8-neighbour permitted, CL-5) and defers the **algorithm family** to AGT-01
-(DEP-1/DEP-2). The Researcher (`docs/research-phase-6-tilemap-20260703.md`, Topic 1) surveyed four
+edge-adjacent neighbours, 8-neighbour permitted, CL-5) and defers the **algorithm family** to architecture
+(DEP-1/DEP-2). Prior research (`docs/research-phase-6-tilemap-20260703.md`, Topic 1) surveyed four
 families: Blob-16 (4-bit edge, no corners), **Blob-47** (8-neighbour bitmask, edge-implies-corner
 gating → exactly 47 tiles), 2-corner Wang (16), and 4-corner/edge Wang (81–256), and flagged that
 the 8-neighbour **bit-weight assignment is not standardised** across engines and must be fixed by us.
@@ -82,7 +82,7 @@ remains reachable without a rewrite.
 
 **Negative / risk.** Blob-47 is single-terrain — multi-material blends wait for the corner-Wang
 extension (accepted, §6 non-goal). The bit-weight convention is ours, not a standard, so it is
-published in the ruleset and asserted by AGT-04 determinism tests (SC-L010-1). The neighbour
+published in the ruleset and asserted by the test suite determinism tests (SC-L010-1). The neighbour
 re-resolution on stamp/erase must be captured by the reversible command or undo would leave stale
 display frames — the contract (ADR-0015) makes that a hard requirement, verified by SC-L011-1.
 

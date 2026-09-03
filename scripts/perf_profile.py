@@ -78,7 +78,7 @@
 #
 # SOURCES: Dossier §2 F2/F3/F4/F7, §6.5/§8; User req S12
 #   (FRAME_BUDGET_MS=16, FPS_TARGET=60); Qt QGraphicsScene.drawBackground /
-#   QGraphicsView docs (grounded via Researcher); asset-templates.md §Script.
+#   QGraphicsView docs; asset-templates.md §Script.
 # =============================================================================
 import argparse
 import json

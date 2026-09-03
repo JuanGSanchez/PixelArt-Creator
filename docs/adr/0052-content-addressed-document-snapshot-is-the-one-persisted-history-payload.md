@@ -4,10 +4,10 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | Decided 2026-08-17 (the `phase-9` / `phase-10` / `phase-6` planning batch); **recorded 2026-08-19** |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | Cross-slice: `phase-9-timelapse-replay`, `phase-10-branch-diff`, `phase-6-mode-toggle-undo` |
 | Grounded by | `REQ-P9-DATA-004`, `REQ-P9-LOGIC-013`; `REQ-P10-UI-025`; the phase-9 plan §2.1 and the phase-10 plan §2.1 (the op-persistence ruling, stated once in both); Article I / S11 (layer purity) |
-| Owed by | `phase-10-branch-diff` **T24** (owner AGT-08) — see "Why this record is late" |
+| Owed by | `phase-10-branch-diff` (owner the documentation) — see "Why this record is late" |
 | Relates to | ADR-0028 (the CRDT convergence model whose op union is *not* extended here), ADR-0030 (content-addressed asset catalog — a different store, the same primitive), ADR-0025 (`.pixproj` v5, the serializer this reuses) |
 
 ## Context
@@ -167,8 +167,8 @@ mistaken for coverage.
 
 ## Why this record is late
 
-The decision was made on 2026-08-17 and its ADR was assigned to `phase-10-branch-diff` **T24**
-(owner AGT-08), which was never executed while the code that cites it shipped. The number
+The decision was made on 2026-08-17 and its ADR was assigned as a task in `phase-10-branch-diff`
+(owner the documentation), which was never executed while the code that cites it shipped. The number
 `0052` is not chosen here: it is fixed by the citation already in the tree
 (`pixelart_creator/data/snapshot_store.py:4`, "planned ADR-0052") and by three plans that name
 it. Writing at the cited number rather than at `highest + 1` is the deliberate exception to the

@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-04 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-7-export` |
 | Supersedes | — |
 | Superseded by | — |
@@ -13,10 +13,10 @@
 
 Phase 7's defining acceptance is **byte-reproducibility**: PNG / GIF / sprite-sheet / atlas exports
 and their JSON metadata are byte-identical for a fixed input **across runs and between the GUI and
-CLI paths** (REQ-P7-LOGIC-002/-003/-004/-005, CL-3/CL-14). The spec deferred to AGT-01 (DEP-2/CL-9):
+CLI paths** (REQ-P7-LOGIC-002/-003/-004/-005, CL-3/CL-14). The spec deferred to architecture (DEP-2/CL-9):
 the **specific Pillow encoder options**, the **GIF palette-reduction approach** (reuse
 `logic/quantize.py` vs Pillow), whether **APNG** is in scope (CL-8), and the **byte-repro guarantee
-scope** (same-environment vs cross-machine — Researcher Open decision 4/5). The Researcher
+scope** (same-environment vs cross-machine — Open decision 4/5). Prior research
 (`docs/research-phase-7-export-20260704.md`, Topics 1 + 4, flags F-1/F-2) established the
 implementation-grade facts (Pillow 12.x confirmed; project pins `Pillow>=10.0`):
 
@@ -68,9 +68,9 @@ Pillow option set below; reduce GIF colours through a fixed shared palette built
   formatting anywhere in the pipeline; frames iterated in explicit index order; JSON via
   `json.dumps(..., separators=(",", ":"), sort_keys=True)` over integer coordinates; the `meta`
   block's `version` is a fixed injected string, never a build timestamp (ADR-0017).
-- **CI byte-diff gate (F-1, hands to AGT-04/AGT-09).** A test exports twice and asserts
+- **CI byte-diff gate (F-1, hands to the test suite/DevOps).** A test exports twice and asserts
   `hashlib`-equal bytes per format; a second test asserts GUI-path == CLI-path bytes; `.github`
-  pins the Pillow version so the golden bytes are stable (AGT-09).
+  pins the Pillow version so the golden bytes are stable (DevOps).
 
 ## Alternatives Considered
 

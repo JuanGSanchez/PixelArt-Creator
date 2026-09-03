@@ -11,7 +11,7 @@ grants, and cannot mutate document state except through a registered reversible
 command — every capability the plugin did not declare **and** was not granted is
 **denied by default** (no silent bypass).
 
-Honesty about strength (ADR-0021 / Researcher §3.2): because *loading* a Python
+Honesty about strength (ADR-0021): because *loading* a Python
 plugin is itself code execution, in-process capability injection is
 **advisory-strength**, adequate only for **trusted, consent-installed** extensions.
 This module therefore never *auto-loads* or *auto-runs* anything: :func:`discover`
@@ -139,7 +139,7 @@ def discover() -> Tuple[PluginManifest, ...]:
     """Enumerate available plugins **inertly** (no load, no run — REQ-P8-LOGIC-008).
 
     Lists entry points in :data:`ENTRY_POINT_GROUP` using only ``importlib.metadata``
-    (no ``.load()`` — *loading is code execution*, Researcher §3.1), yielding a
+    (no ``.load()`` — *loading is code execution*), yielding a
     lightweight :class:`PluginManifest` per entry point (name + distribution version;
     no capabilities until the plugin's manifest is loaded defensively via
     ``data.macro_io.load_manifest`` and shown for consent before enable). Robust to

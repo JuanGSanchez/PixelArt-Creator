@@ -1,6 +1,6 @@
 """Cross-platform portability tests for the ``data/`` I/O layer (no Qt).
 
-Proves the Researcher-Q5 portability invariants of REQ-P13-DATA-001..005 at the
+Proves the research-finding-Q5 portability invariants of REQ-P13-DATA-001..005 at the
 BYTE / behaviour level so they hold identically on every leg of the Win/Linux/macOS
 CI matrix (no assertion depends on the host OS):
 

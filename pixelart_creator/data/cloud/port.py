@@ -75,7 +75,7 @@ class Cursor:
     """An opaque change-tracking token the port persists and replays.
 
     Unifies Drive changes-token / Graph ``deltaLink`` / Dropbox folder-cursor
-    (Researcher §1.3) — its contents are provider-internal and never inspected
+    — its contents are provider-internal and never inspected
     above the port.
     """
 

@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-02 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-4-layer-canvas` |
 | Supersedes | — |
 | Superseded by | — |
@@ -15,7 +15,7 @@ Phase 4 introduces `logic/blend.py` — the 13-mode `BlendMode` enum, the per-mo
 maths, and the stack compositor (REQ-P4-LOGIC-001..007). The blend maths must be pinned to
 an authoritative, unambiguous convention before implementation, because the two most common
 blend-mode bugs are (a) blending on **premultiplied** instead of straight colour, and (b)
-the wrong `soft-light` piecewise variant. The Researcher grounded the maths in the W3C
+the wrong `soft-light` piecewise variant. The maths is grounded in the W3C
 *Compositing and Blending Level 1* spec (`docs/research-blend-modes.md`, HIGH confidence,
 the reference Photoshop/SVG/Krita follow).
 
@@ -74,30 +74,30 @@ W3C separable modes); the enum has **12** members, not 13.
 **Positive.** One authoritative, testable convention; `NORMAL` provably equals FU-3
 (no drift from the shipped compositing primitive); a dataset-backed soft-light guard; a
 vectorised float pipeline that reuses `PixelBuffer` and holds the F7 performance posture.
-`sdd-analyze` and AGT-04 get an unambiguous acceptance criterion (match the research §3
+`sdd-analyze` and the test suite get an unambiguous acceptance criterion (match the research §3
 values on known inputs).
 
 **Negative / risk.** Float round-trips must clamp/round deterministically (P2) so identical
-inputs give identical `uint8` output; AGT-04's determinism property test (SC-L002-2) guards
+inputs give identical `uint8` output; the test suite's determinism property test (SC-L002-2) guards
 this. The float↔uint8 boundary is the one place rounding matters; it is centralised in
 `blend.py`'s entry/exit converters.
 
-## Compliance note (T13) — 2026-07-02
+## Compliance note — 2026-07-02
 
-AGT-10's T13 profile (`subagent-report-agt-10-rendering-performance-a4b1282f-20260702T181039.md`
+Rendering & Performance's profile (an internal design record, outside this repository;
 §5, D5) found the shipped `logic/blend.py` converts to **`float64`** in its blend path, deviating
 from this ADR's decision (**float32**, above). This ADR is **not changed** — float32 was and remains
 the mandated working dtype; the implementation must be corrected to `float32` (the entry converter
 `/255.0` and all intermediate arrays cast to `np.float32`, exit `np.clip(np.round(x*255.0),0,255)
 .astype(np.uint8)`). At 8K the blend is memory-bandwidth bound, so float32 roughly halves per-pixel
-memory/time with ample precision for 8-bit output. Owner: **AGT-03**. No behaviour change beyond the
-already-deterministic float→uint8 rounding boundary. Cross-referenced by ADR-0007 §Amendment (T13) D5.
+memory/time with ample precision for 8-bit output. Owner: **the implementation**. No behaviour change beyond the
+already-deterministic float→uint8 rounding boundary. Cross-referenced by ADR-0007 §Amendment D5.
 
 ## Grounding
 
 - `docs/research-blend-modes.md` §0 (straight-alpha rule, 0..1 range), §1/§3 (per-mode
-  formulas + compositing step), §4 (implementation recommendations) — The Researcher, W3C
-  *Compositing and Blending Level 1* (HIGH).
+  formulas + compositing step), §4 (implementation recommendations) — grounded in the W3C
+  *Compositing and Blending Level 1* spec (HIGH).
 - Spec `specs/phase-4-layer-canvas/spec.md` REQ-P4-LOGIC-001/-002/-003; plan §2/§5/§8.
 - ADR-0001 (tuning vs. intrinsic constants) — the blend-formula literals are intrinsic.
 - Phase-1 `logic/color.py` `blend_over` (FU-3) — the delegation target for `NORMAL`.

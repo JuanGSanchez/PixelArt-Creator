@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-04 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-9-visual-aids` |
 | Supersedes | — |
 | Superseded by | — |
@@ -12,7 +12,7 @@
 ## Context
 
 ADR-0023 fixes the pure geometry/snap/scale model. This ADR rules the remaining HOW-decisions the spec
-deferred to AGT-01 so the DATA/UI slices bind to a stable, layered contract:
+deferred to architecture so the DATA/UI slices bind to a stable, layered contract:
 
 1. the **multi-view sync model** — how "multiple views of one document stay in sync" is realised
    (REQ-P9-LOGIC-012, REQ-P9-UI-007/-008; DEP the ROADMAP multi-view-vs-multi-canvas disambiguation);
@@ -27,7 +27,7 @@ Two shipped facts constrain placement (re-applying the ADR-0020/0022 lessons):
 - `scripts/check_layering.py` enforces forbidden-import rules **only** on top-level `logic/` and `data/`;
   a new top-level sibling (e.g. `views/`) is an **unscanned Qt blind spot**. All new Qt code therefore
   lives under `ui/`; all engine code under `logic/`/`data/`.
-- Qt's Graphics View Framework already gives multi-view for free (Researcher §5): N `QGraphicsView`s on
+- Qt's Graphics View Framework already gives multi-view for free (research §5): N `QGraphicsView`s on
   **one** `QGraphicsScene` share the scene's items; `scene.changed` auto-repaints every attached view.
 
 ## Decision
@@ -39,7 +39,7 @@ Two shipped facts constrain placement (re-applying the ADR-0020/0022 lessons):
   command on that shared document (HIS-1); every view + the preview *derive* from it. This shared-source
   invariant is the pure substrate (REQ-P9-LOGIC-012) that makes the live mirror + multi-view sync
   observable with **no per-view state and no manual refresh**.
-- **Qt realisation (Researcher §5):** one `QGraphicsScene` per document (the shipped Phase-4 document
+- **Qt realisation (research §5):** one `QGraphicsScene` per document (the shipped Phase-4 document
   scene), **N `QGraphicsView`s** attached via `view.setScene(sameScene)`, each with its **own transform**
   (independent zoom/pan/scroll — view-local state that is *not* synced, CL-7). On an edit, the changed
   sub-rect is rebuilt (numpy→QImage) and `item.update(changed_rect)` schedules a repaint across **all**
@@ -50,11 +50,11 @@ Two shipped facts constrain placement (re-applying the ADR-0020/0022 lessons):
 
 ### 2. Timelapse — per-committed-command, document-render, reproducible (REQ-P9-LOGIC-010)
 
-- **Cadence: per-committed-command** (Researcher §6.1, Recommendation Matrix; the Procreate model). One
+- **Cadence: per-committed-command** (research §6.1, Recommendation Matrix; the Procreate model). One
   frame is recorded per undoable command that commits, reusing the shipped deterministic history (HIS-1)
   — **not** time-based. This is what makes replay reproducible: the frame set is a deterministic function
   of the recorded command log, independent of wall-clock/zoom/UI.
-- **Source: document render, not screen capture** (Researcher §6.2). Each frame is derived by
+- **Source: document render, not screen capture** (research §6.2). Each frame is derived by
   **re-compositing the document state** at that command via `blend.composite_stack` (CO-4) → a numpy
   RGBA array — reproducible, resolution-independent, UI-chrome-free. Screen capture is rejected (couples
   to window state, non-deterministic).
@@ -71,12 +71,12 @@ Two shipped facts constrain placement (re-applying the ADR-0020/0022 lessons):
 - **Encoding is out of Phase-9 scope** (spec §6, CL-16). Phase 9 produces the **reproducible sequence**;
   encoding it to a shareable GIF **reuses the Phase-7 GIF export** (`encode_gif`, pure-Python Pillow — no
   new dependency) as a later handoff, and **MP4/ffmpeg is deferred** (optional external encoder, explicit
-  consent before any bundling — Researcher §6.4). Phase 9 ships neither encoder path as an acceptance;
+  consent before any bundling — research §6.4). Phase 9 ships neither encoder path as an acceptance;
   the model is encoder-ready.
 
 ### 3. Reference board — separate scene of pixmap items, non-destructive (REQ-P9-UI-006)
 
-- **Model (Researcher §7.2):** a **separate `QGraphicsScene`** (distinct from the document scene of §1),
+- **Model (research §7.2):** a **separate `QGraphicsScene`** (distinct from the document scene of §1),
   populated with one `QGraphicsPixmapItem` per reference image, each independently movable / scalable /
   rotatable and croppable (store a crop `QRectF`), on an infinite pan/zoom board (auto-growing
   `sceneRect`); optional always-on-top window. This is **UI + serialisation only** — there is **no**
@@ -145,8 +145,8 @@ are pure leaves over `constants`; `timelapse` imports downward only. Acyclic by 
 
 | Constant | Value | Rationale |
 | --- | --- | --- |
-| `DEFAULT_ISO_GRID_RATIO` | `2.0` | 2:1 dimetric default (ADR-0023 §1; Researcher §1.1); true-iso configurable |
-| `DEFAULT_SNAP_TOLERANCE_PX` | `8` | screen-px stickiness (Researcher §3.3 6–8 px); ÷zoom → doc-px |
+| `DEFAULT_ISO_GRID_RATIO` | `2.0` | 2:1 dimetric default (ADR-0023 §1; research §1.1); true-iso configurable |
+| `DEFAULT_SNAP_TOLERANCE_PX` | `8` | screen-px stickiness (research §3.3 6–8 px); ÷zoom → doc-px |
 | `MIN_GRID_SPACING` | `2` | minimum iso tile width, px (avoids sub-pixel grids) |
 | `MAX_GRID_SPACING` | `1024` | maximum iso tile width, px (bounded config) |
 | `MAX_GUIDES` | `256` | guide-count ceiling; parallels shipped `MAX_BATCH_RECOLOUR_TARGETS=256` |
@@ -160,34 +160,34 @@ are pure leaves over `constants`; `timelapse` imports downward only. Acyclic by 
 vocabulary / format-intrinsic (ADR-0001 / BF-2). `grids` clamps tile width to
 `[MIN_GRID_SPACING, MAX_GRID_SPACING]` before use.
 
-### 6. Render performance — DEP-3 routing to AGT-10/AGT-05 (REQ-P9-UI-011); the 16 ms budget APPLIES
+### 6. Render performance — DEP-3 routing to Rendering & Performance/the UI implementation (REQ-P9-UI-011); the 16 ms budget APPLIES
 
 **Unlike Phases 7–8 (batch work), the grid/guide overlays, the multi-view viewports, and the preview
 mirror are on the per-frame render loop, so Article VI's 16 ms `FRAME_BUDGET_MS` APPLIES** (spec §5,
-CL-13). Architecture commitment (the strategy itself is AGT-10's, DEP-3):
+CL-13). Architecture commitment (the strategy itself is Rendering & Performance's, DEP-3):
 
 1. **Overlays are static-cacheable.** Grid/guide/perspective overlays are `QGraphicsItem`s with
-   `DeviceCoordinateCache` `cacheMode` so pan/zoom does not re-rasterise them (Researcher §5.3); overlay
+   `DeviceCoordinateCache` `cacheMode` so pan/zoom does not re-rasterise them (research §5.3); overlay
    colours are role-based (both themes, REQ-P9-UI-013).
 2. **Multi-view uses `MinimalViewportUpdate`** (default) for frequent small brush edits; each view
-   repaints only its changed sub-rect via `item.update(changed_rect)` (Researcher §5.1/5.3). Tile-culling
-   + dirty-rect partial redraw (the AGT-10 render-strategy directive, DEP-3) apply per view so N 8K views
+   repaints only its changed sub-rect via `item.update(changed_rect)` (research §5.1/5.3). Tile-culling
+   + dirty-rect partial redraw (the Rendering & Performance render-strategy directive, DEP-3) apply per view so N 8K views
    stay within budget.
 3. **The real-size preview + timelapse capture keep the UI responsive.** Timelapse frame capture is a
    pure document render (CO-4); whether long-running capture/encoding runs off the GUI thread is an
-   AGT-01/AGT-10 HOW (the Phase-5/6/7/8 worker precedent) — but Phase 9 defers encoding, so capture is
+   Architecture/Rendering & Performance HOW (the Phase-5/6/7/8 worker precedent) — but Phase 9 defers encoding, so capture is
    the per-command composite already needed for the views.
-4. **Ownership.** AGT-10 owns the render/perf strategy + `perf_profile` measurement for overlays +
-   multi-view on the 8K canvas; AGT-05 implements it; AGT-01 fixes the pure-geometry + shared-scene seam.
+4. **Ownership.** Rendering & Performance owns the render/perf strategy + `perf_profile` measurement for overlays +
+   multi-view on the 8K canvas; the UI implementation implements it; architecture fixes the pure-geometry + shared-scene seam.
    **The 16 ms budget is never relaxed** (spec constraint).
 
 ## Alternatives Considered
 
 - **Per-view document copies / manual refresh fan-out.** Rejected: violates REQ-P9-LOGIC-012 (one shared
   document) and the ROADMAP "views stay in sync" contract; Qt's shared-scene multi-view is free
-  (Researcher §5.1).
+  (research §5.1).
 - **Time-based timelapse cadence / screen capture.** Rejected: non-deterministic, couples to window
-  state; per-committed-command document render is reproducible (Researcher §6.1/6.2).
+  state; per-committed-command document render is reproducible (research §6.1/6.2).
 - **A new top-level `views/` or `board/` package for the Qt surfaces.** Rejected: `check_layering` blind
   spot (the ADR-0020/0022 lesson); all Qt under `ui/`.
 - **Folding both persistence concerns under LOGIC/UI (Phase-8 style).** Rejected here: two distinct wire
@@ -195,9 +195,9 @@ CL-13). Architecture commitment (the strategy itself is AGT-10's, DEP-3):
   more warranting a prefix than Phase 8's single one (DEP-4). Kept not-acceptance-changing by mapping each
   DATA REQ verbatim to its already-fixed spec contract.
 - **Inlining rendered timelapse frames in the persisted model.** Rejected: bloats the file and breaks
-  reproducibility-by-replay; the model stores the command manifest and re-renders (Researcher §6.3).
+  reproducibility-by-replay; the model stores the command manifest and re-renders (research §6.3).
 - **Bundling ffmpeg for MP4 in Phase 9.** Rejected/deferred: an optional external dependency needing
-  explicit consent; GIF export (Phase-7 reuse) is the encoder-ready handoff (Researcher §6.4; CL-16).
+  explicit consent; GIF export (Phase-7 reuse) is the encoder-ready handoff (research §6.4; CL-16).
 
 ## Consequences
 
@@ -211,7 +211,7 @@ independently-testable requirements without changing any acceptance.
 **Negative / risk.** Allocating `REQ-P9-DATA-001/-002` introduces two REQ-IDs not in the base spec count;
 mitigated by mapping each verbatim to its already-fixed spec contract and recording the arithmetic in the
 analyze report (pre-authorised by DEP-4/CL-15, not drift). The 16 ms budget applying to overlays +
-multi-view on the 8K canvas is a real constraint routed to AGT-10 (DEP-3) — the overlays must be
+multi-view on the 8K canvas is a real constraint routed to Rendering & Performance (DEP-3) — the overlays must be
 cache-backed and the views dirty-rect-culled or the budget is missed. The real-size DPR risk (ADR-0023
 §4) is carried into the preview window.
 

@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-03 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-6-tilemap` |
 | Supersedes | — |
 | Superseded by | — |
@@ -24,10 +24,10 @@ so the DATA/UI slices bind to a stable contract:
 3. **The cell representation** — how a linked instance (gid + flip) is stored, and where the Tiled
    GID flag masks live without creating a forbidden `logic → data` edge.
 4. **The reversible-command contract** (DEP + REQ-P6-LOGIC-012): which mutations get do/undo factories
-   consistent with the shipped `document.py` `make_*_command` pattern, so AGT-03 has a fixed contract
+   consistent with the shipped `document.py` `make_*_command` pattern, so the implementation has a fixed contract
    and `ui/commands.py` stays a thin Qt wrapper.
 
-AGT-02 flagged (BF-2) that new tile constants must be **distinct from the shipped `TILE_SIZE=64`**
+Requirements flagged (BF-2) that new tile constants must be **distinct from the shipped `TILE_SIZE=64`**
 (the viewport-culling edge) with unambiguous names.
 
 ## Decision
@@ -70,7 +70,7 @@ mutation as a `history.Command` factory on the model it mutates.**
   to its source-tile pixels (applying the flip transform), blits via `PixelBuffer.blit` (PB-1), and
   flattens the visible layer stack via `blend.composite_stack` (CO-4). It is **non-destructive**
   (source buffers + cell data byte-for-byte unchanged) and resolves **only the requested region** —
-  the seam AGT-10's viewport tile-culling + dirty-rect strategy plugs into (DEP-3, plan §7). Resident
+  the seam Rendering & Performance's viewport tile-culling + dirty-rect strategy plugs into (DEP-3, plan §7). Resident
   tile/pixel data is never culled (Article VI §3).
 - **Reversible-command contract (HIS-1, REQ-P6-LOGIC-012).** Every model mutation is a
   `history.Command` factory on the model it mutates: on `Tilemap` — `make_stamp_command`,
@@ -118,9 +118,9 @@ viewport culling; every edit is one reversible command wrapped by `ui/commands.p
 unambiguous and never collide with `TILE_SIZE`.
 
 **Negative / risk.** The chunk store needs correct empty-cell/empty-chunk semantics (a lingering
-empty chunk wastes memory but is not incorrect); AGT-04 asserts sparse behaviour (SC-L009-1). The
+empty chunk wastes memory but is not incorrect); the test suite asserts sparse behaviour (SC-L009-1). The
 auto-tile neighbour re-resolution must be captured in the reversible command or undo leaves stale
-frames — the contract makes it mandatory (SC-L011-1). Render performance at 8K depends on the AGT-10
+frames — the contract makes it mandatory (SC-L011-1). Render performance at 8K depends on the Rendering & Performance
 viewport-culling directive landing (DEP-3); the `render_region` API is the fixed seam, and the budget
 is never relaxed (Article VI).
 

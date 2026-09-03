@@ -4,11 +4,11 @@
 | --- | --- |
 | Status | **Accepted** (paths superseded in part — see below; the split decision itself stands unchanged) |
 | Date | 2026-07-31 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | Test-tree ownership boundary (follows the `sync_backend/**` ownership split) |
 | Supersedes | — |
 | Superseded by | ADR-0065, for PATHS ONLY: every `tests/…` path this ADR names (including its own filename and title) was relocated to `testing/suites/…` on 2026-08-30 by a pure rename (3 commits, `a98f61f`/`65026ad`/`4280d77`). The ownership boundary decided here — a peer root for deployment-acceptance tests, split out of the service tests — is NOT reopened; only the directory prefix changed. |
-| Relates to | ADR-0027 (`sync_backend/` placement — the peer-top-level precedent this mirrors one level down, in the test tree), ADR-0038 (`deploy/` native/hosting artifacts), Phase-13 Slice 13C (T13C-04/-05/-06), ADR-0065 (test-tree relocation) |
+| Relates to | ADR-0027 (`sync_backend/` placement — the peer-top-level precedent this mirrors one level down, in the test tree), ADR-0038 (`deploy/` native/hosting artifacts), Phase-13's deployment feature, ADR-0065 (test-tree relocation) |
 
 ## Context
 
@@ -26,7 +26,7 @@ tests at all — they were **deployment acceptance** for the shipped `deploy/` a
 
 None of these modify or even import `sync_backend/` as a library — they *launch the unmodified
 backend the way a container, a systemd unit or an Nginx front-end does*. That is DevOps work
-(AGT-09), not sync-backend work. Both modules are `@pytest.mark.integration` at module level and
+(DevOps), not sync-backend work. Both modules are `@pytest.mark.integration` at module level and
 both are environment-gated: they must **skip**, never error, when the environment cannot supply a
 subprocess, a Docker daemon, or Nginx.
 
@@ -46,7 +46,7 @@ made consistent with it, and — deliberately — the *negative* result about th
 
 ## Decision
 
-### 1. `tests/deploy/` is a peer test root under `tests/`, owned by AGT-09
+### 1. `tests/deploy/` is a peer test root under `tests/`, owned by DevOps
 
 Create `tests/deploy/` as a **sibling of `tests/backend/`**, a regular package (`__init__.py`), and
 move `conftest.py`, `test_vps_localhost.py` and `test_nginx_wss_localhost.py` into it unchanged
@@ -65,7 +65,7 @@ Ownership after this ADR:
 | Path | Owner | Remit |
 | --- | --- | --- |
 | `tests/backend/**` | the sync-backend service agent | in-process relay, presence, update log, handshake — no marker, runs in the default gate |
-| `tests/deploy/**` | AGT-09 (GitHub/DevOps) | `deploy/` artifacts: launcher subprocess, Dockerfile, Nginx WSS — all `integration`-marked, all environment-gated |
+| `tests/deploy/**` | DevOps | `deploy/` artifacts: launcher subprocess, Dockerfile, Nginx WSS — all `integration`-marked, all environment-gated |
 
 ### 2. The manifest needs NO change — and that is a ruling, not an omission
 
@@ -178,19 +178,19 @@ that the tree is unperturbed.
 
 **Obligations created (NOT discharged by this ADR — outside this change's declared write surface).**
 
-1. `main/docs/module-map.md` still routes `tests/backend/**` to AGT-04 in one row and names
+1. `main/docs/module-map.md` still routes `tests/backend/**` to the test suite in one row and names
    `tests/backend/test_{vps_localhost,nginx_wss_localhost,…}` in another. Both must be updated to
    the new ownership (`tests/backend/**` -> the sync-backend service agent; `tests/deploy/**` ->
-   AGT-09). AGT-01 owns this file and will amend it in the pass that is allowed to touch it.
+   DevOps). Architecture owns this file and will amend it in the pass that is allowed to touch it.
 2. The Phase-12 and Phase-13 traceability matrices and `phase-13-cross-platform/tasks.md`
-   (T13C-04) cite the old `tests/backend/test_vps_localhost.py` /
-   `test_nginx_wss_localhost.py` paths. AGT-02 owns the specification tree; these citations need a
+   cite the old `tests/backend/test_vps_localhost.py` /
+   `test_nginx_wss_localhost.py` paths. Requirements owns the specification tree; these citations need a
    path refresh. **The tests they point at are unchanged in content** — only the directory moved.
 3. `tests/ui/test_opacity_drag.py` documents its double-gate convention by pointing at the two moved
-   modules' old paths (three docstring references). Comment-only; AGT-06 to refresh.
+   modules' old paths (three docstring references). Comment-only; QA to refresh.
 
 **Finding surfaced while doing this (recorded, not acted on).** CI lints and format-checks
 `pixelart_creator scripts` only — `flake8`/`black`/`isort` never run over `tests/`. Running flake8
 over `tests/backend` locally reports four pre-existing `E501` violations in
 `test_sync_backend.py` (lines 7, 390, 392, 407) that CI has never seen. `tests/deploy/` is clean
-under all three tools. Widening the lint scope is AGT-09's call and is not made here.
+under all three tools. Widening the lint scope is DevOps's call and is not made here.

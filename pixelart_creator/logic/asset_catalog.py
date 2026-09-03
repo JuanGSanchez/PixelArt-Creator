@@ -5,7 +5,7 @@
 The catalog identity model (ADR-0030 §1; REQ-P11-DATA-001 / REQ-P11-LOGIC-001): every
 asset is a catalog entry identified by a **stable ``AssetId``** (a UUID string,
 decoupled
-from the filesystem path — the Unity-GUID / Godot-UID role, Researcher §1), carrying its
+from the filesystem path — the Unity-GUID / Godot-UID role), carrying its
 :class:`AssetKind`, a display ``name``, a set of ``tags``, a ``metadata`` bag, the
 ``content_hash`` of its canonical bytes (the CAS key + change-detector, ADR-0030 §3),
 and

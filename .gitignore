@@ -1,16 +1,14 @@
 # =============================================================================
 # PixelArt Creator — generated .gitignore
-# Layered per orchestrator-design `references/project-structure.md` §5.
+# Layered: general patterns first (a)-(d), then this project's own stack (e).
 # Layers (a)-(d) are the constant doctrine; layer (e) is this project's stack.
 #
-# NOTE: under the container standard (project-structure.md §1) the orchestration
-# system lives OUTSIDE this repository, beside it in the container:
-#     PixelArt-Creator/            <- container (not a repo)
-#     |-- .claude/  memory/  scripts/  (+ a private documentation folder)
-#     |-- CLAUDE.md  STRUCTURE.md  DEPLOYMENT.md  constitution.md
-#     `-- main/                    <- THIS REPOSITORY
-# The layer (a) entries below are belt-and-suspenders for any session launched
-# inside this folder, where a stray write would otherwise land in the repo.
+# NOTE: this repository is sometimes worked on from inside a parent folder
+# that also holds local development tooling and documentation of its own,
+# kept outside this repository entirely. The layer (a) entries below are
+# belt-and-suspenders for a session launched from that parent folder, where a
+# stray write would otherwise land in this repository instead of staying
+# beside it.
 # =============================================================================
 
 # ---- (a) AI-constitution and system files -----------------------------------
@@ -21,13 +19,13 @@ ROADMAP.md
 design-docs/
 .claude/
 
-# ---- (a2) the orchestration system's half of this repository's own store ----
+# ---- (a2) the private half of this repository's own store -------------------
 # `memory/` as a whole was class (a) while this repository had no store. It
 # has one now, and a repository that ignores its whole store commits NO map:
 # the Repo and History views come up empty on any clone and store-role.json is
 # invisible to everyone but the machine that created it. Only the SEMANTIC
-# half stays out — lessons belong to the orchestration system and reach the
-# container's store through promotion on merge.
+# half stays out — lessons are kept to local development and reach this
+# repository's tracked store only through promotion on merge.
 memory/insight/
 memory/cards/
 memory/promotions.jsonl

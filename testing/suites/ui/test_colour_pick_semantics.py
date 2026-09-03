@@ -57,8 +57,8 @@ widget-level fix (SC-U030-1/-3/-4) being correct. The tests below assert the
 literal, spec-correct expectation in every case (never weakened to match the
 observed defect, per the verified-testing hard rule) — the ones enumerated
 above are therefore EXPECTED TO FAIL on this tree, and their failure IS the
-report. Routed to the UI layer (owner of ``ui/main_window.py``) via the
-orchestrator; not fixed here (P9).
+report. Routed to the UI layer (owner of ``ui/main_window.py``); not fixed
+here (P9).
 
 Every test in this module also runs against both the light and the dark
 theme via the autouse, parametrised ``theme`` fixture in ``conftest.py``.

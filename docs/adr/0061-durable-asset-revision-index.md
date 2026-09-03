@@ -3,8 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Status | **Accepted** (landed on branch `feat-asset-ingress`, not yet merged) |
-| Date | Decided 2026-08-22 (`phase-11-asset-ingress` plan §3.13 — ruling P11-R11, mid-execution, DEV-43 finding 2); recorded 2026-08-22 |
-| Author | AGT-01 (Architecture) |
+| Date | Decided 2026-08-22 (`phase-11-asset-ingress` plan §3.13 — ruling P11-R11, mid-execution finding); recorded 2026-08-22 |
+| Author | Architecture |
 | Feature | `phase-11-asset-ingress` (job `20260821-reachability-remediation`) — `REQ-P11-DATA-008`, `SC-P11-INGRESS-E2E-1`, `REQ-P11-UI-020` |
 | Grounded by | `spec.md` §6 `SC-P11-INGRESS-E2E-1` (the frozen restart clause naming revisions explicitly); `REQ-P11-DATA-008`'s 2026-08-21 amendment (an index that is never saved or loaded fails the requirement even when the bytes are durable); `REQ-P11-UI-020` / `SC-P11-UI-018-1` (a real, ordered, non-empty history in the browser); Article VII (untrusted-input defence, path containment) |
 | Supersedes | — |
@@ -20,7 +20,7 @@ asset byte, so the failure was narrow and specific: the *index that names them* 
 load. `REQ-P11-DATA-008` had already decided this exact class of question once, for the catalog:
 its 2026-08-21 amendment states that a restart able to fetch bytes by hash but listing nothing
 because the library's own index was never saved or loaded fails the requirement, and that a row
-marked satisfied on the byte half alone would be a false record. DEV-43 finding 2 is the second
+marked satisfied on the byte half alone would be a false record. This is the second
 index of exactly that shape.
 
 The obligation is not inferred from that precedent alone. `spec.md` §6's frozen acceptance scenario
@@ -243,8 +243,8 @@ $ python scripts/check_cycles.py --json
 exit 0
 ```
 
-The feature plan's own ruling (§3.13) predicted six new edges over one new module before T39/T40
-landed: `data/asset_revision_io -> logic/asset_version`, `-> logic/content_hash`, `-> logic/constants`
+The feature plan's own ruling (§3.13) predicted six new edges over one new module before the
+remaining tasks landed: `data/asset_revision_io -> logic/asset_version`, `-> logic/content_hash`, `-> logic/constants`
 (three `data -> logic`, permitted); `-> data/project_io`, `-> data/asset_catalog_io`, and
 `data/asset_revision_store -> data/asset_revision_io` (three `data -> data`, permitted). Measured
 this pass: **+5 edges from the serialiser and +1 from the store — six exactly**, matching the
@@ -277,4 +277,4 @@ this ADR's Consequences section, not a gate that runs.
   adversarial file as part of authoring this record.**
 - **This record does not itself re-run `pytest`, `check_layering.py` or `check_cycles.py`** beyond
   the layering/cycle re-measurement quoted in Compliance; the 1252/2519 test counts are quoted from
-  the pass that produced this decision, not re-verified by AGT-08 in this session.
+  the pass that produced this decision, not re-verified by the documentation in this session.

@@ -50,8 +50,9 @@ fi
 # --- refresh this repository's own memory store -------------------------
 # The working tree just changed, so the map that describes it is stale and
 # the index that answers from it is staler. The duty belongs to the hook and
-# never to an agent (`memory-graph-operations.md` §6.1): a map that depends on somebody
-# remembering is wrong exactly when it matters. The scan is incremental and
+# never to a human or an agent to remember by hand: a map that depends on
+# somebody remembering is wrong exactly when it matters. The scan is
+# incremental and
 # its scope is what this repository's git carries (§5.3a rule 6), so this
 # repository maps itself and no other.
 if [ -f "$repo_root/memory/store-role.json" ]; then

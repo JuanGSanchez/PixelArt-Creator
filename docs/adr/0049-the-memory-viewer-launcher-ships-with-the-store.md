@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-08-15 |
-| Author | AGT-09 (GitHub/DevOps) |
+| Author | GitHub/DevOps |
 | Feature | Memory viewer reachability — the launcher is source, not output |
 | Supersedes | — |
 | Superseded by | — |
@@ -69,7 +69,7 @@ somebody else's history.
 orchestration container has no viewer server. The launcher says so and names
 the snapshot that still works, rather than failing quietly (Directive 12).
 
-**6. `tests/memory_view/` is a peer test root**, owned by AGT-09 beside
+**6. `tests/memory_view/` is a peer test root**, owned by DevOps beside
 `tests/githooks/`, `tests/scripts/` and `tests/deploy/`.
 
 **Why not `tests/memory/`:** a directory named `memory` anywhere but the
@@ -162,13 +162,13 @@ by a local workaround.** The container's `memory_graph.py` hard-coded the three
 `graph-view.*` names into the ignore lines every store receives, and
 `Store.ensure()` is append-only; because this repository's own `pre-commit` hook
 runs `memory_graph.py refresh` whenever a staged path falls outside `memory/`,
-the first WP-7 commit had the three lines re-appended **into it** by the hook.
+the first relevant commit had the three lines re-appended **into it** by the hook.
 The engine now splits its base list: the five derived artifacts are shared by
 every store, the container list adds the three viewer assets, and the
 **product-role** list adds only the four store-half entries — so a product store
 no longer receives them at all. That divergence from the skill original is
 declared, not drift: it is recorded in the container's fork registry
-(`design-docs/system/redistribution-forks.json`) under the qualified requirement
+(an internal design record, outside this repository) under the qualified requirement
 id **`20260816-decision-batch:R-10`**, carrying the forked and base SHA-256, the
 base version `2.4.0-20260804`, the grounding, and the re-port duty. `ensure()`
 stays append-only by design, so the lines already committed here were removed

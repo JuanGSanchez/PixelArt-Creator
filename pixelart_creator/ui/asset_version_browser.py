@@ -38,8 +38,7 @@ keyboard-reachable (REQ-P11-UI-008); colours come from the active QSS theme by r
 both themes render correctly with no per-widget colour (REQ-P11-UI-009). All work is
 synchronous over the in-memory / content-addressable store — recording, fetching and
 history reads are CAS/in-memory and fast — so there is **no worker thread, timer, or
-poller** and **nothing to tear down** (the Slice-1/2 ``Asset_Library_Session`` /
-``Dependency_Graph_View`` precedent).
+poller** and **nothing to tear down**.
 """
 
 from __future__ import annotations

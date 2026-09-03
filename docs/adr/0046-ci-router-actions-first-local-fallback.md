@@ -5,7 +5,7 @@
 | Status | **Accepted** (amended 2026-08-02, twice, same day — first: billing block lifted, recurrence expected; second: the container Linux leg removed, never having been built or run; see both Amendments below) |
 | Date | 2026-08-02 |
 | Amended | 2026-08-02 (same-day, first) — the hosted-runner billing block recorded below as current fact was measured lifting later the same session; supersedes the Context/Decision/Consequences framing that Actions "cannot execute" this project's gates, and re-scopes the router from primary CI path to fallback + recurrence detector. 2026-08-02 (same-day, second) — `main/.ci/Dockerfile`, the `.ci/` directory, `scripts/check_ci_docker_drift.py` and its test module were deleted (never built, never run; CI now runs on a self-hosted Windows runner); the dispatch classifier and the Windows-native local leg survive; the `ubuntu-latest` local-fallback leg is reclassified from `BLOCKED` to `UNCOVERABLE` (macOS's category). |
-| Author | AGT-09 (GitHub / DevOps) |
+| Author | GitHub / DevOps |
 | Feature | CI-execution fallback + local feedback loop (extends ADR-0045) |
 | Supersedes | — |
 | Superseded by | — |
@@ -358,7 +358,7 @@ Amendment at the top of Context.)**
 1. Resolve the self-hosted-runner billing-dispatch question (whether a
    payment-hold account still permits dispatch to an already-registered
    self-hosted runner) via the probe already set up, and record the actual
-   outcome once observed — not assumed from either direction. Owner: AGT-09,
+   outcome once observed — not assumed from either direction. Owner: DevOps,
    on a future dispatch; no REQ-ID exists for this yet (none of the affected
    area's existing ADRs — ADR-0045, ADR-0043 — cite one for this specific
    obligation, and none is fabricated here per this project's sourcing
