@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-30 |
-| Author | AGT-09 (GitHub / DevOps) |
+| Author | GitHub / DevOps |
 | Feature | CI-execution fallback + local feedback loop |
 | Supersedes | — |
 | Superseded by | — |
@@ -191,7 +191,7 @@ record of the result. Concretely, and without exception:
   passed"** (or the equivalent phrase this ADR's implementers choose), naming the job and OS leg
   that ran, so a later reader cannot mistake it for the hosted signal.
 - A local pass does **not** authorize merging past a required-status-check gate that names the
-  real `ci` workflow, and does not substitute for AGT-06 QA sign-off predicated on CI.
+  real `ci` workflow, and does not substitute for QA sign-off predicated on CI.
   Branch-protection status checks, where configured, must keep pointing at the real GitHub Actions
   job names — this local script is not registered as a status check and must not be made to look
   like one.
@@ -240,7 +240,7 @@ record of the result. Concretely, and without exception:
 **Obligations created (tracked here, not discharged by this ADR).**
 
 1. Test whether a self-hosted runner is accepted on this billing-blocked account (Approach 1's
-   open question) and record the answer — do not assume either outcome. Owner: AGT-09, on a future
+   open question) and record the answer — do not assume either outcome. Owner: DevOps, on a future
    dispatch; no REQ-ID exists for this yet.
 2. If/when Docker + WSL2 (or an equivalent) is installed on a project machine, re-evaluate
    Approach 2 (`act` or similar) as a closer-to-real local option for the Linux-container legs;

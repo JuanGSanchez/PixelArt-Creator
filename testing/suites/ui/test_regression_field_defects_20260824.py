@@ -680,8 +680,7 @@ def test_req_p3_ui_006_consuming_tool_pencil_click_favourite_runs_exactly_once(
     (SC-U019-1: "pixel (7,9) is RED" / here, pixel (6,6) is ``target``) and
     is NOT weakened to match the observed (wrong) behaviour -- per this
     task's own instruction, this is reported and the test is left failing,
-    not adjusted to pass. Routed to the UI layer (owner of ``ui/main_window.py``)
-    via the orchestrator.
+    not adjusted to pass. Routed to the UI layer (owner of ``ui/main_window.py``).
     """
     app, win = create_app([])
     qtbot.addWidget(win)

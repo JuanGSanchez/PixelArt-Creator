@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-04 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-9-visual-aids` |
 | Supersedes | — |
 | Superseded by | — |
@@ -61,7 +61,7 @@ is the IO-3 defensive-load pattern (`ProjectIOError`, `_SUPPORTED_VERSIONS`, typ
 
 ### 3. Reference-board format (REQ-P9-DATA-002) — `data/reference_board_io.py`, defensive `eval`-free
 
-- **Format:** a `.pixboard` JSON sibling (mirrors PureRef's `.pur`, Researcher §7.2) serialising
+- **Format:** a `.pixboard` JSON sibling (mirrors PureRef's `.pur`, research §7.2) serialising
   `schema_version` + board view state (pan/zoom) + an ordered list of reference-image records
   `{image (path reference **or** embedded base64 bytes), transform (2×3 affine as 6 floats), crop (x, y,
   w, h), z_order}`. Bounded by `MAX_REFERENCE_IMAGES`. A pure board-layout dataclass lives in `data/`
@@ -84,7 +84,7 @@ is the IO-3 defensive-load pattern (`ProjectIOError`, `_SUPPORTED_VERSIONS`, typ
 - **Timelapse embedded inside `.pixproj`.** Rejected: a session artifact bloats the artwork file and
   couples save cadence; a sidecar keeps `.pixproj` stable (the export-artifact-vs-project precedent).
 - **Storing rendered timelapse frames inline.** Rejected: breaks reproducibility-by-replay and bloats the
-  file (ADR-0024 §2; Researcher §6.3) — store the command manifest, re-render.
+  file (ADR-0024 §2; research §6.3) — store the command manifest, re-render.
 - **A brand-new schema ADR-less bump.** Rejected: schema bumps have dedicated ADRs (0006/0012/0016); v5 is
   documented here for the same auditability.
 
@@ -96,8 +96,8 @@ round-trip gate, matching the `project_io` posture (IO-3) and independently test
 (`tests/data/test_timelapse_io.py`, `tests/data/test_reference_board_io.py`). The timelapse model stays
 small and reproducible (manifest, not pixels); the board stays non-destructive and portable.
 
-**Negative / risk.** A `.pixproj` v5 bump touches the **shipped** `project_io` — AGT-03 must keep v1–v4
-load byte-for-byte unchanged (a regression test on the existing fixtures is mandatory) and AGT-04 must
+**Negative / risk.** A `.pixproj` v5 bump touches the **shipped** `project_io` — the implementation must keep v1–v4
+load byte-for-byte unchanged (a regression test on the existing fixtures is mandatory) and the test suite must
 cover the absent-PPI-defaults path. Embedded-image boards can grow large (mitigated: path reference is
 the default). Three persistence surfaces (v5 PPI + two sidecars) widen the `data/` test surface; each is
 defensive JSON validation, the established pattern.

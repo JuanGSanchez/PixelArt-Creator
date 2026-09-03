@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | Decided 2026-08-25 (`20260825-canvas-grid-semantics` `implementation-plan.md` §1 root-cause analysis, §2 target state, §3 design decisions); recorded 2026-08-25 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `fix-canvas-grid-semantics` (job `20260825-canvas-grid-semantics`) — `REQ-CGS-LOGIC-001`, `REQ-CGS-UI-001`, `-002`, `-003`, `-005`, `-006`, `-009`, `-010` |
 | Grounded by | `logic/constants.py` (`TILE_SIZE`, `DEFAULT_CANVAS_WIDTH`/`-HEIGHT`, `CHECKER_CELL_PX`, `CHECKER_MIN_ON_SCREEN_EDGE_PX`, `ZOOM_MIN`); `ui/canvas_scene.py` (`_CheckerBrush`, `_build_checker_brush`, `_fill_checker`); `ui/canvas_view.py` (`_viewport_update_mode_for`, `Canvas_View.setViewport`, `_clamp_zoom`, `_apply_pan_margin`); the field report quoted in `implementation-plan.md` §0 |
 | Supersedes | The 2026-08-24 `min(ZOOM_MIN, fit_zoom)` zoom-floor reasoning (§4 below) |

@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-02 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-3-colour-palette` |
 | Supersedes | — |
 | Superseded by | — |
@@ -16,7 +16,7 @@ REQ-P3-LOGIC-015 / REQ-P3-UI-004 (CL-4, US-2) require the colour-hub **Favourite
 cross-session persistence flagged **acceptance-critical** (SC-U004-3: a saved favourite is present
 after an app restart). The spec (§4.1, CL-4) fixes the *model* (`logic/favourites.py`: ordered,
 de-duplicated, `to_serializable`/`from_serializable`) as Qt-free logic, and **defers the storage
-location to AGT-01**: "a small `data/` JSON via the data layer, or app settings".
+location to architecture**: "a small `data/` JSON via the data layer, or app settings".
 
 Three constraints shape the call:
 
@@ -65,7 +65,7 @@ Three constraints shape the call:
 ## Consequences
 
 - One new Qt-free `data/` module (`favourites_io.py`) — small, mirrors `project_io.py`, covered by
-  `tests/data/test_favourites_io.py` (T12): round-trip, missing-file→empty, malformed→`FavouritesIOError`,
+  `tests/data/test_favourites_io.py`: round-trip, missing-file→empty, malformed→`FavouritesIOError`,
   path portability.
 - The persistence path is fully headless-testable, satisfying SC-U004-3 without a live app.
 - Layer purity holds: model in `logic/`, I/O in `data/`, Qt path-resolution in `ui/`.
@@ -78,4 +78,4 @@ Three constraints shape the call:
   SC-U004-3; `traceability.md` §2.
 - `constitution.md` Article I (layer purity), Article VII (defensive I/O + portable paths);
   `data/project_io.py` (the mirrored persistence pattern).
-- `docs/research-phase3-colour.md` T1 (QColor HSV APIs are UI-side; logic stays tuple maths).
+- `docs/research-phase3-colour.md` (QColor HSV APIs are UI-side; logic stays tuple maths).

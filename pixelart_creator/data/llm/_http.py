@@ -3,8 +3,7 @@
 """Shared stdlib-``urllib`` JSON POST + bounded retry for the real adapters (private).
 
 Part of the AI-assistant feature, Phase 14 (skill ``llm-adapter-normalization``
-step 5; Researcher ``ad2616c7``
-R4.1/R4.3). The single transport seam both real :class:`~pixelart_creator.data.llm.port.
+step 5). The single transport seam both real :class:`~pixelart_creator.data.llm.port.
 LLMPort` adapters (the OpenAI-compatible core + the native-Anthropic translator) POST
 through, so the ``urllib`` handling (which gives no pooling/retry/timeout niceties) is
 written **once**: endpoint scheme/host validation (TLS-only off loopback), a bounded
@@ -35,7 +34,7 @@ __all__ = ["validate_endpoint", "post_json"]
 #: Hosts for which a plaintext ``http://`` endpoint is tolerated — the local model
 #: runtimes the OpenAI-compatible core must cover (Ollama, llama.cpp): traffic never
 #: leaves the machine, so TLS is not required. Any non-loopback host MUST be
-#: ``https://`` (Researcher ``ad2616c7`` R4.3 TLS-only posture). Module-local vocab.
+#: ``https://`` (TLS-only posture). Module-local vocab.
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 

@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | Decided 2026-08-21 (`phase-11-asset-ingress` plan §3.2, §3.3, §3.5, §3.6, §3.10 — rulings P11-R1, P11-R3, P11-R4, P11-R8); recorded 2026-08-22 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-11-asset-ingress` (job `20260821-reachability-remediation`) — `REQ-P11-LOGIC-009`/`-010`, `REQ-P11-DATA-006`/`-007`/`-008`/`-009` |
 | Grounded by | Article I §3 (`logic` may not import `data`); `REQ-P11-DATA-007` ("no second serialiser"); `REQ-P11-DATA-009` (the atomic write); `REQ-P11-LOGIC-010` (derived edges); `REQ-P11-DATA-008`'s OQ-A2-2 clause (shared/cloud-optional backing, wire-only, no new REQ id); the 2026-08-16 placement ruling (`ui/` names no backend) |
 | Supersedes | — |
@@ -42,14 +42,14 @@ capability that did not exist.
 **The derived-edge write path.** `ui/dependency_graph_view.py`'s `show_edges` is the only production
 writer of the view's own `set_graph`, and it had zero production callers — the cycle-rejection branch
 and the passive cycle label it drives were tested but structurally unreachable, exactly the defect
-class (DEV-30) this remediation job exists to close.
+class this remediation job exists to close.
 
 **The byte-store composition root.** `SharedBlobBackend` ships, implements the identical three-method
 `BlobBackend` port `LocalBlobBackend` does, and is tested — with zero production importers.
 `data/asset_cas.py`'s `default_content_store` had exactly one hard-coded backend choice in its whole
 path: `return ContentAddressableStore(LocalBlobBackend(resolved_root))`.
 
-**The identity-key question — found mid-execution, and worse than reported.** T8's `edges_for` was
+**The identity-key question — found mid-execution, and worse than reported.** The original `edges_for` was
 built to match on whole-project canonical bytes (`canonical_json_bytes(project_io.serialize(document))`).
 Reading the production shapes end to end (`register` → `candidates_of` → `canonical_bytes` →
 `edges_for`) found that the only two document shapes a user can actually produce — `Document()`'s
@@ -289,7 +289,7 @@ and computing its key on the fly instead of reading a stored field. Rejected on 
 deserialisations, on the GUI thread, per registration, to recompute a value that could have been
 written once. **Identity keys are recorded, not recomputed.**
 
-**The `reference_bytes` canonicalisation, amended after this ADR's rulings pass (DEV-38).** The
+**The `reference_bytes` canonicalisation, amended after this ADR's rulings pass.** The
 content-only key `reference_bytes(document, kind)` was originally implemented by compositing a
 document's real layer stack through the shipped `composite_stack` — which honours each layer's real
 opacity, blend mode and mask in addition to its pixels. That baked three presentation attributes into
@@ -343,7 +343,7 @@ at `data/asset_ingress.py:452`) — no crash, no adaptation, just the pre-ruling
 
 | Alternative | Why it was not chosen |
 | --- | --- |
-| Compute the descriptor/hash entirely in `data/`, alongside the serialiser | Rejected: the hash is domain identity, and AGT-04 must be able to test its determinism with no I/O — a `data/`-only computation could not be exercised Qt-free and I/O-free the way `REQ-P11-LOGIC-009` requires |
+| Compute the descriptor/hash entirely in `data/`, alongside the serialiser | Rejected: the hash is domain identity, and the test suite must be able to test its determinism with no I/O — a `data/`-only computation could not be exercised Qt-free and I/O-free the way `REQ-P11-LOGIC-009` requires |
 | Widen `BlobBackend` with a removal method (atomic order) | See Decision 2(a) — unsafe on a deduping store without a reference count, and hard to withdraw once shipped |
 | Blob-write-last ordering (atomic order) | See Decision 2(b) — turns an invisible orphan into a visible, user-facing broken catalog entry |
 | Call `session.set_graph(graph)` directly from ingress (edge write path) | Cannot pass the cycle-rejection acceptance: `DependencyGraph` rejects a cyclic edge set at construction, so the rejection would surface as an exception in the ingress path rather than the passive report the requirement asks for |
@@ -377,7 +377,7 @@ Decision 2's rejected alternative (a) and its stated reasoning. No future caller
 unconditional; a `port`-gated branch reintroduces the seam-with-no-caller defect this decision closes.
 Edge derivation must continue to match on `reference_key`, never on `content_hash` or on raw pixel
 bytes; and `reference_bytes` must stay presentation-free — any future canonicalisation change that
-reads a layer's real opacity, blend mode or mask for this purpose reproduces the DEV-38 defect.
+reads a layer's real opacity, blend mode or mask for this purpose reproduces this defect.
 
 ## Compliance
 
@@ -392,7 +392,7 @@ $ python scripts/check_cycles.py --json
 exit 0
 ```
 
-(Figures as last re-measured by T26's own pass at the P11-R7/P11-R8 amendment; this ADR does not
+(Figures as last re-measured by the last audit pass at the P11-R7/P11-R8 amendment; this ADR does not
 re-run the scripts and states so rather than re-asserting a number it did not itself produce.)
 
 Zero violations and zero cycles mean no `logic -> data` edge exists — `logic/asset_extract.py` and
@@ -401,7 +401,7 @@ passes introduce (`data/project_io -> logic/asset_references`, `ui/main_window -
 `data/asset_cas -> data/asset_shared_backend`) are exactly the ones plan §3/§3.6 name, with no
 additional edge appearing.
 
-Behavioural coverage is AGT-04's determinism and edge-derivation suites and AGT-06's `SC-P11-UI-*`
+Behavioural coverage is the test suite's determinism and edge-derivation suites and QA's `SC-P11-UI-*`
 pytest-qt suite, including the untrusted-input matrix for `REQ-P11-DATA-009` and the cycle-rejection
 scenario for P11-R3; none of those suites was run to produce this record.
 

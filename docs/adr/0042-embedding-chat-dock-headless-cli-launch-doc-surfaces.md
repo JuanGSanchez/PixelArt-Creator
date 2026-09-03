@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-08 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-14-ai-assistant` (Slices 14E, 14F) |
 | Privacy | **S19-PRIVATE — docs/ is gitignored; this ADR is NOT committed.** |
 | Relates to | ADR-0039/0040/0041, ADR-0020/0022 (headless CLI in `data/`, the `check_layering` blind-spot lesson), ADR-0029 (in-app User-Guide layering) |
@@ -14,7 +14,7 @@
 The assistant embeds two ways (spec D2): an in-app PySide6 **chat dock** + provider/key config +
 tiered-confirm surface (`ui/`, the only Qt — 14E, REQ-P14-UI-001..008), and a **headless
 `pixelart-assistant` CLI** (`data/`, Qt-free, mirroring the shipped `pixelart-run` — 14F,
-REQ-P14-DATA-008). Spec §8 DEP-5 defers responsiveness to AGT-01/AGT-10: the model round-trip is
+REQ-P14-DATA-008). Spec §8 DEP-5 defers responsiveness to architecture/Rendering & Performance: the model round-trip is
 **batch/off the per-frame loop** (not `FRAME_BUDGET_MS`-gated), so the assessment is
 responsiveness-not-frame-budget. The standing docs rule requires a **new User-Guide topic under the
 existing Automation section** (not a new section) + a README launch surface.
@@ -52,17 +52,17 @@ blind-spot (the ADR-0020/0022 lesson). Imports downward only (`data → logic`, 
 `eval`/`exec`. Exit codes mirror `pixelart-run` (0 ok / 1 runtime / 2 bad-args-or-load).
 
 **`pyproject` `[project.scripts]`** gains `pixelart-assistant =
-"pixelart_creator.data.assistant_cli:main"` — an **AGT-09** edit (Article IX), like `pixelart-run`.
+"pixelart_creator.data.assistant_cli:main"` — an **DevOps** edit (Article IX), like `pixelart-run`.
 
-### 3. Responsiveness — off the per-frame loop, minimal AGT-10 involvement (DEP-5, REQ-P14-UI-004)
+### 3. Responsiveness — off the per-frame loop, minimal Rendering & Performance involvement (DEP-5, REQ-P14-UI-004)
 
 The assistant is **batch/background** work (Article VI): a model round-trip runs on the
 `Assistant_Worker` off the GUI thread; the network I/O (14D urllib) is bounded by
 `ASSISTANT_REQUEST_TIMEOUT_S`; progress/cancel are surfaced where a long call warrants. The **16 ms
 `FRAME_BUDGET_MS` does not gate a model call** — unlike Phase-9's per-frame overlays, this is batch IO, the
-Phase-7/8/10/11 worker posture. **AGT-10 involvement is minimal:** the assistant introduces **no** new
+Phase-7/8/10/11 worker posture. **Rendering & Performance involvement is minimal:** the assistant introduces **no** new
 per-frame canvas work — its edits are the *same* undoable `dispatch` ops the app already applies, re-rendered
-through the existing dirty-rect path — so **no AGT-10 render-strategy directive is required**; AGT-10 need
+through the existing dirty-rect path — so **no Rendering & Performance render-strategy directive is required**; Rendering & Performance need
 only confirm no canvas-frame regression. This ADR fixes the observable **stays-responsive** contract
 (SC-UI-004-1).
 
@@ -71,10 +71,10 @@ only confirm no canvas-frame regression. This ADR fixes the observable **stays-r
 - A **NEW in-app User-Guide topic under the EXISTING `automation-and-scripting` section** of the shipped
   guide manifest — a new *topic*, **NOT a new section** — so `len(sections)` stays
   `== len(REQUIRED_AREAS) == 12` (per shipped `logic/guide_model.py`; adding a topic is a data change, no
-  new required area — SC-UI-008-1). AGT-08 authors the prose (the ADR-0029 content/layering model).
+  new required area — SC-UI-008-1). The documentation authors the prose (the ADR-0029 content/layering model).
 - A **README launch surface** documenting **both** the in-app assistant dock **and** the
   `pixelart-assistant` CLI: how to configure a provider/key, that it is credential-optional, and the
-  tiered-safety behaviour (SC-UI-008-2). AGT-08 authors; shared with 14F.
+  tiered-safety behaviour (SC-UI-008-2). The documentation authors; shared with 14F.
 
 ## Alternatives Considered
 
@@ -88,7 +88,7 @@ only confirm no canvas-frame regression. This ADR fixes the observable **stays-r
 - **A new User-Guide section for the assistant.** Rejected: would break
   `len(sections) == len(REQUIRED_AREAS) == 12`; the assistant is an Automation capability — a topic under
   it (spec REQ-P14-UI-008).
-- **An AGT-10 frame-budget profiling pass for the assistant.** Rejected as unnecessary: no per-frame canvas
+- **An Rendering & Performance frame-budget profiling pass for the assistant.** Rejected as unnecessary: no per-frame canvas
   work is added (§3); a confirm-no-regression check suffices.
 
 ## Consequences
@@ -98,8 +98,8 @@ only confirm no canvas-frame regression. This ADR fixes the observable **stays-r
 without disturbing the 12-area guide invariant. No new top-level package; the only Qt stays in `ui/` (+ the
 shipped `ui/commands.py`).
 
-**Negative / risk.** The dock's "watch it act" UX + streaming partial output is new UI surface for AGT-05
-(a11y/both-themes/i18n verified by AGT-06/AGT-07). The CLI's confirm affordance must be unambiguous so a
+**Negative / risk.** The dock's "watch it act" UX + streaming partial output is new UI surface for the UI implementation
+(a11y/both-themes/i18n verified by QA/localisation). The CLI's confirm affordance must be unambiguous so a
 scripted destructive op is never auto-applied (SC-D008-2) — covered by the tiered-gate test.
 
 ## Grounding
@@ -108,5 +108,5 @@ scripted destructive op is never auto-applied (SC-D008-2) — covered by the tie
   SC-UI-001-1..008-2, SC-D008-1/-2.
 - Shipped `data/automation_cli.py` (`pixelart-run`), `logic/guide_model.py` (`REQUIRED_AREAS` == 12),
   Phase-7/8/10/11 `ui/*_worker.py` precedent, `ui/commands.py` (CL-8). Constitution Article I, V, VI, VII, IX.
-- Researcher `ad2616c7` R5.4 (confirm surface), R2.4 (streaming orthogonal to the loop). ADR-0020/0022,
+- Research note `ad2616c7` R5.4 (confirm surface), R2.4 (streaming orthogonal to the loop). ADR-0020/0022,
   ADR-0029, ADR-0039/0040/0041.

@@ -730,8 +730,8 @@ class Main_Window(QMainWindow):
         self._frame_tags_panel.playTagRequested.connect(self._on_play_tag)
         self._tags_dock = self._add_workflow_dock(self._frame_tags_panel)
 
-        # Phase-3 Slice-3C palette-workflow surfaces (REQ-P3-UI-001/-002/-007..-013).
-        # Each binds to the Slice-3A logic and pushes one QUndoCommand per mutation.
+        # Phase-3 palette-workflow surfaces (REQ-P3-UI-001/-002/-007..-013).
+        # Each binds to its logic module and pushes one QUndoCommand per mutation.
         self._palette_editor = Palette_Editor_Panel(self)
         self._palette_editor.colorSelected.connect(self._on_palette_selected_rgba)
         self._editor_dock = self._add_workflow_dock(self._palette_editor)
@@ -1059,7 +1059,7 @@ class Main_Window(QMainWindow):
         # catalog, tag assets, and search/filter — three docked panels bound to one
         # Asset_Library_Session that holds the shared AssetCatalog, LOADED FROM DISK
         # at bind time and persisted on every mutation (REQ-P11-DATA-008), and the
-        # shared undo stack the tag QUndoCommands push onto (PL11-D3). Every Slice-1
+        # shared undo stack the tag QUndoCommands push onto (PL11-D3). Every
         # library op (enumerate, filter, tag) is a SYNCHRONOUS in-memory call over the
         # immutable catalog value — no network, no off-GUI-thread worker / timer /
         # poller (the Slice-B Shared_Projects_Panel precedent), so shutdown_prewarm is
@@ -1092,7 +1092,7 @@ class Main_Window(QMainWindow):
         # binds to the SAME Asset_Library_Session (single source of catalog + graph)
         # and follows the library selection. Every query is a pure, cycle-safe,
         # microsecond-fast in-memory call over the immutable graph value — SYNCHRONOUS
-        # on the GUI thread, no worker / timer / poller (the Slice-1 precedent), so
+        # on the GUI thread, no worker / timer / poller, so
         # shutdown_prewarm is unchanged and nothing survives into GC.
         self._dependency_graph_view = Dependency_Graph_View(self)
         self._dependency_graph_view.set_session(self._asset_session)
@@ -1125,8 +1125,8 @@ class Main_Window(QMainWindow):
         # browser records/fetches through the revision store (CAS-backed), and the
         # reuse panel only has()-checks the CAS on a reference — it never put()s, so
         # the CAS blob count is unchanged (reference-not-copy). Every op is a
-        # SYNCHRONOUS CAS/in-memory call — no worker / timer / poller (the Slice-1/2
-        # precedent), so shutdown_prewarm is unchanged and nothing survives into GC.
+        # SYNCHRONOUS CAS/in-memory call — no worker / timer / poller, so
+        # shutdown_prewarm is unchanged and nothing survives into GC.
         self._asset_content_store = default_content_store(self._asset_root())
         self._asset_revision_store = AssetRevisionStore(self._asset_content_store)
         # Per ruling P11-R11: adopt persisted revision history before any
@@ -2520,7 +2520,7 @@ class Main_Window(QMainWindow):
         )
 
     def _add_workflow_dock(self, widget: QWidget) -> QDockWidget:
-        """Add a Slice-3C workflow widget as a dock tabified with the palette.
+        """Add a workflow widget as a dock tabified with the palette.
 
         FIX 3 (2026-08-24 field defect): cap the panel's content-derived
         minimum width so this tab group can shrink to FIX 1's

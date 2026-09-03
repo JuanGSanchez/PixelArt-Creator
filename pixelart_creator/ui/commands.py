@@ -18,8 +18,8 @@ mutating op reuses, so the QUndoStack in this module stays the only undo system
 
 Phase-3 note: a colour-hub pick (wheel / harmony / favourite) sets the **active
 paint colour** — a tool-state change, not a buffer mutation — so it creates **no**
-``QUndoCommand`` and never touches the undo stack (REQ-P3-UI-006). The Slice-3C
-mutating ops all reuse :class:`LogicCommand`: the buffer ops
+``QUndoCommand`` and never touches the undo stack (REQ-P3-UI-006). All other
+mutating ops reuse :class:`LogicCommand`: the buffer ops
 (dither / constraint / cycle / swap) pass the unapplied ``PixelEdit`` returned by
 their ``logic`` builder, and the palette-editor edits (add / remove / reorder /
 import) pass a :class:`~pixelart_creator.logic.history.FunctionCommand` whose

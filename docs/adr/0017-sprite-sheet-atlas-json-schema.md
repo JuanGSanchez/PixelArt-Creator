@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-04 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-7-export` |
 | Supersedes | — |
 | Superseded by | — |
@@ -13,9 +13,9 @@
 
 Phase 7 emits **JSON metadata** describing every frame/sprite laid out on a sprite sheet or packed
 into a texture atlas (REQ-P7-LOGIC-007/-008, REQ-P7-DATA-004). The spec deferred the **canonical
-schema** to AGT-01 (DEP-2/CL-6): the observable contract is fixed — a *valid, deterministic,
+schema** to architecture (DEP-2/CL-6): the observable contract is fixed — a *valid, deterministic,
 self-consistent* document whose coordinates round-trip against the packed image and that a named
-tool re-imports — but the concrete schema is a HOW decision. The Researcher
+tool re-imports — but the concrete schema is a HOW decision. Prior research
 (`docs/research-phase-7-export-20260704.md`, Topic 2 + Open decision 1/2) surfaced three families:
 
 - **Aseprite JSON** (Hash/Array layouts) — de-facto pixel-art interchange; native `frameTags` +
@@ -28,7 +28,7 @@ tool re-imports — but the concrete schema is a HOW decision. The Researcher
 A load-bearing fact from the shipped code: `logic/compactor.py` (CP-1, the MaxRects packer Phase 7
 reuses, REQ-P7-LOGIC-006) has **rotation disabled** — it exposes **no `allowFlip`**, and its
 `Placement(id, x, y, w, h)` carries **no rotation flag**. A reused-compactor atlas therefore *never*
-produces a rotated region. The Researcher also flagged (Topic 3) that neither Unity
+produces a rotated region. Prior research also flagged (Topic 3) that neither Unity
 `SpriteMetaData.rect` nor Godot `AtlasTexture.region` can express a rotated source region.
 
 ## Decision

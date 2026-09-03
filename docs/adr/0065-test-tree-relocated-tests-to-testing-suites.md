@@ -4,7 +4,7 @@
 |---|---|
 | Status | Accepted |
 | Date | 2026-08-30 |
-| Owner | AGT-08 (Documenter), recording an already-executed relocation |
+| Owner | the documentation (Documenter), recording an already-executed relocation |
 | Grounded by | Branch `feat-go-public`, commits `a98f61f` (rename), `65026ad` (repoint references), `4280d77` (restore package chain); `pyproject.toml` `testpaths = ["testing/suites", "web_viewer/tests"]` |
 
 ## Context
@@ -78,7 +78,7 @@ rule above by hand unless they also read this record.
 **What this enables.** One test root, `testing/suites/`, that is both the
 pytest root and the same top-level name the container itself uses for its own
 test tree — reducing the friction of `git -C main worktree add` cross-checks
-between the two `testing/` locations described in `CLAUDE.md`.
+between the two `testing/` locations — this repository's and the container's own.
 
 **What it constrains.** Any future ADR or spec that names a test path names it
 under `testing/suites/`, never `tests/`, from 2026-08-30 forward.

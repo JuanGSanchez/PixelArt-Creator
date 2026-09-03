@@ -9,7 +9,7 @@ projects each one to a provider-neutral **tool descriptor** — a ``name`` + a
 human-readable ``description`` + a **JSON-schema** derived from the op's shipped
 :class:`~pixelart_creator.logic.scripting.ParamSchema` — so an external LLM's
 function-calling surface can *select* an op and *fill typed args* (the peer-reviewed
-"action-selector" pattern, Researcher ``ad2616c7`` R5.1). It adds **no** new
+"action-selector" pattern). It adds **no** new
 executable op and **no** new registration path: an op is a tool **iff**
 :func:`scripting.is_registered`, so built-ins **and** consent-gated, namespaced
 plugin ops (``"<plugin>.<op>"``, PLG-1) are tracked automatically with no second

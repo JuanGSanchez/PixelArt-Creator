@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Persistent launch entry for the shipped ``sync_backend/`` relay on a VPS.
 
-Phase-13 (REQ-P13-BACKEND-001, Researcher Q4). The shipped
+Phase-13 (REQ-P13-BACKEND-001, research finding Q4). The shipped
 :class:`sync_backend.server.SyncServer` is CI-shaped: it exposes ``async start()``
 (bind an ephemeral loopback port, return the bound address) and ``async stop()`` but
 has **no** ``__main__``/run-forever entry — and per REQ-P13-BACKEND-001 the backend

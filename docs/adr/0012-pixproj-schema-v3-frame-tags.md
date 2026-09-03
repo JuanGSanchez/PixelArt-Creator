@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-03 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-5-animation` |
 | Supersedes | — |
 | Superseded by | — |
@@ -16,7 +16,7 @@ range — to the `Document` (REQ-P5-LOGIC-009, REQ-P5-DATA-001), and an additive
 `layer_id` on each layer/group node so the timeline/onion/tags can address layer *tracks*
 (research Q4 caveat). Per-frame `duration_ms` and the richer layer model **already persist** in
 `.pixproj` v2 (`data/project_io.py`, ADR-0006), so only tags + `layer_id` are new. DEP-2 directs
-AGT-01 to rule whether this is a schema-version bump or an additive field on v2; back-compat read of
+Architecture to rule whether this is a schema-version bump or an additive field on v2; back-compat read of
 tagless projects is required regardless (REQ-P5-DATA-003). Article VII requires the load stay
 defensive (validated, bounds-checked, no `eval`/`exec`).
 
@@ -73,7 +73,7 @@ keep opening (REQ-P5-DATA-002/003); the version field keeps the format self-desc
 export; one defensive validator, one save/open path. Native-mode storage keeps the round-trip
 lossless and defers the Aseprite mapping to the export phase that owns it.
 
-**Negative / risk.** The loader gains a third branch (v1/v2/v3); all three are covered by AGT-04
+**Negative / risk.** The loader gains a third branch (v1/v2/v3); all three are covered by the test suite
 tests, including a checked-in v2 fixture that loads (empty tags) and re-saves as v3. Tag validation
 must be fail-closed (Article VII); the loader rejects malformed/out-of-range tags rather than
 clamping on load (clamping is a *runtime* frame-op concern, REQ-P5-LOGIC-010, not a load concern).

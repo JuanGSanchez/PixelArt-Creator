@@ -5,7 +5,7 @@
 | Status | **Accepted** (amended 2026-07-07 — Slice-A resolution; see Amendment below) |
 | Date | 2026-07-07 |
 | Amended | 2026-07-07 — Slice-A resolution: realistic-content gating + off-thread dense case; supersedes the §1 uint8-byte-exactness and §5 dense-ceiling claims |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-12-performance-scalability` (`REQ-P12-LOGIC-001`, `REQ-P12-LOGIC-002`, `REQ-P12-LOGIC-003`; FU-P5-PERF / Slice A) |
 | Supersedes | — |
 | Superseded by | — |
@@ -13,7 +13,7 @@
 
 ## Context
 
-AGT-10's measure-first baseline (HEAD `f73b1a5`) found the cold full-frame 8K multi-layer flatten —
+Rendering & Performance's measure-first baseline (HEAD `f73b1a5`) found the cold full-frame 8K multi-layer flatten —
 `logic/blend.py::composite_stack(region=None)` over the full `(4320, 7680, 4)` canvas — costs **20 244 ms
 @ 4 layers → 42 669 ms @ 8 layers** (baseline §2 #1/#1b). It is a **batch / on-demand** op (flatten,
 export, merge-visible), **not** a 60-fps path, so Article VI's 16 ms `FRAME_BUDGET_MS` does not *govern*
@@ -63,13 +63,13 @@ never re-implementing the compositor and never changing the produced pixels.**
   never render a wrong composite.
 - Where non-trivial, run the whole op off the GUI thread via the shipped Phase-5 `ui/composite_warmer.py`
   substrate with a progress cue (a `ui/` concern; `logic/` stays Qt-free). Whether/how the warmer is
-  reused is an AGT-05/AGT-10 HOW.
+  reused is a UI implementation/Rendering & Performance HOW.
 
 ### 4. Byte-exact output invariant is a first-class acceptance criterion (REQ-P12-LOGIC-002)
 
 - The optimised full-frame flatten produces a buffer **byte-equal** to the current shipped `composite_stack`
   for **NORMAL and all 11 separable modes**, across representative layer counts / opacities / masks, with
-  **zero tolerance**, and is **deterministic** (same inputs ⇒ byte-identical across runs). AGT-04's
+  **zero tolerance**, and is **deterministic** (same inputs ⇒ byte-identical across runs). The test suite's
   regression tests over the 12 modes are the gate.
 
 ### 5. A loose full-frame perf gate (REQ-P12-LOGIC-003, Article II / VI / FU-15)
@@ -81,9 +81,9 @@ never re-implementing the compositor and never changing the produced pixels.**
   single-source value is `COMPOSITE_FULL_CEILING_MS` = 15000 ms in `logic/constants.py`; see the "Ceiling
   finalised at 15000 ms" amendment below**). It is a **loose
   catastrophic-regression bound**, sized above the optimised cost with 2-core-runner headroom (FU-15),
-  **not** a 16 ms bound and **not** asserted against the frame budget. AGT-10's RE-PROFILE ship gate
-  confirms/tightens the value against the measured optimised 2-core cost before AGT-09 wires CI; the
-  scenario is AGT-10 HOW, the CI wiring AGT-09 HOW, the value AGT-01 HOW.
+  **not** a 16 ms bound and **not** asserted against the frame budget. Rendering & Performance's RE-PROFILE ship gate
+  confirms/tightens the value against the measured optimised 2-core cost before DevOps wires CI; the
+  scenario is Rendering & Performance HOW, the CI wiring DevOps HOW, the value architecture HOW.
 
 `composite_stack`'s public signature is **preserved** (`composite_stack(nodes, w, h, *, region=None)`); all
 new capability is additive/private. `blend.py` keeps its `document`-free posture (PL-D2). No new module,
@@ -141,10 +141,10 @@ The **shipped byte-exact 3.3–12× win is retained**; only the specific commitm
 `composite_stack(nodes, w, h, *, region=None)` signature, the pure Qt-free `logic/blend.py` posture, and
 the `check_layering` / `check_cycles` exit-0 status are all **unchanged** by this resolution.
 
-### Amendment (2026-07-07) — Ceiling finalised at 15000 ms (AGT-10 RE-PROFILE)
+### Amendment (2026-07-07) — Ceiling finalised at 15000 ms (Rendering & Performance RE-PROFILE)
 
-*Immutable-append. Records the outcome of the AGT-10 RE-PROFILE ship gate that §5 promised ("AGT-10's
-RE-PROFILE ship gate confirms/tightens the value … before AGT-09 wires CI"). This note does **not** rewrite
+*Immutable-append. Records the outcome of the Rendering & Performance RE-PROFILE ship gate that §5 promised ("Rendering & Performance's
+RE-PROFILE ship gate confirms/tightens the value … before DevOps wires CI"). This note does **not** rewrite
 any prose above; it supersedes only the ceiling **figure**. Every `3000 ms` in the original Decision §5 and
 in the first Amendment above is the **pre-RE-PROFILE candidate** value (the mirror of the full-8K
 `TILEMAP_VIEWPORT_CEILING_MS`) and is retained as the historical record of what was planned/reasoned at that
@@ -197,9 +197,9 @@ a CI gate; the change is dependency-free and lands entirely inside the existing 
 off-thread warmer.
 
 **Negative / risk.** The byte-exact invariant makes the fast-path routing subtle — it must match the
-float64 base case exactly (mitigated by AGT-04's per-mode regression + determinism tests). The tiled path
+float64 base case exactly (mitigated by the test suite's per-mode regression + determinism tests). The tiled path
 adds tiling/threading bookkeeping to `blend.py` (mitigated by disjoint-tile equivalence to
-`_composite_region`). The `COMPOSITE_FULL_CEILING_MS` value is a candidate until AGT-10's RE-PROFILE ship
+`_composite_region`). The `COMPOSITE_FULL_CEILING_MS` value is a candidate until Rendering & Performance's RE-PROFILE ship
 gate measures the optimised 2-core cost (mitigated: loose bound sized above optimised cost with headroom,
 and RE-PROFILE precedes CI wiring).
 

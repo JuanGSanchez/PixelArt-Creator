@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-03 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-2-floating-selection` (REQ-NEW-C floating-selection move/copy) |
 | Supersedes | — |
 | Superseded by | — |
@@ -19,7 +19,7 @@ while the pixels *beneath* stay untouched until the move is **committed**; a mod
 move into a copy; ESC cancels with an exact restore; commit is one undoable step
 (release / Enter / tool-switch).
 
-Two architectural questions must be settled before implementation so AGT-03 (logic) and AGT-05
+Two architectural questions must be settled before implementation so the implementation (logic) and the UI implementation
 (UI) bind to a stable contract:
 
 1. **How is the preview non-destructive, and how does the commit stay reversible and reuse the
@@ -27,7 +27,7 @@ Two architectural questions must be settled before implementation so AGT-03 (log
    the whole buffer to undo — heavy and duplicative of the shipped command.
 2. **How is the live drag preview kept within the 8K frame budget (FRAME_BUDGET_MS = 16,
    Article VI)?** A preview that recomputes/allocates the whole canvas per mouse-move is the
-   exact anti-pattern ADR-0007 (T13 amendment) measured at ~140 ms / ~9× over budget.
+   exact anti-pattern ADR-0007's amendment measured at ~140 ms / ~9× over budget.
 
 ## Decision
 
@@ -62,8 +62,8 @@ code changes. The UI guarantees the invariant: no other edit runs while a float 
   rule for `composite_stack`).
 
 The **UI drag path MUST use the `region=` form** so a per-mouse-move preview costs its dirty
-rect, not the canvas — the direct application of ADR-0007's T13 lesson (no full-canvas alloc per
-frame). AGT-10 owns the Qt-side measurement/tuning; the budget is never relaxed (Article VI §2).
+rect, not the canvas — the direct application of ADR-0007's amendment lesson (no full-canvas alloc per
+frame). Rendering & Performance owns the Qt-side measurement/tuning; the budget is never relaxed (Article VI §2).
 
 ### D4 — COPY is a sibling builder; the mode flag lives on the float
 
@@ -95,7 +95,7 @@ cross-reference; this ADR makes no new mode/vacate decision.
 - **New `logic/floating_selection.py` module.** Rejected (plan §1.1): the model is intrinsically
   coupled to `SelectionMask` + `move_selection` in `selection.py`; a split fragments one domain
   and adds an import edge for no benefit. `FloatMode` follows the module-local enum precedent.
-- **Full-canvas `composite_preview` return every mouse-move.** Rejected: the ADR-0007 T13
+- **Full-canvas `composite_preview` return every mouse-move.** Rejected: the ADR-0007
   anti-pattern (~140 ms / ~9× over budget at 8K). The `region=` return is the fix.
 - **`FloatingSelection.commit(buffer)` method (OO).** Rejected in favour of free-function
   builders + a `commit_floating` dispatcher, to reuse `move_selection` verbatim and keep the
@@ -106,7 +106,7 @@ cross-reference; this ADR makes no new mode/vacate decision.
 **Positive.** MOVE reuses shipped, tested `move_selection` with zero change; the only new logic
 is `FloatingSelection` + `lift_selection` + `composite_preview` + `copy_selection` +
 `commit_floating`. Cancel is trivially exact (no restore). The region-scoped preview contract
-gives AGT-10 a defined tuning surface and keeps the 16 ms budget reachable. No `constants.py`
+gives Rendering & Performance a defined tuning surface and keeps the 16 ms budget reachable. No `constants.py`
 change; no new dependency; layering stays acyclic (additions import only what `selection.py`
 already imports).
 
@@ -115,7 +115,7 @@ buffer during a float — the UI must ensure a float is committed/cancelled befo
 (enforced by commit-on-tool-switch and single-active-interaction). Cache-safety for a
 composited RGBA layer at commit follows the existing `LogicCommand` refresh path. The
 region-preview dirty-rect union (old float bbox ∪ new float bbox ∪ origin bbox) must be computed
-correctly by AGT-05 or the old float position will ghost; asserted by AGT-06.
+correctly by the UI implementation or the old float position will ghost; asserted by QA.
 
 ## Grounding
 
@@ -123,10 +123,10 @@ correctly by AGT-05 or the old float position will ghost; asserted by AGT-06.
   LOGIC-030..036 / UI-030..036), §5 (NFR-1..9), §10 (CL-F1..F8); `traceability.md`.
 - Plan `specs/phase-2-floating-selection/plan.md` §1.1 (placement), §2 (handoff resolutions),
   §4 (frozen logic contract), §5 (UI seam), §6 (perf directive).
-- ADR-0007 (region-scoped recomposite; T13 full-canvas-alloc anti-pattern; budget never
+- ADR-0007 (region-scoped recomposite; full-canvas-alloc anti-pattern; budget never
   relaxed). ADR-0008 (mode authority; index-0 vacate; indexed = single layer).
 - Shipped `logic/selection.move_selection` (destructive cut-move: lift + vacate + restamp,
   clipped, unapplied `PixelEdit`), `logic/history.PixelEdit`, `logic/pixel_buffer` (`region`/
   `blit`/`in_bounds`/`copy`), `logic/color.TRANSPARENT`.
 - Constitution Article I (three-layer purity; `check_layering`/`check_cycles` gate),
-  Article II (constants), Article VI (16 ms / 8K; over-budget → AGT-10 directive).
+  Article II (constants), Article VI (16 ms / 8K; over-budget → Rendering & Performance directive).

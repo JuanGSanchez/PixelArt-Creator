@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Accepted — AMENDED 2026-07-02 (T13)** |
+| Status | **Accepted — AMENDED 2026-07-02** |
 | Date | 2026-07-02 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-4-layer-canvas` |
 | Supersedes | — |
 | Superseded by | — |
-| Amendment driver | AGT-10 T13 profile `subagent-report-agt-10-rendering-performance-a4b1282f-20260702T181039.md` (see §Amendment (T13)) |
+| Amendment driver | Rendering & Performance's performance profile (an internal design record, outside this repository; see §Amendment) |
 
 ## Context
 
@@ -16,10 +16,10 @@ REQ-P4-UI-015 (NFR, Article VI) requires an 8K multi-layer stack (7680×4320) to
 `FPS_TARGET = 60` / `FRAME_BUDGET_MS = 16` on recomposite. A full-canvas recomposite of a
 multi-layer stack on **every** edit is infeasible at 8K: a single flatten touches ~33 M
 pixels per layer, blowing the 16 ms budget many times over (spec DEP-2, CL-13). The spec
-fixes only the budget; the recomposite **strategy** is flagged to AGT-01 (plan-level, DEP-2)
-and AGT-10 (Qt viewport tuning). This ADR records the architecture-level commitment so the
+fixes only the budget; the recomposite **strategy** is flagged to architecture (plan-level, DEP-2)
+and Rendering & Performance (Qt viewport tuning). This ADR records the architecture-level commitment so the
 compositor's public API and the canvas contract are stable before implementation, and so
-AGT-10 has a defined optimisation surface.
+Rendering & Performance has a defined optimisation surface.
 
 ## Decision
 
@@ -38,11 +38,11 @@ flattened group buffers are cached and reused when their subtree is unchanged.**
   unchanged, so a group with N static children costs one blend, not N, per recomposite.
 - The **resident per-layer buffers are never culled** (Article VI §3, F7) — only Qt rendering
   is culled / region-scoped. The pixel data stays fully in memory.
-- **AGT-10 owns the measurement + Qt tuning:** `frame-profile` / `perf_profile` measures the
-  8K recomposite headless (T13). An over-budget result yields an AGT-10 directive AGT-05
+- **Rendering & Performance owns the measurement + Qt tuning:** `frame-profile` / `perf_profile` measures the
+  8K recomposite headless. An over-budget result yields a Rendering & Performance directive the UI implementation
   implements — dirty-rect scope, cache scope, `QOpenGLWidget` viewport, `setBspTreeDepth`,
-  tiled composite items (BF-1) — and the **budget is never relaxed** (Article VI §2). AGT-01
-  fixes the region-scoped API + cached-group commitment; AGT-10 fixes the render-pipeline
+  tiled composite items (BF-1) — and the **budget is never relaxed** (Article VI §2). Architecture
+  fixes the region-scoped API + cached-group commitment; Rendering & Performance fixes the render-pipeline
   parameters.
 
 ## Alternatives Considered
@@ -53,7 +53,7 @@ flattened group buffers are cached and reused when their subtree is unchanged.**
   flattening are domain logic and must stay Qt-free in `logic/` (Article I); the UI only
   draws the flat buffer and signals dirty rects.
 - **Fixed tile-grid recomposite (always TILE_SIZE tiles).** Deferred, not adopted as the
-  base commitment: it is one *tuning* option AGT-10 may direct after profiling (BF-1), but the
+  base commitment: it is one *tuning* option Rendering & Performance may direct after profiling (BF-1), but the
   base API is an arbitrary-rectangle region so an edit's exact dirty rect drives the cost, not
   a fixed tile quantum. Tiling remains available if profiling shows it wins.
 
@@ -61,20 +61,20 @@ flattened group buffers are cached and reused when their subtree is unchanged.**
 
 **Positive.** A single edit costs ≈ its dirty rect, not the canvas; groups amortise to one
 cached blend; the compositor API (`region=`) and the never-cull buffer rule are stable for
-AGT-05 and AGT-10 before code lands. Clear ownership split: AGT-01 = region-scoped API +
-cache commitment; AGT-10 = measured Qt tuning; budget is a hard gate.
+the UI implementation and Rendering & Performance before code lands. Clear ownership split: architecture = region-scoped API +
+cache commitment; Rendering & Performance = measured Qt tuning; budget is a hard gate.
 
 **Negative / risk.** Cache invalidation must be correct — a stale group cache would render a
 wrong composite. The invalidation contract (any child edit / attribute / order change dirties
-the group cache up the ancestor chain) is specified for AGT-03/AGT-05 and asserted by AGT-06
-(composite-updates-on-edit, SC-UI-012-2). If profiling (T13) still exceeds budget after
+the group cache up the ancestor chain) is specified for the implementation/the UI implementation and asserted by QA
+(composite-updates-on-edit, SC-UI-012-2). If profiling still exceeds budget after
 dirty-rect + group caching, the directive escalates to viewport/tiling tuning — never a budget
 relaxation.
 
-## Amendment (T13) — 2026-07-02
+## Amendment — 2026-07-02
 
-**Driver.** AGT-10's T13 performance profile
-(`subagent-report-agt-10-rendering-performance-a4b1282f-20260702T181039.md`) measured the shipped
+**Driver.** Rendering & Performance's performance profile
+(an internal design record, outside this repository) measured the shipped
 `logic/blend.composite_stack` at 8K (7680×4320) and found the region / single-pixel path at
 **~140 ms — FAILING SC-UI-015-1 (REQ-P4-UI-015, 16 ms budget) by ~9×**. Root cause (load-bearing):
 the cost is **not** the blend — a brush-sized dirty rect blends in ~1.5 ms — but a **mandatory
@@ -108,21 +108,21 @@ Article VI §2 forbids relaxing the budget, so the contract is amended (not the 
 
 2. **D5 — float32 working space (compliance correction).** ADR-0005 already mandates a float32
    blend working space; the shipped implementation deviated to **float64**. It must use **float32**
-   (halves per-pixel memory/time at 8K). Recorded here + in ADR-0005 §"Compliance note (T13)". No
+   (halves per-pixel memory/time at 8K). Recorded here + in ADR-0005 §"Compliance note". No
    behaviour change beyond deterministic float→uint8 rounding (already centralised).
 
 3. **D4 — cached group buffers + partial-stack recomposite are now MANDATORY (not optional).** The
-   original ADR committed to cached flattened group buffers; T13 makes the **invalidation contract
-   explicit and required for AGT-03**: any child edit / attribute / order / mask change **invalidates
+   original ADR committed to cached flattened group buffers; this amendment makes the **invalidation contract
+   explicit and required for the implementation**: any child edit / attribute / order / mask change **invalidates
    the group cache up the entire ancestor chain**; a stale cache renders a wrong composite. Asserted
-   by AGT-06 (SC-UI-012-2). Additionally, **partial-stack recomposite**: cache the composited backdrop
+   by QA (SC-UI-012-2). Additionally, **partial-stack recomposite**: cache the composited backdrop
    of layers *below* the changed layer, so an attribute change on layer *k* re-blends only *k..top*.
 
-**Ownership / scope of the amendment.** D1/D4/D5 are **logic-layer** items owned by **AGT-03**
+**Ownership / scope of the amendment.** D1/D4/D5 are **logic-layer** items owned by **the implementation**
 (implement) under this amended contract. D2 (viewport-scoped attribute recomposite instead of
 whole-stack `refresh_all`) and D3 (opacity-drag debounce to one recomposite per frame) are **UI
-directives owned by AGT-05** (AGT-10 report §4). D6 (`QOpenGLWidget` viewport) and D7
-(`setBspTreeDepth`) **remain deferred** per AGT-10 — needed only for the worst-case whole-viewport,
+directives owned by the UI implementation** (Rendering & Performance report §4). D6 (`QOpenGLWidget` viewport) and D7
+(`setBspTreeDepth`) **remain deferred** per Rendering & Performance — needed only for the worst-case whole-viewport,
 many-layer recomposite, not for the SC-UI-015-1 single-edit path this amendment fixes. The budget was
 **never relaxed** (Article VI §2). The change is **localised to the compositor return shape + working
 dtype**: the public signature is unchanged, no imports are added, the layering stays one-way
@@ -131,18 +131,18 @@ this session.
 
 ## Grounding
 
-- AGT-10 T13 profile `subagent-report-agt-10-rendering-performance-a4b1282f-20260702T181039.md`
+- Rendering & Performance's profile (an internal design record, outside this repository)
   (§2b measured 8K region path ~140 ms; §3 root-cause = full-canvas `PixelBuffer` alloc+fill floor).
-- Spec `specs/phase-4-layer-canvas/spec.md` REQ-P4-UI-015 (§5), §8 DEP-2, CL-13; plan §2/§10 (§10 T13 Amendment).
-- Constitution Article VI (16 ms / 8K; over-budget → AGT-10 directive; resident buffer never
+- Spec `specs/phase-4-layer-canvas/spec.md` REQ-P4-UI-015 (§5), §8 DEP-2, CL-13; plan §2/§10 (§10 Amendment).
+- Constitution Article VI (16 ms / 8K; over-budget → Rendering & Performance directive; resident buffer never
   culled) and Article II (`FRAME_BUDGET_MS`, `FPS_TARGET`, `TILE_SIZE`).
 - Research F2/F7 (exposed-rect draw, culling Qt not data) and the `render-strategy` /
-  `frame-profile` skill ownership (AGT-10).
+  `frame-profile` skill ownership (Rendering & Performance).
 - REQ-P4-LOGIC-011 (group composites children then blends as one — the cached intermediate).
 
 ## Footnote (2026-08-16) — the NORMAL array path deliberately re-deviates to float64 (scope of D5)
 
-*Immutable-append. Neither the original Decision nor the T13 Amendment above is rewritten; this
+*Immutable-append. Neither the original Decision nor the Amendment above is rewritten; this
 footnote records a deliberate, tested narrowing of **D5** so that the divergence between the ADR text
 and the shipped code reads as a recorded decision rather than as drift.*
 
@@ -172,6 +172,6 @@ also carried in the `_blend_over_arrays` docstring.
 
 **Scope.** D5's float32 mandate is hereby read as governing the **generic separable path (the eleven
 non-NORMAL modes)**; the **NORMAL** array path is float64 **by decision**. Nothing else in D5 or in the
-T13 Amendment changes — D1's region-sized return shape and D4's cache-invalidation contract stand, no
+Amendment changes — D1's region-sized return shape and D4's cache-invalidation contract stand, no
 public signature changes, no import is added, and `check_layering` / `check_cycles` are unaffected
 (this is a dtype choice inside one Qt-free `logic/` function).

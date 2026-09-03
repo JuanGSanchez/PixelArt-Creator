@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-04 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-10-cloud-collaboration` (Slices B/C) |
 | Supersedes | — |
 | Superseded by | — |
@@ -20,7 +20,7 @@ convergent (strong eventual consistency), scalable to 8K without per-pixel overh
 art branching (REQ-P10-LOGIC-006/-007). This reconciles the shipped `logic/history.py` command stream
 (HIS-1) over the shipped `Document` (DOC-1). The concrete CRDT library, the raster tile-partition scheme,
 and whether CRDT state rides inside the `.pixproj` envelope or a sidecar are HOW decisions deferred to this
-ADR (spec BF-4). The Researcher grounds the landscape (§4): sequence/tree CRDTs (Yjs/YATA via **pycrdt**,
+ADR (spec BF-4). Prior research grounds the landscape (§4): sequence/tree CRDTs (Yjs/YATA via **pycrdt**,
 or **Automerge**) for structure; **tile-partitioned LWW-Register** for raster; determinism via
 logical-clock + site-id; Yjs = fastest with a built-in awareness/presence protocol; Automerge = git-like
 branching/history "for free". This ADR rules the model's placement, the library, the raster partition, the
@@ -35,7 +35,7 @@ determinism contract, the branching model, and the CRDT-state persistence.
   order-stable iteration). It is the batch/off-loop Slice-B tier (REQ-P10-LOGIC-006, Article VI).
 - **`logic/realtime_apply.py`** (ZERO-Qt, pure) is the Slice-C apply layer: it applies remote CRDT/OT
   updates to the local `Document` via the convergence model and supports git-like branching
-  (REQ-P10-LOGIC-007). Its remote-patch apply **re-enters the 16 ms per-frame budget** — the AGT-10
+  (REQ-P10-LOGIC-007). Its remote-patch apply **re-enters the 16 ms per-frame budget** — the Rendering & Performance
   FLAG-PERFRAME obligation (ADR-0027 §7).
 - **`logic/cloud_validation.py`** (ZERO-Qt, pure) validates CRDT-update blobs/presence/comment payloads
   (schema + caps). Being pure `logic/`, all three are importable by **both** the client `data/cloud/`
@@ -48,11 +48,11 @@ determinism contract, the branching model, and the CRDT-state persistence.
 - **Structured metadata** (layer tree, frames, tilemap metadata) converges through **`pycrdt`** — the
   Python bindings to `y-crdt` / `yrs` (the Rust port of Yjs). Rationale (dispatch: prefer well-maintained
   libs): pycrdt is the best-maintained Python CRDT (the `y-crdt` org; used across the Jupyter real-time
-  ecosystem), the fastest CRDT family (Researcher §4.3), transport-agnostic (its encoded updates fit the
+  ecosystem), the fastest CRDT family (research §4.3), transport-agnostic (its encoded updates fit the
   `TransportPort`, ADR-0027 §3), and ships a built-in **awareness/presence** protocol for the ephemeral
   cursors/selection kept OUT of the persisted document (REQ-P10-UI-011/-013). It imposes **no Qt** and runs
   in ZERO-Qt `logic/`.
-- **Raster pixel buffers** are **NOT** placed in a sequence CRDT (tombstone/metadata blow-up — Researcher
+- **Raster pixel buffers** are **NOT** placed in a sequence CRDT (tombstone/metadata blow-up — research
   §4.2). They converge through our own **per-tile/region LWW-Register**, implemented in pure NumPy over the
   shipped buffer: the canvas is partitioned into `CRDT_TILE_SIZE_PX` tiles; each tile is an LWW-Register
   keyed by `(logical_clock, site_id)`. Concurrent edits to *different* tiles both survive; concurrent edits
@@ -83,23 +83,23 @@ and **never** persisted into either.
 
 ### 5. Constants (Article II, BF-3)
 
-New named constants in `logic/constants.py` (values are AGT-01 defaults; AGT-03 adds them, no literals):
+New named constants in `logic/constants.py` (values are architecture defaults; the implementation adds them, no literals):
 `MAX_SHARED_MEMBERS`, `MAX_COMMENT_BYTES`, `MAX_COMMENTS_PER_PROJECT`, `MAX_CRDT_UPDATE_BYTES`,
 `CRDT_TILE_SIZE_PX`. The backend's validation caps (ADR-0027 §6) reuse these same named bounds.
 
 ## Alternatives Considered
 
 - **Automerge as the primary structured CRDT.** Strongly considered (native git-like branch/diff/history,
-  Researcher §4.6). Deferred to fallback: the `automerge-py` bindings are less consistently maintained than
+  research §4.6). Deferred to fallback: the `automerge-py` bindings are less consistently maintained than
   pycrdt, and the fork-doc + update-merge model over pycrdt already satisfies the branching contract
   (clone→edit→merge, conflict-free, reconstructable via the persisted update log). Kept as the documented
   escalation if native diff/attribution becomes a hard UI requirement.
 - **A single CRDT over the whole `.pixproj` (structure + raster).** Rejected: sequence/tree CRDTs blow up
-  on megabytes of raster (tombstones/metadata); the hybrid split is the Researcher's explicit guidance.
+  on megabytes of raster (tombstones/metadata); the hybrid split is explicit research guidance.
 - **Per-pixel LWW.** Rejected: not 8K-scalable (per-pixel CRDT metadata); tile/region partitioning is the
-  documented way to scale LWW (Researcher §4.2).
+  documented way to scale LWW (research §4.2).
 - **OT instead of CRDT.** Rejected: OT needs a central authoritative ordering server and has complex undo;
-  CRDTs fit a local-first, offline-capable desktop app that syncs opportunistically (Researcher §4.1).
+  CRDTs fit a local-first, offline-capable desktop app that syncs opportunistically (research §4.1).
 - **Embedding CRDT state inside `.pixproj` (schema bump).** Rejected (BF-4): couples the artwork file to
   collaboration state and would fork PIO-1; a sidecar keeps `.pixproj` stable (REQ-P10-DATA-002).
 
@@ -111,19 +111,19 @@ resolution; the model is pure `logic/`, unit-testable headless over an in-memory
 the backend; `.pixproj` (PIO-1) is untouched. Determinism is directly assertable (permuted-order →
 byte-identical `Document`).
 
-**Negative / risk.** Two new runtime deps (`pycrdt`; `websockets` per ADR-0027) — an AGT-09/AGT-01 manifest
-decision; the Researcher warns CRDT-lib APIs evolve, so **pin versions and re-verify the raster/binary
+**Negative / risk.** Two new runtime deps (`pycrdt`; `websockets` per ADR-0027) — a DevOps/architecture manifest
+decision; prior research warns CRDT-lib APIs evolve, so **pin versions and re-verify the raster/binary
 handling story before committing the tile-partition scheme**. The tile-LWW + tree-CRDT seam over the
 shipped `Document`/`history` (HIS-1) is the main correctness risk — mitigated by the determinism/
 commutativity property tests (SC-L006-1, SC-L007-1) which are the gate. Slice-C real-time apply carries the
-Article VI per-frame risk (AGT-10 FLAG-PERFRAME).
+Article VI per-frame risk (Rendering & Performance FLAG-PERFRAME).
 
 ## Grounding
 
 - Spec §4b (REQ-P10-DATA-009, REQ-P10-LOGIC-006), §4c (REQ-P10-DATA-010, REQ-P10-LOGIC-007), §5 (Article VI
   split, Article II BF-3), §8 (BF-3, BF-4, FLAG-PERFRAME), §9 Article I/II/VI/VII, §10.2 (CL-B5), §11
   (SC-L006-1, SC-L007-1/-2, SC-D010-1); `traceability.md` HIS-1/DOC-1 forward traces, BF-3/BF-4.
-- Researcher §4.1 (CRDT vs OT), §4.2 (which CRDT for which part; tile-partitioned LWW), §4.3 (pycrdt/yrs,
+- Prior research §4.1 (CRDT vs OT), §4.2 (which CRDT for which part; tile-partitioned LWW), §4.3 (pycrdt/yrs,
   Automerge), §4.4 (determinism / logical-clock + site-id), §4.5 (awareness/presence, transport), §4.6
   (Automerge git-like branching), §6 (in-memory-transport convergence tests).
 - Shipped `logic/document.py` (DOC-1), `logic/history.py` (HIS-1), `logic/pixel_buffer.py` (NumPy buffer),

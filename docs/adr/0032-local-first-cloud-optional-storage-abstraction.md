@@ -4,11 +4,11 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-04 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-11-team-asset-management` (`REQ-P11-DATA-006`; anchors `DATA-001/-004/-005`) |
 | Supersedes | — |
 | Superseded by | — |
-| Relates to | spec `specs/phase-11-team-asset-management/spec.md` §4b/§10 (CL-3), Researcher report §4.2/§6, constitution Article I / VII, ADR-0026/0027 (Phase-10 provider isolation), ADR-0030 (CAS) |
+| Relates to | spec `specs/phase-11-team-asset-management/spec.md` §4b/§10 (CL-3), prior internal research §4.2/§6, constitution Article I / VII, ADR-0026/0027 (Phase-10 provider isolation), ADR-0030 (CAS) |
 
 ## Context
 
@@ -35,23 +35,23 @@ Article I / ADR-0026). This ADR fixes that abstraction seam.
 ### 2. `LocalBlobBackend` is the default (offline-first); `SharedBlobBackend` is optional (REQ-P11-DATA-006, CL-3)
 
 - `LocalBlobBackend` (in `data/asset_storage.py`) — a local-FS / in-memory content-addressed backend;
-  the **default**, requiring no cloud, no network, no credentials. Slice 1 ships fully on it and is
+  the **default**, requiring no cloud, no network, no credentials. This path ships fully on it and is
   CI-testable headlessly.
-- `SharedBlobBackend` (in `data/asset_shared_backend.py`, Slice 3) — implements the **same
+- `SharedBlobBackend` (in `data/asset_shared_backend.py`) — implements the **same
   `BlobBackend`** by composing the shipped Phase-10 `data/cloud/` shared storage
   (`shared_adapter` / `CloudPort`). It is selected **only when a Phase-10 provider is connected**;
   otherwise the local backend serves everything. When cloud-backed, the Phase-10 provider-isolation +
   untrusted-input + membership posture applies, and every fetched blob is **content-hash-verified**
   (ADR-0030 §4) — a mismatch is rejected.
 
-### 3. Untrusted-input + path defence carry through (REQ-P11-DATA-002/-006, Article VII, Researcher §5)
+### 3. Untrusted-input + path defence carry through (REQ-P11-DATA-002/-006, Article VII, research §5)
 
 - Blobs fetched from **either** backend are content-hash-verified before use. Catalog/sidecar loads and
   imported references are schema+caps validated (`MAX_CATALOG_ASSETS`, `MAX_TAGS_PER_ASSET`,
   `MAX_TAG_BYTES`, `MAX_METADATA_BYTES`, `MAX_BLOB_BYTES`), **never** `eval`/`exec`'d, and every
   referenced path is **path-traversal-defended**: `resolved = (library_root / candidate).resolve()`
   then containment via `resolved.relative_to(library_root)` / `os.path.commonpath` — `..` escapes and
-  absolute-path escapes rejected with a domain error (Researcher §5; the shipped PIO-1 /
+  absolute-path escapes rejected with a domain error (research §5; the shipped PIO-1 /
   `MAX_CLOUD_PROJECT_BYTES` defensive precedent).
 
 ### 4. Three-layer placement (Article I; `check_layering`/`check_cycles` must stay exit 0)
@@ -59,7 +59,7 @@ Article I / ADR-0026). This ADR fixes that abstraction seam.
 | Layer | Module | Responsibility | Qt |
 | --- | --- | --- | --- |
 | `data/` | `asset_storage.py` **(new)** | `BlobBackend` ABC + `LocalBlobBackend` (offline default); the local-vs-cloud seam; `AssetStorageError` | **zero** |
-| `data/` | `asset_shared_backend.py` **(new, Slice 3)** | `SharedBlobBackend(BlobBackend)` composing `data/cloud/` shared storage; hash-verified fetch; **no provider type above the port** | **zero** |
+| `data/` | `asset_shared_backend.py` **(new)** | `SharedBlobBackend(BlobBackend)` composing `data/cloud/` shared storage; hash-verified fetch; **no provider type above the port** | **zero** |
 
 - Edges point **down**: `asset_storage → logic/constants`; `asset_shared_backend →
   {data/cloud/*, data/asset_storage, logic/content_hash, logic/constants}`; `asset_cas` (ADR-0030)
@@ -81,7 +81,7 @@ Article I / ADR-0026). This ADR fixes that abstraction seam.
   is the substrate (Article X reuse); `SharedBlobBackend` composes it rather than duplicating provider
   plumbing.
 - **Trust cloud-fetched blobs.** Rejected (Article VII) — content-hash verification on every fetch is
-  the tamper/corruption defence (Researcher §5), identical in kind to the PIO-1 untrusted-load posture.
+  the tamper/corruption defence (research §5), identical in kind to the PIO-1 untrusted-load posture.
 
 ## Consequences
 
@@ -99,7 +99,7 @@ CAS are bounded to Phase-10's model; Phase 11 adds no new consistency protocol (
 
 - Spec §4b (DATA-006, CL-3), §10 (CL-3 adjudication); `acceptance.md` ("Asset-library storage
   substrate — local-first, cloud optional"); `traceability.md`.
-- Researcher report §4.2 (portability + shared-store backing), §6 (feasibility; wiring CAS into
+- Prior internal research §4.2 (portability + shared-store backing), §6 (feasibility; wiring CAS into
   Phase-10 shared storage is the integration-tested seam), §5 (untrusted input / hash verification).
 - Shipped tree: `data/cloud/{port,shared_adapter,fake_adapter}.py` (provider-agnostic port + fake
   adapter, zero Qt), provider SDKs confined to `data/cloud/providers/*`. Constitution Article I / VII,

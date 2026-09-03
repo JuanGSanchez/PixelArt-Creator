@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Shared OAuth session + base provider adapter (zero Qt, S11).
 
-Phase-10 Slice A tail (ADR-0026 §1/§2/§3; spec REQ-P10-DATA-001/-007/-008; Researcher
-§1/§2). The three real provider adapters (Drive / OneDrive / Dropbox) share:
+Phase-10 Slice A tail (ADR-0026 §1/§2/§3; spec REQ-P10-DATA-001/-007/-008). The
+three real provider adapters (Drive / OneDrive / Dropbox) share:
 
 * :class:`OAuthConfig` — a provider's client id + authorization/token/device endpoints
   + scope, all values (no secrets are hard-coded here — the client id is passed in by
@@ -107,7 +107,7 @@ def build_versions(
 
 #: A ``ui/``-supplied callback that opens ``url`` in the SYSTEM browser (RFC 8252 — no
 #: embedded webview). Only this human-facing step touches ``ui/``; the crypto/network
-#: stay in ``data/`` (Researcher §2.4).
+#: stay in ``data/``.
 BrowserOpener = Callable[[str], None]
 
 

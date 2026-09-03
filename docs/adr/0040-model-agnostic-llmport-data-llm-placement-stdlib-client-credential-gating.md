@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-08 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-14-ai-assistant` (Slices 14B, 14D) |
 | Privacy | **S19-PRIVATE — docs/ is gitignored; this ADR is NOT committed.** |
 | Relates to | ADR-0026 (cloud-port design — the mirrored precedent), ADR-0027/0035 (out-of-three-layer packages — the *contrast*), ADR-0039/0041/0042 |
@@ -14,7 +14,7 @@
 Phase 14 must reach any external LLM behind **one** provider-neutral interface (spec D4;
 REQ-P14-DATA-001/-004/-005/-007), be **credential-optional** (fake adapter in CI, real path
 credential-gated/out-of-CI — D5; REQ-P14-DATA-002/-003/-006), and add **no new hard runtime dependency**
-(S8). The Researcher (`ad2616c7`) grounds: (R1.1–R1.5) OpenAI `/v1/chat/completions` "tools" is the
+(S8). Prior research (`ad2616c7`) grounds: (R1.1–R1.5) OpenAI `/v1/chat/completions` "tools" is the
 de-facto agnostic wire covering OpenAI + Gemini's OpenAI-compat endpoint + Ollama + llama.cpp; Anthropic is
 the sole structural non-conformer (a thin translator or gateway); (R4.1) a **stdlib-`urllib`
 OpenAI-compatible client incl. SSE is feasible with zero new hard dependency**; (R3.1–R3.4) MCP / vendor
@@ -22,7 +22,7 @@ agent SDKs solve a *different* problem and add real dependency trees + churn —
 adapter** is the minimal, lowest-attack-surface fit; (R4.3/R6.1) mirror the Phase-10 `cloud_live`
 optional-extra + OS-keyring pattern.
 
-Spec §8 DEP-1 defers to AGT-01: the exact placement of the port + adapters + CLI, and confirmation that it
+Spec §8 DEP-1 defers to architecture: the exact placement of the port + adapters + CLI, and confirmation that it
 stays within the three-layer model. This ADR rules placement, the layering bridge that lets a `logic/`
 loop use a `data/` port **without a forbidden `logic → data` edge**, the two real adapters, and the
 credential-gating scaffolding.
@@ -109,7 +109,7 @@ precedent). Adding a provider = adding an adapter; nothing above the port change
 
 - **`pyproject` optional extra** `assistant_live = ["keyring==25.7.0"]` (same pin as `cloud_live`; the
   stdlib-urllib client needs no HTTP dep, so keyring is the only live dep). NOT a core dep — CI installs
-  base + `.[dev]` and never needs it. **AGT-09 owns the edit.**
+  base + `.[dev]` and never needs it. **DevOps owns the edit.**
 - **`data/llm/token_store.py`** — modelled on `data/cloud/token_store.py`: `keyring` imported **lazily,
   inside the functions**, so all of 14A–14C + the fake adapter import and run **without `keyring`
   installed** (SC-D003-2). Service-name template `pixelart-creator:assistant:{provider}`; per-provider
@@ -117,7 +117,7 @@ precedent). Adding a provider = adding an adapter; nothing above the port change
   `data/llm/`** — never in `logic/`/`ui/`, never in a `.pixproj` or a log, never committed (Article VII §3;
   REQ-P14-DATA-006, SC-D006-1). `mypy` `ignore_missing_imports` already covers `keyring.*` (pyproject).
 - **`pytest` marker** `assistant_live` registered in `[tool.pytest.ini_options].markers` and **deselected
-  in the CI gate** (AGT-09 extends the ci.yml `-m "not …"` expression with `and not assistant_live`).
+  in the CI gate** (DevOps extends the ci.yml `-m "not …"` expression with `and not assistant_live`).
 
 ## Alternatives Considered
 
@@ -150,8 +150,8 @@ the Protocol bridge; keys are OS-managed and isolated in `data/llm/`; **zero new
 sentinel-variance that a library would provide (R4.1 caveats) — carried by the 14D adapters and their
 out-of-CI live tests; the fake adapter fixes the in-CI contract so this drift is out-of-gate. Cross-provider
 tool-call normalization (OpenAI `tool_calls` vs Anthropic `tool_use`/`tool_result`, argument-fragment
-streaming, parallel calls) is genuine specialist competence (Researcher bottom-line (b)) — flagged to the
-orchestrator for a possible dedicated 14D adapter specialist/skill (plan §12).
+streaming, parallel calls) is genuine specialist competence (research bottom-line (b)) — flagged as a
+candidate for a possible dedicated 14D adapter specialist/skill (plan §12).
 
 ## Grounding
 
@@ -159,6 +159,6 @@ orchestrator for a possible dedicated 14D adapter specialist/skill (plan §12).
   `acceptance.md` SC-D001-1, SC-D002-1, SC-D003-1/-2, SC-D004-1/-2, SC-D005-1/-2, SC-D006-1/-2, SC-D007-1.
 - Shipped `data/cloud/port.py` + `token_store.py` + `fake_adapter.py` (the mirrored precedent);
   `pyproject.toml` `cloud_live` extra + `cloud_live` marker.
-- Researcher `ad2616c7` R1.1–R1.5, R3.1–R3.4, R4.1–R4.3, R6.1–R6.3 + bottom-line (a)/(b).
+- Research note `ad2616c7` R1.1–R1.5, R3.1–R3.4, R4.1–R4.3, R6.1–R6.3 + bottom-line (a)/(b).
 - Constitution Article I (three-layer + injection bridge precedent), IV (fake→CI), VII (no secrets), XI.
   ADR-0026 (cloud port), ADR-0027/0035 (out-of-three-layer packages — the contrast).

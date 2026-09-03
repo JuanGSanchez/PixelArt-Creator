@@ -4,10 +4,10 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | Decided 2026-08-17 (`phase-5-timeline-grid` plan §2, §3.3, §7); **recorded 2026-08-19** |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-5-timeline-grid` (D-04) — settled once on behalf of four claimant slices |
 | Grounded by | `REQ-P5-DATA-004`, `REQ-P5-UI-033`; the three other claimants — `phase-2-floating-selection` `REQ-P2-DATA-030` / `REQ-P2-UI-037` (Q-19 ruling, "per-project, settings-changeable"), `phase-6-mode-toggle-undo` `REQ-P6-DATA-031`, `phase-11-asset-ingress` `REQ-P11-DATA-010`; Article I / S11 (layer purity) |
-| Owed by | `phase-5-timeline-grid` **T25** (owner AGT-08) — see "Why this record is late" |
+| Owed by | `phase-5-timeline-grid` (owner the documentation) — see "Why this record is late" |
 | Relates to | ADR-0025 (`.pixproj` v5 — the schema version this decision deliberately does **not** move), ADR-0057 (the grid whose confirmation is the registry's first consumer), ADR-0004 (per-machine Favourites — the *other* scope, deliberately not this one) |
 
 ## Context
@@ -24,7 +24,7 @@ able to take it back.*
 The failure mode all four specs name explicitly is the same: four ad-hoc boolean fields
 invented in four slices, four spellings in the `.pixproj` file, four places to look for
 "where is that setting", and a fifth slice that finds none of them reusable. Phase-11's spec
-§8 states the obligation outright — *"AGT-01 must settle the shape once … rather than letting
+§8 states the obligation outright — *"architecture must settle the shape once … rather than letting
 four specs each invent a key."*
 
 Two constraints make this a real question rather than a naming exercise.
@@ -187,8 +187,8 @@ would pass every gate. Accepted risk, recorded here so it is not mistaken for co
 
 ## Why this record is late
 
-The decision was made on 2026-08-17 and its ADR was assigned to `phase-5-timeline-grid` **T25**
-(owner AGT-08), which was never executed while the code that cites it shipped. Eight files
+The decision was made on 2026-08-17 and its ADR was assigned as a task in `phase-5-timeline-grid`
+(owner the documentation), which was never executed while the code that cites it shipped. Eight files
 across `logic/`, `data/`, `ui/` and `tests/` cite `ADR-0056`, and three *other* slices' plans
 name it as the decision they consume. The number is fixed by those citations, not chosen here:
 writing at `0056` rather than at `highest + 1` is the deliberate exception to the adr-author

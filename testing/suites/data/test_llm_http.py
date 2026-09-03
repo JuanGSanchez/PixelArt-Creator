@@ -2,7 +2,7 @@
 
 Network-free coverage of the single ``urllib`` POST + bounded-retry seam both real
 adapters share (spec REQ-P14-DATA-004/-007; SC-P14-D004/-D007; skill
-``llm-adapter-normalization`` step 5; Researcher ``ad2616c7`` R4.1/R4.3). The real
+``llm-adapter-normalization`` step 5; research finding ``ad2616c7`` R4.1/R4.3). The real
 network is NEVER touched: ``urllib.request.urlopen`` is monkeypatched with a scripted
 fake transport so the retry/timeout/error-mapping branches run deterministically and the
 default gate stays offline.

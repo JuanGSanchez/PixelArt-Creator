@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-02 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-2-advanced-drawing` |
 | Supersedes | — |
 | Superseded by | — |
@@ -13,10 +13,10 @@
 
 REQ-P2-LOGIC-013 requires a clean arbitrary-angle rotation (RotSprite) whose output
 introduces **no colour absent from the source** (R2, acceptance-critical) and is
-**deterministic** for a fixed `(buffer, angle)` (NFR-2). The Researcher grounded the
-canonical four-stage pipeline — upscale ×8 (three *similarity*-based Scale2× passes) →
+**deterministic** for a fixed `(buffer, angle)` (NFR-2). The canonical four-stage
+pipeline — upscale ×8 (three *similarity*-based Scale2× passes) →
 rotation-offset search → nearest-neighbour rotate + downscale → single-pixel detail
-restoration — in `docs/research-rotsprite-pixelperfect.md`.
+restoration — is grounded in `docs/research-rotsprite-pixelperfect.md`.
 
 That report explicitly flags **four choices the accessible secondary sources do NOT
 publish**; they are implementation decisions that must be fixed to make the algorithm
@@ -33,7 +33,7 @@ violate R2 — they affect quality and reproducibility, not palette safety.
 
 ## Decision
 
-AGT-01 pins the four choices deterministically. They become AGT-03 acceptance
+Architecture pins the four choices deterministically. They become the implementation acceptance
 (SC-L013-*) and are immutable here.
 
 1. **Similarity threshold** — `ROTSPRITE_SIMILARITY_THRESHOLD = 100` (in `logic/constants.py`),
@@ -64,9 +64,9 @@ The upscale factor is `ROTSPRITE_UPSCALE_FACTOR = 8` (three Scale2× passes, 2×
   transparent input stays transparent (SC-L013-2/-3).
 - Output colour set ⊆ input colour set is guaranteed structurally, not by clamping
   (SC-L013-1, R2).
-- AGT-03 implements exactly these values; AGT-04 asserts them (upscale factor sourced from
+- The implementation implements exactly these values; the test suite asserts them (upscale factor sourced from
   `constants.py`, SC-L013-5; determinism + no-new-colours via Hypothesis).
-- Memory cost is dominated by the ×8 upscale (64× pixel count during processing); AGT-10
+- Memory cost is dominated by the ×8 upscale (64× pixel count during processing); Rendering & Performance
   may later issue a streaming/cap directive for very large sprites — not a change to these
   pins.
 - If a future higher-fidelity similarity metric is wanted, that is a **new ADR** superseding

@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-02 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-3-colour-palette` |
 | Supersedes | — |
 | Superseded by | — |
@@ -14,7 +14,7 @@
 REQ-P3-LOGIC-008 requires fixed reference colour sets for the **NES** and **Game Boy**
 hardware palettes, consumed by the palette-constraint feature (REQ-P3-LOGIC-009, S6). The
 spec (`specs/phase-3-colour-palette/spec.md` §9, last row) and the traceability matrix (§3)
-explicitly **defer to AGT-01** on two coupled questions:
+explicitly **defer to architecture** on two coupled questions:
 
 1. **Where does the palette DATA live** — module-local in `logic/hardware_palette.py`, or in
    `logic/constants.py` (which Article II / S12 designates the single home for numeric values)?
@@ -78,13 +78,13 @@ the target hardware. This is directly analogous to the Phase-2 `SymmetryAxis` en
   data, only the Phase-3 tuning scalars (plan §8).
 - The NES palette is traceable to a named source; swapping/adding a decode later is additive
   (a new function/table), not a silent edit — and a materially different policy would be a new ADR.
-- AGT-03 implements exactly these tables; AGT-04 asserts the GB 4-shade set, the NES 64-entry
+- The implementation implements exactly these tables; the test suite asserts the GB 4-shade set, the NES 64-entry
   count, and copy-independence (SC-L008-1..3).
 
 ## Grounding
 
 - `specs/phase-3-colour-palette/spec.md` §4.1 REQ-P3-LOGIC-008, §9 (reference-data placement
-  deferred to AGT-01), §11 SC-L008-*; `traceability.md` §3.
+  deferred to architecture), §11 SC-L008-*; `traceability.md` §3.
 - `docs/research-phase3-colour.md` Topic 4 (NES 2C02 non-canonical RGB + `2C02G_wiki.pal`; GB DMG
   4-shade LUT) + §Limitations.
 - `constitution.md` Article I (layer purity), Article II (S12 single-source numerics), P1

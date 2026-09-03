@@ -4,11 +4,11 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-02 |
-| Author | AGT-01 (Architecture) |
-| Feature | `phase-4-layer-canvas` (defect surfaced in T14 QA; root fix spans Phase-3↔Phase-4) |
+| Author | Architecture |
+| Feature | `phase-4-layer-canvas` (defect surfaced in QA review; root fix spans Phase-3↔Phase-4) |
 | Supersedes | — |
 | Superseded by | — |
-| Defect driver | AGT-06 T14 QA report `docs/subagent-report-agt-06-qa-expert-a23ee38f-20260702T205321.md` §3 — `BlendError: composite_stack requires RGBA layer buffers` crashing 10 tests / 24 cases on every indexed-mode workflow. |
+| Defect driver | QA's report (an internal design record, outside this repository) §3 — `BlendError: composite_stack requires RGBA layer buffers` crashing 10 tests / 24 cases on every indexed-mode workflow. |
 
 ## Context
 
@@ -66,7 +66,7 @@ For any `Document`:
 - **INDEXED document** (`mode is ColorMode.INDEXED`): every frame holds **exactly one**
   layer, whose buffer is `ColorMode.INDEXED`. Indexed documents keep the Phase-1
   single-active-layer display path (the RGBA-only compositor never runs on them). This is
-  consistent with the T14 ruling (AGT-06 §2: no Phase-4 scenario requires indexed multi-layer
+  consistent with QA's ruling (§2: no Phase-4 scenario requires indexed multi-layer
   compositing) and with the ADR-0007 compositor contract.
 
 There is no state in which one document mixes RGBA and indexed layers, and no state in which
@@ -159,12 +159,12 @@ document is open. The conversion command must be wired so its rebind does a **fu
 re-bind + layer-panel repopulate (the tree changed), not the narrow `rebind_active()` used for
 same-shape buffer swaps. Converting a document with a large multi-layer 8K stack pays one
 full-canvas flatten at convert time (a deliberate, user-initiated, one-off cost — not a
-per-frame budget item, so outside SC-UI-015; flag to AGT-10 only if profiling shows a UX
+per-frame budget item, so outside SC-UI-015; flag to Rendering & Performance only if profiling shows a UX
 concern).
 
 ## Grounding
 
-- Defect: AGT-06 T14 report `docs/subagent-report-agt-06-qa-expert-a23ee38f-20260702T205321.md`
+- Defect: QA's report (an internal design record, outside this repository)
   §3 (root cause, 24 crashing cases), §4 (coupled SC-UI-001 test-maintenance).
 - Source verified: `ui/canvas_scene.py` L423/L544 (`_compositing` from `Document.mode`);
   `logic/palette_ops.py` L326–L378 (`make_to_indexed_command`/`make_to_rgba_command` swap
@@ -173,7 +173,7 @@ concern).
   one mode); `ui/main_window.py` L917–L953 (conversion handlers), L977 (`_refresh_mode_ui`).
 - Compositor contract: ADR-0005 (RGBA float working space, all-RGBA input), ADR-0007
   (region-scoped recomposite; resident buffers).
-- T14 indexed-mode ruling (AGT-06 §2): no Phase-4 scenario requires indexed multi-layer
+- QA's indexed-mode ruling (§2): no Phase-4 scenario requires indexed multi-layer
   compositing → single-layer indexed path is intended scope.
 - Requirements: REQ-P3-UI-014 (indexed-mode workflow), REQ-P3-LOGIC-017 (reversible,
   `apply ∘ undo = identity`), REQ-P4-LOGIC-004 (flat RGBA composite buffer), DATA-001..005

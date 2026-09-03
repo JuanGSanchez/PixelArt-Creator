@@ -2,21 +2,21 @@
 # SPDX-License-Identifier: Apache-2.0
 """Google Drive v3 real cloud adapter — credential-gated, out of CI (zero Qt, S11).
 
-Phase-10 Slice A tail (ADR-0026 §1/§2; spec REQ-P10-DATA-001/-002/-003/-007/-008;
-Researcher §1.1/§1.2). A real :class:`~pixelart_creator.data.cloud.port.CloudPort`
+Phase-10 Slice A tail (ADR-0026 §1/§2; spec REQ-P10-DATA-001/-002/-003/-007/-008).
+A real :class:`~pixelart_creator.data.cloud.port.CloudPort`
 over the Drive v3 REST API, isolated behind the injectable
 :class:`~pixelart_creator.data.cloud.providers._http.HttpClient` seam so its contract
 conformance is testable with a mocked transport (the test suite), while live
 verification is
 **credential-/network-gated** under the ``cloud_live`` marker.
 
-Storage model (grounded on Researcher §1): each project's ``.pixproj`` is one Drive
+Storage model: each project's ``.pixproj`` is one Drive
 file in the hidden per-app ``appDataFolder`` space, named ``{project_id}.pixproj``; a
 separate ``{project_id}.recovery`` file backs the autosave/recovery slot (distinct from
 version history — REQ-P10-DATA-004). Drive **revisions** (``files.revisions``) ARE the
 version history; each ``put`` creates a new revision of the content. Change tracking is
 the drive-scoped Changes feed, surfaced only as an opaque :class:`Cursor`. Capability
-model (Researcher §1.2): Drive supports **named/pinned revisions** (``keepForever``) and
+model: Drive supports **named/pinned revisions** (``keepForever``) and
 **per-revision delete for binary files**, uses ETag/``If-Match`` optimistic concurrency,
 and has a **drive-scoped** change feed — surfaced via :class:`CloudCapabilities`, never
 leaked (REQ-P10-DATA-007). No Drive/``urllib`` type or field name escapes this module.
@@ -50,7 +50,7 @@ _MULTIPART_BOUNDARY = "pixelart-creator-drive-boundary"
 #: The provider key used for the keyring service name (``cloud.token_store``).
 PROVIDER = "drive"
 
-#: Grounded Drive OAuth endpoints (Researcher §2 / §Sources). The public client id is
+#: Grounded Drive OAuth endpoints. The public client id is
 #: supplied by the caller at construction — no secret is embedded here.
 _AUTHORIZE = "https://accounts.google.com/o/oauth2/v2/auth"
 _TOKEN = "https://oauth2.googleapis.com/token"
@@ -256,7 +256,7 @@ class DriveAdapter(BaseProviderAdapter):
         return response.body
 
     def capabilities(self) -> CloudCapabilities:
-        """Return Drive's normalized capability model (Researcher §1.2)."""
+        """Return Drive's normalized capability model."""
         return CloudCapabilities(
             supports_named_revisions=True,  # keepForever pin
             supports_revision_delete=True,  # binary-content files only

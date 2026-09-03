@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-08-15 |
-| Author | AGT-09 (GitHub/DevOps) |
+| Author | GitHub/DevOps |
 | Feature | Default-branch write policy — reverting ADR-0048's decisions 1–3 |
 | Supersedes | ADR-0048 decisions 1, 2 and 3 (the `PIXELART_MAIN_BOOKKEEPING` marker). ADR-0048 decision 4 — `tests/githooks/` as a peer test root — **stands unchanged**. |
 | Superseded by | — |

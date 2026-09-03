@@ -4,7 +4,7 @@
 
 Part of the AI-assistant feature, Phase 14 (skill ``llm-adapter-normalization``
 steps 1/4/5; ADR-0040 §1/§3;
-spec REQ-P14-DATA-004/-006/-007; Researcher ``ad2616c7`` R1.1/R1.2/R1.3/R1.5). The one
+spec REQ-P14-DATA-004/-006/-007). The one
 OpenAI-compatible core: it POSTs the provider-neutral conversation + tool catalog to
 ``{base_url}/chat/completions`` over stdlib ``urllib`` and maps the response back to the
 neutral :class:`~pixelart_creator.logic.assistant.AssistantReply`. Because the

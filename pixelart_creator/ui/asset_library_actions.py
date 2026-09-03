@@ -4,7 +4,7 @@
 
 ``Asset_Library_Session`` is a presentation-only :class:`~PySide6.QtCore.QObject`
 that holds the **current in-memory** :class:`~pixelart_creator.logic.asset_catalog.
-AssetCatalog` for the Slice-1 library surfaces (browse / tag / search — REQ-P11-UI-001/
+AssetCatalog` for the library surfaces (browse / tag / search — REQ-P11-UI-001/
 -002/-003) and owns the **shared undo stack** the tag :class:`QUndoCommand`s push onto
 (REQ-P11-UI-002). It performs **no domain logic** of its own (Article I / S11): every
 mutation delegates to the Qt-free ``logic``/``data`` layer — the immutable
@@ -13,7 +13,7 @@ mutation delegates to the Qt-free ``logic``/``data`` layer — the immutable
 stay in sync: any change emits :data:`~Asset_Library_Session.catalogChanged`, on which
 each panel re-reads and repaints.
 
-Slice-1 library ops (enumerate, filter, tag, add / remove an entry) are pure in-memory
+Library ops (enumerate, filter, tag, add / remove an entry) are pure in-memory
 operations over the immutable catalog value — microsecond-fast even at
 ``MAX_CATALOG_ASSETS`` — so they run **synchronously on the GUI thread with no worker
 thread, timer, or poller** (the Phase-10 Slice-B ``Shared_Projects_Panel`` precedent).

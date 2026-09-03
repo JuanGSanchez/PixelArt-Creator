@@ -47,8 +47,7 @@ Every user-visible string is ``tr()``-wrapped with a ``changeEvent`` retranslate
 REQ-P11-UI-010); every interactive control carries an accessible name and is
 keyboard-reachable (REQ-P11-UI-008); colours come from the active QSS theme by role, so
 both themes render correctly (REQ-P11-UI-009). All work is synchronous over in-memory
-values — no worker thread, timer, or poller, and **nothing to tear down** (the Slice-1/2
-precedent).
+values — no worker thread, timer, or poller, and **nothing to tear down**.
 """
 
 from __future__ import annotations

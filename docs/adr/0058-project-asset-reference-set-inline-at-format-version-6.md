@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | Decided 2026-08-21 (`phase-11-asset-ingress` plan §1, §2, §2.1, §2.2); recorded 2026-08-22 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-11-asset-ingress` (job `20260821-reachability-remediation`) — `REQ-P11-UI-021`, `REQ-P11-DATA-005`, `REQ-P11-LOGIC-005` |
 | Grounded by | Parent `REQ-P11-DATA-005` / `REQ-P11-LOGIC-005` (the mandated `asset_id → content_hash` reference tuple and its break-detection rule); `REQ-P11-UI-022`/`-023` (the update prompt); Article I §8 (no weakening a shipped requirement); the delivered asset-reuse-and-versioning brief (seven-product survey) |
 | Supersedes | — |
@@ -83,7 +83,7 @@ merging the two into one.
 
 **The version bump, and why it is asymmetric with `"prefs"`.** `.pixproj` gains two optional root
 keys in the same slice — `"asset_refs"` (this decision) and `"prefs"` (ADR-0056's registry, extended
-by this slice per `tasks.md` T14/T15) — and they are treated differently on purpose. Both keys are
+by this slice per `tasks.md`) — and they are treated differently on purpose. Both keys are
 read with no unknown-key rejection, so an unrecognised root key written by a newer build is silently
 ignored, and dropped, by an older one on its next save. The two entries differ only in what that
 silent loss costs:
@@ -108,7 +108,7 @@ pixelart_creator/data/project_io.py:282-291
     # One optional root key (REQ-P5-DATA-004, ADR-0056): omitted entirely when
     # no preference has been explicitly set ...
     if prefs_mapping: payload["prefs"] = prefs_mapping
-    # Another optional root key (REQ-P11-UI-021, T12): omitted entirely when no
+    # Another optional root key (REQ-P11-UI-021): omitted entirely when no
     # reference set was supplied or it is empty, matching "prefs"'s own convention —
     # unlike "prefs" this key's presence is what bumps FORMAT_VERSION (plan §2.2), so
     # the bump itself is unconditional even while the key stays optional.
@@ -166,7 +166,7 @@ anywhere," until and unless a library-side back-index is separately decided.
 
 ## Compliance
 
-Layering was not re-run for this ADR specifically; the current baseline is T26's, quoted in
+Layering was not re-run for this ADR specifically; the current baseline is the one quoted in
 ADR-0059's Compliance section, and this decision introduces no import edge of its own — `"asset_refs"`
 is a `data/project_io.py` schema change, not a new module.
 

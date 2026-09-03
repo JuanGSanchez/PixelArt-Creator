@@ -1,7 +1,7 @@
 """Tests for pixelart_creator.data.cloud.auth (Phase-10 Slice A, no Qt).
 
 Covers the pure, network-free desktop-auth building blocks (REQ-P10-DATA-008,
-Researcher §2): the PKCE ``S256`` verifier/challenge crypto, verifier
+research §2): the PKCE ``S256`` verifier/challenge crypto, verifier
 validation, the authorization-URL builder, the loopback redirect capture over
 ``127.0.0.1`` (driven by a client thread — no external network), and the
 token-exchange / refresh / Device-Grant flows through an injected DI transport

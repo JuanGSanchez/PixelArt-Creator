@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-02 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-1-core-engine` |
 | Supersedes | — |
 | Superseded by | — |
@@ -15,10 +15,10 @@ Constitution Article II (realising user requirement **S12**) states: "Every nume
 tuning value is defined once in `pixelart_creator/logic/constants.py` and imported by
 name. No magic numbers appear in `ui/`, `logic/`, `data/`, or tests."
 
-During the retroactive Phase-1 core-engine review, the Gleaner distillation
-(`docs/gather-agt-02-phase1-core-engine.md`) and AGT-02's spec §9 surfaced numeric
-literals living **outside** `constants.py`. They fall into two materially different
-kinds:
+During the retroactive Phase-1 core-engine review, a distillation of the Phase-1
+core-engine findings (an internal design record, outside this repository) and the
+requirements spec §9 surfaced numeric literals living **outside** `constants.py`.
+They fall into two materially different kinds:
 
 1. **Tuning / configuration parameters** — product-visible limits or defaults a
    maintainer might legitimately want to change in one place: the palette index-space
@@ -93,8 +93,9 @@ resolved by weakening this one.
 
 - User requirement **S12** (Dossier §1) / **Constitution Article II** — the rule being
   interpreted.
-- Gleaner distillation `docs/gather-agt-02-phase1-core-engine.md` (Flags §S12) and
-  AGT-02 spec `specs/phase-1-core-engine/spec.md` §9 (findings S12-1..8) — the concrete
+- Distillation of Phase-1 core-engine findings (Flags §S12; an internal design
+  record, outside this repository) and the requirements spec
+  `specs/phase-1-core-engine/spec.md` §9 (findings S12-1..8) — the concrete
   literals adjudicated.
-- Orchestrator adjudication (2026-07-02): tuning-vs-intrinsic boundary + the move list,
-  encoded here and in `specs/phase-1-core-engine/plan.md` §7 and `tasks.md` (T1–T6).
+- Adjudication (2026-07-02): tuning-vs-intrinsic boundary + the move list,
+  encoded here and in `specs/phase-1-core-engine/plan.md` §7 and `tasks.md`.

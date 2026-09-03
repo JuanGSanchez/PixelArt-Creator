@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Pure signed share-link token — mint + verify (zero Qt, zero ``data/``, S11).
 
-Phase-13 Slice-13E (ADR-0036 §1 + Addendum A; spec REQ-P13-WEB-002/-005, Article VII).
+Phase-13 (ADR-0036 §1 + Addendum A; spec REQ-P13-WEB-002/-005, Article VII).
 The web viewer (``web_viewer/``) is a vanilla HTML/CSS/JS client that views a **shared**
 project over the shipped ``sync_backend/`` ``websockets`` relay, gated by a per-project
 **signed share-link bearer token**. This module is the **single, pure, deterministic**

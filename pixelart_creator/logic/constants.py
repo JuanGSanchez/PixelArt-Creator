@@ -647,7 +647,7 @@ is wired to pass this value as ``perf_profile.py --overlay --budget-ms``.
 AUTOSAVE_INTERVAL_MS: int = 120000
 """Autosave cadence, ms — 2 minutes, the editor norm. Consumed by
 :func:`pixelart_creator.logic.autosave.should_autosave` as the default elapsed
-threshold between autosaves (BF-1; Researcher §3.2; plan §8; spec REQ-P10-LOGIC-002;
+threshold between autosaves (BF-1; plan §8; spec REQ-P10-LOGIC-002;
 SC-L002-1)."""
 
 MAX_CLOUD_VERSIONS: int = 100
@@ -655,7 +655,7 @@ MAX_CLOUD_VERSIONS: int = 100
 :class:`~pixelart_creator.logic.version_history.CloudVersion` entries a
 :class:`~pixelart_creator.logic.version_history.VersionHistory` may hold before
 ``append`` raises ``VersionHistoryError``. Aligns the Dropbox 100-revision limit
-(Researcher §1.2). Retention *policy* beyond the bound is an
+Retention *policy* beyond the bound is an
 architecture-level HOW (plan §8;
 spec REQ-P10-DATA-003/LOGIC-003/005; SC-L003-1)."""
 
@@ -823,7 +823,7 @@ the shipped :data:`MAX_CLOUD_PROJECT_BYTES` (=268435456) but is a DISTINCT named
 — the CAS blob ceiling, not the cloud project ceiling (plan §8; spec
 REQ-P11-DATA-004/-005/LOGIC-007; ADR-0030 §4)."""
 
-# --- Phase-11 Slice-2 dependency-graph tuning (phase-11; Article II) -----
+# --- Phase-11 dependency-graph tuning (phase-11; Article II) ------------
 # Named bound consumed by the new zero-Qt dependency-graph model
 # (logic/dependency_graph.py) and, through it, the break-detection pass
 # (logic/break_detection.py). BF-1 (plan §8 / ADR-0031): the name is DISTINCT from
@@ -846,7 +846,7 @@ but the depth bound backstops any deep legitimate chain). Parallels the shipped
 ``1024``/``256``-scale defensive bounds; a DISTINCT named concern from the layer-nesting
 ``MAX_GROUP_NESTING_DEPTH`` (=8) (plan §8; spec REQ-P11-LOGIC-004/-007; ADR-0031 §2)."""
 
-# --- Phase-11 Slice-3 asset-version tuning (phase-11; Article II) ---------
+# --- Phase-11 asset-version tuning (phase-11; Article II) ----------------
 # Named bound consumed by the new zero-Qt asset-version model
 # (logic/asset_version.py) and, through it, the append-only revision store
 # (data/asset_revision_store.py). BF-1 (plan §8 / ADR-0030 §6): the name is DISTINCT
@@ -998,7 +998,7 @@ constant (:data:`FLATTEN_TILE_EDGE_PX`, :data:`TILE_SIZE`, the MAX_*_DIMENSION b
 RE-PROFILE / directive §1.3; ADR-0034 §2; FU-15; plan §8; spec REQ-P12-UI-001;
 S12 single-source)."""
 
-# --- Phase-13 Slice-13B portable-bundle caps (phase-13; Article II) --------
+# --- Phase-13 portable-bundle caps (phase-13; Article II) -----------------
 # Named defensive caps consumed by the single-file portable-bundle export/import
 # functions on data/asset_export.py (export_project_bundle / import_project_bundle).
 # BF (ADR-0037 §2 / plan §8): every name is DISTINCT from every shipped constant.
@@ -1049,7 +1049,7 @@ under-reports its size (a zip bomb) cannot exhaust memory/disk (REQ-P13-DATA-008
 ADR-0037 §2 — "enforced during streamed extraction so a lying header cannot exhaust
 memory/disk"; plan §8)."""
 
-# --- Phase-13 Slice-13E web-viewer share-token cap (phase-13; Article II) --
+# --- Phase-13 web-viewer share-token cap (phase-13; Article II) ----------
 # Named lifetime cap consumed by the pure share-link-token seam
 # (logic/share_token.py) and, through it, the sync_backend/ handshake extension
 # (sync_backend/server.py process_request). BF (ADR-0036 §1 / plan §8): the name is
@@ -1064,8 +1064,8 @@ memory/disk"; plan §8)."""
 SHARE_TOKEN_MAX_TTL_S: int = 14400
 """Maximum lifetime, seconds, of a signed web-viewer share-link token — 4 hours.
 
-The web viewer (ADR-0036, Phase-13 Slice-13E) is gated by a per-project **short-lived**
-signed share-link bearer token (spec §10 D2; researcher ``a4c7da21`` D2 — "short-lived
+The web viewer (ADR-0036, Phase-13) is gated by a per-project **short-lived**
+signed share-link bearer token (spec §10 D2 — "short-lived
 signed bearer token over HTTPS"). :func:`~pixelart_creator.logic.share_token.verify`
 rejects a token whose ``exp - iat`` exceeds this bound (and any token whose ``exp`` is
 not in the future), so a token minted with an over-long lifetime can never be honoured
@@ -1093,7 +1093,7 @@ headroom, while staying finite. DISTINCT named concern from the shipped byte cap
 count of a compact bearer token before decode (spec REQ-P13-WEB-005; plan §8;
 ADR-0036 §1 / Addendum A.8)."""
 
-# --- Phase-14 Slice-14C assistant agentic-loop caps (phase-14; Article II) --
+# --- Phase-14 assistant agentic-loop caps (phase-14; Article II) ---------
 # Named bounds consumed by the pure-``logic`` agentic conversation loop + tiered-safety
 # gate + prompt-injection / untrusted-tool-result defence (logic/assistant.py, ADR-0041
 # §4). BF-1 (ADR-0041 §4 / plan §8): every name below is DISTINCT from every shipped
@@ -1126,7 +1126,7 @@ from every shipped constant (spec REQ-P14-LOGIC-005/-007; ADR-0041 §4; SC-L005-
 MAX_TOOL_CALLS_PER_TURN: int = 8
 """Ceiling on tool-calls the model may request in a SINGLE turn (Article II/VII).
 
-Supports parallel/multi-tool turns (Researcher ``ad2616c7`` R2.3) while bounding one
+Supports parallel/multi-tool turns while bounding one
 turn's fan-out; the loop rejects a turn requesting more with an
 :class:`~pixelart_creator.logic.assistant.AssistantError` (bounded-halt). Each call in a
 permitted turn still re-runs the full validate + tiered-safety gate independently — this
@@ -1141,7 +1141,7 @@ A tool-result (a dispatched op's summary, an error string, or any content carrie
 as
 a ``Role.TOOL`` message) is **untrusted input** — the prompt-injection surface (OWASP
 LLM
-2026 #1; Researcher ``ad2616c7`` R5.2).
+2026 #1).
 :func:`~pixelart_creator.logic.assistant.bound_tool_result`
 truncates any result exceeding this bound to a UTF-8-safe prefix **before** it re-enters
 the conversation, so a malicious/oversized result cannot exhaust memory/context
@@ -1164,14 +1164,14 @@ concern from every shipped constant (spec REQ-P14-LOGIC-005/-007; ADR-0041 §4).
 ASSISTANT_REQUEST_TIMEOUT_S: int = 60
 """Per-request network timeout, seconds, for a real provider adapter round-trip.
 
-Consumed by the Slice-14D stdlib-``urllib`` OpenAI-compatible + Anthropic adapters
+Consumed by the stdlib-``urllib`` OpenAI-compatible + Anthropic adapters
 (``data/llm/``) so a hung provider connection cannot block indefinitely; the pure loop
 and the fake adapter make no network call, so this does not gate them. DISTINCT SECONDS
 concern from SHARE_TOKEN_MAX_TTL_S (=14400, a token lifetime) and from every millisecond
 render budget/ceiling (spec REQ-P14-LOGIC-007 / REQ-P14-DATA-004..007; ADR-0041 §4)."""
 
-# --- Phase-14 Slice-14D real-adapter transport tuning (phase-14; Article II) --
-# Named bounds consumed ONLY by the Slice-14D real stdlib-``urllib`` provider adapters
+# --- Phase-14 real-adapter transport tuning (phase-14; Article II) -------
+# Named bounds consumed ONLY by the real stdlib-``urllib`` provider adapters
 # (data/llm/openai_compatible.py + data/llm/anthropic_translator.py). BF-1: both names
 # are DISTINCT from every shipped constant. The pure loop and the fake adapter make no
 # network call, so neither gates them. This module stays a leaf (no intra-package
@@ -1181,14 +1181,14 @@ ASSISTANT_REQUEST_MAX_RETRIES: int = 2
 """Bounded transient-failure retry count for one real provider round-trip.
 
 The stdlib-``urllib`` adapters hand-roll a bounded retry (``urllib`` gives no retry
-niceties, Researcher ``ad2616c7`` R4.1): a request is attempted at most
+niceties): a request is attempted at most
 ``ASSISTANT_REQUEST_MAX_RETRIES + 1`` times (this many *retries* after the first try) on
 a timeout / transient transport error / retryable 5xx, each attempt bounded by
 :data:`ASSISTANT_REQUEST_TIMEOUT_S`; on exhaustion the adapter raises
 ``LLMResponseError`` rather than hanging or looping. DISTINCT named concern from the
 Phase-10 :data:`CLOUD_RETRY_LIMIT` (=3, a cloud-sync op's retry ceiling — a different
 transport surface): this bounds ONE assistant provider HTTP request (spec
-REQ-P14-DATA-004/-005/-007; Researcher ``ad2616c7`` R4.1)."""
+REQ-P14-DATA-004/-005/-007)."""
 
 ASSISTANT_MAX_OUTPUT_TOKENS: int = 4096
 """Default ``max_tokens`` request ceiling for the native-Anthropic Messages adapter.
@@ -1200,7 +1200,7 @@ sends when the caller supplies none (a caller may override per-construction). It
 one reply's generated length so a single round-trip cannot run away. DISTINCT named
 concern from every shipped constant — it is an output-token count, not a byte cap
 (cf. :data:`MAX_TOOL_RESULT_BYTES`) nor a message/turn count (spec REQ-P14-DATA-005;
-Researcher ``ad2616c7`` R1.4)."""
+cf. R1.4)."""
 
 UI_NOTICE_DURATION_MS: int = 6000
 """Transient UI notice/toast display duration, ms (S12 single-source).
@@ -1243,7 +1243,7 @@ BOUND, not only the value: this MUST NOT fire at the 1:1 zoom floor with
 :data:`CHECKER_CELL_PX` = 1, where one checker cell is exactly 1.0 device px —
 so the value here must be <= 1.0. Any value GREATER than 1.0 would blend the
 checker at 100% zoom and silently repeal the "one square is one pixel"
-requirement; this is not hypothetical, the orchestrator's first draft proposed
+requirement; this is not hypothetical, an early draft actually proposed
 3.0 and it was caught at the gate. ``float``, unlike its ``int`` precedents
 (:data:`CHECKER_CELL_PX`, :data:`CANVAS_BORDER_WIDTH_PX`), because it is
 compared against a zoom scale, not counted in whole px."""

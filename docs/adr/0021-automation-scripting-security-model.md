@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-04 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-8-automation` |
 | Supersedes | — |
 | Superseded by | — |
@@ -16,10 +16,10 @@ a scripting/macro/plugin surface that **never passes untrusted input to `eval`/`
 (REQ-P8-LOGIC-003, the hard constraint), whose edits happen **only via the shipped
 reversible-command path** (HIS-1, REQ-P8-LOGIC-001), whose macros **replay to a state-identical
 result** (REQ-P8-LOGIC-005), and whose plugins **cannot bypass the layer boundaries or their granted
-permissions** (REQ-P8-LOGIC-009/-010). The spec deferred the *mechanism* to AGT-01 (DEP-2a/b, CL-2/CL-3/CL-6),
-grounded by the **security-focused** Researcher (DEP-1).
+permissions** (REQ-P8-LOGIC-009/-010). The spec deferred the *mechanism* to architecture (DEP-2a/b, CL-2/CL-3/CL-6),
+grounded by security-focused prior research (DEP-1).
 
-The Researcher's finding is decisive and settled (`docs/research-phase-8-automation-20260704.md`,
+That research's finding is decisive and settled (`docs/research-phase-8-automation-20260704.md`,
 Topic 1, Recommendation Matrix):
 
 - **In-process CPython sandboxing of untrusted code is unachievable.** `pysandbox` (a CPython core
@@ -60,7 +60,7 @@ This is satisfied *by construction*: the automation engine executes **data** (a 
 `{op, params}`), never a language. There is no interpreter to escape. `logic/scripting.py`,
 `logic/macro.py`, `logic/plugins.py`, `logic/procgen.py`, `logic/batch_ops.py`,
 `data/macro_io.py`, and `data/automation_cli.py` contain **no** `eval`/`exec`/`compile(...,
-"exec")`/`__import__` of user-supplied names. AGT-04 asserts this (a source-level scan + a crafted
+"exec")`/`__import__` of user-supplied names. The test suite asserts this (a source-level scan + a crafted
 malicious payload that is rejected, never run — SC-L003-1).
 
 ### Scripting surface — Option A, data-driven command DSL (REQ-P8-LOGIC-001/-002/-003)
@@ -101,7 +101,7 @@ malicious payload that is rejected, never run — SC-L003-1).
   declared permissions **before** the user enables a plugin (REQ-P8-UI-005). **No auto-run**: a
   discovered plugin is inert until the user explicitly enables it (the Blender "off-by-default
   auto-exec" precedent). `MAX_PLUGINS_LOADED` bounds concurrently loaded plugins.
-- **Honesty about strength (Researcher §3.2):** because *loading a Python plugin is code execution*,
+- **Honesty about strength (research §3.2):** because *loading a Python plugin is code execution*,
   in-process capability injection is **advisory-strength**, adequate **only** because P8 plugins are
   **trusted, consent-installed, first-party/vetted** extensions (the Krita/Blender reality, stated
   plainly). A determined in-process plugin can introspect around a convention boundary; P8 therefore
@@ -123,7 +123,7 @@ malicious payload that is rejected, never run — SC-L003-1).
   buys no acceptance the DSL does not already meet. Reserved, if ever, for an explicitly trusted-only
   future tier behind a new ADR.
 - **Full in-process Python plugins, marketed marketplace-safe (Krita model).** Rejected: contradicts
-  Article VII for untrusted authors; the Researcher shows this is a trusted-code model, never a
+  Article VII for untrusted authors; prior research shows this is a trusted-code model, never a
   sandbox. We adopt its *consent* discipline but not the marketplace-of-untrusted claim.
 - **OS-isolated untrusted plugin host (Option C) in P8.** Rejected *for now* (not on principle):
   correct for arbitrary untrusted code, but heavy + per-OS; out of the ROADMAP Phase-8 scope. Left as
@@ -145,12 +145,12 @@ marketplace-*ready* without over-promising an untrusted sandbox.
 **Negative / risk.** The DSL's expressiveness is bounded by the exposed op vocabulary (acceptable:
 new ops are additive, Article XI). In-process plugin isolation is advisory-strength — mitigated by
 default-deny + explicit consent + no-auto-run + the honest "trusted-only" framing; untrusted-plugin
-OS-isolation is deferred, not pretended. The trust boundary must be documented for users (AGT-08).
+OS-isolation is deferred, not pretended. The trust boundary must be documented for users (the documentation).
 
 ## Grounding
 
 - Spec `specs/phase-8-automation/spec.md` §1–§2 (security-invariant framing), §4
-  (REQ-P8-LOGIC-001/-002/-003/-008/-009/-010), §6 (non-goals — model deferred to AGT-01/ADR), §8
+  (REQ-P8-LOGIC-001/-002/-003/-008/-009/-010), §6 (non-goals — model deferred to architecture/ADR), §8
   (DEP-1/DEP-2), §9 Article VII, §10 CL-1/CL-2/CL-3/CL-6/CL-7/CL-14, §11 SC-L001-1/L003-1/L009-1/L010-1;
   `traceability.md` DEP-1/DEP-2, Article I/VII watch (BF-2).
 - Research `docs/research-phase-8-automation-20260704.md` — Executive summary 1–4, Topic 1 (pysandbox

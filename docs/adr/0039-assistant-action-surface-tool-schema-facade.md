@@ -4,8 +4,8 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-08 |
-| Author | AGT-01 (Architecture) |
-| Feature | `phase-14-ai-assistant` (Slice 14A) |
+| Author | Architecture |
+| Feature | `phase-14-ai-assistant` |
 | Privacy | **S19-PRIVATE — docs/ is gitignored; this ADR is NOT committed.** |
 | Supersedes | — |
 | Superseded by | — |
@@ -22,10 +22,10 @@ against the op's `ParamSchema`, applies the run as one already-applied reversibl
 and rolls back atomically on failure. There is **no interpreter to escape** (ADR-0021/0022, Article VII by
 construction).
 
-The spec froze the WHAT and deferred the HOW to AGT-01 (spec §8 DEP-2): the concrete **tool-schema wire
+The spec froze the WHAT and deferred the HOW to architecture (spec §8 DEP-2): the concrete **tool-schema wire
 contract** — which JSON-schema shape, the `ParamSchema` → JSON-schema type mapping, how `allow_extra` /
 `requires_seed` project, and how a provider tool-call's `arguments` map back onto a `macro.Op` — **without
-widening `dispatch` or bypassing the allow-list**. The Researcher (`ad2616c7` R2.5, R5.1) confirms the
+widening `dispatch` or bypassing the allow-list**. Prior research (`ad2616c7` R2.5, R5.1) confirms the
 shipped registry is, by construction, the peer-reviewed **action-selector pattern**: the model is "an
 LLM-modulated switch statement" that only *selects* a registered op and *fills typed args*; the registry
 executes. This ADR freezes that contract so the loop (14C), the adapters (14B/14D), and their tests bind
@@ -47,7 +47,7 @@ An op is a tool **iff** `scripting.is_registered(name)` — so the catalog autom
 `ToolDescriptor(name: str, description: str, parameters: Mapping[str, object])` — `parameters` is a
 JSON-schema **object** dict. `build_tool_catalog() -> tuple[ToolDescriptor, ...]` enumerates
 `scripting.registered_ops()` and derives one descriptor per op. `description` is a stable, human-readable
-string (the model reads it as the contract — Researcher R2.2); AGT-03 sources it from a module-local
+string (the model reads it as the contract — research R2.2); the implementation sources it from a module-local
 per-op description table (module-local vocabulary, ADR-0001/BF-2) — **not** `logic/constants.py` (it is
 not a numeric).
 
@@ -71,7 +71,7 @@ The schema is a **faithful projection** of the shipped `ParamSchema` — it **ne
 - **`required` → `required`:** the op's `ParamSchema.required` tuple, verbatim.
 - **`allow_extra` → `additionalProperties`:** `additionalProperties = ParamSchema.allow_extra`. When
   `allow_extra` is `True` (e.g. `procgen`'s algorithm-specific knobs), `additionalProperties: true`; when
-  `False`, `additionalProperties: false` (strict — the preferred, adherence-improving posture, Researcher
+  `False`, `additionalProperties: false` (strict — the preferred, adherence-improving posture, research
   R2.2). Extra values remain JSON by construction, so the `_is_json_native` guard in `validate` is
   automatically satisfied.
 - **`requires_seed` → an explicit `seed` property.** `seed` is a **sibling of `params`** on `macro.Op`,
@@ -106,7 +106,7 @@ For every op, `{arguments the projected schema permits}` ⊆ `{arguments ParamSc
 (after `seed` routing). This holds because every schema keyword is *derived from the same `ParamSchema`*:
 types mirror `fields`, `required` mirrors `required` (+ `seed` iff `requires_seed`), `additionalProperties`
 mirrors `allow_extra`. The projection is never looser than `validate`; where it is *stricter*
-(`additionalProperties: false`) that only helps the model, and `dispatch` remains the final arbiter. AGT-04
+(`additionalProperties: false`) that only helps the model, and `dispatch` remains the final arbiter. The test suite
 asserts this directly (SC-L002-1: "the schema never permits arguments the shipped `ParamSchema.validate`
 would reject").
 
@@ -158,6 +158,6 @@ projection change, not a contract break.
   `acceptance.md` SC-L001-1/-2, SC-L002-1, SC-L003-1/-2/-3.
 - Shipped `logic/scripting.py` (`_REGISTRY`, `ParamSchema`, `dispatch`, `registered_ops`), `logic/macro.py`
   (`Op`), `logic/plugins.py` (namespaced plugin ops). Constitution Article I, II, VII, X.
-- Researcher `docs/subagent-report-the-researcher-ad2616c7-20260707T220150.md` R2.1/R2.2/R2.5 (loop +
+- Prior internal research (an internal research note, outside this repository) R2.1/R2.2/R2.5 (loop +
   schema best-practice + catalog→tools), R5.1 (action-selector pattern), R5.3 (enforcement in code).
 - ADR-0021 (Phase-8 security model), ADR-0022 (DSL/dispatch/CLI placement).

@@ -95,7 +95,7 @@
 #   2026-04-07, bugfix-supported until 2029-10 vs 3.12's security-only track
 #   ending 2028-10; python:3.13.13-slim-bookworm confirmed on Docker Hub,
 #   last_updated 2026-05-20); asset-templates.md Script template. Sites 8-9
-#   (README prose) added 2026-08-24: orchestrator finding that this gate's
+#   (README prose) added 2026-08-24: this gate's
 #   6-site config scan missed the one place a user is most likely to read the
 #   requirement -- both READMEs' "Python 3.12 or newer" / "Python 3.12 o mas
 #   reciente" install line, in English and Spanish, left stale by a prior

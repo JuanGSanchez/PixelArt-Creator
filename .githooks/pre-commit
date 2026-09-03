@@ -12,7 +12,7 @@
 #
 # And then performs the scan duty: this repository's own memory store is
 # refreshed and STAGED, so the map ships inside the commit that changed the
-# tree it describes (`memory-graph-operations.md` §6.1).
+# tree it describes.
 #
 # INSTALLATION: git config core.hooksPath .githooks   (local config — a
 # fresh clone must re-run `container_repo.py install-hooks`).
@@ -47,8 +47,8 @@ if [ -z "$container_found" ]; then
     skip_container_checks=yes
     echo "pre-commit: no container found above $repo_root; the following" >&2
     echo "pre-commit: container-backed checks did NOT run (this clone has no" >&2
-    echo "pre-commit: orchestration container above it, and its gate scripts" >&2
-    echo "pre-commit: are deliberately not vendored into the product):" >&2
+    echo "pre-commit: parent tooling folder above it, and its gate scripts are" >&2
+    echo "pre-commit: deliberately not vendored into the product):" >&2
     echo "pre-commit:   - branch naming (check_branch_naming.py) - NOT run:" >&2
     echo "pre-commit:     would have verified the branch is 'main', 'feat-<x>'" >&2
     echo "pre-commit:     or 'fix-<x>'." >&2
@@ -234,9 +234,9 @@ case "$branch" in
         echo "pre-commit: post-merge store refresh and a one-time furniture" >&2
         echo "pre-commit: bootstrap, nothing else. Take this path:" >&2
         echo "pre-commit:" >&2
-        # ONE route, both natures (repository-policy.md §2.2): a product
-        # root is `<...>/main` in a single-product container and in a
-        # multi-product one alike, and its branches are its own sibling
+        # ONE route, both natures: a product root is `<...>/main` in a
+        # single-product container and in a multi-product one alike, and
+        # its branches are its own sibling
         # folders. The second arm is not another topology — it is a
         # repository that is not in the branch-folder layout yet, where a
         # sibling worktree would land among ITS siblings and mean something
@@ -256,9 +256,8 @@ case "$branch" in
             echo "pre-commit:" >&2
             echo "pre-commit: Uncommitted work follows the switch; nothing is lost." >&2
             echo "pre-commit: NOTE: this repository is not in the branch-folder" >&2
-            echo "pre-commit: layout — its product root should be <...>/main" >&2
-            echo "pre-commit: (project-structure.md invariant 11a). Until it is," >&2
-            echo "pre-commit: branches live in place, as above." >&2
+            echo "pre-commit: layout — its product root should be <...>/main." >&2
+            echo "pre-commit: Until it is, branches live in place, as above." >&2
         fi
         echo "pre-commit:" >&2
         echo "pre-commit: Merges, the creation commit, a post-merge store" >&2
@@ -346,8 +345,7 @@ else
     # the map stayed as stale as it was while every gate downstream read it
     # as current. The report is read here, with the stdlib and never `jq`,
     # and one loud line is printed. The commit still proceeds: a stale map is
-    # a problem and a refused commit is a worse one
-    # (`redistribution.md`, `repository-policy.md`).
+    # a problem and a refused commit is a worse one.
     printf '%s' "$refresh_report" | $PY -c 'import json, sys
 try:
     payload = json.loads(sys.stdin.read() or "{}")

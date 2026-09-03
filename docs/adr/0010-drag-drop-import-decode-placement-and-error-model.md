@@ -1,7 +1,7 @@
 # ADR-0010 — Drag-drop import: image-decode placement, dependency, and error model
 
 - Status: Accepted (2026-07-03)
-- Author: AGT-01 (Architecture)
+- Author: Architecture
 - Feature: `drag-drop-import` (REQ-NEW-A)
 - Traces: REQ-P7-DATA-002 (image decoder), REQ-P7-DATA-005 (shared error contract),
   Article I (three-layer / S11), Article VII (validated I/O)
@@ -10,7 +10,7 @@
 ## Context
 
 Drag-drop import must decode `.png/.jpg/.jpeg/.bmp/.gif` into an RGBA
-`logic.pixel_buffer.PixelBuffer`. The Researcher established two viable backends:
+`logic.pixel_buffer.PixelBuffer`. Prior research established two viable backends:
 
 - **QImage (PySide6/Qt):** reads all four formats out of the box; **no new dependency**
   (PySide6 is already required). Being Qt, any QImage decode **must** live in `ui/`
@@ -88,5 +88,5 @@ not citations of phase-7's.
 `ui/image_import.py` decode placement, the `FileImportError` family in `data/file_import.py` and the
 Article I layering ruling are all unaffected. The parallel mis-citation in `docs/CHANGELOG.md` (the
 drag-drop entry attributing the feature to `REQ-P7-DATA-001..005` + `REQ-P7-UI-001..009`; correct:
-`REQ-DDI-DATA-001..005` + `REQ-DDI-UI-001..009`) is AGT-08's to correct and is **not** part of this
+`REQ-DDI-DATA-001..005` + `REQ-DDI-UI-001..009`) is the documentation's to correct and is **not** part of this
 erratum.

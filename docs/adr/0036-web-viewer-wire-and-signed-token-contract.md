@@ -1,11 +1,11 @@
-# ADR-0036 — Web viewer client↔backend serialization + signed share-link-token contract (Phase-13 Slice 13E)
+# ADR-0036 — Web viewer client↔backend serialization + signed share-link-token contract (Phase-13)
 
 | Field | Value |
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-07 |
-| Author | AGT-01 (Architecture) — **wire shape + token format coordinated with AGT-03** (the implementer of `logic/share_token.py` + the `sync_backend/` handshake extension) |
-| Feature | `phase-13-cross-platform` (Slice 13E — web companion viewer) |
+| Author | Architecture — **wire shape + token format coordinated with the implementation** (the implementer of `logic/share_token.py` + the `sync_backend/` handshake extension) |
+| Feature | `phase-13-cross-platform` (web companion viewer) |
 | Supersedes | — |
 | Superseded by | — |
 | Relates to | ADR-0035 (`web_viewer/` placement), ADR-0027 (`sync_backend/` + `sync_protocol` framing), ADR-0026 (cloud-port; OAuth-PKCE lives in the desktop client, NOT reused here) |
@@ -16,7 +16,7 @@ The web viewer (ADR-0035) is a **vanilla HTML/CSS/JS** client that views a **sha
 **shipped `sync_backend/` `websockets`** relay, gated by a **per-project signed share-link token** (spec §10:
 D1 no new dependency, D2 signed token, D3 vanilla). This ADR **freezes the wire contract** the vanilla client
 and the `websockets` backend share so both sides can be built against a stable surface, and **freezes the
-signed-share-link-token format + validation**. It is coordinated with **AGT-03**, who implements the pure
+signed-share-link-token format + validation**. It is coordinated with **the implementation**, who implements the pure
 `logic/share_token.py` seam and the `sync_backend/server.py` handshake extension. The token model is **not
 full OAuth and has no login flow** (D2); the desktop client's Phase-10 OAuth-PKCE credentials are **not**
 transferable to a browser session and are **not** reused here (a4c7da21 D2).
@@ -118,14 +118,14 @@ backend — acceptable for a self-hosted single-operator deployment (the 13C VPS
 need would move to asymmetric signing (a documented future evolution behind the same `share_token` seam). The
 `sync_backend/server.py` handshake extension is the **one** backend code change of Phase 13 (13C is
 config-only; this is 13E) and must preserve the shipped multi-client convergence for editor clients — covered
-by the Python web integration test (AGT-04) + the existing backend suite.
+by the Python web integration test (the test suite) + the existing backend suite.
 
 ## Grounding
 
 - Spec §2b / §10 (D1 no new dependency, D2 signed share-link token, D3 vanilla + pixel-faithful), §4
   REQ-P13-WEB-001/-002/-005, §5 (Article VII invariant), §8 DEP-5; `acceptance.md` SC-P13-WEB-001-1/-002-1/
   -005-1/-005-2; `traceability.md` WEB rows.
-- Researcher `a4c7da21` D1 (websockets not a general HTTP server; reverse proxy; no new dep), D2 (short-lived
+- Research note `a4c7da21` D1 (websockets not a general HTTP server; reverse proxy; no new dep), D2 (short-lived
   signed bearer token; HTTPS; validate sig+`iss`+`aud`+`exp`; in-memory storage; not full OAuth), D3 +
   pixel-render feasibility (`image-rendering: pixelated`, `imageSmoothingEnabled=false`, integer scale);
   `acaae022` Q2a (browser WS over the existing backend), Q3 (`process_request` handshake auth pattern).
@@ -138,7 +138,7 @@ by the Python web integration test (AGT-04) + the existing backend suite.
 
 ## Addendum A (2026-07-07) — six underspecified contract details RESOLVED before build
 
-During Slice-13E asset generation the Metaprompter surfaced six contract points left ambiguous by the frozen
+During web-viewer asset generation, six contract points were surfaced that were left ambiguous by the frozen
 Decision above. This addendum resolves each with a concrete, testable ruling **inside the already-decided
 scope** (vanilla HTML/CSS/JS, signed share-link token, VIEW-ONLY, over the existing `sync_backend/`
 `websockets` relay, no new Python dependency). No product direction is reopened. Grounded in the shipped
@@ -204,7 +204,7 @@ therefore the shipped op vocabulary, decoded in JS:
 (`realtime_apply.apply_remote` → `convergence.apply_operations` over a `Document`) is **Python-only** — the
 vanilla-JS client (D3) cannot import it at runtime. So the *wire format* is single-sourced/reused, but the
 *replay + LWW winner selection* MUST be **re-implemented in vanilla JS**. This is a **client-side implementation
-cost borne by `agt-11-web-client`, NOT a backend change** — no change to `sync_protocol`, the op-codec, the
+cost borne by the web client, NOT a backend change** — no change to `sync_protocol`, the op-codec, the
 store, or the broadcast path is required. The JS replay MUST mirror `RealtimeState.accept`: per register key
 (`raster:{frame}:{layer}:{tx}:{ty}`, `attr:{frame}:{layer}:{attr}`, `order:{frame}`, `meta:{key}`) keep the
 winner with the highest stamp `(logical_clock, site_id, pixels)` compared lexicographically; drop an op that is
@@ -225,7 +225,7 @@ view-local state, never a wire message), **frame-navigation** (composite a chose
 VIEW-ONLY. (If a future interaction needed data the ops do not carry, it would be scoped down to what IS
 available rather than adding a mutation — not needed here.)
 
-### A.6 — iOS device-check objective pass criterion (makes T13E-B08 acceptance objective)
+### A.6 — iOS device-check objective pass criterion (makes the device-check acceptance objective)
 
 Refines §4 for `devicePixelRatio (DPR) > 1`. **Rendering rule:** set the `<canvas>` **backing-store attributes**
 `canvas.width = source_px_w`, `canvas.height = source_px_h` (one texel per source pixel); draw the reconstructed
@@ -233,7 +233,7 @@ raster 1:1 with `ctx.imageSmoothingEnabled = false`; set **CSS** `style.width = 
 `style.height = source_px_h × S` where `S` is a positive **integer** display scale; apply
 `image-rendering: pixelated`. On iOS Safari DPR ∈ {2, 3} is an integer, so the effective source→physical mapping
 is `S × DPR` (integer) and `pixelated` forces nearest-neighbour on both the CSS upscale and the DPR upscale — no
-interpolation. **Objective pass criterion for T13E-B08** (all must hold on a real iOS Safari device at
+interpolation. **Objective pass criterion for the device check** (all must hold on a real iOS Safari device at
 DPR > 1): (a) `canvas.width/height` == source pixel resolution; (b) computed CSS size == `source_px × S` with
 `S` integer; (c) `getComputedStyle(canvas).imageRendering === 'pixelated'`; (d) `ctx.imageSmoothingEnabled ===
 false`; (e) **edge-sharpness sample:** every source pixel occupies exactly an `S × DPR` block of physical device
@@ -243,40 +243,40 @@ by a screenshot pixel-grid sample; it removes "looks crisp" subjectivity.
 
 ### A.7 — Build-can-proceed statement
 
-The build can proceed against this tightened contract with **NO backend change beyond the T13E-B03 handshake
+The build can proceed against this tightened contract with **NO backend change beyond the handshake
 extension** (token verify in `process_request` + bind connection to the verified `project_id` + reject
 cross-`doc` JOIN + reject `update` on a `scope:"view"` connection + token-redacting logging). `sync_protocol`,
 the `realtime_apply` op-codec, `cloud_validation` caps, the store, and the broadcast path are **unchanged**. The
 only material shift is that the CRDT replay is re-implemented in vanilla JS on the client (A.4) — a
-`agt-11-web-client` cost, explicitly not a backend/serialization change. Article I (web_viewer Qt-free; the
+web-client cost, explicitly not a backend/serialization change. Article I (web_viewer Qt-free; the
 Python token glue MAY reuse pure `logic/`, the browser reuses the *format* by contract) and Article VII
 (untrusted handshake/frames, `eval`-free, capped) are both preserved.
 
 ### A.8 — Updated per-task guidance
 
-- **AGT-03 / T13E-B02 (`logic/share_token.py`):** mint/verify with `project_id` as the canonical claim (also
+- **The implementation (`logic/share_token.py`):** mint/verify with `project_id` as the canonical claim (also
   set `sub` = same value; verify rejects a `project_id`/`sub` mismatch); pin `alg=HS256` (never trust input
   `alg`); enforce `exp - iat <= SHARE_TOKEN_MAX_TTL_S` and `exp > now`; validate `iss`/`aud`; `hmac.compare_digest`
   constant-time; max-token-length cap **before** any base64/JSON decode; `ShareTokenError`. Add
   `SHARE_TOKEN_MAX_TTL_S` and the max-token-length cap to `logic/constants.py` (Article II). Stdlib only (D1).
-- **AGT-03 / T13E-B03 (`sync_backend/server.py` handshake):** add a `process_request` hook to `serve(...)` that
+- **The implementation (`sync_backend/server.py` handshake):** add a `process_request` hook to `serve(...)` that
   `urlsplit`/`parse_qs`-reads `token` from `request.path`, calls `share_token.verify(token, SECRET,
   expected_iss=…, expected_aud=…, now=…)`, and on failure returns an HTTP **401/403** response to reject the
   handshake (serve no data). On success stash `claims["project_id"]` + `claims["scope"]` on the connection; in
   `_dispatch`, **reject a JOIN whose `message.document_id` != the bound `project_id`** and **drop/close any
   `UPDATE` frame when `scope == "view"`** (WEB-002/-005). Do NOT trust the `p` query hint. Redact `token` in all
   handshake logging (A.2). Do NOT modify `sync_protocol`, the op-codec, or the store.
-- **agt-11-web-client / T13E-B04 (`web_viewer/static/`):** open `wss://…?token=…`; hold the token **in memory
+- **The web client (`web_viewer/static/`):** open `wss://…?token=…`; hold the token **in memory
   only** (no `localStorage`); decode `sync_protocol` frames, base64-decode + JSON-parse the op envelope, and
   **replay ops with the A.4 LWW winner rule** into per-`(frame,layer)` RGBA buffers honouring `order`/`attr`
   (visibility) ops; composite the current frame's visible layers to the canvas sized per A.6; implement
   layer-toggle + frame-nav + pan/zoom **client-side** (A.5); **never emit an `update` frame**.
-- **AGT-04 / T13E-B06 (Python web integration test):** at the handshake — a valid token accepts, an
+- **The test suite (Python web integration test):** at the handshake — a valid token accepts, an
   invalid/expired/wrong-`aud`/wrong-`iss`/tampered-sig token is **rejected 401/403** and gets no data; a
   `scope:"view"` connection has its `update` frame **rejected**; a token bound to project A **cannot JOIN**
   document B; the shipped editor multi-client convergence is **unbroken**. Token never appears in logs.
-- **AGT-04/AGT-06 / T13E-B07:** JS-side replay correctness (op-replay + LWW winner selection reproduces the
+- **The test suite/QA:** JS-side replay correctness (op-replay + LWW winner selection reproduces the
   reference `converge`/`apply_remote` raster for a fixture op-log) and, where applicable, a11y of the viewer
   controls; both drivable headless/CI.
-- **AGT-06 / T13E-B08 (device check):** assert the **A.6 objective criterion** (a)–(e) on iOS Safari at
+- **QA (device check):** assert the **A.6 objective criterion** (a)–(e) on iOS Safari at
   DPR > 1 — pass only when every source pixel is an `S × DPR` flat block with no interpolated boundary.

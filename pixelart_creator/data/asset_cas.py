@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Content-addressable store (CAS) over a blob backend — zero Qt (S11; ADR-0030 §4).
 
-Store asset bytes **once**, keyed by their content hash (the Git-blob / IPFS-CID model,
-Researcher §4.1; REQ-P11-DATA-004/-005). :class:`ContentAddressableStore` composes a
+Store asset bytes **once**, keyed by their content hash (the Git-blob / IPFS-CID model;
+REQ-P11-DATA-004/-005). :class:`ContentAddressableStore` composes a
 :class:`~pixelart_creator.data.asset_storage.BlobBackend` (the local default when none
 is
 given) and adds the integrity layer the dumb backend lacks:
@@ -16,7 +16,7 @@ given) and adds the integrity layer the dumb backend lacks:
   blob).
 * :meth:`~ContentAddressableStore.get` fetches by hash and **content-hash-verifies** the
   bytes (recompute + compare); a mismatch is rejected with :class:`CasError`
-  (tamper/corruption defence, Researcher §5), on both the local and the shared backend.
+  (tamper/corruption defence), on both the local and the shared backend.
 
 Because the store is backend-agnostic, it runs unchanged against the offline
 :class:`LocalBlobBackend` or an optional Phase-10-shared backend (ADR-0032). Zero Qt;

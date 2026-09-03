@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Superseded in part** (decisions 1–3; decision 4 stands) |
 | Date | 2026-08-15 |
-| Author | AGT-09 (GitHub/DevOps) |
+| Author | GitHub/DevOps |
 | Feature | Default-branch write policy — closing the hole that let six undeclared commits onto `main` |
 | Supersedes | — |
 | Superseded by | ADR-0050 — decisions 1–3 (the `PIXELART_MAIN_BOOKKEEPING` marker) are withdrawn: the premise below misread two `post-merge` commits the arrangement requires as undeclared writes, and implemented the fix by hand-editing generated hooks. Decision 4 (`tests/githooks/` as a peer test root) stands. |
@@ -60,7 +60,7 @@ notice which branch they were on. The difference between the old behaviour and
 this one is not strength, it is **intent** — the act is now on the record in
 the command that performed it.
 
-**4. `tests/githooks/` is a peer test root**, owned by AGT-09 alongside
+**4. `tests/githooks/` is a peer test root**, owned by DevOps alongside
 `tests/scripts/` (ADR-0047) and `tests/deploy/` (ADR-0043), for this
 repository's own git hooks. It is collected by the default `testpaths` without
 configuration change, since it lives under `tests/`.

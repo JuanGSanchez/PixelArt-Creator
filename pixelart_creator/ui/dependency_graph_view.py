@@ -33,9 +33,9 @@ Every user-visible string is ``tr()``-wrapped with a ``changeEvent`` retranslate
 REQ-P11-UI-010); every interactive control carries an accessible name and is
 keyboard-reachable (REQ-P11-UI-008); colours come from the active QSS theme by role, so
 both themes render correctly with no per-widget colour (REQ-P11-UI-009). All work is
-synchronous over the in-memory graph/catalog — no worker thread / timer (the Slice-1
-``Asset_Library_Session`` precedent: pure ``logic`` queries over immutable values are
-microsecond-fast, so nothing is off-loaded and nothing needs teardown).
+synchronous over the in-memory graph/catalog — no worker thread / timer: pure
+``logic`` queries over immutable values are microsecond-fast, so nothing is
+off-loaded and nothing needs teardown.
 """
 
 from __future__ import annotations

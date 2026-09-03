@@ -5,7 +5,7 @@
 Persist and reload an :class:`~pixelart_creator.logic.asset_catalog.AssetCatalog`
 locally
 (REQ-P11-DATA-001/-002/-003/-007). Identity is by **stable ``AssetId`` + per-asset
-sidecar** (the Unity/Godot/Unreal common thread, Researcher §1): each descriptor is
+sidecar** (the Unity/Godot/Unreal common thread): each descriptor is
 written to ``<root>/assets/<asset_id>.json``, indexed by ``<root>/catalog.json``. The
 catalog stores **references + metadata**, never a copy of the asset payload.
 
@@ -18,7 +18,7 @@ produced
 by :func:`~pixelart_creator.logic.content_hash.canonical_json_bytes` so an asset
 round-trips to an *equivalent* entity via PIO-1.
 
-**Untrusted-input defence (Article VII, REQ-P11-DATA-002; Researcher §5).** Every loaded
+**Untrusted-input defence (Article VII, REQ-P11-DATA-002).** Every loaded
 catalog/sidecar is treated as untrusted: parsed with :mod:`json` only (**never**
 ``eval``/``exec``/``pickle``), schema- and type-checked, size/count-capped
 (:data:`~pixelart_creator.logic.constants.MAX_CATALOG_ASSETS` and the descriptor's own
@@ -131,7 +131,7 @@ _safe_asset_id = safe_asset_id
 def resolve_within(root: Path, candidate: str) -> Path:
     """Resolve ``candidate`` under ``root`` and confirm containment, else raise.
 
-    The robust path-traversal defence (Researcher §5): canonicalize with ``resolve()``
+    The robust path-traversal defence: canonicalize with ``resolve()``
     (collapsing ``..`` and symlinks), then confirm the result is inside ``root`` via
     ``relative_to``. An absolute ``candidate`` or one escaping ``root`` raises.
     """

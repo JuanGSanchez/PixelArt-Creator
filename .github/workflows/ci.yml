@@ -63,7 +63,7 @@ on:
     # documented fix for push/pull_request duplication is NOT found in
     # GitHub's own docs — that framing is community corroboration only (a
     # named blog post + a GitHub Community discussion), flagged low
-    # reliability by the Researcher. It is applied here because it follows
+    # reliability. It is applied here because it follows
     # directly from the documented filter semantics plus the duplicate-run
     # evidence measured above, not because GitHub names it as "the" fix —
     # do not restate it elsewhere as officially documented.
@@ -113,7 +113,7 @@ jobs:
   # requires `quality-gate (ubuntu-latest)` / `(windows-latest)` /
   # `(macos-latest)` by exact job name, with NO bypass, so a pull request
   # missing any one of the three would block merging indefinitely. Per
-  # docs.github.com's own troubleshooting page (Researcher report Q3,
+  # docs.github.com's own troubleshooting page (research finding Q3,
   # verbatim): a job skipped by `if:` reports Success and does not block
   # merging, but a matrix leg that is never PRODUCED at all leaves its
   # required check PENDING and blocks merging indefinitely — remediation
@@ -125,7 +125,7 @@ jobs:
   # gated the merge — re-testing it on Windows/macOS a second time is
   # exactly the inverted weighting this change fixes.
   #
-  # GROUNDING (Researcher report Q2): the
+  # GROUNDING (research finding Q2): the
   # `${{ cond && fromJSON('[...]') || fromJSON('[...]') }}` ternary idiom in
   # matrix position is NOT documented — no operator-precedence table or
   # worked ternary example was found on the official expressions-reference

@@ -3,8 +3,8 @@
 """Seeded, deterministic procedural generators (zero Qt, S11).
 
 Five in-house generators — **value noise**, **gradient (Perlin-style) noise**, an
-**OpenSimplex-style** simplex-grid gradient noise (patent-safe reformulation,
-Researcher §4.1), **cellular automata**, and **dithered gradients** (reusing the
+**OpenSimplex-style** simplex-grid gradient noise (patent-safe reformulation),
+**cellular automata**, and **dithered gradients** (reusing the
 shipped :mod:`logic.dither` ordered-Bayer / Floyd–Steinberg) — each a **pure,
 deterministic function of ``(params, seed)``** (same seed + params → identical
 output; REQ-P8-LOGIC-012). All are pure NumPy/Python: **no new third-party

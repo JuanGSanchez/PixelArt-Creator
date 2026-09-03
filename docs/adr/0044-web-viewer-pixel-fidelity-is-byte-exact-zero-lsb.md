@@ -4,8 +4,8 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-31 |
-| Author | AGT-01 (Architecture) |
-| Feature | `phase-13-cross-platform` (Slice 13E — web companion viewer) |
+| Author | Architecture |
+| Feature | `phase-13-cross-platform` (web companion viewer) |
 | Supersedes | — |
 | Superseded by | — |
 | Relates to | ADR-0036 §A.4/A.6 (**refined** — A.4/A.6 state no tolerance; this ADR supplies the missing number), ADR-0005 + REQ-P4-LOGIC-003 (`blend_arrays(NORMAL)` == `blend_over` at **zero** tolerance — the governing precedent), ADR-0033/ADR-0034 (byte-exact fast paths), ADR-0035 (`web_viewer/` placement) |
@@ -152,14 +152,14 @@ already-composited buffer.
 **Explicitly carved out and NOT decided here:** the eleven **non-normal blend modes**. The wire
 op-log carries no blend-mode attribute the viewer honours, so no such pixel exists today. On the
 desktop those modes run through the float32 separable path that the platform itself documents as
-diverging ≤ 1 LSB (ADR-0005, T13 D5). If a non-normal mode is ever surfaced in the viewer it
+diverging ≤ 1 LSB (ADR-0005 §Amendment D5). If a non-normal mode is ever surfaced in the viewer it
 inherits *that* situation, and the tolerance for it must be decided **then, in the open** — it is
 not pre-relaxed by this ADR, and this ADR must not be cited as having settled it.
 
 ### 4. What this forbids (the real cost, named)
 
 Ruling 0 costs **nothing measured** — the shipped code already meets it, at margin zero. The cost is
-prospective and it is a genuine constraint on `agt-11-web-client`:
+prospective and it is a genuine constraint on the web client:
 
 - **The browser's own compositing may not be used to composite layers.** `ctx.globalAlpha` +
   `drawImage`, `globalCompositeOperation: "source-over"`, or layering multiple `<canvas>` elements
@@ -187,7 +187,7 @@ refined.
 
 ## Consequences
 
-**Obligations on the harness (owner: AGT-06, who owns `web_viewer/tests`; NOT discharged here — the
+**Obligations on the harness (owner: QA, who owns `web_viewer/tests`; NOT discharged here — the
 harness is outside this change's declared write surface).** All six are mechanical; none of them can
 fail, because the measured delta is already 0:
 
@@ -213,7 +213,7 @@ fail, because the measured delta is already 0:
    default gate on every push. Fix both comments — a reader who believes them will mis-judge the
    blast radius of a change here.
 
-**Obligation on evidence breadth (owner: AGT-06 / AGT-13).** One 68×3, two-layer fixture with a
+**Obligation on evidence breadth (owner: QA / web verification).** One 68×3, two-layer fixture with a
 single opacity is **thin** support for a byte-exactness contract, even though it currently passes at
 0. The randomised 60-trial stress reported above found 0 everywhere, but that evidence lives in this
 ADR, not in the repo as a standing test. A second fixture (or a parameterised one) should cover:
@@ -229,7 +229,7 @@ cite this ADR.
 byte of drift instead of absorbing it, which is what a fidelity gate is for. The viewer's contract
 matches the compositor's frozen `blend_over` contract instead of being quietly weaker than it.
 
-**Negative / accepted.** `agt-11-web-client` loses several plausible optimisation routes (§4), and a
+**Negative / accepted.** The web client loses several plausible optimisation routes (§4), and a
 future browser-engine change to `ToUint8Clamp` semantics — vanishingly unlikely, it is specified in
 ECMA-262 — would surface as a hard CI failure rather than an absorbed ±1. That visibility is the
 intent.

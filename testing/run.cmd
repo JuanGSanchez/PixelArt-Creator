@@ -1,7 +1,7 @@
 @echo off
 REM run.cmd - execute the suite under coverage, then ALWAYS reclaim what it
-REM            generated (adapted from the orchestrator-design frozen
-REM            template - see WHY THIS COPY DIVERGES below).
+REM            generated (adapted from a shared frozen template - see
+REM            WHY THIS COPY DIVERGES below).
 REM
 REM The Windows half of the cleanup contract's outer ring; see `run` for the
 REM POSIX one and cleanup.py for the reasoning. cmd.exe has no trap, so the

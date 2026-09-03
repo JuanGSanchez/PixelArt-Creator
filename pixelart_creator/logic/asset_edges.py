@@ -470,8 +470,7 @@ def reference_bytes(document: Document, kind: AssetKind) -> bytes:
     ``export.flatten_frame`` directly, which composites over the layer
     stack's **real** opacity/blend-mode/mask (`blend.py:696`, LOGIC-005/-007/
     -012) — a document differing *only* in a single layer's opacity produced
-    genuinely different reference bytes (measured, `subagent-report-agt-04-
-    python-tester-a104edec-20260822T111623.md` §4: ``opacity-only equal:
+    genuinely different reference bytes (measured: ``opacity-only equal:
     False``), contradicting this function's own docstring promise and the
     applicable Done-when clause. Same "geometry + colour mode + pixels" shape as
     before, with no tile grid because a sprite has none — only *how* the

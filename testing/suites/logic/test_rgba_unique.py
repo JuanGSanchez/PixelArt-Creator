@@ -16,7 +16,7 @@ This module is the equality/determinism oracle for that migration:
 * the migrated callers (palette_analytics / quantize / palette_ops) stay correct
   and deterministic;
 * a large near-uniform buffer yields the correct small unique set (correctness
-  smoke only — NO wall-clock assertion; perf is validated by the orchestrator).
+  smoke only — NO wall-clock assertion; perf is validated separately).
 """
 
 from __future__ import annotations

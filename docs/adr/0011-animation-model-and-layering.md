@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-03 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-5-animation` |
 | Supersedes | — |
 | Superseded by | — |
@@ -58,8 +58,8 @@ flattened composite for scrub/playback with FU-19 deferral; keep the playback ti
   `_rebuild_composite`-on-frame-switch path is **deferred (FU-19)** — a switch consults the cache
   and rebuilds only on miss. In-frame edits recomposite only the dirty region (ADR-0007) and
   invalidate that frame's cache entry. Onion is suppressed during playback (CL-11) so it never
-  competes with the 16 ms tick. Resident buffers are never culled (Article VI §3, F7). **AGT-10**
-  profiles (`perf_profile`/`frame-profile`) and issues any viewport directive; **AGT-05**
+  competes with the 16 ms tick. Resident buffers are never culled (Article VI §3, F7). **Rendering & Performance**
+  profiles (`perf_profile`/`frame-profile`) and issues any viewport directive; **the UI implementation**
   implements the cache + deferred switch; the **budget is never relaxed** (Article VI §2).
 
 ## Alternatives Considered
@@ -78,12 +78,12 @@ flattened composite for scrub/playback with FU-19 deferral; keep the playback ti
 
 **Positive.** Animation logic is pure, deterministic (P2) and headless-testable; the layering stays
 acyclic and enforced; compositing is reused (CO-4), not duplicated; the cached-composite commitment
-gives AGT-10/AGT-05 a defined optimisation surface and keeps 8K scrub/playback in budget; the timer
+gives Rendering & Performance/the UI implementation a defined optimisation surface and keeps 8K scrub/playback in budget; the timer
 boundary keeps `logic/` Qt-free.
 
 **Negative / risk.** The per-frame composite cache needs correct invalidation (a stale entry
 renders a wrong frame) — the contract is: any change to frame *f*'s layer tree invalidates *f*'s
-entry; asserted by AGT-06. If profiling still exceeds budget after caching, the AGT-10 directive
+entry; asserted by QA. If profiling still exceeds budget after caching, the Rendering & Performance directive
 escalates to viewport tuning — never a budget relaxation.
 
 ## Grounding

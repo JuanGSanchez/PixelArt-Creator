@@ -3,7 +3,7 @@
 """OneDrive (Microsoft Graph) real cloud adapter — credential-gated, out of CI.
 
 Zero Qt (S11). Phase-10 Slice A tail (ADR-0026 §1/§2; spec REQ-P10-DATA-001/-002/-003/
--007/-008; Researcher §1.1/§1.2). A real
+-007/-008). A real
 :class:`~pixelart_creator.data.cloud.port.CloudPort` over the Microsoft Graph OneDrive
 API, isolated behind the injectable
 :class:`~pixelart_creator.data.cloud.providers._http.HttpClient` seam (mock-testable by
@@ -14,7 +14,7 @@ folder (``/drive/special/approot``), named ``{project_id}.pixproj``; a separate
 ``{project_id}.recovery`` item backs the recovery slot. Graph driveItem **versions**
 (``/versions``) ARE the version history; each content ``PUT`` creates a new version.
 Change tracking is the driveItem ``delta`` feed, surfaced only as an opaque
-:class:`Cursor`. Capability model (Researcher §1.2): Graph versions are **auto-only**
+:class:`Cursor`. Capability model: Graph versions are **auto-only**
 (no naming/pin), **individual versions cannot be deleted**, it uses ETag/``If-Match``
 optimistic concurrency, and the ``delta`` change feed is **drive-scoped** — surfaced via
 :class:`CloudCapabilities`, never leaked (REQ-P10-DATA-007). No Graph/``urllib`` type or
@@ -50,12 +50,12 @@ _APPROOT = f"{_API}/drive/special/approot"
 #: The provider key used for the keyring service name (``cloud.token_store``).
 PROVIDER = "onedrive"
 
-#: Grounded Microsoft identity OAuth endpoints (Researcher §2). The public client id is
+#: Grounded Microsoft identity OAuth endpoints. The public client id is
 #: supplied by the caller; no secret is embedded here.
 _AUTHORIZE = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 _TOKEN = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 _DEVICE = "https://login.microsoftonline.com/common/oauth2/v2.0/devicecode"
-#: ``offline_access`` is required to receive a refresh token (Researcher §2.1/§2.3).
+#: ``offline_access`` is required to receive a refresh token.
 ONEDRIVE_SCOPE = "offline_access Files.ReadWrite.AppFolder"
 
 
@@ -196,7 +196,7 @@ class OneDriveAdapter(BaseProviderAdapter):
         return response.body
 
     def capabilities(self) -> CloudCapabilities:
-        """Return OneDrive's normalized capability model (Researcher §1.2)."""
+        """Return OneDrive's normalized capability model."""
         return CloudCapabilities(
             supports_named_revisions=False,  # Graph versions are auto-only
             supports_revision_delete=False,  # individual versions cannot be deleted

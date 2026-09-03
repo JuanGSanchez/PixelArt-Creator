@@ -4,19 +4,19 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-08 |
-| Author | AGT-01 (Architecture) |
-| Feature | `phase-14-ai-assistant` (Slice 14C) |
+| Author | Architecture |
+| Feature | `phase-14-ai-assistant` |
 | Privacy | **S19-PRIVATE — docs/ is gitignored; this ADR is NOT committed.** |
 | Relates to | ADR-0039 (action surface + dispatch), ADR-0040 (LLMPort + ChatBackend bridge), ADR-0042 (embedding), ADR-0021 (Phase-8 security), ADR-0026 §6 (untrusted-input caps precedent) |
 
 ## Context
 
-Slice 14C is the security heart of Phase 14: a Qt-free `logic/` **agentic loop** that drives the injected
+This feature is the security heart of Phase 14: a Qt-free `logic/` **agentic loop** that drives the injected
 `ChatBackend` (ADR-0040) through the tool catalog + trusted dispatch (ADR-0039), enforces a **tiered safety
 posture** (reversible auto-run / destructive confirm — spec D3), and treats every **tool-result as
 untrusted input** (prompt-injection defence). The spec froze the boundaries (REQ-P14-LOGIC-004/-005/-006/
--007/-008) and deferred to AGT-01 (spec §8 DEP-3) the concrete **reversibility-classification mechanism**,
-which must be *deterministic, unit-testable, logic-level, and never prompt-based*. The Researcher
+-007/-008) and deferred to architecture (spec §8 DEP-3) the concrete **reversibility-classification mechanism**,
+which must be *deterministic, unit-testable, logic-level, and never prompt-based*. Prior research
 (`ad2616c7`) grounds: R2.1 canonical loop; R5.1 action-selector + R5.2 tool-results-are-untrusted (OWASP #1
 in 2026); R5.3 enforcement in code not prompt; R5.4 confirmation-posture spectrum (tier tools: auto-run
 reversible/read-only, confirm destructive; undo-coverage lowers autonomous-posture risk).
@@ -40,7 +40,7 @@ SC-L005-1) and is **batch/off the per-frame render loop** (Article VI; `FRAME_BU
 model round-trip — the stays-responsive contract is REQ-P14-UI-004 / ADR-0042). It imports only
 `tool_catalog`, `scripting`, `macro`, `history`, `constants` — a pure `logic` leaf; no `data/`, no Qt.
 
-> **Amendment — 2026-07-08 (AGT-01, Architecture) — Turn-atomicity on the error path (REQ-P14-LOGIC-005; landed during 14E integration).**
+> **Amendment — 2026-07-08 (architecture, Architecture) — Turn-atomicity on the error path (REQ-P14-LOGIC-005; landed during 14E integration).**
 > A turn is **atomic**, and that atomicity now extends to the **error path**. The shipped invariant that a single
 > rejected/declined tool-call leaves the document **byte-identical** (SC-L006-1, §3/§2) is hereby extended to the
 > **whole turn**: if a turn applies **≥1 reversible tool-call command** and *then* fails **mid-turn** — a later
@@ -116,7 +116,7 @@ Every tool-result (a dispatched op's output/summary, or any content fed back) is
 ### 4. Bounded numerics (Article II) (REQ-P14-LOGIC-007)
 
 New named constants in `logic/constants.py` (names distinct from every shipped constant — BF-1). Proposed
-values (AGT-03 finalizes; grounded, conservative):
+values (the implementation finalizes; grounded, conservative):
 
 | Constant | Proposed value | Rationale |
 | --- | --- | --- |
@@ -134,7 +134,7 @@ SC-L007-1). No numeric literals for these caps anywhere in `logic/`/`data/`/`ui/
 The whole assistant path (`tool_catalog`, the loop, the tiered gate, the `LLMPort` + all adapters, the CLI)
 contains **no `eval`/`exec`/`compile`/`__import__` of model output or tool-result content**. Model output
 is *data* (`Message` / `ToolCall`) mapped onto `_REGISTRY` — no interpreter to escape (inherits ADR-0021).
-A static source scan over the Phase-14 modules finds zero such calls (SC-L008-1; AGT-04/AGT-06 verify).
+A static source scan over the Phase-14 modules finds zero such calls (SC-L008-1; the test suite/QA verify).
 
 ## Alternatives Considered
 
@@ -169,4 +169,4 @@ edits. The reversible allow-list must be maintained as new ops ship — mitigate
   (SC-L005-3 = the 2026-07-08 turn-atomicity-on-error amendment above).
 - Shipped `logic/history.py` (HIS-1 undo stack), `logic/scripting.py` (dispatch atomicity),
   `data/cloud/`/`logic/cloud_validation` (the caps posture, CLD-1). Constitution Article I, II, VI, VII, VIII.
-- Researcher `ad2616c7` R2.1/R2.3, R5.1/R5.2/R5.3/R5.4, R6.2. ADR-0021, ADR-0026 §6, ADR-0039, ADR-0040.
+- Research note `ad2616c7` R2.1/R2.3, R5.1/R5.2/R5.3/R5.4, R6.2. ADR-0021, ADR-0026 §6, ADR-0039, ADR-0040.

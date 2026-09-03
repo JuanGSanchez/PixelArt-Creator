@@ -238,7 +238,7 @@ def test_is_connected_false_without_token(provider, mock_keyring):
     assert adapter.is_connected() is False
 
 
-# --- capability mapping (Researcher §1.2) ----------------------------------- #
+# --- capability mapping (research §1.2) ----------------------------------- #
 
 _EXPECTED_CAPS = {
     "drive": dict(

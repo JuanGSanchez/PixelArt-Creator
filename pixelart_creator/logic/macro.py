@@ -59,12 +59,12 @@ __all__ = [
 MACRO_SCHEMA_VERSION: str = "1"
 
 #: Minimum application version that can replay a macro written at the current
-#: schema (Researcher Topic 2.5 — fail loudly across releases). Format-intrinsic.
+#: schema (fail loudly across releases). Format-intrinsic.
 MIN_APP_VERSION: str = "0.8.0"
 
 #: Per-op API version stamped into a serialised macro so a v1 op replayed against
 #: an incompatibly-changed op fails loudly rather than mis-replaying (ADR-0022 §1;
-#: Researcher Topic 2.4). Format-intrinsic (validated by ``data.macro_io``).
+#: format-intrinsic (validated by ``data.macro_io``).
 OP_API_VERSION: str = "1"
 
 #: Schema versions this build can load/replay.
@@ -147,7 +147,7 @@ def record(ops: Iterable[Op]) -> Macro:
     """Capture an ordered :class:`Op` stream as a versioned :class:`Macro`.
 
     Records the *inputs* (each op's resolved params + captured seed), never a
-    pixel diff (REQ-P8-LOGIC-004; Researcher Topic 2 — "capture inputs, not just
+    pixel diff (REQ-P8-LOGIC-004 — "capture inputs, not just
     operations"). The DSL ``Op`` is the recordable unit — a raw
     :class:`~pixelart_creator.logic.history.Command` is an opaque execute/undo
     pair with no recoverable op-name/params, so the session collects the ops it

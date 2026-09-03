@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-04 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-7-export` |
 | Supersedes | — |
 | Superseded by | — |
@@ -13,7 +13,7 @@
 
 Phase 7's byte-identity guarantee (GUI export == CLI export, REQ-P7-LOGIC-009/-013, REQ-P7-UI-007)
 holds only if the GUI dialogs and the headless CLI both drive **one** pure, deterministic, Qt-free
-export engine (Article I). AGT-01 must rule (DEP-2, spec §8 BF-2):
+export engine (Article I). Architecture must rule (DEP-2, spec §8 BF-2):
 
 1. **File placement** of the export encoders (PNG/GIF/APNG), the sprite-sheet/atlas packer + JSON
    emitter, the engine-preset writers, the shared orchestrator, and the CLI driver under the
@@ -88,7 +88,7 @@ appears. Acyclic by construction.
 ### CLI entrypoint + grammar (CL-11)
 
 - **`pyproject` console script:** `[project.scripts]` →
-  `pixelart-export = "pixelart_creator.data.export_cli:main"` (AGT-09 owns the pyproject edit).
+  `pixelart-export = "pixelart_creator.data.export_cli:main"` (DevOps owns the pyproject edit).
 - **Grammar:** `pixelart-export --input PROJECT.pixproj --format {png,gif,sprite-sheet,atlas}
   [--preset {unity,godot}] --output PATH [--columns N] [--padding N] [--loop N] [--tag NAME]
   [--json/--no-json]`. **Exit codes:** `0` success; `1` export/pack failure (`ExportError`/
@@ -132,9 +132,9 @@ green. The console entrypoint gives studios a scriptable `pixelart-export` with 
 **Negative / risk.** Hosting a CLI driver in `data/` slightly stretches the "I/O + persistence"
 framing (mitigated: a CLI *is* command-line IO, and the alternative — an unguarded `cli/` package —
 is worse for Article I). The `ui/export_worker.py` off-thread runner must call only the Qt-free engine
-and construct no Qt off the GUI thread (the Phase-5/6 warmer precedent); AGT-10 owns the responsiveness
-directive (DEP-3), AGT-05 implements it. The new pyproject `[project.scripts]` entry is AGT-09's edit
-(out of AGT-01 scope — flagged in tasks).
+and construct no Qt off the GUI thread (the Phase-5/6 warmer precedent); Rendering & Performance owns the responsiveness
+directive (DEP-3), the UI implementation implements it. The new pyproject `[project.scripts]` entry is DevOps's edit
+(out of architecture scope — flagged in tasks).
 
 **Post-implementation note (atlas bounds, D-1 fix, 2026-07-04).** `MAX_ATLAS_DIMENSION` was aligned to
 the *buildable* 8K ceiling — `MAX_ATLAS_DIMENSION = MAX_CANVAS_WIDTH = 7680` — and `logic/atlas.pack_atlas`
@@ -143,7 +143,7 @@ MAX_CANVAS_HEIGHT=4320)` before delegating to `compactor.compact` (CP-1). A form
 the 7680 width ceiling and would let a sheet be packed wider than any buildable `PixelBuffer`. The
 conservative **align-to-8K** choice upholds "atlas within bounds" + the Article VI 8K ceiling and leaves
 the ADR-0017 coord/pixel round-trip unchanged. Allowing larger-than-canvas atlas sheets would require a
-`PixelBuffer`-cap change + a new ADR (AGT-03 flag) — deliberately deferred (Article XI hook), not taken.
+`PixelBuffer`-cap change + a new ADR (the implementation flag) — deliberately deferred (Article XI hook), not taken.
 
 ## Grounding
 
@@ -157,5 +157,5 @@ the ADR-0017 coord/pixel round-trip unchanged. Allowing larger-than-canvas atlas
   `logic/quantize.py`, `data/project_io.py` (IO-3), `ui/commands.py` (sole outside-`ui/` Qt file).
 - Constitution Article I (three-layer purity + acyclic + the `ui/commands.py`-only exemption), II
   (constants + explicit atlas bounds), VI (export is batch IO, not the 16 ms render loop — DEP-3
-  responsiveness), VII (defensive `.pixproj` load, portable paths), IX (pyproject/CI owned by AGT-09);
+  responsiveness), VII (defensive `.pixproj` load, portable paths), IX (pyproject/CI owned by DevOps);
   ADR-0017/0018/0019 (schema / presets / encoder options this architecture hosts).

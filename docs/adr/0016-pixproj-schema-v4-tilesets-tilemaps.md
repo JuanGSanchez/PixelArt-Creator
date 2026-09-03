@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | **Accepted** |
 | Date | 2026-07-03 |
-| Author | AGT-01 (Architecture) |
+| Author | Architecture |
 | Feature | `phase-6-tilemap` |
 | Supersedes | — |
 | Superseded by | — |
@@ -15,7 +15,7 @@ Phase 6 attaches **tilesets** (source-image reference + slicing config) and **ti
 stack + linked instances + auto-tile logical placement) to the `Document` (DOC-1), and requires them
 to **round-trip natively in `.pixproj`** while **older tilemap-less projects still open**
 (REQ-P6-DATA-004). The shipped `data/project_io.py` is at **`FORMAT_VERSION = 3`**
-(`_SUPPORTED_VERSIONS = (1, 2, 3)`, ADR-0012 — frame tags + `layer_id`). DEP-2 directs AGT-01 to rule
+(`_SUPPORTED_VERSIONS = (1, 2, 3)`, ADR-0012 — frame tags + `layer_id`). DEP-2 directs architecture to rule
 whether the tilemap data is a **schema-version bump** or an **additive field** on v3, and whether
 tilemaps live in the one `.pixproj` document or a separate tilemap doc-type. Article VII requires the
 load stay defensive (validated, bounds-checked, no `eval`/`exec`).
@@ -71,7 +71,7 @@ projects keep opening (back-compat); the version field keeps the format self-des
 defensive validator, one save/open path. Storing the logical auto-tile placement keeps reload
 reversible and consistent with ADR-0013.
 
-**Negative / risk.** The loader gains a fourth branch (v1/v2/v3/v4); all are covered by AGT-04 tests,
+**Negative / risk.** The loader gains a fourth branch (v1/v2/v3/v4); all are covered by the test suite tests,
 including a checked-in v3 fixture that loads (empty collections) and re-saves as v4. Tileset/tilemap
 validation must be fail-closed (Article VII) — the loader rejects malformed/out-of-range data rather
 than clamping. The `Document.__slots__` extension is additive and must not break the shipped
