@@ -29,20 +29,53 @@ this module stays Qt-plumbing only — the run/guard/undo decision lives in
 is keyboard-openable and navigable.
 
 **Amended 2026-08-31 (REQ-IS-UI-019/-020/-021/-022/-023, REQ-IS-UI-030 FIX,
-D-19).** A single left click on a Favourites entry or a harmony/shade/tint
-swatch now PAINTS (leg 2, :attr:`colorCommitted`) and leaves the active
-colour unchanged; a double click, or ``Space``/``Return`` on a focused
-swatch, ADOPTS (leg 1, :attr:`colorApplied`) and paints nothing. The two
-gestures are wired to distinct signals throughout — never one slot shared
-between ``itemClicked``/``itemActivated`` — so a double click can no longer
-also fire the single-click path. The wheel pad is **not** a swatch and is
-unchanged: its drag still streams :attr:`colorApplied` live and its release
-still commits once. The completion handler, :meth:`Colour_Hub_Menu.
-_on_pick_completed`, now commits the colour of the control that actually
-completed the pick rather than always reading the wheel's (possibly stale)
-colour — this was the shared root cause of both defects (`REQ-IS-UI-030`).
-Separately, D-19: a right-click while the hub is already open now closes it
-and does not reopen it — see :meth:`Colour_Hub_Menu.consume_just_closed`.
+right-click dismissal).** A single left click on a Favourites entry or a
+harmony/shade/tint swatch now PAINTS (leg 2, :attr:`colorCommitted`) and
+leaves the active colour unchanged; a double click, or ``Space``/``Return``
+on a focused swatch, ADOPTS (leg 1, :attr:`colorApplied`) and paints
+nothing. The two gestures are wired to distinct signals throughout — never
+one slot shared between ``itemClicked``/``itemActivated`` — so a double
+click can no longer also fire the single-click path. The wheel pad is
+**not** a swatch and is unchanged: its drag still streams
+:attr:`colorApplied` live and its release still commits once. The
+completion handler, :meth:`Colour_Hub_Menu._on_pick_completed`, now commits
+the colour of the control that actually completed the pick rather than
+always reading the wheel's (possibly stale) colour — this was the shared
+root cause of both defects (`REQ-IS-UI-030`). Separately: a right-click
+while the hub is already open closes it and does not reopen it.
+
+**Re-fixed 2026-09-06 (see ADR-0066).** The original dismissal guard —
+a ``hideEvent``-set flag cleared by a ``QTimer.singleShot(0, ...)``,
+consumed once by ``Main_Window._open_colour_hub`` — shipped with no test
+and was measured to never engage at all: ``hideEvent`` was never observed
+to fire on the reproduction path, on either the offscreen platform or the
+real Windows platform, in an instrumented investigation of the actual
+gesture, so the flag was never set and the guard never had anything to
+consume. It is **removed outright**, not repaired, because it is a
+timing/ordering assumption and no such assumption can be trusted here (see
+ADR-0066 for the full reasoning). It is replaced by two mechanisms,
+neither of which depends on event ordering or elapsed time:
+
+1. An application-wide event filter, installed once on
+   ``QApplication.instance()`` from :meth:`Colour_Hub_Menu.__init__`, which
+   intercepts a ``RightButton`` press or a Menu-key/Shift+F10 press
+   *anywhere* — before it reaches any receiver, including the hub's own
+   children — while ``self.isVisible()``: it hides the hub and consumes the
+   event, so the seam (``_open_colour_hub``) is never even re-entered for
+   the closing gesture. This alone covers a right-click landing anywhere —
+   on the canvas, elsewhere in the window, or on empty desktop — dismissing
+   the hub; a right-click landing on a hub child such as the wheel pad or a
+   Favourites row also dismisses it, with no dead zone, because none of
+   those controls uses the right button; and the keyboard toggle's dismiss
+   half (pressing Menu or Shift+F10 while the hub is open closes it).
+2. A same-press identity check, :meth:`Colour_Hub_Menu.
+   consume_dismiss_timestamp`, kept as a defence for the case the
+   application filter above cannot rule out by direct observation: if Qt's
+   own popup grab (rather than this widget) is what actually closes the
+   popup on real hardware, and then *replays* the same physical press to
+   the widget underneath, Qt copies the original press's ``timestamp()``
+   onto the replayed event verbatim — so the replay is recognised by that
+   identity, not by inferring when or whether it happens.
 """
 
 from __future__ import annotations
@@ -50,7 +83,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QHideEvent, QIcon, QKeyEvent, QMouseEvent, QPixmap
+from PySide6.QtGui import QColor, QIcon, QKeyEvent, QMouseEvent, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -290,7 +323,22 @@ class Colour_Hub_Menu(QDialog):
         self._wheel.colorPicked.connect(self._on_wheel_picked)
         self._wheel.swatchPicked.connect(self._on_pick_completed)
         self._pick_completion_targets = self._install_pick_completion_watchers()
-        self._just_closed = False
+        #: Set by the app-wide dismiss filter (below) to the ``timestamp()``
+        #: of the RightButton press that just hid this hub, and consumed
+        #: once by :meth:`consume_dismiss_timestamp`. ``None`` when no
+        #: dismissal is pending recognition.
+        self._last_dismiss_ts: Optional[int] = None
+        # Application-wide dismiss filter (a right-click anywhere, inside or
+        # outside the hub, or a Menu-key/Shift+F10 press, dismisses the hub
+        # while it is open; replacing the earlier dismissal guard's removed
+        # hideEvent/timer scheme, see the module docstring and ADR-0066).
+        # Installed
+        # once, for the app's life — Qt removes an event filter automatically
+        # when either the watched object or the filter object is destroyed,
+        # so there is nothing to uninstall on hide/show and nothing to race.
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(self)
 
         self._add_button = QPushButton(self)
         self._add_button.clicked.connect(self._on_add_current)
@@ -350,32 +398,82 @@ class Colour_Hub_Menu(QDialog):
         self.show()
         self._wheel.setFocus()
 
-    def consume_just_closed(self) -> bool:
-        """Return True once if this hub closed during the current event turn.
+    def consume_dismiss_timestamp(self, timestamp: Optional[int]) -> bool:
+        """Return True once if ``timestamp`` is the press that just dismissed this hub.
 
-        D-19: "right-click when this menu is already present must trigger
-        its disappearance, like when left-clicking in the canvas." The hub
-        is a ``Qt.WindowType.Popup``, so an outside click already closes it —
-        but the SAME right-click then reaches the shell's seam hook, which
-        would otherwise reopen the hub at the new anchor and make it appear
-        never to dismiss. The shell (``_open_colour_hub``) calls this at the
-        top of the reopen path and aborts if it returns True. The flag is
-        cleared on the next event-loop turn (see :meth:`hideEvent`), so it
-        only ever suppresses the reopen belonging to the click that closed
-        it — a later, deliberate right-click is never affected.
+        Dismissal re-fix (2026-09-06, see ADR-0066): the app-wide dismiss
+        filter (installed in :meth:`__init__`, see the module docstring)
+        hides the hub and records the dismissing press's ``timestamp()`` the
+        instant it observes a ``RightButton`` press while
+        ``self.isVisible()``. That is enough on its own whenever this filter
+        is the thing that sees the closing press first. The residual doubt —
+        whether, on real hardware, Qt's OWN popup grab (rather than this
+        filter) is what actually closes the popup, and then *replays* the
+        same physical press to whatever is underneath — is that by the time
+        such a replay reaches ``Canvas_View`` and this seam,
+        ``self.isVisible()`` may already be ``False``, so a plain visibility
+        check would decline to recognise it and the hub would reopen — the
+        exact defect this fix exists to correct, now hidden behind a fix
+        that looks correct. Qt copies the ORIGINAL press's ``timestamp()``
+        onto the replayed event verbatim, so the replay is recognised by
+        that identity here — an equality check, never a timer, an
+        elapsed-time guess, or an event-ordering assumption. Consumed on
+        first match (cleared to ``None``) so a later, genuinely new
+        right-click — a different timestamp — opens the hub normally.
         """
-        was = self._just_closed
-        self._just_closed = False
-        return was
+        if timestamp is None or self._last_dismiss_ts is None:
+            return False
+        if timestamp == self._last_dismiss_ts:
+            self._last_dismiss_ts = None
+            return True
+        return False
 
-    def hideEvent(self, event: QHideEvent) -> None:  # noqa: N802 (Qt override)
-        """Flag a just-closed hub for one event-loop turn (D-19, see above)."""
-        self._just_closed = True
-        QTimer.singleShot(0, self._clear_just_closed)
-        super().hideEvent(event)
+    def _maybe_dismiss(self, event: QEvent) -> bool:
+        """Application-wide dismiss check, called from :meth:`eventFilter`.
 
-    def _clear_just_closed(self) -> None:
-        self._just_closed = False
+        On a ``RightButton`` press or a Menu-key/Shift+F10 press, while
+        ``self.isVisible()``: hide the hub and consume the event (return
+        ``True``), so the closing gesture never reaches — and never
+        re-anchors — anything underneath, including the hub's own children
+        (no dead zone: none of the pick controls uses the right button or
+        these two keys, so this can never collide with them and the hub's
+        pick semantics are deliberately left untouched). While the hub is
+        already hidden, decline (return ``False``) and let the event fall
+        through unchanged, so a right-click on a closed hub still opens it,
+        and every other event (every left-click, every wheel-drag sample)
+        is untouched.
+        """
+        if (
+            isinstance(event, QMouseEvent)
+            and event.type() == QEvent.Type.MouseButtonPress
+            and event.button() == Qt.MouseButton.RightButton
+        ):
+            if self.isVisible():
+                self.hide()
+                self._last_dismiss_ts = event.timestamp()
+                return True
+            return False
+        if (
+            isinstance(event, QKeyEvent)
+            and event.type() == QEvent.Type.KeyPress
+            and not event.isAutoRepeat()
+            and self._is_dismiss_key(event)
+        ):
+            if self.isVisible():
+                self.hide()
+                return True
+            return False
+        return False
+
+    @staticmethod
+    def _is_dismiss_key(event: QKeyEvent) -> bool:
+        """Return True for the Menu key or Shift+F10 (the keyboard toggle)."""
+        if event.key() == Qt.Key.Key_Menu:
+            return True
+        return (
+            event.key() == Qt.Key.Key_F10
+            and event.modifiers() == Qt.KeyboardModifier.ShiftModifier
+        )
 
     def set_pick_surface_visible(self, visible: bool) -> None:
         """Show/hide the wheel + numeric + harmony surface (REQ-P3-UI-006 clause 7).
@@ -408,29 +506,38 @@ class Colour_Hub_Menu(QDialog):
     # this generic watcher, and is not one of ``targets`` below.
 
     def _install_pick_completion_watchers(self) -> List[QWidget]:
-        """Wire the wheel's live-stream controls to a discrete completion signal.
+        """Identify the wheel's live-stream controls a completion is watched for.
 
         * the wheel pad and the value slider: a left mouse-button release, or
           a (non-autorepeat) ``KeyRelease`` of one of ``_WHEEL_NUDGE_KEYS`` —
           the pad's own keyboard-nudge keys, reused here for the (vertical)
-          slider's arrow-key stepping too — caught via an installed event
-          filter (:meth:`eventFilter` below);
+          slider's arrow-key stepping too — recognised via :meth:`eventFilter`
+          below, scoped to exactly these ``targets`` (``obj in
+          self._pick_completion_targets``);
         * each RGB/HSV numeric spin: ``editingFinished`` (Enter or focus-out),
           never ``valueChanged``, which fires per keystroke while typing.
 
         For all of the above, the wheel's own current colour IS the
         completing control's colour (REQ-IS-UI-030, REQ-IS-UI-021), so
         :meth:`_on_pick_completed` is called with no argument. Returns the
-        widgets an event filter was installed on, kept referenced for the
-        hub's lifetime (Qt keeps no reference of its own).
+        watched widgets, kept referenced for the hub's lifetime (Qt keeps no
+        reference of its own) and to scope :meth:`eventFilter`.
+
+        No ``widget.installEventFilter(self)`` here (unlike before
+        2026-09-06): ``self`` is now ALSO installed once on
+        ``QApplication.instance()`` (see ``__init__``), which already
+        observes every event delivered to every one of these widgets. A
+        second, widget-direct registration of the SAME filter object would
+        make Qt invoke :meth:`eventFilter` TWICE per event — once per
+        registration — double-firing :meth:`_on_pick_completed` (measured via
+        ``test_colour_hub_pick_semantics_characterisation.py``'s wheel-drag
+        control case: 2 commits for one release instead of 1).
         """
         targets: List[QWidget] = []
         wheel_pad = self._find_wheel_pad()
         if wheel_pad is not None:
             targets.append(wheel_pad)
         targets.extend(self._wheel.findChildren(QSlider))
-        for widget in targets:
-            widget.installEventFilter(self)
         for spin in self._wheel.findChildren(QSpinBox):
             spin.editingFinished.connect(self._on_pick_completed)
         return targets
@@ -449,15 +556,42 @@ class Colour_Hub_Menu(QDialog):
         return None
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # noqa: N802
-        """Detect a completed wheel-pad/value-slider pick (see the block above)."""
-        if (
-            isinstance(event, QMouseEvent)
-            and event.type() == QEvent.Type.MouseButtonRelease
-        ):
-            if event.button() == Qt.MouseButton.LeftButton:
-                self._on_pick_completed()
-        elif isinstance(event, QKeyEvent) and event.type() == QEvent.Type.KeyRelease:
-            if not event.isAutoRepeat() and event.key() in _WHEEL_NUDGE_KEYS:
+        """Detect a completed wheel-pad/value-slider pick, and the dismiss gesture.
+
+        Installed on two kinds of target (see :meth:`_install_pick_completion_watchers`
+        and :meth:`__init__`): the wheel pad / value slider, watched for a
+        completed-pick release below; and, once, ``QApplication.instance()``
+        itself, watched application-wide for the dismiss gesture
+        (:meth:`_maybe_dismiss`, see ADR-0066) — a right-click or
+        Menu-key/Shift+F10 press anywhere, seen before it reaches any
+        receiver.
+        """
+        if self._maybe_dismiss(event):
+            return True
+        # The completion-watcher checks below must stay scoped to the wheel
+        # pad / value slider targets ``_install_pick_completion_watchers``
+        # installed this filter on — now that ``self`` is ALSO installed
+        # application-wide (__init__, for the dismiss gesture above), Qt
+        # calls this method for every widget's events, and an unscoped
+        # ``obj`` here would fire ``_on_pick_completed()`` — with NO explicit
+        # colour, so it falls back to the wheel's CURRENT colour — for any
+        # unrelated LeftButton release anywhere in the app, including a
+        # harmony/shade/tint swatch's own release. That regressed
+        # REQ-IS-UI-030 the moment the app-wide filter was added, measured
+        # via ``test_colour_hub_pick_semantics_characterisation.py``.
+        if obj in self._pick_completion_targets:
+            if (
+                isinstance(event, QMouseEvent)
+                and event.type() == QEvent.Type.MouseButtonRelease
+            ):
+                if event.button() == Qt.MouseButton.LeftButton:
+                    self._on_pick_completed()
+            elif (
+                isinstance(event, QKeyEvent)
+                and event.type() == QEvent.Type.KeyRelease
+                and not event.isAutoRepeat()
+                and event.key() in _WHEEL_NUDGE_KEYS
+            ):
                 self._on_pick_completed()
         return super().eventFilter(obj, event)
 
