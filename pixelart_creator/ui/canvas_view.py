@@ -233,6 +233,14 @@ class Canvas_View(QGraphicsView):
         self._favourites: Optional[Favourites] = None
         self._ctx: Optional[ToolContext] = None
         self._menu_hook: Optional[Callable[[int, int], None]] = None
+        #: The ``timestamp()`` of the RightButton press currently being
+        #: dispatched through ``_menu_hook``, ``None`` for the keyboard
+        #: (Menu key / Shift+F10) trigger. Consumed once via
+        #: :meth:`pop_pending_right_press_timestamp` — deliberately NOT
+        #: threaded as a third positional argument to ``_menu_hook`` itself,
+        #: so the hook's signature (``Callable[[int, int], None]``) and every
+        #: existing 2-argument hook (tests included) stay unchanged.
+        self._pending_right_press_ts: Optional[int] = None
         # File-drop routing seam — a real drag/drop delivered to
         # QGraphicsView's viewport is otherwise translated into a
         # QGraphicsSceneDragDropEvent and swallowed by the scene (no item
@@ -436,6 +444,21 @@ class Canvas_View(QGraphicsView):
     def set_menu_hook(self, hook: Optional[Callable[[int, int], None]]) -> None:
         """Register a replaceable right-click menu hook (Phase-3 seam, CL-8)."""
         self._menu_hook = hook
+
+    def pop_pending_right_press_timestamp(self) -> Optional[int]:
+        """Return and clear the pending right-click press's ``timestamp()``.
+
+        Set in :meth:`_dispatch_menu` immediately before invoking
+        ``_menu_hook`` for a mouse-triggered right-click; ``None`` for the
+        keyboard (Menu key / Shift+F10) trigger via :meth:`contextMenuEvent`.
+        The hook's caller (``Main_Window._open_colour_hub``) pops this once
+        to recognise a same-press replay by identity (see
+        ``Colour_Hub_Menu.consume_dismiss_timestamp`` and ADR-0066) —
+        consumed here so a later dispatch never sees a stale value.
+        """
+        ts = self._pending_right_press_ts
+        self._pending_right_press_ts = None
+        return ts
 
     def set_drop_router(self, router: Optional[Callable[[List[str]], None]]) -> None:
         """Register the window's dropped-file router (REQ-DDI-UI-001).
@@ -1246,6 +1269,13 @@ class Canvas_View(QGraphicsView):
             self._show_guide_context_menu(guide_hit, event.globalPosition().toPoint())
             return
         if self._menu_hook is not None:
+            # Recorded for the same-press identity guard (see
+            # Colour_Hub_Menu.consume_dismiss_timestamp and ADR-0066): if
+            # Qt's own popup grab, rather than the app-wide dismiss filter,
+            # is what actually closes the hub on real hardware and then
+            # replays this SAME press here, the seam recognises it by this
+            # timestamp rather than by guessing at ordering.
+            self._pending_right_press_ts = event.timestamp()
             self._menu_hook(x, y)
             return
         self._show_placeholder_menu(event.globalPosition().toPoint())
@@ -1272,13 +1302,22 @@ class Canvas_View(QGraphicsView):
     def contextMenuEvent(  # noqa: N802 (Qt override)
         self, event: QContextMenuEvent
     ) -> None:
-        """Open the colour hub from the keyboard (Menu key / Shift+F10).
+        """Toggle the colour hub from the keyboard (Menu key / Shift+F10).
 
         Makes the hub reachable without a mouse (A11Y-COLHUB-1, SC-U003-3). Mouse
         right-clicks are already handled in :meth:`mousePressEvent`, so only the
         keyboard-triggered request is serviced here to avoid a double menu. With no
         cursor to anchor to, the hub opens at the viewport centre; the seam hook
         maps the buffer pixel back to a screen position (device-independent).
+
+        No press to identify here (unlike the mouse path in
+        :meth:`_dispatch_menu`) — a keyboard request has no "outside click"
+        replay to disambiguate, so no pending timestamp is recorded; the
+        dismiss-while-open half of the toggle is decided at the seam itself
+        (``Main_Window._open_colour_hub``'s own ``isVisible()`` check), which
+        fires regardless of whether this event arrived via a raw Menu-key
+        press already caught by the hub's own app-wide filter or via a
+        native context-menu request that bypassed it.
         """
         if event.reason() != QContextMenuEvent.Reason.Keyboard:
             super().contextMenuEvent(event)
@@ -1287,6 +1326,7 @@ class Canvas_View(QGraphicsView):
         scene_point = self.mapToScene(view_point)
         x, y = math.floor(scene_point.x()), math.floor(scene_point.y())
         self.rightClicked.emit(x, y)
+        self._pending_right_press_ts = None
         if self._menu_hook is not None:
             self._menu_hook(x, y)
         else:

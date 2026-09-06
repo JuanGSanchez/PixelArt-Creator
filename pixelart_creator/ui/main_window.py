@@ -3936,7 +3936,7 @@ class Main_Window(QMainWindow):
             pass  # a non-writable config dir must not crash the editor.
 
     def _open_colour_hub(self, x: int, y: int) -> None:
-        """Seam hook: open the hub anchored at buffer pixel ``(x, y)`` (SC-U003-1).
+        """Seam hook: open/dismiss the hub anchored at buffer pixel ``(x, y)``.
 
         Anchoring off the buffer pixel (mapped through the active view) — rather
         than the mouse cursor — makes the hub open in the right place for BOTH a
@@ -3950,17 +3950,50 @@ class Main_Window(QMainWindow):
         (CL-18): the wheel/value/numeric/harmony surface shows only for the
         five colour-consuming tools.
 
-        D-19 (2026-08-31): a right-click that closes the already-open hub
-        (the ``Qt.WindowType.Popup`` auto-close on an outside click) reaches
-        this seam too, on the same physical click — without this guard it
-        would reopen the hub at the new anchor and the popup would never
-        appear to dismiss. ``consume_just_closed`` is scoped to that one
-        event-loop turn, so a later, deliberate right-click still opens it.
+        **Re-fixed 2026-09-06 (see ADR-0066).** The original dismissal guard
+        (``consume_just_closed``, a ``hideEvent``-set flag) is REMOVED: it
+        was measured to never engage on the reproduction path — ``hideEvent``
+        was never observed to fire at all, on either the offscreen platform
+        or the real Windows platform, in an instrumented investigation of
+        the actual right-click gesture — so this seam was always re-entered
+        with the hub still visible and simply re-anchored it. This seam now
+        does two things neither guard did, in order, before ever touching
+        the anchor:
+
+        1. Same-press identity: if this dispatch carries the ``timestamp()``
+           of the exact press that JUST dismissed the hub — via
+           ``Colour_Hub_Menu.consume_dismiss_timestamp``, see its docstring
+           — this is a REPLAY of that same physical press (the case where
+           the platform itself closes the popup and replays the press,
+           rather than this widget's own filter closing it), not a new
+           gesture; do nothing and return.
+        2. An idempotent toggle: if the hub is (still) visible when this
+           seam runs at all, hide it and return. In practice a mouse
+           right-click while the hub is visible never reaches this far — the
+           app-wide dismiss filter in ``Colour_Hub_Menu`` already hides it
+           and consumes the press before ``Canvas_View`` ever sees it — so
+           this branch is what actually implements the keyboard toggle's
+           dismiss half (Menu key / Shift+F10 while open), independent of
+           whichever native mechanism triggered ``contextMenuEvent``.
+
+        Neither check depends on a timer, an elapsed-time guess, or an
+        event-ordering assumption — the first is an equality check on an
+        opaque identifier, the second a plain state read. See ADR-0066 for
+        the full reasoning, including why a single ``isVisible()`` check
+        alone was judged insufficient.
         """
-        if self._colour_hub.consume_just_closed():
+        record = self.active_tab()
+        press_ts = (
+            record.view.pop_pending_right_press_timestamp()
+            if record is not None
+            else None
+        )
+        if self._colour_hub.consume_dismiss_timestamp(press_ts):
+            return
+        if self._colour_hub.isVisible():
+            self._colour_hub.hide()
             return
         self._colour_hub.set_color(self._active_color)
-        record = self.active_tab()
         if record is not None:
             global_pos = record.view.scene_pixel_to_global(x, y)
             self._hub_anchor_view = record.view
