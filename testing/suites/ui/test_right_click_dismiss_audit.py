@@ -40,13 +40,14 @@ count.
 ``QMenu``, and ``QMenu`` sets ``WA_NoMouseReplay``, therefore it conforms"
 is NOT accepted here. Every surface below was EXERCISED — real gestures
 delivered to the real widgets, never assumed from the widget's class — and
-one of the very things exercised (see
-``test_*_no_reentrancy_guard_characterisation`` below) is that
-``WA_NoMouseReplay`` reads **``False``** on these menus' live ``QMenu``
-instances in this environment (measured directly, both under
-``QT_QPA_PLATFORM=offscreen`` and under the real ``windows`` QPA plugin
-available in this session), which directly CONTRADICTS the class-based
-assumption just described. Good thing it was never assumed.
+one of the very things measured (via the four
+``test_*_no_reentrancy_guard_characterisation`` tests, now SKIPPED --
+see below for why, and for why the observation survives the skip in
+prose) is that ``WA_NoMouseReplay`` reads **``False``** on these menus'
+live ``QMenu`` instances in this environment (measured directly, both
+under ``QT_QPA_PLATFORM=offscreen`` and under the real ``windows`` QPA
+plugin available in that session), which directly CONTRADICTS the
+class-based assumption just described. Good thing it was never assumed.
 
 **The instrument ceiling — a known limit established for the colour hub's
 own investigation (ADR-0066), extended here to every surface in this
@@ -100,11 +101,43 @@ Given the genuine, disclosed uncertainty above, this module does **not**
 force an unsupported CONFORMS, and does **not** file an unsupported DEVIATES
 either — no defect is filed against any of the four ``QMenu`` surfaces on
 this evidence — it PINS what IS honestly established for each of the four:
-(a) the surface still uses Qt's own real, standard ``QMenu`` popup mechanism
-rather than a hand-rolled widget (proven red against a non-``QMenu`` stand-in,
-proven green against the current code), and (b) the exact, current,
-exercised seam re-entrancy characterisation, so a FUTURE change to any of
-these four seams is caught by this suite either way it moves.
+the surface still uses Qt's own real, standard ``QMenu`` popup mechanism
+rather than a hand-rolled widget (proven red against a non-``QMenu``
+stand-in, proven green against the current code). That pin RUNS and
+PASSES for all four surfaces below; it is deterministic.
+
+**The re-entrancy characterisation half is a maintainer-ruled SKIP, not a
+deletion — read this before touching any of the four
+``test_*_no_reentrancy_guard_characterisation`` tests.** Each one drove a
+second gesture at a surface's popup WHILE its own real, un-faked
+``QMenu.exec()`` was still executing, entirely condition-driven (see
+``_drive_reentrancy_probe``'s own docstring for the mechanism and why a
+fixed delay was removed from it first). That removed one real defect (a
+widget-readiness race in the timeline helper) but not the other: measured
+across two separate CI runs, a nested blocking ``exec()`` could not be
+driven deterministically on the ``windows`` runner under parallel load
+even with a five-second condition wait — the FIRST menu simply never got
+constructed in that window, which no longer-wait would fix, and the
+failure went on to corrupt an unrelated neighbouring test's teardown. See
+``_REENTRANCY_PROBE_SKIP_REASON`` (module-level, quoted verbatim in each
+test's own skip marker) for the full, exact measurement. **The
+observation these four tests were making is recorded here, in prose, so
+it does not vanish along with the assertion:** exercising all four
+surfaces directly (never reasoning from widget class) found that NONE of
+them carries an application-level re-entrancy guard analogous to the
+colour hub's own post-fix app-wide dismiss filter (ADR-0066) — each
+relies entirely on Qt's native ``QMenu`` popup mechanics, and a second
+gesture reaching a surface's seam while its first menu is still executing
+constructs a SECOND, independent ``QMenu``, with nothing at the
+application level stopping it. This was NOT read as proof of the visible
+defect on real hardware (see the instrument-ceiling paragraph above); it
+was, and remains, an open, disclosed, honestly-uncertain finding for the
+surface owner to weigh — now standing on the measurement already taken
+and written down here, rather than on a test that could not be trusted to
+keep running it. The determinism helper and every characterisation
+test's BODY are kept intact (only skipped, never deleted), for whoever
+revisits this with an instrument capable of driving a real nested modal
+loop reliably.
 """
 
 from __future__ import annotations
@@ -137,6 +170,47 @@ from pixelart_creator.ui.timeline_panel import Timeline_Panel
 from testing.suites.ui._ui_helpers import real_right_click_pixel
 
 STARTER = [(0, 0, 0, 255), (255, 255, 255, 255), (230, 30, 30, 255), (10, 200, 10, 255)]
+
+# --------------------------------------------------------------------------- #
+# Maintainer ruling: SKIP the four re-entrancy characterisation tests loudly;
+# keep the code. Measured across two CI runs:
+#   Run 1 (fixed delays): ubuntu FAILED, windows FAILED, macos PASSED --
+#     "expected TWO independent QMenu instances (got 0)" -- the FIRST menu
+#     was never even constructed under parallel load.
+#   Run 2 (delays replaced by a qtbot.waitUntil condition wait, see
+#     ``_drive_reentrancy_probe`` below): ubuntu PASSED, macos PASSED,
+#     windows STILL FAILED -- a ``pytestqt.exceptions.TimeoutError`` at the
+#     FIRST menu's construction, after waiting the full 5-second timeout. A
+#     longer wait would not fix this: nothing was progressing in that window
+#     at all, on that runner, under that load -- it is not a race a bigger
+#     number closes. WORSE: the failure did not stay contained -- it left
+#     the widget/harness in a bad state that then raised
+#     "previous item was not torn down properly" and ERRORED an unrelated
+#     NEIGHBOURING test on the same parallel worker.
+# Conclusion: a nested blocking ``QMenu.exec()`` cannot be driven
+# deterministically in this environment. Skipped rather than asserted on a
+# race -- the determinism work and the seam re-entrancy characterisation
+# CODE are kept intact below for whoever revisits this with a different
+# instrument. See the module docstring for the observation these tests were
+# making, now recorded in prose since it is no longer asserted by a running
+# test: none of the four surfaces carries an application-level re-entrancy
+# guard.
+# --------------------------------------------------------------------------- #
+
+_REENTRANCY_PROBE_SKIP_REASON = (
+    "a nested blocking QMenu.exec() cannot be driven deterministically "
+    "under parallel load: measured failing on ubuntu and windows (macos "
+    "passed) with fixed delays ('expected TWO independent QMenu "
+    "instances (got 0)' -- the first menu never even got constructed); "
+    "after replacing every fixed delay with a qtbot.waitUntil condition "
+    "wait, ubuntu and macos passed but windows STILL timed out waiting "
+    "the full 5 seconds for the first menu's construction, so a longer "
+    "wait is not the fix -- nothing was progressing in that window at "
+    "all. Worse, the failure cascades: it leaves the harness unable to "
+    "tear down cleanly and ERRORS an unrelated neighbouring test on the "
+    "same parallel worker. Code kept intact for whoever revisits this "
+    "with a different instrument."
+)
 
 # --------------------------------------------------------------------------- #
 # Shared tracking helpers. Each test that needs one calls the factory to get
@@ -255,6 +329,61 @@ def _make_realexec_tracked_qmenu_class():
     return _RealExecTrackedMenu
 
 
+def _drive_reentrancy_probe(
+    qtbot, tracked_cls, *, first_gesture, second_gesture, ready_timeout_ms=5000
+):
+    """Drive the "does a second gesture reach the seam while the first
+    menu's real ``exec()`` is still running" probe -- deterministically,
+    with NO fixed delay anywhere. Replaces an earlier, flaky draft that
+    used ``QTimer.singleShot(30, ...)``/``QTimer.singleShot(120, ...)``: a
+    loaded, parallel test runner can make menu construction take longer
+    than any fixed guess, and a run that measured this failing on CI
+    showed the fixed 30 ms was not even enough for the FIRST menu to be
+    up yet, let alone the second. Waiting on a CONDITION instead
+    (``qtbot.waitUntil``) removes the guess entirely; ``ready_timeout_ms``
+    only bounds a genuine hang, it never defines correctness.
+
+    ``first_gesture``/``second_gesture`` are zero-argument callables, each
+    delivering ONE gesture; for a surface that opens a menu this blocks
+    inside that menu's real, un-faked ``exec()`` until something closes
+    it -- exactly like a real user gesture would. Sequencing:
+
+    1. ``_after_first`` is scheduled for the very next event-loop tick, so
+       it fires once ``first_gesture``'s own ``exec()`` starts pumping
+       events (Qt's own single event queue, shared by every nested loop).
+    2. It waits until the first tracked ``QMenu`` exists, then calls
+       ``second_gesture`` -- which itself blocks inside its OWN real
+       ``exec()``, one level deeper.
+    3. Before doing that, it schedules ``_close_everything`` for the next
+       tick too -- which now fires INSIDE that second, deeper ``exec()``,
+       waits until the second instance exists, then closes every tracked
+       menu, unblocking both nested loops in turn as it returns.
+
+    Each ``qtbot.waitUntil`` is independently bounded, so a genuine
+    failure (the first menu never opens at all, say) still ends the test
+    with a clear, honest timeout rather than hanging forever -- backstopped
+    further by each caller's own ``@pytest.mark.timeout``.
+    """
+
+    def _close_everything():
+        qtbot.waitUntil(
+            lambda: len(tracked_cls.instances) >= 2, timeout=ready_timeout_ms
+        )
+        for menu in tracked_cls.instances:
+            if menu.isVisible():
+                menu.close()
+
+    def _after_first():
+        qtbot.waitUntil(
+            lambda: len(tracked_cls.instances) >= 1, timeout=ready_timeout_ms
+        )
+        QTimer.singleShot(0, _close_everything)
+        second_gesture()
+
+    QTimer.singleShot(0, _after_first)
+    first_gesture()
+
+
 def _rig_guide_view(make_view):
     view, scene, stack = make_view(64, 64)
     guides = Guides_Rulers_Overlay(view, scene, QRectF(0, 0, 64, 64))
@@ -314,8 +443,9 @@ def test_guide_context_menu_c18_proof_fails_against_non_qmenu_stand_in(
     )
 
 
+@pytest.mark.skip(reason=_REENTRANCY_PROBE_SKIP_REASON)
 @pytest.mark.timeout(15)
-def test_guide_context_menu_no_reentrancy_guard_characterisation(make_view):
+def test_guide_context_menu_no_reentrancy_guard_characterisation(make_view, qtbot):
     """Characterisation (seam-level only -- see the module docstring's
     instrument-ceiling disclosure, extending that same known limit to this
     surface): a second RightButton press delivered to the viewport WHILE
@@ -327,9 +457,9 @@ def test_guide_context_menu_no_reentrancy_guard_characterisation(make_view):
     hardware (a real second click may never reach this seam at all,
     intercepted first by Qt's own platform popup grab -- left just as
     unresolved here as it was for the colour hub's own real-hardware
-    mechanism question). ``@pytest.mark.timeout(15)`` is a hard backstop;
-    the QTimer-scheduled force-close below is what should actually end
-    the nested loops."""
+    mechanism question). Sequencing is entirely condition-driven via
+    ``_drive_reentrancy_probe`` (no fixed delay -- see its docstring);
+    ``@pytest.mark.timeout(15)`` is a hard backstop only."""
     view, scene, guides = _rig_guide_view(make_view)
     guides.overlay_item().add_guide(GuideOrientation.VERTICAL, 10.0)
 
@@ -345,7 +475,7 @@ def test_guide_context_menu_no_reentrancy_guard_characterisation(make_view):
 
         Canvas_View._dispatch_menu = _spy_dispatch
 
-        def _second_press_during_exec():
+        def _second_press():
             # A different scene point, off the guide, while the first menu
             # is still executing its real nested loop.
             pt = view.mapFromScene(40.0, 40.0)
@@ -360,15 +490,12 @@ def test_guide_context_menu_no_reentrancy_guard_characterisation(make_view):
             )
             QApplication.sendEvent(view.viewport(), evt)
 
-        def _force_close_everything():
-            for menu in tracked_cls.instances:
-                if menu.isVisible():
-                    menu.close()
-
-        QTimer.singleShot(30, _second_press_during_exec)
-        QTimer.singleShot(120, _force_close_everything)
-
-        real_right_click_pixel(view, 10, 5)
+        _drive_reentrancy_probe(
+            qtbot,
+            tracked_cls,
+            first_gesture=lambda: real_right_click_pixel(view, 10, 5),
+            second_gesture=_second_press,
+        )
 
         assert len(dispatch_calls) == 2, (
             "characterisation: expected the seam to be re-entered exactly "
@@ -432,11 +559,13 @@ def test_placeholder_menu_c18_proof_fails_against_non_qmenu_stand_in(
     assert not isinstance(broken_menu, QMenu)
 
 
+@pytest.mark.skip(reason=_REENTRANCY_PROBE_SKIP_REASON)
 @pytest.mark.timeout(15)
-def test_placeholder_menu_no_reentrancy_guard_characterisation(make_view):
+def test_placeholder_menu_no_reentrancy_guard_characterisation(make_view, qtbot):
     """Characterisation for the placeholder menu, same technique and same
     instrument-ceiling caveat as the guide-menu characterisation above (see
-    the module docstring)."""
+    the module docstring). Condition-driven sequencing via
+    ``_drive_reentrancy_probe`` -- no fixed delay."""
     view, scene, stack = make_view(64, 64)
 
     tracked_cls = _make_realexec_tracked_qmenu_class()
@@ -451,7 +580,7 @@ def test_placeholder_menu_no_reentrancy_guard_characterisation(make_view):
 
         Canvas_View._dispatch_menu = _spy_dispatch
 
-        def _second_press_during_exec():
+        def _second_press():
             pt = view.mapFromScene(40.0, 40.0)
             pt = QPointF(pt.x(), pt.y())
             evt = QMouseEvent(
@@ -464,15 +593,12 @@ def test_placeholder_menu_no_reentrancy_guard_characterisation(make_view):
             )
             QApplication.sendEvent(view.viewport(), evt)
 
-        def _force_close_everything():
-            for menu in tracked_cls.instances:
-                if menu.isVisible():
-                    menu.close()
-
-        QTimer.singleShot(30, _second_press_during_exec)
-        QTimer.singleShot(120, _force_close_everything)
-
-        real_right_click_pixel(view, 10, 5)
+        _drive_reentrancy_probe(
+            qtbot,
+            tracked_cls,
+            first_gesture=lambda: real_right_click_pixel(view, 10, 5),
+            second_gesture=_second_press,
+        )
 
         assert len(dispatch_calls) == 2
         assert len(tracked_cls.instances) == 2
@@ -539,6 +665,7 @@ def test_reference_board_menu_c18_proof_fails_against_non_qmenu_stand_in(
     assert not isinstance(broken_menu, QMenu)
 
 
+@pytest.mark.skip(reason=_REENTRANCY_PROBE_SKIP_REASON)
 @pytest.mark.timeout(15)
 def test_reference_board_menu_no_reentrancy_guard_characterisation(qtbot, tmp_path):
     """Characterisation for the reference board's raise/lower menu. Here the
@@ -547,25 +674,20 @@ def test_reference_board_menu_no_reentrancy_guard_characterisation(qtbot, tmp_pa
     (weaker-fidelity) synthetic injection than ``sendEvent``, so this result
     is, if anything, LESS able to speak to real-hardware fidelity than the
     canvas-view characterisations above; it is included for completeness and
-    consistency across all four surfaces, with the same explicit caveat."""
+    consistency across all four surfaces, with the same explicit caveat.
+    Condition-driven sequencing via ``_drive_reentrancy_probe`` -- no
+    fixed delay."""
     board, item = _reference_item(qtbot, tmp_path)
 
     tracked_cls = _make_realexec_tracked_qmenu_class()
     reference_board_mod.QMenu = tracked_cls
     try:
-
-        def _second_context_event_during_exec():
-            item.contextMenuEvent(_context_event())
-
-        def _force_close_everything():
-            for menu in tracked_cls.instances:
-                if menu.isVisible():
-                    menu.close()
-
-        QTimer.singleShot(30, _second_context_event_during_exec)
-        QTimer.singleShot(120, _force_close_everything)
-
-        item.contextMenuEvent(_context_event())
+        _drive_reentrancy_probe(
+            qtbot,
+            tracked_cls,
+            first_gesture=lambda: item.contextMenuEvent(_context_event()),
+            second_gesture=lambda: item.contextMenuEvent(_context_event()),
+        )
 
         assert len(tracked_cls.instances) == 2, (
             "characterisation: expected TWO independent QMenu instances "
@@ -603,7 +725,33 @@ def _empty_cell_timeline(qtbot):
     return grid, outline_row
 
 
-def _cell_center(grid, row: int, col: int) -> QPoint:
+def _cell_center(qtbot, grid, row: int, col: int) -> QPoint:
+    """Return cell ``(row, col)``'s visual-rect centre, waiting (bounded,
+    condition-driven -- never a fixed delay) for the grid to have actually
+    laid out a non-degenerate rect for it first.
+
+    Root cause of a CI-measured flake: immediately after ``show()``/
+    ``set_context()``/``rebuild()``, a freshly (re)built ``QTableView``
+    can still report an empty/invalid ``visualRect()`` for a valid model
+    index until its OWN pending resize/layout events are processed -- on a
+    loaded, parallel test runner that can take longer than a single
+    ``processEvents()`` tick. Dispatching a context-menu event at a
+    degenerate point lands on an invalid index, and
+    ``_on_context_menu_requested`` returns without building a menu at all
+    (observed on CI as "expected TWO independent QMenu instances (got 0)"
+    -- the FIRST menu never opened, so nothing downstream could either).
+    ``qtbot.waitExposed(widget)`` (this suite's usual bare-call convention
+    elsewhere) does not help here even in principle -- it is a context
+    manager whose wait only runs inside a ``with`` block, so a bare call
+    is inert; checked directly against its source this session. Waiting on
+    the rect's own validity instead targets the actual condition that
+    matters, directly."""
+
+    def _laid_out():
+        rect = grid.visualRect(grid.model().index(row, col))
+        return rect.isValid() and not rect.isEmpty()
+
+    qtbot.waitUntil(_laid_out, timeout=5000)
     return grid.visualRect(grid.model().index(row, col)).center()
 
 
@@ -622,7 +770,7 @@ def test_timeline_create_cel_menu_c18_is_a_real_qmenu_not_a_hand_rolled_popup(
     tracked_cls = _make_nonblocking_tracked_qmenu_class()
     monkeypatch.setattr(timeline_grid_view_mod, "QMenu", tracked_cls)
 
-    _send_ctx(grid, _cell_center(grid, outline_row, 1))
+    _send_ctx(grid, _cell_center(qtbot, grid, outline_row, 1))
 
     assert tracked_cls.instances, "the create-cel menu was not built"
     menu = tracked_cls.instances[-1]
@@ -651,7 +799,7 @@ def test_timeline_create_cel_menu_c18_proof_fails_against_non_qmenu_stand_in(
     monkeypatch.setattr(timeline_grid_view_mod, "QMenu", _NotAQMenuStandIn)
 
     with qtbot.captureExceptions() as exceptions:
-        _send_ctx(grid, _cell_center(grid, outline_row, 1))
+        _send_ctx(grid, _cell_center(qtbot, grid, outline_row, 1))
 
     assert exceptions, (
         "PROOF: the non-QMenu stand-in breaks the seam outright (TypeError "
@@ -663,28 +811,29 @@ def test_timeline_create_cel_menu_c18_proof_fails_against_non_qmenu_stand_in(
     assert "QAction" in str(exc_value)
 
 
+@pytest.mark.skip(reason=_REENTRANCY_PROBE_SKIP_REASON)
 @pytest.mark.timeout(15)
 def test_timeline_create_cel_menu_no_reentrancy_guard_characterisation(qtbot):
     """Characterisation for the timeline's create-cel menu, same technique
-    and same instrument-ceiling caveat as the module docstring records."""
+    and same instrument-ceiling caveat as the module docstring records.
+    Condition-driven sequencing via ``_drive_reentrancy_probe`` -- no
+    fixed delay (a fixed 30 ms/120 ms pair here previously flaked on a
+    loaded, parallel CI runner, per ``_cell_center``'s own docstring)."""
     grid, outline_row = _empty_cell_timeline(qtbot)
 
     tracked_cls = _make_realexec_tracked_qmenu_class()
     timeline_grid_view_mod.QMenu = tracked_cls
     try:
-
-        def _second_ctx_during_exec():
-            _send_ctx(grid, _cell_center(grid, outline_row, 2))
-
-        def _force_close_everything():
-            for menu in tracked_cls.instances:
-                if menu.isVisible():
-                    menu.close()
-
-        QTimer.singleShot(30, _second_ctx_during_exec)
-        QTimer.singleShot(120, _force_close_everything)
-
-        _send_ctx(grid, _cell_center(grid, outline_row, 1))
+        _drive_reentrancy_probe(
+            qtbot,
+            tracked_cls,
+            first_gesture=lambda: _send_ctx(
+                grid, _cell_center(qtbot, grid, outline_row, 1)
+            ),
+            second_gesture=lambda: _send_ctx(
+                grid, _cell_center(qtbot, grid, outline_row, 2)
+            ),
+        )
 
         assert len(tracked_cls.instances) == 2, (
             "characterisation: expected TWO independent QMenu instances "

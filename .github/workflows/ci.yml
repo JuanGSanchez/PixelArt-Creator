@@ -13,7 +13,7 @@
 # change (CI-STANDARDIZATION, 2026-08-24) instead of four hand-edited sites.
 # A single-run concurrency guard cancels superseded runs for the same ref.
 #
-# REPRODUCIBILITY (R-11, constraints.txt): every `pip install -e ...` step
+# REPRODUCIBILITY (constraints.txt): every `pip install -e ...` step
 # below also passes `-c constraints.txt` — a committed, regenerable pip
 # constraints file pinning the FULL resolved dependency closure (direct +
 # transitive, 53 packages) so every CI run and every developer installs the
@@ -298,7 +298,7 @@ jobs:
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
 
       - name: Install project (runtime + dev) from manifest
-        # -c constraints.txt: reproducibility lock (R-11) — pins the full
+        # -c constraints.txt: reproducibility lock — pins the full
         # resolved dependency closure (direct + transitive) so this install
         # matches every other CI run and any developer's local environment.
         # Regenerate command + rationale: constraints.txt's own header.
@@ -550,6 +550,52 @@ jobs:
         # gitignored, S19, and would have stranded these CI-gate state files
         # as untracked, never committed).
         run: python scripts/check_doc_references.py --root .
+
+      - name: Internal-vocabulary regrowth gate (P11 script)
+        # scripts/check_vocabulary_regrowth.py -- fails on any new occurrence,
+        # in a tracked file OR in a commit message this pull request adds, of
+        # one of the internal development-system identifier families cleaned
+        # from this PUBLIC repository and measured at ZERO on 2026-09-06 (the
+        # exact patterns are enumerated in that script's own module docstring,
+        # not repeated here -- see "THE EIGHT PATTERNS" there). They regrew
+        # TWICE inside one job that same day and were caught only by a
+        # hand-run grep -- this step is the deterministic replacement for
+        # that grep. Deliberately described only in prose here, never
+        # spelled out literally in this file: `.github/workflows/ci.yml` is
+        # itself an ordinary, routinely-edited file and exactly the category
+        # this vocabulary has reappeared in before, so this step is written
+        # to contain no literal instance of any pattern rather than being
+        # exempted from the gate it wires (see the script's own
+        # SELF-TRIPPING RESOLUTION section for why only the script itself is
+        # exempt, and nothing else).
+        #
+        # Deliberately given NO `if: runner.os` guard, unlike the Ubuntu-only
+        # static gates above: the script is stdlib-only and portable by
+        # requirement, and this is the real proof of that on every push/PR --
+        # it therefore runs on every leg of the matrix above (all three OSes
+        # on a pull_request, the single post-merge leg otherwise), not just
+        # Ubuntu.
+        #
+        # The commit-message half is BOUNDED to the commits this pull request
+        # ADDS (base..head), never the whole history -- 61 of this
+        # repository's 571 commits carry a cleaned-family token in their
+        # MESSAGE and will not be rewritten, so a gate scanning all history
+        # would land red on arrival and be switched off. On a `pull_request`
+        # event the base/head SHAs come straight from the event payload (both
+        # already resolvable here: the Checkout step above uses
+        # `fetch-depth: 0`, full history). On any OTHER trigger (post-merge
+        # `push`, `workflow_dispatch`) no range is available, and the script
+        # itself SKIPS that half loudly (stderr names the reason) rather than
+        # silently treating it as passing -- the file-scan half still runs
+        # and still gates either way.
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            python scripts/check_vocabulary_regrowth.py --root . \
+              --base-sha "${{ github.event.pull_request.base.sha }}" \
+              --head-sha "${{ github.event.pull_request.head.sha }}"
+          else
+            python scripts/check_vocabulary_regrowth.py --root .
+          fi
 
       - name: Tests (pytest, headless, parallel, with coverage XML)
         # -n auto: pytest-xdist fans the suite across all runner cores, cutting
@@ -955,7 +1001,7 @@ jobs:
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
 
       - name: Install project (runtime + dev) from manifest
-        # -c constraints.txt: reproducibility lock (R-11) — pins the full
+        # -c constraints.txt: reproducibility lock — pins the full
         # resolved dependency closure (direct + transitive) so this install
         # matches every other CI run and any developer's local environment.
         # Regenerate command + rationale: constraints.txt's own header.
