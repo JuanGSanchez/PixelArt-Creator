@@ -166,6 +166,21 @@ set "STATUS=%ERRORLEVEL%"
 
 :reclaim
 if "%KEEP_TEMP%"=="1" goto :kept
+REM STOP MEASURING BEFORE CLEANING UP. This wrapper set
+REM COVERAGE_PROCESS_START and put HERE on PYTHONPATH so every CHILD
+REM measures itself - and the cleanup call is a child too. Left set,
+REM sitecustomize.py starts coverage inside the cleanup process, which
+REM writes its own .coverage.<host>.pid<N>.<rand>.<rand> fragment at exit:
+REM AFTER `coverage combine` folded the run's data, and after the sweep
+REM that would have collected it. Every run therefore left exactly one
+REM fragment beside this script while cleanup truthfully reported
+REM "0 coverage fragment(s)" - its own did not exist yet.
+REM
+REM `set "VAR="` REMOVES the variable rather than emptying it, which is
+REM what this needs: coverage.process_startup() asks
+REM `os.getenv("COVERAGE_PROCESS_START") is not None`, so an EMPTY value
+REM would still start a measurement, with an empty config path.
+set "COVERAGE_PROCESS_START="
 "%PYTHON%" "%HERE%cleanup.py"
 if errorlevel 1 echo run: cleanup reported a problem 1>&2
 goto :done

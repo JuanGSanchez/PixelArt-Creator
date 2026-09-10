@@ -33,6 +33,17 @@ outside the runner:
     python testing/cleanup.py --dry-run      # say what would go, remove nothing
     python testing/cleanup.py --json         # the same, machine-readable
 
+**And a ring that does not wait for the next run.** The sweep above reclaims a
+killed run's debris the next time somebody runs the suite — which can be
+tomorrow, and until then the disk holds workspaces nobody owns. The JANITOR
+closes that gap: one detached process per run, watching the run's own owner,
+reclaiming that run's NAMESPACES the moment it is gone. Never its coverage
+fragments: the owner is also the process whose fragment `coverage combine`
+has not read yet, and `reclaim_owner` explains what deleting it costs.
+
+    python testing/cleanup.py --janitor PID        # watch PID, then reclaim
+    python testing/cleanup.py --spawn-janitor PID  # start one, return at once
+
 **The universal form.** Nothing here is pytest-specific, which is the point:
 the same contract carries to a suite written in any language. A run puts
 everything it generates under one directory named for its owner, and cleanup
@@ -44,6 +55,14 @@ the process — and by calling this script, or a short equivalent, from its own
 The shape, in full (`system-testing.md` §2.1):
 
     <TEMP_ROOT>/<SCOPE>/run-<RUNID>/<NNN>-<script-stem>-<test-function>/
+
+TEMP_ROOT is DECLARED, never guessed, and the chain says who declared it:
+`--temp-root` for this run, `ORCH_TEST_TMP` for this shell,
+`design-docs/state/testing-local.json` for this machine (untracked, so a
+machine-absolute path can live in the tree without being committed to it),
+and finally the container's own `design-docs/state/tmp/testing/` for a fresh
+clone that has declared nothing. A root nobody declared is a root nobody
+looks in.
 
 SCOPE is `<project>-tests` locally and `CI-<project>` in CI — two kinds that
 must never share a directory, because one kind's cleanup would then be able to
@@ -59,6 +78,7 @@ import json
 import os
 import shutil
 import stat
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -74,17 +94,37 @@ for _stream in (sys.stdout, sys.stderr):
 
 TESTING_DIR = Path(__file__).resolve().parent
 CONTAINER_ROOT = TESTING_DIR.parent
+# This file, by absolute path: the janitor re-executes it, and a relative path
+# would resolve against whatever directory the run happened to start in.
+SELF = Path(__file__).resolve()
 
 # Where THIS RUN puts its workspaces. Read by the harness, and dropped from
 # every child it launches: it steers the suite, never the units under test.
 TEMP_ROOT_VAR = "ORCH_TEST_TMP"
-# The default when nothing is configured: the container's own scratch root,
-# not the machine's. A CONTAINER-RELATIVE default is portable by construction
-# — it is true on every machine that clones this system — which is what makes
-# it allowed where a machine-absolute path (`D:/tmp`, `/var/tmp/...`) is not.
-# `.tmp/` is excluded by the container allowlist, so it is untracked by
-# construction, and it is the only root the system's sweeper may collect.
-DEFAULT_TEMP_DIR = CONTAINER_ROOT / ".tmp"
+# The MACHINE's own declaration of that root, container-relative and
+# untracked: the file that lets a machine say `D:/tmp` without a
+# machine-absolute path entering the repository. It lives under
+# `design-docs/state/`, which the container's `.gitignore` excludes wholesale,
+# so writing one is a local act by construction.
+#
+# WHY IT EXISTS. Before it, the machine value lived ONLY in a shell variable.
+# Nothing in the tree declared where this system's runs were expected to land,
+# so nothing could CHECK that they landed there: a lost export silently
+# relocated every workspace to the container-relative fallback, and the run
+# was green about it. A declaration is what makes the resolved root an
+# assertable fact rather than an accident of the environment.
+DECLARED_TEMP_ROOT_FILE = Path("design-docs") / "state" / "testing-local.json"
+DECLARED_TEMP_ROOT_KEY = "temp_root"
+# The default when nothing is declared: the container's own scratch root, not
+# the machine's. A CONTAINER-RELATIVE default is portable by construction — it
+# is true on every machine that clones this system — which is what makes it
+# allowed where a machine-absolute path (`D:/tmp`, `/var/tmp/...`) is not.
+# It sits under `design-docs/state/tmp/`, the container's ONE scratch root,
+# excluded wholesale by `.gitignore`: untracked by construction, and the only
+# root the system's sweeper may collect. It REPLACES the top-level `.tmp/`
+# this constant used to name, which was retired when the scratch root moved.
+DEFAULT_TEMP_SUBDIR = Path("design-docs") / "state" / "tmp" / "testing"
+DEFAULT_TEMP_DIR = CONTAINER_ROOT / DEFAULT_TEMP_SUBDIR
 # The project token of the SCOPE component: this container's own directory
 # name. Derived, never typed — a literal shared by two containers on one
 # machine-wide temp root would put both runs in one tree, where either one's
@@ -108,6 +148,23 @@ NAME_HASH_CHARS = 4
 # a PID the OS has since recycled onto an unrelated process, or an owner token
 # that is not a PID at all (a CI job identity).
 STALE_RUN_SECONDS = 6 * 3600
+# How often the janitor asks whether its owner is still there. Short enough
+# that a killed run's debris is gone before anyone looks at the disk, long
+# enough that watching out a six-hour run costs nothing measurable.
+JANITOR_POLL_SECONDS = 2
+# Windows creation flags that cut a child loose from this process: no console,
+# its own process group, and out of any job object this process belongs to.
+# BREAKAWAY is the one a job object may refuse, so it is applied separately
+# and the launch retried without it.
+if os.name == "nt":                                   # pragma: no cover - nt
+    DETACHED_FLAGS = (getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+                      | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP",
+                                0x00000200))
+    BREAKAWAY_FLAG = getattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB",
+                             0x01000000)
+else:                                                 # pragma: no cover - posix
+    DETACHED_FLAGS = 0
+    BREAKAWAY_FLAG = 0
 
 
 def slug(text):
@@ -242,15 +299,89 @@ def owner_is_alive(owner):
     return True
 
 
-def resolve_temp_root(cli_value=None, env=None):
-    """`--temp-root` > `ORCH_TEST_TMP` > the container's own `.tmp/`.
+def report_declaration(path, problem, stream=None):
+    """Say on stderr that a declaration file was read and not used.
+
+    SILENCE WAS THE DEFECT. A machine that wrote `testing-local.json` and got
+    the syntax wrong was told nothing: the run fell through to the
+    container-relative default and was green about it, so the only evidence
+    was a directory that stayed empty. The message names the file, what is
+    wrong with it, and the root the run is falling back to instead.
+
+    It is not an error and must never become one — a broken machine-local
+    file must not stop a suite from running — so this reports and returns.
+    """
+    (stream or sys.stderr).write(
+        "cleanup: {} {} — ignoring it and falling back to the container's "
+        "own {}/. Declare a root as {{\"{}\": \"<dir>\"}}.\n".format(
+            path, problem, DEFAULT_TEMP_SUBDIR.as_posix(),
+            DECLARED_TEMP_ROOT_KEY))
+
+
+def declared_temp_root(container_root=None, stream=None):
+    """The machine's declared temp root, or None when it does not declare one.
+
+    `design-docs/state/testing-local.json`, an object carrying one key:
+
+        {"temp_root": "D:/tmp"}
+
+    ABSENT is the normal state — every fresh clone is in it — and says
+    nothing. A file that EXISTS and cannot be used is a different case: it is
+    never guessed at, because a half-read path is how a run ends up writing
+    somewhere nobody named, and it is never silently discarded either, because
+    the person whose declaration is being ignored has to find that out from
+    the run rather than from an empty directory. It is reported on stderr
+    (`report_declaration`) and the chain falls through.
+
+    The file is machine-local and untracked (`design-docs/state/*` is ignored),
+    which is what lets a machine-absolute path be declared IN the tree without
+    being committed to it.
+    """
+    root = CONTAINER_ROOT if container_root is None else Path(container_root)
+    path = root / DECLARED_TEMP_ROOT_FILE
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None                      # absent, or unreadable: say nothing
+    try:
+        data = json.loads(text)
+    except ValueError as exc:
+        report_declaration(path, "is not readable JSON ({})".format(exc),
+                           stream)
+        return None
+    if not isinstance(data, dict):
+        report_declaration(path, "is not a JSON object", stream)
+        return None
+    if DECLARED_TEMP_ROOT_KEY not in data:
+        report_declaration(path, 'declares no "{}"'.format(
+            DECLARED_TEMP_ROOT_KEY), stream)
+        return None
+    value = data[DECLARED_TEMP_ROOT_KEY]
+    if not isinstance(value, str) or not value.strip():
+        report_declaration(path, 'declares "{}" as {!r}, which is not a '
+                                 'path'.format(DECLARED_TEMP_ROOT_KEY, value),
+                           stream)
+        return None
+    return Path(value.strip()).expanduser()
+
+
+def resolve_temp_root(cli_value=None, env=None, container_root=None):
+    """`--temp-root` > `ORCH_TEST_TMP` > `testing-local.json` > the container's
+    own `design-docs/state/tmp/testing/`.
+
+    Four rungs, most explicit first, and each one is a DECLARATION somebody
+    made: a flag for this run, a variable for this shell, a file for this
+    machine, and the portable fallback for a fresh clone that has declared
+    nothing.
 
     Raises OSError when the resolved root cannot be written. Relocating a root
     the caller DID declare would run the suite somewhere they never asked for
     and never look — the failure mode this whole rule exists to prevent.
     """
     env = os.environ if env is None else env
-    raw = cli_value or env.get(TEMP_ROOT_VAR) or DEFAULT_TEMP_DIR
+    base = CONTAINER_ROOT if container_root is None else Path(container_root)
+    raw = (cli_value or env.get(TEMP_ROOT_VAR) or declared_temp_root(base)
+           or base / DEFAULT_TEMP_SUBDIR)
     root = Path(str(raw).strip()).expanduser()
     root.mkdir(parents=True, exist_ok=True)
     probe = root / ".write-probe-{}".format(os.getpid())
@@ -384,6 +515,193 @@ def sweep_stale(base, keep=()):
     return removed
 
 
+# --- the janitor: a ring that does not wait for the next run ---------------
+#
+# The sweep above is honest but LATE. It reclaims a killed run's debris the
+# next time somebody runs the suite, and until then the workspaces of a run
+# nobody owns sit on the disk. Measured on this container: a `taskkill /T /F`
+# on the runner tree left `run-32148/001-.../held.txt` and
+# `pytest-32148/test_hold0/pt.txt` behind, and nothing reclaimed them until a
+# later run — the trap never fires on a hard kill, because the process the
+# trap belongs to is the one that went away.
+#
+# So each run starts one JANITOR: a detached process whose whole job is to
+# watch that run's owner and reclaim its namespaces the moment the owner is
+# gone. Every rule the sweep obeys, it obeys — liveness decides, removal is
+# guarded by the temp root, and a live owner's tree is never touched.
+#
+# NAMESPACES ONLY. It does not touch coverage fragments, and `reclaim_owner`
+# says why at length: the owner it watches is the very process whose fragment
+# the wrapper's `coverage combine` has not read yet, so the one file it would
+# be deleting is the one file the measurement cannot spare.
+#
+# WHY IT IS SPAWNED TWICE. `taskkill /T` walks the LIVE parent/child tree, so
+# a janitor started directly by the runner is a child of the very tree the
+# kill is aimed at, and dies with it — precisely when it is needed. The fix is
+# a double spawn: `--spawn-janitor` starts the janitor and exits AT ONCE, so
+# by the time anyone kills the tree the janitor's parent is already gone and
+# there is no live edge from the runner to it. The detachment flags are not
+# enough on their own; the dead parent is what does it.
+#
+# WHY THE HARNESS SPAWNS IT AND NOT THE WRAPPERS. The namespace is named for
+# the PYTEST process (`run_id()` is that process's pid), which neither wrapper
+# knows: `$$` in `run` is the shell's pid, not the runner's. `conftest.py`
+# calls `spawn_janitor(os.getpid())` from `pytest_configure`, where the pid is
+# the right one by construction — and a bare `python -m pytest`, which no
+# wrapper wraps, gets the same protection for free.
+
+
+def reclaim_owner(owner, base, here=None):
+    """Reclaim the NAMESPACES named for `owner` — `run-<pid>` and
+    `pytest-<pid>`. Returns the paths that went.
+
+    COVERAGE FRAGMENTS ARE NOT ITS BUSINESS, and this is the whole reason the
+    function exists as a named thing rather than as a call to `sweep_stale`.
+    The owner it watches is the pytest process, and under `run` / `run.cmd`
+    that process IS the `coverage run` process: it writes its own
+    `.coverage.<host>.pid<PID>.<rand>` fragment as it exits, and the wrapper's
+    `coverage combine` — a separate process the wrapper starts afterwards —
+    then folds it in. Between the two the fragment sits on disk, owned by a
+    pid that is already dead, looking exactly like debris.
+
+    Measured on this container: that window is 0.251 s, and the janitor polls
+    every 2 s, so roughly one run in eight would have had the MAIN process's
+    measurement deleted before `combine` could read it — silently, because
+    `coverage.json` is still written from whatever fragments survived. Every
+    in-process test's coverage was a coin flip.
+
+    And deleting them buys nothing in the case the janitor exists for: a run
+    that is HARD-killed never writes the main process's fragment at all, and
+    the fragments its children left carry the children's own pids, not the
+    owner's. So the fragment branch could only ever destroy live data.
+
+    Fragments stay the business of the wrappers' post-combine `cleanup.py`
+    call and of `main`'s own sweep, which reclaims a dead owner's fragment
+    with no live `combine` left to race.
+
+    Idempotent with the trap, the sweep and a second janitor: a path that is
+    already gone is not an error, it is the answer. `here` is accepted and
+    unused, so a caller written against the fragment-reclaiming version still
+    runs — and gets the safe behaviour.
+    """
+    del here                                  # see COVERAGE FRAGMENTS above
+    base, owner = Path(base), str(owner)
+    gone = []
+    for name in (RUN_PREFIX + owner, PYTEST_BASETEMP_PREFIX + owner):
+        target = base / name
+        if not target.exists():
+            continue
+        try:
+            if remove_tree(target, base):
+                gone.append(str(target))
+        except RuntimeError:                  # the guard: outside the root
+            continue
+    return gone
+
+
+def janitor(owner, base, here=None, poll=JANITOR_POLL_SECONDS,
+            lifetime=STALE_RUN_SECONDS, sleeper=None):
+    """Watch `owner`; reclaim what it owns once it is gone. `(reason, paths)`.
+
+    Bounded on purpose. A janitor that outlived its own reason to exist would
+    be a process nobody started deliberately and nobody knows how to stop, so
+    it gives up after `lifetime` — the same horizon the age fallback uses —
+    and reclaims NOTHING when it does, because an owner still alive at that
+    point still owns its tree.
+    """
+    sleeper = time.sleep if sleeper is None else sleeper
+    deadline = time.monotonic() + lifetime
+    while owner_is_alive(owner):
+        if time.monotonic() >= deadline:
+            return "expired", []
+        sleeper(poll)
+    return "reclaimed", reclaim_owner(owner, base, here)
+
+
+def janitor_env(env=None):
+    """The environment a janitor runs in.
+
+    COVERAGE_PROCESS_START is REMOVED. The janitor is started from inside a
+    measured run, so it inherits the variable the wrapper exports for every
+    child — and a process that starts coverage writes its own fragment at
+    exit. The janitor outlives the `combine` that would have folded it in, so
+    its fragment is pure debris: written after the run's measurement closed,
+    and left for the next run's sweep to find.
+    """
+    env = dict(os.environ if env is None else env)
+    env.pop("COVERAGE_PROCESS_START", None)
+    env.pop("COVERAGE_PROCESS_CONFIG", None)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return env
+
+
+def _detached(argv, env=None):
+    """Start `argv` with no console, no process group of ours, and no job."""
+    kwargs = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
+              "stderr": subprocess.DEVNULL, "close_fds": True,
+              "cwd": str(TESTING_DIR), "env": janitor_env(env)}
+    if os.name != "nt":
+        return subprocess.Popen(argv, start_new_session=True, **kwargs)
+    try:
+        return subprocess.Popen(
+            argv, creationflags=DETACHED_FLAGS | BREAKAWAY_FLAG, **kwargs)
+    except OSError:
+        # A job object that does not permit breakaway refuses the flag. The
+        # rest of the detachment still applies, and the double spawn is what
+        # actually saves the janitor from `taskkill /T`.
+        return subprocess.Popen(argv, creationflags=DETACHED_FLAGS, **kwargs)
+
+
+def janitor_argv(owner, temp_root=None, python=None, indirect=False):
+    """The command line of one half of the double spawn.
+
+    `indirect=True` is the INTERMEDIATE (`--spawn-janitor`), which launches
+    the other half and exits; `indirect=False` is the janitor itself
+    (`--janitor`), which waits. The two verbs are built here, in one place,
+    because the first version had `--spawn-janitor` re-enter the function
+    that spawns `--spawn-janitor`: every intermediate started another
+    intermediate and exited, an unbounded chain of processes that only
+    stopped when it was killed by hand. Two named functions and one argv
+    builder make that shape impossible to write by accident.
+    """
+    argv = [python or sys.executable, "-B", str(SELF),
+            "--spawn-janitor" if indirect else "--janitor", str(owner)]
+    if temp_root:
+        argv += ["--temp-root", str(temp_root)]
+    return argv
+
+
+def spawn_janitor(owner, temp_root=None, python=None):
+    """Start the INTERMEDIATE for `owner` and return AT ONCE. Its pid, or None.
+
+    `temp_root` is passed on the command line rather than through the
+    environment, so the janitor resolves exactly the root this run resolved
+    even if the variable that named it is gone by then.
+
+    Never raises: a suite that could not start its janitor still has the trap
+    and the next run's sweep, and must not fail for the difference.
+    """
+    try:
+        return _detached(
+            janitor_argv(owner, temp_root, python, indirect=True)).pid
+    except (OSError, ValueError):
+        return None
+
+
+def start_janitor(owner, temp_root=None, python=None):
+    """Start the JANITOR itself — what the intermediate does before it exits.
+
+    Called only from the `--spawn-janitor` branch. When this returns, the
+    caller's job is done and it must exit immediately: the whole point of the
+    indirection is that the janitor's parent is already dead by the time
+    anyone runs `taskkill /T` on the runner.
+    """
+    try:
+        return _detached(janitor_argv(owner, temp_root, python)).pid
+    except (OSError, ValueError):
+        return None
+
+
 def measure(path):
     files = total = 0
     for root, _dirs, names in os.walk(str(path)):
@@ -400,9 +718,11 @@ def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Reclaim the directories the test runs generate.")
     parser.add_argument("--temp-root", default=None,
-                        help="override the configured temp root "
-                             "(default: ${} or the container's .tmp/)"
-                             .format(TEMP_ROOT_VAR))
+                        help="override the configured temp root (default: "
+                             "${}, then {}, then the container's own {}/)"
+                             .format(TEMP_ROOT_VAR,
+                                     DECLARED_TEMP_ROOT_FILE.as_posix(),
+                                     DEFAULT_TEMP_SUBDIR.as_posix()))
     parser.add_argument("--all", action="store_true",
                         help="reclaim every namespace in this scope, "
                              "including one a live run still owns (use only "
@@ -413,6 +733,18 @@ def main(argv=None):
                              "can never reach a sibling job's live tree")
     parser.add_argument("--dry-run", action="store_true",
                         help="report what would be removed, remove nothing")
+    parser.add_argument("--janitor", default=None, metavar="PID",
+                        help="watch PID and reclaim the NAMESPACES it owns "
+                             "the moment it is gone — never its coverage "
+                             "fragments, which a `combine` may still be "
+                             "waiting to read; exits 0 either way, and gives "
+                             "up after {} seconds with the owner still alive"
+                             .format(STALE_RUN_SECONDS))
+    parser.add_argument("--spawn-janitor", default=None, metavar="PID",
+                        dest="spawn_janitor",
+                        help="start a DETACHED janitor for PID and return "
+                             "immediately — the double spawn that leaves it "
+                             "outside the `taskkill /T` tree")
     parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args(argv)
 
@@ -428,6 +760,40 @@ def main(argv=None):
     scope = scope_name()
     base = root / scope
     mine = {RUN_PREFIX + run_id(), PYTEST_BASETEMP_PREFIX + run_id()}
+
+    # The root is resolved ONCE, here, before the wait begins. Resolving it
+    # after the owner died would re-create a temp root that the dying run's
+    # own finalizers had just removed — the janitor putting back the very
+    # directory it exists to take away.
+    if args.spawn_janitor is not None:
+        # `start_janitor`, NEVER `spawn_janitor`: this process IS the
+        # intermediate, and re-entering the spawner here makes an unbounded
+        # chain of intermediates. See `janitor_argv`.
+        pid = start_janitor(args.spawn_janitor, temp_root=root)
+        payload = {"janitor": pid, "owner": args.spawn_janitor,
+                   "temp_root": str(root)}
+        if args.as_json:
+            print(json.dumps(payload, indent=2))
+        elif pid is None:
+            print("cleanup: could not start a janitor for owner {}"
+                  .format(args.spawn_janitor), file=sys.stderr)
+        else:
+            print("cleanup: janitor {} watching owner {}".format(
+                pid, args.spawn_janitor))
+        return 0
+
+    if args.janitor is not None:
+        reason, gone = janitor(args.janitor, base)
+        payload = {"owner": args.janitor, "verdict": reason,
+                   "temp_root": str(root), "scope": scope, "removed": gone}
+        if args.as_json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print("cleanup: janitor for owner {} — {}, {} path(s)".format(
+                args.janitor, reason, len(gone)))
+            for path in gone:
+                print("  removed {}".format(path))
+        return 0
 
     removed, kept, failed = [], [], []
     for item in namespaces(base):
