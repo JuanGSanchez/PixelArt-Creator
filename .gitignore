@@ -22,8 +22,9 @@ design-docs/
 # ---- (a2) the private half of this repository's own store -------------------
 # `memory/` as a whole was class (a) while this repository had no store. It
 # has one now, and a repository that ignores its whole store commits NO map:
-# the Repo and History views come up empty on any clone and store-role.json is
-# invisible to everyone but the machine that created it. Only the SEMANTIC
+# the Repo and History views come up empty on any clone and
+# memory/store.json (the {"scope": "repository"} marker) is invisible to
+# everyone but the machine that created it. Only the SEMANTIC
 # half stays out — lessons are kept to local development and reach this
 # repository's tracked store only through promotion on merge.
 memory/insight/
