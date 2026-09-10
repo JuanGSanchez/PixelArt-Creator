@@ -161,3 +161,6 @@ docs/*
 # generated HTML/CSS/JS this produces is a local artifact, never a checked-in
 # one, so it needs its own exclusion beneath that re-inclusion.
 docs/site/_build/
+
+# (f) private material
+.private/

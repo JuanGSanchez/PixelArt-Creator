@@ -20,3 +20,12 @@ memory/graph/*.jsonl merge=orchmem
 memory/insight/*.jsonl merge=orchmem
 memory/**/graph/*.jsonl merge=orchmem
 memory/**/insight/*.jsonl merge=orchmem
+
+# The memory logs are append-only: two branches that both appended have no
+# conflict to resolve, and git's text driver would write a conflict marker
+# INTO a log every other verb parses as JSON. Appended by container_repo.py
+# install-hooks; the driver itself is per clone (`merge.logunion`).
+memory/graph/*.jsonl merge=logunion
+memory/insight/*.jsonl merge=logunion
+memory/**/graph/*.jsonl merge=logunion
+memory/**/insight/*.jsonl merge=logunion
