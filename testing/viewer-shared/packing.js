@@ -97,6 +97,38 @@ function cmapNorm(value, lo, hi) {
   return (value - lo) / (hi - lo);
 }
 
+/* --- the colormap legend strip -------------------------------------- */
+/* THE KEY IS DRAWN WITH THE MAP: the same cmapHex() calls that coloured
+ * the circles, so it cannot drift from them. Only the WORDS differ between
+ * the two viewers, so the caller supplies every string, and whatever it
+ * wants BELOW the note (the coverage viewer's "never measured" swatch) it
+ * appends itself afterwards. `cmapName` is one of CMAP_NAMES, so cmapHex
+ * always answers and the caller needs no neutral of its own. */
+var LEGEND_STEPS = 28;
+function cmapStrip(box, cmapName, loText, hiText, noteText) {
+  var bar = document.createElement("div");
+  bar.className = "cmap-bar";
+  for (var k = 0; k < LEGEND_STEPS; k++) {
+    var cell = document.createElement("span");
+    cell.style.background = cmapHex(cmapName, k / (LEGEND_STEPS - 1));
+    bar.appendChild(cell);
+  }
+  box.appendChild(bar);
+  var limits = document.createElement("div");
+  limits.className = "cmap-limits";
+  var low = document.createElement("span");
+  low.textContent = loText;
+  var high = document.createElement("span");
+  high.textContent = hiText;
+  limits.appendChild(low);
+  limits.appendChild(high);
+  box.appendChild(limits);
+  var note = document.createElement("div");
+  note.className = "hint legend-note";
+  note.textContent = noteText;
+  box.appendChild(note);
+}
+
 /* ==== consts ==== */
 var PACK_PAD = 2, DIR_PAD = 6;
 var LEAF_R_BASE = 3, LEAF_R_UNIFORM = 7;
@@ -174,7 +206,6 @@ function buildTree(leaves) {
  * scales with the frame, so a name that is a smudge at the fit is
  * legible the moment you look at it. */
 var LABEL_MAX_FILE = 36;      /* 2x again: 4x the 9px the stylesheet had */
-var LABEL_FOLDER_BUMP = 0;    /* a folder reads at a file's size, as asked */
 var LABEL_MIN_CHARS = 3;      /* what "elided" must still manage to say */
 var LABEL_MAX_CHARS = 20;     /* the cap, before the width test */
 var LABEL_CHAR_W = 0.58;      /* mean glyph width as a fraction of size */
@@ -192,37 +223,105 @@ var LABEL_CHAR_W = 0.58;      /* mean glyph width as a fraction of size */
  * be dead, and a dead rule is a lie somebody maintains. */
 var LABEL_HALO = 0.16;
 
-/* The largest circle of each kind, so "proportional" has something to be
- * proportional TO. Walked once per build, not per label. */
-function maxRadii(root) {
-  var out = { dir: root ? root.r || 0 : 0, file: 0 };
-  (function walk(dir) {
-    if (!dir) { return; }
-    if (dir.r > out.dir) { out.dir = dir.r; }
-    (dir.items || []).forEach(function (it) {
-      if (it.dir) { walk(it.dir); }
-      else if (it.leaf && it.leaf.r > out.file) { out.file = it.leaf.r; }
-    });
-  })(root);
-  return out;
+/* A label is a fraction of ITS OWN circle, capped.
+ *
+ * WHAT THIS REPLACED, AND WHY IT WAS WRONG. The size used to be
+ * `LABEL_MAX_FILE * (radius / maxRadius)` — a fraction of the frame's LARGEST
+ * circle of that kind. Two consequences, both visible:
+ *
+ *   1. Folders and files were normalised against DIFFERENT maxima — folders
+ *      against the root, files against the biggest file — so on this
+ *      container's own map every folder came out at font/radius = 0.0583 and
+ *      every file at 0.2069. A folder's name was three and a half times
+ *      smaller, relative to the circle carrying it, than a file's.
+ *   2. `maxRadius` is a property of the FRAME, so the same folder drawn on two
+ *      frames got two different sizes, which is what made the Repo and History
+ *      maps disagree about a name they were both drawing.
+ *
+ * Anchoring on the circle itself removes both at once: the ratio is the same
+ * everywhere, and a bigger circle always carries a bigger name until the cap.
+ *
+ * THE TWO RATIOS ARE THE KNOBS. `LABEL_R_RATIO_FILE` is set to what files
+ * effectively received before, so their appearance is unchanged;
+ * `LABEL_R_RATIO_DIR` is the one that was implicitly ~0.058 and is now a
+ * number somebody chose. Raise it for louder folder names, lower it if they
+ * begin to crowd the children they enclose. */
+var LABEL_R_RATIO_FILE = 0.207;
+var LABEL_R_RATIO_DIR = 0.120;
+
+function labelSize(radius, isDir) {
+  var ratio = isDir ? LABEL_R_RATIO_DIR : LABEL_R_RATIO_FILE;
+  return Math.min(LABEL_MAX_FILE, radius * ratio);
 }
 
-function labelSize(radius, maxRadius, isDir) {
-  var scale = maxRadius > 0 ? Math.min(1, radius / maxRadius) : 0;
-  return LABEL_MAX_FILE * scale + (isDir ? LABEL_FOLDER_BUMP : 0);
+/* Outline weight, likewise a fraction of the circle rather than one number for
+ * every circle on the map. A flat 0.5 is a heavy ring around a 3-px file and
+ * an invisible hairline around a 300-px folder, so the same declaration reads
+ * as two different design decisions depending on where you look.
+ *
+ * Returned as a pair because hover is a MULTIPLE of the resting weight, not a
+ * second absolute: thickening to three times its own width is legible at every
+ * size, where a jump to a fixed 1.5 is dramatic on a small circle and
+ * imperceptible on a large one. Clamped at both ends so a hairline stays
+ * visible and a giant circle is not drawn as a doughnut. */
+var STROKE_RATIO = 0.012;
+var STROKE_MIN = 0.4;
+var STROKE_MAX = 3.0;
+var STROKE_HOVER_MULT = 3;
+
+function strokeFor(radius) {
+  var w = Math.max(STROKE_MIN, Math.min(STROKE_MAX, radius * STROKE_RATIO));
+  return { width: w, hover: w * STROKE_HOVER_MULT };
+}
+
+/* Set the two custom properties the stylesheet reads. Inline, per circle, so
+ * the RULES stay in packing.css — `stroke-width: var(--leaf-stroke)` and its
+ * hover — and only the VALUES vary. Writing `stroke-width` directly as a
+ * presentation attribute would be outranked by that rule and do nothing, which
+ * is the same trap the colour ramps fell into. */
+function applyStroke(el, radius) {
+  var s = strokeFor(radius);
+  el.style.setProperty("--leaf-stroke", s.width.toFixed(2));
+  el.style.setProperty("--leaf-stroke-hover", s.hover.toFixed(2));
+  el.style.setProperty("--dir-stroke", s.width.toFixed(2));
+  return s;
 }
 
 /* How many characters this circle holds at this size. */
 function labelChars(radius, size) {
   return Math.floor((radius * 1.8) / (size * LABEL_CHAR_W));
 }
-/* The size at which the circle can hold `LABEL_MIN_CHARS`, when its own
- * computed size cannot. This is where "every circle is named" and "no
- * label leaves its circle" are reconciled: the label shrinks rather than
- * disappearing or spilling. */
-function labelFit(radius, size) {
-  if (labelChars(radius, size) >= LABEL_MIN_CHARS) { return size; }
-  return (radius * 1.8) / (LABEL_MIN_CHARS * LABEL_CHAR_W);
+/* The largest size at which this circle can hold the WHOLE name — never
+ * larger than the size the radius already earned.
+ *
+ * WHAT THIS FIXES. `labelSize` scales the font linearly with `r / maxRadius`,
+ * so `r` CANCELS out of `labelChars`: every leaf on a frame ends up with the
+ * same character cap, and that cap is set by the frame's LARGEST circle
+ * (`floor(1.8 * maxRadius / (LABEL_MAX_FILE * LABEL_CHAR_W))`). Measured on
+ * the two frames that prompted this: maxRadius 130 gives every label 11
+ * characters, maxRadius 400 gives 34. So the same file was written in full on
+ * one frame and elided on another, for a reason that has nothing to do with
+ * the circle carrying the label.
+ *
+ * The observed case: a leaf of radius 130 at font 36 has 234 px of room and
+ * spent 229.7 of it printing `memory_gra…` — it elided a 15-character name
+ * while nearly the whole width sat unused, because the only question ever
+ * asked was "how many characters fit at the size I already chose?". Nothing
+ * asked the inverse, which is the one that has an answer: "how large may the
+ * size be so the whole word fits?".
+ *
+ * So the name is now an INPUT. The floor is `LABEL_MAX_CHARS`, which is
+ * already the hard cap on characters — this function will shrink far enough
+ * to show that many and no further, and `labelText` elides whatever is still
+ * too long. The old guarantee is unchanged and is simply the `need ==
+ * LABEL_MIN_CHARS` case: called with two arguments, this returns exactly what
+ * it always did, because `min(size, size_at_MIN_CHARS)` is `size` precisely
+ * when MIN_CHARS already fit. */
+function labelFit(radius, size, name) {
+  var need = String(name == null ? "" : name).length;
+  if (need > LABEL_MAX_CHARS) { need = LABEL_MAX_CHARS; }
+  if (need < LABEL_MIN_CHARS) { need = LABEL_MIN_CHARS; }
+  return Math.min(size, (radius * 1.8) / (need * LABEL_CHAR_W));
 }
 function labelText(name, radius, size) {
   var cap = Math.min(LABEL_MAX_CHARS,
@@ -233,9 +332,16 @@ function labelText(name, radius, size) {
 
 /* `circle` is {cx, cy, r, name}; `kind` is "dir" or "leaf". Returns the
  * <text> element, or null when there is no room to say anything. */
-function makeLabel(circle, kind, maxRadius, classPrefix) {
+/* `maxRadius` is gone from this signature. It was the frame's biggest circle,
+ * and a label that depends on it is a label that changes when a file somewhere
+ * else in the tree grows — which is exactly how two frames came to draw one
+ * name at two sizes. Every caller passed it; none needs it now. */
+function makeLabel(circle, kind, classPrefix) {
   var isDir = kind === "dir";
-  var size = labelFit(circle.r, labelSize(circle.r, maxRadius, isDir));
+  /* The name is passed so the size can be fitted to the WORD, not merely to a
+   * character count derived from the frame's biggest circle. Every frame that
+   * draws a packed map goes through here, so all of them are fixed at once. */
+  var size = labelFit(circle.r, labelSize(circle.r, isDir), circle.name);
   var shown = labelText(circle.name, circle.r, size);
   if (!shown) { return null; }   /* a circle with no name of its own */
   var lbl = document.createElementNS(NS, "text");
@@ -472,6 +578,125 @@ function placeDir(dir, cx, cy, depth) {
 
 /* The one global. Named for what it is rather than for the page that first
    held it: neither viewer owns this. */
+/* ==== stage ==== */
+/* ONE CONTROLLER FOR THREE PACKED FRAMES. The memory viewer's Repo and
+ * History stages and the coverage viewer's Coverage stage were the same
+ * eighty lines written three times, differing only in the names they
+ * spelled; the wheel arithmetic and the fit were word for word identical in
+ * all three. (The memory viewer's GRAPH stage is NOT one of them and is not
+ * here: it drags nodes, which is a different gesture on the same events.)
+ *
+ * `opts.state` is the caller's own {tx, ty, k, floor, root} record and stays
+ * the caller's — this writes the four numbers and reads `root`. `fitPad` is
+ * the margin the fit leaves around the packing, in the packing's own units.
+ *
+ * ONSELECT IS WHAT MAKES A STAGE SELECTABLE, and its absence is a feature.
+ * Given one, a `pointerdown` on a leaf CLAIMS the press through `press(ev,
+ * id)` and the matching `pointerup` selects it -- because the stage captures
+ * the pointer, so the `click` that ends the gesture is delivered to the
+ * <svg> and not to the circle, and a leaf that only listened for `click` is
+ * never selected at all. That same pointerup then suppresses the click, or
+ * the stage's own "put the current file down" handler would undo the
+ * selection one event later. Given NO onSelect, as the History stage gives
+ * none, no `click` listener is attached at all: that frame pans and zooms
+ * and selects nothing, because its commit is chosen from the list beside
+ * it. */
+function attachStage(svg, viewport, opts) {
+  var state = opts.state;
+  var minK = opts.minK, maxK = opts.maxK, fitPad = opts.fitPad;
+  var onSelect = opts.onSelect || null;
+  var panning = null, suppress = false, pressed = null;
+
+  function applyTransform() {
+    viewport.setAttribute("transform",
+      "translate(" + state.tx.toFixed(2) + "," + state.ty.toFixed(2) +
+      ") scale(" + state.k.toFixed(4) + ")");
+  }
+  /* A FIT THAT CAN ACTUALLY FIT. The floor comes from the CONTENT, never
+   * from a constant. Run through a constant minimum, a packing whose true
+   * fit falls below it opens far too close and no amount of scrolling out
+   * reaches the whole graph -- every wheel step is clamped by the same
+   * number. The Repo frame learned this the hard way at 7779 files. `minK`
+   * stays the floor for ordinary trees; a tree that needs less sets its
+   * own, with room to spare beneath it, so "the whole thing" is a place
+   * you can arrive at rather than a limit you press against. */
+  function clampK(k) {
+    return Math.max(state.floor, Math.min(maxK, k));
+  }
+  function fit() {
+    var root = state.root;
+    if (!root) { return; }
+    var bw = svg.clientWidth || 800, bh = svg.clientHeight || 600;
+    var R = root.r + fitPad;
+    var k = Math.min(bw, bh) / (2 * R);
+    state.floor = Math.min(minK, k * 0.5);
+    state.k = clampK(k);
+    state.tx = bw / 2 - root.cx * state.k;
+    state.ty = bh / 2 - root.cy * state.k;
+    applyTransform();
+  }
+  function startPan(ev) {
+    panning = { x: ev.clientX, y: ev.clientY, tx: state.tx, ty: state.ty,
+      moved: false };
+    svg.classList.add("panning");
+    try { svg.setPointerCapture(ev.pointerId); } catch (err) { /* ok */ }
+  }
+  function press(ev, id) {
+    suppress = false;
+    pressed = id;
+    startPan(ev);
+  }
+  function endPointer(ev) {
+    if (!panning) { return; }
+    if (panning.moved) { suppress = true; }
+    else if (onSelect && pressed !== null) {
+      onSelect(pressed);
+      suppress = true;
+    }
+    try { svg.releasePointerCapture(ev.pointerId); } catch (err) { /* */ }
+    panning = null;
+    svg.classList.remove("panning");
+  }
+  svg.addEventListener("pointerdown", function (ev) {
+    suppress = false;
+    pressed = null;              /* a press on the background selects nothing */
+    startPan(ev);
+  });
+  svg.addEventListener("pointermove", function (ev) {
+    if (!panning) { return; }
+    var dx = ev.clientX - panning.x, dy = ev.clientY - panning.y;
+    if (Math.abs(dx) + Math.abs(dy) > 3) { panning.moved = true; }
+    state.tx = panning.tx + dx;
+    state.ty = panning.ty + dy;
+    applyTransform();
+  });
+  svg.addEventListener("pointerup", endPointer);
+  svg.addEventListener("pointercancel", endPointer);
+  if (onSelect) {
+    svg.addEventListener("click", function () {
+      if (suppress) { suppress = false; return; }
+      /* A press that landed on nothing, and did not pan: the reader is
+       * putting the current file down. */
+      onSelect(null);
+    });
+  }
+  /* `{ passive: false }` is load-bearing: a passive wheel listener may not
+   * call preventDefault, and the page would scroll instead of zooming. */
+  svg.addEventListener("wheel", function (ev) {
+    ev.preventDefault();
+    var factor = ev.deltaY < 0 ? 1.15 : 1 / 1.15;
+    var nk = clampK(state.k * factor);
+    factor = nk / state.k;       /* the factor the CLAMP allowed, not the ask */
+    var rect = svg.getBoundingClientRect();
+    var mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+    state.tx = mx - (mx - state.tx) * factor;
+    state.ty = my - (my - state.ty) * factor;
+    state.k = nk;
+    applyTransform();
+  }, { passive: false });
+  return { fit: fit, press: press };
+}
+
 window.OrchPacking = {
   /* geometry */
   PACK_PAD: PACK_PAD, DIR_PAD: DIR_PAD,
@@ -479,16 +704,23 @@ window.OrchPacking = {
   leafRadiusScale: leafRadiusScale,
   buildTree: buildTree, packDir: packDir, placeDir: placeDir,
   /* labels */
-  LABEL_MAX_FILE: LABEL_MAX_FILE, LABEL_FOLDER_BUMP: LABEL_FOLDER_BUMP,
+  LABEL_MAX_FILE: LABEL_MAX_FILE,
   LABEL_MAX_CHARS: LABEL_MAX_CHARS, LABEL_CHAR_W: LABEL_CHAR_W,
   LABEL_MIN_CHARS: LABEL_MIN_CHARS, LABEL_HALO: LABEL_HALO,
-  maxRadii: maxRadii, labelSize: labelSize, labelText: labelText,
+  labelSize: labelSize, labelText: labelText,
+  LABEL_R_RATIO_FILE: LABEL_R_RATIO_FILE,
+  LABEL_R_RATIO_DIR: LABEL_R_RATIO_DIR,
+  STROKE_RATIO: STROKE_RATIO, STROKE_MIN: STROKE_MIN,
+  STROKE_MAX: STROKE_MAX, STROKE_HOVER_MULT: STROKE_HOVER_MULT,
+  strokeFor: strokeFor, applyStroke: applyStroke,
   labelChars: labelChars, labelFit: labelFit,
   makeLabel: makeLabel,
   /* colour. `cmapHex` answers null for a name it does not know, so the
      CALLER supplies its own neutral — which is what the fallback always
      was, and keeps this file free of the page's palette. */
   cmapHex: cmapHex, cmapNorm: cmapNorm, cmapIndex: cmapIndex,
+  cmapStrip: cmapStrip, LEGEND_STEPS: LEGEND_STEPS,
+  attachStage: attachStage,
   hex2: hex2, roundHalfEven: roundHalfEven, NS: NS,
   cmapNames: CMAP_NAMES
 };
