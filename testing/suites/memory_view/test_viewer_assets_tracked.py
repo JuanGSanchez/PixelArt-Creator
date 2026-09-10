@@ -6,6 +6,15 @@ the three PAGE assets they open — ``graph-view.html``, ``graph-view.css``,
 ``graph-view.js`` — are tracked and not gitignored, and that whatever
 repo-relative file the launchers reference at run time is tracked too.
 
+WHERE EACH ASSET LIVES (updated for the refreshed viewer package): only the
+bootstrap page, ``graph-view.html``, still sits at the store root. Its two
+served assets moved to ``memory-viewer/`` — ``memory/memory-viewer/graph-view.css``
+and ``memory/memory-viewer/graph-view.js`` — and the viewer server resolves
+both the old and the new URL spelling from that one tracked copy.
+``VIEWER_ASSET_PATHS`` below is the map this module checks against; the
+parametrize IDs stay the bare asset names so a failure reads the same way it
+always has.
+
 WHY THE IGNORE CHECK USES ``--no-index``: the default, index-aware
 ``git check-ignore`` never reports an already-TRACKED path as ignored, even
 when a matching ``.gitignore`` pattern exists — confirmed empirically against
@@ -42,6 +51,20 @@ STORE = REPO_ROOT / "memory"
 
 # The three page assets this store tracks (ground truth: the original findings report).
 VIEWER_ASSETS = ("graph-view.html", "graph-view.css", "graph-view.js")
+
+# WHERE each one actually lives. The store-root layout is pre-3.2.0: as of
+# the refreshed viewer package, only the bootstrap page (`graph-view.html`)
+# stays at the store root -- its two served assets moved to
+# `memory-viewer/`, and the viewer server resolves BOTH URL spellings
+# (`/graph-view.css` and `/memory-viewer/graph-view.css`) from that one
+# tracked copy. Keyed by the same names `VIEWER_ASSETS` carries, so the
+# parametrize IDs below stay `graph-view.css` / `graph-view.js`, not their
+# relocated path.
+VIEWER_ASSET_PATHS = {
+    "graph-view.html": "memory/graph-view.html",
+    "graph-view.css": "memory/memory-viewer/graph-view.css",
+    "graph-view.js": "memory/memory-viewer/graph-view.js",
+}
 
 # A repo-relative reference inside a launcher looks like `$HERE/<file>` in
 # the POSIX script or `%HERE%\<file>` in the batch script -- always with a
@@ -191,14 +214,15 @@ def _required_repo_relative_references(sh_body: str, cmd_body: str) -> set:
 
 @pytest.mark.parametrize("name", VIEWER_ASSETS)
 def test_viewer_asset_is_tracked(name):
-    assert _is_tracked(REPO_ROOT, "memory/" + name), (
-        "%s is not tracked: a clone would ship without it" % name
+    assert _is_tracked(REPO_ROOT, VIEWER_ASSET_PATHS[name]), (
+        "%s is not tracked at %s: a clone would ship without it"
+        % (name, VIEWER_ASSET_PATHS[name])
     )
 
 
 @pytest.mark.parametrize("name", VIEWER_ASSETS)
 def test_viewer_asset_is_not_ignored(name):
-    assert not _is_ignored(REPO_ROOT, "memory/" + name), (
+    assert not _is_ignored(REPO_ROOT, VIEWER_ASSET_PATHS[name]), (
         "%s matches a live .gitignore pattern -- if it were ever "
         "`git rm --cached`, the pattern would silently re-ignore it "
         "(see this store's own history for the finding)" % name

@@ -108,9 +108,17 @@ def git(repo, *args, env=None, check=True):
     return done
 
 
-@pytest.fixture
-def repo(tmp_path, request):
-    """A repository with the REAL hooks installed, under a stub container.
+def _build_repo(tmp_path, request, *, track_furniture):
+    """Build the throwaway repository the whole suite drives.
+
+    ``track_furniture`` decides whether the CREATION commit already tracks
+    ``.githooks/`` and ``memory/`` (the shape every test except the bootstrap
+    ones needs) or leaves them present in the working tree but UNTRACKED
+    (the shape admission 4 -- the one-time furniture bootstrap -- needs, now
+    that it additionally requires HEAD to track no furniture at all). Either
+    way the hook itself still runs: `core.hooksPath` reads a hook from the
+    FILESYSTEM, never from the index, so an untracked `.githooks/pre-commit`
+    fires exactly like a tracked one.
 
     The hooks walk upward for the container's own gate scripts and refuse to
     run without them — deliberately, so an unrunnable gate is never a silent
@@ -159,20 +167,55 @@ def repo(tmp_path, request):
             shutil.copy2(src / hook, dst / hook)
     git(work, "config", "core.hooksPath", ".githooks")
 
-    # A store, so "bookkeeping" has something real to be about.
+    # A store, so "bookkeeping" has something real to be about. `store.json`
+    # with a `scope`, not the retired `store-role.json`/`role` pair (4.0.0
+    # vocabulary: container/product -> workspace/repository) -- the hook
+    # itself accepts either filename, but a fixture asserting nothing about
+    # the file's content has no reason to keep writing the retired shape.
     (work / "memory" / "graph").mkdir(parents=True)
-    (work / "memory" / "store-role.json").write_text(
-        '{"role": "product"}', encoding="utf-8"
+    (work / "memory" / "store.json").write_text(
+        '{"scope": "repository"}', encoding="utf-8"
     )
     (work / "memory" / "graph" / "nodes.jsonl").write_text("", encoding="utf-8")
 
     # The creation commit — the one commit the default branch takes without
     # argument, and the exception the hook makes for having no HEAD yet.
     (work / "README.md").write_text("# test\n", encoding="utf-8")
-    git(work, "add", "-A")
+    if track_furniture:
+        git(work, "add", "-A")
+    else:
+        # Only the non-furniture path is staged: `.githooks/` and `memory/`
+        # stay on disk (so the hook keeps running and a store keeps existing)
+        # but untracked, so HEAD ends up tracking NO furniture at all -- the
+        # precondition admission 4 now checks before it will fire.
+        git(work, "add", "--", "README.md")
     git(work, "commit", "-q", "-m", "chore: create the repository")
     git(work, "branch", "-M", "main")
     return work
+
+
+@pytest.fixture
+def repo(tmp_path, request):
+    """The ordinary fixture: `.githooks/` and `memory/` are already tracked
+    by the creation commit, exactly as a real clone's gate and store are
+    tracked from the moment the gate was installed. Used by every test
+    except the two that specifically exercise the one-time bootstrap
+    admission, which needs the opposite starting shape (`bootstrap_repo`
+    below)."""
+    return _build_repo(tmp_path, request, track_furniture=True)
+
+
+@pytest.fixture
+def bootstrap_repo(tmp_path, request):
+    """The one-time-bootstrap fixture: the creation commit tracks ONLY
+    `README.md`, so `.githooks/` and `memory/` are still genuinely new --
+    never staged before in this repository's history -- when a test stages
+    one of them. Admission 4 requires exactly that: every staged furniture
+    path an ADDITION, and HEAD tracking no furniture at all. A `repo` whose
+    creation commit already tracked the store and the hooks (as a real
+    clone's does once the gate is installed) can never satisfy the second
+    half of that test again -- which is the point of "one-time"."""
+    return _build_repo(tmp_path, request, track_furniture=False)
 
 
 def commit(repo, message, env=None):
@@ -297,15 +340,19 @@ def test_a_post_merge_store_refresh_is_admitted_because_head_is_a_merge(repo):
 
 
 @pytest.mark.parametrize("rel", NEW_FURNITURE_PATHS)
-def test_every_furniture_root_is_admitted_as_a_bootstrap(repo, rel):
+def test_every_furniture_root_is_admitted_as_a_bootstrap(bootstrap_repo, rel):
     """One admitted path proves one path; the CLASS is what must hold. All
     three furniture roots bootstrap the same way — a genuinely NEW path
     under any of them, staged alone, is admitted — because the pattern the
     gate matches is derived from one list (`FURNITURE`) in the generator,
     same as before the narrowing. What changed is the SECOND condition
     admission 4 now carries alongside that pattern: every staged path must
-    also be an ADDITION. `rel` here has never been staged in this
-    repository's history, so it satisfies both."""
+    also be an ADDITION, AND HEAD must track no furniture at all. `rel` here
+    has never been staged in this repository's history, and `bootstrap_repo`
+    starts with `.githooks/` and `memory/` present but untracked (unlike the
+    ordinary `repo` fixture, whose creation commit already tracks them), so
+    both conditions hold."""
+    repo = bootstrap_repo
     before = head(repo)
     touch(repo, rel, "# new furniture\n")
     done = commit(
@@ -318,14 +365,22 @@ def test_every_furniture_root_is_admitted_as_a_bootstrap(repo, rel):
     assert head(repo) != before, "the commit was reported allowed but never made"
 
 
-def test_a_second_furniture_commit_is_refused_once_tracked(repo):
+def test_a_second_furniture_commit_is_refused_once_tracked(bootstrap_repo):
     """Bootstrap is a door that closes behind you. The SAME path,
     `.gitattributes`, is staged twice: the first time it is genuinely new and
     admission 4 fires; the second time it is a modification of a path this
     repository now tracks, admission 4's own "every staged path is an
     addition" test fails, and nothing else admits it either — a repeat visit
     through the one-time exception is exactly what "one-time" has to mean,
-    or it is not an exception at all."""
+    or it is not an exception at all.
+
+    Uses `bootstrap_repo`, not `repo`: the first commit below IS the
+    bootstrap under test, and it only fires when HEAD tracks no furniture
+    yet -- the ordinary `repo` fixture already tracks `.githooks/` and
+    `memory/` from its creation commit, so the first commit here would be
+    refused too, never reaching the "second commit" the test is actually
+    about."""
+    repo = bootstrap_repo
     touch(repo, ".gitattributes", "* -text\n")
     first = commit(repo, "chore(system): bootstrap the memory merge stanza")
     assert first.returncode == 0, first.stdout + first.stderr
