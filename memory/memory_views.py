@@ -12,8 +12,9 @@ worse than no viewer, because it is believed.
 
 `serve` rebuilds the page from the store's logs and the repository's own
 `git log` ON EVERY REQUEST, and an injected poller reloads it by itself when a
-cheap fingerprint moves. `render` keeps the offline path for a machine where
-running a server is not wanted.
+cheap fingerprint moves. It is the ONLY way to look at a store: `render` and
+the derived `graph-view-snapshot.html` it wrote are retired, so there is no
+second page that can quietly go stale.
 
 IT RENDERS NOTHING ITSELF (P9). Every byte of graph data and every line of
 viewer JavaScript comes from `memory_viz.py` and the frozen `memory-viewer/`
@@ -49,15 +50,11 @@ nobody can account for. The divergence is documented per viewer type in
 
 Usage
     py memory_views.py serve   --store <dir> [--open-browser] [--once]
-    py memory_views.py render  --store <dir> [--out <path>]
     py memory_views.py install --store <dir>
     py memory_views.py engine-missing --store <dir>   (said by a launcher)
 """
 
 import argparse
-import contextlib
-import hashlib
-import importlib.util
 import json
 import os
 import sys
@@ -76,8 +73,6 @@ BASE = Path(__file__).resolve().parent
 
 # This viewer's KIND in the one allocation table.
 VIEWER_KIND = "memory"
-LAUNCHER_CMD = "memory-view.cmd"
-LAUNCHER_SH = "memory-view.sh"
 
 # How often the page re-checks the fingerprint, and how long a server waits
 # after its last tab goes away before stopping. The grace is not politeness:
@@ -90,120 +85,6 @@ GRACE_SECONDS = 45
 IDLE_SECONDS = 90
 
 
-# --------------------------------------------------------------------------
-# loading THIS file's own siblings
-# --------------------------------------------------------------------------
-#
-# UPSTREAM NOTE (this file is a recorded fork). The three helpers below are a
-# DEFECT FIX, not a local preference, and they belong upstream unchanged. The
-# skill original's `_load_sibling` inserts its folder at `sys.path[0]` and
-# calls `__import__(name)` — which cannot do what it is written to do:
-# `__import__` returns `sys.modules[name]` when the name is already loaded and
-# never consults `sys.path` at all. `viewer_ports.py`, `viewer_serving.py` and
-# `product_boundary.py` are each vendored into BOTH a store (by
-# `memory_views.py install`) and a `testing/` (by `coverage_views.py install`),
-# beside the skill's own `scripts/` originals — three copies, maintained by
-# two independent install verbs — so whichever copy was imported first
-# answered for all three. Measured: with `testing/` on `PYTHONPATH`, which is
-# what `testing/run` gives every child process it spawns, the memory viewer
-# bound `testing/viewer_ports`, `testing/viewer_serving` and
-# `testing/product_boundary`.
-#
-# Upstream should take the same shape in both viewers: load by FILE PATH with
-# `importlib.util`, under a `sys.modules` key derived from that path. It is a
-# COPY, not a move — the two viewers do not import each other, and one
-# viewer reaching for the other's loader would undo the property that lets a
-# repository be cloned alone.
-
-def _sibling_key(path):
-    """A `sys.modules` key derived from the FILE, never from the bare name.
-
-    Three copies of each vendored module live in one repository — the
-    container's `scripts/`, every store's vendored package, every
-    `testing/`'s — and two independent install verbs maintain them, so they
-    can drift. A digest of the absolute path gives each copy a key of its
-    own: two copies can never share one, and the key still names a findable
-    module, which is what a dataclass, a pickle and a traceback each need.
-
-    `normcase` because one file spelled two ways is one file, and two keys
-    for it would be two module objects holding two copies of its state.
-    """
-    digest = hashlib.sha1(
-        os.path.normcase(str(path)).encode("utf-8", "replace")).hexdigest()
-    return "_viewer_sibling_%s_%s" % (path.stem, digest[:12])
-
-
-@contextlib.contextmanager
-def _folder_leading(folder):
-    """`folder` first on `sys.path`, competing copies set aside, during exec.
-
-    A module being loaded may import ITS OWN siblings by bare name —
-    `memory_graph.py` does exactly that for `product_boundary` and `lease`,
-    inside a `try/except ImportError` that degrades to None in silence — and
-    those imports run through the ordinary machinery, which a loader cannot
-    reach into. So this sets the two things that machinery reads: the folder
-    leads `sys.path`, and the `sys.modules` entries for the bare names THIS
-    FOLDER HAS ITS OWN COPY OF are lifted out, so the cache cannot answer
-    with another copy's before `sys.path` is ever consulted.
-
-    Only names this folder actually carries are touched, and every one is put
-    back afterwards: the module being loaded keeps the references it bound
-    while they were in force, and nothing outside it sees a change. The
-    `sys.path` entry is left in place, exactly as this loader always left it —
-    withdrawing it would be a second behaviour change riding along with a fix.
-    """
-    folder = Path(folder)
-    try:
-        siblings = [p for p in folder.iterdir() if p.suffix == ".py"]
-    except OSError:
-        siblings = []
-    shadowed = {}
-    for sibling in siblings:
-        loaded = sys.modules.get(sibling.stem)
-        if loaded is None:
-            continue
-        where = getattr(loaded, "__file__", None)
-        if where and (os.path.normcase(str(Path(where).resolve()))
-                      == os.path.normcase(str(sibling.resolve()))):
-            continue                      # already this folder's own copy
-        shadowed[sibling.stem] = loaded
-    sys.path.insert(0, str(folder))
-    for stem in shadowed:
-        del sys.modules[stem]
-    try:
-        yield
-    finally:
-        sys.modules.update(shadowed)
-
-
-def _load_module(path, what):
-    """Execute `path` as a module of its own, under its path-derived key."""
-    key = _sibling_key(path)
-    loaded = sys.modules.get(key)
-    if loaded is not None:
-        return loaded
-    spec = importlib.util.spec_from_file_location(key, str(path))
-    if spec is None or spec.loader is None:
-        sys.exit(json.dumps({
-            "status": "BLOCKED",
-            "error": "%s cannot be loaded from %s: Python does not recognise "
-                     "that file as an importable module" % (what, path),
-            "hint": "restore it from the orchestrator-design skill",
-        }))
-    module = importlib.util.module_from_spec(spec)
-    # In the table BEFORE exec, under the path-derived key: a module is
-    # looked up by its own `__module__` while it is still executing.
-    sys.modules[key] = module
-    try:
-        with _folder_leading(path.parent):
-            spec.loader.exec_module(module)
-    except BaseException:
-        # A half-executed module left behind would be handed out whole.
-        sys.modules.pop(key, None)
-        raise
-    return module
-
-
 def _load_sibling(name, what):
     """Import a module that ships beside this file.
 
@@ -211,26 +92,11 @@ def _load_sibling(name, what):
     store into which the whole package has been vendored so the repository
     works when cloned alone. A copy of either module's contents here instead
     of an import is the silent divergence the fidelity gate exists to catch.
-
-    WHY NOT `__import__`. This used to put the chosen folder at `sys.path[0]`
-    and call `__import__(name)` — which looks like it guarantees the local
-    copy and does not. `__import__` returns `sys.modules[name]` whenever the
-    name is already loaded, and never consults `sys.path` at all. With three
-    copies of each vendored module in one repository, whichever was imported
-    FIRST answered for all of them. It is reachable in ordinary operation:
-    `testing/run` puts `testing/` on `PYTHONPATH` for every child process it
-    spawns, so a child that touches the coverage viewer and then the memory
-    viewer bound `testing/viewer_ports` into the memory viewer. Harmless
-    while the bytes match; a real defect the moment the two vendored sets
-    diverge — which is exactly what two independent install verbs make
-    possible. The fix is to load by FILE PATH under a key derived from that
-    path (`_load_module`), so a bare name already in `sys.modules` cannot
-    answer for a copy it is not.
     """
     for folder in (BASE, BASE.parent):
-        path = folder / (name + ".py")
-        if path.is_file():
-            return _load_module(path.resolve(), what)
+        if (folder / (name + ".py")).is_file():
+            sys.path.insert(0, str(folder))
+            return __import__(name)
     sys.exit(json.dumps({
         "status": "BLOCKED",
         "error": "{} is missing: {}.py must ship beside this script".format(
@@ -248,15 +114,13 @@ serving = _load_sibling("viewer_serving", "the shared serving floor")
 # copy of this script that shipped without the boundary it is gated by would
 # be a copy with the gate removed. It is loaded the same way as the others so
 # a store cloned alone still refuses what the skill refuses.
-boundary = _load_sibling("product_boundary", "the product boundary")
+boundary = _load_sibling("repo_guard", "the repository guard")
 
 # The page written by `install`: a BOOTSTRAP, tracked in git, holding no
-# records. It fills itself from a running viewer. `render`'s offline
-# snapshot goes somewhere else on purpose. BOTH NAMES COME FROM THE
-# RENDERER, which writes the second one: two modules holding the same two
-# filenames is how they came to be one filename in the first place.
+# records. It fills itself from a running viewer. THE NAME COMES FROM THE
+# RENDERER: two modules holding the same filename is how they came to be
+# one filename in the first place.
 BOOTSTRAP_NAME = memory_viz.BOOTSTRAP_NAME
-SNAPSHOT_NAME = memory_viz.SNAPSHOT_NAME
 
 
 def _engine():
@@ -271,200 +135,6 @@ def _engine():
     the one file `gitignore-doctrine.md` gives a single owner.
     """
     return _load_sibling("memory_graph", "the store engine")
-
-
-# --------------------------------------------------------------------------
-# the branch a write would land on
-# --------------------------------------------------------------------------
-#
-# `install` writes TRACKED files — the vendored package, the bootstrap page,
-# two launchers, a `.gitignore` line — into a repository. Run against that
-# repository's `main` it puts them straight onto the branch a pull request is
-# supposed to protect, and nothing here noticed. `product_boundary` answers a
-# different question (WHOSE repository is this), and answers it well; a
-# product's OWN system passing `--product-self` is legitimate and still must
-# not commit to `main` by hand. So this is a second gate, not a variation of
-# the first, and `--product-self` is not a way past it.
-#
-# THREE QUESTIONS, KEPT SEPARATE. `product_boundary.guard` asks "is this a
-# product?"; `--product-self` answers "yes, and I am its own system, let me
-# write"; this asks "fine — but not onto its `main`". Folding the third into
-# `guard()` would make the second an answer to it too, which is exactly the
-# bypass being closed. It is asked SECOND, after the boundary, so a container
-# reaching into a product still gets the boundary's refusal — the one that
-# names the right remedy for that mistake.
-#
-# IT READS GIT'S FILES, IT DOES NOT RUN GIT — the reason
-# `product_boundary.repository_root` gives: this is on the write path of every
-# installer, and it must answer the same way where git is absent, where it is
-# a stub, and where it hangs.
-#
-# UPSTREAM NOTE (this file is a recorded fork). These five helpers belong in
-# `product_boundary.py` beside `guard()` / `enforce()`, called by both viewers
-# and by `container_repo.py`. They are duplicated into the two viewers only
-# because this change's declared write targets were the two viewer files;
-# porting them upstream is a move, not a rewrite.
-
-PROTECTED_BRANCHES = ("main", "master")
-
-
-def _git_dir(repo):
-    """`repo`'s git directory: a `.git` folder, or the one a worktree names.
-
-    A LINKED WORKTREE — which is exactly how a `fix-…` branch is checked out
-    beside `main` here — carries a `.git` FILE reading `gitdir: <path>`. Its
-    HEAD lives at that path, and HEAD is the whole question, so a reader that
-    handled only the folder case would see no branch at all and let every
-    worktree through.
-    """
-    dot = Path(repo) / ".git"
-    if dot.is_dir():
-        return dot
-    if dot.is_file():
-        try:
-            text = dot.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            return None
-        for line in text.splitlines():
-            if line.startswith("gitdir:"):
-                target = Path(line.split(":", 1)[1].strip())
-                if not target.is_absolute():
-                    target = Path(repo) / target
-                return target if target.is_dir() else None
-    return None
-
-
-def _common_dir(gitdir):
-    """Where the refs live — which is not always where HEAD does.
-
-    A linked worktree's git directory holds its own HEAD but shares the
-    primary repository's refs, and names that shared directory in
-    `commondir`. Looking for `refs/heads/<branch>` in the worktree's own
-    directory would find nothing and read as "no commit yet".
-    """
-    marker = Path(gitdir) / "commondir"
-    if marker.is_file():
-        try:
-            rel = marker.read_text(encoding="utf-8", errors="replace").strip()
-        except OSError:
-            return Path(gitdir)
-        if rel:
-            candidate = Path(rel)
-            if not candidate.is_absolute():
-                candidate = Path(gitdir) / candidate
-            return candidate
-    return Path(gitdir)
-
-
-def _current_branch(gitdir):
-    """The branch HEAD is on, or None when it is not on one.
-
-    A DETACHED HEAD is not `main` even when it points at `main`'s commit: a
-    write there lands on no branch, so it is not the thing this gate exists to
-    stop, and it is let through.
-    """
-    try:
-        head = (Path(gitdir) / "HEAD").read_text(
-            encoding="utf-8", errors="replace").strip()
-    except OSError:
-        return None
-    if not head.startswith("ref:"):
-        return None
-    ref = head.split(":", 1)[1].strip()
-    prefix = "refs/heads/"
-    return ref[len(prefix):] if ref.startswith(prefix) else None
-
-
-def _has_commit(gitdir, branch):
-    """Does `branch` name a commit yet?
-
-    A repository freshly `git init`-ed is ON `main` with nothing on it, and
-    installing a viewer into one is how a store is set up in the first place.
-    Refusing there would break the ordinary case to protect a branch that does
-    not exist, so an unborn branch is not protected.
-    """
-    common = _common_dir(gitdir)
-    loose = common.joinpath("refs", "heads", *branch.split("/"))
-    try:
-        if loose.is_file() and loose.read_text(
-                encoding="utf-8", errors="replace").strip():
-            return True
-    except OSError:
-        pass
-    ref = "refs/heads/%s" % branch
-    try:
-        for line in (common / "packed-refs").read_text(
-                encoding="utf-8", errors="replace").splitlines():
-            parts = line.split()
-            if len(parts) == 2 and parts[1] == ref:
-                return True
-    except OSError:
-        pass
-    return False
-
-
-def protected_branch(path):
-    """(repo, branch) when a write to `path` would land on a protected branch.
-
-    `branch` is None whenever the write may proceed — not a product, no
-    repository, no git directory, a detached HEAD, a branch nobody protects,
-    or a branch with nothing on it yet.
-
-    IT IS A CONJUNCTION, AND THE FIRST TERM IS THE ONE THAT IS EASY TO FORGET:
-    the target must be a PRODUCT repository. A container is itself a git
-    repository, it sits on `main`, and it is maintained that way on purpose —
-    `memory_views.py install --store memory` against the container's own store
-    is the ordinary, correct call. Keyed on the branch name alone this gate
-    would refuse it, which is a worse defect than the one it fixes. Whether a
-    repository is a product is `product_boundary.describe`'s question and it
-    is asked here rather than re-answered: one boundary, one implementation.
-    """
-    facts = boundary.describe(path)
-    if not facts["product"]:
-        return facts["repo"], None
-    repo = facts["repo"]
-    if repo is None:
-        return None, None
-    gitdir = _git_dir(repo)
-    if gitdir is None:
-        return repo, None
-    branch = _current_branch(gitdir)
-    if branch is None or branch not in PROTECTED_BRANCHES:
-        return repo, None
-    if not _has_commit(gitdir, branch):
-        return repo, None
-    return repo, branch
-
-
-def refuse_protected_branch(verb, path):
-    """The named exit for a write aimed at a protected branch, or None.
-
-    Printed in `product_boundary.refusal`'s shape — same keys, same
-    `exit_code`, the same "here is the ONE command that IS legitimate" ending
-    — but NOT by calling it: that function's `error` sentence states a
-    different finding ("would write into a PRODUCT repository"), and a gate
-    that reports the wrong reason sends its reader to fix the wrong thing.
-    `branch` stands where `container` does, being the evidence here.
-    """
-    repo, branch = protected_branch(path)
-    if branch is None:
-        return None
-    print(json.dumps({
-        "status": "REFUSED",
-        "verb": verb,
-        "target": str(Path(path).resolve()),
-        "repository": str(repo),
-        "branch": branch,
-        "error": "%s writes TRACKED files, and %s is on `%s` — its protected "
-                 "branch. Committing them there puts them in the repository "
-                 "without a pull request, which is the review this branch "
-                 "exists to require."
-                 % (verb, repo, branch),
-        "legitimate": "container_repo.py start-branch %s --name fix-<slug>, "
-                      "then run this verb against that worktree" % repo,
-        "exit_code": boundary.EXIT_REFUSED,
-    }, ensure_ascii=False))
-    return boundary.EXIT_REFUSED
 
 
 # --------------------------------------------------------------------------
@@ -538,8 +208,25 @@ def build_payload(store, commits, disk_root=None):
     """(nodes, edges, meta, git, disk) for `store`, via the renderer."""
     store = Path(store)
     nodes, edges, info = memory_viz.load_logs(store)
+    # THE PAYLOAD CARRIES THE INVALIDATED RECORDS; THE PAGE HIDES
+    # THEM. Dropping them here made the viewer's own
+    # `Show invalidated` checkbox unusable: the page counts what it
+    # RECEIVED, found nothing, disabled the control and printed a
+    # hint telling the reader to regenerate the payload with
+    # `--include-invalidated` — a flag of the `render` verb, on a
+    # page that is SERVED and is not regenerated by anybody. A
+    # store's retired records were therefore unreachable from the
+    # live viewer, which is the one place a person goes to ask what
+    # used to be true.
+    #
+    # Hiding is the PAGE's job and always was: `computeVisible`,
+    # `structuralNodesByPath` and `connectionIndex` all drop an
+    # invalidated record while `state.showInvalid` is false, which
+    # it is on load. So the honest split is `include=True` here and
+    # a checkbox there, and `invalidated_nodes_hidden` is 0 because
+    # the SERVER now hides nothing.
     nodes, edges, hidden_nodes, hidden_edges = memory_viz.split_invalidated(
-        nodes, edges, False)
+        nodes, edges, True)
     total_nodes, total_edges = len(nodes), len(edges)
     cards = memory_viz.inline_card_bodies(nodes, store)
     git = memory_viz.collect_git(store, None, max(0, commits))
@@ -552,7 +239,7 @@ def build_payload(store, commits, disk_root=None):
         "malformed": info["malformed"],
         "invalidated_nodes_hidden": hidden_nodes,
         "invalidated_edges_hidden": hidden_edges,
-        "include_invalidated": False,
+        "include_invalidated": True,
         "limited": False, "limit": 0, "rank": "",
         "total_nodes": total_nodes, "total_edges": total_edges,
         "cards_inlined": cards["cards_inlined"],
@@ -751,6 +438,16 @@ def make_handler(store, assets, state):
                           "/%s/%s" % (ASSET_DIR, memory_viz.ASSET_JS)):
                 self._bytes(assets[memory_viz.ASSET_JS],
                             "text/javascript; charset=utf-8")
+            elif path in ("/%s" % memory_viz.ASSET_PACKING_CSS,
+                          "/%s/%s" % (memory_viz.ASSET_SHARED_DIR,
+                                      memory_viz.ASSET_PACKING_CSS)):
+                # The shared stylesheet, served exactly as the shared
+                # script is. A missing stylesheet 404s SILENTLY -- the
+                # page renders unstyled and reads as ugly rather than
+                # broken -- so it is routed here and not left to a
+                # static-file fallback that does not exist.
+                self._bytes(assets[memory_viz.ASSET_PACKING_CSS],
+                            "text/css; charset=utf-8")
             elif path in ("/%s" % memory_viz.ASSET_PACKING,
                           "/%s/%s" % (memory_viz.ASSET_SHARED_DIR,
                                       memory_viz.ASSET_PACKING)):
@@ -870,9 +567,9 @@ def find_own_server(store, host=None):
 # .cmd window that closes before its error can be read, and about the line
 # endings each interpreter needs, lives THERE — once, for both viewers.
 #
-# The prelude is this viewer's own: refresh the store first WHEN THE ENGINE IS
-# HERE. It is not part of this package — this is the VIEWER, and the engine
-# that WRITES the store is a different role (P9) — so calling it
+# The prelude is this viewer's own: refresh the store first WHEN AN ENGINE IS
+# REACHABLE. It is not part of this package — this is the VIEWER, and the
+# engine that WRITES the store is a different role (P9) — so calling it
 # unconditionally would name a file a bare clone does not have. Where it is
 # absent the viewer still serves what the logs hold, which is true, and is all
 # a viewer ever claimed.
@@ -882,21 +579,24 @@ def find_own_server(store, host=None):
 # inside a PRODUCT to `<product>/memory/memory_graph.py` and
 # `<product>/scripts/memory_graph.py`. Neither exists there and neither ever
 # will, because the engine is not vendored: so in every product the refresh
-# was skipped, always, and the viewer served an unrefreshed map. The engine
-# lives in the orchestration container ABOVE the product, which is a variable
-# number of levels up — `<container>/main/memory` in a single-product
-# container, one level deeper where products are grouped — so the search is a
-# BOUNDED upward walk and not a fixed `../../`. Five levels: the launcher this
-# replaced walked four above the repository root and resolved here, and the
-# fifth is the repository root itself, which is where the CONTAINER's own
-# store (`<container>/memory`) finds `<container>/scripts`.
+# was skipped, always, and the viewer served an unrefreshed map (PixelArt
+# upstream report D-4, 2026-08-29). The engine lives in the orchestration
+# container ABOVE the product, which is a variable number of levels up —
+# `<container>/main/memory` in a single-product container, one level deeper
+# where products are grouped — so the search is a BOUNDED upward walk and not
+# a fixed `../../`. Five levels: the union of both predecessors' reach — the
+# launcher the vendored prelude replaced searched ancestors 2-5 of the store,
+# and the vendored prelude searched ancestor 1, which is how the CONTAINER's
+# own store (`<container>/memory`) finds `<container>/scripts`. It is the same
+# bound `container_repo.find_memory_graph` walks for the hooks.
 #
 # AND WHEN IT FINDS NOTHING IT SAYS SO. The old `for` loop fell through in
 # silence and the viewer served a map nobody had refreshed, with nothing on
-# screen or on stderr to say which of the two it was. The `else` branch calls
-# this script's own `engine-missing` verb, so the message is written once, in
-# Python, where the store's timestamps can actually be read — and both
-# launchers say the same thing.
+# screen or on stderr to say which of the two it was (report D-5). The `else`
+# branch calls this script's own `engine-missing` verb, so the message is
+# written once, in Python, where the store's timestamps can actually be read
+# — and both launchers say the same thing. Then it serves anyway: the
+# read-only bare clone is the designed case.
 LAUNCHER_SPEC = {
     "launcher": "memory-view",
     "subject": "store",
@@ -971,15 +671,27 @@ VENDORED = (
     ("memory_viz.py", ("memory_viz.py",)),
     ("viewer_ports.py", ("viewer_ports.py",)),
     ("viewer_serving.py", ("viewer_serving.py",)),
-    ("product_boundary.py", ("product_boundary.py",)),
+    ("repo_guard.py", ("repo_guard.py",)),
     ("viewer-shared/packing.js", ("viewer-shared", "packing.js")),
+    ("viewer-shared/packing.css", ("viewer-shared", "packing.css")),
     ("memory-viewer/template.html", ("memory-viewer", "template.html")),
     ("memory-viewer/graph-view.css", ("memory-viewer", "graph-view.css")),
     ("memory-viewer/graph-view.js", ("memory-viewer", "graph-view.js")),
 )
-# Written into the store's own .gitignore by `install`: the derived outputs,
-# never the vendored tooling and never the bootstrap.
-IGNORED = ("graph-view-snapshot.html", "__pycache__/")
+# Written into the store's own .gitignore by `install`: what this verb puts
+# in the store and nobody should carry, never the vendored tooling and never
+# the bootstrap. `__pycache__/` is here and NOT in the engine's
+# `GITIGNORE_LINES` on purpose: installing Python into a store is what
+# creates the bytecode, so whoever brings the hazard owns the rule.
+# `graph-view-snapshot.html` was the first entry. The derived snapshot is no
+# longer generated at all (`cmd_render`), so an ignore rule for it would
+# name a file nothing writes -- a rule whose subject nobody can check is how
+# a denylist starts drifting from what it protects. It was also a rule the
+# ENGINE prunes (`memory_graph.RETIRED_GITIGNORE_LINES`, run by the
+# `Store.ensure()` two dozen lines below): install removed it and put it
+# straight back, so every install rewrote a tracked `.gitignore` and reported
+# a write on a store where nothing needed doing.
+IGNORED = ("__pycache__/",)
 
 
 def source_root():
@@ -1019,17 +731,19 @@ def cmd_install(args):
     # session. The product's own system does this for itself and says so.
     _facts, refused = boundary.enforce(
         "memory_views.py install", store,
-        legitimate="run `memory_views.py install --store %s --product-self` "
+        legitimate="run `memory_views.py install --store %s --repository-self` "
                    "from the PRODUCT's own orchestration system" % store,
-        product_self=getattr(args, "product_self", False))
+        repository_self=getattr(args, "repository_self", False))
     if refused is not None:
         return refused
-    # AND THE BRANCH, WHICH IS A SECOND QUESTION. The boundary above asks
-    # whose repository this is; this asks where the tracked files it writes
-    # would be committed. `--product-self` answers the first and is NOT
-    # consulted here: the product's own system installing its own furniture is
-    # legitimate AND still owes that repository a pull request.
-    refused = refuse_protected_branch("memory_views.py install", store)
+    # THE THIRD QUESTION, after the boundary: the vendored package, the
+    # bootstrap page, two launchers and a `.gitignore` line are TRACKED
+    # files, and a product's `main` never takes them directly — they travel
+    # by pull request. `--repository-self` is not a way past this one; the
+    # conjunction (product AND main/master AND a commit) and its named exit
+    # live in `repo_guard`, shared with every other writing verb.
+    refused = boundary.enforce_protected_branch("memory_views.py install",
+                                                store)
     if refused is not None:
         return refused
     # RECONCILE THE FILE THIS VERB WRITES INTO, BEFORE writing into it.
@@ -1154,34 +868,30 @@ def cmd_engine_missing(args):
 
 
 def cmd_render(args):
-    """The offline page, for a machine where running a server is not wanted.
+    """RETIRED — the derived snapshot is no longer generated.
 
-    It writes the SNAPSHOT name, never the tracked bootstrap: the bootstrap is
-    committed, and putting the whole graph into it would add the entire store
-    to the repository's history on every render.
+    `graph-view-snapshot.html` was the offline, data-bearing page: the whole
+    store rendered into HTML so it could be opened with no server running. It
+    is gone by decision, and the viewer is LIVE-ONLY.
+
+    What that removes, stated so nobody rediscovers it as a bug: there is no
+    longer any way to look at a store's map by double-clicking a file. `serve`
+    is the only route.
+
+    What it buys: one page instead of two, so "which of these am I looking at,
+    and how stale is it" stops being a question; no derived HTML class; no
+    ignore rule; and no renderer whose output nobody can date. The tracked
+    bootstrap `graph-view.html` stays exactly as it was -- it holds no records,
+    which is what made it committable in the first place.
+
+    The verb is KEPT as a refusal rather than deleted so an existing launcher,
+    hook or habit gets the route instead of an argparse error listing verbs it
+    did not ask about.
     """
-    store = Path(args.store).resolve()
-    if not is_store(store):
-        return serving.blocked("no memory store at %s" % store,
-                               "a store is a directory with graph/ under it")
-    assets, error = memory_viz.load_assets()
-    if error is not None:
-        print(json.dumps(error))
-        return 2
-    nodes, edges, meta, git, disk = build_payload(store, args.commits,
-                                                  args.disk_root)
-    meta["served"] = False
-    out = Path(args.out) if args.out else store / SNAPSHOT_NAME
-    payload = memory_viz.render(nodes, edges, meta,
-                               assets[memory_viz.ASSET_TEMPLATE], git, disk)
-    payload = point_at_vendored_assets(payload)
-    written = memory_viz.write_if_changed(out, payload)
-    print(json.dumps({"status": "COMPLETED", "store": str(store),
-                      "out": str(out), "written": written,
-                      "bytes": len(payload),
-                      "nodes": meta["total_nodes"],
-                      "git_state": git["state"]}))
-    return 0
+    return serving.blocked(
+        "render is retired: the derived snapshot is no longer generated",
+        "open the store live instead: "
+        "python memory_views.py serve --store %s" % args.store)
 
 
 def cmd_serve(args):
@@ -1283,7 +993,7 @@ def build_parser():
         "install", help="place the viewer package and its launchers in a store")
     install.add_argument("--store", default="memory",
                          help="the memory store directory (default: memory)")
-    boundary.add_product_self_flag(install)
+    boundary.add_repository_self_flag(install)
 
     # NOT A USER-FACING VERB, and not hidden either: a generated launcher
     # calls it when its bounded walk found no engine, and a person reading
@@ -1326,11 +1036,10 @@ def build_parser():
                        help="handle exactly one request, then exit (tests)")
 
     render = sub.add_parser(
-        "render", help="write the offline snapshot page (needs no server)")
+        "render", help="RETIRED — the derived page is no longer generated")
     common(render)
     render.add_argument("--out", default=None,
-                        help="output path (default <store>/%s)"
-                             % SNAPSHOT_NAME)
+                        help=argparse.SUPPRESS)
     return parser
 
 

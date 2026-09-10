@@ -30,27 +30,19 @@
    from the same rules. Bound to local names so every call site below reads
    exactly as it did when the code was here. */
 var PACKING = window.OrchPacking;
-var PACK_PAD = PACKING.PACK_PAD, DIR_PAD = PACKING.DIR_PAD;
-var LEAF_R_BASE = PACKING.LEAF_R_BASE;
-var LEAF_R_UNIFORM = PACKING.LEAF_R_UNIFORM;
-var LABEL_MAX_FILE = PACKING.LABEL_MAX_FILE;
-var LABEL_FOLDER_BUMP = PACKING.LABEL_FOLDER_BUMP;
-var LABEL_MAX_CHARS = PACKING.LABEL_MAX_CHARS;
-var LABEL_MIN_CHARS = PACKING.LABEL_MIN_CHARS;
-var LABEL_CHAR_W = PACKING.LABEL_CHAR_W;
 var CMAP_NAMES = PACKING.cmapNames;
 var leafRadiusScale = PACKING.leafRadiusScale;
 var buildTree = PACKING.buildTree;
 var packDir = PACKING.packDir;
 var placeDir = PACKING.placeDir;
-var maxRadii = PACKING.maxRadii;
+var attachStage = PACKING.attachStage;
+var applyStroke = PACKING.applyStroke;
 var labelSize = PACKING.labelSize;
-var labelText = PACKING.labelText;
 var makeLabel = PACKING.makeLabel;
 var cmapNorm = PACKING.cmapNorm;
+var cmapStrip = PACKING.cmapStrip;
 var cmapIndex = PACKING.cmapIndex;
 var hex2 = PACKING.hex2;
-var roundHalfEven = PACKING.roundHalfEven;
 var NS = PACKING.NS;
 /* The unknown-name fallback stays THIS page's neutral grey, exactly as it
    was when `cmapHex` could see `NO_EXT_COLOR` directly. */
@@ -885,9 +877,19 @@ function applyTransform() {
 }
 function clampK(k) { return Math.max(MIN_K, Math.min(MAX_K, k)); }
 function fit() {
+  /* WHAT THE FIT IS ALLOWED TO IGNORE. An invalidated node is
+   * normally not worth framing the view around: it is dimmed,
+   * usually off to one side, and letting it set the bounds pushes
+   * the live graph into a corner. But once the reader TICKS `Show
+   * invalidated` those nodes are the ones they asked to look at, and
+   * excluding them from the bounds could leave a revealed node
+   * outside the viewport entirely — shown, and nowhere to be
+   * seen. So the exclusion follows the checkbox. */
   var pts = [], k;
   for (k = 0; k < N; k++) {
-    if (VIS[k] && !NODES[k].invalid_at) { pts.push(k); }
+    if (VIS[k] && (state.showInvalid || !NODES[k].invalid_at)) {
+      pts.push(k);
+    }
   }
   if (!pts.length) {
     for (k = 0; k < N; k++) { if (VIS[k]) { pts.push(k); } }
@@ -1276,14 +1278,19 @@ cbInvalid.addEventListener("change", function () {
   state.repo.builtFor = null;          /* repo tree must be rebuilt */
   if (state.tab === "repo") { ensureRepo(); }
 });
+/* NOTHING TO SHOW IS THE ONLY REASON THIS CONTROL IS EVER OFF.
+ * The hint used to have a second branch: when the payload said it had
+ * WITHHELD invalidated records, it told the reader to regenerate the
+ * page with `--include-invalidated`. That flag belongs to the `render`
+ * verb, and the page it appeared on is SERVED rather than rendered —
+ * so the sentence named an action that does not apply to the page in
+ * front of the reader, about records the server has since stopped
+ * withholding. What is left is the true statement: this store has
+ * none. */
 if (!payloadInvalid) {
   cbInvalid.disabled = true;
   document.getElementById("invalidHint").textContent =
-    META.invalidated_nodes_hidden ?
-      META.invalidated_nodes_hidden +
-        " invalidated node(s) excluded from this payload - regenerate " +
-        "with --include-invalidated to inspect them" :
-      "no invalidated records in this payload";
+    "no invalidated records in this store";
 }
 
 function setLayout(mode) {
@@ -1429,7 +1436,7 @@ TABS.forEach(function (tab) {
  * curves vanish on the way. Hover is emphasis only; selecting a file
  * draws its imports / calls / depends_on edges, outgoing and incoming
  * styled separately, and holds them still while the panel names them.
- * `test_37_viewer_repo_links.py` is the gate for that split. */
+ * `test_scripts_memory_viewer_graph_view_06.py` is the gate for that split. */
 var svgRepo = document.getElementById("svgRepo");
 var viewportRepo = document.getElementById("viewportRepo");
 var STRUCTURAL = { file: 0, module: 1, test: 2, config: 3 };
@@ -1658,9 +1665,31 @@ function collectLeaves() {
     if (!inRepoScope(entry)) { return; }
     var idx = hasOwn(byPath, path) ? byPath[path] : -1;
     var recorded = idx >= 0 ? leafSizeEntry(NODES[idx]) : { value: 0, unit: "" };
+    /* LINES, like every other frame. This sized each leaf by `entry.bytes`
+     * while the History frame sized the same files by lines, so one
+     * repository was drawn in two units and the frames were never
+     * comparable: `memory/graph/nodes.jsonl` came to 479181 here and 1672
+     * there, and since a radius goes as the square root of the size, its
+     * circle dwarfed everything around it on one frame and was ordinary on
+     * the other.
+     *
+     * Lines is the unit that CAN be shared: a git diff yields added and
+     * deleted lines and nothing else, so the History frame cannot produce
+     * bytes even in principle. The disk walk now supplies a line count, and
+     * the store's own recorded count is the fallback for a file the walk
+     * could not read.
+     *
+     * A file with NEITHER — a binary, or one too large to be worth reading —
+     * keeps size 0, and `leafRadiusScale` already draws that at a uniform
+     * radius. That is the honest answer: it is present, and its size is not
+     * a number of lines. `bytes` travels alongside for the panel, which is
+     * where a file's weight is worth stating in words. */
+    var lines = typeof entry.lines === "number" ? entry.lines
+      : (recorded.unit === "lines" ? recorded.value : 0);
     leaves.push({ idx: idx, path: path,
-      size: typeof entry.bytes === "number" ? entry.bytes : 0,
-      unit: "bytes", ext: extOf(path), onDisk: true,
+      size: lines, unit: "lines",
+      bytes: typeof entry.bytes === "number" ? entry.bytes : 0,
+      ext: extOf(path), onDisk: true,
       link: !!entry.link, ignored: !!(entry && entry.ignored),
       recorded: recorded.value, recordedUnit: recorded.unit });
   });
@@ -1726,9 +1755,14 @@ function repoMode(key) {
  * braces and be a guard that has never once fired.
  *
  * LABELS ARE DRAWN AFTER PACKING AND ARE NEVER MEASURED BY IT. Packing runs
- * on radii alone, so nothing here can move a circle. */
-var repoLabelMax = { dir: 0, file: 0 };
-var histLabelMax = { dir: 0, file: 0 };
+ * on radii alone, so nothing here can move a circle.
+ *
+ * THERE IS NO PER-FRAME MAXIMUM ANY MORE. Each frame used to collect the
+ * largest folder and file radius on it (`repoLabelMax`, `histLabelMax`) so
+ * that a label could be sized against the frame's biggest circle. Since a
+ * label became a fraction of ITS OWN circle, `labelSize` needs no such
+ * number: the two were still written on every build and read nowhere,
+ * which is an answer to a question the frame stopped asking. */
 
 function extCounts(leaves) {
   var count = Object.create(null);
@@ -1983,40 +2017,20 @@ function legendMessage(box, message) {
   span.textContent = message;
   box.appendChild(span);
 }
-/* The continuous legend is drawn as a strip of samples rather than a CSS
- * gradient: the strip is made of the very same cmapHex() calls that
- * coloured the circles, so the key cannot drift from the map. */
-var LEGEND_STEPS = 28;
 /* How many extension rows the File-type legend prints before it summarises
  * the rest. See `renderRepoLegend` for what an unbounded one looked like. */
 var LEGEND_MAX_TYPES = 18;
+/* `packing.js` draws the strip; this decides what it SAYS. A single
+ * observed value is not a range: both ends print it and the note says so
+ * rather than naming a ramp that is not being used. */
 function renderCmapLegend(box, mode, lo, hi) {
-  var bar = document.createElement("div");
-  bar.className = "cmap-bar";
-  for (var k = 0; k < LEGEND_STEPS; k++) {
-    var cell = document.createElement("span");
-    cell.style.background = cmapHex(mode.cmap, k / (LEGEND_STEPS - 1));
-    bar.appendChild(cell);
-  }
-  box.appendChild(bar);
-  var limits = document.createElement("div");
-  limits.className = "cmap-limits";
-  var low = document.createElement("span");
-  var high = document.createElement("span");
-  if (hi > lo) {
-    low.textContent = String(lo);
-    high.textContent = String(hi);
-  } else {
-    low.textContent = high.textContent = String(hi === -Infinity ? 0 : hi);
-  }
-  limits.appendChild(low);
-  limits.appendChild(high);
-  box.appendChild(limits);
-  var note = document.createElement("div");
-  note.className = "hint legend-note";
-  note.textContent = hi > lo ? mode.unit + " · " + mode.cmap
-    : "every file has the same number of " + mode.unit;
-  box.appendChild(note);
+  var ranged = hi > lo;
+  var only = String(hi === -Infinity ? 0 : hi);
+  cmapStrip(box, mode.cmap,
+    ranged ? String(lo) : only,
+    ranged ? String(hi) : only,
+    ranged ? mode.unit + " · " + mode.cmap
+      : "every file has the same number of " + mode.unit);
 }
 function renderRepoLegend(mode, lo, hi) {
   var box = document.getElementById("repoLegend");
@@ -2085,6 +2099,39 @@ function setRepoMode(key) {
   if (state.repo.root) { applyRepoColors(); }
 }
 
+/* --- a frame that could not be drawn ------------------------------- */
+/* WHY THE CACHE KEY IS WRITTEN AFTER THE BUILD AND NOT BEFORE.
+ * `builtFor` answers "this frame is already drawn for these inputs",
+ * and a builder that threw has not drawn it. Written first, one failure
+ * was permanent: the key matched on every later click, `ensureRepo`
+ * returned without calling the builder again, and the stage stayed blank
+ * for the rest of the session with no way to ask for it a second time.
+ *
+ * AND BLANK WAS ALL THERE WAS. Each builder hides its own empty overlay
+ * before it draws, so a throw halfway through left neither the picture
+ * nor a sentence about it -- the one outcome the rest of this file is
+ * written to avoid, since every other unhappy path here says what
+ * happened (`No file tree to draw`, `No commit history`).
+ *
+ * The message is a REPORT to the reader, not a replacement for the
+ * record: the whole error still goes to the console, where a probe and
+ * a developer can read its stack. */
+function frameFailed(slot, prefix, viewport, err) {
+  if (window.console && console.error) {
+    console.error("the " + prefix + " frame could not be drawn", err);
+  }
+  slot.root = null;
+  slot.builtFor = null;             /* the next click tries again */
+  while (viewport.firstChild) {
+    viewport.removeChild(viewport.firstChild);
+  }
+  document.getElementById(prefix + "Stats").textContent = "";
+  document.getElementById(prefix + "EmptyText").innerHTML =
+    "<b>This frame could not be drawn:</b><br>" +
+    esc((err && err.message) ? err.message : String(err)) +
+    "<br>Open the tab again to retry.";
+  document.getElementById(prefix + "Empty").hidden = false;
+}
 function ensureRepo() {
   /* The cache key is every input the tree depends on. It used to be the
    * invalidated-records flag alone, which was true while that was the only
@@ -2092,8 +2139,13 @@ function ensureRepo() {
    * key that names one of two inputs is a stale frame waiting to happen. */
   var key = String(state.showInvalid) + "|" + repoScope();
   if (state.repo.builtFor === key) { return; }
+  try {
+    buildRepo();
+  } catch (err) {
+    frameFailed(state.repo, "repo", viewportRepo, err);
+    return;
+  }
   state.repo.builtFor = key;
-  buildRepo();
 }
 function buildRepo() {
   while (viewportRepo.firstChild) {
@@ -2124,7 +2176,6 @@ function buildRepo() {
   placeDir(root, 0, 0, 0);
   state.repo.root = root;
   state.repo.dirCount = root.nDirs;
-  repoLabelMax = maxRadii(root);
   renderRepoDir(root);
   /* the hover-connection layer sits above every circle */
   repoLinkGroup = document.createElementNS(NS, "g");
@@ -2135,13 +2186,14 @@ function buildRepo() {
   applyRepoColors();
   document.getElementById("repoStats").textContent = repoStatsLine(
     leaves.length, root.nDirs);
-  fitRepo();
+  repoStage.fit();
   /* a selection made before this rebuild still owns its curves */
   repoRestyle();
 
   function renderRepoDir(dir) {
     var c = document.createElementNS(NS, "circle");
     c.setAttribute("class", "rdir");
+    applyStroke(c, dir.r);
     c.setAttribute("cx", dir.cx.toFixed(1));
     c.setAttribute("cy", dir.cy.toFixed(1));
     c.setAttribute("r", dir.r.toFixed(1));
@@ -2155,7 +2207,7 @@ function buildRepo() {
     });
     viewportRepo.appendChild(c);
     if (dir.name) {
-      var lbl = makeLabel(dir, "dir", repoLabelMax.dir, "r");
+      var lbl = makeLabel(dir, "dir", "r");
       if (lbl) { viewportRepo.appendChild(lbl); }
     }
     dir.items.forEach(function (it) {
@@ -2176,6 +2228,7 @@ function buildRepo() {
     c.setAttribute("cx", leaf.cx.toFixed(1));
     c.setAttribute("cy", leaf.cy.toFixed(1));
     c.setAttribute("r", leaf.r.toFixed(1));
+    applyStroke(c, leaf.r);
     var t = document.createElementNS(NS, "title");
     t.textContent = leaf.path +
       (leaf.size ? " · " + leaf.size + " " + leaf.unit : "") +
@@ -2192,9 +2245,7 @@ function buildRepo() {
      * so a drag that begins on a circle pans the view as before. */
     c.addEventListener("pointerdown", function (ev) {
       ev.stopPropagation();
-      repoSuppress = false;
-      repoPressed = nn ? nn.id : null;
-      startRepoPan(ev);
+      repoStage.press(ev, nn ? nn.id : null);
     });
     c.addEventListener("click", function (ev) {
       ev.stopPropagation();
@@ -2209,7 +2260,7 @@ function buildRepo() {
     }
     repoLeafEls.push({ el: c, id: nn ? nn.id : null, invalid: invalid,
       leaf: leaf });
-    var rlbl = makeLabel(leaf, "leaf", repoLabelMax.file, "r");
+    var rlbl = makeLabel(leaf, "leaf", "r");
     if (rlbl) { viewportRepo.appendChild(rlbl); }
   }
 }
@@ -2233,98 +2284,17 @@ function repoRestyle() {
   repoDrawLinks();
 }
 /* --- repo pan / zoom ---------------------------------------------- */
-function applyRepoTransform() {
-  viewportRepo.setAttribute("transform",
-    "translate(" + state.repo.tx.toFixed(2) + "," +
-    state.repo.ty.toFixed(2) + ") scale(" + state.repo.k.toFixed(4) + ")");
-}
-/* A FIT THAT CAN ACTUALLY FIT.
- *
- * This used to run its answer through `clampK`, whose floor is the constant
- * MIN_K. On a packing large enough that the true fit falls below that floor
- * — 7779 files did it easily — the clamp raised the fit, so the frame opened
- * far too close and no amount of scrolling out could reach the whole graph:
- * every wheel step was clamped by the same constant. A floor derived from
- * the content cannot do that. MIN_K stays the floor for ordinary trees; a
- * tree whose fit is smaller sets its own, with room to spare beneath it so
- * "the whole thing" is a place you can arrive at rather than a limit you
- * press against. */
-function frameFloor(fitK) {
-  return Math.min(MIN_K, fitK * 0.5);
-}
-function clampRepoK(k) {
-  return Math.max(state.repo.floor, Math.min(MAX_K, k));
-}
-function fitRepo() {
-  var root = state.repo.root;
-  if (!root) { return; }
-  var bw = svgRepo.clientWidth || 800, bh = svgRepo.clientHeight || 600;
-  var R = root.r + 20;
-  var fit = Math.min(bw, bh) / (2 * R);
-  state.repo.floor = frameFloor(fit);
-  state.repo.k = clampRepoK(fit);
-  state.repo.tx = bw / 2 - root.cx * state.repo.k;
-  state.repo.ty = bh / 2 - root.cy * state.repo.k;
-  applyRepoTransform();
-}
-var repoPanning = null, repoSuppress = false, repoPressed = null;
-function startRepoPan(ev) {
-  repoPanning = { x: ev.clientX, y: ev.clientY, tx: state.repo.tx,
-    ty: state.repo.ty, moved: false };
-  svgRepo.classList.add("panning");
-  try { svgRepo.setPointerCapture(ev.pointerId); } catch (err) { /* ok */ }
-}
-svgRepo.addEventListener("pointerdown", function (ev) {
-  repoSuppress = false;
-  repoPressed = null;          /* a press on the background selects nothing */
-  startRepoPan(ev);
+/* Pan, zoom, fit and the press that selects are `packing.js`'s
+ * `attachStage`, shared with the History frame below and with the coverage
+ * viewer's Coverage frame. What is local is what differs: which state
+ * record it moves, the two limits it clamps between, the margin its fit
+ * leaves, and the selection its presses drive. */
+var repoStage = attachStage(svgRepo, viewportRepo, {
+  state: state.repo, minK: MIN_K, maxK: MAX_K, fitPad: 20,
+  onSelect: select
 });
-svgRepo.addEventListener("pointermove", function (ev) {
-  if (!repoPanning) { return; }
-  var dx = ev.clientX - repoPanning.x, dy = ev.clientY - repoPanning.y;
-  if (Math.abs(dx) + Math.abs(dy) > 3) { repoPanning.moved = true; }
-  state.repo.tx = repoPanning.tx + dx;
-  state.repo.ty = repoPanning.ty + dy;
-  applyRepoTransform();
-});
-function endRepoPointer(ev) {
-  if (!repoPanning) { return; }
-  if (repoPanning.moved) { repoSuppress = true; }
-  else if (repoPressed !== null) {
-    /* Same reason as the graph tab: the click that follows a captured
-     * pointer is delivered to this <svg>, not to the leaf circle, so a leaf
-     * that only listened for `click` was never selected at all. */
-    select(repoPressed);
-    repoSuppress = true;
-  }
-  try { svgRepo.releasePointerCapture(ev.pointerId); } catch (err) { /* */ }
-  repoPanning = null;
-  svgRepo.classList.remove("panning");
-}
-svgRepo.addEventListener("pointerup", endRepoPointer);
-svgRepo.addEventListener("pointercancel", endRepoPointer);
-svgRepo.addEventListener("click", function () {
-  if (repoSuppress) { repoSuppress = false; return; }
-  /* A press that landed on nothing, and did not pan: the reader is
-   * putting the current file down. The Graph tab has always done this;
-   * here the handler only ever consumed the suppression flag, which was
-   * invisible until a selection started holding connection curves on
-   * screen — with nothing to dismiss them, they stayed forever. */
-  select(null);
-});
-svgRepo.addEventListener("wheel", function (ev) {
-  ev.preventDefault();
-  var factor = ev.deltaY < 0 ? 1.15 : 1 / 1.15;
-  var nk = clampRepoK(state.repo.k * factor);
-  factor = nk / state.repo.k;
-  var rect = svgRepo.getBoundingClientRect();
-  var mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
-  state.repo.tx = mx - (mx - state.repo.tx) * factor;
-  state.repo.ty = my - (my - state.repo.ty) * factor;
-  state.repo.k = nk;
-  applyRepoTransform();
-}, { passive: false });
-document.getElementById("btnRepoFit").addEventListener("click", fitRepo);
+document.getElementById("btnRepoFit").addEventListener("click",
+  repoStage.fit);
 
 /* --- scope buttons -------------------------------------------------- */
 function setRepoScope(key) {
@@ -2612,8 +2582,13 @@ function historyAvailable() {
 function ensureHistory() {
   var key = state.history.commit === null ? "@head" : state.history.commit;
   if (state.history.builtFor === key) { return; }
+  try {
+    buildHistory();
+  } catch (err) {
+    frameFailed(state.history, "history", viewportHist, err);
+    return;
+  }
   state.history.builtFor = key;
-  buildHistory();
 }
 function buildHistory() {
   while (viewportHist.firstChild) {
@@ -2663,17 +2638,17 @@ function buildHistory() {
   packDir(root, leafRadiusScale(leaves));
   placeDir(root, 0, 0, 0);
   state.history.root = root;
-  histLabelMax = maxRadii(root);
   renderHistoryDir(root);
   applyHistoryColors();
   document.getElementById("historyStats").textContent =
     leaves.length + " files · " + root.nDirs + " directories" +
     (index < 0 ? " · now" : " · at " + GIT.commits[index].short);
-  fitHistory();
+  historyStage.fit();
 
   function renderHistoryDir(dir) {
     var c = document.createElementNS(NS, "circle");
     c.setAttribute("class", "rdir");
+    applyStroke(c, dir.r);
     c.setAttribute("cx", dir.cx.toFixed(1));
     c.setAttribute("cy", dir.cy.toFixed(1));
     c.setAttribute("r", dir.r.toFixed(1));
@@ -2682,7 +2657,7 @@ function buildHistory() {
     c.appendChild(t);
     viewportHist.appendChild(c);
     if (dir.name) {
-      var lbl = makeLabel(dir, "dir", histLabelMax.dir, "r");
+      var lbl = makeLabel(dir, "dir", "r");
       if (lbl) { viewportHist.appendChild(lbl); }
     }
     dir.items.forEach(function (it) {
@@ -2696,12 +2671,13 @@ function buildHistory() {
     c.setAttribute("cx", leaf.cx.toFixed(1));
     c.setAttribute("cy", leaf.cy.toFixed(1));
     c.setAttribute("r", leaf.r.toFixed(1));
+    applyStroke(c, leaf.r);
     var t = document.createElementNS(NS, "title");
     t.textContent = leaf.path + (leaf.size ? " · " + leaf.size + " lines" : "");
     c.appendChild(t);
     viewportHist.appendChild(c);
     histLeafEls.push({ el: c, leaf: leaf, title: t });
-    var hlbl = makeLabel(leaf, "leaf", histLabelMax.file, "r");
+    var hlbl = makeLabel(leaf, "leaf", "r");
     if (hlbl) { viewportHist.appendChild(hlbl); }
   }
 }
@@ -2975,61 +2951,16 @@ function selectCommit(sha) {
 }
 
 /* --- pan / zoom ----------------------------------------------------- */
-function applyHistoryTransform() {
-  viewportHist.setAttribute("transform",
-    "translate(" + state.history.tx.toFixed(2) + "," +
-    state.history.ty.toFixed(2) + ") scale(" +
-    state.history.k.toFixed(4) + ")");
-}
-function clampHistoryK(k) {
-  return Math.max(state.history.floor, Math.min(MAX_K, k));
-}
-function fitHistory() {
-  var root = state.history.root;
-  if (!root) { return; }
-  var bw = svgHist.clientWidth || 800, bh = svgHist.clientHeight || 600;
-  var R = root.r + 20;
-  var fit = Math.min(bw, bh) / (2 * R);
-  state.history.floor = frameFloor(fit);
-  state.history.k = clampHistoryK(fit);
-  state.history.tx = bw / 2 - root.cx * state.history.k;
-  state.history.ty = bh / 2 - root.cy * state.history.k;
-  applyHistoryTransform();
-}
-var histPanning = null;
-svgHist.addEventListener("pointerdown", function (ev) {
-  histPanning = { x: ev.clientX, y: ev.clientY, tx: state.history.tx,
-    ty: state.history.ty };
-  svgHist.classList.add("panning");
-  try { svgHist.setPointerCapture(ev.pointerId); } catch (err) { /* ok */ }
+/* The Repo frame's controller with NO `onSelect`, which is the whole
+ * difference between the two: this frame has never had click-select — a
+ * commit is chosen from the list beside it — so its <svg> is given no
+ * `click` listener at all. */
+var historyStage = attachStage(svgHist, viewportHist, {
+  state: state.history, minK: MIN_K, maxK: MAX_K, fitPad: 20,
+  onSelect: null
 });
-svgHist.addEventListener("pointermove", function (ev) {
-  if (!histPanning) { return; }
-  state.history.tx = histPanning.tx + (ev.clientX - histPanning.x);
-  state.history.ty = histPanning.ty + (ev.clientY - histPanning.y);
-  applyHistoryTransform();
-});
-function endHistoryPointer(ev) {
-  if (!histPanning) { return; }
-  try { svgHist.releasePointerCapture(ev.pointerId); } catch (err) { /* */ }
-  histPanning = null;
-  svgHist.classList.remove("panning");
-}
-svgHist.addEventListener("pointerup", endHistoryPointer);
-svgHist.addEventListener("pointercancel", endHistoryPointer);
-svgHist.addEventListener("wheel", function (ev) {
-  ev.preventDefault();
-  var factor = ev.deltaY < 0 ? 1.15 : 1 / 1.15;
-  var nk = clampHistoryK(state.history.k * factor);
-  factor = nk / state.history.k;
-  var rect = svgHist.getBoundingClientRect();
-  var mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
-  state.history.tx = mx - (mx - state.history.tx) * factor;
-  state.history.ty = my - (my - state.history.ty) * factor;
-  state.history.k = nk;
-  applyHistoryTransform();
-}, { passive: false });
-document.getElementById("btnHistoryFit").addEventListener("click", fitHistory);
+document.getElementById("btnHistoryFit").addEventListener("click",
+  historyStage.fit);
 document.getElementById("btnHistoryHead").addEventListener("click",
   function () { selectCommit(null); });
 
@@ -3100,8 +3031,8 @@ document.getElementById("btnHistoryHead").addEventListener("click",
  * window dragged wider left the packing where it was, off-centre and at the
  * old scale, which reads as a frame that lost its place. */
 window.addEventListener("resize", function () {
-  if (state.tab === "repo") { fitRepo(); }
-  else if (state.tab === "history") { fitHistory(); }
+  if (state.tab === "repo") { repoStage.fit(); }
+  else if (state.tab === "history") { historyStage.fit(); }
   else { fit(); }
 });
 

@@ -51,7 +51,7 @@ The 41000-42999 test-resource block is RESERVED here but DEFINED in
 re-declared as a constant this module hands out: a test harness must not have
 to import a viewer module to allocate a stub server's port. The two are held
 equal by a test rather than by an import — see ``check_testing``'s registration
-note and ``testing/suites/test_04_viewer_ports.py``.
+note and ``testing/suites/test_scripts_viewer_ports_01.py``.
 
 THE ONE-TIME URL CHANGE, RECORDED
 ---------------------------------
