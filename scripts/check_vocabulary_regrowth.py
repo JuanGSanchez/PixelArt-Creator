@@ -99,14 +99,37 @@
 #     reason given in SELF-TRIPPING RESOLUTION below -- and no other file.
 #   ALLOWLIST (a path IS scanned and counted in the denominator, but one
 #     specific (path, pattern) pair's matches are suppressed, with the reason
-#     recorded inline): the three functional path checks in
-#     `memory/product_boundary.py` (lines 5 and 100) and
-#     `testing/product_boundary.py` (line 98) -- each tests for a
+#     recorded inline). FIVE entries, in two groups:
+#
+#     (i) the boundary modules -- `memory/product_boundary.py`,
+#     `testing/product_boundary.py`, and their 4.0.0 successors
+#     `memory/repo_guard.py` and `testing/repo_guard.py`. Each tests for a
 #     `design-docs/` directory on disk to distinguish a container repository
 #     from a product repository; that is a functional path check, not an
 #     unresolvable reference to this development system, and a gate that
-#     failed on it is a gate nobody could keep green (measured 2026-09-06:
-#     these are the ONLY three `design-docs` occurrences in the whole tree).
+#     failed on it is a gate nobody could keep green.
+#
+#     (ii) `testing/cleanup.py`, which names the container's own scratch
+#     locations in its temp-root precedence chain
+#     (`design-docs/state/testing-local.json`, then
+#     `design-docs/state/tmp/testing/`).
+#
+#     COUNT, AND WHY IT MOVED. Measured 2026-09-06 the boundary modules held
+#     the ONLY three occurrences in the whole tree. Measured 2026-09-11,
+#     after the framework furniture was updated to orchestrator-design 4.0.1,
+#     there are 41: the two `repo_guard.py` modules carry 16 each and the
+#     refreshed `cleanup.py` carries 9. That is not regrowth. All three are
+#     byte-frozen copies of originals maintained outside this repository and
+#     verified by a fidelity check that compares CONTENT -- editing the copy
+#     to satisfy this gate would break that check and fork the file. The
+#     change has to start upstream, which is exactly what the
+#     internal-vocabulary delivery record already says about this class.
+#
+#     This is the narrowly-scoped, reasoned entry the SELF-TRIPPING
+#     RESOLUTION note below prescribes for a literal that cannot be avoided
+#     -- NOT a widening. Every one of the five is a single (path, pattern)
+#     pair; no file is exempted from any other pattern, and a planted
+#     `AGT-05` in any of them would still fail this gate.
 #
 # SELF-TRIPPING RESOLUTION -- NARROWED 2026-09-06 after
 #   the maintainer measured the wider version's blast radius (a planted
@@ -198,9 +221,20 @@ _DESIGN_DOCS_REASON = (
     "repository from a product repository (not a reference to this "
     "development system)"
 )
+_FROZEN_COPY_REASON = (
+    "byte-frozen copy of an original maintained outside this repository; it "
+    "names the container's own scratch locations in its temp-root precedence "
+    "chain. Editing the copy would break the content-comparing fidelity "
+    "check, so this change has to start upstream"
+)
 ALLOWLIST_HITS = {
     ("memory/product_boundary.py", "design-docs"): _DESIGN_DOCS_REASON,
     ("testing/product_boundary.py", "design-docs"): _DESIGN_DOCS_REASON,
+    # The 4.0.0 successors of the two above, vendored 2026-09-11. Same
+    # module, same functional path check, same reason.
+    ("memory/repo_guard.py", "design-docs"): _DESIGN_DOCS_REASON,
+    ("testing/repo_guard.py", "design-docs"): _DESIGN_DOCS_REASON,
+    ("testing/cleanup.py", "design-docs"): _FROZEN_COPY_REASON,
 }
 
 # ---------------------------------------------------------------------------
