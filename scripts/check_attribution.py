@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""check_attribution.py — VCS attribution gate over commit MESSAGES and IDENTITIES (P11).
+"""check_attribution.py — VCS attribution gate over commit messages
+and identities (P11).
 
 `docs/constitution-articles.md` Article IX §4 declares
 one HARD INVARIANT: no AI / vendor authorship anywhere in a repository or its
@@ -173,8 +174,9 @@ PATTERNS ARE NARROW AND TRAILER-SHAPED, NOT BARE VENDOR NAMES. Every pattern is
     see it (this gate reads messages, not files) and where a grep for the leak
     will find it forever.
 
-PLATFORM CONSTRAINTS: Windows-first development environment; the portable form of each trap is
-    catalogued in the project's Windows-compatibility notes.
+PLATFORM CONSTRAINTS: Windows-first development environment; the portable
+    form of each trap is catalogued in the project's Windows-compatibility
+    notes.
     Bytes on disk and line endings (§10, §11). The message file is read in
         BINARY — `open(path, "rb")` — and decoded explicitly as UTF-8 with
         `errors="replace"`. Never `read_text()`: on Windows the text-mode round
@@ -261,6 +263,7 @@ PRINCIPLES APPLIED
     P13 Token Economy — one file, two modes, no flag whose only job is to
         select an output format.
 """
+
 import argparse
 import json
 import re
@@ -286,17 +289,19 @@ MAX_QUOTE = 120
 # literals will have written the forbidden token into a tracked file — see the
 # module docstring, "NO FORBIDDEN LITERAL IS REPRODUCED IN THIS FILE".
 # ---------------------------------------------------------------------------
+# `gpt` is listed alongside the longer word deliberately: it cannot match
+# inside that word, because the word-boundary rule below refuses a letter
+# before it. The last entry is here for the same reason the others are — its
+# noreply domain is its own name.
 VENDOR_TOKENS = (
     "claude",
     "anthropi" + "c",
     "copilot",
-    "chat" + "gpt",         # `gpt` alone cannot match inside this word: the
-    "gpt",                  # boundary rule below refuses a letter before it.
+    "chat" + "gpt",
+    "gpt",
     "gemini",
     "codex",
-    "open" + "ai",          # derived from the request's "the same noreply@ form
-                            # for the other vendors" — this vendor's noreply
-                            # domain is its own name.
+    "open" + "ai",
 )
 
 # Hosts that identify a vendor ASSISTANT or its noreply domain. GITHUB IS
@@ -318,8 +323,7 @@ _HOST_ALT = "|".join(VENDOR_HOSTS)
 
 # A vendor token as a WORD, not as a substring: `gpt` must not fire inside
 # `gptools`, and `codex` must not fire inside `codexample`.
-VENDOR_WORD_RE = re.compile(
-    r"(?i)(?<![A-Za-z0-9])(" + _TOKEN_ALT + r")(?![A-Za-z0-9])")
+VENDOR_WORD_RE = re.compile(r"(?i)(?<![A-Za-z0-9])(" + _TOKEN_ALT + r")(?![A-Za-z0-9])")
 # A dot is ALLOWED before a host so a subdomain matches (`api.openai.com`); a
 # letter, digit or hyphen is not, so a longer word ending in the host name does
 # not (`notaclaude.ai` is nobody's assistant).
@@ -332,20 +336,26 @@ EMAIL_RE = re.compile(r"(?i)([A-Za-z0-9._%+\-]+)@([A-Za-z0-9.\-]+\.[A-Za-z]{2,})
 # A trailer line: a key at the START of the line, then a colon. The anchor is
 # what keeps prose out of the findings — a sentence that merely mentions a
 # trailer does not begin with its key.
-TRAILER_RE = re.compile(r"(?i)^[ \t]*([A-Za-z][A-Za-z0-9 _\-]{0,40}?)[ \t]*:[ \t]*(.*)$")
+TRAILER_RE = re.compile(
+    r"(?i)^[ \t]*([A-Za-z][A-Za-z0-9 _\-]{0,40}?)[ \t]*:[ \t]*(.*)$"
+)
 CO_AUTHOR_KEY_RE = re.compile(r"(?i)^co[-_ ]?authored[-_ ]?by$")
 SESSION_KEY_RE = re.compile(r"(?i)^(?:[A-Za-z0-9 _\-]*[-_ ])?session$")
 
 # "Generated with ..." — with or without a leading robot emoji, bullet or
 # other non-word marker, and with or without a Markdown link in the value.
-GENERATED_WITH_RE = re.compile(r"(?i)^[ \t]*(?:[^\w\s]{1,6}[ \t]*)?generated[ \t]+with\b")
+GENERATED_WITH_RE = re.compile(
+    r"(?i)^[ \t]*(?:[^\w\s]{1,6}[ \t]*)?generated[ \t]+with\b"
+)
 
 # A line whose whole content is a vendor assistant URL: the bare session link
 # the harness appends under "Generated with". Anchored to the WHOLE line, so a
 # URL cited inside a sentence is not a hit.
 BARE_VENDOR_URL_RE = re.compile(
-    r"(?i)^[ \t]*(?:[^\w\s]{1,6}[ \t]*)?<?https?://(?:" + _HOST_ALT
-    + r")(?:/\S*)?>?[ \t]*$")
+    r"(?i)^[ \t]*(?:[^\w\s]{1,6}[ \t]*)?<?https?://(?:"
+    + _HOST_ALT
+    + r")(?:/\S*)?>?[ \t]*$"
+)
 
 # A scissors line: everything below it is stripped by git and never reaches the
 # commit, including the `commit -v` diff.
@@ -437,13 +447,13 @@ def email_hits(text):
         local, domain = match.group(1), match.group(2)
         host = VENDOR_HOST_RE.search(domain)
         if host:
-            found.append((match.group(0), host.group(1),
-                          "the domain is a vendor host"))
+            found.append((match.group(0), host.group(1), "the domain is a vendor host"))
             continue
         word = VENDOR_WORD_RE.search(local)
         if word:
-            found.append((match.group(0), word.group(1),
-                          "the local part names a vendor"))
+            found.append(
+                (match.group(0), word.group(1), "the local part names a vendor")
+            )
     return found
 
 
@@ -457,15 +467,17 @@ def scan_lines(lines, where, line_offset=1):
     violations = []
 
     def add(pattern, number, line, token, detail):
-        violations.append({
-            "pattern": pattern,
-            "where": where,
-            "field": "message",
-            "line": number,
-            "token": token,
-            "value": truncate(line),
-            "detail": detail,
-        })
+        violations.append(
+            {
+                "pattern": pattern,
+                "where": where,
+                "field": "message",
+                "line": number,
+                "token": token,
+                "value": truncate(line),
+                "detail": detail,
+            }
+        )
 
     for index, line in enumerate(lines):
         number = index + line_offset
@@ -475,33 +487,55 @@ def scan_lines(lines, where, line_offset=1):
             if CO_AUTHOR_KEY_RE.match(key.strip()):
                 token = vendor_hit(value)
                 if token:
-                    add("co_authored_vendor", number, line, token,
+                    add(
+                        "co_authored_vendor",
+                        number,
+                        line,
+                        token,
                         "a co-author trailer names the AI vendor/model "
-                        "'%s'; no AI authorship may appear in this history"
-                        % token)
+                        "'%s'; no AI authorship may appear in this history" % token,
+                    )
             elif SESSION_KEY_RE.match(key.strip()):
                 token = vendor_hit(key) or vendor_hit(value)
                 if token:
-                    add("vendor_session_trailer", number, line, token,
+                    add(
+                        "vendor_session_trailer",
+                        number,
+                        line,
+                        token,
                         "a session trailer is keyed on, or points at, the "
                         "vendor assistant '%s'; it is harness metadata and "
-                        "must not enter the history" % token)
+                        "must not enter the history" % token,
+                    )
         if GENERATED_WITH_RE.match(line):
             token = vendor_hit(line)
             if token:
-                add("generated_with_vendor", number, line, token,
-                    "a 'generated with' line credits the AI tool '%s'"
-                    % token)
+                add(
+                    "generated_with_vendor",
+                    number,
+                    line,
+                    token,
+                    "a 'generated with' line credits the AI tool '%s'" % token,
+                )
         if BARE_VENDOR_URL_RE.match(line):
             token = vendor_host_hit(line)
             if token:
-                add("vendor_assistant_url", number, line, token,
+                add(
+                    "vendor_assistant_url",
+                    number,
+                    line,
+                    token,
                     "the line is a bare vendor-assistant URL on host '%s' — "
-                    "harness session metadata, not a commit message" % token)
+                    "harness session metadata, not a commit message" % token,
+                )
         for address, token, why in email_hits(line):
-            add("vendor_email", number, line, token,
-                "the message carries the vendor address '%s' (%s)"
-                % (address, why))
+            add(
+                "vendor_email",
+                number,
+                line,
+                token,
+                "the message carries the vendor address '%s' (%s)" % (address, why),
+            )
     return violations
 
 
@@ -516,21 +550,31 @@ def scan_identity(where, field, name, email):
     raw = "%s <%s>" % (name, email)
     token = VENDOR_WORD_RE.search(name)
     if token:
-        violations.append({
-            "pattern": "vendor_identity_name",
-            "where": where, "field": field, "line": None,
-            "token": token.group(1), "value": truncate(raw),
-            "detail": "the %s name names the AI vendor/model '%s'"
-                      % (field, token.group(1)),
-        })
+        violations.append(
+            {
+                "pattern": "vendor_identity_name",
+                "where": where,
+                "field": field,
+                "line": None,
+                "token": token.group(1),
+                "value": truncate(raw),
+                "detail": "the %s name names the AI vendor/model '%s'"
+                % (field, token.group(1)),
+            }
+        )
     for address, hit, why in email_hits(email):
-        violations.append({
-            "pattern": "vendor_identity_email",
-            "where": where, "field": field, "line": None,
-            "token": hit, "value": truncate(raw),
-            "detail": "the %s address '%s' is a vendor address (%s)"
-                      % (field, address, why),
-        })
+        violations.append(
+            {
+                "pattern": "vendor_identity_email",
+                "where": where,
+                "field": field,
+                "line": None,
+                "token": hit,
+                "value": truncate(raw),
+                "detail": "the %s address '%s' is a vendor address (%s)"
+                % (field, address, why),
+            }
+        )
     return violations
 
 
@@ -543,15 +587,18 @@ def git(repo, *args, **kwargs):
     try:
         done = subprocess.run(argv, capture_output=True, timeout=60)
     except FileNotFoundError:
-        return None, ("git is not on PATH, so the range could not be read "
-                      "(install git, or run the --message-file mode)")
+        return None, (
+            "git is not on PATH, so the range could not be read "
+            "(install git, or run the --message-file mode)"
+        )
     except subprocess.TimeoutExpired:
         return None, "git did not answer within 60s: " + " ".join(args)
     if done.returncode != 0:
         detail = done.stderr.decode("utf-8", "replace").strip().splitlines()
-        return None, ("git %s failed: %s" % (" ".join(args),
-                                             detail[0] if detail else
-                                             "exit %d" % done.returncode))
+        return None, (
+            "git %s failed: %s"
+            % (" ".join(args), detail[0] if detail else "exit %d" % done.returncode)
+        )
     return done.stdout, None
 
 
@@ -571,11 +618,19 @@ def comment_char(repo):
 # ---------------------------------------------------------------------------
 def blocked(mode, error, remedy, safe_alternative, counts=None, scope=None):
     return {
-        "tool": TOOL, "verdict": "BLOCKED", "mode": mode,
-        "scope": scope or {}, "error": error,
-        "counts": counts or {"messages_examined": 0, "commits_examined": 0,
-                             "identities_examined": 0, "lines_scanned": 0,
-                             "lines_excluded": 0},
+        "tool": TOOL,
+        "verdict": "BLOCKED",
+        "mode": mode,
+        "scope": scope or {},
+        "error": error,
+        "counts": counts
+        or {
+            "messages_examined": 0,
+            "commits_examined": 0,
+            "identities_examined": 0,
+            "lines_scanned": 0,
+            "lines_excluded": 0,
+        },
         "patterns_applied": list(PATTERN_NAMES),
         "violations": [],
         "remedy": remedy,
@@ -589,20 +644,25 @@ def run_message_file(path):
     mode = "message-file"
     target = Path(path)
     if not target.exists():
-        return blocked(mode, "message file does not exist: %s" % target,
-                       "pass the path git hands the hook as $1",
-                       SAFE_ALTERNATIVE_MESSAGE,
-                       scope={"message_file": str(target)})
+        return blocked(
+            mode,
+            "message file does not exist: %s" % target,
+            "pass the path git hands the hook as $1",
+            SAFE_ALTERNATIVE_MESSAGE,
+            scope={"message_file": str(target)},
+        )
     try:
         # BINARY, then decode — never read_text() (§10/§11).
         with open(str(target), "rb") as handle:
             raw = handle.read()
     except OSError as exc:
-        return blocked(mode, "message file could not be read: %s (%s)"
-                             % (target, exc),
-                       "check the path and its permissions, then commit again",
-                       SAFE_ALTERNATIVE_MESSAGE,
-                       scope={"message_file": str(target)})
+        return blocked(
+            mode,
+            "message file could not be read: %s (%s)" % (target, exc),
+            "check the path and its permissions, then commit again",
+            SAFE_ALTERNATIVE_MESSAGE,
+            scope={"message_file": str(target)},
+        )
 
     text = raw.decode("utf-8", "replace")
     all_lines = text.splitlines()
@@ -631,22 +691,32 @@ def run_message_file(path):
         numbers.append(index + 1)
 
     scannable = [line for line in kept if line.strip()]
-    counts = {"messages_examined": 1, "commits_examined": 0,
-              "identities_examined": 0, "lines_scanned": len(scannable),
-              "lines_excluded": excluded}
-    scope = {"message_file": str(target), "comment_char": marker,
-             "lines_in_file": len(all_lines)}
+    counts = {
+        "messages_examined": 1,
+        "commits_examined": 0,
+        "identities_examined": 0,
+        "lines_scanned": len(scannable),
+        "lines_excluded": excluded,
+    }
+    scope = {
+        "message_file": str(target),
+        "comment_char": marker,
+        "lines_in_file": len(all_lines),
+    }
 
     if not scannable:
         # FAIL ON ZERO: a gate that examined nothing must say so, not pass.
         # Safe by construction — git refuses an empty commit message anyway.
-        return blocked(mode,
-                       "the message file contains no scannable line (%d line(s) "
-                       "in the file, all blank, commented, or below the "
-                       "scissors), so the gate examined nothing"
-                       % len(all_lines),
-                       "write a commit message and commit again",
-                       SAFE_ALTERNATIVE_MESSAGE, counts=counts, scope=scope)
+        return blocked(
+            mode,
+            "the message file contains no scannable line (%d line(s) "
+            "in the file, all blank, commented, or below the "
+            "scissors), so the gate examined nothing" % len(all_lines),
+            "write a commit message and commit again",
+            SAFE_ALTERNATIVE_MESSAGE,
+            counts=counts,
+            scope=scope,
+        )
 
     violations = []
     for offset, line in enumerate(kept):
@@ -658,8 +728,10 @@ def run_message_file(path):
         "mode": mode,
         "scope": scope,
         "counts": counts,
-        "not_examined": ["author/committer identity — not present in a message "
-                         "file; range mode examines both (recorded shortfall 1)"],
+        "not_examined": [
+            "author/committer identity — not present in a message "
+            "file; range mode examines both (recorded shortfall 1)"
+        ],
         "patterns_applied": list(PATTERN_NAMES),
         "violations": violations,
         "remedy": REMEDY_VIOLATIONS,
@@ -679,54 +751,80 @@ FS, RS = "\x1f", "\x1e"
 def run_range(repo, base, head):
     """Every commit in `base..head`: message, author, committer. The CI mode."""
     mode = "range"
-    scope = {"repo": str(repo), "base_sha": base, "head_sha": head,
-             "range": "%s..%s" % (base, head)}
-    remedy_range = ("give a range that resolves: "
-                    "--base-sha <sha> --head-sha <sha>, both reachable in the "
-                    "repository named by --repo")
+    scope = {
+        "repo": str(repo),
+        "base_sha": base,
+        "head_sha": head,
+        "range": "%s..%s" % (base, head),
+    }
+    remedy_range = (
+        "give a range that resolves: "
+        "--base-sha <sha> --head-sha <sha>, both reachable in the "
+        "repository named by --repo"
+    )
 
     for label, value in (("--base-sha", base), ("--head-sha", head)):
-        _, reason = git(repo, "rev-parse", "--verify", "--quiet",
-                        "%s^{commit}" % value)
+        _, reason = git(repo, "rev-parse", "--verify", "--quiet", "%s^{commit}" % value)
         if reason:
-            return blocked(mode,
-                           "%s does not resolve to a commit: '%s' (%s)"
-                           % (label, value, reason),
-                           remedy_range, SAFE_ALTERNATIVE_RANGE, scope=scope)
+            return blocked(
+                mode,
+                "%s does not resolve to a commit: '%s' (%s)" % (label, value, reason),
+                remedy_range,
+                SAFE_ALTERNATIVE_RANGE,
+                scope=scope,
+            )
 
     fmt = FS.join(["%H", "%an", "%ae", "%cn", "%ce", "%B"]) + RS
-    data, reason = git(repo, "log", "--reverse", "--format=" + fmt,
-                       "%s..%s" % (base, head))
+    data, reason = git(
+        repo, "log", "--reverse", "--format=" + fmt, "%s..%s" % (base, head)
+    )
     if reason:
-        return blocked(mode, "the range %s..%s could not be read: %s"
-                             % (base, head, reason),
-                       remedy_range, SAFE_ALTERNATIVE_RANGE, scope=scope)
+        return blocked(
+            mode,
+            "the range %s..%s could not be read: %s" % (base, head, reason),
+            remedy_range,
+            SAFE_ALTERNATIVE_RANGE,
+            scope=scope,
+        )
 
-    records = [chunk for chunk in data.decode("utf-8", "replace").split(RS)
-               if chunk.strip()]
+    records = [
+        chunk for chunk in data.decode("utf-8", "replace").split(RS) if chunk.strip()
+    ]
     if not records:
         # FAIL ON ZERO. An empty range is the shape a mis-computed CI variable
         # takes, and reading it as CLEAN is how a gate reports green for a
         # question it never asked.
-        return blocked(mode,
-                       "the range %s..%s resolved to 0 commits, so the gate "
-                       "examined nothing" % (base, head),
-                       remedy_range + " (a base that already contains head "
-                       "yields an empty range — widen it)",
-                       SAFE_ALTERNATIVE_RANGE, scope=scope)
+        return blocked(
+            mode,
+            "the range %s..%s resolved to 0 commits, so the gate "
+            "examined nothing" % (base, head),
+            remedy_range + " (a base that already contains head "
+            "yields an empty range — widen it)",
+            SAFE_ALTERNATIVE_RANGE,
+            scope=scope,
+        )
 
     violations, lines_scanned, identities = [], 0, 0
     for record in records:
         fields = record.lstrip("\n").split(FS)
         if len(fields) < 6:
-            return blocked(mode,
-                           "a commit record from `git log` did not carry its 6 "
-                           "fields (got %d) — the scan is not trustworthy and "
-                           "is reported as such rather than as a pass"
-                           % len(fields),
-                           remedy_range, SAFE_ALTERNATIVE_RANGE, scope=scope)
-        sha, an, ae, cn, ce, body = fields[0].strip(), fields[1], fields[2], \
-            fields[3], fields[4], fields[5]
+            return blocked(
+                mode,
+                "a commit record from `git log` did not carry its 6 "
+                "fields (got %d) — the scan is not trustworthy and "
+                "is reported as such rather than as a pass" % len(fields),
+                remedy_range,
+                SAFE_ALTERNATIVE_RANGE,
+                scope=scope,
+            )
+        sha, an, ae, cn, ce, body = (
+            fields[0].strip(),
+            fields[1],
+            fields[2],
+            fields[3],
+            fields[4],
+            fields[5],
+        )
         lines = body.splitlines()
         lines_scanned += len([line for line in lines if line.strip()])
         violations.extend(scan_lines(lines, sha[:12]))
@@ -734,17 +832,24 @@ def run_range(repo, base, head):
         violations.extend(scan_identity(sha[:12], "committer", cn, ce))
         identities += 2
 
-    counts = {"messages_examined": len(records),
-              "commits_examined": len(records),
-              "identities_examined": identities,
-              "lines_scanned": lines_scanned, "lines_excluded": 0}
+    counts = {
+        "messages_examined": len(records),
+        "commits_examined": len(records),
+        "identities_examined": identities,
+        "lines_scanned": lines_scanned,
+        "lines_excluded": 0,
+    }
 
-    if identities == 0:                      # unreachable by construction;
-        return blocked(mode,                 # asserted anyway, because "it
-                       "0 identities examined across %d commit(s)"
-                       % len(records),       # cannot happen" is what every
-                       remedy_range, SAFE_ALTERNATIVE_RANGE,
-                       counts=counts, scope=scope)   # blind gate said first.
+    if identities == 0:  # unreachable by construction;
+        return blocked(
+            mode,  # asserted anyway, because "it
+            "0 identities examined across %d commit(s)"
+            % len(records),  # cannot happen" is what every
+            remedy_range,
+            SAFE_ALTERNATIVE_RANGE,
+            counts=counts,
+            scope=scope,
+        )  # blind gate said first.
 
     return {
         "tool": TOOL,
@@ -768,43 +873,47 @@ def report(payload):
     only what was found.
     """
     counts = payload["counts"]
-    scope = ("%d message(s), %d commit(s), %d identit(ies), %d line(s) scanned"
-             % (counts["messages_examined"], counts["commits_examined"],
-                counts["identities_examined"], counts["lines_scanned"]))
+    scope = "%d message(s), %d commit(s), %d identit(ies), %d line(s) scanned" % (
+        counts["messages_examined"],
+        counts["commits_examined"],
+        counts["identities_examined"],
+        counts["lines_scanned"],
+    )
     if counts["lines_excluded"]:
-        scope += (", %d line(s) excluded as comments/below-scissors"
-                  % counts["lines_excluded"])
+        scope += (
+            ", %d line(s) excluded as comments/below-scissors"
+            % counts["lines_excluded"]
+        )
     verdict = payload["verdict"]
     out = sys.stderr
 
     if verdict == "BLOCKED":
-        out.write("%s: BLOCKED [%s] — %s\n" % (TOOL, payload["mode"],
-                                               payload["error"]))
+        out.write("%s: BLOCKED [%s] — %s\n" % (TOOL, payload["mode"], payload["error"]))
         out.write("%s: examined %s\n" % (TOOL, scope))
         out.write("%s: fix: %s\n" % (TOOL, payload["remedy"]))
-        out.write("%s: safe alternative: %s\n" % (TOOL,
-                                                  payload["safe_alternative"]))
+        out.write("%s: safe alternative: %s\n" % (TOOL, payload["safe_alternative"]))
         return
     if verdict == "VIOLATIONS":
-        out.write("%s: VIOLATIONS [%s] — %d forbidden attribution(s); "
-                  "examined %s\n" % (TOOL, payload["mode"],
-                                     len(payload["violations"]), scope))
+        out.write(
+            "%s: VIOLATIONS [%s] — %d forbidden attribution(s); "
+            "examined %s\n" % (TOOL, payload["mode"], len(payload["violations"]), scope)
+        )
         for item in payload["violations"]:
             place = item["where"]
             if item["line"] is not None:
                 place += " line %d" % item["line"]
             elif item["field"] != "message":
                 place += " %s" % item["field"]
-            out.write("  [%s] %s: %s\n" % (item["pattern"], place,
-                                           item["detail"]))
+            out.write("  [%s] %s: %s\n" % (item["pattern"], place, item["detail"]))
             out.write("    value: %s\n" % item["value"])
         out.write("%s: fix: %s\n" % (TOOL, payload["remedy"]))
-        out.write("%s: safe alternative: %s\n" % (TOOL,
-                                                  payload["safe_alternative"]))
+        out.write("%s: safe alternative: %s\n" % (TOOL, payload["safe_alternative"]))
         out.write("%s: %s\n" % (TOOL, payload["note"]))
         return
-    out.write("%s: CLEAN [%s] — no forbidden attribution; examined %s\n"
-              % (TOOL, payload["mode"], scope))
+    out.write(
+        "%s: CLEAN [%s] — no forbidden attribution; examined %s\n"
+        % (TOOL, payload["mode"], scope)
+    )
     for gap in payload.get("not_examined", []):
         out.write("%s:   not examined: %s\n" % (TOOL, gap))
 
@@ -813,47 +922,58 @@ def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="check_attribution.py",
         description="VCS attribution gate: commit MESSAGES and IDENTITIES only "
-                    "(never file contents — the product ships a legitimate "
-                    "vendor adapter).")
-    parser.add_argument("--message-file",
-                        help="one prospective commit message (the commit-msg "
-                             "hook's $1)")
-    parser.add_argument("--base-sha",
-                        help="range mode, with --head-sha: exclusive start")
-    parser.add_argument("--head-sha",
-                        help="range mode, with --base-sha: inclusive end")
-    parser.add_argument("--repo", default=".",
-                        help="repository for range mode (default: cwd)")
+        "(never file contents — the product ships a legitimate "
+        "vendor adapter).",
+    )
+    parser.add_argument(
+        "--message-file",
+        help="one prospective commit message (the commit-msg " "hook's $1)",
+    )
+    parser.add_argument(
+        "--base-sha", help="range mode, with --head-sha: exclusive start"
+    )
+    parser.add_argument("--head-sha", help="range mode, with --base-sha: inclusive end")
+    parser.add_argument(
+        "--repo", default=".", help="repository for range mode (default: cwd)"
+    )
     args = parser.parse_args(argv)
 
-    usage = ("give exactly one mode: `--message-file <path>`, or "
-             "`--base-sha <sha> --head-sha <sha>` together")
+    usage = (
+        "give exactly one mode: `--message-file <path>`, or "
+        "`--base-sha <sha> --head-sha <sha>` together"
+    )
     wants_message = args.message_file is not None
     wants_range = args.base_sha is not None or args.head_sha is not None
 
     if wants_message and wants_range:
-        payload = blocked("none", "both modes given (--message-file together "
-                                  "with a range); they answer different "
-                                  "questions and count different things",
-                          usage, "nothing was read; re-run with one mode")
+        payload = blocked(
+            "none",
+            "both modes given (--message-file together "
+            "with a range); they answer different "
+            "questions and count different things",
+            usage,
+            "nothing was read; re-run with one mode",
+        )
     elif wants_message:
         payload = run_message_file(args.message_file)
     elif wants_range:
         if args.base_sha is None or args.head_sha is None:
             given = "--head-sha" if args.base_sha is None else "--base-sha"
             missing = "--base-sha" if args.base_sha is None else "--head-sha"
-            payload = blocked("range",
-                              "%s given without %s: half a range is a usage "
-                              "error, never an assumed endpoint (value given: "
-                              "'%s')" % (given, missing,
-                                         args.head_sha or args.base_sha),
-                              usage,
-                              "nothing was read; re-run with both halves")
+            payload = blocked(
+                "range",
+                "%s given without %s: half a range is a usage "
+                "error, never an assumed endpoint (value given: "
+                "'%s')" % (given, missing, args.head_sha or args.base_sha),
+                usage,
+                "nothing was read; re-run with both halves",
+            )
         else:
             payload = run_range(Path(args.repo), args.base_sha, args.head_sha)
     else:
-        payload = blocked("none", "no mode given", usage,
-                          "nothing was read; re-run with one mode")
+        payload = blocked(
+            "none", "no mode given", usage, "nothing was read; re-run with one mode"
+        )
 
     # JSON always, on stdout. `ensure_ascii=False` is safe only because the
     # §6 prologue reconfigured the stream; the two travel together.
