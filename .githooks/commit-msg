@@ -1,0 +1,153 @@
+#!/bin/sh
+# scripts-dir: scripts
+# commit-msg — VCS attribution gate (HAND-MAINTAINED, not generated).
+#
+# container_repo.py generates `pre-commit` ONLY and does not manage this file,
+# so nothing will regenerate it and nothing will overwrite it. Its conventions
+# are MIRRORED here on purpose — the same `scripts-dir` marker, the same
+# repository-root and Python locators, the same loud-refusal pattern — so read
+# `.githooks/pre-commit` before changing anything here, and never hand-edit
+# that one (it says so itself).
+#
+# WHAT THIS ENFORCES, at every commit, before the commit object exists:
+#   the HARD INVARIANT of `docs/constitution-articles.md` Article IX §4
+#   — no AI / vendor
+#   authorship in this repository or its history: no vendor co-author trailer,
+#   no assistant session trailer, no "generated with" credit, no vendor
+#   noreply address. Article IX §4 calls such a trailer "a gate failure, not a
+#   style preference"; until this hook existed, nothing read a commit message
+#   for one, and five commits landed carrying the default trailer pair
+#   (2026-08-29 x2, 2026-09-09 x3) unnoticed for two weeks.
+#
+# git hands the message file path as $1. The gate — scripts/check_attribution.py
+# — is run in its `--message-file` mode, which scans MESSAGES ONLY and never
+# file contents: this product legitimately ships a vendor LLM adapter, and a
+# gate that matched vendor names in files would flag a shipped feature (the
+# reasoning is recorded in that script's docstring, not restated here).
+#
+# LOUD REFUSAL, NEVER A SILENT PASS. If the gate cannot be run at all — no
+# Python, no gate script, no message file — this hook FAILS with a named reason
+# and a printed remedy. An unrunnable check must never look like a passing one,
+# and the cost of being wrong is asymmetric: a refused commit costs one re-run,
+# while an admitted trailer cost a 60-commit history rewrite on 2026-09-11.
+#
+# THE COMMIT IS NEVER LOST when this hook refuses: `commit-msg` runs after the
+# message was written, this hook and its gate write nothing, and the message
+# file is still on disk with everything that was typed into it. `git commit
+# --edit` reopens it; deleting the offending line and committing again proceeds.
+#
+# STDOUT of the gate is DISCARDED here (it is JSON, for CI); the human verdict
+# and the named exit are on stderr, which git shows the committer as-is.
+#
+# GATE CLASS / NAMED EXIT / PLATFORM CONSTRAINTS are declared ONCE, in the
+# docstring of scripts/check_attribution.py, which is where the decision lives
+# — this file is its wiring and states no second, driftable copy (P7).
+# MEASURED with check_compliance.py's own collector: an extensionless hook is
+# not a vehicle its detector recognises (it takes .py / .sh), which is why the
+# generated pre-commit beside this file carries no declaration block either.
+# The Class-A reasoning that applies to THIS file is the loud-refusal paragraph
+# above, and its named exit is the stderr block at the bottom.
+#
+# INSTALLATION: git config core.hooksPath .githooks   (local config — a fresh
+# clone must re-run `container_repo.py install-hooks`, which installs the
+# generated hooks; this file travels with the repository).
+# BYPASS: `git commit --no-verify` skips this, deliberately and visibly.
+set -e
+HOOK=commit-msg
+
+repo_root=$(git rev-parse --show-toplevel)
+gate="$repo_root/scripts/check_attribution.py"
+
+# Locate a Python. If none is found the hook FAILS rather than passing
+# silently — mirrors pre-commit's locator, in the same order.
+if command -v py >/dev/null 2>&1; then
+    PY="py -3"
+elif command -v python3 >/dev/null 2>&1; then
+    PY=python3
+elif command -v python >/dev/null 2>&1; then
+    PY=python
+else
+    echo "$HOOK: no Python found; refusing to pass an unrunnable gate." >&2
+    echo "$HOOK: the VCS attribution invariant (Article IX §4) went UNCHECKED." >&2
+    echo "$HOOK: fix: install Python 3.8+ so 'py -3', 'python3' or 'python'" >&2
+    echo "$HOOK: resolves, then commit again." >&2
+    echo "$HOOK: your message is not lost - it is still on disk; reopen it" >&2
+    echo "$HOOK: with 'git commit --edit'. To proceed without the gate," >&2
+    echo "$HOOK: 'git commit --no-verify' bypasses it visibly." >&2
+    exit 1
+fi
+
+# The message file. git passes it relative to the repository top, which is also
+# the hook's cwd; both spellings are accepted rather than assumed.
+msg="$1"
+if [ -z "$msg" ]; then
+    echo "$HOOK: no message-file argument was given, so the attribution gate" >&2
+    echo "$HOOK: did not run - refusing rather than passing unchecked." >&2
+    echo "$HOOK: fix: git invokes this hook as 'commit-msg <path>'; if you ran" >&2
+    echo "$HOOK: it by hand, pass the path (e.g. .git/COMMIT_EDITMSG)." >&2
+    exit 1
+fi
+if [ ! -f "$msg" ] && [ -f "$repo_root/$msg" ]; then
+    msg="$repo_root/$msg"
+fi
+if [ ! -f "$msg" ]; then
+    echo "$HOOK: the message file '$1' does not exist, so the attribution" >&2
+    echo "$HOOK: gate did not run - refusing rather than passing unchecked." >&2
+    echo "$HOOK: fix: re-run the commit so git writes the message file, or" >&2
+    echo "$HOOK: pass an existing path if you invoked this hook by hand." >&2
+    exit 1
+fi
+
+# The gate itself. Absent, it is a FAILURE and not a warning: unlike
+# pre-commit's container-backed checks, this gate lives in THIS repository, so
+# a missing file means this repository is broken, not that a clone lacks a
+# container above it. A hook that cannot find its gate must not let the commit
+# through.
+if [ ! -f "$gate" ]; then
+    echo "$HOOK: $gate is absent, so the VCS attribution gate did NOT run." >&2
+    echo "$HOOK: refusing the commit: the invariant it enforces (Article IX §4 of" >&2
+    echo "$HOOK: docs/constitution-articles.md) is not scopable, and an" >&2
+    echo "$HOOK: unrunnable gate must never look like a passing one." >&2
+    echo "$HOOK: fix: restore scripts/check_attribution.py (git checkout --" >&2
+    echo "$HOOK: scripts/check_attribution.py), then commit again." >&2
+    echo "$HOOK: your message is not lost - reopen it with 'git commit --edit'." >&2
+    echo "$HOOK: 'git commit --no-verify' bypasses this visibly if you must." >&2
+    exit 1
+fi
+
+# `set -e` off around the call: the exit CODE is the verdict here, and three
+# codes mean three different things. 0 CLEAN / 1 VIOLATIONS / 2 BLOCKED.
+set +e
+$PY "$gate" --message-file "$msg" >/dev/null
+status=$?
+set -e
+
+if [ "$status" -eq 0 ]; then
+    exit 0
+fi
+
+echo "$HOOK: commit refused - VCS attribution gate." >&2
+if [ "$status" -eq 1 ]; then
+    echo "$HOOK: the message above names a forbidden AI/vendor attribution." >&2
+    echo "$HOOK: Article IX §4 (docs/constitution-articles.md): no Claude," >&2
+    echo "$HOOK: vendor or assistant authorship in this repository or its" >&2
+    echo "$HOOK: history - author/committer fields, message trailers, tag" >&2
+    echo "$HOOK: messages, PR bodies, file headers or repo metadata." >&2
+    echo "$HOOK: fix: delete the line(s) the gate named and commit again." >&2
+elif [ "$status" -eq 2 ]; then
+    echo "$HOOK: the gate could NOT answer its own question (BLOCKED), and a" >&2
+    echo "$HOOK: gate that cannot see must not report green. The reason and" >&2
+    echo "$HOOK: its remedy are printed above." >&2
+else
+    echo "$HOOK: the gate exited $status, which is not one of its declared" >&2
+    echo "$HOOK: codes (0 clean / 1 violations / 2 blocked) - treat it as a" >&2
+    echo "$HOOK: broken gate and report it; it is not a verdict on your" >&2
+    echo "$HOOK: message. Run it by hand:" >&2
+    echo "$HOOK:   $PY $gate --message-file $msg" >&2
+fi
+echo "$HOOK: your commit is NOT lost: the message file is still on disk at" >&2
+echo "$HOOK: $msg - 'git commit --edit' reopens it with everything you typed," >&2
+echo "$HOOK: or re-run the commit with the offending line deleted." >&2
+echo "$HOOK: If this gate is itself wrong, 'git commit --no-verify' proceeds" >&2
+echo "$HOOK: deliberately and visibly." >&2
+exit 1
