@@ -597,6 +597,39 @@ jobs:
             python scripts/check_vocabulary_regrowth.py --root .
           fi
 
+      - name: VCS attribution gate (P11 script)
+        # scripts/check_attribution.py -- fails on any AI/vendor authorship in
+        # the commit MESSAGES or the author/committer IDENTITIES this pull
+        # request adds: a vendor co-author trailer, an assistant session
+        # trailer, a "generated with" credit, or a vendor noreply address.
+        # Article IX 4 (docs/constitution-articles.md) calls such a trailer
+        # "a gate failure, not a style preference". Until 2026-09-11 nothing
+        # enforced it anywhere: five commits in the sibling development
+        # repository carried one unnoticed for two weeks and cost a 60-commit
+        # history rewrite. This step is that enforcement, and the commit-msg
+        # hook beside it is the same gate run locally.
+        #
+        # MESSAGES AND IDENTITIES ONLY, never file contents -- this product
+        # ships a legitimate vendor LLM adapter, and a gate matching vendor
+        # names in files would flag a shipped feature. The reasoning is
+        # recorded in that script's own docstring, not restated here. Like the
+        # step above, this comment describes the forbidden forms in prose and
+        # contains no literal instance of one: a workflow file is an ordinary,
+        # routinely-edited file, and a literal here would be copied onward.
+        #
+        # pull_request ONLY, and that is complete coverage rather than a gap:
+        # `main` admits no direct push (repository ruleset, no bypass), so every
+        # commit reaches it through a pull request and so through this step. On
+        # any other trigger there is no base..head range, and the script BLOCKS
+        # (exit 2) rather than report a green it cannot justify -- so the step
+        # announces the skip loudly instead of inventing a range to scan.
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            python scripts/check_attribution.py               --base-sha "${{ github.event.pull_request.base.sha }}"               --head-sha "${{ github.event.pull_request.head.sha }}"
+          else
+            echo "attribution gate SKIPPED: no pull-request commit range on event"                  "'${{ github.event_name }}'. This gate scans commit messages and"                  "identities only, so there is nothing to scan here. main admits no"                  "direct push, so every commit is gated on its pull request." >&2
+          fi
+
       - name: Tests (pytest, headless, parallel, with coverage XML)
         # -n auto: pytest-xdist fans the suite across all runner cores, cutting
         # the ~46-48 min single-process wall-time to a fraction (FU-20). Per-test
