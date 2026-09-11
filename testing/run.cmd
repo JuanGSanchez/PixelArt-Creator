@@ -114,6 +114,14 @@ set "BASETEMP=%TEMP_ROOT%\%SCOPE%\pytest-%RANDOM%"
 if not defined MARKEXPR set "MARKEXPR=not slow and not gpu and not cloud_live and not assistant_live and not integration"
 if not defined COVERAGE_FILE set "COVERAGE_FILE=%HERE%.coverage"
 
+REM PYTHONPATH is not a property of whether the run is measured: every
+REM CHILD needs this checkout on its import path whether or not coverage
+REM is wired in, so this is set unconditionally rather than only inside
+REM :measured below (COVERAGE_PROCESS_START stays measured-only - it IS
+REM coverage-specific).
+if defined PYTHONPATH set "PYTHONPATH=%REPO_ROOT%;%HERE%;%PYTHONPATH%"
+if not defined PYTHONPATH set "PYTHONPATH=%REPO_ROOT%;%HERE%"
+
 if "%NO_COVERAGE%"=="1" goto :plain
 "%PYTHON%" -c "import coverage" >nul 2>&1
 if errorlevel 1 goto :nocoverage
@@ -126,8 +134,6 @@ goto :plain
 
 :measured
 set "COVERAGE_PROCESS_START=%HERE%.coveragerc"
-if defined PYTHONPATH set "PYTHONPATH=%REPO_ROOT%;%HERE%;%PYTHONPATH%"
-if not defined PYTHONPATH set "PYTHONPATH=%REPO_ROOT%;%HERE%"
 REM Read source_roots out of testing.json via a redirected scratch file
 REM rather than a FOR /F backquoted command: a backquoted command is
 REM re-tokenized by cmd before it runs, and the nested double-quoted -c
