@@ -181,10 +181,17 @@ def test_the_two_launchers_agree_about_what_they_do():
         assert token in sh, "sh launcher lost %r" % token
 
 
-def test_the_store_still_holds_its_own_role_and_map():
+def test_the_store_still_holds_its_own_scope_and_map():
     """The launcher is only useful beside a real store; this pins the shape it
-    assumes rather than letting a silent reorganisation break it."""
-    assert (STORE / "store-role.json").is_file()
+    assumes rather than letting a silent reorganisation break it.
+
+    RENAMED from ``test_the_store_still_holds_its_own_role_and_map``: the
+    4.0.1 vocabulary retired ``memory/store-role.json`` (``{"role": "..."}``)
+    in favour of ``memory/store.json`` (``{"scope": "..."}``) --
+    ``container``/``product`` became ``workspace``/``repository`` --
+    so a test still asserting the old filename would be pinning a shape this
+    store no longer has, not the one it does."""
+    assert (STORE / "store.json").is_file()
     assert (STORE / "graph" / "nodes.jsonl").is_file()
     assert (STORE / "MEMORY-INDEX.md").is_file()
 

@@ -348,8 +348,13 @@ byId("filter").addEventListener("input", draw);
    be re-learned, and the two frames would start disagreeing about how big
    a folder name is.
 
-   SIZE IS BYTES, exactly as in the Repo frame, so one file is the SAME
-   circle in both pages and only its colour changes. Colour is the fraction
+   SIZE IS LINES, exactly as in the Repo frame, so one file is the SAME
+   circle in both pages and only its colour changes. It was BYTES here
+   while the memory viewer's frames were sized by lines, and the two
+   then drew the same file at two sizes: `memory/graph/nodes.jsonl` came
+   to 479181 on one and 1672 on the other. A file with no line count --
+   a binary, or one too large to read -- keeps size 0 and the shared
+   scale draws it at the uniform radius. Colour is the fraction
    of the file's lines that ran. A file the artefact never saw is not 0% —
    it is unmeasured, drawn in the neutral fill with a dashed rim and counted
    separately, because "nothing imported this" and "this ran and its lines
@@ -397,27 +402,15 @@ function covBucket(fn) {
 }
 
 /* --- the legend ---------------------------------------------------- */
-var COV_LEGEND_STEPS = 28;
 function renderCovLegend() {
   var box = byId("covLegend");
   if (!box) { return; }
   box.textContent = "";
-  /* The strip is made of the very same cmapHex() calls that coloured the
-   * circles, so the key cannot drift from the map. */
-  var bar = el("div", "cmap-bar");
-  for (var k = 0; k < COV_LEGEND_STEPS; k++) {
-    var cell = document.createElement("span");
-    cell.style.background =
-      PACKING.cmapHex(COV_CMAP, k / (COV_LEGEND_STEPS - 1));
-    bar.appendChild(cell);
-  }
-  box.appendChild(bar);
-  var limits = el("div", "cmap-limits");
-  limits.appendChild(el("span", null, "0%"));
-  limits.appendChild(el("span", null, "100%"));
-  box.appendChild(limits);
-  box.appendChild(el("div", "hint legend-note",
-    "lines covered · " + COV_CMAP));
+  /* The ends are fixed because the ramp is: 0% to 100%, whatever this
+   * project happens to have measured. */
+  PACKING.cmapStrip(box, COV_CMAP, "0%", "100%",
+                    "lines covered · " + COV_CMAP);
+  /* Outside the shared strip: a fourth state that is not a percentage. */
   var row = el("div", "legend-row");
   var sw = el("span", "swatch unmeasured-swatch");
   row.appendChild(sw);
@@ -656,6 +649,27 @@ function renderPieLegend(counts, total) {
 
 function renderCovPie(rec) {
   var counts, total, note;
+  if (!rec && (EXEC.state === "absent" || EXEC.state === "unreadable")) {
+    /* NOTHING WAS MEASURED, and the pie is where a reader looks for the
+     * number, so it is where the absence has to be explained. The empty
+     * ring and the dashed leaves were already correct; what was missing
+     * was the sentence beside them. A heading reading "All measured code"
+     * over a blank ring, with a note about files that are "NOT in this
+     * pie", is indistinguishable from a frame that failed to draw — and it
+     * was read that way. The provenance sentence says which world this is,
+     * and for `absent` it carries the command that ends it.
+     *
+     * Only with NOTHING SELECTED: selecting a file under these states
+     * still gets the per-file branches below, which say something narrower
+     * and truer about that one file. `stale` is not here either — it IS a
+     * measurement, with a caveat appended. */
+    byId("covPieTitle").textContent = EXEC.state === "absent"
+      ? "Nothing measured yet" : "Measurement unreadable";
+    drawPie({ covered: 0, partial: 0, none: 0, unknown: 0 }, 0);
+    byId("covPieLegend").textContent = "";
+    byId("covPieNote").textContent = executionProvenance();
+    return;
+  }
   if (rec && !rec.measured) {
     /* One slice, and it is not grey. */
     byId("covPieTitle").textContent = rec.path;
@@ -700,86 +714,14 @@ function renderCovPie(rec) {
 }
 
 /* --- pan / zoom ------------------------------------------------------ */
-function applyCovTransform() {
-  viewportCov.setAttribute("transform",
-    "translate(" + covState.tx.toFixed(2) + "," + covState.ty.toFixed(2) +
-    ") scale(" + covState.k.toFixed(4) + ")");
-}
-/* A FIT THAT CAN ACTUALLY FIT: the floor comes from the CONTENT, never from
- * a constant. On a packing whose true fit falls below a fixed minimum the
- * clamp raises it, the frame opens far too close, and no amount of
- * scrolling out reaches the whole graph — every step is clamped by the same
- * constant. The Repo frame learned this the hard way at 7779 files. */
-function covFloor(fitK) { return Math.min(COV_MIN_K, fitK * 0.5); }
-function clampCovK(k) {
-  return Math.max(covState.floor, Math.min(COV_MAX_K, k));
-}
-function fitCov() {
-  var root = covState.root;
-  if (!root) { return; }
-  var bw = svgCov.clientWidth || 800, bh = svgCov.clientHeight || 600;
-  var R = root.r + 20;
-  var fit = Math.min(bw, bh) / (2 * R);
-  covState.floor = covFloor(fit);
-  covState.k = clampCovK(fit);
-  covState.tx = bw / 2 - root.cx * covState.k;
-  covState.ty = bh / 2 - root.cy * covState.k;
-  applyCovTransform();
-}
-
-var covPanning = null, covSuppress = false, covPressed = null;
-function startCovPan(ev) {
-  covPanning = { x: ev.clientX, y: ev.clientY, tx: covState.tx,
-                 ty: covState.ty, moved: false };
-  svgCov.classList.add("panning");
-  try { svgCov.setPointerCapture(ev.pointerId); } catch (err) { /* ok */ }
-}
-svgCov.addEventListener("pointerdown", function (ev) {
-  covSuppress = false;
-  covPressed = null;           /* a press on the background selects nothing */
-  startCovPan(ev);
+/* `packing.js`'s `attachStage`: the same pan, zoom, fit and press-to-select
+ * the memory viewer's Repo and History frames run on. Local to this frame:
+ * its state record, its two limits, and `covSelect`. */
+var covStage = PACKING.attachStage(svgCov, viewportCov, {
+  state: covState, minK: COV_MIN_K, maxK: COV_MAX_K, fitPad: 20,
+  onSelect: covSelect
 });
-svgCov.addEventListener("pointermove", function (ev) {
-  if (!covPanning) { return; }
-  var dx = ev.clientX - covPanning.x, dy = ev.clientY - covPanning.y;
-  if (Math.abs(dx) + Math.abs(dy) > 3) { covPanning.moved = true; }
-  covState.tx = covPanning.tx + dx;
-  covState.ty = covPanning.ty + dy;
-  applyCovTransform();
-});
-function endCovPointer(ev) {
-  if (!covPanning) { return; }
-  if (covPanning.moved) { covSuppress = true; }
-  else if (covPressed !== null) {
-    /* The click that follows a captured pointer is delivered to this <svg>,
-     * not to the circle, so a leaf that only listened for `click` would
-     * never be selected at all. */
-    covSelect(covPressed);
-    covSuppress = true;
-  }
-  try { svgCov.releasePointerCapture(ev.pointerId); } catch (err) { /* */ }
-  covPanning = null;
-  svgCov.classList.remove("panning");
-}
-svgCov.addEventListener("pointerup", endCovPointer);
-svgCov.addEventListener("pointercancel", endCovPointer);
-svgCov.addEventListener("click", function () {
-  if (covSuppress) { covSuppress = false; return; }
-  covSelect(null);
-});
-svgCov.addEventListener("wheel", function (ev) {
-  ev.preventDefault();
-  var factor = ev.deltaY < 0 ? 1.15 : 1 / 1.15;
-  var nk = clampCovK(covState.k * factor);
-  factor = nk / covState.k;
-  var rect = svgCov.getBoundingClientRect();
-  var mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
-  covState.tx = mx - (mx - covState.tx) * factor;
-  covState.ty = my - (my - covState.ty) * factor;
-  covState.k = nk;
-  applyCovTransform();
-}, { passive: false });
-byId("btnCovFit").addEventListener("click", fitCov);
+byId("btnCovFit").addEventListener("click", covStage.fit);
 
 /* --- the build -------------------------------------------------------- */
 function buildCoverage() {
@@ -814,13 +756,19 @@ function buildCoverage() {
   }
 
   var leaves = EXECUTED.map(function (rec) {
-    return { path: rec.path, size: rec.bytes, rec: rec };
+    /* LINES, like every other packed frame. Sizing by `bytes` here while the
+     * memory viewer's frames size by lines made one repository three different
+     * pictures: a JSONL log came to 479181 in one and 1672 in another, and
+     * since a radius goes as the square root of the size, the same file was a
+     * giant on one frame and unremarkable on the next. A file with no line
+     * count -- a binary, or one too large to read -- keeps 0, which the shared
+     * scale already draws at a uniform radius. */
+    return { path: rec.path, size: rec.lines || 0, bytes: rec.bytes, rec: rec };
   });
   var root = PACKING.buildTree(leaves);
   PACKING.packDir(root, PACKING.leafRadiusScale(leaves));
   PACKING.placeDir(root, 0, 0, 0);
   covState.root = root;
-  var maxR = PACKING.maxRadii(root);
   var NS = PACKING.NS;
 
   (function renderDir(dir) {
@@ -829,13 +777,14 @@ function buildCoverage() {
     c.setAttribute("cx", dir.cx.toFixed(1));
     c.setAttribute("cy", dir.cy.toFixed(1));
     c.setAttribute("r", dir.r.toFixed(1));
+    PACKING.applyStroke(c, dir.r);
     var title = document.createElementNS(NS, "title");
     title.textContent = (dir.path || "(root)") + " · " + dir.nLeaves +
       " file(s)";
     c.appendChild(title);
     viewportCov.appendChild(c);
     if (dir.name) {
-      var lbl = PACKING.makeLabel(dir, "dir", maxR.dir, "c");
+      var lbl = PACKING.makeLabel(dir, "dir", "c");
       if (lbl) { viewportCov.appendChild(lbl); }
     }
     dir.items.forEach(function (it) {
@@ -851,6 +800,7 @@ function buildCoverage() {
     c.setAttribute("cx", leaf.cx.toFixed(1));
     c.setAttribute("cy", leaf.cy.toFixed(1));
     c.setAttribute("r", leaf.r.toFixed(1));
+    PACKING.applyStroke(c, leaf.r);
     var fill = covFill(rec);
     if (fill) { c.setAttribute("fill", fill); }
     var title = document.createElementNS(NS, "title");
@@ -864,9 +814,7 @@ function buildCoverage() {
     c.appendChild(title);
     c.addEventListener("pointerdown", function (ev) {
       ev.stopPropagation();
-      covSuppress = false;
-      covPressed = rec.path;
-      startCovPan(ev);
+      covStage.press(ev, rec.path);
     });
     c.addEventListener("click", function (ev) {
       ev.stopPropagation();
@@ -874,12 +822,12 @@ function buildCoverage() {
     });
     viewportCov.appendChild(c);
     covLeafEls.push({ el: c, rec: rec });
-    var lbl = PACKING.makeLabel(leaf, "leaf", maxR.file, "c");
+    var lbl = PACKING.makeLabel(leaf, "leaf", "c");
     if (lbl) { viewportCov.appendChild(lbl); }
   }
 
   byId("covStats").textContent = covStatsLine(leaves.length, root.nDirs);
-  fitCov();
+  covStage.fit();
 }
 
 /* --- the frames ------------------------------------------------------- */
@@ -901,7 +849,7 @@ function setFrame(name) {
      * no measured size, so a fit computed while the frame was hidden would
      * be computed against 0 x 0 and open at the wrong scale. */
     if (!covState.built) { buildCoverage(); }
-    fitCov();
+    covStage.fit();
   }
 }
 

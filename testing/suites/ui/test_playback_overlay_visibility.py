@@ -38,11 +38,12 @@ scene directly with their own real public constructors/``setVisible`` (the
 same calls ``canvas_view.py``/``main_window.py`` make), since no tool
 interaction reaches them. Assertions read ``isVisible()`` on named
 ``CanvasScene``-owned attributes (``_preview_item``, ``_shape_preview``,
-``_float_item``, ``_origin_item``, ``_selection_overlay``) -- the same
-attribute names the UI implementation's own report and ``test_playback_overlay.py`` /
-``test_selection_overlay.py`` already couple to; this is disclosed as
+``_float_item``, ``_origin_item``, ``_selection_overlay``) -- grep
+``pixelart_creator/ui/canvas_scene.py`` for the names above to see them
+assigned. ``test_selection_overlay.py`` already couples to
+``_selection_overlay`` the same way; this is disclosed here as
 attribute-coupling, not a private implementation detail invented for this
-module, in the accompanying subagent report.
+module.
 
 Both themes: the autouse ``theme`` fixture (``testing/suites/ui/conftest.py``)
 already runs every test in this module twice (light/dark). No assertion here

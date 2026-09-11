@@ -1,0 +1,122 @@
+/* ===========================================================================
+ * packing.css — how a packed circle map LOOKS, for every viewer that draws one.
+ *
+ * `packing.js` already owns the geometry: one `buildTree` -> `packDir` ->
+ * `placeDir` -> `makeLabel` pipeline, so two frames cannot lay
+ * circles out differently. Their PAINT was another matter. `makeLabel` takes a
+ * `classPrefix`, so the memory viewer emitted `.rdir` / `.rleaf` and the
+ * coverage viewer `.cdir` / `.cleaf`, and two independent stylesheets then
+ * painted identical geometry — which is exactly how they came to disagree:
+ *
+ *   .rdir  fill: var(--ink) at 3.5% + a muted stroke   (a tinted disc)
+ *   .cdir  fill: none                                   (a hairline outline)
+ *   .rleaf stroke-width: var(--leaf-stroke), + hover / selected / dimmed
+ *   .cleaf stroke-width: .5, and none of those states
+ *
+ * Same map, two appearances, and nothing in either file able to notice.
+ *
+ * THE REFERENCE IS THE MEMORY VIEWER'S HISTORY FRAME (user decision,
+ * 2026-09-02). Every value below is that frame's, unchanged.
+ *
+ * Both prefixes are grouped onto ONE set of declarations rather than renamed
+ * to a single family. That is deliberate: a rename would have to move through
+ * `makeLabel`, both viewers' element construction and every JS selector that
+ * queries `.rleaf` or `.cleaf` for hover and selection, and a sweep that wide
+ * buys nothing this does not. Grouped selectors make divergence impossible at
+ * the point it actually happened — the declarations — while leaving the JS
+ * alone. If the prefix parameter is ever dropped, this file collapses to one
+ * selector per rule and nothing else changes.
+ *
+ * WHAT DOES NOT BELONG HERE: colour that carries DATA. The memory viewer
+ * paints a leaf by node type and the coverage viewer by its plasma ramp, both
+ * as presentation attributes on the element. A `fill:` on a bare leaf class
+ * here would outrank every one of them — an author declaration beats a
+ * presentation attribute however unspecific — and repaint the whole map in one
+ * flat colour. That is not hypothetical: it is the defect that made every
+ * circle in the Coverage frame grey while the sidebar printed 77.9%.
+ * =========================================================================== */
+
+:root {
+  /* Leaf outline weights and the ease that carries them. Defined here because
+     they belong to the packed map rather than to any one viewer -- the memory
+     viewer already declared them and the coverage viewer never did, which is
+     half of why its circles felt inert. */
+  --leaf-stroke: 0.5;
+  --leaf-stroke-hover: 1.5;
+  --leaf-ease: 120ms ease-out;
+  --dim: 0.25;
+}
+
+/* ---- directory circles --------------------------------------------------
+ * A tinted disc, not an outline. The tint is what makes nesting depth
+ * readable at a glance when a map is mostly small circles: three nested
+ * folders read as three shades, where three hairlines read as noise. */
+.rdir, .cdir {
+  fill: var(--ink);
+  fill-opacity: 0.035;
+  stroke: var(--muted);
+  stroke-opacity: 0.45;
+  /* Set per circle by packing.js `applyStroke`, as a fraction of that
+     circle's radius. The literal is the fallback for a circle nothing sized —
+     never the normal case, and deliberately the OLD flat value so an
+     unstyled circle still looks like the map it belongs to. */
+  stroke-width: var(--dir-stroke, 1);
+  cursor: pointer;
+}
+.rdir:hover, .cdir:hover {
+  stroke: var(--accent);
+  stroke-opacity: 1;
+}
+
+/* ---- leaf circles -------------------------------------------------------
+ * Hover thickens the outline to three times its resting weight — the
+ * difference between a regular and a bold letter, legible without moving the
+ * circle or changing its colour, because colour is carrying the file's data
+ * and must keep meaning only that. The transition sits on the RESTING rule so
+ * it runs on the way out as well as in; declared inside :hover, leaving a
+ * circle would snap. */
+.rleaf, .cleaf {
+  stroke: var(--panel);
+  stroke-width: var(--leaf-stroke);
+  cursor: pointer;
+  transition: stroke-width var(--leaf-ease), stroke var(--leaf-ease);
+}
+.rleaf:hover, .cleaf:hover {
+  stroke: var(--accent);
+  stroke-width: var(--leaf-stroke-hover);
+}
+.rleaf.selected, .cleaf.selected {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+.rleaf.selected:hover, .cleaf.selected:hover {
+  stroke-width: var(--leaf-stroke-hover);
+}
+.rleaf.dimmed, .cleaf.dimmed { opacity: var(--dim); }
+
+/* ---- labels -------------------------------------------------------------
+ * NO font-size here. The size is a function of the circle being named and is
+ * set per element by `makeLabel`; a rule here would either win over it or be
+ * dead, and a dead rule in a stylesheet is a lie somebody maintains. Folder
+ * names are BOLD, which is the part that belongs to a stylesheet because it is
+ * the same at every size.
+ *
+ * `pointer-events: none` keeps a label from swallowing the click meant for its
+ * circle: a name drawn across a small circle would otherwise be the only thing
+ * the pointer can reach. */
+.rdir-label, .rleaf-label,
+.cdir-label, .cleaf-label {
+  text-anchor: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--panel);
+  stroke-linejoin: round;
+}
+.rdir-label, .cdir-label { fill: var(--muted); font-weight: 700; }
+.rleaf-label, .cleaf-label { fill: var(--ink); }
+
+/* The overlay rule both viewers learned the hard way: an element hidden with
+ * the `hidden` attribute is hidden by a UA rule, which loses to any author
+ * `display`. An invisible, empty, full-bleed div then sits over the packing
+ * and eats every pointer event meant for a circle. */
+[hidden] { display: none !important; }

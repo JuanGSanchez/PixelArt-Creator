@@ -36,12 +36,16 @@ it does not answer "what ran", which every runtime tool answers better. A page
 that blurred the two would be believed for the wrong one.
 
 Usage
-    py coverage_viz.py --project <dir> [--out <path>]
     py coverage_viz.py --project <dir> --json
+
+There is no render verb. The page is LIVE-ONLY -- `coverage_views.py
+serve` calls `render()` on every request -- and `--json` is how a
+person asks what that page would draw.
 """
 
 import argparse
 import ast
+import collections
 import fnmatch
 import json
 import os
@@ -68,19 +72,27 @@ ASSET_JS = "coverage-view.js"
 # render.
 ASSET_SHARED_DIR = "viewer-shared"
 ASSET_PACKING = "packing.js"
+# The shared floor is TWO files, not one. The stylesheet joined it on
+# 2026-09-02: geometry was already shared while paint was not, so two
+# viewers drawing one packing could and did disagree about how it
+# looked. Anything in this tuple is loaded from `viewer-shared/`,
+# rewritten to point there in a vendored page, and refused loudly when
+# absent -- one rule for both, so a third shared asset needs no new code.
+ASSET_PACKING_CSS = "packing.css"
+SHARED_ASSETS = (ASSET_PACKING, ASSET_PACKING_CSS)
 DATA_PLACEHOLDER = "/*__COVERAGE_DATA__*/"
 
 TESTING_DIR = "testing"
 PRODUCT_MANIFEST = "testing.json"
 CONTAINER_MAP = "coverage-map.json"
 
-# The TRACKED page `coverage_views.py install` writes — a bootstrap
-# holding no analysis — and the DERIVED page this script writes. Two
-# names because they are two artifacts, exactly as on the memory side.
-# The snapshot name existed and was only ever GITIGNORED: nothing wrote
-# it, and the offline render went to the tracked bootstrap instead.
+# The TRACKED page `coverage_views.py install` writes: a bootstrap
+# holding no analysis, filled by a running server. ONE name, because
+# there is now one artifact. `SNAPSHOT_NAME` stood beside it for the
+# DERIVED page, retired here with the render verb -- a second,
+# data-bearing page that went stale the moment the suite moved, and
+# a reader had no way to tell which of the two he had open.
 BOOTSTRAP_NAME = "coverage-view.html"
-SNAPSHOT_NAME = "coverage-view-snapshot.html"
 
 # What `coverage_views.py install` vendors into `testing/`. Named here
 # because the analyser has to know its own footprint: after an install
@@ -89,7 +101,7 @@ SNAPSHOT_NAME = "coverage-view-snapshot.html"
 # very thing it exists to measure.
 VENDORED_BASENAMES = ("coverage_views.py", "coverage_viz.py",
                       "viewer_ports.py", "viewer_serving.py",
-                      "product_boundary.py")
+                      "repo_guard.py")
 
 # A bound, so a viewer pointed at a repository with a vendor tree renders
 # instead of hanging. Exceeding it is REPORTED, never silent.
@@ -103,6 +115,58 @@ SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv",
 DEFAULT_TYPES = {"unit": "test_unit_*",
                  "integration": "test_integration_*",
                  "regression": "test_regression_*"}
+
+# Bounds on WORK, not judgements about the file: past the cap an entry simply
+# carries no line count and the viewer sizes it uniformly, which is what it
+# already does for anything it cannot measure.
+LINE_COUNT_MAX_BYTES = 4 * 1024 * 1024
+LINE_COUNT_CHUNK = 65536
+
+
+def count_lines(path, size):
+    """Newlines in a text file, or None when the question does not apply.
+
+    MIRRORED between `memory_viz.py` and `coverage_viz.py`, not imported,
+    for the same reason `STORE_VENDORED_PACKAGE` is mirrored: these two
+    modules are vendored into DIFFERENT packages -- a coverage install
+    carries no `memory_viz.py` and a store carries no `coverage_viz.py` --
+    so an import would make each package depend on a file it does not ship.
+    The duplication is deliberate, and the home suite's
+    `test_scripts_memory_viz_02.py` is the test that keeps the two copies
+    from drifting: it compares this source text, character for character,
+    with the other module's.
+
+    None for a binary, for something too large to be worth reading, and for
+    anything unreadable -- three different reasons, one answer, because the
+    caller does the same thing with all of them: omit the key and let the
+    viewer fall back to a uniform radius. Returning 0 instead would be a
+    CLAIM, and an empty file and a JPEG would make the same one.
+
+    A last line with no trailing newline still counts, which is what `wc -l`
+    does not do and what every editor showing line numbers does.
+    """
+    if size is None or size > LINE_COUNT_MAX_BYTES:
+        return None
+    try:
+        with open(str(path), "rb") as handle:
+            total = 0
+            tail = b""
+            first = True
+            while True:
+                chunk = handle.read(LINE_COUNT_CHUNK)
+                if not chunk:
+                    break
+                if first and b"\x00" in chunk:
+                    return None          # binary: lines are not its unit
+                first = False
+                total += chunk.count(b"\n")
+                tail = chunk[-1:]
+            if tail and tail != b"\n":
+                total += 1               # a final line without its newline
+            return total
+    except OSError:
+        return None
+
 
 LIMITS = [
     "Names, not execution: this reports what a test MENTIONS.",
@@ -121,9 +185,10 @@ LIMITS = [
 EXECUTION_LIMITS = [
     "Execution, not names: these lines RAN, in the run this artefact "
     "records. Nothing here is a claim about correctness.",
-    "A file the artefact never saw is drawn at 0% and counted as "
-    "unmeasured. That usually means nothing imported it, which is a "
-    "different finding from a file whose lines did not run.",
+    "A file the artefact never saw is drawn apart, with a dashed rim, and "
+    "counted as unmeasured — never as 0%. That usually means nothing "
+    "imported it, which is a different finding from a file whose lines did "
+    "not run.",
     "The measurement is only as recent as the run that made it. The frame "
     "prints when, and says so when a source has changed since.",
     "`testing/` is not drawn: the suite is the instrument, and an "
@@ -145,8 +210,8 @@ def load_assets():
     base = BASE / ASSET_DIR_NAME
     shared = BASE / ASSET_SHARED_DIR
     assets = {}
-    for name in (ASSET_TEMPLATE, ASSET_CSS, ASSET_JS, ASSET_PACKING):
-        path = (shared if name == ASSET_PACKING else base) / name
+    for name in (ASSET_TEMPLATE, ASSET_CSS, ASSET_JS) + SHARED_ASSETS:
+        path = (shared if name in SHARED_ASSETS else base) / name
         if not path.is_file():
             return None, {
                 "status": "BLOCKED",
@@ -372,18 +437,28 @@ def point_at_vendored_assets(html):
     for name in (ASSET_CSS, ASSET_JS):
         text = text.replace('"./%s"' % name,
                             '"./%s/%s"' % (ASSET_DIR_NAME, name))
-    text = text.replace('"./%s"' % ASSET_PACKING,
-                        '"./%s/%s"' % (ASSET_SHARED_DIR, ASSET_PACKING))
+    # The shared asset goes to its own directory, not the package's.
+    for shared_name in SHARED_ASSETS:
+        text = text.replace('"./%s"' % shared_name,
+                            '"./%s/%s"'
+                            % (ASSET_SHARED_DIR, shared_name))
     return text.encode("utf-8")
 
 
-def python_files(root, limit=MAX_FILES):
+def python_files(root, limit=MAX_FILES, skip_vendored=False):
     """Every .py file under `root`, sorted, bounded, symlinks not followed.
 
-    The viewer's OWN vendored copies are skipped. They are `.py` under
-    `testing/` the moment `install` runs, so without this the analyser
-    reports four files of its own as unclassified test files and the
-    install changes the measurement it was opened to read.
+    `skip_vendored` drops the viewer's OWN vendored copies from the TOP of
+    `root`. They are `.py` under `testing/` the moment `install` runs, so
+    walking the testing directory without it makes the analyser report five
+    files of its own as unclassified test files — the install changing the
+    measurement it was opened to read.
+
+    It is OFF by default, and every caller that walks a SOURCE root leaves
+    it off: `scripts/` is where a container's originals live, and skipping
+    the five names there deleted the analyser itself from the Coverage
+    frame's leaves and from the Metrics source index — the one file a
+    reader of this page is most likely to look for.
     """
     found, truncated = [], False
     root = Path(root)
@@ -395,7 +470,7 @@ def python_files(root, limit=MAX_FILES):
         for name in sorted(names):
             if not name.endswith(".py"):
                 continue
-            if name in VENDORED_BASENAMES and \
+            if skip_vendored and name in VENDORED_BASENAMES and \
                     Path(folder) == root:
                 continue
             if len(found) >= limit:
@@ -541,11 +616,15 @@ def executed(project, profile, coverage):
     """The Coverage frame's leaf set: every declared source file, minus
     `testing/`, with what ran in it.
 
-    DECLARED, not measured. A file the artefact never saw is drawn at 0% and
-    COUNTED as unmeasured, because "never imported by anything" is the
-    finding a reader most wants and a file that simply vanished from the map
-    would hide it. Size is BYTES — the Repo frame's rule — so a file is the
-    same circle in both frames and only its colour changes.
+    DECLARED, not measured. A file the artefact never saw carries no
+    percentage at all — `percent` is None — and is COUNTED as unmeasured:
+    the page draws it apart, with a dashed rim, never as 0%. "Never
+    imported by anything" is the finding a reader most wants, and a file
+    that simply vanished from the map would hide it. Size is LINES — the
+    Repo frame's rule — so a file is the same circle in both frames and
+    only its colour changes.
+    The leaf still carries `bytes`, for a reader who wants the number; no
+    frame sizes by it.
     """
     project = Path(project).resolve()
     leaves = []
@@ -567,7 +646,7 @@ def executed(project, profile, coverage):
             if record is None:
                 unmeasured += 1
             leaves.append({
-                "path": rel, "bytes": size,
+                "path": rel, "bytes": size, "lines": count_lines(path, size),
                 "percent": None if record is None else record["percent"],
                 "covered": 0 if record is None else record["covered"],
                 "statements": 0 if record is None else record["statements"],
@@ -630,7 +709,7 @@ def collect(project, profile):
 
     # --- the test side -----------------------------------------------------
     testing = project / TESTING_DIR
-    files, truncated = python_files(testing)
+    files, truncated = python_files(testing, skip_vendored=True)
     payload["truncated"] = payload["truncated"] or truncated
     for path in files:
         found, error = analyse(path)
@@ -691,15 +770,33 @@ def relate(tests, by_name, call_graph, max_depth=3):
     because the graph has cycles and because reach at four hops is a claim
     nobody should act on — beyond that the honest answer is "look at the
     code", not a longer list.
+
+    BREADTH FIRST, and the frontier is a QUEUE, because the bound makes
+    depth part of the answer. `seen` records a function the first time the
+    walk arrives at it, and a depth-first walk arrives by whichever path it
+    happened to take: a function one hop from the test could be entered at
+    hop three down a long branch, get marked seen there, and then be
+    refused its own expansion by `depth < max_depth` — so everything BELOW
+    it vanished from the page. Which branch was taken first came from
+    iterating `call_graph`'s sets of names, whose order is the process's
+    hash seed. Measured on this container: the same tree, analysed by two
+    server processes, produced payloads that differed in five records, and
+    two runs under the same `PYTHONHASHSEED` agreed exactly.
+
+    A queue arrives at every function at its MINIMUM depth, so the answer
+    is the graph's and not the walk's. The names are sorted on the way in
+    as well — not needed for the result, which no longer depends on order,
+    but a reproducible walk is one a person can follow in a debugger.
     """
     reached = {}
     for test in tests:
         for function in test["functions"]:
             nodeid = "%s::%s" % (test["path"], function["name"])
-            frontier = [(name, 0) for name in function["mentions"]]
+            frontier = collections.deque(
+                (name, 0) for name in function["mentions"])
             seen = set()
             while frontier:
-                name, depth = frontier.pop()
+                name, depth = frontier.popleft()
                 for target in by_name.get(name, []):
                     key = (target["path"], target["name"])
                     if key in seen:
@@ -719,7 +816,8 @@ def relate(tests, by_name, call_graph, max_depth=3):
                         onward = call_graph.get(
                             "%s::%s" % (target["path"], target["name"]), ())
                         frontier.extend((call, depth + 1)
-                                        for call in onward if call in by_name)
+                                        for call in sorted(onward)
+                                        if call in by_name)
 
     out = []
     for record in reached.values():
@@ -786,28 +884,45 @@ def write_if_changed(path, payload):
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="coverage_viz.py",
-        description="Render a repository's test coverage map from its own "
-                    "testing/ declarations")
+        description="Report a repository's test coverage map, read "
+                    "from its own testing/ declarations. The page "
+                    "itself is served live by coverage_views.py; "
+                    "this prints the payload it would draw.")
     parser.add_argument("--project", default=".",
                         help="repository root (default: the current directory)")
-    parser.add_argument("--out", default=None,
-                        help="output HTML path (default "
-                             "<project>/testing/" + SNAPSHOT_NAME + ", the "
-                             "DERIVED page; the tracked bootstrap "
-                             "coverage-view.html is never written here)")
-    parser.add_argument("--standalone", action="store_true",
-                        help="write coverage-view.css/.js beside the page "
-                             "and link them there, instead of linking the "
-                             "vendored coverage-viewer/ copies (implied "
-                             "when the page is written outside testing/)")
+    # Every option here DOES something. `--out` and `--standalone`
+    # steered a render that no longer exists; a `--help` that still
+    # listed them would be the only specification a reader has, and it
+    # would be wrong.
     parser.add_argument("--json", action="store_true",
-                        help="print the payload instead of rendering a page")
+                        help="print the payload the served page would "
+                             "draw")
     return parser
 
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
     project = Path(args.project).resolve()
+
+    # RETIRED: the derived, data-bearing page is no longer generated and
+    # the coverage viewer is LIVE-ONLY. A page written to disk is a
+    # photograph of a suite that changes every time somebody adds a
+    # test, and a reader with both files open cannot tell which one he
+    # is reading.
+    #
+    # `--json` still works, and is the whole CLI now: printing the
+    # payload is an inspection of the DATA, not the generation of a
+    # page, and it is the honest way to ask what the viewer would draw
+    # without producing a file that then goes stale.
+    if not args.json:
+        print(json.dumps({
+            "status": "BLOCKED",
+            "error": "rendering the derived coverage page is retired; "
+                     "it is no longer generated",
+            "hint": "open it live instead: python coverage_views.py "
+                    "serve --project %s   (or --json here to inspect "
+                    "the payload)" % project}))
+        return 2
 
     profile, error = read_profile(project)
     if error:
@@ -819,48 +934,8 @@ def main(argv=None):
     payload = collect(project, profile)
     payload["uncovered"] = uncovered(payload)
 
-    if args.json:
-        print(json.dumps(payload, ensure_ascii=False, indent=2,
-                         sort_keys=True))
-        return 0
-
-    assets, asset_error = load_assets()
-    if asset_error is not None:
-        print(json.dumps(asset_error))
-        return 2
-
-    # The DERIVED page has its own name. Writing the bootstrap instead put
-    # the whole analysis into the tracked file on every render, and left
-    # the gitignored snapshot name naming a file nothing ever wrote.
-    testing = project / TESTING_DIR
-    out = Path(args.out) if args.out else testing / SNAPSHOT_NAME
-    standalone = args.standalone or out.parent.resolve() != testing.resolve()
-    html = render(payload, assets[ASSET_TEMPLATE])
-    if not standalone:
-        html = point_at_vendored_assets(html)
-    written = write_if_changed(out, html)
-    if standalone:
-        # FLAT beside the page, because that is what the unrewritten
-        # template links. A standalone render that wrote the stylesheet and
-        # the script but not the packing floor would open with no circles
-        # at all and no error to say why.
-        for name in (ASSET_CSS, ASSET_JS, ASSET_PACKING):
-            write_if_changed(out.parent / name, assets[name])
-    print(json.dumps({
-        "status": "COMPLETED", "project": str(project),
-        "kind": payload["kind"], "declared_in": payload["declared_in"],
-        "tests": len(payload["tests"]),
-        "test_functions": sum(len(t["functions"]) for t in payload["tests"]),
-        "source_functions": sum(len(s["functions"])
-                                for s in payload["sources"]),
-        "covered": len(payload["coverage"]),
-        "uncovered": len(payload["uncovered"]),
-        "unclassified": len(payload["unclassified"]),
-        "missing_roots": payload["missing_roots"],
-        "truncated": payload["truncated"],
-        "out": str(out), "written": written, "bytes": len(html),
-        "layout": "standalone" if standalone else "vendored",
-    }))
+    print(json.dumps(payload, ensure_ascii=False, indent=2,
+                     sort_keys=True))
     return 0
 
 

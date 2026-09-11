@@ -13,7 +13,7 @@ if [ -f "$repo_root/scripts/memory_graph.py" ]; then
 else
 
 # Locate the container: nearest ancestor holding <dir>/check_branch_naming.py
-# (1 level up for a single-product branch folder, 3 for a multi-product one).
+# (2 levels up from a root in `codebase/`, 3 from a multi-product one).
 # The directory this hook was installed for is tried first, then `scripts/`.
 container=$(dirname "$repo_root")
 container_found=
@@ -50,12 +50,11 @@ fi
 # --- refresh this repository's own memory store -------------------------
 # The working tree just changed, so the map that describes it is stale and
 # the index that answers from it is staler. The duty belongs to the hook and
-# never to a human or an agent to remember by hand: a map that depends on
-# somebody remembering is wrong exactly when it matters. The scan is
-# incremental and
+# never to an agent (`memory-graph-operations.md` §6.1): a map that depends on somebody
+# remembering is wrong exactly when it matters. The scan is incremental and
 # its scope is what this repository's git carries (§5.3a rule 6), so this
 # repository maps itself and no other.
-if [ -f "$repo_root/memory/store-role.json" ]; then
+if [ -f "$repo_root/memory/store.json" ] || [ -f "$repo_root/memory/store-role.json" ]; then
     if [ ! -f "$scripts/memory_graph.py" ]; then
         echo "$HOOK: $scripts/memory_graph.py is missing; the store was not refreshed." >&2
     else
@@ -66,15 +65,15 @@ if [ -f "$repo_root/memory/store-role.json" ]; then
         }
     fi
 elif [ -d "$repo_root/memory" ]; then
-    # A store WITHOUT its role marker. This used to fall through in silence,
+    # A store WITHOUT its scope marker. This used to fall through in silence,
     # and silence is indistinguishable from success: measured on a delivered
     # system, the marker had never existed, so every commit it ever made
     # skipped the refresh and its map described the tree as it stood months
     # earlier. Note the asymmetry this repairs — a MISSING SCRIPT was already
     # reported, while a missing marker, which disables the same duty just as
     # completely, said nothing at all.
-    echo "$HOOK: $repo_root/memory has no store-role.json, so the store was NOT refreshed" >&2
-    echo "$HOOK:   memory_graph.py init --store $repo_root/memory --role container" >&2
+    echo "$HOOK: $repo_root/memory has no store.json, so the store was NOT refreshed" >&2
+    echo "$HOOK:   memory_graph.py init --store $repo_root/memory --scope workspace" >&2
 fi
 
 exit 0

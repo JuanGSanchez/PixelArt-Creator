@@ -12,11 +12,16 @@ RUNTIME:
   Python >= 3.8, standard library only. Viewer: any modern browser.
   `git` is optional: without it the History view says why it is empty.
 
-ENTRYPOINT:
-  python memory_viz.py --store <memory-dir> [--out <path>]
-                       [--include-invalidated] [--limit N --rank degree]
-                       [--no-card-bodies] [--force-out]
-                       [--repo <dir>] [--commits N] [--no-git]
+ENTRYPOINT (RETIRED):
+  python memory_viz.py --store <memory-dir>
+
+  The CLI no longer renders anything: it refuses with exit 2 and names
+  the live viewer (`memory_views.py serve`). `--store` is the only option
+  it declares, because the refusal is the only thing left to read one;
+  the eleven the deleted render body read were removed with it, so
+  `--help` cannot offer a way to ask for something this entry point
+  cannot do. The RENDERER survives as `render()`, which the server calls
+  on every request -- everything below describes that function.
 
 INPUTS:
   - <store>/graph/{nodes,edges}.jsonl — the structural half: what the
@@ -93,6 +98,7 @@ SCALE:
   `--limit N --rank degree` performs the same reduction Python-side.
 """
 import argparse
+import copy
 import json
 import os
 import subprocess
@@ -115,7 +121,20 @@ MAX_CARD_BYTES = 8192
 NODE_FIELDS = ("id", "type", "name", "path", "summary", "props", "source",
                "episode", "created_at", "invalid_at", "card", "card_body",
                "card_truncated")
-EDGE_FIELDS = ("id", "src", "dst", "type", "props", "source", "episode",
+# NO `id`, deliberately. An edge's log record id is exactly
+# `"e:" + src + "->" + type + "->" + dst` -- the three fields listed right
+# here -- so shipping it repeated the whole triple a second time for every
+# edge: 153,570 bytes of id strings plus their key, 166,842 on the wire
+# -- 17.5% of the archetype container's 952 KB payload, measured there
+# 2026-09-02 -- that nothing reads.
+# `graph-view.js` reaches an edge for `src`, `dst`, `type` and `invalid_at`
+# and for nothing else, and invalidation is resolved HERE -- `load_logs`
+# matches a `kind: "invalidate"` record's `target` against the collection
+# key, so the page only ever sees the resolved `invalid_at` and never the
+# id it was resolved through. NODES keep theirs, because the page indexes,
+# selects, links and searches by a node id. The sort in `render` still keys
+# on the record's own `id`: the ORDER is unchanged, only the shipped keys.
+EDGE_FIELDS = ("src", "dst", "type", "props", "source", "episode",
                "created_at", "invalid_at")
 TIME_FIELDS = ("created_at", "invalid_at", "at")
 
@@ -131,16 +150,25 @@ ASSET_JS = "graph-view.js"
 # path in both layouts and neither viewer owns the file.
 ASSET_SHARED_DIR = "viewer-shared"
 ASSET_PACKING = "packing.js"
+# The shared floor is TWO files, not one. The stylesheet joined it on
+# 2026-09-02: geometry was already shared while paint was not, so two
+# viewers drawing one packing could and did disagree about how it
+# looked. Anything in this tuple is loaded from `viewer-shared/`,
+# rewritten to point there in a vendored page, and refused loudly when
+# absent -- one rule for both, so a third shared asset needs no new code.
+ASSET_PACKING_CSS = "packing.css"
+SHARED_ASSETS = (ASSET_PACKING, ASSET_PACKING_CSS)
 DATA_PLACEHOLDER = "/*__GRAPH_DATA__*/"
 # The TRACKED page `memory_views.py install` writes — a bootstrap holding
-# no records — and the DERIVED page this renderer writes. Two names because
-# they are two artifacts: the bootstrap is committed and costs one diff
-# ever, the snapshot carries the whole graph and is gitignored. They were
-# one name until 3.1.0, and a bare render therefore rewrote the tracked
+# no records. It was one of a PAIR: `SNAPSHOT_NAME` named the derived
+# `graph-view-snapshot.html` this module used to write, and the two were
+# ONE name until 3.1.0, when a bare render therefore rewrote the tracked
 # file with the entire store — measured at 3,020,762 bytes on a delivered
-# system (`memory-graph-visualization.md` 5.4).
+# system (`memory-graph-visualization.md` 5.4). The snapshot is no longer
+# generated, and the constant naming it went with the `--out` whose help
+# text was its last reader. The bootstrap still holds no records for the
+# same reason the split was made: the viewer is served, not shipped.
 BOOTSTRAP_NAME = "graph-view.html"
-SNAPSHOT_NAME = "graph-view-snapshot.html"
 
 
 # --------------------------------------------------------------------------
@@ -159,8 +187,8 @@ def load_assets():
     base = here / ASSET_DIR_NAME
     shared = here / ASSET_SHARED_DIR
     assets = {}
-    for name in (ASSET_TEMPLATE, ASSET_CSS, ASSET_JS, ASSET_PACKING):
-        path = (shared if name == ASSET_PACKING else base) / name
+    for name in (ASSET_TEMPLATE, ASSET_CSS, ASSET_JS) + SHARED_ASSETS:
+        path = (shared if name in SHARED_ASSETS else base) / name
         if not path.is_file():
             return None, {
                 "status": "BLOCKED",
@@ -329,8 +357,10 @@ def point_at_vendored_assets(html):
         text = text.replace('"./%s"' % name,
                             '"./%s/%s"' % (ASSET_DIR_NAME, name))
     # The shared asset goes to its own directory, not the package's.
-    text = text.replace('"./%s"' % ASSET_PACKING,
-                        '"./%s/%s"' % (ASSET_SHARED_DIR, ASSET_PACKING))
+    for shared_name in SHARED_ASSETS:
+        text = text.replace('"./%s"' % shared_name,
+                            '"./%s/%s"'
+                            % (ASSET_SHARED_DIR, shared_name))
     return text.encode("utf-8")
 
 
@@ -459,26 +489,54 @@ def _split_records(blob):
     return [chunk for chunk in blob.split(REC_SEP) if chunk.strip("\x00\n ")]
 
 
-def _parse_numstat(blob):
-    """{sha: {path: (added, deleted)}} from `--numstat -z`.
+def _parse_log_diffs(blob):
+    """({sha: {path: (add, del)}}, {sha: {path: (status, previous)}}).
+
+    ONE log carries both, because `--raw` and `--numstat` are not rival
+    formats: git prints the raw block for a commit and then the numstat
+    block for the same commit, and `-z` separates every field of both with a
+    NUL. This used to be two `git log` invocations over the same range on
+    top of the one that fetched the metadata — three walks of the same
+    commits, three copies of a range definition that must agree, and three
+    subprocesses on every request.
+
+    A raw entry is the only kind that starts with ":", and a numstat entry
+    always starts with a count or `-`, so the two blocks separate without
+    counting anything and without trusting git to emit a fixed quantity of
+    either.
 
     Line counts are None for a binary file: git reports `-` there, and
     reporting that as 0 would put every binary at the bottom of a
     lines-changed scale as though it had not changed.
     """
-    out = {}
+    stats, kinds = {}, {}
     for chunk in _split_records(blob):
         tokens = [t for t in chunk.split("\x00")]
         if not tokens:
             continue
-        sha = tokens[0].strip()
-        files, index = {}, 1
+        # The formatted header is the whole first token now that the diff
+        # rides along in the same record; %H is its first field.
+        sha = tokens[0].split(FIELD_SEP)[0].strip()
+        numbers, letters, index = {}, {}, 1
         while index < len(tokens):
             # git writes a newline between the formatted header and the
             # diff block, and -z makes it part of the first token
             token = tokens[index].lstrip("\n")
             index += 1
             if not token:
+                continue
+            if token.startswith(":"):
+                # raw: ":<old mode> <new mode> <old blob> <new blob> <S>",
+                # where S is the status letter — carrying a similarity
+                # score after it for a rename or a copy, which is why only
+                # the first character is read.
+                letter = token.split(" ")[-1][:1]
+                if letter in ("R", "C") and index + 1 < len(tokens):
+                    letters[tokens[index + 1]] = (letter, tokens[index])
+                    index += 2
+                elif index < len(tokens):
+                    letters[tokens[index]] = (letter, None)
+                    index += 1
                 continue
             parts = token.split("\t")
             if len(parts) < 3:
@@ -492,12 +550,13 @@ def _parse_numstat(blob):
                     index += 2
                 else:
                     continue
-            files[path] = (
+            numbers[path] = (
                 None if added == "-" else int(added),
                 None if deleted == "-" else int(deleted))
         if sha:
-            out[sha] = files
-    return out
+            stats[sha] = numbers
+            kinds[sha] = letters
+    return stats, kinds
 
 
 def assign_lanes(commits):
@@ -635,33 +694,6 @@ def boundary_trees(repo, commits, limit=MAX_BOUNDARY_TREES):
     return trees, truncated
 
 
-def _parse_name_status(blob):
-    """{sha: {path: (status, previous_path or None)}} from `--name-status -z`."""
-    out = {}
-    for chunk in _split_records(blob):
-        tokens = [t for t in chunk.split("\x00")]
-        if not tokens:
-            continue
-        sha = tokens[0].strip()
-        files, index = {}, 1
-        while index < len(tokens):
-            status = tokens[index].lstrip("\n")
-            index += 1
-            if not status:
-                continue
-            letter = status[0]
-            if letter in ("R", "C") and index + 1 < len(tokens):
-                old, new = tokens[index], tokens[index + 1]
-                index += 2
-                files[new] = (letter, old)
-            elif index < len(tokens):
-                files[tokens[index]] = (letter, None)
-                index += 1
-        if sha:
-            out[sha] = files
-    return out
-
-
 # git's own name for "nothing": diffing a tree against it reports every
 # line of every file as added, which is exactly each file's line count.
 # One command, no blob reading, and binaries report `-` the same way they
@@ -700,6 +732,47 @@ def discover_repo(start):
     if rc != 0 or not out.strip():
         return None
     return Path(out.strip())
+
+
+# ONE finished collection, kept for as long as HEAD has not moved. Every
+# request for the payload used to re-run the whole thing — nine git
+# subprocesses for a history that changes only when somebody commits — and a
+# viewer that is refreshed while a session runs asks for it again and again.
+#
+# The key carries the STORE and the REPOSITORY as well as the commit, because
+# neither is derivable from the other: two stores in one repository have
+# different `prefix` values, and two repositories are simply different
+# histories. A cache that answered across either would serve one store's
+# payload from another store's request, which is the failure mode that makes
+# people stop trusting a viewer.
+#
+# ONE SLOT, not a table. A server serves one store; a second slot would only
+# ever hold the loser of an alternation, and the memory a 200-commit payload
+# costs is worth paying once rather than N times. Correctness lives in the
+# key, never in the size.
+_GIT_CACHE = {"key": None, "payload": None}
+
+
+def _cached_git(key):
+    """The remembered collection for `key`, or None.
+
+    A DEEP COPY, always. The payload is nested dicts and lists, and
+    `assign_lanes` mutates commit dicts in place while the payload is being
+    built — so a caller that edited what it was handed would be editing the
+    cache itself, and every later request would serve whatever it left
+    behind. Copying is what makes a cached collection indistinguishable from
+    a freshly collected one.
+    """
+    if _GIT_CACHE["key"] != key or _GIT_CACHE["payload"] is None:
+        return None
+    return copy.deepcopy(_GIT_CACHE["payload"])
+
+
+def _remember_git(key, payload):
+    """Store a private copy of `payload` under `key`; return `payload`."""
+    _GIT_CACHE["key"] = key
+    _GIT_CACHE["payload"] = copy.deepcopy(payload)
+    return payload
 
 
 def collect_git(store, repo, limit):
@@ -744,7 +817,17 @@ def collect_git(store, repo, limit):
     # differs per machine and says nothing is worse than one not committed at
     # all, so the field is gone rather than relativized to a constant.
 
-    rc, out, err = _git(["rev-parse", "HEAD"], repo)
+    # ONE spawn for both, and it is also the cache's key check. `rev-parse`
+    # applies a flag to the arguments that FOLLOW it, so `HEAD --abbrev-ref
+    # HEAD` prints the resolved commit on the first line and the branch on
+    # the second. A repository with no commits still fails the whole call,
+    # which is the answer this branch already wanted from the first argument.
+    #
+    # THE BRANCH IS PART OF THE KEY, not part of what the key protects:
+    # checking out another branch at the same commit changes the payload
+    # without moving HEAD, and a cache keyed on the commit alone would go on
+    # naming the branch that was left.
+    rc, out, err = _git(["rev-parse", "HEAD", "--abbrev-ref", "HEAD"], repo)
     if rc is None:
         payload["detail"] = "git could not be run: {}".format(err.strip())
         return payload
@@ -752,10 +835,14 @@ def collect_git(store, repo, limit):
         payload["state"] = "no_commits"
         payload["detail"] = "the repository has no commits yet"
         return payload
-    payload["head"] = out.strip()
+    lines = out.splitlines()
+    payload["head"] = lines[0].strip() if lines else ""
+    payload["branch"] = lines[1].strip() if len(lines) > 1 else ""
 
-    _rc, branch, _err = _git(["rev-parse", "--abbrev-ref", "HEAD"], repo)
-    payload["branch"] = branch.strip()
+    key = (str(store), str(repo), limit, payload["head"], payload["branch"])
+    remembered = _cached_git(key)
+    if remembered is not None:
+        return remembered
 
     # Where the scanned tree sits inside the repository. The graph's file
     # paths are relative to the scan root; git's are relative to the repo
@@ -773,24 +860,25 @@ def collect_git(store, repo, limit):
     except ValueError:
         payload["total"] = 0
 
+    # ONE walk. The metadata, the numstat and the name-status used to be
+    # three `git log` invocations over this same range — three subprocesses,
+    # and three copies of a range definition that had to agree. `--raw` and
+    # `--numstat` are additive rather than rival, so one record now carries
+    # a commit's fields, its statuses and its line counts together.
     window = ["--max-count={}".format(limit)] if limit else []
-    rc, meta, err = _git(LOG_BASE + window + ["--format=" + COMMIT_FORMAT,
-                                              "--no-patch"], repo)
+    rc, log, err = _git(LOG_BASE + window + ["--format=" + COMMIT_FORMAT,
+                                             "--raw", "--numstat", "-z"],
+                        repo)
     if rc != 0:
         payload["detail"] = "git log failed: {}".format(err.strip())
         return payload
-    _rc, numstat, _err = _git(
-        LOG_BASE + window + ["--format=" + REC_SEP + "%H", "--numstat", "-z"],
-        repo)
-    _rc, status, _err = _git(
-        LOG_BASE + window + ["--format=" + REC_SEP + "%H", "--name-status",
-                             "-z"], repo)
-    stats = _parse_numstat(numstat)
-    kinds = _parse_name_status(status)
+    stats, kinds = _parse_log_diffs(log)
 
     commits = []
-    for chunk in _split_records(meta):
-        fields = chunk.split(FIELD_SEP)
+    for chunk in _split_records(log):
+        # The fields end at the first NUL: `-z` terminates the formatted
+        # header with one, and everything after it is this commit's diff.
+        fields = chunk.split("\x00", 1)[0].split(FIELD_SEP)
         if len(fields) < len(COMMIT_FIELDS):
             continue
         sha = fields[0].strip()
@@ -862,7 +950,7 @@ def collect_git(store, repo, limit):
         payload["base"] = {"sha": oldest, "files": files,
                            "lines": base_line_counts(repo, oldest)}
     payload["state"] = "ok"
-    return payload
+    return _remember_git(key, payload)
 
 
 # --------------------------------------------------------------------------
@@ -879,6 +967,60 @@ DISK_SKIP_DIRS = {".git"}
 # renders instead of hanging. Exceeding it is REPORTED, never silent: a frame
 # whose promise is "everything on disk" must say when it stopped short.
 MAX_DISK_FILES = 20000
+
+
+# A file big enough that reading it to count newlines would cost more than the
+# answer is worth, and a chunk large enough to recognise a binary by its first
+# NUL. Both are bounds on WORK, not judgements about the file: past the cap the
+# entry simply carries no line count and the viewer sizes it uniformly, which
+# is what it already does for anything it cannot measure.
+LINE_COUNT_MAX_BYTES = 4 * 1024 * 1024
+LINE_COUNT_CHUNK = 65536
+
+
+def count_lines(path, size):
+    """Newlines in a text file, or None when the question does not apply.
+
+    MIRRORED between `memory_viz.py` and `coverage_viz.py`, not imported,
+    for the same reason `STORE_VENDORED_PACKAGE` is mirrored: these two
+    modules are vendored into DIFFERENT packages -- a coverage install
+    carries no `memory_viz.py` and a store carries no `coverage_viz.py` --
+    so an import would make each package depend on a file it does not ship.
+    The duplication is deliberate, and the home suite's
+    `test_scripts_memory_viz_02.py` is the test that keeps the two copies
+    from drifting: it compares this source text, character for character,
+    with the other module's.
+
+    None for a binary, for something too large to be worth reading, and for
+    anything unreadable -- three different reasons, one answer, because the
+    caller does the same thing with all of them: omit the key and let the
+    viewer fall back to a uniform radius. Returning 0 instead would be a
+    CLAIM, and an empty file and a JPEG would make the same one.
+
+    A last line with no trailing newline still counts, which is what `wc -l`
+    does not do and what every editor showing line numbers does.
+    """
+    if size is None or size > LINE_COUNT_MAX_BYTES:
+        return None
+    try:
+        with open(str(path), "rb") as handle:
+            total = 0
+            tail = b""
+            first = True
+            while True:
+                chunk = handle.read(LINE_COUNT_CHUNK)
+                if not chunk:
+                    break
+                if first and b"\x00" in chunk:
+                    return None          # binary: lines are not its unit
+                first = False
+                total += chunk.count(b"\n")
+                tail = chunk[-1:]
+            if tail and tail != b"\n":
+                total += 1               # a final line without its newline
+            return total
+    except OSError:
+        return None
 
 
 def content_paths(root):
@@ -976,6 +1118,25 @@ def collect_disk(root, limit=MAX_DISK_FILES, exclude=()):
                 # about, so it is listed with no size rather than omitted.
                 size, link = 0, False
             entry = {"path": rel, "bytes": size}
+            # LINES, not just bytes, and this is the whole point of the walk
+            # carrying it. The Repo frame sized every leaf by `bytes` while the
+            # History frame sized the same files by `lines`, so one repository
+            # was measured in two units: `memory/graph/nodes.jsonl` came to
+            # 479181 in one frame and 1672 in the other, and its circle was
+            # enormous in one and ordinary in the other. Neither number was
+            # wrong; they were answers to different questions, and the frames
+            # were never comparable.
+            #
+            # Lines is the unit that can be shared. A git diff yields added and
+            # deleted LINES and nothing else, so the History frame cannot
+            # produce bytes; the store records `lines` too, and the frame's own
+            # documentation speaks in them. So the walk supplies lines, and
+            # bytes stays for what it is genuinely good at — reporting the
+            # weight of a file that has no lines at all.
+            if not link:
+                count = count_lines(full, size)
+                if count is not None:
+                    entry["lines"] = count
             if link:
                 entry["link"] = True
             if content is not None and rel not in content:
@@ -1128,243 +1289,47 @@ class JsonArgumentParser(argparse.ArgumentParser):
         raise SystemExit(status)
 
 
-def _positive_int(value):
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        raise argparse.ArgumentTypeError("expected an integer")
-    if parsed <= 0:
-        raise argparse.ArgumentTypeError("must be greater than 0")
-    return parsed
-
-
 def build_parser():
     ap = JsonArgumentParser(
         prog="memory_viz.py",
-        description="Render a memory store's JSONL logs into graph-view"
-                    ".html/.css/.js using the frozen memory-viewer assets.")
+        description="RETIRED: this entry point no longer renders a page. "
+                    "It refuses and names the live viewer. The renderer "
+                    "itself is called by memory_views.py serve.")
+    # ONE option, because `run()` reads one. The eleven that fed the
+    # deleted render body (`--out`, `--standalone`,
+    # `--include-invalidated`, `--limit`, `--rank`, `--no-card-bodies`,
+    # `--force-out`, `--repo`, `--commits`, `--no-git`, `--disk-root`)
+    # were removed with it: a parser that still accepts them answers
+    # "yes" to a request it then refuses for an unrelated reason, and
+    # `--help` reads as a menu of things this entry point can do. The
+    # live viewer declares its own; `memory_views.py` keeps `--commits`
+    # and `--disk-root` there, and reads `DEFAULT_COMMIT_LIMIT` from
+    # this module for the default, which is why that constant stays.
     ap.add_argument("--store", default="memory",
                     help="memory store directory (default: memory)")
-    ap.add_argument("--out", default=None,
-                    help="output HTML path (default "
-                         "<store>/" + SNAPSHOT_NAME + ", the DERIVED page; "
-                         "the tracked bootstrap graph-view.html is never "
-                         "written by this script)")
-    ap.add_argument("--standalone", action="store_true",
-                    help="write graph-view.css/.js beside the page and "
-                         "link them there, instead of linking the store's "
-                         "vendored memory-viewer/ copies (implied when the "
-                         "page is written outside the store)")
-    ap.add_argument("--include-invalidated", action="store_true",
-                    help="inline invalidated records too (default: live only)")
-    ap.add_argument("--limit", type=_positive_int, default=None,
-                    help="inline only the top-N nodes plus induced edges")
-    ap.add_argument("--rank", choices=("degree",), default="degree",
-                    help="ranking used by --limit (default: degree)")
-    ap.add_argument("--no-card-bodies", action="store_true",
-                    help="do not inline card bodies")
-    ap.add_argument("--force-out", action="store_true",
-                    help="allow --out to point outside the store's parent")
-    ap.add_argument("--repo", default=None,
-                    help="repository whose history feeds the History view"
-                         " (default: the one containing the store)")
-    ap.add_argument("--commits", type=int, default=DEFAULT_COMMIT_LIMIT,
-                    help="how many commits to inline, newest first"
-                         " (default {}; 0 = all)".format(DEFAULT_COMMIT_LIMIT))
-    ap.add_argument("--no-git", action="store_true",
-                    help="do not read any git history (History view says so)")
-    ap.add_argument("--disk-root", default=None,
-                    help="directory the Repo view walks (default: the "
-                         "repository containing the store, else the store's "
-                         "parent). Everything present is drawn, gitignored "
-                         "files included; symlinks are listed, never "
-                         "followed")
     return ap
 
 
 def run(argv):
     args = build_parser().parse_args(argv)
 
-    store = Path(args.store)
-    graph_dir = store / "graph"
-    out = Path(args.out) if args.out else store / SNAPSHOT_NAME
-    # WHICH LAYOUT this render is in, decided once. Inside a store the
-    # frozen assets are vendored exactly once under `memory-viewer/` and
-    # the page links them there; a page written anywhere else has no
-    # package beside it and must carry its own copies, or it opens
-    # unstyled off disk. `--standalone` asks for the second layout
-    # explicitly, which is the only way to get the beside copies inside a
-    # store — and the store then owns two of each, deliberately.
-    standalone = args.standalone or not _within(out.parent, store)
-
-    if not store.is_dir():
-        sys.stdout.write(json.dumps({
-            "status": "BLOCKED", "error": "no store at {}".format(store),
-            "hint": "initialize the memory store first",
-        }) + "\n")
-        return 2
-
-    # K10.9 — refuse an --out that escapes the store's parent unless forced.
-    if not args.force_out and not _within(out.parent, store.parent):
-        sys.stdout.write(json.dumps({
-            "status": "BLOCKED",
-            "error": "--out {} is outside {}".format(out, store.parent),
-            "hint": "pass --force-out to write there anyway",
-        }) + "\n")
-        return 2
-
-    # Frozen assets are a precondition: refuse before touching the store.
-    assets, asset_error = load_assets()
-    if asset_error is not None:
-        sys.stdout.write(json.dumps(asset_error) + "\n")
-        return 2
-
-    if not graph_dir.is_dir():
-        sys.stderr.write("advisory: {} does not exist - emitting empty-state "
-                         "page\n".format(graph_dir))
-        nodes, edges, info = {}, {}, {"malformed": 0, "newest": ""}
-    else:
-        nodes, edges, info = load_logs(store)
-        if not nodes:
-            sys.stderr.write("advisory: memory graph is empty - emitting "
-                             "empty-state page\n")
-        if info["malformed"]:
-            sys.stderr.write("advisory: {} malformed line(s) skipped\n".format(
-                info["malformed"]))
-
-    total_nodes, total_edges = len(nodes), len(edges)
-    nodes, edges, hidden_nodes, hidden_edges = split_invalidated(
-        nodes, edges, args.include_invalidated)
-    nodes, edges, limited = apply_limit(nodes, edges, args.limit, args.rank)
-
-    cards = {"cards_inlined": 0, "card_bytes": 0, "cards_outside_store": 0,
-             "cards_missing": 0}
-    if not args.no_card_bodies:
-        cards = inline_card_bodies(nodes, store)
-
-    superseded = {r.get("dst") for r in edges.values()
-                  if r.get("type") == "supersedes"
-                  and r.get("invalid_at") is None}
-
-    meta = {
-        # K9 — newest record timestamp, never the wall clock.
-        "generated_at": info["newest"] or "unknown",
-        "source": portable_source(graph_dir, args.repo),
-        "malformed": info["malformed"],
-        "invalidated_nodes_hidden": hidden_nodes,
-        "invalidated_edges_hidden": hidden_edges,
-        "include_invalidated": bool(args.include_invalidated),
-        "limited": limited,
-        "limit": args.limit if limited else 0,
-        "rank": args.rank if limited else "",
-        "total_nodes": total_nodes,
-        "total_edges": total_edges,
-        "cards_inlined": cards["cards_inlined"],
-    }
-
-    # The Repo frame walks the DISK (N-6.2). It is deliberately NOT the git
-    # tree and deliberately NOT the node set: History already shows what git
-    # knows, and the node set is what a scan recorded. What neither shows is
-    # what has quietly accumulated — checkpoints, reports, caches — and that
-    # is precisely what a reader opens this frame to see.
-    disk_root = args.disk_root or (
-        args.repo or discover_repo(store if store.is_dir() else store.parent)
-        or store.parent)
-    disk = collect_disk(disk_root, exclude=(
-        out, out.parent / ASSET_CSS, out.parent / ASSET_JS,
-        # The shared floor is a FOURTH output of a standalone render, and
-        # a frame that draws what this run is writing re-renders differently
-        # every time. Excluded by exact path, like the other three.
-        out.parent / ASSET_PACKING,
-        store / ASSET_SHARED_DIR / ASSET_PACKING))
-    if disk["state"] != "ok":
-        sys.stderr.write("advisory: no disk tree — {}\n".format(
-            disk["detail"] or disk["state"]))
-    elif disk["truncated"]:
-        sys.stderr.write("advisory: {}\n".format(disk["detail"]))
-    meta["disk_state"] = disk["state"]
-    meta["disk_files"] = len(disk["files"])
-    meta["disk_root"] = portable_source(Path(disk_root) / "_", args.repo)
-
-    if args.no_git:
-        git = {"state": "off", "detail": "--no-git was passed", "commits": [],
-               "base": {"sha": "", "files": []}, "bases": {},
-               "bases_truncated": False, "lanes": 0, "total": 0, "included": 0,
-               "truncated": False, "head": "", "branch": "",
-               "prefix": ""}
-    else:
-        git = collect_git(store, args.repo, max(0, args.commits))
-        if git["state"] != "ok":
-            sys.stderr.write("advisory: no commit history — {}\n".format(
-                git["detail"] or git["state"]))
-    meta["git_state"] = git["state"]
-    meta["commits_inlined"] = git["included"]
-
-    payload = render(nodes, edges, meta, assets[ASSET_TEMPLATE], git, disk)
-
-    # STANDALONE: graph-view.css / graph-view.js land beside the HTML,
-    # byte-identical to the frozen assets, and the template's relative
-    # links already reach them. VENDORED (a page inside a store): the
-    # store already holds one copy of each under `memory-viewer/`, put
-    # there by `memory_views.py install`, so this render writes no assets
-    # at all and re-points the page instead. Writing them anyway is what
-    # left stale beside-copies in delivered stores, where the gate then
-    # reported the page as drawn by a viewer the system no longer carries.
-    if standalone:
-        out_css = out.parent / ASSET_CSS
-        out_js = out.parent / ASSET_JS
-        # FLAT, like the other two: a standalone page links `./packing.js`
-        # because nothing re-points it, and a page whose floor is missing
-        # draws nothing at all.
-        out_pack = out.parent / ASSET_PACKING
-    else:
-        payload = point_at_vendored_assets(payload)
-        out_css = store / ASSET_DIR_NAME / ASSET_CSS
-        out_js = store / ASSET_DIR_NAME / ASSET_JS
-        out_pack = store / ASSET_SHARED_DIR / ASSET_PACKING
-    try:
-        written = write_if_changed(out, payload)
-        written_css = (write_if_changed(out_css, assets[ASSET_CSS])
-                       if standalone else False)
-        written_js = (write_if_changed(out_js, assets[ASSET_JS])
-                      if standalone else False)
-        written_pack = (write_if_changed(out_pack,
-                                         assets[ASSET_PACKING])
-                        if standalone else False)
-    except OSError as exc:
-        sys.stdout.write(json.dumps({
-            "status": "FAILED", "error": "{}: {}".format(
-                type(exc).__name__, exc)}) + "\n")
-        return 1
-
-    summary = {
-        "status": "COMPLETED",
-        "nodes": len(nodes),
-        "edges": len(edges),
-        "superseded": sum(1 for nid in nodes if nid in superseded),
-        "invalidated_nodes_hidden": hidden_nodes,
-        "invalidated_edges_hidden": hidden_edges,
-        "malformed": info["malformed"],
-        "cards_inlined": cards["cards_inlined"],
-        "card_bytes": cards["card_bytes"],
-        "cards_outside_store": cards["cards_outside_store"],
-        "cards_missing": cards["cards_missing"],
-        "limited": limited,
-        "git_state": git["state"],
-        "commits": git["included"],
-        "commits_truncated": git["truncated"],
-        "generated_at": meta["generated_at"],
-        "bytes": len(payload),
-        "written": written,
-        "written_css": written_css,
-        "written_js": written_js,
-        "layout": "standalone" if standalone else "vendored",
-        "out": str(out),
-        "out_css": str(out_css),
-        "out_js": str(out_js),
-    }
-    sys.stdout.write(json.dumps(summary) + "\n")
-    return 0
+    # RETIRED. This module's CLI wrote the derived,
+    # data-bearing `graph-view-snapshot.html`. It is no longer generated
+    # and the viewer is LIVE-ONLY. `render()` itself stays: it is the
+    # shared renderer `memory_views.py serve` calls, and retiring the
+    # entry point is what removes the FILE without removing the ability
+    # to draw the page.
+    #
+    # Retiring the verb in `memory_views.py` alone would have left this
+    # second door open -- the same generation, one module away, which is
+    # how a removed feature comes back.
+    print(json.dumps({
+        "status": "BLOCKED",
+        "error": "rendering the derived memory page is retired; it is "
+                 "no longer generated",
+        "hint": "open it live instead: python memory_views.py serve "
+                "--store %s" % args.store}))
+    return 2
 
 
 def main(argv=None):

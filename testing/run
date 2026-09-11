@@ -98,7 +98,24 @@ reclaim() {
         echo "run: KEEP_TEMP=1 - workspaces left in place" >&2
         return
     fi
-    "$python" "$here/cleanup.py" || echo "run: cleanup reported a problem" >&2
+    #
+    # STOP MEASURING BEFORE CLEANING UP. This wrapper exports
+    # COVERAGE_PROCESS_START and puts this directory on PYTHONPATH so that
+    # every CHILD measures itself - and the cleanup call is a child too.
+    # Left exported, `sitecustomize.py` starts coverage inside the cleanup
+    # process, which writes its own `.coverage.<host>.pid<N>.<rand>.<rand>`
+    # fragment at exit: AFTER `coverage combine` folded the run's data, and
+    # after the sweep that would have collected it. Every run therefore left
+    # exactly one fragment beside this script while cleanup truthfully
+    # reported "0 coverage fragment(s)" - its own did not exist yet.
+    #
+    # UNSET, never emptied. `coverage.process_startup()` asks
+    # `os.getenv("COVERAGE_PROCESS_START") is not None` (measured against
+    # coverage 7.15), so `COVERAGE_PROCESS_START= cleanup.py` still starts a
+    # measurement, with an empty config path. A subshell is the portable way
+    # to unset one variable for one command: `env -u` is a GNU extension and
+    # this wrapper is the POSIX half of the contract.
+    (unset COVERAGE_PROCESS_START; "$python" "$here/cleanup.py")         || echo "run: cleanup reported a problem" >&2
 }
 
 trap 'reclaim' EXIT INT TERM

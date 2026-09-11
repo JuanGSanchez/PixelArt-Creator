@@ -4,10 +4,9 @@
 # re-generate with `container_repo.py install-hooks`, never hand-edit).
 #
 # A branch that lands on the product's default branch has been accepted,
-# and that is the moment its lessons are promoted out of local development.
-# They are moved into the shared store above this repository and removed
-# from this one, so there is exactly one owner and no second place to
-# consult.
+# and that is the moment its lessons become the orchestration system's.
+# They are moved into the container's store and removed from this one, so
+# there is exactly one owner and no second place to consult.
 #
 # This runs AFTER the merge: it can report, but it must never fail it. A
 # merge already recorded and then reversed by a hook is worse than a
@@ -24,7 +23,7 @@ case "$branch" in
 esac
 
 # Locate the container: nearest ancestor holding <dir>/check_branch_naming.py
-# (1 level up for a single-product branch folder, 3 for a multi-product one).
+# (2 levels up from a root in `codebase/`, 3 from a multi-product one).
 # The directory this hook was installed for is tried first, then `scripts/`.
 container=$(dirname "$repo_root")
 container_found=
@@ -46,8 +45,8 @@ done
 if [ -z "$container_found" ]; then
     echo "post-merge: no container found above $repo_root; the following" >&2
     echo "post-merge: container-backed duties did NOT run (this clone has no" >&2
-    echo "post-merge: parent tooling folder above it, and its gate scripts are" >&2
-    echo "post-merge: deliberately not vendored into the product):" >&2
+    echo "post-merge: orchestration container above it, and its gate scripts" >&2
+    echo "post-merge: are deliberately not vendored into the product):" >&2
     echo "post-merge:   - lesson promotion (container_repo.py promote-merged) -" >&2
     echo "post-merge:     NOT run: would have moved this merge's memory/insight" >&2
     echo "post-merge:     entries into the container's store." >&2
@@ -91,8 +90,9 @@ $PY "$container_scripts/container_repo.py" promote-merged "$repo_root" || {
 # The merge changed the tree, so the map has to catch up — and it has to be
 # COMMITTED, not left dirty: the next merge would refuse to overwrite it, and
 # on a product's main a merge is the only way work ever arrives. A commit
-# carrying nothing but the store is bookkeeping, which the pre-commit gate
-# allows on main by design; that commit's own refresh finds nothing further
+# carrying nothing but the store, made while HEAD is itself a merge, is the
+# post-merge store refresh the pre-commit gate admits on main BY NAME (its
+# one recurring admission); that commit's own refresh finds nothing further
 # to do, so this converges instead of recursing.
 scripts="$container_scripts"
 if [ -f "$repo_root/scripts/memory_graph.py" ]; then
@@ -102,12 +102,11 @@ fi
 # --- refresh this repository's own memory store -------------------------
 # The working tree just changed, so the map that describes it is stale and
 # the index that answers from it is staler. The duty belongs to the hook and
-# never to a human or an agent to remember by hand: a map that depends on
-# somebody remembering is wrong exactly when it matters. The scan is
-# incremental and
+# never to an agent (`memory-graph-operations.md` §6.1): a map that depends on somebody
+# remembering is wrong exactly when it matters. The scan is incremental and
 # its scope is what this repository's git carries (§5.3a rule 6), so this
 # repository maps itself and no other.
-if [ -f "$repo_root/memory/store-role.json" ]; then
+if [ -f "$repo_root/memory/store.json" ] || [ -f "$repo_root/memory/store-role.json" ]; then
     if [ ! -f "$scripts/memory_graph.py" ]; then
         echo "$HOOK: $scripts/memory_graph.py is missing; the store was not refreshed." >&2
     else
@@ -118,18 +117,45 @@ if [ -f "$repo_root/memory/store-role.json" ]; then
         }
     fi
 elif [ -d "$repo_root/memory" ]; then
-    # A store WITHOUT its role marker. This used to fall through in silence,
+    # A store WITHOUT its scope marker. This used to fall through in silence,
     # and silence is indistinguishable from success: measured on a delivered
     # system, the marker had never existed, so every commit it ever made
     # skipped the refresh and its map described the tree as it stood months
     # earlier. Note the asymmetry this repairs — a MISSING SCRIPT was already
     # reported, while a missing marker, which disables the same duty just as
     # completely, said nothing at all.
-    echo "$HOOK: $repo_root/memory has no store-role.json, so the store was NOT refreshed" >&2
-    echo "$HOOK:   memory_graph.py init --store $repo_root/memory --role container" >&2
+    echo "$HOOK: $repo_root/memory has no store.json, so the store was NOT refreshed" >&2
+    echo "$HOOK:   memory_graph.py init --store $repo_root/memory --scope workspace" >&2
 fi
 
 if [ -n "$(git status --porcelain -- memory 2>/dev/null)" ]; then
+    # THE MERGE STATE IS STALE HERE, AND A COMMIT WOULD INHERIT IT. git runs
+    # this hook BEFORE it removes the merge's own MERGE_HEAD, so a plain
+    # `git commit` below recorded TWO parents — the merge just made and the
+    # branch it had already absorbed — and the bookkeeping commit was itself
+    # a redundant merge (12 of 13 measured on a delivered product's main,
+    # PixelArt 2026-08-29): `git log --graph` showed every merge twice, and
+    # the gate admitted it as "merge (MERGE_HEAD present)" instead of the
+    # admission written for it. HEAD already records the merge, so the file
+    # describes nothing pending. Drop it — but only when HEAD is itself a
+    # merge AND every head the file names is already an ancestor of HEAD; a
+    # merge that is genuinely still open keeps its state (this hook does not
+    # run for one, but the guard is what makes that true by construction
+    # rather than by git's ordering). Not plumbing (`commit-tree -p HEAD`):
+    # that would make this the one commit on main no gate ever saw. Not
+    # "leave it staged": on main nothing but a merge ever commits, and the
+    # next merge refuses a dirty index.
+    merge_head=$(git rev-parse --git-path MERGE_HEAD)
+    if [ -f "$merge_head" ] \
+       && git rev-parse --verify --quiet "HEAD^2" >/dev/null 2>&1; then
+        stale=1
+        while read -r merged_sha; do
+            [ -n "$merged_sha" ] || continue
+            git merge-base --is-ancestor "$merged_sha" HEAD 2>/dev/null \
+                || stale=
+        done < "$merge_head"
+        [ -n "$stale" ] && rm -f "$merge_head"
+    fi
     git add -- memory >/dev/null 2>&1 || true
     git commit -m "chore(memory): refresh the map after the merge" \
         >/dev/null 2>&1 || {

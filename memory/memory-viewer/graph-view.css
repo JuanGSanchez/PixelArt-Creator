@@ -220,9 +220,9 @@ pre.props, pre.code { background: var(--field); border: 1px solid var(--line);
 /* ------------------------------------------------------------------ */
 /* repo view (nested circle packing)                                  */
 /* ------------------------------------------------------------------ */
-.rdir { fill: var(--ink); fill-opacity: 0.035; stroke: var(--muted);
-  stroke-opacity: 0.45; stroke-width: 1; cursor: pointer; }
-.rdir:hover { stroke: var(--accent); stroke-opacity: 1; }
+/* The packed map's circles and labels are styled by
+ * viewer-shared/packing.css, which both viewers load. What remains
+ * below is only what carries THIS viewer's data. */
 /* NO font-size here (N-6.3). The size is a function of the circle being
    named and is set per element by `makeLabel`; a rule here would either win
    over it or be dead, and a dead rule in a stylesheet is a lie somebody
@@ -242,10 +242,6 @@ pre.props, pre.code { background: var(--field); border: 1px solid var(--line);
    `font-size` is. ONE label styling serves all three circle graphs — Repo,
    History, and the coverage viewer's Coverage frame — and `test_46c` is
    what keeps the two stylesheets from drifting apart. */
-.rdir-label, .rleaf-label {
-  text-anchor: middle; pointer-events: none;
-  paint-order: stroke; stroke: var(--panel); stroke-linejoin: round; }
-.rdir-label { fill: var(--muted); font-weight: 700; }
 /* Hover thickens the outline to three times its resting weight - the
    difference between a regular and a bold letter, which is legible
    without moving the circle or changing its colour (colour is carrying
@@ -253,14 +249,6 @@ pre.props, pre.code { background: var(--field); border: 1px solid var(--line);
    sits on the resting rule so it runs on the way OUT as well as in;
    declared on the element rather than in :hover, or leaving a circle
    would snap. */
-.rleaf { stroke: var(--panel); stroke-width: var(--leaf-stroke);
-  cursor: pointer;
-  transition: stroke-width var(--leaf-ease), stroke var(--leaf-ease); }
-.rleaf:hover { stroke: var(--accent); stroke-width: var(--leaf-stroke-hover); }
-.rleaf.selected { stroke: var(--accent); stroke-width: 2.5; }
-.rleaf.selected:hover { stroke-width: var(--leaf-stroke-hover); }
-.rleaf.dimmed { opacity: var(--dim); }
-.rleaf-label { fill: var(--ink); }
 /* A file on disk that no node speaks for. Drawn, because it IS there — the
    accumulation this frame exists to show is made of exactly these — but
    outlined rather than filled solid, so "present" and "recorded" stay two

@@ -316,7 +316,9 @@ nav#frames button.active {
   border-style: dashed; }
 
 /* the packing */
-.cdir { fill: none; stroke: var(--line); stroke-width: 1; }
+/* The packed map's circles and labels are styled by
+ * viewer-shared/packing.css, which both viewers load. What remains
+ * below is only what carries THIS viewer's data. */
 /* NO `fill` ON THE BARE CLASS. The percentage a file reached is DATA, and
    the page sets it as a presentation attribute — which every author
    declaration outranks, however unspecific. A `fill:` here therefore does
@@ -324,7 +326,6 @@ nav#frames button.active {
    one flat colour and makes the ramp invisible, which is precisely what it
    did. A file with no colour of its own carries a class that says which
    kind of "no colour" it is, below. */
-.cleaf { stroke: var(--panel); stroke-width: .5; cursor: pointer; }
 /* Dashed, not merely pale: "the artefact never saw this file" must be
    legible as a DIFFERENT KIND of answer, not as a low percentage. */
 .cleaf.unmeasured { fill: var(--unmeasured); stroke: var(--muted);
@@ -333,8 +334,11 @@ nav#frames button.active {
    the suite did see this file — and not on the ramp either, because there
    is no number to place. */
 .cleaf.nofigure { fill: var(--unmeasured); }
-.cleaf.selected { stroke: var(--accent); stroke-width: 2.5;
-  stroke-dasharray: none; }
+/* Clearing the dash is this viewer's own business: an `unmeasured` circle is
+   drawn dashed, and a selected one must read as SELECTED rather than as
+   unmeasured. The stroke colour and width come from packing.css, where they
+   are the same in every packed map. */
+.cleaf.selected { stroke-dasharray: none; }
 /* ONE LABEL STYLING, THREE CIRCLE GRAPHS. Byte-for-byte the memory viewer's
    rules with this page's class prefix — the Repo frame, the History frame
    and this one draw the same picture from the same packing, and a reader
@@ -344,11 +348,6 @@ nav#frames button.active {
    and invisible on a 36px one. The width now scales with the label and is
    set per element by `makeLabel`, like `font-size`. `test_46c` compares the
    two stylesheets and fails if they drift. */
-.cdir-label, .cleaf-label {
-  text-anchor: middle; pointer-events: none;
-  paint-order: stroke; stroke: var(--panel); stroke-linejoin: round; }
-.cdir-label { fill: var(--muted); font-weight: 700; }
-.cleaf-label { fill: var(--ink); }
 
 /* the right-hand panel */
 .cov-file-head { display: flex; align-items: baseline; gap: 10px;

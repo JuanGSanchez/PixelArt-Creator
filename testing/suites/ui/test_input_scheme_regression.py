@@ -7,11 +7,11 @@ BEFORE any wave-1+ product edit lands — a failure here is a wave-0 defect,
 never "a discovery about the feature" (tasks.md §0 rule 2).
 
 **This module does not re-test every row.** Per the task's own instruction,
-a row already protected by an existing suite is CITED, not duplicated. The
-full 34-row citation table (which rows are pinned here vs. which existing
-file already pins them) lives in the QA subagent report for this task,
-not in this docstring, so the map is not duplicated in two places that can
-drift apart.
+a row already protected by an existing suite is CITED, not duplicated -- the
+citation is named inline, in the section header immediately above the row's
+own test(s) below (e.g. R-32 cites ``test_shape_mode.py::
+test_shape_commit_is_mask_constrained``), rather than collected into a
+separate table that could drift out of sync with this file.
 
 This module writes ONLY new coverage for the rows that had none, or had only
 a partial/weak pin, when the branch's baseline
