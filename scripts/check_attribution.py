@@ -327,7 +327,7 @@ VENDOR_WORD_RE = re.compile(r"(?i)(?<![A-Za-z0-9])(" + _TOKEN_ALT + r")(?![A-Za-
 # A dot is ALLOWED before a host so a subdomain matches (`api.openai.com`); a
 # letter, digit or hyphen is not, so a longer word ending in the host name does
 # not (`notaclaude.ai` is nobody's assistant).
-VENDOR_HOST_RE = re.compile(r"(?i)(?<![A-Za-z0-9\-])(" + _HOST_ALT + r")\b")
+VENDOR_HOST_RE = re.compile(r"(?i)(?<![A-Za-z0-9-])(" + _HOST_ALT + r")\b")
 
 # Any e-mail-shaped token. Split into local part and domain so the two are
 # judged by different rules (see REJECT BY PROHIBITION in the docstring).
@@ -351,8 +351,15 @@ GENERATED_WITH_RE = re.compile(
 # A line whose whole content is a vendor assistant URL: the bare session link
 # the harness appends under "Generated with". Anchored to the WHOLE line, so a
 # URL cited inside a sentence is not a hit.
+#
+# The marker on the pattern line below is path_portability_check.py's own
+# per-line escape hatch, and it is needed for a FALSE positive: that gate
+# reads the adjacent regex escapes in the negated class as a Windows path
+# separator between two words. It already exempts a pattern passed straight
+# to re.compile(), but this one is BUILT BY CONCATENATION, so the literal
+# AST parent is the `+` and not the call, and the exemption cannot see it.
 BARE_VENDOR_URL_RE = re.compile(
-    r"(?i)^[ \t]*(?:[^\w\s]{1,6}[ \t]*)?<?https?://(?:"
+    r"(?i)^[ \t]*(?:[^\w\s]{1,6}[ \t]*)?<?https?://(?:"  # portability: ok
     + _HOST_ALT
     + r")(?:/\S*)?>?[ \t]*$"
 )
