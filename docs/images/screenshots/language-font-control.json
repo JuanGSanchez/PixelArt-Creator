@@ -1,0 +1,48 @@
+{
+  "platform": "offscreen",
+  "language_control": {
+    "examined": 1526,
+    "failed": 0,
+    "findings": []
+  },
+  "font_control": {
+    "family_requested": "Segoe UI",
+    "point_size_requested": 9,
+    "family_effective": "Segoe UI",
+    "family_available": true,
+    "ok": true
+  },
+  "language_requested": "en",
+  "all_platforms": [
+    {
+      "platform_requested": "native (unset)",
+      "language_control": {
+        "examined": 0,
+        "failed": 0,
+        "findings": []
+      },
+      "font_control": {
+        "family_requested": "Segoe UI",
+        "point_size_requested": 9,
+        "family_effective": "Segoe UI",
+        "family_available": true,
+        "ok": true
+      }
+    },
+    {
+      "platform_requested": "offscreen",
+      "language_control": {
+        "examined": 1526,
+        "failed": 0,
+        "findings": []
+      },
+      "font_control": {
+        "family_requested": "Segoe UI",
+        "point_size_requested": 9,
+        "family_effective": "Segoe UI",
+        "family_available": true,
+        "ok": true
+      }
+    }
+  ]
+}

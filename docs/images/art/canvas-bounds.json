@@ -1,0 +1,21 @@
+{
+  "ok": [
+    {
+      "piece": "character-sprite",
+      "factor": 8
+    },
+    {
+      "piece": "layered-scene",
+      "factor": 6
+    },
+    {
+      "piece": "tilemap-level",
+      "factor": 3
+    },
+    {
+      "piece": "procgen-contact-sheet",
+      "factor": 4
+    }
+  ],
+  "failures": []
+}

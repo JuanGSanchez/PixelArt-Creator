@@ -1,0 +1,61 @@
+[
+  {
+    "platform_requested": "native (unset)",
+    "returncode": 0,
+    "stderr_tail": "",
+    "font_dir_configured": false,
+    "font_dir_source": "",
+    "platform": "windows",
+    "known_true_signal": false,
+    "captures": {},
+    "errors": [],
+    "font_control": {
+      "family_requested": "Segoe UI",
+      "point_size_requested": 9,
+      "family_effective": "Segoe UI",
+      "family_available": true,
+      "ok": true
+    },
+    "language_control": {
+      "examined": 0,
+      "failed": 0,
+      "findings": []
+    },
+    "font_families_count": 366,
+    "font_ink_ratio": 0.09409722222222222,
+    "text_render_ok": true
+  },
+  {
+    "platform_requested": "offscreen",
+    "returncode": 0,
+    "stderr_tail": "",
+    "font_dir_configured": true,
+    "font_dir_source": "env:SystemRoot/Fonts",
+    "platform": "offscreen",
+    "known_true_signal": true,
+    "captures": {
+      "scene_project": "main-canvas-layers.png",
+      "scene_project_dark": "main-canvas-layers-dark.png",
+      "sprite_project": "animation-timeline.png",
+      "tilemap_project": "tilemap-editor.png",
+      "colour_hub": "colour-hub.png",
+      "user_guide": "user-guide.png"
+    },
+    "errors": [],
+    "font_control": {
+      "family_requested": "Segoe UI",
+      "point_size_requested": 9,
+      "family_effective": "Segoe UI",
+      "family_available": true,
+      "ok": true
+    },
+    "language_control": {
+      "examined": 1526,
+      "failed": 0,
+      "findings": []
+    },
+    "font_families_count": 230,
+    "font_ink_ratio": 0.09314236111111111,
+    "text_render_ok": true
+  }
+]
