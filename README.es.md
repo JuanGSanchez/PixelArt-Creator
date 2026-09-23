@@ -2,6 +2,17 @@
 
 # PixelArt Creator
 
+[![CI](https://github.com/JuanGSanchez/PixelArt-Creator/actions/workflows/ci.yml/badge.svg)](https://github.com/JuanGSanchez/PixelArt-Creator/actions/workflows/ci.yml)
+[![Documentación](https://github.com/JuanGSanchez/PixelArt-Creator/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/JuanGSanchez/PixelArt-Creator/actions/workflows/docs-pages.yml)
+[![Compilar instaladores](https://github.com/JuanGSanchez/PixelArt-Creator/actions/workflows/build-installers.yml/badge.svg)](https://github.com/JuanGSanchez/PixelArt-Creator/actions/workflows/build-installers.yml)
+[![Licencia](https://img.shields.io/github/license/JuanGSanchez/PixelArt-Creator)](https://github.com/JuanGSanchez/PixelArt-Creator/blob/main/LICENSE)
+[![Última versión](https://img.shields.io/github/v/release/JuanGSanchez/PixelArt-Creator)](https://github.com/JuanGSanchez/PixelArt-Creator/releases)
+[![Descargas](https://img.shields.io/github/downloads/JuanGSanchez/PixelArt-Creator/total)](https://github.com/JuanGSanchez/PixelArt-Creator/releases)
+[![Último commit](https://img.shields.io/github/last-commit/JuanGSanchez/PixelArt-Creator)](https://github.com/JuanGSanchez/PixelArt-Creator/commits/main)
+![Python](https://img.shields.io/badge/python-3.13%2B-blue)
+![UI](https://img.shields.io/badge/UI-PySide6%20%2F%20Qt6-41CD52)
+![Plataformas](https://img.shields.io/badge/plataforma-windows%20%7C%20macos%20%7C%20linux-lightgrey)
+
 *[Read in English](README.md)*
 
 **PixelArt Creator** es una plataforma multiplataforma de creación de arte pixel construida
@@ -15,6 +26,15 @@ aplicación mediante una Guía de usuario completa y sin conexión.
 Su arquitectura es una división estricta en tres capas: `ui/` (PySide6), `logic/` (Python
 puro, sin Qt) y `data/` (E/S, sin Qt). El comportamiento del dominio vive en las capas puras y
 es totalmente comprobable sin interfaz gráfica; Qt queda confinado a la capa de UI.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/screenshots/main-canvas-layers-dark.png">
+  <img src="docs/images/screenshots/main-canvas-layers.png" alt="Lienzo principal y panel de capas de PixelArt Creator, editando una escena en pixel art por capas." width="960">
+</picture>
+
+*Lienzo principal y panel de capas de PixelArt Creator (tema oscuro mostrado arriba en el
+modo oscuro de GitHub; tema claro en la imagen de respaldo) — ver la
+[Galería](#galería) más abajo para más ejemplos.*
 
 ## Características principales
 
@@ -70,6 +90,31 @@ La plataforma se ha construido por fases; las capacidades siguientes están **en
   siendo deshacibles, mientras que las acciones destructivas piden confirmación primero.
 - **Guía de usuario integrada** — una guía completa, sin conexión y con búsqueda que cubre
   cada área funcional, abierta desde **Ayuda ▸ Guía de usuario** o **F1**.
+
+## Galería
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/art/character-sprite.gif" alt="GIF animado del ciclo de caminar de 8 fotogramas del personaje aventurero en pixel art, en bucle." width="100%"><br><sub>Animación del personaje — ciclo de caminar de 8 fotogramas</sub></td>
+<td width="50%"><img src="docs/images/art/layered-scene.png" alt="Escena en pixel art con cielo con tramado, colinas sombreadas, un árbol y una casa, compuesta con 5 capas en PixelArt Creator." width="100%"><br><sub>Escena por capas — 5 capas no destructivas</sub></td>
+</tr>
+<tr>
+<td><img src="docs/images/art/tilemap-level.png" alt="Nivel de mapa de baldosas en pixel art visto desde arriba, con base de hierba, un estanque, un borde de piedra y un camino de tierra con auto-baldosado Blob-47." width="100%"><br><sub>Mapa de baldosas — auto-baldosado Blob-47</sub></td>
+<td><img src="docs/images/art/procgen-contact-sheet.png" alt="Hoja de contacto con 5 texturas generadas de forma procedural (ruido de valor, ruido de gradiente, OpenSimplex, autómata celular, degradado con tramado) adaptadas a una paleta compartida." width="100%"><br><sub>Generación procedural y automatización</sub></td>
+</tr>
+<tr>
+<td><img src="docs/images/screenshots/animation-timeline.png" alt="Panel de la línea de tiempo de animación de PixelArt Creator mostrando el sprite del aventurero de 10 fotogramas con etiquetas de reposo y caminar." width="100%"><br><sub>Línea de tiempo de animación</sub></td>
+<td><img src="docs/images/screenshots/tilemap-editor.png" alt="Editor de mapas de baldosas de PixelArt Creator con las capas Ground y Path auto-baldosada, y el control de auto-baldosado Blob-47." width="100%"><br><sub>Editor de mapas de baldosas</sub></td>
+</tr>
+<tr>
+<td><img src="docs/images/screenshots/colour-hub.png" alt="Ventana emergente del Centro de Color de PixelArt Creator con un color turquesa activo seleccionado." width="100%"><br><sub>Centro de Color</sub></td>
+<td><img src="docs/images/screenshots/user-guide.png" alt="Cuadro de diálogo de la Guía del Usuario integrada en PixelArt Creator, contenido en inglés." width="100%"><br><sub>Guía de usuario integrada</sub></td>
+</tr>
+</table>
+
+Cada imagen de ejemplo anterior se creó con la propia PixelArt Creator, y puede regenerarse
+a partir del estado del producto versionado con
+[`scripts/showcase/`](scripts/showcase/README.md).
 
 ## Despliegue / instalación / lanzamiento
 
@@ -233,8 +278,17 @@ guía única y consolidada para operadores que reúna todo esto.
 - **Guía de usuario integrada** — la documentación principal para el usuario, disponible sin
   conexión desde **Ayuda ▸ Guía de usuario** (o **F1**). Cubre cada área funcional con flujos
   de trabajo paso a paso y es buscable desde dentro de la aplicación.
+- La misma Guía de usuario también está publicada en línea, en inglés y en español, en
+  **https://juangsanchez.github.io/PixelArt-Creator/**.
 - La documentación del proyecto (registro de cambios, páginas de uso y registros de diseño)
   se mantiene junto al código fuente y se mantiene al día conforme se entregan funcionalidades.
+
+## Contribuir
+
+Las contribuciones son bienvenidas. Consulta [CONTRIBUTING.md](CONTRIBUTING.md) para la
+configuración y el flujo de desarrollo, [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) para las
+normas de la comunidad, y [SECURITY.md](SECURITY.md) para reportar una vulnerabilidad de
+forma privada.
 
 ## Licencia
 

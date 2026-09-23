@@ -2,6 +2,17 @@
 
 # PixelArt Creator
 
+[![CI](https://github.com/JuanGSanchez/PixelArt-Creator/actions/workflows/ci.yml/badge.svg)](https://github.com/JuanGSanchez/PixelArt-Creator/actions/workflows/ci.yml)
+[![Docs](https://github.com/JuanGSanchez/PixelArt-Creator/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/JuanGSanchez/PixelArt-Creator/actions/workflows/docs-pages.yml)
+[![Build installers](https://github.com/JuanGSanchez/PixelArt-Creator/actions/workflows/build-installers.yml/badge.svg)](https://github.com/JuanGSanchez/PixelArt-Creator/actions/workflows/build-installers.yml)
+[![License](https://img.shields.io/github/license/JuanGSanchez/PixelArt-Creator)](https://github.com/JuanGSanchez/PixelArt-Creator/blob/main/LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/JuanGSanchez/PixelArt-Creator)](https://github.com/JuanGSanchez/PixelArt-Creator/releases)
+[![Downloads](https://img.shields.io/github/downloads/JuanGSanchez/PixelArt-Creator/total)](https://github.com/JuanGSanchez/PixelArt-Creator/releases)
+[![Last commit](https://img.shields.io/github/last-commit/JuanGSanchez/PixelArt-Creator)](https://github.com/JuanGSanchez/PixelArt-Creator/commits/main)
+![Python](https://img.shields.io/badge/python-3.13%2B-blue)
+![UI](https://img.shields.io/badge/UI-PySide6%20%2F%20Qt6-41CD52)
+![Platforms](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey)
+
 *[Leer en español](README.es.md)*
 
 **PixelArt Creator** is a cross-platform pixel-art creation platform built on Python and
@@ -14,6 +25,14 @@ documented from inside the app by a comprehensive, offline User Guide.
 Its architecture is a strict three-layer split: `ui/` (PySide6), `logic/` (pure Python, no
 Qt), and `data/` (I/O, no Qt). Domain behaviour lives in the pure layers and is fully
 unit-testable headless; Qt is confined to the UI layer.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/screenshots/main-canvas-layers-dark.png">
+  <img src="docs/images/screenshots/main-canvas-layers.png" alt="PixelArt Creator's main canvas and layer panel, editing a layered pixel-art scene." width="960">
+</picture>
+
+*PixelArt Creator's main canvas and layer panel (dark theme shown above on GitHub's dark
+mode; light theme in the fallback image) — see the [Gallery](#gallery) below for more.*
 
 ## Key features
 
@@ -60,6 +79,30 @@ The platform has been built in phases; the capabilities below are **shipped**.
   confirmation first.
 - **In-app User Guide** — a complete, offline, searchable guide covering every functionality
   area, opened from **Help ▸ User Guide** or **F1**.
+
+## Gallery
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/art/character-sprite.gif" alt="Animated GIF of the pixel-art adventurer character's 8-frame walk cycle, looping." width="100%"><br><sub>Character animation — 8-frame walk cycle</sub></td>
+<td width="50%"><img src="docs/images/art/layered-scene.png" alt="Pixel-art scene with a dithered sky, shaded hills, a tree and a house, built from 5 layers in PixelArt Creator." width="100%"><br><sub>Layered scene — 5 non-destructive layers</sub></td>
+</tr>
+<tr>
+<td><img src="docs/images/art/tilemap-level.png" alt="Top-down pixel-art tilemap level with a grass base, a pond, a stone border and a Blob-47 auto-tiled dirt path." width="100%"><br><sub>Tilemap level — Blob-47 auto-tiling</sub></td>
+<td><img src="docs/images/art/procgen-contact-sheet.png" alt="Contact sheet of 5 procedurally generated textures (value noise, gradient noise, OpenSimplex, cellular automata, dithered gradient) curated onto one shared palette." width="100%"><br><sub>Procedural generation & automation</sub></td>
+</tr>
+<tr>
+<td><img src="docs/images/screenshots/animation-timeline.png" alt="PixelArt Creator's animation timeline dock showing the 10-frame adventurer sprite with idle and walk frame tags." width="100%"><br><sub>Animation timeline</sub></td>
+<td><img src="docs/images/screenshots/tilemap-editor.png" alt="PixelArt Creator's tilemap editor with the Ground and auto-tiled Path layers and the Blob-47 auto-tile control." width="100%"><br><sub>Tilemap editor</sub></td>
+</tr>
+<tr>
+<td><img src="docs/images/screenshots/colour-hub.png" alt="PixelArt Creator's Colour Hub popup with an active teal colour selected." width="100%"><br><sub>Colour Hub</sub></td>
+<td><img src="docs/images/screenshots/user-guide.png" alt="PixelArt Creator's in-app User Guide dialog, English content." width="100%"><br><sub>In-app User Guide</sub></td>
+</tr>
+</table>
+
+Every example image above was created with PixelArt Creator itself, and can be regenerated
+from the committed product state with [`scripts/showcase/`](scripts/showcase/README.md).
 
 ## Deploy / Install / Launch
 
@@ -207,8 +250,16 @@ exist as one document.
 - **In-app User Guide** — the primary user documentation, available offline from
   **Help ▸ User Guide** (or **F1**). It covers every functionality area with step-by-step
   workflows and is searchable from within the app.
+- The same User Guide is also published online, in English and Spanish, at
+  **https://juangsanchez.github.io/PixelArt-Creator/**.
 - Project documentation (changelog, usage pages and design records) is maintained alongside
   the source and kept current as features ship.
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup
+and workflow, [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community standards, and
+[SECURITY.md](SECURITY.md) to report a vulnerability privately.
 
 ## License
 
