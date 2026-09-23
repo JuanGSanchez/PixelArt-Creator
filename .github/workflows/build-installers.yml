@@ -345,3 +345,114 @@ jobs:
           else
             echo "CI temp root already absent (nothing to remove): ${CI_TEMP_ROOT}"
           fi
+
+  # ===========================================================================
+  # publish-release: creates a GitHub Release from the pushed `v*` tag,
+  # attaching the three installer artifacts the matrix above just built and
+  # generating release notes by extracting that version's OWN section out of
+  # CHANGELOG.md (repo root — Keep a Changelog format, the `changelog`
+  # skill's own `## [X.Y.Z] - YYYY-MM-DD` heading shape — see that file for
+  # the pattern). REPO-ROOT PATH, VERIFIED, NOT `docs/CHANGELOG.md`: `docs/*`
+  # is gitignored (`.gitignore:144`) and the file actually tracked by git is
+  # `CHANGELOG.md` at the repository root (`git ls-files | grep -i
+  # changelog` -> exactly one hit); a stray, untracked, gitignored
+  # `docs/CHANGELOG.md` copy exists locally on disk but ships in no clone and
+  # no CI checkout, so pointing this step at it would silently read a copy
+  # nobody else has.
+  #
+  # TAG-PUSH ONLY, twice over: this file's own `on:` block (top of file)
+  # already scopes the WHOLE workflow to `push: tags: ["v*"]` +
+  # `workflow_dispatch`, and the job-level `if:` below narrows this ONE job
+  # further so a manual `workflow_dispatch` run — which still exercises the
+  # full install/build/smoke matrix above, unattached to any tag — never
+  # publishes a release for it (a `workflow_dispatch` run has no
+  # `refs/tags/` ref to satisfy `startsWith`, so the condition is false by
+  # construction, not by a separate event-name check).
+  #
+  # `needs: build-installers` (the full 3-OS build matrix, `fail-fast:
+  # false`): GitHub's own default `needs` gate blocks this job unless every
+  # job it depends on SUCCEEDED, so a single red leg stops the release from
+  # publishing at all — the release is never shipped with two installers and
+  # a silently missing third.
+  #
+  # `contents: write` is scoped to THIS job only (job-level `permissions:`
+  # override), never at the workflow top level — every other job in this
+  # file keeps the top-level `contents: read`, and this is the one step in
+  # the whole pipeline that needs to create a release object in the
+  # repository.
+  # ===========================================================================
+  publish-release:
+    name: publish-release
+    needs: build-installers
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download all installer artifacts
+        # No `name:` input -> downloads every artifact from this run, each
+        # into its own `artifacts/<artifact-name>/` subdirectory (the three
+        # names the build-installers matrix uploaded above: pixelart-
+        # creator-windows, pixelart-creator-linux, pixelart-creator-macos).
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Extract this version's release notes from CHANGELOG.md
+        # Small inline script (awk, no new dependency): captures every line
+        # between the target version's own `## [X.Y.Z]` heading (exclusive)
+        # and the NEXT `## [` heading (exclusive) — i.e. exactly that
+        # version's Keep a Changelog section body, nothing more. The
+        # version-heading match is a LITERAL prefix comparison
+        # (`index($0, heading) == 1`), not a regex built from the version
+        # string: an earlier draft built a dynamic regex with hand-escaped
+        # dots and tripped this awk implementation's own escape-sequence
+        # handling (`\\[`/`\\]` silently lost their backslash and became
+        # bare regex metacharacters — verified interactively before this
+        # landed, not assumed). `index()` needs no escaping and cannot
+        # misfire on a version string containing regex metacharacters.
+        # FAILS LOUDLY (`::error::` + non-zero exit) if no such heading
+        # exists or the captured body is empty — a release must never
+        # publish with fabricated or silently-missing notes.
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          awk -v version="${VERSION}" '
+            BEGIN { found = 0; capturing = 0; heading = "## [" version "]" }
+            /^## \[/ {
+              if (capturing) { exit }
+              if (index($0, heading) == 1) { capturing = 1; found = 1; next }
+            }
+            capturing { print }
+            END { if (!found) exit 1 }
+          ' CHANGELOG.md > notes.md || {
+            echo "::error::No '## [${VERSION}]' section found in CHANGELOG.md for tag ${TAG} -- refusing to publish a release with fabricated or missing notes. Add the version's Keep a Changelog section (the 'changelog' skill's own heading shape) before re-tagging."
+            exit 1
+          }
+          if [[ ! -s notes.md ]]; then
+            echo "::error::'## [${VERSION}]' heading found in CHANGELOG.md but its section body is empty -- refusing to publish a release with empty notes."
+            exit 1
+          fi
+          echo "extracted $(wc -l < notes.md) line(s) of release notes for version ${VERSION}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          gh release create "${TAG}" \
+            artifacts/pixelart-creator-windows/PixelArtCreator-windows.exe \
+            artifacts/pixelart-creator-linux/PixelArtCreator-x86_64.AppImage \
+            artifacts/pixelart-creator-macos/PixelArtCreator-macos.dmg \
+            --verify-tag \
+            --notes-file notes.md \
+            --title "PixelArt Creator ${VERSION}"
