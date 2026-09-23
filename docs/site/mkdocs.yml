@@ -1,5 +1,6 @@
 site_name: PixelArt Creator — User Guide
 site_description: Usage documentation for the PixelArt Creator pixel-art editor.
+site_url: https://juangsanchez.github.io/PixelArt-Creator/
 docs_dir: pages
 site_dir: _build
 use_directory_urls: false
