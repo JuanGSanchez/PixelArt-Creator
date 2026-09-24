@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-24
+
 ### Added
 
+- Community health files: CODE_OF_CONDUCT.md, CONTRIBUTING.md, SECURITY.md and SUPPORT.md, so the repository surfaces GitHub's standard community health signals.
+- Structured bug-report and feature-request issue forms, and a pull request template, so new issues and pull requests start from a consistent checklist.
+- A showcase-media generator script and the example art, screenshots and social-preview image it produced, now tracked under docs/images/.
+- Status badges (CI, docs, installers, license, release, downloads, last commit), a hero screenshot and a Gallery section on the README, in English and Spanish, linking to the published User Guide and to the community health files.
+- The in-app User Guide is now published to GitHub Pages on every documentation change, built by the same strict build the test suite already gates on.
+- Tagged releases now publish a GitHub Release automatically, with the three platform installers attached and its notes drawn straight from this file's own version section.
 - The user-authored pixel-art logo now appears on both README banners and in the opening topic of the in-app User Guide, in English and Spanish alike.
 - Workspace and canvas-border theme roles, in both the light and dark themes, so the drawing surface is visually distinguishable from the space around it (REQ-CGS-UI-005, REQ-CGS-UI-006).
 - The pixel grid overlay is now on by default for a new document (REQ-CGS-UI-003 – REQ-CGS-UI-010).
