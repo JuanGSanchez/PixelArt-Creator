@@ -1,0 +1,108 @@
+name: Maintenance task
+description: Work that should not change what users see, such as tests, refactoring, CI, packaging, dependencies or tooling.
+title: "[Task]: "
+labels: ["chore", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For work that should leave the app's behaviour unchanged. If it changes what
+        users see or get, use **Feature request** or **Bug report** instead.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of task?
+      options:
+        - Tests
+        - Refactoring or code clean-up
+        - Build, CI or release automation
+        - Installers and packaging
+        - Dependency update
+        - Developer tooling or scripts
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-and-why
+    attributes:
+      label: What needs doing, and why?
+      description: >
+        The current situation, what is wrong with it, and what prompted this (a failing
+        run, a deprecation notice, a slow build). Link it if you can.
+    validations:
+      required: true
+
+  - type: textarea
+    id: done-when
+    attributes:
+      label: Done when
+      description: >
+        Checkable conditions: commands that must pass, files that must exist, numbers
+        that must hold. Given / When / Then is welcome but not required.
+      placeholder: |
+        e.g.
+        - The CI run passes on Windows, macOS and Linux
+        - pytest collects the same number of tests before and after
+        - No user-visible behaviour changes
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: What is out of scope?
+      description: Anything that looks related but should not be done here. Leave blank if nothing.
+    validations:
+      required: false
+
+  - type: textarea
+    id: must-not
+    attributes:
+      label: What must this task never do?
+      description: Write "None" if you know of nothing. That is a valid answer.
+      placeholder: |
+        e.g.
+        It must not change any file a user saves or exports.
+        It must not add a runtime dependency.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Which part of the project?
+      description: Pick every area involved. "Not sure" is a fine answer.
+      multiple: true
+      options:
+        - Canvas & drawing tools
+        - Colour & palettes
+        - Layers & blend modes
+        - Selection & transform
+        - Animation & timeline
+        - Tilemaps & level design
+        - Import & export
+        - Saving, opening & autosave
+        - Automation, scripting & plugins
+        - Visual aids (grids, guides, reference board, preview, timelapse)
+        - Cloud, version history & collaboration
+        - Asset library
+        - AI assistant
+        - Web viewer (browser)
+        - Real-time relay server
+        - Languages & translation
+        - Themes, accessibility & general UI
+        - Documentation & User Guide
+        - Installers, packaging & CI
+        - Not sure
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: CI runs, release notes, deprecation notices or related issues.
+    validations:
+      required: false

@@ -61,7 +61,8 @@ an appointed representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the project maintainer,
-[@JuanGSanchez](https://github.com/JuanGSanchez), by opening an issue (keep
+[@JuanGSanchez](https://github.com/JuanGSanchez), by contacting them
+privately through the contact options listed on their GitHub profile (keep
 it brief and avoid posting sensitive details publicly — the maintainer will
 follow up), and — for abuse, harassment, or spam that also breaks GitHub's
 own rules — additionally through GitHub's

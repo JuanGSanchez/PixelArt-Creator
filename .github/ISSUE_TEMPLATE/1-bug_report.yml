@@ -1,0 +1,187 @@
+name: Bug report
+description: Something in the app is broken, crashes, or behaves differently from the User Guide.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. A report that lets the problem be reproduced
+        exactly can be fixed without a round of follow-up questions.
+
+        - Please search [open and closed issues](https://github.com/JuanGSanchez/PixelArt-Creator/issues?q=is%3Aissue) first.
+        - Use the app's real names (menus, panels, tools, buttons) and your real numbers
+          (canvas size, number of layers or frames, colour values).
+        - If you don't know something, write `?`. It will be asked, never guessed.
+        - Security problems do not belong here: see the
+          [security policy](https://github.com/JuanGSanchez/PixelArt-Creator/security/policy).
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: The problem in a sentence or two. Copy any error message word for word.
+      placeholder: "e.g. The exported GIF shows every frame for the same time, ignoring the 250 ms I set on frame 2."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: >
+        Start from launching the app, or from opening the project you attach below,
+        and list every step. Include sizes, counts and settings.
+      placeholder: |
+        1. Create a new 32 × 32 document
+        2. Use Add Frame until there are 4 frames
+        3. Set frame 2's duration to 250 ms
+        4. Export as Animated GIF with Loop count 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened?
+      description: >
+        The exact result you expected, with the numbers you expected. This becomes the
+        check the fix is tested against, so be specific ("frame 2 shows for 250 ms"),
+        not general ("it should work").
+      placeholder: "e.g. Frame 2 is shown for 250 ms and frames 1, 3 and 4 for 100 ms each."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: How bad is it?
+      options:
+        - I lost work, or a saved or exported file was damaged
+        - The app crashed or froze
+        - A feature does not work and there is no workaround
+        - A feature does not work, but there is a workaround
+        - It works but looks wrong
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: >
+        The release tag you are running, as listed at
+        https://github.com/JuanGSanchez/PixelArt-Creator/releases, or the commit SHA
+        if built from source (`git rev-parse --short HEAD`).
+      placeholder: "e.g. v0.3.0, or 1a2b3c4 if built from source"
+    validations:
+      required: true
+
+  - type: input
+    id: last-working-version
+    attributes:
+      label: Did it work in an earlier version?
+      description: If it did, which release tag (or commit SHA). Leave blank if it never worked or you don't know.
+      placeholder: "e.g. It worked in v0.2.1"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How did you install the app?
+      options:
+        - Windows executable (.exe)
+        - macOS app (.dmg)
+        - Linux AppImage
+        - From source with pip
+        - Other (say which under "Anything else")
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "e.g. Windows 11 24H2, macOS 15.1, Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: theme
+    attributes:
+      label: Theme in use
+      options:
+        - Light
+        - Dark
+        - Not sure
+    validations:
+      required: false
+
+  - type: dropdown
+    id: app-language
+    attributes:
+      label: App language
+      options:
+        - English
+        - Spanish
+        - Other or not sure
+    validations:
+      required: false
+
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Which part of the app?
+      description: Pick every area involved. "Not sure" is a fine answer.
+      multiple: true
+      options:
+        - Canvas & drawing tools
+        - Colour & palettes
+        - Layers & blend modes
+        - Selection & transform
+        - Animation & timeline
+        - Tilemaps & level design
+        - Import & export
+        - Saving, opening & autosave
+        - Automation, scripting & plugins
+        - Visual aids (grids, guides, reference board, preview, timelapse)
+        - Cloud, version history & collaboration
+        - Asset library
+        - AI assistant
+        - Web viewer (browser)
+        - Real-time relay server
+        - Languages & translation
+        - Themes, accessibility & general UI
+        - Documentation & User Guide
+        - Installers, packaging & CI
+        - Not sure
+    validations:
+      required: false
+
+  - type: upload
+    id: attachments
+    attributes:
+      label: Screenshots, a recording, or a small project file
+      description: >
+        A small project that shows the problem is the fastest route to a fix. Zip a
+        .pixproj file before attaching it, and remove anything you don't want to be public.
+    validations:
+      required: false
+
+  - type: textarea
+    id: error-output
+    attributes:
+      label: Error output
+      description: If you started the app from a terminal, paste anything it printed when the problem happened.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
+      description: Related issues, a workaround you found, or anything else that might help.
+    validations:
+      required: false

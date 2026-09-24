@@ -1,0 +1,82 @@
+name: Documentation problem
+description: Something in the User Guide, the documentation website or the README is wrong, out of date, missing or unclear.
+title: "[Docs]: "
+labels: ["documentation", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If the documentation and the app disagree, say what the app actually does:
+        that decides whether the text or the app needs fixing.
+
+  - type: dropdown
+    id: doc-source
+    attributes:
+      label: Which documentation?
+      options:
+        - In-app User Guide (Help ▸ User Guide, or F1)
+        - Documentation website
+        - README
+        - Contributing, support or security guide
+        - Other (say which below)
+    validations:
+      required: true
+
+  - type: input
+    id: page
+    attributes:
+      label: Page or section
+      description: A link, or the page title and heading.
+      placeholder: "e.g. Animation timeline, the onion skinning section"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: doc-language
+    attributes:
+      label: Language of the page
+      options:
+        - English
+        - Spanish
+    validations:
+      required: false
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem?
+      options:
+        - Wrong or out of date
+        - Missing
+        - Unclear or hard to follow
+        - Typo or formatting
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing?
+      description: Quote the current text if it is wrong, and describe what the app really does.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested change
+      description: The wording you would expect, or what the missing section should cover.
+    validations:
+      required: false
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version you compared against
+      description: >
+        The release tag you are running, as listed at
+        https://github.com/JuanGSanchez/PixelArt-Creator/releases, or the commit SHA
+        if built from source (`git rev-parse --short HEAD`).
+      placeholder: "e.g. v0.3.0, or 1a2b3c4 if built from source"
+    validations:
+      required: false
