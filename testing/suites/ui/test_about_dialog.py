@@ -1,7 +1,7 @@
 """UI tests for the About dialog — REQ-AV-UI-002..012.
 
 One test per acceptance criterion (Gherkin scenarios in
-``design-docs/specs/app-version/spec.md`` §6), driving the PySide6 dialog
+the feature's spec §6), driving the PySide6 dialog
 headlessly (``QT_QPA_PLATFORM=offscreen``) via the ``qtbot`` fixture. Every
 test runs twice, once per theme, via the suite's autouse ``theme`` fixture
 (``testing/suites/ui/conftest.py``); tests that make an explicit

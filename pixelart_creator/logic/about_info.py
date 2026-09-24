@@ -12,7 +12,7 @@ pure composition of the one-line environment string and the window title.
 ``ui/about_dialog.py`` gathers the two facts that need Qt (the runtime Qt
 version and the PySide6 version) and passes them into
 :func:`compose_environment_line`; this module never imports PySide6, ``ui`` or
-``data`` (design-docs/specs/app-version/plan.md section 3.2).
+``data`` (per the feature's interface contract).
 """
 
 from __future__ import annotations

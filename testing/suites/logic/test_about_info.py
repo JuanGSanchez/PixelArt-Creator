@@ -4,8 +4,8 @@ Covers REQ-AV-LOGIC-001 (SC-AV-LOGIC-001-1, -2), the logic half of REQ-AV-UI-001
 (``window_title``'s call-time version lookup, C-3) and the logic half of
 REQ-AV-UI-007 (``read_platform_facts`` degrading each fact independently, on an
 exception or an empty string, per ``platform.version()``/``platform.system()``/
-``platform.python_version()``). Binds exactly to the interface contract fixed in
-``design-docs/specs/app-version/plan.md`` section 3.2 — module/function names,
+``platform.python_version()``). Binds exactly to the feature's interface
+contract, section 3.2 — module/function names,
 dataclass field names, the composed-line layout and slot order below all come
 from that contract, not from this test's own invention.
 

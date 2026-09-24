@@ -1,6 +1,6 @@
 """Catalogue-completeness test for REQ-AV-BUILD-001 (SC-AV-BUILD-001-1).
 
-Per ``design-docs/specs/app-version/tasks.md``: every new (context,
+Per the feature's task breakdown: every new (context,
 source) message pair this feature introduced into ``pixelart_creator/ui/`` must be
 present in BOTH ``.ts`` catalogues, carry a finished Spanish translation
 that differs from its English source (except a declared value-string
