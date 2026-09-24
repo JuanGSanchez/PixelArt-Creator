@@ -215,7 +215,16 @@ class LanguageManager(QObject):
             f"{_QT_CATALOGUE_PREFIX}{code}", qt_translations_dir
         )
         if not loaded:
-            _LOGGER.warning(
+            # `_LOGGER.log(logging.WARNING, ...)` rather than `_LOGGER.warning(...)`:
+            # the string-audit heuristic (`scripts/string_audit_check.py`) flags a
+            # `.warning(<string literal>)` call as an unwrapped user-facing string
+            # because `QMessageBox` happens to share that method name (see
+            # `pixelart_creator/ui/app_icon.py`, this repository's existing
+            # convention for this exact false positive) -- this is a diagnostic
+            # log record, not UI text, so it takes the equivalent `.log(level, ...)`
+            # form instead of being mis-wrapped in `tr()`.
+            _LOGGER.log(
+                logging.WARNING,
                 "Qt base catalogue '%s%s' not found under %r; Qt-generated "
                 "text (e.g. the macOS application menu, standard dialog "
                 "buttons) stays in English for language %r.",
