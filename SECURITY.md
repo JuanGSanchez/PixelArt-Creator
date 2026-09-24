@@ -3,7 +3,7 @@
 ## Supported Versions
 
 PixelArt Creator is currently in **0.x**, pre-1.0 development
-(`pyproject.toml` reports `version = "0.3.0"`, classified
+(`pyproject.toml` reports `version = "0.3.1"`, classified
 `Development Status :: 3 - Alpha`). Only the **latest released 0.x
 version** is supported with security fixes; there is no long-term-support
 branch at this stage.
