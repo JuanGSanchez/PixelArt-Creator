@@ -576,11 +576,21 @@ def _es_translations_path(root):
 
 
 def load_es_translations(root):
-    """Map EN <source> text -> shipped, FINISHED ES <translation> text from
-    pixelart_es.ts (packaged location preferred, legacy top-level as
-    fallback -- see _es_translations_path()). A missing/unfinished/empty
+    """Map normalised EN <source> text -> shipped, FINISHED ES <translation>
+    text from pixelart_es.ts (packaged location preferred, legacy top-level
+    as fallback -- see _es_translations_path()). A missing/unfinished/empty
     translation is simply absent from the map (the leg-2 locale check then
-    falls back to checking the literal EN text against the ES corpus)."""
+    falls back to checking the literal EN text against the ES corpus).
+
+    The key is run through normalize_label() -- the SAME mnemonic/ellipsis
+    stripping collect_ui_labels() already applies to the scanned UI label
+    before using it as a dict key -- so a mnemonic-bearing catalogue source
+    ('&Copy') matches the normalised label ('Copy') label_leg_findings()
+    actually looks up with. Keying this map by the raw, unstripped
+    <source> text (as before) meant that lookup could never match: every
+    mnemonic-bearing control's real Spanish translation went unseen, and
+    the check silently fell back to searching the ES corpus for the literal
+    English word instead of the shipped Spanish text."""
     path = _es_translations_path(root)
     rel = os.path.relpath(path, root).replace("\\", "/")
     mapping = {}
@@ -599,7 +609,7 @@ def load_es_translations(root):
             continue
         if trn.text is None or trn.text.strip() == "":
             continue
-        mapping.setdefault(src.text, trn.text)
+        mapping.setdefault(normalize_label(src.text), trn.text)
     return mapping, None
 
 
