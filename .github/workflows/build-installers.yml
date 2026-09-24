@@ -186,7 +186,23 @@ jobs:
       # ---------------- Windows leg (BUILD-002): onefile .exe --------
       - name: Build Windows .exe (pyside6-deploy / Nuitka onefile)
         if: runner.os == 'Windows'
+        # `mkdir -p dist` FIRST: root cause of the v0.3.0 failure (run
+        # 35941799524) was NOT the Nuitka compile (it completed -- the
+        # 44 MB onefile payload was built) but pyside6-deploy's own
+        # deploy_lib/deploy_util.py:finalize(), which for `mode = onefile`
+        # copies the compiled exe into `exec_directory` with a plain
+        # `shutil.copy(generated_exec_path, output_path)` -- unlike the
+        # standalone/macOS path (`shutil.copytree(..., dirs_exist_ok=True)`,
+        # used on the Linux/macOS legs below), `shutil.copy` does NOT create
+        # a missing destination directory. `exec_directory = dist` in the
+        # spec was never created by anything before this run, so finalize()
+        # raised `FileNotFoundError: ... dist\PixelArtCreator.exe` AFTER a
+        # successful compile, and `dist\PixelArtCreator.exe` was never
+        # written at all (confirmed by reading PySide6's own
+        # deploy_lib/deploy_util.py and config.py locally, matching the CI
+        # traceback line-for-line).
         run: |
+          mkdir -p dist
           pyside6-deploy -c packaging/pysidedeploy-windows.spec --force --keep-deployment-files
           mkdir -p artifact
           cp dist/PixelArtCreator.exe "artifact/PixelArtCreator-windows.exe"
@@ -223,9 +239,34 @@ jobs:
       - name: Smoke-launch the Linux standalone binary (offscreen, auto-quit)
         if: runner.os == 'Linux'
         run: |
-          # Nuitka standalone names the dist folder + binary after the input-file
-          # stem (pixelart_creator/__main__.py → `__main__`); see the linux spec.
-          BIN="dist/__main__.dist/__main__"
+          # pyside6-deploy's own deploy_lib/deploy_util.py:finalize() copies
+          # Nuitka's compiled standalone dist folder into `exec_directory`
+          # renamed to the spec's `title` + ".dist"
+          # (`shutil.copytree(generated_exec_path, exe_dir / (title +
+          # ".dist"))`), confirmed by this leg's own build log: "[DEPLOY]
+          # Executed file created in .../dist/PixelArtCreator.dist". `title =
+          # PixelArtCreator` in pysidedeploy-linux.spec, so the folder is
+          # dist/PixelArtCreator.dist -- NOT dist/__main__.dist (v0.3.0 run
+          # 35941799524's assumption). The binary INSIDE that folder is NOT
+          # assumed by name (a prior fix guessed `__main__`, matching the
+          # pre-copy Nuitka name, and that guess was wrong too -- measured
+          # via run 35995818253: the folder existed, the guessed binary name
+          # did not). Instead it is DISCOVERED the same way the macOS leg
+          # below discovers its inner Mach-O: the one top-level executable
+          # regular file that is not a shared library.
+          DIST_DIR="dist/PixelArtCreator.dist"
+          if [ ! -d "${DIST_DIR}" ]; then
+            echo "::error::standalone dist folder not found at ${DIST_DIR}"
+            find dist -maxdepth 3 2>/dev/null || true
+            exit 1
+          fi
+          echo "dist folder contents:"
+          ls -la "${DIST_DIR}"
+          BIN="$(find "${DIST_DIR}" -maxdepth 1 -type f -perm -u+x ! -name '*.so*' | head -n1)"
+          if [ -z "${BIN}" ]; then
+            echo "::error::no executable binary found at the top level of ${DIST_DIR}"
+            exit 1
+          fi
           echo "smoke binary: ${BIN}"
           if "${BIN}"; then
             echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"
