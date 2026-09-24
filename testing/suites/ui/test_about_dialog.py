@@ -47,6 +47,7 @@ import socket
 import pytest
 from PySide6.QtCore import QLocale, Qt, qVersion
 from PySide6.QtGui import QGuiApplication, QIcon
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
 
 import pixelart_creator
@@ -300,6 +301,62 @@ def test_sc_av_ui_005_3_nothing_opened_unless_a_link_is_clicked(qtbot, monkeypat
     _win, dialog = _open_about(qtbot)
     dialog.close()
     assert calls == []
+
+
+@pytest.mark.parametrize("object_name,url", _LINKS)
+@pytest.mark.parametrize(
+    "key", [Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space]
+)
+def test_sc_av_ui_005_4_keyboard_activates_a_focused_link(
+    qtbot, monkeypatch, object_name, url, key
+):
+    """REQ-AV-UI-005 (``LinksAccessibleByKeyboard``): keyboard activation of a
+    focused link must open it and keep the dialog open. With a link reached
+    by REAL Tab navigation and focused, a real keyboard Return/Enter/Space
+    must activate it -- hand its URL to ``_open_url`` exactly once -- and
+    must NOT close the dialog.
+
+    Without a keyboard-activation handler, Return/Enter/Space on a focused
+    link instead falls through to ``QDialog``'s own default-button handling
+    (``_close_button.setDefault(True)`` + ``setAutoDefault(True)``) and
+    closes the dialog, leaving ``_open_url`` uncalled -- reproducible for all
+    three keys. A direct ``linkActivated.emit(url)`` call still reaches
+    ``_open_url`` on its own, so the signal wiring is not what this test
+    guards: it guards the real keyboard path reaching that same signal.
+    """
+    import pixelart_creator.ui.about_dialog as about_dialog_module
+
+    calls: list[str] = []
+    monkeypatch.setattr(about_dialog_module, "_open_url", lambda u: calls.append(u))
+
+    win, dialog = _open_about(qtbot)
+    win.show()
+    dialog.show()
+    qtbot.waitExposed(dialog)
+
+    # Reach the target link by REAL Tab navigation from the first tab-chain
+    # control (never a direct setFocus() jump onto the link itself), so the
+    # test exercises exactly the path a keyboard-only user takes.
+    first = _child(dialog, _TAB_CHAIN[0])
+    first.setFocus(Qt.FocusReason.TabFocusReason)
+    for _ in range(_TAB_CHAIN.index(object_name)):
+        qtbot.keyClick(dialog, Qt.Key.Key_Tab)
+    link = _child(dialog, object_name)
+    assert dialog.focusWidget() is link, (
+        f"Tab navigation did not reach {object_name!r}; focus is on "
+        f"{dialog.focusWidget().objectName() if dialog.focusWidget() else None!r}"
+    )
+
+    QTest.keyClick(link, key)
+    qtbot.wait(10)
+
+    assert calls == [url], (
+        f"{object_name}/{key!r}: expected _open_url called once with "
+        f"{url!r}, got {calls!r}"
+    )
+    assert dialog.isVisible(), (
+        f"{object_name}/{key!r}: the dialog closed instead of activating the link"
+    )
 
 
 # =========================================================================== #

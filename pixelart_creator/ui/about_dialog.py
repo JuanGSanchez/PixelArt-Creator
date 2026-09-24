@@ -21,7 +21,7 @@ import html
 from typing import Callable, Optional
 
 from PySide6.QtCore import QEvent, Qt, QUrl, qVersion
-from PySide6.QtGui import QDesktopServices, QGuiApplication
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QKeyEvent
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -97,6 +97,34 @@ def _open_url(url: str) -> None:
     QDesktopServices.openUrl(QUrl(url))
 
 
+class _Link_Label(QLabel):
+    """A rich-text anchor label that also activates from the keyboard.
+
+    ``LinksAccessibleByKeyboard`` alone only makes the anchor Tab-reachable;
+    it does not route a real Return/Enter/Space key press to
+    :attr:`QLabel.linkActivated`. Left unhandled, that key press instead
+    bubbles up, unaccepted, to :class:`About_Dialog`, whose Close button is
+    the default button — so the dialog closed instead of activating the
+    link (a11y-audit REQ-AV-UI-005 finding, T14). This override accepts the
+    three activation keys itself, while the label has focus, and re-emits
+    ``linkActivated`` with its own ``url`` dynamic property — the exact
+    signal the mouse-click path already emits, so keyboard activation goes
+    through the SAME single seam (``About_Dialog._on_link_activated`` ->
+    ``_open_url``, ADR-0067 Part 1) and no timing/focus special-casing is
+    needed anywhere else in the dialog.
+    """
+
+    _ACTIVATION_KEYS = (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 (Qt override)
+        """Activate the link on Return/Enter/Space; delegate every other key."""
+        if event.key() in self._ACTIVATION_KEYS:
+            self.linkActivated.emit(str(self.property("url")))
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
 class About_Dialog(QDialog):
     """The About dialog: name, version, licence, links, environment, Copy.
 
@@ -155,7 +183,7 @@ class About_Dialog(QDialog):
 
         self._link_labels: dict[str, QLabel] = {}
         for object_name, url in _LINKS:
-            link = QLabel(self)
+            link = _Link_Label(self)
             link.setObjectName(object_name)
             link.setTextFormat(Qt.TextFormat.RichText)
             link.setTextInteractionFlags(
