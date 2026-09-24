@@ -1,6 +1,6 @@
 # Copyright 2026 Juan Garcia Sanchez
 # SPDX-License-Identifier: Apache-2.0
-"""Runtime internationalisation manager (REQ-P1-UI-021, -022; F5/F6).
+"""Runtime internationalisation manager (REQ-P1-UI-021, -022; F5/F6; REQ-AV-UI-012).
 
 ``LanguageManager`` selects the UI language from the system :class:`QLocale`
 (falling back to English, CL-14), installs the matching :class:`QTranslator` on
@@ -13,14 +13,37 @@ The binary ``.qm`` catalogues are build output, compiled from the ``.ts``
 source catalogues with ``pyside6-lrelease``; this module only discovers and
 loads them, so it degrades gracefully to the built-in English source strings
 when no catalogue is present.
+
+A second, independent :class:`QTranslator` loads Qt's OWN ``qtbase_<code>.qm``
+catalogue from :meth:`QLibraryInfo.path` (``LibraryPath.TranslationsPath``).
+That catalogue is what translates text Qt itself generates -- the macOS
+application-menu "About %1"/"Preferences..."/"Quit %1" and every standard
+:class:`QDialogButtonBox` button -- none of which is covered by the
+application's own ``pixelart_<code>.qm`` (ADR-0067 Part 4; REQ-AV-UI-012;
+Researcher ``research-qt-aboutrole-macos.md`` F3-F5). It is installed and
+removed alongside the application catalogue on every language switch. A
+missing or unloadable Qt catalogue (e.g. a frozen build built before it
+ships them) is logged as a warning and never changes what
+:meth:`LanguageManager.set_language` returns -- the application's own
+catalogue stays authoritative either way.
 """
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import List, Optional
 
-from PySide6.QtCore import QCoreApplication, QLocale, QObject, QTranslator, Signal
+from PySide6.QtCore import (
+    QCoreApplication,
+    QLibraryInfo,
+    QLocale,
+    QObject,
+    QTranslator,
+    Signal,
+)
+
+_LOGGER = logging.getLogger(__name__)
 
 #: Language code used when no catalogue matches the locale (CL-14). English is
 #: the source language of the ``tr()`` literals, so it needs no ``.qm`` file.
@@ -37,6 +60,11 @@ _CATALOGUE_SUFFIX = ".qm"
 #: because it is inside the installed package (unlike the old repository-top-level
 #: ``i18n/`` folder, which pip never installed -- B6).
 _CATALOGUE_DIRNAME = "i18n"
+
+#: Prefix of Qt's OWN base catalogue, e.g. ``qtbase_es.qm`` (shipped inside the
+#: PySide6 wheel / the Qt install, never authored by this project -- ADR-0067
+#: Part 4).
+_QT_CATALOGUE_PREFIX = "qtbase_"
 
 
 def _default_translations_dir() -> Path:
@@ -85,6 +113,8 @@ class LanguageManager(QObject):
             Path(translations_dir) if translations_dir else _default_translations_dir()
         )
         self._translator = QTranslator(self)
+        self._qt_translator = QTranslator(self)
+        self._qt_translator_installed = False
         self._current = FALLBACK_LANGUAGE
 
     # -- queries ----------------------------------------------------------
@@ -138,6 +168,7 @@ class LanguageManager(QObject):
         self._app.removeTranslator(self._translator)
         if code == FALLBACK_LANGUAGE:
             self._current = FALLBACK_LANGUAGE
+            self._apply_qt_base_catalogue(self._current)
             self.languageChanged.emit(self._current)
             return True
 
@@ -145,10 +176,55 @@ class LanguageManager(QObject):
         if not loaded:
             # No catalogue on disk yet: stay on the English source strings.
             self._current = FALLBACK_LANGUAGE
+            self._apply_qt_base_catalogue(self._current)
             self.languageChanged.emit(self._current)
             return False
 
         self._app.installTranslator(self._translator)
         self._current = code
+        self._apply_qt_base_catalogue(self._current)
         self.languageChanged.emit(self._current)
         return True
+
+    # -- Qt's own base catalogue (ADR-0067 Part 4, REQ-AV-UI-012) ---------
+
+    def _apply_qt_base_catalogue(self, code: str) -> None:
+        """Swap Qt's own ``qtbase_<code>.qm`` alongside the app catalogue.
+
+        Removes any previously installed Qt base translator first. For
+        ``FALLBACK_LANGUAGE`` (English, the source language) nothing further
+        is installed. For any other code, this loads ``qtbase_<code>`` from
+        :meth:`QLibraryInfo.path` (``LibraryPath.TranslationsPath``) and
+        installs it on success. A missing directory, a missing catalogue file,
+        or any load failure is logged as a warning and left there -- it never
+        raises and never changes :meth:`set_language`'s return value, because
+        the application's own catalogue (``self._translator``) is already
+        authoritative for every ``tr()``-wrapped string in this product.
+        """
+        if self._qt_translator_installed:
+            self._app.removeTranslator(self._qt_translator)
+            self._qt_translator_installed = False
+
+        if code == FALLBACK_LANGUAGE:
+            return
+
+        qt_translations_dir = QLibraryInfo.path(
+            QLibraryInfo.LibraryPath.TranslationsPath
+        )
+        loaded = self._qt_translator.load(
+            f"{_QT_CATALOGUE_PREFIX}{code}", qt_translations_dir
+        )
+        if not loaded:
+            _LOGGER.warning(
+                "Qt base catalogue '%s%s' not found under %r; Qt-generated "
+                "text (e.g. the macOS application menu, standard dialog "
+                "buttons) stays in English for language %r.",
+                _QT_CATALOGUE_PREFIX,
+                code,
+                qt_translations_dir,
+                code,
+            )
+            return
+
+        self._app.installTranslator(self._qt_translator)
+        self._qt_translator_installed = True
