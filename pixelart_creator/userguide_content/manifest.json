@@ -10,7 +10,7 @@
           "id": "app-basics",
           "title": "Getting started & the workspace",
           "content": "app-basics",
-          "keywords": ["overview", "interface", "workspace", "menus", "menu bar", "getting started", "basics", "theme", "dark mode", "light mode", "language", "shortcuts", "keyboard", "undo", "redo", "documents"],
+          "keywords": ["overview", "interface", "workspace", "menus", "menu bar", "getting started", "basics", "theme", "dark mode", "light mode", "language", "shortcuts", "keyboard", "undo", "redo", "documents", "version", "about"],
           "summary": "Orientation to the PixelArt Creator workspace: the menu bar, panels, documents, undo/redo, themes, language, and keyboard shortcuts."
         },
         {

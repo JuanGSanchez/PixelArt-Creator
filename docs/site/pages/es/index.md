@@ -86,6 +86,16 @@ biblioteca de recursos:
   respaldo opcional en la nube de los blobs compartidos sin dejar de funcionar
   completamente sin conexión.
 
+## Versión y Acerca de
+
+El título de la ventana principal siempre muestra **PixelArt Creator** seguido
+de la versión en ejecución, sin ningún paso adicional para encontrarla. Para
+ver el panorama completo — el nombre de la aplicación, su versión, la
+licencia, enlaces al repositorio de código fuente, al sitio de documentación y
+a la página de versiones, y un resumen del entorno que puedes copiar para un
+informe de errores — elige **Ayuda ▸ Acerca de PixelArt Creator** (en macOS:
+el menú de la aplicación, junto a Salir).
+
 Para los flujos de trabajo de color, paleta y modo indexado, consulta el
 material de la Fase 3; para el lienzo, las herramientas y el tematizado,
 consulta el material de la Fase 1.

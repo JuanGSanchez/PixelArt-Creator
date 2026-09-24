@@ -47,6 +47,19 @@ the application's theme control; every panel, dialog, overlay, and this User Gui
 render correctly and stay legible in both. Colours are defined once by role, so the
 theme is consistent everywhere.
 
+## Version & About
+
+The window title always reads **PixelArt Creator** followed by the running
+version — the exact number your build is on — with no extra step needed to
+find it. For the full picture, choose **Help ▸ About PixelArt Creator** (on
+macOS: the application menu, next to Quit — the platform puts the entry
+there). The About dialog shows the app's name, its version (selectable, so
+you can copy it by hand), the licence, links to the source repository, the
+documentation site and the releases page, and a **Copy** button that places
+the version together with your operating system, Python and Qt/PySide6
+versions on the clipboard in one line — ready to paste straight into a bug
+report.
+
 ## Language
 
 The interface is fully translatable. When you change the active language, every menu,

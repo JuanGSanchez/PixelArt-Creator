@@ -53,6 +53,20 @@ y esta Guía del usuario se renderizan correctamente y siguen siendo legibles en
 Los colores se definen una sola vez por rol, así que el tema es coherente en todas
 partes.
 
+## Versión y Acerca de
+
+El título de la ventana siempre muestra **PixelArt Creator** seguido de la
+versión en ejecución — el número exacto de tu compilación — sin ningún paso
+adicional para encontrarla. Para ver el panorama completo, elige
+**Ayuda ▸ Acerca de PixelArt Creator** (en macOS: el menú de la aplicación,
+junto a Salir — la plataforma coloca la entrada ahí). El diálogo Acerca de
+muestra el nombre de la aplicación, su versión (seleccionable, para poder
+copiarla a mano), la licencia, enlaces al repositorio de código fuente, al
+sitio de documentación y a la página de versiones, y un botón **Copiar** que
+coloca la versión junto con tu sistema operativo, Python y las versiones de
+Qt/PySide6 en el portapapeles en una sola línea — lista para pegar
+directamente en un informe de errores.
+
 ## Idioma
 
 La interfaz es completamente traducible. Cuando cambias el idioma activo, cada menú,
