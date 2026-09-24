@@ -3,5 +3,10 @@ contact_links:
   - name: Report a security vulnerability
     url: https://github.com/JuanGSanchez/PixelArt-Creator/security/policy
     about: >
-      Please do not open a public issue for a security vulnerability. Use the
-      repository's security policy to report it privately instead.
+      Please do not open a public issue for a security vulnerability. Follow the
+      security policy to report it privately instead.
+  - name: User Guide and documentation
+    url: https://juangsanchez.github.io/PixelArt-Creator/
+    about: >
+      How-to questions are usually answered here, or in the app under
+      Help ▸ User Guide (F1).

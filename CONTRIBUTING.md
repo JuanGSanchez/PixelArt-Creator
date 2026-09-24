@@ -8,12 +8,25 @@ All changes go through a pull request. The `main` branch does not accept
 direct pushes; the only way in is a PR from a branch, reviewed and merged
 through GitHub.
 
+## Becoming a collaborator
+
+Issue creation on this repository is restricted to collaborators. If you'd
+like to report a bug, propose a feature, or otherwise open an issue, please
+first ask to become a collaborator by contacting the maintainer,
+[@JuanGSanchez](https://github.com/JuanGSanchez), through the contact
+options listed on their GitHub profile. Once you have collaborator access,
+open issues using the templates described below.
+
+Pull requests are welcome from anyone with collaborator access; if you are
+not yet a collaborator and would like to submit one, please ask first, the
+same way, before starting significant work.
+
 ## Reporting bugs and proposing features
 
-Please open an issue before starting significant work, so we can agree on
-the approach first. Bug report and feature request templates live (or will
-live) under `.github/ISSUE_TEMPLATE/` — use them if available, or open a
-plain issue describing:
+Collaborators: please open an issue before starting significant work, so we
+can agree on the approach first. Use the appropriate issue template under
+`.github/ISSUE_TEMPLATE/` — bug report, feature request, performance,
+translation, documentation, or task — whichever fits. A template asks for:
 
 - what you expected to happen and what happened instead (for a bug),
 - the use case a new feature would serve,
@@ -104,5 +117,7 @@ in a PR.
 
 ## Questions
 
-If something here doesn't work as described, please open an issue — that
-usually means the docs are out of date, which is itself worth reporting.
+If something here doesn't work as described and you are a collaborator,
+please open an issue — that usually means the docs are out of date, which
+is itself worth reporting. If you are not yet a collaborator, contact the
+maintainer as described above.

@@ -1,0 +1,158 @@
+name: Performance problem
+description: Something is slow, stutters, freezes briefly or uses too much memory, with numbers to show it.
+title: "[Performance]: "
+labels: ["performance", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A performance problem can only be fixed against a measurement, so please give
+        sizes and timings as numbers, even rough ones ("about 2 seconds").
+        If something is plainly broken rather than slow, use **Bug report** instead.
+
+  - type: textarea
+    id: what-is-slow
+    attributes:
+      label: What is slow?
+      description: The action that is slow, and what you see (lag, stutter, a pause, memory climbing).
+      placeholder: "e.g. Painting with the pencil lags behind the mouse on a large canvas."
+    validations:
+      required: true
+
+  - type: input
+    id: document-size
+    attributes:
+      label: Document size
+      description: Canvas width × height, number of layers and number of frames.
+      placeholder: "e.g. 7680 × 4320, 8 layers, 1 frame"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: >
+        Every step from opening the document, including the tool, how far you were
+        zoomed in, and anything open alongside (several views, the timeline, a panel).
+      placeholder: |
+        1. Open the attached project
+        2. Zoom in close and select the pencil
+        3. Draw a long stroke across the canvas
+    validations:
+      required: true
+
+  - type: textarea
+    id: measured
+    attributes:
+      label: How slow is it?
+      description: >
+        What you measured or estimated, with units, and how you measured it
+        (a stopwatch, the system monitor, ...).
+      placeholder: |
+        e.g.
+        Each stroke appears about 1 second after I release the mouse.
+        Memory use climbs from 2 GB to 6 GB over 10 minutes of painting.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptable
+    attributes:
+      label: What would be acceptable?
+      description: >
+        The timing you would expect, if you have one. Leave blank if you're not sure;
+        the maintainer will measure against the project's own frame-time target.
+    validations:
+      required: false
+
+  - type: input
+    id: last-working-version
+    attributes:
+      label: Was it faster in an earlier version?
+      description: If it was, which release tag (or commit SHA). Leave blank if you don't know.
+      placeholder: "e.g. It was smooth in v0.2.1"
+    validations:
+      required: false
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: >
+        The release tag you are running, as listed at
+        https://github.com/JuanGSanchez/PixelArt-Creator/releases, or the commit SHA
+        if built from source (`git rev-parse --short HEAD`).
+      placeholder: "e.g. v0.3.0, or 1a2b3c4 if built from source"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How did you install the app?
+      options:
+        - Windows executable (.exe)
+        - macOS app (.dmg)
+        - Linux AppImage
+        - From source with pip
+        - Other (say which under "Steps to reproduce")
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "e.g. Windows 11 24H2, macOS 15.1, Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware
+      description: Processor, graphics card (and driver version if you know it), memory, and display resolution and scaling.
+      placeholder: "e.g. Ryzen 5 5600, GeForce GTX 1660 (driver 560.94), 16 GB RAM, 2560 × 1440 at 125 %"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Which part of the app?
+      description: Pick every area involved. "Not sure" is a fine answer.
+      multiple: true
+      options:
+        - Canvas & drawing tools
+        - Colour & palettes
+        - Layers & blend modes
+        - Selection & transform
+        - Animation & timeline
+        - Tilemaps & level design
+        - Import & export
+        - Saving, opening & autosave
+        - Automation, scripting & plugins
+        - Visual aids (grids, guides, reference board, preview, timelapse)
+        - Cloud, version history & collaboration
+        - Asset library
+        - AI assistant
+        - Web viewer (browser)
+        - Real-time relay server
+        - Languages & translation
+        - Themes, accessibility & general UI
+        - Documentation & User Guide
+        - Installers, packaging & CI
+        - Not sure
+    validations:
+      required: false
+
+  - type: upload
+    id: attachments
+    attributes:
+      label: Project file or recording
+      description: >
+        The project that is slow (zip the .pixproj file first) or a short screen
+        recording. Remove anything you don't want to be public.
+    validations:
+      required: false

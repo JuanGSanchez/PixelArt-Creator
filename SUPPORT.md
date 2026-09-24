@@ -2,9 +2,15 @@
 
 ## Where to ask for help
 
-For now, the best place to ask a question, report a problem, or request a
-feature is **GitHub Issues** on this repository. GitHub Discussions is not
-open to the public at this time.
+Issue creation on this repository is restricted to collaborators, and
+GitHub Discussions is not open to the public at this time. If you are a
+collaborator, **GitHub Issues** is the best place to ask a question, report
+a problem, or request a feature.
+
+If you are not yet a collaborator, please contact the maintainer,
+[@JuanGSanchez](https://github.com/JuanGSanchez), through the contact
+options listed on their GitHub profile, to ask about becoming one before
+opening an issue.
 
 Before opening a new issue, please check whether an existing one already
 covers your question.
@@ -21,11 +27,13 @@ covers your question.
 
 ## Reporting a bug or requesting a feature
 
-Please use GitHub Issues, with the appropriate issue template if one is
-available under `.github/ISSUE_TEMPLATE/`. See `CONTRIBUTING.md` for what
-to include in a good bug report.
+Collaborators: please use GitHub Issues, with the appropriate issue
+template under `.github/ISSUE_TEMPLATE/`. See `CONTRIBUTING.md` for what to
+include in a good bug report, and for how to ask about becoming a
+collaborator if you are not one yet.
 
 ## Security issues
 
 Do not use Issues or Discussions for a security vulnerability — see
-`SECURITY.md` for the private reporting channel.
+`SECURITY.md` for the private reporting channel, which does not require
+collaborator access.

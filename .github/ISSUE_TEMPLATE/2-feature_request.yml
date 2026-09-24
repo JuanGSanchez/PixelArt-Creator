@@ -1,0 +1,170 @@
+name: Feature request
+description: Propose new behaviour, or a change to existing behaviour, in enough detail to build from.
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the proposal. Describe the problem first and the solution second:
+        a proposal is easier to judge against the problem it solves.
+
+        Filled in well, this issue is what the work starts from, so:
+        - use the app's real names (menus, panels, tools) and your real numbers;
+        - say what is **out** of scope as well as what is in;
+        - write `?` wherever you don't know. It will be asked, never guessed.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: >
+        Describe the last time you ran into it: what you were making, what you tried,
+        and where the app got in the way. A real example beats a hypothetical one.
+      placeholder: "e.g. I export a 6-frame walk cycle for my game and have to rearrange the sprite sheet by hand every time, because ..."
+    validations:
+      required: true
+
+  - type: input
+    id: who
+    attributes:
+      label: Who needs this?
+      description: The kind of person, or the situation they are in, in a few words.
+      placeholder: "e.g. someone animating a character to use as a sprite sheet in a game engine"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should the app do?
+      description: >
+        The behaviour you want to see, step by step from the user's side. Describe what
+        happens on screen and in the files, not how to program it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: How will we know it's done?
+      description: >
+        One or more scenarios in Given / When / Then form, using real sizes, counts and
+        names. Each scenario becomes a test. Cover the normal case first, then any edge
+        case you care about (an empty canvas, the largest size, undo). If you don't know
+        a number, write `?` rather than inventing one.
+      placeholder: |
+        Example (format only):
+
+        Scenario: Sprite sheet wraps after the chosen number of columns
+          Given a 32 × 32 document with 6 frames
+          When I export it as a sprite sheet with Columns set to 4
+          Then the PNG is 128 × 64
+          And frames 1 to 4 fill the first row and frames 5 and 6 start the second row
+          And the two unused cells are fully transparent
+      render: gherkin
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: What is out of scope?
+      description: >
+        Anything this request deliberately does not include, so it is not built by
+        accident. Leave blank if nothing is excluded yet.
+      placeholder: "e.g. Packing frames of different sizes into one sheet is not part of this."
+    validations:
+      required: false
+
+  - type: textarea
+    id: must-not
+    attributes:
+      label: What must this change never do?
+      description: >
+        Anything that would make the change unacceptable even if it otherwise works.
+        Write "None" if you know of nothing. That is a valid answer.
+      placeholder: |
+        e.g.
+        Projects saved with the current version must still open unchanged.
+        It must not need an internet connection.
+        It must not change existing keyboard shortcuts.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Which part of the app?
+      description: Pick every area the change touches. "Not sure" is a fine answer.
+      multiple: true
+      options:
+        - Canvas & drawing tools
+        - Colour & palettes
+        - Layers & blend modes
+        - Selection & transform
+        - Animation & timeline
+        - Tilemaps & level design
+        - Import & export
+        - Saving, opening & autosave
+        - Automation, scripting & plugins
+        - Visual aids (grids, guides, reference board, preview, timelapse)
+        - Cloud, version history & collaboration
+        - Asset library
+        - AI assistant
+        - Web viewer (browser)
+        - Real-time relay server
+        - Languages & translation
+        - Themes, accessibility & general UI
+        - Documentation & User Guide
+        - Installers, packaging & CI
+        - Not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: touches
+    attributes:
+      label: Does it touch any of these?
+      description: >
+        Tick whatever applies. It tells the maintainer which extra checks the work
+        needs. Leave them all unticked if none apply.
+      options:
+        - label: Adds or changes text shown in the app (it will need translating)
+          required: false
+        - label: Changes how something looks (it must work in both the light and dark themes)
+          required: false
+        - label: Changes how something is reached by keyboard or read by a screen reader
+          required: false
+        - label: Could affect speed on large canvases, or with many layers or frames
+          required: false
+        - label: Changes the saved project file (.pixproj) or the files the app exports
+          required: false
+        - label: Needs an internet connection or an online service
+          required: false
+        - label: Needs a new third-party program or library
+          required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds
+      description: Other ways to solve the problem that you considered, and what you do today instead.
+    validations:
+      required: false
+
+  - type: upload
+    id: mockups
+    attributes:
+      label: Mockups or examples
+      description: Sketches, screenshots, or an example file showing what you have in mind.
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Related issues, User Guide pages, or how another tool does it (links are enough).
+    validations:
+      required: false
