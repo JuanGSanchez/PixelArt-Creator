@@ -1,0 +1,125 @@
+# =============================================================================
+# GitHub Pages deployment (GitHub Actions) — PixelArt Creator user-guide site
+# Owned by the GitHub/DevOps role. Grounded by workflow OF1 research (Q2:
+# GitHub Pages publishing mechanics, docs.github.com "Configuring a
+# publishing source for your GitHub Pages site" + the official Pages
+# custom-workflow guide, both fetched 2026-09-23).
+#
+# Publishes the mkdocs user-guide site (docs/site/, mkdocs-site skill) via
+# the NATIVE "GitHub Actions" Pages source — actions/configure-pages +
+# actions/upload-pages-artifact + actions/deploy-pages, the official sample
+# chain (required permissions pages: write + id-token: write; deploy job
+# under environment: github-pages) — and NOT the mkdocs-material-recommended
+# `mkdocs gh-deploy` / gh-pages-branch path (research Q2.2). Both are valid
+# GitHub-supported Pages sources, but they are two different pipelines
+# requiring two different repository Pages-source settings: for this
+# workflow to publish anything, the repository's Pages source must be set to
+# "GitHub Actions" (Settings → Pages → Build and deployment → Source) — a
+# repository-setting change, human-gated, not performed by this file.
+# Resulting URL (derived from the documented <user>.github.io/<repo> pattern,
+# not yet live): https://juangsanchez.github.io/PixelArt-Creator/ — this
+# EXACT string must also be set as `site_url:` in docs/site/mkdocs.yml (docs
+# content, not this file) so mkdocs' generated sitemap.xml is populated and
+# mkdocs-material's "instant navigation" feature does not break silently.
+#
+# TRIGGERS: a push to `main` that touches the site's own subtree
+# (docs/site/**) or this workflow file itself, plus workflow_dispatch for an
+# on-demand rebuild (e.g. immediately after the Pages source setting is first
+# turned on, before any further docs/site/** change lands).
+#
+# BUILD: the SAME install line ci.yml's own "Docs build (mkdocs --strict,
+# F14)" step uses — `pip install -c constraints.txt -e ".[dev]"`, which
+# carries mkdocs, mkdocs-material and mkdocs-static-i18n as declared dev
+# deps (pyproject.toml [project.optional-dependencies].dev) pinned by
+# constraints.txt — so this workflow can never publish a site built from
+# plugin versions CI's own `mkdocs build --strict` gate has not already
+# verified. Python is read from the repository's single parametric source
+# (.python-version via python-version-file:, same as every other workflow in
+# this repository), never a literal pin here.
+#
+# CONCURRENCY: `group: pages`, `cancel-in-progress: false` — deliberately the
+# OPPOSITE of ci.yml's own guard (which cancels superseded runs). A
+# half-finished Pages deployment is worse than a queued one: deploy-pages
+# orchestrates the deploy atomically, and this file does not want to induce
+# a state where an in-flight upload/deploy pair is cancelled mid-artifact.
+# A second push queues behind the first instead of racing it.
+#
+# NO CI-TEMP-ROOT ROUTING (contrast ci.yml / build-installers.yml): this
+# workflow runs no pytest, builds no Nuitka binary, and creates no scratch
+# files of its own beyond mkdocs' own declared `site_dir` (docs/site/_build,
+# already gitignored) and pip's own cache — there is nothing here for that
+# convention to protect.
+# =============================================================================
+name: docs-pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/site/**"
+      - ".github/workflows/docs-pages.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python (pinned via .python-version)
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+
+      - name: Install project (dev extra — carries mkdocs + mkdocs-material + mkdocs-static-i18n)
+        # SAME install line as ci.yml's "Docs build (mkdocs --strict, F14)"
+        # step: -c constraints.txt pins the identical resolved
+        # mkdocs/mkdocs-material/mkdocs-static-i18n versions that gate has
+        # already verified against --strict, so this workflow never builds
+        # from a plugin version CI has not exercised.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -c constraints.txt -e ".[dev]"
+
+      - name: Build the user-guide site (mkdocs --strict)
+        # Same invocation as ci.yml's own docs-build step. --strict turns
+        # every warning (a broken internal link, a nav entry with no
+        # matching page) into a build failure, so a page that would not have
+        # passed CI's own docs gate is never published here either. Writes
+        # to docs/site/_build (mkdocs.yml's own `site_dir:` setting).
+        run: mkdocs build -f docs/site/mkdocs.yml --strict
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/site/_build
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
