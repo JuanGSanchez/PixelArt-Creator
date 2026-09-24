@@ -87,7 +87,7 @@ from pixelart_creator.data.project_io import (
     load_project_bundle,
     save_project,
 )
-from pixelart_creator.logic import history, transform
+from pixelart_creator.logic import about_info, history, transform
 from pixelart_creator.logic.asset_edit_decisions import AssetEditDecisions
 
 # Also a side-effect import: registers ASSET_LIBRARY_EDIT into
@@ -142,6 +142,7 @@ from pixelart_creator.logic.transform import (
     scale_nearest,
 )
 from pixelart_creator.logic.version_history import CloudVersion
+from pixelart_creator.ui.about_dialog import About_Dialog
 from pixelart_creator.ui.app_icon import app_icon
 from pixelart_creator.ui.asset_library_actions import Asset_Library_Session
 from pixelart_creator.ui.asset_library_panel import Asset_Library_Panel
@@ -584,6 +585,10 @@ class Main_Window(QMainWindow):
         # bundle — NO off-thread worker/timer — so there is no teardown wiring; the
         # dialog is parented to this window, so it is disposed with it.
         self._user_guide_dialog: Optional[User_Guide_Dialog] = None
+        # About dialog (REQ-AV-UI-002..011): built fresh on every trigger
+        # (`_on_about`), so the version/facts/theme are read at open time;
+        # kept only for the life of that popup.
+        self._about_dialog: Optional[About_Dialog] = None
 
         # (REQ-IS-UI-026): true while the left button is down on a
         # painting-surface viewport, tracked via an event filter installed on
@@ -1455,6 +1460,13 @@ class Main_Window(QMainWindow):
         self._user_guide_action.setShortcut(QKeySequence(Qt.Key.Key_F1))
         self._user_guide_action.triggered.connect(self._on_user_guide)
 
+        # Help ▸ About PixelArt Creator (REQ-AV-UI-002, ADR-0067). AboutRole
+        # moves it into the platform's own menu on macOS.
+        self._about_action = QAction(self)
+        self._about_action.setObjectName("aboutAction")
+        self._about_action.setMenuRole(QAction.MenuRole.AboutRole)
+        self._about_action.triggered.connect(self._on_about)
+
         # Phase-6 tilemap actions (REQ-P6-UI-005..012). Stamp/erase/fill are a
         # mutually exclusive tool group driving the tilemap canvas; the flip/rotate
         # actions map the active stamp to the GID flag transform (view state).
@@ -1691,6 +1703,9 @@ class Main_Window(QMainWindow):
         # reachable from Help (the action text tracks the dock's translated title).
         self._help_menu.addSeparator()
         self._help_menu.addAction(self._assistant_dock_widget.toggleViewAction())
+        # About PixelArt Creator (REQ-AV-UI-002), after a separator at the end.
+        self._help_menu.addSeparator()
+        self._help_menu.addAction(self._about_action)
 
     # -- Phase-9 visual aids (REQ-P9-UI-001..010) ------------------------
 
@@ -4902,6 +4917,21 @@ class Main_Window(QMainWindow):
         dialog.raise_()
         dialog.activateWindow()
 
+    def _on_about(self) -> None:
+        """Open the About dialog, built fresh on every trigger (REQ-AV-UI-003/-004).
+
+        Shown with ``open()`` (window-modal, non-blocking), so it is safe to
+        call from a headless test. Kept as ``self._about_dialog`` until it
+        finishes, matching the ``_user_guide_dialog`` lifetime pattern above.
+        """
+        self._about_dialog = About_Dialog(self._theme, self)
+        self._about_dialog.finished.connect(self._on_about_dialog_finished)
+        self._about_dialog.open()
+
+    def _on_about_dialog_finished(self, _result: int) -> None:
+        """Drop the reference to the closed About dialog."""
+        self._about_dialog = None
+
     def set_theme(self, name: str) -> None:
         """Switch the theme at runtime and repaint canvas roles (025)."""
         self._theme = name
@@ -5349,7 +5379,7 @@ class Main_Window(QMainWindow):
     # -- i18n -------------------------------------------------------------
 
     def _retranslate(self) -> None:
-        self.setWindowTitle(self.tr("PixelArt Creator"))
+        self.setWindowTitle(about_info.window_title(self.tr("PixelArt Creator")))
         self._toolbar.setWindowTitle(self.tr("Tools"))
         self._palette_dock.setWindowTitle(self.tr("Palette"))
         self._symmetry_dock.setWindowTitle(self.tr("Symmetry"))
@@ -5514,6 +5544,7 @@ class Main_Window(QMainWindow):
         self._language_menu.setTitle(self.tr("&Language"))
         self._help_menu.setTitle(self.tr("&Help"))
         self._user_guide_action.setText(self.tr("&User Guide"))
+        self._about_action.setText(self.tr("&About PixelArt Creator"))
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
         """Re-translate the main-window strings on a language change (F5)."""
