@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-24
+
+### Added
+
+- Six structured GitHub Issue Forms (bug report, feature request, performance, translation, documentation, maintenance task) plus a matching `config.yml`, replacing the two starter issue templates, so every report captures the job-specification intake fields without a round of follow-up questions.
+- The full label set the issue forms and their lifecycle reference: type labels (performance, translation, chore), status labels (triage, needs info, ready, regression), priority labels, and 19 area labels aligned to the codebase.
+
+### Changed
+
+- CONTRIBUTING.md, SUPPORT.md and CODE_OF_CONDUCT.md now reflect collaborator-first issue creation, matching the repository's collaborators-only pull-request and issue-creation policy.
+
+### Fixed
+
+- The Windows, macOS and Linux installers now build and launch. macOS: the pysidedeploy specs now bundle `pixelart_creator/icons` (tool glyph SVGs + app-icon PNGs) and `pixelart_creator/userguide_content`, which the frozen app needs at runtime and was previously missing, raising a tool-glyph error at launch. Windows: the onefile build now creates its `dist/` output directory before `pyside6-deploy` runs, instead of failing after a successful compile because the destination did not exist. Linux: the AppImage build and the workflow's smoke-launch step now discover the standalone binary inside the deploy output folder by its executable-file identity, instead of guessing a hardcoded name that pyside6-deploy's own finalize step does not actually produce.
+
 ## [0.3.0] - 2026-09-24
 
 ### Added
