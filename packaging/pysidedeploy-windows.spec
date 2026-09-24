@@ -36,7 +36,6 @@ plugins = platforms,styles,imageformats,iconengines,platforminputcontexts
 macos.permissions =
 # onefile → a single distributable .exe.
 mode = onefile
-# --noinclude-qt-translations: we ship our own .qm (Article V) — skip Qt's.
 # --include-data-dir=SOURCE=DEST (B6 fix, extended): ships every runtime
 # package-data directory the frozen app reads through
 # importlib.resources.files("pixelart_creator") — enumerated by walking every
@@ -54,15 +53,36 @@ mode = onefile
 # so static import analysis alone (which onefile/standalone both rely on for
 # code) is not enough — non-Python data needs this explicit flag, for EVERY
 # directory a runtime resource lookup can reach, not just i18n.
+# --include-package-data=PySide6:translations/qtbase_<code>.qm (ADR-0067
+# Part 4; REQ-AV-UI-012): ships Qt's OWN base catalogue so
+# ui/i18n.py's QLibraryInfo.path(TranslationsPath) lookup (LanguageManager.
+# _apply_qt_base_catalogue) finds it in the frozen build. Nuitka's own
+# `nuitka.plugins.standard.PySidePyQtPlugin` ships a `--noinclude-qt-
+# translations` flag, but reading its installed source (4.2.2, the pinned
+# `Nuitka==2.5.1` below was NOT re-installed locally) shows that flag --
+# and the translations copy it gates -- is wired
+# ONLY through `considerDataFiles()`'s `isQtWebEngineModule()` branch, i.e.
+# it only ever bundles Qt's catalogues for a QtWebEngine dependency; its own
+# `--help` text says so verbatim ("Include Qt translations with QtWebEngine
+# if used."). This app never imports QtWebEngine, so on every platform the
+# plugin's copy step is skipped regardless of that flag's value -- removing
+# it is necessary but NOT sufficient, which is why this explicit
+# `--include-package-data` line does the actual work. `--include-package-
+# data` resolves its SOURCE relative to the INSTALLED PySide6 package (not a
+# repo path), so it is portable across CI runners. Only `qtbase_es` is listed
+# because pixelart_creator/i18n/ currently ships only `pixelart_es.qm`
+# (English is the source language and needs no Qt catalogue either); ADD the
+# matching `qtbase_<code>.qm` entry here whenever a new UI language ships.
 # --nofollow-import-to: keep the non-desktop / dev-only packages OUT of the
 # frozen app (defence-in-depth mirroring the pyproject wheel `exclude`;
 # sync_backend/web_viewer are separate services, tests/scripts/docs are dev
 # infra). The launcher only imports `pixelart_creator`, so these are belt-and-
 # braces so nothing leaks in transitively.
-extra_args = --quiet --assume-yes-for-downloads --noinclude-qt-translations
+extra_args = --quiet --assume-yes-for-downloads
     --include-data-dir=pixelart_creator/i18n=pixelart_creator/i18n
     --include-data-dir=pixelart_creator/icons=pixelart_creator/icons
     --include-data-dir=pixelart_creator/userguide_content=pixelart_creator/userguide_content
+    --include-package-data=PySide6:translations/qtbase_es.qm
     --nofollow-import-to=sync_backend --nofollow-import-to=web_viewer
     --nofollow-import-to=tests --nofollow-import-to=scripts
     --nofollow-import-to=docs --nofollow-import-to=pytest
