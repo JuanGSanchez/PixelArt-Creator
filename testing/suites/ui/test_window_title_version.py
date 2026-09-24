@@ -18,10 +18,11 @@ right reason (the feature is absent), not a harness/typo error.
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import QLocale
+from PySide6.QtCore import QLocale, QTranslator
 
 import pixelart_creator
-from pixelart_creator.ui.i18n import FALLBACK_LANGUAGE
+from pixelart_creator.logic import about_info
+from pixelart_creator.ui.i18n import FALLBACK_LANGUAGE, _default_translations_dir
 from pixelart_creator.ui.main_window import Main_Window
 
 
@@ -83,16 +84,65 @@ def test_sc_av_ui_001_3_title_keeps_version_across_language_change(qtbot):
 
     Reads the LIVE ``pixelart_creator.__version__`` attribute (CL-AV-12
     permits either an installed value or the live attribute here); nothing in
-    this test hard-codes a version literal (NFR-2). The product name
-    "PixelArt Creator" is its own message in the Spanish catalogue (measured
-    fact, spec.md §1: it translates to itself), so the title is expected to
-    still BEGIN with it even in Spanish.
+    this test hard-codes a version literal (NFR-2).
+
+    Strengthened: "PixelArt Creator" happens to translate to itself
+    in the shipped Spanish catalogue (measured fact, ``pixelart_creator/i18n/
+    pixelart_es.ts``, context ``Main_Window``, source line
+    ``main_window.py:5382``), so a bare ``windowTitle()`` string comparison
+    taken *after* the switch cannot tell a genuine retranslation apart from
+    ``_retranslate`` never having run at all -- both leave the identical text
+    behind. To make the assertion a true positive/negative for retranslation:
+
+    1. the title is CLEARED before switching, so it can only read back
+       correct if ``Main_Window.changeEvent`` actually handled the posted
+       ``QEvent.Type.LanguageChange`` and recomposed it;
+    2. the expected text is derived from the REAL compiled catalogue (a live
+       ``QTranslator`` load of the shipped ``.qm``, looked up by the same
+       ``Main_Window`` context Qt uses for ``self.tr()`` there) composed
+       through the production ``about_info.window_title`` -- never a literal
+       (NFR-2 / CL-AV-12);
+    3. ``qtbot.wait(10)`` -- runs a real Qt event loop for the given span,
+       processing events -- is called straight after ``set_language`` because
+       ``LanguageManager.set_language`` installs the translator via
+       ``QCoreApplication.installTranslator``, which POSTS the
+       ``LanguageChange`` event rather than delivering it synchronously; the
+       observer-then-act ordering here is: switch language (post the event),
+       THEN flush the queue, THEN read the now-settled title. Measured this
+       session: ``qtbot.wait(0)`` is NOT enough here -- its zero-timeout
+       ``QEventLoop`` races its own quit timer against the posted event and
+       the title is still read back empty; a real event-processing span
+       (``qtbot.wait(10)``, matching ``QApplication.processEvents()`` verified
+       directly) is what actually flushes it.
+
+    Proven red without step 3 (this session): with the ``qtbot.wait(10)``
+    call removed entirely, the posted event is never delivered, ``_retranslate``
+    never runs, and the title reads back as the cleared sentinel ``""`` -- the
+    assertion fails for the right reason. Restored below; do not remove it.
     """
     win = _window(qtbot)
+
+    # The catalogue's OWN compiled translation of the exact message
+    # Main_Window.tr("PixelArt Creator") resolves to -- read from the real
+    # shipped .qm via a live QTranslator, never a literal.
+    translator = QTranslator()
+    loaded = translator.load("pixelart_es", str(_default_translations_dir()))
+    assert loaded, "shipped Spanish catalogue failed to load"
+    translated_name = translator.translate("Main_Window", "PixelArt Creator")
+    assert translated_name, "catalogue carries no Main_Window/PixelArt Creator message"
+
+    expected_title = about_info.window_title(translated_name)
+
+    # Clear the title first: only a genuine _retranslate() run can restore
+    # it, so the read-back below cannot pass by coincidence of "PixelArt
+    # Creator" translating to itself.
+    win.setWindowTitle("")
     try:
         assert win._language_manager.set_language("es") is True
+        qtbot.wait(10)  # flush the posted QEvent.LanguageChange
         title = win.windowTitle()
-        assert title.startswith("PixelArt Creator")
+        assert title == expected_title
         assert title.endswith(pixelart_creator.__version__)
     finally:
         win._language_manager.set_language(FALLBACK_LANGUAGE)
+        qtbot.wait(10)
