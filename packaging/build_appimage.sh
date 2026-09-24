@@ -15,10 +15,18 @@
 set -euo pipefail
 
 APP_NAME="PixelArtCreator"
-# Nuitka standalone names the dist folder + frozen binary after the input-file
-# stem. The shipped entry is pixelart_creator/__main__.py, so the stem is
-# `__main__`.
-DIST_DIR="dist/__main__.dist"
+# Nuitka standalone COMPILES the dist folder + frozen binary named after the
+# input-file stem (pixelart_creator/__main__.py -> `__main__`), but
+# pyside6-deploy's own deploy_lib/deploy_util.py:finalize() then COPIES that
+# folder into `exec_directory` (the linux spec's `dist`) renamed to the
+# spec's `title` + ".dist" -- the file INSIDE keeps its original name
+# (`__main__`), only the containing folder is renamed. `title =
+# PixelArtCreator` in pysidedeploy-linux.spec, so the folder this script
+# consumes is dist/PixelArtCreator.dist, not dist/__main__.dist (v0.3.0 run
+# 35941799524's assumption, which never existed post-copy -- confirmed by
+# reading PySide6's own deploy_lib/config.py + deploy_util.py locally). The
+# binary INSIDE that folder is still named `__main__` (see AppRun below).
+DIST_DIR="dist/PixelArtCreator.dist"
 APPDIR="build/${APP_NAME}.AppDir"
 OUT_DIR="artifact"
 OUT="${OUT_DIR}/${APP_NAME}-x86_64.AppImage"

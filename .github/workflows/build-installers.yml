@@ -186,7 +186,23 @@ jobs:
       # ---------------- Windows leg (BUILD-002): onefile .exe --------
       - name: Build Windows .exe (pyside6-deploy / Nuitka onefile)
         if: runner.os == 'Windows'
+        # `mkdir -p dist` FIRST: root cause of the v0.3.0 failure (run
+        # 35941799524) was NOT the Nuitka compile (it completed -- the
+        # 44 MB onefile payload was built) but pyside6-deploy's own
+        # deploy_lib/deploy_util.py:finalize(), which for `mode = onefile`
+        # copies the compiled exe into `exec_directory` with a plain
+        # `shutil.copy(generated_exec_path, output_path)` -- unlike the
+        # standalone/macOS path (`shutil.copytree(..., dirs_exist_ok=True)`,
+        # used on the Linux/macOS legs below), `shutil.copy` does NOT create
+        # a missing destination directory. `exec_directory = dist` in the
+        # spec was never created by anything before this run, so finalize()
+        # raised `FileNotFoundError: ... dist\PixelArtCreator.exe` AFTER a
+        # successful compile, and `dist\PixelArtCreator.exe` was never
+        # written at all (confirmed by reading PySide6's own
+        # deploy_lib/deploy_util.py and config.py locally, matching the CI
+        # traceback line-for-line).
         run: |
+          mkdir -p dist
           pyside6-deploy -c packaging/pysidedeploy-windows.spec --force --keep-deployment-files
           mkdir -p artifact
           cp dist/PixelArtCreator.exe "artifact/PixelArtCreator-windows.exe"
@@ -223,9 +239,21 @@ jobs:
       - name: Smoke-launch the Linux standalone binary (offscreen, auto-quit)
         if: runner.os == 'Linux'
         run: |
-          # Nuitka standalone names the dist folder + binary after the input-file
-          # stem (pixelart_creator/__main__.py → `__main__`); see the linux spec.
-          BIN="dist/__main__.dist/__main__"
+          # Nuitka standalone COMPILES the dist folder + binary named after the
+          # input-file stem (pixelart_creator/__main__.py -> `__main__`), but
+          # pyside6-deploy's own deploy_lib/deploy_util.py:finalize() then
+          # COPIES that folder into `exec_directory` renamed to the spec's
+          # `title` + ".dist" (`shutil.copytree(generated_exec_path,
+          # exe_dir / (title + ".dist"))`) -- the file INSIDE keeps its
+          # original name (`__main__`), only the containing folder is
+          # renamed. `title = PixelArtCreator` in pysidedeploy-linux.spec, so
+          # the actual final path is dist/PixelArtCreator.dist/__main__, not
+          # dist/__main__.dist/__main__ (v0.3.0 run 35941799524's assumption,
+          # which never existed post-copy -- confirmed by reading PySide6's
+          # own deploy_lib/config.py + deploy_util.py locally). See also
+          # packaging/build_appimage.sh, which reads from this same corrected
+          # path.
+          BIN="dist/PixelArtCreator.dist/__main__"
           echo "smoke binary: ${BIN}"
           if "${BIN}"; then
             echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"

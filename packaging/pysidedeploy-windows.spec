@@ -37,14 +37,23 @@ macos.permissions =
 # onefile → a single distributable .exe.
 mode = onefile
 # --noinclude-qt-translations: we ship our own .qm (Article V) — skip Qt's.
-# --include-data-dir=SOURCE=DEST (B6 fix): ships our OWN compiled catalogues
-# (pixelart_creator/i18n/*.qm), referenced in the comment above, into the
-# frozen onefile payload at the same package-relative path
-# pixelart_creator/ui/i18n.py's _default_translations_dir() resolves at
-# runtime (sibling of pixelart_creator/ui/). Onefile mode extracts included
-# data files under this same relative layout at run time, so static import
-# analysis alone (which onefile/standalone both rely on for code) is not
-# enough — non-Python data needs this explicit flag.
+# --include-data-dir=SOURCE=DEST (B6 fix, extended): ships every runtime
+# package-data directory the frozen app reads through
+# importlib.resources.files("pixelart_creator") — enumerated by walking every
+# such call site (ui/tool_icons.py, ui/app_icon.py, data/guide_content.py):
+#   - pixelart_creator/i18n            (*.qm) -- ui/i18n.py
+#   - pixelart_creator/icons           (tools/*.svg + app/*) -- ui/tool_icons.py,
+#     ui/app_icon.py. Its ABSENCE is the measured root cause of the v0.3.0
+#     macOS smoke-launch crash (ToolGlyphError: missing tool glyph asset for:
+#     pencil, run 35941799524) -- only i18n was ever included.
+#   - pixelart_creator/userguide_content (manifest.json + content/*.md) --
+#     data/guide_content.py (in-app User Guide, ADR-0029)
+# into the frozen onefile payload at the same package-relative paths those
+# modules resolve at runtime (siblings of pixelart_creator/ui/). Onefile mode
+# extracts included data files under this same relative layout at run time,
+# so static import analysis alone (which onefile/standalone both rely on for
+# code) is not enough — non-Python data needs this explicit flag, for EVERY
+# directory a runtime resource lookup can reach, not just i18n.
 # --nofollow-import-to: keep the non-desktop / dev-only packages OUT of the
 # frozen app (defence-in-depth mirroring the pyproject wheel `exclude`;
 # sync_backend/web_viewer are separate services, tests/scripts/docs are dev
@@ -52,6 +61,8 @@ mode = onefile
 # braces so nothing leaks in transitively.
 extra_args = --quiet --assume-yes-for-downloads --noinclude-qt-translations
     --include-data-dir=pixelart_creator/i18n=pixelart_creator/i18n
+    --include-data-dir=pixelart_creator/icons=pixelart_creator/icons
+    --include-data-dir=pixelart_creator/userguide_content=pixelart_creator/userguide_content
     --nofollow-import-to=sync_backend --nofollow-import-to=web_viewer
     --nofollow-import-to=tests --nofollow-import-to=scripts
     --nofollow-import-to=docs --nofollow-import-to=pytest
