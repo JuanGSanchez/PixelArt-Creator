@@ -15,17 +15,18 @@
 set -euo pipefail
 
 APP_NAME="PixelArtCreator"
-# Nuitka standalone COMPILES the dist folder + frozen binary named after the
-# input-file stem (pixelart_creator/__main__.py -> `__main__`), but
-# pyside6-deploy's own deploy_lib/deploy_util.py:finalize() then COPIES that
-# folder into `exec_directory` (the linux spec's `dist`) renamed to the
-# spec's `title` + ".dist" -- the file INSIDE keeps its original name
-# (`__main__`), only the containing folder is renamed. `title =
-# PixelArtCreator` in pysidedeploy-linux.spec, so the folder this script
-# consumes is dist/PixelArtCreator.dist, not dist/__main__.dist (v0.3.0 run
-# 35941799524's assumption, which never existed post-copy -- confirmed by
-# reading PySide6's own deploy_lib/config.py + deploy_util.py locally). The
-# binary INSIDE that folder is still named `__main__` (see AppRun below).
+# pyside6-deploy's own deploy_lib/deploy_util.py:finalize() copies Nuitka's
+# compiled standalone dist folder into `exec_directory` renamed to the
+# spec's `title` + ".dist" (`shutil.copytree(...)`), confirmed by a real
+# build log: "[DEPLOY] Executed file created in .../dist/PixelArtCreator.dist".
+# `title = PixelArtCreator` in pysidedeploy-linux.spec, so the folder this
+# script consumes is dist/PixelArtCreator.dist, not dist/__main__.dist
+# (v0.3.0 run 35941799524's assumption, which never existed post-copy). The
+# binary INSIDE that folder is NOT assumed by name either -- a prior fix
+# guessed `__main__` (the pre-copy Nuitka name) and that guess measurably
+# failed too (run 35995818253: the folder existed, that binary name did
+# not). It is DISCOVERED below instead: the one top-level executable regular
+# file in the dist folder that is not a shared library.
 DIST_DIR="dist/PixelArtCreator.dist"
 APPDIR="build/${APP_NAME}.AppDir"
 OUT_DIR="artifact"
@@ -37,16 +38,22 @@ if [ ! -d "${DIST_DIR}" ]; then
     exit 1
 fi
 
+BIN_NAME="$(find "${DIST_DIR}" -maxdepth 1 -type f -perm -u+x ! -name '*.so*' -printf '%f\n' | head -n1)"
+if [ -z "${BIN_NAME}" ]; then
+    echo "error: no executable binary found at the top level of ${DIST_DIR}" >&2
+    exit 1
+fi
+echo "discovered standalone binary: ${BIN_NAME}"
+
 rm -rf "${APPDIR}"
 mkdir -p "${APPDIR}/usr/bin" "${OUT_DIR}"
 cp -a "${DIST_DIR}"/. "${APPDIR}/usr/bin/"
 
-# AppRun launches the frozen binary (Nuitka names it after the input stem,
-# `__main__`).
-cat > "${APPDIR}/AppRun" <<'EOF'
+# AppRun launches the discovered frozen binary by its real name.
+cat > "${APPDIR}/AppRun" <<EOF
 #!/bin/bash
-HERE="$(dirname "$(readlink -f "${0}")")"
-exec "${HERE}/usr/bin/__main__" "$@"
+HERE="\$(dirname "\$(readlink -f "\${0}")")"
+exec "\${HERE}/usr/bin/${BIN_NAME}" "\$@"
 EOF
 chmod +x "${APPDIR}/AppRun"
 
@@ -55,7 +62,7 @@ cat > "${APPDIR}/${APP_NAME}.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=PixelArt Creator
-Exec=__main__
+Exec=${BIN_NAME}
 Icon=pixelart-creator
 Categories=Graphics;
 Terminal=false
