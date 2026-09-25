@@ -52,6 +52,7 @@ from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
 
 import pixelart_creator
 from pixelart_creator.ui import theme as theme_module
+from pixelart_creator.ui.about_dialog import About_Dialog
 from pixelart_creator.ui.app_icon import app_icon
 from pixelart_creator.ui.i18n import FALLBACK_LANGUAGE
 from pixelart_creator.ui.main_window import Main_Window
@@ -151,6 +152,110 @@ def _tab_focusable(widget: QWidget) -> bool:
     rather than from a fixed platform assumption.
     """
     return bool(widget.focusPolicy() & Qt.FocusPolicy.TabFocus)
+
+
+# --------------------------------------------------------------------------- #
+# Diagnostic-only helpers (PR #73 CI, macOS-only Tab-focus divergence under    #
+# active maintainer review as of this writing -- see run 36080901187:          #
+# aboutCopyButton's own focusPolicy() DOES include TabFocus there, yet a real  #
+# Tab press still lands on aboutCloseButton instead; a second failure shows    #
+# an unnamed widget sitting in nextInFocusChain() between aboutReleasesLink    #
+# and aboutCopyButton, possibly a QFocusFrame). NO FIX is attempted here --    #
+# these three helpers only ENRICH an assertion's failure message, and are     #
+# called exclusively from inside an assert's message expression, which        #
+# Python evaluates ONLY when the assertion actually fails -- so on a          #
+# platform where the assertion passes (this machine, Windows), none of this   #
+# code runs at all, and the assertions themselves are unchanged.              #
+# --------------------------------------------------------------------------- #
+
+
+def _focus_chain_dump(dialog: QWidget) -> str:
+    """Diagnostic (a): the complete ``nextInFocusChain()`` ring starting from
+    ``dialog`` itself, one line per widget: class name, objectName,
+    focusPolicy value, isVisible, isEnabled, isWindow, parent class. Stops
+    when the ring closes back onto an already-seen widget (by identity, so
+    two different same-named/unnamed widgets are never confused), or after a
+    generous cap in case the chain is somehow not closed."""
+    lines = []
+    seen_ids = set()
+    current = dialog
+    for _ in range(64):
+        if id(current) in seen_ids:
+            lines.append(f"  (ring closed back to {current.objectName()!r})")
+            break
+        seen_ids.add(id(current))
+        parent = current.parent()
+        lines.append(
+            f"  {type(current).__name__} objectName={current.objectName()!r} "
+            f"focusPolicy={current.focusPolicy()!r} "
+            f"isVisible={current.isVisible()} isEnabled={current.isEnabled()} "
+            f"isWindow={current.isWindow()} "
+            f"parent={type(parent).__name__ if parent is not None else None}"
+        )
+        nxt = current.nextInFocusChain()
+        if nxt is None:
+            lines.append("  (nextInFocusChain() returned None)")
+            break
+        current = nxt
+    return "nextInFocusChain() walk from the dialog:\n" + "\n".join(lines)
+
+
+def _tab_press_log(qtbot, dialog: QWidget, first: QWidget, n: int) -> str:
+    """Diagnostic (b): focus ``first``, then press Tab ``n`` times, recording
+    the ACTUALLY-focused widget's class/objectName after the initial focus
+    and after EACH press. Runs on whichever ``dialog``/``first`` the caller
+    passes in -- callers use a dedicated, throwaway ``About_Dialog`` instance
+    for this (see ``_platform_focus_diagnostics``), so these extra presses
+    can never perturb the CALLING test's own Tab-navigation assertions."""
+    lines = []
+    first.setFocus(Qt.FocusReason.TabFocusReason)
+    w = dialog.focusWidget()
+    lines.append(
+        f"  step 0 (initial focus): {type(w).__name__ if w else None} "
+        f"objectName={w.objectName() if w else None!r}"
+    )
+    for i in range(1, n + 1):
+        qtbot.keyClick(dialog, Qt.Key.Key_Tab)
+        w = dialog.focusWidget()
+        lines.append(
+            f"  step {i}: {type(w).__name__ if w else None} "
+            f"objectName={w.objectName() if w else None!r}"
+        )
+    return f"{n} real Tab presses from {first.objectName()!r}:\n" + "\n".join(lines)
+
+
+def _platform_focus_diagnostics(qtbot, dialog: QWidget) -> str:
+    """Diagnostic (a)+(b)+(c), assembled for an assertion's lazy failure
+    message. (c): ``QGuiApplication.styleHints().tabFocusBehavior()``,
+    ``QApplication.style().objectName()``, and each ``QPushButton``'s
+    ``autoDefault()``/``isDefault()``. (b) runs on a fresh, throwaway
+    ``About_Dialog`` (same theme as ``dialog``) built solely for this dump,
+    never on the caller's own ``dialog`` -- so gathering it cannot change
+    what the calling test itself observes.
+    """
+    hints = QGuiApplication.styleHints()
+    parts = [
+        f"QGuiApplication.styleHints().tabFocusBehavior() = "
+        f"{hints.tabFocusBehavior()!r}",
+        f"QApplication.style().objectName() = {QApplication.style().objectName()!r}",
+    ]
+    for name in ("aboutCopyButton", "aboutCloseButton"):
+        button = _child(dialog, name)
+        parts.append(
+            f"{name}: autoDefault()={button.autoDefault()} "
+            f"isDefault()={button.isDefault()} "
+            f"focusPolicy()={button.focusPolicy()!r}"
+        )
+    parts.append(_focus_chain_dump(dialog))
+
+    diag_dialog = About_Dialog(dialog._theme, None)
+    qtbot.addWidget(diag_dialog)
+    diag_dialog.show()
+    qtbot.waitExposed(diag_dialog)
+    first = _child(diag_dialog, _TAB_CHAIN[0])
+    parts.append(_tab_press_log(qtbot, diag_dialog, first, len(_TAB_CHAIN) + 2))
+
+    return "\n\n".join(parts)
 
 
 def _max_glyph_contrast(widget: QWidget) -> float:
@@ -534,21 +639,24 @@ def test_tab_chain_reaches_every_platform_tab_focusable_control_and_wraps(
     expected = [w for w in ordered_widgets if _tab_focusable(w)]
     assert expected, (
         "no Tab-chain control reports Qt.FocusPolicy.TabFocus on this "
-        "platform -- nothing to verify"
+        "platform -- nothing to verify\n\n"
+        f"{_platform_focus_diagnostics(qtbot, dialog)}"
     )
 
     first = expected[0]
     first.setFocus(Qt.FocusReason.TabFocusReason)
     assert dialog.focusWidget() is first, (
         f"{first.objectName()!r} (the first Tab-focusable control on this "
-        "platform) did not accept focus"
+        "platform) did not accept focus\n\n"
+        f"{_platform_focus_diagnostics(qtbot, dialog)}"
     )
     for widget in expected[1:]:
         qtbot.keyClick(dialog, Qt.Key.Key_Tab)
         current = dialog.focusWidget()
         assert current is widget, (
             f"Tab did not reach {widget.objectName()!r}; focus is on "
-            f"{current.objectName() if current else None!r}"
+            f"{current.objectName() if current else None!r}\n\n"
+            f"{_platform_focus_diagnostics(qtbot, dialog)}"
         )
 
     # Wraps back to the first Tab-focusable control.
@@ -557,7 +665,8 @@ def test_tab_chain_reaches_every_platform_tab_focusable_control_and_wraps(
     assert current is first, (
         "Tab from the last Tab-focusable control did not wrap back to "
         f"{first.objectName()!r}; focus is on "
-        f"{current.objectName() if current else None!r}"
+        f"{current.objectName() if current else None!r}\n\n"
+        f"{_platform_focus_diagnostics(qtbot, dialog)}"
     )
 
 
@@ -585,7 +694,8 @@ def test_declared_tab_order_lists_links_copy_close_in_order(qtbot):
             "declared tab order broken: expected "
             f"{expected.objectName()!r} to directly follow "
             f"{current.objectName()!r} in About_Dialog's own setTabOrder "
-            f"chain, got {following.objectName() if following else None!r}"
+            f"chain, got {following.objectName() if following else None!r}\n\n"
+            f"{_platform_focus_diagnostics(qtbot, dialog)}"
         )
         current = following
 
