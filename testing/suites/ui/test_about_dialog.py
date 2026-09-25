@@ -134,6 +134,34 @@ def _child(dialog, name: str) -> QWidget:
     return widget
 
 
+@pytest.fixture
+def _all_controls_tab_focus():
+    """Force every control class into the Tab chain for this test, restored after.
+
+    The platform default for ``QStyleHints.tabFocusBehavior()`` is NOT
+    uniform: Windows/Linux default to ``TabFocusAllControls``, but macOS
+    defaults to ``TabFocusTextControls`` (Tab only reaches text/list controls
+    and the dialog's own default button, unless the user has "Full Keyboard
+    Access" turned on system-wide) -- an OS accessibility SETTING, not
+    anything this dialog's code controls. ``About_Dialog``'s own explicit
+    ``QWidget.setTabOrder`` chain (``_link_labels`` x3 -> Copy -> Close) is
+    the product behaviour under test here; forcing
+    ``TabFocusAllControls`` for the test's duration makes the assertion
+    check that wiring deterministically on every platform, rather than
+    asserting a platform- (and user-setting-) dependent SUBSET of it that
+    would need a different expected chain per OS. Session-global state
+    (``QGuiApplication.styleHints()``), so it is saved and restored even if
+    the test body raises.
+    """
+    hints = QGuiApplication.styleHints()
+    previous = hints.tabFocusBehavior()
+    hints.setTabFocusBehavior(Qt.TabFocusBehavior.TabFocusAllControls)
+    try:
+        yield
+    finally:
+        hints.setTabFocusBehavior(previous)
+
+
 def _max_glyph_contrast(widget: QWidget) -> float:
     """Return the highest WCAG contrast ratio between any rendered pixel of
     ``widget`` and its own background, sampled at an unpainted corner pixel
@@ -308,7 +336,7 @@ def test_sc_av_ui_005_3_nothing_opened_unless_a_link_is_clicked(qtbot, monkeypat
     "key", [Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space]
 )
 def test_sc_av_ui_005_4_keyboard_activates_a_focused_link(
-    qtbot, monkeypatch, object_name, url, key
+    qtbot, monkeypatch, object_name, url, key, _all_controls_tab_focus
 ):
     """REQ-AV-UI-005 (``LinksAccessibleByKeyboard``): keyboard activation of a
     focused link must open it and keep the dialog open. With a link reached
@@ -323,6 +351,10 @@ def test_sc_av_ui_005_4_keyboard_activates_a_focused_link(
     three keys. A direct ``linkActivated.emit(url)`` call still reaches
     ``_open_url`` on its own, so the signal wiring is not what this test
     guards: it guards the real keyboard path reaching that same signal.
+
+    Uses ``_all_controls_tab_focus`` (see its docstring): the Tab navigation
+    below walks the dialog's own explicit chain, which is deterministic only
+    when every control class participates in Tab focus.
     """
     import pixelart_creator.ui.about_dialog as about_dialog_module
 
@@ -462,9 +494,19 @@ def test_sc_av_ui_008_2_esc_closes_dialog_and_focus_returns(qtbot):
     assert dialog.result() == dialog.DialogCode.Rejected
 
 
-def test_tab_chain_reaches_the_three_links_copy_and_close(qtbot):
+def test_tab_chain_reaches_the_three_links_copy_and_close(
+    qtbot, _all_controls_tab_focus
+):
     """REQ-AV-UI-008 (Tab reach clause; CL-AV-14): Tab visits the three links,
-    then Copy, then Close, in that order."""
+    then Copy, then Close, in that order.
+
+    Uses ``_all_controls_tab_focus`` (see its docstring): without it, a
+    platform whose default keyboard-navigation setting excludes ordinary
+    push buttons from the Tab chain (observed: macOS, unless the user has
+    "Full Keyboard Access" enabled) would skip Copy, which is a property of
+    that platform's accessibility setting, not of this dialog's own
+    ``setTabOrder`` wiring under test here.
+    """
     win, dialog = _open_about(qtbot)
     win.show()
     dialog.show()

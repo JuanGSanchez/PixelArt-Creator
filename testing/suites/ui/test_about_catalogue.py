@@ -8,26 +8,48 @@ carve-out, currently empty -- see ``_VALUE_STRING_EXCEPTIONS`` below), and
 be served by the COMPILED ``pixelart_es.qm`` through a real
 ``QTranslator``.
 
-**How "new" is derived (never typed).** A pair is new if it is produced by
-an AST walk of a UI file this feature touched, using its CURRENT tr()/translate()/
-trUtf8() literal calls (context = the innermost enclosing class name --
-this is how ``pyside6-lupdate`` scopes a context, confirmed against the
-shipped catalogue: e.g. every existing ``Main_Window`` message lives under
-context name ``Main_Window``, not "MainWindow") but is ABSENT from that same
-AST walk run over the file's content at the pre-feature commit
-``a77b5c0`` (the commit the tasks.md red-first rule pins every red run
-to). This is a pure source diff, not a hand-typed list, and it stays valid
-once the catalogues are extracted: it depends only on git history (fixed) and the current source
-tree, never on the ``.ts`` files' own state -- so it does not silently
-collapse to zero once localisation extracts these strings.
+**How "new" is derived (never typed, and never a git diff).** Two sources,
+both found by AST, both read with an EXPLICIT ``encoding="utf-8"``:
 
-Verified once by an ephemeral probe (2026-09-24, discarded): 19 pairs are
-new -- 18 under a fresh ``About_Dialog`` context (the whole file is new at
-``a77b5c0``: ``git show a77b5c0:pixelart_creator/ui/about_dialog.py`` ->
-``fatal: path ... exists on disk, but not in 'a77b5c0'``) and 1 under the
-existing ``Main_Window`` context (``&About PixelArt Creator``).
-``pixelart_creator/ui/theme.py`` contributes 0: ``link_colour`` returns a
-``QColor``, it wraps no user-visible string.
+1. Every (context, source) pair in ``about_dialog.py``'s CURRENT AST
+   (context = the innermost enclosing class name -- this is how
+   ``pyside6-lupdate`` scopes a context, confirmed against the shipped
+   catalogue: e.g. every existing ``Main_Window`` message lives under
+   context name ``Main_Window``, not "MainWindow"). The WHOLE file counts,
+   because the whole file is new (the pre-feature commit ``a77b5c0`` has no
+   such path at all -- ``git show a77b5c0:pixelart_creator/ui/about_dialog.py``
+   -> ``fatal: path ... exists on disk, but not in 'a77b5c0'``, verified once).
+2. The single (context, source) pair for the pre-existing ``Main_Window``
+   context's About action, found NARROWLY by ``_AboutActionTextCollector``
+   -- the one ``self._about_action.setText(self.tr(...))`` call -- rather
+   than by diffing the whole of ``main_window.py`` against any base commit.
+
+**A whole-file diff against a base commit was the ORIGINAL method here and
+was replaced** (measured failure, Windows CI, 2026-09-25): reading a base
+commit's content via ``git show <commit>:<path>`` through
+``subprocess.run(..., text=True)`` with no explicit ``encoding=`` decodes
+with the PLATFORM'S preferred encoding, which is ``cp1252`` on that runner,
+not UTF-8. ``main_window.py`` carries a pre-existing, unrelated
+``self.tr("Floyd–Steinberg")`` call (an en dash, U+2013, encoded in git
+history as the UTF-8 bytes ``\xe2\x80\x93``); decoded as ``cp1252`` that
+becomes the mojibake string ``"Floydâ€“Steinberg"``, which
+does not equal the CURRENT tree's correctly-``utf-8``-decoded
+``"Floyd–Steinberg"`` -- so the diff-based method saw the (unchanged,
+byte-identical-at-both-commits, unrelated) pair as "new" and pulled it into
+this feature's set. The AST-only method above depends on no subprocess call,
+no git history, and no locale-dependent decoding at all -- only the CURRENT
+source tree, read explicitly as UTF-8, plus the ONE-TIME-VERIFIED fact that
+``about_dialog.py`` did not exist at ``a77b5c0`` (a fact about the file's
+own history, not a repeated diff of its content) and that the About action's
+``setText`` call is the feature's only addition to ``Main_Window``.
+
+Verified once by an ephemeral probe (2026-09-24, discarded; re-confirmed
+2026-09-25 against the AST-only method): 19 pairs are new -- 18 under
+``about_dialog.py``'s ``About_Dialog`` context and 1 under the existing
+``Main_Window`` context (``&About PixelArt Creator``).
+``pixelart_creator/ui/theme.py`` is not walked at all any more (it
+contributed 0 under the old method too: ``link_colour`` returns a
+``QColor``, it wraps no user-visible string).
 
 **Red-first (NFR-5).** Run before the tree with the new UI code has its
 catalogues extracted: at that point in the workflow the ``About_Dialog`` context does
@@ -43,7 +65,6 @@ step's own done-when names this file's assertions explicitly).
 from __future__ import annotations
 
 import ast
-import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
@@ -76,15 +97,12 @@ def _english_start_language():
 
 
 _PKG_DIR = Path(pixelart_creator.__file__).resolve().parent
-_REPO_ROOT = _PKG_DIR.parent
 _I18N_DIR = _PKG_DIR / "i18n"
 
-#: The pre-feature commit every red-first run in this workflow is pinned to
-#: (tasks.md header table, "Red-first rule").
-_BASE_COMMIT = "a77b5c0"
-
-#: The ui/ files this feature touched ("Files touched").
-_CHANGED_UI_FILES = ("about_dialog.py", "main_window.py", "theme.py")
+#: The two source files the deterministic, AST-only derivation reads --
+#: never a git diff, never any other commit (module docstring).
+_ABOUT_DIALOG_PATH = _PKG_DIR / "ui" / "about_dialog.py"
+_MAIN_WINDOW_PATH = _PKG_DIR / "ui" / "main_window.py"
 
 _TR_FUNCS = {"tr", "translate", "trUtf8"}
 
@@ -130,31 +148,74 @@ def _tr_pairs_in_text(source_text: str) -> Set[Tuple[str, str]]:
     return collector.pairs
 
 
-def _read_at_base_commit(rel_posix_path: str) -> Optional[str]:
-    """Return the file's content at ``_BASE_COMMIT``, or ``None`` if the
-    file did not exist there yet (a new file: every one of its pairs counts
-    as new)."""
-    result = subprocess.run(
-        ["git", "show", f"{_BASE_COMMIT}:{rel_posix_path}"],
-        cwd=_REPO_ROOT,
-        capture_output=True,
-        text=True,
+class _AboutActionTextCollector(ast.NodeVisitor):
+    """Find the single ``self._about_action.setText(self.tr(<source>))``
+    call and record its (enclosing class name, source) pair.
+
+    Deliberately NARROW, unlike ``_TrCollector`` (which the ``about_dialog.py``
+    sweep uses to collect EVERY ``tr()`` call in that whole-new file): this
+    visitor matches only the one call chain that sets the About action's
+    text, because that is this feature's only contribution to the
+    pre-existing ``Main_Window`` context, and identifying it this way needs
+    no diff against any other commit (module docstring).
+    """
+
+    def __init__(self) -> None:
+        self._class_stack: List[str] = []
+        self.pair: Optional[Tuple[str, str]] = None
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
+        self._class_stack.append(node.name)
+        self.generic_visit(node)
+        self._class_stack.pop()
+
+    def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
+        fn = node.func
+        is_about_action_set_text = (
+            isinstance(fn, ast.Attribute)
+            and fn.attr == "setText"
+            and isinstance(fn.value, ast.Attribute)
+            and fn.value.attr == "_about_action"
+        )
+        if is_about_action_set_text and node.args and self._class_stack:
+            arg = node.args[0]
+            if (
+                isinstance(arg, ast.Call)
+                and isinstance(arg.func, ast.Attribute)
+                and arg.func.attr in _TR_FUNCS
+                and arg.args
+                and isinstance(arg.args[0], ast.Constant)
+                and isinstance(arg.args[0].value, str)
+            ):
+                self.pair = (self._class_stack[-1], arg.args[0].value)
+        self.generic_visit(node)
+
+
+def _about_action_pair(source_text: str) -> Tuple[str, str]:
+    """Return the one (context, source) pair for ``Main_Window``'s About
+    action, found by ``_AboutActionTextCollector`` (never a diff)."""
+    collector = _AboutActionTextCollector()
+    collector.visit(ast.parse(source_text))
+    assert collector.pair is not None, (
+        "no self._about_action.setText(self.tr(...)) call found in "
+        f"{_MAIN_WINDOW_PATH} -- the About action's text-setting call moved "
+        "or was renamed; update _AboutActionTextCollector to match"
     )
-    if result.returncode != 0:
-        return None
-    return result.stdout
+    return collector.pair
 
 
 def _new_pairs() -> List[Tuple[str, str]]:
-    new_pairs: Set[Tuple[str, str]] = set()
-    for filename in _CHANGED_UI_FILES:
-        path = _PKG_DIR / "ui" / filename
-        rel_posix = path.relative_to(_REPO_ROOT).as_posix()
-        current_pairs = _tr_pairs_in_text(path.read_text(encoding="utf-8"))
-        old_text = _read_at_base_commit(rel_posix)
-        old_pairs = _tr_pairs_in_text(old_text) if old_text is not None else set()
-        new_pairs |= current_pairs - old_pairs
-    return sorted(new_pairs)
+    """Deterministic, git-free derivation (module docstring: "How 'new' is
+    derived"). Every pair in ``about_dialog.py``'s current AST (the whole
+    file is new) plus the one About-action pair in ``main_window.py``,
+    both files read with an explicit ``encoding="utf-8"``."""
+    about_dialog_pairs = _tr_pairs_in_text(
+        _ABOUT_DIALOG_PATH.read_text(encoding="utf-8")
+    )
+    about_action_pair = _about_action_pair(
+        _MAIN_WINDOW_PATH.read_text(encoding="utf-8")
+    )
+    return sorted(about_dialog_pairs | {about_action_pair})
 
 
 def _ts_index(path: Path) -> Dict[Tuple[str, str], ET.Element]:
@@ -181,19 +242,20 @@ _NEW_PAIR_IDS = [f"{ctx}::{src[:40]}" for ctx, src in _NEW_PAIRS]
 def test_new_pairs_were_discovered_from_source() -> None:
     """Guard against a silently-empty parametrize (no-silent-result).
 
-    If the AST/git diff above ever finds nothing -- a broken ``git show``,
-    a moved file -- the parametrized tests below would simply not be
-    collected, which is a silent, not a failing, non-result. This assertion
-    makes that failure loud instead. 19 pairs were measured for this task
-    (see module docstring); the assertion is deliberately looser (>0) so it
-    does not itself go stale if a later change in this same slice adds one
-    more string before the catalogues are extracted.
+    If the AST derivation above ever finds nothing -- a moved/renamed file,
+    a moved ``_about_action`` -- the parametrized tests below would simply
+    not be collected, which is a silent, not a failing, non-result. This
+    assertion makes that failure loud instead. 19 pairs were measured for
+    this task (see module docstring); the assertion is deliberately looser
+    (>0) so it does not itself go stale if a later change in this same slice
+    adds one more string before the catalogues are extracted.
     """
     assert len(_NEW_PAIRS) > 0, (
         "expected at least one new (context, source) pair from "
-        f"{_CHANGED_UI_FILES}; the AST/git diff against {_BASE_COMMIT} "
-        "found none -- check git history and file paths before trusting "
-        "any 'pass' below"
+        f"{_ABOUT_DIALOG_PATH} and the About action in {_MAIN_WINDOW_PATH} "
+        "-- found none; check that both files and the "
+        "self._about_action.setText(self.tr(...)) call still exist before "
+        "trusting any 'pass' below"
     )
 
 
