@@ -3,14 +3,27 @@
 Qt 6 documents ``FullViewportUpdate`` as "the preferred update mode for
 viewports that do not support partial updates, such as QOpenGLWidget", and
 ``MinimalViewportUpdate`` as "QGraphicsView's default mode" — Qt does not
-switch the mode for you when a GL viewport is installed. ``Canvas_View``
-installs a ``QOpenGLWidget`` viewport on any real desktop (``_install_viewport``,
-``pixelart_creator/ui/canvas_view.py``) while every drawing tool commits
-through a *partial* ``refresh_rect`` -> ``_item.update(rect)``. Asking a
-viewport Qt documents as unable to perform partial updates to perform nothing
-but partial updates is why pencil/eraser/line strokes went invisible in the
-field while a whole-item ``refresh_all`` (rectangle-selection drag) still
-rendered.
+switch the mode for you when a GL viewport is installed. Every drawing tool
+commits through a *partial* ``refresh_rect`` -> ``_item.update(rect)``, and
+asking a viewport Qt documents as unable to perform partial updates to
+perform nothing but partial updates is why pencil/eraser/line strokes went
+invisible in the field while a whole-item ``refresh_all`` (rectangle-selection
+drag) still rendered — the original GL-by-default regression this module's
+REQ-CGS-UI-001/-002 tests were written against.
+
+**Superseded default (kept here for provenance only)**: at the time those
+tests were written, ``Canvas_View`` installed a ``QOpenGLWidget`` viewport on
+any real desktop by default. A LATER fix (the blank-window-on-a-GL-desktop
+platform fault, see ``ui/canvas_view.py``'s module docstring and
+``opengl_viewport_requested()``) made the viewport RASTER BY DEFAULT instead —
+GL is opt-in only, via ``OPENGL_VIEWPORT_ENABLED`` /
+``PIXELART_OPENGL_VIEWPORT=1`` (covered by
+``test_canvas_viewport_default.py``). The tests below are UNCHANGED by that
+default flip: ``Canvas_View._install_viewport`` is no longer what routes them
+to a GL viewport — every test here calls ``view.setViewport(...)`` directly,
+exactly the call ``_install_viewport`` makes when GL IS requested — so they
+still prove the update-mode contract (REQ-CGS-UI-002) holds whenever a
+``QOpenGLWidget`` viewport is installed, opt-in or not.
 
 These tests call the production route directly — ``view.setViewport(...)`` is
 exactly what ``Canvas_View._install_viewport`` calls — so no mode-decision seam
