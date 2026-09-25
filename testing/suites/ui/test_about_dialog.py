@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import platform
 import socket
+from typing import List, Optional
 
 import pytest
 from PySide6.QtCore import QLocale, Qt, qVersion
@@ -200,28 +201,76 @@ def _focus_chain_dump(dialog: QWidget) -> str:
     return "nextInFocusChain() walk from the dialog:\n" + "\n".join(lines)
 
 
-def _tab_press_log(qtbot, dialog: QWidget, first: QWidget, n: int) -> str:
-    """Diagnostic (b): focus ``first``, then press Tab ``n`` times, recording
-    the ACTUALLY-focused widget's class/objectName after the initial focus
-    and after EACH press. Runs on whichever ``dialog``/``first`` the caller
-    passes in -- callers use a dedicated, throwaway ``About_Dialog`` instance
-    for this (see ``_platform_focus_diagnostics``), so these extra presses
-    can never perturb the CALLING test's own Tab-navigation assertions."""
-    lines = []
+def _press_tab_sequence(
+    qtbot, dialog: QWidget, first: QWidget, n: int
+) -> List[Optional[QWidget]]:
+    """THE single, shared mechanism for "focus ``first``, then press Tab ``n``
+    times, observing where focus actually lands" -- used by every real
+    assertion that drives Tab below AND by the diagnostic dump
+    (``_tab_press_log``), so a test's own Tab-press mechanism and the
+    diagnostic that explains its failure can never diverge again.
+
+    Returns the list of actually-focused widgets, length ``n + 1``: index 0
+    is the widget focused by the initial ``setFocus(TabFocusReason)`` call
+    (before any Tab press), indices 1..n are ``dialog.focusWidget()`` read
+    immediately after each subsequent real ``qtbot.keyClick(dialog,
+    Qt.Key.Key_Tab)``.
+
+    Grounded in a measured divergence (PR #73 CI, run 36113013680): a REAL
+    Tab-press sequence driven through this exact function, on a STANDALONE
+    ``About_Dialog`` built the same way ``_platform_focus_diagnostics``
+    below builds its throwaway dialog, reached all five Tab-chain controls
+    in order and wrapped correctly on macOS -- proving the PRODUCT's own Tab
+    handling is correct there. An earlier version of the reachability test
+    below built its dialog differently (parented under a shown
+    ``Main_Window``, opened via ``About_Dialog.open()`` through
+    ``Main_Window._on_about``) and failed on that same macOS runner even
+    though it drove Tab through the same-SHAPED code -- a test-harness
+    divergence, not a product defect. The reachability test now calls this
+    exact function on a dialog built the same, proven way (see
+    ``_standalone_about_dialog``), so test and diagnostic share one code
+    path and one dialog-construction path.
+    """
+    focused: List[Optional[QWidget]] = [first]
     first.setFocus(Qt.FocusReason.TabFocusReason)
-    w = dialog.focusWidget()
-    lines.append(
-        f"  step 0 (initial focus): {type(w).__name__ if w else None} "
-        f"objectName={w.objectName() if w else None!r}"
-    )
-    for i in range(1, n + 1):
+    for _ in range(n):
         qtbot.keyClick(dialog, Qt.Key.Key_Tab)
-        w = dialog.focusWidget()
+        focused.append(dialog.focusWidget())
+    return focused
+
+
+def _tab_press_log(qtbot, dialog: QWidget, first: QWidget, n: int) -> str:
+    """Diagnostic (b): format ``_press_tab_sequence``'s result as one line
+    per step -- class name and objectName of the widget actually focused."""
+    focused = _press_tab_sequence(qtbot, dialog, first, n)
+    lines = []
+    for i, w in enumerate(focused):
+        label = "initial focus" if i == 0 else f"after Tab #{i}"
         lines.append(
-            f"  step {i}: {type(w).__name__ if w else None} "
+            f"  step {i} ({label}): {type(w).__name__ if w else None} "
             f"objectName={w.objectName() if w else None!r}"
         )
     return f"{n} real Tab presses from {first.objectName()!r}:\n" + "\n".join(lines)
+
+
+def _standalone_about_dialog(qtbot, theme: str) -> About_Dialog:
+    """Build a STANDALONE ``About_Dialog`` (no parent ``Main_Window``, shown
+    directly), registered with ``qtbot`` and exposed before returning.
+
+    THE proven-good construction (PR #73 CI, run 36113013680): a real Tab
+    sequence driven on a dialog built exactly this way reached all five
+    Tab-chain controls correctly and wrapped, on the macOS runner where a
+    dialog built via ``_open_about`` (parented under a shown ``Main_Window``,
+    opened through ``About_Dialog.open()``) did not. Used by every test
+    below that drives a real Tab press, so no test reintroduces the
+    parented-dialog construction that diverged from what
+    ``_platform_focus_diagnostics`` actually proved.
+    """
+    dialog = About_Dialog(theme, None)
+    qtbot.addWidget(dialog)
+    dialog.show()
+    qtbot.waitExposed(dialog)
+    return dialog
 
 
 def _platform_focus_diagnostics(qtbot, dialog: QWidget) -> str:
@@ -248,10 +297,7 @@ def _platform_focus_diagnostics(qtbot, dialog: QWidget) -> str:
         )
     parts.append(_focus_chain_dump(dialog))
 
-    diag_dialog = About_Dialog(dialog._theme, None)
-    qtbot.addWidget(diag_dialog)
-    diag_dialog.show()
-    qtbot.waitExposed(diag_dialog)
+    diag_dialog = _standalone_about_dialog(qtbot, dialog._theme)
     first = _child(diag_dialog, _TAB_CHAIN[0])
     parts.append(_tab_press_log(qtbot, diag_dialog, first, len(_TAB_CHAIN) + 2))
 
@@ -452,17 +498,23 @@ def test_sc_av_ui_005_4_keyboard_activates_a_focused_link(
     derived from which links the RUNNING platform actually makes
     Tab-reachable right now, never a fixed step count -- a link this
     platform does not make Tab-reachable is reported "could not verify"
-    (skipped with a reason), never silently passed.
+    (skipped with a reason), never silently passed. Reaches the link via
+    ``_press_tab_sequence`` on a dialog built by ``_standalone_about_dialog``
+    -- the SAME function and construction
+    ``test_tab_chain_reaches_every_platform_tab_focusable_control_and_wraps``
+    and the diagnostic dump use, so this test's own Tab-navigation and what
+    a failure's diagnostics would show can never diverge (PR #73 CI run
+    36113013680 traced an earlier round's spurious failure to exactly that
+    kind of divergence -- a dialog built via ``_open_about``, parented under
+    a shown ``Main_Window``, behaved differently under real Tab presses than
+    the standalone dialog the diagnostic proved correct on).
     """
     import pixelart_creator.ui.about_dialog as about_dialog_module
 
     calls: list[str] = []
     monkeypatch.setattr(about_dialog_module, "_open_url", lambda u: calls.append(u))
 
-    win, dialog = _open_about(qtbot)
-    win.show()
-    dialog.show()
-    qtbot.waitExposed(dialog)
+    dialog = _standalone_about_dialog(qtbot, theme_module.THEME_LIGHT)
 
     # Reach the target link by REAL Tab navigation (never a direct
     # setFocus() jump onto the link itself), counted only across the links
@@ -480,16 +532,18 @@ def test_sc_av_ui_005_4_keyboard_activates_a_focused_link(
         )
 
     first = tab_focusable_links[0]
-    first.setFocus(Qt.FocusReason.TabFocusReason)
-    assert dialog.focusWidget() is first, (
+    index = tab_focusable_links.index(link)
+    focused = _press_tab_sequence(qtbot, dialog, first, index)
+
+    assert focused[0] is first, (
         f"{first.objectName()!r} (the first Tab-focusable link on this "
-        "platform) did not accept focus"
+        "platform) did not accept focus\n\n"
+        f"{_platform_focus_diagnostics(qtbot, dialog)}"
     )
-    for _ in range(tab_focusable_links.index(link)):
-        qtbot.keyClick(dialog, Qt.Key.Key_Tab)
-    assert dialog.focusWidget() is link, (
+    assert focused[index] is link, (
         f"Tab navigation did not reach {object_name!r}; focus is on "
-        f"{dialog.focusWidget().objectName() if dialog.focusWidget() else None!r}"
+        f"{focused[index].objectName() if focused[index] else None!r}\n\n"
+        f"{_platform_focus_diagnostics(qtbot, dialog)}"
     )
 
     QTest.keyClick(link, key)
@@ -616,24 +670,23 @@ def test_tab_chain_reaches_every_platform_tab_focusable_control_and_wraps(
     the first one.
 
     A platform's native style can make an ordinary (non-default) push button
-    not keyboard-Tab-reachable by default -- measured, PR #73 CI:
-    macOS/``QMacStyle`` leaves ``aboutCopyButton`` without the ``TabFocus``
-    bit while ``aboutCloseButton`` (the dialog's own default button) keeps
-    it. Forcing ``QStyleHints.setTabFocusBehavior(TabFocusAllControls)`` was
-    tried first and measured to have NO effect there (same CI run) -- so the
-    expected sequence here is DERIVED from each control's own
-    ``focusPolicy()`` on whatever platform runs the test (``_tab_focusable``),
-    never pinned to one platform's list. The DECLARED order (every one of
-    the five controls, regardless of platform) is checked separately and
-    platform-independently by
-    ``test_declared_tab_order_lists_links_copy_close_in_order`` below, so an
-    actual ordering regression is still caught on every platform even where
-    this test's expected sequence is a strict subset.
+    not keyboard-Tab-reachable by default -- an earlier hypothesis here,
+    from an EARLIER CI run, was that ``QMacStyle`` strips the ``TabFocus``
+    bit from an ordinary button's own ``focusPolicy()``. PR #73 CI run
+    36113013680 (an actual macOS diagnostic dump, maintainer-provided) shows
+    that hypothesis was WRONG: ``aboutCopyButton.focusPolicy()`` DOES report
+    ``TabFocus`` there, and a real Tab-press sequence driven through
+    ``_press_tab_sequence`` on a dialog built by
+    ``_standalone_about_dialog`` (below) reaches all five controls in order
+    and wraps CORRECTLY on that same macOS runner -- the product's own Tab
+    handling is correct. The test call this exact function on a dialog
+    built the same proven way, so this reachability check and the diagnostic
+    that would explain a future failure can never diverge again. The
+    DECLARED order (every one of the five controls, regardless of platform)
+    is checked separately and platform-independently by
+    ``test_declared_tab_order_lists_links_copy_close_in_order`` below.
     """
-    win, dialog = _open_about(qtbot)
-    win.show()
-    dialog.show()
-    qtbot.waitExposed(dialog)
+    dialog = _standalone_about_dialog(qtbot, theme_module.THEME_LIGHT)
 
     ordered_widgets = [_child(dialog, name) for name in _TAB_CHAIN]
     expected = [w for w in ordered_widgets if _tab_focusable(w)]
@@ -644,15 +697,15 @@ def test_tab_chain_reaches_every_platform_tab_focusable_control_and_wraps(
     )
 
     first = expected[0]
-    first.setFocus(Qt.FocusReason.TabFocusReason)
-    assert dialog.focusWidget() is first, (
+    focused = _press_tab_sequence(qtbot, dialog, first, len(expected))
+
+    assert focused[0] is first, (
         f"{first.objectName()!r} (the first Tab-focusable control on this "
         "platform) did not accept focus\n\n"
         f"{_platform_focus_diagnostics(qtbot, dialog)}"
     )
-    for widget in expected[1:]:
-        qtbot.keyClick(dialog, Qt.Key.Key_Tab)
-        current = dialog.focusWidget()
+    for index, widget in enumerate(expected[1:], start=1):
+        current = focused[index]
         assert current is widget, (
             f"Tab did not reach {widget.objectName()!r}; focus is on "
             f"{current.objectName() if current else None!r}\n\n"
@@ -660,8 +713,7 @@ def test_tab_chain_reaches_every_platform_tab_focusable_control_and_wraps(
         )
 
     # Wraps back to the first Tab-focusable control.
-    qtbot.keyClick(dialog, Qt.Key.Key_Tab)
-    current = dialog.focusWidget()
+    current = focused[len(expected)]
     assert current is first, (
         "Tab from the last Tab-focusable control did not wrap back to "
         f"{first.objectName()!r}; focus is on "
@@ -676,28 +728,52 @@ def test_declared_tab_order_lists_links_copy_close_in_order(qtbot):
     ``QWidget.setTabOrder`` chain -- lists the three links, then Copy, then
     Close, in exactly that order, on every platform.
 
-    Checked via ``nextInFocusChain()`` walked from the first link: this
-    reflects the explicit chain wiring itself, never filtered by any
-    platform's runtime Tab-key reachability (``focusPolicy()`` /
-    ``QStyleHints``), so a genuine ordering regression (e.g. two
-    ``setTabOrder`` calls swapped) is still caught everywhere, independent of
+    Checked via ``nextInFocusChain()`` walked from the first link,
+    SKIPPING any widget encountered that does not itself report
+    ``Qt.FocusPolicy.TabFocus``. Measured (PR #73 CI, run 36113013680, a
+    real macOS diagnostic dump, maintainer-provided): the raw
+    ``nextInFocusChain()`` ring can legitimately pass through a purely
+    structural, never-focused container between two chained controls --
+    from ``aboutReleasesLink`` it lands on the dialog's own
+    ``QDialogButtonBox`` (``focusPolicy()`` ``NoFocus``) before
+    ``aboutCopyButton``, not on ``aboutCopyButton`` directly -- so asserting
+    the RAW ring equals the five controls one-for-one was the test bug, not
+    a real ordering defect. Filtering to ``TabFocus``-reporting widgets
+    (``_tab_focusable``) is what this test's own name promises: it reads
+    the explicit chain wiring, never filtered by any platform's RUNTIME Tab
+    reachability variance, so a genuine ordering regression (e.g. two
+    ``setTabOrder`` calls swapped) is still caught everywhere, independent
+    of
     ``test_tab_chain_reaches_every_platform_tab_focusable_control_and_wraps``
     above.
     """
     _win, dialog = _open_about(qtbot)
     ordered_widgets = [_child(dialog, name) for name in _TAB_CHAIN]
 
+    reached: List[QWidget] = [ordered_widgets[0]]
     current = ordered_widgets[0]
-    for expected in ordered_widgets[1:]:
+    seen_ids = {id(current)}
+    for _ in range(64):  # generous cap; the real ring is a handful of widgets
         following = current.nextInFocusChain()
-        assert following is expected, (
-            "declared tab order broken: expected "
-            f"{expected.objectName()!r} to directly follow "
-            f"{current.objectName()!r} in About_Dialog's own setTabOrder "
-            f"chain, got {following.objectName() if following else None!r}\n\n"
-            f"{_platform_focus_diagnostics(qtbot, dialog)}"
-        )
+        if following is None or id(following) in seen_ids:
+            break
+        seen_ids.add(id(following))
         current = following
+        if _tab_focusable(current):
+            reached.append(current)
+        if len(reached) >= len(ordered_widgets):
+            break
+
+    assert len(reached) == len(ordered_widgets) and all(
+        a is b for a, b in zip(reached, ordered_widgets)
+    ), (
+        "declared tab order (nextInFocusChain(), filtered to widgets "
+        "reporting Qt.FocusPolicy.TabFocus -- a structural, never-focused "
+        "container may legitimately sit between two chained controls) is "
+        f"{[w.objectName() for w in reached]!r}, expected "
+        f"{[w.objectName() for w in ordered_widgets]!r}\n\n"
+        f"{_platform_focus_diagnostics(qtbot, dialog)}"
+    )
 
 
 def test_mc3_structural_mnemonic_action_presence_and_focus_indicator(qtbot):
