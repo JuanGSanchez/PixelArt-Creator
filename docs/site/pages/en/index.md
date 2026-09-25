@@ -71,6 +71,15 @@ canvas system through cloud collaboration and the asset library:
   referenced assets as a self-contained bundle, and optional cloud backing of the shared
   blobs while still working fully offline.
 
+## Version & About
+
+The main window's title always reads **PixelArt Creator** followed by the
+running version, with no extra step needed to find it. For the full picture —
+the app's name, its version, the licence, links to the source repository, the
+documentation site and the releases page, and an environment summary you can
+copy for a bug report — choose **Help ▸ About PixelArt Creator** (on macOS:
+the application menu, next to Quit).
+
 For colour, palette and indexed-mode workflows see the Phase-3 material; for the
 canvas, tools and theming see the Phase-1 material.
 

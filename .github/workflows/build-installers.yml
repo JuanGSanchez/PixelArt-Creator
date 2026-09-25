@@ -308,6 +308,28 @@ jobs:
         if: runner.os == 'macOS'
         run: pyside6-deploy -c packaging/pysidedeploy-macos.spec --force --keep-deployment-files
 
+      - name: Assert macOS Info.plist CFBundleName (ADR-0067 R-3)
+        # Durable gate, not a one-off probe: Qt's Cocoa platform plugin builds
+        # the application-menu "About %1" text from CFBundleName
+        # (qcocoahelpers.mm), so a regression here (e.g. a future edit to
+        # packaging/pysidedeploy-macos.spec dropping --macos-app-name) must
+        # fail the build rather than ship a wrong About entry silently. Reads
+        # the value straight out of the built bundle's own Info.plist with
+        # PlistBuddy (present on every macOS runner image) and prints it
+        # quoted before asserting, so a failing run always shows the actual
+        # value, never just "differs".
+        if: runner.os == 'macOS'
+        run: |
+          APP="$(find dist -maxdepth 2 -type d -name '*.app' | head -n1)"
+          PLIST="${APP}/Contents/Info.plist"
+          CFBUNDLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "${PLIST}")"
+          echo "CFBundleName (read from ${PLIST}): \"${CFBUNDLE_NAME}\""
+          if [[ "${CFBUNDLE_NAME}" != "PixelArt Creator" ]]; then
+            echo "::error::CFBundleName is \"${CFBUNDLE_NAME}\", expected \"PixelArt Creator\" -- Qt's macOS About entry reads \"About %1\" from CFBundleName (ADR-0067 R-3). Check packaging/pysidedeploy-macos.spec's --macos-app-name option."
+            exit 1
+          fi
+          echo "CFBundleName check OK: \"${CFBUNDLE_NAME}\""
+
       - name: Ad-hoc sign + smoke-launch + wrap .dmg (unsigned baseline)
         if: runner.os == 'macOS'
         run: |

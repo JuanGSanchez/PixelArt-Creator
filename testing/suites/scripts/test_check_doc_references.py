@@ -535,3 +535,77 @@ def test_allowlist_suppression_count_reported_even_when_zero(tmp_path):
         "control-label": [],
     }
     assert "Unsuppressed Widget" in [f["value"] for f in payload["findings"]]
+
+
+# --------------------------------------------------------------------------- #
+# Locale-key normalisation -- a mnemonic-bearing label's ES lookup must use
+# the SAME normalised key on both sides of the comparison as the EN side
+# already does (regression found reviewing this repository's own
+# pixelart_es.ts: '&Copy' -> 'Copiar' silently never matched).
+# --------------------------------------------------------------------------- #
+def test_mnemonic_label_es_translation_is_matched_by_normalised_key(tmp_path):
+    """A shipped control label carrying a Qt mnemonic ('&Copy', normalising
+    to 'Copy') must be recognised as documented in Spanish when its real
+    shipped translation ('Copiar', from the catalogue's '&Copy' -> '&Copiar'
+    message) appears in the ES corpus -- not reported as
+    es-documentation-stale.
+
+    Proof (both directions): the label leg's EN side already normalises the
+    scanned label ('&Copy' -> 'Copy', collect_ui_labels()) before using it as
+    a dict key. If the ES side's lookup key is built from the RAW,
+    mnemonic-bearing ``<source>`` text of ``pixelart_es.ts`` ('&Copy') while
+    the lookup itself is done with the NORMALISED label ('Copy') --
+    load_es_translations() keying its map by ``src.text`` unchanged, exactly
+    as measured in this repository before the fix -- the two keys can never
+    match. ``es_translations.get('Copy')`` then returns ``None``, and
+    ``label_leg_findings`` falls back to searching the ES corpus for the
+    literal ENGLISH word 'copy' as a substring, which is absent from
+    'Copiar' (no 'copy' substring in 'c-o-p-i-a-r'). Run against a broken
+    (unfixed) gate, this test's ``result.returncode == 0`` and 'not in
+    values' assertions below both fail -- the finding shows up as
+    ``es-documentation-stale`` instead. Run against the fixed gate (ES
+    lookup keyed by the SAME normalised label on both sides), both
+    assertions pass."""
+    root = _base_tree(tmp_path)
+    _write(
+        root,
+        "pixelart_creator/ui/copy_panel.py",
+        "class CopyPanel:\n"
+        "    def __init__(self):\n"
+        "        self.copy_btn = QPushButton()\n"
+        '        self.copy_btn.setText(self.tr("&Copy"))\n',
+    )
+    _write(
+        root,
+        "docs/site/pages/en/copy_panel.md",
+        "# Copy panel\n\nUse **Copy** to copy the selection.\n",
+    )
+    _write(
+        root,
+        "docs/site/pages/es/copy_panel.md",
+        "# Panel de copia\n\nUsa **Copiar** para copiar la seleccion.\n",
+    )
+    _write(
+        root,
+        "pixelart_creator/i18n/pixelart_es.ts",
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        "<!DOCTYPE TS>\n"
+        '<TS version="2.1" language="es">\n'
+        "<context>\n"
+        "    <name>CopyPanel</name>\n"
+        "    <message>\n"
+        "        <source>&amp;Copy</source>\n"
+        "        <translation>&amp;Copiar</translation>\n"
+        "    </message>\n"
+        "</context>\n"
+        "</TS>\n",
+    )
+
+    result, payload = _run(root)
+
+    values = {f["value"]: f["kind"] for f in payload["findings"]}
+    assert "Copy" not in values, (
+        f"'Copy' must be recognised as documented in both languages via its "
+        f"real shipped translation 'Copiar', not flagged -- got {values.get('Copy')!r}"
+    )
+    assert result.returncode == 0, result.stderr

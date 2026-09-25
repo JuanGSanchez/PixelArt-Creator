@@ -23,6 +23,7 @@ import sys
 from PySide6.QtCore import QCoreApplication, QEvent, QLocale
 from PySide6.QtWidgets import QApplication
 
+from pixelart_creator.logic import about_info
 from pixelart_creator.ui.document_transform_dialogs import (
     Document_Transform_Confirm_Dialog,
     Document_Transform_Progress_Dialog,
@@ -46,7 +47,19 @@ def test_sc_ui_021_1_language_manager_installs_by_locale(qtbot, qapp):
 
 
 def test_sc_ui_022_1_change_event_retranslates_on_language_change(qtbot):
-    """SC-UI-022-1: a LanguageChange event re-sets tr()-wrapped visible text."""
+    """SC-UI-022-1: a LanguageChange event re-sets tr()-wrapped visible text.
+
+    Updated for REQ-AV-UI-001 (app-version): the title is now
+    ``about_info.window_title(self.tr("PixelArt Creator"))``, i.e. the
+    translated name PLUS the running version
+    (``pixelart_creator.__version__``, read at set-time), not the bare
+    name. The expected value is DERIVED from ``about_info.window_title``
+    itself -- never a hard-coded version literal (NFR-2) -- so this
+    oracle tracks the feature's own logic instead of re-pinning a version
+    number that will drift at every release. The test's original intent is
+    unchanged: corrupt the title, deliver ``LanguageChange``, and prove
+    ``changeEvent`` re-sets it live without a restart (F5).
+    """
     win = Main_Window()
     qtbot.addWidget(win)
     # Corrupt visible labels, then deliver LanguageChange: changeEvent must
@@ -54,7 +67,7 @@ def test_sc_ui_022_1_change_event_retranslates_on_language_change(qtbot):
     win.setWindowTitle("XXX")
     win._file_menu.setTitle("XXX")
     QApplication.sendEvent(win, QEvent(QEvent.Type.LanguageChange))
-    assert win.windowTitle() == "PixelArt Creator"
+    assert win.windowTitle() == about_info.window_title("PixelArt Creator")
     assert win._file_menu.title() == "&File"
 
 

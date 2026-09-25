@@ -198,6 +198,20 @@ def apply_theme(app: QApplication, name: str) -> None:
     app.setStyleSheet(build_qss(name))
 
 
+def link_colour(name: str) -> QColor:
+    """Return the link colour for theme ``name`` (ADR-0067 Part 2).
+
+    Returns the existing ``text`` role — no new role and no new hex value
+    (Article V §3: a colour is defined once, by role). The rendered contrast
+    of ``text`` against ``background`` is 14.30:1 (light) and 10.73:1 (dark),
+    both well above the 4.5:1 floor; the accent role and Qt's palette-default
+    link colour both fail in dark (2.88:1 and 1.65:1). Callers underline the
+    anchor themselves as the non-colour cue (WCAG 1.4.1), since a link here
+    looks the same colour as body text.
+    """
+    return QColor(_roles(name)["text"])
+
+
 def canvas_roles(name: str) -> Tuple[QColor, QColor, QColor]:
     """Return ``(checker_light, checker_dark, grid)`` :class:`QColor` for ``name``.
 

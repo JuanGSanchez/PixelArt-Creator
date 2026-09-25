@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The main window's title now shows the running app version, and a new **Help ▸ About PixelArt Creator** entry (on macOS: the application menu) opens a dialog with the app's name, version (selectable), licence, links to the source repository, the documentation site and the releases page, and a Copy button that places the version together with the operating system, Python and Qt/PySide6 versions on the clipboard as one line, ready for a bug report (#72).
+
 ## [0.3.1] - 2026-09-24
 
 ### Added
