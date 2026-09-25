@@ -26,6 +26,18 @@ missing or unloadable Qt catalogue (e.g. a frozen build built before it
 ships them) is logged as a warning and never changes what
 :meth:`LanguageManager.set_language` returns -- the application's own
 catalogue stays authoritative either way.
+
+The APPLICATION's own catalogue is served through :class:`_MnemonicTranslator`,
+a :class:`QTranslator` subclass that overrides the Qt virtual
+:meth:`QTranslator.translate` to enforce "shortcuts are independent of
+language": the mnemonic letter of every translated string is always the
+letter marked in its ENGLISH source, never a letter chosen for the
+translation's own wording (U4/M1). This is centralised here by construction
+-- zero call-site changes anywhere the application calls ``tr()`` -- and
+never applied to Qt's own ``qtbase_<code>.qm`` catalogue, which has no
+English source of this application's to enforce against. The pure-string
+rewrite itself is :func:`apply_source_mnemonic`, kept Qt-free so it is
+unit-testable directly.
 """
 
 from __future__ import annotations
@@ -44,6 +56,172 @@ from PySide6.QtCore import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# -- shortcuts are independent of language (U4, M1) -----------------------
+#
+# A translated menu/action title keeps the mnemonic letter of its ENGLISH
+# SOURCE string, never a letter chosen for the translation's own wording.
+# This keeps Alt+<letter> access, and top-level-menu uniqueness reasoned
+# about in English (M2), true in every installed language by construction.
+
+#: One token of a `&`-markup string, as produced by :func:`_tokenize_mnemonic`.
+#: `kind` is one of:
+#:   ``"literal_amp"`` -- a `&&` pair (Qt's escape for one literal `&`);
+#:     `value` is the two-character pair ``"&&"``.
+#:   ``"marker"``      -- a `&X` pair marking `X` as a mnemonic letter;
+#:     `value` is the single marked character `X`.
+#:   ``"char"``        -- any other single character (including a trailing,
+#:     unpaired `&` with nothing after it); `value` is that one character.
+_MnemonicToken = tuple  # (kind: str, value: str)
+
+
+def _tokenize_mnemonic(text: str) -> List[_MnemonicToken]:
+    """Split `text` left-to-right into `&`-markup tokens.
+
+    The single tokenizer every mnemonic-handling function in this module
+    shares (never a regex lookbehind on single characters, which cannot see
+    that a `&` two positions back already paired off with its neighbour): at
+    each position, `&&` is consumed together as one ``"literal_amp"`` token
+    BEFORE a lone `&` is ever considered a marker, so a literal escape can
+    never be mistaken for -- or leave a stray, mis-parseable remnant beside
+    -- a real mnemonic marker.
+    """
+    tokens: List[_MnemonicToken] = []
+    i = 0
+    length = len(text)
+    while i < length:
+        ch = text[i]
+        if ch == "&":
+            if i + 1 < length and text[i + 1] == "&":
+                tokens.append(("literal_amp", "&&"))
+                i += 2
+                continue
+            if i + 1 < length:
+                tokens.append(("marker", text[i + 1]))
+                i += 2
+                continue
+            tokens.append(("char", "&"))
+            i += 1
+            continue
+        tokens.append(("char", ch))
+        i += 1
+    return tokens
+
+
+def _source_mnemonic_letter(source: str) -> Optional[str]:
+    """Return the single mnemonic letter `&` marks in `source`, or ``None``.
+
+    A lone ``&`` immediately followed by another ``&`` (``&&``) is the Qt
+    escape for a literal ampersand, never a mnemonic marker, and is skipped
+    (:func:`_tokenize_mnemonic` consumes the pair together, so it can never
+    be misread one character at a time). A trailing ``&`` with nothing after
+    it marks nothing and is ignored.
+    """
+    for kind, value in _tokenize_mnemonic(source):
+        if kind == "marker":
+            return value
+    return None
+
+
+def _strip_mnemonic_markers(text: str) -> str:
+    """Remove single-`&` mnemonic markers from `text`, keeping `&&` escaped.
+
+    Every ``&&`` is passed through UNCHANGED, as the two-character literal
+    escape Qt itself requires to display one literal ``&`` -- collapsing it
+    to a single ``&`` is never correct here: that single leftover character
+    would itself be read, by Qt's own left-to-right ``&<char>`` scan, as
+    EITHER a stray mnemonic marker (if this string is later handed to Qt as
+    markup again, e.g. re-entering :func:`apply_source_mnemonic`) OR a
+    dropped character (if it is set as plain, already-rendered text --
+    ``QAction.setText`` with no further ``&`` markup strips a lone ``&``
+    outright; confirmed with ``QAction.iconText()``, which shows exactly
+    what survives). Only the marker itself -- the ``&`` immediately before
+    the marked letter -- is removed; every lone ``&`` this function is asked
+    to strip is dropped with no replacement character.
+    """
+    out: List[str] = []
+    for kind, value in _tokenize_mnemonic(text):
+        if kind == "literal_amp":
+            out.append("&&")
+        elif kind == "marker":
+            out.append(value)
+        else:
+            out.append(value)
+    return "".join(out)
+
+
+def apply_source_mnemonic(source: str, translation: str) -> str:
+    """Rewrite `translation`'s mnemonic to the letter `source` marks (U4/M1).
+
+    Pure string logic, deliberately Qt-free so it is unit-testable on its
+    own, built on the shared :func:`_tokenize_mnemonic` tokenizer: any
+    mnemonic marker the translation already carries is dropped (its letter
+    kept, un-marked) unless it happens to be the winning position below, and
+    the first case-insensitive occurrence of the ENGLISH source's mnemonic
+    letter -- searched over the translation's CONTENT, which by construction
+    never matches the `&` characters of a `&&` pair (E2) -- is marked
+    instead. If that letter does not occur anywhere in the translation,
+    appends the Windows convention for this case: ``" (&X)"`` with ``X`` the
+    upper-cased source letter (e.g. ``"Ayuda (&H)"``, ``"Archivo (&F)"``).
+
+    Every literal ``&&`` in `translation` is kept fully escaped
+    (``"&&"``) NO MATTER WHERE IT SITS, before or after the winning
+    position -- it is never collapsed to a single ``&``. Collapsing one
+    that sits BEFORE the winning position would itself parse, in Qt's own
+    left-to-right ``&<char>`` scan, as an EARLIER and WRONG mnemonic (the
+    first defect this function was fixed for: a real, shipped example was
+    the Aids menu's ``"Guides && &Rulers"``, whose then-shipped Spanish
+    translation resolved to Alt+Space instead of Alt+R). Collapsing one
+    that sits AFTER the winning position is a DIFFERENT, equally real
+    defect: the resulting single ``&`` is not markup at all by that point
+    in the string, so Qt's ``QAction``/``QMenu`` display path drops it
+    outright instead of showing it -- confirmed with
+    ``QAction(text).iconText()``: ``"Per&fil & Cosas"`` displays as
+    ``"Perfil  Cosas"`` (the ampersand LOST), while ``"Per&fil && Cosas"``
+    correctly displays as ``"Perfil & Cosas"``. This function therefore
+    only ever REMOVES a translation's own stray marker and INSERTS exactly
+    one new one; it never touches a literal ``&&`` at all.
+
+    An empty/untranslated `translation` is returned unchanged so Qt's own
+    fallback to `source` still applies; a `source` with no mnemonic at all
+    (``_source_mnemonic_letter`` returns ``None``) also returns `translation`
+    unchanged -- there is nothing to enforce.
+    """
+    if not translation:
+        return translation
+    letter = _source_mnemonic_letter(source)
+    if letter is None:
+        return translation
+
+    tokens = _tokenize_mnemonic(translation)
+    target = letter.lower()
+
+    insert_at: Optional[int] = None
+    for index, (kind, value) in enumerate(tokens):
+        content = "&" if kind == "literal_amp" else value
+        if content.lower() == target:
+            insert_at = index
+            break
+
+    parts: List[str] = []
+    for index, (kind, value) in enumerate(tokens):
+        if kind == "literal_amp":
+            # Always escaped, regardless of position -- see the docstring:
+            # collapsing it is wrong on EITHER side of the insertion point.
+            parts.append("&&")
+            continue
+        if index == insert_at:
+            parts.append(f"&{value}")
+            continue
+        # A translation's OWN marker that is not the winning position is a
+        # stray mnemonic on the wrong letter: drop the marker, keep the letter.
+        parts.append(value)
+
+    rebuilt = "".join(parts)
+    if insert_at is None:
+        return f"{rebuilt} (&{letter.upper()})"
+    return rebuilt
+
 
 #: Language code used when no catalogue matches the locale (CL-14). English is
 #: the source language of the ``tr()`` literals, so it needs no ``.qm`` file.
@@ -86,6 +264,52 @@ def _default_translations_dir() -> Path:
     return packaged
 
 
+class _MnemonicTranslator(QTranslator):
+    """The application's own :class:`QTranslator`, enforcing U4/M1 by construction.
+
+    Overrides the Qt virtual :meth:`translate` so every translated string
+    this translator serves -- every menu title, every action text, anything
+    reached through ``tr()``/``QCoreApplication.translate`` -- has its
+    mnemonic corrected to the English source's letter before Qt ever sees
+    it. No call site anywhere in the application needs to change, and any
+    future ``tr()`` call is covered the same way.
+
+    Deliberately NOT used for Qt's OWN ``qtbase_<code>.qm`` catalogue
+    (:attr:`LanguageManager._qt_translator` stays a plain :class:`QTranslator`):
+    that catalogue's mnemonics are Qt's, not this application's source
+    strings, so there is no English source here to enforce against.
+    """
+
+    def translate(
+        self,
+        context: str,
+        source_text: str,
+        disambiguation: Optional[str] = None,
+        n: int = -1,
+    ) -> Optional[str]:
+        """Return the catalogue translation with its mnemonic U4/M1-corrected.
+
+        A miss returns ``None`` -- NEVER ``""`` -- so PySide6 marshals it
+        back to a NULL ``QString`` on the C++ side, not an empty-but-not-null
+        one. ``QObject.tr()`` walks a chain of contexts (a Python subclass's
+        own class name, then its C++ base classes' names, e.g. ``Main_Window``
+        then ``QMainWindow``) and, for each, checks ``QString.isNull()`` to
+        decide whether that context's result should REPLACE an earlier hit:
+        a null result means "no translation here, keep what an earlier
+        context already found"; a non-null EMPTY result means "this context
+        really does translate to nothing," which overrides the earlier hit.
+        Returning ``""`` for an ordinary catalogue miss made every later
+        base-class context look like the second case, wiping out a correct
+        earlier hit -- measured with ``Main_Window.tr("PixelArt Creator")``
+        returning ``""`` in es because the ``Main_Window``-context hit was
+        overwritten by the ``QMainWindow``-context miss.
+        """
+        result = super().translate(context, source_text, disambiguation, n)
+        if not result:
+            return None
+        return apply_source_mnemonic(source_text, result)
+
+
 class LanguageManager(QObject):
     """Installs/swaps the application :class:`QTranslator` by language code.
 
@@ -112,7 +336,7 @@ class LanguageManager(QObject):
         self._dir = (
             Path(translations_dir) if translations_dir else _default_translations_dir()
         )
-        self._translator = QTranslator(self)
+        self._translator = _MnemonicTranslator(self)
         self._qt_translator = QTranslator(self)
         self._qt_translator_installed = False
         self._current = FALLBACK_LANGUAGE

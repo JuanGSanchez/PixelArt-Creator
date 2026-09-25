@@ -125,7 +125,7 @@ detail view next to a fit-to-window overview.
 
 ## Timelapse recording
 
-Open the **Timelapse** dock from **Aids -> Timelapse** to record and play back a
+Open the **Timelapse** dock from **Visual Aids -> Timelapse** to record and play back a
 timelapse of your edit session, sharing how a piece was made.
 
 - Press **Record** to start capturing; the recorder appends **one frame per

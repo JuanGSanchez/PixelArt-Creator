@@ -144,7 +144,7 @@ de detalle con zoom junto a una vista general ajustada a la ventana.
 
 ## Grabación de timelapse
 
-Abre el panel **Timelapse** desde **Ayudas -> Timelapse** para grabar y
+Abre el panel **Timelapse** desde **Ayudas visuales -> Timelapse** para grabar y
 reproducir un timelapse de tu sesión de edición, y así compartir cómo se
 hizo una pieza.
 

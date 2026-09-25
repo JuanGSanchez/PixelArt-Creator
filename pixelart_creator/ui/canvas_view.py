@@ -7,9 +7,15 @@
 (middle-drag / Space+left-drag, never painting) (CL-3), left-click/drag paint via
 the active tool with floored coordinates (CL-9/-12), a per-pixel grid threshold
 (CL-4), and a replaceable right-click menu **seam** (CL-8). It sets
-``MinimalViewportUpdate`` (D4) and, when ``OPENGL_VIEWPORT_ENABLED`` and a GL
-context is available, a ``QOpenGLWidget`` viewport with a raster fallback for
-headless/offscreen runs (D6). Rendering stays nearest-neighbour, AA off.
+``MinimalViewportUpdate`` (D4) and installs a **raster** viewport by default:
+a GL-composited top-level surface was measured blank on an affected desktop
+even though every widget still painted underneath, and that failure cannot be
+detected in code — context creation itself succeeds, so a ``try/except``
+around it never fires (D6). A ``QOpenGLWidget`` viewport is opt-in only, via
+:func:`opengl_viewport_requested` (``OPENGL_VIEWPORT_ENABLED`` or the
+``PIXELART_OPENGL_VIEWPORT=1`` environment variable), with a raster fallback
+on any GL failure and under the offscreen platform. Rendering stays
+nearest-neighbour, AA off.
 
 No domain logic lives here: the view maps events to floored pixels and delegates
 painting to the tool controllers (Article I).
@@ -18,6 +24,7 @@ painting to the tool controllers (Article I).
 from __future__ import annotations
 
 import math
+import os
 from typing import Callable, List, Optional, Tuple
 
 from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, Qt, Signal
@@ -38,11 +45,11 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QGraphicsView, QMenu, QWidget
 
+from pixelart_creator.logic import constants as _constants
 from pixelart_creator.logic.color import BLACK, RGBA
 from pixelart_creator.logic.constants import (
     CLICK_DRAG_THRESHOLD_PX,
     DEFAULT_SNAP_TOLERANCE_PX,
-    OPENGL_VIEWPORT_ENABLED,
     SCALE_FACTOR,
     ZOOM_MAX,
     ZOOM_MIN,
@@ -71,6 +78,25 @@ Coord = Tuple[int, int]
 
 #: Platform name reported by Qt when running without a windowing system.
 _OFFSCREEN_PLATFORM = "offscreen"
+
+
+def opengl_viewport_requested() -> bool:
+    """Return whether a GL viewport should be attempted.
+
+    ``True`` iff :data:`~pixelart_creator.logic.constants.OPENGL_VIEWPORT_ENABLED`
+    is ``True`` OR the environment variable named by
+    :data:`~pixelart_creator.logic.constants.OPENGL_VIEWPORT_ENV` is set to
+    ``"1"``. Raster is the default: a GL presentation failure is not
+    detectable in code — context creation and ``makeCurrent`` can both
+    succeed on a desktop that still ends up blank — so GL stays opt-in via
+    the environment variable rather than auto-detected. Reads both constants
+    via the module rather than importing the names directly, so a test can
+    monkeypatch ``pixelart_creator.logic.constants.OPENGL_VIEWPORT_ENABLED``
+    and see this helper pick it up.
+    """
+    if _constants.OPENGL_VIEWPORT_ENABLED:
+        return True
+    return os.environ.get(_constants.OPENGL_VIEWPORT_ENV) == "1"
 
 
 def _viewport_update_mode_for(
@@ -322,8 +348,16 @@ class Canvas_View(QGraphicsView):
     # -- viewport (D6) ----------------------------------------------------
 
     def _install_viewport(self) -> None:
-        """Use a GL viewport on desktop; fall back to raster headless (D6)."""
-        if not OPENGL_VIEWPORT_ENABLED:
+        """Install a raster viewport by default; GL only if opted in (D6).
+
+        Raster is the shipped default because the GL-composited failure this
+        fix addresses is undetectable from code (see
+        :func:`opengl_viewport_requested`) — a ``try/except`` around context
+        creation cannot catch a presentation failure that never raises. GL is
+        opt-in only, via ``OPENGL_VIEWPORT_ENABLED`` or the
+        ``OPENGL_VIEWPORT_ENV`` environment variable.
+        """
+        if not opengl_viewport_requested():
             return
         if QGuiApplication.platformName() == _OFFSCREEN_PLATFORM:
             return  # headless/offscreen: keep the default raster viewport.

@@ -4,93 +4,93 @@
 <context>
     <name>About_Dialog</name>
     <message>
-        <location filename="../ui/about_dialog.py" line="241"/>
+        <location filename="../ui/about_dialog.py" line="269"/>
         <source>About PixelArt Creator</source>
         <extracomment>The dialog&apos;s fixed links, in the order shown (REQ-AV-UI-005).</extracomment>
         <translation>Acerca de PixelArt Creator</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="242"/>
+        <location filename="../ui/about_dialog.py" line="270"/>
         <source>About PixelArt Creator dialog</source>
         <translation>Diálogo Acerca de PixelArt Creator</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="244"/>
+        <location filename="../ui/about_dialog.py" line="272"/>
         <source>PixelArt Creator icon</source>
         <translation>Icono de PixelArt Creator</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="245"/>
+        <location filename="../ui/about_dialog.py" line="273"/>
         <source>Application name</source>
         <translation>Nombre de la aplicación</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="246"/>
+        <location filename="../ui/about_dialog.py" line="274"/>
         <source>Version:</source>
         <translation>Versión:</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="247"/>
+        <location filename="../ui/about_dialog.py" line="275"/>
         <source>Application version</source>
         <translation>Versión de la aplicación</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="248"/>
+        <location filename="../ui/about_dialog.py" line="276"/>
         <source>Licence:</source>
         <translation>Licencia:</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="249"/>
+        <location filename="../ui/about_dialog.py" line="277"/>
         <source>Licence name</source>
         <translation>Nombre de la licencia</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="250"/>
+        <location filename="../ui/about_dialog.py" line="278"/>
         <source>Environment:</source>
         <translation>Entorno:</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="251"/>
+        <location filename="../ui/about_dialog.py" line="279"/>
         <source>Environment summary</source>
         <translation>Resumen del entorno</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="255"/>
+        <location filename="../ui/about_dialog.py" line="283"/>
         <source>Repository</source>
         <translation>Repositorio</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="256"/>
+        <location filename="../ui/about_dialog.py" line="284"/>
         <source>Documentation</source>
         <translation>Documentación</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="257"/>
+        <location filename="../ui/about_dialog.py" line="285"/>
         <source>Releases</source>
         <translation>Lanzamientos</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="268"/>
+        <location filename="../ui/about_dialog.py" line="296"/>
         <source>&amp;Copy</source>
         <translation>&amp;Copiar</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="269"/>
+        <location filename="../ui/about_dialog.py" line="297"/>
         <source>Copy environment summary</source>
         <translation>Copiar el resumen del entorno</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="270"/>
+        <location filename="../ui/about_dialog.py" line="298"/>
         <source>C&amp;lose</source>
         <translation>Ce&amp;rrar</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="271"/>
+        <location filename="../ui/about_dialog.py" line="299"/>
         <source>Close the About dialog</source>
         <translation>Cerrar el diálogo Acerca de</translation>
     </message>
     <message>
-        <location filename="../ui/about_dialog.py" line="275"/>
+        <location filename="../ui/about_dialog.py" line="303"/>
         <source>unknown</source>
         <translation>desconocido</translation>
     </message>
@@ -1512,25 +1512,25 @@
 <context>
     <name>Canvas_View</name>
     <message>
-        <location filename="../ui/canvas_view.py" line="292"/>
-        <location filename="../ui/canvas_view.py" line="1395"/>
+        <location filename="../ui/canvas_view.py" line="318"/>
+        <location filename="../ui/canvas_view.py" line="1429"/>
         <source>Canvas</source>
         <extracomment>Platform name reported by Qt when running without a windowing system. Emitted with the current zoom scale after any zoom change. Emitted with the buffer ``(x, y)`` when the canvas is right-clicked (seam). Emitted with the picked RGBA tuple when the colour-picker sets a colour. Emitted ``(is_active, is_copy)`` when a floating move/copy state changes (drives the shell&apos;s copy-mode status hint, REQ-P2-UI-032/-036). Emitted when a paint/mask-edit stroke is refused because the active layer is locked (D-05); the shell surfaces a &quot;layer is locked&quot; notice. Emitted when a left-click lands outside the active document&apos;s bounds (FIX 5, 2026-08-24 field defect): a click there must not arm a stroke, and must not fail silently — the shell surfaces a notice, following the ``lockedLayerEditRejected`` precedent exactly. Emitted when a paint/mask-edit is refused because the active layer is a REFERENCE or SMART layer (REQ-P3-UI-006 clause 5: non-editable targets are three classes, not two — locked, reference, and smart — and every one of them must be surfaced, never silently swallowed). Distinct from ``lockedLayerEditRejected`` so the shell can show the right notice; ``is_active_editable()`` returns ``False`` for all three classes, and this signal covers the two this view previously dropped on the floor. Emitted when a tool ran (the guards passed) but produced no pixel change — e.g. a flood fill on a region that already holds the picked colour (REQ-P1-UI-014), or a pencil placed on a pixel that already holds it — so no undo entry was pushed. An explicit, deliberate gesture (a completed colour-hub pick, REQ-P3-UI-006 clause 6) must never answer with silence even when it changed nothing. Emitted with the target frame index a ``Ctrl``+wheel / ``Ctrl``+middle- click frame gesture resolved to (REQ-IS-UI-010/-014); the shell routes it through the shipped frame-selection path. Pushes no command — frame navigation is view state (CL-13). Emitted when a confirmed ``Ctrl``+left-click (no floating move live) should add a frame after the active one (REQ-IS-UI-016); the shell builds and pushes the shipped undoable ``make_add_frame_command``. The three selection tools whose Shift/Alt modifiers stay the shipped add/subtract combine gesture (REQ-IS-UI-015) — Shift+drag pans for every other tool. Mirrors ``Main_Window._SELECTION_ENTRY_TOOL_IDS``. The wrapper every :class:`~pixelart_creator.ui.tools.base.ToolContext` is actually built with (see :class:`_RecordingUndoStack`); reads ``self._undo_stack``/``self._record_trace``/``self._recording_document`` live at each push, so `set_undo_stack`/`set_recording` need not rebuild it. A middle press awaiting the click/drag verdict (REQ-IS-UI-011): ``True`` between a middle press and either its release under ``CLICK_DRAG_THRESHOLD_PX`` (a click) or its promotion to ``_panning`` once the cursor travels past the threshold (a drag). A ``Ctrl``+left press awaiting the click/drag verdict (REQ-IS-UI-016, mirrors ``_middle_pending``): ``True`` between the press and either its release under ``CLICK_DRAG_THRESHOLD_PX`` (adds a frame) or its promotion to an ordinary paint/floating-move drag once the cursor travels past the threshold. The persisted Favourites model a plain wheel notch / unmodified middle click travel (REQ-IS-UI-008/-012); ``None`` until the shell binds one via :meth:`set_favourites_model`. The ``timestamp()`` of the RightButton press currently being dispatched through ``_menu_hook``, ``None`` for the keyboard (Menu key / Shift+F10) trigger. Consumed once via :meth:`pop_pending_right_press_timestamp` — deliberately NOT threaded as a third positional argument to ``_menu_hook`` itself, so the hook&apos;s signature (``Callable[[int, int], None]``) and every existing 2-argument hook (tests included) stay unchanged. Live mirror-centre override fed to ``logic.symmetry.mirror`` via each stroke&apos;s :class:`ToolContext` (D-28/CF-93); ``None`` keeps the shipped canvas-centre default. Fed by the shell&apos;s Symmetry_Panel. The guide currently being dragged (D-11), or ``None``. Raw (pre-snap) scene point at the start of the current stroke — the perspective direction-lock anchor (``logic.grids.perspective_snap``).</extracomment>
         <translation>Lienzo</translation>
     </message>
     <message>
-        <location filename="../ui/canvas_view.py" line="294"/>
-        <location filename="../ui/canvas_view.py" line="1397"/>
+        <location filename="../ui/canvas_view.py" line="320"/>
+        <location filename="../ui/canvas_view.py" line="1431"/>
         <source>Pixel canvas: left-click to paint, middle-drag to pan</source>
         <translation>Lienzo de píxeles: clic izquierdo para pintar, arrastrar con el botón central para desplazar</translation>
     </message>
     <message>
-        <location filename="../ui/canvas_view.py" line="1287"/>
+        <location filename="../ui/canvas_view.py" line="1321"/>
         <source>Remove guide</source>
         <translation>Eliminar guía</translation>
     </message>
     <message>
-        <location filename="../ui/canvas_view.py" line="1298"/>
+        <location filename="../ui/canvas_view.py" line="1332"/>
         <source>No canvas actions yet</source>
         <translation>Aún no hay acciones de lienzo</translation>
     </message>
@@ -2915,12 +2915,12 @@
         <translation>&amp;Rehacer</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2099"/>
+        <location filename="../ui/main_window.py" line="2106"/>
         <source>Untitled</source>
         <translation>Sin título</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3316"/>
+        <location filename="../ui/main_window.py" line="3323"/>
         <source>Copying selection — release, Enter to commit, Esc to cancel</source>
         <extracomment>Incoming tool ids that discard the active selection on entry (REQ-IS-UI-029, CL-IS-08/-09). Re-activating an already-active selection tool is included deliberately, so it doubles as a start-fresh gesture — an assumption (CL-IS-08), flagged and cheap to reverse. Every other incoming tool leaves the selection untouched, so mask-constrained drawing (REQ-P2-LOGIC-006) survives a tool switch.</extracomment>
         <translation>Copiando selección — suelta, Enter para confirmar, Esc para cancelar</translation>
@@ -2930,921 +2930,933 @@
         <translation type="vanished">Moviendo selección — mantén Ctrl o Alt para copiar; Enter para confirmar, Esc para cancelar</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3432"/>
+        <location filename="../ui/main_window.py" line="3439"/>
         <source>Add Shade Ramp</source>
         <translation>Añadir rampa de sombra</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3450"/>
-        <location filename="../ui/main_window.py" line="3456"/>
+        <location filename="../ui/main_window.py" line="3457"/>
+        <location filename="../ui/main_window.py" line="3463"/>
         <source>Constrain to Palette</source>
         <translation>Restringir a la paleta</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3477"/>
-        <location filename="../ui/main_window.py" line="3486"/>
-        <location filename="../ui/main_window.py" line="5393"/>
+        <location filename="../ui/main_window.py" line="3484"/>
+        <location filename="../ui/main_window.py" line="3493"/>
+        <location filename="../ui/main_window.py" line="5400"/>
         <source>Colour Cycling</source>
         <translation>Ciclo de color</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3478"/>
+        <location filename="../ui/main_window.py" line="3485"/>
         <source>Colour cycling applies to indexed documents.</source>
         <translation>El ciclo de color se aplica a documentos indexados.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3492"/>
+        <location filename="../ui/main_window.py" line="3499"/>
         <source>Colour Cycle</source>
         <translation>Ciclo de color</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3510"/>
+        <location filename="../ui/main_window.py" line="3517"/>
         <source>Extract Palette</source>
         <translation>Extraer paleta</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3521"/>
-        <location filename="../ui/main_window.py" line="3539"/>
-        <location filename="../ui/main_window.py" line="3545"/>
+        <location filename="../ui/main_window.py" line="3528"/>
+        <location filename="../ui/main_window.py" line="3546"/>
+        <location filename="../ui/main_window.py" line="3552"/>
         <source>Palette Swap</source>
         <translation>Intercambio de paleta</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3522"/>
+        <location filename="../ui/main_window.py" line="3529"/>
         <source>Palette swap applies to indexed documents.</source>
         <translation>El intercambio de paleta se aplica a documentos indexados.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3568"/>
-        <location filename="../ui/main_window.py" line="3574"/>
+        <location filename="../ui/main_window.py" line="3575"/>
+        <location filename="../ui/main_window.py" line="3581"/>
         <source>Convert to Indexed</source>
         <translation>Convertir a indexado</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3594"/>
-        <location filename="../ui/main_window.py" line="3600"/>
+        <location filename="../ui/main_window.py" line="3601"/>
+        <location filename="../ui/main_window.py" line="3607"/>
         <source>Convert to RGBA</source>
         <translation>Convertir a RGBA</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4084"/>
+        <location filename="../ui/main_window.py" line="4091"/>
         <source>Open Project</source>
         <translation>Abrir proyecto</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3081"/>
-        <location filename="../ui/main_window.py" line="4086"/>
-        <location filename="../ui/main_window.py" line="4102"/>
+        <location filename="../ui/main_window.py" line="3088"/>
+        <location filename="../ui/main_window.py" line="4093"/>
+        <location filename="../ui/main_window.py" line="4109"/>
         <source>Pixel projects (*%1)</source>
         <translation>Proyectos de píxeles (*%1)</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3014"/>
+        <location filename="../ui/main_window.py" line="3021"/>
         <source>Unsaved Changes</source>
         <translation>Cambios sin guardar</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3016"/>
+        <location filename="../ui/main_window.py" line="3023"/>
         <source>The current document has unsaved changes. Save it before opening the dropped project?</source>
         <translation>El documento actual tiene cambios sin guardar. ¿Guardarlo antes de abrir el proyecto soltado?</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3051"/>
+        <location filename="../ui/main_window.py" line="3058"/>
         <source>Load Palette</source>
         <translation>Cargar paleta</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3079"/>
-        <location filename="../ui/main_window.py" line="4100"/>
+        <location filename="../ui/main_window.py" line="3086"/>
+        <location filename="../ui/main_window.py" line="4107"/>
         <source>Save Project</source>
         <translation>Guardar proyecto</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3091"/>
+        <location filename="../ui/main_window.py" line="3098"/>
         <source>Unsupported file type: %1</source>
         <translation>Tipo de archivo no admitido: %1</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3188"/>
+        <location filename="../ui/main_window.py" line="3195"/>
         <source>Open a document before loading a palette.</source>
         <translation>Abre un documento antes de cargar una paleta.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3196"/>
+        <location filename="../ui/main_window.py" line="3203"/>
         <source>Import Failed</source>
         <translation>Error de importación</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3197"/>
+        <location filename="../ui/main_window.py" line="3204"/>
         <source>Could not import %1:
 %2</source>
         <translation>No se pudo importar %1:
 %2</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3321"/>
+        <location filename="../ui/main_window.py" line="3328"/>
         <source>Moving selection — hold Ctrl to copy; Enter to commit, Esc to cancel</source>
         <translation>Moviendo selección — mantén Ctrl para copiar; Enter para confirmar, Esc para cancelar</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4111"/>
+        <location filename="../ui/main_window.py" line="4118"/>
         <source>Cloud project name:</source>
         <translation>Nombre del proyecto en la nube:</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4116"/>
+        <location filename="../ui/main_window.py" line="4123"/>
         <source>Enter a project name.</source>
         <translation>Introduce un nombre de proyecto.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4125"/>
+        <location filename="../ui/main_window.py" line="4132"/>
         <source>Connect to a cloud provider first.</source>
         <translation>Conéctate primero a un proveedor en la nube.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4324"/>
+        <location filename="../ui/main_window.py" line="4331"/>
         <source>Save to Cloud</source>
         <translation>Guardar en la nube</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4181"/>
-        <location filename="../ui/main_window.py" line="4329"/>
+        <location filename="../ui/main_window.py" line="4188"/>
+        <location filename="../ui/main_window.py" line="4336"/>
         <source>Open a document first.</source>
         <translation>Abre primero un documento.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2663"/>
+        <location filename="../ui/main_window.py" line="2670"/>
         <source>Add Frame</source>
         <translation>Añadir fotograma</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3102"/>
+        <location filename="../ui/main_window.py" line="3109"/>
         <source>Layer is locked.</source>
         <translation>La capa está bloqueada.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3117"/>
+        <location filename="../ui/main_window.py" line="3124"/>
         <source>This is the last remaining frame; a document must keep at least one.</source>
         <translation>Este es el último fotograma restante; un documento debe conservar al menos uno.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3130"/>
+        <location filename="../ui/main_window.py" line="3137"/>
         <source>Click was outside the document.</source>
         <translation>El clic quedó fuera del documento.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3143"/>
+        <location filename="../ui/main_window.py" line="3150"/>
         <source>This layer cannot be edited directly.</source>
         <translation>Esta capa no se puede editar directamente.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3156"/>
+        <location filename="../ui/main_window.py" line="3163"/>
         <source>No change: the colour already matched.</source>
         <translation>Sin cambios: el color ya coincidía.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3169"/>
+        <location filename="../ui/main_window.py" line="3176"/>
         <source>No tileset bound to this tilemap yet.</source>
         <translation>Aún no hay ningún tileset vinculado a este mapa de tiles.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3181"/>
+        <location filename="../ui/main_window.py" line="3188"/>
         <source>Select a tile first.</source>
         <translation>Selecciona un tile primero.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3726"/>
+        <location filename="../ui/main_window.py" line="3733"/>
         <source>Register Selection</source>
         <translation>Registrar selección</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3815"/>
+        <location filename="../ui/main_window.py" line="3822"/>
         <source>Choose a new folder for the imported project</source>
         <translation>Elija una carpeta nueva para el proyecto importado</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3824"/>
+        <location filename="../ui/main_window.py" line="3831"/>
         <source>&quot;%1&quot; already exists. Choose a name for a new folder.</source>
         <translation>«%1» ya existe. Elija un nombre para una carpeta nueva.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3843"/>
+        <location filename="../ui/main_window.py" line="3850"/>
         <source>Imported Project</source>
         <translation>Proyecto importado</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4159"/>
+        <location filename="../ui/main_window.py" line="4166"/>
         <source>Cloud status: —</source>
         <translation>Estado de la nube: —</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4167"/>
+        <location filename="../ui/main_window.py" line="4174"/>
         <source>Cloud status: Up to date</source>
         <translation>Estado de la nube: al día</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4169"/>
+        <location filename="../ui/main_window.py" line="4176"/>
         <source>Cloud status: Not yet saved to cloud</source>
         <translation>Estado de la nube: aún no guardado en la nube</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4171"/>
+        <location filename="../ui/main_window.py" line="4178"/>
         <source>Cloud status: Newer version in cloud</source>
         <translation>Estado de la nube: hay una versión más reciente en la nube</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4172"/>
+        <location filename="../ui/main_window.py" line="4179"/>
         <source>Cloud status: Diverged</source>
         <translation>Estado de la nube: divergente</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4178"/>
+        <location filename="../ui/main_window.py" line="4185"/>
         <source>Real-time</source>
         <translation>Tiempo real</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4183"/>
+        <location filename="../ui/main_window.py" line="4190"/>
         <source>Your member id:</source>
         <translation>Tu id de miembro:</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4213"/>
+        <location filename="../ui/main_window.py" line="4220"/>
         <source>Real-time: {msg}</source>
         <translation>Tiempo real: {msg}</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4317"/>
+        <location filename="../ui/main_window.py" line="4324"/>
         <source>Merge</source>
         <translation>Fusionar</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4346"/>
+        <location filename="../ui/main_window.py" line="4353"/>
         <source>Open from Cloud</source>
         <translation>Abrir desde la nube</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4364"/>
-        <location filename="../ui/main_window.py" line="4481"/>
+        <location filename="../ui/main_window.py" line="4371"/>
+        <location filename="../ui/main_window.py" line="4488"/>
         <source>Cloud Version History</source>
         <translation>Historial de versiones en la nube</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4451"/>
+        <location filename="../ui/main_window.py" line="4458"/>
         <source>Saved to cloud.</source>
         <translation>Guardado en la nube.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4458"/>
+        <location filename="../ui/main_window.py" line="4465"/>
         <source>Cloud Project</source>
         <translation>Proyecto en la nube</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4460"/>
+        <location filename="../ui/main_window.py" line="4467"/>
         <source>Recovered</source>
         <translation>Recuperado</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4468"/>
+        <location filename="../ui/main_window.py" line="4475"/>
         <source>Restored from cloud.</source>
         <translation>Restaurado desde la nube.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4482"/>
+        <location filename="../ui/main_window.py" line="4489"/>
         <source>No versions found for this project.</source>
         <translation>No se encontraron versiones para este proyecto.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4509"/>
+        <location filename="../ui/main_window.py" line="4516"/>
         <source>Cloud</source>
         <translation>Nube</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4635"/>
+        <location filename="../ui/main_window.py" line="4642"/>
         <source>Clear Selection</source>
         <translation>Borrar selección</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4750"/>
+        <location filename="../ui/main_window.py" line="4757"/>
         <source>Flip Horizontal</source>
         <translation>Voltear horizontalmente</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4753"/>
+        <location filename="../ui/main_window.py" line="4760"/>
         <source>Flip Vertical</source>
         <translation>Voltear verticalmente</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4757"/>
+        <location filename="../ui/main_window.py" line="4764"/>
         <source>Rotate 90° CW</source>
         <translation>Rotar 90° horario</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4762"/>
+        <location filename="../ui/main_window.py" line="4769"/>
         <source>Rotate 90° CCW</source>
         <translation>Rotar 90° antihorario</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4783"/>
-        <location filename="../ui/main_window.py" line="4786"/>
         <location filename="../ui/main_window.py" line="4790"/>
-        <location filename="../ui/main_window.py" line="4799"/>
-        <location filename="../ui/main_window.py" line="4802"/>
+        <location filename="../ui/main_window.py" line="4793"/>
+        <location filename="../ui/main_window.py" line="4797"/>
+        <location filename="../ui/main_window.py" line="4806"/>
+        <location filename="../ui/main_window.py" line="4809"/>
         <source>Scale Canvas</source>
         <translation>Escalar lienzo</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4831"/>
-        <location filename="../ui/main_window.py" line="4834"/>
+        <location filename="../ui/main_window.py" line="4838"/>
+        <location filename="../ui/main_window.py" line="4841"/>
         <source>Canvas Size</source>
         <translation>Tamaño del lienzo</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4852"/>
+        <location filename="../ui/main_window.py" line="4859"/>
         <source>Rotate (RotSprite)</source>
         <translation>Rotar (RotSprite)</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5035"/>
-        <location filename="../ui/main_window.py" line="5044"/>
+        <location filename="../ui/main_window.py" line="5042"/>
+        <location filename="../ui/main_window.py" line="5051"/>
         <source>Open Tileset Image</source>
         <translation>Abrir imagen de tileset</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5037"/>
+        <location filename="../ui/main_window.py" line="5044"/>
         <source>Images (*.png *.jpg *.jpeg *.bmp *.gif)</source>
         <translation>Imágenes (*.png *.jpg *.jpeg *.bmp *.gif)</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5053"/>
+        <location filename="../ui/main_window.py" line="5060"/>
         <source>New Tileset</source>
         <translation>Nuevo tileset</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5059"/>
+        <location filename="../ui/main_window.py" line="5066"/>
         <source>Add Tileset</source>
         <translation>Añadir tileset</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5069"/>
-        <location filename="../ui/main_window.py" line="5120"/>
+        <location filename="../ui/main_window.py" line="5076"/>
+        <location filename="../ui/main_window.py" line="5127"/>
         <source>Attach Tileset</source>
         <translation>Adjuntar tileset</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5082"/>
+        <location filename="../ui/main_window.py" line="5089"/>
         <source>Tilemap</source>
         <translation>Mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5085"/>
+        <location filename="../ui/main_window.py" line="5092"/>
         <source>Layer 1</source>
         <translation>Capa 1</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5092"/>
+        <location filename="../ui/main_window.py" line="5099"/>
         <source>Add Tilemap</source>
         <translation>Añadir mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5112"/>
+        <location filename="../ui/main_window.py" line="5119"/>
         <source>Import Tilemap</source>
         <translation>Importar mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5144"/>
+        <location filename="../ui/main_window.py" line="5151"/>
         <source>Export Tiled Map</source>
         <translation>Exportar mapa de Tiled</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5145"/>
+        <location filename="../ui/main_window.py" line="5152"/>
         <source>There is no tilemap to export.</source>
         <translation>No hay ningún mapa de tiles para exportar.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5173"/>
+        <location filename="../ui/main_window.py" line="5180"/>
         <source>Exporting…</source>
         <translation>Exportando…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5178"/>
+        <location filename="../ui/main_window.py" line="5185"/>
         <source>Exporting %1 of %2…</source>
         <translation>Exportando %1 de %2…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5221"/>
+        <location filename="../ui/main_window.py" line="5228"/>
         <source>Export Failed</source>
         <translation>Error de exportación</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5222"/>
+        <location filename="../ui/main_window.py" line="5229"/>
         <source>%1 export target(s) failed:
 %2</source>
         <translation>%1 destino(s) de exportación fallaron:
 %2</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5229"/>
+        <location filename="../ui/main_window.py" line="5236"/>
         <source>Export complete (%1 file(s)).</source>
         <translation>Exportación completada (%1 archivo(s)).</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5281"/>
+        <location filename="../ui/main_window.py" line="5288"/>
         <source>Automation</source>
         <translation>Automatización</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5303"/>
+        <location filename="../ui/main_window.py" line="5310"/>
         <source>Automation Error</source>
         <translation>Error de automatización</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5321"/>
+        <location filename="../ui/main_window.py" line="5328"/>
         <source>Running automation…</source>
         <translation>Ejecutando automatización…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5367"/>
+        <location filename="../ui/main_window.py" line="5374"/>
         <source>Assistant edit</source>
         <translation>Edición del asistente</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5382"/>
+        <location filename="../ui/main_window.py" line="5389"/>
         <source>PixelArt Creator</source>
         <translation>PixelArt Creator</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5383"/>
+        <location filename="../ui/main_window.py" line="5390"/>
         <source>Tools</source>
         <translation>Herramientas</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5384"/>
+        <location filename="../ui/main_window.py" line="5391"/>
         <source>Palette</source>
         <translation>Paleta</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5385"/>
+        <location filename="../ui/main_window.py" line="5392"/>
         <source>Symmetry</source>
         <translation>Simetría</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5386"/>
+        <location filename="../ui/main_window.py" line="5393"/>
         <source>Layers</source>
         <translation>Capas</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5387"/>
+        <location filename="../ui/main_window.py" line="5394"/>
         <source>Timeline</source>
         <translation>Línea de tiempo</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5388"/>
+        <location filename="../ui/main_window.py" line="5395"/>
         <source>Onion Skin</source>
         <translation>Papel cebolla</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5389"/>
+        <location filename="../ui/main_window.py" line="5396"/>
         <source>Frame Tags</source>
         <translation>Etiquetas de fotogramas</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5390"/>
+        <location filename="../ui/main_window.py" line="5397"/>
         <source>Palette Editor</source>
         <translation>Editor de paleta</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5391"/>
+        <location filename="../ui/main_window.py" line="5398"/>
         <source>Constraints</source>
         <translation>Restricciones</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5392"/>
+        <location filename="../ui/main_window.py" line="5399"/>
         <source>Shade Ramps</source>
         <translation>Rampas de sombra</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5394"/>
+        <location filename="../ui/main_window.py" line="5401"/>
         <source>Analytics</source>
         <translation>Analíticas</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5395"/>
+        <location filename="../ui/main_window.py" line="5402"/>
         <source>Tileset Editor</source>
         <translation>Editor de tileset</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5396"/>
+        <location filename="../ui/main_window.py" line="5403"/>
         <source>Tilemap Layers</source>
         <translation>Capas del mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5397"/>
+        <location filename="../ui/main_window.py" line="5404"/>
         <source>Tilemap Canvas</source>
         <translation>Lienzo del mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5398"/>
+        <location filename="../ui/main_window.py" line="5405"/>
         <source>Batch Export</source>
         <translation>Exportación por lotes</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5399"/>
+        <location filename="../ui/main_window.py" line="5406"/>
         <source>Macros</source>
         <translation>Macros</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5400"/>
+        <location filename="../ui/main_window.py" line="5407"/>
         <source>Script Runner</source>
         <translation>Ejecutor de scripts</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5401"/>
+        <location filename="../ui/main_window.py" line="5408"/>
         <source>Plugins</source>
         <translation>Complementos</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5402"/>
+        <location filename="../ui/main_window.py" line="5409"/>
         <source>Batch Recolour</source>
         <translation>Recoloreado por lotes</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5403"/>
+        <location filename="../ui/main_window.py" line="5410"/>
         <source>Procedural Generation</source>
         <translation>Generación procedural</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5404"/>
+        <location filename="../ui/main_window.py" line="5411"/>
         <source>Shared Projects</source>
         <translation>Proyectos compartidos</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5405"/>
+        <location filename="../ui/main_window.py" line="5412"/>
         <source>Comments</source>
         <translation>Comentarios</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5406"/>
+        <location filename="../ui/main_window.py" line="5413"/>
         <source>Presence</source>
         <translation>Presencia</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5407"/>
+        <location filename="../ui/main_window.py" line="5414"/>
         <source>Branching</source>
         <translation>Ramificación</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5408"/>
+        <location filename="../ui/main_window.py" line="5415"/>
         <source>Asset Library</source>
         <translation>Biblioteca de recursos</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5409"/>
+        <location filename="../ui/main_window.py" line="5416"/>
         <source>Asset Search</source>
         <translation>Búsqueda de recursos</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5410"/>
+        <location filename="../ui/main_window.py" line="5417"/>
         <source>Asset Tagging</source>
         <translation>Etiquetado de recursos</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5411"/>
+        <location filename="../ui/main_window.py" line="5418"/>
         <source>Dependency Graph</source>
         <translation>Grafo de dependencias</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5412"/>
+        <location filename="../ui/main_window.py" line="5419"/>
         <source>Asset Versions</source>
         <translation>Versiones del recurso</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5413"/>
+        <location filename="../ui/main_window.py" line="5420"/>
         <source>Asset Reuse</source>
         <translation>Reutilización de recursos</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5417"/>
+        <location filename="../ui/main_window.py" line="5424"/>
         <source>Real-Size Preview</source>
         <translation>Vista a tamaño real</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5418"/>
+        <location filename="../ui/main_window.py" line="5425"/>
         <source>Timelapse</source>
         <translation>Timelapse</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5419"/>
+        <location filename="../ui/main_window.py" line="5426"/>
         <source>Reopened Recording</source>
         <translation>Grabación reabierta</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5420"/>
+        <location filename="../ui/main_window.py" line="5427"/>
         <source>Open documents</source>
         <translation>Documentos abiertos</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5421"/>
+        <location filename="../ui/main_window.py" line="5428"/>
         <source>Floating selection status</source>
         <translation>Estado de selección flotante</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5425"/>
+        <location filename="../ui/main_window.py" line="5432"/>
         <source>Pencil</source>
         <translation>Lápiz</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5426"/>
+        <location filename="../ui/main_window.py" line="5433"/>
         <source>Eraser</source>
         <translation>Borrador</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5427"/>
+        <location filename="../ui/main_window.py" line="5434"/>
         <source>Fill</source>
         <translation>Relleno</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5428"/>
+        <location filename="../ui/main_window.py" line="5435"/>
         <source>Line</source>
         <translation>Línea</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5429"/>
+        <location filename="../ui/main_window.py" line="5436"/>
         <source>Colour picker</source>
         <translation>Selector de color</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5430"/>
+        <location filename="../ui/main_window.py" line="5437"/>
         <source>Rectangle</source>
         <translation>Rectángulo</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5431"/>
+        <location filename="../ui/main_window.py" line="5438"/>
         <source>Ellipse</source>
         <translation>Elipse</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5432"/>
+        <location filename="../ui/main_window.py" line="5439"/>
         <source>Rectangle select</source>
         <translation>Selección rectangular</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5433"/>
+        <location filename="../ui/main_window.py" line="5440"/>
         <source>Lasso select</source>
         <translation>Selección de lazo</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5434"/>
+        <location filename="../ui/main_window.py" line="5441"/>
         <source>Magic wand</source>
         <translation>Varita mágica</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5435"/>
-        <location filename="../ui/main_window.py" line="5493"/>
+        <location filename="../ui/main_window.py" line="5442"/>
+        <location filename="../ui/main_window.py" line="5500"/>
         <source>Dither</source>
         <translation>Tramado</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5444"/>
+        <location filename="../ui/main_window.py" line="5451"/>
         <source>&amp;New</source>
         <translation>&amp;Nuevo</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5445"/>
+        <location filename="../ui/main_window.py" line="5452"/>
         <source>&amp;Open…</source>
         <translation>&amp;Abrir…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5446"/>
+        <location filename="../ui/main_window.py" line="5453"/>
         <source>&amp;Save</source>
         <translation>&amp;Guardar</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5447"/>
+        <location filename="../ui/main_window.py" line="5454"/>
         <source>Save &amp;As…</source>
         <translation>Guardar &amp;como…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5448"/>
+        <location filename="../ui/main_window.py" line="5455"/>
         <source>&amp;Export…</source>
         <translation>&amp;Exportar…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5449"/>
+        <location filename="../ui/main_window.py" line="5456"/>
         <source>&amp;Close</source>
         <translation>&amp;Cerrar</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5451"/>
+        <location filename="../ui/main_window.py" line="5458"/>
         <source>&amp;Connect…</source>
         <translation>&amp;Conectar…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5452"/>
+        <location filename="../ui/main_window.py" line="5459"/>
         <source>&amp;Disconnect</source>
         <translation>&amp;Desconectar</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5453"/>
+        <location filename="../ui/main_window.py" line="5460"/>
         <source>&amp;Save to Cloud…</source>
         <translation>&amp;Guardar en la nube…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5454"/>
+        <location filename="../ui/main_window.py" line="5461"/>
         <source>&amp;Open from Cloud…</source>
         <translation>&amp;Abrir desde la nube…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5455"/>
+        <location filename="../ui/main_window.py" line="5462"/>
         <source>&amp;Version History…</source>
         <translation>&amp;Historial de versiones…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5457"/>
+        <location filename="../ui/main_window.py" line="5464"/>
         <source>Start &amp;Real-time…</source>
         <translation>Iniciar &amp;tiempo real…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5458"/>
+        <location filename="../ui/main_window.py" line="5465"/>
         <source>Stop Real-&amp;time</source>
         <translation>Detener t&amp;iempo real</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5459"/>
+        <location filename="../ui/main_window.py" line="5466"/>
         <source>Show &amp;Live Cursors</source>
         <translation>Mostrar &amp;cursores en vivo</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5460"/>
+        <location filename="../ui/main_window.py" line="5467"/>
         <source>Zoom &amp;In</source>
         <translation>&amp;Acercar</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5461"/>
+        <location filename="../ui/main_window.py" line="5468"/>
         <source>Zoom &amp;Out</source>
         <translation>A&amp;lejar</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5462"/>
+        <location filename="../ui/main_window.py" line="5469"/>
         <source>&amp;Fit to View</source>
         <translation>&amp;Ajustar a la vista</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5463"/>
+        <location filename="../ui/main_window.py" line="5470"/>
         <source>Fit to &amp;Content</source>
         <translation>Ajustar al &amp;contenido</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5464"/>
+        <location filename="../ui/main_window.py" line="5471"/>
         <source>Show &amp;Grid</source>
         <translation>Mostrar &amp;cuadrícula</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5465"/>
+        <location filename="../ui/main_window.py" line="5472"/>
         <source>&amp;Snap to Grid</source>
         <translation>&amp;Ajustar a la cuadrícula</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5466"/>
+        <location filename="../ui/main_window.py" line="5473"/>
         <source>&amp;Anti-aliasing Off</source>
         <translation>&amp;Suavizado desactivado</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5471"/>
+        <location filename="../ui/main_window.py" line="5478"/>
         <source>New Tileset from Image…</source>
         <translation>Nuevo tileset desde imagen…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5472"/>
+        <location filename="../ui/main_window.py" line="5479"/>
         <source>New Tilemap</source>
         <translation>Nuevo mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5473"/>
+        <location filename="../ui/main_window.py" line="5480"/>
         <source>Import Tiled JSON…</source>
         <translation>Importar JSON de Tiled…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5474"/>
+        <location filename="../ui/main_window.py" line="5481"/>
         <source>Export Tiled JSON…</source>
         <translation>Exportar JSON de Tiled…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5475"/>
+        <location filename="../ui/main_window.py" line="5482"/>
         <source>Stamp Tool</source>
         <translation>Herramienta de sello</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5476"/>
+        <location filename="../ui/main_window.py" line="5483"/>
         <source>Place the selected tile</source>
         <translation>Coloca el tile seleccionado</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5477"/>
+        <location filename="../ui/main_window.py" line="5484"/>
         <source>Tile Eraser</source>
         <translation>Borrador de tiles</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5478"/>
+        <location filename="../ui/main_window.py" line="5485"/>
         <source>Clear the target cell</source>
         <translation>Limpia la celda de destino</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5479"/>
+        <location filename="../ui/main_window.py" line="5486"/>
         <source>Rectangle Fill</source>
         <translation>Relleno rectangular</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5481"/>
+        <location filename="../ui/main_window.py" line="5488"/>
         <source>Fill a dragged rectangle with the selected tile</source>
         <translation>Rellena un rectángulo arrastrado con el tile seleccionado</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5483"/>
+        <location filename="../ui/main_window.py" line="5490"/>
         <source>Flip Stamp Horizontal</source>
         <translation>Voltear sello horizontalmente</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5484"/>
+        <location filename="../ui/main_window.py" line="5491"/>
         <source>Flip Stamp Vertical</source>
         <translation>Voltear sello verticalmente</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5485"/>
+        <location filename="../ui/main_window.py" line="5492"/>
         <source>Rotate Stamp 90° CW</source>
         <translation>Rotar sello 90° a la derecha</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5489"/>
+        <location filename="../ui/main_window.py" line="5496"/>
         <source>Fille&amp;d Shapes</source>
         <translation>&amp;Formas rellenas</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5490"/>
+        <location filename="../ui/main_window.py" line="5497"/>
         <source>&amp;Pixel Perfect</source>
         <translation>&amp;Píxel perfecto</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5513"/>
-        <source>Canvas &amp;Size…</source>
-        <translation>&amp;Tamaño del lienzo…</translation>
-    </message>
-    <message>
         <location filename="../ui/main_window.py" line="5518"/>
+        <source>Rotate 90° &amp;CCW</source>
+        <translation>Rotar 90° antihorario</translation>
+    </message>
+    <message>
+        <location filename="../ui/main_window.py" line="5536"/>
+        <source>Visual Ai&amp;ds</source>
+        <translation>Ayu&amp;das visuales</translation>
+    </message>
+    <message>
+        <source>Canvas &amp;Size…</source>
+        <translation type="vanished">&amp;Tamaño del lienzo…</translation>
+    </message>
+    <message>
         <source>Configure &amp;Isometric Grid…</source>
-        <translation>Configurar &amp;cuadrícula isométrica…</translation>
+        <translation type="vanished">Configurar &amp;cuadrícula isométrica…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5520"/>
         <source>Configure &amp;Perspective…</source>
-        <translation>Configurar &amp;perspectiva…</translation>
+        <translation type="vanished">Configurar &amp;perspectiva…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5534"/>
+        <location filename="../ui/main_window.py" line="5541"/>
         <source>&amp;Library</source>
         <translation>&amp;Biblioteca</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5536"/>
+        <location filename="../ui/main_window.py" line="5543"/>
         <source>&amp;Register Active Document…</source>
         <translation>Registrar &amp;documento activo…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5538"/>
+        <location filename="../ui/main_window.py" line="5545"/>
         <source>Register &amp;Selection…</source>
         <translation>Registrar &amp;selección…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5539"/>
+        <location filename="../ui/main_window.py" line="5546"/>
         <source>&amp;Import Asset…</source>
         <translation>&amp;Importar recurso…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5540"/>
+        <location filename="../ui/main_window.py" line="5547"/>
         <source>&amp;Export Asset…</source>
         <translation>&amp;Exportar recurso…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5541"/>
+        <location filename="../ui/main_window.py" line="5548"/>
         <source>Export Project &amp;Bundle…</source>
         <translation>Exportar &amp;paquete de proyecto…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5542"/>
+        <location filename="../ui/main_window.py" line="5549"/>
         <source>I&amp;mport Project Bundle…</source>
         <translation>Importar pa&amp;quete de proyecto…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5545"/>
+        <location filename="../ui/main_window.py" line="5551"/>
+        <source>La&amp;nguage</source>
+        <translation>Idioma</translation>
+    </message>
+    <message>
+        <location filename="../ui/main_window.py" line="5552"/>
         <source>&amp;Help</source>
         <translation>&amp;Ayuda</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5546"/>
+        <location filename="../ui/main_window.py" line="5553"/>
         <source>&amp;User Guide</source>
         <translation>&amp;Guía del usuario</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5547"/>
+        <location filename="../ui/main_window.py" line="5554"/>
         <source>&amp;About PixelArt Creator</source>
         <translation>&amp;Acerca de PixelArt Creator</translation>
     </message>
@@ -3853,17 +3865,17 @@
         <translation type="vanished">Suavizado desactivado</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5467"/>
+        <location filename="../ui/main_window.py" line="5474"/>
         <source>&amp;Tiled Mode</source>
         <translation>Modo &amp;mosaico</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5468"/>
+        <location filename="../ui/main_window.py" line="5475"/>
         <source>Light</source>
         <translation>Claro</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5469"/>
+        <location filename="../ui/main_window.py" line="5476"/>
         <source>Dark</source>
         <translation>Oscuro</translation>
     </message>
@@ -3876,184 +3888,196 @@
         <translation type="vanished">Píxel perfecto</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5491"/>
+        <location filename="../ui/main_window.py" line="5498"/>
         <source>Tolerance</source>
         <translation>Tolerancia</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5492"/>
+        <location filename="../ui/main_window.py" line="5499"/>
         <source>Magic-wand tolerance</source>
         <translation>Tolerancia de la varita mágica</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5494"/>
+        <location filename="../ui/main_window.py" line="5501"/>
         <source>Dither mode</source>
         <translation>Modo de tramado</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5495"/>
+        <location filename="../ui/main_window.py" line="5502"/>
         <source>Ordered (Bayer)</source>
         <translation>Ordenado (Bayer)</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5496"/>
+        <location filename="../ui/main_window.py" line="5503"/>
         <source>Floyd–Steinberg</source>
         <translation>Floyd–Steinberg</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5497"/>
+        <location filename="../ui/main_window.py" line="5504"/>
         <source>&amp;Extract from Image…</source>
         <translation>&amp;Extraer de imagen…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5498"/>
+        <location filename="../ui/main_window.py" line="5505"/>
         <source>Palette &amp;Swap…</source>
         <translation>Intercambio de &amp;paleta…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5500"/>
+        <location filename="../ui/main_window.py" line="5507"/>
         <source>Convert to Inde&amp;xed</source>
         <translation>Convertir a inde&amp;xado</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5501"/>
+        <location filename="../ui/main_window.py" line="5508"/>
         <source>&amp;Convert to RGBA</source>
         <translation>&amp;Convertir a RGBA</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5503"/>
+        <location filename="../ui/main_window.py" line="5510"/>
         <source>Select &amp;All</source>
         <translation>Seleccionar &amp;todo</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5504"/>
+        <location filename="../ui/main_window.py" line="5511"/>
         <source>&amp;Deselect</source>
         <translation>&amp;Deseleccionar</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5505"/>
+        <location filename="../ui/main_window.py" line="5512"/>
         <source>&amp;Invert Selection</source>
         <translation>&amp;Invertir selección</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5506"/>
+        <location filename="../ui/main_window.py" line="5513"/>
         <source>&amp;Clear Selection</source>
         <translation>&amp;Borrar selección</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5508"/>
+        <location filename="../ui/main_window.py" line="5515"/>
         <source>Flip &amp;Horizontal</source>
         <translation>Voltear &amp;horizontalmente</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5509"/>
+        <location filename="../ui/main_window.py" line="5516"/>
         <source>Flip &amp;Vertical</source>
         <translation>Voltear &amp;verticalmente</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5510"/>
+        <location filename="../ui/main_window.py" line="5517"/>
         <source>Rotate 90° C&amp;W</source>
         <translation>Rotar 90° &amp;horario</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5511"/>
         <source>Rotate 90° CC&amp;W</source>
-        <translation>Rotar 90° &amp;antihorario</translation>
+        <translation type="vanished">Rotar 90° &amp;antihorario</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5512"/>
+        <location filename="../ui/main_window.py" line="5519"/>
         <source>&amp;Scale…</source>
         <translation>&amp;Escalar…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5514"/>
+        <location filename="../ui/main_window.py" line="5520"/>
+        <source>Canvas S&amp;ize…</source>
+        <translation>Tamaño del l&amp;ienzo…</translation>
+    </message>
+    <message>
+        <location filename="../ui/main_window.py" line="5521"/>
         <source>&amp;Rotate (RotSprite)…</source>
         <translation>&amp;Rotar (RotSprite)…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5516"/>
+        <location filename="../ui/main_window.py" line="5523"/>
         <source>Guides &amp;&amp; &amp;Rulers</source>
         <translation>Guías &amp;&amp; &amp;Reglas</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5517"/>
+        <location filename="../ui/main_window.py" line="5524"/>
         <source>&amp;Isometric Grid</source>
         <translation>Cuadrícula &amp;Isométrica</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5519"/>
+        <location filename="../ui/main_window.py" line="5525"/>
+        <source>&amp;Configure Isometric Grid…</source>
+        <translation>&amp;Configurar cuadrícula isométrica…</translation>
+    </message>
+    <message>
+        <location filename="../ui/main_window.py" line="5526"/>
         <source>&amp;Perspective Grid</source>
         <translation>Cuadrícula en &amp;Perspectiva</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5521"/>
+        <location filename="../ui/main_window.py" line="5527"/>
+        <source>Confi&amp;gure Perspective…</source>
+        <translation>Confi&amp;gurar perspectiva…</translation>
+    </message>
+    <message>
+        <location filename="../ui/main_window.py" line="5528"/>
         <source>&amp;New View</source>
         <translation>&amp;Nueva Vista</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5522"/>
+        <location filename="../ui/main_window.py" line="5529"/>
         <source>Reference &amp;Board</source>
         <translation>Panel de &amp;Referencia</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5524"/>
+        <location filename="../ui/main_window.py" line="5531"/>
         <source>&amp;File</source>
         <translation>&amp;Archivo</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5525"/>
+        <location filename="../ui/main_window.py" line="5532"/>
         <source>&amp;Edit</source>
         <translation>&amp;Editar</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5526"/>
+        <location filename="../ui/main_window.py" line="5533"/>
         <source>&amp;Select</source>
         <translation>&amp;Selección</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5527"/>
+        <location filename="../ui/main_window.py" line="5534"/>
         <source>&amp;Image</source>
         <translation>&amp;Imagen</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5528"/>
+        <location filename="../ui/main_window.py" line="5535"/>
         <source>&amp;View</source>
         <translation>&amp;Ver</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5529"/>
         <source>&amp;Aids</source>
-        <translation>A&amp;yudas</translation>
+        <translation type="vanished">A&amp;yudas</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5530"/>
+        <location filename="../ui/main_window.py" line="5537"/>
         <source>&amp;Palette</source>
         <translation>&amp;Paleta</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5531"/>
+        <location filename="../ui/main_window.py" line="5538"/>
         <source>Tile&amp;map</source>
         <translation>Mapa de &amp;tiles</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5532"/>
+        <location filename="../ui/main_window.py" line="5539"/>
         <source>&amp;Automation</source>
         <translation>&amp;Automatización</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5533"/>
+        <location filename="../ui/main_window.py" line="5540"/>
         <source>&amp;Cloud</source>
         <translation>&amp;Nube</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5543"/>
+        <location filename="../ui/main_window.py" line="5550"/>
         <source>&amp;Theme</source>
         <translation>&amp;Tema</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5544"/>
         <source>&amp;Language</source>
-        <translation>&amp;Idioma</translation>
+        <translation type="vanished">&amp;Idioma</translation>
     </message>
 </context>
 <context>
@@ -5698,48 +5722,48 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
 <context>
     <name>Tilemap_Canvas</name>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="722"/>
+        <location filename="../ui/tilemap_canvas.py" line="732"/>
         <source>Auto-tile</source>
         <extracomment>Initial scene window (px) for a fresh infinite map; grows to include stamps. Edge (px) of one checker square drawn behind the map (presentation-only). Platform name Qt reports with no windowing system (keep the raster viewport). MiB budget of the chunk pixmap LRU (D1). A 16x16 chunk at 16 px tiles is a 256x256 RGBA pixmap (~256 KiB), so ~128 MiB keeps a large working set resident while staying bounded on an infinite / fully filled map. Presentation/resource sizing (like frame_cache&apos;s budget), so it lives here in ui/, not logic/constants. Max cold chunks rendered *inline* per paint before the rest stream off-thread (D4). A cold chunk is ~0.84 ms (measured), so a handful stays well under the 16 ms budget and keeps a stamp / small pan instant; a full cold viewport streams. Bounded wait (ms) for an in-flight off-thread chunk render to finish on rebind / window close before the pool is torn down (mirrors canvas_scene&apos;s shutdown wait). Emitted after a layer&apos;s auto-tile mode changes (drives the panel checkbox). Emitted when a stamp/fill is refused because the tilemap has no tileset bound yet (CI-red field defect, 2026-08-24: the original FIX 5 routed this refusal through a blocking ``QMessageBox.warning``, which hangs a headless parallel worker with nothing to dismiss it). Follows the ``Canvas_View.lockedLayerEditRejected`` precedent exactly -- a signal the shell surfaces non-blockingly, never a modal, for a refusal reachable from a plain mouse gesture. Emitted when a stamp/fill is refused because no tile is selected as the active brush (a tileset IS bound; the brush gid is 0). Kept distinct from ``noTilesetBoundRejected`` so the shell shows the honest message for each case, exactly as the two ``_warn_no_active_brush`` branches already did. Emitted with the picked RGBA tuple when a plain wheel notch / an unmodified middle click travels the shared Favourites cursor (REQ-IS-UI-008/-012). Mirrors ``Canvas_View.colorPicked`` — the tilemap has no colour of its own to paint with, but the app-wide active colour/palette state is shared across every surface. A middle press awaiting the click/drag verdict — see ``Canvas_View._middle_pending`` (REQ-IS-UI-011); same behaviour here. The persisted Favourites model bound via :meth:`set_favourites_model` ``None`` until the shell binds one.</extracomment>
         <translation>Auto-tile</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="980"/>
+        <location filename="../ui/tilemap_canvas.py" line="990"/>
         <source>Stamp</source>
         <translation>Sellar</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="982"/>
+        <location filename="../ui/tilemap_canvas.py" line="992"/>
         <source>Stamp Tile</source>
         <translation>Sellar tile</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="991"/>
+        <location filename="../ui/tilemap_canvas.py" line="1001"/>
         <source>Erase</source>
         <translation>Borrar</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="993"/>
+        <location filename="../ui/tilemap_canvas.py" line="1003"/>
         <source>Erase Tile</source>
         <translation>Borrar tile</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="1011"/>
+        <location filename="../ui/tilemap_canvas.py" line="1021"/>
         <source>Fill</source>
         <translation>Relleno</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="1013"/>
+        <location filename="../ui/tilemap_canvas.py" line="1023"/>
         <source>Fill Rectangle</source>
         <translation>Rellenar rectángulo</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="1071"/>
+        <location filename="../ui/tilemap_canvas.py" line="1081"/>
         <source>Tilemap canvas</source>
         <translation>Lienzo del mapa de tiles</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="1074"/>
+        <location filename="../ui/tilemap_canvas.py" line="1084"/>
         <source>Tilemap: left-click to stamp/erase/fill, middle-drag to pan, H/V flip, R rotate</source>
         <translation>Mapa de tiles: clic izquierdo para sellar/borrar/rellenar, arrastrar con el botón central para desplazar, H/V voltear, R rotar</translation>
     </message>

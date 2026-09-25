@@ -1458,6 +1458,13 @@ class Main_Window(QMainWindow):
         # convention (CL-4); shown on the action so it is discoverable.
         self._user_guide_action = QAction(self)
         self._user_guide_action.setShortcut(QKeySequence(Qt.Key.Key_F1))
+        # ApplicationShortcut (not the default WindowShortcut) so F1 fires
+        # from any top-level of this application — a separate window such
+        # as the reference board or a floating dock — not only the main
+        # window itself.
+        self._user_guide_action.setShortcutContext(
+            Qt.ShortcutContext.ApplicationShortcut
+        )
         self._user_guide_action.triggered.connect(self._on_user_guide)
 
         # Help ▸ About PixelArt Creator (REQ-AV-UI-002, ADR-0067). AboutRole
@@ -5508,16 +5515,16 @@ class Main_Window(QMainWindow):
         self._flip_h_action.setText(self.tr("Flip &Horizontal"))
         self._flip_v_action.setText(self.tr("Flip &Vertical"))
         self._rotate_cw_action.setText(self.tr("Rotate 90° C&W"))
-        self._rotate_ccw_action.setText(self.tr("Rotate 90° CC&W"))
+        self._rotate_ccw_action.setText(self.tr("Rotate 90° &CCW"))
         self._scale_action.setText(self.tr("&Scale…"))
-        self._canvas_size_action.setText(self.tr("Canvas &Size…"))
+        self._canvas_size_action.setText(self.tr("Canvas S&ize…"))
         self._rotsprite_action.setText(self.tr("&Rotate (RotSprite)…"))
 
         self._guides_action.setText(self.tr("Guides && &Rulers"))
         self._iso_action.setText(self.tr("&Isometric Grid"))
-        self._iso_config_action.setText(self.tr("Configure &Isometric Grid…"))
+        self._iso_config_action.setText(self.tr("&Configure Isometric Grid…"))
         self._perspective_action.setText(self.tr("&Perspective Grid"))
-        self._perspective_config_action.setText(self.tr("Configure &Perspective…"))
+        self._perspective_config_action.setText(self.tr("Confi&gure Perspective…"))
         self._new_view_action.setText(self.tr("&New View"))
         self._reference_board_action.setText(self.tr("Reference &Board"))
 
@@ -5526,7 +5533,7 @@ class Main_Window(QMainWindow):
         self._select_menu.setTitle(self.tr("&Select"))
         self._image_menu.setTitle(self.tr("&Image"))
         self._view_menu.setTitle(self.tr("&View"))
-        self._aids_menu.setTitle(self.tr("&Aids"))
+        self._aids_menu.setTitle(self.tr("Visual Ai&ds"))
         self._palette_menu.setTitle(self.tr("&Palette"))
         self._tilemap_menu.setTitle(self.tr("Tile&map"))
         self._automation_menu.setTitle(self.tr("&Automation"))
@@ -5541,7 +5548,7 @@ class Main_Window(QMainWindow):
         self._export_project_bundle_action.setText(self.tr("Export Project &Bundle…"))
         self._import_project_bundle_action.setText(self.tr("I&mport Project Bundle…"))
         self._theme_menu.setTitle(self.tr("&Theme"))
-        self._language_menu.setTitle(self.tr("&Language"))
+        self._language_menu.setTitle(self.tr("La&nguage"))
         self._help_menu.setTitle(self.tr("&Help"))
         self._user_guide_action.setText(self.tr("&User Guide"))
         self._about_action.setText(self.tr("&About PixelArt Creator"))

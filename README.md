@@ -189,6 +189,26 @@ module entry point; `pixelart-creator` is the installed GUI console command (dec
 The application runs on Windows, Linux and macOS wherever PySide6 (Qt 6) and Python 3.13+
 are available.
 
+### Troubleshooting: blank window
+
+The canvas renders with a plain **raster** viewport by default. On a small number of
+Windows GPU/driver combinations, a `QOpenGLWidget`-composited top-level window fails to
+present — the widgets still paint underneath, but nothing reaches the screen but a blank
+title bar. Raster avoids that failure and is the shipped default; GPU rendering remains
+available as an **opt-in**, by setting the environment variable `PIXELART_OPENGL_VIEWPORT`
+to `1` before launching:
+
+```sh
+# Windows (PowerShell)
+$env:PIXELART_OPENGL_VIEWPORT = "1"; python -m pixelart_creator
+
+# Windows (cmd.exe)
+set PIXELART_OPENGL_VIEWPORT=1 && python -m pixelart_creator
+
+# macOS / Linux
+PIXELART_OPENGL_VIEWPORT=1 python -m pixelart_creator
+```
+
 ### Native installers
 
 For users without a Python environment, PixelArt Creator is also distributed as **native
