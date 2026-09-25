@@ -36,9 +36,21 @@ the 722 ms fine-grid zoom-out blowup that was measured. Larger than the per-pixe
 grid floor (=8) because an iso tile carries far more overlay geometry per cell
 (rendering-performance overlay-perf directive; DIR-1)."""
 
-OPENGL_VIEWPORT_ENABLED: bool = True
-"""Use a QOpenGLWidget viewport for the canvas; raster fallback applies when
-OpenGL is unavailable/headless (render-strategy §10; D6)."""
+OPENGL_VIEWPORT_ENABLED: bool = False
+"""Default viewport mode for the canvas is raster, not a QOpenGLWidget.
+
+A GL-composited top-level window can fail to present on some Windows
+GPU/driver combinations with no error visible to the code -- context
+creation and ``makeCurrent`` both succeed, and the window is left blank.
+Raster is therefore the safe default. GL rendering remains available as an
+opt-in: set the environment variable named by :data:`OPENGL_VIEWPORT_ENV`
+to ``"1"``."""
+
+OPENGL_VIEWPORT_ENV: str = "PIXELART_OPENGL_VIEWPORT"
+"""Name of the environment variable that opts a session into the
+QOpenGLWidget canvas viewport. Set it to ``"1"`` to request GL rendering;
+any other value, or leaving it unset, keeps the raster default
+(:data:`OPENGL_VIEWPORT_ENABLED`)."""
 
 ZOOM_MAX: float = 64.0
 """Deep-zoom ceiling as a scale factor (6400 %); fit-to-view lower bound is

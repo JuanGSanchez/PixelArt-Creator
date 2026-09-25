@@ -7,8 +7,12 @@
 stack through the frozen ``Tilemap.render_region`` seam (REQ-P6-UI-004,
 REQ-P6-LOGIC-013). It mirrors the shipped
 :class:`~pixelart_creator.ui.canvas_view.Canvas_View` architecture — nearest
-neighbour, AA off, ``MinimalViewportUpdate``, cursor-anchored wheel zoom, and
-middle-/space-drag pan (view state, no undo, CL-13, REQ-P6-UI-010).
+neighbour, AA off, ``MinimalViewportUpdate``, cursor-anchored wheel zoom,
+middle-/space-drag pan (view state, no undo, CL-13, REQ-P6-UI-010), and a
+**raster viewport by default**: GL composition of the top-level surface was
+measured to fail undetectably on an affected desktop, so ``QOpenGLWidget`` is
+opt-in only via
+:func:`~pixelart_creator.ui.canvas_view.opengl_viewport_requested`.
 
 **Render seam & performance (DEP-3, rendering/performance directives D1-D5).**
 ``drawBackground(painter, rect)`` assembles the exposed ``rect`` from a
@@ -76,7 +80,6 @@ from pixelart_creator.logic.constants import (
     CLICK_DRAG_THRESHOLD_PX,
     MAX_CANVAS_HEIGHT,
     MAX_CANVAS_WIDTH,
-    OPENGL_VIEWPORT_ENABLED,
     SCALE_FACTOR,
     TILEMAP_CHUNK_SIZE,
     ZOOM_MAX,
@@ -93,6 +96,7 @@ from pixelart_creator.logic.tilemap import (
     Tilemap,
     TilemapError,
 )
+from pixelart_creator.ui.canvas_view import opengl_viewport_requested
 from pixelart_creator.ui.commands import TilemapCommand
 from pixelart_creator.ui.tilemap_chunk_cache import (
     ChunkPixmapCache,
@@ -566,14 +570,20 @@ class Tilemap_Canvas(QGraphicsView):
         self._retranslate()
 
     def _install_viewport(self) -> None:
-        """Use a GL viewport on desktop; fall back to raster headless (D5).
+        """Install a raster viewport by default; GL only if opted in (D5).
 
-        Mirrors :class:`~pixelart_creator.ui.canvas_view.Canvas_View`: a
-        ``QOpenGLWidget`` viewport where a GL context is available and enabled, and
-        the default raster viewport under the offscreen platform / on any GL failure
-        so headless CI stays deterministic.
+        Mirrors :class:`~pixelart_creator.ui.canvas_view.Canvas_View` exactly,
+        including WHY raster is the default: the GL-composited presentation
+        failure this fix addresses (a blank top-level surface while every
+        widget still paints underneath) cannot be detected in code — context
+        creation and ``makeCurrent`` both succeed, so no ``try/except`` here
+        can distinguish a desktop that will present from one that will not.
+        A ``QOpenGLWidget`` viewport is therefore opt-in only, via
+        :func:`~pixelart_creator.ui.canvas_view.opengl_viewport_requested`,
+        with a raster fallback under the offscreen platform / on any GL
+        failure so headless CI stays deterministic.
         """
-        if not OPENGL_VIEWPORT_ENABLED:
+        if not opengl_viewport_requested():
             return
         if QGuiApplication.platformName() == _OFFSCREEN_PLATFORM:
             return
