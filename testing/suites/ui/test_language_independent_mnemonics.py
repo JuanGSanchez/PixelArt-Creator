@@ -60,8 +60,9 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QKeySequence, qt_set_sequence_auto_mnemonic
 from PySide6.QtWidgets import QApplication
 
 from pixelart_creator.ui.i18n import _source_mnemonic_letter, apply_source_mnemonic
@@ -87,6 +88,33 @@ def _switch_to_spanish_first(win: Main_Window) -> None:
     """
     assert win._language_manager.set_language("es") is True
     QApplication.processEvents()
+
+
+@pytest.fixture
+def _qt_auto_mnemonic_enabled(qapp):
+    """Force Qt's sequence auto-mnemonic system ON for one test, then
+    restore the platform's own default.
+
+    ``QKeySequence.mnemonic()`` -- the oracle a couple of tests below use to
+    read a string's REAL, Qt-resolved keyboard mnemonic -- consults a
+    process-wide flag (``qt_set_sequence_auto_mnemonic``) that Qt itself
+    defaults to OFF on macOS (mnemonics/underlined-letter keyboard access is
+    not a native macOS pattern) and ON everywhere else. With it off,
+    ``QKeySequence.mnemonic()`` returns an EMPTY sequence for every string,
+    regardless of what mnemonic marker it carries -- a difference in the
+    ORACLE's own platform default, not in the product under test (measured:
+    CI failed only on macOS, both failures reading exactly
+    ``'' == 'Alt+<letter>'``, the signature of the flag being off, never a
+    wrong letter). Forcing it True here makes the oracle itself
+    platform-independent for the duration of the test; the platform's own
+    default (False on macOS, True elsewhere) is restored on teardown so no
+    OTHER test running in the same process observes a changed global flag.
+    """
+    qt_set_sequence_auto_mnemonic(True)
+    try:
+        yield
+    finally:
+        qt_set_sequence_auto_mnemonic(sys.platform != "darwin")
 
 
 # =========================================================================== #
@@ -121,7 +149,9 @@ def test_m1_source_literal_double_ampersand_is_never_read_as_a_marker():
     assert _source_mnemonic_letter("&Save && Exit") == "S"
 
 
-def test_m1_literal_double_ampersand_after_the_marker_keeps_it_working(qapp):
+def test_m1_literal_double_ampersand_after_the_marker_keeps_it_working(
+    qapp, _qt_auto_mnemonic_enabled
+):
     """M1: when the translation's literal ``&&`` sits AFTER the position the
     real marker lands on, the literal survives ESCAPED (``&&``, still two
     characters) rather than collapsed to a bare single ``&``. Two
@@ -144,7 +174,9 @@ def test_m1_literal_double_ampersand_after_the_marker_keeps_it_working(qapp):
     assert QAction(result).iconText() == "Perfil & Cosas"
 
 
-def test_m1_literal_double_ampersand_before_the_marker_stays_correct(qapp):
+def test_m1_literal_double_ampersand_before_the_marker_stays_correct(
+    qapp, _qt_auto_mnemonic_enabled
+):
     """M1 -- regression test for a defect found and FIXED during this job
     (``ui/i18n.py``'s ``apply_source_mnemonic``/``_strip_mnemonic_markers``).
 
@@ -227,7 +259,9 @@ def _assert_unique_mnemonics_recursive(actions: List[QAction], context: str) -> 
             )
 
 
-def _mnemonic_tree(actions: List[QAction], path: List[int], out: Dict[str, Optional[str]]) -> None:
+def _mnemonic_tree(
+    actions: List[QAction], path: List[int], out: Dict[str, Optional[str]]
+) -> None:
     """Record ``path -> mnemonic letter`` for every non-separator action,
     recursively, keyed by a dotted index path (structural position) -- the
     same key scheme the isolated subprocess dump below uses, so the two can
@@ -363,7 +397,9 @@ def _strip_trailing_fallback_suffix(text: str) -> str:
     return _TRAILING_FALLBACK_SUFFIX.sub("", text)
 
 
-def _icon_text_tree(actions: List[QAction], path: List[int], out: Dict[str, str]) -> None:
+def _icon_text_tree(
+    actions: List[QAction], path: List[int], out: Dict[str, str]
+) -> None:
     """Record ``path -> iconText()`` (the DISPLAYED text, mnemonic markers
     stripped Qt's own way) for every non-separator action, recursively."""
     for index, action in enumerate(actions):
