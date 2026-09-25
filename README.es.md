@@ -209,6 +209,27 @@ disponible tras `pip install .`.
 La aplicación se ejecuta en Windows, Linux y macOS allí donde PySide6 (Qt 6) y Python 3.13+
 estén disponibles.
 
+### Solución de problemas: ventana en blanco
+
+El lienzo se renderiza con un viewport **raster** simple de forma predeterminada. En un
+pequeño número de combinaciones de GPU/controlador en Windows, una ventana de nivel
+superior compuesta con `QOpenGLWidget` no llega a presentarse — los widgets se siguen
+pintando por debajo, pero nada llega a la pantalla salvo la barra de título en blanco.
+El modo raster evita ese fallo y es el predeterminado de fábrica; el renderizado por GPU
+sigue disponible como **opción explícita**, estableciendo la variable de entorno
+`PIXELART_OPENGL_VIEWPORT` a `1` antes de lanzar la aplicación:
+
+```sh
+# Windows (PowerShell)
+$env:PIXELART_OPENGL_VIEWPORT = "1"; python -m pixelart_creator
+
+# Windows (cmd.exe)
+set PIXELART_OPENGL_VIEWPORT=1 && python -m pixelart_creator
+
+# macOS / Linux
+PIXELART_OPENGL_VIEWPORT=1 python -m pixelart_creator
+```
+
 ### Instaladores nativos
 
 Para quienes no tienen un entorno Python, PixelArt Creator también se distribuye como

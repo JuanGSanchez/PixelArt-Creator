@@ -7,9 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-25
+
 ### Added
 
 - The main window's title now shows the running app version, and a new **Help ▸ About PixelArt Creator** entry (on macOS: the application menu) opens a dialog with the app's name, version (selectable), licence, links to the source repository, the documentation site and the releases page, and a Copy button that places the version together with the operating system, Python and Qt/PySide6 versions on the clipboard as one line, ready for a bug report (#72).
+
+### Changed
+
+- The **Aids** menu is renamed **Visual Aids** (**Ayudas visuales** in Spanish), and **F1** now opens the User Guide from any application window, not only the main window.
+
+### Fixed
+
+- The main window could render blank on some Windows GPU/driver setups: a GL-composited top-level window failed to present even though every widget underneath still painted, and the failure cannot be detected in code (context creation and `makeCurrent` both succeed). The canvas now uses a raster viewport by default; GPU (`QOpenGLWidget`) rendering remains available as an opt-in, via the `PIXELART_OPENGL_VIEWPORT=1` environment variable.
+- The **Help** menu was unreachable from the keyboard in Spanish: its access key (`Alt+A`) collided with **Archivo** and **Automatización**, both also `Alt+A`. Every menu and action's keyboard access key is now the same letter in every installed language — derived from the English source string rather than chosen per translation — so no two access keys within the same menu can collide again.
 
 ## [0.3.1] - 2026-09-24
 
