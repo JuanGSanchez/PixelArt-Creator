@@ -255,6 +255,19 @@ DEFAULT_CATALOGUES = [
 ]
 
 
+def make_console_safe():
+    """Keep every later print() from dying on a legacy console code page.
+
+    A character the stream cannot encode prints as a backslash escape instead of
+    raising. The checker stays standalone, so this does not import the build's
+    library.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(errors="backslashreplace")
+
+
 def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -273,6 +286,7 @@ def main():
         help="U+LO..U+HI: a whole Unicode range, gated",
     )
     args = ap.parse_args()
+    make_console_safe()
     if not args.font:
         args.font = list(DEFAULT_FONTS)
     if args.catalogue is None:

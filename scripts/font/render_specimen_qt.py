@@ -32,7 +32,7 @@ import numpy as np  # noqa: E402
 import specimen_common as sc  # noqa: E402
 import specimen_content as content_mod  # noqa: E402
 import specimen_mock as mock  # noqa: E402
-from nifen_src import Font, parse_sources  # noqa: E402
+from nifen_src import Font, make_console_safe, parse_sources  # noqa: E402
 
 SIZES = (12, 24)
 KANA_TABLES = [
@@ -59,6 +59,7 @@ def main():
     ap.add_argument("--palette", required=True)
     ap.add_argument("--platform", default=None)
     args = ap.parse_args()
+    make_console_safe()
     if args.platform:
         os.environ["QT_QPA_PLATFORM"] = args.platform
 

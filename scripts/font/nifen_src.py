@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from dataclasses import dataclass, field
 from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 
@@ -23,6 +24,20 @@ PixelSet = FrozenSet[Pixel]
 
 ROW_RE = re.compile(r"^[#.]+$")
 CP_RE = re.compile(r"^U\+([0-9A-Fa-f]{4,6})$")
+
+
+def make_console_safe():
+    """Make every later print() safe on any console encoding.
+
+    A Windows pipe is often a legacy code page (cp1252): printing a character it
+    cannot encode would raise and kill the run. Output stays readable (a character
+    the stream cannot hold prints as a backslash escape) and the run never dies on
+    its own report.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(errors="backslashreplace")
 
 
 class SourceError(Exception):
