@@ -1,8 +1,9 @@
 """Shared fixtures for the UI suite: headless platform + both-theme parametrise.
 
 The ``theme`` fixture is ``autouse`` and parametrised over the light and dark
-themes, so **every** test in ``testing/suites/ui`` runs twice — once per theme — applying
-the QSS via :func:`pixelart_creator.ui.theme.apply_theme` (REQ-P1-UI-025). The
+modes of the default style, so **every** test in ``testing/suites/ui`` runs twice —
+once per mode — applying the QSS via :func:`pixelart_creator.ui.theme.apply_theme`
+(REQ-P1-UI-025). The style x mode matrix is covered by ``test_theme.py``. The
 offscreen Qt platform is forced before any ``QApplication`` is created (F11).
 """
 
@@ -79,11 +80,13 @@ from pixelart_creator.ui.shared_projects_panel import (  # noqa: E402
     Shared_Projects_Panel,
 )
 from pixelart_creator.ui.theme import (  # noqa: E402
+    DEFAULT_STYLE,
     THEME_DARK,
     THEME_LIGHT,
     apply_theme,
     canvas_roles,
 )
+from pixelart_creator.ui.theme_art_files import reset_art  # noqa: E402
 from pixelart_creator.ui.tilemap_canvas import Tilemap_Canvas  # noqa: E402
 from pixelart_creator.ui.timelapse_controls import Timelapse_Controls  # noqa: E402
 from pixelart_creator.ui.tools import PencilTool  # noqa: E402
@@ -630,11 +633,34 @@ def _drain_prewarm_after_test():
     gc.collect()
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _art_root_session(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
+    """Write the generated pixel-chrome art under the test temp root.
+
+    The one app stylesheet references PNG files the product writes at run time
+    (``ui/theme_art_files.py``); by default they go to the system temp directory.
+    The suite keeps every temp artifact under its configured root (the
+    ``--basetemp`` the runner sets), so the art is redirected there for the session
+    and left for pytest's own retention to remove. Each xdist worker has its own
+    base temp, so no two workers share a directory.
+    """
+    root = tmp_path_factory.mktemp("pixelart-art")
+    reset_art(root)
+    yield root
+    reset_art(None)
+
+
 @pytest.fixture(params=[THEME_LIGHT, THEME_DARK], autouse=True)
 def theme(request: pytest.FixtureRequest, qapp) -> str:
-    """Apply light/dark theme to the app; parametrises every test (025)."""
+    """Apply light/dark of the canonical style to the app; parametrises every test (025).
+
+    Two modes of the DEFAULT style, not the full style x mode matrix: a six-way
+    run of every UI test would triple the suite for no theme-specific assertion
+    (plan 5.2, A-6; ADR-0070 decision 9). The theme-sensitive gates are
+    parametrised over every combination explicitly in ``test_theme.py``.
+    """
     name = request.param
-    apply_theme(qapp, name)
+    apply_theme(qapp, name, DEFAULT_STYLE)
     return name
 
 

@@ -51,6 +51,7 @@ from pixelart_creator.logic.color import ColorError, from_hex, to_hex
 from pixelart_creator.logic.document import Document, DocumentError
 from pixelart_creator.logic.history import Command
 from pixelart_creator.ui.commands import FrameCommand
+from pixelart_creator.ui.pixel_chrome import Swatch_Button
 
 
 def _mode_label(widget: QWidget, mode: PlaybackMode) -> str:
@@ -88,7 +89,7 @@ class Tag_Dialog(QDialog):
             self._mode_combo.addItem(_mode_label(self, mode), mode)
         self._repeat_spin = QSpinBox(self)
         self._repeat_spin.setRange(0, 9999)
-        self._color_button = QPushButton(self)
+        self._color_button = Swatch_Button(self)
         self._color_button.clicked.connect(self._pick_color)
 
         if tag is not None:
@@ -155,9 +156,7 @@ class Tag_Dialog(QDialog):
             r, g, b, a = from_hex(self._color)
         except ColorError:
             r, g, b, a = (255, 0, 0, 255)
-        self._color_button.setStyleSheet(
-            f"background-color: rgba({r}, {g}, {b}, {a}); min-width: 32px;"
-        )
+        self._color_button.set_swatch(QColor(r, g, b, a))
 
     def result_fields(self) -> tuple[str, int, int, PlaybackMode, int, str]:
         """Return ``(name, from, to, mode, repeat, color)`` collected in the dialog."""

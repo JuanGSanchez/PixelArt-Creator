@@ -52,13 +52,14 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
 
 import pixelart_creator
+from pixelart_creator.logic.contrast import TEXT_MIN_RATIO, contrast_ratio
 from pixelart_creator.ui import theme as theme_module
 from pixelart_creator.ui.about_dialog import About_Dialog
 from pixelart_creator.ui.app_icon import app_icon
 from pixelart_creator.ui.i18n import FALLBACK_LANGUAGE
 from pixelart_creator.ui.main_window import Main_Window
-from pixelart_creator.ui.theme import THEME_DARK
-from testing.suites.ui.test_a11y_theme import _WCAG_AA_NORMAL, _contrast_ratio
+from pixelart_creator.ui.theme import THEME_DARK, role_map
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 #: The three fixed links (REQ-AV-UI-005) and their exact target addresses.
 _LINKS = [
@@ -309,10 +310,10 @@ def _max_glyph_contrast(widget: QWidget) -> float:
     ``widget`` and its own background, sampled at an unpainted corner pixel
     of the SAME grab.
 
-    Reuses ``_contrast_ratio`` (and, transitively, its luminance helper) from
-    ``test_a11y_theme`` -- the exact instrument the theme role-pair tests
-    already use -- so the 4.5:1 floor and the luminance formula are imported,
-    never restated (plan §6, OB-8). This is the RENDERED measurement plan §6
+    Reuses ``contrast_ratio`` and ``TEXT_MIN_RATIO`` from ``logic.contrast`` -- the
+    one contrast implementation the theme role-pair checks and the contrast script
+    also use -- so the 4.5:1 floor and the luminance formula are imported, never
+    restated (plan §6, OB-8). This is the RENDERED measurement plan §6
     calls for (as opposed to the role-pair-only check in
     ``test_a11y_theme.py``): it grabs the widget as Qt actually painted it,
     with the app-wide QSS background already composited in (verified this
@@ -327,7 +328,7 @@ def _max_glyph_contrast(widget: QWidget) -> float:
     best = 1.0
     for y in range(image.height()):
         for x in range(image.width()):
-            ratio = _contrast_ratio(image.pixelColor(x, y).name(), bg_hex)
+            ratio = contrast_ratio(image.pixelColor(x, y).name(), bg_hex)
             if ratio > best:
                 best = ratio
     return best
@@ -782,7 +783,9 @@ def test_mc3_structural_mnemonic_action_presence_and_focus_indicator(qtbot):
 
     Covers: the mnemonic lives in ``&Help``, the About action is present,
     enabled and reachable in the menu, and every Tab-chain control shows a
-    visible focus indicator (the app-wide themed ``:focus`` rule).
+    visible focus indicator -- RENDERED (spec A-4): focus-role pixels appear around
+    the control when it is focused and not when it is not. The stylesheet-substring
+    proxy (``":focus" in styleSheet()``) is withdrawn as evidence.
     """
     win, dialog = _open_about(qtbot)
     assert win._help_menu.title() == win.tr("&Help")
@@ -794,8 +797,7 @@ def test_mc3_structural_mnemonic_action_presence_and_focus_indicator(qtbot):
         assert (
             widget.focusPolicy() != Qt.FocusPolicy.NoFocus
         ), f"{name} is not keyboard-focusable"
-    qss = QApplication.instance().styleSheet()
-    assert ":focus" in qss
+        assert_focus_rendered(qtbot, widget)
 
 
 # =========================================================================== #
@@ -824,7 +826,7 @@ def test_sc_av_ui_010_1_version_text_contrast(qtbot, theme):
     dialog.show()
     qtbot.waitExposed(dialog)
     ratio = _max_glyph_contrast(_child(dialog, "aboutVersionValue"))
-    assert ratio >= _WCAG_AA_NORMAL, f"{theme}: version text contrast {ratio:.2f}:1"
+    assert ratio >= TEXT_MIN_RATIO, f"{theme}: version text contrast {ratio:.2f}:1"
 
 
 def test_sc_av_ui_010_2_all_text_and_links_meet_contrast(qtbot, theme):
@@ -837,7 +839,7 @@ def test_sc_av_ui_010_2_all_text_and_links_meet_contrast(qtbot, theme):
         if name == "aboutIconLabel":
             continue  # not text; no contrast claim applies
         ratio = _max_glyph_contrast(_child(dialog, name))
-        assert ratio >= _WCAG_AA_NORMAL, f"{theme}: {name} contrast {ratio:.2f}:1"
+        assert ratio >= TEXT_MIN_RATIO, f"{theme}: {name} contrast {ratio:.2f}:1"
 
 
 def test_rendered_contrast_measurement_catches_a_real_failure(qtbot, theme):
@@ -853,7 +855,7 @@ def test_rendered_contrast_measurement_catches_a_real_failure(qtbot, theme):
     It builds its own themed ``QWidget``/``QLabel`` over the SAME role
     background ``apply_theme`` would give the real dialog.
     """
-    bg = theme_module._ROLES[theme]["background"]
+    bg = role_map(theme)["background"]
     widget = QWidget()
     widget.setStyleSheet(f"background-color: {bg};")
     layout = QVBoxLayout(widget)
@@ -869,7 +871,7 @@ def test_rendered_contrast_measurement_catches_a_real_failure(qtbot, theme):
 
     ratio = _max_glyph_contrast(label)
     if theme == THEME_DARK:
-        assert ratio < _WCAG_AA_NORMAL, (
+        assert ratio < TEXT_MIN_RATIO, (
             f"control did not fail as expected: palette-default link measured "
             f"{ratio:.2f}:1 in dark (plan probe: 1.65:1)"
         )

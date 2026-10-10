@@ -40,6 +40,7 @@ from pixelart_creator.ui.asset_version_browser import (
     _ROLE_HASH,
     Asset_Version_Browser,
 )
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 _ASSET_ID = "hero"
 _AUTHOR = "alice"
@@ -308,11 +309,15 @@ def test_browser_controls_are_keyboard_reachable_in_logical_order(browser):
     assert widget._tree.selectionMode() == widget._tree.SelectionMode.SingleSelection
 
 
-def test_visible_focus_indicator_is_themed_for_the_browser():
-    """A visible focus ring is themed once by role (``:focus`` QSS), both themes."""
-    from PySide6.QtWidgets import QApplication
+def test_visible_focus_indicator_is_themed_for_the_browser(browser, qtbot):
+    """A visible focus ring is RENDERED on the browser's controls, both themes.
 
-    assert ":focus" in QApplication.instance().styleSheet()
+    Focus-role pixels appear around each control when it has keyboard focus and not
+    when it has none (spec A-4); the ``":focus" in styleSheet()`` proxy is withdrawn.
+    """
+    widget, _store, _session, _backend = browser
+    for control in (widget._tree, widget._inspect_button, widget._restore_button):
+        assert_focus_rendered(qtbot, control)
 
 
 # -- Criterion 8: both themes render with role-based colours (no inline) ------ #

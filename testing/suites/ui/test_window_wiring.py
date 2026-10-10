@@ -14,7 +14,12 @@ from PySide6.QtWidgets import QFileDialog
 from pixelart_creator.data.project_io import FILE_SUFFIX
 from pixelart_creator.logic.constants import ZOOM_MAX, ZOOM_MIN
 from pixelart_creator.ui.main_window import Main_Window
-from pixelart_creator.ui.theme import THEME_DARK, build_qss
+from pixelart_creator.ui.theme import (
+    DEFAULT_STYLE,
+    THEME_DARK,
+    art_scale,
+    build_qss,
+)
 from testing.suites.ui._ui_helpers import click_pixel, prepare_for_click
 
 BLACK = (0, 0, 0, 255)
@@ -92,10 +97,19 @@ def test_grid_toggle_slot(qtbot):
 
 
 def test_theme_switch_applies_qss(qtbot):
-    """set_theme swaps the application QSS (runtime theme switch, 025)."""
+    """set_theme swaps the application QSS (runtime theme switch, 025).
+
+    The applied sheet IS ``build_qss(mode, style, scale=art_scale())`` -- exact
+    equality, one app stylesheet, no per-window sheet (ADR-0069, plan 5.1 ruling 2:
+    the scale is the highest whole-number DPR across screens, never a per-window
+    value). ``set_theme`` takes a mode and keeps the default style until the Theme
+    menu (T052) adds the style choice.
+    """
     win = _window(qtbot)
     win.set_theme(THEME_DARK)
-    assert win._app.styleSheet() == build_qss(THEME_DARK)
+    assert win._app.styleSheet() == build_qss(
+        THEME_DARK, DEFAULT_STYLE, scale=art_scale()
+    )
 
 
 def test_language_action_switches_language(qtbot):

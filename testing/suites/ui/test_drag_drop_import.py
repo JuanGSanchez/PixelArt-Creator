@@ -45,6 +45,7 @@ from pixelart_creator.data.project_io import FILE_SUFFIX
 from pixelart_creator.logic.constants import MAX_CANVAS_WIDTH
 from pixelart_creator.logic.pixel_buffer import ColorMode
 from pixelart_creator.ui.main_window import Main_Window
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 # --------------------------------------------------------------------------- #
 # Fixtures + helpers                                                          #
@@ -764,11 +765,14 @@ def test_ui009_error_notices_use_a_keyboard_operable_message_box(
         assert text != ""
 
 
-def test_ui009_visible_focus_indicator_themed(win, theme):
-    """SC-U009: a visible-focus QSS rule is themed (both themes, autouse)."""
-    from PySide6.QtWidgets import QApplication
+def test_ui009_visible_focus_indicator_themed(win, theme, qtbot):
+    """SC-U009: a visible focus indicator is RENDERED (both themes, autouse).
 
-    assert ":focus" in QApplication.instance().styleSheet()
+    Focus-role pixels appear around the canvas view when it has keyboard focus and
+    not when it has none (spec A-4); the ``":focus" in styleSheet()`` proxy is
+    withdrawn.
+    """
+    assert_focus_rendered(qtbot, win.active_tab().view)
 
 
 def test_ui009_notices_still_render_after_language_change(win, tmp_path):

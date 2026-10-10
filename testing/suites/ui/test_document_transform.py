@@ -64,6 +64,7 @@ from pixelart_creator.ui.document_transform_runner import (
     Document_Transform_Runner,
     run_document_transform,
 )
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 # -- test document builders ------------------------------------------------
 
@@ -709,18 +710,19 @@ def test_req_a11y_progress_dialog_cancel_keyboard_reachable_and_focused(qtbot):
 
 
 def test_req_a11y_global_focus_ring_covers_the_new_dialogs(qtbot):
-    """A visible focus indicator is themed once, globally, by role (the same
-    ``:focus`` QSS rule ``test_a11y_theme.py`` already verifies) -- neither
-    new dialog overrides it with a local, hard-coded stylesheet, so both
-    inherit the same themed, visible focus ring in either theme."""
+    """A visible focus indicator is drawn globally, by role (the one app-wide overlay
+    ``test_a11y_theme.py`` already verifies by rendered pixels, spec A-4) -- neither
+    new dialog overrides it with a local, hard-coded stylesheet, so both inherit the
+    same themed, visible focus ring in either theme: focus-role pixels appear around
+    each dialog's controls when they have keyboard focus and not when they have none."""
     confirm = Document_Transform_Confirm_Dialog("Scale Canvas", 600_000_000, 7680, 4320)
     progress = Document_Transform_Progress_Dialog("Scale Canvas", 7)
     qtbot.addWidget(confirm)
     qtbot.addWidget(progress)
     assert confirm.styleSheet() == ""  # no local override -- theme roles only
     assert progress.styleSheet() == ""
-    qss = QApplication.instance().styleSheet()
-    assert ":focus" in qss
+    for control in (confirm._proceed, confirm._decline, progress._cancel_button):
+        assert_focus_rendered(qtbot, control)
 
 
 def test_req_a11y_dialogs_render_under_the_active_theme(qtbot, theme):

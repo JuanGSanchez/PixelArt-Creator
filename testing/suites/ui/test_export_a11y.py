@@ -18,6 +18,7 @@ from pixelart_creator.ui.batch_export_panel import Batch_Export_Panel
 from pixelart_creator.ui.export_dialog import Export_Dialog
 from pixelart_creator.ui.main_window import Main_Window
 from testing.suites.ui._export_helpers import animation_document
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 
 def _dialog(qtbot):
@@ -58,8 +59,13 @@ def test_sc_ui_011_dialog_controls_are_keyboard_focusable(qtbot):
         dialog._columns_spin,
     ):
         assert control.focusPolicy() != Qt.FocusPolicy.NoFocus, control
-    # A visible focus indicator is themed once by role (a :focus QSS rule).
-    assert ":focus" in QApplication.instance().styleSheet()
+        if control is dialog._preset_combo:
+            # Disabled for the default format; a disabled control takes no focus.
+            assert not control.isEnabled()
+            continue
+        # A visible focus indicator: RENDERED focus-role pixels on the focused control
+        # (spec A-4; the ":focus" stylesheet-substring proxy is withdrawn).
+        assert_focus_rendered(qtbot, control)
 
 
 def test_sc_ui_011_batch_panel_controls_expose_accessible_names(qtbot):
