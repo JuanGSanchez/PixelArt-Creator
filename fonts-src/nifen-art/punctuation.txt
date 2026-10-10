@@ -1,0 +1,66 @@
+# General punctuation: quotation marks, dashes, daggers.
+
+glyph U+2018 adv=3 top=7 ext=free
+.#
+#.
+#.
+
+glyph U+2019 adv=3 top=7 ext=free
+.#
+.#
+#.
+
+glyph U+201C adv=5 top=7 ext=free
+.#.#
+#.#.
+#.#.
+
+glyph U+201D adv=5 top=7 ext=free
+.#.#
+.#.#
+#.#.
+
+glyph U+201E adv=5 top=1 ext=free
+.#.#
+#.#.
+
+glyph U+2039 adv=3 top=5 ext=free
+.#
+#.
+.#
+
+glyph U+203A adv=3 top=5 ext=free
+#.
+.#
+#.
+
+glyph U+2013 adv=6 top=4 ext=free
+#####
+
+glyph U+2014 adv=9 top=4 ext=free
+########
+
+glyph U+2020 adv=6 top=7 ext=0..7
+..#..
+#####
+..#..
+..#..
+..#..
+..#..
+..#..
+
+glyph U+2021 adv=6 top=7 ext=0..7
+..#..
+#####
+..#..
+..#..
+#####
+..#..
+..#..
+
+# ---- Greek: dialytika tonos as a character of its own ------------------------------------------
+glyph U+0385 adv=5 top=10 ext=free dots=2 tab
+..#..
+.#...
+.....
+#.#..

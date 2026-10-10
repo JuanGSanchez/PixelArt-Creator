@@ -1,0 +1,39 @@
+# Greek and Cyrillic recipes: letters with a mark. Capitals take the cap marks
+# (rows 8-9); lowercase the low marks (rows 6-7). A Greek capital with a tonos takes
+# the mark above and to the left of the letter, flush with its left edge.
+
+# ---- Greek: tonos on capitals (above and to the left) -------------------------------
+recipe U+0388 = mark U+0395 acute.cap align=left   # Epsilon tonos
+recipe U+0389 = mark U+0397 acute.cap align=left   # Eta tonos
+recipe U+038A = mark U+0399 acute.cap align=left   # Iota tonos
+recipe U+038C = mark U+039F acute.cap align=left   # Omicron tonos
+recipe U+038E = mark U+03A5 acute.cap align=left   # Upsilon tonos
+recipe U+038F = mark U+03A9 acute.cap align=left   # Omega tonos
+# ---- Greek: dialytika on capitals -----------------------------------------------------
+recipe U+03AB = mark U+03A5 diaeresis.cap          # Upsilon dialytika
+# ---- Greek: tonos and dialytika on lowercase -------------------------------------------
+recipe U+03AD = mark U+03B5 acute.low              # epsilon tonos
+recipe U+03AE = mark U+03B7 acute.low              # eta tonos
+recipe U+03CC = mark U+03BF acute.low              # omicron tonos
+recipe U+03CD = mark U+03C5 acute.low              # upsilon tonos
+recipe U+03CE = mark U+03C9 acute.low              # omega tonos
+recipe U+03CB = mark U+03C5 diaeresis.low          # upsilon dialytika
+recipe U+03B0 = mark U+03C5 dialytikatonos.low     # upsilon dialytika tonos
+
+# ---- Cyrillic ---------------------------------------------------------------------------------
+recipe U+0400 = mark U+0415 grave.cap              # Ie grave
+recipe U+0403 = mark U+0413 acute.cap              # Ge acute
+recipe U+040C = mark U+041A acute.cap              # Ka acute
+recipe U+040D = mark U+0418 grave.cap              # I grave
+recipe U+0419 = mark U+0418 breve.cap              # short I
+recipe U+040E = mark U+0423 breve.cap              # short U
+recipe U+0450 = mark U+0435 grave.low              # ie grave
+recipe U+0451 = mark U+0435 diaeresis.low          # io
+recipe U+0453 = mark U+0433 acute.low              # ge acute
+recipe U+045C = mark U+043A acute.low              # ka acute
+recipe U+045D = mark U+0438 grave.low              # i grave
+recipe U+0439 = mark U+0438 breve.low              # short i
+recipe U+045E = mark U+0443 breve.low              # short u
+
+# ---- numero sign: capital N and the raised o with its bar -------------------------------------
+recipe U+2116 = cat U+004E U+00BA gap=1

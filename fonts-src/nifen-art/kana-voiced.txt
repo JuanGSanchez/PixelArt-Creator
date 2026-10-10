@@ -1,0 +1,15 @@
+# Voiced kana drawn by hand where the voicing mark crowds the base: each record replaces the recipe of the
+# same code point (the lint lists them as overrides).
+
+glyph U+3071 adv=12 x=1 cell=full ext=free top=10
+.#.....##.
+.#....#..#
+.#....#..#
+.#.....##.
+.#####....
+.#....#...
+.#..##..#.
+.#.##...#.
+.#.#....#.
+.#..####..
+.#........

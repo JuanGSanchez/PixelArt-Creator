@@ -1,0 +1,320 @@
+# Latin-1 Supplement: the drawn characters (signs, ligatures and the letters
+# that are not a plain base plus a mark). Accented letters are recipes.
+
+# ---- currency and legal signs ---------------------------------------------------
+
+glyph U+00A2 adv=5 top=7 ext=free
+..#.
+.###
+#.#.
+#.#.
+#.#.
+.###
+..#.
+
+glyph U+00A3 adv=6 top=7 ext=0..7
+..##.
+.#..#
+.#...
+####.
+.#...
+.#...
+#####
+
+glyph U+00A4 adv=6 top=6 ext=free
+#...#
+.###.
+.#.#.
+.###.
+#...#
+
+glyph U+00A5 adv=6 top=7 ext=0..7
+#...#
+#...#
+.#.#.
+#####
+..#..
+#####
+..#..
+
+glyph U+00A6 adv=2 top=8 ext=free
+#
+#
+#
+#
+.
+#
+#
+#
+#
+
+glyph U+00A7 adv=6 top=7 ext=0..7
+.###.
+#....
+.###.
+#...#
+.###.
+....#
+.###.
+
+glyph U+00A9 adv=9 top=7 ext=0..7
+.######.
+#......#
+#.###..#
+#.#....#
+#.###..#
+#......#
+.######.
+
+glyph U+00AE adv=9 top=7 ext=0..7 solid
+.######.
+#......#
+#.##...#
+#.###..#
+#.#.#..#
+#......#
+.######.
+
+# ---- ordinal indicators, quotation marks, negation ---------------------------
+
+glyph U+00AA adv=5 top=7 ext=free
+.##.
+#..#
+.###
+....
+####
+
+glyph U+00BA adv=5 top=7 ext=free
+.##.
+#..#
+.##.
+....
+####
+
+glyph U+00AB adv=7 top=5 ext=free
+.#...#
+#...#.
+.#...#
+
+glyph U+00BB adv=7 top=5 ext=free
+#...#.
+.#...#
+#...#.
+
+glyph U+00AC adv=6 top=4 ext=free
+#####
+....#
+
+# ---- arithmetic, degree, superscripts ----------------------------------------------
+
+glyph U+00B0 adv=5 top=7 ext=free
+.##.
+#..#
+.##.
+
+glyph U+00B1 adv=6 top=7 ext=0..7
+..#..
+..#..
+#####
+..#..
+..#..
+.....
+#####
+
+glyph U+00B2 adv=4 top=7 ext=free
+##.
+..#
+.#.
+#..
+###
+
+glyph U+00B3 adv=4 top=7 ext=free
+##.
+..#
+.#.
+..#
+##.
+
+glyph U+00B9 adv=4 top=7 ext=free
+.#.
+##.
+.#.
+.#.
+###
+
+glyph U+00F7 adv=6 top=6 ext=free dots=2
+..#..
+.....
+#####
+.....
+..#..
+
+glyph U+00B7 adv=3 top=4 ext=free dots=1 tab
+.#
+
+# ---- letters and ligatures --------------------------------------------------------
+
+glyph U+00C6 adv=8 top=7 ext=0..7
+....###
+...##..
+..#.#..
+.#..##.
+#####..
+#...#..
+#...###
+
+glyph U+00E6 adv=8 top=5 ext=0..5
+.##.##.
+...#..#
+.######
+#..#...
+.##.###
+
+glyph U+00D0 adv=7 top=7 ext=0..7
+.####.
+.#...#
+.#...#
+###..#
+.#...#
+.#...#
+.####.
+
+glyph U+00F0 adv=6 top=8 ext=0..8
+...#.
+.####
+....#
+.####
+#...#
+#...#
+#...#
+.###.
+
+glyph U+00DE adv=6 top=7 ext=0..7
+#....
+####.
+#...#
+#...#
+####.
+#....
+#....
+
+glyph U+00FE adv=6 top=8 ext=-2..8
+#....
+#....
+#....
+####.
+#...#
+#...#
+#...#
+####.
+#....
+#....
+
+glyph U+00DF adv=6 top=8 ext=0..8
+.###.
+#...#
+#...#
+#.##.
+#...#
+#...#
+#...#
+#.##.
+
+glyph U+00D8 adv=6 top=7 ext=0..7
+.###.
+#...#
+#..##
+#.#.#
+##..#
+#...#
+.###.
+
+glyph U+00F8 adv=6 top=5 ext=0..5
+.###.
+#..##
+#.#.#
+##..#
+.###.
+
+glyph U+00B5 adv=6 top=5 ext=-2..5
+#...#
+#...#
+#...#
+#...#
+#####
+#....
+#....
+
+glyph U+00B6 adv=6 top=7 ext=0..7 solid
+.####
+#####
+#####
+.##.#
+..#.#
+..#.#
+..#.#
+
+# ---- diaeresis letters with a wider advance than their base ------------------------
+# The two dots need one column more than a one-column stem or a serifed capital,
+# so these two are drawn as overrides of the plain composition (advance 5, so that
+# the Bold advance of 6 stays at the Regular advance plus one).
+
+glyph U+00CF adv=5 top=9 ext=free dots=2 tab
+#.#
+...
+###
+.#.
+.#.
+.#.
+.#.
+.#.
+###
+
+glyph U+00EF adv=5 top=7 ext=free dots=2 tab
+#.#
+...
+.#.
+.#.
+.#.
+.#.
+.#.
+
+# one quarter: small numeral, slanted bar, small numeral (one connected shape)
+glyph U+00BC adv=11 top=7 ext=free
+.#....#...
+##....#...
+.#...#.#.#
+.#..#..#.#
+####...###
+...#.....#
+..#......#
+
+# one half: small numeral, slanted bar, small numeral (one connected shape)
+glyph U+00BD adv=11 top=7 ext=free
+.#....#...
+##....#...
+.#...#.##.
+.#..#....#
+####....#.
+...#...#..
+..#....###
+
+# three quarters: small numeral, slanted bar, small numeral (one connected shape)
+glyph U+00BE adv=11 top=7 ext=free
+##....#...
+..#...#...
+.#...#.#.#
+..#.#..#.#
+##.#...###
+...#.....#
+..#......#
+
+# Capital sharp s (German): the sharp s at capital height
+glyph U+1E9E adv=6 top=7 ext=0..7
+.###.
+#...#
+#...#
+#.##.
+#...#
+#...#
+#.##.

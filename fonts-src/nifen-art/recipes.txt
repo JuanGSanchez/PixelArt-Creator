@@ -1,0 +1,76 @@
+# Recipes: deterministic composition from drawn components.
+#   mark   <base> <mark> [rise=N] [dx=N]  mark centred on the base anchor
+#   (options: align=left puts the mark flush with the left edge of the base;
+#    join=1 declares a mark that must touch the base, such as a cedilla)
+#   rot180 <base> rows=<lo>..<hi>         rotate 180 degrees inside a row band
+#   overlay <base> <other>                union of two cells (kana voicing)
+#   cat <first> <second>                  the two glyphs set one after the other (ligatures)
+#   (align=right puts the mark flush with the right edge of the base: ogonek)
+
+recipe U+00C1 = mark U+0041 acute.cap         # A acute
+recipe U+0154 = mark U+0052 acute.cap         # R acute
+recipe U+00D1 = mark U+004E tilde.cap         # N tilde
+recipe U+00E1 = mark U+0061 acute.low         # a acute
+recipe U+00E9 = mark U+0065 acute.low         # e acute
+recipe U+00ED = mark U+0131 acute.low         # dotless i acute
+recipe U+00F1 = mark U+006E tilde.low         # n tilde
+recipe U+00FA = mark U+0075 acute.low         # u acute
+recipe U+00FC = mark U+0075 diaeresis.low     # u diaeresis
+recipe U+0401 = mark U+0415 diaeresis.cap     # Cyrillic Io
+recipe U+03AC = mark U+03B1 acute.low         # alpha tonos
+recipe U+0386 = mark U+0391 acute.cap align=left   # Alpha tonos, above and to the left
+recipe U+0039 = rot180 U+0036 rows=0..6       # nine: the six turned half a revolution
+recipe U+00BF = rot180 U+003F rows=0..6       # inverted question mark
+recipe U+00A1 = rot180 U+0021 rows=0..6       # inverted exclamation mark
+recipe U+304C = overlay U+304B U+309B         # ga
+recipe U+30AC = overlay U+30AB U+309B         # GA
+recipe U+30D4 = overlay U+30D2 U+309C         # PI
+
+# ---- Latin-1 Supplement: capitals with a mark (above the cap line, rows 8-9) ----
+recipe U+00C0 = mark U+0041 grave.cap   # A grave
+recipe U+00C2 = mark U+0041 circumflex.cap   # A circumflex
+recipe U+00C3 = mark U+0041 tilde.cap   # A tilde
+recipe U+00C4 = mark U+0041 diaeresis.cap   # A diaeresis
+recipe U+00C5 = mark U+0041 ring.cap join=1   # A ring
+recipe U+00C8 = mark U+0045 grave.cap   # E grave
+recipe U+00C9 = mark U+0045 acute.cap   # E acute
+recipe U+00CA = mark U+0045 circumflex.cap   # E circumflex
+recipe U+00CB = mark U+0045 diaeresis.cap   # E diaeresis
+recipe U+00CC = mark U+0049 grave.cap   # I grave
+recipe U+00CD = mark U+0049 acute.cap   # I acute
+recipe U+00CE = mark U+0049 circumflex.cap   # I circumflex
+recipe U+00D2 = mark U+004F grave.cap   # O grave
+recipe U+00D3 = mark U+004F acute.cap   # O acute
+recipe U+00D4 = mark U+004F circumflex.cap   # O circumflex
+recipe U+00D5 = mark U+004F tilde.cap   # O tilde
+recipe U+00D6 = mark U+004F diaeresis.cap   # O diaeresis
+recipe U+00D9 = mark U+0055 grave.cap   # U grave
+recipe U+00DA = mark U+0055 acute.cap   # U acute
+recipe U+00DB = mark U+0055 circumflex.cap   # U circumflex
+recipe U+00DC = mark U+0055 diaeresis.cap   # U diaeresis
+recipe U+00DD = mark U+0059 acute.cap   # Y acute
+recipe U+00C7 = mark U+0043 cedilla join=1   # C cedilla
+
+# ---- Latin-1 Supplement: lowercase with a mark (above the x-height, rows 6-7) ----
+recipe U+00E0 = mark U+0061 grave.low   # a grave
+recipe U+00E2 = mark U+0061 circumflex.low   # a circumflex
+recipe U+00E3 = mark U+0061 tilde.low   # a tilde
+recipe U+00E4 = mark U+0061 diaeresis.low   # a diaeresis
+recipe U+00E5 = mark U+0061 ring.low   # a ring
+recipe U+00E8 = mark U+0065 grave.low   # e grave
+recipe U+00EA = mark U+0065 circumflex.low   # e circumflex
+recipe U+00EB = mark U+0065 diaeresis.low   # e diaeresis
+recipe U+00EC = mark U+0131 grave.low   # i grave
+recipe U+00EE = mark U+0131 circumflex.low   # i circumflex
+recipe U+00F2 = mark U+006F grave.low   # o grave
+recipe U+00F3 = mark U+006F acute.low   # o acute
+recipe U+00F4 = mark U+006F circumflex.low   # o circumflex
+recipe U+00F5 = mark U+006F tilde.low   # o tilde
+recipe U+00F6 = mark U+006F diaeresis.low   # o diaeresis
+recipe U+00F9 = mark U+0075 grave.low   # u grave
+recipe U+00FB = mark U+0075 circumflex.low   # u circumflex
+recipe U+00FD = mark U+0079 acute.low   # y acute
+recipe U+00FF = mark U+0079 diaeresis.low   # y diaeresis
+recipe U+00E7 = mark U+0063 cedilla join=1   # c cedilla
+
+recipe U+222A = rot180 U+2229 rows=1..5       # union: the intersection turned half a revolution

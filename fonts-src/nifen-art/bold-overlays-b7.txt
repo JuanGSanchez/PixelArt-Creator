@@ -1,0 +1,122 @@
+# Hand-drawn Bold grids, correction pass for gap closure. The derived Bold
+# (Regular OR Regular shifted one pixel right) closes every one-pixel gap
+# between two strokes; the glyphs here keep the gap that makes the letter.
+# Rule used for every grid: the same box as the derived Bold (the Bold advance
+# is Regular + 1, so no stroke may leave it), every stroke at least two pixels
+# wide, and the counters and parts of the Regular glyph kept.
+
+# r: the stem and the arm stay apart on the top row.
+bold U+0072 adv=6 top=5 ext=free
+##.##
+###..
+##...
+##...
+##...
+
+# n: a one-pixel channel runs from the top notch down into the counter.
+bold U+006E adv=7 top=5 ext=free
+##.##.
+###.##
+##..##
+##..##
+##..##
+
+# m: the three stems keep their gaps on the top row; one solid row joins them.
+bold U+006D adv=9 top=5 ext=free
+##.##.##
+########
+##.##.##
+##.##.##
+##.##.##
+
+# R: the leg leaves the bowl with a gap instead of fusing with the stem.
+bold U+0052 adv=7 top=7 ext=free
+#####.
+##..##
+##..##
+#####.
+##.##.
+##.##.
+##..##
+
+# Greek eta: as n, with the right stem running below the baseline.
+bold U+03B7 adv=7 top=5 ext=free
+##.##.
+###.##
+##..##
+##..##
+##..##
+....##
+....##
+
+# Eng, lowercase: as n, with the hooked tail of the Regular.
+bold U+014B adv=7 top=5 ext=free
+##.##.
+###.##
+##..##
+##..##
+##..##
+....##
+..###.
+
+# Greek pi: the two legs keep a gap under the bar.
+bold U+03C0 adv=7 top=5 ext=free
+######
+.##.##
+.##.##
+.##.##
+.##.##
+
+# Tilde: two separate bumps instead of a flat bar with two ticks.
+bold U+007E adv=7 top=5 ext=free
+.##.##
+##.##.
+
+# Small tilde (spacing form): as the tilde.
+bold U+02DC adv=7 top=7 ext=free
+.##.##
+##.##.
+
+# Almost equal to: two tildes.
+bold U+2248 adv=7 top=6 ext=free
+.##.##
+##.##.
+......
+.##.##
+##.##.
+
+# Cyrillic ya (capital): the leg keeps a gap from the stem.
+bold U+042F adv=7 top=7 ext=free
+.#####
+##..##
+##..##
+.#####
+.##.##
+##..##
+##..##
+
+# Cyrillic ya (lowercase): as the capital.
+bold U+044F adv=7 top=5 ext=free
+.#####
+##..##
+.#####
+.##.##
+##..##
+
+# Cyrillic lje (capital): the two legs under the roof of the el stay apart.
+bold U+0409 adv=10 top=7 ext=free
+.#####...
+.##.##...
+.##.##...
+.##.####.
+.##.##.##
+##..##.##
+##..####.
+
+# Cyrillic lje (lowercase): as the capital.
+bold U+0459 adv=10 top=5 ext=free
+.#####...
+.##.##...
+.##.####.
+.##.##.##
+##..####.

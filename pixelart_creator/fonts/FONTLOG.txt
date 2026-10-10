@@ -1,0 +1,113 @@
+FONTLOG for Nifen Art
+=====================
+
+This file gives information about the Nifen Art Font Software. It is meant to
+be distributed with the fonts and with any derivative of them.
+
+Nifen Art is licensed under the SIL Open Font License, Version 1.1 (see
+OFL.txt, which is distributed with the fonts). The license applies to the font
+files and to the glyph sources they are built from. The program that bundles
+the fonts is licensed separately.
+
+
+Basic Font Information
+----------------------
+
+Nifen Art is an original pixel typeface for user interfaces: menus, titles,
+tabs and buttons. It comes in two files, Regular and Bold, which form one
+style-linked family named "Nifen Art".
+
+Design facts:
+
+- One em is 12 pixels. Every pixel is a square of 128 font units, so the em is
+  1536 units. The glyphs are drawn on that grid and are meant to be shown at
+  12 px, or at whole multiples of 12 px, without antialiasing.
+- Latin capitals are 7 pixels tall, lowercase letters 5, ascenders 8 and
+  descenders 2. Kana and other full-width glyphs sit in a 12 pixel cell.
+- Regular strokes are 1 pixel wide, Bold strokes 2 pixels. Bold is Regular
+  shifted one pixel to the right and merged with it (advance one pixel wider),
+  corrected by hand-drawn glyphs wherever that rule would close a counter or
+  fuse two parts, and for a few frequent letters (r n m R and the Cyrillic
+  Ya) wherever it would close the gap between a stem and its arm or leg.
+- Latin, Greek and Cyrillic letters have proportional advances; the line box is
+  11 pixels above the baseline and 3 below.
+
+Character coverage (as of version 0.100, 771 characters in each weight):
+
+- Basic Latin, Latin-1 Supplement and the whole of Latin Extended-A
+  (U+0100-U+017F), the dotless j, and the capital sharp s (U+1E9E);
+- Greek, modern monotonic set: capitals and lowercase letters, final sigma,
+  tonos and dialytika forms, the Greek question mark, ano teleia, the numeral
+  sign and the lower numeral sign (U+0370-U+03FF subset);
+- Cyrillic, the whole range U+0400-U+045F (Russian, Ukrainian, Belarusian,
+  Serbian, Macedonian), the letters Ghe with upturn (U+0490, U+0491) and the
+  numero sign (U+2116);
+- punctuation and typographic quotation marks, the thin space and the narrow
+  no-break space used by French typesetting, arrows, mathematical and
+  geometric symbols and a few currency signs;
+- hiragana (U+3041-U+3096, U+309D-U+309F) and katakana (U+30A1-U+30FA,
+  U+30FC-U+30FF), complete, with the small kana, the voiced and semi-voiced
+  forms, the prolonged sound mark and the middle dot; the spacing voiced
+  and semi-voiced marks (U+309B, U+309C);
+- Japanese punctuation: the ideographic space, the comma and full stop,
+  the ditto and iteration marks, the brackets U+3008-U+3011 and the wave
+  dash, and the full-width forms used in interface text (! ( ) , . : ; ? ~).
+
+Not included: ideographs (kanji), the combining voiced marks U+3099 and U+309A,
+combining marks (U+0300-U+036F), polytonic Greek, Latin Extended-B beyond the
+dotless j, other Cyrillic extensions.
+
+Design notes:
+
+- Every glyph is an original drawing made for this grid. No glyph, outline or
+  metric was copied or adapted from another font.
+- Where two letters have the same shape on this grid (for example Latin A,
+  Greek Alpha and Cyrillic A) they share one drawing; letters that differ at
+  all, even slightly, are drawn separately.
+- Kana fill a 10 by 11 pixel box inside the 12 pixel cell. Small kana are about
+  two thirds of that height, sit on the bottom row of the cell and lean to the
+  left, as in horizontal Japanese text. Voiced and semi-voiced kana are the
+  plain kana plus the voiced mark, composed by rule: the part of the base that
+  would touch the mark is cut away; a few are drawn by hand where that cut would
+  spoil the letter.
+- The fonts are generated from plain-text glyph grids by a deterministic build:
+  rebuilding the same sources gives byte-identical files.
+
+Reserved Font Name: none is declared in this version. (This line is provisional
+until the author confirms the choice.)
+
+Project: https://github.com/JuanGSanchez/PixelArt-Creator
+
+
+ChangeLog
+---------
+
+10 October 2026 (JuanGSanchez)
+  Nifen Art version 0.100, work in progress.
+  - Basic Latin, Latin-1 Supplement and Latin Extended-A, Regular and Bold.
+  - User interface symbols: arrows, geometric shapes, mathematical signs.
+  - Greek (modern monotonic) and Cyrillic (U+0400-U+045F, U+0490, U+0491,
+    U+2116), Regular and Bold.
+  - French and German typography: oe ligatures, sharp s and capital sharp s,
+    guillemets, low and high quotation marks, thin space and narrow no-break
+    space.
+  - Double acute drawn as two separate strokes; the comma below on K, k, N, n,
+    R and r drawn detached from the letter.
+  - Hiragana and katakana, complete (including small kana, voiced and
+    semi-voiced forms), Japanese punctuation and full-width forms.
+  - Bold correction pass: hand-drawn Bold forms that keep the gap between
+    strokes for r, n, m, R, Greek eta and pi, eng, the tilde, the small tilde
+    and almost-equal signs, Cyrillic Ya (both cases) and Lje (both cases).
+    The Regular weight is unchanged.
+
+
+Acknowledgements
+----------------
+
+Designer and sole contributor: JuanGSanchez.
+
+The fonts are produced with fontTools (https://github.com/fonttools/fonttools,
+MIT License) at build time. No fontTools code is part of the fonts.
+
+If you modify this Font Software, add your name and a short description of
+your changes to the ChangeLog above.
