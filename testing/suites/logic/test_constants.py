@@ -23,6 +23,12 @@ from pixelart_creator.logic.constants import (
     FEEDBACK_FADE_TAIL_RATIO,
     FEEDBACK_SQUARE_PAD_RATIO,
     FEEDBACK_SQUARE_PX,
+    PATTERN_CHILD_CLEARANCE_PX,
+)
+from pixelart_creator.logic.contrast import (
+    COMPONENT_MIN_RATIO,
+    FOCUS_MIN_RATIO,
+    TEXT_MIN_RATIO,
 )
 
 # --- SC-L004-1: every introduced number is a named constant with the traced
@@ -361,3 +367,34 @@ class TestUiConsumesNamedConstantsNotLiterals:
             f"recorded location: {missing!r}. Update _BASELINE_COINCIDENCES "
             "to match the current source rather than deleting the check."
         )
+
+
+# --- pixel-art visual identity (REQ-VI-UI-011, REQ-VI-UI-003; T031) ---------
+
+
+class TestVisualIdentityConstantsAreNamed:
+    """Registry rows for the constants the pixel-art visual identity introduced.
+
+    ``PATTERN_CHILD_CLEARANCE_PX`` is a tuning value and lives in
+    ``logic/constants.py`` (plan.md section 3.1, ADR-0069 decision 7). The WCAG
+    floors are intrinsic (ADR-0001) and live beside the formula in
+    ``logic/contrast.py``; they are registered here so a drifting value is
+    caught in the same place as every other traced number.
+    """
+
+    def test_pattern_child_clearance_is_2_logical_px(self):
+        assert PATTERN_CHILD_CLEARANCE_PX == 2, (
+            "PATTERN_CHILD_CLEARANCE_PX must be 2 logical px (plan.md 3.1, "
+            f"ADR-0069 decision 7); got {PATTERN_CHILD_CLEARANCE_PX!r}."
+        )
+        assert isinstance(PATTERN_CHILD_CLEARANCE_PX, int)
+        assert not isinstance(PATTERN_CHILD_CLEARANCE_PX, bool)
+
+    def test_text_contrast_floor_is_wcag_4_5(self):
+        assert TEXT_MIN_RATIO == 4.5
+
+    def test_component_contrast_floor_is_wcag_3(self):
+        assert COMPONENT_MIN_RATIO == 3.0
+
+    def test_focus_contrast_floor_is_wcag_3(self):
+        assert FOCUS_MIN_RATIO == 3.0
