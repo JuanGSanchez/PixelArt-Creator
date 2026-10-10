@@ -55,6 +55,9 @@ __pycache__/
 node_modules/
 .claude/worktrees/
 coverage/
+# The Nifen Art coverage DATA (declared-set.txt, probe-text.txt) is tracked
+# font input, not coverage output: re-include it after the rule above.
+!fonts-src/nifen-art/coverage/
 
 # ---- (e) Python / PySide6 stack ---------------------------------------------
 # Python bytecode & extensions
