@@ -1,0 +1,13 @@
+{
+ "format": 1,
+ "styles": [
+  "washi-kintsugi",
+  "edo-night"
+ ],
+ "default_style": "washi-kintsugi",
+ "modes": [
+  "light",
+  "dark"
+ ],
+ "default_mode": "light"
+}

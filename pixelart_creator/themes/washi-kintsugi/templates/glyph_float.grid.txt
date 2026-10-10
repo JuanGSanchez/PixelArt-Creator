@@ -1,0 +1,7 @@
+__IIIII
+__I___I
+IIIII_I
+I___I_I
+I___III
+I___I__
+IIIII__

@@ -1,0 +1,178 @@
+[
+ {
+  "fg": "text",
+  "bg": "background",
+  "kind": "text",
+  "note": "body text on the window ground and dock bodies"
+ },
+ {
+  "fg": "text",
+  "bg": "surface",
+  "kind": "text",
+  "note": "body text on lists, fields, menus, tabs, buttons"
+ },
+ {
+  "fg": "text",
+  "bg": "hover",
+  "kind": "text",
+  "note": "text on a hovered button"
+ },
+ {
+  "fg": "text",
+  "bg": "pressed",
+  "kind": "text",
+  "note": "text on a pressed button"
+ },
+ {
+  "fg": "text",
+  "bg": "pattern",
+  "kind": "text",
+  "note": "safety net: text stays legible even if a pattern pixel ever lay under it"
+ },
+ {
+  "fg": "accent_text",
+  "bg": "accent",
+  "kind": "text",
+  "note": "text and the 1 px selected-state cue ring on every accent fill"
+ },
+ {
+  "fg": "title_text",
+  "bg": "title_fill",
+  "kind": "text",
+  "note": "dock title and dialog heading text"
+ },
+ {
+  "fg": "border",
+  "bg": "background",
+  "kind": "component",
+  "note": "1 px widget border on the window ground"
+ },
+ {
+  "fg": "border",
+  "bg": "surface",
+  "kind": "component",
+  "note": "1 px widget border on a list / field fill"
+ },
+ {
+  "fg": "frame_edge",
+  "bg": "background",
+  "kind": "component",
+  "note": "outermost frame line vs window ground"
+ },
+ {
+  "fg": "frame_edge",
+  "bg": "surface",
+  "kind": "component",
+  "note": "popup (menu / tooltip) outer line vs its own fill"
+ },
+ {
+  "fg": "ornament_outline",
+  "bg": "background",
+  "kind": "component",
+  "note": "corner ornament outline vs window ground"
+ },
+ {
+  "fg": "ornament_outline",
+  "bg": "surface",
+  "kind": "component",
+  "note": "corner ornament outline vs a list / field fill"
+ },
+ {
+  "fg": "canvas_border",
+  "bg": "canvas_workspace",
+  "kind": "component",
+  "note": "document edge vs the flat workspace colour"
+ },
+ {
+  "fg": "accent",
+  "bg": "surface",
+  "kind": "info",
+  "note": "selected fill vs unselected fill (colour alone); if below 3 the cue ring is the carrier"
+ },
+ {
+  "fg": "accent",
+  "bg": "background",
+  "kind": "info",
+  "note": "selected fill vs window ground"
+ },
+ {
+  "fg": "disabled_text",
+  "bg": "surface",
+  "kind": "info",
+  "note": "disabled text (WCAG exempts inactive components)"
+ },
+ {
+  "fg": "pattern",
+  "bg": "background",
+  "kind": "info",
+  "note": "pattern ink vs its only ground (faint by role; band gated separately)"
+ },
+ {
+  "fg": "canvas_border",
+  "bg": "canvas_checker_light",
+  "kind": "info",
+  "note": "document border vs checker light"
+ },
+ {
+  "fg": "canvas_border",
+  "bg": "canvas_checker_dark",
+  "kind": "info",
+  "note": "document border vs checker dark"
+ },
+ {
+  "fg": "canvas_grid",
+  "bg": "canvas_checker_light",
+  "kind": "info",
+  "over": "canvas_checker_light",
+  "note": "grid line composited over checker_light"
+ },
+ {
+  "fg": "canvas_grid",
+  "bg": "canvas_checker_dark",
+  "kind": "info",
+  "over": "canvas_checker_dark",
+  "note": "grid line composited over checker_dark"
+ },
+ {
+  "fg": "focus",
+  "bg": "frame_edge",
+  "kind": "info",
+  "note": "named for completeness: the 2 px overlay replaces ring 0 and ring 1, so the ring touches this role on 0 px"
+ },
+ {
+  "fg": "focus",
+  "bg": "border",
+  "kind": "info",
+  "note": "named for completeness: the 2 px overlay replaces ring 0 and ring 1, so the ring touches this role on 0 px"
+ },
+ {
+  "fg": "focus",
+  "bg": "frame_mid",
+  "kind": "info",
+  "note": "named for completeness: the 2 px overlay replaces ring 0 and ring 1, so the ring touches this role on 0 px"
+ },
+ {
+  "fg": "focus",
+  "bg": "frame_hi",
+  "kind": "info",
+  "note": "named for completeness: the 2 px overlay replaces ring 0 and ring 1, so the ring touches this role on 0 px"
+ },
+ {
+  "fg": "focus",
+  "bg": "frame_lo",
+  "kind": "info",
+  "note": "named for completeness: the 2 px overlay replaces ring 0 and ring 1, so the ring touches this role on 0 px"
+ },
+ {
+  "fg": "focus",
+  "bg": "accent_text",
+  "kind": "info",
+  "note": "named for completeness: the 2 px overlay replaces ring 0 and ring 1, so the ring touches this role on 0 px"
+ },
+ {
+  "fg": "focus",
+  "bg": "title_fill",
+  "kind": "info",
+  "note": "named for completeness: the 2 px overlay replaces ring 0 and ring 1, so the ring touches this role on 0 px"
+ }
+]
