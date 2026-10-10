@@ -1316,8 +1316,9 @@ CLICK_DRAG_THRESHOLD_PX: int = 10
 PATTERN_CHILD_CLEARANCE_PX: int = 2
 """Clearance, in logical px, kept between a pattern area's paint and the
 rectangle of each child widget it clips out, so the faint pattern never sits
-under or touching text (REQ-VI-UI-011). Source: plan.md section 3.1 (tuning
-value, set at 2) and ADR-0069 decision 7; the 2 px figure matches the style
+under or touching text (REQ-VI-UI-011). Source: ADR-0069 decision 7
+(which records the clearance and names this constant; the value, a tuning value,
+is set at 2 here); the 2 px figure matches the style
 review's rule that a widget keeps at least 2 px between a frame ring and its own
 sub-controls. The mechanism it serves (paint with the children's rectangles
 clipped out) was measured by the 2026-10-09 Qt probe: 0 pattern pixels inside

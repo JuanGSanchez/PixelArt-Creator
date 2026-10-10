@@ -716,8 +716,8 @@ def test_public_surface_is_exported():
 
 # --- integration: the committed styles -------------------------------------
 
-# T020 commits these two; ``arcade-kikko`` arrives with T024 and is added here
-# when it lands (the plan lists all three, PD-1e).
+# The two styles committed so far; ``arcade-kikko`` is added later and joins
+# this list when it lands.
 _EXPECTED_STYLES = ("washi-kintsugi", "edo-night")
 _EXPECTED_MODES = ("light", "dark")
 _FOCUS_TOUCHED_BY_EVERY_STYLE = {"background", "surface", "hover", "pressed", "accent"}
@@ -726,7 +726,7 @@ _FOCUS_TOUCHED_BY_EVERY_STYLE = {"background", "surface", "hover", "pressed", "a
 class TestCommittedStyles:
     """REQ-VI-UI-003/004: every committed style loads and validates.
 
-    Fails (never skips) while the theme data (T020) has not landed.
+    Fails (never skips) while the committed theme data is absent.
     """
 
     @pytest.fixture
@@ -735,7 +735,7 @@ class TestCommittedStyles:
         if not (root / "index.json").is_file():
             pytest.fail(
                 "pixelart_creator/themes/index.json does not exist: the committed "
-                "style data (T020) has not landed, so the shipped styles cannot be "
+                "style data is absent, so the shipped styles cannot be "
                 "verified. This is a failure, not a skip."
             )
         return load_catalog()

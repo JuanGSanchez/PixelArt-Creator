@@ -42,7 +42,7 @@ class TestFeedbackAndGestureScalarsAreNamed:
     """
 
     def test_feedback_square_edge_is_24_logical_px(self):
-        # D-8 ruling (round 2, plan.md §4.5): matches the pre-existing
+        # D-8 ruling (round 2): matches the pre-existing
         # colour-hub swatch size (_FAVOURITE_PX = 24).
         assert FEEDBACK_SQUARE_PX == 24, (
             "FEEDBACK_SQUARE_PX must be 24 logical px (D-8 ruling); got "
@@ -73,7 +73,7 @@ class TestFeedbackAndGestureScalarsAreNamed:
         )
 
     def test_click_drag_threshold_is_10_logical_px(self):
-        # Measured QApplication.startDragDistance() == 10 (plan.md §4.5).
+        # Measured QApplication.startDragDistance() == 10.
         assert CLICK_DRAG_THRESHOLD_PX == 10, (
             "CLICK_DRAG_THRESHOLD_PX must be 10 logical px (measured "
             f"QApplication.startDragDistance()); got {CLICK_DRAG_THRESHOLD_PX!r}."
@@ -369,14 +369,14 @@ class TestUiConsumesNamedConstantsNotLiterals:
         )
 
 
-# --- pixel-art visual identity (REQ-VI-UI-011, REQ-VI-UI-003; T031) ---------
+# --- pixel-art visual identity (REQ-VI-UI-011, REQ-VI-UI-003) ---------
 
 
 class TestVisualIdentityConstantsAreNamed:
     """Registry rows for the constants the pixel-art visual identity introduced.
 
     ``PATTERN_CHILD_CLEARANCE_PX`` is a tuning value and lives in
-    ``logic/constants.py`` (plan.md section 3.1, ADR-0069 decision 7). The WCAG
+    ``logic/constants.py`` (ADR-0069 decision 7). The WCAG
     floors are intrinsic (ADR-0001) and live beside the formula in
     ``logic/contrast.py``; they are registered here so a drifting value is
     caught in the same place as every other traced number.
@@ -384,7 +384,7 @@ class TestVisualIdentityConstantsAreNamed:
 
     def test_pattern_child_clearance_is_2_logical_px(self):
         assert PATTERN_CHILD_CLEARANCE_PX == 2, (
-            "PATTERN_CHILD_CLEARANCE_PX must be 2 logical px (plan.md 3.1, "
+            "PATTERN_CHILD_CLEARANCE_PX must be 2 logical px ("
             f"ADR-0069 decision 7); got {PATTERN_CHILD_CLEARANCE_PX!r}."
         )
         assert isinstance(PATTERN_CHILD_CLEARANCE_PX, int)

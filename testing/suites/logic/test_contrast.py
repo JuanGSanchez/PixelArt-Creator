@@ -163,7 +163,7 @@ class TestParseColor:
             parse_color("nope")
 
     def test_trailing_newline_raises_contrast_error_not_a_bare_value_error(self):
-        # DEFECT (AGT-03): the pattern ends in ``$``, which matches before a
+        # Regression: the pattern ends in ``$``, which matches before a
         # final newline, so is_valid_color accepts "#000000<LF>" and parse_color
         # then dies in int("<LF>", 16) with a plain ValueError.
         with pytest.raises(ContrastError):
