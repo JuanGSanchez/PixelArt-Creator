@@ -194,8 +194,8 @@
      2
     ]
    },
-   "qss_hint": "QLabel#DialogHeading (only in dialogs that have a heading)",
-   "note": "optional in-dialog heading row (QLabel#DialogHeading), ONLY in dialogs that have a heading"
+   "qss_hint": "QLabel#dialogHeading (only in dialogs that have a heading)",
+   "note": "optional in-dialog heading row (QLabel#dialogHeading), ONLY in dialogs that have a heading"
   },
   "ornament": {
    "kind": "ornament",
