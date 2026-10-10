@@ -115,3 +115,91 @@ accepted by the maintainer's decision.
 The probe ran offscreen: native window chrome, Windows 11 corner rounding and drop shadows, and
 real per-monitor scales were not measured. Chamfered, nicked or rounded corners on **docked**
 child frames were not measured either; each style has a square fallback in its template data.
+
+## Amendment (2026-10-10) — one stylesheet cannot carry per-screen image variants; the art is generated at the highest whole-number scale present
+
+*Immutable-append. The Context, Decision, Alternatives and Consequences above are retained
+unchanged as the record of the first reasoning. This amendment answers the open "Screens with
+different scales" paragraph and decision 1's "the screen's integer device-pixel ratio", and adds
+the measured stylesheet rules. Everything else above stands.*
+
+**Provenance.** A second Qt measurement on the committed theme data (2026-10-10; PySide6/Qt 6.11.1
+on Windows 11, offscreen and the native Windows platform at 100 %; an internal measurement record
+outside this repository). Multi-screen and fractional scales were reproduced offscreen through the
+platform's screen configuration (per-screen logical DPI). Every result below had a control. macOS,
+Linux, a real multi-monitor desk and a real fractional display were not part of it.
+
+### a. What the measurement showed about `@2x` / `@3x`
+
+Qt **does** choose the `@Nx` file per painting device for a stylesheet `border-image`: with one
+application stylesheet, a window on a 1.0 screen painted the 1x file and a window on a 2.0 screen
+the 2x file. But the `border-image` **slice numbers are read in pixels of the chosen file**: a
+slice of 4 is right for the 1x file and stretches the ring of the 2x file; a slice of 8 is right
+for the 2x file and makes the rule invalid on the 1.0 screen (nothing is drawn). `4px` and a
+percentage behave like `4`. One stylesheet therefore cannot be right on two screens of different
+ratios, and the "write every template at every integer scale and let S leave the stylesheet"
+branch of the paragraph above is **withdrawn**.
+
+### b. Decision 1, as amended
+
+The art scale S is **the highest whole-number device-pixel ratio among all screens** (the ceiling
+of each screen's ratio, so a fractional ratio over-samples rather than under-samples), and the one
+application stylesheet is built at it. S is the source resolution of the generated images, not the
+displayed scale: every window still paints at its own screen's ratio, and one art pixel is still
+one logical pixel on every screen. When a screen is added or removed or a screen's scale changes,
+S is recomputed; only if it changed are the images regenerated and the one stylesheet re-applied.
+Overlays (focus ring, ornaments, pattern) are painted, not carried by the stylesheet, and compose
+at their own widget's whole-number ratio. Measured on two screens at 1.0 and 2.0 (share of a framed
+button's pixels further than 6 levels from the palette):
+
+| Art in the one stylesheet | 1.0 screen | 2.0 screen |
+| --- | --- | --- |
+| S = 1 | 0.0 % | 13.9 % (soft) |
+| S = 2 | 0.0 %, pixel-identical to the S = 1 render | 0.0 % |
+| S = 3 | 0.0 % | 0.0 % |
+
+The larger art does **not** blur the 1.0 screen: each art pixel of an S = 2 image is a 2 × 2 block
+of one colour at whole-number offsets, so the 2 : 1 reduction has a single colour to sample. The
+spin-box, combo-box, check-box, slider and scroll-bar sprites and frames were each pixel-exact with
+S = 2 art on a 1.0 screen, in all three styles and both modes. With "Pixel-perfect interface" on
+(ADR-0072), a 100 % + 150 % pair is 1.0 and 2.0, so S = 2 and both screens are exact.
+
+**Alternative rejected: a stylesheet per top-level window, re-applied when the window changes
+screen.** Also measured exact on both screens, so it buys nothing over the decision, and it would
+give every dialog a stylesheet of its own — which the "no per-widget stylesheet on panels and
+dialogs" assertions forbid — and the applied application stylesheet would no longer describe what
+any window shows. The equality assertion becomes
+`app.styleSheet() == build_qss(mode, style, scale=<highest whole-number ratio>)`.
+
+### c. Stylesheet rules the measurement fixed
+
+- **Corners on docked children.** A transparent corner cell shows the widget's **own** background,
+  not its parent's. `QDockWidget::title` declares no `background` (the plate colour comes from the
+  template), and the framed selectors (`QPushButton`, `QToolButton`, `QToolBar`, `QFrame#DockBody`)
+  declare `background: transparent`. With both rules no corner cell was wrong for the 1 px nick,
+  the 2 px rounding or the 3 px chamfer, in both modes; Qt rules none of the three out.
+- **Sub-controls.** `QSpinBox QLineEdit { background: transparent; border: none }`; spin and combo
+  buttons with `subcontrol-origin: border`, a `top right` / `bottom right` position and the
+  sub-button frame image; arrows and check-box indicators as `image:` at the template's size in
+  logical pixels; slider handle as `image:` with a width, **no height**, and a negative vertical
+  margin (a declared height makes Qt scale the image and blur it); scroll bar with the track as
+  `border-image` on `::add-page` and `::sub-page`, a transparent borderless bar, the handle's
+  `border-image` with a minimum length, and zero-sized `::add-line` / `::sub-line`. The alternative
+  scroll-bar arrangement (track on the bar, handle with a negative margin) was exact offscreen and
+  **failed on the native platform**; it is not used.
+- **Focus on tabs and item views.** A tab bar receives one focus-in per focus gain and none when
+  the arrow keys move the current tab, so the ring is re-fitted to the current tab on
+  `currentChanged`. Item views carry `outline: 0`, or Qt's own item focus rectangle adds
+  off-palette pixels. A text browser needs nothing.
+- **Paths.** `url("…")` quoted, with forward slashes, resolved in every directory name tried
+  (spaces, a double space, accented and CJK characters, `'`, `&`, `%`, brackets, `;`, `#`), offscreen
+  and native. Unquoted paths, backslashes, `file:///` URLs and percent-encoding fail and are not
+  used.
+
+### d. What still has no detector
+
+The image regeneration when a screen is plugged in while the application runs; S = 2 art on a
+**native** 1.0 screen (measured offscreen only — the maintainer's real 100 % + 150 % pair is that
+evidence); S = 3 on a 2.0 screen beyond one button size; the combo-box popup list, tree and table
+headers, and the disabled and pressed sub-control states; and everything on macOS and Linux. The
+cost of the 2 : 1 reduction per paint on a 1.0 screen is profiled against the 16 ms frame budget.

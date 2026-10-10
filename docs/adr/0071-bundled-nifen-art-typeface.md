@@ -99,3 +99,52 @@ Exactness on macOS and Linux is unmeasured until the native-platform crispness p
 a failure is a decision for the maintainer, not a threshold to lower. Equality of the shipped
 licence text with the publisher's own file was not established byte for byte. Whether a Reserved
 Font Name is declared is still to be decided, before the fonts are committed for release.
+
+## Amendment (2026-10-10) — the Bold dock-title mechanism and the guide faces
+
+*Immutable-append. The Context, Decision, Alternatives and Consequences above are retained
+unchanged. Decision 2 left the Bold dock-title mechanism "chosen by measurement"; this amendment
+records the measurement and the choice, and answers decision 5's code-face question.*
+
+**Provenance.** A Qt measurement with the built Nifen Art Regular and Bold at 12 px, `NoAntialias`
+and `PreferNoHinting` (2026-10-10; PySide6/Qt 6.11.1 on Windows 11, offscreen at scales 1 and 2 and
+the native Windows platform at 100 %; an internal measurement record outside this repository).
+
+**Dock titles: `QDockWidget { font-weight: bold; }` in the one application stylesheet.** Measured
+by the resolved font (`QFontInfo`) and by the title's ink against the same string painted in
+Regular and in Bold (76 and 116 changed pixels for "Layers", so the two references are told apart):
+
+| Mechanism | Title | Dock content |
+| --- | --- | --- |
+| `QDockWidget::title { font-weight: bold }` | Regular — **does not work** | Regular |
+| `QDockWidget { font-weight: bold }` | **Bold** | Regular |
+| the same plus an explicit Regular reset on the dock body | Bold | Regular (the reset changes nothing) |
+| `setFont(bold)` on the dock and `setFont(regular)` on its body | Bold | Regular |
+| `setFont(bold)` on the dock alone | Bold | Bold or Regular **depending on whether it ran before the first application stylesheet** |
+
+With the chosen rule the dock resolves to family `Nifen Art`, style `Bold`, weight 700, pixel size
+12, `NoAntialias`, `PreferNoHinting` — the bundled Bold face, not a synthetic emboldening — while
+the dock's labels, buttons, fields and lists resolve to Regular 400, in three construction orders
+and across a style switch. The rule is a weight only: the stylesheet still carries no
+`font-family` and no `font-size`, so the two portability assertions of decision 2 stand unchanged.
+It is one rule instead of a call at every dock-creation site, and unlike the dock-only `setFont`
+it does not depend on order. Two dependencies are stated rather than implied: the dock content
+stays Regular because stylesheet font properties do not propagate to child widgets, so the
+application must not enable `Qt.AA_UseStyleSheetPropagationInWidgetStyles`; and the rule is
+emitted whether or not "Use system font" is on, because the stylesheet builder does not take the
+font preference — a Bold title in the platform family is still the platform font.
+
+**Guide page (decision 5).** On Windows, inline code and code blocks resolve to the system's fixed
+face before and after the application font becomes Nifen Art, so no pinning is added. Headings from
+Markdown at a 12 px base are 24, 18, 14 and 12 px and are rounded to 24, 24, 12 and 12 while the
+switch is on. The forcing font is a **copy of the interface font** with a new pixel size: a font
+constructed afresh from the family name loses `NoAntialias` (measured on all three headings).
+
+**New open item: colour fringes in item views on Windows.** With the native Windows 11 style, the
+text of list and tree rows in Nifen Art showed coloured (LCD-style) fringe pixels while labels,
+line edits, buttons and the guide's text browser were clean; with other native styles the lists
+were clean until the stylesheet also removed their border, after which every style showed them.
+The cause is not isolated. It is investigated before the font ships, and a native Windows
+crispness check covering item views is added; no threshold is lowered to pass it.
+
+**Still without a detector.** The code face and every font result above on macOS and Linux.
