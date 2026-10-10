@@ -1,4 +1,4 @@
-Copyright (c) 2026, JuanGSanchez (https://github.com/JuanGSanchez/PixelArt-Creator), with no Reserved Font Name.
+Copyright (c) 2026, JuanGSanchez (https://github.com/JuanGSanchez/PixelArt-Creator), with Reserved Font Name "Nifen Art".
 
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.

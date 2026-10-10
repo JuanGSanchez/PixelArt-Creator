@@ -42,6 +42,7 @@ from nifen_src import (  # noqa: E402
     counters,
     fill_from_contours,
     lost_counters,
+    make_console_safe,
     parse_cp,
     parse_sources,
 )
@@ -712,7 +713,7 @@ def lint(srcs, font: Font, script_files, src_dir):
     merge_info = (
         "Bold gap-closure worklist (information, not a gate): %d drawn glyphs close "
         "a one-pixel gap in at least one row: %s"
-        % (len(merged), " ".join("%s(%d)" % (chr(c), n) for c, n in merged))
+        % (len(merged), " ".join("U+%04X(%d)" % (c, n) for c, n in merged))
     )
     clean = len(cps) - len(restored)
     rep.add(
@@ -776,12 +777,29 @@ def lint(srcs, font: Font, script_files, src_dir):
     rep.add("R11", "grid contract constants", n, v)
 
     # R12 small kana placement ---------------------------------------------------------
+    # Every small kana sits on the bottom row of the cell and is at most
+    # small_kana_max_rows tall. Hiragana small kana are centred in the cell (the
+    # horizontal-writing convention of Japanese typesetting: horizontally centred,
+    # below the vertical centre); the katakana small kana keep their earlier left-hand
+    # placement.
     v, n = [], 0
     small = [parse_cp(t) for t in m.get("small_kana_cps", "").split()]
+    left = {parse_cp(t) for t in m.get("small_kana_left_cps", "").split()}
+    centred = {parse_cp(t) for t in m.get("small_kana_centred_cps", "").split()}
     sb, smax = mint(m, "small_kana_bottom_row"), mint(m, "small_kana_max_rows")
     sxr, sxb = rng(m["small_kana_ink_x_regular"]), rng(m["small_kana_ink_x_bold"])
-    heights = []
+    c2 = mint(m, "small_kana_centre_x2")
+    c2tol = mint(m, "small_kana_centre_tol_x2")
+    c2bold = mint(m, "small_kana_bold_extra_x2")
+    cmax = mint(m, "small_kana_centred_max_cols")
+    heights, widths = [], []
     for cp in small:
+        if cp not in left and cp not in centred:
+            n += 1
+            v.append("U+%04X is a small kana with no declared placement class" % cp)
+        if cp in left and cp in centred:
+            n += 1
+            v.append("U+%04X is declared both left-placed and centred" % cp)
         for w in WEIGHTS:
             n += 1
             bb = bbox(font.bmp(cp, w).px)
@@ -800,14 +818,30 @@ def lint(srcs, font: Font, script_files, src_dir):
                     "U+%04X %s small kana is %d rows tall, more than %d"
                     % (cp, w, bb[3] - bb[1] + 1, smax)
                 )
-            if bb[0] < lo or bb[2] > hi:
+            if cp in left and (bb[0] < lo or bb[2] > hi):
                 v.append(
-                    "U+%04X %s small kana ink columns %d..%d outside %d..%d (small "
-                    "kana sit to the left)" % (cp, w, bb[0], bb[2], lo, hi)
+                    "U+%04X %s small kana ink columns %d..%d outside %d..%d (these "
+                    "small kana sit to the left)" % (cp, w, bb[0], bb[2], lo, hi)
                 )
+            if cp in centred:
+                width = bb[2] - bb[0] + 1
+                widths.append(width)
+                mid2 = bb[0] + bb[2] + 1
+                want = c2 + (c2bold if w == "bold" else 0)
+                if abs(mid2 - want) > c2tol:
+                    v.append(
+                        "U+%04X %s small kana is not centred: ink columns %d..%d, "
+                        "twice the centre %d, expected %d +-%d"
+                        % (cp, w, bb[0], bb[2], mid2, want, c2tol)
+                    )
+                if width > cmax + (1 if w == "bold" else 0):
+                    v.append(
+                        "U+%04X %s small kana is %d columns wide, more than %d"
+                        % (cp, w, width, cmax + (1 if w == "bold" else 0))
+                    )
     rep.add(
         "R12",
-        "small kana: bottom row, height and left placement",
+        "small kana: bottom row, height and horizontal placement",
         n,
         v,
         (
@@ -816,6 +850,72 @@ def lint(srcs, font: Font, script_files, src_dir):
                 % (min(heights), max(heights))
             ]
             if heights
+            else []
+        )
+        + (
+            [
+                "centred small kana widths in columns (both weights): min %d, max %d"
+                % (min(widths), max(widths))
+            ]
+            if widths
+            else []
+        ),
+    )
+
+    # R13 voicing mark clearance -------------------------------------------------------
+    # In every voiced or semi-voiced kana, in each weight, the mark is whole inside
+    # the glyph and no pixel of the base is within one pixel of it (so the mark never
+    # touches the base). This covers composed and hand-drawn glyphs alike.
+    v, n = [], 0
+    mark_cps = {parse_cp(t) for t in m.get("voicing_mark_cps", "").split()}
+    voiced = []
+    for r in srcs.recipes:
+        if r.op != "overlay" or len(r.args) < 2:
+            continue
+        mk = parse_cp(r.args[1], "%s:%d" % (r.path, r.line))
+        if mk in mark_cps:
+            voiced.append((r.target_cp, mk))
+    gaps = []
+    for cp, mk in sorted(voiced):
+        for w in WEIGHTS:
+            n += 1
+            glyph = font.bmp(cp, w).px
+            mark = font.bmp(mk, w).px
+            if not mark <= glyph:
+                v.append(
+                    "U+%04X %s: the voicing mark U+%04X is not whole inside the glyph"
+                    % (cp, w, mk)
+                )
+                continue
+            base = glyph - mark
+            halo = {
+                (x + dx, y + dy)
+                for (x, y) in mark
+                for dx in (-1, 0, 1)
+                for dy in (-1, 0, 1)
+            }
+            touching = sorted(base & halo)
+            if touching:
+                v.append(
+                    "U+%04X %s: %d pixel(s) of the base are within one pixel of the "
+                    "voicing mark, first at %s" % (cp, w, len(touching), touching[0])
+                )
+            elif base:
+                d = min(
+                    max(abs(x - a), abs(y - b)) for (x, y) in base for (a, b) in mark
+                )
+                gaps.append(d)
+    rep.add(
+        "R13",
+        "voicing mark whole and clear of the base (one pixel)",
+        n,
+        v,
+        (
+            [
+                "voiced and semi-voiced kana: %d, smallest clearance between mark "
+                "and base %d pixel steps (both weights)" % (len(voiced), min(gaps))
+            ]
+            if gaps
             else []
         ),
     )
@@ -1084,6 +1184,7 @@ def main():
     g.add_argument("--build", action="store_true")
     g.add_argument("--check", action="store_true")
     args = ap.parse_args()
+    make_console_safe()
     try:
         if args.lint:
             return cmd_lint(args)

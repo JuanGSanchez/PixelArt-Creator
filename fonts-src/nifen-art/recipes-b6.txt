@@ -1,9 +1,9 @@
 # Recipes: kana voicing. Voiced forms are the base kana with the voiced mark (U+309B),
 # semi-voiced forms the base with the semi-voiced mark (U+309C); both marks are drawn kana cells.
 # Hiragana
-recipe U+3094 = overlay U+3046 U+309B trim=1 cut=1   # vu
+recipe U+3094 = overlay U+3046 U+309B trim=1   # vu
 recipe U+3052 = overlay U+3051 U+309B trim=1   # ge
-recipe U+304E = overlay U+304D U+309B trim=1   # gi
+recipe U+304E = overlay U+304D U+309B trim=1 cut=1   # gi
 recipe U+3050 = overlay U+304F U+309B trim=1   # gu
 recipe U+3054 = overlay U+3053 U+309B trim=1   # go
 recipe U+3056 = overlay U+3055 U+309B trim=1   # za
@@ -21,12 +21,12 @@ recipe U+3073 = overlay U+3072 U+309B trim=1   # bi
 recipe U+3076 = overlay U+3075 U+309B trim=1   # bu
 recipe U+3079 = overlay U+3078 U+309B trim=1   # be
 recipe U+307C = overlay U+307B U+309B trim=1   # bo
-recipe U+3071 = overlay U+306F U+309C trim=1 cut=1   # pa
+recipe U+3071 = overlay U+306F U+309C trim=1   # pa
 recipe U+3074 = overlay U+3072 U+309C trim=1   # pi
-recipe U+3077 = overlay U+3075 U+309C trim=1 cut=1   # pu
-recipe U+307A = overlay U+3078 U+309C trim=1   # pe
+recipe U+3077 = overlay U+3075 U+309C trim=1   # pu
+recipe U+307A = overlay U+3078 U+309C trim=1 cut=1   # pe
 recipe U+307D = overlay U+307B U+309C trim=1   # po
-recipe U+309E = overlay U+309D U+309B trim=1 cut=1   # iteration mark, voiced
+recipe U+309E = overlay U+309D U+309B trim=1   # iteration mark, voiced
 # Katakana
 recipe U+30F4 = overlay U+30A6 U+309B trim=1 cut=1   # VU
 recipe U+30F7 = overlay U+30EF U+309B trim=1 cut=1   # VA

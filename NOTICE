@@ -14,9 +14,9 @@ This product bundles one work that is licensed separately from the Apache Licens
   - Nifen Art (Regular and Bold) -- the pixel typeface the application uses
     for its interface text. Original to this project; copyright 2026
     JuanGSanchez; licensed under the SIL Open Font License, Version 1.1
-    (https://openfontlicense.org), with no Reserved Font Name. The licence
-    text ships in pixelart_creator/fonts/OFL.txt, beside the font files and
-    their change log (pixelart_creator/fonts/FONTLOG.txt).
+    (https://openfontlicense.org), with the Reserved Font Name "Nifen Art".
+    The licence text ships in pixelart_creator/fonts/OFL.txt, beside the
+    font files and their change log (pixelart_creator/fonts/FONTLOG.txt).
 
 This software depends on, but does not incorporate or relink, the following
 third-party components (installed separately by end users via the package

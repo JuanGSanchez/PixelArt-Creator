@@ -64,17 +64,32 @@ Design notes:
 - Where two letters have the same shape on this grid (for example Latin A,
   Greek Alpha and Cyrillic A) they share one drawing; letters that differ at
   all, even slightly, are drawn separately.
-- Kana fill a 10 by 11 pixel box inside the 12 pixel cell. Small kana are about
-  two thirds of that height, sit on the bottom row of the cell and lean to the
-  left, as in horizontal Japanese text. Voiced and semi-voiced kana are the
-  plain kana plus the voiced mark, composed by rule: the part of the base that
-  would touch the mark is cut away; a few are drawn by hand where that cut would
-  spoil the letter.
+- Kana fill a 10 by 11 pixel box inside the 12 pixel cell. The hiragana were
+  redrawn with one rule in mind: letters that are easy to confuse at 12 pixels
+  must differ by a feature that survives in both weights (for example nu has a
+  small closing loop at the end of its last stroke where me has none; ha and
+  ho differ by the second bar that crosses the right-hand stem of ho; sa has
+  one bar and a stem that runs on into its hook, ki two bars and a hook of its
+  own). Curves are approximated by clean diagonals of 1:1 and 1:2.
+- Small hiragana are about three quarters of the full height (at most 8 of 11
+  rows), centred in the cell and set on its bottom row, as in horizontal
+  Japanese text. The small katakana keep their earlier placement at the left
+  of the cell.
+- Voiced and semi-voiced kana are the plain kana plus the voicing mark at the
+  upper right, composed by rule: the part of the base that would touch the mark
+  is cut away, so the mark never touches the base in either weight. Where that
+  cut would remove a feature that tells the letter apart, the glyph is drawn
+  by hand.
 - The fonts are generated from plain-text glyph grids by a deterministic build:
   rebuilding the same sources gives byte-identical files.
 
-Reserved Font Name: none is declared in this version. (This line is provisional
-until the author confirms the choice.)
+Reserved Font Name: "Nifen Art". The author declared this on 10 October 2026,
+and the declaration is made in the copyright line of OFL.txt and in the
+copyright record (name ID 0) of both font files. Under clause 3 of the SIL Open
+Font License a Modified Version of this Font Software may not use the name
+"Nifen Art" as its primary font name unless the copyright holder gives written
+permission; a modified font needs another name. The rest of the licence is
+unchanged.
 
 Project: https://github.com/JuanGSanchez/PixelArt-Creator
 
@@ -95,6 +110,14 @@ ChangeLog
     R and r drawn detached from the letter.
   - Hiragana and katakana, complete (including small kana, voiced and
     semi-voiced forms), Japanese punctuation and full-width forms.
+  - Hiragana redrawn (the 46 basic letters, wi, we, the small forms, the
+    iteration marks and the yori ligature), Regular and Bold, in the same
+    12 pixel cell: confusable letters differ by a feature that survives at
+    12 pixels; small hiragana centred in the cell; the voicing marks redesigned
+    around cuts that keep the letter recognisable. Katakana, Latin, Greek and
+    Cyrillic are unchanged.
+  - Reserved Font Name "Nifen Art" declared (OFL.txt and the copyright record
+    of both fonts).
   - Bold correction pass: hand-drawn Bold forms that keep the gap between
     strokes for r, n, m, R, Greek eta and pi, eng, the tilde, the small tilde
     and almost-equal signs, Cyrillic Ya (both cases) and Lje (both cases).

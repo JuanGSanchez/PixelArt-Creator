@@ -22,7 +22,7 @@ recipe U+0386 = mark U+0391 acute.cap align=left   # Alpha tonos, above and to t
 recipe U+0039 = rot180 U+0036 rows=0..6       # nine: the six turned half a revolution
 recipe U+00BF = rot180 U+003F rows=0..6       # inverted question mark
 recipe U+00A1 = rot180 U+0021 rows=0..6       # inverted exclamation mark
-recipe U+304C = overlay U+304B U+309B         # ga
+recipe U+304C = overlay U+304B U+309B trim=1 cut=1   # ga
 recipe U+30AC = overlay U+30AB U+309B         # GA
 recipe U+30D4 = overlay U+30D2 U+309C         # PI
 

@@ -11,8 +11,8 @@ copyright_holder = JuanGSanchez
 copyright_year = 2026
 designer = JuanGSanchez
 copyright_url = https://github.com/JuanGSanchez/PixelArt-Creator
-# Provisional: whether a Reserved Font Name is declared is still an open decision of the author.
-copyright_rfn_clause = with no Reserved Font Name.
+# The author declares the family name as a Reserved Font Name (OFL 1.1, clause 3).
+copyright_rfn_clause = with Reserved Font Name "Nifen Art".
 license_description = This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org
 license_url = https://openfontlicense.org
 vendor_id = NIFN
@@ -78,11 +78,27 @@ wide_space_cps = U+3000
 # Kana voicing: a mark may cut away at most this many pixels of its base (per weight).
 trim_max_px = 20
 
-# Small kana (the sokuon, the small vowels and the small ya yu yo, wa, ka, ke): horizontal text sets them on
-# the bottom of the kana cell and to the left. Ink bottom row, tallest ink in rows, and the ink columns
-# (the grid is the cell, Regular columns 1..8, Bold may reach column 9).
+# Small kana (the sokuon, the small vowels and the small ya yu yo, wa, ka, ke): all sit on the bottom row of the
+# kana cell and are at most small_kana_max_rows tall. The hiragana ones are centred in the cell (horizontal
+# writing: centred horizontally, below the vertical centre); the katakana ones keep their left-hand placement.
 small_kana_cps = U+3041 U+3043 U+3045 U+3047 U+3049 U+3063 U+3083 U+3085 U+3087 U+308E U+3095 U+3096 U+30A1 U+30A3 U+30A5 U+30A7 U+30A9 U+30C3 U+30E3 U+30E5 U+30E7 U+30EE U+30F5 U+30F6
 small_kana_bottom_row = -1
 small_kana_max_rows = 8
+
+# Left-placed small kana (katakana): ink columns, Regular 1..8, Bold up to column 9.
+small_kana_left_cps = U+30A1 U+30A3 U+30A5 U+30A7 U+30A9 U+30C3 U+30E3 U+30E5 U+30E7 U+30EE U+30F5 U+30F6
 small_kana_ink_x_regular = 1..8
 small_kana_ink_x_bold = 1..9
+
+# Centred small kana (hiragana): twice the horizontal centre of the ink (first column + last column + 1) is
+# small_kana_centre_x2 in Regular (the cell centre is at 6) within +- small_kana_centre_tol_x2 half pixels;
+# Bold is Regular shifted one pixel right, so its centre is small_kana_bold_extra_x2 half pixels further.
+small_kana_centred_cps = U+3041 U+3043 U+3045 U+3047 U+3049 U+3063 U+3083 U+3085 U+3087 U+308E U+3095 U+3096
+small_kana_centre_x2 = 12
+small_kana_centre_tol_x2 = 1
+small_kana_bold_extra_x2 = 1
+small_kana_centred_max_cols = 8
+
+# The two voicing marks (voiced and semi-voiced): in every kana that carries one, the mark is whole and
+# every pixel of the base is more than one pixel away from it, in both weights.
+voicing_mark_cps = U+309B U+309C

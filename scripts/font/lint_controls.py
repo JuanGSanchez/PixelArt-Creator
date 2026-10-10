@@ -21,6 +21,21 @@ SOURCES = os.path.join(REPO, "fonts-src", "nifen-art")
 SCRATCH = tempfile.gettempdir()
 
 
+def show_child_output(r, tail=12):
+    """Print what the lint child said when a control is not caught (never silent)."""
+    err = r.stderr.strip()
+    print("    child exit code: %d" % r.returncode)
+    print("    child stderr: %s" % ("" if err else "(empty)"))
+    for ln in err.splitlines():
+        print("      | " + ln.encode("ascii", "backslashreplace").decode("ascii"))
+    lines = r.stdout.rstrip().splitlines()
+    print(
+        "    child stdout, last %d of %d lines:" % (min(tail, len(lines)), len(lines))
+    )
+    for ln in lines[-tail:]:
+        print("      | " + ln.encode("ascii", "backslashreplace").decode("ascii"))
+
+
 def run(name, edits, expect_rule, expect_text=None):
     d = tempfile.mkdtemp(dir=SCRATCH)
     try:
@@ -37,8 +52,14 @@ def run(name, edits, expect_rule, expect_text=None):
         r = subprocess.run(
             [PY, os.path.join(HERE, "build_nifen_art.py"), "--lint", "--src", dst],
             capture_output=True,
-            text=True,
-            env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"),
+            encoding="utf-8",
+            errors="replace",
+            env=dict(
+                os.environ,
+                PYTHONDONTWRITEBYTECODE="1",
+                PYTHONIOENCODING="utf-8",
+                PYTHONUTF8="1",
+            ),
         )
         hit = [
             ln
@@ -57,7 +78,10 @@ def run(name, edits, expect_rule, expect_text=None):
             "%-44s exit %d  expected rule %s flagged: %s"
             % (name, r.returncode, expect_rule, "YES" if hit else "NO")
         )
-        return r.returncode != 0 and bool(hit)
+        caught = r.returncode != 0 and bool(hit)
+        if not caught or r.stderr.strip():
+            show_child_output(r)
+        return caught
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
@@ -390,8 +414,8 @@ CONTROLS = [
         [
             (
                 "hiragana.txt",
-                "glyph U+3044 adv=12 x=1 cell=full ext=free top=9",
-                "glyph U+3044 adv=12 x=4 cell=full ext=free top=9",
+                "glyph U+3044 adv=12 x=1 cell=full ext=free top=10",
+                "glyph U+3044 adv=12 x=4 cell=full ext=free top=10",
             )
         ],
         "R01",
@@ -402,9 +426,9 @@ CONTROLS = [
         [
             (
                 "hiragana.txt",
-                "glyph U+3044 adv=12 x=1 cell=full ext=free top=9\n.#........\n"
+                "glyph U+3044 adv=12 x=1 cell=full ext=free top=10\n.#........\n"
                 ".#........",
-                "glyph U+3044 adv=12 x=1 cell=full ext=free top=9\n.#.......#\n"
+                "glyph U+3044 adv=12 x=1 cell=full ext=free top=10\n.#.......#\n"
                 ".#........",
             )
         ],
@@ -426,40 +450,40 @@ CONTROLS = [
         "U+30A8",
     ),
     (
-        "voiced mark touches its base (trim removed from za)",
+        "voiced mark touches its base (trim removed from zu)",
         [
             (
                 "recipes-b6.txt",
-                "recipe U+3056 = overlay U+3055 U+309B trim=1",
-                "recipe U+3056 = overlay U+3055 U+309B",
+                "recipe U+305A = overlay U+3059 U+309B trim=1",
+                "recipe U+305A = overlay U+3059 U+309B",
             )
         ],
         "R06",
-        "U+3056",
+        "U+305A",
     ),
     (
-        "trim cut undeclared (vu loses cut=1)",
+        "trim cut undeclared (gi loses cut=1)",
         [
             (
                 "recipes-b6.txt",
-                "recipe U+3094 = overlay U+3046 U+309B trim=1 cut=1",
-                "recipe U+3094 = overlay U+3046 U+309B trim=1",
-            )
-        ],
-        "R06",
-        "U+3094",
-    ),
-    (
-        "cut declared but not needed (gi)",
-        [
-            (
-                "recipes-b6.txt",
-                "recipe U+304E = overlay U+304D U+309B trim=1",
                 "recipe U+304E = overlay U+304D U+309B trim=1 cut=1",
+                "recipe U+304E = overlay U+304D U+309B trim=1",
             )
         ],
         "R06",
-        "U+304E declares cut",
+        "U+304E",
+    ),
+    (
+        "cut declared but not needed (gu)",
+        [
+            (
+                "recipes-b6.txt",
+                "recipe U+3050 = overlay U+304F U+309B trim=1",
+                "recipe U+3050 = overlay U+304F U+309B trim=1 cut=1",
+            )
+        ],
+        "R06",
+        "U+3050 declares cut",
     ),
     (
         "trim limit exceeded (limit 2 pixels)",
@@ -468,16 +492,16 @@ CONTROLS = [
         "trim removes",
     ),
     (
-        "Bold overlay of hiragana i removed",
-        [("bold-overlays-b6.txt", "bold U+3044 ", "bold U+3043 ")],
+        "Bold overlay of small hiragana i removed",
+        [("bold-overlays-b6.txt", "bold U+3043 ", "bold U+3042 ")],
         "R08",
-        "U+3044 derived Bold",
+        "U+3043 derived Bold",
     ),
     (
-        "Bold overlay of the hand-drawn pa removed",
-        [("bold-overlays-b6.txt", "bold U+3071 ", "bold U+3072 ")],
+        "Bold overlay of the hand-drawn pu removed",
+        [("bold-overlays-b6.txt", "bold U+3077 ", "bold U+3076 ")],
         "R08",
-        "U+3071 derived Bold",
+        "U+3077 derived Bold",
     ),
     (
         "alias of the full-width tilde to nothing",
@@ -507,6 +531,42 @@ CONTROLS = [
         ],
         "R12",
         "U+3083",
+    ),
+    (
+        "small a moved one pixel off the centre of the cell",
+        [
+            (
+                "hiragana.txt",
+                "glyph U+3041 adv=12 x=1 cell=full ext=free top=7",
+                "glyph U+3041 adv=12 x=0 cell=full ext=free top=7",
+            )
+        ],
+        "R12",
+        "U+3041 regular small kana is not centred",
+    ),
+    (
+        "base of a hand-drawn voiced kana touches the mark (za)",
+        [
+            (
+                "kana-voiced.txt",
+                "....#..#.#\n....#..#.#\n...#......",
+                "....#..#.#\n....#..#.#\n...#..#...",
+            )
+        ],
+        "R13",
+        "U+3056 regular: 1 pixel",
+    ),
+    (
+        "mark pixel missing from a hand-drawn semi-voiced kana (pu)",
+        [
+            (
+                "kana-voiced.txt",
+                "...#...##.\n....#.#..#",
+                "...#...#..\n....#.#..#",
+            )
+        ],
+        "R13",
+        "U+3077 regular: the voicing mark",
     ),
     (
         "gap overlay of r wider than the Bold box",
@@ -554,6 +614,10 @@ CONTROLS = [
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(errors="backslashreplace")
     ok = True
     n = skipped = 0
     for ctl in CONTROLS:
