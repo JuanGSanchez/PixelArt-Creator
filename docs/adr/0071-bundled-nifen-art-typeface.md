@@ -148,3 +148,79 @@ The cause is not isolated. It is investigated before the font ships, and a nativ
 crispness check covering item views is added; no threshold is lowered to pass it.
 
 **Still without a detector.** The code face and every font result above on macOS and Linux.
+
+## Amendment (2026-10-10) — the hiragana adapted from Ark Pixel Font, the widened kana cell and the Reserved Font Name
+
+*Immutable-append. The Context, Decision, Alternatives, Consequences and the amendment above are
+retained unchanged. The Context's opening sentence — "Nifen Art is an original pixel typeface" —
+was true when it was written and is no longer true without an exception; this amendment records
+the exception, the cell change that came with it, and the answer to the Reserved Font Name
+question left open under "What has no detector". Where this amendment and the text above
+disagree, this amendment governs.*
+
+**Provenance.** User decision 2026-10-10: the hiragana are taken from an existing pixel font
+licensed under the SIL Open Font License instead of the set drawn for this project. User decision
+2026-10-10: the full-width kana cell is widened to take them. As built: the sources
+`fonts-src/nifen-art/hiragana-ark-pixel.txt` and `bold-overlays-ark-pixel.txt`, the grid contract
+in `fonts-src/nifen-art/metrics.txt`, and `pixelart_creator/fonts/OFL.txt`, `FONTLOG.txt` and
+`NOTICE`.
+
+**What is original and what is not.** Nifen Art is original to this project **except its 89
+hiragana** — U+3041–U+3096 and U+309D–U+309F — which are adapted from Ark Pixel Font, 12 px,
+monospaced, Japanese variant, version 2026.09.25, Copyright (c) 2021, TakWolf
+(https://takwolf.com), licensed under the SIL Open Font License 1.1 and declaring no Reserved Font
+Name. The adaptation, as the source header and `FONTLOG.txt` state it: every letter moves up one
+row (the donor's ink sits on rows −2..8, this typeface's kana cell on rows −1..9); the small
+letters are centred in the cell; where a Regular stroke would be two pixels wide, one corner pixel
+of the 2×2 block is removed; no row or column of any letter is removed. The Bold of the hiragana is
+derived by this typeface's own rule and corrected by drawings made for this project. The hiragana
+drawn earlier for this project, with their recipes and Bold overlays, are retired. Katakana, the
+spacing marks and every other glyph are unchanged.
+
+**Licence (decisions 7 and 8, as now built).** The font as a whole stays under the SIL Open Font
+License 1.1, with the Reserved Font Name **"Nifen Art"** declared. The donor's copyright line is
+kept as its author wrote it and stands **before** this typeface's own line in three places:
+
+- `fonts/OFL.txt` opens with `Copyright (c) 2021, TakWolf (https://takwolf.com).`, then the
+  Nifen Art copyright line, which ends `with Reserved Font Name "Nifen Art".`, then the standard
+  notice and the licence text. Decision 8's order ("the copyright line, then … the Reserved Font
+  Name line") is therefore two copyright lines with the Reserved Font Name clause on the second.
+- name ID 0 of both TTFs carries the same two lines in the same order; decision 7's "copyright …
+  naming the copyright holder" now names the donor's holder first.
+- `FONTLOG.txt` carries the donor's copyright line and lists exactly which code points are adapted.
+
+`NOTICE` credits Ark Pixel Font as the source of the hiragana. None of this rests on review alone:
+the font build's source lint has a provenance rule that fails when a donor source file's header
+omits the donor's name, version, licence or copyright line, when `OFL.txt` or `FONTLOG.txt` omits
+the donor's copyright line, or when `FONTLOG.txt` does not list exactly the adapted code points; and
+the build itself exits non-zero when name ID 0 of either font lacks the donor's line before this
+typeface's.
+
+**The widened kana cell.** The full-width advance stays 12 px in both weights and the ink rows stay
+−1..9. The ink columns widen:
+
+| | Before | After |
+| --- | --- | --- |
+| Full-width ink, Regular | columns 1..10 | columns **0..10** |
+| Full-width ink, Bold | columns 1..11 | columns **0..11** |
+| Small kana, height (all) | at most 8 rows | at most **9** rows |
+| Small hiragana (centred), width | at most 8 columns | at most **9** columns |
+
+The small katakana keep their left-hand placement (columns 1..8 in Regular, up to 9 in Bold).
+Half-width glyphs are not affected.
+
+**Consequences of the cell change.** Because the advance is unchanged, line widths and every
+layout measured on it are unchanged. A full-width glyph now has no left side-bearing: in Regular one
+blank column (column 11) still separates two adjacent full-width glyphs, but in Bold the ink of one
+may reach column 11 and touch the next glyph's column 0, with no blank column between them. That is
+accepted as part of the decision.
+
+**The open item it closes.** "Whether a Reserved Font Name is declared is still to be decided"
+(under "What has no detector") is decided: it is declared, as "Nifen Art", in `OFL.txt` and in name
+ID 0 of both fonts.
+
+**Not re-established by this amendment.** The rendering measurements quoted in the Context
+(0 mismatches over 126 glyphs × 2 weights; 8,756,800 pixels over twenty specimen sheets) were taken
+before the hiragana were replaced and the cell widened; this amendment does not repeat them for the
+adapted letters. The pixel-for-pixel correspondence with the donor's published bitmaps is recorded
+in `FONTLOG.txt`; this record did not re-compare the donor's files.

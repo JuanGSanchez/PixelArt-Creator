@@ -104,3 +104,31 @@ import theme_art` or `from . import theme_art`: a planted cycle in that form ret
 0 cycles, while the same cycle written `from pixelart_creator.logic.theme_art import compose` or
 `import pixelart_creator.logic.theme_art` returned exit 1. Until the script resolves that form,
 the import convention above is a review rule, not a gate.
+
+## Amendment (2026-10-10) — font sources adapted from another font
+
+*Immutable-append. The Context, Decision, Alternatives and Consequences above are retained
+unchanged. The Context describes the font sources as those "of an original pixel typeface (Nifen
+Art)"; by user decision 2026-10-10 the typeface's hiragana are adapted from another OFL-licensed
+pixel font, and its full-width kana cell is widened (both recorded in ADR-0071, amendment of
+2026-10-10). This amendment records what that does to placement: nothing moves.*
+
+**What the sources now hold.** `fonts-src/nifen-art/` holds, beside the sources drawn for this
+project, `hiragana-ark-pixel.txt` — the 89 hiragana (U+3041–U+3096, U+309D–U+309F) adapted from
+Ark Pixel Font 12 px, version 2026.09.25, Copyright (c) 2021, TakWolf, SIL Open Font License 1.1,
+no Reserved Font Name, with that provenance in its header — and `bold-overlays-ark-pixel.txt`, their
+Bold corrections. `hiragana.txt` and `kana-voiced.txt`, the hiragana drawn earlier, are removed.
+`metrics.txt` declares the adapted source files and the donor's name, version, licence and
+copyright line, so the build's lint can require the provenance to be present.
+
+**Placement unchanged.** These are glyph sources and Bold overlays, already in the Decision table's
+first row (`fonts-src/nifen-art/`, does not ship). The rule that "a later merge of ideographs from
+an OFL-licensed pixel font arrives beside the drawn sources with its own notices" is the one this
+merge followed, for hiragana rather than ideographs: the adapted source sits beside the drawn ones,
+and its notices ship in `pixelart_creator/fonts/OFL.txt` and `FONTLOG.txt` and are named in
+`NOTICE`. No file was added under `pixelart_creator/` other than rebuilt data in `fonts/`, which
+still has no `__init__.py`.
+
+**Proof (scripts, not reading), on the branch with the merge applied.** `check_layering --root
+pixelart_creator` exit 0: `{"scanned": 237, "unregistered": [], "violations": []}`;
+`check_cycles --root pixelart_creator` exit 0: `{"cycles": [], "edges": 883, "modules": 239}`.
