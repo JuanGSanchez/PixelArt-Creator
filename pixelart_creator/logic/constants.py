@@ -1310,3 +1310,15 @@ CLICK_DRAG_THRESHOLD_PX: int = 10
 **drag** (REQ-IS-UI-011). Source: measured ``QApplication.startDragDistance()
 == 10`` (plan.md §4.5) — the value the D-6 assumption in force (spec.md
 §4.5) left for the plan to name rather than guess at."""
+
+# --- Pixel-art visual identity (feature pixelart-visual-identity) -----------
+
+PATTERN_CHILD_CLEARANCE_PX: int = 2
+"""Clearance, in logical px, kept between a pattern area's paint and the
+rectangle of each child widget it clips out, so the faint pattern never sits
+under or touching text (REQ-VI-UI-011). Source: plan.md section 3.1 (tuning
+value, set at 2) and ADR-0069 decision 7; the 2 px figure matches the style
+review's rule that a widget keeps at least 2 px between a frame ring and its own
+sub-controls. The mechanism it serves (paint with the children's rectangles
+clipped out) was measured by the 2026-10-09 Qt probe: 0 pattern pixels inside
+text boxes in 48 of 48 runs, against 233-1,908 for a stylesheet background."""
