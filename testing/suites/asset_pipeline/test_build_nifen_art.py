@@ -1865,6 +1865,27 @@ def run_font_legacy_console(
     return Run(done.returncode, done.stdout, done.stderr)
 
 
+def run_driver_legacy_console(
+    driver: str, args: Sequence[object], scratch: Path, *, timeout: int = 600
+) -> Run:
+    """Run a short driver program (``python -c``) on the legacy console.
+
+    Same environment and decoding as ``run_font_legacy_console``; the driver loads
+    a font script by path (``sys.argv[1]``) so it can run a SLICE of it.
+    """
+    done = subprocess.run(
+        [sys.executable, "-B", "-c", driver, *[str(a) for a in args]],
+        cwd=str(TOOLS_ROOT),
+        capture_output=True,
+        text=True,
+        encoding=LEGACY_CODEC,
+        errors="replace",
+        timeout=timeout,
+        env=_child_env(scratch, LEGACY_CONSOLE),
+    )
+    return Run(done.returncode, done.stdout, done.stderr)
+
+
 def child_report(res: Run, what: str, tail: int = 25) -> str:
     """An assertion message that always carries the child's stderr.
 
@@ -1937,9 +1958,85 @@ def test_lint_runs_to_the_end_on_a_legacy_console(scratch):
     )
 
 
-def test_lint_controls_run_to_the_end_on_a_legacy_console(scratch):
-    """Every control is caught, the runner says so, and nothing reaches stderr."""
-    res = run_font_legacy_console("lint_controls.py", [], scratch)
+#: The lint controls are run as SHARDS, each in its own child process on the legacy
+#: console. One child running all of them took ~85 s idle, past the CI per-test cap
+#: (``--timeout=120``) on a loaded Windows runner (CI run 38074754008). The cap is a
+#: gate and stays; the work is split so no test item is near it. What each shard
+#: guards is unchanged: ``lint_controls.main()`` runs to the end on a cp1252 stream,
+#: exits 0, writes nothing to stderr and says how many controls it ran and skipped.
+#: That every shard together is the WHOLE catalogue is asserted separately, below.
+CONTROL_SHARDS = 16
+
+#: Run by a child on the legacy console: load ``lint_controls.py`` by path, keep one
+#: slice of its catalogue and call its own ``main``. Pure ASCII, so the command line
+#: itself cannot be what a legacy code page breaks.
+_SHARD_DRIVER = """
+import importlib.util, sys
+sys.dont_write_bytecode = True
+path, lo, hi = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+spec = importlib.util.spec_from_file_location("nifen_lint_controls_shard", path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+print("catalogue size: %d" % len(module.CONTROLS))
+module.CONTROLS = module.CONTROLS[lo:hi]
+sys.exit(module.main())
+"""
+
+#: Same, but the control never passes and its child output carries Greek, Cyrillic
+#: and kana, which is what ``show_child_output`` must print without dying.
+_MISSED_DRIVER = r"""
+import importlib.util, sys, types
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("nifen_lint_controls_missed", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+child = types.SimpleNamespace(
+    returncode=1,
+    stdout="R08  Greek, Cyrillic, kana \u03a9 \u042f \u3044\nlint violations: 1\n",
+    stderr="\u03a9 \u042f \u3044 on stderr\n",
+)
+def missed(name, *rest):
+    print("%s  expected rule R08 flagged: NO" % name)
+    module.show_child_output(child)
+    return False
+module.run = missed
+module.CONTROLS = [("a missed control",)]
+sys.exit(module.main())
+"""
+
+
+def _shard_bounds(total: int, shards: int) -> List[Tuple[int, int]]:
+    """Contiguous ``[lo, hi)`` slices of ``range(total)``; none is empty."""
+    size = -(-total // shards)
+    return [(lo, min(lo + size, total)) for lo in range(0, total, size)]
+
+
+_SHARDS = _shard_bounds(len(_CONTROLS.CONTROLS), CONTROL_SHARDS)
+
+
+def test_the_control_shards_are_the_whole_catalogue_once():
+    """The denominator of the sharded run: the slices are disjoint, in order, and
+    together cover every control, so the shards below run exactly as many controls
+    as the catalogue holds (and no fewer than the 48 delivered with the lint)."""
+    total = len(_CONTROLS.CONTROLS)
+    assert total >= 48
+    assert _SHARDS and _SHARDS[0][0] == 0 and _SHARDS[-1][1] == total
+    for (_, end), (start, _) in zip(_SHARDS, _SHARDS[1:]):
+        assert end == start, "shards overlap or leave a gap at %d / %d" % (end, start)
+    assert all(lo < hi for lo, hi in _SHARDS)
+    assert sum(hi - lo for lo, hi in _SHARDS) == total
+    assert len(_SHARDS) <= CONTROL_SHARDS
+
+
+@pytest.mark.parametrize(
+    "lo,hi", _SHARDS, ids=["controls-%d-%d" % bounds for bounds in _SHARDS]
+)
+def test_lint_controls_run_to_the_end_on_a_legacy_console(scratch, lo, hi):
+    """Every control of the shard is caught, the runner says so, nothing reaches
+    stderr, and the runner's own count is the shard's size with none skipped."""
+    res = run_driver_legacy_console(
+        _SHARD_DRIVER, [FONT_SCRIPTS / "lint_controls.py", lo, hi], scratch
+    )
     assert res.returncode == 0, child_report(res, "lint_controls did not exit 0")
     assert res.stderr == "", child_report(res, "lint_controls wrote to stderr")
     assert "ALL CONTROLS CAUGHT" in res.stdout, child_report(
@@ -1948,11 +2045,39 @@ def test_lint_controls_run_to_the_end_on_a_legacy_console(scratch):
     assert "SOME CONTROL MISSED" not in res.stdout, child_report(
         res, "lint_controls reported a missed control"
     )
+    size = re.search(r"catalogue size: (\d+)", res.stdout)
+    assert size and int(size[1]) == len(_CONTROLS.CONTROLS), child_report(
+        res, "the child read a different catalogue than the parent"
+    )
     ran = re.search(
         r"controls run: (\d+)\s+skipped \(record not in the sources\): (\d+)",
         res.stdout,
     )
     assert ran, child_report(res, "the controls denominator is missing")
-    assert int(ran[1]) >= 48 and int(ran[2]) == 0, child_report(
-        res, "controls run / skipped is %s / %s" % (ran[1], ran[2])
+    assert int(ran[1]) == hi - lo and int(ran[2]) == 0, child_report(
+        res,
+        "controls run / skipped is %s / %s, wanted %d / 0" % (ran[1], ran[2], hi - lo),
     )
+
+
+def test_a_missed_control_with_non_ascii_child_output_is_reported_on_a_legacy_console(
+    scratch,
+):
+    """The path the healthy shards never reach: a control is NOT caught and the
+    runner must print the child's Greek, Cyrillic and kana lines on a cp1252
+    stream. It must report the miss (exit 1, SOME CONTROL MISSED), show the
+    characters as escapes, and not die with UnicodeEncodeError on its own report."""
+    res = run_driver_legacy_console(
+        _MISSED_DRIVER, [FONT_SCRIPTS / "lint_controls.py"], scratch
+    )
+    assert res.returncode == 1, child_report(res, "the miss was not reported by exit 1")
+    assert "Traceback" not in res.text, child_report(res, "the runner crashed")
+    assert "UnicodeEncodeError" not in res.text, child_report(res, "encoding error")
+    assert res.stderr == "", child_report(res, "the runner wrote to stderr")
+    assert "SOME CONTROL MISSED" in res.stdout, child_report(
+        res, "the miss was swallowed"
+    )
+    for escape in (r"\u03a9", r"\u042f", r"\u3044"):
+        assert escape in res.stdout, child_report(
+            res, "%s is not shown as an escape in the report" % escape
+        )
