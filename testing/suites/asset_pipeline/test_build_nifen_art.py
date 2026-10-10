@@ -1449,3 +1449,135 @@ def test_the_qt_specimen_script_fails_when_the_font_cannot_be_registered(scratch
     assert res.returncode == 1, res.text
     assert "-> id -1" in res.stdout
     assert "Traceback" not in res.stderr, "the refusal must be clean, not a crash"
+
+
+# --------------------------------------------------------------------------
+# 9. A legacy console code page (REQ-VI-BUILD-003, REQ-VI-BUILD-010)
+# --------------------------------------------------------------------------
+#
+# Regression for a defect that only a CI runner showed. A Windows pipe is often
+# cp1252; the R08 report of the lint used to print ``chr(c)`` of Greek, Cyrillic
+# and kana code points, which that code page cannot encode, so the lint died with
+# UnicodeEncodeError on its own report, and the R09 / R12 / R13 lines after it were
+# never printed. ``lint_controls.py`` then threw the child's stderr away, so the
+# crash read as "control not caught" with no cause. Every other test of this
+# module forces UTF-8 on the child (``_child_env``), which is exactly why none of
+# them could see it. These run the scripts as the CI console runs them.
+
+#: What the failing runner had: a non-UTF-8 stream encoding, UTF-8 mode off.
+LEGACY_CONSOLE = {"PYTHONUTF8": "0", "PYTHONIOENCODING": "cp1252"}
+LEGACY_CODEC = "cp1252"
+
+
+def run_font_legacy_console(
+    script: str, args: Sequence[object], scratch: Path, *, timeout: int = 600
+) -> Run:
+    """Run a font script with the child's streams on a legacy code page.
+
+    The output is decoded with the SAME code page the child wrote it in, so what
+    the assertions read is what a console would have shown.
+    """
+    done = subprocess.run(
+        [sys.executable, "-B", str(FONT_SCRIPTS / script), *[str(a) for a in args]],
+        cwd=str(TOOLS_ROOT),
+        capture_output=True,
+        text=True,
+        encoding=LEGACY_CODEC,
+        errors="replace",
+        timeout=timeout,
+        env=_child_env(scratch, LEGACY_CONSOLE),
+    )
+    return Run(done.returncode, done.stdout, done.stderr)
+
+
+def child_report(res: Run, what: str, tail: int = 25) -> str:
+    """An assertion message that always carries the child's stderr.
+
+    A failure that hides why the child died is the defect this section guards, so
+    the message states the exit code, the whole of stderr (or that it was empty)
+    and the last lines of stdout.
+    """
+    err = res.stderr.strip()
+    lines = res.stdout.rstrip().splitlines()
+    return "\n".join(
+        [
+            "%s (legacy console %s)" % (what, LEGACY_CODEC),
+            "child exit code: %d" % res.returncode,
+            "child stderr: %s" % (err if err else "(empty)"),
+            "child stdout, last %d of %d lines:" % (min(tail, len(lines)), len(lines)),
+            *("  | " + ln for ln in lines[-tail:]),
+        ]
+    )
+
+
+def test_the_legacy_console_environment_really_is_a_legacy_console(scratch):
+    """Control of the instrument: without it the tests below could pass on a
+    UTF-8 stream and prove nothing. The child must report the code page, and the
+    characters the lint reports on must not be encodable in it."""
+    done = subprocess.run(
+        [sys.executable, "-B", "-c", "import sys; print(sys.stdout.encoding)"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=_child_env(scratch, LEGACY_CONSOLE),
+    )
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.strip().lower().replace("-", "") in (
+        "cp1252",
+        "windows1252",
+    ), done.stdout
+    for sample in ("Ω", "Я", "い"):  # Greek, Cyrillic, hiragana
+        with pytest.raises(UnicodeEncodeError):
+            sample.encode(LEGACY_CODEC)
+
+
+def test_the_failure_message_carries_the_childs_stderr_or_says_it_was_empty():
+    """The message is the only thing a reader of a red CI log has."""
+    crashed = Run(
+        1, "R08 ...\n", "Traceback (most recent call last):\nUnicodeEncodeError"
+    )
+    text = child_report(crashed, "the lint")
+    assert "UnicodeEncodeError" in text and "child exit code: 1" in text
+    quiet = child_report(Run(0, "R08 ...\n", ""), "the lint")
+    assert "child stderr: (empty)" in quiet
+
+
+def test_lint_runs_to_the_end_on_a_legacy_console(scratch):
+    """The lint exits 0 with an empty stderr and prints the rules that follow R08
+    (R09, R12, R13), each over a non-zero denominator, on a cp1252 stream."""
+    res = run_font_legacy_console(BUILD, ["--lint"], scratch)
+    assert res.returncode == 0, child_report(res, "--lint did not exit 0")
+    assert res.stderr == "", child_report(res, "--lint wrote to stderr")
+    assert "Traceback" not in res.text, child_report(res, "--lint crashed")
+    rules = lint_rules(res.stdout)
+    for code in ("R08", "R09", "R12", "R13"):
+        assert code in rules, child_report(res, "%s is missing from the report" % code)
+        examined, violations = rules[code]
+        assert examined > 0, child_report(res, "%s examined nothing" % code)
+        assert violations == 0, child_report(res, "%s reports violations" % code)
+    for header in ("R09 ", "R12 ", "R13 "):
+        assert header in res.stdout, child_report(res, "no %r header" % header)
+    assert "lint violations: 0" in res.stdout, child_report(
+        res, "the closing verdict line is missing"
+    )
+
+
+def test_lint_controls_run_to_the_end_on_a_legacy_console(scratch):
+    """Every control is caught, the runner says so, and nothing reaches stderr."""
+    res = run_font_legacy_console("lint_controls.py", [], scratch)
+    assert res.returncode == 0, child_report(res, "lint_controls did not exit 0")
+    assert res.stderr == "", child_report(res, "lint_controls wrote to stderr")
+    assert "ALL CONTROLS CAUGHT" in res.stdout, child_report(
+        res, "lint_controls did not report every control caught"
+    )
+    assert "SOME CONTROL MISSED" not in res.stdout, child_report(
+        res, "lint_controls reported a missed control"
+    )
+    ran = re.search(
+        r"controls run: (\d+)\s+skipped \(record not in the sources\): (\d+)",
+        res.stdout,
+    )
+    assert ran, child_report(res, "the controls denominator is missing")
+    assert int(ran[1]) >= 48 and int(ran[2]) == 0, child_report(
+        res, "controls run / skipped is %s / %s" % (ran[1], ran[2])
+    )
