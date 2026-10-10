@@ -27,9 +27,9 @@ style and the default mode.
 |---|---|---|---|
 | Washi & Kintsugi | `washi-kintsugi` | data committed; canonical (default style, default mode Light) | Quiet paper-and-lacquer chrome: gold seams in Light, red seams in Dark, solid axis-aligned rings, a 1 px nick on docked child frames, a kintsugi bracket ornament and a seigaiha (wave) pattern. |
 | Edo Night | `edo-night` | data committed | A light line on a dark field with a double rule: amber in Light, vermilion in Dark, rounded docked child frames, a tomoe-hook ornament and a kikko (hexagon lattice) pattern. |
-| Arcade Kikko | `arcade-kikko` | forthcoming | The style id is reserved. Its role map and templates are not part of this version, so this guide documents no palette and no template for it. |
+| Arcade Kikko | `arcade-kikko` | data committed | Bright arcade-hardware chrome on a teal-grey field: gold in Light, red in Dark, three-ring bevelled frames, a 45 degree chamfer on docked child frames, a kikko hex-stud ornament and a bishamon kikko pattern (a hexagon lattice with a three-dot cluster in every hexagon). |
 
-Rules that hold for every style, shipped or not:
+Rules that hold for every style:
 
 - Every style carries exactly the same 24 role keys in both modes. The contrast
   check refuses a catalogue in which one role map has a key another lacks.
@@ -40,13 +40,15 @@ Rules that hold for every style, shipped or not:
 - The light source is the top left in every bevel: pale tones on the top and
   left rings, dark tones on the bottom and right.
 
-Both shipped styles drawn from their committed data, Light on the left and Dark
-on the right (the figure is built by composing the committed templates at 3x,
+The three styles drawn from their committed data, Light on the left and Dark
+on the right (each figure is built by composing the committed templates at 3x,
 with no text, so only the art is shown):
 
 ![Washi and Kintsugi templates in Light and Dark: four button states, a focused button, two fields, a dock title and body, a dialog with four corner ornaments, a menu, a tooltip and the wave pattern.](images/style-guide/washi-kintsugi-templates.png)
 
 ![Edo Night templates in Light and Dark: the same set with rounded child frames, double-rule frames, tomoe-hook ornaments and the hexagon pattern.](images/style-guide/edo-night-templates.png)
+
+![Arcade Kikko templates in Light and Dark: the same set with chamfered child frames, bevelled three-ring frames, hex-stud ornaments and the hexagon pattern with a dot cluster in every hexagon.](images/style-guide/arcade-kikko-templates.png)
 
 Reading each panel, top to bottom: the four button states (normal, hover,
 pressed, checked); a focused button and a plain and a focused field; a dock
@@ -64,32 +66,32 @@ role that is translucent; it is composited over the checker colour it lies on
 before it is measured. Art pixels are never translucent: alpha in every
 template render is 0 or 255.
 
-| # | Role key | What it colours | Washi light | Washi dark | Edo light | Edo dark |
-|---|---|---|---|---|---|---|
-| 1 | `background` | Window ground, dock bodies, dialog interiors; the only ground a pattern is drawn on. | `#EBDDB8` | `#1A1612` | `#E4E6EE` | `#181425` |
-| 2 | `surface` | Fill of lists, fields, menus, tooltips, tabs and unpressed buttons. | `#FFFFFB` | `#2A2420` | `#FFFFFB` | `#232B44` |
-| 3 | `text` | Body text and menu text on `background`, `surface`, `hover`, `pressed` and `pattern`. | `#27221F` | `#EFE2C4` | `#192236` | `#FFFFFB` |
-| 4 | `accent` | Selected-state fill (checked buttons, selected tabs, selected rows). | `#F2B01E` | `#C8283A` | `#FFC53D` | `#FF3500` |
-| 5 | `accent_text` | Text on `accent`, and the 1 px selected-state cue ring inside an accent fill. | `#27221F` | `#FFFFFB` | `#192236` | `#171412` |
-| 6 | `border` | The 1 px outline of a plain widget on `background` or `surface`. | `#7A6A55` | `#8F8068` | `#5B6A8C` | `#8791BA` |
-| 7 | `focus` | The keyboard-focus overlay ring (2 art pixels) and nothing else. | `#8F1D21` | `#FFE08A` | `#2A3F9F` | `#FFF6C8` |
-| 8 | `disabled_text` | Text of a disabled control. | `#9A8F7E` | `#7A6F60` | `#8E96AA` | `#6E7596` |
-| 9 | `canvas_checker_light` | Light squares of the transparency checker behind the document. | `#FFFFFB` | `#4A423A` | `#FFFFFF` | `#3E4767` |
-| 10 | `canvas_checker_dark` | Dark squares of the transparency checker behind the document. | `#E3D7B8` | `#3A332D` | `#D5D8E4` | `#2E3652` |
-| 11 | `canvas_grid` | Pixel-grid lines drawn over the document. The only translucent role (`#AARRGGBB`). | `#70524A3A` | `#80C8B890` | `#70192236` | `#80B4BCDC` |
-| 12 | `canvas_workspace` | The flat colour around the document; never patterned. | `#D6C8A2` | `#120F0C` | `#C9CDDC` | `#100C1B` |
-| 13 | `canvas_border` | The edge of the document against the workspace. | `#3A2E24` | `#C8B890` | `#192236` | `#B4BCDC` |
-| 14 | `frame_edge` | Outermost line of every frame and popup. | `#2A211B` | `#EAD4AA` | `#192236` | `#EAD4AA` |
-| 15 | `frame_hi` | Light bevel tone: the top and left of bevelled frames and buttons, the bottom and right of a sunken field. | `#FFE9A3` | `#FFFFFB` | `#FFFFFB` | `#FFFFFB` |
-| 16 | `frame_mid` | Mid-tone ring: the seam ring of docks and dialogs and the closing line of buttons, menus and tooltips. Gold in Light, red in Dark. | `#D9A01A` | `#B03040` | `#E5A21D` | `#C9302C` |
-| 17 | `frame_lo` | Shaded bevel tone: the bottom and right of bevelled frames, the top and left of a sunken field, and the button ring of Edo Night. | `#A8791A` | `#4A1218` | `#3B4A70` | `#4A1220` |
-| 18 | `title_fill` | Band of a dock title plate and of a dialog heading row. | `#27221F` | `#2E0F12` | `#192236` | `#2E1630` |
-| 19 | `title_text` | Dock title text, title-bar glyphs (close, float) and the heading text. | `#F6D878` | `#EAD4AA` | `#FFD66B` | `#EAD4AA` |
-| 20 | `ornament` | Fill of the corner ornament. | `#F2B01E` | `#C8283A` | `#FFC53D` | `#FF3500` |
-| 21 | `ornament_outline` | Outline of the corner ornament. | `#27221F` | `#EAD4AA` | `#192236` | `#EAD4AA` |
-| 22 | `pattern` | Ink of the pattern tile, painted over `background`. | `#DCCDA2` | `#2E2822` | `#D4D8E6` | `#262C48` |
-| 23 | `hover` | Fill of a hovered button and of a tooltip. | `#FFF4D2` | `#38302A` | `#FFF0C2` | `#2E3858` |
-| 24 | `pressed` | Fill of a pressed button. | `#F3E0A6` | `#1E1814` | `#F5DC94` | `#1A2038` |
+| # | Role key | What it colours | Washi light | Washi dark | Edo light | Edo dark | Arcade light | Arcade dark |
+|---|---|---|---|---|---|---|---|---|
+| 1 | `background` | Window ground, dock bodies, dialog interiors; the only ground a pattern is drawn on. | `#EBDDB8` | `#1A1612` | `#E4E6EE` | `#181425` | `#D8E0DA` | `#0F1A1D` |
+| 2 | `surface` | Fill of lists, fields, menus, tooltips, tabs and unpressed buttons. | `#FFFFFB` | `#2A2420` | `#FFFFFB` | `#232B44` | `#F6F8F2` | `#1C2D31` |
+| 3 | `text` | Body text and menu text on `background`, `surface`, `hover`, `pressed` and `pattern`. | `#27221F` | `#EFE2C4` | `#192236` | `#FFFFFB` | `#171412` | `#FFFFFB` |
+| 4 | `accent` | Selected-state fill (checked buttons, selected tabs, selected rows). | `#F2B01E` | `#C8283A` | `#FFC53D` | `#FF3500` | `#FFB800` | `#C0302A` |
+| 5 | `accent_text` | Text on `accent`, and the 1 px selected-state cue ring inside an accent fill. | `#27221F` | `#FFFFFB` | `#192236` | `#171412` | `#171412` | `#FFFFFB` |
+| 6 | `border` | The 1 px outline of a plain widget on `background` or `surface`. | `#7A6A55` | `#8F8068` | `#5B6A8C` | `#8791BA` | `#4F6B6A` | `#7FA3A0` |
+| 7 | `focus` | The keyboard-focus overlay ring (2 art pixels) and nothing else. | `#8F1D21` | `#FFE08A` | `#2A3F9F` | `#FFF6C8` | `#A3162A` | `#FFE14D` |
+| 8 | `disabled_text` | Text of a disabled control. | `#9A8F7E` | `#7A6F60` | `#8E96AA` | `#6E7596` | `#8A9A98` | `#6B8582` |
+| 9 | `canvas_checker_light` | Light squares of the transparency checker behind the document. | `#FFFFFB` | `#4A423A` | `#FFFFFF` | `#3E4767` | `#FFFFFF` | `#3A5054` |
+| 10 | `canvas_checker_dark` | Dark squares of the transparency checker behind the document. | `#E3D7B8` | `#3A332D` | `#D5D8E4` | `#2E3652` | `#CBD6D0` | `#2A3C40` |
+| 11 | `canvas_grid` | Pixel-grid lines drawn over the document. The only translucent role (`#AARRGGBB`). | `#70524A3A` | `#80C8B890` | `#70192236` | `#80B4BCDC` | `#70264348` | `#80A8C8C4` |
+| 12 | `canvas_workspace` | The flat colour around the document; never patterned. | `#D6C8A2` | `#120F0C` | `#C9CDDC` | `#100C1B` | `#BCC9C3` | `#0A1214` |
+| 13 | `canvas_border` | The edge of the document against the workspace. | `#3A2E24` | `#C8B890` | `#192236` | `#B4BCDC` | `#1B2E31` | `#A8C8C4` |
+| 14 | `frame_edge` | Outermost line of every frame and popup. | `#2A211B` | `#EAD4AA` | `#192236` | `#EAD4AA` | `#1B2E31` | `#A8D0CC` |
+| 15 | `frame_hi` | Light bevel tone: the top and left of bevelled frames and buttons, the bottom and right of a sunken field. | `#FFE9A3` | `#FFFFFB` | `#FFFFFB` | `#FFFFFB` | `#FFFFFB` | `#E8FFFB` |
+| 16 | `frame_mid` | Mid-tone ring: the seam ring of docks and dialogs and the closing line of buttons, menus and tooltips. Gold in Light, red in Dark. | `#D9A01A` | `#B03040` | `#E5A21D` | `#C9302C` | `#FFB800` | `#C0302A` |
+| 17 | `frame_lo` | Shaded bevel tone: the bottom and right of bevelled frames, the top and left of a sunken field, and the button ring of Edo Night. | `#A8791A` | `#4A1218` | `#3B4A70` | `#4A1220` | `#5E7F7C` | `#5A1412` |
+| 18 | `title_fill` | Band of a dock title plate and of a dialog heading row. | `#27221F` | `#2E0F12` | `#192236` | `#2E1630` | `#264348` | `#10282C` |
+| 19 | `title_text` | Dock title text, title-bar glyphs (close, float) and the heading text. | `#F6D878` | `#EAD4AA` | `#FFD66B` | `#EAD4AA` | `#FFD54A` | `#FFFFFB` |
+| 20 | `ornament` | Fill of the corner ornament. | `#F2B01E` | `#C8283A` | `#FFC53D` | `#FF3500` | `#FFB800` | `#C0302A` |
+| 21 | `ornament_outline` | Outline of the corner ornament. | `#27221F` | `#EAD4AA` | `#192236` | `#EAD4AA` | `#1B2E31` | `#E8FFFB` |
+| 22 | `pattern` | Ink of the pattern tile, painted over `background`. | `#DCCDA2` | `#2E2822` | `#D4D8E6` | `#262C48` | `#E6ECE6` | `#243A3E` |
+| 23 | `hover` | Fill of a hovered button and of a tooltip. | `#FFF4D2` | `#38302A` | `#FFF0C2` | `#2E3858` | `#FFF3C4` | `#26393E` |
+| 24 | `pressed` | Fill of a pressed button. | `#F3E0A6` | `#1E1814` | `#F5DC94` | `#1A2038` | `#F2DB82` | `#142226` |
 
 ## 3. Contrast floors and the declared pairs
 
@@ -108,7 +110,7 @@ fill against the unselected fill, or disabled text, which WCAG exempts).
 **Derived focus pairs.** The focus pairs are not listed in the manifest. The
 check composes every focusable framed control with its focus ring over each
 ground, finds every role the ring actually touches (4-neighbour adjacency), and
-gates `focus` against each of those roles at 3.0. In both shipped styles the
+gates `focus` against each of those roles at 3.0. In all three styles the
 ring touches `accent`, `background`, `hover`, `pressed` and `surface`. A ring
 that began touching a frame colour would add a gated pair automatically, and
 the check refuses to pass if the ring touches nothing.
@@ -119,29 +121,29 @@ Run it from the repository root:
 python scripts/check_theme_contrast.py
 ```
 
-Measured on the committed data (every gated pair, four themes):
+Measured on the committed data (every gated pair, six themes):
 
-| Pair (foreground on background) | Kind | Floor | `washi-kintsugi/light` | `washi-kintsugi/dark` | `edo-night/light` | `edo-night/dark` |
-|---|---|---|---|---|---|---|
-| `text` on `background` | text | 4.5 | 11.662 | 14.002 | 12.734 | 17.972 |
-| `text` on `surface` | text | 4.5 | 15.694 | 11.917 | 15.830 | 13.961 |
-| `text` on `hover` | text | 4.5 | 14.326 | 10.063 | 13.975 | 11.493 |
-| `text` on `pressed` | text | 4.5 | 12.004 | 13.668 | 11.748 | 16.021 |
-| `text` on `pattern` | text | 4.5 | 9.962 | 11.329 | 11.156 | 13.636 |
-| `accent_text` on `accent` | text | 4.5 | 8.244 | 5.483 | 10.054 | 5.031 |
-| `title_text` on `title_fill` | text | 4.5 | 11.246 | 12.149 | 11.397 | 11.382 |
-| `border` on `background` | component | 3 | 3.872 | 4.673 | 4.338 | 5.825 |
-| `border` on `surface` | component | 3 | 5.211 | 3.977 | 5.392 | 4.525 |
-| `frame_edge` on `background` | component | 3 | 11.689 | 12.417 | 12.734 | 12.437 |
-| `frame_edge` on `surface` | component | 3 | 15.730 | 10.568 | 15.830 | 9.661 |
-| `ornament_outline` on `background` | component | 3 | 11.662 | 12.417 | 12.734 | 12.437 |
-| `ornament_outline` on `surface` | component | 3 | 15.694 | 10.568 | 15.830 | 9.661 |
-| `canvas_border` on `canvas_workspace` | component | 3 | 7.921 | 9.746 | 10.012 | 10.241 |
-| `focus` on `accent` | focus | 3 | 4.652 | 4.262 | 5.760 | 3.344 |
-| `focus` on `background` | focus | 3 | 6.581 | 13.946 | 7.295 | 16.531 |
-| `focus` on `hover` | focus | 3 | 8.084 | 10.023 | 8.006 | 10.571 |
-| `focus` on `pressed` | focus | 3 | 6.774 | 13.614 | 6.730 | 14.735 |
-| `focus` on `surface` | focus | 3 | 8.856 | 11.870 | 9.068 | 12.841 |
+| Pair (foreground on background) | Kind | Floor | `washi-kintsugi/light` | `washi-kintsugi/dark` | `edo-night/light` | `edo-night/dark` | `arcade-kikko/light` | `arcade-kikko/dark` |
+|---|---|---|---|---|---|---|---|---|
+| `text` on `background` | text | 4.5 | 11.662 | 14.002 | 12.734 | 17.972 | 13.617 | 17.666 |
+| `text` on `surface` | text | 4.5 | 15.694 | 11.917 | 15.830 | 13.961 | 17.139 | 14.260 |
+| `text` on `hover` | text | 4.5 | 14.326 | 10.063 | 13.975 | 11.493 | 16.476 | 12.059 |
+| `text` on `pressed` | text | 4.5 | 12.004 | 13.668 | 11.748 | 16.021 | 13.299 | 16.283 |
+| `text` on `pattern` | text | 4.5 | 9.962 | 11.329 | 11.156 | 13.636 | 15.286 | 11.972 |
+| `accent_text` on `accent` | text | 4.5 | 8.244 | 5.483 | 10.054 | 5.031 | 10.573 | 5.666 |
+| `title_text` on `title_fill` | text | 4.5 | 11.246 | 12.149 | 11.397 | 11.382 | 7.514 | 15.382 |
+| `border` on `background` | component | 3 | 3.872 | 4.673 | 4.338 | 5.825 | 4.280 | 6.450 |
+| `border` on `surface` | component | 3 | 5.211 | 3.977 | 5.392 | 4.525 | 5.387 | 5.207 |
+| `frame_edge` on `background` | component | 3 | 11.689 | 12.417 | 12.734 | 12.437 | 10.524 | 10.591 |
+| `frame_edge` on `surface` | component | 3 | 15.730 | 10.568 | 15.830 | 9.661 | 13.246 | 8.549 |
+| `ornament_outline` on `background` | component | 3 | 11.662 | 12.417 | 12.734 | 12.437 | 10.524 | 16.974 |
+| `ornament_outline` on `surface` | component | 3 | 15.694 | 10.568 | 15.830 | 9.661 | 13.246 | 13.701 |
+| `canvas_border` on `canvas_workspace` | component | 3 | 7.921 | 9.746 | 10.012 | 10.241 | 8.288 | 10.566 |
+| `focus` on `accent` | focus | 3 | 4.652 | 4.262 | 5.760 | 3.344 | 4.475 | 4.362 |
+| `focus` on `background` | focus | 3 | 6.581 | 13.946 | 7.295 | 16.531 | 5.764 | 13.602 |
+| `focus` on `hover` | focus | 3 | 8.084 | 10.023 | 8.006 | 10.571 | 6.974 | 9.284 |
+| `focus` on `pressed` | focus | 3 | 6.774 | 13.614 | 6.730 | 14.735 | 5.629 | 12.537 |
+| `focus` on `surface` | focus | 3 | 8.856 | 11.870 | 9.068 | 12.841 | 7.255 | 10.979 |
 
 The check prints its own controls first and refuses to pass without them: it
 must fail a known failing pair (2.61:1 text), pass a known passing pair, refuse
@@ -163,22 +165,31 @@ check_theme_contrast: controls 6/6 behave as designed
 == edo-night/dark ==
   examined 34: declared 29 + derived focus 5; gated 19 (pass 19, fail 0); info 15; errors 0
   worst gated margin: focus on accent 3.344 (margin +0.344)
+== arcade-kikko/light ==
+  examined 34: declared 29 + derived focus 5; gated 19 (pass 19, fail 0); info 15; errors 0
+  worst gated margin: border on background 4.280 (margin +1.280)
+== arcade-kikko/dark ==
+  examined 34: declared 29 + derived focus 5; gated 19 (pass 19, fail 0); info 15; errors 0
+  worst gated margin: accent_text on accent 5.666 (margin +1.166)
 focus pairs derived for washi-kintsugi: accent x128, background x400, hover x128, pressed x128, surface x656
 focus pairs derived for edo-night: accent x128, background x400, hover x128, pressed x128, surface x656
-role-key parity: 4 role map(s) examined, 24 key(s) each, identical
-TOTAL: 4 combination(s); gated pairs examined 76; pass 76, fail 0; info 60; errors 0
+focus pairs derived for arcade-kikko: accent x128, background x400, hover x128, pressed x128, surface x656
+role-key parity: 6 role map(s) examined, 24 key(s) each, identical
+TOTAL: 6 combination(s); gated pairs examined 114; pass 114, fail 0; info 90; errors 0
 RESULT: PASS
 ```
 
 Tightest gated pairs: `focus` on `accent` in Edo Night Dark (3.344 against 3.0)
-and `accent_text` on `accent` in Edo Night Dark (5.031 against 4.5). Rendered
+and `accent_text` on `accent` in Edo Night Dark (5.031 against 4.5). The tightest
+Arcade Kikko pairs are `border` on `background` in Light (4.280 against 3.0) and
+`accent_text` on `accent` in Dark (5.666 against 4.5). Rendered
 contrast (anti-aliasing, font hinting) is not measured here; every ratio is a
 pure function of the role colours.
 
 Selected state, measured by colour alone (`accent` on `surface`, info): 1.904
-(Washi Light), 2.785 (Washi Dark), 1.574 (Edo Light), 3.840 (Edo Dark). Three of
-the four are below 3.0, which is why a selected control never relies on its
-fill alone. It carries a 1 px `accent_text` cue ring inside the fill, and
+(Washi Light), 2.785 (Washi Dark), 1.574 (Edo Light), 3.840 (Edo Dark), 1.621
+(Arcade Light), 2.517 (Arcade Dark). Five of the six are below 3.0, which is why
+a selected control never relies on its fill alone. It carries a 1 px `accent_text` cue ring inside the fill, and
 `accent_text` on `accent` is gated at 4.5.
 
 ## 4. Templates: grammar and legend
@@ -188,7 +199,7 @@ is one cell, one cell is one art pixel, and a character is a role index, never
 a colour. `_` is transparent. No template file contains a colour literal (every template
 file was scanned for one).
 
-The legend (identical in both shipped styles, declared in `templates.json`):
+The legend (identical in all three styles, declared in `templates.json`):
 
 | Symbol | Role | Symbol | Role |
 |---|---|---|---|
@@ -252,6 +263,12 @@ Frames: `dock_title`, `dock_body`, `panel`, `dialog`, `heading`. Controls:
 pixel corner treatment; the notch shows the parent's `background`. Popups,
 dialogs, fields and sub-controls are square, because the corner cells of those
 widgets show the widget's own background and cannot be made transparent.
+Arcade Kikko cuts a 45 degree chamfer on docked child frames: 3 cells on the
+dock title, the dock body and the panel, 2 cells on buttons and tabs. A notch
+shows the widget's own background, so for it to show the parent's the dock
+title declares no `background` (its plate colour comes from the `T` cells) and
+the framed selectors (`QPushButton`, `QToolButton`, `QToolBar`,
+`QFrame#DockBody`) declare `background: transparent`.
 
 **Docks and dialogs.** A dock title plate is 20 rows high: three ring rows, 16
 title rows (the template row repeats) and one seam row, so the 14 px text line
@@ -303,6 +320,7 @@ master, flipped horizontally and vertically for the other corners) in the
 |---|---|---|---|
 | Washi & Kintsugi | kintsugi bracket: ink-outlined gold or red arms and a plus-shaped gem | 10 x 10 | the frame's ring count (3), so the arms do not hide in the ring lines |
 | Edo Night | tomoe hook, an original shape that nods to the mitsudomoe | 11 x 11 | 0, flush with the outer corner |
+| Arcade Kikko | kikko hex stud: an outlined gold or red hexagon (2:1 sides) with a small outlined square core | 9 x 9 | 0, flush with the outer corner |
 
 Placement: docks carry ornaments on the **bottom corners only** (the title plate
 is on top); dialogs carry all four. **Clear zone:** no text and no framed
@@ -324,13 +342,29 @@ _U________                     _UOU_______
                                __U________
 ```
 
+Arcade Kikko (9 x 9):
+
+```
+__UUUUU__
+__UOOOU__
+_UOOOOOU_
+_UOUUUOU_
+UOOUOUOOU
+_UOUUUOU_
+_UOOOOOU_
+__UOOOU__
+__UUUUU__
+```
+
 ## 7. Pattern surfaces
 
 Each style has one seamless pattern tile (`pattern.grid.txt`): seigaiha waves,
 16 x 16, in Washi & Kintsugi; a kikko hexagon lattice with 2:1 sides, 12 x 8,
-in Edo Night. The tile is drawn in the `pattern` role over the `background`
-role, and it is faint by role: `pattern` on `background` measures 1.171, 1.236,
-1.141 and 1.318 (info). The tile is verified to reproduce itself across period
+in Edo Night; a bishamon kikko lattice, 12 x 8, in Arcade Kikko (the same kind
+of hexagon lattice with a deliberate three-dot cluster in every hexagon). The
+tile is drawn in the `pattern` role over the `background` role, and it is faint
+by role: `pattern` on `background` measures 1.171, 1.236, 1.141 and 1.318 (info)
+in the first two styles and 1.123 (Light) and 1.476 (Dark) in Arcade Kikko. The tile is verified to reproduce itself across period
 windows, so it has no seam when tiled.
 
 The rules, in order of importance:
@@ -435,7 +469,10 @@ f044120628670a960f0b0c537e0570ca613bc21db8ad10fd5855a8c308310db6  logo-master-24
   image editor and no third-party drawing tool touched the art. The committed
   data is checked by scripts, not by eye: every cell a declared role index,
   slices within bounds, seamless repeat edges and tiles, no colour literal, 1x
-  and 2x as an exact nearest-neighbour pair, contrast floors met.
+  and 2x as an exact nearest-neighbour pair, contrast floors met. The committed
+  Arcade Kikko data reproduces its approved drawings exactly: every template and
+  the pattern, rendered at 1x and 2x in both modes, is pixel-identical to the
+  approved render (116 of 116 renders).
 - **Method (logo).** The five masters were drawn pixel by pixel through the
   application's pixel buffer at their native sizes from one design, then
   checked: exact size, binary alpha, declared colours, no stray pixels, the C
@@ -452,8 +489,10 @@ f044120628670a960f0b0c537e0570ca613bc21db8ad10fd5855a8c308310db6  logo-master-24
 - **Inspirations are described in words only.** Washi (handmade paper) and
   kintsugi (gold lacquer mending) for Washi & Kintsugi; Edo-period night, the
   tomoe and the double rule of a light line on a dark field for Edo Night; the
-  seigaiha wave and the kikko hexagon lattice for the two patterns. Words, not images: no reference was transcribed into a
-  grid.
+  bright bevels and chamfered corners of arcade hardware for Arcade Kikko; the
+  seigaiha wave, the kikko hexagon lattice and the bishamon kikko variant (a
+  dot in every hexagon) for the three patterns. Words, not images: no reference
+  was transcribed into a grid.
 - **The typeface** has its own provenance and licence in
   `pixelart_creator/fonts/FONTLOG.txt`.
 
@@ -470,3 +509,6 @@ Copyright and licence of the project are in `LICENSE` and `NOTICE`.
    gated pair must pass, and the counts must be non-zero.
 4. Check by eye that the focus ring, the cue ring and the pattern follow
    sections 5 and 7, at 1x and at 2x.
+5. If the style cuts the corners of docked child frames, apply the two
+   stylesheet rules of the Corners paragraph in section 4, or the notch shows
+   the wrong colour.
