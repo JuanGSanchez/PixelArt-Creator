@@ -7,15 +7,18 @@ be distributed with the fonts and with any derivative of them.
 Nifen Art is licensed under the SIL Open Font License, Version 1.1 (see
 OFL.txt, which is distributed with the fonts). The license applies to the font
 files and to the glyph sources they are built from. The program that bundles
-the fonts is licensed separately.
+the fonts is licensed separately. The hiragana are adapted from Ark Pixel
+Font, which is licensed under the same license (see Acknowledgements).
 
 
 Basic Font Information
 ----------------------
 
-Nifen Art is an original pixel typeface for user interfaces: menus, titles,
-tabs and buttons. It comes in two files, Regular and Bold, which form one
-style-linked family named "Nifen Art".
+Nifen Art is a pixel typeface for user interfaces: menus, titles, tabs and
+buttons. It comes in two files, Regular and Bold, which form one style-linked
+family named "Nifen Art". Everything in it was drawn for this project except
+the hiragana, which are adapted from Ark Pixel Font (see Design notes and
+Acknowledgements).
 
 Design facts:
 
@@ -59,27 +62,48 @@ dotless j, other Cyrillic extensions.
 
 Design notes:
 
-- Every glyph is an original drawing made for this grid. No glyph, outline or
-  metric was copied or adapted from another font.
+- Every glyph except the hiragana is an original drawing made for this grid.
+  No glyph, outline or metric of the Latin, Greek, Cyrillic, katakana, symbol
+  or punctuation glyphs was copied or adapted from another font. The hiragana
+  are the one exception, described below.
 - Where two letters have the same shape on this grid (for example Latin A,
   Greek Alpha and Cyrillic A) they share one drawing; letters that differ at
   all, even slightly, are drawn separately.
-- Kana fill a 10 by 11 pixel box inside the 12 pixel cell. The hiragana were
-  redrawn with one rule in mind: letters that are easy to confuse at 12 pixels
-  must differ by a feature that survives in both weights (for example nu has a
-  small closing loop at the end of its last stroke where me has none; ha and
-  ho differ by the second bar that crosses the right-hand stem of ho; sa has
-  one bar and a stem that runs on into its hook, ki two bars and a hook of its
-  own). Curves are approximated by clean diagonals of 1:1 and 1:2.
-- Small hiragana are about three quarters of the full height (at most 8 of 11
-  rows), centred in the cell and set on its bottom row, as in horizontal
-  Japanese text. The small katakana keep their earlier placement at the left
-  of the cell.
-- Voiced and semi-voiced kana are the plain kana plus the voicing mark at the
-  upper right, composed by rule: the part of the base that would touch the mark
-  is cut away, so the mark never touches the base in either weight. Where that
-  cut would remove a feature that tells the letter apart, the glyph is drawn
-  by hand.
+- A full-width cell is 12 pixels wide and takes ink 11 pixels wide and 11 tall in
+  Regular (columns 0 to 10, rows -1 to 9); Bold may reach column 11, the last
+  column of the advance, so Bold ink can touch the first column of the next
+  cell. The katakana are drawn in a 10 by 11 box inside that cell; the hiragana
+  use the full 11 columns. Half-width Latin, Greek and Cyrillic letters are not
+  affected.
+- The hiragana (89 code points, listed under Acknowledgements) are adapted
+  from the 12 pixel monospaced Japanese variant of Ark Pixel Font, version
+  2026.09.25 (Copyright (c) 2021, TakWolf, https://takwolf.com; SIL Open Font
+  License 1.1; the donor declares no Reserved Font Name). Each letter keeps
+  the donor drawing, pixel for pixel, except for the changes the kana cell of
+  this typeface needs: (1) every letter is moved up one row (the donor ink
+  sits on rows -2..8, the cell on rows -1..9); (2) the small letters are
+  centred in the cell (2 letters moved one column; the others keep their
+  column); (3) in 4 letters (yu, re, wa and the small wa) one corner pixel of
+  a 2 by 2 block was removed so that Regular strokes stay one pixel wide. No
+  column or row of any letter was removed: 85 letters differ from the donor
+  by the move alone, and 4 by one pixel each. The Bold of the hiragana is
+  derived by the rule of this typeface and corrected, where the rule closes a
+  counter or fuses two parts (or, in three letters, fuses the two voicing
+  ticks), by 50 drawings made for this project: 47 are the derived Bold with
+  the fewest changes that restore the counters and parts, 3 were drawn by
+  hand. The spacing voiced and semi-voiced marks (U+309B, U+309C) and all
+  katakana are original. The source files that hold the adapted letters carry
+  the donor notice in their headers.
+- Small hiragana are at most 9 of 11 rows tall and 9 columns wide, centred in the
+  cell and set on its bottom row, as in horizontal Japanese text. The small katakana keep
+  their earlier placement at the left of the cell.
+- The voiced and semi-voiced hiragana are donor drawings, not the plain letter
+  plus a mark: the donor redraws part of some letters (for example ku, se and
+  ho) to make room for the mark. Voiced and semi-voiced katakana are the plain
+  kana plus the voicing mark at the upper right, composed by rule: the part of
+  the base that would touch the mark is cut away, so the mark never touches
+  the base in either weight. Where that cut would remove a feature that tells
+  the letter apart, the glyph is drawn by hand.
 - The fonts are generated from plain-text glyph grids by a deterministic build:
   rebuilding the same sources gives byte-identical files.
 
@@ -110,12 +134,18 @@ ChangeLog
     R and r drawn detached from the letter.
   - Hiragana and katakana, complete (including small kana, voiced and
     semi-voiced forms), Japanese punctuation and full-width forms.
-  - Hiragana redrawn (the 46 basic letters, wi, we, the small forms, the
-    iteration marks and the yori ligature), Regular and Bold, in the same
-    12 pixel cell: confusable letters differ by a feature that survives at
-    12 pixels; small hiragana centred in the cell; the voicing marks redesigned
-    around cuts that keep the letter recognisable. Katakana, Latin, Greek and
-    Cyrillic are unchanged.
+  - Hiragana (89 code points: the 46 basic letters, wi, we, the voiced and
+    semi-voiced letters, the small forms, vu, the iteration marks and the
+    yori ligature) adapted from Ark Pixel Font 12 px monospaced (Japanese),
+    version 2026.09.25, placed in the 12 pixel kana cell (widened for this: ink
+    11 columns wide in Regular, up to 12 in Bold, small kana up to 9 by 9) and
+    given a Bold by the rule of this typeface with 50 correction drawings.
+    Apart from the move one row up and one corner pixel in 4 letters, the donor
+    drawings are unchanged. They replace an earlier set of hiragana drawn for
+    this project. Katakana, Latin, Greek and Cyrillic are unchanged.
+  - The copyright record (name ID 0) of both fonts and the first lines of
+    OFL.txt now carry the copyright line of Ark Pixel Font before the line of
+    this typeface.
   - Reserved Font Name "Nifen Art" declared (OFL.txt and the copyright record
     of both fonts).
   - Bold correction pass: hand-drawn Bold forms that keep the gap between
@@ -127,7 +157,24 @@ ChangeLog
 Acknowledgements
 ----------------
 
-Designer and sole contributor: JuanGSanchez.
+Designer of Nifen Art: JuanGSanchez.
+
+The hiragana are adapted from Ark Pixel Font, designed by TakWolf
+(https://takwolf.com, https://github.com/TakWolf/ark-pixel-font), 12 pixel
+monospaced Japanese variant, version 2026.09.25.
+Copyright (c) 2021, TakWolf (https://takwolf.com).
+Ark Pixel Font is licensed under the SIL Open Font License, Version 1.1 and
+declares no Reserved Font Name, which is why this derived font can keep its own
+Reserved Font Name. The adapted letterforms remain under that license, as does
+the rest of this font.
+
+Code points adapted from Ark Pixel Font, version 2026.09.25:
+U+3041-U+3096, U+309D-U+309F
+
+That is every hiragana in the font (89 code points). Nothing else in the font
+comes from Ark Pixel Font: the spacing voiced and semi-voiced marks (U+309B,
+U+309C), the katakana, the Latin, Greek and Cyrillic letters, the symbols and
+the punctuation are original to this project.
 
 The fonts are produced with fontTools (https://github.com/fonttools/fonttools,
 MIT License) at build time. No fontTools code is part of the fonts.

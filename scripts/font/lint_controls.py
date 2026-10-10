@@ -18,6 +18,7 @@ sys.dont_write_bytecode = True
 PY = sys.executable
 REPO = os.path.dirname(os.path.dirname(HERE))
 SOURCES = os.path.join(REPO, "fonts-src", "nifen-art")
+FONTS = os.path.join(REPO, "pixelart_creator", "fonts")
 SCRATCH = tempfile.gettempdir()
 
 
@@ -36,11 +37,22 @@ def show_child_output(r, tail=12):
         print("      | " + ln.encode("ascii", "backslashreplace").decode("ascii"))
 
 
-def run(name, edits, expect_rule, expect_text=None):
+def run(name, edits, expect_rule, expect_text=None, licence_edits=()):
     d = tempfile.mkdtemp(dir=SCRATCH)
     try:
         dst = os.path.join(d, "src")
         shutil.copytree(SOURCES, dst)
+        fonts = os.path.join(d, "fonts")
+        os.makedirs(fonts)
+        for fname in ("OFL.txt", "FONTLOG.txt"):
+            shutil.copy(os.path.join(FONTS, fname), os.path.join(fonts, fname))
+        for fname, old, new in licence_edits:
+            path = os.path.join(fonts, fname)
+            text = open(path, "rb").read().decode("utf-8")
+            if old not in text:
+                print("%-44s skipped (text not in the licence files)" % name)
+                return None
+            open(path, "wb").write(text.replace(old, new, 1).encode("utf-8"))
         for fname, old, new in edits:
             path = os.path.join(dst, fname)
             text = open(path, "rb").read().decode("utf-8")
@@ -50,7 +62,15 @@ def run(name, edits, expect_rule, expect_text=None):
                 return None
             open(path, "wb").write(text.replace(old, new, 1).encode("utf-8"))
         r = subprocess.run(
-            [PY, os.path.join(HERE, "build_nifen_art.py"), "--lint", "--src", dst],
+            [
+                PY,
+                os.path.join(HERE, "build_nifen_art.py"),
+                "--lint",
+                "--src",
+                dst,
+                "--licence-dir",
+                fonts,
+            ],
             capture_output=True,
             encoding="utf-8",
             errors="replace",
@@ -413,23 +433,57 @@ CONTROLS = [
         "hiragana i shifted out of the cell",
         [
             (
-                "hiragana.txt",
-                "glyph U+3044 adv=12 x=1 cell=full ext=free top=10",
-                "glyph U+3044 adv=12 x=4 cell=full ext=free top=10",
+                "hiragana-ark-pixel.txt",
+                "glyph U+3044 adv=12 x=0 cell=full ext=free top=9",
+                "glyph U+3044 adv=12 x=4 cell=full ext=free top=9",
             )
         ],
         "R01",
         "U+3044",
     ),
     (
+        "hiragana i drawn 12 columns wide (the cell takes 11)",
+        [
+            (
+                "hiragana-ark-pixel.txt",
+                "glyph U+3044 adv=12 x=0 cell=full ext=free top=9\n"
+                "#.......#..\n#.......#..\n#........#.\n#........#.\n#........#.\n"
+                "#.........#\n",
+                "glyph U+3044 adv=12 x=0 cell=full ext=free top=9\n"
+                "#.......#...\n#.......#...\n#........#..\n#........#..\n#........#..\n"
+                "#.........##\n",
+            )
+        ],
+        "R01",
+        "U+3044 regular kana ink columns 0..11",
+    ),
+    (
+        "katakana e shifted two columns right (ink to column 12)",
+        [
+            (
+                "katakana.txt",
+                "glyph U+30A8 adv=12 x=1 cell=full ext=free top=8",
+                "glyph U+30A8 adv=12 x=3 cell=full ext=free top=8",
+            )
+        ],
+        "R01",
+        "U+30A8 regular kana ink columns",
+    ),
+    (
+        "half-width H with its advance cut to 4 (ink past the advance)",
+        [("latin-basic.txt", "glyph U+0048 adv=6", "glyph U+0048 adv=4")],
+        "R01",
+        "U+0048 regular ink columns",
+    ),
+    (
         "orphan pixel in hiragana i",
         [
             (
-                "hiragana.txt",
-                "glyph U+3044 adv=12 x=1 cell=full ext=free top=10\n.#........\n"
-                ".#........",
-                "glyph U+3044 adv=12 x=1 cell=full ext=free top=10\n.#.......#\n"
-                ".#........",
+                "hiragana-ark-pixel.txt",
+                "glyph U+3044 adv=12 x=0 cell=full ext=free top=9\n#.......#..\n"
+                "#.......#..",
+                "glyph U+3044 adv=12 x=0 cell=full ext=free top=9\n#.......#.#\n"
+                "#.......#..",
             )
         ],
         "R04",
@@ -450,40 +504,40 @@ CONTROLS = [
         "U+30A8",
     ),
     (
-        "voiced mark touches its base (trim removed from zu)",
+        "voiced mark touches its base (trim removed from ZE)",
         [
             (
                 "recipes-b6.txt",
-                "recipe U+305A = overlay U+3059 U+309B trim=1",
-                "recipe U+305A = overlay U+3059 U+309B",
+                "recipe U+30BC = overlay U+30BB U+309B trim=1",
+                "recipe U+30BC = overlay U+30BB U+309B",
             )
         ],
         "R06",
-        "U+305A",
+        "U+30BC",
     ),
     (
-        "trim cut undeclared (gi loses cut=1)",
+        "trim cut undeclared (GU loses cut=1)",
         [
             (
                 "recipes-b6.txt",
-                "recipe U+304E = overlay U+304D U+309B trim=1 cut=1",
-                "recipe U+304E = overlay U+304D U+309B trim=1",
+                "recipe U+30B0 = overlay U+30AF U+309B trim=1 cut=1",
+                "recipe U+30B0 = overlay U+30AF U+309B trim=1",
             )
         ],
         "R06",
-        "U+304E",
+        "U+30B0",
     ),
     (
-        "cut declared but not needed (gu)",
+        "cut declared but not needed (GE)",
         [
             (
                 "recipes-b6.txt",
-                "recipe U+3050 = overlay U+304F U+309B trim=1",
-                "recipe U+3050 = overlay U+304F U+309B trim=1 cut=1",
+                "recipe U+30B2 = overlay U+30B1 U+309B trim=1",
+                "recipe U+30B2 = overlay U+30B1 U+309B trim=1 cut=1",
             )
         ],
         "R06",
-        "U+3050 declares cut",
+        "U+30B2 declares cut",
     ),
     (
         "trim limit exceeded (limit 2 pixels)",
@@ -492,14 +546,14 @@ CONTROLS = [
         "trim removes",
     ),
     (
-        "Bold overlay of small hiragana i removed",
-        [("bold-overlays-b6.txt", "bold U+3043 ", "bold U+3042 ")],
+        "Bold overlay of small hiragana a removed",
+        [("bold-overlays-ark-pixel.txt", "bold U+3041 ", "bold U+3042 ")],
         "R08",
-        "U+3043 derived Bold",
+        "U+3041 derived Bold",
     ),
     (
-        "Bold overlay of the hand-drawn pu removed",
-        [("bold-overlays-b6.txt", "bold U+3077 ", "bold U+3076 ")],
+        "Bold overlay of the voiced kana pu removed",
+        [("bold-overlays-ark-pixel.txt", "bold U+3077 ", "bold U+3076 ")],
         "R08",
         "U+3077 derived Bold",
     ),
@@ -512,9 +566,9 @@ CONTROLS = [
         "small ya floats above the bottom row",
         [
             (
-                "hiragana.txt",
-                "glyph U+3083 adv=12 x=1 cell=full ext=free top=7",
-                "glyph U+3083 adv=12 x=1 cell=full ext=free top=8",
+                "hiragana-ark-pixel.txt",
+                "glyph U+3083 adv=12 x=0 cell=full ext=free top=8",
+                "glyph U+3083 adv=12 x=0 cell=full ext=free top=9",
             )
         ],
         "R12",
@@ -524,49 +578,129 @@ CONTROLS = [
         "small ya moved to the right half of the cell",
         [
             (
-                "hiragana.txt",
-                "glyph U+3083 adv=12 x=1 cell=full ext=free top=7",
-                "glyph U+3083 adv=12 x=3 cell=full ext=free top=7",
+                "hiragana-ark-pixel.txt",
+                "glyph U+3083 adv=12 x=0 cell=full ext=free top=8",
+                "glyph U+3083 adv=12 x=3 cell=full ext=free top=8",
             )
         ],
         "R12",
         "U+3083",
     ),
     (
-        "small a moved one pixel off the centre of the cell",
+        "small a moved two pixels off the centre of the cell",
         [
             (
-                "hiragana.txt",
-                "glyph U+3041 adv=12 x=1 cell=full ext=free top=7",
-                "glyph U+3041 adv=12 x=0 cell=full ext=free top=7",
+                "hiragana-ark-pixel.txt",
+                "glyph U+3041 adv=12 x=0 cell=full ext=free top=8",
+                "glyph U+3041 adv=12 x=2 cell=full ext=free top=8",
             )
         ],
         "R12",
         "U+3041 regular small kana is not centred",
     ),
     (
-        "base of a hand-drawn voiced kana touches the mark (za)",
+        "small a drawn 10 rows tall (the limit is 9)",
         [
             (
-                "kana-voiced.txt",
-                "....#..#.#\n....#..#.#\n...#......",
-                "....#..#.#\n....#..#.#\n...#..#...",
+                "hiragana-ark-pixel.txt",
+                "glyph U+3041 adv=12 x=0 cell=full ext=free top=8\n",
+                "glyph U+3041 adv=12 x=0 cell=full ext=free top=9\n....#......\n",
             )
         ],
-        "R13",
-        "U+3056 regular: 1 pixel",
+        "R12",
+        "U+3041 regular small kana is 10 rows tall",
     ),
     (
-        "mark pixel missing from a hand-drawn semi-voiced kana (pu)",
+        "small a drawn 10 columns wide (the limit is 9)",
         [
             (
-                "kana-voiced.txt",
-                "...#...##.\n....#.#..#",
-                "...#...#..\n....#.#..#",
+                "hiragana-ark-pixel.txt",
+                "glyph U+3041 adv=12 x=0 cell=full ext=free top=8\n"
+                "....#......\n..#######..\n",
+                "glyph U+3041 adv=12 x=0 cell=full ext=free top=8\n"
+                "....#......\n..#########\n",
+            )
+        ],
+        "R12",
+        "U+3041 regular small kana is 10 columns wide",
+    ),
+    (
+        "base of a composed voiced katakana touches the mark (GA)",
+        [
+            (
+                "kana.txt",
+                "glyph U+30AB adv=12 top=8 x=1 cell=full ext=free"
+                "\n...#......\n.########.",
+                "glyph U+30AB adv=12 top=8 x=1 cell=full ext=free"
+                "\n...#....#.\n.########.",
             )
         ],
         "R13",
-        "U+3077 regular: the voicing mark",
+        "U+30AC regular: 1 pixel",
+    ),
+    (
+        "donor copyright line missing from the header of the donor file",
+        [
+            (
+                "hiragana-ark-pixel.txt",
+                "# Copyright (c) 2021, TakWolf (https://takwolf.com).\n",
+                "",
+            )
+        ],
+        "R14",
+        "header does not state the donor copyright line",
+    ),
+    (
+        "donor file named in the metrics is not among the sources",
+        [
+            (
+                "metrics.txt",
+                "donor_files = hiragana-ark-pixel.txt",
+                "donor_files = hiragana-ark.txt",
+            )
+        ],
+        "R14",
+        "is not among the sources",
+    ),
+    (
+        "prior copyright line removed from the metrics (name ID 0 would lose it)",
+        [
+            (
+                "metrics.txt",
+                "copyright_prior_line_1 = Copyright (c) 2021, TakWolf "
+                "(https://takwolf.com).",
+                "copyright_prior_line_1 =",
+            )
+        ],
+        "R14",
+        "declared together",
+    ),
+    (
+        "a donor letter also composed by a recipe",
+        [
+            (
+                "recipes.txt",
+                "recipe U+30AC = overlay U+30AB U+309B ",
+                "recipe U+3042 = overlay U+3044 U+309B trim=1"
+                "\nrecipe U+30AC = overlay U+30AB U+309B ",
+            )
+        ],
+        "R14",
+        "U+3042 is both a donor drawing and a recipe",
+    ),
+    (
+        "donor copyright line missing from the licence file",
+        [],
+        "R14",
+        "OFL.txt does not state",
+        [("OFL.txt", "Copyright (c) 2021, TakWolf (https://takwolf.com).\n", "")],
+    ),
+    (
+        "donor code points not named in the change log",
+        [],
+        "R14",
+        "FONTLOG.txt does not state",
+        [("FONTLOG.txt", "Code points adapted from", "Code points taken from")],
     ),
     (
         "gap overlay of r wider than the Bold box",

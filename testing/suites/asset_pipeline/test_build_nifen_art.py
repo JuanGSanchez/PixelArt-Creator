@@ -1120,9 +1120,9 @@ LINT_DEFECTS = [
     pytest.param(
         [
             (
-                "hiragana.txt",
-                "glyph U+3083 adv=12 x=1 cell=full ext=free top=7",
-                "glyph U+3083 adv=12 x=1 cell=full ext=free top=8",
+                "hiragana-ark-pixel.txt",
+                "glyph U+3083 adv=12 x=0 cell=full ext=free top=8",
+                "glyph U+3083 adv=12 x=0 cell=full ext=free top=9",
             )
         ],
         "R12",
@@ -1184,6 +1184,381 @@ def test_r10_reports_an_outline_that_does_not_reproduce_the_grid(monkeypatch):
         blank > 0 and len(violations) == examined - blank
     ), "every inked glyph-weight lost a loop (blank ones have nothing to lose)"
     assert report.failed()
+
+
+# --------------------------------------------------------------------------
+# 6b. The widened full-width cell (OF7 Q-29, option a)
+# --------------------------------------------------------------------------
+#
+# The decision: the FULL-WIDTH cell (hiragana, katakana, CJK punctuation) takes
+# ink in columns 0..10 in Regular and 0..11 in Bold (it was 1..10 and 1..11), and
+# the small kana may be 9 rows tall and, when centred, 9 columns wide (they were
+# 8). Half-width, Latin, Greek and Cyrillic limits did not move.
+#
+# Every limit below is READ from ``metrics.txt`` (the keys the lint itself reads),
+# never copied here, except in the one test that pins the decision itself. Each
+# catching case is a COPY of the sources with one defect planted by editing the
+# committed record, and each is paired with its passing twin: the committed
+# record, on the same lint, must be quiet about the same code point. A catching
+# case without a quiet twin could be reporting something that was already there.
+
+_RANGE = re.compile(r"\s*(-?\d+)\s*\.\.\s*(-?\d+)\s*$")
+
+HIRAGANA_SRC = "hiragana-ark-pixel.txt"
+HIRAGANA_A = 0x3042  # full-size, Regular ink columns 0..10, Bold 0..11
+SMALL_A = 0x3041  # centred small kana, 9 x 9 in Regular
+KATAKANA_E = 0x30A8  # full-width, left-placed small-kana family, drawn in katakana.txt
+
+
+def _range_of(key: str) -> Tuple[int, int]:
+    """A ``lo..hi`` metrics value, parsed here and not by the script under test."""
+    found = _RANGE.match(_metrics()[key])
+    assert found, "metrics key %s is no longer a lo..hi range" % key
+    return int(found[1]), int(found[2])
+
+
+def _int_of(key: str) -> int:
+    return int(_metrics()[key])
+
+
+def _weight_limits() -> Dict[str, Tuple[int, int]]:
+    return {
+        "regular": _range_of("cell_ink_x_regular"),
+        "bold": _range_of("cell_ink_x_bold"),
+    }
+
+
+def _record_of(name: str, cp: int) -> Tuple[str, str, List[str]]:
+    """``(whole record text, header line, bitmap rows)`` of a committed record."""
+    old = _record_text(SOURCES, name, "glyph U+%04X " % cp)
+    head, *rows = old.split("\n")
+    assert rows and all(
+        re.fullmatch(r"[.#]+", r) for r in rows
+    ), "U+%04X in %s is not a plain bitmap record" % (cp, name)
+    return old, head, rows
+
+
+def _plant_record(scratch: Path, name: str, cp: int, rewrite) -> Path:
+    """A COPY of the sources whose record of ``cp`` is ``rewrite(header, rows)``."""
+    old, head, rows = _record_of(name, cp)
+    new_head, new_rows = rewrite(head, list(rows))
+    assert (new_head, new_rows) != (head, rows), "the rewrite changed nothing"
+    return plant(scratch, [(name, old, "\n".join([new_head] + new_rows))])
+
+
+def _shifted_one_column_right(head: str, rows: List[str]):
+    """Every row one column further right (the glyph keeps its shape)."""
+    return head, ["." + r for r in rows]
+
+
+def _one_more_column_of_ink(head: str, rows: List[str]):
+    """One pixel beyond the rightmost ink, on the first row that holds it: the
+    glyph is exactly one column wider than it was, whatever its width."""
+    far = max(r.rfind("#") for r in rows)
+    first = next(i for i, r in enumerate(rows) if r.rfind("#") == far)
+    out = [r.ljust(far + 2, ".") for r in rows]
+    out[first] = out[first][: far + 1] + "#" + out[first][far + 2 :]
+    return head, out
+
+
+def _one_more_row_of_ink(head: str, rows: List[str]):
+    """The top row repeated above itself and the header's ``top=`` raised by one:
+    the glyph is exactly one row taller, on the same bottom row."""
+    top = re.search(r"top=(-?\d+)", head)
+    assert top, "no top= in %r" % head
+    raised = head.replace(top[0], "top=%d" % (int(top[1]) + 1), 1)
+    return raised, [rows[0]] + rows
+
+
+def _extent(font, cp: int, weight: str) -> Tuple[int, int, int, int]:
+    """``(first column, last column, rows, columns)`` of the drawn ink."""
+    _bmp, bb = _ink(font, cp, weight)
+    assert bb is not None, "U+%04X %s has no ink" % (cp, weight)
+    return bb[0], bb[2], bb[3] - bb[1] + 1, bb[2] - bb[0] + 1
+
+
+def _lint_of(scratch: Path, src: Path = SOURCES) -> Run:
+    return run_font(BUILD, ["--lint", "--src", src], scratch)
+
+
+def _lines_naming(res: Run, cp: int) -> List[str]:
+    return [ln for ln in violation_lines(res.stdout) if "U+%04X" % cp in ln]
+
+
+def _quiet_twin(scratch: Path, cp: int, rule: str) -> None:
+    """The committed sources: lint clean, the rule examined, nothing about ``cp``."""
+    twin = _lint_of(scratch)
+    assert twin.returncode == 0, twin.text[-800:]
+    examined, violations = lint_rules(twin.stdout)[rule]
+    assert examined > 0 and violations == 0, twin.stdout[-800:]
+    assert _lines_naming(twin, cp) == [], "the twin is not quiet about U+%04X" % cp
+
+
+def _caught(
+    scratch: Path,
+    planted: Path,
+    rule: str,
+    needles: Sequence[str],
+    absent: Sequence[str] = (),
+) -> Run:
+    """The lint exits 1 on the copy, counts the rule, and names each needle on a
+    VIOLATION line; no line carries any of the ``absent`` texts."""
+    res = _lint_of(scratch, planted)
+    assert res.returncode == 1, (
+        "lint accepted the planted defect:\n" + res.stdout[-600:]
+    )
+    examined, violations = lint_rules(res.stdout)[rule]
+    assert examined > 0 and violations >= len(needles), res.stdout[-800:]
+    lines = violation_lines(res.stdout)
+    for needle in needles:
+        assert any(needle in ln for ln in lines), "no VIOLATION line says %r:\n%s" % (
+            needle,
+            "\n".join(lines[:12]),
+        )
+    for text in absent:
+        assert not any(text in ln for ln in lines), "unexpected %r:\n%s" % (
+            text,
+            "\n".join(lines[:12]),
+        )
+    return res
+
+
+def test_the_widened_cell_limits_are_the_ones_the_user_approved():
+    """OF7 Q-29 (a), pinned once and read from ``metrics.txt``: Regular ink takes
+    11 columns, Bold one more, the small kana 9 rows and 9 centred columns. The
+    other tests derive everything from the same keys; this is the one place the
+    decision itself is written down, so narrowing a key back fails here by name."""
+    limits = _weight_limits()
+    assert limits["regular"] == (0, 10), "cell_ink_x_regular is not 0..10"
+    assert limits["bold"] == (0, 11), "cell_ink_x_bold is not 0..11"
+    assert _int_of("small_kana_max_rows") == 9
+    assert _int_of("small_kana_centred_max_cols") == 9
+    assert _int_of("cell_adv_px") == 12, "the advance did not change with the box"
+
+
+def test_a_full_width_glyph_with_ink_in_every_allowed_column_passes_r01(scratch):
+    """Twin of the R01 catches: U+3042 spans the whole Regular box (11 columns,
+    0..10) and the whole Bold box (0..11); R01 examines it and is quiet."""
+    font = _font_of(SOURCES)
+    for weight, (lo, hi) in _weight_limits().items():
+        first, last, _rows, cols = _extent(font, HIRAGANA_A, weight)
+        assert (first, last) == (lo, hi), "U+3042 %s does not fill the box" % weight
+        assert cols == hi - lo + 1
+    _quiet_twin(scratch, HIRAGANA_A, "R01")
+
+
+R01_CELL_DEFECTS = [
+    pytest.param(
+        HIRAGANA_SRC,
+        HIRAGANA_A,
+        _shifted_one_column_right,
+        id="hiragana-a-shifted-one-column-right",
+    ),
+    pytest.param(
+        HIRAGANA_SRC,
+        HIRAGANA_A,
+        _one_more_column_of_ink,
+        id="hiragana-a-twelve-columns-wide",
+    ),
+    pytest.param(
+        "katakana.txt",
+        KATAKANA_E,
+        _shifted_one_column_right,
+        id="katakana-e-shifted-one-column-right",
+    ),
+]
+
+
+@pytest.mark.parametrize("name,cp,rewrite", R01_CELL_DEFECTS)
+def test_ink_beyond_the_cell_columns_is_caught_by_r01(scratch, name, cp, rewrite):
+    """Ink one column beyond the widened box is still INSIDE the 12-pixel advance,
+    so only the cell box can see it: R01 must say 'kana ink columns' (and not
+    'outside advance') for Regular, and for Bold where Bold is over its own limit.
+    The committed record, on the same lint, is quiet (the twin)."""
+    _quiet_twin(scratch, cp, "R01")
+    planted = _plant_record(scratch, name, cp, rewrite)
+    font = _font_of(planted)
+    adv = _int_of("cell_adv_px")
+    needles = []
+    for weight, (lo, hi) in _weight_limits().items():
+        first, last, _rows, _cols = _extent(font, cp, weight)
+        if first < lo or last > hi:
+            needles.append(
+                "U+%04X %s kana ink columns %d..%d outside cell columns %d..%d"
+                % (cp, weight, first, last, lo, hi)
+            )
+    assert needles and "regular" in needles[0], "the plant stays inside Regular's box"
+    first, last, _rows, cols = _extent(font, cp, "regular")
+    lo, hi = _weight_limits()["regular"]
+    assert last > hi and last <= adv - 1, "the plant must stay inside the advance"
+    if rewrite is _one_more_column_of_ink:
+        assert cols == hi - lo + 2, "the plant is not exactly one column too wide"
+    _caught(
+        scratch,
+        planted,
+        "R01",
+        needles,
+        absent=["U+%04X regular ink columns" % cp],
+    )
+
+
+def test_the_previous_cell_limits_reject_the_refitted_hiragana(scratch):
+    """The refit relies on the widening and the lint reads it from the metrics:
+    with Regular and Bold lower bounds put back to one column in, the same
+    hiragana (U+3042 starts in column 0) are reported by R01 in both weights."""
+    edits = []
+    for key, (lo, hi) in (
+        ("cell_ink_x_regular", _weight_limits()["regular"]),
+        ("cell_ink_x_bold", _weight_limits()["bold"]),
+    ):
+        edits.append(
+            (
+                "metrics.txt",
+                "%s = %d..%d" % (key, lo, hi),
+                "%s = %d..%d" % (key, lo + 1, hi),
+            )
+        )
+    planted = plant(scratch, edits)
+    needles = [
+        "U+%04X %s kana ink columns %d..%d outside cell columns %d..%d"
+        % (HIRAGANA_A, w, lo, hi, lo + 1, hi)
+        for w, (lo, hi) in _weight_limits().items()
+    ]
+    _caught(scratch, planted, "R01", needles)
+
+
+def test_a_nine_by_nine_centred_small_kana_passes_r12(scratch):
+    """Twin of the R12 catches: U+3041 is the largest centred small kana the
+    contract allows, 9 rows by 9 columns in Regular (10 columns in Bold, which
+    adds one), and R12 examines it and is quiet."""
+    font = _font_of(SOURCES)
+    rows_max = _int_of("small_kana_max_rows")
+    cols_max = _int_of("small_kana_centred_max_cols")
+    _f, _l, rows, cols = _extent(font, SMALL_A, "regular")
+    assert (rows, cols) == (rows_max, cols_max), "U+3041 Regular is not at the limits"
+    _f, _l, rows, cols = _extent(font, SMALL_A, "bold")
+    assert (rows, cols) == (rows_max, cols_max + 1), "U+3041 Bold is not at its limits"
+    _quiet_twin(scratch, SMALL_A, "R12")
+
+
+def test_a_ten_row_small_kana_is_caught_by_r12(scratch):
+    """One row over the limit (10 where 9 are allowed), bottom row and width
+    unchanged, so the height check is the only thing that can fire. Bold is
+    corrected by a drawn overlay (still 9 rows), so only Regular is over."""
+    _quiet_twin(scratch, SMALL_A, "R12")
+    rows_max = _int_of("small_kana_max_rows")
+    planted = _plant_record(scratch, HIRAGANA_SRC, SMALL_A, _one_more_row_of_ink)
+    font = _font_of(planted)
+    _f, _l, rows, _cols = _extent(font, SMALL_A, "regular")
+    assert rows == rows_max + 1, "the plant is not exactly one row too tall"
+    needles = []
+    for weight in WEIGHTS:
+        _f, _l, rows, _cols = _extent(font, SMALL_A, weight)
+        if rows > rows_max:
+            needles.append(
+                "U+%04X %s small kana is %d rows tall, more than %d"
+                % (SMALL_A, weight, rows, rows_max)
+            )
+    assert needles and "regular" in needles[0]
+    _caught(
+        scratch,
+        planted,
+        "R12",
+        needles,
+        absent=["U+%04X regular small kana bottom row" % SMALL_A],
+    )
+
+
+def test_a_ten_column_centred_small_kana_is_caught_by_r12(scratch):
+    """One column over the limit (10 where 9 are allowed in Regular), still
+    centred within its tolerance, so the width check is what fires. The limit of
+    a weight is the metrics value, plus one in Bold."""
+    _quiet_twin(scratch, SMALL_A, "R12")
+    cols_max = _int_of("small_kana_centred_max_cols")
+    planted = _plant_record(scratch, HIRAGANA_SRC, SMALL_A, _one_more_column_of_ink)
+    font = _font_of(planted)
+    _f, _l, _rows, cols = _extent(font, SMALL_A, "regular")
+    assert cols == cols_max + 1, "the plant is not exactly one column too wide"
+    needles = []
+    for weight in WEIGHTS:
+        limit = cols_max + (1 if weight == "bold" else 0)
+        _f, _l, _rows, cols = _extent(font, SMALL_A, weight)
+        if cols > limit:
+            needles.append(
+                "U+%04X %s small kana is %d columns wide, more than %d"
+                % (SMALL_A, weight, cols, limit)
+            )
+    assert needles and "regular" in needles[0]
+    _caught(
+        scratch,
+        planted,
+        "R12",
+        needles,
+        absent=["U+%04X regular small kana is not centred" % SMALL_A],
+    )
+
+
+@pytest.mark.parametrize(
+    "key,message",
+    [
+        pytest.param(
+            "small_kana_max_rows",
+            "U+%04X regular small kana is %d rows tall, more than %d",
+            id="small-kana-rows",
+        ),
+        pytest.param(
+            "small_kana_centred_max_cols",
+            "U+%04X regular small kana is %d columns wide, more than %d",
+            id="small-kana-columns",
+        ),
+    ],
+)
+def test_the_previous_small_kana_limits_reject_the_refitted_small_a(
+    scratch, key, message
+):
+    """The 9 x 9 small kana depend on the widened keys, read from the metrics:
+    put the key one lower and the committed U+3041 is reported by R12."""
+    now = _int_of(key)
+    planted = plant(
+        scratch, [("metrics.txt", "%s = %d" % (key, now), "%s = %d" % (key, now - 1))]
+    )
+    _caught(scratch, planted, "R12", [message % (SMALL_A, now, now - 1)])
+
+
+HALF_WIDTH = [
+    pytest.param("latin-basic.txt", 0x0048, id="latin-H"),
+    pytest.param("greek.txt", 0x0394, id="greek-Delta"),
+    pytest.param("cyrillic.txt", 0x0416, id="cyrillic-Zhe"),
+]
+
+
+@pytest.mark.parametrize("name,cp", HALF_WIDTH)
+def test_a_half_width_glyph_is_still_held_to_its_own_advance(scratch, name, cp):
+    """The half-width limit did not move: ink must lie inside the glyph's own
+    advance, and the cell box does not apply to it. Cutting the advance to the
+    last ink column is reported by R01 as before ('outside advance'), with no
+    'kana' wording; the committed glyph is quiet (the twin)."""
+    _quiet_twin(scratch, cp, "R01")
+    font = _font_of(SOURCES)
+    bmp, bb = _ink(font, cp, "regular")
+    assert bmp.adv < _int_of("cell_adv_px"), "U+%04X is not half-width" % cp
+    cut = bb[2]  # ink reaches column bb[2], so an advance of bb[2] is one short
+    planted = _plant_record(
+        scratch,
+        name,
+        cp,
+        lambda head, rows: (head.replace("adv=%d" % bmp.adv, "adv=%d" % cut, 1), rows),
+    )
+    _caught(
+        scratch,
+        planted,
+        "R01",
+        [
+            "U+%04X regular ink columns %d..%d outside advance %d"
+            % (cp, bb[0], bb[2], cut)
+        ],
+        absent=["U+%04X regular kana ink columns" % cp],
+    )
 
 
 # --------------------------------------------------------------------------

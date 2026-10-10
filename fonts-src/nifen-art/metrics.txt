@@ -11,6 +11,16 @@ copyright_holder = JuanGSanchez
 copyright_year = 2026
 designer = JuanGSanchez
 copyright_url = https://github.com/JuanGSanchez/PixelArt-Creator
+# The copyright line of the work the hiragana are adapted from (Ark Pixel Font, SIL Open Font
+# License 1.1, no Reserved Font Name); it is kept as its author wrote it and comes first in name ID 0.
+copyright_prior_line_1 = Copyright (c) 2021, TakWolf (https://takwolf.com).
+# Source files that hold letterforms adapted from that work. The lint requires each header to state
+# the donor, its version, its licence and the copyright line, and requires the licence file and the
+# change log beside the fonts to state the copyright line and exactly which code points are adapted.
+donor_files = hiragana-ark-pixel.txt
+donor_name = Ark Pixel Font
+donor_version = 2026.09.25
+donor_licence = SIL Open Font License, Version 1.1
 # The author declares the family name as a Reserved Font Name (OFL 1.1, clause 3).
 copyright_rfn_clause = with Reserved Font Name "Nifen Art".
 license_description = This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org
@@ -43,11 +53,13 @@ low_mark_gap_rows = 1
 mark_rows = 2
 
 # --- kana cell -------------------------------------------------------------
-# Full-width cell: advance 12 in both weights, ink 10 wide x 11 tall in
-# Regular (columns 1..10, rows -1..9). Bold may reach column 11.
+# Full-width cell: advance 12 in both weights, ink 11 wide x 11 tall in
+# Regular (columns 0..10, rows -1..9). Bold may reach column 11, the last column of the
+# advance, so Bold ink can sit directly against the first column of the next cell
+# (widened from 1..10 / 1..11 at the author's decision; half-width glyphs are not affected).
 cell_adv_px = 12
-cell_ink_x_regular = 1..10
-cell_ink_x_bold = 1..11
+cell_ink_x_regular = 0..10
+cell_ink_x_bold = 0..11
 cell_ink_rows = -1..9
 
 # --- proportional Latin policy ----------------------------------------------
@@ -79,11 +91,12 @@ wide_space_cps = U+3000
 trim_max_px = 20
 
 # Small kana (the sokuon, the small vowels and the small ya yu yo, wa, ka, ke): all sit on the bottom row of the
-# kana cell and are at most small_kana_max_rows tall. The hiragana ones are centred in the cell (horizontal
-# writing: centred horizontally, below the vertical centre); the katakana ones keep their left-hand placement.
+# kana cell and are at most small_kana_max_rows tall (widened from 8 to 9 with the cell, as is the centred
+# small_kana_centred_max_cols below). The hiragana ones are centred in the cell (horizontal writing: centred
+# horizontally, below the vertical centre); the katakana ones keep their left-hand placement.
 small_kana_cps = U+3041 U+3043 U+3045 U+3047 U+3049 U+3063 U+3083 U+3085 U+3087 U+308E U+3095 U+3096 U+30A1 U+30A3 U+30A5 U+30A7 U+30A9 U+30C3 U+30E3 U+30E5 U+30E7 U+30EE U+30F5 U+30F6
 small_kana_bottom_row = -1
-small_kana_max_rows = 8
+small_kana_max_rows = 9
 
 # Left-placed small kana (katakana): ink columns, Regular 1..8, Bold up to column 9.
 small_kana_left_cps = U+30A1 U+30A3 U+30A5 U+30A7 U+30A9 U+30C3 U+30E3 U+30E5 U+30E7 U+30EE U+30F5 U+30F6
@@ -97,7 +110,7 @@ small_kana_centred_cps = U+3041 U+3043 U+3045 U+3047 U+3049 U+3063 U+3083 U+3085
 small_kana_centre_x2 = 12
 small_kana_centre_tol_x2 = 1
 small_kana_bold_extra_x2 = 1
-small_kana_centred_max_cols = 8
+small_kana_centred_max_cols = 9
 
 # The two voicing marks (voiced and semi-voiced): in every kana that carries one, the mark is whole and
 # every pixel of the base is more than one pixel away from it, in both weights.

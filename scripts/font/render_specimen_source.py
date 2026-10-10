@@ -36,7 +36,7 @@ KANA_TABLES = [
     ("Hiragana", content_mod.HIRAGANA_TABLE),
     ("Katakana", content_mod.KATAKANA_TABLE),
     (
-        "Hiragana, voiced and semi-voiced (composed by recipe)",
+        "Hiragana, voiced and semi-voiced (adapted drawings)",
         content_mod.HIRAGANA_VOICED,
     ),
     (

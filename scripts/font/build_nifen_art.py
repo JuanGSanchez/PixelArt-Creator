@@ -201,8 +201,10 @@ def allowance(font: Font, cp, seen=()):
     return 0
 
 
-def lint(srcs, font: Font, script_files, src_dir):
+def lint(srcs, font: Font, script_files, src_dir, fonts_dir=None):
     rep = Report()
+    if fonts_dir is None:
+        fonts_dir = DEFAULT_OUT
     m = srcs.metrics
     U = mint(m, "units_per_px")
     cps = font.codepoints()
@@ -919,6 +921,104 @@ def lint(srcs, font: Font, script_files, src_dir):
             else []
         ),
     )
+
+    # R14 provenance of merged letterforms ---------------------------------------------
+    # Letterforms adapted from another font under its open licence live in their own
+    # source files (metrics: donor_files). Each such file carries, in its header, the
+    # donor's name, version, licence and copyright line; the licence file and the
+    # change log shipped beside the fonts carry the copyright line, and the change log
+    # names exactly the code points taken from the donor in one sentence of the form
+    # "Code points adapted from <donor>, version <version>: <ranges>".
+    v, n = [], 0
+    donors = m.get("donor_files", "").split()
+    prior = [
+        m[k] for k in sorted(m) if k.startswith("copyright_prior_line") and m[k].strip()
+    ]
+    dname = m.get("donor_name", "")
+    dver = m.get("donor_version", "")
+    dlic = m.get("donor_licence", "")
+    n += 1
+    if bool(donors) != bool(prior):
+        v.append("donor_files and copyright_prior_line must be declared together")
+    for need_key, need in (("donor_name", dname), ("donor_version", dver)):
+        if donors and not need:
+            v.append("%s is not declared" % need_key)
+    donor_cps = []
+    for name in donors:
+        n += 1
+        if name not in srcs.files:
+            v.append("donor file %s is not among the sources" % name)
+            continue
+        with open(os.path.join(src_dir, name), "rb") as fh:
+            text = fh.read().decode("utf-8")
+        header = []
+        for line in text.split("\n"):
+            if line.startswith("glyph "):
+                break
+            header.append(line)
+        head = "\n".join(header)
+        for label, need in [("name", dname), ("version", dver), ("licence", dlic)] + [
+            ("copyright line", p) for p in prior
+        ]:
+            if need and need not in head:
+                v.append("%s: the header does not state the donor %s" % (name, label))
+        recs = [r for r in srcs.glyphs.values() if r.path == name]
+        n += len(recs)
+        for r in recs:
+            if not isinstance(r.key, int):
+                v.append("%s:%d: a donor file draws only code points" % (name, r.line))
+                continue
+            donor_cps.append(r.key)
+            if r.key in font.recipe_by_cp:
+                v.append("U+%04X is both a donor drawing and a recipe" % r.key)
+
+    def spans(cps):
+        out, cps = [], sorted(set(cps))
+        i = 0
+        while i < len(cps):
+            j = i
+            while j + 1 < len(cps) and cps[j + 1] == cps[j] + 1:
+                j += 1
+            out.append(
+                "U+%04X" % cps[i] if i == j else "U+%04X-U+%04X" % (cps[i], cps[j])
+            )
+            i = j + 1
+        return ", ".join(out)
+
+    if donor_cps:
+        needs = {
+            "OFL.txt": list(prior),
+            "FONTLOG.txt": list(prior)
+            + [
+                "Code points adapted from %s, version %s: %s"
+                % (dname, dver, spans(donor_cps))
+            ],
+        }
+        for fname in sorted(needs):
+            n += 1
+            path = os.path.join(fonts_dir, fname)
+            if not os.path.exists(path):
+                v.append("%s is not beside the fonts" % fname)
+                continue
+            with open(path, "rb") as fh:
+                text = " ".join(fh.read().decode("utf-8").split())
+            for need in needs[fname]:
+                if " ".join(need.split()) not in text:
+                    v.append("%s does not state %r" % (fname, need))
+    rep.add(
+        "R14",
+        "provenance of merged letterforms (donor files and licence files)",
+        n,
+        v,
+        (
+            [
+                "code points taken from the donor: %d: %s"
+                % (len(donor_cps), spans(donor_cps))
+            ]
+            if donor_cps
+            else []
+        ),
+    )
     return rep
 
 
@@ -998,9 +1098,20 @@ def build_font(srcs, font: Font, weight: str, out_path: str):
         glyphDataFormat=0,
     )
     year, holder = m["copyright_year"], m["copyright_holder"]
+    # Copyright lines of works this font includes (one line each, kept as their authors
+    # wrote them) come first; the Reserved Font Name clause follows the last
+    # copyright line.
+    prior = [
+        m[k] for k in sorted(m) if k.startswith("copyright_prior_line") and m[k].strip()
+    ]
     names = {
-        0: "Copyright (c) %s, %s (%s), %s"
-        % (year, holder, m["copyright_url"], m["copyright_rfn_clause"]),
+        0: " ".join(
+            prior
+            + [
+                "Copyright (c) %s, %s (%s), %s"
+                % (year, holder, m["copyright_url"], m["copyright_rfn_clause"])
+            ]
+        ),
         1: family,
         2: style,
         3: "%s %s;%s" % (family, style, m["font_revision"]),
@@ -1076,6 +1187,31 @@ def name_table_scan(paths):
     return n, v
 
 
+def name0_scan(paths, srcs):
+    """The copyright record (name ID 0) of every built font states each prior copyright
+    line of the metrics, before the typeface's own line."""
+    from fontTools.ttLib import TTFont
+
+    m = srcs.metrics
+    prior = [
+        m[k] for k in sorted(m) if k.startswith("copyright_prior_line") and m[k].strip()
+    ]
+    v = []
+    for w, p in sorted(paths.items()):
+        rec = TTFont(p)["name"].getDebugName(0) or ""
+        own = rec.find(
+            "Copyright (c) %s, %s" % (m["copyright_year"], m["copyright_holder"])
+        )
+        for line in prior:
+            at = rec.find(line)
+            if at < 0 or (own >= 0 and at > own):
+                v.append(
+                    "%s name ID 0 does not state %r before the typeface's line"
+                    % (w, line)
+                )
+    return v
+
+
 # --------------------------------------------------------------------------
 # Commands
 # --------------------------------------------------------------------------
@@ -1092,7 +1228,9 @@ def script_list():
 def cmd_lint(args):
     srcs = parse_sources(args.src)
     font = Font(srcs)
-    rep = lint(srcs, font, script_list(), args.src)
+    rep = lint(
+        srcs, font, script_list(), args.src, getattr(args, "licence_dir", DEFAULT_OUT)
+    )
     total = rep.print()
     cps = font.codepoints()
     kinds = {}
@@ -1109,13 +1247,16 @@ def cmd_lint(args):
 def cmd_build(args):
     srcs = parse_sources(args.src)
     font = Font(srcs)
-    rep = lint(srcs, font, script_list(), args.src)
+    rep = lint(
+        srcs, font, script_list(), args.src, getattr(args, "licence_dir", DEFAULT_OUT)
+    )
     if rep.failed():
         rep.print()
         print("build refused: lint failed")
         return 1
     paths = build_all(srcs, font, args.out)
     n, v = name_table_scan(paths)
+    v = v + name0_scan(paths, srcs)
     print("name records scanned: %d, public-safe violations: %d" % (n, len(v)))
     for x in v:
         print("  VIOLATION", x)
@@ -1173,6 +1314,12 @@ def main():
         "--out",
         default=DEFAULT_OUT,
         help="built fonts folder (default: pixelart_creator/fonts)",
+    )
+    ap.add_argument(
+        "--licence-dir",
+        default=DEFAULT_OUT,
+        help="folder with OFL.txt and FONTLOG.txt that the provenance rule reads "
+        "(default: pixelart_creator/fonts)",
     )
     ap.add_argument(
         "--tmp",
