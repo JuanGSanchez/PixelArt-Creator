@@ -25,6 +25,15 @@ Scenarios covered (one group each):
 * SC-VI-BUILD-010-1 (font half) - the name-table scan examines a non-zero number
   of records, reports none on the built fonts, and reports a planted violation of
   every category it claims to cover (the PNG half is in ``test_derive_app_icons``).
+* SC-VI-BUILD-005-2 - the Reserved Font Name clause ends the typeface's own
+  copyright line in OFL.txt and in name ID 0 of both fonts (every platform
+  record), is recorded in FONTLOG.txt, and is not attached to the Ark Pixel Font
+  line; the omission or misplacement planted in a copy of each of the three is
+  reported, and examining nothing is a failure (section 10).
+* SC-VI-BUILD-011-2 (the direct control) - the donor line removed, altered or
+  reordered in name ID 0 of a BUILT font is reported by the build's own
+  name-record check, and ``--build`` ends with a violation and exit 1
+  (section 11).
 * The command line: modes, exit codes (0 pass, 1 violation, 2 source error or
   usage), the denominators printed, and failure when nothing was examined.
 
@@ -2081,3 +2090,490 @@ def test_a_missed_control_with_non_ascii_child_output_is_reported_on_a_legacy_co
         assert escape in res.stdout, child_report(
             res, "%s is not shown as an escape in the report" % escape
         )
+
+
+# --------------------------------------------------------------------------
+# 10. The Reserved Font Name and the donor line
+#     (SC-VI-BUILD-005-2, SC-VI-BUILD-011-2)
+# --------------------------------------------------------------------------
+#
+# The build composes the copyright record (name ID 0) from metrics.txt, but no
+# rule of the lint and no scan of the build asks whether the typeface's own line
+# ends with the Reserved Font Name clause. These tests ask it of the COMMITTED
+# artefacts (OFL.txt, name ID 0 of both fonts, FONTLOG.txt) with predicates
+# written here, and show every predicate catching its omission in a COPY: the
+# artefacts are only read, a plant is written to the per-test scratch folder.
+#
+# The expected strings are literals on purpose. A test that took them from
+# metrics.txt would pass whatever metrics.txt said; one test below compares the
+# literals with metrics.txt so that a change of wording in the sources is
+# reported as a change, not absorbed.
+
+#: The declaration, as the user ruled it, ending the typeface's own line.
+RFN_CLAUSE = 'with Reserved Font Name "Nifen Art".'
+#: The Ark Pixel Font line, kept as its author wrote it (no clause attached).
+DONOR_LINE = "Copyright (c) 2021, TakWolf (https://takwolf.com)."
+
+#: The three places SC-VI-BUILD-005-2 names; each font is read at every one of
+#: its name ID 0 records (Windows and Macintosh), not at the first one only.
+RFN_SOURCES = ("OFL.txt", "regular", "bold")
+
+_COPYRIGHT_AT = re.compile(r"(?<=\S) (?=Copyright \(c\) \d{4},)")
+_FONTLOG_DECLARATION = re.compile(r'Reserved Font Name:?\s+"Nifen Art"')
+_FONTLOG_DONOR_WITH_CLAUSE = re.compile(
+    re.escape(DONOR_LINE[:-2]) + r"\)?[.,]?\s*,?\s*with Reserved Font Name"
+)
+
+#: (label, kind, text): kind "ofl" is a file, kind "name0" is one name record.
+Record = Tuple[str, str, str]
+
+
+def _read_utf8(path: Path) -> str:
+    """Bytes, then an explicit decode: no dependence on the console code page."""
+    return path.read_bytes().decode("utf-8")
+
+
+def read_rfn_records(ofl: Path, fonts: Dict[str, Path]) -> List[Record]:
+    """OFL.txt plus every name ID 0 record of each font, as ``Record`` tuples."""
+    from fontTools.ttLib import TTFont
+
+    out: List[Record] = [("OFL.txt", "ofl", _read_utf8(ofl))]
+    for weight in WEIGHTS:
+        with TTFont(str(fonts[weight])) as font:
+            for rec in font["name"].names:
+                if rec.nameID == 0:
+                    label = "%s (platform %d)" % (weight, rec.platformID)
+                    out.append((label, "name0", rec.toUnicode()))
+    return out
+
+
+def _copyright_lines(kind: str, text: str) -> List[str]:
+    if kind == "ofl":
+        header = re.split(r"\r?\n[ \t]*\r?\n", text, maxsplit=1)[0]
+        return header.splitlines()
+    return _COPYRIGHT_AT.split(text)
+
+
+def own_line_findings(label: str, kind: str, text: str, holder: str) -> List[str]:
+    """The typeface's own line (the second) must end with the clause."""
+    lines = _copyright_lines(kind, text)
+    if len(lines) != 2:
+        return [
+            "%s: expected 2 copyright lines (Ark Pixel Font, then the typeface), "
+            "found %d" % (label, len(lines))
+        ]
+    own = lines[1]
+    out = []
+    if not own.startswith("Copyright (c) 20") or holder not in own:
+        out.append("%s: the second line is not the typeface's own: %r" % (label, own))
+    if not own.endswith(RFN_CLAUSE):
+        out.append(
+            "%s: the typeface's own line does not end with %r: %r"
+            % (label, RFN_CLAUSE, own[-70:])
+        )
+    return out
+
+
+def donor_line_findings(label: str, kind: str, text: str) -> List[str]:
+    """The Ark Pixel Font line (the first) is unchanged, with no clause on it."""
+    lines = _copyright_lines(kind, text)
+    if len(lines) != 2:
+        return [
+            "%s: expected 2 copyright lines (Ark Pixel Font, then the typeface), "
+            "found %d" % (label, len(lines))
+        ]
+    donor = lines[0]
+    if "Reserved Font Name" in donor:
+        return [
+            "%s: a Reserved Font Name is attached to the donor line: %r"
+            % (label, donor)
+        ]
+    if donor != DONOR_LINE:
+        return [
+            "%s: the donor line is not kept as its author wrote it: %r" % (label, donor)
+        ]
+    return []
+
+
+def fontlog_findings(text: str) -> List[str]:
+    out = []
+    if not _FONTLOG_DECLARATION.search(text):
+        out.append('FONTLOG.txt does not record the Reserved Font Name "Nifen Art"')
+    if _FONTLOG_DONOR_WITH_CLAUSE.search(text):
+        out.append("FONTLOG.txt attaches a Reserved Font Name to the donor line")
+    if DONOR_LINE not in text:
+        out.append("FONTLOG.txt does not state the donor line")
+    return out
+
+
+def rfn_verdict(records: Sequence[Record], holder: str) -> Tuple[int, List[str]]:
+    """``(records examined, findings)``; examining nothing is itself a finding."""
+    findings: List[str] = []
+    for label, kind, text in records:
+        findings += own_line_findings(label, kind, text, holder)
+        findings += donor_line_findings(label, kind, text)
+    if not records:
+        findings.append("no copyright record was examined")
+    return len(records), findings
+
+
+def _committed_records() -> List[Record]:
+    return read_rfn_records(
+        FONT_DIR / "OFL.txt", {w: FONT_DIR / FONT_FILES[w] for w in WEIGHTS}
+    )
+
+
+def _holder() -> str:
+    return _metrics()["copyright_holder"]
+
+
+def _of_source(records: Sequence[Record], source: str) -> List[Record]:
+    return [r for r in records if r[0].split(" ")[0] == source]
+
+
+# ----- the committed artefacts ---------------------------------------------
+
+
+def test_sc_vi_build_005_2_the_check_examines_the_three_places():
+    """The denominator: OFL.txt and both fonts, and every font has a record."""
+    records = _committed_records()
+    seen = {r[0].split(" ")[0] for r in records}
+    assert seen == set(RFN_SOURCES), seen
+    for weight in WEIGHTS:
+        assert _of_source(records, weight), (
+            "no name ID 0 record in the %s font" % weight
+        )
+    examined, findings = rfn_verdict(records, _holder())
+    assert examined >= len(RFN_SOURCES) and findings == [], findings
+
+
+def test_the_expected_strings_agree_with_the_metrics_they_are_built_from():
+    metrics = _metrics()
+    assert metrics["copyright_rfn_clause"] == RFN_CLAUSE
+    assert metrics["copyright_prior_line_1"] == DONOR_LINE
+
+
+def test_sc_vi_build_005_2_ofl_line_two_ends_with_the_clause():
+    lines = _copyright_lines("ofl", _read_utf8(FONT_DIR / "OFL.txt"))
+    assert len(lines) == 2, lines
+    assert lines[0] == DONOR_LINE
+    assert lines[1].startswith("Copyright (c) 20") and _holder() in lines[1]
+    assert lines[1].endswith(RFN_CLAUSE), lines[1]
+
+
+@pytest.mark.parametrize("weight", WEIGHTS)
+def test_sc_vi_build_005_2_name_id_0_of_the_font_carries_the_clause(weight):
+    records = _of_source(_committed_records(), weight)
+    assert records, "no name ID 0 record"
+    for label, kind, text in records:
+        assert own_line_findings(label, kind, text, _holder()) == []
+        assert text.endswith(RFN_CLAUSE), (label, text)
+        assert text.count("Reserved Font Name") == 1, (label, text)
+
+
+@pytest.mark.parametrize("source", RFN_SOURCES)
+def test_sc_vi_build_005_2_the_clause_is_not_on_the_donor_line(source):
+    records = _of_source(_committed_records(), source)
+    assert records
+    for label, kind, text in records:
+        assert donor_line_findings(label, kind, text) == []
+        assert _copyright_lines(kind, text)[0] == DONOR_LINE
+
+
+def test_sc_vi_build_005_2_fontlog_records_the_declaration():
+    text = _read_utf8(FONT_DIR / "FONTLOG.txt")
+    assert fontlog_findings(text) == []
+    assert _FONTLOG_DECLARATION.search(text)
+
+
+# ----- the twins: the same predicates against a planted omission ------------
+
+
+def _plant(text: str, how: str) -> str:
+    """One omission or misplacement of the clause, anchored to appear once."""
+    assert text.count(RFN_CLAUSE) == 1, text.count(RFN_CLAUSE)
+    assert text.count(DONOR_LINE) == 1, text.count(DONOR_LINE)
+    attached = DONOR_LINE[:-1] + ", " + RFN_CLAUSE
+    own_tail = ", " + RFN_CLAUSE
+    if how == "removed":
+        out = text.replace(own_tail, ".")
+    elif how == "other-name":
+        out = text.replace('"Nifen Art".', '"Pixel Art".')
+    elif how == "lowercase":
+        out = text.replace("with Reserved Font Name", "with reserved font name")
+    elif how == "trailing-words":
+        out = text.replace(RFN_CLAUSE, RFN_CLAUSE + " Extra words.")
+    elif how == "moved-to-donor":
+        out = text.replace(own_tail, ".").replace(DONOR_LINE, attached)
+    elif how == "also-on-donor":
+        out = text.replace(DONOR_LINE, attached)
+    else:  # pragma: no cover - a typo in the parametrisation
+        raise AssertionError(how)
+    assert out != text, "the plant %r changed nothing" % how
+    return out
+
+
+#: how -> (the own-line check must report, the donor-line check must report)
+PLANTS = {
+    "removed": (True, False),
+    "other-name": (True, False),
+    "lowercase": (True, False),
+    "trailing-words": (True, False),
+    "moved-to-donor": (True, True),
+    "also-on-donor": (False, True),
+}
+
+
+def _planted_copy(scratch: Path, source: str, how: Optional[str]) -> List[Record]:
+    """Copy the artefacts into the scratch folder, plant ``how`` (or nothing) in
+    the copy of ``source``, and read the copies with the committed run's reader."""
+    from fontTools.ttLib import TTFont
+
+    ofl = scratch / "OFL.txt"
+    ofl.write_bytes((FONT_DIR / "OFL.txt").read_bytes())
+    fonts = {}
+    for weight in WEIGHTS:
+        fonts[weight] = scratch / FONT_FILES[weight]
+        shutil.copyfile(FONT_DIR / FONT_FILES[weight], fonts[weight])
+    if how is not None and source == "OFL.txt":
+        ofl.write_bytes(_plant(_read_utf8(ofl), how).encode("utf-8"))
+    elif how is not None:
+        with TTFont(str(FONT_DIR / FONT_FILES[source])) as font:
+            for rec in list(font["name"].names):
+                if rec.nameID == 0:
+                    font["name"].setName(
+                        _plant(rec.toUnicode(), how),
+                        0,
+                        rec.platformID,
+                        rec.platEncID,
+                        rec.langID,
+                    )
+            font.save(str(fonts[source]))
+    return read_rfn_records(ofl, fonts)
+
+
+@pytest.mark.parametrize("source", RFN_SOURCES)
+def test_sc_vi_build_005_2_control_an_unplanted_copy_is_clean(scratch, source):
+    """The control of the controls: the copy-and-read path invents no finding."""
+    examined, findings = rfn_verdict(_planted_copy(scratch, source, None), _holder())
+    assert examined >= len(RFN_SOURCES) and findings == [], findings
+
+
+@pytest.mark.parametrize("how", sorted(PLANTS))
+@pytest.mark.parametrize("source", RFN_SOURCES)
+def test_sc_vi_build_005_2_control_a_planted_omission_is_reported(scratch, source, how):
+    """SC-VI-BUILD-005-2: the declaration removed (or misplaced) in any one of the
+    three places is reported, and only by the predicate it concerns."""
+    records = _planted_copy(scratch, source, how)
+    holder = _holder()
+    wants_own, wants_donor = PLANTS[how]
+    hit = _of_source(records, source)
+    assert hit, "the planted record was not read back"
+    own = [f for r in hit for f in own_line_findings(r[0], r[1], r[2], holder)]
+    donor = [f for r in hit for f in donor_line_findings(r[0], r[1], r[2])]
+    assert bool(own) == wants_own, (how, own)
+    assert bool(donor) == wants_donor, (how, donor)
+    # the two places left alone stay clean: the plant is the only cause
+    others = [r for r in records if r[0].split(" ")[0] != source]
+    assert rfn_verdict(others, holder)[1] == []
+    examined, findings = rfn_verdict(records, holder)
+    assert examined >= len(RFN_SOURCES) and findings, "the plant was not reported"
+
+
+@pytest.mark.parametrize("weight", WEIGHTS)
+def test_sc_vi_build_005_2_control_a_clause_missing_from_one_platform_record_only(
+    scratch, weight
+):
+    """A font can carry the clause in its Windows record and not in the Macintosh
+    one; reading only the first record would pass it."""
+    from fontTools.ttLib import TTFont
+
+    with TTFont(str(FONT_DIR / FONT_FILES[weight])) as font:
+        platforms = {r.platformID for r in font["name"].names if r.nameID == 0}
+        assert platforms == {1, 3}, platforms
+        for rec in list(font["name"].names):
+            if rec.nameID == 0 and rec.platformID == 1:
+                font["name"].setName(
+                    _plant(rec.toUnicode(), "removed"), 0, 1, rec.platEncID, rec.langID
+                )
+        font.save(str(scratch / FONT_FILES[weight]))
+    other = [w for w in WEIGHTS if w != weight][0]
+    shutil.copyfile(FONT_DIR / FONT_FILES[other], scratch / FONT_FILES[other])
+    records = read_rfn_records(
+        FONT_DIR / "OFL.txt", {w: scratch / FONT_FILES[w] for w in WEIGHTS}
+    )
+    findings = rfn_verdict(_of_source(records, weight), _holder())[1]
+    assert findings and all("platform 1" in f for f in findings), findings
+    kept = [r for r in records if "platform 3" in r[0] or r[0].startswith("OFL")]
+    assert rfn_verdict(kept, _holder())[1] == []
+
+
+def test_sc_vi_build_005_2_control_examining_nothing_is_a_failure():
+    examined, findings = rfn_verdict([], "anyone")
+    assert examined == 0 and findings == ["no copyright record was examined"]
+
+
+@pytest.mark.parametrize("how", ["removed", "other-name", "attached-to-donor"])
+def test_sc_vi_build_005_2_control_a_fontlog_without_the_declaration_is_reported(how):
+    text = _read_utf8(FONT_DIR / "FONTLOG.txt")
+    assert fontlog_findings(text) == [], "the committed FONTLOG must be clean first"
+    if how == "removed":
+        planted = _FONTLOG_DECLARATION.sub("Font name", text)
+        needle = "does not record"
+    elif how == "other-name":
+        planted = _FONTLOG_DECLARATION.sub('Reserved Font Name: "Pixel Art"', text)
+        needle = "does not record"
+    else:
+        assert text.count(DONOR_LINE) >= 1
+        planted = text.replace(DONOR_LINE, DONOR_LINE[:-1] + ", " + RFN_CLAUSE)
+        needle = "attaches"
+    assert planted != text
+    findings = fontlog_findings(planted)
+    assert any(needle in f for f in findings), findings
+
+
+# --------------------------------------------------------------------------
+# 11. A name ID 0 omission planted in the BUILT font (SC-VI-BUILD-011-2)
+# --------------------------------------------------------------------------
+#
+# The existing control removes the donor line from metrics.txt, which only shows
+# that the build and the scan agree on what the sources say. These cases build
+# the fonts into scratch, change name ID 0 of the BUILT file, and show that the
+# name-record check of the build (``name0_scan``) reports the weight it was
+# planted in, and that ``--build`` itself ends with a violation and exit 1.
+
+
+@pytest.fixture(scope="module")
+def pristine_build(tmp_path_factory):
+    """Both fonts built once into scratch by the real ``--build`` command."""
+    root = os.environ.get("ORCH_TEST_TMP")
+    if root:
+        base = Path(root) / "asset-pipeline-nifen"
+        base.mkdir(parents=True, exist_ok=True)
+        folder = Path(tempfile.mkdtemp(prefix="p-", dir=str(base)))
+    else:
+        folder = tmp_path_factory.mktemp("nifen-pristine")
+    out = folder / "built"
+    res = run_font(BUILD, ["--build", "--out", out], folder)
+    assert res.returncode == 0, res.text
+    paths = {w: out / FONT_FILES[w] for w in WEIGHTS}
+    assert all(p.is_file() for p in paths.values())
+    yield paths
+    shutil.rmtree(folder)
+
+
+def _rewrite_name0(src: Path, dst: Path, rewrite) -> int:
+    """Save a copy of ``src`` whose every name ID 0 record is ``rewrite(text)``."""
+    from fontTools.ttLib import TTFont
+
+    changed = 0
+    with TTFont(str(src)) as font:
+        for rec in list(font["name"].names):
+            if rec.nameID == 0:
+                new = rewrite(rec.toUnicode())
+                assert new != rec.toUnicode(), "the rewrite changed nothing"
+                font["name"].setName(new, 0, rec.platformID, rec.platEncID, rec.langID)
+                changed += 1
+        font.save(str(dst))
+    assert changed >= 1
+    return changed
+
+
+def _donor_removed(text: str) -> str:
+    assert text.count(DONOR_LINE + " ") == 1
+    return text.replace(DONOR_LINE + " ", "")
+
+
+def _donor_altered(text: str) -> str:
+    assert text.count("(c) 2021, TakWolf") == 1
+    return text.replace("(c) 2021, TakWolf", "(c) 2022, TakWolf")
+
+
+def _donor_after_own(text: str) -> str:
+    assert text.startswith(DONOR_LINE + " Copyright (c) 2026")
+    return text[len(DONOR_LINE) + 1 :] + " " + DONOR_LINE
+
+
+NAME0_PLANTS = {
+    "donor-line-removed": _donor_removed,
+    "donor-line-altered": _donor_altered,
+    "donor-line-after-the-typefaces-line": _donor_after_own,
+}
+
+
+def _sources_of_the_build():
+    nifen_src, _build = _modules()
+    return nifen_src.parse_sources(str(SOURCES))
+
+
+def test_name0_scan_is_quiet_on_the_fresh_build_and_the_record_holds_the_line(
+    pristine_build,
+):
+    """The positive control: the planted cases below start from this state."""
+    from fontTools.ttLib import TTFont
+
+    _src, build = _modules()
+    for weight in WEIGHTS:
+        with TTFont(str(pristine_build[weight])) as font:
+            record = font["name"].getDebugName(0)
+        assert record.startswith(DONOR_LINE + " Copyright (c) 2026"), record
+    paths = {w: str(p) for w, p in pristine_build.items()}
+    assert build.name0_scan(paths, _sources_of_the_build()) == []
+
+
+@pytest.mark.parametrize("plant", sorted(NAME0_PLANTS))
+@pytest.mark.parametrize("weight", WEIGHTS)
+def test_sc_vi_build_011_2_name0_scan_reports_a_planted_name_id_0_omission(
+    scratch, pristine_build, weight, plant
+):
+    """SC-VI-BUILD-011-2: the donor line is removed, altered or reordered in name
+    ID 0 of ONE built font; the scan reports that weight and only that weight."""
+    _src, build = _modules()
+    paths = {}
+    for w in WEIGHTS:
+        paths[w] = scratch / FONT_FILES[w]
+        if w == weight:
+            _rewrite_name0(pristine_build[w], paths[w], NAME0_PLANTS[plant])
+        else:
+            shutil.copyfile(pristine_build[w], paths[w])
+    found = build.name0_scan(
+        {w: str(p) for w, p in paths.items()}, _sources_of_the_build()
+    )
+    assert len(found) == 1, found
+    assert found[0].startswith("%s name ID 0 does not state" % weight), found
+    assert DONOR_LINE in found[0], found
+
+
+@pytest.mark.parametrize("weight", WEIGHTS)
+def test_sc_vi_build_011_2_a_build_with_the_donor_line_lost_from_name_id_0_fails(
+    monkeypatch, capsys, scratch, weight
+):
+    """End to end through ``--build``'s own function: the fonts are built, the
+    donor line is then cut out of name ID 0 of one BUILT file, and the build's
+    name-record check turns that into a VIOLATION and exit status 1."""
+    _src, build = _modules()
+    real_build_all = build.build_all
+
+    def build_all_then_damage(srcs, font, out_dir):
+        paths = real_build_all(srcs, font, out_dir)
+        _rewrite_name0(Path(paths[weight]), Path(paths[weight]), _donor_removed)
+        return paths
+
+    args = type("A", (), {"src": str(SOURCES), "out": str(scratch / "out")})()
+    monkeypatch.setattr(build, "build_all", build_all_then_damage)
+    status = build.cmd_build(args)
+    shown = capsys.readouterr().out
+    assert status == 1, shown
+    assert "VIOLATION %s name ID 0 does not state" % weight in shown, shown
+    other = [w for w in WEIGHTS if w != weight][0]
+    assert "VIOLATION %s name ID 0" % other not in shown, shown
+
+
+def test_sc_vi_build_011_2_the_same_build_without_the_damage_passes(capsys, scratch):
+    """The control of the end-to-end case: undamaged, the build exits 0."""
+    _src, build = _modules()
+    args = type("A", (), {"src": str(SOURCES), "out": str(scratch / "out")})()
+    status = build.cmd_build(args)
+    shown = capsys.readouterr().out
+    assert status == 0, shown
+    assert "public-safe violations: 0" in shown and "VIOLATION" not in shown, shown
