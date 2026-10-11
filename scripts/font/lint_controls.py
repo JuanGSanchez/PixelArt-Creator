@@ -4,6 +4,12 @@ Each control copies the glyph sources, applies one edit that breaks a rule,
 runs the lint on the copy and requires a non-zero exit and the expected rule
 flagged. A lint that cannot fail proves nothing; this shows that it can.
 
+A control whose expected rule is NAME0 exercises the build's name ID 0 check instead:
+the copy is built in process (Regular only), the listed damage is done to name ID 0 of
+the built file (an edit whose file is "name ID 0" or "name ID 0 (Macintosh)"; any other
+file is a source edit made before the build), and the check must report the expected
+text. The undamaged build must be clean first, so a quiet check cannot pass.
+
     python scripts/font/lint_controls.py
 """
 
@@ -37,7 +43,90 @@ def show_child_output(r, tail=12):
         print("      | " + ln.encode("ascii", "backslashreplace").decode("ascii"))
 
 
+_PRISTINE = []
+
+
+def pristine_findings(build):
+    """What the name ID 0 check says about the untouched sources, built once per run."""
+    if not _PRISTINE:
+        d = tempfile.mkdtemp(dir=SCRATCH)
+        try:
+            srcs = build.parse_sources(SOURCES)
+            p = os.path.join(d, "NifenArt-Regular.ttf")
+            build.build_font(srcs, build.Font(srcs), "regular", p)
+            _PRISTINE.append(build.name0_scan({"regular": p}, srcs))
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+    return _PRISTINE[0]
+
+
+def run_name0(name, edits, expect_text):
+    """Build a copy, damage name ID 0, require the build's check to report it."""
+    sys.path.insert(0, HERE)
+    import build_nifen_art as build
+    from fontTools.ttLib import TTFont
+
+    d = tempfile.mkdtemp(dir=SCRATCH)
+    try:
+        dst = os.path.join(d, "src")
+        shutil.copytree(SOURCES, dst)
+        damage = []
+        for fname, old, new in edits:
+            if fname.startswith("name ID 0"):
+                damage.append((fname, old, new))
+                continue
+            path = os.path.join(dst, fname)
+            text = open(path, "rb").read().decode("utf-8")
+            if old not in text:
+                print("%-44s skipped (record not in the sources)" % name)
+                return None
+            open(path, "wb").write(text.replace(old, new, 1).encode("utf-8"))
+        srcs = build.parse_sources(dst)
+        out = os.path.join(d, "out")
+        paths = {"regular": os.path.join(out, "NifenArt-Regular.ttf")}
+        build.build_font(srcs, build.Font(srcs), "regular", paths["regular"])
+        clean = pristine_findings(build)
+        if clean:
+            print("%-44s the undamaged build is not clean: %s" % (name, clean))
+            return False
+        with TTFont(paths["regular"]) as font:
+            hit_records = 0
+            for rec in list(font["name"].names):
+                if rec.nameID != 0:
+                    continue
+                text = rec.toUnicode()
+                for fname, old, new in damage:
+                    if fname.endswith("(Macintosh)") and rec.platformID != 1:
+                        continue
+                    if old not in text:
+                        print("%-44s skipped (text not in name ID 0)" % name)
+                        return None
+                    text = text.replace(old, new, 1)
+                if text != rec.toUnicode():
+                    hit_records += 1
+                    font["name"].setName(
+                        text, 0, rec.platformID, rec.platEncID, rec.langID
+                    )
+            font.save(paths["regular"])
+        found = build.name0_scan(paths, srcs)
+        hit = [ln for ln in found if expect_text in ln]
+        print(
+            "%-44s %d violation(s) over %d damaged record(s), %r reported: %s"
+            % (name, len(found), hit_records, expect_text, "YES" if hit else "NO")
+        )
+        if not hit:
+            for ln in found:
+                print(
+                    "      | " + ln.encode("ascii", "backslashreplace").decode("ascii")
+                )
+        return bool(hit)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def run(name, edits, expect_rule, expect_text=None, licence_edits=()):
+    if expect_rule == "NAME0":
+        return run_name0(name, edits, expect_text)
     d = tempfile.mkdtemp(dir=SCRATCH)
     try:
         dst = os.path.join(d, "src")
@@ -743,6 +832,120 @@ CONTROLS = [
             )
         ],
         "R08",
+    ),
+    (
+        "licence file: clause missing from the typeface's line",
+        [],
+        "R14",
+        "does not end with",
+        [("OFL.txt", ' with Reserved Font Name "Nifen Art".', "")],
+    ),
+    (
+        "licence file: clause altered on the typeface's line",
+        [],
+        "R14",
+        "does not end with",
+        [("OFL.txt", 'Reserved Font Name "Nifen Art".', 'Reserved Font Name "Nifen".')],
+    ),
+    (
+        "licence file: clause moved to the donor line",
+        [],
+        "R14",
+        "carries 'Reserved Font Name'",
+        [
+            ("OFL.txt", ' with Reserved Font Name "Nifen Art".', ""),
+            (
+                "OFL.txt",
+                "(https://takwolf.com).\n",
+                '(https://takwolf.com). with Reserved Font Name "Nifen Art".\n',
+            ),
+        ],
+    ),
+    (
+        "licence file: clause also on the donor line",
+        [],
+        "R14",
+        "carries 'Reserved Font Name'",
+        [
+            (
+                "OFL.txt",
+                "(https://takwolf.com).\n",
+                '(https://takwolf.com). with Reserved Font Name "Nifen Art".\n',
+            )
+        ],
+    ),
+    (
+        "metrics clause reworded (the lint refuses it)",
+        [
+            (
+                "metrics.txt",
+                'copyright_rfn_clause = with Reserved Font Name "Nifen Art".',
+                "copyright_rfn_clause = with no declaration.",
+            )
+        ],
+        "R14",
+        "copyright_rfn_clause is",
+    ),
+    (
+        "name ID 0: clause missing from the typeface's line",
+        [("name ID 0", ' with Reserved Font Name "Nifen Art".', "")],
+        "NAME0",
+        "does not end with",
+    ),
+    (
+        "name ID 0: clause altered on the typeface's line",
+        [
+            (
+                "name ID 0",
+                'Reserved Font Name "Nifen Art".',
+                'Reserved Font Name "Nifen".',
+            )
+        ],
+        "NAME0",
+        "does not end with",
+    ),
+    (
+        "name ID 0: clause moved to the donor line",
+        [
+            ("name ID 0", ' with Reserved Font Name "Nifen Art".', ""),
+            (
+                "name ID 0",
+                "(https://takwolf.com).",
+                '(https://takwolf.com). with Reserved Font Name "Nifen Art".',
+            ),
+        ],
+        "NAME0",
+        "is attached to a prior copyright line",
+    ),
+    (
+        "name ID 0: clause also on the donor line",
+        [
+            (
+                "name ID 0",
+                "(https://takwolf.com).",
+                '(https://takwolf.com). with Reserved Font Name "Nifen Art".',
+            )
+        ],
+        "NAME0",
+        "is attached to a prior copyright line",
+    ),
+    (
+        "name ID 0: clause missing at the Macintosh record only",
+        [("name ID 0 (Macintosh)", ' with Reserved Font Name "Nifen Art".', "")],
+        "NAME0",
+        "does not end with",
+    ),
+    (
+        "metrics clause reworded (the built name ID 0 follows it)",
+        [
+            (
+                "metrics.txt",
+                'copyright_rfn_clause = with Reserved Font Name "Nifen Art".',
+                "copyright_rfn_clause = with no declaration.",
+            )
+        ],
+        "NAME0",
+        "does not end with",
     ),
 ]
 

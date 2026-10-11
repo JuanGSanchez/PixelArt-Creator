@@ -10,6 +10,13 @@ files and to the glyph sources they are built from. The program that bundles
 the fonts is licensed separately. The hiragana are adapted from Ark Pixel
 Font, which is licensed under the same license (see Acknowledgements).
 
+The license text in OFL.txt was copied, not retyped, from the license file
+(LICENSE_STIX) that accompanies the STIX fonts as distributed with the
+matplotlib plotting library. Only the lines above the license itself (the
+copyright lines and the note saying where the license is available) were
+written for this font. The official OFL.txt published by SIL may replace
+this copy later.
+
 
 Basic Font Information
 ----------------------

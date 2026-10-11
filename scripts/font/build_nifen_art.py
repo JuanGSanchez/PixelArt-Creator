@@ -50,6 +50,13 @@ from nifen_src import (  # noqa: E402
 WEIGHTS = ("regular", "bold")
 FILE_NAMES = {"regular": "NifenArt-Regular.ttf", "bold": "NifenArt-Bold.ttf"}
 
+# The Reserved Font Name declaration. It ends the typeface's own copyright line, in the
+# licence file and in name ID 0 of every built font, and never sits on the line of a
+# work this font includes. The wording is fixed here, apart from the metrics, so a
+# metrics edit cannot make the checks agree with a changed clause.
+RFN_CLAUSE = 'with Reserved Font Name "Nifen Art".'
+RFN_PHRASE = "Reserved Font Name"
+
 WORD_START = "(?<![A-Za-z0-9_])"
 WORD_END = "(?![A-Za-z0-9_])"
 
@@ -1005,6 +1012,45 @@ def lint(srcs, font: Font, script_files, src_dir, fonts_dir=None):
             for need in needs[fname]:
                 if " ".join(need.split()) not in text:
                     v.append("%s does not state %r" % (fname, need))
+    # The Reserved Font Name clause ends the typeface's own line of OFL.txt (line 2
+    # with one prior line) and is not attached to a prior line.
+    n += 1
+    if m.get("copyright_rfn_clause") != RFN_CLAUSE:
+        v.append(
+            "metrics copyright_rfn_clause is %r, not %r"
+            % (m.get("copyright_rfn_clause"), RFN_CLAUSE)
+        )
+    ofl_path = os.path.join(fonts_dir, "OFL.txt")
+    if os.path.exists(ofl_path):
+        with open(ofl_path, "rb") as fh:
+            ofl_lines = fh.read().decode("utf-8").splitlines()
+        own_prefix = "Copyright (c) %s, %s" % (
+            m["copyright_year"],
+            m["copyright_holder"],
+        )
+        own_at = [i for i, ln in enumerate(ofl_lines) if ln.startswith(own_prefix)]
+        if not own_at:
+            v.append("OFL.txt has no line starting %r" % own_prefix)
+        else:
+            if not ofl_lines[own_at[0]].rstrip().endswith(RFN_CLAUSE):
+                v.append(
+                    "OFL.txt line %d (the typeface's own copyright line) does not "
+                    "end with %r" % (own_at[0] + 1, RFN_CLAUSE)
+                )
+            if own_at[0] != len(prior):
+                v.append(
+                    "OFL.txt line %d is the typeface's own copyright line; it must "
+                    "follow the %d prior line(s) directly" % (own_at[0] + 1, len(prior))
+                )
+        for i, ln in enumerate(ofl_lines):
+            if any(p in ln for p in prior) and RFN_PHRASE in ln:
+                v.append(
+                    "OFL.txt line %d (a prior copyright line) carries %r; the "
+                    "clause belongs to the typeface's own line only"
+                    % (i + 1, RFN_PHRASE)
+                )
+    elif not donor_cps:
+        v.append("OFL.txt is not beside the fonts")
     rep.add(
         "R14",
         "provenance of merged letterforms (donor files and licence files)",
@@ -1187,9 +1233,25 @@ def name_table_scan(paths):
     return n, v
 
 
+def name0_records(path):
+    """Every name ID 0 record of one built font, as (platform, encoding, text)."""
+    from fontTools.ttLib import TTFont
+
+    with TTFont(path) as f:
+        return [
+            (rec.platformID, rec.platEncID, rec.toUnicode())
+            for rec in f["name"].names
+            if rec.nameID == 0
+        ]
+
+
 def name0_scan(paths, srcs):
     """The copyright record (name ID 0) of every built font states each prior copyright
-    line of the metrics, before the typeface's own line."""
+    line of the metrics, before the typeface's line (first record); and, at EVERY
+    platform record, the typeface's own line ends with the Reserved Font Name clause
+    and the clause is not attached to a prior line. A font with no name ID 0 record is
+    a violation. The clause check of a weight runs once the prior lines are in order,
+    so each weight reports its first defect."""
     from fontTools.ttLib import TTFont
 
     m = srcs.metrics
@@ -1202,12 +1264,34 @@ def name0_scan(paths, srcs):
         own = rec.find(
             "Copyright (c) %s, %s" % (m["copyright_year"], m["copyright_holder"])
         )
+        bad = False
         for line in prior:
             at = rec.find(line)
             if at < 0 or (own >= 0 and at > own):
+                bad = True
                 v.append(
                     "%s name ID 0 does not state %r before the typeface's line"
                     % (w, line)
+                )
+        if bad:
+            continue
+        records = name0_records(p)
+        if not records:
+            v.append("%s has no name ID 0 record" % w)
+        for plat, enc, text in records:
+            where = "%s name ID 0 (platform %d/%d)" % (w, plat, enc)
+            if not text.rstrip().endswith(RFN_CLAUSE):
+                v.append(
+                    "%s: the typeface's own line does not end with %r"
+                    % (where, RFN_CLAUSE)
+                )
+            at = text.find(
+                "Copyright (c) %s, %s" % (m["copyright_year"], m["copyright_holder"])
+            )
+            if at < 0 or RFN_PHRASE in text[: max(at, 0)]:
+                v.append(
+                    "%s: %r is attached to a prior copyright line, or the "
+                    "typeface's own line is absent" % (where, RFN_PHRASE)
                 )
     return v
 
@@ -1258,6 +1342,10 @@ def cmd_build(args):
     n, v = name_table_scan(paths)
     v = v + name0_scan(paths, srcs)
     print("name records scanned: %d, public-safe violations: %d" % (n, len(v)))
+    print(
+        "name ID 0 records checked for the clause %r: %d"
+        % (RFN_CLAUSE, sum(len(name0_records(p)) for p in paths.values()))
+    )
     for x in v:
         print("  VIOLATION", x)
     for w in WEIGHTS:
