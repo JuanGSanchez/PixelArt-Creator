@@ -42,8 +42,10 @@ Tab chain and its focus indicator) is covered by an automated test here.
 from __future__ import annotations
 
 import platform
+import re
 import socket
-from typing import List, Optional
+from dataclasses import replace
+from typing import Dict, List, Optional, Tuple
 
 import pytest
 from PySide6.QtCore import QLocale, Qt, qVersion
@@ -56,10 +58,26 @@ from pixelart_creator.logic.contrast import TEXT_MIN_RATIO, contrast_ratio
 from pixelart_creator.ui import theme as theme_module
 from pixelart_creator.ui.about_dialog import About_Dialog
 from pixelart_creator.ui.app_icon import app_icon
+from pixelart_creator.ui.appearance_settings import (
+    default_appearance,
+    save_appearance,
+)
 from pixelart_creator.ui.i18n import FALLBACK_LANGUAGE
 from pixelart_creator.ui.main_window import Main_Window
-from pixelart_creator.ui.theme import THEME_DARK, role_map
-from testing.suites.ui.focus_helpers import assert_focus_rendered
+from pixelart_creator.ui.theme import (
+    DEFAULT_STYLE,
+    THEME_DARK,
+    THEME_LIGHT,
+    apply_theme,
+    link_colour,
+    role_map,
+)
+from testing.suites.ui.focus_helpers import (
+    assert_focus_rendered,
+    colour_mask,
+    grab_image,
+)
+from testing.suites.ui.test_theme import _COMBO_IDS, COMBOS, Combo
 
 #: The three fixed links (REQ-AV-UI-005) and their exact target addresses.
 _LINKS = [
@@ -1018,3 +1036,210 @@ def test_sc_av_ui_012_3_menu_entry_in_spanish(qtbot):
     finally:
         win._language_manager.set_language(FALLBACK_LANGUAGE)
         QApplication.processEvents()
+
+
+# --------------------------------------------------------------------------- #
+# T053 follow-up: the link colour follows the ACTIVE STYLE, live (AGT-05 T052 fix)
+#
+# Before the fix the dialog read ``link_colour(self._theme)`` -- the DEFAULT style's
+# text role -- so the three links stayed Washi & Kintsugi ink in Edo Night and Arcade
+# Kikko, and nothing told an open dialog that the style or mode had changed.
+#
+# What the colour is judged against. The expectation is the combination's own
+# ``text`` role read from the role map (``role_map``), cross-checked against
+# ``link_colour``; it is not read back from the dialog. What is observed is (a) the
+# colour written into each link's rich text and (b) the pixels the link label actually
+# paints: the exact link colour must appear in the rendered label.
+#
+# Discrimination, stated and not hidden: the default-style call returns the right
+# colour in the two Washi & Kintsugi combinations (it IS the default style), so those
+# two cases cannot tell the defect apart. The other four combinations can, and the
+# tests below require each of them to differ from the default style's colour of the
+# same mode before they compare anything.
+# --------------------------------------------------------------------------- #
+
+_LINK_COLOUR_RE = re.compile(r"color:\s*(#[0-9a-fA-F]{6})")
+
+
+def _expected_link_colour(combo: Combo) -> str:
+    """The link colour DATA gives for ``combo``: its ``text`` role, as ``#rrggbb``."""
+    from_roles = str(role_map(combo.mode, combo.style)["text"]).lower()
+    assert link_colour(combo.mode, combo.style).name() == from_roles
+    return from_roles
+
+
+def _default_style_colour(combo: Combo) -> str:
+    """The colour the DEFAULT style gives in ``combo``'s mode (the defect's output)."""
+    return str(role_map(combo.mode, DEFAULT_STYLE)["text"]).lower()
+
+
+def _written_link_colours(dialog: About_Dialog) -> Dict[str, str]:
+    """The ``color:`` each of the three links carries in its rich text, by objectName."""
+    found: Dict[str, str] = {}
+    for object_name, url in _LINKS:
+        label = _child(dialog, object_name)
+        text = label.text()
+        assert f'href="{url}"' in text, f"{object_name}: link target lost: {text!r}"
+        match = _LINK_COLOUR_RE.search(text)
+        assert match, f"{object_name}: no colour in {text!r}"
+        found[object_name] = match.group(1).lower()
+    return found
+
+
+def _painted_pixels(dialog: About_Dialog, colour: str) -> Dict[str, int]:
+    """How many pixels of each link label paint EXACTLY ``colour`` (opaque)."""
+    rgb = 0xFF000000 | int(colour[1:], 16)
+    return {
+        object_name: int(
+            colour_mask(grab_image(_child(dialog, object_name)), rgb).sum()
+        )
+        for object_name, _url in _LINKS
+    }
+
+
+def _assert_links_in(dialog: About_Dialog, combo: Combo) -> Tuple[str, int]:
+    """Assert all three links are ``combo``'s colour, written AND painted.
+
+    Returns the expected colour and the smallest painted-pixel count of the three
+    links (printed by the callers as the denominator).
+    """
+    expected = _expected_link_colour(combo)
+    written = _written_link_colours(dialog)
+    assert written == {
+        name: expected for name, _u in _LINKS
+    }, f"{combo.label()}: links are {written}, expected {expected} on all three"
+    painted = _painted_pixels(dialog, expected)
+    assert all(
+        count > 0 for count in painted.values()
+    ), f"{combo.label()}: the written colour {expected} is not what is painted: {painted}"
+    return expected, min(painted.values())
+
+
+def _window_restoring(qtbot, combo: Combo) -> Main_Window:
+    """A ``Main_Window`` that RESTORES ``combo`` from the (isolated) settings store."""
+    save_appearance(replace(default_appearance(), style=combo.style, mode=combo.mode))
+    win = _window(qtbot)
+    assert (win.current_style(), win.current_mode()) == (combo.style, combo.mode)
+    return win
+
+
+class Test_About_Link_Colour_Follows_The_Style:
+    """The About links use the active style's ``link_colour``, at open and live."""
+
+    @pytest.fixture(autouse=True)
+    def theme(self, qapp) -> str:
+        """Replace the suite's two-way ``theme`` fixture (these tests are six-way)."""
+        apply_theme(qapp, THEME_LIGHT)
+        return THEME_LIGHT
+
+    @pytest.fixture(params=COMBOS, ids=_COMBO_IDS)
+    def combo(self, request: pytest.FixtureRequest, qapp) -> Combo:
+        """One of the six style x mode combinations, applied to the application."""
+        chosen: Combo = request.param
+        apply_theme(qapp, chosen.mode, chosen.style)
+        return chosen
+
+    # -- 1. at open ---------------------------------------------------------
+
+    def test_links_open_in_the_active_styles_colour(self, qtbot, combo):
+        """The dialog opened from Help > About (a window restoring ``combo``) is in it."""
+        win = _window_restoring(qtbot, combo)
+        _win, dialog = _open_about(qtbot, win)
+        expected, painted = _assert_links_in(dialog, combo)
+        differs = expected != _default_style_colour(combo)
+        print(
+            f"{combo.label()}: links {expected}, painted pixels per link >= {painted}, "
+            f"differs from the default style's {_default_style_colour(combo)}: {differs}"
+        )
+        if combo.style != DEFAULT_STYLE:
+            assert differs, "this combination cannot tell the default-style call apart"
+
+    def test_an_explicit_style_beats_the_style_the_chrome_is_drawn_in(
+        self, qtbot, combo
+    ):
+        """The ``style`` argument is honoured even when the application is in another one.
+
+        The application is put in the DEFAULT style; the dialog is built for ``combo``'s.
+        A dialog that read the application's active style (or the default) instead of
+        its own argument would be in the wrong colour.
+        """
+        apply_theme(QApplication.instance(), combo.mode, DEFAULT_STYLE)
+        dialog = About_Dialog(combo.mode, None, combo.style)
+        qtbot.addWidget(dialog)
+        dialog.show()
+        qtbot.waitExposed(dialog)
+        _assert_links_in(dialog, combo)
+
+    def test_the_style_argument_defaults_to_the_active_style(self, qtbot, combo):
+        """With no ``style`` the dialog follows the style the chrome is drawn in."""
+        dialog = About_Dialog(combo.mode)
+        qtbot.addWidget(dialog)
+        dialog.show()
+        qtbot.waitExposed(dialog)
+        _assert_links_in(dialog, combo)
+
+    # -- 2. live ------------------------------------------------------------
+
+    @pytest.mark.parametrize("target", COMBOS, ids=_COMBO_IDS)
+    def test_an_open_dialog_follows_the_appearance_switch(self, qtbot, target):
+        """Switching through ``_switch_appearance`` re-renders the open dialog's links.
+
+        The window starts in a combination that differs from ``target`` in BOTH
+        style and mode (so neither can be what keeps the colour right by accident).
+        """
+        start = next(
+            c for c in COMBOS if c.style != target.style and c.mode != target.mode
+        )
+        win = _window_restoring(qtbot, start)
+        _win, dialog = _open_about(qtbot, win)
+        _assert_links_in(dialog, start)
+        before = _written_link_colours(dialog)
+
+        win._switch_appearance(target.style, target.mode)
+        QApplication.processEvents()
+
+        expected, painted = _assert_links_in(dialog, target)
+        print(
+            f"{start.label()} -> {target.label()}: {before['aboutRepositoryLink']} -> "
+            f"{expected}, painted pixels per link >= {painted}"
+        )
+        assert win._about_dialog is dialog, "the open dialog was replaced, not updated"
+        assert expected != before["aboutRepositoryLink"], (
+            "start and target have the same link colour; this case cannot show "
+            "that the dialog was re-rendered"
+        )
+
+    @pytest.mark.parametrize(
+        "axis, first, second",
+        [
+            (
+                "style",
+                Combo("edo-night", THEME_LIGHT),
+                Combo("arcade-kikko", THEME_LIGHT),
+            ),
+            ("mode", Combo("edo-night", THEME_LIGHT), Combo("edo-night", THEME_DARK)),
+        ],
+    )
+    def test_each_axis_alone_updates_the_open_dialog(self, qtbot, axis, first, second):
+        """Changing only the style (``set_style``) or only the mode (``set_mode``) updates it."""
+        win = _window_restoring(qtbot, first)
+        _win, dialog = _open_about(qtbot, win)
+        _assert_links_in(dialog, first)
+        assert _expected_link_colour(first) != _expected_link_colour(second)
+        if axis == "style":
+            win.set_style(second.style)
+        else:
+            win.set_mode(second.mode)
+        QApplication.processEvents()
+        _assert_links_in(dialog, second)
+
+    def test_a_switch_with_no_dialog_open_is_harmless_and_the_next_one_is_right(
+        self, qtbot
+    ):
+        """No dialog open at the switch: nothing raises; a dialog opened after it is right."""
+        win = _window_restoring(qtbot, Combo(DEFAULT_STYLE, THEME_LIGHT))
+        assert win._about_dialog is None
+        win._switch_appearance("arcade-kikko", THEME_DARK)
+        QApplication.processEvents()
+        _win, dialog = _open_about(qtbot, win)
+        _assert_links_in(dialog, Combo("arcade-kikko", THEME_DARK))

@@ -86,6 +86,7 @@ __all__ = [
     "install_dock_frame",
     "dock_content",
     "install_ornaments",
+    "reserve_ornament_band",
     "widget_scale",
 ]
 
@@ -118,6 +119,7 @@ _PATTERN_GROUND_ROLE = "background"
 # Names of the dynamic properties that mark a widget the filter acts on.
 _RING_HOST_PROPERTY = "_pixelRingHost"
 _ORNAMENT_HOST_PROPERTY = "_pixelOrnamentHost"
+_BAND_RESERVED_PROPERTY = "_pixelOrnamentBand"
 
 # Structural, not tuning: a device-pixel ratio is whole when within this of an
 # integer (guards ``ceil`` against 2.0000000001).
@@ -185,6 +187,8 @@ def set_active_theme(style: str, mode: str) -> None:
     if not isinstance(app, QApplication):
         return
     for widget in app.allWidgets():
+        if isinstance(widget, QFrame) and widget.property(_BAND_RESERVED_PROPERTY):
+            _apply_ornament_band(widget)
         if isinstance(widget, Ornament_Widget):
             widget.refresh()
         if isinstance(
@@ -527,6 +531,31 @@ def install_ornaments(
     for ornament in made:
         ornament.place()
     return made
+
+
+def _apply_ornament_band(body: QFrame) -> None:
+    layout = body.layout()
+    if layout is None:
+        return
+    sprite = style_catalog.template_set(active_style()).get(_ORNAMENT_TEMPLATE)
+    layout.setContentsMargins(0, 0, 0, sprite.grid.height)
+
+
+def reserve_ornament_band(dock: QDockWidget) -> None:
+    """Keep the bottom band the corner ornaments occupy free of content.
+
+    The ornaments (full size, as the style guide draws them) sit on the dock's
+    two bottom corners, and any control reaching a corner would lie under one
+    (SC-VI-UI-010-2). The band is the ornament sprite's height of the active
+    style, reserved as the ``DockBody`` layout's bottom content margin, so no
+    panel can extend into it; the margin follows a style switch. Call it after
+    :func:`install_dock_frame`, at the same creation sites as
+    :func:`install_ornaments`.
+    """
+    body = dock.widget()
+    if isinstance(body, QFrame) and body.objectName() == DOCK_BODY_OBJECT_NAME:
+        body.setProperty(_BAND_RESERVED_PROPERTY, True)
+        _apply_ornament_band(body)
 
 
 def install_dock_frame(dock: QDockWidget) -> QFrame:

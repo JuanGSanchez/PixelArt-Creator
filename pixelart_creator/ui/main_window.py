@@ -15,12 +15,20 @@ tool → ``logic/drawing`` → :class:`PaintCommand` (Article I).
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Dict, Final, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
-from PySide6.QtCore import QEvent, QObject, QRectF, QStandardPaths, Qt, QTimer
+from PySide6.QtCore import (
+    QEvent,
+    QObject,
+    QRectF,
+    QStandardPaths,
+    Qt,
+    QTimer,
+    Signal,
+)
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -46,6 +54,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QGraphicsScene,
     QGridLayout,
+    QHBoxLayout,
     QInputDialog,
     QLabel,
     QListWidget,
@@ -144,6 +153,11 @@ from pixelart_creator.logic.transform import (
 from pixelart_creator.logic.version_history import CloudVersion
 from pixelart_creator.ui.about_dialog import About_Dialog
 from pixelart_creator.ui.app_icon import app_icon
+from pixelart_creator.ui.appearance_settings import (
+    Appearance_Settings,
+    load_appearance,
+    save_appearance,
+)
 from pixelart_creator.ui.asset_library_actions import Asset_Library_Session
 from pixelart_creator.ui.asset_library_panel import Asset_Library_Panel
 from pixelart_creator.ui.asset_reuse_panel import Asset_Reuse_Panel
@@ -220,6 +234,14 @@ from pixelart_creator.ui.palette_constraint_panel import (
 from pixelart_creator.ui.palette_editor_panel import Palette_Editor_Panel
 from pixelart_creator.ui.palette_swap_dialog import Palette_Swap_Dialog
 from pixelart_creator.ui.perspective_grid_overlay import Perspective_Grid_Overlay
+from pixelart_creator.ui.pixel_chrome import (
+    DOCK_CORNERS,
+    Pattern_Area_Widget,
+    dock_content,
+    install_dock_frame,
+    install_ornaments,
+    reserve_ornament_band,
+)
 from pixelart_creator.ui.playback_controls import Playback_Controls
 from pixelart_creator.ui.plugin_manager_panel import Plugin_Manager_Panel
 from pixelart_creator.ui.presence_panel import Presence_Panel
@@ -241,10 +263,14 @@ from pixelart_creator.ui.shared_projects_panel import Shared_Projects_Panel
 from pixelart_creator.ui.shortcut_focus_guard import Shortcut_Focus_Guard
 from pixelart_creator.ui.symmetry_panel import Symmetry_Panel
 from pixelart_creator.ui.theme import (
+    STYLE_ARCADE_KIKKO,
+    STYLE_EDO_NIGHT,
+    STYLE_WASHI_KINTSUGI,
     THEME_DARK,
     THEME_LIGHT,
     apply_font_fallbacks,
     apply_theme,
+    available_styles,
     canvas_roles,
     canvas_surface_roles,
 )
@@ -535,6 +561,13 @@ class Palette_Panel(QWidget):
 class Main_Window(QMainWindow):
     """The Phase-1 editor shell."""
 
+    #: Emitted when "Use system font" changes (stored here; the font itself is
+    #: switched by the listener that owns it).
+    useSystemFontChanged = Signal(bool)
+    #: Emitted when "Pixel-perfect interface" changes (stored here; it takes
+    #: effect at the next launch).
+    pixelPerfectInterfaceChanged = Signal(bool)
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """Build the shell, apply the theme, and open one default document."""
         super().__init__(parent)
@@ -560,7 +593,11 @@ class Main_Window(QMainWindow):
         self._tabs_data: List[_DocTab] = []
         self._active_color: RGBA = BLACK
         self._active_index: int = 0
-        self._theme = THEME_LIGHT
+        # REQ-VI-UI-002: the remembered style/mode (invalid stored values were
+        # already replaced by the defaults); first launch is Washi & Kintsugi Light.
+        self._appearance: Appearance_Settings = load_appearance()
+        self._style = self._appearance.style
+        self._theme = self._appearance.mode
         # FIX 1 (2026-08-24 field defect) forward guard: the first-launch dock
         # layout (_apply_initial_dock_layout) applies only while no saved dock
         # arrangement has been restored. Nothing restores one today, so this
@@ -649,6 +686,7 @@ class Main_Window(QMainWindow):
         self._palette_panel.colorSelected.connect(self._on_palette_selected)
         self._palette_dock = QDockWidget(self)
         self._palette_dock.setWidget(self._palette_panel)
+        self._frame_dock(self._palette_dock)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._palette_dock)
 
         self._symmetry_panel = Symmetry_Panel(self)
@@ -666,6 +704,7 @@ class Main_Window(QMainWindow):
         self._symmetry_panel.setMinimumWidth(_WORKFLOW_DOCK_MIN_WIDTH_PX)
         self._symmetry_dock = QDockWidget(self)
         self._symmetry_dock.setWidget(self._symmetry_panel)
+        self._frame_dock(self._symmetry_dock)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._symmetry_dock)
 
         # Phase-4 layer panel (REQ-P4-UI-001..011): the layer/group tree bound to
@@ -681,6 +720,7 @@ class Main_Window(QMainWindow):
         # untouched -- forcing it up to the cap would only WIDEN its floor.
         self._layer_dock = QDockWidget(self)
         self._layer_dock.setWidget(self._layer_panel)
+        self._frame_dock(self._layer_dock)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._layer_dock)
 
         # Phase-5 animation UI (REQ-P5-UI-001..015): a bottom dock holds the
@@ -721,10 +761,19 @@ class Main_Window(QMainWindow):
         timeline_container = QWidget(self)
         timeline_layout = QVBoxLayout(timeline_container)
         timeline_layout.setContentsMargins(0, 0, 0, 0)
-        timeline_layout.addWidget(self._playback_controls)
+        # P2 (REQ-VI-UI-011): the empty strip right of the transport controls
+        # carries the faint pattern; the controls keep their own size, the
+        # pattern area takes what is left and never paints under them.
+        transport_row = QHBoxLayout()
+        transport_row.setContentsMargins(0, 0, 0, 0)
+        transport_row.addWidget(self._playback_controls)
+        self._transport_pattern = Pattern_Area_Widget(timeline_container)
+        transport_row.addWidget(self._transport_pattern, 1)
+        timeline_layout.addLayout(transport_row)
         timeline_layout.addWidget(self._timeline_panel, 1)
         self._timeline_dock = QDockWidget(self)
         self._timeline_dock.setWidget(timeline_container)
+        self._frame_dock(self._timeline_dock)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._timeline_dock)
 
         self._onion_controls = Onion_Skin_Controls(self)
@@ -793,6 +842,7 @@ class Main_Window(QMainWindow):
         self._tilemap_canvas.noActiveBrushRejected.connect(self._notify_no_active_brush)
         self._tilemap_dock = QDockWidget(self)
         self._tilemap_dock.setWidget(self._tilemap_canvas)
+        self._frame_dock(self._tilemap_dock)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._tilemap_dock)
 
         # Marquee S3/S4 colour hub: a persisted Favourites model + the cursor-
@@ -932,9 +982,10 @@ class Main_Window(QMainWindow):
         # every member the same way ``_preview_dock``'s was. Capping the inner
         # content widget defensively closes that path before it is ever
         # observed, exactly like ``_preview_window`` above.
-        self._assistant_dock_widget.widget().setMinimumWidth(
-            _WORKFLOW_DOCK_MIN_WIDTH_PX
-        )
+        self._frame_dock(self._assistant_dock_widget)
+        assistant_panel = dock_content(self._assistant_dock_widget)
+        assert assistant_panel is not None
+        assistant_panel.setMinimumWidth(_WORKFLOW_DOCK_MIN_WIDTH_PX)
         self.addDockWidget(
             Qt.DockWidgetArea.RightDockWidgetArea, self._assistant_dock_widget
         )
@@ -1167,7 +1218,7 @@ class Main_Window(QMainWindow):
         # paints, so a single-OS family (Segoe UI / .AppleSystemUIFont / …) never
         # yields .notdef boxes on another OS (REQ-P13-UI-001).
         apply_font_fallbacks()
-        apply_theme(self._app, self._theme)
+        apply_theme(self._app, self._theme, self._style)
         self._language_manager.install_from_locale()
 
         self.new_document()
@@ -1442,12 +1493,39 @@ class Main_Window(QMainWindow):
         self._to_rgba_action = QAction(self)
         self._to_rgba_action.triggered.connect(self._on_convert_to_rgba)
 
+        # Theme menu (REQ-VI-UI-001): Style x3 and Light/Dark are two exclusive
+        # groups; both reflect the restored choice. ``triggered`` fires for the
+        # user only, so a programmatic ``setChecked`` never re-enters the switch.
+        self._style_actions: Dict[str, QAction] = {}
+        self._style_group = QActionGroup(self)
+        self._style_group.setExclusive(True)
+        for style_id in available_styles():
+            style_action = QAction(self)
+            style_action.setCheckable(True)
+            style_action.setChecked(style_id == self._style)
+            style_action.triggered.connect(
+                lambda _checked=False, sid=style_id: self.set_style(sid)
+            )
+            self._style_group.addAction(style_action)
+            self._style_actions[style_id] = style_action
+        self._use_system_font_action = QAction(self)
+        self._use_system_font_action.setCheckable(True)
+        self._use_system_font_action.setChecked(self._appearance.use_system_font)
+        self._use_system_font_action.triggered.connect(self.set_use_system_font)
+        self._interface_pixel_perfect_action = QAction(self)
+        self._interface_pixel_perfect_action.setCheckable(True)
+        self._interface_pixel_perfect_action.setChecked(self._appearance.pixel_perfect)
+        self._interface_pixel_perfect_action.triggered.connect(
+            self.set_pixel_perfect_interface
+        )
+
         self._theme_light_action = QAction(self)
         self._theme_light_action.setCheckable(True)
-        self._theme_light_action.setChecked(True)
+        self._theme_light_action.setChecked(self._theme == THEME_LIGHT)
         self._theme_light_action.triggered.connect(lambda: self.set_theme(THEME_LIGHT))
         self._theme_dark_action = QAction(self)
         self._theme_dark_action.setCheckable(True)
+        self._theme_dark_action.setChecked(self._theme == THEME_DARK)
         self._theme_dark_action.triggered.connect(lambda: self.set_theme(THEME_DARK))
         self._theme_group = QActionGroup(self)
         self._theme_group.setExclusive(True)
@@ -1527,6 +1605,10 @@ class Main_Window(QMainWindow):
         self._toolbar.addSeparator()
         self._toolbar.addWidget(self._dither_mode_label)
         self._toolbar.addWidget(self._dither_mode_combo)
+        # P1 (REQ-VI-UI-011): the empty tail below the last control. It expands
+        # into the space the toolbar has left and paints the faint pattern.
+        self._toolbar_pattern = Pattern_Area_Widget(self._toolbar)
+        self._toolbar.addWidget(self._toolbar_pattern)
         self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, self._toolbar)
 
     def _build_menu(self) -> None:
@@ -1692,8 +1774,15 @@ class Main_Window(QMainWindow):
         self._library_menu.aboutToShow.connect(self._refresh_ingress_actions_ui)
 
         self._theme_menu = bar.addMenu("")
+        self._style_menu = self._theme_menu.addMenu("")
+        for style_action in self._style_actions.values():
+            self._style_menu.addAction(style_action)
+        self._theme_menu.addSeparator()
         self._theme_menu.addAction(self._theme_light_action)
         self._theme_menu.addAction(self._theme_dark_action)
+        self._theme_menu.addSeparator()
+        self._theme_menu.addAction(self._use_system_font_action)
+        self._theme_menu.addAction(self._interface_pixel_perfect_action)
 
         self._language_menu = bar.addMenu("")
         for code in self._language_manager.available_languages():
@@ -1748,6 +1837,7 @@ class Main_Window(QMainWindow):
         self._preview_window.setMinimumWidth(_WORKFLOW_DOCK_MIN_WIDTH_PX)
         self._preview_dock = QDockWidget(self)
         self._preview_dock.setWidget(self._preview_window)
+        self._frame_dock(self._preview_dock)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._preview_dock)
         self.tabifyDockWidget(self._palette_dock, self._preview_dock)
         self._preview_dock.hide()
@@ -1893,7 +1983,7 @@ class Main_Window(QMainWindow):
 
     def _apply_aid_theme(self, record: "_DocTab") -> None:
         """Push role-based colours to a tab's overlays (both themes legible, 025)."""
-        _checker_light, _checker_dark, grid = canvas_roles(self._theme)
+        _checker_light, _checker_dark, grid = canvas_roles(self._theme, self._style)
         if record.iso_overlay is not None:
             record.iso_overlay.set_line_color(grid)
         if record.perspective_overlay is not None:
@@ -2554,9 +2644,22 @@ class Main_Window(QMainWindow):
         widget.setMinimumWidth(_WORKFLOW_DOCK_MIN_WIDTH_PX)
         dock = QDockWidget(self)
         dock.setWidget(widget)
+        self._frame_dock(dock)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
         self.tabifyDockWidget(self._palette_dock, dock)
         return dock
+
+    @staticmethod
+    def _frame_dock(dock: QDockWidget) -> None:
+        """Give ``dock`` its pixel-chrome frame and bottom-corner ornaments.
+
+        The one call every dock-creation site makes right after ``setWidget``
+        (REQ-VI-UI-007, -010). The panel keeps its identity inside the frame;
+        reach it with :func:`dock_content`, never ``dock.widget()``.
+        """
+        install_dock_frame(dock)
+        reserve_ornament_band(dock)
+        install_ornaments(dock, DOCK_CORNERS)
 
     def _bind_palette_workflows(self, record: "_DocTab") -> None:
         """Point the palette editor / cycling / dither surfaces at ``record``."""
@@ -4931,7 +5034,7 @@ class Main_Window(QMainWindow):
         call from a headless test. Kept as ``self._about_dialog`` until it
         finishes, matching the ``_user_guide_dialog`` lifetime pattern above.
         """
-        self._about_dialog = About_Dialog(self._theme, self)
+        self._about_dialog = About_Dialog(self._theme, self, self._style)
         self._about_dialog.finished.connect(self._on_about_dialog_finished)
         self._about_dialog.open()
 
@@ -4939,18 +5042,83 @@ class Main_Window(QMainWindow):
         """Drop the reference to the closed About dialog."""
         self._about_dialog = None
 
+    def current_style(self) -> str:
+        """Return the id of the active style."""
+        return self._style
+
+    def current_mode(self) -> str:
+        """Return the active mode (``THEME_LIGHT`` or ``THEME_DARK``)."""
+        return self._theme
+
+    def use_system_font(self) -> bool:
+        """Return the stored "Use system font" choice."""
+        return self._appearance.use_system_font
+
+    def pixel_perfect_interface(self) -> bool:
+        """Return the stored "Pixel-perfect interface" choice."""
+        return self._appearance.pixel_perfect
+
+    def set_style(self, style_id: str) -> None:
+        """Switch the style at once and remember it (REQ-VI-UI-001, -002)."""
+        self._switch_appearance(style_id, self._theme)
+
+    def set_mode(self, mode: str) -> None:
+        """Switch Light/Dark at once and remember it (REQ-VI-UI-001, -002)."""
+        self._switch_appearance(self._style, mode)
+
+    def set_use_system_font(self, enabled: bool) -> None:
+        """Store the "Use system font" choice and announce it.
+
+        Only the setting is kept here; the listener that owns the font applies it.
+        """
+        enabled = bool(enabled)
+        self._use_system_font_action.setChecked(enabled)
+        if enabled == self._appearance.use_system_font:
+            return
+        self._remember(replace(self._appearance, use_system_font=enabled))
+        self.useSystemFontChanged.emit(enabled)
+
+    def set_pixel_perfect_interface(self, enabled: bool) -> None:
+        """Store the "Pixel-perfect interface" choice (read at the next launch)."""
+        enabled = bool(enabled)
+        self._interface_pixel_perfect_action.setChecked(enabled)
+        if enabled == self._appearance.pixel_perfect:
+            return
+        self._remember(replace(self._appearance, pixel_perfect=enabled))
+        self.pixelPerfectInterfaceChanged.emit(enabled)
+
+    def _remember(self, appearance: Appearance_Settings) -> None:
+        """Keep ``appearance`` as the current choices and persist them."""
+        self._appearance = appearance
+        save_appearance(appearance)
+
     def set_theme(self, name: str) -> None:
-        """Switch the theme at runtime and repaint canvas roles (025)."""
-        self._theme = name
-        apply_theme(self._app, name)
+        """Switch the mode at runtime and repaint canvas roles (025).
+
+        Kept as the mode setter (compat); same as :meth:`set_mode`.
+        """
+        self.set_mode(name)
+
+    def _switch_appearance(self, style_id: str, mode: str) -> None:
+        """Apply ``(style_id, mode)`` to the one app stylesheet and every role user."""
+        # Applies first: an unknown id raises here, before any state changes.
+        apply_theme(self._app, mode, style_id)
+        self._style = style_id
+        self._theme = mode
+        self._style_actions[style_id].setChecked(True)
+        self._theme_light_action.setChecked(mode == THEME_LIGHT)
+        self._theme_dark_action.setChecked(mode == THEME_DARK)
+        self._remember(replace(self._appearance, style=style_id, mode=mode))
         for record in self._tabs_data:
             self._apply_theme_to_scene(record.scene)
             self._apply_aid_theme(record)
-        self._tilemap_canvas.set_theme_colors(*canvas_roles(self._theme))
+        self._tilemap_canvas.set_theme_colors(*canvas_roles(self._theme, self._style))
         # The resolver bakes the tint into the QIcon at build time, so a
         # runtime theme switch must re-resolve every tool glyph or the
         # toolbar keeps the OLD theme's ink on the NEW theme's background.
         self._apply_tool_icons()
+        if self._about_dialog is not None:
+            self._about_dialog.set_appearance(mode, style_id)
 
     def _apply_tool_icons(self) -> None:
         """(Re)apply the eleven theme-tinted tool glyphs (`REQ-IS-UI-027`).
@@ -4962,12 +5130,12 @@ class Main_Window(QMainWindow):
         (`_retranslate`) and are never touched here (Article V.1).
         """
         for tool_id, action in self._tool_actions.items():
-            action.setIcon(tool_icon(tool_id, theme=self._theme))
+            action.setIcon(tool_icon(tool_id, theme=self._theme, style=self._style))
 
     def _apply_theme_to_scene(self, scene: CanvasScene) -> None:
-        checker_light, checker_dark, grid = canvas_roles(self._theme)
+        checker_light, checker_dark, grid = canvas_roles(self._theme, self._style)
         scene.set_background_roles(checker_light, checker_dark, grid)
-        workspace, border = canvas_surface_roles(self._theme)
+        workspace, border = canvas_surface_roles(self._theme, self._style)
         scene.set_surface_roles(workspace, border)
 
     # -- Phase-6 tilemap wiring (REQ-P6-UI-001..013) ---------------------
@@ -4994,7 +5162,7 @@ class Main_Window(QMainWindow):
             self._active_tilemap, record.stack, self._refresh_tilemap_canvas
         )
         self._tilemap_canvas.set_context(self._active_tilemap, record.stack, None)
-        self._tilemap_canvas.set_theme_colors(*canvas_roles(self._theme))
+        self._tilemap_canvas.set_theme_colors(*canvas_roles(self._theme, self._style))
         gid = self._tileset_editor.active_gid()
         if gid is not None:
             self._tilemap_canvas.set_brush_gid(gid)
@@ -5474,6 +5642,7 @@ class Main_Window(QMainWindow):
         self._tiled_action.setText(self.tr("&Tiled Mode"))
         self._theme_light_action.setText(self.tr("Light"))
         self._theme_dark_action.setText(self.tr("Dark"))
+        self._retranslate_appearance()
 
         self._new_tileset_action.setText(self.tr("New Tileset from Image…"))
         self._new_tilemap_action.setText(self.tr("New Tilemap"))
@@ -5552,6 +5721,32 @@ class Main_Window(QMainWindow):
         self._help_menu.setTitle(self.tr("&Help"))
         self._user_guide_action.setText(self.tr("&User Guide"))
         self._about_action.setText(self.tr("&About PixelArt Creator"))
+
+    def _style_label(self, style_id: str) -> str:
+        """Return the translated menu text of a style (``&&`` is a literal ``&``)."""
+        labels = {
+            STYLE_WASHI_KINTSUGI: self.tr("Washi && Kintsugi"),
+            STYLE_EDO_NIGHT: self.tr("Edo Night"),
+            STYLE_ARCADE_KIKKO: self.tr("Arcade Kikko"),
+        }
+        return labels.get(style_id, style_id)
+
+    def _retranslate_appearance(self) -> None:
+        """Re-set the Theme menu's appearance controls (F5)."""
+        self._style_menu.setTitle(self.tr("&Style"))
+        self._style_menu.menuAction().setStatusTip(self.tr("Choose the visual style"))
+        for style_id, style_action in self._style_actions.items():
+            style_action.setText(self._style_label(style_id))
+        self._use_system_font_action.setText(self.tr("Use system &font"))
+        self._use_system_font_action.setStatusTip(
+            self.tr("Use the operating system's interface font instead of Nifen Art")
+        )
+        self._interface_pixel_perfect_action.setText(
+            self.tr("Pixel-perfect &interface")
+        )
+        self._interface_pixel_perfect_action.setStatusTip(
+            self.tr("Scale the interface by whole numbers only (next launch)")
+        )
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
         """Re-translate the main-window strings on a language change (F5)."""

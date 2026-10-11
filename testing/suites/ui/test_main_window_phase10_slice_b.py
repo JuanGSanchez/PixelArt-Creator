@@ -14,6 +14,7 @@ from PySide6.QtCore import QEvent
 from pixelart_creator.ui.collaboration_actions import Collaboration_Session
 from pixelart_creator.ui.comments_panel import Comments_Panel
 from pixelart_creator.ui.main_window import Main_Window
+from pixelart_creator.ui.pixel_chrome import DOCK_BODY_OBJECT_NAME, dock_content
 from pixelart_creator.ui.presence_panel import Presence_Panel
 from pixelart_creator.ui.shared_projects_panel import Shared_Projects_Panel
 
@@ -43,11 +44,19 @@ def test_all_three_panels_bound_to_the_same_session(qtbot):
 
 
 def test_panels_are_docked(qtbot):
-    """The three panels live in dock widgets holding exactly their panel."""
+    """The three panels live in framed dock widgets holding exactly their panel.
+
+    A framed dock's ``widget()`` is the ``DockBody`` frame (REQ-VI-UI-007), so the
+    panel is reached with ``dock_content`` and the frame itself is asserted too.
+    """
     win = _window(qtbot)
-    assert win._shared_dock.widget() is win._shared_projects_panel
-    assert win._comments_dock.widget() is win._comments_panel
-    assert win._presence_dock.widget() is win._presence_panel
+    for dock, panel in (
+        (win._shared_dock, win._shared_projects_panel),
+        (win._comments_dock, win._comments_panel),
+        (win._presence_dock, win._presence_panel),
+    ):
+        assert dock.widget().objectName() == DOCK_BODY_OBJECT_NAME
+        assert dock_content(dock) is panel
 
 
 def test_cloud_menu_exposes_dock_toggles(qtbot):

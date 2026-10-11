@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 
 from pixelart_creator.logic import about_info
 from pixelart_creator.ui.app_icon import app_icon
+from pixelart_creator.ui.pixel_chrome import active_style
 from pixelart_creator.ui.theme import link_colour
 
 #: The dialog's fixed links, in the order shown (REQ-AV-UI-005).
@@ -135,10 +136,20 @@ class About_Dialog(QDialog):
     Qt fact gathered by the two seams above.
     """
 
-    def __init__(self, theme: str, parent: Optional[QWidget] = None) -> None:
-        """Build the dialog for the given ``theme`` name, parented to ``parent``."""
+    def __init__(
+        self,
+        theme: str,
+        parent: Optional[QWidget] = None,
+        style: Optional[str] = None,
+    ) -> None:
+        """Build the dialog for the given ``theme`` mode, parented to ``parent``.
+
+        ``style`` is the active style id; ``None`` reads the style the painted
+        chrome is drawn in, so the link colour follows every style.
+        """
         super().__init__(parent)
         self._theme = theme
+        self._style = style if style is not None else active_style()
 
         # -- facts, gathered once at open time ---------------------------
         self._version_text = about_info.app_version()
@@ -278,7 +289,7 @@ class About_Dialog(QDialog):
         self._environment_caption.setText(self.tr("Environment:"))
         self._environment_value.setAccessibleName(self.tr("Environment summary"))
 
-        colour = link_colour(self._theme).name()
+        colour = link_colour(self._theme, self._style).name()
         captions = {
             "aboutRepositoryLink": self.tr("Repository"),
             "aboutDocumentationLink": self.tr("Documentation"),
@@ -303,6 +314,12 @@ class About_Dialog(QDialog):
                 self._environment_facts, self.tr("unknown")
             )
         )
+
+    def set_appearance(self, theme: str, style: str) -> None:
+        """Follow a runtime change of mode or style while the dialog is open."""
+        self._theme = theme
+        self._style = style
+        self._retranslate()
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
         """Re-translate on ``QEvent.LanguageChange`` (F5); delegate otherwise."""
