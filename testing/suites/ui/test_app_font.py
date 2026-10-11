@@ -1146,7 +1146,10 @@ def test_sc_vi_ui_015_1_a_missing_character_falls_back_alone_with_no_box(
 
     Runs in a child process whose font database is the platform's own. The
     character is chosen at run time from candidates that Nifen Art lacks and that
-    some installed font covers; none found is a FAILURE (nothing can be shown). The
+    some installed font covers (scripts first, then Latin Extended-B, IPA, box
+    drawing and math symbols that a stock Linux font has). None found is a FAILURE
+    (nothing can be shown) on Windows and macOS; on Linux it is a skip that prints the
+    font census, or a failure when PIXELART_REQUIRE_FALLBACK_FONT is set. The
     layer row's own font is shaped with ``QTextLayout`` and each glyph run is
     read: its raw font family and whether it holds glyph 0, the missing-glyph box.
     A control shapes a code point no font has and must be reported as a box.
@@ -1169,11 +1172,17 @@ def covers_elsewhere(ch):
         if raw.isValid() and raw.supportsCharacter(ch):
             return fam
     return None
-chosen = None; fallback_family = None; candidates = 0
-for ch in ["\\u68ee", "\\u6f22", "\\u5b57", "\\u65e5", "\\uc0b0", "\\u0e01", "\\u05d0", "\\u0639", "\\u0915"]:
+chosen = None; fallback_family = None; candidates = 0; table = []
+# Scripts first (what a user's layer names look like), then characters that a stock Linux
+# font (DejaVu, Liberation) covers and Nifen Art lacks in both weights: Latin Extended-B,
+# IPA, box drawing, a math sum and root, a shade, a face, a house.
+for ch in ["\\u68ee", "\\u6f22", "\\u5b57", "\\u65e5", "\\uc0b0", "\\u0e01", "\\u05d0", "\\u0639", "\\u0915",
+           "\\u0192", "\\u0259", "\\u2500", "\\u2211", "\\u221a", "\\u2592", "\\u263a", "\\u2302"]:
     if nifen.supportsCharacter(ch):
+        table.append("U+%04X nifen" % ord(ch))
         continue
     fam = covers_elsewhere(ch)
+    table.append("U+%04X %s" % (ord(ch), repr(fam) if fam else "no font"))
     if fam:
         candidates += 1
         if chosen is None:
@@ -1192,7 +1201,10 @@ def shape(text, font):
     return runs
 runs = shape(row_text, label.font())
 control = shape("\\U0010fffd", label.font())
+import os
 out(families=len(families), chosen=chosen, fallback=fallback_family, candidates=candidates,
+    platform=app.platformName(), fontdir=os.environ.get("QT_QPA_FONTDIR", ""), table=table,
+    family_names=sorted(families)[:60],
     row_text=row_text, runs=runs, control=control, row_font=label.font().family(),
     nifen_runs=[r for r in runs if r["family"] == "Nifen Art"])
 """,
@@ -1204,12 +1216,32 @@ out(families=len(families), chosen=chosen, fallback=fallback_family, candidates=
         f"{result['candidates']}, chose {result['chosen']!r} (covered by {result['fallback']!r}); "
         f"runs {result['runs']}; control {result['control']}",
     )
-    assert (
-        result["families"] > 0
-    ), "the child's font database holds no font besides Nifen Art"
-    assert (
-        result["candidates"] > 0
-    ), "no candidate character is covered by a fallback font"
+    # What the database holds, so the log of a failing or skipped run shows why.
+    census = (
+        f"Qt platform {result['platform']!r}, QT_QPA_FONTDIR {result['fontdir']!r}, "
+        f"{result['families']} families besides Nifen Art "
+        f"(first {len(result['family_names'])}): {result['family_names']}; "
+        f"candidates: {result['table']}"
+    )
+    say(capsys, f"015-1 census: {census}")
+    assert result["families"] > 0, (
+        "the child's font database holds no font besides Nifen Art; " + census
+    )
+    if result["candidates"] == 0:
+        # Nothing can be shown, so the scenario cannot be proved here. On Windows and
+        # macOS that is a failure (both ship fonts for the candidates). A bare Linux
+        # image may ship none: there it is a counted skip that names its reason, unless
+        # PIXELART_REQUIRE_FALLBACK_FONT is set (CI sets it once its job installs a font
+        # such as fonts-dejavu-core), which turns the skip into the failure it hides.
+        why = (
+            "SC-VI-UI-015-1 NOT PROVED: no candidate character is covered by any font "
+            "besides Nifen Art in this environment's font database; " + census
+        )
+        if sys.platform.startswith("linux") and not os.environ.get(
+            "PIXELART_REQUIRE_FALLBACK_FONT"
+        ):
+            pytest.skip(why)
+        pytest.fail(why)
     assert result["row_text"].startswith("Capa ") and result["row_text"] != "Capa ?"
     assert result["row_font"] == NIFEN, f"the layer row font is {result['row_font']!r}"
     runs = result["runs"]
