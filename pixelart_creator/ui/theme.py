@@ -47,22 +47,22 @@ STYLE_WASHI_KINTSUGI = "washi-kintsugi"
 STYLE_EDO_NIGHT = "edo-night"
 STYLE_ARCADE_KIKKO = "arcade-kikko"
 
-#: The defaults, read from ``themes/index.json`` (not typed here).
+# The defaults, read from ``themes/index.json`` (not typed here).
 DEFAULT_STYLE: str = style_catalog.default_style()
 DEFAULT_MODE: str = style_catalog.default_mode()
 
-#: Cross-OS UI-font fallback chain (REQ-P13-UI-001). Defined
-#: **once, by role** here (never per-widget): the UI names no specific family (the
-#: QSS below carries no ``font-family`` and the app sets no :class:`QFont`), so each
-#: OS already resolves its own default system UI font. This map is the belt-and-
-#: braces guard for the single-OS families that a platform default *reports* as its
-#: name (e.g. Windows "Segoe UI", macOS ".AppleSystemUIFont"/"Helvetica Neue"): if
-#: such a family is ever requested on an OS that lacks it (a cross-OS project theme,
-#: a future stylesheet, a canvas glyph label), Qt substitutes the first available
-#: entry instead of rendering ``.notdef`` boxes. Where the named family exists (its
-#: native OS) Qt uses it directly, so this changes nothing on the platform that owns
-#: the font — it only adds a resolvable fallback on the others. The tail generics
-#: are resolved by the Qt platform plugin to a present family on every OS.
+# Cross-OS UI-font fallback chain (REQ-P13-UI-001). Defined
+# **once, by role** here (never per-widget): the UI names no specific family (the
+# QSS below carries no ``font-family`` and the app sets no :class:`QFont`), so each
+# OS already resolves its own default system UI font. This map is the belt-and-
+# braces guard for the single-OS families that a platform default *reports* as its
+# name (e.g. Windows "Segoe UI", macOS ".AppleSystemUIFont"/"Helvetica Neue"): if
+# such a family is ever requested on an OS that lacks it (a cross-OS project theme,
+# a future stylesheet, a canvas glyph label), Qt substitutes the first available
+# entry instead of rendering ``.notdef`` boxes. Where the named family exists (its
+# native OS) Qt uses it directly, so this changes nothing on the platform that owns
+# the font — it only adds a resolvable fallback on the others. The tail generics
+# are resolved by the Qt platform plugin to a present family on every OS.
 _UI_FONT_FALLBACKS: Dict[str, List[str]] = {
     "Segoe UI": [
         "Helvetica Neue",
@@ -145,6 +145,7 @@ def _roles(name: str, style: str = DEFAULT_STYLE) -> Dict[str, str]:
     except style_catalog.StyleCatalogError:
         if style not in style_catalog.style_ids():
             raise ValueError(
+                #: %1 is the internal style name that could not be found.
                 QCoreApplication.translate("theme", "unknown style: %1").replace(
                     "%1", str(style)
                 )

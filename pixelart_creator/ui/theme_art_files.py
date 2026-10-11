@@ -234,7 +234,11 @@ class ArtSet:
         return target
 
     def url(self, name: str, *, transpose: bool = False) -> str:
-        """Return ``url("<path>")`` for template ``name`` (quoted, forward slashes)."""
+        """Return the quoted style-sheet URL of template ``name``, forward slashes.
+
+        The value has the form ``url("<path>")`` and points at the art file
+        written for the template.
+        """
         return f'url("{self.path(name, transpose=transpose).as_posix()}")'
 
     def size(self, name: str, *, transpose: bool = False) -> Tuple[int, int]:

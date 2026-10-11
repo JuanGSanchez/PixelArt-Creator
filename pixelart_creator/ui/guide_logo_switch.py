@@ -31,7 +31,7 @@ from PySide6.QtWidgets import QAbstractButton, QTextBrowser
 
 __all__ = ["Guide_Logo_Switch_Widget", "logo_rect"]
 
-#: Object name of the switch (a stable handle for tests and accessibility tools).
+# Object name of the switch (a stable handle for tests and accessibility tools).
 LOGO_SWITCH_OBJECT_NAME = "GuideLogoSwitch"
 
 
@@ -117,6 +117,7 @@ class Guide_Logo_Switch_Widget(QAbstractButton):
     # -- i18n -------------------------------------------------------------
 
     def _retranslate(self) -> None:
+        #: Accessible name of the switch; screen readers announce it.
         self.setAccessibleName(self.tr("Switch the pixel font for the guide's pages"))
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
