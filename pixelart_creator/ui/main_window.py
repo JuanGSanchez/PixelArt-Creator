@@ -152,6 +152,11 @@ from pixelart_creator.logic.transform import (
 )
 from pixelart_creator.logic.version_history import CloudVersion
 from pixelart_creator.ui.about_dialog import About_Dialog
+from pixelart_creator.ui.app_font import (
+    apply_interface_font,
+    ensure_interface_font,
+    prepare_interface_font,
+)
 from pixelart_creator.ui.app_icon import app_icon
 from pixelart_creator.ui.appearance_settings import (
     Appearance_Settings,
@@ -570,6 +575,17 @@ class Main_Window(QMainWindow):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """Build the shell, apply the theme, and open one default document."""
+        app = QApplication.instance()
+        assert isinstance(app, QApplication)  # a QApplication must already exist
+        # REQ-VI-UI-002: the remembered style/mode (invalid stored values were
+        # already replaced by the defaults); first launch is Washi & Kintsugi Light.
+        appearance: Appearance_Settings = load_appearance()
+        # The pixel typeface is in place BEFORE this window exists: Qt tells a
+        # window that already exists about an application font change only once
+        # the event loop runs, so a window built first keeps the platform font and
+        # hands it to every child (see ui/app_font.py). Applied again after the
+        # style sheet below, which puts the platform's per-class fonts back.
+        prepare_interface_font(app, appearance.use_system_font)
         super().__init__(parent)
         # The title-bar/frame icon, set ONCE here at construction --
         # NEVER re-set from _retranslate() (an icon is not a translatable
@@ -577,8 +593,6 @@ class Main_Window(QMainWindow):
         # no observable change). A missing/unreadable asset degrades to a
         # null QIcon (app_icon.py), leaving Qt's own default in place.
         self.setWindowIcon(app_icon())
-        app = QApplication.instance()
-        assert isinstance(app, QApplication)  # a QApplication must already exist
         self._app = app
         # REQ-IS-UI-006: consumes ShortcutOverride for a plain/Shift'd character
         # key while a text-entry widget has focus, so the home-row tool keys
@@ -593,9 +607,7 @@ class Main_Window(QMainWindow):
         self._tabs_data: List[_DocTab] = []
         self._active_color: RGBA = BLACK
         self._active_index: int = 0
-        # REQ-VI-UI-002: the remembered style/mode (invalid stored values were
-        # already replaced by the defaults); first launch is Washi & Kintsugi Light.
-        self._appearance: Appearance_Settings = load_appearance()
+        self._appearance: Appearance_Settings = appearance
         self._style = self._appearance.style
         self._theme = self._appearance.mode
         # FIX 1 (2026-08-24 field defect) forward guard: the first-launch dock
@@ -1218,7 +1230,14 @@ class Main_Window(QMainWindow):
         # paints, so a single-OS family (Segoe UI / .AppleSystemUIFont / …) never
         # yields .notdef boxes on another OS (REQ-P13-UI-001).
         apply_font_fallbacks()
+        # The bundled pixel typeface (REQ-VI-UI-013): register it, keep the
+        # platform's own font for "Use system font", and apply the chosen font
+        # AFTER the style sheet -- the first style sheet makes Qt put the
+        # platform's per-class fonts (item views, menus, ...) back, which would
+        # draw those widgets in the platform font (see ui/app_font.py).
         apply_theme(self._app, self._theme, self._style)
+        ensure_interface_font(self._app, self._appearance.use_system_font)
+        self.useSystemFontChanged.connect(self._on_use_system_font_changed)
         self._language_manager.install_from_locale()
 
         self.new_document()
@@ -5018,12 +5037,23 @@ class Main_Window(QMainWindow):
         """
         if self._user_guide_dialog is None:
             self._user_guide_dialog = User_Guide_Dialog(
-                self, locale_provider=self._language_manager.current_language
+                self,
+                locale_provider=self._language_manager.current_language,
+                guide_pixel_font=self._appearance.guide_pixel_font,
+                use_system_font=self._appearance.use_system_font,
+            )
+            self._user_guide_dialog.pixelFontChanged.connect(
+                self._on_guide_pixel_font_changed
             )
         dialog = self._user_guide_dialog
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
+
+    def _on_guide_pixel_font_changed(self, enabled: bool) -> None:
+        """Remember the guide's hidden pixel-font switch (REQ-VI-UI-017)."""
+        if enabled != self._appearance.guide_pixel_font:
+            self._remember(replace(self._appearance, guide_pixel_font=enabled))
 
     def _on_about(self) -> None:
         """Open the About dialog, built fresh on every trigger (REQ-AV-UI-003/-004).
@@ -5076,6 +5106,12 @@ class Main_Window(QMainWindow):
         self._remember(replace(self._appearance, use_system_font=enabled))
         self.useSystemFontChanged.emit(enabled)
 
+    def _on_use_system_font_changed(self, enabled: bool) -> None:
+        """Apply the "Use system font" choice at once (REQ-VI-UI-016)."""
+        apply_interface_font(self._app, enabled)
+        if self._user_guide_dialog is not None:
+            self._user_guide_dialog.set_use_system_font(enabled)
+
     def set_pixel_perfect_interface(self, enabled: bool) -> None:
         """Store the "Pixel-perfect interface" choice (read at the next launch)."""
         enabled = bool(enabled)
@@ -5101,6 +5137,7 @@ class Main_Window(QMainWindow):
         """Apply ``(style_id, mode)`` to the one app stylesheet and every role user."""
         # Applies first: an unknown id raises here, before any state changes.
         apply_theme(self._app, mode, style_id)
+        ensure_interface_font(self._app, self._appearance.use_system_font)
         self._style = style_id
         self._theme = mode
         self._style_actions[style_id].setChecked(True)

@@ -103,7 +103,15 @@ def test_sc_p13_ui_001_1_ui_names_no_hardcoded_font_family(qtbot):
     The QSS carries **no** ``font-family`` (so a Windows-/macOS-only family is
     never forced onto Linux), and the app sets no explicit family — each OS
     resolves its own default system UI font. Verified for BOTH theme stylesheets.
+
+    The shell is built FIRST, so the test reads the application font the product
+    sets and not whatever a bare ``QApplication`` happens to carry. Run on its own
+    on a native platform plugin (``QT_QPA_PLATFORM=windows``), a test that builds
+    no window reads the platform default (``Segoe UI``, a family this very test
+    forbids the *product* to name) and fails for a reason that is not the
+    product's. The assertion below is unchanged.
     """
+    _window(qtbot)
     for name in (THEME_LIGHT, THEME_DARK):
         qss = build_qss(name)
         assert (
