@@ -92,6 +92,12 @@ _UI_FONT_FALLBACKS: Dict[str, List[str]] = {
 # this of an integer, so ``ceil`` never turns 2.0000000001 into 3.
 _DPR_EPSILON = 1e-3
 _MIN_ART_SCALE = 1
+# Qt scales a stretched edge with a smooth filter that is exact only when one
+# art pixel is at least this many device pixels; at 1 it can differ from the
+# tiled picture by 1/255 in one channel. A rule whose frame is compared cell
+# for cell stretches from this scale up (the dock body); the canvas and tab
+# page frames are not compared that way and stretch at every scale.
+_STRETCH_EXACT_MIN_SCALE = 2
 
 # Stylesheet geometry in logical px. The frame widths come from the templates'
 # own slices (``ArtSet.border_image``); these are the paddings and sub-control
@@ -205,7 +211,7 @@ QDockWidget::close-button, QDockWidget::float-button {{
     padding: 0px;
 }}
 QFrame#DockBody {{
-    {bi("dock_body")}
+    {bi("dock_body", large=art.scale >= _STRETCH_EXACT_MIN_SCALE)}
     background: transparent;
 }}
 QDialog {{
@@ -223,7 +229,7 @@ QToolBar {{
     spacing: {_TOOLBAR_SPACING_PX}px;
 }}
 QTabWidget::pane {{
-    {bi("panel")}
+    {bi("panel", large=True)}
 }}
 """
 
@@ -299,6 +305,9 @@ def _field_rules(art: ArtSet, r: Mapping[str, str]) -> str:
     selection-background-color: {r["accent"]};
     selection-color: {r["accent_text"]};
     padding: {_FIELD_PADDING};
+}}
+QGraphicsView {{
+    {bi("field", large=True)}
 }}
 {_ITEM_VIEWS} {{
     {bi("field")}

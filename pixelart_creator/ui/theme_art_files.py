@@ -253,17 +253,59 @@ class ArtSet:
         s = self._template(name, transpose).slices
         return (s.top, s.right, s.bottom, s.left)
 
-    def border_image(self, name: str, *, transpose: bool = False) -> str:
+    def is_uniform(self, name: str, *, transpose: bool = False) -> bool:
+        """Return whether tiling the middle cells of ``name`` is a no-op.
+
+        ``True`` when every edge strip is constant along its own axis and the
+        centre is a single role, so ``stretch`` paints what ``repeat`` would
+        (a repeat of identical cells is the same picture) without Qt composing
+        one tiled fragment per tile on every paint. A template with no middle
+        on an axis, or any texture in its middle cells, answers ``False`` and
+        keeps ``repeat``.
+        """
+        template = self._template(name, transpose)
+        rows, s = template.grid.rows, template.slices
+        width, height = template.grid.width, template.grid.height
+        right, bottom = width - s.right, height - s.bottom
+        if right <= s.left or bottom <= s.top:
+            return False
+        for first, last in ((0, s.top), (bottom, height)):
+            if any(len(set(rows[y][s.left : right])) != 1 for y in range(first, last)):
+                return False
+        for first, last in ((0, s.left), (right, width)):
+            for x in range(first, last):
+                if len({rows[y][x] for y in range(s.top, bottom)}) != 1:
+                    return False
+        centre = {ch for y in range(s.top, bottom) for ch in rows[y][s.left : right]}
+        return len(centre) == 1
+
+    def border_image(
+        self, name: str, *, transpose: bool = False, large: bool = False
+    ) -> str:
         """Return the ``border-image`` and ``border-width`` declarations of ``name``.
 
         ``border-width`` is the slice count in logical px; the image slice
         numbers are that count times the art scale (image px).
+
+        Args:
+            name: The template name.
+            transpose: Use the axis-swapped template (vertical scroll parts).
+            large: The rule frames a large surface (a canvas, a tab page, a
+                dock body). There the tiled middle is the costly path (one
+                fragment per tile on every paint, and a transparent child
+                repaints it), so ``stretch stretch`` is written instead of
+                ``repeat repeat`` when :meth:`is_uniform` says the two paint
+                the same cells. A textured template, or a small widget, keeps
+                ``repeat``: stretching the former would smear its motif, and
+                the latter is exact only when tiled.
         """
         top, right, bottom, left = self.slices(name, transpose=transpose)
         s = self.scale
+        stretch = large and self.is_uniform(name, transpose=transpose)
+        mode = "stretch" if stretch else "repeat"
         return (
             f"border-image: {self.url(name, transpose=transpose)} "
-            f"{top * s} {right * s} {bottom * s} {left * s} repeat repeat; "
+            f"{top * s} {right * s} {bottom * s} {left * s} {mode} {mode}; "
             f"border-width: {top}px {right}px {bottom}px {left}px;"
         )
 
