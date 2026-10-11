@@ -5120,6 +5120,15 @@ class Main_Window(QMainWindow):
             return
         self._remember(replace(self._appearance, pixel_perfect=enabled))
         self.pixelPerfectInterfaceChanged.emit(enabled)
+        # The scale is fixed before the application starts, so the new choice
+        # cannot apply to this run (REQ-VI-UI-012).
+        self.statusBar().showMessage(
+            self.tr(
+                "Pixel-perfect interface: the change applies the next time "
+                "the application starts."
+            ),
+            UI_NOTICE_DURATION_MS,
+        )
 
     def _remember(self, appearance: Appearance_Settings) -> None:
         """Keep ``appearance`` as the current choices and persist them."""

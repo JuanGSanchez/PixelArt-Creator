@@ -24,6 +24,7 @@ effects — no :class:`QApplication` is constructed at import time.
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from typing import List, Optional, Tuple
@@ -33,7 +34,14 @@ from PySide6.QtWidgets import QApplication
 
 from pixelart_creator.ui.app_font import capture_platform_font, resolved_family
 from pixelart_creator.ui.app_icon import app_icon
+from pixelart_creator.ui.appearance_settings import (
+    apply_stored_rounding_policy,
+    load_appearance,
+    rounding_policy_mismatch,
+)
 from pixelart_creator.ui.main_window import Main_Window
+
+_LOGGER = logging.getLogger(__name__)
 
 #: Application + organisation identity, used by :class:`QApplication` for
 #: ``QStandardPaths`` (autosave/recovery locations), window/task-bar titles, and
@@ -77,7 +85,14 @@ def create_app(argv: Optional[List[str]] = None) -> Tuple[QApplication, Main_Win
     """
     app = QApplication.instance()
     if not isinstance(app, QApplication):
+        # Qt reads the scale rounding policy only as the application object is
+        # created, so the stored "Pixel-perfect interface" choice is applied
+        # here and only here (REQ-VI-UI-012).
+        apply_stored_rounding_policy()
         app = QApplication(sys.argv if argv is None else list(argv))
+        note = rounding_policy_mismatch(load_appearance().pixel_perfect)
+        if note is not None:
+            _LOGGER.info(note)
     # Keep the platform's own default font before anything changes the
     # application font, so "Use system font" can restore it (REQ-VI-UI-016).
     capture_platform_font()

@@ -22,10 +22,12 @@ No widget, no domain logic (S11): plain values in, plain values out.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, Final
 
 from PySide6.QtCore import QCoreApplication, QSettings, Qt
+from PySide6.QtGui import QGuiApplication
 
 from pixelart_creator.data import style_catalog
 
@@ -35,6 +37,9 @@ __all__ = [
     "load_appearance",
     "save_appearance",
     "rounding_policy_for",
+    "apply_stored_rounding_policy",
+    "rounding_policy_mismatch",
+    "ROUNDING_POLICY_ENV",
 ]
 
 #: Settings group that holds every appearance key.
@@ -51,6 +56,10 @@ KEY_GUIDE_PIXEL_FONT: Final[str] = "guide_pixel_font"
 #: one store.
 _FALLBACK_ORGANIZATION: Final[str] = "PixelArt Creator"
 _FALLBACK_APPLICATION: Final[str] = "PixelArt Creator"
+
+#: The Qt environment variable that overrides the rounding policy set in code.
+#: The application never clears or rewrites it.
+ROUNDING_POLICY_ENV: Final[str] = "QT_SCALE_FACTOR_ROUNDING_POLICY"
 
 #: Defaults of the two switches (pixel-perfect is on by default; the bundled
 #: face is on from the first launch, so "Use system font" is OFF).
@@ -168,3 +177,36 @@ def rounding_policy_for(pixel_perfect: bool) -> Qt.HighDpiScaleFactorRoundingPol
     if pixel_perfect:
         return Qt.HighDpiScaleFactorRoundingPolicy.Round
     return Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+
+
+def apply_stored_rounding_policy() -> bool:
+    """Set the rounding policy from the stored preference, before the application.
+
+    Qt reads the policy once, when the application object is created, so it is
+    only set while no Qt application instance exists. Returns ``True`` when it
+    was set, ``False`` when an instance already existed (nothing is touched).
+    """
+    if QGuiApplication.instance() is not None:
+        return False
+    QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
+        rounding_policy_for(load_appearance().pixel_perfect)
+    )
+    return True
+
+
+def rounding_policy_mismatch(pixel_perfect: bool) -> str | None:
+    """Return a one-line note when the effective policy is not the preference's.
+
+    Called once the application object exists. A valid
+    :data:`ROUNDING_POLICY_ENV` overrides the policy set in code, so a
+    difference is explained by naming that variable. ``None`` when the effective
+    policy is the preferred one, or when no variable is set to blame.
+    """
+    wanted = rounding_policy_for(pixel_perfect)
+    effective = QGuiApplication.highDpiScaleFactorRoundingPolicy()
+    if effective == wanted or not os.environ.get(ROUNDING_POLICY_ENV):
+        return None
+    return (
+        f"interface scaling: the stored preference asks for {wanted.name} but "
+        f"{effective.name} is in effect because {ROUNDING_POLICY_ENV} is set"
+    )
