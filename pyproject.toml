@@ -277,6 +277,7 @@ markers = [
     "integration: tests that reach outside the process, deselected by default",
     "cloud_live: live credential-gated provider tests (real OAuth/keyring), deselected in CI",
     "assistant_live: requires a real external LLM provider + credentials; deselected in CI",
+    "native_font: needs a real (non-headless) Qt platform plugin; select with -m native_font and QT_QPA_PLATFORM set to that plugin",
 ]
 
 [tool.coverage.run]
