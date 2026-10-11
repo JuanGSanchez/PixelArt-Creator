@@ -398,3 +398,100 @@ class TestVisualIdentityConstantsAreNamed:
 
     def test_focus_contrast_floor_is_wcag_3(self):
         assert FOCUS_MIN_RATIO == 3.0
+
+
+# --- font-intrinsic constant (REQ-VI-UI-014) ---------------------------
+#
+# ``NIFEN_ART_EM_PX`` lives in ``ui/app_font.py``, not in ``logic/constants.py``,
+# because it is not a tuning value: it is the em of the bundled typeface,
+# a property of the font files (ADR-0001, ADR-0071). Moving it would not
+# make it adjustable -- changing it without redrawing the font would blur
+# every glyph. So the registry row does not pin "12" against a second copy of
+# 12; it derives the em from the shipped TTFs and the font's own grid contract
+# and fails when the constant disagrees.
+#
+# ``app_font.py`` imports PySide6, and this root is Qt-free, so the constant is
+# read from the module's source with ``ast`` rather than by importing it.
+
+_APP_FONT_SOURCE = _UI_ROOT / "app_font.py"
+_FONT_DIR = pathlib.Path(__file__).resolve().parents[3] / "pixelart_creator" / "fonts"
+_FONT_METRICS = (
+    pathlib.Path(__file__).resolve().parents[3]
+    / "fonts-src"
+    / "nifen-art"
+    / "metrics.txt"
+)
+_FONT_FILES = ("NifenArt-Regular.ttf", "NifenArt-Bold.ttf")
+
+
+def _module_int_constant(path: pathlib.Path, name: str) -> int:
+    """Return the integer literal assigned to module-level ``name`` in ``path``."""
+    tree = ast.parse(path.read_bytes().decode("utf-8"), filename=path.name)
+    for node in tree.body:
+        if isinstance(node, ast.AnnAssign):
+            targets, value = [node.target], node.value
+        elif isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        else:
+            continue
+        if any(isinstance(t, ast.Name) and t.id == name for t in targets):
+            assert isinstance(value, ast.Constant) and isinstance(value.value, int), (
+                f"{name} in {path.name} must be a plain integer literal."
+            )
+            return value.value
+    raise AssertionError(f"{name} is not assigned at module level in {path.name}.")
+
+
+def _ttf_units_per_em(path: pathlib.Path) -> int:
+    """Read ``unitsPerEm`` from the ``head`` table of a TrueType file (stdlib only)."""
+    data = path.read_bytes()
+    table_count = int.from_bytes(data[4:6], "big")
+    for index in range(table_count):
+        record = data[12 + 16 * index : 28 + 16 * index]
+        if record[:4] == b"head":
+            offset = int.from_bytes(record[8:12], "big")
+            return int.from_bytes(data[offset + 18 : offset + 20], "big")
+    raise AssertionError(f"{path.name} has no 'head' table.")
+
+
+def _metrics_value(key: str) -> int:
+    """Return the integer ``key = value`` from the font's grid contract."""
+    for raw in _FONT_METRICS.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if line.startswith("#") or "=" not in line:
+            continue
+        name, _, value = line.partition("=")
+        if name.strip() == key:
+            return int(value.strip())
+    raise AssertionError(f"{key} is not defined in {_FONT_METRICS.name}.")
+
+
+class TestFontIntrinsicConstantMatchesTheFont:
+    """Registry row: ``ui/app_font.py`` ``NIFEN_ART_EM_PX`` is the 12 px em of
+    the bundled typeface, and the test fails if it drifts from the font."""
+
+    def test_em_px_constant_is_12(self):
+        assert _module_int_constant(_APP_FONT_SOURCE, "NIFEN_ART_EM_PX") == 12
+
+    def test_em_px_constant_equals_the_em_of_the_font_grid_contract(self):
+        em_px = _module_int_constant(_APP_FONT_SOURCE, "NIFEN_ART_EM_PX")
+        assert em_px == _metrics_value("em_px"), (
+            f"NIFEN_ART_EM_PX={em_px} disagrees with the font's grid contract "
+            f"em_px={_metrics_value('em_px')}."
+        )
+
+    def test_both_shipped_fonts_have_the_unit_grid_the_em_implies(self):
+        em_px = _module_int_constant(_APP_FONT_SOURCE, "NIFEN_ART_EM_PX")
+        units_per_px = _metrics_value("units_per_px")
+        for name in _FONT_FILES:
+            units_per_em = _ttf_units_per_em(_FONT_DIR / name)
+            assert units_per_em == em_px * units_per_px, (
+                f"{name}: unitsPerEm={units_per_em}, but NIFEN_ART_EM_PX="
+                f"{em_px} x {units_per_px} units per pixel = "
+                f"{em_px * units_per_px}."
+            )
+
+    def test_metrics_contract_agrees_with_itself(self):
+        assert _metrics_value("units_per_em") == (
+            _metrics_value("em_px") * _metrics_value("units_per_px")
+        )
