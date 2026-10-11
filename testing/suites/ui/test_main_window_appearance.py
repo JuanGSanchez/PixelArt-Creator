@@ -1,6 +1,6 @@
-"""The Theme menu, its persistence and the art-scale rebuild (T053; REQ-VI-UI-001, -002, -012).
+"""The Theme menu, its persistence and the art-scale rebuild (REQ-VI-UI-001, -002, -012).
 
-What is covered, by scenario id (``design-docs/specs/pixelart-visual-identity/spec.md``):
+What is covered, by scenario id (the visual-identity feature's scenarios):
 
 * **SC-VI-UI-001-1** the Theme menu offers three styles and two modes, exactly one of
   each checked -- over all six restored combinations;
@@ -22,7 +22,7 @@ Isolation. Every test here runs under the suite's autouse ``settings_store`` red
 asserts it FIRST (``assert_settings_isolated``), so the real store (the registry, a plist,
 ``~/.config``) is neither read nor written. Planted settings are written with the
 four-argument ``QSettings(defaultFormat, UserScope, org, app)`` form the product uses; the
-two-argument form is always native format and would bypass the redirect (plan R-19). The
+two-argument form is always native format and would bypass the redirect. The
 subprocess test also points ``APPDATA``/``HOME``/``XDG_CONFIG_HOME`` at a temporary
 directory, so the child cannot reach the favourites file of a real profile either.
 
@@ -33,7 +33,7 @@ restores the stored combination at construction and would ignore the conftest's.
 HONEST LIMITS, stated and not hidden:
 
 * the art-scale test stubs ``QGuiApplication.screens``; it is **NOT a real hot-plug**,
-  which T040 did not measure and the offscreen platform cannot emulate;
+  which was never measured and the offscreen platform cannot emulate;
 * the in-process restart shares one ``QApplication`` and module state with its first
   window; the real-process test is the one that crosses an interpreter boundary;
 * the Theme menu is read through its actions (``QMenu.actions()``); no native popup is
@@ -134,7 +134,7 @@ def combo(request: pytest.FixtureRequest) -> Combo:
 
 
 def _production_settings() -> QSettings:
-    """The four-argument form ``ui/appearance_settings.py`` uses (R-19)."""
+    """The four-argument form ``ui/appearance_settings.py`` uses."""
     return QSettings(
         QSettings.defaultFormat(),
         QSettings.Scope.UserScope,
@@ -692,7 +692,7 @@ def test_a11y_every_theme_menu_entry_is_labelled_and_its_access_keys_are_unique(
 
 
 # --------------------------------------------------------------------------- #
-# The art-scale rebuild (T040 verdict, plan 5.1 ruling 2)                      #
+# The art-scale rebuild (measured verdict: stubbed screens, no real hot-plug)  #
 # --------------------------------------------------------------------------- #
 
 
@@ -727,7 +727,7 @@ def test_art_scale_rebuild_on_a_stubbed_screen_set(qtbot, qapp, monkeypatch, cho
     NOT A REAL HOT-PLUG. The screen list is stubbed (``QGuiApplication.screens``) and the
     handler is invoked directly, then once more through the real ``screenRemoved`` signal
     it is connected to; the offscreen platform cannot add, remove or rescale a screen and
-    T040 did not measure one.
+    no real hot-plug was ever measured.
 
     Steps, each asserted:
 

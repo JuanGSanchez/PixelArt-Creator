@@ -13,8 +13,8 @@ The settings object is built with the **four-argument** constructor,
 The two-argument ``QSettings(organisation, application)`` is always the native
 format (the Windows registry, a macOS property list) whatever
 ``QSettings.setDefaultFormat`` says, so it would bypass the test isolation that
-redirects the default format to a temporary file (plan R-19, measured in the
-T040 probe, item 10). The functions here need no ``QApplication``: the scaling
+redirects the default format to a temporary file (measured with a probe
+of the settings back end). The functions here need no ``QApplication``: the scaling
 preference is read before one exists (ADR-0072).
 
 No widget, no domain logic (S11): plain values in, plain values out.
@@ -52,7 +52,7 @@ KEY_GUIDE_PIXEL_FONT: Final[str] = "guide_pixel_font"
 _FALLBACK_ORGANIZATION: Final[str] = "PixelArt Creator"
 _FALLBACK_APPLICATION: Final[str] = "PixelArt Creator"
 
-#: Defaults of the two switches (user Q-16: pixel-perfect is ON; the bundled
+#: Defaults of the two switches (pixel-perfect is on by default; the bundled
 #: face is on from the first launch, so "Use system font" is OFF).
 DEFAULT_USE_SYSTEM_FONT: Final[bool] = False
 DEFAULT_PIXEL_PERFECT: Final[bool] = True

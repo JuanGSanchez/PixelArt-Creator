@@ -50,8 +50,8 @@ _LINKS = (
 def _qt_version() -> Optional[str]:
     """Return the runtime Qt version, or ``None`` on failure or blank.
 
-    Read here, not in ``logic/`` (plan §3.2/NFR-1: gathering a Qt fact is a
-    Qt call). Monkeypatchable seam (plan §3.2, REQ-AV-UI-007).
+    Read here, not in ``logic/`` (gathering a Qt fact is a
+    Qt call). Monkeypatchable seam (REQ-AV-UI-007).
     """
     try:
         version = qVersion()
@@ -63,7 +63,7 @@ def _qt_version() -> Optional[str]:
 def _pyside_version() -> Optional[str]:
     """Return the installed PySide6 version, or ``None`` on failure or blank.
 
-    Monkeypatchable seam (plan §3.2, REQ-AV-UI-007).
+    Monkeypatchable seam (REQ-AV-UI-007).
     """
     try:
         import PySide6
@@ -246,7 +246,7 @@ class About_Dialog(QDialog):
         layout.addLayout(form)
         layout.addWidget(self._button_box)
 
-        # Explicit Tab chain (plan §3.2): the three links, then Copy, Close.
+        # Explicit Tab chain: the three links, then Copy, Close.
         ordered = [self._link_labels[name] for name, _url in _LINKS] + [
             self._copy_button,
             self._close_button,

@@ -1,4 +1,4 @@
-"""The Kikko Badge wherever the app shows its icon (T053; SC-VI-UI-018-1, REQ-VI-UI-018).
+"""The Kikko Badge wherever the app shows its icon (SC-VI-UI-018-1, REQ-VI-UI-018).
 
 ``test_app_icon.py`` owns the loader's contract (eight discrete sizes, degrade-and-log on a
 missing or undecodable asset); it is unchanged and must still pass. This module owns the

@@ -1,10 +1,10 @@
-"""Dock frames and corner ornaments at the Main_Window's own dock sites (T053).
+"""Dock frames and corner ornaments at the Main_Window's own dock sites.
 
 Covers **SC-VI-UI-007-1 / -2** (title plate, body frame, floating keeps the OS chrome) and
 **SC-VI-UI-010-1 / -2 / -3** (ornaments sit on their corners and stay, nothing lies under
 one, gold in Light and red in Dark) -- for every one of the six style x mode combinations.
 ``test_theme.py`` proves the frame MECHANISM on a plain ``QMainWindow``; its header leaves
-"wiring at the Main_Window's own dock sites" to T052/T053, which is this module.
+"wiring at the Main_Window's own dock sites" to this module.
 
 How an ornament is judged. The ornament is a nearest-neighbour sprite drawn inside the
 dock body's frame rings at each bottom corner. Its position is NOT read back from the
@@ -33,9 +33,9 @@ Controls (a check that cannot fail proves nothing):
 Scope notes, stated and not hidden:
 
 * **Dialogs.** ``install_ornaments(..., dialog=True)`` is exercised on a plain ``QDialog``
-  (the mechanism). No product dialog carries ornaments in T052's scope, so the dialog half
+  (the mechanism). No product dialog carries ornaments in the current scope, so the dialog half
   of SC-VI-UI-010-1/-2 for product dialogs is "could not verify -- not wired yet" and is
-  left to the dialog slice's tests (T057/T058), not presumed.
+  left to the dialog slice's tests, not presumed.
 * **Floating.** The offscreen platform draws no native window frame, so "shows the operating
   system's chrome" is not visible in pixels; ``test_theme.py`` states the same limit. What is
   asserted is what the product controls (no frameless flag, no Qt-drawn plate, plate returns).
@@ -592,12 +592,12 @@ def test_sc_vi_ui_010_1_a_stale_ornament_is_reported_after_a_resize(qtbot, combo
 def test_sc_vi_ui_010_1_a_dialog_carries_an_ornament_on_each_of_its_four_corners(
     qtbot, combo
 ):
-    """SC-VI-UI-010-1 (dialog MECHANISM; no product dialog is wired by T052).
+    """SC-VI-UI-010-1 (dialog MECHANISM; no product dialog is wired yet).
 
     A plain ``QDialog`` given ``install_ornaments(..., DIALOG_CORNERS, dialog=True)``
     shows a sprite at each of its four corners inside the ``dialog`` frame's rings, at the
     size it opens at and after it is resized. Product dialogs: could not verify -- not
-    wired in this slice (T057/T058).
+    wired in this slice.
     """
     dialog = QDialog()
     layout = QVBoxLayout(dialog)
@@ -753,7 +753,7 @@ def test_sc_vi_ui_010_3_ornaments_are_gold_in_light_and_red_in_dark(qtbot, combo
 
 
 # --------------------------------------------------------------------------- #
-# T053 follow-up: the reserved ornament band (AGT-05 T052 fix, F-1)             #
+# Follow-up: the reserved ornament band                                         #
 #                                                                              #
 # ``reserve_ornament_band(dock)`` reserves the ornament sprite's height of the  #
 # ACTIVE style as the bottom content margin of the dock's ``DockBody`` layout,  #

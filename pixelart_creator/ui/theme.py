@@ -95,7 +95,7 @@ _MIN_ART_SCALE = 1
 
 # Stylesheet geometry in logical px. The frame widths come from the templates'
 # own slices (``ArtSet.border_image``); these are the paddings and sub-control
-# sizes the measured rules need (plan 5.1a item 4).
+# sizes the measured rules need.
 _BUTTON_PADDING = "2px 4px"
 _TAB_PADDING = "1px 6px"
 _TAB_GAP_PX = 3
@@ -592,7 +592,7 @@ def apply_theme(
     *,
     scale: Optional[int] = None,
 ) -> None:
-    """Apply ``mode`` in ``style`` to the whole application (runtime switch, CL-13).
+    """Apply ``mode`` in ``style`` to the whole application (runtime switch).
 
     This single app-wide role-based stylesheet is also how every Phase-8
     automation panel renders correctly in both modes -- none of them carries a

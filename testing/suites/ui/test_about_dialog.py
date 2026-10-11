@@ -1,14 +1,14 @@
 """UI tests for the About dialog — REQ-AV-UI-002..012.
 
-One test per acceptance criterion (Gherkin scenarios in
-the feature's spec §6), driving the PySide6 dialog
+One test per acceptance criterion (Gherkin scenarios of the
+About dialog feature), driving the PySide6 dialog
 headlessly (``QT_QPA_PLATFORM=offscreen``) via the ``qtbot`` fixture. Every
 test runs twice, once per theme, via the suite's autouse ``theme`` fixture
 (``testing/suites/ui/conftest.py``); tests that make an explicit
 theme-contrast assertion take the ``theme`` parameter directly, matching the
 project's existing convention (``test_a11y_theme.py``).
 
-Binds ONLY to plan §3.2's fixed contract: ``Main_Window._about_action``
+Binds ONLY to the dialog's fixed contract: ``Main_Window._about_action``
 (objectName ``aboutAction``, ``AboutRole``), ``Main_Window._on_about()``,
 ``Main_Window._about_dialog``, and ``About_Dialog``'s ten objectNames
 (``aboutIconLabel``, ``aboutNameLabel``, ``aboutVersionValue``,
@@ -26,7 +26,7 @@ error. This mirrors the project's own precedent for a whole-module absence
 (``test_i18n.py``'s docstring: "this whole scenario is a DEFECT by
 non-existence, not merely a failing assertion").
 
-MC-3 (manual-check grounding, recorded here and in the report): before
+MC-3 (manual-check grounding, recorded here): before
 writing the structural keyboard test below, the literal Alt+H -> arrow keys
 -> Enter path was attempted against a KNOWN-TRUE control -- the PRE-EXISTING,
 already-shipped Help menu / User Guide action, which needs no unimplemented
@@ -117,7 +117,7 @@ def _english_start_language():
     same way, once, at collection time, for the whole UI suite -- so every
     ``Main_Window()`` built anywhere under this directory already starts in
     English regardless of the host OS locale. This machine's own Windows
-    locale is ``es_ES``: verified directly this session (throwaway
+    locale is ``es_ES``: verified directly (throwaway
     diagnostic script, discarded) that WITHOUT the conftest patch a freshly
     constructed ``Main_Window`` starts with ``_about_action.text() ==
     "&Acerca de PixelArt Creator"`` (Spanish), because
@@ -331,11 +331,11 @@ def _max_glyph_contrast(widget: QWidget) -> float:
     Reuses ``contrast_ratio`` and ``TEXT_MIN_RATIO`` from ``logic.contrast`` -- the
     one contrast implementation the theme role-pair checks and the contrast script
     also use -- so the 4.5:1 floor and the luminance formula are imported, never
-    restated (plan §6, OB-8). This is the RENDERED measurement plan §6
-    calls for (as opposed to the role-pair-only check in
+    restated. This is the RENDERED measurement the feature's contrast
+    criterion calls for (as opposed to the role-pair-only check in
     ``test_a11y_theme.py``): it grabs the widget as Qt actually painted it,
-    with the app-wide QSS background already composited in (verified this
-    session: a standalone, app-styled ``QLabel``'s own ``grab()`` already
+    with the app-wide QSS background already composited in (verified
+    directly: a standalone, app-styled ``QLabel``'s own ``grab()`` already
     shows the theme's background colour at its corner, with no parent frame
     needed).
     """
@@ -370,7 +370,7 @@ def test_sc_av_ui_002_2_help_menu_order_and_f1_unchanged(qtbot):
     the menu reads User Guide, separator, AI Assistant, separator, About
     PixelArt Creator -- and F1 still opens the User Guide.
 
-    Headless tests do not relocate menus (plan §6/C-6 rationale), so this
+    Headless tests do not relocate menus (the C-6 rationale), so this
     asserts the ORDER as ``QMenu.actions()`` reports it on every OS under
     ``QT_QPA_PLATFORM=offscreen``, which is where Windows/Linux keep it.
     """
@@ -455,7 +455,7 @@ def test_sc_av_ui_004_3_version_value_selectable_and_out_of_tab_chain(qtbot):
 def test_sc_av_ui_005_1_each_link_target(qtbot, object_name, url):
     """SC-AV-UI-005-1: each link's target is its exact address.
 
-    Plan §3.2: "Each link label carries a dynamic property `url` equal to
+    Design contract: "Each link label carries a dynamic property `url` equal to
     its target. The href in its rich text is the same value." -- so the
     address is checked both as the dynamic property AND as the embedded
     ``href`` in the rendered rich text (never the translated caption, which
@@ -469,7 +469,7 @@ def test_sc_av_ui_005_1_each_link_target(qtbot, object_name, url):
 
 def test_sc_av_ui_005_2_clicking_link_hands_off_to_open_url(qtbot, monkeypatch):
     """SC-AV-UI-005-2: activating a link hands its target to ``_open_url``
-    exactly once (the ONE URL seam, plan §3.2/task instructions)."""
+    exactly once (the ONE URL seam of the dialog's contract)."""
     import pixelart_creator.ui.about_dialog as about_dialog_module
 
     calls: list[str] = []
@@ -801,7 +801,7 @@ def test_mc3_structural_mnemonic_action_presence_and_focus_indicator(qtbot):
 
     Covers: the mnemonic lives in ``&Help``, the About action is present,
     enabled and reachable in the menu, and every Tab-chain control shows a
-    visible focus indicator -- RENDERED (spec A-4): focus-role pixels appear around
+    visible focus indicator -- RENDERED: focus-role pixels appear around
     the control when it is focused and not when it is not. The stylesheet-substring
     proxy (``":focus" in styleSheet()``) is withdrawn as evidence.
     """
@@ -861,10 +861,10 @@ def test_sc_av_ui_010_2_all_text_and_links_meet_contrast(qtbot, theme):
 
 
 def test_rendered_contrast_measurement_catches_a_real_failure(qtbot, theme):
-    """Methodology control (plan §6): the SAME rendered measurement MUST FAIL
+    """Methodology control (contrast criterion): the SAME rendered measurement MUST FAIL
     when a link anchor is forced to the Qt palette-default blue (``#0000ff``)
     in the dark theme -- proving the instrument can catch a real failure, not
-    merely confirm a pass. Grounds the plan's own probe (1.65:1 in dark).
+    merely confirm a pass. Grounds the design probe's own measurement (1.65:1 in dark).
 
     This control does NOT touch ``About_Dialog`` (so it is independent of
     the dialog's implementation and legitimately PASSES already, today, against
@@ -1039,7 +1039,7 @@ def test_sc_av_ui_012_3_menu_entry_in_spanish(qtbot):
 
 
 # --------------------------------------------------------------------------- #
-# T053 follow-up: the link colour follows the ACTIVE STYLE, live (AGT-05 T052 fix)
+# Follow-up: the link colour follows the ACTIVE STYLE, live
 #
 # Before the fix the dialog read ``link_colour(self._theme)`` -- the DEFAULT style's
 # text role -- so the three links stayed Washi & Kintsugi ink in Edo Night and Arcade

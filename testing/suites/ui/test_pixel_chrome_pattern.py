@@ -1,11 +1,11 @@
-"""The faint pattern: where it may appear and where it may not (T053; REQ-VI-UI-011).
+"""The faint pattern: where it may appear and where it may not (REQ-VI-UI-011).
 
 Covers **SC-VI-UI-011-1** (no pattern pixel lies under text), **SC-VI-UI-011-2** (the pattern
 appears only on the two enumerated areas) and **SC-VI-UI-011-3** (the canvas workspace
 stays one flat colour) -- each over all six style x mode combinations.
 
 The two areas are P1, the tool toolbar's empty tail, and P2, the Timeline dock's strip right
-of the transport controls (T052 placed both in ``main_window.py``; P2 is NOT in
+of the transport controls (both are placed in ``main_window.py``; P2 is NOT in
 ``timeline_panel.py``).
 
 How a "pattern pixel" is defined without trusting the product's own idea of one. The window

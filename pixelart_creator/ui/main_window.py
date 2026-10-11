@@ -101,7 +101,7 @@ from pixelart_creator.logic.asset_edit_decisions import AssetEditDecisions
 
 # Also a side-effect import: registers ASSET_LIBRARY_EDIT into
 # project_prefs.REGISTRY at module scope, before the confirmations submenu is
-# built below (plan §3.4, ruling P11-R2). Referenced by name to filter
+# built below. Referenced by name to filter
 # the journal's admitted-prefs write to this one key.
 from pixelart_creator.logic.asset_references import ASSET_LIBRARY_EDIT, ReferenceSet
 from pixelart_creator.logic.assistant import ChatBackend
@@ -343,8 +343,8 @@ _FAVOURITES_FILE = "favourites.json"
 #: not a domain tuning value — cf. _SWATCH_PX).
 _PREVIEW_MAX_EDGE_PX = 128
 
-#: Tool ids whose stroke WRITES the active colour to the buffer (CL-18,
-#: 2026-08-24 ruling UR-HUBFILL-2): the value written is ``ctx.paint_value()``
+#: Tool ids whose stroke WRITES the active colour to the buffer:
+#: the value written is ``ctx.paint_value()``
 #: / ``ctx.active_color`` itself, not merely a live-preview tint. These five
 #: run under REQ-P3-UI-006 leg (2) from a completed colour-hub pick; the other
 #: six tool ids (eraser, the three selection tools, picker, dither) hide the
@@ -429,7 +429,7 @@ class _DocTab:
     # read-only, Qt-free ``compute_sync_state`` for the Cloud menu / version
     # browser status line — never computed here.
     local_version_id: Optional[str] = None
-    # Per ruling P11-R12 (finding 1): this tab's session-scoped binding
+    # This tab's session-scoped binding
     # to the catalog entry it was last registered/re-registered as, or None
     # when the tab has never been registered. Session-scoped only — never
     # written to the project file, never carried by a format-version event —
@@ -440,7 +440,7 @@ class _DocTab:
     # session's own stale-id guard (asset_library_actions.py's
     # _register_via_prompt) remains the last line of defence for a race.
     registered_asset_id: Optional[str] = None
-    # Per plan §3.11 (2)/(2b): this tab's real, durable reference set — held
+    # This tab's real, durable reference set — held
     # here, never on ``document`` (data/project_io.py's own "the open projects'
     # reference sets are held by the caller" contract) — and the key that
     # scopes it, both in the reuse panel's ``_projects`` dict and in the
@@ -450,7 +450,7 @@ class _DocTab:
     # branch-switch/restore).
     reference_set: ReferenceSet = field(default_factory=ReferenceSet)
     project_key: str = ""
-    # Per ruling P11-R13 (ADR-0062): the durable project identity that keys the
+    # Per ADR-0062: the durable project identity that keys the
     # write-ahead decision journal — the resolved absolute ``.pixproj`` path, set
     # by ``open_document``/``save_document`` only. Deliberately **not**
     # ``project_key``: that key also scopes the reuse panel's bucket and the
@@ -468,7 +468,7 @@ class _DocTab:
 
 
 class Palette_Panel(QWidget):
-    """Displays the document palette in index order; single-select (018/CL-6)."""
+    """Displays the document palette in index order; single-select (018)."""
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """Build an empty single-select swatch list with a colour-mode indicator."""
@@ -583,7 +583,7 @@ class Main_Window(QMainWindow):
         # REQ-IS-UI-006: consumes ShortcutOverride for a plain/Shift'd character
         # key while a text-entry widget has focus, so the home-row tool keys
         # (A S D W E F Q + Shift forms) type into a hex-colour/layer-name field
-        # instead of switching tools (plan Section 2, M4). Installed once on the
+        # instead of switching tools. Installed once on the
         # live QApplication -- app-level, not per-widget -- and parented to it,
         # not to self, so it outlives every window the guard must protect.
         self._shortcut_focus_guard = Shortcut_Focus_Guard(app)
@@ -610,7 +610,7 @@ class Main_Window(QMainWindow):
         self._active_view: Optional[Canvas_View] = None
         self._float_active = False
         self._float_copy = False
-        # Colour-hub session anchor (REQ-P3-UI-006 T16a): the buffer pixel the
+        # Colour-hub session anchor (REQ-P3-UI-006): the buffer pixel the
         # hub opened on and the view it opened for, kept for the life of that
         # hub popup so a COMPLETED pick (``_on_hub_color_committed``) can run
         # the active tool at the same pixel, not the mouse position at pick
@@ -671,7 +671,7 @@ class Main_Window(QMainWindow):
         self._snap = False
 
         # Accept OS file-URL drops onto the window (REQ-DDI-UI-001). Drag/drop is
-        # routed by file TYPE, not drop location (CL-A1) — see dropEvent /
+        # routed by file TYPE, not drop location — see dropEvent /
         # _route_dropped_files. Enabled on the main window so a drop anywhere over
         # the shell reaches the router.
         self.setAcceptDrops(True)
@@ -725,9 +725,9 @@ class Main_Window(QMainWindow):
 
         # Phase-5 animation UI (REQ-P5-UI-001..015): a bottom dock holds the
         # playback transport above the frame strip; the onion + tag panels tabify
-        # with the right docks. The QTimer lives in Playback_Controls (ui/ only,
-        # CL-14); every frame/tag edit is one FrameCommand; scrub/playback/onion
-        # are non-undoable view state (CL-13). The per-frame composite cache +
+        # with the right docks. The QTimer lives in Playback_Controls (ui/ only); every
+        # frame/tag edit is one FrameCommand; scrub/playback/onion
+        # are non-undoable view state. The per-frame composite cache +
         # FU-19 deferred switch live in CanvasScene (ADR-0011); this shell wires
         # the panels to the active tab's scene/document/undo-stack.
         self._active_frame = 0
@@ -818,7 +818,7 @@ class Main_Window(QMainWindow):
         # tilemap layer panel dock on the right (tabified with the palette); the
         # tilemap canvas is a bottom dock rendering the active tilemap through the
         # frozen render_region seam. Active tileset / tilemap are per-tab view
-        # state, rebound on document open + tab switch (state isolation, CL-13).
+        # state, rebound on document open + tab switch (state isolation).
         self._active_tileset: Optional[Tileset] = None
         self._active_tilemap: Optional[Tilemap] = None
         self._tileset_editor = Tileset_Editor_Panel(self)
@@ -848,7 +848,7 @@ class Main_Window(QMainWindow):
         # Marquee S3/S4 colour hub: a persisted Favourites model + the cursor-
         # anchored hub, wired into each view's Phase-1 right-click seam. A pick
         # always applies to the active colour (tool state, leg 1, never
-        # refused). Amended 2026-08-24 (UR-HUBFILL-1/B, CL-17): the premise
+        # refused). Amended: the premise
         # that a pick "never touches the undo stack" is RETIRED — a COMPLETED
         # pick also runs the active tool at the hub's anchor pixel as one
         # undoable command (REQ-P3-UI-006 leg 2), via
@@ -890,7 +890,7 @@ class Main_Window(QMainWindow):
         self._export_controller.busyChanged.connect(self._on_export_busy)
         self._export_run_failures: List[str] = []
         self._export_run_ok = 0
-        # Per ruling P11-R7: the export dialog's opt-in answer, carried back by
+        # The export dialog's opt-in answer, carried back by
         # run_export_dialog and consumed only on the completion handlers below —
         # export runs off-thread, so success is known only there, never at
         # submission (REQ-P11-UI-014's negative: an un-opted-in export must leave
@@ -918,7 +918,7 @@ class Main_Window(QMainWindow):
         # deterministic teardown is folded into shutdown_prewarm so no worker /
         # carrier survives GC (the Phase-5 xdist-segfault guard). Recording,
         # plugin-enable/disable and selection are view state and push no command
-        # (CL-8). No eval/exec is ever performed in ui/ — the panels emit inert DSL
+        # No eval/exec is ever performed in ui/ — the panels emit inert DSL
         # ops that the trusted logic dispatcher validates against its allow-list.
         self._automation_controller = Automation_Controller(self)
         self._automation_controller.resultReady.connect(self._on_automation_result)
@@ -1104,8 +1104,8 @@ class Main_Window(QMainWindow):
         self._branching_panel.set_session(self._branching_session)
         self._branching_dock = self._add_workflow_dock(self._branching_panel)
         # REQ-P10-UI-014/-025/-026: the open-diff affordance names a branch;
-        # this window supplies the active tab's live Document to `supervise` (plan
-        # §3.2 — only `ui/` holds it) and builds/shows the modeless
+        # this window supplies the active tab's live Document to `supervise` (only
+        # `ui/` holds it) and builds/shows the modeless
         # `Branch_Diff_Dialog`.
         self._last_supervision: Optional[SupervisionResult] = None
         self._branch_diff_dialog: Optional[Branch_Diff_Dialog] = None
@@ -1155,7 +1155,7 @@ class Main_Window(QMainWindow):
         self._asset_library_panel.assetSelected.connect(
             self._dependency_graph_view.set_asset
         )
-        # Per REQ-P11-LOGIC-010, REQ-P11-UI-018, ruling P11-R6: give
+        # Per REQ-P11-LOGIC-010, REQ-P11-UI-018: give
         # show_edges its first production caller. The session derives no
         # edge itself and never calls set_graph or imports the view (see
         # Asset_Library_Session's own docstring) — show_edges alone decides
@@ -1163,8 +1163,8 @@ class Main_Window(QMainWindow):
         # passively rejected as cyclic.
         self._asset_session.edgesDerived.connect(self._dependency_graph_view.show_edges)
         # WIRE follow-up: a bundle import reconstructs a NEW
-        # project (never merged into this session's open library, plan
-        # Section 3.7's "Import lands in" row); the window is what opens it
+        # project (never merged into this session's open library); the window is what
+        # opens it
         # into a tab.
         self._asset_session.projectBundleImported.connect(
             self._on_project_bundle_imported
@@ -1185,14 +1185,14 @@ class Main_Window(QMainWindow):
         # shutdown_prewarm is unchanged and nothing survives into GC.
         self._asset_content_store = default_content_store(self._asset_root())
         self._asset_revision_store = AssetRevisionStore(self._asset_content_store)
-        # Per ruling P11-R11: adopt persisted revision history before any
+        # Adopt persisted revision history before any
         # consumer reads it
         self._asset_revision_store.bind_root(self._asset_root())
-        # Per ruling P11-R7: bind both stores to the session so
+        # Bind both stores to the session so
         # register_active_document / register_selection / register_export_artifact
         # stop failing _require_ingress_ready on their first call. Neither
         # store is constructed here — both already exist on the two lines above
-        # (ADR-0051's injected-root ruling; the session never re-resolves a root).
+        # (ADR-0051's injected-root rule; the session never re-resolves a root).
         self._asset_session.bind_content_store(self._asset_content_store)
         self._asset_session.bind_revision_store(self._asset_revision_store)
         self._asset_version_browser = Asset_Version_Browser(self)
@@ -1339,7 +1339,7 @@ class Main_Window(QMainWindow):
         self._live_cursors_action.setCheckable(True)
         self._live_cursors_action.toggled.connect(self._on_live_cursors_toggled)
 
-        # Per ruling P11-R7 (REQ-P11-UI-017): the two registration command
+        # Per REQ-P11-UI-017: the two registration command
         # entries shipped as unreachable methods on Asset_Library_Session.
         # Enablement is refreshed by _refresh_registration_actions_ui, not set
         # here (both start disabled until a document is open).
@@ -1352,7 +1352,7 @@ class Main_Window(QMainWindow):
         self._register_selection_action.setEnabled(False)
         self._register_selection_action.triggered.connect(self._on_register_selection)
 
-        # WIRE follow-up (ruling P11-R5, plan Section 3.7): the
+        # WIRE follow-up: the
         # four import/export commands shipped as unreachable methods on
         # Asset_Library_Session. Two separately-labelled command PAIRS —
         # library artifact (import/export) and project bundle
@@ -1405,7 +1405,7 @@ class Main_Window(QMainWindow):
         self._snap_action.toggled.connect(self._on_snap_toggled)
         self._aa_off_action = QAction(self)
         self._aa_off_action.setCheckable(True)
-        self._aa_off_action.setChecked(True)  # locked on (CL-15)
+        self._aa_off_action.setChecked(True)  # locked on
         self._aa_off_action.toggled.connect(self._on_aa_off_toggled)
 
         # Shape + drawing-mode toggles (REQ-P2-UI-003, -012, -015).
@@ -1533,7 +1533,7 @@ class Main_Window(QMainWindow):
         self._theme_group.addAction(self._theme_dark_action)
 
         # Help ▸ User Guide + F1 (REQ-UG-UI-001/-002). F1 is the platform Help
-        # convention (CL-4); shown on the action so it is discoverable.
+        # convention; shown on the action so it is discoverable.
         self._user_guide_action = QAction(self)
         self._user_guide_action.setShortcut(QKeySequence(Qt.Key.Key_F1))
         # ApplicationShortcut (not the default WindowShortcut) so F1 fires
@@ -1629,7 +1629,7 @@ class Main_Window(QMainWindow):
         self._edit_menu.addSeparator()
         # The restore path for suppressed per-project confirmations
         # (REQ-P5-UI-033, ADR-0056) — not the suppressed dialog itself, and not
-        # a settings dialog (phase-6 REQ-P6-UI-039 owns that surface, plan §2).
+        # a settings dialog (phase-6 REQ-P6-UI-039 owns that surface).
         self._project_prefs_menu = build_project_prefs_menu(
             self.active_document, self._on_project_prefs_changed, self
         )
@@ -1753,15 +1753,15 @@ class Main_Window(QMainWindow):
         self._library_menu.addAction(self._dependency_dock.toggleViewAction())
         self._library_menu.addAction(self._version_browser_dock.toggleViewAction())
         self._library_menu.addAction(self._reuse_dock.toggleViewAction())
-        # Per ruling P11-R7: the command surface for the three registration
-        # methods — no new UI module (plan §3.9's "why no new module"). Enablement
+        # The command surface for the three registration
+        # methods — no new UI module. Enablement
         # is refreshed on every tab switch and right before the menu opens, so a
         # selection made after the last tab switch is still reflected
         # (SC-P11-UI-017-1) without a dedicated selectionChanged signal.
         self._library_menu.addSeparator()
         self._library_menu.addAction(self._register_active_document_action)
         self._library_menu.addAction(self._register_selection_action)
-        # WIRE follow-up (P11-R5): the library-artifact pair and
+        # WIRE follow-up: the library-artifact pair and
         # the project-bundle pair, each behind its own separator so neither
         # pair, nor either command within a pair, is read as one menu entry.
         self._library_menu.addSeparator()
@@ -2198,22 +2198,21 @@ class Main_Window(QMainWindow):
     def open_document(self, path: str) -> Document:
         """Open a ``.pixproj`` via ``data/project_io`` into a new tab (020).
 
-        Loads through :func:`load_project_bundle` (plan §3.11 (2),
-        ``REQ-P11-DATA-010``) so the project's reference set **and** its
+        Loads through :func:`load_project_bundle` (``REQ-P11-DATA-010``) so the
+        project's reference set **and** its
         per-edit decision ledger travel with it — a v1-v5 file, or a v6 file
         that never recorded a decision, loads with an **empty** ledger. The
         tab's key is the opened file's absolute path, which is what makes it
         stable across a later save-in-place and what the reuse panel and the
-        update-prompt's per-project session memory both key on (plan §3.11
-        (2b)); ``file_path`` is set to the same resolved path — the
+        update-prompt's per-project session memory both key on the project key;
+        ``file_path`` is set to the same resolved path — the
         durable identity that keys the decision journal, deliberately kept
         separate from ``project_key`` (see ``_DocTab.file_path``'s own
         docstring).
 
         Once the tab exists — so the prompt has a parent and the user can see
         which project is asking — and **before** the loaded set is bound to
-        the reuse panel or used to resolve anything, this method (per ruling
-        P11-R13):
+        the reuse panel or used to resolve anything, this method:
 
         1. Reads the journal's record for this resolved path, if any, and
            **merges it over** the loaded prefs and ledger — the journal wins
@@ -2227,8 +2226,8 @@ class Main_Window(QMainWindow):
 
         Only **then** does it run
         :func:`~pixelart_creator.ui.asset_update_prompt.resolve_library_edits`
-        **once** over the newly-created tab's own reference set (plan
-        §3.11 (2)): each ``STATE_EDITED`` reference raises
+        **once** over the newly-created tab's own reference set: each ``STATE_EDITED``
+        reference raises
         ``Asset_Update_Prompt_Dialog.decide`` exactly once; the resolved
         ``(reference_set, prefs)`` pair is written back onto the tab, and a
         fresh decision is written straight to the journal by the resolve
@@ -2274,7 +2273,7 @@ class Main_Window(QMainWindow):
             # ``prefs_after`` is deliberately left untyped: importing
             # ``logic/project_prefs.ProjectPrefs`` by name here for a single
             # annotation would add an import edge (`check_cycles`) this task's
-            # own placement prediction (plan §3.15 (10)) does not carry —
+            # own placement prediction does not carry —
             # ``record.document.prefs`` (already typed via ``Document``) is
             # this callback's only real contract.
             def _on_asset_edit_decided(
@@ -2285,7 +2284,7 @@ class Main_Window(QMainWindow):
                 prefs_after,
             ) -> None:
                 record.document.prefs = prefs_after
-                # Step 4 (ruling P11-R13): the unticked half of the choice
+                # Step 4: the unticked half of the choice
                 # lands on the per-edit ledger; the ticked half only changes
                 # ``prefs``, already handled above — never double-recorded as
                 # a ledger row.
@@ -2298,8 +2297,7 @@ class Main_Window(QMainWindow):
                 # dismissal, never a remembered-"always" short-circuit) — see
                 # ``Asset_Update_Prompt_Dialog.decide``'s own docstring. A
                 # never-saved project writes no record (its decision lives on
-                # the tab only); that is the user's own ruling on
-                # ``CL-P11-8``.
+                # the tab only); that is the chosen behaviour.
                 if record.file_path is not None:
                     self._write_decision_journal_record(record)
 
@@ -2329,11 +2327,11 @@ class Main_Window(QMainWindow):
         Marks the tab's undo stack **clean** at the saved state so the drag-drop
         dirty guard (REQ-DDI-UI-004) can trust ``QUndoStack.isClean()`` — a saved,
         un-edited document no longer prompts on a ``.pixproj`` drop. Forwards the
-        tab's held reference set (plan §3.11 (2)) so a bound set is written
+        tab's held reference set so a bound set is written
         back rather than dropped on the next save; a project referencing nothing
         still writes no ``asset_refs`` key (``data/project_io.py``'s own
         ``reference_set.entries()`` guard). Also forwards the tab's per-edit
-        decision ledger (``decisions=``, ruling P11-R13) so it becomes part
+        decision ledger (``decisions=``) so it becomes part
         of the saved file, then sets ``record.file_path`` to the saved,
         suffix-corrected path and **retires** that path's journal record —
         after the file write has already succeeded, never before. A failed
@@ -2410,7 +2408,7 @@ class Main_Window(QMainWindow):
         if project_key is None:
             # No path is known yet (a new, unsaved document) — a stable
             # synthetic id, never the tab's index or the document's identity,
-            # both of which can move (plan §3.11 (2b)).
+            # both of which can move.
             project_key = uuid.uuid4().hex
         record = _DocTab(
             document,
@@ -2421,7 +2419,7 @@ class Main_Window(QMainWindow):
             project_key=project_key,
         )
         self._tabs_data.append(record)
-        # Per plan §3.11 (2): the tab now exists (has a project_key and a
+        # The tab now exists (has a project_key and a
         # document.prefs to resolve against) but nothing has bound or used
         # its reference set yet — exactly where the ordering clause places
         # the update-prompt pass, when the caller (open_document) supplies
@@ -2430,7 +2428,7 @@ class Main_Window(QMainWindow):
         # mismatch) is unaffected.
         if after_tab_created is not None:
             after_tab_created(record)
-        # Per plan §3.11 (2): bind this tab's real, durable set to the reuse
+        # Bind this tab's real, durable set to the reuse
         # panel now, under its project_key, so the resolve-/shared-state
         # indicators (REQ-P11-UI-021) are computed over what the application
         # actually holds rather than a set only a test ever bound.
@@ -2694,7 +2692,7 @@ class Main_Window(QMainWindow):
         """Point the timeline / playback / onion / tag surfaces at ``record``.
 
         Binds each shared animation panel to this tab's document + undo stack and
-        syncs them to the tab's persisted active frame (state isolation, CL-13).
+        syncs them to the tab's persisted active frame (state isolation).
         Playback is stopped on rebind so a timer never advances the wrong tab.
         """
         document = record.document
@@ -2727,7 +2725,7 @@ class Main_Window(QMainWindow):
             return []
         return [frame.duration_ms for frame in document.frames]
 
-    # -- animation slots (REQ-P5-UI-002/-008/-011/-014, CL-13) -----------
+    # -- animation slots (REQ-P5-UI-002/-008/-011/-014) -----------
 
     def _on_frame_selected(self, index: int) -> None:
         """Select the active (canvas-displayed) frame on a timeline click (no undo)."""
@@ -2747,7 +2745,7 @@ class Main_Window(QMainWindow):
         same update a timeline click performs (:meth:`_on_frame_selected`) —
         then syncs the timeline's own highlight, mirroring
         :meth:`_on_frame_advanced`'s playback pattern. Pushes no command
-        (frame navigation is view state, CL-13).
+        (frame navigation is view state).
         """
         self._on_frame_selected(index)
         self._timeline_panel.select_frame(index)
@@ -2809,7 +2807,7 @@ class Main_Window(QMainWindow):
         record.view.viewport().update()
 
     def _on_playback_active(self, active: bool) -> None:
-        """Suppress onion skinning while playback is active (CL-11).
+        """Suppress onion skinning while playback is active.
 
         On halt (Stop / Pause / end) cancel any in-flight off-thread warm (D2).
         """
@@ -2883,7 +2881,7 @@ class Main_Window(QMainWindow):
         A preference is not document content (REQ-P5-DATA-004): no recomposite,
         no undo entry — ``ui/project_prefs_actions.py`` has already assigned
         the new value directly onto the active document's ``prefs`` by the
-        time this fires. Ruling P11-R13 adds one further step: write the
+        time this fires. A further step: write the
         active tab's current record through the decision journal, so the
         journal is never staler than the file — the precondition the whole
         journal-wins-per-key precedence rule in ``open_document`` rests on. A
@@ -2919,7 +2917,7 @@ class Main_Window(QMainWindow):
         record.scene.shutdown_prewarm()
         self._undo_group.removeStack(record.stack)
         self._tab_widget.removeTab(index)
-        # Per plan §3.11 (2b): release this tab's update-prompt session
+        # Release this tab's update-prompt session
         # memory, keyed by project_key now that decide()/resolve_library_edits
         # scope the bucket that way (bounds retention; not required for
         # correctness — see forget_session's own docstring).
@@ -3014,15 +3012,15 @@ class Main_Window(QMainWindow):
         """Return where an edit on ``record``'s active layer lands (`REQ-P10-UI-025`).
 
         The context — which frame and which layer track an edit landed on —
-        exists only in the UI, which holds the active ``Document`` (plan
-        §8.2): no ``logic/`` factory has it intrinsically, so every
+        exists only in the UI, which holds the active ``Document``: no ``logic/``
+        factory has it intrinsically, so every
         `main_window.py` call site that reaches a ``PixelEdit`` supplies it
         from here. ``None`` only when the active layer has not been minted a
         stable id yet (``layer_id == 0``, the documented *unminted* sentinel,
         ``logic/document.py:264``, ``:1729``) — passing ``0`` through would
         either be refused outright (`EditTarget.__post_init__`) or, worse,
-        resolve to a real node in frame 0 (plan §8.1's dangerous half-threaded
-        case) — so an unminted layer's edits are reported honestly as
+        resolve to a real node in frame 0 — so an unminted layer's edits are reported
+        honestly as
         ``unaccounted`` (`REQ-P10-UI-026`) instead of guessed.
         """
         layer = record.scene.active_layer()
@@ -3075,10 +3073,10 @@ class Main_Window(QMainWindow):
     def _route_dropped_files(self, paths: List[str]) -> None:
         """Route each dropped path by classified TYPE, in stable order (UI-002/-008).
 
-        Routing is by file TYPE (REQ-DDI-DATA-003), never by drop location (CL-A1).
+        Routing is by file TYPE (REQ-DDI-DATA-003), never by drop location.
         Each file is guarded so one bad file surfaces a notice and never aborts the
         batch or crashes the app (REQ-DDI-UI-006/-007, NFR-9). Multiple palettes
-        replace sequentially — the last dropped palette wins (CL-A2).
+        replace sequentially — the last dropped palette wins.
         """
         for path in paths:
             file_type = classify(path)
@@ -3375,9 +3373,9 @@ class Main_Window(QMainWindow):
         self._refresh_ingress_actions_ui()
 
     #: Incoming tool ids that discard the active selection on entry
-    #: (REQ-IS-UI-029, CL-IS-08/-09). Re-activating an already-active
+    #: (REQ-IS-UI-029). Re-activating an already-active
     #: selection tool is included deliberately, so it doubles as a
-    #: start-fresh gesture — an assumption (CL-IS-08), flagged and cheap to
+    #: start-fresh gesture — an assumption, flagged and cheap to
     #: reverse. Every other incoming tool leaves the selection untouched, so
     #: mask-constrained drawing (REQ-P2-LOGIC-006) survives a tool switch.
     _SELECTION_ENTRY_TOOL_IDS: Final[frozenset[str]] = frozenset(
@@ -3461,7 +3459,7 @@ class Main_Window(QMainWindow):
                 self._set_active_index(index)
         self._palette_editor.set_active_color(color)
         self._ramp_picker.set_base_color(color)
-        # (REQ-IS-UI-024/-026, CL-IS-07): raise the colour square for
+        # (REQ-IS-UI-024/-026): raise the colour square for
         # EVERY caller of this method — the wheel, a middle-click, a hub pick,
         # a palette/ramp/favourite click all route through here — suppressed
         # for the life of a stroke. Deliberately NOT raised for the tab-
@@ -3757,8 +3755,8 @@ class Main_Window(QMainWindow):
         self._to_indexed_action.setEnabled(mode is ColorMode.RGBA)
         self._to_rgba_action.setEnabled(mode is ColorMode.INDEXED)
 
-    # -- asset-library registration reachability (ruling P11-R7,
-    #    REQ-P11-UI-012/-013/-017) ------------------------------------------
+    # -- asset-library registration reachability
+    #    (REQ-P11-UI-012/-013/-017) ------------------------------------------
 
     def _refresh_registration_actions_ui(self) -> None:
         """Sync the two Library-menu registration actions' enablement.
@@ -3781,7 +3779,7 @@ class Main_Window(QMainWindow):
     def _on_register_active_document(self) -> None:
         """Register the document open in the active tab (REQ-P11-UI-012).
 
-        Per ruling P11-R12 (finding 1): reads this tab's session-scoped
+        Reads this tab's session-scoped
         ``registered_asset_id`` binding and passes it through as
         ``existing_asset_id`` so a second registration of a changed document
         appends a revision to the SAME catalog entry (REQ-P11-UI-020's
@@ -3818,7 +3816,7 @@ class Main_Window(QMainWindow):
 
         Builds the selection-only document from :func:`extract_masked`, so
         the payload is mask-exact rather than the tight bounding box of the
-        mask (ruling P11-R10) — a non-rectangular selection registers only
+        mask — a non-rectangular selection registers only
         its selected pixels, transparent elsewhere. Passes ``None`` when
         there is no active selection so the session reports "nothing to
         register" rather than an implicit whole-document registration.
@@ -3838,7 +3836,7 @@ class Main_Window(QMainWindow):
         self._asset_session.register_selection(document, parent=self)
 
     # -- asset-library import/export reachability (WIRE follow-up,
-    #    ruling P11-R5, REQ-P11-UI-015/-016) -------------------------------
+    #    REQ-P11-UI-015/-016) -------------------------------
 
     def _refresh_ingress_actions_ui(self) -> None:
         """Sync the four import/export actions' enablement.
@@ -3943,8 +3941,8 @@ class Main_Window(QMainWindow):
         """Open a reconstructed project into a new tab (``projectBundleImported``).
 
         ``payload`` is the session's ``(document, catalog)`` pair; the
-        bundle's own catalog is never merged into the open library (plan
-        Section 3.7's "Import lands in" row) and is discarded here.
+        bundle's own catalog is never merged into the open library and is discarded
+        here.
         """
         document, _catalog = cast(Tuple[Document, object], payload)
         target_dir = self._pending_bundle_import_dir
@@ -4005,8 +4003,8 @@ class Main_Window(QMainWindow):
         """Write ``record``'s current prefs + ledger to the journal.
 
         A no-op when ``record.file_path`` is ``None`` — a never-saved project
-        writes no record; its decision lives on the tab only (the user's own
-        ruling on ``CL-P11-8``). Only the admitted preference key
+        writes no record; its decision lives on the tab only (the chosen behaviour).
+        Only the admitted preference key
         (``ASSET_LIBRARY_EDIT.name``) is forwarded — the one
         ``data/asset_decision_journal.py`` accepts; every other explicitly-set
         preference on this project is out of this journal's scope. A write
@@ -4072,7 +4070,7 @@ class Main_Window(QMainWindow):
         instead of being discarded once the popup position is computed, so a
         later completed pick (``_on_hub_color_committed``) can run the active
         tool at this same pixel. Also sets the pick-surface visibility
-        (CL-18): the wheel/value/numeric/harmony surface shows only for the
+        (the wheel/value/numeric/harmony surface shows only for the
         five colour-consuming tools.
 
         **Re-fixed 2026-09-06 (see ADR-0066).** The original dismissal guard
@@ -4379,7 +4377,7 @@ class Main_Window(QMainWindow):
 
         The branching panel names the selected feature branch (``Branching_Panel.
         openDiffRequested``); only this window holds the active tab's live
-        ``Document`` (plan §3.2), so it looks both branches up via
+        ``Document``, so it looks both branches up via
         ``Branching_Session.get_branch`` — the selected branch is the diff's
         *source*, the mainline (always ``branch_names()[0]``, ``Branching_Session``'s
         own documented ordering) is the *target* — and hands them to
@@ -4653,7 +4651,7 @@ class Main_Window(QMainWindow):
             record.view.set_snap_enabled(enabled)
 
     def _on_aa_off_toggled(self, enabled: bool) -> None:
-        # The AA-off guarantee is locked on (CL-15); refuse to disable it.
+        # The AA-off guarantee is locked on; refuse to disable it.
         if not enabled:
             self._aa_off_action.setChecked(True)
             return
@@ -5014,7 +5012,7 @@ class Main_Window(QMainWindow):
         The viewer is built lazily on first open and reused thereafter. It binds to
         the pure logic/data guide model + defensive reader and requests the active
         UI locale from the LanguageManager, so localised content follows the UI
-        language (falling back to the default locale — REQ-UG-UI-011 / CL-3). It is
+        language (falling back to the default locale — REQ-UG-UI-011). It is
         parented to this window (disposed with it) and non-modal so the user can keep
         editing while reading.
         """
@@ -5141,7 +5139,7 @@ class Main_Window(QMainWindow):
     # -- Phase-6 tilemap wiring (REQ-P6-UI-001..013) ---------------------
 
     def _bind_tilemap(self, record: "_DocTab") -> None:
-        """Bind the tileset editor / layer panel / canvas to ``record`` (CL-13).
+        """Bind the tileset editor / layer panel / canvas to ``record``.
 
         The active tileset / tilemap are per-tab view state: kept if still
         attached to the document, else the first attached one (or ``None``). Each
@@ -5358,7 +5356,7 @@ class Main_Window(QMainWindow):
     def _on_export_target_ok(self, _index: int, _result: object) -> None:
         """Count a successful export target (summarised at run end).
 
-        Per ruling P11-R7: registration follows a **successful** export,
+        Registration follows a **successful** export,
         never submission — ``run_export_dialog`` cannot register itself
         because export runs off-thread. A pending opt-in is consumed exactly
         once here and never re-applied to a later, unrelated run (the export
