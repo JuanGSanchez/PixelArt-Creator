@@ -740,6 +740,182 @@ CONTROLS = [
         "header does not state the donor copyright line",
     ),
     (
+        "donor name removed from the header of the donor file",
+        [
+            (
+                "hiragana-ark-pixel.txt",
+                "adapted from Ark Pixel Font, 12 px,",
+                "adapted from a donor font, 12 px,",
+            ),
+            (
+                "hiragana-ark-pixel.txt",
+                "# Ark Pixel Font is licensed",
+                "# The donor font is licensed",
+            ),
+        ],
+        "R14",
+        "header does not state the donor name",
+    ),
+    (
+        "donor version removed from the header of the donor file",
+        [
+            (
+                "hiragana-ark-pixel.txt",
+                "version 2026.09.25 (https",
+                "version (https",
+            )
+        ],
+        "R14",
+        "header does not state the donor version",
+    ),
+    (
+        "donor version altered in the header of the donor file",
+        [
+            (
+                "hiragana-ark-pixel.txt",
+                "version 2026.09.25 (https",
+                "version 2026.09.24 (https",
+            )
+        ],
+        "R14",
+        "header does not state the donor version",
+    ),
+    (
+        "donor licence removed from the header of the donor file",
+        [
+            (
+                "hiragana-ark-pixel.txt",
+                "licensed under the SIL Open Font License, Version 1.1 and declares",
+                "licensed under an open licence and declares",
+            )
+        ],
+        "R14",
+        "header does not state the donor licence",
+    ),
+    (
+        "donor name removed from the header of the Bold correction file",
+        [
+            (
+                "bold-overlays-ark-pixel.txt",
+                "adapted from Ark Pixel Font 12 px",
+                "adapted from a donor font 12 px",
+            )
+        ],
+        "R14",
+        "bold-overlays-ark-pixel.txt: the header does not state the donor name",
+    ),
+    (
+        "donor version removed from the header of the Bold correction file",
+        [
+            (
+                "bold-overlays-ark-pixel.txt",
+                "version 2026.09.25; https",
+                "version; https",
+            )
+        ],
+        "R14",
+        "bold-overlays-ark-pixel.txt: the header does not state the donor version",
+    ),
+    (
+        "donor version altered in the header of the Bold correction file",
+        [
+            (
+                "bold-overlays-ark-pixel.txt",
+                "version 2026.09.25; https",
+                "version 2026.09.24; https",
+            )
+        ],
+        "R14",
+        "bold-overlays-ark-pixel.txt: the header does not state the donor version",
+    ),
+    (
+        "donor licence removed from the header of the Bold correction file",
+        [
+            (
+                "bold-overlays-ark-pixel.txt",
+                "SIL Open Font License, Version 1.1,",
+                "an open licence,",
+            )
+        ],
+        "R14",
+        "bold-overlays-ark-pixel.txt: the header does not state the donor licence",
+    ),
+    (
+        "donor copyright line removed from the header of the Bold correction file",
+        [
+            (
+                "bold-overlays-ark-pixel.txt",
+                "Copyright (c) 2021, TakWolf (https://takwolf.com); ",
+                "",
+            )
+        ],
+        "R14",
+        "bold-overlays-ark-pixel.txt: the header does not state the donor copyright",
+    ),
+    (
+        "Bold correction file left out of the derived-file list",
+        [
+            (
+                "metrics.txt",
+                "donor_derived_files = hiragana-ark-pixel.txt "
+                "bold-overlays-ark-pixel.txt",
+                "donor_derived_files = hiragana-ark-pixel.txt",
+            )
+        ],
+        "R14",
+        "bold-overlays-ark-pixel.txt mentions the donor (Ark Pixel Font) but is not",
+    ),
+    (
+        "an unlisted source file that mentions the donor",
+        [
+            (
+                "cyrillic.txt",
+                "# Cyrillic block. ",
+                "# Cyrillic block, a few shapes after Ark Pixel Font. ",
+            )
+        ],
+        "R14",
+        "cyrillic.txt mentions the donor (Ark Pixel Font) but is not listed",
+    ),
+    (
+        "an unlisted source file that mentions the donor across a line break",
+        [
+            (
+                "cyrillic.txt",
+                "# Cyrillic block. ",
+                "# Cyrillic block, a few shapes after Ark Pixel\n# font. ",
+            )
+        ],
+        "R14",
+        "cyrillic.txt mentions the donor (Ark Pixel Font) but is not listed",
+    ),
+    (
+        "glyph donor file left out of the derived-file list",
+        [
+            (
+                "metrics.txt",
+                "donor_derived_files = hiragana-ark-pixel.txt "
+                "bold-overlays-ark-pixel.txt",
+                "donor_derived_files = bold-overlays-ark-pixel.txt",
+            )
+        ],
+        "R14",
+        "donor file hiragana-ark-pixel.txt is not listed in donor_derived_files",
+    ),
+    (
+        "derived file named in the metrics is not among the sources",
+        [
+            (
+                "metrics.txt",
+                "donor_derived_files = hiragana-ark-pixel.txt "
+                "bold-overlays-ark-pixel.txt",
+                "donor_derived_files = hiragana-ark-pixel.txt bold-overlays-ark.txt",
+            )
+        ],
+        "R14",
+        "donor-derived file bold-overlays-ark.txt is not among the sources",
+    ),
+    (
         "donor file named in the metrics is not among the sources",
         [
             (

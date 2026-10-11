@@ -18,6 +18,10 @@ copyright_prior_line_1 = Copyright (c) 2021, TakWolf (https://takwolf.com).
 # the donor, its version, its licence and the copyright line, and requires the licence file and the
 # change log beside the fonts to state the copyright line and exactly which code points are adapted.
 donor_files = hiragana-ark-pixel.txt
+# Every source file derived from that work, the drawing files above and the Bold correction drawings
+# that are adapted from them. The lint requires the header of each to state the donor, and fails if
+# any other source file mentions the donor without being listed here.
+donor_derived_files = hiragana-ark-pixel.txt bold-overlays-ark-pixel.txt
 donor_name = Ark Pixel Font
 donor_version = 2026.09.25
 donor_licence = SIL Open Font License, Version 1.1

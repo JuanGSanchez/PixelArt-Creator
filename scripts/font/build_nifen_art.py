@@ -931,13 +931,18 @@ def lint(srcs, font: Font, script_files, src_dir, fonts_dir=None):
 
     # R14 provenance of merged letterforms ---------------------------------------------
     # Letterforms adapted from another font under its open licence live in their own
-    # source files (metrics: donor_files). Each such file carries, in its header, the
-    # donor's name, version, licence and copyright line; the licence file and the
-    # change log shipped beside the fonts carry the copyright line, and the change log
-    # names exactly the code points taken from the donor in one sentence of the form
+    # source files (metrics: donor_files, the files that draw donor code points).
+    # Every source file derived from the donor, drawing files and correction files
+    # alike, is listed in metrics donor_derived_files; the header of each carries the
+    # donor's name, version, licence and copyright line, and a file that mentions the
+    # donor and is not listed is a violation, so no file can be left unchecked by being
+    # left undeclared. The licence file and the change log shipped beside the fonts
+    # carry the copyright line, and the change log names exactly the code points taken
+    # from the donor in one sentence of the form
     # "Code points adapted from <donor>, version <version>: <ranges>".
     v, n = [], 0
     donors = m.get("donor_files", "").split()
+    derived = m.get("donor_derived_files", "").split()
     prior = [
         m[k] for k in sorted(m) if k.startswith("copyright_prior_line") and m[k].strip()
     ]
@@ -947,28 +952,59 @@ def lint(srcs, font: Font, script_files, src_dir, fonts_dir=None):
     n += 1
     if bool(donors) != bool(prior):
         v.append("donor_files and copyright_prior_line must be declared together")
-    for need_key, need in (("donor_name", dname), ("donor_version", dver)):
-        if donors and not need:
-            v.append("%s is not declared" % need_key)
-    donor_cps = []
+    if bool(derived) != bool(donors):
+        v.append("donor_derived_files and donor_files must be declared together")
     for name in donors:
+        if name not in derived:
+            v.append("donor file %s is not listed in donor_derived_files" % name)
+    for need_key, need in (("donor_name", dname), ("donor_version", dver)):
+        if (donors or derived) and not need:
+            v.append("%s is not declared" % need_key)
+    # The header is the comment block before the first record of the file. A trailing
+    # full stop of a copyright line is punctuation of the donor's own sentence, not part
+    # of the notice, so a header may continue the line with a semicolon or a bracket.
+    for name in derived:
         n += 1
         if name not in srcs.files:
-            v.append("donor file %s is not among the sources" % name)
+            v.append("donor-derived file %s is not among the sources" % name)
             continue
         with open(os.path.join(src_dir, name), "rb") as fh:
             text = fh.read().decode("utf-8")
         header = []
         for line in text.split("\n"):
-            if line.startswith("glyph "):
+            line = line.rstrip("\r")
+            if line.strip() and not (line.startswith("# ") or line.strip() == "#"):
                 break
             header.append(line)
         head = "\n".join(header)
         for label, need in [("name", dname), ("version", dver), ("licence", dlic)] + [
-            ("copyright line", p) for p in prior
+            ("copyright line", p.rstrip(".")) for p in prior
         ]:
             if need and need not in head:
                 v.append("%s: the header does not state the donor %s" % (name, label))
+    # A file that speaks of the donor must be declared. Every other source file is read
+    # whole (comments wrapped across lines and notes after a record included).
+    donor_key = " ".join(dname.lower().split())
+    if donor_key:
+        for name in srcs.files:
+            if name in derived:
+                continue
+            n += 1
+            with open(os.path.join(src_dir, name), "rb") as fh:
+                flat = " ".join(
+                    fh.read().decode("utf-8").replace("#", " ").lower().split()
+                )
+            if donor_key in flat:
+                v.append(
+                    "%s mentions the donor (%s) but is not listed in "
+                    "donor_derived_files" % (name, dname)
+                )
+    donor_cps = []
+    for name in donors:
+        if name not in srcs.files:
+            v.append("donor file %s is not among the sources" % name)
+            continue
+        n += 1
         recs = [r for r in srcs.glyphs.values() if r.path == name]
         n += len(recs)
         for r in recs:
