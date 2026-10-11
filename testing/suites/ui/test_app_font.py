@@ -1165,20 +1165,37 @@ doc = w.active_document()
 doc.frames[0].layers[0].name = "Capa X"
 families = [f for f in QFontDatabase.families() if f != "Nifen Art"]
 nifen = QRawFont.fromFont(app_font.interface_font())
+# QRawFont.supportsCharacter(<one-character str>) is wrong on Linux. Measured there (offscreen,
+# PySide6 6.11.1, DejaVu Sans): it answers True for "A" and False for U+00E9 and U+2500, which
+# the font holds, while the integer code point answers True for them and False for U+10FFFD.
+# That is what turned "DejaVu Sans covers U+2500" into "no font" in CI (Windows answers the
+# str form correctly, so only Linux shows it). Every coverage question below passes ord(ch).
+# One face per family, resolved by the database with the family's own first style and
+# accepted only if Qt really resolved THAT family: a request the platform answered with a
+# different face (an alias such as "Monospace", a missing family) is not a family's coverage.
+faces = []
+for fam in families:
+    styles = QFontDatabase.styles(fam)
+    face = QFontDatabase.font(fam, styles[0], 12) if styles else QFont(fam)
+    face.setPixelSize(12)
+    raw = QRawFont.fromFont(face)
+    if raw.isValid() and QFontInfo(face).family() == fam:
+        faces.append((fam, raw))
 def covers_elsewhere(ch):
-    for fam in families:
-        f = QFont(fam); f.setPixelSize(12)
-        raw = QRawFont.fromFont(f)
-        if raw.isValid() and raw.supportsCharacter(ch):
+    for fam, raw in faces:
+        if raw.supportsCharacter(ord(ch)):
             return fam
     return None
+# Controls (a probe must show a known-true and a known-false signal before it is believed):
+# an ASCII letter must be found in some face, and a code point no font has must not be.
+probe_control = {"positive": covers_elsewhere("A"), "negative": covers_elsewhere("\\U0010fffd")}
 chosen = None; fallback_family = None; candidates = 0; table = []
 # Scripts first (what a user's layer names look like), then characters that a stock Linux
 # font (DejaVu, Liberation) covers and Nifen Art lacks in both weights: Latin Extended-B,
 # IPA, box drawing, a math sum and root, a shade, a face, a house.
 for ch in ["\\u68ee", "\\u6f22", "\\u5b57", "\\u65e5", "\\uc0b0", "\\u0e01", "\\u05d0", "\\u0639", "\\u0915",
            "\\u0192", "\\u0259", "\\u2500", "\\u2211", "\\u221a", "\\u2592", "\\u263a", "\\u2302"]:
-    if nifen.supportsCharacter(ch):
+    if nifen.supportsCharacter(ord(ch)):
         table.append("U+%04X nifen" % ord(ch))
         continue
     fam = covers_elsewhere(ch)
@@ -1202,7 +1219,7 @@ def shape(text, font):
 runs = shape(row_text, label.font())
 control = shape("\\U0010fffd", label.font())
 import os
-out(families=len(families), chosen=chosen, fallback=fallback_family, candidates=candidates,
+out(families=len(families), faces=len(faces), probe_control=probe_control, chosen=chosen, fallback=fallback_family, candidates=candidates,
     platform=app.platformName(), fontdir=os.environ.get("QT_QPA_FONTDIR", ""), table=table,
     family_names=sorted(families)[:60],
     row_text=row_text, runs=runs, control=control, row_font=label.font().family(),
@@ -1220,12 +1237,22 @@ out(families=len(families), chosen=chosen, fallback=fallback_family, candidates=
     census = (
         f"Qt platform {result['platform']!r}, QT_QPA_FONTDIR {result['fontdir']!r}, "
         f"{result['families']} families besides Nifen Art "
+        f"({result['faces']} resolved to their own face; probe controls {result['probe_control']}) "
         f"(first {len(result['family_names'])}): {result['family_names']}; "
         f"candidates: {result['table']}"
     )
     say(capsys, f"015-1 census: {census}")
     assert result["families"] > 0, (
         "the child's font database holds no font besides Nifen Art; " + census
+    )
+    # The coverage probe must see before it may say "no font": a letter every font holds is
+    # found, and a code point no font holds is not. Otherwise "no candidate" below would be
+    # the probe's blindness and not the environment's font database.
+    assert result["probe_control"]["positive"], (
+        "the coverage probe is blind: no installed face reports the letter A; " + census
+    )
+    assert result["probe_control"]["negative"] is None, (
+        "the coverage probe is credulous: a face reports U+10FFFD; " + census
     )
     if result["candidates"] == 0:
         # Nothing can be shown, so the scenario cannot be proved here. On Windows and
