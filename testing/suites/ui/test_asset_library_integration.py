@@ -28,6 +28,7 @@ from pixelart_creator.ui.asset_library_panel import Asset_Library_Panel
 from pixelart_creator.ui.asset_search_panel import Asset_Search_Panel
 from pixelart_creator.ui.asset_tagging_panel import Asset_Tagging_Panel
 from pixelart_creator.ui.main_window import Main_Window
+from pixelart_creator.ui.pixel_chrome import DOCK_BODY_OBJECT_NAME, dock_content
 
 
 def _window(qtbot) -> Main_Window:
@@ -53,11 +54,19 @@ def test_library_and_tagging_bound_to_the_same_session(qtbot):
 
 
 def test_panels_are_docked(qtbot):
-    """The three panels live in dock widgets holding exactly their panel."""
+    """The three panels live in framed dock widgets holding exactly their panel.
+
+    A framed dock's ``widget()`` is the ``DockBody`` frame (REQ-VI-UI-007), so the
+    panel is reached with ``dock_content`` and the frame itself is asserted too.
+    """
     win = _window(qtbot)
-    assert win._asset_library_dock.widget() is win._asset_library_panel
-    assert win._asset_search_dock.widget() is win._asset_search_panel
-    assert win._asset_tagging_dock.widget() is win._asset_tagging_panel
+    for dock, panel in (
+        (win._asset_library_dock, win._asset_library_panel),
+        (win._asset_search_dock, win._asset_search_panel),
+        (win._asset_tagging_dock, win._asset_tagging_panel),
+    ):
+        assert dock.widget().objectName() == DOCK_BODY_OBJECT_NAME
+        assert dock_content(dock) is panel
 
 
 def test_library_menu_exposes_dock_toggles(qtbot):

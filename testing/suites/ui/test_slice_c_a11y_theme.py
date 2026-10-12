@@ -22,6 +22,7 @@ from PySide6.QtCore import QEvent, Qt
 from PySide6.QtWidgets import QApplication
 
 from pixelart_creator.ui.branching_panel import Branching_Panel, Branching_Session
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 
 @pytest.fixture
@@ -66,10 +67,21 @@ def test_branching_controls_are_keyboard_reachable(panel):
         assert widget.focusPolicy() != Qt.FocusPolicy.NoFocus
 
 
-def test_visible_focus_indicator_is_themed(panel):
-    """A visible focus ring is themed once by role (:focus QSS) — not per widget."""
-    qss = QApplication.instance().styleSheet()
-    assert ":focus" in qss
+def test_visible_focus_indicator_is_themed(panel, qtbot):
+    """A visible focus ring is RENDERED on the panel's controls — not per widget (spec A-4).
+
+    Focus-role pixels appear around each control when it has keyboard focus and not
+    when it has none; the ``":focus" in styleSheet()`` proxy is withdrawn. The sibling
+    assertion that the panel carries no stylesheet of its own stands (below).
+    """
+    for control in (
+        panel._list,
+        panel._new_button,
+        panel._switch_button,
+    ):
+        # (The merge button is disabled until a branch is chosen, and a disabled
+        # control takes no keyboard focus, so it is not a subject here.)
+        assert_focus_rendered(qtbot, control)
 
 
 # -- REQ-P10-UI-007 both themes ----------------------------------------------- #

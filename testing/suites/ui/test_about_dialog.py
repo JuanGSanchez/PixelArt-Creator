@@ -1,14 +1,14 @@
 """UI tests for the About dialog — REQ-AV-UI-002..012.
 
-One test per acceptance criterion (Gherkin scenarios in
-the feature's spec §6), driving the PySide6 dialog
+One test per acceptance criterion (Gherkin scenarios of the
+About dialog feature), driving the PySide6 dialog
 headlessly (``QT_QPA_PLATFORM=offscreen``) via the ``qtbot`` fixture. Every
 test runs twice, once per theme, via the suite's autouse ``theme`` fixture
 (``testing/suites/ui/conftest.py``); tests that make an explicit
 theme-contrast assertion take the ``theme`` parameter directly, matching the
 project's existing convention (``test_a11y_theme.py``).
 
-Binds ONLY to plan §3.2's fixed contract: ``Main_Window._about_action``
+Binds ONLY to the dialog's fixed contract: ``Main_Window._about_action``
 (objectName ``aboutAction``, ``AboutRole``), ``Main_Window._on_about()``,
 ``Main_Window._about_dialog``, and ``About_Dialog``'s ten objectNames
 (``aboutIconLabel``, ``aboutNameLabel``, ``aboutVersionValue``,
@@ -26,7 +26,7 @@ error. This mirrors the project's own precedent for a whole-module absence
 (``test_i18n.py``'s docstring: "this whole scenario is a DEFECT by
 non-existence, not merely a failing assertion").
 
-MC-3 (manual-check grounding, recorded here and in the report): before
+MC-3 (manual-check grounding, recorded here): before
 writing the structural keyboard test below, the literal Alt+H -> arrow keys
 -> Enter path was attempted against a KNOWN-TRUE control -- the PRE-EXISTING,
 already-shipped Help menu / User Guide action, which needs no unimplemented
@@ -42,8 +42,10 @@ Tab chain and its focus indicator) is covered by an automated test here.
 from __future__ import annotations
 
 import platform
+import re
 import socket
-from typing import List, Optional
+from dataclasses import replace
+from typing import Dict, List, Optional, Tuple
 
 import pytest
 from PySide6.QtCore import QLocale, Qt, qVersion
@@ -52,13 +54,30 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
 
 import pixelart_creator
+from pixelart_creator.logic.contrast import TEXT_MIN_RATIO, contrast_ratio
 from pixelart_creator.ui import theme as theme_module
 from pixelart_creator.ui.about_dialog import About_Dialog
 from pixelart_creator.ui.app_icon import app_icon
+from pixelart_creator.ui.appearance_settings import (
+    default_appearance,
+    save_appearance,
+)
 from pixelart_creator.ui.i18n import FALLBACK_LANGUAGE
 from pixelart_creator.ui.main_window import Main_Window
-from pixelart_creator.ui.theme import THEME_DARK
-from testing.suites.ui.test_a11y_theme import _WCAG_AA_NORMAL, _contrast_ratio
+from pixelart_creator.ui.theme import (
+    DEFAULT_STYLE,
+    THEME_DARK,
+    THEME_LIGHT,
+    apply_theme,
+    link_colour,
+    role_map,
+)
+from testing.suites.ui.focus_helpers import (
+    assert_focus_rendered,
+    colour_mask,
+    grab_image,
+)
+from testing.suites.ui.test_theme import _COMBO_IDS, COMBOS, Combo
 
 #: The three fixed links (REQ-AV-UI-005) and their exact target addresses.
 _LINKS = [
@@ -98,7 +117,7 @@ def _english_start_language():
     same way, once, at collection time, for the whole UI suite -- so every
     ``Main_Window()`` built anywhere under this directory already starts in
     English regardless of the host OS locale. This machine's own Windows
-    locale is ``es_ES``: verified directly this session (throwaway
+    locale is ``es_ES``: verified directly (throwaway
     diagnostic script, discarded) that WITHOUT the conftest patch a freshly
     constructed ``Main_Window`` starts with ``_about_action.text() ==
     "&Acerca de PixelArt Creator"`` (Spanish), because
@@ -309,14 +328,14 @@ def _max_glyph_contrast(widget: QWidget) -> float:
     ``widget`` and its own background, sampled at an unpainted corner pixel
     of the SAME grab.
 
-    Reuses ``_contrast_ratio`` (and, transitively, its luminance helper) from
-    ``test_a11y_theme`` -- the exact instrument the theme role-pair tests
-    already use -- so the 4.5:1 floor and the luminance formula are imported,
-    never restated (plan §6, OB-8). This is the RENDERED measurement plan §6
-    calls for (as opposed to the role-pair-only check in
+    Reuses ``contrast_ratio`` and ``TEXT_MIN_RATIO`` from ``logic.contrast`` -- the
+    one contrast implementation the theme role-pair checks and the contrast script
+    also use -- so the 4.5:1 floor and the luminance formula are imported, never
+    restated. This is the RENDERED measurement the feature's contrast
+    criterion calls for (as opposed to the role-pair-only check in
     ``test_a11y_theme.py``): it grabs the widget as Qt actually painted it,
-    with the app-wide QSS background already composited in (verified this
-    session: a standalone, app-styled ``QLabel``'s own ``grab()`` already
+    with the app-wide QSS background already composited in (verified
+    directly: a standalone, app-styled ``QLabel``'s own ``grab()`` already
     shows the theme's background colour at its corner, with no parent frame
     needed).
     """
@@ -327,7 +346,7 @@ def _max_glyph_contrast(widget: QWidget) -> float:
     best = 1.0
     for y in range(image.height()):
         for x in range(image.width()):
-            ratio = _contrast_ratio(image.pixelColor(x, y).name(), bg_hex)
+            ratio = contrast_ratio(image.pixelColor(x, y).name(), bg_hex)
             if ratio > best:
                 best = ratio
     return best
@@ -351,7 +370,7 @@ def test_sc_av_ui_002_2_help_menu_order_and_f1_unchanged(qtbot):
     the menu reads User Guide, separator, AI Assistant, separator, About
     PixelArt Creator -- and F1 still opens the User Guide.
 
-    Headless tests do not relocate menus (plan §6/C-6 rationale), so this
+    Headless tests do not relocate menus (the C-6 rationale), so this
     asserts the ORDER as ``QMenu.actions()`` reports it on every OS under
     ``QT_QPA_PLATFORM=offscreen``, which is where Windows/Linux keep it.
     """
@@ -436,7 +455,7 @@ def test_sc_av_ui_004_3_version_value_selectable_and_out_of_tab_chain(qtbot):
 def test_sc_av_ui_005_1_each_link_target(qtbot, object_name, url):
     """SC-AV-UI-005-1: each link's target is its exact address.
 
-    Plan §3.2: "Each link label carries a dynamic property `url` equal to
+    Design contract: "Each link label carries a dynamic property `url` equal to
     its target. The href in its rich text is the same value." -- so the
     address is checked both as the dynamic property AND as the embedded
     ``href`` in the rendered rich text (never the translated caption, which
@@ -450,7 +469,7 @@ def test_sc_av_ui_005_1_each_link_target(qtbot, object_name, url):
 
 def test_sc_av_ui_005_2_clicking_link_hands_off_to_open_url(qtbot, monkeypatch):
     """SC-AV-UI-005-2: activating a link hands its target to ``_open_url``
-    exactly once (the ONE URL seam, plan §3.2/task instructions)."""
+    exactly once (the ONE URL seam of the dialog's contract)."""
     import pixelart_creator.ui.about_dialog as about_dialog_module
 
     calls: list[str] = []
@@ -782,7 +801,9 @@ def test_mc3_structural_mnemonic_action_presence_and_focus_indicator(qtbot):
 
     Covers: the mnemonic lives in ``&Help``, the About action is present,
     enabled and reachable in the menu, and every Tab-chain control shows a
-    visible focus indicator (the app-wide themed ``:focus`` rule).
+    visible focus indicator -- RENDERED: focus-role pixels appear around
+    the control when it is focused and not when it is not. The stylesheet-substring
+    proxy (``":focus" in styleSheet()``) is withdrawn as evidence.
     """
     win, dialog = _open_about(qtbot)
     assert win._help_menu.title() == win.tr("&Help")
@@ -794,8 +815,7 @@ def test_mc3_structural_mnemonic_action_presence_and_focus_indicator(qtbot):
         assert (
             widget.focusPolicy() != Qt.FocusPolicy.NoFocus
         ), f"{name} is not keyboard-focusable"
-    qss = QApplication.instance().styleSheet()
-    assert ":focus" in qss
+        assert_focus_rendered(qtbot, widget)
 
 
 # =========================================================================== #
@@ -824,7 +844,7 @@ def test_sc_av_ui_010_1_version_text_contrast(qtbot, theme):
     dialog.show()
     qtbot.waitExposed(dialog)
     ratio = _max_glyph_contrast(_child(dialog, "aboutVersionValue"))
-    assert ratio >= _WCAG_AA_NORMAL, f"{theme}: version text contrast {ratio:.2f}:1"
+    assert ratio >= TEXT_MIN_RATIO, f"{theme}: version text contrast {ratio:.2f}:1"
 
 
 def test_sc_av_ui_010_2_all_text_and_links_meet_contrast(qtbot, theme):
@@ -837,14 +857,14 @@ def test_sc_av_ui_010_2_all_text_and_links_meet_contrast(qtbot, theme):
         if name == "aboutIconLabel":
             continue  # not text; no contrast claim applies
         ratio = _max_glyph_contrast(_child(dialog, name))
-        assert ratio >= _WCAG_AA_NORMAL, f"{theme}: {name} contrast {ratio:.2f}:1"
+        assert ratio >= TEXT_MIN_RATIO, f"{theme}: {name} contrast {ratio:.2f}:1"
 
 
 def test_rendered_contrast_measurement_catches_a_real_failure(qtbot, theme):
-    """Methodology control (plan §6): the SAME rendered measurement MUST FAIL
+    """Methodology control (contrast criterion): the SAME rendered measurement MUST FAIL
     when a link anchor is forced to the Qt palette-default blue (``#0000ff``)
     in the dark theme -- proving the instrument can catch a real failure, not
-    merely confirm a pass. Grounds the plan's own probe (1.65:1 in dark).
+    merely confirm a pass. Grounds the design probe's own measurement (1.65:1 in dark).
 
     This control does NOT touch ``About_Dialog`` (so it is independent of
     the dialog's implementation and legitimately PASSES already, today, against
@@ -853,7 +873,7 @@ def test_rendered_contrast_measurement_catches_a_real_failure(qtbot, theme):
     It builds its own themed ``QWidget``/``QLabel`` over the SAME role
     background ``apply_theme`` would give the real dialog.
     """
-    bg = theme_module._ROLES[theme]["background"]
+    bg = role_map(theme)["background"]
     widget = QWidget()
     widget.setStyleSheet(f"background-color: {bg};")
     layout = QVBoxLayout(widget)
@@ -869,7 +889,7 @@ def test_rendered_contrast_measurement_catches_a_real_failure(qtbot, theme):
 
     ratio = _max_glyph_contrast(label)
     if theme == THEME_DARK:
-        assert ratio < _WCAG_AA_NORMAL, (
+        assert ratio < TEXT_MIN_RATIO, (
             f"control did not fail as expected: palette-default link measured "
             f"{ratio:.2f}:1 in dark (plan probe: 1.65:1)"
         )
@@ -1016,3 +1036,210 @@ def test_sc_av_ui_012_3_menu_entry_in_spanish(qtbot):
     finally:
         win._language_manager.set_language(FALLBACK_LANGUAGE)
         QApplication.processEvents()
+
+
+# --------------------------------------------------------------------------- #
+# Follow-up: the link colour follows the ACTIVE STYLE, live
+#
+# Before the fix the dialog read ``link_colour(self._theme)`` -- the DEFAULT style's
+# text role -- so the three links stayed Washi & Kintsugi ink in Edo Night and Arcade
+# Kikko, and nothing told an open dialog that the style or mode had changed.
+#
+# What the colour is judged against. The expectation is the combination's own
+# ``text`` role read from the role map (``role_map``), cross-checked against
+# ``link_colour``; it is not read back from the dialog. What is observed is (a) the
+# colour written into each link's rich text and (b) the pixels the link label actually
+# paints: the exact link colour must appear in the rendered label.
+#
+# Discrimination, stated and not hidden: the default-style call returns the right
+# colour in the two Washi & Kintsugi combinations (it IS the default style), so those
+# two cases cannot tell the defect apart. The other four combinations can, and the
+# tests below require each of them to differ from the default style's colour of the
+# same mode before they compare anything.
+# --------------------------------------------------------------------------- #
+
+_LINK_COLOUR_RE = re.compile(r"color:\s*(#[0-9a-fA-F]{6})")
+
+
+def _expected_link_colour(combo: Combo) -> str:
+    """The link colour DATA gives for ``combo``: its ``text`` role, as ``#rrggbb``."""
+    from_roles = str(role_map(combo.mode, combo.style)["text"]).lower()
+    assert link_colour(combo.mode, combo.style).name() == from_roles
+    return from_roles
+
+
+def _default_style_colour(combo: Combo) -> str:
+    """The colour the DEFAULT style gives in ``combo``'s mode (the defect's output)."""
+    return str(role_map(combo.mode, DEFAULT_STYLE)["text"]).lower()
+
+
+def _written_link_colours(dialog: About_Dialog) -> Dict[str, str]:
+    """The ``color:`` each of the three links carries in its rich text, by objectName."""
+    found: Dict[str, str] = {}
+    for object_name, url in _LINKS:
+        label = _child(dialog, object_name)
+        text = label.text()
+        assert f'href="{url}"' in text, f"{object_name}: link target lost: {text!r}"
+        match = _LINK_COLOUR_RE.search(text)
+        assert match, f"{object_name}: no colour in {text!r}"
+        found[object_name] = match.group(1).lower()
+    return found
+
+
+def _painted_pixels(dialog: About_Dialog, colour: str) -> Dict[str, int]:
+    """How many pixels of each link label paint EXACTLY ``colour`` (opaque)."""
+    rgb = 0xFF000000 | int(colour[1:], 16)
+    return {
+        object_name: int(
+            colour_mask(grab_image(_child(dialog, object_name)), rgb).sum()
+        )
+        for object_name, _url in _LINKS
+    }
+
+
+def _assert_links_in(dialog: About_Dialog, combo: Combo) -> Tuple[str, int]:
+    """Assert all three links are ``combo``'s colour, written AND painted.
+
+    Returns the expected colour and the smallest painted-pixel count of the three
+    links (printed by the callers as the denominator).
+    """
+    expected = _expected_link_colour(combo)
+    written = _written_link_colours(dialog)
+    assert written == {
+        name: expected for name, _u in _LINKS
+    }, f"{combo.label()}: links are {written}, expected {expected} on all three"
+    painted = _painted_pixels(dialog, expected)
+    assert all(
+        count > 0 for count in painted.values()
+    ), f"{combo.label()}: the written colour {expected} is not what is painted: {painted}"
+    return expected, min(painted.values())
+
+
+def _window_restoring(qtbot, combo: Combo) -> Main_Window:
+    """A ``Main_Window`` that RESTORES ``combo`` from the (isolated) settings store."""
+    save_appearance(replace(default_appearance(), style=combo.style, mode=combo.mode))
+    win = _window(qtbot)
+    assert (win.current_style(), win.current_mode()) == (combo.style, combo.mode)
+    return win
+
+
+class Test_About_Link_Colour_Follows_The_Style:
+    """The About links use the active style's ``link_colour``, at open and live."""
+
+    @pytest.fixture(autouse=True)
+    def theme(self, qapp) -> str:
+        """Replace the suite's two-way ``theme`` fixture (these tests are six-way)."""
+        apply_theme(qapp, THEME_LIGHT)
+        return THEME_LIGHT
+
+    @pytest.fixture(params=COMBOS, ids=_COMBO_IDS)
+    def combo(self, request: pytest.FixtureRequest, qapp) -> Combo:
+        """One of the six style x mode combinations, applied to the application."""
+        chosen: Combo = request.param
+        apply_theme(qapp, chosen.mode, chosen.style)
+        return chosen
+
+    # -- 1. at open ---------------------------------------------------------
+
+    def test_links_open_in_the_active_styles_colour(self, qtbot, combo):
+        """The dialog opened from Help > About (a window restoring ``combo``) is in it."""
+        win = _window_restoring(qtbot, combo)
+        _win, dialog = _open_about(qtbot, win)
+        expected, painted = _assert_links_in(dialog, combo)
+        differs = expected != _default_style_colour(combo)
+        print(
+            f"{combo.label()}: links {expected}, painted pixels per link >= {painted}, "
+            f"differs from the default style's {_default_style_colour(combo)}: {differs}"
+        )
+        if combo.style != DEFAULT_STYLE:
+            assert differs, "this combination cannot tell the default-style call apart"
+
+    def test_an_explicit_style_beats_the_style_the_chrome_is_drawn_in(
+        self, qtbot, combo
+    ):
+        """The ``style`` argument is honoured even when the application is in another one.
+
+        The application is put in the DEFAULT style; the dialog is built for ``combo``'s.
+        A dialog that read the application's active style (or the default) instead of
+        its own argument would be in the wrong colour.
+        """
+        apply_theme(QApplication.instance(), combo.mode, DEFAULT_STYLE)
+        dialog = About_Dialog(combo.mode, None, combo.style)
+        qtbot.addWidget(dialog)
+        dialog.show()
+        qtbot.waitExposed(dialog)
+        _assert_links_in(dialog, combo)
+
+    def test_the_style_argument_defaults_to_the_active_style(self, qtbot, combo):
+        """With no ``style`` the dialog follows the style the chrome is drawn in."""
+        dialog = About_Dialog(combo.mode)
+        qtbot.addWidget(dialog)
+        dialog.show()
+        qtbot.waitExposed(dialog)
+        _assert_links_in(dialog, combo)
+
+    # -- 2. live ------------------------------------------------------------
+
+    @pytest.mark.parametrize("target", COMBOS, ids=_COMBO_IDS)
+    def test_an_open_dialog_follows_the_appearance_switch(self, qtbot, target):
+        """Switching through ``_switch_appearance`` re-renders the open dialog's links.
+
+        The window starts in a combination that differs from ``target`` in BOTH
+        style and mode (so neither can be what keeps the colour right by accident).
+        """
+        start = next(
+            c for c in COMBOS if c.style != target.style and c.mode != target.mode
+        )
+        win = _window_restoring(qtbot, start)
+        _win, dialog = _open_about(qtbot, win)
+        _assert_links_in(dialog, start)
+        before = _written_link_colours(dialog)
+
+        win._switch_appearance(target.style, target.mode)
+        QApplication.processEvents()
+
+        expected, painted = _assert_links_in(dialog, target)
+        print(
+            f"{start.label()} -> {target.label()}: {before['aboutRepositoryLink']} -> "
+            f"{expected}, painted pixels per link >= {painted}"
+        )
+        assert win._about_dialog is dialog, "the open dialog was replaced, not updated"
+        assert expected != before["aboutRepositoryLink"], (
+            "start and target have the same link colour; this case cannot show "
+            "that the dialog was re-rendered"
+        )
+
+    @pytest.mark.parametrize(
+        "axis, first, second",
+        [
+            (
+                "style",
+                Combo("edo-night", THEME_LIGHT),
+                Combo("arcade-kikko", THEME_LIGHT),
+            ),
+            ("mode", Combo("edo-night", THEME_LIGHT), Combo("edo-night", THEME_DARK)),
+        ],
+    )
+    def test_each_axis_alone_updates_the_open_dialog(self, qtbot, axis, first, second):
+        """Changing only the style (``set_style``) or only the mode (``set_mode``) updates it."""
+        win = _window_restoring(qtbot, first)
+        _win, dialog = _open_about(qtbot, win)
+        _assert_links_in(dialog, first)
+        assert _expected_link_colour(first) != _expected_link_colour(second)
+        if axis == "style":
+            win.set_style(second.style)
+        else:
+            win.set_mode(second.mode)
+        QApplication.processEvents()
+        _assert_links_in(dialog, second)
+
+    def test_a_switch_with_no_dialog_open_is_harmless_and_the_next_one_is_right(
+        self, qtbot
+    ):
+        """No dialog open at the switch: nothing raises; a dialog opened after it is right."""
+        win = _window_restoring(qtbot, Combo(DEFAULT_STYLE, THEME_LIGHT))
+        assert win._about_dialog is None
+        win._switch_appearance("arcade-kikko", THEME_DARK)
+        QApplication.processEvents()
+        _win, dialog = _open_about(qtbot, win)
+        _assert_links_in(dialog, Combo("arcade-kikko", THEME_DARK))

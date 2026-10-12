@@ -1,0 +1,607 @@
+{
+ "format": 1,
+ "style": "edo-night",
+ "legend": {
+  "_": null,
+  "E": "frame_edge",
+  "H": "frame_hi",
+  "M": "frame_mid",
+  "L": "frame_lo",
+  "S": "surface",
+  "T": "title_fill",
+  "A": "accent",
+  "O": "ornament",
+  "U": "ornament_outline",
+  "P": "pattern",
+  "F": "focus",
+  "V": "hover",
+  "R": "pressed",
+  "G": "background",
+  "B": "border",
+  "X": "accent_text",
+  "N": "text",
+  "I": "title_text"
+ },
+ "conventions": {
+  "cells": "one character per cell = a role index (see legend); never a colour",
+  "light_direction": "top-left: frame_hi / pale tones on the top and left rings, frame_lo / dark tones bottom and right",
+  "slopes": "rise:run, perfect slopes only (1:1 corner nicks; 2:1 hexagon sides)",
+  "scale_model": {
+   "unit": "1 template cell = 1 art pixel; S = art-pixel size in device px, S in {1, 2}",
+   "border_width_px": "slice x S, listed per template under 1x and 2x in CSS order [top, right, bottom, left]; derived from the slices, never typed twice",
+   "fractional": "at any device pixel ratio other than a whole number a Qt border-image is smooth-scaled; frames are generated at S x DPR and crisp only at whole ratios"
+  },
+  "nine_slice": "slices are {left, top, right, bottom}; corners unchanged, edges and centre repeat (border-image mode `repeat repeat`)",
+  "title_plate": {
+   "line_px": 14,
+   "ring_cols": 3,
+   "assembled_rows": 20,
+   "rows": "3 ring rows + 16 title rows (one template row, repeated) + 1 seam row; the 14 px text line fits inside the 16 title rows"
+  },
+  "corners": "docked child frames (dock, panel, buttons) may carry a 1-2 px corner treatment whose notch shows the parent's background role; popups, dialogs, fields and sub-controls are square (no translucent backing)",
+  "floating_docks": "native OS chrome, no Qt frame; a custom title-bar widget is the only alternative",
+  "focus": {
+   "mechanism": "outline overlay: an app-level filter attaches a transparent child widget on focus-in (hides on focus-out) that paints the focus_ring 9-slice; there is no `*:focus` rule and no *_focus template",
+   "ring_px": 2,
+   "covers": "ring 0 + ring 1 of the target frame (button 4 rings, field 3 rings)",
+   "clearance": "a widget's own sub-controls keep at least 2 px between the ring and themselves",
+   "focus_rings": "maps each focusable framed-control template to the ring template painted over it; the roles the ring touches are derived from this art and become gated focus pairs"
+  },
+  "selected_state": "accent fill + a 1 px accent_text cue ring at ring depth 3 (a non-colour cue); check boxes carry a check mark instead",
+  "state_precedence": "declaration order: normal, :hover, :checked, :pressed (pressed > checked > hover > normal); disabled = text role disabled_text on the normal template; checked + hover shows checked",
+  "ornaments": "overlay sprites: docks = bottom corners only, dialogs = four corners; the ornament template is the top-left master, flipped for the other corners; clear zone at each corner: no text within ornament size minus ring of the corner; inset = 0",
+  "dialog": "native OS title bar kept; the dialog frame has no title band; an optional heading row (template `heading`) between the two top ornaments only where a dialog has a heading",
+  "tabs": "tabs are closed buttons (button_normal / button_checked) with a 3 px gap above the pane: no open-bottom template and no flipped variant",
+  "pattern_rule": "pattern ink only inside the enumerated empty containers (pattern_surfaces); never on canvas_workspace, never on a list viewport; drawn by a clipped paint routine, not by a stylesheet background-image"
+ },
+ "pattern_surfaces": [
+  {
+   "id": "P1",
+   "container": "tool_toolbar tail spacer",
+   "why": "QToolBar tail is empty space below the last control; a dedicated PatternArea widget is added as the toolbar's last item"
+  },
+  {
+   "id": "P2",
+   "container": "timeline control strip spacer",
+   "why": "the strip right of the transport controls is empty space inside the Timeline dock; PatternArea as a stretch item"
+  }
+ ],
+ "templates": {
+  "dock_title": {
+   "kind": "nine-slice",
+   "grid": "dock_title.grid.txt",
+   "slices": {
+    "left": 3,
+    "top": 3,
+    "right": 3,
+    "bottom": 1
+   },
+   "border_width_px": {
+    "1x": [
+     3,
+     3,
+     1,
+     3
+    ],
+    "2x": [
+     6,
+     6,
+     2,
+     6
+    ]
+   },
+   "qss_hint": "QDockWidget::title { border-image; border-width: 3px 3px 1px 3px }",
+   "note": "QDockWidget::title: assembled height = line 14 + 2 x ring = 20 rows; the T row repeats; seam row last"
+  },
+  "dock_body": {
+   "kind": "nine-slice",
+   "grid": "dock_body.grid.txt",
+   "slices": {
+    "left": 3,
+    "top": 0,
+    "right": 3,
+    "bottom": 3
+   },
+   "border_width_px": {
+    "1x": [
+     0,
+     3,
+     3,
+     3
+    ],
+    "2x": [
+     0,
+     6,
+     6,
+     6
+    ]
+   },
+   "qss_hint": "QFrame#DockBody { border-image; border-width: 0 3px 3px 3px } (child of the dock content; QFrame insets its contents)",
+   "note": "QFrame#DockBody under the title plate; no top ring (the plate carries it)"
+  },
+  "panel": {
+   "kind": "nine-slice",
+   "grid": "panel.grid.txt",
+   "slices": {
+    "left": 3,
+    "top": 3,
+    "right": 3,
+    "bottom": 3
+   },
+   "border_width_px": {
+    "1x": [
+     3,
+     3,
+     3,
+     3
+    ],
+    "2x": [
+     6,
+     6,
+     6,
+     6
+    ]
+   },
+   "qss_hint": "QToolBar, QTabWidget::pane (and a floating dock with a custom title widget)",
+   "note": "uniform frame: toolbar, tab pane, floating dock with a custom title widget"
+  },
+  "dialog": {
+   "kind": "nine-slice",
+   "grid": "dialog.grid.txt",
+   "slices": {
+    "left": 3,
+    "top": 3,
+    "right": 3,
+    "bottom": 3
+   },
+   "border_width_px": {
+    "1x": [
+     3,
+     3,
+     3,
+     3
+    ],
+    "2x": [
+     6,
+     6,
+     6,
+     6
+    ]
+   },
+   "qss_hint": "QDialog",
+   "note": "QDialog: SQUARE corners (top-level window, no translucent backing); no title band, the native title bar stays"
+  },
+  "heading": {
+   "kind": "nine-slice",
+   "grid": "heading.grid.txt",
+   "slices": {
+    "left": 1,
+    "top": 1,
+    "right": 1,
+    "bottom": 2
+   },
+   "border_width_px": {
+    "1x": [
+     1,
+     1,
+     2,
+     1
+    ],
+    "2x": [
+     2,
+     2,
+     4,
+     2
+    ]
+   },
+   "qss_hint": "QLabel#dialogHeading (only in dialogs that have a heading)",
+   "note": "optional in-dialog heading row (QLabel#dialogHeading), ONLY in dialogs that have a heading"
+  },
+  "ornament": {
+   "kind": "ornament",
+   "grid": "ornament.grid.txt",
+   "note": "overlay sprite, top-left master; flip h/v for the other corners; roles ornament + ornament_outline"
+  },
+  "glyph_close": {
+   "kind": "sprite",
+   "grid": "glyph_close.grid.txt",
+   "note": "QDockWidget::close-button image, role title_text"
+  },
+  "glyph_float": {
+   "kind": "sprite",
+   "grid": "glyph_float.grid.txt",
+   "note": "QDockWidget::float-button image, role title_text"
+  },
+  "button_normal": {
+   "kind": "nine-slice",
+   "grid": "button_normal.grid.txt",
+   "slices": {
+    "left": 4,
+    "top": 4,
+    "right": 4,
+    "bottom": 4
+   },
+   "border_width_px": {
+    "1x": [
+     4,
+     4,
+     4,
+     4
+    ],
+    "2x": [
+     8,
+     8,
+     8,
+     8
+    ]
+   },
+   "qss_hint": "QPushButton, QToolButton, QTabBar::tab",
+   "note": "QPushButton / QToolButton / QTabBar::tab (tabs are closed buttons: no open-bottom variant, no :bottom flip)"
+  },
+  "button_hover": {
+   "kind": "nine-slice",
+   "grid": "button_hover.grid.txt",
+   "slices": {
+    "left": 4,
+    "top": 4,
+    "right": 4,
+    "bottom": 4
+   },
+   "border_width_px": {
+    "1x": [
+     4,
+     4,
+     4,
+     4
+    ],
+    "2x": [
+     8,
+     8,
+     8,
+     8
+    ]
+   },
+   "qss_hint": "...:hover (declared BEFORE :checked)",
+   "note": ":hover"
+  },
+  "button_pressed": {
+   "kind": "nine-slice",
+   "grid": "button_pressed.grid.txt",
+   "slices": {
+    "left": 4,
+    "top": 4,
+    "right": 4,
+    "bottom": 4
+   },
+   "border_width_px": {
+    "1x": [
+     4,
+     4,
+     4,
+     4
+    ],
+    "2x": [
+     8,
+     8,
+     8,
+     8
+    ]
+   },
+   "qss_hint": "...:pressed (declared LAST: pressed > checked > hover > normal)",
+   "note": ":pressed (wins over every other state)"
+  },
+  "button_checked": {
+   "kind": "nine-slice",
+   "grid": "button_checked.grid.txt",
+   "slices": {
+    "left": 4,
+    "top": 4,
+    "right": 4,
+    "bottom": 4
+   },
+   "border_width_px": {
+    "1x": [
+     4,
+     4,
+     4,
+     4
+    ],
+    "2x": [
+     8,
+     8,
+     8,
+     8
+    ]
+   },
+   "qss_hint": "...:checked, QTabBar::tab:selected",
+   "note": ":checked - accent fill + 1 px accent_text cue ring inside the fill (a non-colour cue)"
+  },
+  "menu": {
+   "kind": "nine-slice",
+   "grid": "menu.grid.txt",
+   "slices": {
+    "left": 2,
+    "top": 2,
+    "right": 2,
+    "bottom": 2
+   },
+   "border_width_px": {
+    "1x": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "2x": [
+     4,
+     4,
+     4,
+     4
+    ]
+   },
+   "qss_hint": "QMenu, QComboBox QAbstractItemView",
+   "note": "QMenu and QComboBox popup: SQUARE corners"
+  },
+  "tooltip": {
+   "kind": "nine-slice",
+   "grid": "tooltip.grid.txt",
+   "slices": {
+    "left": 2,
+    "top": 2,
+    "right": 2,
+    "bottom": 2
+   },
+   "border_width_px": {
+    "1x": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "2x": [
+     4,
+     4,
+     4,
+     4
+    ]
+   },
+   "qss_hint": "QToolTip (also set its background-color by role)",
+   "note": "QToolTip: SQUARE corners; QToolTip needs a role background (Qt's own default is an unthemed light grey)"
+  },
+  "field": {
+   "kind": "nine-slice",
+   "grid": "field.grid.txt",
+   "slices": {
+    "left": 3,
+    "top": 3,
+    "right": 3,
+    "bottom": 3
+   },
+   "border_width_px": {
+    "1x": [
+     3,
+     3,
+     3,
+     3
+    ],
+    "2x": [
+     6,
+     6,
+     6,
+     6
+    ]
+   },
+   "qss_hint": "QLineEdit, QSpinBox, QComboBox",
+   "note": "QLineEdit, QSpinBox, QComboBox (closed)"
+  },
+  "subbutton": {
+   "kind": "nine-slice",
+   "grid": "subbutton.grid.txt",
+   "slices": {
+    "left": 1,
+    "top": 1,
+    "right": 1,
+    "bottom": 1
+   },
+   "border_width_px": {
+    "1x": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "2x": [
+     2,
+     2,
+     2,
+     2
+    ]
+   },
+   "qss_hint": "QSpinBox::up-button, ::down-button, QComboBox::drop-down",
+   "note": "QSpinBox::up-button/::down-button, QComboBox::drop-down"
+  },
+  "arrow_up": {
+   "kind": "sprite",
+   "grid": "arrow_up.grid.txt",
+   "note": "sub-control arrow image, role text"
+  },
+  "arrow_down": {
+   "kind": "sprite",
+   "grid": "arrow_down.grid.txt",
+   "note": "sub-control arrow image, role text"
+  },
+  "arrow_left": {
+   "kind": "sprite",
+   "grid": "arrow_left.grid.txt",
+   "note": "sub-control arrow image, role text"
+  },
+  "arrow_right": {
+   "kind": "sprite",
+   "grid": "arrow_right.grid.txt",
+   "note": "sub-control arrow image, role text"
+  },
+  "scroll_track": {
+   "kind": "nine-slice",
+   "grid": "scroll_track.grid.txt",
+   "slices": {
+    "left": 1,
+    "top": 2,
+    "right": 1,
+    "bottom": 2
+   },
+   "border_width_px": {
+    "1x": [
+     2,
+     1,
+     2,
+     1
+    ],
+    "2x": [
+     4,
+     2,
+     4,
+     2
+    ]
+   },
+   "qss_hint": "QScrollBar:vertical / :horizontal (horizontal = transposed, derived)",
+   "note": "QScrollBar track (vertical); horizontal = transpose (derived)"
+  },
+  "scroll_handle": {
+   "kind": "nine-slice",
+   "grid": "scroll_handle.grid.txt",
+   "slices": {
+    "left": 3,
+    "top": 3,
+    "right": 3,
+    "bottom": 3
+   },
+   "border_width_px": {
+    "1x": [
+     3,
+     3,
+     3,
+     3
+    ],
+    "2x": [
+     6,
+     6,
+     6,
+     6
+    ]
+   },
+   "qss_hint": "QScrollBar::handle",
+   "note": "QScrollBar::handle (vertical); horizontal = transpose; arrow buttons are not drawn (::add-line / ::sub-line height 0)"
+  },
+  "slider_groove": {
+   "kind": "nine-slice",
+   "grid": "slider_groove.grid.txt",
+   "slices": {
+    "left": 2,
+    "top": 2,
+    "right": 2,
+    "bottom": 2
+   },
+   "border_width_px": {
+    "1x": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "2x": [
+     4,
+     4,
+     4,
+     4
+    ]
+   },
+   "qss_hint": "QSlider::groove:horizontal",
+   "note": "QSlider::groove (horizontal); ::sub-page is a QSS background in role accent"
+  },
+  "slider_handle": {
+   "kind": "sprite",
+   "grid": "slider_handle.grid.txt",
+   "note": "QSlider::handle image"
+  },
+  "check_off": {
+   "kind": "sprite",
+   "grid": "check_off.grid.txt",
+   "note": "QCheckBox::indicator unchecked"
+  },
+  "check_on": {
+   "kind": "sprite",
+   "grid": "check_on.grid.txt",
+   "note": "QCheckBox::indicator:checked: accent fill + accent_text check mark (the mark is the non-colour cue)"
+  },
+  "focus_ring": {
+   "kind": "overlay",
+   "grid": "focus_ring.grid.txt",
+   "slices": {
+    "left": 2,
+    "top": 2,
+    "right": 2,
+    "bottom": 2
+   },
+   "border_width_px": {
+    "1x": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "2x": [
+     4,
+     4,
+     4,
+     4
+    ]
+   },
+   "qss_hint": "overlay child widget (no :focus rule); silhouette of buttons and tool buttons",
+   "note": "OVERLAY (child widget painted on FocusIn, hidden on FocusOut): 2 art px ring over ring 0 + ring 1 of buttons, tabs, tool buttons"
+  },
+  "focus_ring_square": {
+   "kind": "overlay",
+   "grid": "focus_ring_square.grid.txt",
+   "slices": {
+    "left": 2,
+    "top": 2,
+    "right": 2,
+    "bottom": 2
+   },
+   "border_width_px": {
+    "1x": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "2x": [
+     4,
+     4,
+     4,
+     4
+    ]
+   },
+   "qss_hint": "overlay child widget (no :focus rule); fields, lists, trees, sliders, check boxes",
+   "note": "OVERLAY for fields, lists, trees, combos: 2 art px ring over the 1-3 px border (square silhouette)"
+  }
+ },
+ "focus_rings": {
+  "button_normal": "focus_ring",
+  "button_hover": "focus_ring",
+  "button_pressed": "focus_ring",
+  "button_checked": "focus_ring",
+  "field": "focus_ring_square"
+ },
+ "pattern": {
+  "kind": "pattern",
+  "grid": "pattern.grid.txt",
+  "motif": "kikko (hexagon lattice, 2:1 sides)",
+  "tile_size": [
+   12,
+   8
+  ],
+  "ink_role": "pattern",
+  "ground_role": "background"
+ }
+}

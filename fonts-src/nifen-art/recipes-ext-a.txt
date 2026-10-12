@@ -1,0 +1,123 @@
+# Latin Extended-A, composed letters. Capitals take the cap marks (rows 8-9),
+# lowercase the low marks (rows 6-7). A mark that touches its base is declared
+# with join=1 and checked by the lint; every other mark must stay clear.
+
+# ---- macron, breve, dot above ---------------------------------------------------
+recipe U+0100 = mark U+0041 macron.cap
+recipe U+0101 = mark U+0061 macron.low
+recipe U+0102 = mark U+0041 breve.cap
+recipe U+0103 = mark U+0061 breve.low
+recipe U+0112 = mark U+0045 macron.cap
+recipe U+0113 = mark U+0065 macron.low
+recipe U+0114 = mark U+0045 breve.cap
+recipe U+0115 = mark U+0065 breve.low
+recipe U+0116 = mark U+0045 dot.cap
+recipe U+0117 = mark U+0065 dot.low
+recipe U+012A = mark U+0049 macron.cap
+recipe U+012B = mark U+0131 macron.low
+recipe U+012C = mark U+0049 breve.cap
+recipe U+012D = mark U+0131 breve.low
+recipe U+0130 = mark U+0049 dot.cap
+recipe U+014C = mark U+004F macron.cap
+recipe U+014D = mark U+006F macron.low
+recipe U+014E = mark U+004F breve.cap
+recipe U+014F = mark U+006F breve.low
+recipe U+016A = mark U+0055 macron.cap
+recipe U+016B = mark U+0075 macron.low
+recipe U+016C = mark U+0055 breve.cap
+recipe U+016D = mark U+0075 breve.low
+recipe U+010A = mark U+0043 dot.cap
+recipe U+010B = mark U+0063 dot.low
+recipe U+011E = mark U+0047 breve.cap
+recipe U+011F = mark U+0067 breve.low
+recipe U+0120 = mark U+0047 dot.cap
+recipe U+0121 = mark U+0067 dot.low
+recipe U+017B = mark U+005A dot.cap
+recipe U+017C = mark U+007A dot.low
+
+# ---- acute, circumflex, tilde, ring ----------------------------------------------
+recipe U+0106 = mark U+0043 acute.cap
+recipe U+0107 = mark U+0063 acute.low
+recipe U+0108 = mark U+0043 circumflex.cap
+recipe U+0109 = mark U+0063 circumflex.low
+recipe U+011C = mark U+0047 circumflex.cap
+recipe U+011D = mark U+0067 circumflex.low
+recipe U+0124 = mark U+0048 circumflex.cap
+recipe U+0125 = mark U+0068 circumflex.low rise=2 join=1   # h: the ascender fills the zone, the mark leans on the stem
+recipe U+0128 = mark U+0049 tilde.cap
+recipe U+0129 = mark U+0131 tilde.low
+recipe U+0134 = mark U+004A circumflex.cap
+recipe U+0135 = mark U+0237 circumflex.low
+recipe U+0139 = mark U+004C acute.cap
+recipe U+013A = mark U+006C acute.low rise=2 dx=1 join=1   # l: the acute leans on the top of the stem
+recipe U+0143 = mark U+004E acute.cap
+recipe U+0144 = mark U+006E acute.low
+recipe U+0155 = mark U+0072 acute.low
+recipe U+015A = mark U+0053 acute.cap
+recipe U+015B = mark U+0073 acute.low
+recipe U+015C = mark U+0053 circumflex.cap
+recipe U+015D = mark U+0073 circumflex.low
+recipe U+0168 = mark U+0055 tilde.cap
+recipe U+0169 = mark U+0075 tilde.low
+recipe U+016E = mark U+0055 ring.cap join=1
+recipe U+016F = mark U+0075 ring.low
+recipe U+0174 = mark U+0057 circumflex.cap
+recipe U+0175 = mark U+0077 circumflex.low
+recipe U+0176 = mark U+0059 circumflex.cap
+recipe U+0177 = mark U+0079 circumflex.low
+recipe U+0178 = mark U+0059 diaeresis.cap
+recipe U+0179 = mark U+005A acute.cap
+recipe U+017A = mark U+007A acute.low
+
+# ---- caron -----------------------------------------------------------------------------
+recipe U+010C = mark U+0043 caron.cap
+recipe U+010D = mark U+0063 caron.low
+recipe U+010E = mark U+0044 caron.cap
+recipe U+011A = mark U+0045 caron.cap
+recipe U+011B = mark U+0065 caron.low
+recipe U+0147 = mark U+004E caron.cap
+recipe U+0148 = mark U+006E caron.low
+recipe U+0158 = mark U+0052 caron.cap
+recipe U+0159 = mark U+0072 caron.low
+recipe U+0160 = mark U+0053 caron.cap
+recipe U+0161 = mark U+0073 caron.low
+recipe U+0164 = mark U+0054 caron.cap
+recipe U+017D = mark U+005A caron.cap
+recipe U+017E = mark U+007A caron.low
+
+# ---- double acute ------------------------------------------------------------------------
+recipe U+0150 = mark U+004F doubleacute.cap
+recipe U+0151 = mark U+006F doubleacute.low
+recipe U+0170 = mark U+0055 doubleacute.cap
+recipe U+0171 = mark U+0075 doubleacute.low
+
+# ---- ogonek ---------------------------------------------------------------------------------
+recipe U+0104 = mark U+0041 ogonek align=right join=1
+recipe U+0105 = mark U+0061 ogonek align=right join=1
+recipe U+0118 = mark U+0045 ogonek align=right join=1
+recipe U+0119 = mark U+0065 ogonek align=right join=1
+recipe U+012E = mark U+0049 ogonek align=right join=1
+recipe U+012F = mark U+0069 ogonek align=right join=1
+recipe U+0172 = mark U+0055 ogonek align=right join=1
+recipe U+0173 = mark U+0075 ogonek align=right join=1
+
+# ---- cedilla and comma below ------------------------------------------------------------------
+recipe U+0122 = mark U+0047 cedilla join=1
+recipe U+0123 = mark U+0067 turncomma.low
+recipe U+0136 = mark U+004B cedilla
+recipe U+0137 = mark U+006B cedilla
+recipe U+013B = mark U+004C cedilla join=1
+recipe U+013C = mark U+006C cedilla join=1
+recipe U+0145 = mark U+004E cedilla
+recipe U+0146 = mark U+006E cedilla
+recipe U+0156 = mark U+0052 cedilla
+recipe U+0157 = mark U+0072 cedilla dx=1
+recipe U+015E = mark U+0053 cedilla join=1
+recipe U+015F = mark U+0073 cedilla join=1
+recipe U+0162 = mark U+0054 cedilla join=1
+recipe U+0163 = mark U+0074 cedilla join=1
+
+# ---- ligatures made of two drawn letters ----------------------------------------------------------
+recipe U+0132 = cat U+0049 U+004A gap=1      # IJ
+recipe U+0133 = cat U+0069 U+006A      # ij
+recipe U+0149 = cat U+2019 U+006E gap=1      # apostrophe n

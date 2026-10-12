@@ -24,6 +24,7 @@ effects — no :class:`QApplication` is constructed at import time.
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from typing import List, Optional, Tuple
@@ -31,8 +32,16 @@ from typing import List, Optional, Tuple
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
+from pixelart_creator.ui.app_font import capture_platform_font, resolved_family
 from pixelart_creator.ui.app_icon import app_icon
+from pixelart_creator.ui.appearance_settings import (
+    apply_stored_rounding_policy,
+    load_appearance,
+    rounding_policy_mismatch,
+)
 from pixelart_creator.ui.main_window import Main_Window
+
+_LOGGER = logging.getLogger(__name__)
 
 #: Application + organisation identity, used by :class:`QApplication` for
 #: ``QStandardPaths`` (autosave/recovery locations), window/task-bar titles, and
@@ -50,6 +59,10 @@ ORGANIZATION_NAME = "PixelArt Creator"
 #: ``.desktop`` suffix). Defined once here, next to the other identity
 #: constants this startup seam owns.
 DESKTOP_FILE_NAME = "PixelArtCreator"
+
+#: The smoke-launch report line that names the interface font family; the
+#: installer workflow asserts it (``interface-font: Nifen Art``).
+SMOKE_FONT_LINE_PREFIX = "interface-font:"
 
 
 def create_app(argv: Optional[List[str]] = None) -> Tuple[QApplication, Main_Window]:
@@ -72,7 +85,17 @@ def create_app(argv: Optional[List[str]] = None) -> Tuple[QApplication, Main_Win
     """
     app = QApplication.instance()
     if not isinstance(app, QApplication):
+        # Qt reads the scale rounding policy only as the application object is
+        # created, so the stored "Pixel-perfect interface" choice is applied
+        # here and only here (REQ-VI-UI-012).
+        apply_stored_rounding_policy()
         app = QApplication(sys.argv if argv is None else list(argv))
+        note = rounding_policy_mismatch(load_appearance().pixel_perfect)
+        if note is not None:
+            _LOGGER.info(note)
+    # Keep the platform's own default font before anything changes the
+    # application font, so "Use system font" can restore it (REQ-VI-UI-016).
+    capture_platform_font()
     app.setApplicationName(APPLICATION_NAME)
     app.setOrganizationName(ORGANIZATION_NAME)
     # The application-level icon is what the OS taskbar/dock reads (a
@@ -111,7 +134,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     blocking forever on ``app.exec()``. Absent, empty, non-integer, or ``<= 0``
     values are ignored — the app runs normally (indefinite). The value is parsed
     defensively (plain :func:`int`, no ``eval``); a bad value never crashes the
-    launcher.
+    launcher. In that smoke mode one line, ``interface-font: <family>``, is
+    printed first: the family the menu bar resolves to.
 
     Args:
         argv: Process arguments forwarded to :func:`create_app`. Defaults to
@@ -120,13 +144,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     Returns:
         The :class:`QApplication` exit code.
     """
-    app, _window = create_app(argv)
+    app, window = create_app(argv)
 
     try:
         smoke_exit_ms = int(os.environ.get("PIXELART_SMOKE_EXIT_MS", ""))
     except ValueError:
         smoke_exit_ms = 0
     if smoke_exit_ms > 0:
+        # The installer smoke check reads this line: the family the menu bar
+        # really resolves to (REQ-VI-BUILD-006).
+        print(
+            f"{SMOKE_FONT_LINE_PREFIX} {resolved_family(window.menuBar())}", flush=True
+        )
         QTimer.singleShot(smoke_exit_ms, app.quit)
 
     return app.exec()

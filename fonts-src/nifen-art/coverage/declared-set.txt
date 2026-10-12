@@ -1,0 +1,71 @@
+# Declared character set (771 unique characters per weight): Latin, Greek and Cyrillic groups plus Japanese: hiragana U+3041-U+3096 and U+309D-U+309F,
+# katakana U+30A1-U+30FA and U+30FC-U+30FF, the two voiced marks, CJK punctuation and the full-width forms
+# used in Japanese interface text. Written from the block ranges and the lists below, NOT derived from the
+# glyph sources, so the coverage check compares two independent statements.
+# One group per line: "<label>: <characters>" (characters follow the colon+space)
+space:  
+ASCII punctuation: !"'()-.,:;?
+figures: 01258
+Latin capitals: ACEFHLNOPRSY
+Latin lowercase: acdeghiklnoprstuvy
+dotless i: ı
+Latin-1 inverted marks: ¿¡
+Latin-1 accented capitals: ÁÑ
+Latin-1 accented lowercase: áéíñúü
+Latin-1 times sign: ×
+Latin Extended-A: Ŕ
+ellipsis and bullet: …•
+Greek capitals: ΑΕΛΣΩ
+Greek capital with tonos: Ά
+Greek lowercase: αδηικλμνπ
+Greek lowercase with tonos: ά
+Cyrillic capitals: ДЖЕЁПЯ
+Cyrillic lowercase: абгеиклнрсфыья
+hiragana: あかがこうっ
+katakana: アカガヒピクセルトッー・
+kana marks: ゛゜
+CJK punctuation: 、。「」
+UI symbols: ▶◀▲▼✓
+ASCII figures: 0123456789
+ASCII capitals: ABCDEFGHIJKLMNOPQRSTUVWXYZ
+ASCII lowercase: abcdefghijklmnopqrstuvwxyz
+ASCII punctuation and signs: !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~
+Latin-1 no-break space and soft hyphen:  ­
+Latin-1 signs: ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿×÷
+Latin-1 capitals: ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞ
+Latin-1 lowercase: ßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ
+spacing modifier letters: ˆˇ˘˙˚˛˜˝
+typographic punctuation: ‘’‚“”„‹›–—†‡
+arrows: →↔⇒
+math signs: ∘∩∪≈≤≥
+Latin Extended-A block: ĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽžſ
+dotless j: ȷ
+scan-found symbols: ▸⊆⁷ⁿΔ
+small triangles: ▸◂▴▾
+geometric shapes: ■□●○◆◇★
+cross mark: ✗
+arrows added: ←↑↓↕⇐⇔
+math added: ≠∞−
+currency and mark: €™
+Greek capitals: ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ
+Greek lowercase with final sigma: αβγδεζηθικλμνξοπρςστυφχψω
+Greek capitals with tonos: ΆΈΉΊΌΎΏ
+Greek capitals with dialytika: ΪΫ
+Greek lowercase with tonos: άέήίόύώ
+Greek lowercase with dialytika and tonos: ϊϋΐΰ
+Greek punctuation and spacing forms: ʹʹ͵;΄΅·
+Cyrillic block U+0400-U+045F: ЀЁЂЃЄЅІЇЈЉЊЋЌЍЎЏАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяѐёђѓєѕіїјљњћќѝўџ
+Cyrillic Ghe with upturn: Ґґ
+numero sign: №
+French and German letters: Œœßẞ
+French and German quotation marks: «»‹›„“‚‘
+French thin and narrow no-break spaces:   
+Hiragana U+3041-U+3096: ぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろゎわゐゑをんゔゕゖ
+Hiragana iteration marks and yori: ゝゞゟ
+Voiced and semi-voiced marks (spacing): ゛゜
+Katakana U+30A1-U+30FA: ァアィイゥウェエォオカガキギクグケゲコゴサザシジスズセゼソゾタダチヂッツヅテデトドナニヌネノハバパヒビピフブプヘベペホボポマミムメモャヤュユョヨラリルレロヮワヰヱヲンヴヵヶヷヸヹヺ
+Katakana prolonged sound mark, middle dot, iteration marks, koto: ・ーヽヾヿ
+Ideographic space and marks: 　、。〃々
+Brackets U+3008-U+3011: 〈〉《》「」『』【】
+Wave dash: 〜
+Full-width forms: ！（），．：；？～

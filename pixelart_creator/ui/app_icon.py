@@ -22,8 +22,9 @@ directory is package *data*, not a Python package. Do **not** call
 exactly the marker this module must not need.
 
 Only the **runtime size set** is loaded here — 16/24/32/48/64/128/256/512 px
-(:data:`RUNTIME_ICON_SIZES_PX`). ``logo-source-64.png`` is the provenance
-master (never loaded at runtime); ``app-icon-1024.png``,
+(:data:`RUNTIME_ICON_SIZES_PX`). The five ``logo-master-<size>.png`` files
+are the provenance masters the family is derived from (never loaded at
+runtime); ``app-icon-1024.png``,
 ``pixelart-creator.ico``, ``pixelart-creator.icns`` and
 ``pixelart-creator.png`` are packaging-only artifacts consumed by the build
 toolchain, not by this loader.

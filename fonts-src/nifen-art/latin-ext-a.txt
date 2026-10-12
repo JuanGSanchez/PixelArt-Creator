@@ -1,0 +1,210 @@
+# Latin Extended-A, drawn glyphs: the letters that are not a plain base plus a
+# mark (strokes, ticks, ligatures, the eng, the long s) and the dotless j that
+# the composed j with circumflex is built on. Everything else in the block is a
+# recipe (recipes-ext-a.txt).
+
+# dotless j: base of the j with circumflex
+glyph U+0237 adv=4 top=5 ext=-2..5
+..#
+..#
+..#
+..#
+..#
+..#
+##.
+
+# d with the Czech/Slovak tick: the tick stands two columns clear of the stem
+glyph U+010F adv=9 top=8 ext=0..8
+....#..#
+....#..#
+....#...
+.####...
+#...#...
+#...#...
+#...#...
+.####...
+
+# d with stroke
+glyph U+0111 adv=7 top=8 ext=0..8
+....#.
+..####
+....#.
+.####.
+#...#.
+#...#.
+#...#.
+.####.
+
+# H with stroke
+glyph U+0126 adv=6 top=7 ext=0..7
+#...#
+#...#
+#####
+#...#
+#####
+#...#
+#...#
+
+# h with stroke
+glyph U+0127 adv=7 top=8 ext=0..8
+.#....
+###...
+.#....
+.####.
+.#...#
+.#...#
+.#...#
+.#...#
+
+# kra
+glyph U+0138 adv=6 top=5 ext=0..5
+#...#
+#..#.
+###..
+#..#.
+#...#
+
+# l with tick
+glyph U+013E adv=5 top=8 ext=0..8
+#..#
+#..#
+#...
+#...
+#...
+#...
+#...
+#...
+
+# L with tick
+glyph U+013D adv=6 top=7 ext=0..7
+#....
+#..#.
+#..#.
+#....
+#....
+#....
+#####
+
+# L with middle dot
+glyph U+013F adv=6 top=7 ext=0..7 dots=1
+#....
+#....
+#....
+#..#.
+#....
+#....
+#####
+
+# l with middle dot
+glyph U+0140 adv=5 top=8 ext=0..8 dots=1
+#...
+#...
+#...
+#...
+#...
+#..#
+#...
+#...
+
+# L with stroke
+glyph U+0141 adv=6 top=7 ext=0..7
+.#...
+.#...
+.##..
+.#...
+##...
+.#...
+.####
+
+# l with stroke
+glyph U+0142 adv=4 top=8 ext=0..8
+.#.
+.#.
+.#.
+.##
+.#.
+##.
+.#.
+.#.
+
+# Eng, capital: the N whose right stem runs on below the baseline into a hook
+glyph U+014A adv=6 top=7 ext=-2..7
+#...#
+##..#
+#.#.#
+#.#.#
+#..##
+#...#
+#...#
+....#
+..##.
+
+# eng, lowercase
+glyph U+014B adv=6 top=5 ext=-2..5
+#.##.
+##..#
+#...#
+#...#
+#...#
+....#
+..##.
+
+# O and E ligature, capital: the right side of the O is the stem of the E
+glyph U+0152 adv=9 top=7 ext=0..7
+.#######
+#...#...
+#...#...
+#...####
+#...#...
+#...#...
+.#######
+
+# o and e ligature
+glyph U+0153 adv=10 top=5 ext=0..5
+.###.###.
+#...#...#
+#...#####
+#...#....
+.###.####
+
+# t with the tick
+glyph U+0165 adv=6 top=8 ext=0..8
+.#..#
+.#..#
+.#...
+####.
+.#...
+.#...
+.#...
+.##..
+
+# T with stroke
+glyph U+0166 adv=6 top=7 ext=0..7
+#####
+..#..
+..#..
+.###.
+..#..
+..#..
+..#..
+
+# t with stroke
+glyph U+0167 adv=5 top=7 ext=0..7
+.#..
+.#..
+####
+.#..
+####
+.#..
+.##.
+
+# long s
+glyph U+017F adv=4 top=8 ext=0..8
+.##
+#..
+#..
+#..
+#..
+#..
+#..
+#..

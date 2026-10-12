@@ -33,7 +33,6 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QSpinBox,
     QWidget,
 )
@@ -46,6 +45,7 @@ from pixelart_creator.logic.constants import (
     ONION_TINT_NEXT,
     ONION_TINT_PREV,
 )
+from pixelart_creator.ui.pixel_chrome import Swatch_Button
 
 
 @dataclass(frozen=True)
@@ -84,9 +84,9 @@ class Onion_Skin_Controls(QWidget):
         self._next_spin.setValue(DEFAULT_ONION_NEXT)
         self._next_spin.valueChanged.connect(self._emit)
 
-        self._prev_tint_button = QPushButton(self)
+        self._prev_tint_button = Swatch_Button(self)
         self._prev_tint_button.clicked.connect(self._pick_prev_tint)
-        self._next_tint_button = QPushButton(self)
+        self._next_tint_button = Swatch_Button(self)
         self._next_tint_button.clicked.connect(self._pick_next_tint)
         self._paint_swatch(self._prev_tint_button, self._tint_prev)
         self._paint_swatch(self._next_tint_button, self._tint_next)
@@ -155,12 +155,9 @@ class Onion_Skin_Controls(QWidget):
         return (chosen.red(), chosen.green(), chosen.blue(), chosen.alpha())
 
     @staticmethod
-    def _paint_swatch(button: QPushButton, color: RGBA) -> None:
-        """Fill a tint button with its colour (role-independent overlay swatch)."""
-        r, g, b, a = color
-        button.setStyleSheet(
-            f"background-color: rgba({r}, {g}, {b}, {a}); min-width: 24px;"
-        )
+    def _paint_swatch(button: Swatch_Button, color: RGBA) -> None:
+        """Show a tint on its button (data colour; no per-widget stylesheet)."""
+        button.set_swatch(QColor(*color))
 
     # -- emit -------------------------------------------------------------
 

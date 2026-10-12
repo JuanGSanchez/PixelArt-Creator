@@ -40,12 +40,23 @@ actions are intentionally *not* undoable because they are view state rather than
 edits: selecting or scrubbing a frame, toggling onion skinning, adding a guide, and
 opening the cloud/collaboration panels.
 
-## Themes (light & dark)
+## Themes (style, light & dark)
 
-The application ships matched **light** and **dark** themes. Switch between them from
-the application's theme control; every panel, dialog, overlay, and this User Guide
-render correctly and stay legible in both. Colours are defined once by role, so the
-theme is consistent everywhere.
+Everything about the application's look lives in the **Theme** menu. Every choice
+applies at once and is remembered the next time you start the application.
+
+- **Style** — a submenu with three visual styles: **Washi & Kintsugi** (the
+  default), **Edo Night** and **Arcade Kikko**. Each is a complete look for panels,
+  dialogs, borders and the pattern areas of the window.
+- **Light** / **Dark** — the colour mode, chosen independently of the style. Every
+  panel, dialog, overlay, and this User Guide render correctly and stay legible in
+  both. Colours are defined once by role, so the theme is consistent everywhere.
+- **Use system font** — switch the interface from the bundled pixel typeface (Nifen
+  Art) to your operating system's interface font.
+- **Pixel-perfect interface** — on by default. It scales the interface by whole
+  numbers only, so pixel art stays crisp on displays with a fractional scale (for
+  example 125 % or 150 %). A change takes effect the next time you start the
+  application.
 
 ## Version & About
 

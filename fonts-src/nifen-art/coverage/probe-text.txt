@@ -1,0 +1,203 @@
+# Specimen strings: real interface strings first, then coverage lines.
+Archivo  Editar  Capas  Paleta
+File  Edit  Layers  Palette
+Ñandú pingüino ¿Sí? ¡Ya!
+Ελληνικά Λάμδα
+Пиксельная графика
+ピクセルアート・がっこう
+# Coverage lines for every anchor glyph.
+HOAR nagseykdlh pcrtuv Á Ñ á é í ñ ú ü Ŕ
+0 1 2 5 8 . , : ; ! ? ¿ ¡ ' " ( ) - …
+Α Ω λ π Σ ά Ά η ι κ μ δ α Λ
+Д Ж Я б л ы Ё П г и н ь я ф
+あ か が こ う っ ア カ ガ ヒ ピ ク セ ル ト ッ ー ・ 、 。 「 」
+▶ ◀ ▲ ▼ ✓ × •
+# Latin-1 and punctuation lines (batch B2).
+¡Hola! ¿Qué tal? «Guardar» – “Abrir” ‘Cerrar’ — Añadir… 50 × 20 px → 100 % ≤ ≥ ≈
+ÀÁÂÃÄÅÆÇ ÈÉÊË ÌÍÎÏ ÐÑ ÒÓÔÕÖ Ø ÙÚÛÜ ÝÞß àáâãäåæç èéêë ìíîï ðñ òóôõö ø ùúûü ýþÿ
+¢ £ ¤ ¥ ¦ § © ª ® ° ± ² ³ µ ¶ · ¹ º ¼ ½ ¾ ÷ ∘ ∩ ∪ † ‡ ‹ › „ ¨ ´ ¸ ¯ ˇ ˘ ˙ ˛ ˜ ˝
+# Latin Extended-A and symbol lines (batches B3 and B4): the strings of the sample and symbol sheets.
+ĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħ
+ĨĩĪīĬĭĮįİıĲĳĴĵȷĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋ
+ŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧ
+ŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽžſ
+▶◀▲▼ ▸◂▴▾ ■□●○◆◇★ ✓✗
+→←↑↓↔↕ ⇒⇐⇔
++−×÷±=≠≈<>≤≥ ∞∘∩∪⊆ ° ⁷ⁿ ¹²³ ¼½¾
+€£¥¢¤ $% ©®™ §¶†‡ •·… ‹›«» –—
+Help ▸ User Guide ▸ Layers
+Palette ▾   Layers ▴   Timeline ▸
+★ Favourites   ✓ Saved   ✗ Failed   ● Recording   ○ Idle
+50 × 20 px → 100 %   ≤ 8 ≥ 2 ≠ 0   ± 3 °C   ÷ 4   −5   ∞
+Precio: 4,99 €   PixelArt™   § 3.2   Ctrl+Z ← →
+Zażółć gęślą jaźń. Pchnąć w tę łódź jeża lub ośm skrzyń fig.
+Příliš žluťoučký kůň úpěl ďábelské ódy.
+Kŕdeľ ďatľov učí koňa žrať kôš.
+Pijamalı hasta yağız şoföre çabucak güvendi. İstanbul, ılık ışık.
+Árvíztűrő tükörfúrógép. Ő és Ű: őrült űrhajós.
+Gojazni đačić s biciklom drži hmelj i finu vatu u džepu.
+Muļķa hipiji mēģina brīvi nogaršot celofāna žņaudzējčūsku.
+Įlinkdama fechtuotojo špaga sublykčiojusi pragręžė apvalų arbūzą.
+Ĉiuj homoj: ĝi, ĥoro, ĵaŭdo, ŝi, ŭ.
+Het Ĳsselmeer en het ĳs.
+Col·legi, intel·ligent, Ŀ ŀ.
+Ħafna ċ ġ ż: Ċ Ġ Ħ Ż, għajnuna.
+Œuvre, cœur, sœur, œil, Œ.
+Tŷ, dŵr, ŵy, Ŵ Ŷ.
+ŉ Man en ŉ vrou.
+Ŋ ŋ Ŧ ŧ Đ đ Š š Ž ž Č č, kra ĸ, long s ſ.
+Polski
+Čeština
+Slovenčina
+Türkçe
+Magyar
+Hrvatski
+Latviešu
+Lietuvių
+Esperanto
+Nederlands
+Català
+Malti
+Français
+Cymraeg
+Afrikaans
+Sami, Eng
+ΑΛΣΩαδηικλμνπάΆΔ ДЖПЯбгилнфыьЁ
+あかがこうっアカガヒピクセルトッー・、。「」
+# Probe text of batch B5: Russian, Ukrainian, Belarusian, Serbian, Macedonian, Greek, French and German (the strings of the sample sheets).
+Файл
+Правка
+Выделение
+Изображение
+Вид
+Палитра
+Облако
+Справка
+Создать
+Открыть…
+Сохранить
+Сохранить как…
+Экспортировать…
+Закрыть
+Ctrl+N
+Ctrl+O
+Ctrl+S
+Ctrl+W
+Слои
+Палитра
+Временная шкала
+Слой 1
+Слой заблокирован.
+Заменить существующие пиксели?
+В целевой области уже есть пиксели. Продолжение заменит это содержимое. Действие можно отменить.
+Больше не спрашивать для этого проекта
+Продолжить
+Отмена
+Состояние облака: —
+Экспорт 3 из 7…
+Восстановить несохранённую работу
+Найдена несохранённая работа из предыдущего сеанса. Восстановить её в новой вкладке? Последнее явное сохранение не затронуто.
+Восстановить
+Отклонить
+Несохранённые изменения
+В текущем документе есть несохранённые изменения. Сохранить его перед открытием перетащенного проекта?
+Ресурс библиотеки «hero_idle» изменился с тех пор, как проект на него ссылался. Принять изменение или оставить версию, на которую проект уже ссылается?
+Русский, pangram
+Эй, жлоб! Где туз? Прячь юных съёмщиц в шкаф. Съешь же ещё этих мягких французских булок, да выпей чаю.
+Русский, capitals
+ФАЙЛ ПРАВКА СЛОИ ПАЛИТРА ВИД СПРАВКА. ЁЖ, ЩУКА, ЪЫЬ, ЭЮЯ.
+Русский, interface words
+Сохранить как… Открыть проект. Размер холста: 64 × 64 пикселя. Ластик, кисть, заливка, пипетка. Тема: светлая / тёмная.
+Українська
+Чуєш їх, доцю, га? Кумедна ж ти, прощайся без ґольфів! Є, Ї, І, Ґ.
+Беларуская
+Ён ужо ўсё ведаў. Ў ў, Ё ё, І і.
+Српски
+Љубазни фењерџија чађавог лица хоће да ми покаже штос. Ђ ђ Ј ј Љ љ Њ њ Ћ ћ Џ џ.
+Македонски
+Ѓ ѓ Ќ ќ Ѕ ѕ Љ љ Њ њ Џ џ Ј ј: ѓубре, ќебе, ѕвезда.
+Numero
+№ 1, № 25, № 100
+Ελληνικά, pangram
+Ξεσκεπάζω την ψυχοφθόρα βδελυγμία. Ξεσκεπάζω την ψυχοφθόρα βδελυγμία.
+Ελληνικά, capitals with tonos
+ΞΕΣΚΕΠΆΖΩ ΤΗΝ ΨΥΧΟΦΘΌΡΑ ΒΔΕΛΥΓΜΊΑ. ΆΈΉΊΌΎΏ ΪΫ.
+Ελληνικά, interface words
+Αρχείο  Επεξεργασία  Στρώσεις  Παλέτα  Προβολή  Βοήθεια. Αποθήκευση ως…
+Ελληνικά, tonos and dialytika
+ά έ ή ί ό ύ ώ ϊ ϋ ΐ ΰ Ά Έ Ή Ί Ό Ύ Ώ Ϊ Ϋ ς σ
+Ελληνικά, punctuation
+Τι είναι αυτό; Αυτό είναι ένα παράδειγμα· προχωράμε. Ο αριθμός 5ʹ και το κάτω ͵α.
+Français, pangram
+Portez ce vieux whisky au juge blond qui fume. Voix ambiguë d’un cœur qui, au zéphyr, préfère les jattes de kiwis.
+Français, typography
+« Où est l’été ? » demanda-t-il : « Ça va ! » Une demi-heure ; un tiers : 50 % ‹ où ›.
+Français, capitals
+ÉCOLE À ÇÀ ÊÎÔÛÙ NAÏVE ŒUVRE Ÿ Île de France.
+Deutsch, pangram
+Zwölf Boxkämpfer jagen Viktor quer über den großen Sylter Deich. Falsches Üben von Xylophonmusik quält jeden größeren Zwerg.
+Deutsch, capitals
+STRAẞE – GROẞE STRAẞE – Straße – ÄÖÜ äöü ß ẞ.
+Deutsch, interface words
+Öffnen  Schließen  Größe ändern  „Anführungszeichen“ ‚einfach‘ »Spitze« ›einfach‹.
+Ссылки: ЁёЪъЫыЭэ
+ẞ ß Œ œ « » ‹ › „ “ ‚ ‘
+# Japanese interface strings written in kana (batch B6): menus, docks, dialog, status bar.
+ファイル  へんしゅう  せんたく  イメージ  ひょうじ  パレット  クラウド  ヘルプ
+あたらしく  ひらく…  ほぞん  なまえをつけてほぞん…  エクスポート…  とじる
+レイヤー 1  レイヤーはロックされています。
+レイヤー
+パレット
+タイムライン
+ピクセルをうわがきしますか？
+かきこみさきにはすでにピクセルがあります。つづけると、そのないようはおきかえられます。このそうさはもとにもどせます。
+このプロジェクトではもうたずねない
+つづける
+キャンセル
+クラウドのじょうたい：—
+エクスポートちゅう 3 / 7…
+ほぞんしていないさぎょうをふっきゅう
+まえのセッションでほぞんされていないさぎょうがみつかりました。あたらしいタブにふっきゅうしますか？さいごにほぞんしたないようにはえいきょうありません。
+ふっきゅう
+すてる
+ほぞんされていないへんこう
+いまのドキュメントにはほぞんされていないへんこうがあります。ドロップされたプロジェクトをひらくまえにほぞんしますか？
+ライブラリのアセット「hero_idle」は、プロジェクトがさいごにさんしょうしたあとにかわりました。へんこうをとりこみますか？それとも、プロジェクトがさんしょうしているバージョンのままにしますか？
+# The kana tables, voiced and small forms, marks and punctuation (batch B6).
+あかさたなはまやらわ
+いきしちにひみ　りゐ
+うくすつぬふむゆるん
+えけせてねへめ　れゑ
+おこそとのほもよろを
+アカサタナハマヤラワ
+イキシチニヒミ　リヰ
+ウクスツヌフムユルン
+エケセテネヘメ　レヱ
+オコソトノホモヨロヲ
+がざだばぱ
+ぎじぢびぴ
+ぐずづぶぷ
+げぜでべぺ
+ござどぼぽ
+ガザダバパ
+ギジヂビピ
+グズヅブプ
+ゲゼデベペ
+ゴゾドボポ
+ぁぃぅぇぉっゃゅょゎゕゖ
+ァィゥェォッャュョヮヵヶ
+ゔヴヷヸヹヺ ゝゞゟ ヽヾヿ
+ー・゛゜
+　、。〃々〜～
+「」『』〈〉《》【】
+！？（）：；，．
+# Japanese specimen lines and Latin with kana (batch B6).
+あいうえお。かきくけこ。さしすせそ。たちつてと。なにぬねの。はひふへほ。まみむめも。やゆよ。らりるれろ。わをん。
+がっこう　ちょっと　しゃしん　きょう　ぎゅうにゅう　じゃがいも　ぱぴぷぺぽ　ぼんやり　ぜんぶ　でんしゃ
+ファイル　フォルダー　キャンセル　エクスポート　パレット　レイヤー　ブラシ　ツール　ウィンドウ　ヴァイオリン
+ソフトウェア・エンジニア　コンピューター　ユーザー　サーバー　メニュー　ジャズ・ピアノ
+「ひらく」『ほぞん』（キャンセル）【おしらせ】〈ヘルプ〉《ガイド》　ほぞんしますか？　はい！　1〜5　1～5
+ゝゞ ヽヾ 々 ゟ ヿ　こゝろ　いすゞ　ミスヾ
+Nifen Art ニフェン・アート: ファイル File, パレット Palette, レイヤー Layers.
+12 px フォント / 24 px フォント / Ctrl+S ほぞん / 100 % ズーム
+Pixel Art は ピクセル アート の ひとつ です。 Save を おして ほぞん します。

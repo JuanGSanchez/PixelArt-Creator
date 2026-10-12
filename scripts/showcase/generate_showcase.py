@@ -58,6 +58,13 @@ string from the Spanish ``.ts`` catalogue appears in any captured widget's
 text, denominator = texts examined) and X.8 (font control -- the effective
 ``QApplication`` font family equals the requested family and that family
 exists in ``QFontDatabase``).
+
+Revision 4 (new application look): ``social`` reads the Kikko Badge icon
+master and places it directly on the dark ground, with no plate behind it;
+the screenshot font control now expects the product's own interface font
+(Nifen Art, applied by ``create_app``) instead of a forced platform font, and
+the capture result and provenance record the display configuration, style,
+mode and art scale.
 """
 
 from __future__ import annotations
@@ -443,7 +450,7 @@ PALETTE_RAMPS = {
     "gold": (240, 196, 88, 255),
     "flower_pink": (232, 120, 150, 255),
     "flower_white": (250, 248, 240, 255),
-    "badge_light": (240, 240, 236, 255),
+    "lettering_light": (240, 240, 236, 255),
 }
 
 
@@ -477,45 +484,6 @@ def dither_pick(x, y, t, color_a, color_b):
     """Pick ``color_a``/``color_b`` at ``(x, y)`` for gradient position ``t`` (0..1)."""
     threshold = BAYER4[y % 4][x % 4]
     return color_a if (t * 16.0) <= threshold else color_b
-
-
-def draw_chamfered_badge(buffer, x0, y0, size, chamfer, color):
-    """Fill a ``size``x``size`` square with its 4 corners diagonally chamfered.
-
-    A "pixel rounded" badge: each corner is cut by a 45-degree diagonal of
-    depth ``chamfer``, leaving the rest of the square filled. Drawn on a
-    buffer that is transparent where not painted, so whatever sits behind the
-    badge's own layer shows through the cut corners.
-    """
-    for yy in range(size):
-        for xx in range(size):
-            if (
-                xx < chamfer
-                and yy < chamfer
-                and (chamfer - xx) + (chamfer - yy) > chamfer
-            ):
-                continue  # top-left
-            if (
-                xx >= size - chamfer
-                and yy < chamfer
-                and (xx - (size - 1 - chamfer)) + (chamfer - yy) > chamfer
-            ):
-                continue  # top-right
-            if (
-                xx < chamfer
-                and yy >= size - chamfer
-                and (chamfer - xx) + (yy - (size - 1 - chamfer)) > chamfer
-            ):
-                continue  # bottom-left
-            if (
-                xx >= size - chamfer
-                and yy >= size - chamfer
-                and (xx - (size - 1 - chamfer)) + (yy - (size - 1 - chamfer)) > chamfer
-            ):
-                continue  # bottom-right
-            px, py = x0 + xx, y0 + yy
-            if buffer.in_bounds(px, py):
-                buffer.set_pixel(px, py, color)
 
 
 def draw_disc(buffer, cx, cy, radius, color):
@@ -1460,21 +1428,19 @@ def cmd_social(args) -> int:
         ) + (255,)
         bg.buffer.fill_rect(0, y, W, 1, color)
 
-    # -- badge (light, chamfered) behind the app icon so the icon's dark mark
-    #    stays legible against a dark background.
-    badge_layer = doc.add_layer("Badge")
-    badge_size = 132
-    badge_x, badge_y = 60, 50
-    draw_chamfered_badge(
-        badge_layer.buffer, badge_x, badge_y, badge_size, 20, P("badge_light")
-    )
+    # -- the app icon stands directly on the dark ground: the Kikko Badge
+    #    master has its own pale field and transparent corners, so no plate
+    #    is drawn behind it. ``icon_box`` is the square the icon is centred in
+    #    and the lettering is aligned to.
+    icon_box = 132
+    icon_box_x, icon_box_y = 60, 50
 
     icon_path = (
         Path(args.product_root)
         / "pixelart_creator"
         / "icons"
         / "app"
-        / "logo-source-64.png"
+        / "logo-master-64.png"
     )
     icon_layer = doc.add_layer("App Icon")
     icon_buffer = load_png_into_buffer(mods, icon_path)
@@ -1482,23 +1448,23 @@ def cmd_social(args) -> int:
     icon_up = scale_nearest(
         icon_buffer, icon_buffer.width * icon_scale, icon_buffer.height * icon_scale
     )
-    icon_x = badge_x + (badge_size - icon_up.width) // 2
-    icon_y = badge_y + (badge_size - icon_up.height) // 2
+    icon_x = icon_box_x + (icon_box - icon_up.width) // 2
+    icon_y = icon_box_y + (icon_box - icon_up.height) // 2
     icon_layer.buffer.blit(icon_up, icon_x, icon_y, blend=True)
 
-    # -- title + tagline, to the right of the badge
+    # -- title + tagline, to the right of the icon
     text_layer = doc.add_layer("Lettering")
     title_scale = 6
     tagline_scale = 3
     title_text = "PIXELART CREATOR"
-    title_x = badge_x + badge_size + 30
-    title_y = badge_y + (badge_size - 7 * title_scale) // 2
+    title_x = icon_box_x + icon_box + 30
+    title_y = icon_box_y + (icon_box - 7 * title_scale) // 2
     draw_text(
         text_layer.buffer,
         title_text,
         title_x,
         title_y,
-        P("badge_light"),
+        P("lettering_light"),
         scale=title_scale,
     )
     tagline_y = title_y + 7 * title_scale + 18
@@ -1589,10 +1555,7 @@ def cmd_social(args) -> int:
                 "in-platform pixel font drawn with PixelBuffer.set_pixel; "
                 "no font file used"
             ),
-            "badge": (
-                "chamfered light badge (draw_chamfered_badge) behind the "
-                "app icon for legibility"
-            ),
+            "plate": "none: the icon is placed directly on the dark ground",
             "layout": json.dumps(art_placed),
         },
     )
@@ -1687,12 +1650,11 @@ KNOWN_CONTROL_COLOUR = (255, 0, 128, 255)
 #: realistic desktop window, not the offscreen platform's small default).
 SCREENSHOT_WINDOW_SIZE = (1600, 1000)
 
-#: The real Windows UI font, at its normal size -- set on the QApplication
-#: BEFORE Main_Window is built (review round 2, point 2b), so every widget's
-#: sizeHint and every screenshot matches what the app shows natively on
-#: Windows, never a Qt/offscreen default substitute.
-SCREENSHOT_FONT_FAMILY = "Segoe UI"
-SCREENSHOT_FONT_POINT_SIZE = 9
+#: The interface font is the product's OWN (Nifen Art, bundled with the
+#: application): ``create_app`` registers and applies it, so the generator no
+#: longer forces a platform font ahead of it (revision 4). The font control
+#: (X.8) reads the family the product ships (``app_font.NIFEN_ART_FAMILY``)
+#: and checks it is the family in effect once the window exists.
 
 #: The UI language forced for every screenshot (review round 2, point 2a) --
 #: English, via the product's own ``LanguageManager.set_language`` (the exact
@@ -1899,23 +1861,15 @@ def cmd_capture_worker(args) -> int:
     _add_product_root(args.product_root)
     mods = load_product_modules(args.product_root)
 
-    from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication
+    from PySide6.QtGui import QFontDatabase, QGuiApplication
     from PySide6.QtWidgets import QApplication
 
     settings_dir = Path(args.settings_dir)
     _isolate_qt_settings(settings_dir)
 
-    # -- real Windows UI font, forced BEFORE Main_Window is built (review
-    #    round 2, point 2b): get-or-create the QApplication here (create_app
-    #    below reuses it via QApplication.instance()) so setFont takes effect
-    #    before a single widget is constructed.
-    app = QApplication.instance()
-    if not isinstance(app, QApplication):
-        app = QApplication([])
-    app.setFont(QFont(SCREENSHOT_FONT_FAMILY, SCREENSHOT_FONT_POINT_SIZE))
-
     from pixelart_creator.ui.app import create_app
-    from pixelart_creator.ui.theme import THEME_DARK, THEME_LIGHT
+    from pixelart_creator.ui.app_font import NIFEN_ART_FAMILY
+    from pixelart_creator.ui.theme import THEME_DARK, THEME_LIGHT, art_scale
 
     app, window = create_app([])
     platform_name = QGuiApplication.platformName()
@@ -1927,20 +1881,32 @@ def cmd_capture_worker(args) -> int:
         "errors": [],
     }
 
-    # -- font control (X.8): the effective app font after Main_Window's own
-    #    startup wiring (apply_font_fallbacks / apply_theme) must still be the
-    #    requested family, and that family must actually exist in this
-    #    process' font database (native and offscreen are checked separately
-    #    -- this worker runs once per platform attempt).
+    # -- font control (X.8): the effective app font once the window exists
+    #    must be the family the product ships as its interface font, and that
+    #    family must actually exist in this process' font database (native
+    #    and offscreen are checked separately -- this worker runs once per
+    #    platform attempt).
     effective_family = QApplication.instance().font().family()
     available_families = QFontDatabase.families()
     result["font_control"] = {
-        "family_requested": SCREENSHOT_FONT_FAMILY,
-        "point_size_requested": SCREENSHOT_FONT_POINT_SIZE,
+        "family_requested": NIFEN_ART_FAMILY,
         "family_effective": effective_family,
-        "family_available": SCREENSHOT_FONT_FAMILY in available_families,
-        "ok": effective_family == SCREENSHOT_FONT_FAMILY
-        and SCREENSHOT_FONT_FAMILY in available_families,
+        "family_available": NIFEN_ART_FAMILY in available_families,
+        "ok": effective_family == NIFEN_ART_FAMILY
+        and NIFEN_ART_FAMILY in available_families,
+    }
+
+    # -- display configuration, disclosed (never judged): the product's art
+    #    scale is the highest whole-number device-pixel ratio over every
+    #    screen, so the capture depends on the screens attached to the host.
+    result["display"] = {
+        "art_scale": art_scale(),
+        "screens": [
+            {"device_pixel_ratio": s.devicePixelRatio()}
+            for s in QGuiApplication.screens()
+        ],
+        "style": window.current_style(),
+        "mode": window.current_mode(),
     }
 
     # -- language, forced to English (review round 2, point 2a): the exact
@@ -2299,8 +2265,12 @@ def cmd_screenshots(args) -> int:
                     f"{SCREENSHOT_LANGUAGE} "
                     "(forced via LanguageManager.set_language)"
                 ),
-                "font_family": SCREENSHOT_FONT_FAMILY,
-                "font_point_size": SCREENSHOT_FONT_POINT_SIZE,
+                "font_family": (
+                    (chosen_entry or {}).get("font_control", {}).get("family_effective")
+                ),
+                "style": (chosen_entry or {}).get("display", {}).get("style"),
+                "mode": "dark" if label.endswith("_dark") else "light",
+                "art_scale": (chosen_entry or {}).get("display", {}).get("art_scale"),
             },
         )
     prov.save()

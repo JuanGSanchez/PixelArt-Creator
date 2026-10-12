@@ -33,7 +33,6 @@ from PySide6.QtWidgets import QApplication
 
 from pixelart_creator.logic.constants import FRAME_BUDGET_MS
 from pixelart_creator.logic.preview import real_size_scale
-from pixelart_creator.ui import theme as theme_module
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.real_size_preview_window import Real_Size_Preview_Window
 from pixelart_creator.ui.theme import (
@@ -41,8 +40,11 @@ from pixelart_creator.ui.theme import (
     THEME_DARK,
     THEME_LIGHT,
     apply_font_fallbacks,
+    available_styles,
+    available_themes,
     build_qss,
     canvas_roles,
+    role_map,
 )
 
 #: Representative standard English UI strings (menu titles / labels) — basic Latin,
@@ -101,7 +103,15 @@ def test_sc_p13_ui_001_1_ui_names_no_hardcoded_font_family(qtbot):
     The QSS carries **no** ``font-family`` (so a Windows-/macOS-only family is
     never forced onto Linux), and the app sets no explicit family — each OS
     resolves its own default system UI font. Verified for BOTH theme stylesheets.
+
+    The shell is built FIRST, so the test reads the application font the product
+    sets and not whatever a bare ``QApplication`` happens to carry. Run on its own
+    on a native platform plugin (``QT_QPA_PLATFORM=windows``), a test that builds
+    no window reads the platform default (``Segoe UI``, a family this very test
+    forbids the *product* to name) and fails for a reason that is not the
+    product's. The assertion below is unchanged.
     """
+    _window(qtbot)
     for name in (THEME_LIGHT, THEME_DARK):
         qss = build_qss(name)
         assert (
@@ -266,19 +276,26 @@ def test_sc_p13_ui_002_1_frame_budget_not_relaxed():
 
 
 def test_both_themes_role_based_and_distinct_for_portability_touch(qtbot, theme):
-    """13A both-theme guard: role-based QSS + canvas roles render in both themes.
+    """13A both-theme guard: role-based QSS + canvas roles render in every combination.
 
-    The 13A font/DPI hardening is theme-neutral; this re-affirms that both themes
-    still render via role colours (defined once, referenced by role — never a
-    per-widget literal) and differ legibly, under the active parametrised theme.
+    The 13A font/DPI hardening is theme-neutral; this re-affirms that every style x
+    mode still renders via role colours (defined once, referenced by role -- never a
+    per-widget literal) and that modes differ legibly, under the active parametrised
+    theme. The role maps are every style x mode the catalogue ships (six once the third
+    style lands, four today): each carries the identical role keys (spec A-3, C-2/C-12).
     """
     _window(qtbot)
     assert QApplication.instance().styleSheet() != ""
-    light_qss = build_qss(THEME_LIGHT)
-    dark_qss = build_qss(THEME_DARK)
-    assert light_qss != dark_qss
-    assert "background-color" in light_qss and "background-color" in dark_qss
-    # Canvas checker/grid role colours differ per theme (role-based, not hard-coded).
-    assert canvas_roles(THEME_LIGHT) != canvas_roles(THEME_DARK)
-    # Both theme role maps carry identical role keys (no single-theme-only role).
-    assert set(theme_module._ROLES[THEME_LIGHT]) == set(theme_module._ROLES[THEME_DARK])
+    keysets = []
+    for style in available_styles():
+        light_qss = build_qss(THEME_LIGHT, style)
+        dark_qss = build_qss(THEME_DARK, style)
+        assert light_qss != dark_qss
+        assert "background-color" in light_qss and "background-color" in dark_qss
+        # Canvas checker/grid role colours differ per mode (role-based, not hard-coded).
+        assert canvas_roles(THEME_LIGHT, style) != canvas_roles(THEME_DARK, style)
+        for mode in available_themes():
+            keysets.append(frozenset(role_map(mode, style)))
+    # Every role map carries identical role keys (no single-theme-only role).
+    assert len(keysets) == len(available_styles()) * len(available_themes()) >= 2
+    assert len(set(keysets)) == 1

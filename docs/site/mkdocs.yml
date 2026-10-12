@@ -28,6 +28,12 @@ nav:
       - Asset library: usage/asset-library.md
       - Asset dependencies & break detection: usage/dependency-graph.md
       - Asset versioning & cross-project reuse: usage/asset-versioning.md
+  # Outside this site's docs_dir (pages/), so these two entries link to the
+  # rendered files in the repository instead of building pages: mkdocs --strict
+  # rejects a nav path that is not under docs_dir. The files are tracked and
+  # public (docs/style-guide.md; docs/adr/, ADR-0068..0072 among them).
+  - Visual identity style guide: https://github.com/JuanGSanchez/PixelArt-Creator/blob/main/docs/style-guide.md
+  - Architecture decision records: https://github.com/JuanGSanchez/PixelArt-Creator/tree/main/docs/adr
 
 plugins:
   - search
@@ -73,6 +79,8 @@ plugins:
             Asset library: Biblioteca de recursos
             Asset dependencies & break detection: Dependencias de recursos y detección de roturas
             Asset versioning & cross-project reuse: Versionado de recursos y reutilización entre proyectos
+            Visual identity style guide: Guía de estilo de la identidad visual
+            Architecture decision records: Registros de decisiones de arquitectura
 
 markdown_extensions:
   - admonition

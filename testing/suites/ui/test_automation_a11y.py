@@ -16,6 +16,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
 from pixelart_creator.ui.main_window import Main_Window
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 
 def _window(qtbot) -> Main_Window:
@@ -101,7 +102,11 @@ def test_sc_ui_012_procgen_exposes_accessible_names_and_units(qtbot):
 
 
 def test_sc_ui_012_controls_are_keyboard_focusable(qtbot):
-    """SC-UI-012-1: representative controls accept keyboard focus; focus is themed."""
+    """SC-UI-012-1: representative controls accept keyboard focus and RENDER a focus ring.
+
+    Focus-role pixels appear around each control when it has keyboard focus and not
+    when it has none (spec A-4); the ``":focus" in styleSheet()`` proxy is withdrawn.
+    """
     win = _window(qtbot)
     for control in (
         win._macro_controls._record_button,
@@ -112,7 +117,11 @@ def test_sc_ui_012_controls_are_keyboard_focusable(qtbot):
         win._batch_recolour_panel._apply_button,
     ):
         assert control.focusPolicy() != Qt.FocusPolicy.NoFocus, control
-    assert ":focus" in QApplication.instance().styleSheet()
+        if control is win._plugin_manager_panel._enable_button:
+            # Disabled until a plugin is selected; a disabled control takes no focus.
+            assert not control.isEnabled()
+            continue
+        assert_focus_rendered(qtbot, control)
 
 
 def test_sc_ui_012_automation_menu_is_populated(qtbot):

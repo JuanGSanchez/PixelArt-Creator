@@ -320,6 +320,7 @@ class Canvas_View(QGraphicsView):
             self.tr("Pixel canvas: left-click to paint, middle-drag to pan")
         )
         self._install_viewport()
+        self._mark_viewport_opaque()
         # The pan margin is re-derived whenever the scene's OWN rect changes
         # (document load/resize, tiled-mode toggle) so it never goes stale
         # against a superseded document size (REQ-CGS-UI-009).
@@ -346,6 +347,18 @@ class Canvas_View(QGraphicsView):
         self._apply_pan_margin()
 
     # -- viewport (D6) ----------------------------------------------------
+
+    def _mark_viewport_opaque(self) -> None:
+        """Tell Qt the viewport paints every pixel of the rect it is given.
+
+        Without it a viewport repaint also repaints the ancestors beneath it,
+        and under the pixel chrome those are the large tiled frames, which
+        made every stroke, zoom and pan step cost tens of milliseconds. The
+        claim is true: :meth:`CanvasScene.drawBackground` fills the whole
+        exposed rect with the opaque workspace colour before anything else,
+        including the area outside the document.
+        """
+        self.viewport().setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
 
     def _install_viewport(self) -> None:
         """Install a raster viewport by default; GL only if opted in (D6).
@@ -387,6 +400,7 @@ class Canvas_View(QGraphicsView):
         tool's partial ``refresh_rect`` commit path (REQ-CGS-UI-001).
         """
         super().setViewport(widget)
+        self._mark_viewport_opaque()
         self.setViewportUpdateMode(_viewport_update_mode_for(widget))
         try:
             from PySide6.QtOpenGLWidgets import QOpenGLWidget

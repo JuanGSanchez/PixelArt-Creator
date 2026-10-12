@@ -1,0 +1,41 @@
+# Spacing forms of the combining marks: the accent shapes as characters of their
+# own, drawn in the upper part of the cap height. (The composer uses the marks
+# of marks.txt; these are the characters a text can contain by themselves.)
+
+# diaeresis: two dots need a wider cell, see the Bold overlay
+glyph U+00A8 adv=5 top=7 ext=free dots=2 tab
+#.#
+
+glyph U+00B4 adv=3 top=7 ext=free
+.#
+#.
+
+glyph U+00B8 adv=3 top=0 ext=free
+.#
+#.
+
+glyph U+00AF adv=4 top=7 ext=free
+###
+
+glyph U+02C7 adv=4 top=7 ext=free
+#.#
+.#.
+
+glyph U+02D8 adv=6 top=7 ext=free
+#...#
+.###.
+
+glyph U+02D9 adv=2 top=7 ext=free dots=1
+#
+
+glyph U+02DB adv=3 top=0 ext=free
+#.
+.#
+
+glyph U+02DC adv=6 top=7 ext=free
+.#..#
+#.##.
+
+glyph U+02DD adv=7 top=7 ext=free
+.#...#
+#...#.

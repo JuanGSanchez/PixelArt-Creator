@@ -55,6 +55,9 @@ __pycache__/
 node_modules/
 .claude/worktrees/
 coverage/
+# The Nifen Art coverage DATA (declared-set.txt, probe-text.txt) is tracked
+# font input, not coverage output: re-include it after the rule above.
+!fonts-src/nifen-art/coverage/
 
 # ---- (e) Python / PySide6 stack ---------------------------------------------
 # Python bytecode & extensions
@@ -155,6 +158,14 @@ docs/*
 # whole tree, so this narrows nothing else already private under docs/*
 # (docs/CHANGELOG.md, docs/module-map.md, etc. stay ignored, same as today).
 !docs/constitution-articles.md
+
+# Fifth re-inclusion (ADR-0068): docs/style-guide.md is the contributor style
+# guide for the pixel-art visual identity (role keys, pair manifest, template
+# grammar, scale rule, palettes, provenance of the theme art and the logo).
+# Hand-written and public, like the ADRs. A SINGLE FILE is re-included, the
+# same way as docs/constitution-articles.md above, so nothing else under
+# docs/* is un-ignored by this line.
+!docs/style-guide.md
 
 # Fourth re-inclusion (user decision 2026-09-24): docs/images/ holds
 # public showcase media -- example art, screenshots, the social preview

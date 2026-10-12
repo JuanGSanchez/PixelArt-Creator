@@ -2,7 +2,7 @@
   {
     "command": "pixelart-export --input character-sprite-x8.pixproj --format gif --output character-sprite.gif",
     "generator_path": "scripts/showcase/generate_showcase.py",
-    "generator_sha256": "2f44bdb60ce619e38b6c798fbf833a2891aa8f93c622d5b309a97f998085b4f5",
+    "generator_sha256": "25616d89f25f03a74ab1e7ff9cd05e4d676c978ccf26d37ae4d818404ba7b2a3",
     "inputs": [
       {
         "source": "character-sprite-x8.pixproj"
@@ -13,17 +13,17 @@
     "output_sha256": "8405a36db5106f3f64c78f54d35d168236da5a9d7f8f968984b17b7a27f59aa9",
     "output_size_bytes": 22661,
     "pillow_version": "12.3.0",
-    "product_commit": "c3db309b4bb01a4c47039d3edcb01a6c40685dde",
+    "product_commit": "25f6ac6a33ed744f3037b43700676b697be35a30",
     "product_dirty": true,
     "pyside6_version": "6.11.1",
     "python_version": "3.13.13",
     "qt_platform": "n/a",
-    "timestamp_utc": "2026-09-23T23:41:04Z"
+    "timestamp_utc": "2026-10-12T10:37:18Z"
   },
   {
     "command": "pixelart-export --input character-sprite-x8.pixproj --format sprite-sheet --output character-sprite-sheet.png",
     "generator_path": "scripts/showcase/generate_showcase.py",
-    "generator_sha256": "2f44bdb60ce619e38b6c798fbf833a2891aa8f93c622d5b309a97f998085b4f5",
+    "generator_sha256": "25616d89f25f03a74ab1e7ff9cd05e4d676c978ccf26d37ae4d818404ba7b2a3",
     "inputs": [
       {
         "source": "character-sprite-x8.pixproj"
@@ -34,17 +34,17 @@
     "output_sha256": "bd328d2244d75d4c13e96de65bf38cfe5d9a2abb06d5dde45e047d5c7f2f82db",
     "output_size_bytes": 7040,
     "pillow_version": "12.3.0",
-    "product_commit": "c3db309b4bb01a4c47039d3edcb01a6c40685dde",
+    "product_commit": "25f6ac6a33ed744f3037b43700676b697be35a30",
     "product_dirty": true,
     "pyside6_version": "6.11.1",
     "python_version": "3.13.13",
     "qt_platform": "n/a",
-    "timestamp_utc": "2026-09-23T23:41:04Z"
+    "timestamp_utc": "2026-10-12T10:37:18Z"
   },
   {
     "command": "pixelart-export --input layered-scene-x6.pixproj --format png --output layered-scene.png",
     "generator_path": "scripts/showcase/generate_showcase.py",
-    "generator_sha256": "2f44bdb60ce619e38b6c798fbf833a2891aa8f93c622d5b309a97f998085b4f5",
+    "generator_sha256": "25616d89f25f03a74ab1e7ff9cd05e4d676c978ccf26d37ae4d818404ba7b2a3",
     "inputs": [
       {
         "source": "layered-scene-x6.pixproj"
@@ -55,17 +55,17 @@
     "output_sha256": "e0dc61ed9f30ed045081cc471550b0712a8015fc3745c78d3163bb4b295ce702",
     "output_size_bytes": 2441,
     "pillow_version": "12.3.0",
-    "product_commit": "c3db309b4bb01a4c47039d3edcb01a6c40685dde",
+    "product_commit": "25f6ac6a33ed744f3037b43700676b697be35a30",
     "product_dirty": true,
     "pyside6_version": "6.11.1",
     "python_version": "3.13.13",
     "qt_platform": "n/a",
-    "timestamp_utc": "2026-09-23T23:41:04Z"
+    "timestamp_utc": "2026-10-12T10:37:18Z"
   },
   {
     "command": "pixelart-export --input tilemap-level-x3.pixproj --format png --output tilemap-level.png",
     "generator_path": "scripts/showcase/generate_showcase.py",
-    "generator_sha256": "2f44bdb60ce619e38b6c798fbf833a2891aa8f93c622d5b309a97f998085b4f5",
+    "generator_sha256": "25616d89f25f03a74ab1e7ff9cd05e4d676c978ccf26d37ae4d818404ba7b2a3",
     "inputs": [
       {
         "source": "tilemap-level-x3.pixproj"
@@ -76,17 +76,17 @@
     "output_sha256": "19f6aa7684faff5f2ce6047e68b8f0e0b8051d27c0f102f8f958be0701256cd6",
     "output_size_bytes": 9864,
     "pillow_version": "12.3.0",
-    "product_commit": "c3db309b4bb01a4c47039d3edcb01a6c40685dde",
+    "product_commit": "25f6ac6a33ed744f3037b43700676b697be35a30",
     "product_dirty": true,
     "pyside6_version": "6.11.1",
     "python_version": "3.13.13",
     "qt_platform": "n/a",
-    "timestamp_utc": "2026-09-23T23:41:04Z"
+    "timestamp_utc": "2026-10-12T10:37:18Z"
   },
   {
     "command": "pixelart-export --input procgen-contact-sheet-x4.pixproj --format png --output procgen-contact-sheet.png",
     "generator_path": "scripts/showcase/generate_showcase.py",
-    "generator_sha256": "2f44bdb60ce619e38b6c798fbf833a2891aa8f93c622d5b309a97f998085b4f5",
+    "generator_sha256": "25616d89f25f03a74ab1e7ff9cd05e4d676c978ccf26d37ae4d818404ba7b2a3",
     "inputs": [
       {
         "source": "procgen-contact-sheet-x4.pixproj"
@@ -97,17 +97,17 @@
     "output_sha256": "88bc5fea4e5c2dc69209f0d3fd4b80908531edb65b58eeda4c58e9013ab534d7",
     "output_size_bytes": 2766,
     "pillow_version": "12.3.0",
-    "product_commit": "c3db309b4bb01a4c47039d3edcb01a6c40685dde",
+    "product_commit": "25f6ac6a33ed744f3037b43700676b697be35a30",
     "product_dirty": true,
     "pyside6_version": "6.11.1",
     "python_version": "3.13.13",
     "qt_platform": "n/a",
-    "timestamp_utc": "2026-09-23T23:41:04Z"
+    "timestamp_utc": "2026-10-12T10:37:19Z"
   },
   {
     "command": "pixelart-export --input social-preview.pixproj --format png --output social-preview.png",
     "generator_path": "scripts/showcase/generate_showcase.py",
-    "generator_sha256": "2f44bdb60ce619e38b6c798fbf833a2891aa8f93c622d5b309a97f998085b4f5",
+    "generator_sha256": "25616d89f25f03a74ab1e7ff9cd05e4d676c978ccf26d37ae4d818404ba7b2a3",
     "inputs": [
       {
         "source": "social-preview.pixproj"
@@ -116,159 +116,171 @@
     "lettering": "in-platform pixel font drawn with PixelBuffer.set_pixel; no font file used",
     "numpy_version": "2.5.1",
     "output": "social/social-preview.png",
-    "output_sha256": "3d657266b0a977c8a47d0c2dd2581c597dbb9441d2a5c11f56318556eb829b2e",
-    "output_size_bytes": 14169,
+    "output_sha256": "6b0416a6e216e7f93ecb984f8f76ce0e54b82a6440506cc1e2da4b65a695e537",
+    "output_size_bytes": 14666,
     "pillow_version": "12.3.0",
-    "product_commit": "c3db309b4bb01a4c47039d3edcb01a6c40685dde",
+    "product_commit": "25f6ac6a33ed744f3037b43700676b697be35a30",
     "product_dirty": true,
     "pyside6_version": "6.11.1",
     "python_version": "3.13.13",
     "qt_platform": "n/a",
     "tagline": "Open-source pixel-art studio",
-    "timestamp_utc": "2026-09-23T23:41:08Z"
+    "timestamp_utc": "2026-10-12T10:37:20Z"
   },
   {
+    "art_scale": 1,
     "command": "python-api create_app open_document QWidget.grab",
-    "font_family": "Segoe UI",
-    "font_point_size": 9,
+    "font_family": "Nifen Art",
     "generator_path": "scripts/showcase/generate_showcase.py",
-    "generator_sha256": "2f44bdb60ce619e38b6c798fbf833a2891aa8f93c622d5b309a97f998085b4f5",
+    "generator_sha256": "25616d89f25f03a74ab1e7ff9cd05e4d676c978ccf26d37ae4d818404ba7b2a3",
     "inputs": [
       {
         "capture": "scene_project"
       }
     ],
     "language": "en (forced via LanguageManager.set_language)",
+    "mode": "light",
     "numpy_version": "2.5.1",
     "output": "screenshots/main-canvas-layers.png",
-    "output_sha256": "6bb2754ec68e82c3cb36c06d62827dfe16fc63a76cb1b2458b38f12114913ac2",
-    "output_size_bytes": 62156,
+    "output_sha256": "6031f2f729aa53f316e52abed7e5a0769785c1f260bdb5f30d70dfbca11e41e6",
+    "output_size_bytes": 31272,
     "pillow_version": "12.3.0",
-    "product_commit": "c3db309b4bb01a4c47039d3edcb01a6c40685dde",
+    "product_commit": "25f6ac6a33ed744f3037b43700676b697be35a30",
     "product_dirty": true,
     "pyside6_version": "6.11.1",
     "python_version": "3.13.13",
-    "qt_platform": "offscreen",
-    "timestamp_utc": "2026-09-23T23:41:34Z"
+    "qt_platform": "windows",
+    "style": "washi-kintsugi",
+    "timestamp_utc": "2026-10-12T10:37:30Z"
   },
   {
+    "art_scale": 1,
     "command": "python-api create_app open_document QWidget.grab",
-    "font_family": "Segoe UI",
-    "font_point_size": 9,
+    "font_family": "Nifen Art",
     "generator_path": "scripts/showcase/generate_showcase.py",
-    "generator_sha256": "2f44bdb60ce619e38b6c798fbf833a2891aa8f93c622d5b309a97f998085b4f5",
+    "generator_sha256": "25616d89f25f03a74ab1e7ff9cd05e4d676c978ccf26d37ae4d818404ba7b2a3",
     "inputs": [
       {
         "capture": "scene_project_dark"
       }
     ],
     "language": "en (forced via LanguageManager.set_language)",
+    "mode": "dark",
     "numpy_version": "2.5.1",
     "output": "screenshots/main-canvas-layers-dark.png",
-    "output_sha256": "63c787f5d5d7825b0eed83226ce4dce0c16490d731182d1ba76dc1645f803612",
-    "output_size_bytes": 62406,
+    "output_sha256": "55344aa21b27e629cfbdf088f6408c839aa024b61bf8b8f4bef91c5f1aaab363",
+    "output_size_bytes": 31597,
     "pillow_version": "12.3.0",
-    "product_commit": "c3db309b4bb01a4c47039d3edcb01a6c40685dde",
+    "product_commit": "25f6ac6a33ed744f3037b43700676b697be35a30",
     "product_dirty": true,
     "pyside6_version": "6.11.1",
     "python_version": "3.13.13",
-    "qt_platform": "offscreen",
-    "timestamp_utc": "2026-09-23T23:41:34Z"
+    "qt_platform": "windows",
+    "style": "washi-kintsugi",
+    "timestamp_utc": "2026-10-12T10:37:30Z"
   },
   {
+    "art_scale": 1,
     "command": "python-api create_app open_document QWidget.grab",
-    "font_family": "Segoe UI",
-    "font_point_size": 9,
+    "font_family": "Nifen Art",
     "generator_path": "scripts/showcase/generate_showcase.py",
-    "generator_sha256": "2f44bdb60ce619e38b6c798fbf833a2891aa8f93c622d5b309a97f998085b4f5",
+    "generator_sha256": "25616d89f25f03a74ab1e7ff9cd05e4d676c978ccf26d37ae4d818404ba7b2a3",
     "inputs": [
       {
         "capture": "sprite_project"
       }
     ],
     "language": "en (forced via LanguageManager.set_language)",
+    "mode": "light",
     "numpy_version": "2.5.1",
     "output": "screenshots/animation-timeline.png",
-    "output_sha256": "74cf41555e9c4bf17a310f120b59026ececf04e7600cc4e8a90c8e6e470c7459",
-    "output_size_bytes": 69021,
+    "output_sha256": "9e50a0dfbea800209fafb1abbae13286c0ee98a1e7bbd915a9756a3b84a5a85a",
+    "output_size_bytes": 38688,
     "pillow_version": "12.3.0",
-    "product_commit": "c3db309b4bb01a4c47039d3edcb01a6c40685dde",
+    "product_commit": "25f6ac6a33ed744f3037b43700676b697be35a30",
     "product_dirty": true,
     "pyside6_version": "6.11.1",
     "python_version": "3.13.13",
-    "qt_platform": "offscreen",
-    "timestamp_utc": "2026-09-23T23:41:34Z"
+    "qt_platform": "windows",
+    "style": "washi-kintsugi",
+    "timestamp_utc": "2026-10-12T10:37:30Z"
   },
   {
+    "art_scale": 1,
     "command": "python-api create_app open_document QWidget.grab",
-    "font_family": "Segoe UI",
-    "font_point_size": 9,
+    "font_family": "Nifen Art",
     "generator_path": "scripts/showcase/generate_showcase.py",
-    "generator_sha256": "2f44bdb60ce619e38b6c798fbf833a2891aa8f93c622d5b309a97f998085b4f5",
+    "generator_sha256": "25616d89f25f03a74ab1e7ff9cd05e4d676c978ccf26d37ae4d818404ba7b2a3",
     "inputs": [
       {
         "capture": "tilemap_project"
       }
     ],
     "language": "en (forced via LanguageManager.set_language)",
+    "mode": "light",
     "numpy_version": "2.5.1",
     "output": "screenshots/tilemap-editor.png",
-    "output_sha256": "e5c145b0f6bce2afe190ee31ee19975eb38f9189e662cd41f727c8583e8306d8",
-    "output_size_bytes": 52729,
+    "output_sha256": "d00f1c2cc7a04ac597e2c949d497107cbebfeaf3659eda5ab6c179813a5272ab",
+    "output_size_bytes": 35594,
     "pillow_version": "12.3.0",
-    "product_commit": "c3db309b4bb01a4c47039d3edcb01a6c40685dde",
+    "product_commit": "25f6ac6a33ed744f3037b43700676b697be35a30",
     "product_dirty": true,
     "pyside6_version": "6.11.1",
     "python_version": "3.13.13",
-    "qt_platform": "offscreen",
-    "timestamp_utc": "2026-09-23T23:41:34Z"
+    "qt_platform": "windows",
+    "style": "washi-kintsugi",
+    "timestamp_utc": "2026-10-12T10:37:30Z"
   },
   {
+    "art_scale": 1,
     "command": "python-api create_app open_document QWidget.grab",
-    "font_family": "Segoe UI",
-    "font_point_size": 9,
+    "font_family": "Nifen Art",
     "generator_path": "scripts/showcase/generate_showcase.py",
-    "generator_sha256": "2f44bdb60ce619e38b6c798fbf833a2891aa8f93c622d5b309a97f998085b4f5",
+    "generator_sha256": "25616d89f25f03a74ab1e7ff9cd05e4d676c978ccf26d37ae4d818404ba7b2a3",
     "inputs": [
       {
         "capture": "colour_hub"
       }
     ],
     "language": "en (forced via LanguageManager.set_language)",
+    "mode": "light",
     "numpy_version": "2.5.1",
     "output": "screenshots/colour-hub.png",
-    "output_sha256": "1b7faac47b61abdf0b8f2fe4980ecea12b43a6e9dff3cc5b33b5ee53fb2d90ea",
-    "output_size_bytes": 39935,
+    "output_sha256": "5d3f835880eaad986370c409e964dd83f578ca8ec2eb3714c25b1dd7193d9399",
+    "output_size_bytes": 29862,
     "pillow_version": "12.3.0",
-    "product_commit": "c3db309b4bb01a4c47039d3edcb01a6c40685dde",
+    "product_commit": "25f6ac6a33ed744f3037b43700676b697be35a30",
     "product_dirty": true,
     "pyside6_version": "6.11.1",
     "python_version": "3.13.13",
-    "qt_platform": "offscreen",
-    "timestamp_utc": "2026-09-23T23:41:34Z"
+    "qt_platform": "windows",
+    "style": "washi-kintsugi",
+    "timestamp_utc": "2026-10-12T10:37:30Z"
   },
   {
+    "art_scale": 1,
     "command": "python-api create_app open_document QWidget.grab",
-    "font_family": "Segoe UI",
-    "font_point_size": 9,
+    "font_family": "Nifen Art",
     "generator_path": "scripts/showcase/generate_showcase.py",
-    "generator_sha256": "2f44bdb60ce619e38b6c798fbf833a2891aa8f93c622d5b309a97f998085b4f5",
+    "generator_sha256": "25616d89f25f03a74ab1e7ff9cd05e4d676c978ccf26d37ae4d818404ba7b2a3",
     "inputs": [
       {
         "capture": "user_guide"
       }
     ],
     "language": "en (forced via LanguageManager.set_language)",
+    "mode": "light",
     "numpy_version": "2.5.1",
     "output": "screenshots/user-guide.png",
-    "output_sha256": "84863bca45e070e1d218684b858099dc1cb81402e6c962e3ec42b994b157d8af",
-    "output_size_bytes": 116308,
+    "output_sha256": "76a181817808983fffe480aa9b3a3d4d35b5f29a2a947f05416394f35a8184e5",
+    "output_size_bytes": 71063,
     "pillow_version": "12.3.0",
-    "product_commit": "c3db309b4bb01a4c47039d3edcb01a6c40685dde",
+    "product_commit": "25f6ac6a33ed744f3037b43700676b697be35a30",
     "product_dirty": true,
     "pyside6_version": "6.11.1",
     "python_version": "3.13.13",
-    "qt_platform": "offscreen",
-    "timestamp_utc": "2026-09-23T23:41:34Z"
+    "qt_platform": "windows",
+    "style": "washi-kintsugi",
+    "timestamp_utc": "2026-10-12T10:37:30Z"
   }
 ]

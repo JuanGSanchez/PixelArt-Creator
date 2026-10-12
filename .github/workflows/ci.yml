@@ -288,6 +288,9 @@ jobs:
       # clean Ubuntu runner (F11: xkbcommon, EGL/GL, dbus, X libs for offscreen).
       # Ubuntu-only: Windows/macOS GitHub runners need no extra system libs for
       # offscreen Qt (plan §3.1).
+      # fonts-dejavu-core: a bare Ubuntu runner ships no system font, so the
+      # application font's fallback behaviour could not be exercised there at
+      # all; installing one gives the font tests a real fallback face to find.
       - name: Install Qt runtime OS libraries (Ubuntu)
         if: runner.os == 'Linux'
         run: |
@@ -295,7 +298,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
-            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+            fonts-dejavu-core
 
       - name: Install project (runtime + dev) from manifest
         # -c constraints.txt: reproducibility lock — pins the full
@@ -367,6 +371,140 @@ jobs:
         # before — an audit that could not run is not an audit that found
         # nothing). No swallowing of any non-zero exit remains.
         run: python scripts/string_audit_check.py --root pixelart_creator/ui
+
+      # ----- Visual-identity asset gates (REQ-VI-BUILD-001/-002/-004/-005/-008).
+      # Ubuntu-only, like the other source-level gates: every result below is a
+      # pure function of committed files and does not vary by OS. The one
+      # property that does depend on the OS -- the fonts rebuilt byte for byte
+      # -- is also proved on Windows, macOS and Linux by .github/workflows/
+      # native-font.yml, which runs on a manual dispatch only. Each
+      # script fails on a count of zero as well as on a finding, and prints the
+      # number it examined, so a green step here cannot mean "looked at nothing".
+      - name: Theme contrast gate (REQ-VI-BUILD-001)
+        if: runner.os == 'Linux'
+        # scripts/check_theme_contrast.py: WCAG contrast of every declared role
+        # pair in all six style/mode combinations plus the focus pairs derived
+        # from what the focus ring touches. `--control` first shows the
+        # instrument a known failing pair and a known passing one and runs the
+        # blind-pass cases (no pairs, a missing role key, an unknown role); the
+        # real run does the same before it trusts any data, so the separate
+        # invocation is for a log that names the controls on their own.
+        run: |
+          python scripts/check_theme_contrast.py --control
+          python scripts/check_theme_contrast.py
+
+      - name: Font source lint (REQ-VI-BUILD-003/-005/-011)
+        if: runner.os == 'Linux'
+        # Lints the glyph sources under fonts-src/nifen-art against the grid
+        # contract and the licence and provenance rules. It exits non-zero on a
+        # violation and when it examined nothing. fontTools comes from the dev
+        # extra, pinned in constraints.txt.
+        run: python scripts/font/build_nifen_art.py --lint
+
+      - name: Font rebuild is byte-identical to the committed fonts (REQ-VI-BUILD-002)
+        if: runner.os == 'Linux'
+        # Builds both weights twice from the sources and compares both builds
+        # with the committed TTFs in pixelart_creator/fonts, byte for byte.
+        run: python scripts/font/build_nifen_art.py --check
+
+      - name: Font glyph coverage (REQ-VI-BUILD-004)
+        if: runner.os == 'Linux'
+        # --gate-catalogues makes a character used in a shipped translation
+        # catalogue, or in an interface string literal under ui/, that either
+        # weight lacks a FAILURE; without it those are only reported. The
+        # declared set and the probe text are always gated. Exit non-zero on
+        # any missing character and when nothing was examined.
+        run: python scripts/font/check_glyph_coverage.py --gate-catalogues --py-dir pixelart_creator/ui
+
+      - name: Application icon family (REQ-VI-BUILD-007/-008)
+        if: runner.os == 'Linux'
+        # scripts/derive_app_icons.py --check: every committed icon member
+        # equals the one re-derived from the five hand-drawn masters, compared
+        # as decoded pixels (a re-encoded PNG's bytes depend on the platform's
+        # zlib, so the bytes are not compared). Also the master hashes, the
+        # border-adjacency rule and the fill floor. Exit non-zero on a mismatch
+        # and when it examined nothing.
+        run: python scripts/derive_app_icons.py --check
+
+      - name: Asset-pipeline suite is collected (named-test presence check)
+        if: runner.os == 'Linux'
+        # The main pytest step below already runs testing/suites/asset_pipeline
+        # as part of testpaths. This step makes that fact a gate of its own: a
+        # suite that stops being collected (a moved folder, a renamed module, a
+        # broken import) would otherwise leave the step below green with fewer
+        # tests and nobody told. It collects the folder alone and fails when
+        # the folder yields nothing, when any of its four modules yields
+        # nothing, or when one of the named tests that anchor the gates above
+        # is absent. The counts are printed; no total is pinned, so adding a
+        # test never needs an edit here, but renaming an anchor does.
+        run: |
+          COLLECT_OUT="${CI_TEMP_ROOT}/asset-pipeline-collect.txt"
+          python -m pytest --collect-only -q -p no:cacheprovider testing/suites/asset_pipeline/ | tee "${COLLECT_OUT}"
+          TOTAL="$(grep -c '^testing/suites/asset_pipeline/.*::' "${COLLECT_OUT}" || true)"
+          echo "asset-pipeline tests collected: ${TOTAL}"
+          if [[ "${TOTAL}" -eq 0 ]]; then
+            echo "::error::testing/suites/asset_pipeline/ collected no test"
+            exit 1
+          fi
+          MISSING=0
+          for MODULE in test_build_nifen_art test_check_glyph_coverage test_check_theme_contrast test_derive_app_icons; do
+            COUNT="$(grep -c "^testing/suites/asset_pipeline/${MODULE}.py::" "${COLLECT_OUT}" || true)"
+            echo "  ${MODULE}.py: ${COUNT} collected"
+            if [[ "${COUNT}" -eq 0 ]]; then
+              echo "::error::${MODULE}.py collected no test"
+              MISSING=1
+            fi
+          done
+          for ANCHOR in \
+            test_build_nifen_art.py::test_two_builds_are_byte_identical_and_equal_the_committed_fonts \
+            test_build_nifen_art.py::test_lint_of_the_committed_sources_is_clean_over_a_counted_denominator \
+            test_build_nifen_art.py::test_sc_vi_build_005_2_the_check_examines_the_three_places \
+            test_check_glyph_coverage.py::test_default_run_covers_the_declared_set_and_the_probe_text_in_both_weights \
+            test_check_glyph_coverage.py::test_catalogues_interface_literals_and_guide_content_are_covered_when_gated \
+            test_check_theme_contrast.py::test_sc_vi_build_001_1_shipped_themes_pass_with_a_nonzero_count_each \
+            test_check_theme_contrast.py::test_sc_vi_build_001_2_control_mode_shows_a_known_failing_pair_failing \
+            test_derive_app_icons.py::test_check_reports_zero_mismatches_against_committed_pixels \
+            test_derive_app_icons.py::test_check_with_no_member_files_fails_on_zero_examined; do
+            if grep -Eq "^testing/suites/asset_pipeline/${ANCHOR}(\[|$)" "${COLLECT_OUT}"; then
+              echo "  anchor present: ${ANCHOR}"
+            else
+              echo "::error::named test not collected: ${ANCHOR}"
+              MISSING=1
+            fi
+          done
+          exit "${MISSING}"
+
+      - name: Wheel content check (fonts, themes, licence notices; REQ-VI-BUILD-005)
+        if: runner.os == 'Linux'
+        # Builds the wheel from a clean export of the checked-out commit (the
+        # build runs in the CI temp root, so no build/ or egg-info folder lands
+        # in the workspace the later steps scan), unpacks it there and runs
+        # packaging/check_payload.sh on the unpacked tree: every file
+        # the repository ships under pixelart_creator/fonts and
+        # pixelart_creator/themes must be in the wheel, byte for byte, and
+        # OFL.txt must carry the donor's line, the typeface's own and the
+        # Reserved Font Name. package-data globs miss a file silently and only
+        # an installed copy shows it, so the wheel itself is what is examined.
+        # The empty-folder control shows the check can fail before its result
+        # is trusted. The installers get the same check in build-installers.yml.
+        run: |
+          WHEEL_DIR="${CI_TEMP_ROOT}/wheel"
+          WHEEL_SRC="${CI_TEMP_ROOT}/wheel-src"
+          rm -rf "${WHEEL_DIR}" "${WHEEL_SRC}"
+          mkdir -p "${WHEEL_DIR}" "${WHEEL_SRC}"
+          git archive HEAD | tar -x -C "${WHEEL_SRC}"
+          python -m pip wheel "${WHEEL_SRC}" --no-deps -w "${WHEEL_DIR}" -q
+          WHEEL="$(ls "${WHEEL_DIR}"/pixelart_creator-*.whl)"
+          echo "wheel built: ${WHEEL}"
+          python -m zipfile -e "${WHEEL}" "${WHEEL_DIR}/unpacked"
+          CONTROL_DIR="${CI_TEMP_ROOT}/payload-control-empty"
+          mkdir -p "${CONTROL_DIR}"
+          if bash packaging/check_payload.sh "${CONTROL_DIR}" "control: empty folder" > /dev/null 2>&1; then
+            echo "::error::payload check control FAILED: an empty folder passed"
+            exit 1
+          fi
+          echo "payload check control OK: an empty folder is refused"
+          bash packaging/check_payload.sh "${WHEEL_DIR}/unpacked" "wheel"
 
       # ----- Docs gates (REMEDIATION 2026-07-30, F14): neither gate below had
       # ever run in CI before this change — mkdocs build --strict and
@@ -662,6 +800,12 @@ jobs:
         # then deselects it by marker) with no manifest change. The default-gate
         # deploy guard (tests/backend/test_hosting_default_unchanged.py) carries NO
         # integration marker and still runs here.
+        # PIXELART_REQUIRE_FALLBACK_FONT (Linux only, where the font package above
+        # is installed): turns the font-fallback test's "no fallback font found"
+        # skip into a failure, so a runner image that loses its fonts is caught
+        # rather than silently skipped. Windows and macOS ship fonts and need no flag.
+        env:
+          PIXELART_REQUIRE_FALLBACK_FONT: ${{ runner.os == 'Linux' && '1' || '' }}
         run: |
           pytest -n auto -m "not slow and not gpu and not cloud_live and not assistant_live and not integration" \
             --basetemp="${CI_TEMP_ROOT}/pytest-main" \

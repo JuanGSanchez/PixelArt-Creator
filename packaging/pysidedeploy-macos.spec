@@ -12,7 +12,14 @@ icon = pixelart_creator/icons/app/pixelart-creator.icns
 
 [python]
 python_path =
-packages = Nuitka==2.5.1
+# Nuitka is named here, NOT versioned: pyside6-deploy's python_helper.py
+# (install_dependencies) strips any `==<version>` from a Nuitka entry unless
+# `--nuitka-version` is passed on the command line, and then installs the name
+# only if Nuitka is absent -- so a version written here is never honoured and
+# only misleads. The pin that counts is `nuitka==4.2.2` in
+# .github/workflows/build-installers.yml (REQ-VI-BUILD-006); Nuitka 4.3 builds
+# an app that crashes at launch.
+packages = Nuitka
 
 [qt]
 qml_files =
@@ -37,6 +44,13 @@ mode = standalone
 #     ui/app_icon.py. Its ABSENCE is the measured root cause of the v0.3.0
 #     macOS smoke-launch crash (ToolGlyphError: missing tool glyph asset for:
 #     pencil, run 35941799524) -- only i18n was ever included.
+#   - pixelart_creator/fonts           (NifenArt-*.ttf, OFL.txt, FONTLOG.txt)
+#     -- the bundled Nifen Art typeface (ADR-0071). Without it the frozen app
+#     falls back to the platform font: the same missing-directory failure
+#     class as the v0.3.0 icons crash above.
+#   - pixelart_creator/themes          (index.json, contrast-pairs.json and one
+#     folder per style: roles, templates, grids) -- the style catalogue the
+#     appearance settings read (ADR-0070). Same failure class if absent.
 #   - pixelart_creator/userguide_content (manifest.json + content/*.md) --
 #     data/guide_content.py (in-app User Guide, ADR-0029)
 # into the frozen dist tree at the same package-relative paths those modules
@@ -89,8 +103,10 @@ mode = standalone
 # `config.title`, never `getMacOSAppName()`. Confirmed by reading both source
 # files together, not assumed.
 extra_args = --quiet --assume-yes-for-downloads
+    --include-data-dir=pixelart_creator/fonts=pixelart_creator/fonts
     --include-data-dir=pixelart_creator/i18n=pixelart_creator/i18n
     --include-data-dir=pixelart_creator/icons=pixelart_creator/icons
+    --include-data-dir=pixelart_creator/themes=pixelart_creator/themes
     --include-data-dir=pixelart_creator/userguide_content=pixelart_creator/userguide_content
     --include-package-data=PySide6:translations/qtbase_es.qm
     --macos-create-app-bundle --macos-app-name="PixelArt Creator"
