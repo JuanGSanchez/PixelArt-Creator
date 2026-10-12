@@ -1474,7 +1474,7 @@ def cmd_social(args) -> int:
         / "pixelart_creator"
         / "icons"
         / "app"
-        / "logo-source-64.png"
+        / "logo-master-64.png"
     )
     icon_layer = doc.add_layer("App Icon")
     icon_buffer = load_png_into_buffer(mods, icon_path)

@@ -117,7 +117,7 @@ by patching product state (HARD RULES).
   tilemap; a curated `pixelart-run` procgen contact sheet) via the product's
   own Python API, `pixelart-run` and `pixelart-export`.
 - `social` — composes the 1280x640 GitHub social preview: the app-icon pixel
-  master (`pixelart_creator/icons/app/logo-source-64.png`, read-only, never
+  master (`pixelart_creator/icons/app/logo-master-64.png`, the Kikko Badge master, read-only, never
   edited) upscaled with `scale_nearest`, the example art collaged in, and
   `--tagline` drawn with an in-platform `set_pixel` font (no Qt/Pillow text
   rendering, no font-licence question).
