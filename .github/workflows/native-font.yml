@@ -6,22 +6,47 @@
 # regenerate-constraints.yml (split out of ci.yml, 2026-09-01) -- a job gated
 # by a job-level `if:` still gets EVALUATED and LISTED on every trigger of the
 # workflow file it lives in, so it would show as skipped on every pull request
-# and push although it can only ever run on a deliberate manual dispatch. In
-# this file, triggered ONLY by `workflow_dispatch`, pull-request and push runs
-# list nothing for it, and none of main's required checks (the quality-gate
-# and integration names pinned in ci.yml) is touched.
+# that does not touch the font. In this file the pull-request trigger is
+# filtered by PATH, so a pull request that changes none of the files listed
+# under `on:` below gets no run and no listing for it, and none of main's
+# required checks (the quality-gate and integration names pinned in ci.yml) is
+# touched. This workflow is NOT a required check and must not be made one: when
+# it does run, its three legs are informational for the reviewer.
+#
+# TRIGGERS: `workflow_dispatch` (a manual run on any ref) and `pull_request`
+# limited by `paths:` to the surface this workflow checks -- the shipped font
+# files, their sources and build scripts, the application's font loader, the
+# crispness test, and this file. The `pull_request` trigger is not decoration:
+# GitHub does not list a workflow that is only dispatchable until its file
+# exists on the default branch, so a dispatch-only file added in a pull request
+# cannot be run for that very pull request (the dispatch API answers 404). The
+# path filter is what lets the font and its crispness test be checked on the
+# pull request that changes them, and stay silent on every other.
 #
 # Carried over from ci.yml's top level: `permissions: contents: read` and
 # `PIP_DISABLE_PIP_VERSION_CHECK: "1"`. `QT_QPA_PLATFORM` is NOT set at the top
 # level here: each matrix leg sets the real platform plugin it measures, at job
-# level. ci.yml's `concurrency: ci-${{ github.ref }}` is not reused: this file
-# declares its OWN single-run guard so a dispatch here never cancels, or is
-# cancelled by, a ci.yml run on the same ref.
+# level. ci.yml's `concurrency: ci-${{ github.ref }}` group is not reused: this
+# file declares its OWN single-run guard (`native-font-${{ github.ref }}`) so a
+# run here never cancels, or is cancelled by, a ci.yml run on the same ref. As
+# in ci.yml, `github.ref` is `refs/pull/<n>/merge` on a pull request, so a new
+# push to the same pull request cancels the superseded run of THIS workflow for
+# that pull request, and runs of different pull requests never meet.
 # =============================================================================
 name: native-font
 
 on:
   workflow_dispatch:
+  pull_request:
+    # Only the surface this workflow checks. Keep in step with the files the
+    # jobs below read: a path added to the font surface belongs here too.
+    paths:
+      - "pixelart_creator/fonts/**"
+      - "fonts-src/nifen-art/**"
+      - "scripts/font/**"
+      - "pixelart_creator/ui/app_font.py"
+      - "testing/suites/ui/test_app_font_crispness.py"
+      - ".github/workflows/native-font.yml"
 
 concurrency:
   group: native-font-${{ github.ref }}
@@ -35,9 +60,10 @@ env:
 
 jobs:
   # ===========================================================================
-  # Native-platform font checks (REQ-VI-UI-014, REQ-VI-BUILD-002): MANUAL
-  # DISPATCH ONLY, in its own workflow file so that pull-request and push runs
-  # list nothing for it (see this file's header).
+  # Native-platform font checks (REQ-VI-UI-014, REQ-VI-BUILD-002): manual
+  # dispatch, or a pull request that changes the font surface, in its own
+  # workflow file so that every other pull request and every push lists nothing
+  # for it (see this file's header).
   #
   # WHY IT IS NOT IN ci.yml's quality-gate: the default suite measures the
   # interface font on Qt's headless `offscreen` platform, which does not use
