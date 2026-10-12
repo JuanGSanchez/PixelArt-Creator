@@ -81,6 +81,7 @@ from PySide6.QtGui import (
 
 pytestmark = pytest.mark.native_font
 
+from pixelart_creator.ui import app_font  # noqa: E402
 from testing.suites.ui.test_app_font import (  # noqa: E402,F401  (fixtures used by name)
     _leave_the_font_as_found,
     _store_is_isolated,
@@ -88,6 +89,7 @@ from testing.suites.ui.test_app_font import (  # noqa: E402,F401  (fixtures used
     mode,
     nifen_problems,
     open_window,
+    run_child,
 )
 
 # --------------------------------------------------------------------------- #
@@ -228,6 +230,10 @@ class RenderSpec:
     strategy: QFont.StyleStrategy
     hinting: QFont.HintingPreference
     text_antialiasing_hint: bool = True
+    #: Horizontal pen position, in pixels, added to the glyph's grid origin.
+    #: ``0.0`` puts the outline edges exactly on pixel boundaries. See
+    #: :class:`SmoothingControl` for why a platform needs the other value.
+    origin_dx: float = 0.0
 
 
 #: What the product asks for: no smoothing, no hinting adjustments.
@@ -237,6 +243,13 @@ CRISP = RenderSpec(
 #: A planted defect: the font asks for smoothing.
 SMOOTH = RenderSpec(
     QFont.StyleStrategy.PreferAntialias, QFont.HintingPreference.PreferNoHinting
+)
+#: The same two, with the pen half a pixel off the pixel grid (see SmoothingControl).
+CRISP_OFF_GRID = RenderSpec(
+    CRISP.strategy, CRISP.hinting, CRISP.text_antialiasing_hint, 0.5
+)
+SMOOTH_OFF_GRID = RenderSpec(
+    SMOOTH.strategy, SMOOTH.hinting, SMOOTH.text_antialiasing_hint, 0.5
 )
 
 _BLACK = QColor(0, 0, 0)
@@ -305,7 +318,7 @@ def render_text(
         QPainter.RenderHint.TextAntialiasing, spec.text_antialiasing_hint
     )
     painter.setPen(_BLACK)
-    painter.drawText(QPointF(pad, baseline), chr(glyph.cp))
+    painter.drawText(QPointF(pad + spec.origin_dx, baseline), chr(glyph.cp))
     painter.end()
     return _as_rgb(image)
 
@@ -439,20 +452,82 @@ def _is_native_run_requested(config: pytest.Config) -> bool:
     return "native_font" in expr and "not native_font" not in expr
 
 
-@pytest.fixture(scope="module")
-def font_path_shows_smoothing(model: Model, loaded_fonts) -> bool:
-    """Whether this platform's font path shows smoothing when the font asks for it.
+@dataclass(frozen=True)
+class SmoothingControl:
+    """What asking a platform's font path for smoothing does to Nifen Art.
 
-    The font-level negative control. A platform that never smooths text, even on
-    request (the headless ``offscreen`` plugin on Windows does not), cannot
-    demonstrate that the non-binary count would notice smoothing there, so on
-    such a platform that count is reported as uninformative instead of being
-    passed off as a measurement.
+    The font-level negative control. Where the smoothed render has no non-binary
+    pixel at all, the non-binary count cannot be shown to notice smoothing on
+    that platform (the headless ``offscreen`` plugin on Windows is such a
+    platform), and the count is reported as uninformative, never passed off as a
+    measurement.
+
+    There are two ways a platform shows smoothing, and they are measured apart.
+    Windows (DirectWrite) and macOS (CoreText) smooth a glyph whose pen is on a
+    whole pixel: ``on_grid`` fires. The ``xcb`` plugin (FreeType through
+    fontconfig) does smooth, with grey coverage, but Nifen Art's outlines lie on
+    whole pixels, so at a whole-pixel pen position the coverage of every edge
+    pixel is 0 or 1 and the smoothed render is binary all the same
+    (``on_grid`` == 0). Half a pixel to the side the coverage is fractional and
+    the same request gives grey: ``off_grid`` fires, and ``NoAntialias`` stays
+    binary there, so that origin is where a smoothing regression is visible on
+    that platform. Measured in WSL Ubuntu 26.04, Qt 6.11.1, Xvfb: on_grid 0,
+    off_grid > 0; asking fontconfig for ``rgba=rgb`` changed neither.
     """
-    probe = measure_font(
-        model, "regular", 12, SMOOTH, label="font-path smoothing control"
+
+    glyphs: int
+    on_grid: int
+    #: ``None`` when it was not measured: the whole-pixel render already fires.
+    off_grid: Optional[int]
+
+    @property
+    def fires(self) -> bool:
+        """True when some pen position makes this platform's smoothing visible."""
+        return self.on_grid > 0 or bool(self.off_grid)
+
+    @property
+    def needs_off_grid(self) -> bool:
+        """True when only the half-pixel pen position shows smoothing."""
+        return self.on_grid == 0 and bool(self.off_grid)
+
+    @property
+    def planted(self) -> RenderSpec:
+        """The smoothed render that fires here (only meaningful when ``fires``)."""
+        return SMOOTH_OFF_GRID if self.needs_off_grid else SMOOTH
+
+    @property
+    def real(self) -> RenderSpec:
+        """The pixel-exact render, at the same pen position as :attr:`planted`."""
+        return CRISP_OFF_GRID if self.needs_off_grid else CRISP
+
+    def line(self) -> str:
+        off = "not measured" if self.off_grid is None else str(self.off_grid)
+        return (
+            f"smoothing requested on {self.glyphs} glyphs: non-binary pixels "
+            f"{self.on_grid} with the pen on the pixel grid, {off} with the "
+            f"pen half a pixel off it"
+        )
+
+
+@pytest.fixture(scope="module")
+def smoothing_control(model: Model, loaded_fonts) -> SmoothingControl:
+    """Measure whether, and at which pen position, this platform shows smoothing."""
+    on_grid = require_examined(
+        measure_font(model, "regular", 12, SMOOTH, label="smoothing control, on grid")
     )
-    return require_examined(probe).nonbinary > 0
+    off_grid: Optional[int] = None
+    if on_grid.nonbinary == 0:
+        # Only needed (and only run) where the whole-pixel render is binary.
+        off_grid = require_examined(
+            measure_font(
+                model,
+                "regular",
+                12,
+                SMOOTH_OFF_GRID,
+                label="smoothing control, half a pixel off the grid",
+            )
+        ).nonbinary
+    return SmoothingControl(on_grid.glyphs, on_grid.nonbinary, off_grid)
 
 
 # --------------------------------------------------------------------------- #
@@ -563,31 +638,47 @@ def test_negative_control_antialiased_grid_is_detected_in_every_glyph(
 
 
 def test_catching_assertion_fires_on_a_planted_antialiased_font_render(
-    model: Model, loaded_fonts, capsys, request: pytest.FixtureRequest
+    model: Model,
+    loaded_fonts,
+    smoothing_control: SmoothingControl,
+    capsys,
+    request: pytest.FixtureRequest,
 ) -> None:
     """Planted defect 1: the font is drawn with smoothing; the catching assertion fires.
 
-    Where the platform never smooths text even when asked, the control cannot
-    fire, and that is stated: a counted skip in the default suite, a failure in
-    a native run (a native platform whose font path is blind to smoothing has
-    not been shown to be crisp).
+    The planted render uses the pen position at which this platform shows
+    smoothing (:class:`SmoothingControl`): on the pixel grid where the platform
+    smooths there (Windows, macOS), half a pixel off it where it does not
+    (``xcb``). Where no pen position shows smoothing the control cannot fire,
+    and that is stated: a counted skip in the default suite, a failure in a
+    native run (a native platform whose font path is blind to smoothing has not
+    been shown to be crisp).
     """
-    tally = require_examined(
-        measure_font(
-            model, "regular", 12, SMOOTH, label="PLANTED smoothing, regular 12px"
-        )
-    )
-    _say(capsys, f"{_platform()} {tally.line()}")
-    if tally.nonbinary == 0:
+    _say(capsys, f"{_platform()} {smoothing_control.line()}")
+    if not smoothing_control.fires:
         reason = (
-            f"platform plugin {_platform()!r} drew {tally.glyphs} glyphs with "
-            "smoothing requested and produced 0 non-binary pixels: its font path "
-            "never smooths, so "
+            f"platform plugin {_platform()!r} drew {smoothing_control.glyphs} glyphs "
+            "with smoothing requested, on the pixel grid and half a pixel off it, and "
+            "produced 0 non-binary pixels: its font path never smooths, so "
             "the non-binary count cannot be shown to fire here"
         )
         if _is_native_run_requested(request.config):
             pytest.fail(reason)
         pytest.skip(reason)
+    where = "off the pixel grid" if smoothing_control.needs_off_grid else "on the grid"
+    tally = require_examined(
+        measure_font(
+            model,
+            "regular",
+            12,
+            smoothing_control.planted,
+            label=f"PLANTED smoothing {where}, regular 12px",
+        )
+    )
+    _say(capsys, f"{_platform()} {tally.line()}")
+    assert (
+        tally.nonbinary > 0
+    ), f"{tally.line()} -> the planted smoothing went undetected"
     with pytest.raises(AssertionError, match="non-binary pixels must be 0"):
         assert_pixel_exact(tally)
 
@@ -841,53 +932,183 @@ def test_the_fringe_instrument_sees_the_platform_font_fringe_natively(
     ), "the platform font showed no fringe in any item view: the instrument is blind"
 
 
+@dataclass
+class ClassFontTable:
+    """The platform's own per-class font table, measured in a fresh process.
+
+    The regression the next two tests guard is the platform writing its
+    per-class fonts (item views, menus, dock titles ...) over the application
+    font when a style sheet or a style is installed. That can only happen on a
+    platform that HAS per-class fonts, i.e. whose table differs from the default
+    application font. This is measured, never assumed: a child process on the
+    same platform plugin and the platform's own fonts reads the table fresh, and
+    after the application font is replaced (the product's own first move),
+    after a style sheet is installed, after it is cleared and after
+    ``setStyle`` -- no product code has run in it. The table of a fresh process
+    cannot settle it alone: a class font equal in value to the default
+    application font (Windows: Segoe UI 9 pt both) still overrides a replaced
+    application font once the platform writes it back.
+    """
+
+    platform: str
+    default_family: str
+    classes: int
+    moments: List[Tuple[str, List[str]]]  # (moment, classes whose font differs)
+
+    @property
+    def differing(self) -> List[str]:
+        """Every ``class=font`` the platform gave a font of its own, at any moment."""
+        seen: List[str] = []
+        for _moment, rows in self.moments:
+            seen.extend(row for row in rows if row not in seen)
+        return seen
+
+    @property
+    def supplied(self) -> bool:
+        """True when the platform gives some widget class a font of its own."""
+        return bool(self.differing)
+
+    def line(self) -> str:
+        per_moment = "; ".join(
+            f"{moment}: {len(rows)} of {self.classes} differ"
+            for moment, rows in self.moments
+        )
+        return (
+            f"platform plugin {self.platform!r}, default application font "
+            f"{self.default_family!r}, {self.classes} per-class fonts examined "
+            f"({per_moment}); platform-supplied class fonts: {self.differing or 'none'}"
+        )
+
+
+@pytest.fixture(scope="module")
+def class_font_table(qapp, tmp_path_factory: pytest.TempPathFactory) -> ClassFontTable:
+    """Measure the platform's per-class font table in a fresh child process."""
+    result = run_child(
+        """
+import os
+from PySide6.QtGui import QFont
+names = list(app_font._PLATFORM_CLASS_FONTS)
+default = QApplication.font().family()
+def snap(moment):
+    base = QApplication.font()
+    differ = []
+    for name in names:
+        font = QApplication.font(name)
+        if font != base:
+            differ.append("%s=%s %spt" % (name, font.family(), font.pointSizeF()))
+    return [moment, differ]
+snaps = [snap("fresh process")]
+# Replace the application font by one that is certainly not the platform's, as the
+# product does with Nifen Art. Qt then drops every per-class entry, so a class
+# font that differs from the application font AFTER a style sheet or a style has
+# been installed is one the platform put back.
+probe = QFont("Probe Family")
+probe.setPixelSize(12)
+QApplication.setFont(probe)
+snaps.append(snap("after the application font is replaced"))
+app.setStyleSheet("QLabel { color: black; } QMenu { color: black; }")
+app.processEvents()
+snaps.append(snap("after a style sheet"))
+app.setStyleSheet("")
+app.processEvents()
+snaps.append(snap("after the style sheet is cleared"))
+app.setStyle("Fusion")
+app.processEvents()
+snaps.append(snap("after setStyle('Fusion')"))
+out(platform=app.platformName(), default=default, classes=len(names),
+    snaps=snaps)
+""",
+        tmp_path_factory.mktemp("class-fonts"),
+        native=True,
+    )
+    return ClassFontTable(
+        platform=str(result["platform"]),
+        default_family=str(result["default"]),
+        classes=int(result["classes"]),
+        moments=[(str(m), list(rows)) for m, rows in result["snaps"]],
+    )
+
+
 def test_item_views_menus_and_dock_titles_stay_nifen_art_after_a_style_sheet_natively(
     qtbot, capsys, mode, request: pytest.FixtureRequest
 ) -> None:
-    """Class-font regression: after a style sheet, item views, menus and dock titles are Nifen Art.
+    """The product's claim: after its first style sheet, these roles are Nifen Art.
 
-    Native only. The window is built through the product's start-up, so its first
-    style sheet is the one that makes the platform write its per-class fonts back;
-    item views, menus, the menu bar, tool tips and dock titles are then examined
-    (the per-class font table, fresh widgets, the real window's roles). The control
-    clears and restores the style sheet, which makes the platform put those fonts
-    back: the same examination MUST flag it (otherwise the platform does not do
-    what this regression is about and the check proves nothing here, so the test fails), and
-    ``ensure_interface_font`` must undo it. Off a native platform: a counted skip,
-    or a failure when ``-m native_font`` selected it.
+    Native only, and on EVERY native platform -- including one that supplies no
+    per-class fonts (``xcb`` under a bare X server), where the claim is still the
+    product's and is still checked: the window is built through the product's
+    start-up, so its first style sheet is installed, and then the per-class font
+    table, fresh widgets of those classes (item views and their rows, menus, the
+    menu bar, the status bar, tool tips, dock titles) and the real window's roles
+    are examined. Whether the platform could have broken it is the next test's
+    question, not this one's.
     """
     from PySide6.QtWidgets import QApplication, QDockWidget, QMenu
 
-    from pixelart_creator.ui import app_font
-
-    _require_native_or_skip(request, "the per-class font regression")
+    _require_native_or_skip(request, "the per-class font assertion")
     win = open_window(qtbot, mode, settle=False)
     app = QApplication.instance()
     assert isinstance(app, QApplication)
+    examined = len(app_font._PLATFORM_CLASS_FONTS)
+    assert examined > 0, "the product declares no per-class font to examine"
 
-    def real_roles() -> List[str]:
-        wrong: List[str] = []
-        wrong.extend(nifen_problems("menu bar", win.menuBar().font()))
-        for top in win.menuBar().actions():
-            menu = top.menu()
-            if isinstance(menu, QMenu):
-                menu.ensurePolished()
-                wrong.extend(nifen_problems(f"menu {top.text()!r}", menu.font()))
-        for dock in win.findChildren(QDockWidget):
-            wrong.extend(
-                nifen_problems(f"dock {dock.windowTitle()!r}", dock.font(), bold=True)
-            )
-        wrong.extend(nifen_problems("layer tree", win._layer_panel._tree.font()))
-        return wrong
-
-    before = class_font_problems(app, win) + real_roles()
+    wrong: List[str] = []
+    wrong.extend(class_font_problems(app, win))
+    wrong.extend(nifen_problems("menu bar", win.menuBar().font()))
+    menus = 0
+    for top in win.menuBar().actions():
+        menu = top.menu()
+        if isinstance(menu, QMenu):
+            menu.ensurePolished()
+            wrong.extend(nifen_problems(f"menu {top.text()!r}", menu.font()))
+            menus += 1
+    docks = win.findChildren(QDockWidget)
+    for dock in docks:
+        wrong.extend(
+            nifen_problems(f"dock {dock.windowTitle()!r}", dock.font(), bold=True)
+        )
+    wrong.extend(nifen_problems("layer tree", win._layer_panel._tree.font()))
     _say(
         capsys,
         f"{_platform()} [{mode}] after the product's own first style sheet: "
-        f"{len(before)} problems",
+        f"{examined} class fonts, {menus} menus, {len(docks)} docks examined, "
+        f"{len(wrong)} problems",
     )
-    assert not before, "after the first style sheet:\n  " + "\n  ".join(before[:20])
+    assert menus > 0 and docks, "the window showed no menu or no dock to examine"
+    assert not wrong, "after the first style sheet:\n  " + "\n  ".join(wrong[:20])
 
+
+def test_the_class_font_regression_control_fires_where_the_platform_has_class_fonts_natively(
+    qtbot,
+    capsys,
+    mode,
+    class_font_table: ClassFontTable,
+    request: pytest.FixtureRequest,
+) -> None:
+    """Class-font regression control: the platform puts its fonts back; the check flags it.
+
+    Native only. The control clears and restores the style sheet, which makes a
+    platform that has per-class fonts put them back: the same examination MUST
+    flag it (otherwise the check proves nothing here, and the test fails), and
+    ``ensure_interface_font`` must undo it.
+
+    A platform that gives NO widget class a font of its own cannot put anything
+    back, so this regression cannot occur on it and the control has nothing to
+    fire on. That is a skip, and only when BOTH hold: the per-class table
+    measured in a fresh process is empty (every class font equals the default
+    application font at every moment measured), and the in-process control
+    flagged nothing either. The skip reason prints the measurement. If the
+    platform does supply class fonts and the control flags nothing, the check is
+    blind and the test FAILS; if the control flags something the measurement
+    called impossible, the measurement is wrong and the test FAILS too.
+    """
+    from PySide6.QtWidgets import QApplication
+
+    _require_native_or_skip(request, "the per-class font regression control")
+    _say(capsys, f"{_platform()} [{mode}] CLASS-FONT CENSUS: {class_font_table.line()}")
+    win = open_window(qtbot, mode, settle=False)
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
     sheet = app.styleSheet()
     assert sheet, "the application carries no style sheet"
     app.setStyleSheet("")
@@ -899,10 +1120,27 @@ def test_item_views_menus_and_dock_titles_stay_nifen_art_after_a_style_sheet_nat
         f"{_platform()} [{mode}] CONTROL (style sheet cleared and restored): "
         f"{len(flagged)} problems",
     )
-    assert flagged, (
-        "the platform did not put its per-class fonts back after the style sheet was "
-        "cleared and restored: this check cannot see this regression here"
+    if not flagged:
+        assert not class_font_table.supplied, (
+            "the platform supplies per-class fonts "
+            f"({class_font_table.differing}) but the control, after the style sheet was "
+            "cleared and restored, flagged none: this check cannot see this "
+            "regression here. " + class_font_table.line()
+        )
+        pytest.skip(
+            "NOT APPLICABLE, measured: the regression is the platform putting its "
+            "per-class fonts back over Nifen Art after a style sheet, and this platform "
+            "supplies none. " + class_font_table.line() + "; the in-process control "
+            "(style sheet cleared and restored) flagged 0 problems. The product's "
+            "own claim is asserted separately by "
+            "test_item_views_menus_and_dock_titles_stay_nifen_art_after_a_style_sheet_natively"
+        )
+    contradiction = (
+        "the control flagged per-class fonts that the fresh-process measurement found "
+        "none of: the measurement is wrong or the product wrote them. "
+        f"{class_font_table.line()} flagged: {'; '.join(flagged[:6])}"
     )
+    assert class_font_table.supplied, contradiction
     app_font.ensure_interface_font(app, False)
     QApplication.processEvents()
     after = class_font_problems(app, win)
@@ -946,7 +1184,7 @@ def test_loaded_face_is_nifen_art_at_the_requested_pixel_size(
 def test_nifen_art_is_pixel_exact(
     model: Model,
     loaded_fonts,
-    font_path_shows_smoothing: bool,
+    smoothing_control: SmoothingControl,
     capsys,
     weight: str,
     px: int,
@@ -955,18 +1193,52 @@ def test_nifen_art_is_pixel_exact(
 
     ``NoAntialias`` + ``PreferNoHinting``; every glyph of the declared set with
     ink, in this weight. The counts and what they were taken over are printed.
+
+    Where the smoothing control fires only with the pen half a pixel off the
+    pixel grid (``xcb``), a whole-pixel render is binary whether or not the font
+    asks for smoothing, so the same glyphs are measured a second time at that
+    pen position, the one at which the control has been shown to see smoothing:
+    a control that fires under one condition says nothing about a measurement
+    taken under another.
     """
     started = time.perf_counter()
     tally = measure_font(model, weight, px, CRISP, label=f"NIFEN ART {weight} {px}px")
     elapsed = time.perf_counter() - started
-    sensitivity = (
-        "smoothing control fires on this font path"
-        if font_path_shows_smoothing
-        else "smoothing control does NOT fire on this font path: the non-binary figure "
-        "is not informative here, the mismatch figure still is"
-    )
+    if smoothing_control.on_grid > 0:
+        sensitivity = "smoothing control fires on this font path"
+    elif smoothing_control.needs_off_grid:
+        sensitivity = (
+            "smoothing control fires on this font path only with the pen half a pixel "
+            "off the grid: measured there as well, below"
+        )
+    else:
+        sensitivity = (
+            "smoothing control does NOT fire on this font path: the non-binary figure "
+            "is not informative here, the mismatch figure still is"
+        )
     _say(capsys, f"{_platform()} {tally.line()} [{elapsed:.2f} s] ({sensitivity})")
     assert_pixel_exact(tally)
+    if smoothing_control.needs_off_grid:
+        off_grid = require_examined(
+            measure_font(
+                model,
+                weight,
+                px,
+                smoothing_control.real,
+                k=px // model.metrics.em_px,
+                label=f"NIFEN ART {weight} {px}px, pen half a pixel off the grid",
+            )
+        )
+        said = (
+            f"{off_grid.label}: glyphs examined {off_grid.glyphs}, pixels examined "
+            f"{off_grid.pixels}, non-binary pixels {off_grid.nonbinary} "
+            "(mismatches are not counted at an off-grid pen)"
+        )
+        _say(capsys, f"{_platform()} {said}")
+        assert off_grid.nonbinary == 0, (
+            f"{said} -> non-binary pixels must be 0 at the pen position "
+            "where the smoothing control fires"
+        )
 
 
 def test_zz_totals_were_not_zero(capsys) -> None:
