@@ -1,0 +1,173 @@
+# =============================================================================
+# CI workflow (GitHub Actions) — PixelArt Creator — native-platform font checks.
+# Owned by the GitHub/DevOps role.
+#
+# ITS OWN FILE, NOT A JOB IN ci.yml: same reasoning as build-installers.yml and
+# regenerate-constraints.yml (split out of ci.yml, 2026-09-01) -- a job gated
+# by a job-level `if:` still gets EVALUATED and LISTED on every trigger of the
+# workflow file it lives in, so it would show as skipped on every pull request
+# and push although it can only ever run on a deliberate manual dispatch. In
+# this file, triggered ONLY by `workflow_dispatch`, pull-request and push runs
+# list nothing for it, and none of main's required checks (the quality-gate
+# and integration names pinned in ci.yml) is touched.
+#
+# Carried over from ci.yml's top level: `permissions: contents: read` and
+# `PIP_DISABLE_PIP_VERSION_CHECK: "1"`. `QT_QPA_PLATFORM` is NOT set at the top
+# level here: each matrix leg sets the real platform plugin it measures, at job
+# level. ci.yml's `concurrency: ci-${{ github.ref }}` is not reused: this file
+# declares its OWN single-run guard so a dispatch here never cancels, or is
+# cancelled by, a ci.yml run on the same ref.
+# =============================================================================
+name: native-font
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: native-font-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  # ===========================================================================
+  # Native-platform font checks (REQ-VI-UI-014, REQ-VI-BUILD-002): MANUAL
+  # DISPATCH ONLY, in its own workflow file so that pull-request and push runs
+  # list nothing for it (see this file's header).
+  #
+  # WHY IT IS NOT IN ci.yml's quality-gate: the default suite measures the
+  # interface font on Qt's headless `offscreen` platform, which does not use
+  # the native text stack of any real platform. The crispness claim (no
+  # antialiased or hinted pixel in the interface font at 12 and 24 px) only
+  # means something on the plugin a user actually runs: `windows` on Windows,
+  # `cocoa` on macOS, `xcb` on Linux (under xvfb here, as there is no display
+  # on the runner). `quality-gate` on a dispatch is a Windows-only matrix, so
+  # this job carries its own three-OS matrix instead of widening that one and
+  # the cost of a full suite on three OS that a pull request already pays.
+  #
+  # What runs: `pytest -m native_font` over the whole test tree -- every test
+  # that carries the marker is selected wherever it lives, so a later module
+  # that adds the marker joins this run with no edit here; today that is
+  # testing/suites/ui/test_app_font_crispness.py, which includes the native
+  # item-view tests -- and `build_nifen_art.py --check`, which rebuilds both
+  # weights twice and compares them byte for byte with the committed fonts on
+  # each OS. The pytest summary line of each leg (passed / deselected / skipped
+  # counts) is the per-OS denominator to quote; `-rs` prints the reason of any
+  # skip, and the crispness module itself fails a run that selected the marker
+  # but ended up on a non-native platform, or that examined no glyph.
+  #
+  # A failing platform is a result to bring back as a question, never a reason
+  # to loosen a check here.
+  # ===========================================================================
+  native-font:
+    name: native-font (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            qpa: xcb
+          - os: windows-latest
+            qpa: windows
+          - os: macos-latest
+            qpa: cocoa
+    # A new job, capped on its own: the crispness run measures about half a
+    # minute on a Windows host, plus the install; this is generous headroom
+    # and far under the 6h default.
+    timeout-minutes: 30
+    env:
+      # The real platform plugin for this leg (not `offscreen`, which the
+      # default suite uses). Printed by the crispness tests with every
+      # measurement.
+      QT_QPA_PLATFORM: ${{ matrix.qpa }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up CI temp root (CI-PixelArtCreator)
+        # Same routing as the quality-gate job's identically-named step (see
+        # that step's comment for the full rationale); the leg name includes
+        # the OS so the three legs never share a path.
+        run: |
+          CI_TEMP_ROOT="${RUNNER_TEMP}/CI-PixelArtCreator/ci-native-font-${{ matrix.os }}"
+          rm -rf "${CI_TEMP_ROOT}"
+          mkdir -p "${CI_TEMP_ROOT}"
+          echo "CI_TEMP_ROOT=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TEMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMPDIR=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "CI temp root for this leg: ${CI_TEMP_ROOT}"
+
+      - name: Set up Python (pinned via .python-version)
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+
+      # The quality-gate Ubuntu libraries, plus what Qt's `xcb` plugin needs to
+      # open a window (the offscreen platform needs none of these) and xvfb to
+      # give it a display. fonts-dejavu-core: a fallback face for the fonts
+      # tests, as in quality-gate.
+      - name: Install Qt runtime OS libraries + xvfb (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+            libxcb-xkb1 \
+            fonts-dejavu-core
+
+      - name: Install project (runtime + dev) from manifest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -c constraints.txt -e ".[dev]"
+
+      - name: Crispness and font tests on the native platform plugin (pytest -m native_font)
+        # No `-n auto`: one process, on the platform plugin set in the job env.
+        # Linux wraps the run in xvfb-run (-a picks a free display number).
+        run: |
+          echo "Qt platform plugin for this leg: ${QT_QPA_PLATFORM}"
+          if [[ "${RUNNER_OS}" == "Linux" ]]; then
+            RUNNER_PREFIX=(xvfb-run -a -s "-screen 0 1280x1024x24")
+          else
+            RUNNER_PREFIX=()
+          fi
+          "${RUNNER_PREFIX[@]}" python -m pytest -m native_font -p no:cacheprovider -rs \
+            --basetemp="${CI_TEMP_ROOT}/pytest-native" \
+            --timeout=120 --timeout-method=thread
+
+      - name: Font rebuild is byte-identical on this OS (build_nifen_art.py --check)
+        run: python scripts/font/build_nifen_art.py --check
+
+      - name: Clean up CI temp root (CI-PixelArtCreator)
+        # Same guard shape as the quality-gate job's identically-named step.
+        if: always()
+        run: |
+          if [[ -z "${CI_TEMP_ROOT:-}" ]]; then
+            echo "::error::CI_TEMP_ROOT is not set; refusing to guess a path to delete."
+            exit 1
+          fi
+          case "${CI_TEMP_ROOT}" in
+            "${RUNNER_TEMP}"/CI-PixelArtCreator/*) ;;
+            *)
+              echo "::error::CI_TEMP_ROOT (${CI_TEMP_ROOT}) does not resolve under \${RUNNER_TEMP}/CI-PixelArtCreator/<name>; refusing to delete."
+              exit 1
+              ;;
+          esac
+          if [[ -d "${CI_TEMP_ROOT}" ]]; then
+            echo "Removing CI temp root: ${CI_TEMP_ROOT}"
+            rm -rf "${CI_TEMP_ROOT}"
+            echo "Removed: ${CI_TEMP_ROOT}"
+          else
+            echo "CI temp root already absent (nothing to remove): ${CI_TEMP_ROOT}"
+          fi

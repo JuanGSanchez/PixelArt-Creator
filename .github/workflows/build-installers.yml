@@ -212,16 +212,60 @@ jobs:
         run: |
           BIN="./artifact/PixelArtCreator-windows.exe"
           echo "smoke binary: ${BIN}"
-          if "${BIN}"; then
-            echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"
-          else
-            rc=$?
+          SMOKE_OUT="${CI_TEMP_ROOT}/smoke-windows.out"
+          rc=0
+          "${BIN}" > "${SMOKE_OUT}" || rc=$?
+          cat "${SMOKE_OUT}"
+          if [ "${rc}" -ne 0 ]; then
             echo "::error::Windows smoke-launch FAILED (exit ${rc})"
             exit "${rc}"
           fi
+          echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"
+          # The app prints one `interface-font: <family>` line in smoke mode
+          # (REQ-VI-BUILD-006). Asserting it is what proves the installed
+          # build found its bundled typeface instead of falling back to a
+          # system font. `tr -d '\r'`: a Windows console build ends its lines
+          # with CRLF. The same assertion follows every smoke launch below.
+          FONT_LINE="$(tr -d '\r' < "${SMOKE_OUT}" | grep '^interface-font:' || true)"
+          if [ "${FONT_LINE}" != "interface-font: Nifen Art" ]; then
+            echo "::error::smoke output must carry exactly one 'interface-font: Nifen Art' line; got: '${FONT_LINE}'"
+            exit 1
+          fi
+          echo "smoke font line OK: ${FONT_LINE}"
         # Exit 0 proves the packaged onefile .exe started, loaded the offscreen
         # platform plugin + full UI, and quit cleanly via PIXELART_SMOKE_EXIT_MS;
         # any non-zero exit or crash fails this leg visibly.
+
+      - name: Check the Windows payload (fonts, themes, licence notices)
+        if: runner.os == 'Windows'
+        # A onefile .exe cannot be listed from outside, so the check runs on
+        # the folder Nuitka packed it from: `--keep-deployment-files` leaves
+        # it on disk as a `<name>.dist` folder. The search is for those
+        # folders and nowhere else, never the checkout, because the source
+        # tree holds the same files and would pass for the wrong reason. If
+        # no such folder exists the step fails and lists what does, rather
+        # than pass on nothing. packaging/check_payload.sh compares every file
+        # the repository ships under pixelart_creator/fonts and
+        # pixelart_creator/themes, byte for byte, and checks the licence
+        # notices in OFL.txt (REQ-VI-BUILD-005). The empty-folder control
+        # shows the check can fail before its result is trusted.
+        run: |
+          DIST_DIRS="$(find . -maxdepth 4 -type d -name '*.dist' -not -path './.git/*')"
+          if [ -z "${DIST_DIRS}" ]; then
+            echo "::error::no *.dist folder under the checkout: the Nuitka output the .exe was packed from is not on disk, so its contents cannot be listed"
+            find . -maxdepth 3 -type d \( -name deployment -o -name '*.build' -o -name '*.onefile-build' \) -not -path './.git/*' || true
+            exit 1
+          fi
+          CONTROL_DIR="${CI_TEMP_ROOT}/payload-control-empty"
+          mkdir -p "${CONTROL_DIR}"
+          if bash packaging/check_payload.sh "${CONTROL_DIR}" "control: empty folder" > /dev/null 2>&1; then
+            echo "::error::payload check control FAILED: an empty folder passed"
+            exit 1
+          fi
+          echo "payload check control OK: an empty folder is refused"
+          while IFS= read -r DIST_DIR; do
+            bash packaging/check_payload.sh "${DIST_DIR}" "windows .exe payload"
+          done <<< "${DIST_DIRS}"
 
       - name: Upload Windows artifact
         if: runner.os == 'Windows'
@@ -268,17 +312,52 @@ jobs:
             exit 1
           fi
           echo "smoke binary: ${BIN}"
-          if "${BIN}"; then
-            echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"
-          else
-            rc=$?
+          SMOKE_OUT="${CI_TEMP_ROOT}/smoke-linux-standalone.out"
+          rc=0
+          "${BIN}" > "${SMOKE_OUT}" || rc=$?
+          cat "${SMOKE_OUT}"
+          if [ "${rc}" -ne 0 ]; then
             echo "::error::Linux standalone smoke-launch FAILED (exit ${rc})"
             exit "${rc}"
           fi
+          echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"
+          # The smoke output must carry the interface-font line (see the
+          # Windows smoke step above for why).
+          FONT_LINE="$(grep '^interface-font:' "${SMOKE_OUT}" || true)"
+          if [ "${FONT_LINE}" != "interface-font: Nifen Art" ]; then
+            echo "::error::smoke output must carry exactly one 'interface-font: Nifen Art' line; got: '${FONT_LINE}'"
+            exit 1
+          fi
+          echo "smoke font line OK: ${FONT_LINE}"
 
       - name: Package Linux AppImage (appimagetool)
         if: runner.os == 'Linux'
         run: bash packaging/build_appimage.sh
+
+      - name: Check the AppImage payload (fonts, themes, licence notices)
+        if: runner.os == 'Linux'
+        # The AppImage is unpacked with its own runtime (`--appimage-extract`
+        # needs no FUSE) into the CI temp root, and the unpacked tree is what
+        # packaging/check_payload.sh examines (REQ-VI-BUILD-005): every file
+        # the repository ships under pixelart_creator/fonts and
+        # pixelart_creator/themes, byte for byte, plus the licence notices in
+        # OFL.txt. The empty-folder control shows the check can fail before
+        # its result is trusted.
+        run: |
+          chmod +x artifact/PixelArtCreator-x86_64.AppImage
+          APPIMAGE="$(pwd)/artifact/PixelArtCreator-x86_64.AppImage"
+          EXTRACT_DIR="${CI_TEMP_ROOT}/appimage-extract"
+          rm -rf "${EXTRACT_DIR}"
+          mkdir -p "${EXTRACT_DIR}"
+          (cd "${EXTRACT_DIR}" && "${APPIMAGE}" --appimage-extract > /dev/null)
+          CONTROL_DIR="${CI_TEMP_ROOT}/payload-control-empty"
+          mkdir -p "${CONTROL_DIR}"
+          if bash packaging/check_payload.sh "${CONTROL_DIR}" "control: empty folder" > /dev/null 2>&1; then
+            echo "::error::payload check control FAILED: an empty folder passed"
+            exit 1
+          fi
+          echo "payload check control OK: an empty folder is refused"
+          bash packaging/check_payload.sh "${EXTRACT_DIR}/squashfs-root" "linux AppImage"
 
       - name: Smoke-launch the AppImage (offscreen, auto-quit)
         if: runner.os == 'Linux'
@@ -287,13 +366,21 @@ jobs:
           # --appimage-extract-and-run is intercepted by the AppImage runtime
           # (FUSE-free); AppRun then execs usr/bin/__main__, which self-exits via
           # PIXELART_SMOKE_EXIT_MS.
-          if ./artifact/PixelArtCreator-x86_64.AppImage --appimage-extract-and-run; then
-            echo "smoke OK: AppImage launched offscreen and self-exited 0"
-          else
-            rc=$?
+          SMOKE_OUT="${CI_TEMP_ROOT}/smoke-linux-appimage.out"
+          rc=0
+          ./artifact/PixelArtCreator-x86_64.AppImage --appimage-extract-and-run > "${SMOKE_OUT}" || rc=$?
+          cat "${SMOKE_OUT}"
+          if [ "${rc}" -ne 0 ]; then
             echo "::error::Linux AppImage smoke-launch FAILED (exit ${rc})"
             exit "${rc}"
           fi
+          echo "smoke OK: AppImage launched offscreen and self-exited 0"
+          FONT_LINE="$(grep '^interface-font:' "${SMOKE_OUT}" || true)"
+          if [ "${FONT_LINE}" != "interface-font: Nifen Art" ]; then
+            echo "::error::smoke output must carry exactly one 'interface-font: Nifen Art' line; got: '${FONT_LINE}'"
+            exit 1
+          fi
+          echo "smoke font line OK: ${FONT_LINE}"
 
       - name: Upload Linux artifact
         if: runner.os == 'Linux'
@@ -342,21 +429,34 @@ jobs:
           # produced-artifact path is discovered via `find`, not a fixed stem.
           BIN="$(find "${APP}/Contents/MacOS" -maxdepth 1 -type f -perm +111 | head -n1)"
           echo "smoke binary: ${BIN}"
-          if "${BIN}"; then
-            echo "smoke OK: .app inner binary launched offscreen and self-exited 0"
-          else
-            rc=$?
+          SMOKE_OUT="${CI_TEMP_ROOT}/smoke-macos.out"
+          rc=0
+          "${BIN}" > "${SMOKE_OUT}" || rc=$?
+          cat "${SMOKE_OUT}"
+          if [ "${rc}" -ne 0 ]; then
             echo "::error::macOS .app smoke-launch FAILED (exit ${rc})"
             exit "${rc}"
           fi
+          echo "smoke OK: .app inner binary launched offscreen and self-exited 0"
+          # The smoke output must carry the interface-font line (see the
+          # Windows smoke step above for why).
+          FONT_LINE="$(grep '^interface-font:' "${SMOKE_OUT}" || true)"
+          if [ "${FONT_LINE}" != "interface-font: Nifen Art" ]; then
+            echo "::error::smoke output must carry exactly one 'interface-font: Nifen Art' line; got: '${FONT_LINE}'"
+            exit 1
+          fi
+          echo "smoke font line OK: ${FONT_LINE}"
           mkdir -p artifact
           hdiutil create -volname "PixelArt Creator" -srcfolder "${APP}" \
             -ov -format UDZO artifact/PixelArtCreator-macos.dmg
 
-      - name: Developer-ID sign + notarize + staple (credential-gated, NON-blocking)
+      - name: Developer-ID sign + notarize + staple (runs only when credentials are configured; a failure fails the build)
         # Runs ONLY when an Apple Developer ID secret is supplied (ADR-0038 §4,
         # Article XI). Its ABSENCE self-skips this step and does NOT fail the leg
         # — the unsigned/ad-hoc .dmg above is the accepted Phase-13 artifact.
+        # When the secret IS configured the step runs, and if it fails the leg
+        # fails and the build is not green: nothing here is advisory, and no
+        # `continue-on-error` may be added to it.
         if: ${{ runner.os == 'macOS' && env.APPLE_DEVELOPER_ID != '' }}
         run: |
           APP="$(find dist -maxdepth 2 -type d -name '*.app' | head -n1)"
@@ -369,6 +469,34 @@ jobs:
             --team-id "${APPLE_NOTARY_TEAM_ID}" \
             --password "${APPLE_NOTARY_PASSWORD}" --wait
           xcrun stapler staple artifact/PixelArtCreator-macos.dmg
+
+      - name: Check the macOS .dmg payload (fonts, themes, licence notices)
+        if: runner.os == 'macOS'
+        # Runs after the optional Developer-ID step, so it examines the .dmg
+        # that is uploaded, whichever step wrote it last. The .dmg is mounted
+        # read-only and hidden from the Finder, and
+        # packaging/check_payload.sh examines the mounted volume
+        # (REQ-VI-BUILD-005): every file the repository ships under
+        # pixelart_creator/fonts and pixelart_creator/themes, byte for byte,
+        # plus the licence notices in OFL.txt. The volume is always detached
+        # again, and the check's own result is what the step returns. The
+        # empty-folder control shows the check can fail before its result is
+        # trusted.
+        run: |
+          CONTROL_DIR="${CI_TEMP_ROOT}/payload-control-empty"
+          mkdir -p "${CONTROL_DIR}"
+          if bash packaging/check_payload.sh "${CONTROL_DIR}" "control: empty folder" > /dev/null 2>&1; then
+            echo "::error::payload check control FAILED: an empty folder passed"
+            exit 1
+          fi
+          echo "payload check control OK: an empty folder is refused"
+          MOUNT_DIR="${CI_TEMP_ROOT}/dmg-mount"
+          mkdir -p "${MOUNT_DIR}"
+          hdiutil attach artifact/PixelArtCreator-macos.dmg -readonly -nobrowse -noverify -mountpoint "${MOUNT_DIR}"
+          rc=0
+          bash packaging/check_payload.sh "${MOUNT_DIR}" "macOS .dmg" || rc=$?
+          hdiutil detach "${MOUNT_DIR}" || hdiutil detach "${MOUNT_DIR}" -force
+          exit "${rc}"
 
       - name: Upload macOS artifact
         if: runner.os == 'macOS'

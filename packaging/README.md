@@ -121,13 +121,15 @@ do not name needs a new glob; a new top-level data directory needs a package-dat
 proven: build the wheel and list it (`python -m build --wheel`, then list the archive and
 compare against `git ls-files pixelart_creator/fonts pixelart_creator/themes`).
 
-## macOS signing (credential-gated, NON-blocking — ADR-0038 §4, Article XI)
+## macOS signing (credential-gated: skipped without credentials, blocking with them — ADR-0038 §4, Article XI)
 
 The macOS leg ships an **unsigned / ad-hoc-signed** `.app`/`.dmg` now. A
 Developer-ID **signing → notarization (`notarytool`) → stapling** step runs in
 CI **only** when an Apple Developer ID secret is present (guarded by
 `if: env.APPLE_DEVELOPER_ID != ''`). Its absence does **not** fail the build.
-**No credential is committed** — signing consumes GitHub secrets at CI time
+When the secret **is** configured the step runs, and if it fails the leg fails and
+the build is not green (constitution v1.5, Art. IX §2): it is never advisory and
+must not carry `continue-on-error`. **No credential is committed** — signing consumes GitHub secrets at CI time
 only.
 
 ### Gatekeeper bypass for the unsigned build
@@ -197,10 +199,11 @@ PySide6 plugin bundles it, listed explicitly as defence-in-depth.
 Produces a Nuitka **standalone** `.app` bundle (`Contents/MacOS` + bundled Qt
 plugins); the CI leg ad-hoc-signs it (`codesign --sign -`), smoke-launches it
 offscreen, and wraps it in a `.dmg` via `hdiutil`. Developer-ID signing →
-notarization (`notarytool`) → stapling is a **separate, credential-gated,
-non-blocking** CI step (ADR-0038 §4, Article XI) that runs **only** when an Apple
-Developer ID secret is supplied — its absence ships the unsigned / ad-hoc
-artifact and does **not** fail the phase. **No credential is committed** here or
+notarization (`notarytool`) → stapling is a **separate, credential-gated** CI step
+(ADR-0038 §4, Article XI) that runs **only** when an Apple Developer ID secret is
+supplied — its absence ships the unsigned / ad-hoc artifact and does **not** fail
+the phase; when the secret is configured and the step fails, the build is not green
+(constitution v1.5, Art. IX §2). **No credential is committed** here or
 anywhere; signing consumes GitHub secrets at CI time only. The macOS platform
 plugin is `cocoa` (+ offscreen for the CI smoke). Run **from the repo root**:
 
