@@ -175,11 +175,22 @@ jobs:
         # jobs so a packaged installer is built from the SAME resolved
         # numpy/Pillow/PySide6/pycrdt/websockets versions the test matrix
         # verified. Nuitka itself is a build-toolchain dep, not part of the
-        # project's dependency closure, so it is left unconstrained.
+        # project's dependency closure (and constraints.txt is a generated
+        # lock of that closure), so it is pinned HERE, by an exact `==`.
+        #
+        # EVERY package this step installs from an index carries an exact
+        # `==` pin (REQ-VI-BUILD-006; enforced by testing/suites/deploy/
+        # test_workflow_pip_pins.py). Why: with `pip install nuitka` unpinned,
+        # the 2026-10-12 run resolved Nuitka 4.3 on all three legs, and the
+        # frozen app then crashed at launch (exit 139, empty output) where the
+        # same source built with 4.2.2 printed its font line and exited 0. The
+        # 2026-09-25 runs that were green had resolved 4.2.2 (and pip 26.2.1).
+        # Moving either pin is a deliberate edit that a dispatch run must
+        # clear, not something an index change can do between two runs.
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip==26.2.1
           python -m pip install -c constraints.txt -e .
-          python -m pip install nuitka
+          python -m pip install nuitka==4.2.2
         # pyside6-deploy ships inside the PySide6 wheel (a project runtime dep);
         # pre-installing Nuitka keeps the build non-interactive & reproducible.
 

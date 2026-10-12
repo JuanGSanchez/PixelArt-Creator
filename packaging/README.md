@@ -218,6 +218,6 @@ plugin is `cocoa` (+ offscreen for the CI smoke). Run **from the repo root**:
 ### Shared settings (all three specs)
 
 - `[app] input_file = pixelart_creator/__main__.py` — the shipped GUI entry point.
-- `[python] packages = Nuitka==2.5.1` — pinned Nuitka backend for reproducibility.
+- `[python] packages = Nuitka` — names the Nuitka backend without a version, because pyside6-deploy discards a version written there. The pin is `nuitka==4.2.2` in `.github/workflows/build-installers.yml` (Nuitka 4.3 builds an app that crashes at launch).
 - `[qt] plugins = platforms,styles,imageformats,iconengines,platforminputcontexts` — bundled Qt plugins.
 - `[nuitka] extra_args` includes `--include-data-dir` lines for `i18n`, `fonts`, `icons`, `themes` and `userguide_content` (every runtime data directory; see "Fonts and themes" above), `--include-package-data=PySide6:translations/qtbase_es.qm` (ADR-0067 Part 4) so Qt's own base catalogue ships alongside the app's own `.qm` (Article V) — Nuitka's PySide plugin only auto-bundles Qt's translations for a QtWebEngine dependency, which this app does not have, so the file must be listed explicitly; see the spec header comments for the full reasoning — and `--nofollow-import-to=` for `sync_backend`, `web_viewer`, `tests`, `scripts`, `docs`, `pytest`, `hypothesis` (defence-in-depth mirroring the pyproject wheel `exclude`).

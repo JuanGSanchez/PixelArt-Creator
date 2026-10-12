@@ -12,7 +12,14 @@ icon = pixelart_creator/icons/app/pixelart-creator.png
 
 [python]
 python_path =
-packages = Nuitka==2.5.1
+# Nuitka is named here, NOT versioned: pyside6-deploy's python_helper.py
+# (install_dependencies) strips any `==<version>` from a Nuitka entry unless
+# `--nuitka-version` is passed on the command line, and then installs the name
+# only if Nuitka is absent -- so a version written here is never honoured and
+# only misleads. The pin that counts is `nuitka==4.2.2` in
+# .github/workflows/build-installers.yml (REQ-VI-BUILD-006); Nuitka 4.3 builds
+# an app that crashes at launch.
+packages = Nuitka
 
 [qt]
 qml_files =
