@@ -14,7 +14,7 @@
     "over_budget": []
   },
   "X.2-public-safe-scan": {
-    "examined": 18,
+    "examined": 22,
     "failed": 0,
     "vocabulary_import": "imported",
     "findings": []
@@ -31,38 +31,32 @@
     "missing": []
   },
   "X.5-capture-control": {
-    "examined": 2,
+    "examined": 1,
     "failed": 0
   },
   "X.5-text-render-control": {
-    "examined": 2,
+    "examined": 1,
     "failed": 0,
     "chosen_platform_text_render_ok": true,
     "per_platform": [
       {
         "platform": "native (unset)",
-        "font_families_count": 366,
-        "font_ink_ratio": 0.09409722222222222,
-        "text_render_ok": true
-      },
-      {
-        "platform": "offscreen",
-        "font_families_count": 230,
-        "font_ink_ratio": 0.09314236111111111,
+        "font_families_count": 367,
+        "font_ink_ratio": 0.08697916666666666,
         "text_render_ok": true
       }
     ]
   },
   "X.7-language-control": {
-    "examined": 1526,
+    "examined": 1514,
     "failed": 0,
     "findings": []
   },
   "X.8-font-control": {
     "examined": 1,
     "failed": 0,
-    "family_requested": "Segoe UI",
-    "family_effective": "Segoe UI",
+    "family_requested": "Nifen Art",
+    "family_effective": "Nifen Art",
     "family_available": true
   },
   "X.6-canvas-bounds": {

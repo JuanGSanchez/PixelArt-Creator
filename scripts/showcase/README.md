@@ -101,14 +101,15 @@ python scripts/showcase/generate_showcase.py check --readme-budget-png-bytes 100
 
 `screenshots` attempts native capture first (`QWidget.grab()`, the real
 window) and runs the C4 known-colour control before trusting it; on control
-failure it falls back to `QT_QPA_PLATFORM=offscreen` and controls again. As
-of this revision, native capture fails the control on every host tried — a
-diagnosed product defect (Qt's GL paint engine caches a texture on `QImage`
-identity, and the canvas's live-mutated `QImage` never receives a fresh one)
-— so every shipped screenshot is `offscreen`, disclosed per file in
+failure it falls back to `QT_QPA_PLATFORM=offscreen` and controls again. The
+platform every shipped screenshot came from is disclosed per file in
 `provenance.json`'s `qt_platform` field and in
-`docs/images/screenshots/capture-control.json`. This is never routed around
-by patching product state (HARD RULES).
+`docs/images/screenshots/capture-control.json`, together with the display
+configuration (screen count, device-pixel ratios, the product's art scale),
+the style and the mode. Earlier revisions fell back to `offscreen` because
+the GL viewport failed the control; with the raster viewport as the default
+the native capture passes it. A failing control is never routed around by
+patching product state (HARD RULES).
 
 ## Sub-commands
 
@@ -118,13 +119,17 @@ by patching product state (HARD RULES).
   own Python API, `pixelart-run` and `pixelart-export`.
 - `social` — composes the 1280x640 GitHub social preview: the app-icon pixel
   master (`pixelart_creator/icons/app/logo-master-64.png`, the Kikko Badge master, read-only, never
-  edited) upscaled with `scale_nearest`, the example art collaged in, and
+  edited) upscaled with `scale_nearest` and placed directly on the dark ground
+  (the master has its own pale field and transparent corners, so there is no
+  plate behind it), the example art collaged in, and
   `--tagline` drawn with an in-platform `set_pixel` font (no Qt/Pillow text
   rendering, no font-licence question).
 - `screenshots` — captures real application windows (native-first, offscreen
   fallback, per above), with the UI language forced to English and the
-  application font forced to the real Windows UI font before any capture, so
-  every shot is deterministic regardless of the host's system locale.
+  application's own interface font (Nifen Art, applied by `create_app`; the
+  font control X.8 checks it is the family in effect), so every shot is
+  deterministic regardless of the host's system locale. The shots show the
+  default style (Washi & Kintsugi) in Light, and the dark-canvas shot in Dark.
 - `check` — runs every X.1–X.8 check (THE CHECK CONTRACT) and prints
   `<check>: examined=<n> failed=<m>` for each; exits non-zero if any check
   failed or examined zero items. Writes `check-results.json` next to
