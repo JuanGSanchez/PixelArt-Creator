@@ -17,10 +17,11 @@ never by encoded bytes: re-encoded PNG bytes depend on the platform's zlib/libpn
 
 Controls (a comparison that cannot fail proves nothing):
 
-* the previous brand's ``logo-source-64.png`` (still in the folder, a different image) must
-  MISMATCH the Kikko member of the same size -- the comparator tells the two logos apart;
+* a stand-in for the previous brand's logo (a different 64 px image, drawn in this module so
+  the control needs no file from the icon folder) must MISMATCH the Kikko member of the same
+  size -- the comparator tells the two logos apart;
 * a planted state redirects the loader to a scratch directory whose ``app-icon-*.png`` files
-  are the previous brand's: every shown icon must then fail the comparison;
+  are that stand-in: every shown icon must then fail the comparison;
 * an About dialog whose icon is not a family member size (a scaled pixmap) is reported.
 
 Both modes: the suite's two-way ``theme`` fixture applies Light and Dark to the application
@@ -52,7 +53,13 @@ from testing.suites.ui.focus_helpers import image_array
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _APP_DIR = _REPO_ROOT / "pixelart_creator" / "icons" / "app"
-_OLD_BRAND = _APP_DIR / "logo-source-64.png"
+
+#: Side (px) of the stand-in for the previous brand's logo, and the colours it is drawn in.
+#: Neither colour occurs in any Kikko master (a test below proves it), so the stand-in cannot
+#: coincide with a family member by accident.
+_STAND_IN_SIDE = 64
+_STAND_IN_DISC = (17, 99, 201, 255)
+_STAND_IN_BAR = (233, 241, 17, 255)
 
 _GUIDE_LOGO_RESOURCE = "pac-logo.png"
 _GUIDE_TOPIC = "app-basics"
@@ -122,6 +129,23 @@ def _icon_problems(icon: QIcon, label: str) -> List[str]:
     return problems
 
 
+def _stand_in_previous_brand() -> np.ndarray:
+    """A 64 px RGBA image that is not the Kikko Badge: a blue disc crossed by a yellow bar.
+
+    Drawn here, not read from the icon folder: the control must hold whether or not any
+    other logo file sits beside the five masters.
+    """
+    side = _STAND_IN_SIDE
+    ys, xs = np.mgrid[0:side, 0:side]
+    centre = (side - 1) / 2
+    disc = (xs - centre) ** 2 + (ys - centre) ** 2 <= (side * 0.42) ** 2
+    bar = disc & (abs(ys - centre) <= side * 0.08)
+    image = np.zeros((side, side, 4), dtype=np.uint8)
+    image[disc] = _STAND_IN_DISC
+    image[bar] = _STAND_IN_BAR
+    return image
+
+
 # --------------------------------------------------------------------------- #
 # The family itself                                                            #
 # --------------------------------------------------------------------------- #
@@ -137,10 +161,32 @@ def test_the_runtime_sizes_are_unchanged_and_each_is_a_family_member():
     )
 
 
+def test_the_stand_in_shares_no_colour_with_any_kikko_master():
+    """Control for the control: the stand-in's two colours occur in no master.
+
+    Computed fresh from the committed masters, so a retouched master that began to use
+    one of them would be reported here rather than silently weakening the comparison.
+    """
+    masters = derive_app_icons.load_masters(_APP_DIR)
+    used = {
+        tuple(int(c) for c in pixel)
+        for image in masters.values()
+        for pixel in np.array(image.convert("RGBA")).reshape(-1, 4)
+        if pixel[3] > 0
+    }
+    drawn = {
+        tuple(int(c) for c in pixel)
+        for pixel in _stand_in_previous_brand().reshape(-1, 4)
+        if pixel[3] > 0
+    }
+    print(f"stand-in colours {sorted(drawn)}; {len(used)} distinct master colours")
+    assert drawn == {_STAND_IN_DISC, _STAND_IN_BAR}
+    assert drawn.isdisjoint(used)
+
+
 def test_the_comparator_tells_the_kikko_badge_from_the_previous_brand():
-    """Control: the previous brand's 64 px logo is NOT pixel-equal to the Kikko member."""
-    with Image.open(_OLD_BRAND) as old:
-        previous = np.array(old.convert("RGBA"))
+    """Control: a stand-in for the previous brand's 64 px logo is NOT pixel-equal to Kikko."""
+    previous = _stand_in_previous_brand()
     kikko = _member(64)
     assert previous.shape == kikko.shape
     why = _differences(previous, kikko)
@@ -232,15 +278,14 @@ def test_sc_vi_ui_018_1_the_guide_logo_is_the_128_px_kikko_badge_member(qtbot):
 
 
 def _scratch_with_previous_brand(tmp_path: Path) -> Path:
-    """A scratch icon folder whose every runtime member is the previous brand's logo."""
+    """A scratch icon folder whose every runtime member is the stand-in logo."""
     scratch = tmp_path / "previous-brand-icons"
     scratch.mkdir()
-    with Image.open(_OLD_BRAND) as old:
-        base = old.convert("RGBA")
-        for size in RUNTIME_ICON_SIZES_PX:
-            base.resize((size, size), Image.Resampling.NEAREST).save(
-                scratch / f"app-icon-{size}.png"
-            )
+    base = Image.fromarray(_stand_in_previous_brand(), "RGBA")
+    for size in RUNTIME_ICON_SIZES_PX:
+        base.resize((size, size), Image.Resampling.NEAREST).save(
+            scratch / f"app-icon-{size}.png"
+        )
     return scratch
 
 

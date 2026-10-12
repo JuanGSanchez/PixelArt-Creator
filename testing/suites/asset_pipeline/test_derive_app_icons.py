@@ -24,6 +24,8 @@ Scenarios covered (one group each):
 * SC-VI-BUILD-010-1 (PNG half) - the committed PNGs carry only critical chunks
   and no attribution or internal vocabulary; a planted violation is reported.
 * REQ-VI-UI-018 (data half) - the runtime sizes the app loads are family members.
+* The icon folder holds the five masters and the derived members and nothing else,
+  and the wheel's package data names only the eight runtime members.
 
 The anti-resample signal: every derived member's distinct RGBA colours must be a
 subset of the UNION of the five masters' own colours (plus fully transparent).
@@ -41,10 +43,12 @@ for the masters' pinned sha256 (a master is copied verbatim, never re-encoded).
 from __future__ import annotations
 
 import configparser
+import fnmatch
 import hashlib
 import re
 import shutil
 import struct
+import tomllib
 import zlib
 from pathlib import Path
 from typing import Dict, FrozenSet, List, Tuple
@@ -823,8 +827,9 @@ def _committed_pngs() -> List[Path]:
     paths = [_master_path(s) for s in derive_app_icons.MASTER_SIZES]
     paths += [_APP_ICON_DIR / m.name for m in derive_app_icons.APP_DIR_MEMBERS]
     paths.append(_FAVICON)
-    paths.append(_APP_ICON_DIR / "logo-source-64.png")
-    return [p for p in paths if p.is_file()]
+    # Whatever else sits in the icon folder is scanned too, under whatever name.
+    paths += _APP_ICON_DIR.glob("*.png")
+    return sorted({p for p in paths if p.is_file()})
 
 
 def test_committed_pngs_carry_only_critical_chunks_and_no_forbidden_text():
@@ -986,3 +991,125 @@ def test_both_readmes_show_the_logo_above_the_h1():
         assert Path(target).name in {
             m.name for m in derive_app_icons.ALL_MEMBERS
         }, f"{filename}: {target!r} is not a derived family member"
+
+
+# --------------------------------------------------------------------------- #
+# The folder holds the five masters and the derived members, nothing else.    #
+# --------------------------------------------------------------------------- #
+
+#: The name the retired single master carried. It is named here only to be looked for.
+_PREVIOUS_MASTER = "logo-source-64.png"
+
+#: The eight members the application loads at run time (``RUNTIME_ICON_SIZES_PX``,
+#: pinned by ``testing/suites/ui/test_app_icon_kikko.py``); package data lists
+#: exactly these.
+_RUNTIME_PACKAGE_DATA = tuple(
+    f"icons/app/app-icon-{size}.png" for size in (16, 24, 32, 48, 64, 128, 256, 512)
+)
+
+
+def _expected_folder_names() -> FrozenSet[str]:
+    """Every file name the icon folder may hold (masters, members, containers)."""
+    return frozenset(
+        [derive_app_icons.master_name(s) for s in derive_app_icons.MASTER_SIZES]
+        + [m.name for m in derive_app_icons.APP_DIR_MEMBERS]
+        + [
+            derive_app_icons.ICO_NAME,
+            derive_app_icons.ICNS_NAME,
+            derive_app_icons.CONSTRUCTION_TABLE_NAME,
+        ]
+    )
+
+
+def _folder_problems(folder: Path) -> List[str]:
+    """Names in ``folder`` that do not belong, and names that belong but are absent."""
+    expected = _expected_folder_names()
+    present = {p.name for p in folder.iterdir()}
+    return [f"unexpected: {n}" for n in sorted(present - expected)] + [
+        f"missing: {n}" for n in sorted(expected - present)
+    ]
+
+
+def _icon_package_data() -> List[str]:
+    """The ``icons/app/`` entries of the committed ``package-data`` table."""
+    with open(REPO_ROOT / "pyproject.toml", "rb") as fh:
+        data = tomllib.load(fh)
+    globs = data["tool"]["setuptools"]["package-data"]["pixelart_creator"]
+    return [g for g in globs if g.startswith("icons/app/")]
+
+
+def _package_data_problems(entries: List[str]) -> List[str]:
+    """Why ``entries`` is not the eight runtime members, or pulls in a master."""
+    problems = [
+        f"unexpected entry: {e}" for e in entries if e not in _RUNTIME_PACKAGE_DATA
+    ]
+    problems += [
+        f"missing entry: {e}" for e in _RUNTIME_PACKAGE_DATA if e not in entries
+    ]
+    # Whatever the entries are, none may match a master or the retired single master.
+    names = [derive_app_icons.master_name(s) for s in derive_app_icons.MASTER_SIZES]
+    for name in names + [_PREVIOUS_MASTER]:
+        for entry in entries:
+            if fnmatch.fnmatchcase(f"icons/app/{name}", entry):
+                problems.append(f"{entry} matches {name}")
+    return problems
+
+
+def test_the_icon_folder_holds_only_the_five_masters_and_the_derived_members():
+    """The committed icon folder: five masters, the derived members, nothing else."""
+    problems = _folder_problems(_APP_ICON_DIR)
+    print(
+        f"{len(list(_APP_ICON_DIR.iterdir()))} files in the folder, "
+        f"{len(_expected_folder_names())} allowed, {len(problems)} problem(s)"
+    )
+    assert problems == [], problems
+
+
+def test_the_folder_check_flags_a_stray_file_and_a_missing_member(tmp_path):
+    """Control: the folder check reports a planted stray and a removed member.
+
+    Works on a COPY of the icon folder under ``tmp_path``. The first step removes from
+    the copy whatever the check reports as unexpected -- the committed folder after the
+    previous master is gone -- and the check must then come back clean.
+    """
+    scratch = tmp_path / "icons_app"
+    shutil.copytree(_APP_ICON_DIR, scratch)
+    # Normalise the copy first, so the control starts from a known state.
+    for problem in _folder_problems(scratch):
+        if problem.startswith("unexpected: "):
+            (scratch / problem.removeprefix("unexpected: ")).unlink()
+    assert _folder_problems(scratch) == []
+
+    shutil.copyfile(_master_path(64), scratch / _PREVIOUS_MASTER)
+    assert _folder_problems(scratch) == [f"unexpected: {_PREVIOUS_MASTER}"]
+    (scratch / _PREVIOUS_MASTER).unlink()
+
+    victim = derive_app_icons.APP_DIR_MEMBERS[0].name
+    (scratch / victim).unlink()
+    assert _folder_problems(scratch) == [f"missing: {victim}"]
+
+
+def test_the_wheel_package_data_names_only_the_eight_runtime_members():
+    """The wheel ships ``app-icon-<size>.png`` for the eight runtime sizes only."""
+    entries = _icon_package_data()
+    problems = _package_data_problems(entries)
+    print(f"{len(entries)} icons/app package-data entries, {len(problems)} problem(s)")
+    assert len(entries) == len(_RUNTIME_PACKAGE_DATA)
+    assert problems == [], problems
+    for entry in entries:
+        assert (REPO_ROOT / "pixelart_creator" / entry).is_file(), entry
+
+
+def test_the_package_data_check_flags_a_wildcard_an_extra_entry_and_a_missing_one():
+    """Control: a wildcard, a named old master and a dropped member are reported."""
+    good = list(_RUNTIME_PACKAGE_DATA)
+    assert _package_data_problems(good) == []
+    wildcard = good + ["icons/app/*.png"]
+    found = _package_data_problems(wildcard)
+    assert "unexpected entry: icons/app/*.png" in found, found
+    assert any(
+        "icons/app/*.png matches" in p and _PREVIOUS_MASTER in p for p in found
+    ), found
+    named = good + [f"icons/app/{_PREVIOUS_MASTER}"]
+    assert any(_PREVIOUS_MASTER in p for p in _package_data_problems(named))
+    assert _package_data_problems(good[1:]) == [f"missing entry: {good[0]}"]
