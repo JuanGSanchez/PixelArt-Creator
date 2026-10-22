@@ -189,7 +189,11 @@ jobs:
     # variance (Windows/macOS runners vary). The per-test --timeout below (120s,
     # thread) is the fine-grained guard that fails fast and names a genuinely hung
     # test; this job cap is only the coarse backstop (FU-12).
-    timeout-minutes: 75
+    # Raised 75 -> 100 (maintainer ruling 2026-10-12): the Windows leg's pytest
+    # grew to about 70 minutes, which left no headroom under 75. The cap stays a
+    # runaway guard ONLY; the per-test --timeout and every quality gate are
+    # unchanged.
+    timeout-minutes: 100
     # Run every step under bash on ALL three OSes so the SAME pytest invocation
     # (with `\` line continuations) executes identically — the Windows default
     # shell (pwsh) would otherwise break the multi-line command (portability).

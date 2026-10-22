@@ -103,7 +103,7 @@ EXPECTED_QUALITY_GATE_OS_LIST_OTHER_TRIGGERS = ["windows-latest"]
 # carry no longer exists (the flat matrix has no per-leg key to hang it on);
 # its replacement is this ONE job-level wall-clock cap, asserted separately
 # below so that coverage is not silently lost in the revert.
-EXPECTED_QUALITY_GATE_JOB_TIMEOUT_MINUTES = 75
+EXPECTED_QUALITY_GATE_JOB_TIMEOUT_MINUTES = 100
 
 
 def _load_ci_yaml() -> dict:
