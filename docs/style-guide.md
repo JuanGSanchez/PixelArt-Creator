@@ -482,10 +482,17 @@ f044120628670a960f0b0c537e0570ca613bc21db8ad10fd5855a8c308310db6  logo-master-24
 - **Method (figures in this guide).** The figures are rendered from the
   committed templates and masters by integer replication and written by the
   application's PNG encoder, with no text chunks and no effects.
-- **No third-party source was opened.** No third-party pixel art, game asset,
-  tool theme, font outline or logo was copied, traced or adapted: not for the
-  frames, the ornaments, the patterns, the typeface or the logo, and not the
-  pixels of any existing mark.
+- **One third-party source was adapted: the hiragana of the typeface.** The 89
+  hiragana of Nifen Art (U+3041-U+3096 and U+309D-U+309F) are adapted from the
+  12 px monospaced Japanese variant of Ark Pixel Font, version 2026.09.25
+  (Copyright (c) 2021, TakWolf; SIL Open Font License 1.1, no Reserved Font
+  Name). The donor drawings are kept pixel for pixel apart from a move of one
+  row and one corner pixel in 4 letters; the Bold weight is derived by this
+  typeface's own rule. Everything else is original to this project: the other
+  glyphs of the typeface (including the katakana and the spacing voiced marks),
+  and the frames, the ornaments, the patterns and the logo. No other
+  third-party pixel art, game asset, tool theme, font outline or logo was
+  copied, traced or adapted, and not the pixels of any existing mark.
 - **Inspirations are described in words only.** Washi (handmade paper) and
   kintsugi (gold lacquer mending) for Washi & Kintsugi; Edo-period night, the
   tomoe and the double rule of a light line on a dark field for Edo Night; the
