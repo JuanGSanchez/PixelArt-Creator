@@ -33,7 +33,7 @@ from __future__ import annotations
 import pytest
 from PySide6.QtCore import QObject, QPoint, Qt
 from PySide6.QtGui import QContextMenuEvent, QUndoStack
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QWidget
 
 from pixelart_creator.logic.constants import MAX_LAYERS_PER_FRAME
 from pixelart_creator.logic.document import Document, DocumentError
@@ -41,6 +41,7 @@ from pixelart_creator.logic.palette import Palette
 from pixelart_creator.logic.track_table import EMPTY_CELL, track_table
 from pixelart_creator.ui.timeline_grid_view import Timeline_Grid_View
 from pixelart_creator.ui.timeline_panel import Timeline_Panel
+from testing.suites.ui.conftest import release_latched_modifiers
 
 STARTER = [(0, 0, 0, 255), (255, 255, 255, 255), (230, 30, 30, 255), (10, 200, 10, 255)]
 
@@ -1193,3 +1194,86 @@ def test_clicked_signal_with_invalid_index_is_a_safe_no_op(qtbot):
 
     assert frame_events == []
     assert layer_events == []
+
+
+# --------------------------------------------------------------------------- #
+# A latched keyboard modifier must not leak between tests (CI run 39849201731) #
+# --------------------------------------------------------------------------- #
+
+
+def test_a_qtest_event_sent_with_ctrl_leaves_ctrl_latched_for_the_next_reader(qtbot):
+    """Mechanism control, and the leaking half of the pair below.
+
+    ``QApplication.keyboardModifiers()`` is the modifier set of the last mouse or
+    key event the application processed, so a ``QTest`` event sent WITH Ctrl keeps
+    reporting Ctrl once the gesture is over. This proves the instrument sees it
+    (the Ctrl drag tests above all end this way), then leaves it latched ON PURPOSE
+    for the next test in file order -- the autouse ``_no_latched_modifiers``
+    fixture must clear it, which the test right below checks. Under ``-n`` the
+    two may land on different workers, in which case the second proves nothing and
+    cannot fail; the pair is conclusive in file order, which is what the
+    revert-and-rerun proof uses."""
+    doc, _outline_track_id = _empty_cell_doc()
+    _panel, grid, _stack = _make_panel(qtbot, doc)
+    assert QApplication.keyboardModifiers() == Qt.KeyboardModifier.NoModifier
+
+    qtbot.mouseClick(
+        grid.viewport(),
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.ControlModifier,
+        pos=_cell_center(grid, 0, 0),
+    )
+
+    assert QApplication.keyboardModifiers() == Qt.KeyboardModifier.ControlModifier
+
+
+def test_a_ctrl_latched_by_the_previous_test_does_not_suppress_the_create_cel_menu(
+    qtbot, monkeypatch
+):
+    """The victim half of the pair above, and the exact CI failure.
+
+    The previous test ends with Ctrl latched. ``Timeline_Grid_View`` reads
+    ``QApplication.keyboardModifiers()`` on a context-menu request and treats Ctrl
+    as the remove-frame gesture, so a leaked Ctrl builds NO menu and the
+    "Create Cel Here" affordance silently vanishes (``IndexError`` on the fake
+    menu in the two ``*_at_trigger_time_*`` tests below). With the fixture in place
+    no modifier is held at the start of the test and the menu is built."""
+    assert QApplication.keyboardModifiers() == Qt.KeyboardModifier.NoModifier
+    doc, _outline_track_id = _empty_cell_doc()
+    _panel, grid, _stack = _make_panel(qtbot, doc)
+    table = track_table(doc, active_frame=0)
+    outline_row = next(i for i, r in enumerate(table.rows) if r.label == "Outline")
+
+    _FakeMenu.instances.clear()
+    monkeypatch.setattr("pixelart_creator.ui.timeline_grid_view.QMenu", _FakeMenu)
+    pos = _cell_center(grid, outline_row, 1)
+    _request_context_menu(grid.viewport(), pos, reason=QContextMenuEvent.Reason.Mouse)
+
+    assert _FakeMenu.instances, "no context menu was built: a modifier is latched"
+    assert len(_FakeMenu.instances[-1].actions()) == 1
+
+
+def test_release_latched_modifiers_clears_ctrl_shift_alt_from_mouse_and_key_events(
+    qtbot,
+):
+    """The helper behind the fixture clears what each kind of ``QTest`` event
+    latched -- a positive control first (the modifier IS held), then the release.
+    Run on a widget of its own so it does not depend on any fixture state."""
+    widget = QWidget()
+    qtbot.addWidget(widget)
+    widget.resize(60, 60)
+    widget.show()
+    qtbot.waitExposed(widget)
+    ctrl = Qt.KeyboardModifier.ControlModifier
+    shift_alt = Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.AltModifier
+    for latch in (
+        lambda: qtbot.mouseClick(widget, Qt.MouseButton.LeftButton, ctrl),
+        lambda: qtbot.mouseClick(widget, Qt.MouseButton.LeftButton, shift_alt),
+        lambda: qtbot.keyClick(widget, Qt.Key.Key_Z, ctrl),
+    ):
+        latch()
+        assert QApplication.keyboardModifiers() != Qt.KeyboardModifier.NoModifier
+
+        release_latched_modifiers()
+
+        assert QApplication.keyboardModifiers() == Qt.KeyboardModifier.NoModifier

@@ -26,8 +26,11 @@ from PySide6.QtCore import (  # noqa: E402
     QLocale,
     QSettings,
     QStandardPaths,
+    Qt,
 )
 from PySide6.QtGui import QUndoStack  # noqa: E402
+from PySide6.QtTest import QTest  # noqa: E402
+from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 
 # Pin the *system* locale to English for the whole UI suite so the tests run
 # identically in CI and on any developer machine (F11 / portability). Qt reads
@@ -631,6 +634,70 @@ def _drain_prewarm_after_test():
     # deleted and the caches released, the heap stays bounded, so this collect stays
     # cheap and the per-test teardown cost stays flat across the 2452-test suite.
     gc.collect()
+
+
+def release_latched_modifiers(*, verify: bool = True) -> None:
+    """Release any keyboard modifier Qt still reports as held; raise if it stays held.
+
+    ``QApplication.keyboardModifiers()`` is not the state of a keyboard: it is the
+    modifier set carried by the LAST mouse or key event the application processed,
+    and it stays that way until another such event arrives. A ``QTest`` mouse or key
+    event sent with a modifier -- ``qtbot.mouseRelease(..., ControlModifier, ...)``,
+    ``qtbot.keyClick(w, Key_Z, ControlModifier)`` -- therefore leaves it latched after
+    the gesture is over, on the offscreen platform, on Windows and on Linux alike
+    (measured). ``sendEvent(QContextMenuEvent)`` and a direct handler call do NOT
+    refresh it, so a later test that reads the modifiers without sending its own
+    modified-or-unmodified mouse/key event first sees the previous test's Ctrl.
+    ``Timeline_Grid_View._on_context_menu_requested`` is exactly such a reader (Ctrl
+    + right-click removes a frame, so it builds no menu): on CI run 39849201731 the
+    four "create cel" context-menu tests failed on one xdist worker because a Ctrl
+    drag test had run on that worker just before them.
+
+    Releasing Control with ``NoModifier`` is the one event that clears every latched
+    modifier (measured for Ctrl and for Shift+Alt, set by mouse and by key events), and
+    a fresh unshown widget is enough to deliver it. With ``verify`` (the default) the
+    release is skipped when nothing is held and the post-condition is asserted: a
+    platform where the release does not take effect must fail loudly here rather than
+    hand the next test a modifier it did not ask for.
+
+    ``verify=False`` sends the release unconditionally and asserts nothing. It is for
+    a TEARDOWN, where ``QApplication.keyboardModifiers`` cannot be trusted: a test may
+    have replaced it with a fake that reports Ctrl (``test_input_scheme_frames.py``
+    does, to drive Ctrl+right-click) and its ``monkeypatch`` is undone only AFTER this
+    fixture's teardown, because an earlier autouse fixture also requests it. The real
+    state is released all the same; the next test's setup then verifies it.
+    """
+    if QApplication.instance() is None:
+        return
+    if verify and QApplication.keyboardModifiers() == Qt.KeyboardModifier.NoModifier:
+        return
+    QTest.keyRelease(QWidget(), Qt.Key.Key_Control, Qt.KeyboardModifier.NoModifier)
+    if verify:
+        held = QApplication.keyboardModifiers()
+        assert (
+            held == Qt.KeyboardModifier.NoModifier
+        ), f"a keyboard modifier is still reported as held after releasing it: {held!r}"
+
+
+@pytest.fixture(autouse=True)
+def _no_latched_modifiers() -> Iterator[None]:
+    """Start and end every UI test with no keyboard modifier latched (autouse).
+
+    Before: a predecessor on the same xdist worker -- from ANY module, scheduling
+    decides which -- may have ended on a modified ``QTest`` event. After: this test
+    must not leak its own into whatever runs next, in or out of this directory.
+    See :func:`release_latched_modifiers` for the mechanism and the evidence.
+
+    It requests NO ``qapp`` on purpose. Autouse fixtures are ordered by NAME, and this
+    one sorts before ``_settings_store_session``: a ``qapp`` dependency here would
+    build the ``QApplication`` ahead of the ``QSettings`` redirect and fail
+    ``test_req_vi_ui_002_redirect_was_applied_before_any_qapplication`` (measured).
+    Without one, a process that has no application yet has no modifier to release and
+    the helper returns; every later test finds the application ``theme`` built.
+    """
+    release_latched_modifiers()
+    yield
+    release_latched_modifiers(verify=False)
 
 
 @pytest.fixture(scope="session", autouse=True)
