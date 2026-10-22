@@ -1429,3 +1429,65 @@ def test_the_platform_font_directory_is_one_the_child_can_use():
     assert folder == "" or Path(folder).is_dir()
     if os.name == "nt":
         assert folder, "SystemRoot is not set: the child would see no system font"
+
+
+# --------------------------------------------------------------------------- #
+# The combo box's point-sized font (the "Point size <= 0" warning, OF7 ruling)   #
+# --------------------------------------------------------------------------- #
+
+_COMBO_FONT_CHILD = """
+from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QFontInfo
+from pixelart_creator.ui.theme import DEFAULT_STYLE, THEME_LIGHT, apply_theme
+style = @STYLE@
+app_font._platform["style"] = style      # what capture_platform_font read at launch
+def state():
+    f = QApplication.font("QComboBox")
+    return dict(
+        point=f.pointSizeF(), px_resolved=QFontInfo(f).pixelSize(),
+        family=f.family(), app_family=QApplication.font().family(),
+        platform_family=app_font.platform_default_font().family(),
+        platform_point=app_font.platform_default_font().pointSizeF(),
+        platform_px=app_font.platform_default_font().pixelSize(),
+    )
+app_font.prepare_interface_font(app, False)
+nifen = state()
+apply_theme(app, THEME_LIGHT, DEFAULT_STYLE)
+after_sheet = state()
+app_font.ensure_interface_font(app, False)
+ensured = state()
+app_font.apply_interface_font(app, True)
+system = state()
+out(style=style, nifen=nifen, after_sheet=after_sheet, ensured=ensured, system=system)
+"""
+
+
+def test_the_combo_box_gets_a_point_sized_interface_font(tmp_path: Path):
+    """On the ``windows11`` style a combo box gets Nifen Art in POINTS, same pixels.
+
+    Qt's ``windows11`` style reads ``widget.font().pointSize()`` for a combo box,
+    which is ``-1`` for a pixel-sized font and made Qt print ``QFont::setPointSize:
+    Point size <= 0 (-1)``. This is the unit-level half of that fix, and it runs
+    on every platform because it forces the style name the product captured
+    (``app_font._platform["style"]``) in a child process; whether Qt itself still
+    prints the warning is ``test_point_size_warning.py`` (native Windows only).
+
+    Checked: a positive point size that resolves to the interface font's own pixel
+    size (12 px), the same family, kept after a style sheet and
+    :func:`ensure_interface_font`, and equal to the platform font for "Use system
+    font". The control: on any other style (``fusion``) the class font is left
+    alone (still pixel-sized), so the entry is not set where it is not needed.
+    """
+    fixed = run_child(_COMBO_FONT_CHILD.replace("@STYLE@", repr("windows11")), tmp_path)
+    nifen, ensured, system = fixed["nifen"], fixed["ensured"], fixed["system"]
+    assert nifen["point"] > 0, nifen
+    assert nifen["px_resolved"] == EM, nifen
+    assert nifen["family"] == NIFEN == nifen["app_family"], nifen
+    assert ensured["point"] > 0 and ensured["px_resolved"] == EM, fixed
+    assert ensured["family"] == NIFEN, ensured
+    assert system["family"] == system["platform_family"], system
+    assert system["point"] == system["platform_point"], system
+    other = run_child(_COMBO_FONT_CHILD.replace("@STYLE@", repr("fusion")), tmp_path)
+    assert other["nifen"]["point"] <= 0, other["nifen"]
+    assert other["nifen"]["px_resolved"] == EM, other["nifen"]
+    assert other["nifen"]["family"] == NIFEN, other["nifen"]

@@ -29,6 +29,15 @@ around every glyph. Applying the font after the style sheet, and checking it
 again after each theme change, keeps those entries cleared. The check is
 :func:`ensure_interface_font`.
 
+Why combo boxes get a point-sized copy of the interface font on Windows 11. Qt's
+``windows11`` style sizes the drop-down arrow and the popup of a combo box from
+``widget.font().pointSize()``. The interface font is set by pixel size, so that
+is ``-1`` and Qt reports ``QFont::setPointSize: Point size <= 0 (-1)`` the first
+time a combo box is measured or opened. :func:`_combo_point_font` hands
+``QComboBox`` a font that is the same font at the same size in points, which
+resolves to the same pixel size, so nothing is drawn differently and Qt is given
+a size it can use.
+
 The module binds to no domain logic (S11): it is Qt font plumbing only.
 """
 
@@ -97,10 +106,15 @@ _PLATFORM_CLASS_FONTS: Final[Tuple[str, ...]] = (
     "QComboMenuItem",
 )
 
+#: The class Qt's ``windows11`` style reads a point size from (see the module
+#: docstring), and the name that style reports.
+_COMBO_CLASS: Final[str] = "QComboBox"
+_WINDOWS11_STYLE: Final[str] = "windows11"
+
 #: Registered application-font ids, in :data:`_FONT_FILES` order.
 _registered_ids: List[int] = []
 #: The platform's default font and per-class fonts, captured once.
-_platform: Dict[str, object] = {"font": None, "classes": None}
+_platform: Dict[str, object] = {"font": None, "classes": None, "style": None}
 _substitutions_installed = False
 
 
@@ -171,6 +185,7 @@ def capture_platform_font() -> QFont:
     if _platform["font"] is None:
         font = QApplication.font()
         _platform["font"] = QFont(font)
+        _platform["style"] = QApplication.style().objectName()
         classes: Dict[str, QFont] = {}
         for name in _PLATFORM_CLASS_FONTS:
             class_font = _class_font(name)
@@ -223,6 +238,38 @@ def _target_font(use_system_font: bool) -> QFont:
     return interface_font()
 
 
+def _combo_needs_point_font() -> bool:
+    """Return whether the platform style needs a point size for combo boxes.
+
+    True when the style the application started with was Qt's ``windows11``
+    style (read once, before a style sheet wraps it). Every other style leaves
+    the interface font exactly as it is.
+    """
+    return _platform["style"] == _WINDOWS11_STYLE
+
+
+def _combo_point_font() -> QFont:
+    """Return the interface font with its size expressed in points.
+
+    The point size is what :class:`QFontInfo` reports for the pixel-sized
+    interface font, so it resolves back to the same pixel size; family, style
+    strategy and hinting are the interface font's own.
+    """
+    font = interface_font()
+    font.setPointSizeF(QFontInfo(font).pointSizeF())
+    return font
+
+
+def _set_combo_font(app: QApplication, font: QFont) -> None:
+    """Give combo boxes ``font`` (the class name is ``str`` at run time)."""
+    app.setFont(font, _COMBO_CLASS)  # type: ignore[arg-type]
+
+
+def _combo_font_in_place() -> bool:
+    """Return whether combo boxes already get the point-sized interface font."""
+    return _class_font(_COMBO_CLASS).pointSizeF() > 0
+
+
 def apply_interface_font(app: QApplication, use_system_font: bool) -> str:
     """Apply the interface font (or the platform font) to the whole application.
 
@@ -239,6 +286,10 @@ def apply_interface_font(app: QApplication, use_system_font: bool) -> str:
         if isinstance(classes, dict):
             for name, class_font in classes.items():
                 app.setFont(class_font, name)
+        if _combo_needs_point_font():
+            _set_combo_font(app, font)
+    elif _combo_needs_point_font():
+        _set_combo_font(app, _combo_point_font())
     # Widgets that already exist keep the font the style sheet gave them when it
     # was installed; setting the same sheet again re-resolves their fonts from
     # the (now clean) per-class table.
@@ -281,6 +332,13 @@ def ensure_interface_font(app: QApplication, use_system_font: bool) -> None:
         apply_interface_font(app, use_system_font)
         return
     if wanted != platform_default_font() and not _class_fonts_follow_application():
+        apply_interface_font(app, use_system_font)
+        return
+    if (
+        wanted != platform_default_font()
+        and _combo_needs_point_font()
+        and not _combo_font_in_place()
+    ):
         apply_interface_font(app, use_system_font)
 
 
