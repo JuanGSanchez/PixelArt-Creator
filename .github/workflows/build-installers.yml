@@ -43,6 +43,21 @@ permissions:
 env:
   QT_QPA_PLATFORM: offscreen        # headless Qt smoke-launch (F11)
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  # THE ONE PLACE the frozen-binary toolchain versions are written. The install
+  # step installs `nuitka==${NUITKA_PIN}` and the drift-guard step right after
+  # it asserts the INSTALLED version equals this value, so the two cannot
+  # disagree; testing/suites/deploy/test_workflow_pip_pins.py fails if either
+  # stops referencing the variable, if a literal version appears beside them,
+  # or if the guard step is removed. Moving a pin is a deliberate edit that a
+  # dispatch run must clear (Nuitka 4.3 built an app that segfaults at launch:
+  # run 38187303442, 2026-10-12; 4.2.2 is the version that run 38225872233
+  # proved on all three OS).
+  NUITKA_PIN: "4.2.2"
+  # pyside6-deploy pip-installs an UNVERSIONED `patchelf` on the Linux leg when
+  # no `patchelf` Python package is present (measured in run 38225872233:
+  # "Collecting patchelf" -> patchelf-0.19.1.0), so the install step installs
+  # this exact version first and pyside6-deploy then finds it already present.
+  PATCHELF_PIN: "0.19.1.0"
 
 jobs:
   # ===========================================================================
@@ -190,9 +205,44 @@ jobs:
         run: |
           python -m pip install --upgrade pip==26.2.1
           python -m pip install -c constraints.txt -e .
-          python -m pip install nuitka==4.2.2
+          python -m pip install "nuitka==${NUITKA_PIN}"
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            python -m pip install "patchelf==${PATCHELF_PIN}"
+          fi
         # pyside6-deploy ships inside the PySide6 wheel (a project runtime dep);
         # pre-installing Nuitka keeps the build non-interactive & reproducible.
+
+      # Runtime drift guard (user ruling 2026-10-22: a toolchain change must be
+      # impossible to miss). The `==` pin above is only a request to pip; this
+      # step asserts what pip actually LEFT INSTALLED, so a resolver or
+      # transitive install that moved Nuitka (or patchelf) fails the leg HERE,
+      # by name, instead of surfacing as a segfaulting frozen app ten minutes
+      # and one compile later. No `if:`, no `continue-on-error`: it runs on
+      # every leg, and the static test refuses a guard that can be skipped.
+      - name: Verify the pinned build toolchain (drift guard)
+        run: |
+          nuitka_installed="$(python -c "from importlib.metadata import version; print(version('nuitka'))" 2>/dev/null)" || nuitka_installed="(not installed)"
+          if [ "${nuitka_installed}" != "${NUITKA_PIN}" ]; then
+            echo "::error::TOOLCHAIN DRIFT GUARD: the installed Nuitka is ${nuitka_installed} but this workflow pins ${NUITKA_PIN} (env NUITKA_PIN). A frozen app built with an unproven Nuitka is not shippable. Move the pin only deliberately, with a dispatch run that clears it."
+            exit 1
+          fi
+          nuitka_cli="$(python -m nuitka --version | tr -d '\r' | sed -n 1p)"
+          if [ "${nuitka_cli}" != "${NUITKA_PIN}" ]; then
+            echo "::error::TOOLCHAIN DRIFT GUARD: 'python -m nuitka --version' reports ${nuitka_cli}, expected ${NUITKA_PIN} (env NUITKA_PIN)."
+            exit 1
+          fi
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            patchelf_installed="$(python -c "from importlib.metadata import version; print(version('patchelf'))" 2>/dev/null)" || patchelf_installed="(not installed)"
+            if [ "${patchelf_installed}" != "${PATCHELF_PIN}" ]; then
+              echo "::error::TOOLCHAIN DRIFT GUARD: the installed patchelf is ${patchelf_installed} but this workflow pins ${PATCHELF_PIN} (env PATCHELF_PIN)."
+              exit 1
+            fi
+          fi
+          echo "toolchain drift guard OK: nuitka ${nuitka_installed} == NUITKA_PIN"
+          # Record the rest of the build-relevant toolchain in the log, so a
+          # drift in any of it shows up in a diff of two runs even where it is
+          # not asserted. Informational: grep finding nothing is not an error.
+          python -m pip list --format=freeze | grep -i -E '^(nuitka|patchelf|zstandard|ordered-set|pyside6|pyside6-addons|pyside6-essentials|shiboken6|pip|setuptools|wheel)==' || true
 
       # ---------------- Windows leg (BUILD-002): onefile .exe --------
       - name: Build Windows .exe (pyside6-deploy / Nuitka onefile)
@@ -217,6 +267,29 @@ jobs:
           pyside6-deploy -c packaging/pysidedeploy-windows.spec --force --keep-deployment-files
           mkdir -p artifact
           cp dist/PixelArtCreator.exe "artifact/PixelArtCreator-windows.exe"
+
+      - name: Verify the pinned build toolchain after the build (Windows)
+        if: runner.os == 'Windows'
+        # The drift guard above, REPEATED after the freeze (user ruling
+        # 2026-10-22: the pin must hold for the compile itself, not only at
+        # install time). pyside6-deploy can pip-install or replace Nuitka (or,
+        # on Linux, patchelf) while it builds, which would leave the version
+        # checked above different from the one that made the binary. The `if:`
+        # is the build step's own, so no leg that froze the app can skip this.
+        run: |
+          nuitka_installed="$(python -c "from importlib.metadata import version; print(version('nuitka'))" 2>/dev/null)" || nuitka_installed="(not installed)"
+          if [ "${nuitka_installed}" != "${NUITKA_PIN}" ]; then
+            echo "::error::TOOLCHAIN DRIFT GUARD (after the build): the installed Nuitka is ${nuitka_installed} but this workflow pins ${NUITKA_PIN} (env NUITKA_PIN); the build step changed the toolchain that made this binary."
+            exit 1
+          fi
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            patchelf_installed="$(python -c "from importlib.metadata import version; print(version('patchelf'))" 2>/dev/null)" || patchelf_installed="(not installed)"
+            if [ "${patchelf_installed}" != "${PATCHELF_PIN}" ]; then
+              echo "::error::TOOLCHAIN DRIFT GUARD (after the build): the installed patchelf is ${patchelf_installed} but this workflow pins ${PATCHELF_PIN} (env PATCHELF_PIN)."
+              exit 1
+            fi
+          fi
+          echo "toolchain drift guard after the build OK: nuitka ${nuitka_installed} == NUITKA_PIN"
 
       - name: Smoke-launch the Windows .exe (offscreen, auto-quit)
         if: runner.os == 'Windows'
@@ -290,6 +363,29 @@ jobs:
       - name: Build Linux standalone (pyside6-deploy / Nuitka)
         if: runner.os == 'Linux'
         run: pyside6-deploy -c packaging/pysidedeploy-linux.spec --force --keep-deployment-files
+
+      - name: Verify the pinned build toolchain after the build (Linux)
+        if: runner.os == 'Linux'
+        # The drift guard above, REPEATED after the freeze (user ruling
+        # 2026-10-22: the pin must hold for the compile itself, not only at
+        # install time). pyside6-deploy can pip-install or replace Nuitka (or,
+        # on Linux, patchelf) while it builds, which would leave the version
+        # checked above different from the one that made the binary. The `if:`
+        # is the build step's own, so no leg that froze the app can skip this.
+        run: |
+          nuitka_installed="$(python -c "from importlib.metadata import version; print(version('nuitka'))" 2>/dev/null)" || nuitka_installed="(not installed)"
+          if [ "${nuitka_installed}" != "${NUITKA_PIN}" ]; then
+            echo "::error::TOOLCHAIN DRIFT GUARD (after the build): the installed Nuitka is ${nuitka_installed} but this workflow pins ${NUITKA_PIN} (env NUITKA_PIN); the build step changed the toolchain that made this binary."
+            exit 1
+          fi
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            patchelf_installed="$(python -c "from importlib.metadata import version; print(version('patchelf'))" 2>/dev/null)" || patchelf_installed="(not installed)"
+            if [ "${patchelf_installed}" != "${PATCHELF_PIN}" ]; then
+              echo "::error::TOOLCHAIN DRIFT GUARD (after the build): the installed patchelf is ${patchelf_installed} but this workflow pins ${PATCHELF_PIN} (env PATCHELF_PIN)."
+              exit 1
+            fi
+          fi
+          echo "toolchain drift guard after the build OK: nuitka ${nuitka_installed} == NUITKA_PIN"
 
       - name: Smoke-launch the Linux standalone binary (offscreen, auto-quit)
         if: runner.os == 'Linux'
@@ -405,6 +501,29 @@ jobs:
       - name: Build macOS .app (pyside6-deploy / Nuitka standalone bundle)
         if: runner.os == 'macOS'
         run: pyside6-deploy -c packaging/pysidedeploy-macos.spec --force --keep-deployment-files
+
+      - name: Verify the pinned build toolchain after the build (macOS)
+        if: runner.os == 'macOS'
+        # The drift guard above, REPEATED after the freeze (user ruling
+        # 2026-10-22: the pin must hold for the compile itself, not only at
+        # install time). pyside6-deploy can pip-install or replace Nuitka (or,
+        # on Linux, patchelf) while it builds, which would leave the version
+        # checked above different from the one that made the binary. The `if:`
+        # is the build step's own, so no leg that froze the app can skip this.
+        run: |
+          nuitka_installed="$(python -c "from importlib.metadata import version; print(version('nuitka'))" 2>/dev/null)" || nuitka_installed="(not installed)"
+          if [ "${nuitka_installed}" != "${NUITKA_PIN}" ]; then
+            echo "::error::TOOLCHAIN DRIFT GUARD (after the build): the installed Nuitka is ${nuitka_installed} but this workflow pins ${NUITKA_PIN} (env NUITKA_PIN); the build step changed the toolchain that made this binary."
+            exit 1
+          fi
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            patchelf_installed="$(python -c "from importlib.metadata import version; print(version('patchelf'))" 2>/dev/null)" || patchelf_installed="(not installed)"
+            if [ "${patchelf_installed}" != "${PATCHELF_PIN}" ]; then
+              echo "::error::TOOLCHAIN DRIFT GUARD (after the build): the installed patchelf is ${patchelf_installed} but this workflow pins ${PATCHELF_PIN} (env PATCHELF_PIN)."
+              exit 1
+            fi
+          fi
+          echo "toolchain drift guard after the build OK: nuitka ${nuitka_installed} == NUITKA_PIN"
 
       - name: Assert macOS Info.plist CFBundleName (ADR-0067 R-3)
         # Durable gate, not a one-off probe: Qt's Cocoa platform plugin builds
