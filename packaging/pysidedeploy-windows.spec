@@ -92,7 +92,14 @@ mode = onefile
 # sync_backend/web_viewer are separate services, tests/scripts/docs are dev
 # infra). The launcher only imports `pixelart_creator`, so these are belt-and-
 # braces so nothing leaks in transitively.
-extra_args = --quiet --assume-yes-for-downloads
+# --windows-console-mode=attach: no console window opens when the .exe is
+# double-clicked (it is a GUI-subsystem program), yet when it is started from
+# a shell (cmd, PowerShell, bash) its output still reaches that shell, even
+# when redirected to a file, so the CI smoke step can read it. Nuitka's
+# default, `force`, opens a console window on every double-click. pyside6-deploy
+# reads this value as one string (the continuation lines below are joined by
+# configparser), splits it with shlex and passes every token to Nuitka as is.
+extra_args = --quiet --assume-yes-for-downloads --windows-console-mode=attach
     --include-data-dir=pixelart_creator/fonts=pixelart_creator/fonts
     --include-data-dir=pixelart_creator/i18n=pixelart_creator/i18n
     --include-data-dir=pixelart_creator/icons=pixelart_creator/icons

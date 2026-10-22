@@ -167,6 +167,17 @@ PySide6 plugin. Run **from the repo root** so the relative paths + the installed
                    --keep-deployment-files
 
 The build is reproducible from the committed config (every flag pinned).
+
+**Console behaviour.** The spec passes `--windows-console-mode=attach` to
+Nuitka (through `[nuitka] extra_args`, which `pyside6-deploy` splits with
+`shlex` and hands over unchanged). The `.exe` is then a GUI-subsystem program:
+double-clicking it opens no console window. Started from a shell (cmd,
+PowerShell, bash) it writes to that shell's console, redirected output
+included, which is how the CI smoke step reads the `interface-font:` line.
+Without the option Nuitka's default (`force`) opens a console window on every
+double-click. If a shell has no console to attach to, the output is not
+captured; the smoke step then needs the `.exe` run under `cmd /c`.
+
 `pyside6-deploy` may rewrite computed values back into a copy at build time; the
 committed file is the source of truth. **PyInstaller fallback** (ADR-0038 §1) if
 a Windows/plugin quirk blocks the Nuitka path:
