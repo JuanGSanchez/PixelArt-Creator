@@ -376,9 +376,18 @@ def test_sc_u027_6_no_notice_entry_added_for_the_glyphs():
 
 _COMBOS = [(s, m) for s in available_styles() for m in available_themes()]
 
+#: The tests below name the mode and the style they draw in, and read nothing from
+#: the application's stylesheet, so the suite's autouse ``theme`` fixture (light and
+#: dark of the canonical style) would only run each of them twice on the same
+#: inputs and restyle the application twice for nothing. Naming the fixture here
+#: gives it one value for these tests and the fixture itself is not run; the modes
+#: and styles examined are the parameters of each test, unchanged.
+_ICON_NAMES_ITS_OWN_THEME = pytest.mark.parametrize("theme", [THEME_LIGHT])
+
 
 @pytest.mark.parametrize("style, mode", _COMBOS)
 @pytest.mark.parametrize("tool_id", TOOL_GLYPH_IDS)
+@_ICON_NAMES_ITS_OWN_THEME
 def test_tint_is_the_text_role_of_the_style_and_mode(qapp, tool_id, style, mode):
     """The glyph's opaque pixels are the ``text`` role colour of ``(style, mode)``."""
     image = _rendered_image(tool_icon(tool_id, theme=mode, style=style))
@@ -394,6 +403,7 @@ def test_tint_is_the_text_role_of_the_style_and_mode(qapp, tool_id, style, mode)
 
 
 @pytest.mark.parametrize("style", available_styles())
+@_ICON_NAMES_ITS_OWN_THEME
 def test_tint_differs_between_the_two_modes_of_every_style(qapp, style):
     """Within a style, Light and Dark tint the same glyph differently (live, not baked)."""
     tool_id = TOOL_GLYPH_IDS[0]
@@ -404,6 +414,7 @@ def test_tint_differs_between_the_two_modes_of_every_style(qapp, style):
 
 
 @pytest.mark.parametrize("mode", available_themes())
+@_ICON_NAMES_ITS_OWN_THEME
 def test_the_style_argument_changes_the_tint_where_the_text_roles_differ(qapp, mode):
     """The ``style`` argument is live: styles whose ``text`` roles differ tint differently.
 
@@ -428,6 +439,7 @@ def test_the_style_argument_changes_the_tint_where_the_text_roles_differ(qapp, m
 
 
 @pytest.mark.parametrize("mode", available_themes())
+@_ICON_NAMES_ITS_OWN_THEME
 def test_no_style_argument_means_the_default_style(qapp, mode):
     """``tool_icon(..., theme=mode)`` is ``tool_icon(..., theme=mode, style=DEFAULT_STYLE)``."""
     tool_id = TOOL_GLYPH_IDS[0]
@@ -436,6 +448,7 @@ def test_no_style_argument_means_the_default_style(qapp, mode):
     assert bare == explicit
 
 
+@_ICON_NAMES_ITS_OWN_THEME
 def test_an_unknown_style_is_refused_not_drawn_blank(qapp):
     """An unknown style raises ``ValueError`` naming it (never a blank or default icon)."""
     with pytest.raises(ValueError, match="no-such-style"):

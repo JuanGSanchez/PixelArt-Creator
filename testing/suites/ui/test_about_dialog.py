@@ -1127,9 +1127,14 @@ class Test_About_Link_Colour_Follows_The_Style:
     """The About links use the active style's ``link_colour``, at open and live."""
 
     @pytest.fixture(autouse=True)
-    def theme(self, qapp) -> str:
-        """Replace the suite's two-way ``theme`` fixture (these tests are six-way)."""
-        apply_theme(qapp, THEME_LIGHT)
+    def theme(self, request: pytest.FixtureRequest, qapp) -> str:
+        """Replace the suite's two-way ``theme`` fixture (these tests are six-way).
+
+        A test that asks for ``combo`` has its combination applied by that fixture
+        before the body runs, so the canonical one is applied only for the others.
+        """
+        if "combo" not in request.fixturenames:
+            apply_theme(qapp, THEME_LIGHT)
         return THEME_LIGHT
 
     @pytest.fixture(params=COMBOS, ids=_COMBO_IDS)

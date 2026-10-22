@@ -120,9 +120,14 @@ from testing.suites.ui.test_theme import (
 
 
 @pytest.fixture(autouse=True)
-def theme(qapp) -> str:
-    """Replace the suite's two-way ``theme`` fixture (this module is six-way)."""
-    apply_theme(qapp, THEME_LIGHT)
+def theme(request: pytest.FixtureRequest, qapp) -> str:
+    """Replace the suite's two-way ``theme`` fixture (this module is six-way).
+
+    A test that asks for ``combo`` has its combination applied by that fixture
+    before the body runs, so the canonical one is applied only for the others.
+    """
+    if "combo" not in request.fixturenames:
+        apply_theme(qapp, THEME_LIGHT)
     return THEME_LIGHT
 
 

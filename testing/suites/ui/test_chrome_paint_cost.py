@@ -106,13 +106,19 @@ _VIEW_SIZE = (480, 360)
 
 
 @pytest.fixture(autouse=True)
-def theme(qapp) -> str:
+def theme(request: pytest.FixtureRequest, qapp) -> str:
     """Replace the suite's two-way ``theme`` fixture inside this module.
 
     This module parametrises over the whole style x mode matrix itself; the
-    shared fixture would run every test twice with the canonical style.
+    shared fixture would run every test twice with the canonical style. The
+    canonical combination is applied once, as a known starting sheet, for a test
+    that asks for no combination at all. A test that asks for ``combo`` has the
+    combination applied by that fixture before its body runs, so applying the
+    canonical one first would only be a second, discarded restyle of every widget
+    still alive; a test that asks for ``qss_combo`` reads no application state.
     """
-    apply_theme(qapp, THEME_LIGHT)
+    if not {"combo", "qss_combo"} & set(request.fixturenames):
+        apply_theme(qapp, THEME_LIGHT)
     return THEME_LIGHT
 
 
@@ -121,6 +127,19 @@ def combo(request: pytest.FixtureRequest, qapp) -> Combo:
     """Apply one style x mode combination to the application and return it."""
     chosen: Combo = request.param
     apply_theme(qapp, chosen.mode, chosen.style)
+    return chosen
+
+
+@pytest.fixture(params=COMBOS, ids=_COMBO_IDS)
+def qss_combo(request: pytest.FixtureRequest) -> Combo:
+    """One style x mode combination, applied to nothing.
+
+    For a test whose whole subject is a value computed from ``(style, mode,
+    scale)`` -- the stylesheet text, the role map -- and which never reads the
+    application's stylesheet, a widget or a painter. The same six combinations as
+    ``combo``, with the same ids.
+    """
+    chosen: Combo = request.param
     return chosen
 
 
@@ -229,10 +248,10 @@ STATES: Dict[str, int] = {
 # --------------------------------------------------------------------------- #
 
 
-def test_sentinel_colour_is_not_used_by_any_role(combo: Combo):
+def test_sentinel_colour_is_not_used_by_any_role(qss_combo: Combo):
     """The sentinel cannot be mistaken for a painted colour in any combination."""
     sentinel_hex = "#%02x%02x%02x" % SENTINEL_RGB
-    roles = {k: v.lower() for k, v in role_map(combo.mode, combo.style).items()}
+    roles = {k: v.lower() for k, v in role_map(qss_combo.mode, qss_combo.style).items()}
     clashes = [k for k, v in roles.items() if v == sentinel_hex]
     assert clashes == [], f"roles equal to the sentinel {sentinel_hex}: {clashes}"
     assert _SENTINEL_PACKED == 0xFFFF00FF
@@ -519,14 +538,14 @@ _TEMPLATE_OF = {
 
 
 @pytest.mark.parametrize("scale", SCALES)
-def test_stylesheet_stretches_exactly_the_expected_rules(combo: Combo, scale: int):
+def test_stylesheet_stretches_exactly_the_expected_rules(qss_combo: Combo, scale: int):
     """The set of ``stretch stretch`` rules is exactly the expected one, per scale."""
-    rules = framed_rules(build_qss(combo.mode, combo.style, scale=scale))
+    rules = framed_rules(build_qss(qss_combo.mode, qss_combo.style, scale=scale))
     assert len(rules) >= 20, f"only {len(rules)} framed rules parsed"
     stretched = {r.selector for r in rules if r.horizontal == "stretch"}
     expected = {s for s, scales in EXPECTED_STRETCH.items() if scale in scales}
     print(
-        f"[{combo.label()} S={scale}] {len(rules)} framed rules, "
+        f"[{qss_combo.label()} S={scale}] {len(rules)} framed rules, "
         f"stretched: {sorted(stretched)}"
     )
     assert stretched == expected
@@ -538,12 +557,12 @@ def test_stylesheet_stretches_exactly_the_expected_rules(combo: Combo, scale: in
 @pytest.mark.parametrize("scale", SCALES)
 @pytest.mark.parametrize("selector", sorted(EXPECTED_STRETCH))
 def test_each_large_surface_rule_has_its_exact_mode(
-    combo: Combo, scale: int, selector: str
+    qss_combo: Combo, scale: int, selector: str
 ):
     """Each of the three large-surface rules: its template and its exact mode."""
     rules = [
         r
-        for r in framed_rules(build_qss(combo.mode, combo.style, scale=scale))
+        for r in framed_rules(build_qss(qss_combo.mode, qss_combo.style, scale=scale))
         if r.selector == selector
     ]
     assert len(rules) == 1, f"{selector!r} appears {len(rules)} times"
@@ -553,24 +572,24 @@ def test_each_large_surface_rule_has_its_exact_mode(
     assert (rule.horizontal, rule.vertical) == (want, want)
 
 
-def test_dock_body_keeps_repeat_at_scale_one_and_stretches_from_two(combo: Combo):
+def test_dock_body_keeps_repeat_at_scale_one_and_stretches_from_two(qss_combo: Combo):
     """The dock body is tiled at art scale 1 and stretched at scales 2 and 3."""
     modes = {}
     for scale in SCALES:
-        rules = framed_rules(build_qss(combo.mode, combo.style, scale=scale))
+        rules = framed_rules(build_qss(qss_combo.mode, qss_combo.style, scale=scale))
         (rule,) = [r for r in rules if r.selector == "QFrame#DockBody"]
         modes[scale] = rule.horizontal
-    print(f"[{combo.label()}] dock body mode by scale: {modes}")
+    print(f"[{qss_combo.label()}] dock body mode by scale: {modes}")
     assert modes == {1: "repeat", 2: "stretch", 3: "stretch"}
 
 
 @pytest.mark.parametrize("scale", SCALES)
 def test_small_widgets_keep_repeat_even_when_their_template_is_uniform(
-    combo: Combo, scale: int
+    qss_combo: Combo, scale: int
 ):
     """Text fields, item views, buttons, tabs, menus, scroll parts: all ``repeat``."""
-    art = art_set(combo.style, combo.mode, scale)
-    rules = framed_rules(build_qss(combo.mode, combo.style, scale=scale))
+    art = art_set(qss_combo.style, qss_combo.mode, scale)
+    rules = framed_rules(build_qss(qss_combo.mode, qss_combo.style, scale=scale))
     small = [r for r in rules if r.selector not in EXPECTED_STRETCH]
     assert len(small) >= 17
     uniform_but_tiled = [
@@ -582,13 +601,15 @@ def test_small_widgets_keep_repeat_even_when_their_template_is_uniform(
 
 
 @pytest.mark.parametrize("scale", SCALES)
-def test_canvas_frame_rule_follows_the_shared_text_field_rule(combo: Combo, scale: int):
+def test_canvas_frame_rule_follows_the_shared_text_field_rule(
+    qss_combo: Combo, scale: int
+):
     """The stretched canvas-frame rule comes after the shared field rule.
 
     Both have the same specificity, so the later one wins; if the order flipped,
     the canvas frame would silently go back to ``repeat``.
     """
-    rules = framed_rules(build_qss(combo.mode, combo.style, scale=scale))
+    rules = framed_rules(build_qss(qss_combo.mode, qss_combo.style, scale=scale))
     (shared,) = [r for r in rules if r.selector == _TEXT_FIELDS_SELECTOR]
     (canvas,) = [r for r in rules if r.selector == "QGraphicsView"]
     assert shared.horizontal == "repeat"
@@ -597,11 +618,13 @@ def test_canvas_frame_rule_follows_the_shared_text_field_rule(combo: Combo, scal
 
 
 @pytest.mark.parametrize("scale", SCALES)
-def test_no_stylesheet_rule_frames_the_pattern_or_an_ornament(combo: Combo, scale: int):
+def test_no_stylesheet_rule_frames_the_pattern_or_an_ornament(
+    qss_combo: Combo, scale: int
+):
     """Pattern areas and ornaments are painted, not framed: no rule names them."""
     templates = {
         r.template
-        for r in framed_rules(build_qss(combo.mode, combo.style, scale=scale))
+        for r in framed_rules(build_qss(qss_combo.mode, qss_combo.style, scale=scale))
     }
     assert templates, "no framed rule parsed"
     assert not {"pattern", "ornament"} & templates

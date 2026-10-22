@@ -143,15 +143,19 @@ _COMBO_IDS = [c.label() for c in COMBOS]
 
 
 @pytest.fixture(autouse=True)
-def theme(qapp) -> str:
+def theme(request: pytest.FixtureRequest, qapp) -> str:
     """Replace the suite's two-way ``theme`` fixture inside this module.
 
     The conftest fixture would run every test here twice with the canonical
     style, duplicating the combination matrix this module parametrises itself.
     This one applies the canonical combination once, so a test that does not
-    ask for ``combo`` still runs against a known stylesheet.
+    ask for ``combo`` still runs against a known stylesheet. A test that asks for
+    ``combo`` has its combination applied by that fixture before the body runs, so
+    the canonical one is not applied first: it would be a second restyle of every
+    widget still alive, discarded at once.
     """
-    apply_theme(qapp, THEME_LIGHT)
+    if "combo" not in request.fixturenames:
+        apply_theme(qapp, THEME_LIGHT)
     return THEME_LIGHT
 
 

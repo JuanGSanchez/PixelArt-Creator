@@ -288,8 +288,27 @@ def test_snapshot_reader_sees_a_known_key_and_a_later_write(tmp_path):
     assert after["keys"]["control/known"] != before["keys"]["control/known"]
 
 
+#: What a snapshot reports for a key the store does not hold (distinct from any value).
+_ABSENT = "<absent>"
+
+#: The keys the probe writes (to the TEMPORARY store), watched in the real one.
+_WATCHED_KEYS = (_PROBE_KEY, "appearance/style", "appearance/mode")
+
+
+def _watched(snapshot: dict) -> dict:
+    """The watched keys of a snapshot: their stored value, or ``_ABSENT``."""
+    return {key: snapshot["keys"].get(key, _ABSENT) for key in _WATCHED_KEYS}
+
+
 def test_req_vi_ui_002_negative_control_real_store_is_untouched(tmp_path):
-    """REQ-VI-UI-002: before/after the real store is identical and has no probe key."""
+    """REQ-VI-UI-002: the real store is the same before and after, whatever it holds.
+
+    A real store may be empty (a CI runner) or hold the user's own appearance
+    values (a machine where the application has been run); neither is assumed.
+    The watched keys are snapshotted first, each either absent or with its value,
+    and must be byte-identical afterwards, as must the whole snapshot (every key,
+    the file's size and modification time).
+    """
     root = tmp_path / "qsettings"
     assert_settings_isolated(root)  # no write can happen while this fails
 
@@ -304,11 +323,42 @@ def test_req_vi_ui_002_negative_control_real_store_is_untouched(tmp_path):
     after = _real_store_snapshot()
 
     assert after == before, "the real settings store changed during the test"
-    assert _PROBE_KEY not in after["keys"]
-    assert "appearance/style" not in after["keys"]
-    assert "appearance/mode" not in after["keys"]
+    assert _watched(after) == _watched(before), (
+        f"a watched key of the real store changed: {_watched(before)} -> "
+        f"{_watched(after)}"
+    )
     # And it really did go to the temp store.
     assert settings_location_is_under(settings.fileName(), root)
+    assert settings.value("appearance/style") == "probe-style"
+    assert QSettings().value("appearance/mode") == "probe-mode"
+
+
+def test_req_vi_ui_002_the_watched_keys_report_an_added_changed_or_removed_value():
+    """REQ-VI-UI-002: control of the comparison above, on snapshots (nothing written).
+
+    The negative control cannot write to a user's real store to show it would
+    notice, so the comparison is shown on synthetic snapshots: a store that gains a
+    watched key, one whose watched key changes and one that loses it must each
+    differ from the original, and an unchanged one must not. The empty and the
+    populated starting points are both covered, so neither is assumed.
+    """
+
+    def snap(**keys: str) -> dict:
+        return {"keys": {k.replace("__", "/"): v for k, v in keys.items()}}
+
+    empty = snap()
+    populated = snap(appearance__style="'arcade-kikko'", appearance__mode="'dark'")
+    for start in (empty, populated):
+        assert _watched(start) == _watched(dict(start))
+        gained = {"keys": {**start["keys"], "appearance/style": "'probe-style'"}}
+        assert _watched(gained) != _watched(start)
+    changed = {"keys": {**populated["keys"], "appearance/mode": "'probe-mode'"}}
+    assert _watched(changed) != _watched(populated)
+    removed = {"keys": {"appearance/mode": "'dark'"}}
+    assert _watched(removed) != _watched(populated)
+    # A key that is not watched does not count, so the comparison is not noise.
+    unrelated = {"keys": {**populated["keys"], "other/key": "'1'"}}
+    assert _watched(unrelated) == _watched(populated)
 
 
 def test_req_vi_ui_002_escape_control_two_argument_constructor(tmp_path):
