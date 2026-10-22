@@ -302,6 +302,7 @@ def lap(name):
 walked = dict(
     dialogs=[], message_boxes=[], static_dialogs=[], top_levels=set(), menus=0,
     combos=0, docks=0, widgets=0, pages=0, actions=0, appearances=0, hub=False,
+    converted_then_undone=0,
 )
 
 def settle(widget):
@@ -453,7 +454,20 @@ for action in list(leaves(bar)):
     if label.lower().startswith(SKIP):
         continue
     stage[0] = "action:" + label
+    # Palette > Convert to Indexed maps every pixel of the blank, fully transparent
+    # start-up document to palette entry 0, which is opaque black, so every later
+    # stage would draw a black document (the pixels really are black: data, not
+    # paint -- undo restores the checker). It is undoable, so it is undone right
+    # away and the rest of the walk sees the document it started with.
+    is_convert = action is window._to_indexed_action
+    if is_convert:
+        convert_record = window.active_tab()
+        index_before = convert_record.stack.index()
     action.trigger(); pump(3); note_and_close_top_levels(); walked["actions"] += 1
+    if is_convert and convert_record.stack.index() == index_before + 1:
+        convert_record.stack.undo(); pump(3)
+        assert convert_record.stack.index() == index_before
+        walked["converted_then_undone"] += 1
     if action.isCheckable():
         stage[0] = "action-back:" + label
         action.trigger(); pump(3); note_and_close_top_levels()
@@ -659,5 +673,11 @@ def test_walking_the_real_main_window_prints_no_point_size_warning(
     missing = [n for n in _WALK_EXPECTED_TOP_LEVELS if n not in walked["top_levels"]]
     assert not missing, f"the walk never showed {missing!r}: {walked['top_levels']!r}"
     assert walked["hub"], "the colour hub did not open"
+    assert walked["converted_then_undone"] == 1, (
+        "Palette > Convert to Indexed was not run and undone exactly once "
+        f"({walked['converted_then_undone']}): either the walk no longer reaches it, "
+        "or it stopped being one undoable command -- and a converted blank document "
+        "is opaque black for every later stage of the walk"
+    )
     assert walked["appearances"] >= 6, walked["appearances"]
     _assert_no_point_size_message(result)
