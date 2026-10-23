@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-23
+
 ### Added
 
 - Three interface styles, each in a Light and a Dark mode: **Washi & Kintsugi** (the default, in Light), **Edo Night** and **Arcade Kikko**. They are chosen from a new **Style** submenu of the **Theme** menu, beside the Light and Dark choice. Every choice applies at once and is remembered between launches; a stored value the app does not recognise falls back to the defaults. Every colour is defined once, by role, with the same roles in all six combinations, and a contrast check covers all six (REQ-VI-UI-001, REQ-VI-UI-002, REQ-VI-UI-003, REQ-VI-UI-004, REQ-VI-BUILD-001).
@@ -23,8 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The application stylesheet is rebuilt around one art scale, and the Theme menu's Light and Dark choice is now remembered together with the style (REQ-VI-UI-002, REQ-VI-UI-003).
 - The About dialog's link colour follows the active style and updates while the dialog is open (REQ-VI-UI-004).
 - The User Guide's Theme pages, in English and Spanish, describe the Style menu and the two new switches (REQ-VI-UI-001, REQ-VI-UI-012, REQ-VI-UI-016).
+- The Windows app no longer opens a console window when you double-click it. It still writes its output to the terminal when you start it from one, including when that output is redirected (REQ-VI-BUILD-006).
+- The README screenshots and the repository's social preview image are regenerated with the new look and logo (REQ-VI-BUILD-009).
 
 ### Fixed
+
+- On Windows 11, drop-down lists (combo boxes) no longer print a "point size" warning to the console: their interface font is now point-sized on the Windows 11 style (REQ-VI-UI-013, REQ-VI-UI-014).
+- The installer builds could crash at start-up when the build tool resolved to a newer version than the one the app was tested with. The packaging toolchain is now pinned to exact versions and is checked before and after each build, so a drift fails the build instead of shipping a broken installer (REQ-VI-BUILD-006).
 
 - The keyboard-focus ring in Dark mode was too faint against the window and the panels (its contrast was below the 3:1 a focus indicator needs). Every style now draws a focus ring that meets 3:1 against everything it touches, in Light and in Dark, and it stays visible in every control state (REQ-VI-UI-004, REQ-VI-UI-005).
 - Painting cost of the framed interface: the canvas now tells Qt that it paints every pixel it is given, so redrawing the canvas no longer repaints the large frames beneath it, and frame art is drawn as a stretched border image wherever its template is uniform, instead of a repeated one. The 16 ms frame budget is unchanged (REQ-VI-UI-005, REQ-VI-UI-010, REQ-VI-UI-011).
@@ -35,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - At large display scales the main window's minimum height is taller than a small screen. On a screen that is only about 720 logical pixels high (for example a 4K TV at 300% or a 1440p monitor at 150%) the window does not fit and its bottom can be cut off. Lowering the display scale avoids it.
 - Some labels are cut short at 150% and 300% display scale. Lowering the display scale shows them in full.
 - When you move the window to a screen with a different display scale, the interface freezes for about a second and a half while its frame art and styles are rebuilt. It recovers by itself.
+- Convert to Indexed turns a blank (transparent) document opaque black; Undo recovers it (#76).
 
 ## [0.3.2] - 2026-09-25
 
