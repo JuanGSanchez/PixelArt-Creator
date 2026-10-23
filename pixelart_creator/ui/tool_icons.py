@@ -16,17 +16,15 @@ under ``pixelart_creator/icons/`` — measured: adding one turns
 Do **not** call ``resources.files("pixelart_creator.icons")`` — that dotted
 form requires exactly the marker this module must not need.
 
-Tinting fills the glyph's alpha silhouette with the active theme's ``text``
-role colour (``ui/theme.py``) via
+Tinting fills the glyph's alpha silhouette with the ``text`` role colour of the
+active ``(mode, style)`` (``ui/theme.py``) via
 :attr:`QPainter.CompositionMode.CompositionMode_SourceIn` — draw the raster
 glyph first (its alpha channel is the mask), switch to ``SourceIn``, then
 flood-fill the destination rect with the tint colour so only the glyph's own
 alpha shape receives it. This module carries **no colour literal** (Article
 V.3): the only colour used is read from ``ui/theme.py``'s role palette through
-its existing ``_roles()`` accessor (the same one :func:`canvas_roles` and
-:func:`canvas_surface_roles` already use for their own role colours) — there
-is no public "text role as QColor" accessor to add to, since editing
-``theme.py`` is out of this task's write target.
+its public :func:`~pixelart_creator.ui.theme.role_colour` accessor, so the tint
+follows both the mode and the style.
 
 This module binds to no domain logic — no harmony math, no blending math, no
 file-format parsing (S11): it is Qt resource + paint plumbing only.
@@ -36,12 +34,16 @@ from __future__ import annotations
 
 from functools import lru_cache
 from importlib import resources
-from typing import Final, Tuple
+from typing import Final, Optional, Tuple
 
 from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 
-from pixelart_creator.ui.theme import THEME_DARK, THEME_LIGHT, _roles
+from pixelart_creator.ui.theme import (
+    DEFAULT_STYLE,
+    available_themes,
+    role_colour,
+)
 
 __all__ = ["TOOL_GLYPH_IDS", "ToolGlyphError", "tool_icon"]
 
@@ -138,22 +140,21 @@ def _glyph_resource(tool_id: str) -> "resources.abc.Traversable":
     return candidate
 
 
-def _tint_colour(theme: str) -> QColor:
-    """Return the ``text`` role :class:`QColor` for ``theme``.
+def _tint_colour(theme: str, style: str = DEFAULT_STYLE) -> QColor:
+    """Return the ``text`` role :class:`QColor` for ``theme`` in ``style``.
 
-    Reads through ``ui/theme.py``'s existing ``_roles()`` role-palette
-    accessor — the same one :func:`~pixelart_creator.ui.theme.canvas_roles`
-    and :func:`~pixelart_creator.ui.theme.canvas_surface_roles` already use —
-    so an unknown theme name raises identically (``ValueError``) and no
-    colour literal is written in this module (Article V.3).
+    Reads through ``ui/theme.py``'s public :func:`role_colour`, so no colour
+    literal is written in this module (Article V.3). An unknown mode raises
+    :class:`ToolGlyphError`; an unknown style raises ``ValueError`` from the
+    theme module.
     """
-    if theme not in (THEME_LIGHT, THEME_DARK):
+    if theme not in available_themes():
         raise ToolGlyphError(
             QCoreApplication.translate("tool_icons", "unknown theme: %1").replace(
                 "%1", str(theme)
             )
         )
-    return QColor(_roles(theme)[_TINT_ROLE])
+    return role_colour(theme, _TINT_ROLE, style)
 
 
 @lru_cache(maxsize=None)
@@ -195,13 +196,17 @@ def _tinted_pixmap(tool_id: str, colour: QColor) -> QPixmap:
     return tinted
 
 
-def tool_icon(tool_id: str, *, theme: str) -> QIcon:
+def tool_icon(tool_id: str, *, theme: str, style: Optional[str] = None) -> QIcon:
     """Return the theme-tinted :class:`QIcon` for ``tool_id``.
 
-    ``tool_id`` MUST be one of :data:`TOOL_GLYPH_IDS`; ``theme`` MUST be one
-    of ``ui/theme.py``'s ``THEME_LIGHT`` / ``THEME_DARK``. Either mismatch
-    raises :class:`ToolGlyphError` rather than returning a null/blank icon —
-    the documented, predictable behaviour for an unknown id (`REQ-IS-UI-027`).
+    ``tool_id`` MUST be one of :data:`TOOL_GLYPH_IDS`; ``theme`` MUST be one of
+    the modes ``ui/theme.py`` offers (``THEME_LIGHT`` / ``THEME_DARK``). Either
+    mismatch raises :class:`ToolGlyphError` rather than returning a null/blank
+    icon -- the documented, predictable behaviour for an unknown id
+    (`REQ-IS-UI-027`). ``style`` is the style id whose ``text`` role tints the
+    glyph; ``None`` means the catalogue's default style.
     """
-    tinted = _tinted_pixmap(tool_id, _tint_colour(theme))
+    tinted = _tinted_pixmap(
+        tool_id, _tint_colour(theme, DEFAULT_STYLE if style is None else style)
+    )
     return QIcon(tinted)

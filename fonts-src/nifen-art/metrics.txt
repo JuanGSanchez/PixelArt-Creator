@@ -1,0 +1,121 @@
+# Nifen Art - grid contract in machine-readable form.
+# Every value is a design decision of the typeface author, in whole pixels
+# unless the key says otherwise. Rows are counted upward from the baseline:
+# row r covers y in [r, r+1). Row 0 sits on the baseline, row -1 is the first
+# row below it.
+
+family = Nifen Art
+version_string = Version 0.100
+font_revision = 0.1
+copyright_holder = JuanGSanchez
+copyright_year = 2026
+designer = JuanGSanchez
+copyright_url = https://github.com/JuanGSanchez/PixelArt-Creator
+# The copyright line of the work the hiragana are adapted from (Ark Pixel Font, SIL Open Font
+# License 1.1, no Reserved Font Name); it is kept as its author wrote it and comes first in name ID 0.
+copyright_prior_line_1 = Copyright (c) 2021, TakWolf (https://takwolf.com).
+# Source files that hold letterforms adapted from that work. The lint requires each header to state
+# the donor, its version, its licence and the copyright line, and requires the licence file and the
+# change log beside the fonts to state the copyright line and exactly which code points are adapted.
+donor_files = hiragana-ark-pixel.txt
+# Every source file derived from that work, the drawing files above and the Bold correction drawings
+# that are adapted from them. The lint requires the header of each to state the donor, and fails if
+# any other source file mentions the donor without being listed here.
+donor_derived_files = hiragana-ark-pixel.txt bold-overlays-ark-pixel.txt
+donor_name = Ark Pixel Font
+donor_version = 2026.09.25
+donor_licence = SIL Open Font License, Version 1.1
+# The author declares the family name as a Reserved Font Name (OFL 1.1, clause 3).
+copyright_rfn_clause = with Reserved Font Name "Nifen Art".
+license_description = This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org
+license_url = https://openfontlicense.org
+vendor_id = NIFN
+created_utc = 2026-10-09T00:00:00Z
+modified_utc = 2026-10-10T00:00:00Z
+
+# --- em and units -------------------------------------------------------
+em_px = 12
+units_per_px = 128
+units_per_em = 1536
+
+# --- Latin vertical structure (rows) -------------------------------------
+cap_px = 7
+x_px = 5
+asc_px = 8
+desc_px = 2
+fig_px = 7
+
+# --- em box: the 12 rows that all ink must fit inside (rows -2 .. 9) -----
+em_top_px = 10
+em_bottom_px = -2
+
+# --- accent zone ----------------------------------------------------------
+# Capital marks: one empty row above the cap height, then 2 rows of mark.
+# Lowercase marks: one empty row above the x-height, then 2 rows of mark.
+cap_mark_gap_rows = 1
+low_mark_gap_rows = 1
+mark_rows = 2
+
+# --- kana cell -------------------------------------------------------------
+# Full-width cell: advance 12 in both weights, ink 11 wide x 11 tall in
+# Regular (columns 0..10, rows -1..9). Bold may reach column 11, the last column of the
+# advance, so Bold ink can sit directly against the first column of the next cell
+# (widened from 1..10 / 1..11 at the author's decision; half-width glyphs are not affected).
+cell_adv_px = 12
+cell_ink_x_regular = 0..10
+cell_ink_x_bold = 0..11
+cell_ink_rows = -1..9
+
+# --- proportional Latin policy ----------------------------------------------
+# Regular: ink starts at column 0, advance = rightmost ink column + 2
+# (one empty column of right sidebearing, left sidebearing 0).
+# Bold: Regular OR Regular shifted 1 px right; advance + 1 (full-width
+# cells keep advance 12).
+bold_shift_px = 1
+space_adv_px = 3
+# French typesetting spaces (thin space and narrow no-break space): blank, two pixels
+# wide in Regular (three in Bold, the same Regular + 1 rule as the space).
+narrow_space_adv_px = 2
+narrow_space_cps = U+2009 U+202F
+
+# --- line box (hhea, OS/2 typo and win all carry the same figures) ----------
+line_ascent_px = 11
+line_descent_px = 3
+line_gap_px = 0
+
+# --- Regular / Bold stems -----------------------------------------------------
+stem_regular_px = 1
+stem_bold_px = 2
+
+# The ideographic space: blank, one full-width cell in both weights.
+wide_space_adv_px = 12
+wide_space_cps = U+3000
+
+# Kana voicing: a mark may cut away at most this many pixels of its base (per weight).
+trim_max_px = 20
+
+# Small kana (the sokuon, the small vowels and the small ya yu yo, wa, ka, ke): all sit on the bottom row of the
+# kana cell and are at most small_kana_max_rows tall (widened from 8 to 9 with the cell, as is the centred
+# small_kana_centred_max_cols below). The hiragana ones are centred in the cell (horizontal writing: centred
+# horizontally, below the vertical centre); the katakana ones keep their left-hand placement.
+small_kana_cps = U+3041 U+3043 U+3045 U+3047 U+3049 U+3063 U+3083 U+3085 U+3087 U+308E U+3095 U+3096 U+30A1 U+30A3 U+30A5 U+30A7 U+30A9 U+30C3 U+30E3 U+30E5 U+30E7 U+30EE U+30F5 U+30F6
+small_kana_bottom_row = -1
+small_kana_max_rows = 9
+
+# Left-placed small kana (katakana): ink columns, Regular 1..8, Bold up to column 9.
+small_kana_left_cps = U+30A1 U+30A3 U+30A5 U+30A7 U+30A9 U+30C3 U+30E3 U+30E5 U+30E7 U+30EE U+30F5 U+30F6
+small_kana_ink_x_regular = 1..8
+small_kana_ink_x_bold = 1..9
+
+# Centred small kana (hiragana): twice the horizontal centre of the ink (first column + last column + 1) is
+# small_kana_centre_x2 in Regular (the cell centre is at 6) within +- small_kana_centre_tol_x2 half pixels;
+# Bold is Regular shifted one pixel right, so its centre is small_kana_bold_extra_x2 half pixels further.
+small_kana_centred_cps = U+3041 U+3043 U+3045 U+3047 U+3049 U+3063 U+3083 U+3085 U+3087 U+308E U+3095 U+3096
+small_kana_centre_x2 = 12
+small_kana_centre_tol_x2 = 1
+small_kana_bold_extra_x2 = 1
+small_kana_centred_max_cols = 9
+
+# The two voicing marks (voiced and semi-voiced): in every kana that carries one, the mark is whole and
+# every pixel of the base is more than one pixel away from it, in both weights.
+voicing_mark_cps = U+309B U+309C

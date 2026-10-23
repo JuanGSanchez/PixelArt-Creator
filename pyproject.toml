@@ -11,7 +11,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pixelart-creator"
-version = "0.3.2"
+version = "0.4.0"
 description = "Unified pixel-art platform: 8K editable grid, colour tools, layers, GPU render pipeline."
 readme = "NOTICE"
 # PYTHON VERSION — SINGLE PARAMETRIC SOURCE (2026-08-24): the repo-root
@@ -125,6 +125,12 @@ dev = [
     # constraints.txt, not by inspection — mkdocs-material==9.7.7 accepted all
     # four exact pins with no conflict.
     "mkdocs-material>=9.7",
+    # Build-time ONLY (ADR-0071 item 7): scripts/font/build_nifen_art.py and
+    # check_glyph_coverage.py build and inspect the Nifen Art TTFs with it.
+    # The built fonts are committed and shipped, so nothing the application
+    # imports at run time touches fontTools; it must never move into
+    # `dependencies`. Pinned exactly in constraints.txt.
+    "fonttools>=4.63",
 ]
 
 # Console entry points (installed on `pip install`). REQ-P7-DATA-004;
@@ -173,6 +179,20 @@ pixelart_creator = [
     "i18n/*.qm",
     "i18n/*.ts",
     "icons/tools/*.svg",
+    # Visual identity (ADR-0068, ADR-0071). Both directories are DATA, not
+    # packages (no __init__.py), read at run time through importlib.resources.
+    # Font files are named one by one (the wheel must carry both TTFs and the
+    # licence text that travels with them); the theme globs below have no
+    # brace-expansion either (fnmatch), so each depth is its own entry. Proven
+    # by building the wheel and listing it, not by reading these entries.
+    "fonts/NifenArt-Regular.ttf",
+    "fonts/NifenArt-Bold.ttf",
+    "fonts/OFL.txt",
+    "fonts/FONTLOG.txt",
+    "themes/*.json",
+    "themes/*/*.json",
+    "themes/*/*.grid.txt",
+    "themes/*/templates/*.grid.txt",
     # The runtime app-icon family (ui/app_icon.py's RUNTIME_ICON_SIZES_PX)
     # -- the exact eight sizes the loader reads via importlib.resources at
     # startup, named explicitly (fnmatch, which setuptools uses for these
@@ -193,7 +213,11 @@ pixelart_creator = [
     # app_icon.py's own docstring and CONSTRUCTION-TABLE.md, consumed
     # directly from the committed source tree by the packaging toolchain,
     # never through importlib.resources at runtime):
-    #   - logo-source-64.png   the provenance master, never loaded at runtime
+    #   - logo-master-{16,24,32,48,64}.png   the five provenance masters the
+    #     deriver reads (ADR-0068: not package data, never loaded at run time).
+    #     They are not in the wheel; the installer specs include the whole
+    #     icons/ directory, so they do travel inside an installer. The single
+    #     master they replaced (logo-source-64.png) is gone from the family.
     #   - app-icon-1024.png    exists only to satisfy the ICNS container
     #   - pixelart-creator.ico/.icns/.png   read straight off disk by the
     #     three pysidedeploy specs and by build_appimage.sh, not imported
@@ -253,6 +277,7 @@ markers = [
     "integration: tests that reach outside the process, deselected by default",
     "cloud_live: live credential-gated provider tests (real OAuth/keyring), deselected in CI",
     "assistant_live: requires a real external LLM provider + credentials; deselected in CI",
+    "native_font: needs a real (non-headless) Qt platform plugin; select with -m native_font and QT_QPA_PLATFORM set to that plugin",
 ]
 
 [tool.coverage.run]

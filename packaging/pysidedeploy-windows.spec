@@ -19,8 +19,15 @@ icon = pixelart_creator/icons/app/pixelart-creator.ico
 [python]
 # Use the CI-provided interpreter (Python 3.12 pinned by setup-python).
 python_path =
-# Pin the Nuitka backend for a reproducible build.
-packages = Nuitka==2.5.1
+# Nuitka is named here, NOT versioned: pyside6-deploy's python_helper.py
+# (install_dependencies) strips any `==<version>` from a Nuitka entry unless
+# `--nuitka-version` is passed on the command line, and then installs the name
+# only if Nuitka is absent -- so a version written here is never honoured and
+# only misleads. The pin that counts is the `NUITKA_PIN` env value in
+# .github/workflows/build-installers.yml (REQ-VI-BUILD-006), installed and then
+# checked before and after the build; Nuitka 4.3 builds an app that crashes
+# at launch.
+packages = Nuitka
 
 [qt]
 # QML is not used by this app.
@@ -45,6 +52,13 @@ mode = onefile
 #     ui/app_icon.py. Its ABSENCE is the measured root cause of the v0.3.0
 #     macOS smoke-launch crash (ToolGlyphError: missing tool glyph asset for:
 #     pencil, run 35941799524) -- only i18n was ever included.
+#   - pixelart_creator/fonts           (NifenArt-*.ttf, OFL.txt, FONTLOG.txt)
+#     -- the bundled Nifen Art typeface (ADR-0071). Without it the frozen app
+#     falls back to the platform font: the same missing-directory failure
+#     class as the v0.3.0 icons crash above.
+#   - pixelart_creator/themes          (index.json, contrast-pairs.json and one
+#     folder per style: roles, templates, grids) -- the style catalogue the
+#     appearance settings read (ADR-0070). Same failure class if absent.
 #   - pixelart_creator/userguide_content (manifest.json + content/*.md) --
 #     data/guide_content.py (in-app User Guide, ADR-0029)
 # into the frozen onefile payload at the same package-relative paths those
@@ -58,8 +72,8 @@ mode = onefile
 # ui/i18n.py's QLibraryInfo.path(TranslationsPath) lookup (LanguageManager.
 # _apply_qt_base_catalogue) finds it in the frozen build. Nuitka's own
 # `nuitka.plugins.standard.PySidePyQtPlugin` ships a `--noinclude-qt-
-# translations` flag, but reading its installed source (4.2.2, the pinned
-# `Nuitka==2.5.1` below was NOT re-installed locally) shows that flag --
+# translations` flag, but reading its installed source (4.2.2, the
+# version the workflow pins) shows that flag --
 # and the translations copy it gates -- is wired
 # ONLY through `considerDataFiles()`'s `isQtWebEngineModule()` branch, i.e.
 # it only ever bundles Qt's catalogues for a QtWebEngine dependency; its own
@@ -78,9 +92,18 @@ mode = onefile
 # sync_backend/web_viewer are separate services, tests/scripts/docs are dev
 # infra). The launcher only imports `pixelart_creator`, so these are belt-and-
 # braces so nothing leaks in transitively.
-extra_args = --quiet --assume-yes-for-downloads
+# --windows-console-mode=attach: no console window opens when the .exe is
+# double-clicked (it is a GUI-subsystem program), yet when it is started from
+# a shell (cmd, PowerShell, bash) its output still reaches that shell, even
+# when redirected to a file, so the CI smoke step can read it. Nuitka's
+# default, `force`, opens a console window on every double-click. pyside6-deploy
+# reads this value as one string (the continuation lines below are joined by
+# configparser), splits it with shlex and passes every token to Nuitka as is.
+extra_args = --quiet --assume-yes-for-downloads --windows-console-mode=attach
+    --include-data-dir=pixelart_creator/fonts=pixelart_creator/fonts
     --include-data-dir=pixelart_creator/i18n=pixelart_creator/i18n
     --include-data-dir=pixelart_creator/icons=pixelart_creator/icons
+    --include-data-dir=pixelart_creator/themes=pixelart_creator/themes
     --include-data-dir=pixelart_creator/userguide_content=pixelart_creator/userguide_content
     --include-package-data=PySide6:translations/qtbase_es.qm
     --nofollow-import-to=sync_backend --nofollow-import-to=web_viewer

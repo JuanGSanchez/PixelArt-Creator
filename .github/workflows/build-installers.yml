@@ -43,6 +43,21 @@ permissions:
 env:
   QT_QPA_PLATFORM: offscreen        # headless Qt smoke-launch (F11)
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  # THE ONE PLACE the frozen-binary toolchain versions are written. The install
+  # step installs `nuitka==${NUITKA_PIN}` and the drift-guard step right after
+  # it asserts the INSTALLED version equals this value, so the two cannot
+  # disagree; testing/suites/deploy/test_workflow_pip_pins.py fails if either
+  # stops referencing the variable, if a literal version appears beside them,
+  # or if the guard step is removed. Moving a pin is a deliberate edit that a
+  # dispatch run must clear (Nuitka 4.3 built an app that segfaults at launch:
+  # run 38187303442, 2026-10-12; 4.2.2 is the version that run 38225872233
+  # proved on all three OS).
+  NUITKA_PIN: "4.2.2"
+  # pyside6-deploy pip-installs an UNVERSIONED `patchelf` on the Linux leg when
+  # no `patchelf` Python package is present (measured in run 38225872233:
+  # "Collecting patchelf" -> patchelf-0.19.1.0), so the install step installs
+  # this exact version first and pyside6-deploy then finds it already present.
+  PATCHELF_PIN: "0.19.1.0"
 
 jobs:
   # ===========================================================================
@@ -175,13 +190,59 @@ jobs:
         # jobs so a packaged installer is built from the SAME resolved
         # numpy/Pillow/PySide6/pycrdt/websockets versions the test matrix
         # verified. Nuitka itself is a build-toolchain dep, not part of the
-        # project's dependency closure, so it is left unconstrained.
+        # project's dependency closure (and constraints.txt is a generated
+        # lock of that closure), so it is pinned HERE, by an exact `==`.
+        #
+        # EVERY package this step installs from an index carries an exact
+        # `==` pin (REQ-VI-BUILD-006; enforced by testing/suites/deploy/
+        # test_workflow_pip_pins.py). Why: with `pip install nuitka` unpinned,
+        # the 2026-10-12 run resolved Nuitka 4.3 on all three legs, and the
+        # frozen app then crashed at launch (exit 139, empty output) where the
+        # same source built with 4.2.2 printed its font line and exited 0. The
+        # 2026-09-25 runs that were green had resolved 4.2.2 (and pip 26.2.1).
+        # Moving either pin is a deliberate edit that a dispatch run must
+        # clear, not something an index change can do between two runs.
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip==26.2.1
           python -m pip install -c constraints.txt -e .
-          python -m pip install nuitka
+          python -m pip install "nuitka==${NUITKA_PIN}"
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            python -m pip install "patchelf==${PATCHELF_PIN}"
+          fi
         # pyside6-deploy ships inside the PySide6 wheel (a project runtime dep);
         # pre-installing Nuitka keeps the build non-interactive & reproducible.
+
+      # Runtime drift guard (user ruling 2026-10-22: a toolchain change must be
+      # impossible to miss). The `==` pin above is only a request to pip; this
+      # step asserts what pip actually LEFT INSTALLED, so a resolver or
+      # transitive install that moved Nuitka (or patchelf) fails the leg HERE,
+      # by name, instead of surfacing as a segfaulting frozen app ten minutes
+      # and one compile later. No `if:`, no `continue-on-error`: it runs on
+      # every leg, and the static test refuses a guard that can be skipped.
+      - name: Verify the pinned build toolchain (drift guard)
+        run: |
+          nuitka_installed="$(python -c "from importlib.metadata import version; print(version('nuitka'))" 2>/dev/null)" || nuitka_installed="(not installed)"
+          if [ "${nuitka_installed}" != "${NUITKA_PIN}" ]; then
+            echo "::error::TOOLCHAIN DRIFT GUARD: the installed Nuitka is ${nuitka_installed} but this workflow pins ${NUITKA_PIN} (env NUITKA_PIN). A frozen app built with an unproven Nuitka is not shippable. Move the pin only deliberately, with a dispatch run that clears it."
+            exit 1
+          fi
+          nuitka_cli="$(python -m nuitka --version | tr -d '\r' | sed -n 1p)"
+          if [ "${nuitka_cli}" != "${NUITKA_PIN}" ]; then
+            echo "::error::TOOLCHAIN DRIFT GUARD: 'python -m nuitka --version' reports ${nuitka_cli}, expected ${NUITKA_PIN} (env NUITKA_PIN)."
+            exit 1
+          fi
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            patchelf_installed="$(python -c "from importlib.metadata import version; print(version('patchelf'))" 2>/dev/null)" || patchelf_installed="(not installed)"
+            if [ "${patchelf_installed}" != "${PATCHELF_PIN}" ]; then
+              echo "::error::TOOLCHAIN DRIFT GUARD: the installed patchelf is ${patchelf_installed} but this workflow pins ${PATCHELF_PIN} (env PATCHELF_PIN)."
+              exit 1
+            fi
+          fi
+          echo "toolchain drift guard OK: nuitka ${nuitka_installed} == NUITKA_PIN"
+          # Record the rest of the build-relevant toolchain in the log, so a
+          # drift in any of it shows up in a diff of two runs even where it is
+          # not asserted. Informational: grep finding nothing is not an error.
+          python -m pip list --format=freeze | grep -i -E '^(nuitka|patchelf|zstandard|ordered-set|pyside6|pyside6-addons|pyside6-essentials|shiboken6|pip|setuptools|wheel)==' || true
 
       # ---------------- Windows leg (BUILD-002): onefile .exe --------
       - name: Build Windows .exe (pyside6-deploy / Nuitka onefile)
@@ -207,21 +268,88 @@ jobs:
           mkdir -p artifact
           cp dist/PixelArtCreator.exe "artifact/PixelArtCreator-windows.exe"
 
+      - name: Verify the pinned build toolchain after the build (Windows)
+        if: runner.os == 'Windows'
+        # The drift guard above, REPEATED after the freeze (user ruling
+        # 2026-10-22: the pin must hold for the compile itself, not only at
+        # install time). pyside6-deploy can pip-install or replace Nuitka (or,
+        # on Linux, patchelf) while it builds, which would leave the version
+        # checked above different from the one that made the binary. The `if:`
+        # is the build step's own, so no leg that froze the app can skip this.
+        run: |
+          nuitka_installed="$(python -c "from importlib.metadata import version; print(version('nuitka'))" 2>/dev/null)" || nuitka_installed="(not installed)"
+          if [ "${nuitka_installed}" != "${NUITKA_PIN}" ]; then
+            echo "::error::TOOLCHAIN DRIFT GUARD (after the build): the installed Nuitka is ${nuitka_installed} but this workflow pins ${NUITKA_PIN} (env NUITKA_PIN); the build step changed the toolchain that made this binary."
+            exit 1
+          fi
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            patchelf_installed="$(python -c "from importlib.metadata import version; print(version('patchelf'))" 2>/dev/null)" || patchelf_installed="(not installed)"
+            if [ "${patchelf_installed}" != "${PATCHELF_PIN}" ]; then
+              echo "::error::TOOLCHAIN DRIFT GUARD (after the build): the installed patchelf is ${patchelf_installed} but this workflow pins ${PATCHELF_PIN} (env PATCHELF_PIN)."
+              exit 1
+            fi
+          fi
+          echo "toolchain drift guard after the build OK: nuitka ${nuitka_installed} == NUITKA_PIN"
+
       - name: Smoke-launch the Windows .exe (offscreen, auto-quit)
         if: runner.os == 'Windows'
         run: |
           BIN="./artifact/PixelArtCreator-windows.exe"
           echo "smoke binary: ${BIN}"
-          if "${BIN}"; then
-            echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"
-          else
-            rc=$?
+          SMOKE_OUT="${CI_TEMP_ROOT}/smoke-windows.out"
+          rc=0
+          "${BIN}" > "${SMOKE_OUT}" || rc=$?
+          cat "${SMOKE_OUT}"
+          if [ "${rc}" -ne 0 ]; then
             echo "::error::Windows smoke-launch FAILED (exit ${rc})"
             exit "${rc}"
           fi
+          echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"
+          # The app prints one `interface-font: <family>` line in smoke mode
+          # (REQ-VI-BUILD-006). Asserting it is what proves the installed
+          # build found its bundled typeface instead of falling back to a
+          # system font. `tr -d '\r'`: a Windows console build ends its lines
+          # with CRLF. The same assertion follows every smoke launch below.
+          FONT_LINE="$(tr -d '\r' < "${SMOKE_OUT}" | grep '^interface-font:' || true)"
+          if [ "${FONT_LINE}" != "interface-font: Nifen Art" ]; then
+            echo "::error::smoke output must carry exactly one 'interface-font: Nifen Art' line; got: '${FONT_LINE}'"
+            exit 1
+          fi
+          echo "smoke font line OK: ${FONT_LINE}"
         # Exit 0 proves the packaged onefile .exe started, loaded the offscreen
         # platform plugin + full UI, and quit cleanly via PIXELART_SMOKE_EXIT_MS;
         # any non-zero exit or crash fails this leg visibly.
+
+      - name: Check the Windows payload (fonts, themes, licence notices)
+        if: runner.os == 'Windows'
+        # A onefile .exe cannot be listed from outside, so the check runs on
+        # the folder Nuitka packed it from: `--keep-deployment-files` leaves
+        # it on disk as a `<name>.dist` folder. The search is for those
+        # folders and nowhere else, never the checkout, because the source
+        # tree holds the same files and would pass for the wrong reason. If
+        # no such folder exists the step fails and lists what does, rather
+        # than pass on nothing. packaging/check_payload.sh compares every file
+        # the repository ships under pixelart_creator/fonts and
+        # pixelart_creator/themes, byte for byte, and checks the licence
+        # notices in OFL.txt (REQ-VI-BUILD-005). The empty-folder control
+        # shows the check can fail before its result is trusted.
+        run: |
+          DIST_DIRS="$(find . -maxdepth 4 -type d -name '*.dist' -not -path './.git/*')"
+          if [ -z "${DIST_DIRS}" ]; then
+            echo "::error::no *.dist folder under the checkout: the Nuitka output the .exe was packed from is not on disk, so its contents cannot be listed"
+            find . -maxdepth 3 -type d \( -name deployment -o -name '*.build' -o -name '*.onefile-build' \) -not -path './.git/*' || true
+            exit 1
+          fi
+          CONTROL_DIR="${CI_TEMP_ROOT}/payload-control-empty"
+          mkdir -p "${CONTROL_DIR}"
+          if bash packaging/check_payload.sh "${CONTROL_DIR}" "control: empty folder" > /dev/null 2>&1; then
+            echo "::error::payload check control FAILED: an empty folder passed"
+            exit 1
+          fi
+          echo "payload check control OK: an empty folder is refused"
+          while IFS= read -r DIST_DIR; do
+            bash packaging/check_payload.sh "${DIST_DIR}" "windows .exe payload"
+          done <<< "${DIST_DIRS}"
 
       - name: Upload Windows artifact
         if: runner.os == 'Windows'
@@ -235,6 +363,29 @@ jobs:
       - name: Build Linux standalone (pyside6-deploy / Nuitka)
         if: runner.os == 'Linux'
         run: pyside6-deploy -c packaging/pysidedeploy-linux.spec --force --keep-deployment-files
+
+      - name: Verify the pinned build toolchain after the build (Linux)
+        if: runner.os == 'Linux'
+        # The drift guard above, REPEATED after the freeze (user ruling
+        # 2026-10-22: the pin must hold for the compile itself, not only at
+        # install time). pyside6-deploy can pip-install or replace Nuitka (or,
+        # on Linux, patchelf) while it builds, which would leave the version
+        # checked above different from the one that made the binary. The `if:`
+        # is the build step's own, so no leg that froze the app can skip this.
+        run: |
+          nuitka_installed="$(python -c "from importlib.metadata import version; print(version('nuitka'))" 2>/dev/null)" || nuitka_installed="(not installed)"
+          if [ "${nuitka_installed}" != "${NUITKA_PIN}" ]; then
+            echo "::error::TOOLCHAIN DRIFT GUARD (after the build): the installed Nuitka is ${nuitka_installed} but this workflow pins ${NUITKA_PIN} (env NUITKA_PIN); the build step changed the toolchain that made this binary."
+            exit 1
+          fi
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            patchelf_installed="$(python -c "from importlib.metadata import version; print(version('patchelf'))" 2>/dev/null)" || patchelf_installed="(not installed)"
+            if [ "${patchelf_installed}" != "${PATCHELF_PIN}" ]; then
+              echo "::error::TOOLCHAIN DRIFT GUARD (after the build): the installed patchelf is ${patchelf_installed} but this workflow pins ${PATCHELF_PIN} (env PATCHELF_PIN)."
+              exit 1
+            fi
+          fi
+          echo "toolchain drift guard after the build OK: nuitka ${nuitka_installed} == NUITKA_PIN"
 
       - name: Smoke-launch the Linux standalone binary (offscreen, auto-quit)
         if: runner.os == 'Linux'
@@ -268,17 +419,52 @@ jobs:
             exit 1
           fi
           echo "smoke binary: ${BIN}"
-          if "${BIN}"; then
-            echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"
-          else
-            rc=$?
+          SMOKE_OUT="${CI_TEMP_ROOT}/smoke-linux-standalone.out"
+          rc=0
+          "${BIN}" > "${SMOKE_OUT}" || rc=$?
+          cat "${SMOKE_OUT}"
+          if [ "${rc}" -ne 0 ]; then
             echo "::error::Linux standalone smoke-launch FAILED (exit ${rc})"
             exit "${rc}"
           fi
+          echo "smoke OK: launched offscreen and self-exited 0 (PIXELART_SMOKE_EXIT_MS)"
+          # The smoke output must carry the interface-font line (see the
+          # Windows smoke step above for why).
+          FONT_LINE="$(grep '^interface-font:' "${SMOKE_OUT}" || true)"
+          if [ "${FONT_LINE}" != "interface-font: Nifen Art" ]; then
+            echo "::error::smoke output must carry exactly one 'interface-font: Nifen Art' line; got: '${FONT_LINE}'"
+            exit 1
+          fi
+          echo "smoke font line OK: ${FONT_LINE}"
 
       - name: Package Linux AppImage (appimagetool)
         if: runner.os == 'Linux'
         run: bash packaging/build_appimage.sh
+
+      - name: Check the AppImage payload (fonts, themes, licence notices)
+        if: runner.os == 'Linux'
+        # The AppImage is unpacked with its own runtime (`--appimage-extract`
+        # needs no FUSE) into the CI temp root, and the unpacked tree is what
+        # packaging/check_payload.sh examines (REQ-VI-BUILD-005): every file
+        # the repository ships under pixelart_creator/fonts and
+        # pixelart_creator/themes, byte for byte, plus the licence notices in
+        # OFL.txt. The empty-folder control shows the check can fail before
+        # its result is trusted.
+        run: |
+          chmod +x artifact/PixelArtCreator-x86_64.AppImage
+          APPIMAGE="$(pwd)/artifact/PixelArtCreator-x86_64.AppImage"
+          EXTRACT_DIR="${CI_TEMP_ROOT}/appimage-extract"
+          rm -rf "${EXTRACT_DIR}"
+          mkdir -p "${EXTRACT_DIR}"
+          (cd "${EXTRACT_DIR}" && "${APPIMAGE}" --appimage-extract > /dev/null)
+          CONTROL_DIR="${CI_TEMP_ROOT}/payload-control-empty"
+          mkdir -p "${CONTROL_DIR}"
+          if bash packaging/check_payload.sh "${CONTROL_DIR}" "control: empty folder" > /dev/null 2>&1; then
+            echo "::error::payload check control FAILED: an empty folder passed"
+            exit 1
+          fi
+          echo "payload check control OK: an empty folder is refused"
+          bash packaging/check_payload.sh "${EXTRACT_DIR}/squashfs-root" "linux AppImage"
 
       - name: Smoke-launch the AppImage (offscreen, auto-quit)
         if: runner.os == 'Linux'
@@ -287,13 +473,21 @@ jobs:
           # --appimage-extract-and-run is intercepted by the AppImage runtime
           # (FUSE-free); AppRun then execs usr/bin/__main__, which self-exits via
           # PIXELART_SMOKE_EXIT_MS.
-          if ./artifact/PixelArtCreator-x86_64.AppImage --appimage-extract-and-run; then
-            echo "smoke OK: AppImage launched offscreen and self-exited 0"
-          else
-            rc=$?
+          SMOKE_OUT="${CI_TEMP_ROOT}/smoke-linux-appimage.out"
+          rc=0
+          ./artifact/PixelArtCreator-x86_64.AppImage --appimage-extract-and-run > "${SMOKE_OUT}" || rc=$?
+          cat "${SMOKE_OUT}"
+          if [ "${rc}" -ne 0 ]; then
             echo "::error::Linux AppImage smoke-launch FAILED (exit ${rc})"
             exit "${rc}"
           fi
+          echo "smoke OK: AppImage launched offscreen and self-exited 0"
+          FONT_LINE="$(grep '^interface-font:' "${SMOKE_OUT}" || true)"
+          if [ "${FONT_LINE}" != "interface-font: Nifen Art" ]; then
+            echo "::error::smoke output must carry exactly one 'interface-font: Nifen Art' line; got: '${FONT_LINE}'"
+            exit 1
+          fi
+          echo "smoke font line OK: ${FONT_LINE}"
 
       - name: Upload Linux artifact
         if: runner.os == 'Linux'
@@ -307,6 +501,29 @@ jobs:
       - name: Build macOS .app (pyside6-deploy / Nuitka standalone bundle)
         if: runner.os == 'macOS'
         run: pyside6-deploy -c packaging/pysidedeploy-macos.spec --force --keep-deployment-files
+
+      - name: Verify the pinned build toolchain after the build (macOS)
+        if: runner.os == 'macOS'
+        # The drift guard above, REPEATED after the freeze (user ruling
+        # 2026-10-22: the pin must hold for the compile itself, not only at
+        # install time). pyside6-deploy can pip-install or replace Nuitka (or,
+        # on Linux, patchelf) while it builds, which would leave the version
+        # checked above different from the one that made the binary. The `if:`
+        # is the build step's own, so no leg that froze the app can skip this.
+        run: |
+          nuitka_installed="$(python -c "from importlib.metadata import version; print(version('nuitka'))" 2>/dev/null)" || nuitka_installed="(not installed)"
+          if [ "${nuitka_installed}" != "${NUITKA_PIN}" ]; then
+            echo "::error::TOOLCHAIN DRIFT GUARD (after the build): the installed Nuitka is ${nuitka_installed} but this workflow pins ${NUITKA_PIN} (env NUITKA_PIN); the build step changed the toolchain that made this binary."
+            exit 1
+          fi
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            patchelf_installed="$(python -c "from importlib.metadata import version; print(version('patchelf'))" 2>/dev/null)" || patchelf_installed="(not installed)"
+            if [ "${patchelf_installed}" != "${PATCHELF_PIN}" ]; then
+              echo "::error::TOOLCHAIN DRIFT GUARD (after the build): the installed patchelf is ${patchelf_installed} but this workflow pins ${PATCHELF_PIN} (env PATCHELF_PIN)."
+              exit 1
+            fi
+          fi
+          echo "toolchain drift guard after the build OK: nuitka ${nuitka_installed} == NUITKA_PIN"
 
       - name: Assert macOS Info.plist CFBundleName (ADR-0067 R-3)
         # Durable gate, not a one-off probe: Qt's Cocoa platform plugin builds
@@ -342,21 +559,34 @@ jobs:
           # produced-artifact path is discovered via `find`, not a fixed stem.
           BIN="$(find "${APP}/Contents/MacOS" -maxdepth 1 -type f -perm +111 | head -n1)"
           echo "smoke binary: ${BIN}"
-          if "${BIN}"; then
-            echo "smoke OK: .app inner binary launched offscreen and self-exited 0"
-          else
-            rc=$?
+          SMOKE_OUT="${CI_TEMP_ROOT}/smoke-macos.out"
+          rc=0
+          "${BIN}" > "${SMOKE_OUT}" || rc=$?
+          cat "${SMOKE_OUT}"
+          if [ "${rc}" -ne 0 ]; then
             echo "::error::macOS .app smoke-launch FAILED (exit ${rc})"
             exit "${rc}"
           fi
+          echo "smoke OK: .app inner binary launched offscreen and self-exited 0"
+          # The smoke output must carry the interface-font line (see the
+          # Windows smoke step above for why).
+          FONT_LINE="$(grep '^interface-font:' "${SMOKE_OUT}" || true)"
+          if [ "${FONT_LINE}" != "interface-font: Nifen Art" ]; then
+            echo "::error::smoke output must carry exactly one 'interface-font: Nifen Art' line; got: '${FONT_LINE}'"
+            exit 1
+          fi
+          echo "smoke font line OK: ${FONT_LINE}"
           mkdir -p artifact
           hdiutil create -volname "PixelArt Creator" -srcfolder "${APP}" \
             -ov -format UDZO artifact/PixelArtCreator-macos.dmg
 
-      - name: Developer-ID sign + notarize + staple (credential-gated, NON-blocking)
+      - name: Developer-ID sign + notarize + staple (runs only when credentials are configured; a failure fails the build)
         # Runs ONLY when an Apple Developer ID secret is supplied (ADR-0038 §4,
         # Article XI). Its ABSENCE self-skips this step and does NOT fail the leg
         # — the unsigned/ad-hoc .dmg above is the accepted Phase-13 artifact.
+        # When the secret IS configured the step runs, and if it fails the leg
+        # fails and the build is not green: nothing here is advisory, and no
+        # `continue-on-error` may be added to it.
         if: ${{ runner.os == 'macOS' && env.APPLE_DEVELOPER_ID != '' }}
         run: |
           APP="$(find dist -maxdepth 2 -type d -name '*.app' | head -n1)"
@@ -369,6 +599,34 @@ jobs:
             --team-id "${APPLE_NOTARY_TEAM_ID}" \
             --password "${APPLE_NOTARY_PASSWORD}" --wait
           xcrun stapler staple artifact/PixelArtCreator-macos.dmg
+
+      - name: Check the macOS .dmg payload (fonts, themes, licence notices)
+        if: runner.os == 'macOS'
+        # Runs after the optional Developer-ID step, so it examines the .dmg
+        # that is uploaded, whichever step wrote it last. The .dmg is mounted
+        # read-only and hidden from the Finder, and
+        # packaging/check_payload.sh examines the mounted volume
+        # (REQ-VI-BUILD-005): every file the repository ships under
+        # pixelart_creator/fonts and pixelart_creator/themes, byte for byte,
+        # plus the licence notices in OFL.txt. The volume is always detached
+        # again, and the check's own result is what the step returns. The
+        # empty-folder control shows the check can fail before its result is
+        # trusted.
+        run: |
+          CONTROL_DIR="${CI_TEMP_ROOT}/payload-control-empty"
+          mkdir -p "${CONTROL_DIR}"
+          if bash packaging/check_payload.sh "${CONTROL_DIR}" "control: empty folder" > /dev/null 2>&1; then
+            echo "::error::payload check control FAILED: an empty folder passed"
+            exit 1
+          fi
+          echo "payload check control OK: an empty folder is refused"
+          MOUNT_DIR="${CI_TEMP_ROOT}/dmg-mount"
+          mkdir -p "${MOUNT_DIR}"
+          hdiutil attach artifact/PixelArtCreator-macos.dmg -readonly -nobrowse -noverify -mountpoint "${MOUNT_DIR}"
+          rc=0
+          bash packaging/check_payload.sh "${MOUNT_DIR}" "macOS .dmg" || rc=$?
+          hdiutil detach "${MOUNT_DIR}" || hdiutil detach "${MOUNT_DIR}" -force
+          exit "${rc}"
 
       - name: Upload macOS artifact
         if: runner.os == 'macOS'

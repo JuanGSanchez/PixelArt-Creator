@@ -40,10 +40,17 @@ fixture).
 
 from __future__ import annotations
 
-from typing import Callable, Dict, Iterable, Optional
+from typing import Callable, Dict, Final, Iterable, Optional
 
-from PySide6.QtCore import QEvent, Qt, QUrl
-from PySide6.QtGui import QTextDocument
+from PySide6.QtCore import QEvent, Qt, QUrl, Signal
+from PySide6.QtGui import (
+    QFont,
+    QTextBlock,
+    QTextCharFormat,
+    QTextCursor,
+    QTextDocument,
+    QTextFormat,
+)
 from PySide6.QtWidgets import (
     QDialog,
     QLineEdit,
@@ -72,7 +79,15 @@ from pixelart_creator.logic.guide_model import (
     resolve_content_ref,
 )
 from pixelart_creator.logic.guide_search import query
+from pixelart_creator.ui.app_font import (
+    NIFEN_ART_EM_PX,
+    interface_font,
+    nifen_art_available,
+    platform_default_font,
+    round_to_em,
+)
 from pixelart_creator.ui.app_icon import guide_logo_image
+from pixelart_creator.ui.guide_logo_switch import Guide_Logo_Switch_Widget
 
 #: Qt roles that would resolve an anchor to the network or the local filesystem;
 #: the viewer is fully offline (REQ-UG-UI-007), so a click on such a link is a
@@ -82,8 +97,8 @@ _EXTERNAL_SCHEMES = frozenset({"http", "https", "ftp", "ftps", "file", "mailto"}
 #: The UserRole slot carrying a topic id on a ToC / results item.
 _TOPIC_ID_ROLE = Qt.ItemDataRole.UserRole
 
-#: The in-guide markdown image URL the mark resolves against. Another
-#: agent's guide content writes ``![PixelArt Creator](pac-logo.png)`` under
+#: The in-guide markdown image URL the mark resolves against. The guide
+#: pages reference the mark as ``![PixelArt Creator](pac-logo.png)`` under
 #: this EXACT string -- it is the contract between the content and this
 #: widget's document-resource registration; do not change it here.
 _LOGO_RESOURCE_URL = QUrl("pac-logo.png")
@@ -98,9 +113,48 @@ Reader = Callable[[str], str]
 #: ``current_language`` so content follows the UI language (REQ-UG-UI-011 / CL-3).
 LocaleProvider = Callable[[], str]
 
+#: Qt's scale for a char format's font-size adjustment (``+1`` is 1.2 times the
+#: base size, ``+2`` 1.5, ``+3`` 2.0); the markdown importer gives a heading the
+#: adjustment ``4 - level``. Used to find the size a heading would be drawn at,
+#: so it can be rounded to a whole multiple of the pixel font's em.
+_ADJUSTMENT_SCALE: Final[Dict[int, float]] = {1: 1.2, 2: 1.5, 3: 2.0}
+
+
+class _Guide_Page_Browser(QTextBrowser):
+    """The page pane; keeps the guide's page font when the widget font changes.
+
+    ``QTextEdit`` resets its document's default font to the widget's font on
+    every font change (including an application font change), which would pull
+    the page text into the interface font. The dialog sets :attr:`page_font`;
+    this class puts it back after each such change.
+    """
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.page_font: Optional[QFont] = None
+
+    def apply_page_font(self, font: QFont) -> None:
+        """Make ``font`` the page text's default font and keep it there."""
+        self.page_font = QFont(font)
+        if self.document().defaultFont() != font:
+            self.document().setDefaultFont(font)
+
+    def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        """Restore the page font after Qt resets it to the widget font."""
+        super().changeEvent(event)
+        if self.page_font is None:
+            return
+        if event.type() in (QEvent.Type.FontChange, QEvent.Type.ApplicationFontChange):
+            if self.document().defaultFont() != self.page_font:
+                self.document().setDefaultFont(self.page_font)
+
 
 class User_Guide_Dialog(QDialog):
     """The navigable in-app User Guide (ToC tree + content pane + search)."""
+
+    #: Emitted when the hidden logo switch is toggled (the new on/off state), so
+    #: the owner can remember it (``REQ-VI-UI-017``).
+    pixelFontChanged = Signal(bool)
 
     def __init__(
         self,
@@ -110,6 +164,8 @@ class User_Guide_Dialog(QDialog):
         reader: Optional[Reader] = None,
         content_locales: Optional[Iterable[str]] = None,
         locale_provider: Optional[LocaleProvider] = None,
+        guide_pixel_font: bool = False,
+        use_system_font: bool = False,
     ) -> None:
         """Build the guide window and populate the ToC from the content model.
 
@@ -125,8 +181,14 @@ class User_Guide_Dialog(QDialog):
                 resolution). Defaults to the bundle's :func:`available_locales`.
             locale_provider: Returns the active UI locale code. Defaults to the
                 guide default locale.
+            guide_pixel_font: The remembered state of the hidden logo switch:
+                whether the page text is set in the pixel font.
+            use_system_font: Whether "Use system font" is on; while it is, the
+                page text stays in the platform font whatever the switch says.
         """
         super().__init__(parent)
+        self._guide_pixel_font = bool(guide_pixel_font)
+        self._use_system_font = bool(use_system_font)
         self._reader: Reader = reader if reader is not None else read_content
         self._locale_provider: LocaleProvider = (
             locale_provider
@@ -206,13 +268,21 @@ class User_Guide_Dialog(QDialog):
         left_layout.addWidget(self._search_edit)
         left_layout.addWidget(self._left_stack, 1)
 
-        self._content_view = QTextBrowser(self)
+        self._content_view = _Guide_Page_Browser(self)
         # Fully offline + safe: never open a link externally or read the filesystem;
         # anchor clicks are routed to _on_anchor_clicked and resolved in-guide only.
         self._content_view.setOpenExternalLinks(False)
         self._content_view.setOpenLinks(False)
         self._content_view.setSearchPaths([])
         self._content_view.anchorClicked.connect(self._on_anchor_clicked)
+        self._apply_page_font()
+        # The hidden switch over the logo (REQ-VI-UI-017): no label, but
+        # keyboard-reachable, named for assistive technology and ringed on focus.
+        self._logo_switch = Guide_Logo_Switch_Widget(
+            self._content_view, _LOGO_RESOURCE_URL.toString()
+        )
+        self._logo_switch.setChecked(self._guide_pixel_font)
+        self._logo_switch.toggled.connect(self._on_logo_switch_toggled)
 
         self._splitter = QSplitter(Qt.Orientation.Horizontal, self)
         self._splitter.addWidget(left_container)
@@ -226,6 +296,7 @@ class User_Guide_Dialog(QDialog):
         # Logical focus order (a11y, REQ-UG-UI-009): search -> ToC -> content.
         self.setTabOrder(self._search_edit, self._toc_tree)
         self.setTabOrder(self._toc_tree, self._content_view)
+        self.setTabOrder(self._content_view, self._logo_switch)
         self._search_edit.setFocus()
 
     def _populate_toc(self) -> None:
@@ -278,6 +349,95 @@ class User_Guide_Dialog(QDialog):
         """Return the id of the topic currently shown (or ``None``)."""
         return self._current_topic_id
 
+    def guide_pixel_font(self) -> bool:
+        """Return the hidden switch's state (whether it asks for the pixel font)."""
+        return self._guide_pixel_font
+
+    def set_use_system_font(self, enabled: bool) -> None:
+        """Follow the "Use system font" choice: the platform font always wins."""
+        enabled = bool(enabled)
+        if enabled == self._use_system_font:
+            return
+        self._use_system_font = enabled
+        self._refresh_page()
+
+    def page_uses_pixel_font(self) -> bool:
+        """Return whether the page text is set in the pixel font right now."""
+        return (
+            self._guide_pixel_font
+            and not self._use_system_font
+            and nifen_art_available()
+        )
+
+    def _on_logo_switch_toggled(self, checked: bool) -> None:
+        """Remember the switch, announce it and re-set the current page."""
+        self._guide_pixel_font = bool(checked)
+        self.pixelFontChanged.emit(self._guide_pixel_font)
+        self._refresh_page()
+
+    # -- page font --------------------------------------------------------
+
+    def _apply_page_font(self) -> None:
+        """Give the page pane's document the platform font or the pixel font."""
+        if self.page_uses_pixel_font():
+            font = interface_font()
+        else:
+            font = platform_default_font()
+        self._content_view.apply_page_font(font)
+
+    def _refresh_page(self) -> None:
+        """Re-set the page text in the font the switches now ask for."""
+        self._apply_page_font()
+        if self._model is not None and self._current_topic_id is not None:
+            self._render_topic(self._current_topic_id)
+
+    def _force_heading_sizes(self) -> None:
+        """Round every heading to a whole multiple of the pixel font's em.
+
+        ``setMarkdown`` draws headings at 24/18/14/12 px over a 12 px base;
+        these become 24/24/12/12. The forced font is a copy of the interface
+        font (a fresh ``QFont(family)`` would lose the no-smoothing request).
+        """
+        document = self._content_view.document()
+        cursor = QTextCursor(document)
+        cursor.beginEditBlock()
+        block = document.begin()
+        while block.isValid():
+            if block.blockFormat().headingLevel() > 0:
+                self._restyle_heading(cursor, block)
+            block = block.next()
+        cursor.endEditBlock()
+
+    @staticmethod
+    def _restyle_heading(cursor: QTextCursor, block: QTextBlock) -> None:
+        """Set the font of every fragment of a heading block on the em grid."""
+        iterator = block.begin()
+        while not iterator.atEnd():
+            fragment = iterator.fragment()
+            iterator += 1
+            fmt = fragment.charFormat()
+            if not fragment.isValid() or fmt.isImageFormat():
+                continue
+            adjustment = fmt.intProperty(QTextFormat.Property.FontSizeAdjustment)
+            scale = _ADJUSTMENT_SCALE.get(adjustment, 1.0)
+            font = QFont(interface_font())
+            font.setPixelSize(round_to_em(NIFEN_ART_EM_PX * scale))
+            if fmt.fontWeight() > 0:
+                font.setWeight(QFont.Weight(fmt.fontWeight()))
+            font.setItalic(fmt.fontItalic())
+            # A copy of the fragment's own format keeps its other properties;
+            # the relative size adjustment is removed because the size is
+            # explicit now (left in place, even as 0, it overrides the size).
+            forced = QTextCharFormat(fmt)
+            forced.setFont(font)
+            forced.clearProperty(QTextFormat.Property.FontSizeAdjustment)
+            cursor.setPosition(fragment.position())
+            cursor.setPosition(
+                fragment.position() + fragment.length(),
+                QTextCursor.MoveMode.KeepAnchor,
+            )
+            cursor.setCharFormat(forced)
+
     # -- rendering --------------------------------------------------------
 
     def _render_topic(self, topic_id: str) -> None:
@@ -300,6 +460,7 @@ class User_Guide_Dialog(QDialog):
             self._content_view.setPlainText(
                 self.tr("Could not load this topic:\n\n%1").replace("%1", str(exc))
             )
+            self._logo_switch.place()
             return
         self._content_view.setMarkdown(text)
         # The mark reaches the browser ONLY as an in-memory QTextDocument
@@ -321,6 +482,14 @@ class User_Guide_Dialog(QDialog):
         # document too, including a locale-switch re-render through
         # _retranslate -> _render_topic.
         self._register_logo_resource()
+        # The page was laid out before the image existed, so its line is one text
+        # line tall while the image is painted at its own size. Lay the page out
+        # again so the switch (placed from the layout) covers what is painted.
+        document = self._content_view.document()
+        document.markContentsDirty(0, document.characterCount())
+        if self.page_uses_pixel_font():
+            self._force_heading_sizes()
+        self._logo_switch.place()
 
     def _register_logo_resource(self) -> None:
         """Register the mark as an in-memory document resource.

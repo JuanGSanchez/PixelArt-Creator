@@ -581,3 +581,181 @@ def test_empty_section_model_shows_no_topic(qtbot):
     assert dialog.current_topic_id() is None
     assert dialog._toc_tree.topLevelItemCount() == 1
     assert dialog._toc_tree.topLevelItem(0).childCount() == 0
+
+
+# --------------------------------------------------------------------------- #
+# REQ-VI-UI-013 / -015 / -017 — the page's font and its headings (pixel font).   #
+# The hidden switch itself is test_guide_logo_switch.py.                         #
+# --------------------------------------------------------------------------- #
+
+_HEADING_PAGE = (
+    "# Hh\n\n## Hh\n\n### Hh\n\n#### Hh\n\nHh and `code` here\n\n```\nfenced\n```\n"
+)
+
+
+def _heading_dialog(qtbot, *, pixel_font: bool) -> User_Guide_Dialog:
+    """Build a guide over a page of four headings, a paragraph and two code faces.
+
+    The bundled face is registered first (a guide opened on its own does not
+    register it; the main window does), and the dialog is shown and laid out.
+    """
+    from pixelart_creator.ui import app_font
+
+    app_font.capture_platform_font()
+    assert app_font.register_app_fonts(), "the bundled Nifen Art face did not register"
+    app_font.apply_interface_font(QApplication.instance(), False)
+    dialog = _make_dialog(
+        qtbot,
+        reader=lambda ref: _HEADING_PAGE,
+        guide_pixel_font=pixel_font,
+    )
+    dialog.resize(900, 700)
+    dialog.show()
+    qtbot.waitExposed(dialog)
+    dialog.show_topic("layers")
+    QApplication.processEvents()
+    return dialog
+
+
+def _page_blocks(dialog: User_Guide_Dialog):
+    """Return ``(heading level, line height, natural width, fragment formats)`` per block."""
+    out = []
+    block = dialog._content_view.document().begin()
+    while block.isValid():
+        line = block.layout().lineAt(0)
+        formats = []
+        iterator = block.begin()
+        while not iterator.atEnd():
+            fragment = iterator.fragment()
+            if fragment.isValid():
+                formats.append(fragment.charFormat())
+            iterator += 1
+        out.append(
+            (
+                block.blockFormat().headingLevel(),
+                line.height(),
+                line.naturalTextWidth(),
+                formats,
+            )
+        )
+        block = block.next()
+    return out
+
+
+def _is_crisp(fmt) -> bool:
+    """Whether a fragment's format asks for no smoothing (read from the property)."""
+    from PySide6.QtGui import QFont, QTextFormat
+
+    value = fmt.property(QTextFormat.Property.FontStyleStrategy)
+    return value == QFont.StyleStrategy.NoAntialias.value
+
+
+def test_vi_ui_013_headings_are_on_the_em_grid_and_stay_crisp_with_the_pixel_font(
+    qtbot, theme, capsys
+):
+    """REQ-VI-UI-013: with the pixel font on, headings are 24/24/12/12 px and unsmoothed.
+
+    Measured on the laid-out page, not on a format's own ``font()`` (which fills in
+    defaults and misreads): the line height of each heading (28/28/14/14 for a
+    12 px em), its natural width against the same word drawn by Nifen Art Bold at
+    the expected size, and the no-smoothing request that every fragment of a
+    heading carries (the forced font is a copy of the interface font; a fresh
+    ``QFont(family)`` would lose it). The code faces are left alone.
+    """
+    from PySide6.QtGui import QFont, QFontMetricsF
+
+    from pixelart_creator.ui import app_font
+
+    dialog = _heading_dialog(qtbot, pixel_font=True)
+    assert dialog.page_uses_pixel_font() is True
+    blocks = _page_blocks(dialog)
+    headings = [b for b in blocks if b[0] > 0]
+    assert [b[0] for b in headings] == [1, 2, 3, 4]
+    sizes = {1: 24, 2: 24, 3: 12, 4: 12}
+    em = app_font.NIFEN_ART_EM_PX
+    for level, height, width, formats in headings:
+        px = sizes[level]
+        font = app_font.interface_font()
+        font.setPixelSize(px)
+        font.setWeight(QFont.Weight.Bold)
+        expected_width = QFontMetricsF(font).horizontalAdvance("Hh")
+        print(
+            f"[{theme}] h{level}: line {height} px, width {width:.1f} (expect {expected_width:.1f})"
+        )
+        assert px % em == 0
+        assert (
+            height == QFontMetricsF(font).height() == (14 * px) // em
+        ), f"h{level} line height {height}"
+        assert (
+            abs(width - expected_width) < 0.51
+        ), f"h{level} width {width} vs {expected_width}"
+        assert formats and all(
+            _is_crisp(f) for f in formats
+        ), f"h{level} lost its no-smoothing request"
+    # The code faces keep the platform's fixed-pitch family: not pinned to Nifen Art.
+    code_formats = [
+        f
+        for b in blocks
+        if b[0] == 0
+        for f in b[3]
+        if f.fontFixedPitch() or f.font().family() == "monospace"
+    ]
+    assert len(code_formats) == 2, "the page should show a code span and a fenced block"
+    assert all(f.font().family() != app_font.NIFEN_ART_FAMILY for f in code_formats)
+    with capsys.disabled():
+        print(
+            f"\n[guide] headings examined {len(headings)}, code faces {len(code_formats)}",
+            flush=True,
+        )
+
+
+def test_vi_ui_013_a_fresh_font_would_lose_the_no_smoothing_request(qtbot):
+    """Control: a heading forced from a fresh ``QFont(family)`` is read as smoothed.
+
+    The reading used above has to be able to say no: the same heading format built
+    the wrong way (the way the page would lose NoAntialias) fails ``_is_crisp``,
+    and the interface font's copy passes it.
+    """
+    from PySide6.QtGui import QFont, QTextCharFormat
+
+    from pixelart_creator.ui import app_font
+
+    wrong = QFont(app_font.NIFEN_ART_FAMILY)
+    wrong.setPixelSize(24)
+    bad = QTextCharFormat()
+    bad.setFont(wrong)
+    right = QTextCharFormat()
+    forced = app_font.interface_font()
+    forced.setPixelSize(24)
+    right.setFont(forced)
+    assert _is_crisp(right) is True
+    assert _is_crisp(bad) is False
+
+
+def test_vi_ui_013_headings_keep_qts_own_sizes_while_the_pixel_font_is_off(
+    qtbot, theme
+):
+    """With the switch off nothing is rounded: four different line heights, no forced font."""
+    dialog = _heading_dialog(qtbot, pixel_font=False)
+    assert dialog.page_uses_pixel_font() is False
+    headings = [b for b in _page_blocks(dialog) if b[0] > 0]
+    assert [b[0] for b in headings] == [1, 2, 3, 4]
+    heights = [b[1] for b in headings]
+    assert (
+        len(set(heights)) == 4
+    ), f"the heading sizes were rounded without the switch: {heights}"
+    assert not any(_is_crisp(f) for b in headings for f in b[3])
+
+
+def test_vi_ui_017_turning_the_switch_on_and_off_re_sets_the_headings(qtbot, theme):
+    """Toggling the switch re-renders the page: 28/28/14/14 with it on, Qt's own sizes off."""
+    dialog = _heading_dialog(qtbot, pixel_font=False)
+    off = [b[1] for b in _page_blocks(dialog) if b[0] > 0]
+    dialog._logo_switch.click()
+    QApplication.processEvents()
+    on = [b[1] for b in _page_blocks(dialog) if b[0] > 0]
+    assert on == [28.0, 28.0, 14.0, 14.0], on
+    dialog._logo_switch.click()
+    QApplication.processEvents()
+    assert [b[1] for b in _page_blocks(dialog) if b[0] > 0] == off
+    assert off != on

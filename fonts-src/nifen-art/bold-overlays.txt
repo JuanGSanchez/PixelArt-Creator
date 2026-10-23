@@ -1,0 +1,307 @@
+# Hand-drawn Bold grids. A record here replaces the derived Bold of that
+# codepoint or mark. The lint lists every overlay and checks that the
+# overlay restores what the derivation lost.
+
+boldmark diaeresis.low attach=2 top=7 dots=2
+##..##
+
+boldmark diaeresis.cap attach=2 top=9 dots=2
+##..##
+
+# Greek Omega: the derived Bold closes the gap between the feet.
+bold U+03A9 adv=9 top=7 ext=0..7
+..####..
+.##..##.
+##....##
+##....##
+.##..##.
+.##..##.
+###..###
+
+# Voiced mark: the derived Bold fuses the two ticks.
+bold U+309B adv=12 top=10 x=1 cell=full ext=free
+......##.##
+......##.##
+
+# Number sign: the derived Bold fills the centre; keep the one enclosed gap.
+bold U+0023 adv=7 top=7 ext=free
+.##.##
+.##.##
+######
+.##.##
+######
+.##.##
+.##.##
+
+# Dollar sign: the derived Bold fills both enclosed gaps of the S.
+bold U+0024 adv=7 top=7 ext=free
+..##..
+.#####
+##.##.
+.####.
+.##.##
+#####.
+..##..
+
+# Commercial at: the derived Bold fills the eye of the inner letter.
+bold U+0040 adv=9 top=7 ext=free
+.######.
+##....##
+##.####.
+##.##.##
+##.####.
+##......
+.######.
+
+# Capital G: the derived Bold closes the lower bowl and makes a counter.
+bold U+0047 adv=7 top=7 ext=free
+.####.
+##..##
+##....
+##.###
+##..##
+##..##
+.####.
+
+# Capital Q: the derived Bold opens a second counter around the tail.
+bold U+0051 adv=7 top=7 ext=free
+.####.
+##..##
+##..##
+##..##
+##.###
+##.##.
+.#####
+
+# Capital I with diaeresis: the two Bold dots need five columns.
+bold U+00CF adv=6 top=9 ext=free
+##.##
+.....
+####.
+.##..
+.##..
+.##..
+.##..
+.##..
+####.
+
+# i with diaeresis.
+bold U+00EF adv=6 top=7 ext=free
+##.##
+.....
+.##..
+.##..
+.##..
+.##..
+.##..
+
+# Spacing diaeresis.
+bold U+00A8 adv=6 top=7 ext=free
+##.##
+
+# Cent sign: the derived Bold fills the gap between the C and its stroke.
+bold U+00A2 adv=6 top=7 ext=free
+..##.
+.####
+##.##
+##.##
+##.##
+.####
+..##.
+
+# Currency sign: the derived Bold fills the hole of the ring.
+bold U+00A4 adv=7 top=6 ext=free
+##..##
+.####.
+##..##
+.####.
+##..##
+
+# Copyright sign: the derived Bold touches the inner letter to the ring.
+bold U+00A9 adv=10 top=7 ext=free
+.#######.
+##.....##
+##.###.##
+##.##..##
+##.###.##
+##.....##
+.#######.
+
+# Registered sign: same reason.
+bold U+00AE adv=10 top=7 ext=free
+.#######.
+##.....##
+##.###.##
+##.###.##
+##.##..##
+##.....##
+.#######.
+
+# Sharp s: the derived Bold shuts the channel that keeps the bowls open.
+bold U+00DF adv=7 top=8 ext=free
+.####.
+##..##
+##..##
+##.##.
+##..##
+##..##
+##..##
+##.##.
+
+# Capital U with ring: the derived Bold ring touches both stems and closes the cup of the U.
+# The ring's lower left corner is left out so that it touches the right stem only.
+bold U+016E adv=7 top=10 ext=free
+..###.
+.##.##
+...##.
+##..##
+##..##
+##..##
+##..##
+##..##
+##..##
+.####.
+
+# K with comma below: the plain Bold comma touches the feet at the corners; a flat bar two columns wide
+# sits under the gap, one empty row below the baseline row.
+bold U+0136 adv=7 top=7 ext=free
+##..##
+##.##.
+####..
+###...
+####..
+##.##.
+##..##
+......
+..##..
+
+# k with comma below: the plain Bold comma touches the feet at the corners; a flat bar two columns wide
+# sits under the gap, one empty row below the baseline row.
+bold U+0137 adv=7 top=8 ext=free
+##....
+##....
+##....
+##..##
+##.##.
+####..
+##.##.
+##..##
+......
+..##..
+
+# N with comma below: the plain Bold comma touches the feet at the corners; a flat bar two columns wide
+# sits under the gap, one empty row below the baseline row.
+bold U+0145 adv=7 top=7 ext=free
+##..##
+###.##
+######
+######
+##.###
+##..##
+##..##
+......
+..##..
+
+# n with comma below: the plain Bold comma touches the feet at the corners; a flat bar two columns wide
+# sits under the gap, one empty row below the baseline row.
+bold U+0146 adv=7 top=5 ext=free
+#####.
+###.##
+##..##
+##..##
+##..##
+......
+..##..
+
+# R with comma below: the plain Bold comma touches the feet at the corners; a flat bar two columns wide
+# sits under the gap, one empty row below the baseline row.
+bold U+0156 adv=7 top=7 ext=free
+#####.
+##..##
+##..##
+#####.
+####..
+##.##.
+##..##
+......
+..##..
+
+# Dialytika tonos: the plain Bold would fuse the two dots.
+boldmark dialytikatonos.low attach=2 top=10 dots=2
+...##.
+..##..
+......
+##..##
+
+# Dialytika tonos as a spacing character: the Bold dots need five columns.
+bold U+0385 adv=6 top=10 ext=free
+..##..
+.##...
+......
+##.##.
+
+# Iota with dialytika, and with dialytika and tonos: the Bold dots need five columns.
+bold U+03CA adv=6 top=7 ext=free
+##.##.
+......
+.##...
+.##...
+.##...
+.##...
+..##..
+
+bold U+0390 adv=6 top=10 ext=free
+..##..
+.##...
+......
+##.##.
+......
+.##...
+.##...
+.##...
+.##...
+..##..
+
+# Capital sharp s: same reason as the lowercase sharp s.
+bold U+1E9E adv=7 top=7 ext=free
+.####.
+##..##
+##..##
+##.##.
+##..##
+##..##
+##.##.
+
+# Russian letters whose plain Bold closes the gaps that make the shape (the two-pixel
+# strokes leave no room for the inner pixels): small em, el, capital El and de.
+# The counters and parts are unchanged, so these are overlays for a closed gap.
+bold U+043C adv=7 top=5 ext=free
+##..##
+###.##
+##.###
+##..##
+##..##
+
+bold U+043B adv=7 top=5 ext=free
+..####
+.##.##
+.##.##
+.##.##
+##..##
+
+bold U+041B adv=7 top=7 ext=free
+..####
+.##.##
+.##.##
+.##.##
+##..##
+##..##
+##..##
+
+bold U+0434 adv=7 top=5 ext=free
+..####
+.##.##
+.##.##
+.##.##
+######
+##..##

@@ -84,12 +84,6 @@
     "value": "Guides & Rulers"
   },
   {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "es-documentation-stale",
-    "line": 5490,
-    "value": "Pixel Perfect"
-  },
-  {
     "file": "pixelart_creator/ui/reference_board.py",
     "kind": "es-documentation-stale",
     "line": 246,

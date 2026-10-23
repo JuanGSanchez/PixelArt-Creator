@@ -19,6 +19,7 @@ from pixelart_creator.ui.collaboration_actions import Collaboration_Session
 from pixelart_creator.ui.comments_panel import Comments_Panel
 from pixelart_creator.ui.presence_panel import Presence_Panel
 from pixelart_creator.ui.shared_projects_panel import Shared_Projects_Panel
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 
 @pytest.fixture
@@ -114,10 +115,23 @@ def test_roster_and_thread_are_single_selection(panels):
     )
 
 
-def test_visible_focus_indicator_is_themed(panels):
-    """A visible focus ring is themed once by role (:focus QSS) for the panels."""
-    qss = QApplication.instance().styleSheet()
-    assert ":focus" in qss
+def test_visible_focus_indicator_is_themed(panels, qtbot):
+    """A visible focus ring is RENDERED on the panels' focusable controls (ADR-0069).
+
+    Focus-role pixels appear around each control when it has keyboard focus and not
+    when it has none; the ``":focus" in styleSheet()`` proxy is withdrawn.
+    """
+    shared, comments, presence = panels
+    for control in (
+        shared._project_edit,
+        shared._roster_tree,
+        comments._tree,
+        comments._editor,
+        presence._self_edit,
+        presence._list,
+        presence._join_button,
+    ):
+        assert_focus_rendered(qtbot, control)
 
 
 # -- REQ-P10-UI-007 both themes ----------------------------------------------- #

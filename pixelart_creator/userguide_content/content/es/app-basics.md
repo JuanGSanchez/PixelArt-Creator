@@ -45,13 +45,26 @@ deshacer en un documento nunca afecta a otro. Un puñado de acciones intencional
 recorrer un fotograma, activar el papel cebolla, añadir una guía y abrir los paneles de
 nube/colaboración.
 
-## Temas (claro y oscuro)
+## Temas (estilo, claro y oscuro)
 
-La aplicación incluye temas **claro** y **oscuro** emparejados. Cambia entre ellos
-desde el control de tema de la aplicación; todos los paneles, diálogos, superposiciones
-y esta Guía del usuario se renderizan correctamente y siguen siendo legibles en ambos.
-Los colores se definen una sola vez por rol, así que el tema es coherente en todas
-partes.
+Todo lo relativo al aspecto de la aplicación está en el menú **Tema**. Cada elección
+se aplica al instante y se recuerda la próxima vez que inicies la aplicación.
+
+- **Estilo** — un submenú con tres estilos visuales: **Washi & Kintsugi** (el
+  predeterminado), **Edo Night** y **Arcade Kikko**. Cada uno es un aspecto completo
+  para paneles, diálogos, bordes y las zonas decorativas de la ventana.
+- **Light** / **Dark** (Claro / Oscuro) — el modo de color, que se elige
+  independientemente del estilo. Todos los paneles, diálogos, superposiciones y esta
+  Guía del usuario se renderizan correctamente y siguen siendo legibles en ambos. Los
+  colores se definen una sola vez por rol, así que el tema es coherente en todas
+  partes.
+- **Usar fuente del sistema** — cambia la interfaz de la
+  tipografía de píxeles incluida (Nifen Art) a la fuente de interfaz de tu sistema
+  operativo.
+- **Interfaz de píxel perfecto** — activada de forma
+  predeterminada. Escala la interfaz solo por números enteros, de modo que el pixel
+  art se mantiene nítido en pantallas con escala fraccionaria (por ejemplo 125 % o
+  150 %). El cambio se aplica la próxima vez que inicies la aplicación.
 
 ## Versión y Acerca de
 

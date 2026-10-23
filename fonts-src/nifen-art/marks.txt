@@ -1,0 +1,131 @@
+# Mark components for the composer (not encoded as characters).
+# "mark <name> attach=<col> top=<y>": the grid column named by attach lands on
+# the anchor column of the base glyph (floor of the middle of its ink box).
+# Rows are absolute: top is the y of the top edge of the first row, so the
+# empty gap row between a letter and its mark is implied by the position.
+
+# acute: lowercase sits in rows 6-7, capitals in rows 8-9
+mark acute.low attach=0 top=8
+.#
+#.
+
+mark acute.cap attach=0 top=10
+.#
+#.
+
+# diaeresis: one row of two dots
+mark diaeresis.low attach=1 top=7 dots=2
+#.#
+
+mark diaeresis.cap attach=1 top=9 dots=2
+#.#
+
+# tilde: two rows
+mark tilde.low attach=2 top=8
+.#..#
+#.##.
+
+mark tilde.cap attach=2 top=10
+.#..#
+#.##.
+
+# grave: the acute turned the other way; the lower pixel sits on the anchor
+mark grave.low attach=1 top=8
+#.
+.#
+
+mark grave.cap attach=1 top=10
+#.
+.#
+
+# circumflex: two rows, apex on the anchor
+mark circumflex.low attach=1 top=8
+.#.
+#.#
+
+mark circumflex.cap attach=1 top=10
+.#.
+#.#
+
+# ring: three rows. On a lowercase letter it keeps the usual one-row gap
+# (rows 6-8). Over a capital the em box has room for three rows only when the
+# ring sits straight on the letter (rows 7-9), so capital recipes join it.
+mark ring.low attach=1 top=9
+.##.
+#..#
+.##.
+
+mark ring.cap attach=1 top=10
+.##.
+#..#
+.##.
+
+# cedilla: hangs from the base line and must touch the letter (join=1)
+mark cedilla attach=1 top=0
+.#
+#.
+
+# ---- marks added for Latin Extended-A -----------------------------------------
+# macron: one row of three
+mark macron.low attach=1 top=7
+###
+
+mark macron.cap attach=1 top=9
+###
+
+# breve: a shallow cup five wide (the caron below is the three-wide V)
+mark breve.low attach=2 top=8
+#...#
+.###.
+
+mark breve.cap attach=2 top=10
+#...#
+.###.
+
+# caron: the V
+mark caron.low attach=1 top=8
+#.#
+.#.
+
+mark caron.cap attach=1 top=10
+#.#
+.#.
+
+# dot above: one pixel
+mark dot.low attach=0 top=7 dots=1
+#
+
+mark dot.cap attach=0 top=9 dots=1
+#
+
+# double acute: two separated slanted strokes, three empty columns between them
+# (a narrower pair touches at the corner once Bold widens the strokes). The mark is
+# one column wider than the letters it sits on, so Ő ő Ű ű advance one column more.
+mark doubleacute.low attach=2 top=8
+.#...#
+#...#.
+
+mark doubleacute.cap attach=2 top=10
+.#...#
+#...#.
+
+# ogonek: hangs from the right foot of the letter, hook turned to the left
+# (recipes place it with align=right and declare join=1 where it touches)
+mark ogonek attach=1 top=0
+.#
+#.
+
+# turned comma above a lowercase g (the Latvian g with a comma form)
+mark turncomma.low attach=1 top=9
+.#
+#.
+#.
+
+# ---- marks added for Greek -------------------------------------------------------------------
+# dialytika tonos on a lowercase letter: the dots in the usual place (row 6) and the
+# tonos two rows higher, between them (rows 8-9). Its Bold form spreads the dots.
+mark dialytikatonos.low attach=1 top=10 dots=2
+..#
+.#.
+...
+#.#

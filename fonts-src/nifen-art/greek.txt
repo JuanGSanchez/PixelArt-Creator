@@ -1,0 +1,310 @@
+# Greek block. Alpha, Epsilon and nu are declared aliases (aliases.txt);
+# everything here has no Latin twin on this grid.
+
+glyph U+039B adv=6 top=7 ext=0..7
+..#..
+.#.#.
+.#.#.
+#...#
+#...#
+#...#
+#...#
+
+glyph U+03A3 adv=6 top=7 ext=0..7
+#####
+#....
+.#...
+..#..
+.#...
+#....
+#####
+
+glyph U+03A9 adv=8 top=7 ext=0..7
+..###..
+.#...#.
+#.....#
+#.....#
+.#...#.
+..#.#..
+###.###
+
+glyph U+03B1 adv=6 top=5 ext=0..5
+.###.
+#...#
+#...#
+#..##
+.##.#
+
+glyph U+03B4 adv=6 top=7 ext=0..7
+..###
+..#..
+.###.
+#...#
+#...#
+#...#
+.###.
+
+glyph U+03B7 adv=6 top=5 ext=-2..5
+#.##.
+##..#
+#...#
+#...#
+#...#
+....#
+....#
+
+glyph U+03B9 adv=3 top=5 ext=0..5
+#.
+#.
+#.
+#.
+.#
+
+glyph U+03BA adv=6 top=5 ext=0..5
+#...#
+#..#.
+###..
+#..#.
+#...#
+
+glyph U+03BB adv=6 top=8 ext=0..8
+#....
+.#...
+.#...
+..#..
+..#..
+.#.#.
+.#.#.
+#...#
+
+glyph U+03BC adv=6 top=5 ext=-2..5
+#...#
+#...#
+#...#
+#...#
+#####
+#....
+#....
+
+glyph U+03C0 adv=6 top=5 ext=0..5
+#####
+.#.#.
+.#.#.
+.#.#.
+.#..#
+
+# Capital delta: named by the scan of the code (a letter in the colour-difference notes);
+# drawn with the symbols, so it is not repeated among the Greek letters.
+glyph U+0394 adv=6 top=7 ext=0..7
+..#..
+.#.#.
+.#.#.
+#...#
+#...#
+#...#
+#####
+
+# ---- Greek, second part: letters with no Latin twin on this grid ----------------
+# (Capital Gamma is drawn once and shared with Cyrillic Ge by an alias; capital Pi is
+# the Cyrillic Pe, capital Phi the Cyrillic Ef, lowercase phi the Cyrillic ef.)
+
+glyph U+0393 adv=6 top=7 ext=0..7
+#####
+#....
+#....
+#....
+#....
+#....
+#....
+
+glyph U+0398 adv=6 top=7 ext=0..7
+.###.
+#...#
+#...#
+#####
+#...#
+#...#
+.###.
+
+glyph U+039E adv=6 top=7 ext=0..7
+#####
+.....
+.....
+.###.
+.....
+.....
+#####
+
+glyph U+03A6 adv=8 top=7 ext=0..7
+...#...
+.#####.
+#..#..#
+#..#..#
+#..#..#
+.#####.
+...#...
+
+glyph U+03A8 adv=8 top=7 ext=0..7
+#..#..#
+#..#..#
+#..#..#
+#..#..#
+.#####.
+...#...
+...#...
+
+glyph U+03B2 adv=6 top=8 ext=-2..8
+.###.
+#...#
+#...#
+####.
+#...#
+#...#
+#...#
+####.
+#....
+#....
+
+glyph U+03B3 adv=6 top=5 ext=-2..5
+#...#
+#...#
+.#.#.
+..#..
+..#..
+..#..
+..#..
+
+glyph U+03B5 adv=6 top=5 ext=0..5
+.####
+#....
+.###.
+#....
+.####
+
+glyph U+03B6 adv=6 top=8 ext=-2..8
+#####
+...#.
+..#..
+.#...
+#....
+#....
+#....
+.####
+....#
+.###.
+
+glyph U+03B8 adv=6 top=8 ext=0..8
+.###.
+#...#
+#...#
+#####
+#...#
+#...#
+#...#
+.###.
+
+glyph U+03BE adv=6 top=8 ext=-2..8
+#####
+#....
+#....
+.###.
+#....
+#....
+#....
+.####
+....#
+.###.
+
+glyph U+03C2 adv=6 top=5 ext=-1..5
+.####
+#....
+#....
+#....
+.###.
+...#.
+
+glyph U+03C3 adv=6 top=5 ext=0..5
+.####
+#...#
+#...#
+#...#
+.###.
+
+glyph U+03C4 adv=6 top=5 ext=0..5
+#####
+..#..
+..#..
+..#..
+...##
+
+glyph U+03C5 adv=6 top=5 ext=0..5
+#...#
+#...#
+#...#
+#...#
+.###.
+
+glyph U+03C7 adv=6 top=5 ext=-2..5
+#...#
+#...#
+.#.#.
+..#..
+.#.#.
+#...#
+#...#
+
+glyph U+03C8 adv=8 top=7 ext=-2..7
+...#...
+...#...
+#..#..#
+#..#..#
+#..#..#
+#..#..#
+.#####.
+...#...
+...#...
+
+glyph U+03C9 adv=8 top=5 ext=0..5
+#.....#
+#..#..#
+#..#..#
+#..#..#
+.##.##.
+
+# Lower numeral sign: a tick below the baseline
+glyph U+0375 adv=2 top=0 ext=free
+#
+#
+
+# Iota with tonos, with dialytika, with both: drawn (the plain mark recipes move the
+# narrow letter differently in the two weights).
+glyph U+03AF adv=3 top=8 ext=free
+.#
+#.
+..
+#.
+#.
+#.
+#.
+.#
+
+glyph U+03CA adv=5 top=7 ext=free dots=2 tab
+#.#..
+.....
+.#...
+.#...
+.#...
+.#...
+..#..
+
+glyph U+0390 adv=5 top=10 ext=free dots=2 tab
+..#..
+.#...
+.....
+#.#..
+.....
+.#...
+.#...
+.#...
+.#...
+..#..

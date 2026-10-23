@@ -1,0 +1,79 @@
+# Aliases: codepoints whose shape is identical on this grid map to one drawing.
+# Each line is judged and declared; near-twins that differ are drawn instead.
+
+alias U+0391 = U+0041   # Greek Alpha = Latin A
+alias U+0395 = U+0045   # Greek Epsilon = Latin E
+alias U+03BD = U+0076   # Greek nu = Latin v
+alias U+0415 = U+0045   # Cyrillic Ie = Latin E
+alias U+0430 = U+0061   # Cyrillic a = Latin a
+alias U+0435 = U+0065   # Cyrillic ie = Latin e
+alias U+0440 = U+0070   # Cyrillic er = Latin p
+alias U+0441 = U+0063   # Cyrillic es = Latin c
+alias U+043A = U+03BA   # Cyrillic ka = Greek kappa
+
+# Latin-1 and spacing forms with an identical shape (declared, not implied)
+alias U+00A0 = U+0020   # no-break space = space
+alias U+00AD = U+002D   # soft hyphen = hyphen
+alias U+02C6 = U+005E   # modifier circumflex = circumflex sign
+alias U+02DA = U+00B0   # ring above = degree sign
+alias U+201A = U+002C   # low single quote = comma
+
+# Latin Extended-A: identical shape on this grid
+alias U+0110 = U+00D0   # D with stroke = Eth
+alias U+2212 = U+2013   # minus sign = en dash (same bar on the same row)
+
+# ---- Greek and Cyrillic: identical shape on this grid (each pair judged) ------------
+# Greek capitals that are the Latin capital
+alias U+0392 = U+0042   # Beta = B
+alias U+0396 = U+005A   # Zeta = Z
+alias U+0397 = U+0048   # Eta = H
+alias U+0399 = U+0049   # Iota = I
+alias U+039A = U+004B   # Kappa = K
+alias U+039C = U+004D   # Mu = M
+alias U+039D = U+004E   # Nu = N
+alias U+039F = U+004F   # Omicron = O
+alias U+03A1 = U+0050   # Rho = P
+alias U+03A4 = U+0054   # Tau = T
+alias U+03A5 = U+0059   # Upsilon = Y
+alias U+03A7 = U+0058   # Chi = X
+# Greek lowercase: omicron is the o; rho is the p; phi is the Cyrillic ef (a stem through an ellipse)
+alias U+03BF = U+006F   # omicron = o
+alias U+03C1 = U+0070   # rho = p (the bowl is the same square-cornered bowl on this grid)
+alias U+03C6 = U+0444   # phi = Cyrillic ef
+# Greek capitals shared with Cyrillic drawings
+alias U+03A0 = U+041F   # Pi = Cyrillic Pe
+
+# Cyrillic that is a Latin or Greek letter
+alias U+0405 = U+0053   # Dze = S
+alias U+0406 = U+0049   # Byelorussian-Ukrainian I = I
+alias U+0408 = U+004A   # Je = J
+alias U+0410 = U+0041   # A = A
+alias U+0412 = U+0042   # Ve = B
+alias U+0413 = U+0393   # Ge = Greek Gamma
+alias U+041A = U+004B   # Ka = K
+alias U+041C = U+004D   # Em = M
+alias U+041D = U+0048   # En = H
+alias U+041E = U+004F   # O = O
+alias U+0420 = U+0050   # Er = P
+alias U+0421 = U+0043   # Es = C
+alias U+0422 = U+0054   # Te = T
+alias U+0424 = U+03A6   # Ef = Greek Phi
+alias U+0425 = U+0058   # Ha = X
+alias U+043E = U+006F   # o = o
+alias U+0445 = U+0078   # ha = x
+alias U+0455 = U+0073   # dze = s
+alias U+0456 = U+0069   # byelorussian-ukrainian i = i
+alias U+0458 = U+006A   # je = j
+alias U+0407 = U+00CF   # Yi = I with diaeresis
+alias U+0457 = U+00EF   # yi = i with diaeresis
+
+# Greek spacing and punctuation
+alias U+0374 = U+0027   # numeral sign = the apostrophe tick
+alias U+02B9 = U+0027   # modifier letter prime (the form the numeral sign takes under canonical normalisation)
+alias U+0384 = U+00B4   # tonos = spacing acute
+alias U+0387 = U+00B7   # ano teleia = middle dot
+alias U+037E = U+003B   # Greek question mark = semicolon
+alias U+03AA = U+00CF   # Iota with dialytika = I with diaeresis
+
+# Japanese full-width forms with an identical shape (declared, not implied)
+alias U+FF5E = U+301C   # full-width tilde = wave dash

@@ -37,6 +37,7 @@ from pixelart_creator.ui.canvas_view import Canvas_View
 from pixelart_creator.ui.layer_panel import Layer_Panel
 from pixelart_creator.ui.tools import PencilTool
 from testing.suites.ui._ui_helpers import click_pixel, prepare_for_click
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 STARTER = [
     (0, 0, 0, 255),
@@ -563,7 +564,7 @@ def test_sc_ui_014_1_and_2_multi_canvas_isolation(qtbot, theme):
 # --------------------------------------------------------------------------- #
 
 
-def test_sc_ui_016_1_layer_panel_accessible_and_keyboard_reachable(layer_env):
+def test_sc_ui_016_1_layer_panel_accessible_and_keyboard_reachable(layer_env, qtbot):
     """SC-UI-016-1: panel controls expose accessible names, are focusable, and a
     visible focus indicator is themed by role."""
     env = layer_env(names=("Background", "Top"))
@@ -589,8 +590,9 @@ def test_sc_ui_016_1_layer_panel_accessible_and_keyboard_reachable(layer_env):
     for ctrl in (row._vis, row._lock, row._opacity, row._blend):
         assert ctrl.accessibleName() != ""
         assert ctrl.focusPolicy() != Qt.FocusPolicy.NoFocus
-    # A visible focus indicator is themed once by role (a :focus QSS rule).
-    assert ":focus" in QApplication.instance().styleSheet()
+        # A visible focus indicator: RENDERED focus-role pixels on the focused
+        # control (ADR-0069; the ":focus" stylesheet-substring proxy is withdrawn).
+        assert_focus_rendered(qtbot, ctrl)
 
 
 # --------------------------------------------------------------------------- #

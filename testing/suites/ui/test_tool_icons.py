@@ -50,7 +50,14 @@ import pytest
 from PySide6.QtGui import QAccessible, QImage
 
 from pixelart_creator.ui.main_window import Main_Window
-from pixelart_creator.ui.theme import THEME_DARK, THEME_LIGHT
+from pixelart_creator.ui.theme import (
+    DEFAULT_STYLE,
+    THEME_DARK,
+    THEME_LIGHT,
+    available_styles,
+    available_themes,
+    role_colour,
+)
 from pixelart_creator.ui.tool_icons import TOOL_GLYPH_IDS, tool_icon
 
 #: Render size requested from each `QIcon.pixmap()` call in this module.
@@ -355,3 +362,94 @@ def test_sc_u027_6_no_notice_entry_added_for_the_glyphs():
             f"NOTICE gained a mention of {forbidden!r} -- the glyphs are original "
             "works and must carry no third-party attribution (D-10)"
         )
+
+
+# ---------------------------------------------------------------------------
+# The tint follows (mode, style) -- REQ-VI-UI-003, ADR-0070 decision 6
+#
+# ``tool_icon(tool_id, theme=<mode>, style=<style>)`` fills the glyph with the
+# ``text`` role of that combination. The tests below run for every style x mode
+# the catalogue ships (four today, six when the third style lands): the colour is
+# read back from the rendered pixel and compared with the role map, never with a
+# hard-coded hex.
+# ---------------------------------------------------------------------------
+
+_COMBOS = [(s, m) for s in available_styles() for m in available_themes()]
+
+#: The tests below name the mode and the style they draw in, and read nothing from
+#: the application's stylesheet, so the suite's autouse ``theme`` fixture (light and
+#: dark of the canonical style) would only run each of them twice on the same
+#: inputs and restyle the application twice for nothing. Naming the fixture here
+#: gives it one value for these tests and the fixture itself is not run; the modes
+#: and styles examined are the parameters of each test, unchanged.
+_ICON_NAMES_ITS_OWN_THEME = pytest.mark.parametrize("theme", [THEME_LIGHT])
+
+
+@pytest.mark.parametrize("style, mode", _COMBOS)
+@pytest.mark.parametrize("tool_id", TOOL_GLYPH_IDS)
+@_ICON_NAMES_ITS_OWN_THEME
+def test_tint_is_the_text_role_of_the_style_and_mode(qapp, tool_id, style, mode):
+    """The glyph's opaque pixels are the ``text`` role colour of ``(style, mode)``."""
+    image = _rendered_image(tool_icon(tool_id, theme=mode, style=style))
+    coordinate = _first_opaque_pixel(image)
+    assert (
+        coordinate is not None
+    ), f"{tool_id}: no fully-opaque pixel to read the tint from"
+    expected = role_colour(mode, "text", style)
+    assert image.pixelColor(*coordinate).rgb() == expected.rgb(), (
+        f"{style}/{mode} {tool_id}: tint {image.pixelColor(*coordinate).name()} "
+        f"is not the text role {expected.name()}"
+    )
+
+
+@pytest.mark.parametrize("style", available_styles())
+@_ICON_NAMES_ITS_OWN_THEME
+def test_tint_differs_between_the_two_modes_of_every_style(qapp, style):
+    """Within a style, Light and Dark tint the same glyph differently (live, not baked)."""
+    tool_id = TOOL_GLYPH_IDS[0]
+    light = _rendered_image(tool_icon(tool_id, theme=THEME_LIGHT, style=style))
+    dark = _rendered_image(tool_icon(tool_id, theme=THEME_DARK, style=style))
+    x, y = _first_opaque_pixel(light) or (0, 0)
+    assert light.pixelColor(x, y) != dark.pixelColor(x, y)
+
+
+@pytest.mark.parametrize("mode", available_themes())
+@_ICON_NAMES_ITS_OWN_THEME
+def test_the_style_argument_changes_the_tint_where_the_text_roles_differ(qapp, mode):
+    """The ``style`` argument is live: styles whose ``text`` roles differ tint differently.
+
+    The set of tints over the shipped styles must contain more than one colour (a
+    ``style`` argument that was ignored would give one), and each style's tint is
+    the role of that style.
+    """
+    tool_id = TOOL_GLYPH_IDS[0]
+    seen = {}
+    for style in available_styles():
+        image = _rendered_image(tool_icon(tool_id, theme=mode, style=style))
+        x, y = _first_opaque_pixel(image) or (0, 0)
+        seen[style] = image.pixelColor(x, y).rgb()
+    roles = {
+        style: role_colour(mode, "text", style).rgb() for style in available_styles()
+    }
+    assert seen == roles
+    assert (
+        len(set(roles.values())) > 1
+    ), "no two styles differ in the text role -- nothing examined"
+    assert len(set(seen.values())) == len(set(roles.values()))
+
+
+@pytest.mark.parametrize("mode", available_themes())
+@_ICON_NAMES_ITS_OWN_THEME
+def test_no_style_argument_means_the_default_style(qapp, mode):
+    """``tool_icon(..., theme=mode)`` is ``tool_icon(..., theme=mode, style=DEFAULT_STYLE)``."""
+    tool_id = TOOL_GLYPH_IDS[0]
+    bare = _rendered_image(tool_icon(tool_id, theme=mode))
+    explicit = _rendered_image(tool_icon(tool_id, theme=mode, style=DEFAULT_STYLE))
+    assert bare == explicit
+
+
+@_ICON_NAMES_ITS_OWN_THEME
+def test_an_unknown_style_is_refused_not_drawn_blank(qapp):
+    """An unknown style raises ``ValueError`` naming it (never a blank or default icon)."""
+    with pytest.raises(ValueError, match="no-such-style"):
+        tool_icon(TOOL_GLYPH_IDS[0], theme=THEME_LIGHT, style="no-such-style")

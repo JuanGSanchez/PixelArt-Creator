@@ -6,6 +6,12 @@ themes correct, role-based colours), SC-UI-025-2 (text-on-accent contrast ≥
 4.5:1 in both themes — A11Y-2 fix). Every test also runs under both themes via
 the autouse fixture; this module adds the explicit theme-parity assertions.
 Findings feed the a11y-audit report.
+
+Visible focus (SC-UI-024-2) is proven by a RENDERED check -- focus-role pixels
+present on the focused control, absent when unfocused (``focus_helpers``) -- not
+by the substring ``":focus"`` in the stylesheet, which is withdrawn as evidence
+(ADR-0069). The role-pair contrast uses ``logic.contrast`` (the one
+implementation), over every style x mode the catalogue ships.
 """
 
 from __future__ import annotations
@@ -15,14 +21,18 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QApplication
 
-from pixelart_creator.ui import theme as theme_module
+from pixelart_creator.logic.contrast import TEXT_MIN_RATIO, contrast_ratio
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.theme import (
     THEME_DARK,
     THEME_LIGHT,
+    available_styles,
+    available_themes,
     build_qss,
     canvas_roles,
+    role_map,
 )
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 #: Home-row single-key tool shortcuts (REQ-IS-UI-001/-028; input-scheme remap).
 #: All eleven shipped tool_ids, matching main_window._build_actions()'s own
@@ -43,27 +53,8 @@ _EXPECTED_TOOL_SHORTCUTS = {
     "select_wand": "Shift+E",
 }
 
-#: WCAG 2.1 AA minimum contrast ratio for normal-size text.
-_WCAG_AA_NORMAL = 4.5
-
-
-def _relative_luminance(hex_color: str) -> float:
-    """Return WCAG 2.1 relative luminance of an ``#rrggbb`` colour."""
-    h = hex_color.lstrip("#")[:6]
-    r, g, b = (int(h[i : i + 2], 16) for i in (0, 2, 4))
-
-    def _chan(value: int) -> float:
-        cs = value / 255.0
-        return cs / 12.92 if cs <= 0.03928 else ((cs + 0.055) / 1.055) ** 2.4
-
-    return 0.2126 * _chan(r) + 0.7152 * _chan(g) + 0.0722 * _chan(b)
-
-
-def _contrast_ratio(fg_hex: str, bg_hex: str) -> float:
-    """Return the WCAG contrast ratio between two ``#rrggbb`` colours."""
-    l1, l2 = _relative_luminance(fg_hex), _relative_luminance(bg_hex)
-    lighter, darker = max(l1, l2), min(l1, l2)
-    return (lighter + 0.05) / (darker + 0.05)
+#: Every style x mode the catalogue ships (four today, six when the third style lands).
+_COMBOS = [(style, mode) for style in available_styles() for mode in available_themes()]
 
 
 def _window(qtbot) -> Main_Window:
@@ -87,7 +78,12 @@ def test_sc_ui_024_1_interactive_widgets_expose_accessible_names(qtbot):
 
 
 def test_sc_ui_024_2_keyboard_reachable_with_visible_focus(qtbot):
-    """SC-UI-024-2: controls are keyboard-reachable and focus is visible."""
+    """SC-UI-024-2: controls are keyboard-reachable and focus is visible.
+
+    Visible focus is a RENDERED check (ADR-0069): the canvas view, once given
+    keyboard focus, shows focus-role pixels around it and none when it is not
+    focused. The stylesheet-substring proxy is withdrawn.
+    """
     win = _window(qtbot)
     record = win.active_tab()
     # Canvas view accepts keyboard focus (tab-reachable, StrongFocus).
@@ -97,9 +93,8 @@ def test_sc_ui_024_2_keyboard_reachable_with_visible_focus(qtbot):
     assert not win._redo_action.shortcut().isEmpty()
     assert not win._new_action.shortcut().isEmpty()
     assert not win._save_action.shortcut().isEmpty()
-    # A visible focus indicator is themed once by role (a :focus QSS rule).
-    qss = QApplication.instance().styleSheet()
-    assert ":focus" in qss
+    # A visible focus indicator: rendered focus-role pixels on the focused canvas view.
+    assert_focus_rendered(qtbot, record.view)
 
 
 @pytest.mark.parametrize("tool_id,key", sorted(_EXPECTED_TOOL_SHORTCUTS.items()))
@@ -147,31 +142,36 @@ def test_sc_ui_024_3_every_shipped_tool_is_tracked_and_bound(qtbot):
         ), f"tool {tool_id!r} exposes no keyboard shortcut at all"
 
 
-@pytest.mark.parametrize("theme_name", [THEME_LIGHT, THEME_DARK])
-def test_sc_ui_025_2_text_on_accent_contrast_meets_aa(theme_name):
-    """SC-UI-025-2 (A11Y-2): text-on-accent contrast ≥ 4.5:1 in BOTH themes.
+@pytest.mark.parametrize("style, mode", _COMBOS)
+def test_sc_ui_025_2_text_on_accent_contrast_meets_aa(style, mode):
+    """SC-UI-025-2 (A11Y-2): text-on-accent contrast >= 4.5:1 in EVERY style x mode.
 
-    Computed from the theme's own role colours (accent vs accent_text), so the
-    assertion tracks the QSS the widgets actually render. Re-verifies the
-    accent recolour (light 5.28:1, dark 4.92:1)."""
-    roles = theme_module._ROLES[theme_name]
-    ratio = _contrast_ratio(roles["accent"], roles["accent_text"])
-    assert ratio >= _WCAG_AA_NORMAL, (
-        f"{theme_name}: accent {roles['accent']} on {roles['accent_text']} "
-        f"= {ratio:.2f}:1 (< {_WCAG_AA_NORMAL}:1)"
+    Computed from the combination's own role colours (accent vs accent_text) through
+    ``logic.contrast`` -- the one contrast implementation -- so the assertion tracks
+    the QSS the widgets actually render. Re-verifies the accent recolour."""
+    roles = role_map(mode, style)
+    ratio = contrast_ratio(roles["accent_text"], roles["accent"])
+    assert ratio >= TEXT_MIN_RATIO, (
+        f"{style}/{mode}: accent {roles['accent']} on {roles['accent_text']} "
+        f"= {ratio:.2f}:1 (< {TEXT_MIN_RATIO}:1)"
     )
 
 
 def test_sc_ui_025_1_both_themes_role_based_and_distinct(qtbot, theme):
-    """SC-UI-025-1: both themes render via role colours and differ legibly."""
-    win = _window(qtbot)
+    """SC-UI-025-1: every combination renders via role colours and the modes differ legibly."""
+    _window(qtbot)
     # The active theme applied a non-empty role-based stylesheet.
     assert QApplication.instance().styleSheet() != ""
-    # Light and dark are distinct and both define the same roles (no per-widget
-    # hard-coded colour): the QSS templates differ but share role structure.
-    light_qss = build_qss(THEME_LIGHT)
-    dark_qss = build_qss(THEME_DARK)
-    assert light_qss != dark_qss
-    assert "background-color" in light_qss and "background-color" in dark_qss
-    # The canvas checker/grid role colours also differ between themes.
-    assert canvas_roles(THEME_LIGHT) != canvas_roles(THEME_DARK)
+    for style in available_styles():
+        # Light and dark are distinct in every style and both are role-based (no
+        # per-widget hard-coded colour): the QSS differs but shares role structure.
+        light_qss = build_qss(THEME_LIGHT, style)
+        dark_qss = build_qss(THEME_DARK, style)
+        assert light_qss != dark_qss
+        assert "background-color" in light_qss and "background-color" in dark_qss
+        # The canvas checker/grid role colours also differ between modes.
+        assert canvas_roles(THEME_LIGHT, style) != canvas_roles(THEME_DARK, style)
+    # ... and the styles differ from one another in the same mode.
+    for mode in available_themes():
+        sheets = {build_qss(mode, style) for style in available_styles()}
+        assert len(sheets) == len(available_styles())

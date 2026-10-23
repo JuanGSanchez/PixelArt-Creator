@@ -55,12 +55,15 @@ launcher imports only `pixelart_creator`, and each spec additionally passes
 ## Application icon (derived family)
 
 The three specs' `[app] icon` fields, plus `build_appimage.sh`'s AppDir icon,
-all consume the raster family derived by scripts/derive_app_icons.py from the committed provenance
-master `pixelart_creator/icons/app/logo-source-64.png` (see that directory's
-`CONSTRUCTION-TABLE.md` for the full per-size construction record — mark,
-integer scale factor, art box, plate treatment, residual margin). Every
-member is an INTEGER nearest-neighbour derivation: never redrawn, never
-resampled.
+all consume the raster family derived by `scripts/derive_app_icons.py` from the five committed,
+hand-drawn **Kikko Badge** masters
+`pixelart_creator/icons/app/logo-master-{16,24,32,48,64}.png` (see that directory's
+`CONSTRUCTION-TABLE.md` for the full per-size construction record — master used, integer
+scale factor, opaque box, fill). Each shipped size up to 64 px has its own master, drawn
+for that size; the larger sizes are whole-number nearest-neighbour upscales of the 64 px
+master. The badge is its own plate, so nothing is cropped or padded. Every member is an
+INTEGER nearest-neighbour derivation: never redrawn, never resampled. The single 64 px
+master the family used to be derived from is gone.
 
 | Consumer | File |
 | --- | --- |
@@ -73,10 +76,17 @@ The runtime app/window icon (`QApplication` / `Main_Window`,
 `pixelart_creator/ui/app_icon.py`) is a **separate loader** that reads the
 same family's `app-icon-{16,24,32,48,64,128,256,512}.png` members through
 `importlib.resources` at process start — it does not touch this directory's
-files at all. `logo-source-64.png` (the provenance master) and
-`app-icon-1024.png` (an ICNS-container-only member, never a Nuitka/AppImage
-input) are consumed by neither the runtime loader nor anything in this
-directory.
+files at all. The five `logo-master-*.png` files (provenance masters, read only by the
+deriver; ADR-0068: not wheel package data) and `app-icon-1024.png` (an
+ICNS-container-only member, never a Nuitka/AppImage input) are consumed by neither the
+runtime loader nor anything in this directory. The installer specs include the whole
+`pixelart_creator/icons` directory, so the masters do travel inside an installer; the wheel
+does not carry them.
+
+The deriver also writes the web viewer's page icon, `web_viewer/static/favicon.png` (the
+32 px master at k = 1), and `--check` verifies it with the rest of the family. Each
+master's sha256 is pinned in the deriver; a retouched master fails `--check` until the pin
+is updated on purpose.
 
 Regenerate the whole family from the committed master:
 
@@ -87,13 +97,39 @@ this before packaging a release, exactly as CI does:
 
     python scripts/derive_app_icons.py --check
 
-## macOS signing (credential-gated, NON-blocking — ADR-0038 §4, Article XI)
+## Fonts and themes (package data and installer data)
+
+Two more runtime directories ship, both **data, not packages** (no `__init__.py`; ADR-0068),
+read through `importlib.resources` — so a missing one is invisible from a source checkout and
+fails only for an installed user, exactly as the missing `icons/` directory did in v0.3.0.
+
+| Directory | Contents | Wheel (`pyproject.toml` package-data) | Installers (`--include-data-dir` in all three specs) |
+| --- | --- | --- | --- |
+| `pixelart_creator/fonts/` | `NifenArt-Regular.ttf`, `NifenArt-Bold.ttf`, `OFL.txt`, `FONTLOG.txt` | the four files, by name | the whole directory |
+| `pixelart_creator/themes/` | `index.json`, `contrast-pairs.json`, and per style `roles.json`, `templates.json`, `pattern.grid.txt`, `templates/*.grid.txt` | one glob per depth (`themes/*.json`, `themes/*/*.json`, `themes/*/*.grid.txt`, `themes/*/templates/*.grid.txt`) | the whole directory |
+
+Not shipped, by design: the font sources in `fonts-src/` and the build scripts in
+`scripts/font/` (a directory placed inside an included one would ship in every installer, which
+is why the sources sit outside the package). **fontTools** builds the fonts and is a
+build-time development dependency only: it is in the `dev` extra and pinned in
+`constraints.txt`, never in the runtime `dependencies`, and nothing the application imports
+touches it. The built fonts are committed.
+
+**Adding a style or a font file is a packaging change.** A new file at a depth the globs above
+do not name needs a new glob; a new top-level data directory needs a package-data entry and an
+`--include-data-dir` line in each of the three specs. Prove it the way the icon entries were
+proven: build the wheel and list it (`python -m build --wheel`, then list the archive and
+compare against `git ls-files pixelart_creator/fonts pixelart_creator/themes`).
+
+## macOS signing (credential-gated: skipped without credentials, blocking with them — ADR-0038 §4, Article XI)
 
 The macOS leg ships an **unsigned / ad-hoc-signed** `.app`/`.dmg` now. A
 Developer-ID **signing → notarization (`notarytool`) → stapling** step runs in
 CI **only** when an Apple Developer ID secret is present (guarded by
 `if: env.APPLE_DEVELOPER_ID != ''`). Its absence does **not** fail the build.
-**No credential is committed** — signing consumes GitHub secrets at CI time
+When the secret **is** configured the step runs, and if it fails the leg fails and
+the build is not green (constitution v1.5, Art. IX §2): it is never advisory and
+must not carry `continue-on-error`. **No credential is committed** — signing consumes GitHub secrets at CI time
 only.
 
 ### Gatekeeper bypass for the unsigned build
@@ -131,6 +167,17 @@ PySide6 plugin. Run **from the repo root** so the relative paths + the installed
                    --keep-deployment-files
 
 The build is reproducible from the committed config (every flag pinned).
+
+**Console behaviour.** The spec passes `--windows-console-mode=attach` to
+Nuitka (through `[nuitka] extra_args`, which `pyside6-deploy` splits with
+`shlex` and hands over unchanged). The `.exe` is then a GUI-subsystem program:
+double-clicking it opens no console window. Started from a shell (cmd,
+PowerShell, bash) it writes to that shell's console, redirected output
+included, which is how the CI smoke step reads the `interface-font:` line.
+Without the option Nuitka's default (`force`) opens a console window on every
+double-click. If a shell has no console to attach to, the output is not
+captured; the smoke step then needs the `.exe` run under `cmd /c`.
+
 `pyside6-deploy` may rewrite computed values back into a copy at build time; the
 committed file is the source of truth. **PyInstaller fallback** (ADR-0038 §1) if
 a Windows/plugin quirk blocks the Nuitka path:
@@ -163,10 +210,11 @@ PySide6 plugin bundles it, listed explicitly as defence-in-depth.
 Produces a Nuitka **standalone** `.app` bundle (`Contents/MacOS` + bundled Qt
 plugins); the CI leg ad-hoc-signs it (`codesign --sign -`), smoke-launches it
 offscreen, and wraps it in a `.dmg` via `hdiutil`. Developer-ID signing →
-notarization (`notarytool`) → stapling is a **separate, credential-gated,
-non-blocking** CI step (ADR-0038 §4, Article XI) that runs **only** when an Apple
-Developer ID secret is supplied — its absence ships the unsigned / ad-hoc
-artifact and does **not** fail the phase. **No credential is committed** here or
+notarization (`notarytool`) → stapling is a **separate, credential-gated** CI step
+(ADR-0038 §4, Article XI) that runs **only** when an Apple Developer ID secret is
+supplied — its absence ships the unsigned / ad-hoc artifact and does **not** fail
+the phase; when the secret is configured and the step fails, the build is not green
+(constitution v1.5, Art. IX §2). **No credential is committed** here or
 anywhere; signing consumes GitHub secrets at CI time only. The macOS platform
 plugin is `cocoa` (+ offscreen for the CI smoke). Run **from the repo root**:
 
@@ -181,6 +229,6 @@ plugin is `cocoa` (+ offscreen for the CI smoke). Run **from the repo root**:
 ### Shared settings (all three specs)
 
 - `[app] input_file = pixelart_creator/__main__.py` — the shipped GUI entry point.
-- `[python] packages = Nuitka==2.5.1` — pinned Nuitka backend for reproducibility.
+- `[python] packages = Nuitka` — names the Nuitka backend without a version, because pyside6-deploy discards a version written there. The pin is the `NUITKA_PIN` env value in `.github/workflows/build-installers.yml`, checked before and after the build (Nuitka 4.3 builds an app that crashes at launch).
 - `[qt] plugins = platforms,styles,imageformats,iconengines,platforminputcontexts` — bundled Qt plugins.
-- `[nuitka] extra_args` includes `--include-package-data=PySide6:translations/qtbase_es.qm` (ADR-0067 Part 4) so Qt's own base catalogue ships alongside the app's own `.qm` (Article V) — Nuitka's PySide plugin only auto-bundles Qt's translations for a QtWebEngine dependency, which this app does not have, so the file must be listed explicitly; see the spec header comments for the full reasoning — and `--nofollow-import-to=` for `sync_backend`, `web_viewer`, `tests`, `scripts`, `docs`, `pytest`, `hypothesis` (defence-in-depth mirroring the pyproject wheel `exclude`).
+- `[nuitka] extra_args` includes `--include-data-dir` lines for `i18n`, `fonts`, `icons`, `themes` and `userguide_content` (every runtime data directory; see "Fonts and themes" above), `--include-package-data=PySide6:translations/qtbase_es.qm` (ADR-0067 Part 4) so Qt's own base catalogue ships alongside the app's own `.qm` (Article V) — Nuitka's PySide plugin only auto-bundles Qt's translations for a QtWebEngine dependency, which this app does not have, so the file must be listed explicitly; see the spec header comments for the full reasoning — and `--nofollow-import-to=` for `sync_backend`, `web_viewer`, `tests`, `scripts`, `docs`, `pytest`, `hypothesis` (defence-in-depth mirroring the pyproject wheel `exclude`).

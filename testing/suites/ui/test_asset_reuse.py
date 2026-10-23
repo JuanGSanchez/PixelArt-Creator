@@ -38,6 +38,7 @@ from pixelart_creator.ui.asset_reuse_panel import (
     _ROLE_ASSET,
     Asset_Reuse_Panel,
 )
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 _HERO = b"hero-shared-bytes"
 _DUNGEON = b"dungeon-shared-bytes"
@@ -321,11 +322,22 @@ def test_reuse_controls_are_keyboard_reachable(panel):
     assert widget._tree.selectionMode() == widget._tree.SelectionMode.SingleSelection
 
 
-def test_visible_focus_indicator_is_themed_for_the_reuse_panel():
-    """A visible focus ring is themed once by role (``:focus`` QSS), both themes."""
-    from PySide6.QtWidgets import QApplication
+def test_visible_focus_indicator_is_themed_for_the_reuse_panel(panel, qtbot):
+    """A visible focus ring is RENDERED on the reuse panel's controls, both themes.
 
-    assert ":focus" in QApplication.instance().styleSheet()
+    Focus-role pixels appear around each control when it has keyboard focus and not
+    when it has none (ADR-0069); the ``":focus" in styleSheet()`` proxy is withdrawn.
+    """
+    widget, _session, _cas, _backend = panel
+    for control in (
+        widget._project_combo,
+        widget._new_project_edit,
+        widget._add_project_button,
+        widget._tree,
+    ):
+        # (The reference button is disabled until a row is selected, and a disabled
+        # control takes no keyboard focus, so it is not a subject here.)
+        assert_focus_rendered(qtbot, control)
 
 
 # -- Criterion 8: both themes render with role-based colours (no inline) ------ #

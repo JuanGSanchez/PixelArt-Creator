@@ -35,6 +35,7 @@ from pixelart_creator.ui.asset_library_panel import (
     Asset_Library_Panel,
 )
 from pixelart_creator.ui.dependency_graph_view import Dependency_Graph_View
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 
 def _desc(asset_id, kind, name, content_hash, tags=()):
@@ -222,9 +223,14 @@ def test_view_tree_is_keyboard_reachable(view):
     assert widget._tree.selectionMode() == widget._tree.SelectionMode.SingleSelection
 
 
-def test_visible_focus_indicator_is_themed(view):
-    """A visible focus ring is themed once by role (``:focus`` QSS), both themes."""
-    assert ":focus" in QApplication.instance().styleSheet()
+def test_visible_focus_indicator_is_themed(view, qtbot):
+    """A visible focus ring is RENDERED on the relation tree, both themes (ADR-0069).
+
+    Focus-role pixels appear around the tree when it has keyboard focus and not when
+    it has none; the ``":focus" in styleSheet()`` proxy is withdrawn.
+    """
+    widget, _session = view
+    assert_focus_rendered(qtbot, widget._tree)
 
 
 # -- REQ-P11-UI-009: both themes render with role-based colours (no inline) ---- #

@@ -10,9 +10,9 @@ but never asserts a LOGICAL tab order across the four animation surfaces
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication
 
 from pixelart_creator.ui.main_window import Main_Window
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 
 def _window(qtbot) -> Main_Window:
@@ -72,6 +72,17 @@ def test_t20_tab_order_chain_connects_all_four_panels(qtbot):
 
 
 def test_t20_visible_focus_indicator_themed(qtbot, theme):
-    """REQ-P5-UI-017: a visible-focus QSS rule is themed (both themes)."""
-    _window(qtbot)
-    assert ":focus" in QApplication.instance().styleSheet()
+    """REQ-P5-UI-017: a visible focus indicator is RENDERED on the animation controls.
+
+    Focus-role pixels appear around each representative animation control when it
+    has keyboard focus and not when it has none (ADR-0069); the
+    ``":focus" in styleSheet()`` proxy is withdrawn.
+    """
+    win = _window(qtbot)
+    for control in (
+        win._playback_controls._play_button,
+        win._timeline_panel._strip,
+        win._onion_controls._enable_check,
+        win._frame_tags_panel._list,
+    ):
+        assert_focus_rendered(qtbot, control)

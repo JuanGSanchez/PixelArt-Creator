@@ -24,6 +24,7 @@ from pixelart_creator.ui.asset_library_actions import Asset_Library_Session
 from pixelart_creator.ui.asset_library_panel import Asset_Library_Panel
 from pixelart_creator.ui.asset_search_panel import Asset_Search_Panel
 from pixelart_creator.ui.asset_tagging_panel import Asset_Tagging_Panel
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 
 @pytest.fixture
@@ -117,10 +118,22 @@ def test_selection_views_are_single_selection(panels):
     )
 
 
-def test_visible_focus_indicator_is_themed(panels):
-    """A visible focus ring is themed once by role (:focus QSS) for the panels."""
-    qss = QApplication.instance().styleSheet()
-    assert ":focus" in qss
+def test_visible_focus_indicator_is_themed(panels, qtbot):
+    """A visible focus ring is RENDERED on the panels' focusable controls (ADR-0069).
+
+    Focus-role pixels appear around each control when it has keyboard focus and not
+    when it has none; the ``":focus" in styleSheet()`` proxy is withdrawn.
+    """
+    library, tagging, search = panels
+    for control in (
+        library._tree,
+        tagging._tag_list,
+        tagging._tag_edit,
+        search._name_edit,
+        search._kind_combo,
+        search._clear_button,
+    ):
+        assert_focus_rendered(qtbot, control)
 
 
 # -- REQ-P11-UI-009 both themes ----------------------------------------------- #

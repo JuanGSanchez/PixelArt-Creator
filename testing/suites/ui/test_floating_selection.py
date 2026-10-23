@@ -40,7 +40,6 @@ import numpy as np
 import pytest
 from PySide6.QtCore import QEvent, QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QUndoStack
-from PySide6.QtWidgets import QApplication
 
 from pixelart_creator.logic.constants import CHECKER_CELL_PX
 from pixelart_creator.logic.document import Document
@@ -54,6 +53,7 @@ from pixelart_creator.ui.theme import canvas_roles
 from pixelart_creator.ui.tools import PencilTool, RectSelectTool
 from pixelart_creator.ui.tools.floating_move import CONFIRM_FLOATING_OVERWRITE
 from testing.suites.ui._ui_helpers import prepare_for_click, viewport_point_for_pixel
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 LEFT = Qt.MouseButton.LeftButton
 NO_BTN = Qt.MouseButton.NoButton
@@ -582,8 +582,9 @@ def test_sc_u036_3_a11y_hint_translatable_keyboard_reachable_focus_visible(
     key(view, Qt.Key.Key_Escape)
     assert not view.floating_controller().is_active()
 
-    # A visible focus indicator is themed once by role (a :focus QSS rule).
-    assert ":focus" in QApplication.instance().styleSheet()
+    # A visible focus indicator: RENDERED focus-role pixels on the focused canvas view
+    # (ADR-0069; the ":focus" stylesheet-substring proxy is withdrawn).
+    assert_focus_rendered(qtbot, view)
 
 
 # =========================================================================

@@ -66,6 +66,7 @@ from pixelart_creator.ui.canvas_scene import CanvasScene
 from pixelart_creator.ui.canvas_view import Canvas_View
 from pixelart_creator.ui.layer_panel import Layer_Panel
 from pixelart_creator.ui.theme import canvas_roles
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 STARTER = [(0, 0, 0, 255), (255, 255, 255, 255), (230, 30, 30, 255)]
 
@@ -606,7 +607,8 @@ def test_opacity_slider_accessible_and_keyboard_reachable(qtbot, theme):
 
     a11y for the drag control (both themes via the autouse fixture): an accessible
     name (screen-reader label), Tab focus (keyboard reach), enabled state, and a
-    role-based themed stylesheet with a visible-focus rule applied to the app.
+    role-based themed stylesheet applied to the app and a RENDERED focus ring on the
+    slider (ADR-0069; the ``":focus" in styleSheet()`` proxy is withdrawn).
     """
     from PySide6.QtWidgets import QApplication
 
@@ -622,11 +624,12 @@ def test_opacity_slider_accessible_and_keyboard_reachable(qtbot, theme):
     assert slider.focusPolicy() != Qt.FocusPolicy.NoFocus
     assert slider.isEnabled()
 
-    # Role-based colours in the active theme: a non-empty stylesheet with a visible
-    # :focus rule is applied by apply_theme (both themes exercised by the fixture).
+    # Role-based colours in the active theme: a non-empty stylesheet is applied by
+    # apply_theme (both themes exercised by the fixture) and the slider shows a
+    # visible focus indicator: focus-role pixels when focused, none when not.
     style = QApplication.instance().styleSheet()
     assert style  # a theme QSS is installed
-    assert ":focus" in style  # visible focus indicator (both themes)
+    assert_focus_rendered(qtbot, slider)
 
 
 def test_opacity_drag_both_themes_commit_identically(qtbot, theme):

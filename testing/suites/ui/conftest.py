@@ -1,22 +1,36 @@
 """Shared fixtures for the UI suite: headless platform + both-theme parametrise.
 
 The ``theme`` fixture is ``autouse`` and parametrised over the light and dark
-themes, so **every** test in ``testing/suites/ui`` runs twice — once per theme — applying
-the QSS via :func:`pixelart_creator.ui.theme.apply_theme` (REQ-P1-UI-025). The
+modes of the default style, so **every** test in ``testing/suites/ui`` runs twice —
+once per mode — applying the QSS via :func:`pixelart_creator.ui.theme.apply_theme`
+(REQ-P1-UI-025). The style x mode matrix is covered by ``test_theme.py``. The
 offscreen Qt platform is forced before any ``QApplication`` is created (F11).
 """
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import os
+import shutil
+import types
 import weakref
+from pathlib import Path
+from typing import Iterator
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest  # noqa: E402  (must follow the platform env set above)
-from PySide6.QtCore import QLocale, QStandardPaths  # noqa: E402
+from PySide6.QtCore import (  # noqa: E402
+    QCoreApplication,
+    QLocale,
+    QSettings,
+    QStandardPaths,
+    Qt,
+)
 from PySide6.QtGui import QUndoStack  # noqa: E402
+from PySide6.QtTest import QTest  # noqa: E402
+from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 
 # Pin the *system* locale to English for the whole UI suite so the tests run
 # identically in CI and on any developer machine (F11 / portability). Qt reads
@@ -34,6 +48,10 @@ QLocale.system = staticmethod(  # type: ignore[method-assign]
 
 from pixelart_creator.logic.document import Document  # noqa: E402
 from pixelart_creator.logic.palette import Palette  # noqa: E402
+from pixelart_creator.ui.app import (  # noqa: E402
+    APPLICATION_NAME,
+    ORGANIZATION_NAME,
+)
 from pixelart_creator.ui.asset_library_panel import Asset_Library_Panel  # noqa: E402
 from pixelart_creator.ui.asset_reuse_panel import Asset_Reuse_Panel  # noqa: E402
 from pixelart_creator.ui.asset_search_panel import Asset_Search_Panel  # noqa: E402
@@ -65,11 +83,13 @@ from pixelart_creator.ui.shared_projects_panel import (  # noqa: E402
     Shared_Projects_Panel,
 )
 from pixelart_creator.ui.theme import (  # noqa: E402
+    DEFAULT_STYLE,
     THEME_DARK,
     THEME_LIGHT,
     apply_theme,
     canvas_roles,
 )
+from pixelart_creator.ui.theme_art_files import reset_art  # noqa: E402
 from pixelart_creator.ui.tilemap_canvas import Tilemap_Canvas  # noqa: E402
 from pixelart_creator.ui.timelapse_controls import Timelapse_Controls  # noqa: E402
 from pixelart_creator.ui.tools import PencilTool  # noqa: E402
@@ -358,6 +378,150 @@ def _isolate_app_config(monkeypatch, tmp_path):
     )
 
 
+# --------------------------------------------------------------------------- #
+# Settings-store isolation (ADR-0070 section 8, ADR-0072).                      #
+#                                                                              #
+# The appearance preferences (style, mode, the pixel-perfect scaling flag, ...) #
+# are persisted through ``QSettings`` (group ``appearance``), and the scaling   #
+# flag is READ BEFORE ``QApplication`` exists (ADR-0072). A test that reached    #
+# the real store would read the developer's own choices and could write its     #
+# own over them (Windows registry, a macOS plist, a Linux ``.conf``).           #
+#                                                                              #
+# Two traps are measured, not assumed:                                          #
+#   * ``QSettings.setPath`` and ``setDefaultFormat`` are process-global and work #
+#     with no application object, so they are applied before ``qapp`` is built.  #
+#   * ``QSettings(org, app)`` -- the two-argument constructor -- is ALWAYS       #
+#     ``NativeFormat``, whatever ``setDefaultFormat`` says. On Windows and macOS  #
+#     that is the registry / ``CFPreferences``, which ``setPath`` cannot move.   #
+#     The redirect therefore reaches only the constructors that take the default #
+#     format: ``QSettings()`` and ``QSettings(QSettings.defaultFormat(), scope,  #
+#     org, app)`` -- the one ``ui/appearance_settings.py`` must use.             #
+# ``assert_settings_isolated`` is the guard: it fails, before anything is        #
+# written, when the effective location is outside the redirected root.           #
+# --------------------------------------------------------------------------- #
+
+#: Every (format, scope) pair whose search path is pointed at the temp root.
+_SETTINGS_PATH_SLOTS = tuple(
+    (fmt, scope)
+    for fmt in (QSettings.Format.NativeFormat, QSettings.Format.IniFormat)
+    for scope in (QSettings.Scope.UserScope, QSettings.Scope.SystemScope)
+)
+
+
+def redirect_settings_store(root: Path) -> None:
+    """Point every ``QSettings`` search path at ``root`` and name the application.
+
+    Static and process-global: it needs no ``QApplication`` (so it also runs in a
+    bare subprocess before one is built), and it is the single code path used by
+    the autouse fixtures AND by the guard test's subprocess, so what the guard
+    proves is what the suite runs under. The default format becomes ``IniFormat``
+    (a file under ``root``) and the organisation/application names are those
+    ``ui/app.py`` sets, so a name-less ``QSettings()`` resolves to the same file
+    the product's would.
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    for fmt, scope in _SETTINGS_PATH_SLOTS:
+        QSettings.setPath(fmt, scope, str(root))
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    QCoreApplication.setOrganizationName(ORGANIZATION_NAME)
+    QCoreApplication.setApplicationName(APPLICATION_NAME)
+
+
+def settings_location_is_under(file_name: str, root: Path) -> bool:
+    """Whether a ``QSettings.fileName()`` is a file inside ``root`` (symlink-safe)."""
+    real_root = os.path.normcase(os.path.realpath(str(root)))
+    real_file = os.path.normcase(os.path.realpath(file_name))
+    try:
+        return os.path.commonpath([real_root, real_file]) == real_root
+    except ValueError:  # different drives / mixed absolute+relative: not inside
+        return False
+
+
+def assert_settings_isolated(root: Path) -> None:
+    """Fail unless the production constructors resolve inside ``root`` (read-only).
+
+    Checks the default format, then the file each constructor form would use:
+    the exact form ``appearance_settings`` uses
+    (``QSettings(QSettings.defaultFormat(), UserScope, org, app)``) and the
+    name-less ``QSettings()``. Only ``fileName()`` / ``format()`` are read, so a
+    failure here has written nothing anywhere.
+    """
+    assert QSettings.defaultFormat() == QSettings.Format.IniFormat, (
+        "QSettings default format is "
+        f"{QSettings.defaultFormat()!s}; the settings store is NOT isolated"
+    )
+    product_form = QSettings(
+        QSettings.defaultFormat(),
+        QSettings.Scope.UserScope,
+        ORGANIZATION_NAME,
+        APPLICATION_NAME,
+    )
+    for label, settings in (
+        ("QSettings(defaultFormat, UserScope, org, app)", product_form),
+        ("QSettings()", QSettings()),
+    ):
+        where = settings.fileName()
+        assert where and settings_location_is_under(where, root), (
+            f"{label} resolves to {where!r}, outside the isolated root {str(root)!r}"
+            " -- the settings store is NOT isolated"
+        )
+
+
+@contextlib.contextmanager
+def settings_store_scope(root: Path, fallback: Path) -> Iterator[Path]:
+    """Redirect to ``root`` for the block, then clean up and fall back safely.
+
+    On exit the directory ``root`` is deleted and the search paths are pointed at
+    ``fallback`` (the session's own temp directory), never back at the real
+    location, so anything that touches ``QSettings`` between two tests still lands
+    in a temporary place.
+    """
+    redirect_settings_store(root)
+    try:
+        yield root
+    finally:
+        redirect_settings_store(fallback)
+        shutil.rmtree(root, ignore_errors=True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _settings_store_session(tmp_path_factory):
+    """Redirect ``QSettings`` once per process, before ``qapp`` can be created.
+
+    Session-scoped autouse fixtures are instantiated before the session-scoped
+    ``qapp`` that pytest-qt builds on first use, so no ``QApplication`` exists when
+    this runs (``app_existed_at_redirect`` records it; the guard test asserts it is
+    ``False``). The original default format and application names are restored at
+    session end.
+    """
+    app_existed = QCoreApplication.instance() is not None
+    original = (
+        QSettings.defaultFormat(),
+        QCoreApplication.organizationName(),
+        QCoreApplication.applicationName(),
+    )
+    root = tmp_path_factory.mktemp("qsettings-session")
+    redirect_settings_store(root)
+    yield types.SimpleNamespace(root=root, app_existed_at_redirect=app_existed)
+    QSettings.setDefaultFormat(original[0])
+    QCoreApplication.setOrganizationName(original[1])
+    QCoreApplication.setApplicationName(original[2])
+
+
+@pytest.fixture(autouse=True)
+def settings_store(_settings_store_session, tmp_path) -> Iterator[Path]:
+    """Give every UI test its own temporary ``QSettings`` location (autouse).
+
+    ``tmp_path`` is unique per test and per xdist worker and lives under pytest's
+    base temp (``--basetemp``, which ``testing/run`` takes from the configured test
+    temp root). Yields the directory; it is deleted after the test.
+    """
+    with settings_store_scope(
+        tmp_path / "qsettings", _settings_store_session.root
+    ) as root:
+        yield root
+
+
 @pytest.fixture(autouse=True)
 def _drain_prewarm_after_test():
     """Deterministically drain every off-thread pre-warm before GC (S1 blocker).
@@ -472,11 +636,98 @@ def _drain_prewarm_after_test():
     gc.collect()
 
 
+def release_latched_modifiers(*, verify: bool = True) -> None:
+    """Release any keyboard modifier Qt still reports as held; raise if it stays held.
+
+    ``QApplication.keyboardModifiers()`` is not the state of a keyboard: it is the
+    modifier set carried by the LAST mouse or key event the application processed,
+    and it stays that way until another such event arrives. A ``QTest`` mouse or key
+    event sent with a modifier -- ``qtbot.mouseRelease(..., ControlModifier, ...)``,
+    ``qtbot.keyClick(w, Key_Z, ControlModifier)`` -- therefore leaves it latched after
+    the gesture is over, on the offscreen platform, on Windows and on Linux alike
+    (measured). ``sendEvent(QContextMenuEvent)`` and a direct handler call do NOT
+    refresh it, so a later test that reads the modifiers without sending its own
+    modified-or-unmodified mouse/key event first sees the previous test's Ctrl.
+    ``Timeline_Grid_View._on_context_menu_requested`` is exactly such a reader (Ctrl
+    + right-click removes a frame, so it builds no menu): on CI run 39849201731 the
+    four "create cel" context-menu tests failed on one xdist worker because a Ctrl
+    drag test had run on that worker just before them.
+
+    Releasing Control with ``NoModifier`` is the one event that clears every latched
+    modifier (measured for Ctrl and for Shift+Alt, set by mouse and by key events), and
+    a fresh unshown widget is enough to deliver it. With ``verify`` (the default) the
+    release is skipped when nothing is held and the post-condition is asserted: a
+    platform where the release does not take effect must fail loudly here rather than
+    hand the next test a modifier it did not ask for.
+
+    ``verify=False`` sends the release unconditionally and asserts nothing. It is for
+    a TEARDOWN, where ``QApplication.keyboardModifiers`` cannot be trusted: a test may
+    have replaced it with a fake that reports Ctrl (``test_input_scheme_frames.py``
+    does, to drive Ctrl+right-click) and its ``monkeypatch`` is undone only AFTER this
+    fixture's teardown, because an earlier autouse fixture also requests it. The real
+    state is released all the same; the next test's setup then verifies it.
+    """
+    if QApplication.instance() is None:
+        return
+    if verify and QApplication.keyboardModifiers() == Qt.KeyboardModifier.NoModifier:
+        return
+    QTest.keyRelease(QWidget(), Qt.Key.Key_Control, Qt.KeyboardModifier.NoModifier)
+    if verify:
+        held = QApplication.keyboardModifiers()
+        assert (
+            held == Qt.KeyboardModifier.NoModifier
+        ), f"a keyboard modifier is still reported as held after releasing it: {held!r}"
+
+
+@pytest.fixture(autouse=True)
+def _no_latched_modifiers() -> Iterator[None]:
+    """Start and end every UI test with no keyboard modifier latched (autouse).
+
+    Before: a predecessor on the same xdist worker -- from ANY module, scheduling
+    decides which -- may have ended on a modified ``QTest`` event. After: this test
+    must not leak its own into whatever runs next, in or out of this directory.
+    See :func:`release_latched_modifiers` for the mechanism and the evidence.
+
+    It requests NO ``qapp`` on purpose. Autouse fixtures are ordered by NAME, and this
+    one sorts before ``_settings_store_session``: a ``qapp`` dependency here would
+    build the ``QApplication`` ahead of the ``QSettings`` redirect and fail
+    ``test_req_vi_ui_002_redirect_was_applied_before_any_qapplication`` (measured).
+    Without one, a process that has no application yet has no modifier to release and
+    the helper returns; every later test finds the application ``theme`` built.
+    """
+    release_latched_modifiers()
+    yield
+    release_latched_modifiers(verify=False)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _art_root_session(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
+    """Write the generated pixel-chrome art under the test temp root.
+
+    The one app stylesheet references PNG files the product writes at run time
+    (``ui/theme_art_files.py``); by default they go to the system temp directory.
+    The suite keeps every temp artifact under its configured root (the
+    ``--basetemp`` the runner sets), so the art is redirected there for the session
+    and left for pytest's own retention to remove. Each xdist worker has its own
+    base temp, so no two workers share a directory.
+    """
+    root = tmp_path_factory.mktemp("pixelart-art")
+    reset_art(root)
+    yield root
+    reset_art(None)
+
+
 @pytest.fixture(params=[THEME_LIGHT, THEME_DARK], autouse=True)
 def theme(request: pytest.FixtureRequest, qapp) -> str:
-    """Apply light/dark theme to the app; parametrises every test (025)."""
+    """Apply light/dark of the canonical style to the app; parametrises every test (025).
+
+    Two modes of the DEFAULT style, not the full style x mode matrix: a six-way
+    run of every UI test would triple the suite for no theme-specific assertion
+    (ADR-0070 decision 9). The theme-sensitive gates are
+    parametrised over every combination explicitly in ``test_theme.py``.
+    """
     name = request.param
-    apply_theme(qapp, name)
+    apply_theme(qapp, name, DEFAULT_STYLE)
     return name
 
 

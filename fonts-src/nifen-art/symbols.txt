@@ -1,0 +1,316 @@
+# UI symbols (anchor subset).
+# solid marks filled shapes whose 2x2 blocks are intended.
+
+glyph U+00D7 adv=6 top=6 ext=free
+#...#
+.#.#.
+..#..
+.#.#.
+#...#
+
+glyph U+2022 adv=4 top=4 ext=free solid
+.#.
+###
+.#.
+
+glyph U+2713 adv=7 top=5 ext=free
+.....#
+....#.
+#..#..
+.##...
+..#...
+
+glyph U+25B2 adv=8 top=5 ext=free solid
+...#...
+..###..
+.#####.
+#######
+
+glyph U+25B6 adv=5 top=7 ext=free solid
+#...
+##..
+###.
+####
+###.
+##..
+#...
+
+glyph U+25BC adv=8 top=5 ext=free solid
+#######
+.#####.
+..###..
+...#...
+
+glyph U+25C0 adv=5 top=7 ext=free solid
+...#
+..##
+.###
+####
+.###
+..##
+...#
+
+# ---- arrows ----------------------------------------------------------------------
+
+glyph U+2192 adv=7 top=6 ext=free
+...#..
+....#.
+######
+....#.
+...#..
+
+glyph U+2194 adv=10 top=6 ext=free
+..#...#..
+.#.....#.
+#########
+.#.....#.
+..#...#..
+
+glyph U+21D2 adv=8 top=6 ext=free
+....#..
+######.
+......#
+######.
+....#..
+
+# ---- mathematical signs --------------------------------------------------------------
+
+glyph U+2218 adv=6 top=5 ext=free tab
+.##.
+#..#
+.##.
+
+glyph U+2229 adv=6 top=6 ext=free
+.###.
+#...#
+#...#
+#...#
+#...#
+
+glyph U+2248 adv=6 top=6 ext=free
+.#..#
+#.##.
+.....
+.#..#
+#.##.
+
+glyph U+2264 adv=5 top=7 ext=free tab
+..#
+.#.
+#..
+.#.
+..#
+...
+###
+
+glyph U+2265 adv=5 top=7 ext=free tab
+#..
+.#.
+..#
+.#.
+#..
+...
+###
+
+# ==== symbols derived from the scan of the interface code and content ====
+# Used by the shipped content, not drawn before: the small right triangle (the
+# menu path separator of the user guide), the subset-or-equal sign, the
+# superscript seven and n of the code comments, the Greek capital delta.
+# Added as plausible interface needs, by family:
+# the other small triangles, filled and outlined shapes, a star, a cross mark,
+# the remaining plain arrows, not-equal, infinity, minus, euro and trade mark.
+
+# ---- small triangles (tree and menu markers) ------------------------------------
+glyph U+25B8 adv=4 top=6 ext=free solid
+#..
+##.
+###
+##.
+#..
+
+glyph U+25C2 adv=4 top=6 ext=free solid
+..#
+.##
+###
+.##
+..#
+
+glyph U+25B4 adv=6 top=5 ext=free solid
+..#..
+.###.
+#####
+
+glyph U+25BE adv=6 top=5 ext=free solid
+#####
+.###.
+..#..
+
+# ---- squares, circles, diamonds, stars ---------------------------------------------
+glyph U+25A0 adv=7 top=6 ext=free solid
+######
+######
+######
+######
+######
+######
+
+glyph U+25A1 adv=7 top=6 ext=free
+######
+#....#
+#....#
+#....#
+#....#
+######
+
+glyph U+25CF adv=7 top=6 ext=free solid
+.####.
+######
+######
+######
+######
+.####.
+
+glyph U+25CB adv=7 top=6 ext=free
+.####.
+#....#
+#....#
+#....#
+#....#
+.####.
+
+glyph U+25C6 adv=8 top=7 ext=free solid
+...#...
+..###..
+.#####.
+#######
+.#####.
+..###..
+...#...
+
+glyph U+25C7 adv=8 top=7 ext=free
+...#...
+..#.#..
+.#...#.
+#.....#
+.#...#.
+..#.#..
+...#...
+
+glyph U+2605 adv=8 top=7 ext=free solid
+...#...
+..###..
+#######
+.#####.
+..###..
+.##.##.
+.#...#.
+
+# ---- cross mark ---------------------------------------------------------------------------
+glyph U+2717 adv=7 top=6 ext=free solid
+#....#
+.#..#.
+..##..
+..##..
+.#..#.
+#....#
+
+# ---- arrows ------------------------------------------------------------------------------------
+glyph U+2190 adv=7 top=6 ext=free
+..#...
+.#....
+######
+.#....
+..#...
+
+glyph U+2191 adv=6 top=7 ext=free
+..#..
+.###.
+#.#.#
+..#..
+..#..
+..#..
+..#..
+
+glyph U+2193 adv=6 top=7 ext=free
+..#..
+..#..
+..#..
+..#..
+#.#.#
+.###.
+..#..
+
+glyph U+2195 adv=6 top=9 ext=free
+..#..
+.###.
+#.#.#
+..#..
+..#..
+..#..
+#.#.#
+.###.
+..#..
+
+glyph U+21D0 adv=8 top=6 ext=free
+..#....
+.######
+#......
+.######
+..#....
+
+glyph U+21D4 adv=10 top=6 ext=free
+..#...#..
+.#######.
+#.......#
+.#######.
+..#...#..
+
+# ---- mathematical signs ---------------------------------------------------------------------------
+glyph U+2260 adv=6 top=6 ext=free
+....#
+#####
+..#..
+#####
+#....
+
+glyph U+221E adv=9 top=4 ext=free
+.##..##.
+#..##..#
+.##..##.
+
+glyph U+2286 adv=6 top=7 ext=free
+.###.
+#....
+#....
+#....
+.###.
+.....
+#####
+
+# ---- currency, trade mark -----------------------------------------------------------------------------
+glyph U+20AC adv=7 top=7 ext=0..7
+..###.
+.#...#
+###...
+.#....
+###...
+.#...#
+..###.
+
+glyph U+2122 adv=11 top=7 ext=free
+###..#...#
+.#...##.##
+.#...#.#.#
+
+# ---- superscripts ------------------------------------------------------------------------------------------
+glyph U+2077 adv=4 top=7 ext=free
+###
+..#
+.#.
+.#.
+.#.
+
+glyph U+207F adv=4 top=5 ext=free
+##.
+#.#
+#.#

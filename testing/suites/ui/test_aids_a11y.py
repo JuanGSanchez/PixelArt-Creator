@@ -8,14 +8,13 @@ autouse fixture.
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QApplication
-
 from pixelart_creator.logic.guides import GuideOrientation
 from pixelart_creator.ui.guides_rulers_overlay import Ruler_Strip
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.real_size_preview_window import Real_Size_Preview_Window
 from pixelart_creator.ui.reference_board import Reference_Board
 from pixelart_creator.ui.timelapse_controls import Timelapse_Controls
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 
 def _window(qtbot) -> Main_Window:
@@ -77,7 +76,11 @@ def test_sc_ui_012_1_rulers_expose_names_and_descriptions(qtbot, make_view):
 
 
 def test_sc_ui_012_1_focus_indicator_defined_by_role(qtbot):
-    """SC-UI-012-1: a visible focus indicator is themed once by role (:focus QSS)."""
-    _win = _window(qtbot)
-    qss = QApplication.instance().styleSheet()
-    assert ":focus" in qss
+    """SC-UI-012-1: a visible focus indicator is RENDERED, in the focus role.
+
+    Focus-role pixels appear around the canvas view when it has keyboard focus and
+    not when it has none (ADR-0069); the ``":focus" in styleSheet()`` proxy is
+    withdrawn.
+    """
+    win = _window(qtbot)
+    assert_focus_rendered(qtbot, win.active_tab().view)

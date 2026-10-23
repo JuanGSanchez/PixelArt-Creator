@@ -204,3 +204,90 @@ one macOS entry.
 - Qt translations, `qtbase_es.ts`, context `MAC_APPLICATION_MENU` (`About %1` → `Acerca de %1`) —
   https://github.com/qt/qttranslations/blob/dev/translations/qtbase_es.ts
 - W3C, WCAG 2.2, Success Criteria 1.4.1 (Use of Color) and 1.4.3 (Contrast, Minimum)
+
+## Amendment (2026-10-12) — Part 2's measured table is historical; the rule stands in all six style and mode combinations
+
+*Immutable-append. The Status field, the Context, the four Decision parts, the Alternatives, the
+Consequences, the Compliance table and the References above are kept unchanged. This amendment
+changes no decision. It records that one piece of Part 2's evidence, the measured-contrast table
+and the rendered measurement under it, describes the application as it stood **before** the
+visual-identity work. It also names the records that now govern the inputs to that measurement.*
+
+### a. What the table measured
+
+The table under Part 2, and the rendered measurement under it, were taken on 2026-09-24. They
+describe the dialog as it was drawn then:
+
+- **The old theme.** There were two flat themes, Light and Dark, and their role maps were Python
+  literals in `ui/theme.py`: `background` `#f0f0f0` / `#2b2b2b`, `text` `#202020` / `#e0e0e0`,
+  `accent` `#1f6fb2` / `#2a72c0`. None of these six values appears anywhere in
+  `pixelart_creator/` now.
+- **The platform font.** The rendered measurement ("the most-contrasting glyph pixel") was taken
+  on link text drawn in the operating system's default interface font.
+- **The old master.** The icon row of the dialog showed the application icon that was derived from
+  the single 64 px logo master.
+
+The figures in the table are still correct **for those inputs**: recomputed from the old hex values
+with the WCAG formula, all six reproduce to two decimals. They do not describe any combination the
+application ships today.
+
+### b. What changed, and which record governs it
+
+| What the table assumed | What replaced it | Governed by |
+|---|---|---|
+| Two flat themes, with role maps in `ui/theme.py` | Three styles (Washi & Kintsugi, Edo Night, Arcade Kikko), each with a Light and a Dark mode, which makes **six combinations**. Their role maps are package data, one `roles.json` per style under `pixelart_creator/themes/`, read by `data/style_catalog.py`. `theme.link_colour` now takes the style as well as the mode. | ADR-0070 |
+| A dialog drawn as a flat widget | Dialogs carry the runtime-generated pixel-art frame. A link label still takes the `background` role from the base rule of the application stylesheet. | ADR-0069 and its amendment of 2026-10-10 |
+| The platform font | The bundled Nifen Art typeface is the application font, at 12 logical pixels and drawn without anti-aliasing. | ADR-0071 and its amendments of 2026-10-10 |
+| The operating system's scale factor, passed through unchanged, so fractional ratios were possible | Every scale is a whole number, so glyph pixels land on device pixels. | ADR-0072 and its amendment of 2026-10-10 |
+| The single 64 px logo master | Five hand-drawn logo masters (16, 24, 32, 48 and 64 px). The application-icon family that the dialog shows is derived from them. | ADR-0068 |
+
+### c. The rule stands in all six
+
+Part 2 is unchanged. A link takes the **`text` role** of the active combination, through
+`theme.link_colour`, and is **underlined**. REQ-AV-UI-010 (at least 4.5:1) holds in all six
+combinations, as REQ-VI-UI-004 requires of every text pair.
+
+The same comparison as the original table, recomputed on 2026-10-12 with the WCAG
+relative-luminance formula (`logic/contrast.py`) from the shipped `roles.json` files, against each
+combination's `background` role:
+
+| Combination | `background` | `text` role | Link (`text` role) | `accent` role | Qt palette default `#0000ff` |
+|---|---|---|---|---|---|
+| Washi & Kintsugi, Light | `#EBDDB8` | `#27221F` | **11.66** | 1.41 (`#F2B01E`) | 6.37 |
+| Washi & Kintsugi, Dark | `#1A1612` | `#EFE2C4` | **14.00** | 3.27 (`#C8283A`) | 2.09 |
+| Edo Night, Light | `#E4E6EE` | `#192236` | **12.73** | 1.27 (`#FFC53D`) | 6.90 |
+| Edo Night, Dark | `#181425` | `#FFFFFB` | **17.97** | 4.94 (`#FF3500`) | 2.10 |
+| Arcade Kikko, Light | `#D8E0DA` | `#171412` | **13.62** | 1.29 (`#FFB800`) | 6.38 |
+| Arcade Kikko, Dark | `#0F1A1D` | `#FFFFFB` | **17.67** | 3.12 (`#C0302A`) | 2.06 |
+
+The reasons in the Alternatives table still hold, and the one against `accent` is now stronger. The
+`accent` role falls below 4.5:1 in five of the six combinations, including every Light mode, whose
+accent is gold. Qt's palette default fails in every Dark mode.
+
+**This table is also evidence at a date, not a gate.** Role values can be retuned. The authority is
+the contrast check, not either table.
+
+### d. What verifies it now
+
+- `scripts/check_theme_contrast.py` gates `text` against `background` and `text` against `surface`
+  as text pairs in all six combinations. Run on 2026-10-12: 6 combinations, 114 gated pairs, 114
+  pass, 0 errors.
+- `testing/suites/ui/test_about_dialog.py`, class `Test_About_Link_Colour_Follows_The_Style`, checks
+  each of the six combinations. In every one, the links are painted in that combination's
+  `link_colour`, both when the dialog opens and after a live switch of style or mode.
+- The rendered-contrast tests for SC-AV-UI-010-1 and SC-AV-UI-010-2, with their failing control,
+  run in the two modes of the default style only, as ADR-0070 decision 9 sets for the suite. They
+  now render in Nifen Art. On 2026-10-12, these tests and the six-way class gave 33 passed (Windows,
+  offscreen platform, PySide6 6.11.1).
+
+### e. Not verified by this amendment
+
+- **Rendered** link contrast in the four combinations outside the default style. For those four,
+  the claim rests on the role values computed above, the contrast check and the painted-colour test.
+  No glyph was grabbed and measured.
+- **The rendered ratios themselves.** The two-mode tests assert at least 4.5:1 and do not print the
+  value, so no rendered figure replaces the 10.73:1 quoted under Part 2.
+- **The ground under a link.** That a link label draws on the `background` role comes from reading
+  the application stylesheet's base rule. It is confirmed by a rendered test for the default style
+  only.
+- **Linux and macOS.** As the original Consequences state, rendering was measured on Windows only.

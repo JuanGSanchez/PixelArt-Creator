@@ -6,32 +6,6 @@
     "font_dir_configured": false,
     "font_dir_source": "",
     "platform": "windows",
-    "known_true_signal": false,
-    "captures": {},
-    "errors": [],
-    "font_control": {
-      "family_requested": "Segoe UI",
-      "point_size_requested": 9,
-      "family_effective": "Segoe UI",
-      "family_available": true,
-      "ok": true
-    },
-    "language_control": {
-      "examined": 0,
-      "failed": 0,
-      "findings": []
-    },
-    "font_families_count": 366,
-    "font_ink_ratio": 0.09409722222222222,
-    "text_render_ok": true
-  },
-  {
-    "platform_requested": "offscreen",
-    "returncode": 0,
-    "stderr_tail": "",
-    "font_dir_configured": true,
-    "font_dir_source": "env:SystemRoot/Fonts",
-    "platform": "offscreen",
     "known_true_signal": true,
     "captures": {
       "scene_project": "main-canvas-layers.png",
@@ -43,19 +17,28 @@
     },
     "errors": [],
     "font_control": {
-      "family_requested": "Segoe UI",
-      "point_size_requested": 9,
-      "family_effective": "Segoe UI",
+      "family_requested": "Nifen Art",
+      "family_effective": "Nifen Art",
       "family_available": true,
       "ok": true
     },
+    "display": {
+      "art_scale": 1,
+      "screens": [
+        {
+          "device_pixel_ratio": 1.0
+        }
+      ],
+      "style": "washi-kintsugi",
+      "mode": "light"
+    },
     "language_control": {
-      "examined": 1526,
+      "examined": 1514,
       "failed": 0,
       "findings": []
     },
-    "font_families_count": 230,
-    "font_ink_ratio": 0.09314236111111111,
+    "font_families_count": 367,
+    "font_ink_ratio": 0.08697916666666666,
     "text_render_ok": true
   }
 ]

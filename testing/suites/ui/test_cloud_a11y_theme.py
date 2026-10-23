@@ -18,6 +18,7 @@ from pixelart_creator.logic.version_history import CloudVersion
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.recovery_prompt import Recovery_Prompt
 from pixelart_creator.ui.version_history_browser import Version_History_Browser
+from testing.suites.ui.focus_helpers import assert_focus_rendered
 
 
 def _versions(count: int = 2):
@@ -70,10 +71,22 @@ def test_sc_ui_006_cloud_menu_actions_are_keyboard_operable(qtbot):
 
 
 def test_sc_ui_007_visible_focus_indicator_present(qtbot):
-    """SC-UI-007-1: a visible focus indicator is themed once by role (:focus QSS)."""
-    Main_Window  # touch import to keep the app themed via the autouse fixture
-    qss = QApplication.instance().styleSheet()
-    assert ":focus" in qss  # role-based focus ring applies to the cloud dialogs too
+    """SC-UI-007-1: a visible focus indicator is RENDERED on the cloud dialogs' controls.
+
+    Focus-role pixels appear around each control when it has keyboard focus and not
+    when it has none (ADR-0069); the ``":focus" in styleSheet()`` proxy is withdrawn.
+    """
+    browser = Version_History_Browser(_versions())
+    prompt = Recovery_Prompt()
+    for dialog in (browser, prompt):
+        qtbot.addWidget(dialog)
+    for control in (
+        browser._tree,
+        browser._restore_button,
+        prompt._recover_button,
+        prompt._discard_button,
+    ):
+        assert_focus_rendered(qtbot, control)
 
 
 def test_sc_ui_007_dialogs_construct_and_render_in_active_theme(qtbot, theme):
