@@ -1,7 +1,7 @@
 """Every ``pip install`` in ``build-installers.yml`` must pin what it installs.
 
 REQ-VI-BUILD-006. Placed under ``testing/suites/deploy/`` -- the pipeline
-vehicles this agent owns (ADR-0043 §1) -- and deliberately NOT
+vehicles that belong to the delivery pipeline (ADR-0043 §1) -- and deliberately NOT
 ``@pytest.mark.integration``, the same ruling as ``test_ci_matrix_shape.py``
 beside it: a read-only parse of one YAML file, no subprocess, no network. It
 belongs in the default gate.
