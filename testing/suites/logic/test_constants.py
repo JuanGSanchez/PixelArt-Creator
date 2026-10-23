@@ -42,7 +42,7 @@ class TestFeedbackAndGestureScalarsAreNamed:
     """
 
     def test_feedback_square_edge_is_24_logical_px(self):
-        # D-8 ruling (round 2): matches the pre-existing
+        # The maintainer's ruling (second round): matches the pre-existing
         # colour-hub swatch size (_FAVOURITE_PX = 24).
         assert FEEDBACK_SQUARE_PX == 24, (
             "FEEDBACK_SQUARE_PX must be 24 logical px (D-8 ruling); got "

@@ -1,4 +1,4 @@
-"""No ``QFont::setPointSize: Point size <= 0`` message from a combo box (OF7 ruling).
+"""No ``QFont::setPointSize: Point size <= 0`` message from a combo box.
 
 The defect
 ----------

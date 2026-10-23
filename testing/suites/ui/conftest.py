@@ -379,7 +379,7 @@ def _isolate_app_config(monkeypatch, tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# Settings-store isolation (T048; ADR-0070 section 8, ADR-0072).               #
+# Settings-store isolation (ADR-0070 section 8, ADR-0072).                      #
 #                                                                              #
 # The appearance preferences (style, mode, the pixel-perfect scaling flag, ...) #
 # are persisted through ``QSettings`` (group ``appearance``), and the scaling   #
@@ -387,7 +387,7 @@ def _isolate_app_config(monkeypatch, tmp_path):
 # the real store would read the developer's own choices and could write its     #
 # own over them (Windows registry, a macOS plist, a Linux ``.conf``).           #
 #                                                                              #
-# Two traps are measured, not assumed (T040 item 10, plan R-19):                #
+# Two traps are measured, not assumed:                                          #
 #   * ``QSettings.setPath`` and ``setDefaultFormat`` are process-global and work #
 #     with no application object, so they are applied before ``qapp`` is built.  #
 #   * ``QSettings(org, app)`` -- the two-argument constructor -- is ALWAYS       #
@@ -723,7 +723,7 @@ def theme(request: pytest.FixtureRequest, qapp) -> str:
 
     Two modes of the DEFAULT style, not the full style x mode matrix: a six-way
     run of every UI test would triple the suite for no theme-specific assertion
-    (plan 5.2, A-6; ADR-0070 decision 9). The theme-sensitive gates are
+    (ADR-0070 decision 9). The theme-sensitive gates are
     parametrised over every combination explicitly in ``test_theme.py``.
     """
     name = request.param

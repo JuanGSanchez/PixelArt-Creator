@@ -68,7 +68,7 @@ def test_branching_controls_are_keyboard_reachable(panel):
 
 
 def test_visible_focus_indicator_is_themed(panel, qtbot):
-    """A visible focus ring is RENDERED on the panel's controls — not per widget (spec A-4).
+    """A visible focus ring is RENDERED on the panel's controls — not per widget (ADR-0069).
 
     Focus-role pixels appear around each control when it has keyboard focus and not
     when it has none; the ``":focus" in styleSheet()`` proxy is withdrawn. The sibling

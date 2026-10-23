@@ -583,7 +583,7 @@ def test_sc_u036_3_a11y_hint_translatable_keyboard_reachable_focus_visible(
     assert not view.floating_controller().is_active()
 
     # A visible focus indicator: RENDERED focus-role pixels on the focused canvas view
-    # (spec A-4; the ":focus" stylesheet-substring proxy is withdrawn).
+    # (ADR-0069; the ":focus" stylesheet-substring proxy is withdrawn).
     assert_focus_rendered(qtbot, view)
 
 

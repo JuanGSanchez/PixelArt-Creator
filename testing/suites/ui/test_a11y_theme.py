@@ -10,7 +10,7 @@ Findings feed the a11y-audit report.
 Visible focus (SC-UI-024-2) is proven by a RENDERED check -- focus-role pixels
 present on the focused control, absent when unfocused (``focus_helpers``) -- not
 by the substring ``":focus"`` in the stylesheet, which is withdrawn as evidence
-(spec A-4, ADR-0069). The role-pair contrast uses ``logic.contrast`` (the one
+(ADR-0069). The role-pair contrast uses ``logic.contrast`` (the one
 implementation), over every style x mode the catalogue ships.
 """
 
@@ -80,7 +80,7 @@ def test_sc_ui_024_1_interactive_widgets_expose_accessible_names(qtbot):
 def test_sc_ui_024_2_keyboard_reachable_with_visible_focus(qtbot):
     """SC-UI-024-2: controls are keyboard-reachable and focus is visible.
 
-    Visible focus is a RENDERED check (spec A-4): the canvas view, once given
+    Visible focus is a RENDERED check (ADR-0069): the canvas view, once given
     keyboard focus, shows focus-role pixels around it and none when it is not
     focused. The stylesheet-substring proxy is withdrawn.
     """

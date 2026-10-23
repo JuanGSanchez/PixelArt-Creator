@@ -75,7 +75,7 @@ def test_t20_visible_focus_indicator_themed(qtbot, theme):
     """REQ-P5-UI-017: a visible focus indicator is RENDERED on the animation controls.
 
     Focus-role pixels appear around each representative animation control when it
-    has keyboard focus and not when it has none (spec A-4); the
+    has keyboard focus and not when it has none (ADR-0069); the
     ``":focus" in styleSheet()`` proxy is withdrawn.
     """
     win = _window(qtbot)

@@ -105,7 +105,7 @@ def test_sc_ui_012_controls_are_keyboard_focusable(qtbot):
     """SC-UI-012-1: representative controls accept keyboard focus and RENDER a focus ring.
 
     Focus-role pixels appear around each control when it has keyboard focus and not
-    when it has none (spec A-4); the ``":focus" in styleSheet()`` proxy is withdrawn.
+    when it has none (ADR-0069); the ``":focus" in styleSheet()`` proxy is withdrawn.
     """
     win = _window(qtbot)
     for control in (

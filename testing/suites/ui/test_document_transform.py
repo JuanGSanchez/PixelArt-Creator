@@ -711,7 +711,7 @@ def test_req_a11y_progress_dialog_cancel_keyboard_reachable_and_focused(qtbot):
 
 def test_req_a11y_global_focus_ring_covers_the_new_dialogs(qtbot):
     """A visible focus indicator is drawn globally, by role (the one app-wide overlay
-    ``test_a11y_theme.py`` already verifies by rendered pixels, spec A-4) -- neither
+    ``test_a11y_theme.py`` already verifies by rendered pixels, ADR-0069) -- neither
     new dialog overrides it with a local, hard-coded stylesheet, so both inherit the
     same themed, visible focus ring in either theme: focus-role pixels appear around
     each dialog's controls when they have keyboard focus and not when they have none."""

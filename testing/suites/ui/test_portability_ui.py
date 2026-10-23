@@ -282,7 +282,7 @@ def test_both_themes_role_based_and_distinct_for_portability_touch(qtbot, theme)
     mode still renders via role colours (defined once, referenced by role -- never a
     per-widget literal) and that modes differ legibly, under the active parametrised
     theme. The role maps are every style x mode the catalogue ships (six once the third
-    style lands, four today): each carries the identical role keys (spec A-3, C-2/C-12).
+    style lands, four today): each carries the identical role keys (role-key parity).
     """
     _window(qtbot)
     assert QApplication.instance().styleSheet() != ""

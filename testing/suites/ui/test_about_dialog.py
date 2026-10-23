@@ -370,7 +370,7 @@ def test_sc_av_ui_002_2_help_menu_order_and_f1_unchanged(qtbot):
     the menu reads User Guide, separator, AI Assistant, separator, About
     PixelArt Creator -- and F1 still opens the User Guide.
 
-    Headless tests do not relocate menus (the C-6 rationale), so this
+    Headless tests do not relocate menus, so this
     asserts the ORDER as ``QMenu.actions()`` reports it on every OS under
     ``QT_QPA_PLATFORM=offscreen``, which is where Windows/Linux keep it.
     """

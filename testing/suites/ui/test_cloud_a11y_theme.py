@@ -74,7 +74,7 @@ def test_sc_ui_007_visible_focus_indicator_present(qtbot):
     """SC-UI-007-1: a visible focus indicator is RENDERED on the cloud dialogs' controls.
 
     Focus-role pixels appear around each control when it has keyboard focus and not
-    when it has none (spec A-4); the ``":focus" in styleSheet()`` proxy is withdrawn.
+    when it has none (ADR-0069); the ``":focus" in styleSheet()`` proxy is withdrawn.
     """
     browser = Version_History_Browser(_versions())
     prompt = Recovery_Prompt()

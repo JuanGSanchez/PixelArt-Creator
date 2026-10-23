@@ -597,7 +597,7 @@ def test_small_members_are_their_own_hand_drawn_master(size):
 
 
 def test_the_favicon_is_the_32px_master():
-    """SC-VI-BUILD-008-1 / E-2: web_viewer/static/favicon.png == logo-master-32.png."""
+    """SC-VI-BUILD-008-1 / ADR-0068: the favicon file equals logo-master-32.png."""
     assert _FAVICON.is_file(), f"{_FAVICON} is not committed"
     got, want = _rgba(_FAVICON), _rgba(_master_path(32))
     assert got.size == (32, 32)

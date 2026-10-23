@@ -769,7 +769,7 @@ def test_ui009_visible_focus_indicator_themed(win, theme, qtbot):
     """SC-U009: a visible focus indicator is RENDERED (both themes, autouse).
 
     Focus-role pixels appear around the canvas view when it has keyboard focus and
-    not when it has none (spec A-4); the ``":focus" in styleSheet()`` proxy is
+    not when it has none (ADR-0069); the ``":focus" in styleSheet()`` proxy is
     withdrawn.
     """
     assert_focus_rendered(qtbot, win.active_tab().view)

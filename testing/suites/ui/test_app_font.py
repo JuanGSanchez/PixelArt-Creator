@@ -1432,7 +1432,7 @@ def test_the_platform_font_directory_is_one_the_child_can_use():
 
 
 # --------------------------------------------------------------------------- #
-# The combo box's point-sized font (the "Point size <= 0" warning, OF7 ruling)   #
+# The combo box's point-sized font (the "Point size <= 0" warning)            #
 # --------------------------------------------------------------------------- #
 
 _COMBO_FONT_CHILD = """

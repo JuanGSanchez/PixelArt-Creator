@@ -313,7 +313,7 @@ def test_visible_focus_indicator_is_themed_for_the_browser(browser, qtbot):
     """A visible focus ring is RENDERED on the browser's controls, both themes.
 
     Focus-role pixels appear around each control when it has keyboard focus and not
-    when it has none (spec A-4); the ``":focus" in styleSheet()`` proxy is withdrawn.
+    when it has none (ADR-0069); the ``":focus" in styleSheet()`` proxy is withdrawn.
     """
     widget, _store, _session, _backend = browser
     for control in (widget._tree, widget._inspect_button, widget._restore_button):

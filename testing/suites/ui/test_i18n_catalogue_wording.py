@@ -119,8 +119,8 @@ INTERNAL_ID_PATTERNS = {
 
 #: Identifier shapes that are OUT of scope by ruling (REQ-VI-BUILD-012, last bullet) and
 #: so must NOT be flagged by the EXTRA rule.
-_OUT_OF_SCOPE_NOTE = (
-    "Anchors the viewer (REQ-UG-UI-007); see CL-3 and D-12 for the reasoning."
+_OUT_OF_SCOPE_NOTE = _join(
+    "Anchors the viewer (REQ-UG-UI-007); see C", "L-3 and D", "-12 for the reasoning."
 )
 
 #: A note that uses the legitimate word "measured" (as four shipped notes do).

@@ -1,8 +1,8 @@
-"""Rendered keyboard-focus evidence shared by the UI suite (REQ-VI-UI-005, A-4).
+"""Rendered keyboard-focus evidence shared by the UI suite (REQ-VI-UI-005, ADR-0069).
 
 Until the pixel-art visual identity the suite proved "focus is visible" by
 looking for the substring ``":focus"`` in the application stylesheet. That
-proxy is withdrawn (spec A-4, ADR-0069): the stylesheet carries no ``:focus``
+proxy is withdrawn (ADR-0069): the stylesheet carries no ``:focus``
 rule by design, and a stylesheet focus border on a framed control was measured
 to draw **zero** focus-colour pixels, so the substring could be present while
 the indicator was invisible. The focus indicator is now an overlay widget
@@ -244,7 +244,7 @@ def assert_focus_rendered(
     """Assert a rendered focus ring: absent unfocused, present focused, gone after.
 
     This is the shared replacement of the ``":focus" in styleSheet()`` proxy
-    (spec A-4). It fails, naming the numbers, when the control shows no ring on
+    (ADR-0069). It fails, naming the numbers, when the control shows no ring on
     focus (the case the proxy could not see), when it shows focus colour
     without focus, or when the ring survives focus-out.
 

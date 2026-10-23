@@ -1196,7 +1196,7 @@ def test_r10_reports_an_outline_that_does_not_reproduce_the_grid(monkeypatch):
 
 
 # --------------------------------------------------------------------------
-# 6b. The widened full-width cell (OF7 Q-29, option a)
+# 6b. The widened full-width cell (the maintainer's ruling, option a)
 # --------------------------------------------------------------------------
 #
 # The decision: the FULL-WIDTH cell (hiragana, katakana, CJK punctuation) takes
@@ -1333,7 +1333,7 @@ def _caught(
 
 
 def test_the_widened_cell_limits_are_the_ones_the_user_approved():
-    """OF7 Q-29 (a), pinned once and read from ``metrics.txt``: Regular ink takes
+    """Ruling (a), pinned once and read from ``metrics.txt``: Regular ink takes
     11 columns, Bold one more, the small kana 9 rows and 9 centred columns. The
     other tests derive everything from the same keys; this is the one place the
     decision itself is written down, so narrowing a key back fails here by name."""

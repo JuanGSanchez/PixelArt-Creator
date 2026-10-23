@@ -224,7 +224,7 @@ def test_view_tree_is_keyboard_reachable(view):
 
 
 def test_visible_focus_indicator_is_themed(view, qtbot):
-    """A visible focus ring is RENDERED on the relation tree, both themes (spec A-4).
+    """A visible focus ring is RENDERED on the relation tree, both themes (ADR-0069).
 
     Focus-role pixels appear around the tree when it has keyboard focus and not when
     it has none; the ``":focus" in styleSheet()`` proxy is withdrawn.

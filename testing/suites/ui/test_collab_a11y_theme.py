@@ -116,7 +116,7 @@ def test_roster_and_thread_are_single_selection(panels):
 
 
 def test_visible_focus_indicator_is_themed(panels, qtbot):
-    """A visible focus ring is RENDERED on the panels' focusable controls (spec A-4).
+    """A visible focus ring is RENDERED on the panels' focusable controls (ADR-0069).
 
     Focus-role pixels appear around each control when it has keyboard focus and not
     when it has none; the ``":focus" in styleSheet()`` proxy is withdrawn.

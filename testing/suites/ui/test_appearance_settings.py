@@ -1,8 +1,8 @@
 """Guard tests: the UI suite never reads or writes the real ``QSettings`` store.
 
-Covers T048 / REQ-VI-UI-002 (NFR-7), ADR-0070 section 8 and ADR-0072 (the scaling
+Covers REQ-VI-UI-002 (NFR-7), ADR-0070 section 8 and ADR-0072 (the scaling
 preference is read before ``QApplication`` exists). The product module that will
-own the appearance keys (``ui/appearance_settings.py``, T052) does not exist yet,
+own the appearance keys (``ui/appearance_settings.py``) does not exist yet,
 so these tests exercise the EXACT constructor it is specified to use --
 ``QSettings(QSettings.defaultFormat(), UserScope, org, app)`` -- directly.
 
@@ -17,7 +17,8 @@ What is proved, and how each proof is controlled:
   a later write (``test_snapshot_reader_*``), so "unchanged" cannot mean "blind".
 * **Escape control** -- ``QSettings(org, app)`` (two arguments) is native format
   and is NOT moved by ``setDefaultFormat`` / ``setPath`` on Windows and macOS
-  (T040 item 10, plan R-19). The test records which side of the root it lands on.
+  (see the settings-store isolation note in the suite's conftest). The test
+  records which side of the root it lands on.
 * **Before ``QApplication``** -- a fresh subprocess redirects, writes and reads
   with no application object, then builds one and reads the value again; a second
   subprocess reads it before ITS application exists.
@@ -362,7 +363,7 @@ def test_req_vi_ui_002_the_watched_keys_report_an_added_changed_or_removed_value
 
 
 def test_req_vi_ui_002_escape_control_two_argument_constructor(tmp_path):
-    """REQ-VI-UI-002 / plan R-19: ``QSettings(org, app)`` ignores the redirect.
+    """REQ-VI-UI-002: ``QSettings(org, app)`` ignores the redirect.
 
     Read-only (``fileName`` / ``format`` only; nothing is written). On Windows and
     macOS the two-argument constructor is the registry / ``CFPreferences`` and

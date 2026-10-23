@@ -79,7 +79,7 @@ def test_sc_ui_012_1_focus_indicator_defined_by_role(qtbot):
     """SC-UI-012-1: a visible focus indicator is RENDERED, in the focus role.
 
     Focus-role pixels appear around the canvas view when it has keyboard focus and
-    not when it has none (spec A-4); the ``":focus" in styleSheet()`` proxy is
+    not when it has none (ADR-0069); the ``":focus" in styleSheet()`` proxy is
     withdrawn.
     """
     win = _window(qtbot)

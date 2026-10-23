@@ -608,7 +608,7 @@ def test_opacity_slider_accessible_and_keyboard_reachable(qtbot, theme):
     a11y for the drag control (both themes via the autouse fixture): an accessible
     name (screen-reader label), Tab focus (keyboard reach), enabled state, and a
     role-based themed stylesheet applied to the app and a RENDERED focus ring on the
-    slider (spec A-4; the ``":focus" in styleSheet()`` proxy is withdrawn).
+    slider (ADR-0069; the ``":focus" in styleSheet()`` proxy is withdrawn).
     """
     from PySide6.QtWidgets import QApplication
 

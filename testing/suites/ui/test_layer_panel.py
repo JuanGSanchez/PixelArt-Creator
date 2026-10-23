@@ -591,7 +591,7 @@ def test_sc_ui_016_1_layer_panel_accessible_and_keyboard_reachable(layer_env, qt
         assert ctrl.accessibleName() != ""
         assert ctrl.focusPolicy() != Qt.FocusPolicy.NoFocus
         # A visible focus indicator: RENDERED focus-role pixels on the focused
-        # control (spec A-4; the ":focus" stylesheet-substring proxy is withdrawn).
+        # control (ADR-0069; the ":focus" stylesheet-substring proxy is withdrawn).
         assert_focus_rendered(qtbot, ctrl)
 
 

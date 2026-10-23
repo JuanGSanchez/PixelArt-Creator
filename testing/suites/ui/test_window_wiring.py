@@ -100,10 +100,10 @@ def test_theme_switch_applies_qss(qtbot):
     """set_theme swaps the application QSS (runtime theme switch, 025).
 
     The applied sheet IS ``build_qss(mode, style, scale=art_scale())`` -- exact
-    equality, one app stylesheet, no per-window sheet (ADR-0069, plan 5.1 ruling 2:
-    the scale is the highest whole-number DPR across screens, never a per-window
-    value). ``set_theme`` takes a mode and keeps the default style until the Theme
-    menu (T052) adds the style choice.
+    equality, one app stylesheet, no per-window sheet (ADR-0069; the scale is the
+    highest whole-number DPR across screens, never a per-window value).
+    ``set_theme`` takes a mode and keeps the default style until the Theme menu
+    adds the style choice.
     """
     win = _window(qtbot)
     win.set_theme(THEME_DARK)

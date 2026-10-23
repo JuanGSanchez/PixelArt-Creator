@@ -326,7 +326,7 @@ def test_visible_focus_indicator_is_themed_for_the_reuse_panel(panel, qtbot):
     """A visible focus ring is RENDERED on the reuse panel's controls, both themes.
 
     Focus-role pixels appear around each control when it has keyboard focus and not
-    when it has none (spec A-4); the ``":focus" in styleSheet()`` proxy is withdrawn.
+    when it has none (ADR-0069); the ``":focus" in styleSheet()`` proxy is withdrawn.
     """
     widget, _session, _cas, _backend = panel
     for control in (

@@ -64,7 +64,7 @@ def test_sc_ui_011_dialog_controls_are_keyboard_focusable(qtbot):
             assert not control.isEnabled()
             continue
         # A visible focus indicator: RENDERED focus-role pixels on the focused control
-        # (spec A-4; the ":focus" stylesheet-substring proxy is withdrawn).
+        # (ADR-0069; the ":focus" stylesheet-substring proxy is withdrawn).
         assert_focus_rendered(qtbot, control)
 
 

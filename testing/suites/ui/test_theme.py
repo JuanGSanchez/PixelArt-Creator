@@ -4,7 +4,7 @@ This module verifies the **rendered** result of the pixel-art visual identity at
 the UI level, over every shipped combination of a *style* and a *mode* (the
 catalogue's styles x modes -- ``COMBOS`` below prints its own size). The suite's
 autouse ``theme`` fixture covers the two modes of the canonical style only
-(plan 5.2, A-6: "six-way on every UI test would triple the suite"); the
+(ADR-0070: "six-way on every UI test would triple the suite"); the
 theme-sensitive gates listed in ADR-0070 decision 9 are therefore parametrised
 here, explicitly, over all combinations:
 
@@ -19,7 +19,7 @@ here, explicitly, over all combinations:
 * the selected-state cue ring (a non-colour cue where the fill contrast is
   below 3:1);
 * frames of the full control set, located **by pixels** (never by
-  ``QStyle.subControlRect``, which T040 measured wrong for spin and combo
+  ``QStyle.subControlRect``, which was measured wrong for spin and combo
   buttons, QSS sliders and horizontal scroll bars), popups, dialogs, headings,
   docked docks, the flat canvas workspace.
 
@@ -36,11 +36,11 @@ and the focus counter must report nothing on a control that has no overlay
 Scope notes (stated, not hidden):
 
 * Only the two styles the catalogue ships today are in the matrix; Arcade Kikko
-  joins automatically when its data lands (T024). The matrix is four
+  joins automatically when its data lands. The matrix is four
   combinations until then, not six.
 * The dock tests exercise the **mechanism** (``install_dock_frame`` on a dock of
   a plain ``QMainWindow``). Wiring the frame at the Main_Window's own dock sites
-  is T052/T053 and is tested there.
+  is tested with the main-window wiring.
 * Everything runs on the offscreen platform at device-pixel ratio 1.
 """
 
@@ -463,14 +463,14 @@ def _widgets_with_stylesheet(root: QWidget) -> List[str]:
 
 
 # --------------------------------------------------------------------------- #
-# The stylesheet contract (ADR-0069 decision 2, plan 3.5, test-contract list) #
+# The stylesheet contract (ADR-0069 decision 2, test-contract list)            #
 # --------------------------------------------------------------------------- #
 
 
 def test_stylesheet_equals_build_qss_at_the_art_scale(combo, qapp):
     """The one app stylesheet IS ``build_qss(mode, style, scale=art_scale())``.
 
-    Exact equality, no concatenated sheet, no per-window sheet (K-7, NFR-5): the
+    Exact equality, no concatenated sheet, no per-window sheet (NFR-5): the
     contract that replaced ``app.styleSheet() == build_qss(mode)``.
     """
     apply_theme(qapp, combo.mode, combo.style)
@@ -535,8 +535,8 @@ def test_art_scale_is_the_highest_whole_number_ratio_among_screens(
 def test_stylesheet_names_no_font_family_or_size_and_one_font_weight(combo, scale):
     """No ``font-family``, no ``font-size``; the ONLY font declaration is a weight.
 
-    ``QDockWidget { font-weight: bold; }`` (T040 item 3, spec A-1): a weight is
-    not a family or a size, so the retained portability assertions stand.
+    ``QDockWidget { font-weight: bold; }`` (a specified exception): a
+    weight is not a family or a size, so the retained portability assertions stand.
     """
     qss = build_qss(combo.mode, combo.style, scale=scale)
     lowered = qss.lower()
@@ -625,17 +625,17 @@ def test_border_width_is_the_slice_count_and_image_slices_are_slice_times_scale(
 
 
 def test_stylesheet_carries_the_measured_t040_arrangements(combo):
-    """The T040 rules (plan 5.1a items 1, 4, 5, 11) are in the one stylesheet."""
+    """The measured rule arrangements (dock title, item views, scroll bars) are in the sheet."""
     qss = build_qss(combo.mode, combo.style, scale=1)
     by_selector = {selector: props for selector, props in _blocks(qss)}
-    # item 1: no background on the dock title; transparent on the framed selectors
+    # the dock title has no background; the framed selectors are transparent
     assert "background" not in by_selector["QDockWidget::title"]
     assert "background-color" not in by_selector["QDockWidget::title"]
     for selector in ("QPushButton, QToolButton", "QToolBar", "QFrame#DockBody"):
         assert by_selector[selector]["background"] == "transparent", selector
-    # item 5: item views carry `outline: 0`
+    # item views carry `outline: 0`
     assert by_selector["QListView, QTreeView, QTableView"]["outline"] == "0"
-    # item 4: scroll bar V2 only -- the track on ::add-page / ::sub-page, none on the bar
+    # scroll bar: the track on ::add-page / ::sub-page only, none on the bar
     assert "border-image" not in by_selector["QScrollBar:vertical"]
     assert "border-image" not in by_selector["QScrollBar:horizontal"]
     assert (
@@ -658,7 +658,7 @@ def test_stylesheet_carries_the_measured_t040_arrangements(combo):
 
 # --------------------------------------------------------------------------- #
 # Keyboard focus: a rendered overlay, not a stylesheet rule                   #
-# (REQ-VI-UI-005, SC-VI-UI-005-1..4, spec A-4, ADR-0069 decision 5)           #
+# (REQ-VI-UI-005, SC-VI-UI-005-1..4, ADR-0069 decision 5)                     #
 # --------------------------------------------------------------------------- #
 
 
@@ -745,7 +745,7 @@ def _host(qtbot, *controls: QWidget) -> QWidget:
 def test_sc_vi_ui_005_1_focus_ring_is_rendered_on_every_framed_control(
     qtbot, combo, kind
 ):
-    """SC-VI-UI-005-1 / spec A-4: focus-role pixels appear on focus, only then.
+    """SC-VI-UI-005-1 / ADR-0069: focus-role pixels appear on focus, only then.
 
     The rendered replacement of the stylesheet-substring proxy, run for each
     framed control class in every combination: 0 focus-colour pixels unfocused,
@@ -996,7 +996,7 @@ def _ring_px_in(bar: QTabBar, index: int, rgb: int) -> int:
 
 
 def test_tab_bar_ring_follows_the_current_tab_after_arrow_keys(qtbot, combo):
-    """T040 item 5: the ring is refitted to the current tab on ``currentChanged``.
+    """The ring is refitted to the current tab on ``currentChanged``.
 
     A tab bar gets one FocusIn per focus gain and none when the arrow keys move
     the current tab, so the refit is what keeps the ring on the current tab.
@@ -1026,7 +1026,7 @@ def test_tab_bar_control_without_the_refit_shows_no_ring_on_the_current_tab(
 ):
     """Control for the refit test: with ``currentChanged`` disconnected it FAILS the check.
 
-    T040 measured 0 ring pixels on the current tab with the refit disconnected;
+    Measured: 0 ring pixels on the current tab with the refit disconnected;
     this reproduces it, so the test above is known to be able to see the defect.
     """
     bar = _tab_bar()
@@ -1065,7 +1065,7 @@ def _blank_list() -> QListWidget:
 
 
 def test_item_view_focus_adds_no_off_palette_pixels_with_outline_zero(qtbot, combo):
-    """T040 item 5: item views carry ``outline: 0`` so Qt's own focus rect adds nothing.
+    """Item views carry ``outline: 0`` so Qt's own focus rect adds nothing.
 
     A focused list (a current row, blank items so no glyph is drawn) holds
     0 pixels outside the role palette.
@@ -1233,12 +1233,12 @@ def test_sc_vi_ui_006_2_where_the_fill_contrast_is_below_3_the_cue_is_present(
     The accent/surface fill contrast is first checked against the figure the spec
     quotes (so the premise is measured, not assumed); then the selected tab and a
     checked button each show a cue. A combination the catalogue does not ship yet
-    (Arcade Kikko, T024) is not in this list's run: it is reported in the module
+    (Arcade Kikko) is not in this list's run: it is reported in the module
     docstring, not skipped silently here.
     """
     c = Combo(style, mode)
     if c not in COMBOS:
-        pytest.skip(f"{style} is not in the catalogue yet (T024); not examined")
+        pytest.skip(f"{style} is not in the catalogue yet; not examined")
     apply_theme(QApplication.instance(), mode, style)
     ratio = contrast_ratio(_roles(c)["accent"], _roles(c)["surface"])
     assert round(ratio, 2) == _QUOTED_FILL_CONTRAST[(style, mode)]
@@ -1546,7 +1546,7 @@ def share_frame(widget: QWidget, c: Combo, name: str = "button_normal") -> float
 
 
 # --------------------------------------------------------------------------- #
-# Sub-controls, located BY PIXELS (T040 obligation): never QStyle.subControlRect
+# Sub-controls, located BY PIXELS: never QStyle.subControlRect
 # --------------------------------------------------------------------------- #
 
 
@@ -1814,7 +1814,7 @@ def test_sc_vi_ui_009_1_check_box_indicator_sprites_follow_the_state(qtbot, comb
     assert locate(_array(off), sprite(combo, "check_on")) == []
 
 
-# --- the still-unexamined surfaces (plan R-5, T040 obligation) -----------------
+# --- the surfaces the first sub-control pass left unexamined -------------------
 
 
 @pytest.mark.parametrize(
@@ -1822,7 +1822,7 @@ def test_sc_vi_ui_009_1_check_box_indicator_sprites_follow_the_state(qtbot, comb
     ["spin_box", "double_spin_box", "combo_box", "check_box", "slider", "scroll_bar"],
 )
 def test_disabled_controls_keep_their_frames_and_sprites(qtbot, combo, kind):
-    """R-5 (disabled sub-control states): a disabled control is still framed, not native.
+    """Disabled sub-control states: a disabled control is still framed, not native.
 
     The disabled variants have no art of their own, so the enabled assertions hold
     unchanged for each of them: frame ring, step buttons and arrows, drop-down,
@@ -1856,7 +1856,7 @@ def test_disabled_controls_keep_their_frames_and_sprites(qtbot, combo, kind):
 
 
 def test_pressed_spin_button_stays_framed_with_its_arrow(qtbot, combo):
-    """R-5 (pressed sub-control state): a pressed step button is still framed, arrow drawn.
+    """Pressed sub-control state: a pressed step button is still framed, arrow drawn.
 
     The up button is located BY PIXELS, pressed with a real mouse press at its
     centre, and the checks run again with the button held down.
@@ -1885,7 +1885,7 @@ def test_pressed_spin_button_stays_framed_with_its_arrow(qtbot, combo):
 
 
 def test_pressed_scroll_handle_and_slider_handle_stay_framed(qtbot, combo):
-    """R-5 (pressed state): a held scroll-bar handle and slider handle keep their art."""
+    """Pressed state: a held scroll-bar handle and slider handle keep their art."""
     bar = _scroll_bar(Qt.Orientation.Vertical)
     slider = _slider()
     window = _host(qtbot, bar, slider)
@@ -2006,9 +2006,9 @@ def test_sc_vi_ui_008_2_the_tooltip_is_square_framed_and_a_role_colour(qtbot, co
 def test_sc_vi_ui_008_2_the_combo_popup_list_carries_the_menu_frame_and_square_corners(
     qtbot, combo
 ):
-    """SC-VI-UI-008-2 / R-5: the combo box's list shows the ``menu`` frame, square corners.
+    """SC-VI-UI-008-2: the combo box's list shows the ``menu`` frame, square corners.
 
-    One of the surfaces plan R-5 left unexamined: the popup list of a combo box.
+    One of the surfaces the first sub-control pass left unexamined: the popup list of a combo box.
     """
     box = _combo()
     _host(qtbot, box)
@@ -2109,10 +2109,10 @@ def test_sc_vi_ui_008_1_a_real_dialog_is_framed_without_an_empty_band(qtbot, com
 
 
 def test_dialog_heading_row_takes_the_heading_frame(qtbot, combo):
-    """A label named ``dialogHeading`` (the name plan 5.1 defines) carries the ``heading`` frame.
+    """A label named ``dialogHeading`` (the name the stylesheet design defines) carries the ``heading`` frame.
 
     The heading frame (ring 1/1/2/1) is drawn only on that object name; the object
-    name is the one plan 5.1 and ``ui/theme.py`` use. (The shipped template data
+    name is the one the design and ``ui/theme.py`` use. (The shipped template data
     names it differently: see ``test_template_hints_name_selectors_the_stylesheet_has``.)
     """
     dialog = _blank_dialog(qtbot, heading="Heading")
@@ -2129,7 +2129,7 @@ def test_template_hints_name_selectors_the_stylesheet_has(combo):
     """Every ``Class#ObjectName`` a template's ``qss_hint`` names is a selector in the stylesheet.
 
     Reconciles the dialog heading's object name across its three sources. The
-    plan and ``ui/theme.py`` say ``QLabel#dialogHeading``; the committed
+    design and ``ui/theme.py`` say ``QLabel#dialogHeading``; the committed
     ``templates.json`` hint says ``QLabel#DialogHeading``. A hint that names a
     selector no stylesheet rule carries misleads whoever wires the next dialog.
     """
@@ -2149,13 +2149,13 @@ def test_template_hints_name_selectors_the_stylesheet_has(combo):
 
 
 # --------------------------------------------------------------------------- #
-# Tree and table headers (plan R-5: header sections)                          #
+# Tree and table headers (header sections)                                     #
 # --------------------------------------------------------------------------- #
 
 
 @pytest.mark.parametrize("kind", ["tree_widget", "table_widget"])
 def test_header_sections_carry_the_border_role_not_the_native_look(qtbot, combo, kind):
-    """R-5: tree/table header sections are drawn from roles (1 px ``border``, ``surface`` fill).
+    """Tree/table header sections are drawn from roles (1 px ``border``, ``surface`` fill).
 
     The header is not part of the REQ-VI-UI-009 frame set (it takes role colours,
     spec section 11.3); what is tested is that it does not fall back to the native
@@ -2265,7 +2265,7 @@ def test_sc_vi_ui_007_1_a_docked_dock_shows_its_title_plate_and_body_frame(
       the left of the float and close glyphs, which are located by their sprites;
     * the ``DockBody`` frame around the content equals ``dock_body`` (the ring it
       has: no top ring, the plate carries it).
-    Wiring at the Main_Window's own dock sites is T052; tested at T053.
+    Wiring at the Main_Window's own dock sites is tested with the main-window wiring.
     """
     window, dock, panel = _docked(qtbot, "Palette")
     _unfocus(window)
@@ -2368,14 +2368,14 @@ def test_sc_vi_ui_007_2_a_floating_dock_keeps_native_chrome_and_the_plate_return
 
 
 # --------------------------------------------------------------------------- #
-# The art directory may hold a space and non-ASCII characters (plan R-8)      #
+# The art directory may hold a space and non-ASCII characters                  #
 # --------------------------------------------------------------------------- #
 
 
 def test_art_renders_from_a_directory_with_a_space_and_non_ascii_characters(
     qtbot, combo, qapp, tmp_path
 ):
-    """R-8 (T040 item 11): the quoted forward-slash ``url()`` resolves in a hostile path.
+    """The quoted forward-slash ``url()`` resolves in a hostile path.
 
     The art is regenerated under a temp root named with a space, accents and CJK
     characters; a framed button rendered from it still equals its template, so the
