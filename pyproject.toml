@@ -314,9 +314,9 @@ exclude_lines = [
 # changes nothing about what is enforced today — it only makes the
 # previously-implicit ruleset explicit, durable, and immune to a future
 # pydocstyle major-version default change. NO add-ignore/add-select: the 102
-# real findings this convention surfaces (D101/D102/D105/D107/D209/D301/D401/
-# D402) are genuine gaps, not convention noise, and are gated (with a
-# time-boxed exception) in ci.yml rather than suppressed here.
+# real findings this convention surfaced (D101/D102/D105/D107/D209/D301/D401/
+# D402) were genuine gaps, not convention noise, so any finding is gated by
+# a blocking step in ci.yml rather than suppressed here.
 [tool.pydocstyle]
 convention = "pep257"
 

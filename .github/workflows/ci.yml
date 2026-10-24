@@ -538,94 +538,25 @@ jobs:
         # exception needed.
         run: mkdocs build -f docs/site/mkdocs.yml --strict
 
-      - name: Docstring lint (pydocstyle, PEP 257) [TIME-BOXED EXCEPTION, expires 2026-08-31]
+      - name: Docstring lint (pydocstyle, PEP 257)
         if: runner.os == 'Linux'
         # Ruleset: [tool.pydocstyle] convention="pep257" in pyproject.toml (see
-        # that file's comment for why pep257 — the project's own documented
-        # docstring discipline — and not google/numpy, which would manufacture
+        # that file's comment for why pep257 -- the project's own documented
+        # docstring discipline -- and not google/numpy, which would manufacture
         # section-formatting findings against a style never adopted here).
         #
-        # HONEST MEASUREMENT, EXPLICIT EXCEPTION — same pattern as the
-        # non-client coverage gate above. This is the REAL pep257 check; it is
-        # NOT weakened (no add-ignore/add-select) and pixelart_creator is NOT
-        # excluded.
+        # A plain BLOCKING gate: the step's exit status is pydocstyle's own,
+        # so any pep257 finding in pixelart_creator fails the Linux leg. The
+        # target is the whole package; there is no ignore/select override, no
+        # excluded path and no continue-on-error.
         #
-        # Real numbers measured 2026-07-30 (local, py3.13, convention=pep257,
-        # no add-ignore): 102 findings across 41 files — D102 x48 (missing
-        # public-method docstring), D107 x16 (missing __init__ docstring),
-        # D401 x13 (first line not imperative mood), D105 x11 (missing
-        # magic-method docstring), plus D101/D209/D301/D402 (minor,
-        # single-digit each). Concentrated in Phase 1-3 modules; this
-        # redness is TRUE, not a tooling artefact — the gate simply never ran
-        # before. Clearing the findings is the documentation owner's job (docs content), not
-        # this workflow's.
-        #
-        # DEBT REPAID, THEN REGRESSED, THEN REPAID AGAIN -- history kept, not
-        # deleted (CI-warning fix, 2026-08-18):
-        #   - Repaid 2026-08-16 (job
-        #     20260816-spec-audit-test-rebuild-docs-move): `pydocstyle
-        #     pixelart_creator` exited 0.
-        #   - Regressed: PRs #9 and #10 reintroduced 15 findings across 4
-        #     files (logic/branch_diff.py, logic/history.py,
-        #     logic/project_prefs.py, ui/timeline_grid_view.py) -- codes
-        #     D102, D400, D205, D402, D107 dominant (measured on this branch
-        #     before the fix below landed; NOT the same breakdown as the
-        #     original 2026-07-30 102-finding redness, which was D102/D107/
-        #     D401/D105).
-        #   - Repaid again on this branch (fix-ci-hygiene, verified
-        #     2026-08-18): `pydocstyle pixelart_creator` exits 0.
-        # The 102-finding number that used to be hardcoded into the
-        # `::warning::` line below is now HISTORICAL CONTEXT ONLY, not the
-        # live state -- the step measures and reports its own real count
-        # every run instead (see the capture below), which is exactly the
-        # fix for the "warning reports a fixed historical number" defect
-        # this project keeps tripping on. The time-boxed exception scaffold
-        # stays in place (unexercised while the gate is green) so a future
-        # regression is still caught and self-expires on the same
-        # 2026-08-31 milestone.
-        #
-        # The time-box is SELF-ENFORCING, not a comment: past EXPIRY this step
-        # starts failing the build unconditionally. Same 2026-08-31 milestone
-        # as the non-client coverage exception above, so both known gaps are
-        # repaid on one shared deadline instead of drifting independently.
-        run: |
-          EXPIRY=2026-08-31
-          # Capture pydocstyle's OWN output + exit code (rather than letting
-          # the command's exit status drive `if` directly) so the real
-          # finding count and per-code breakdown can be parsed out of it for
-          # the warning line below -- the whole point of this fix is that the
-          # message must never again quote a number pydocstyle didn't just
-          # produce. `set +e`/`set -e` bracket the capture so a nonzero
-          # pydocstyle exit (findings present) never trips this script's own
-          # `-e` (GitHub's default bash step flags) before STATUS is read.
-          set +e
-          FINDINGS_OUTPUT="$(pydocstyle pixelart_creator 2>&1)"
-          STATUS=$?
-          set -e
-          if [[ ${STATUS} -eq 0 ]]; then
-            echo "pixelart_creator meets the pep257 docstring gate"
-            exit 0
-          fi
-          echo "${FINDINGS_OUTPUT}"
-          TODAY="$(date -u +%F)"
-          # Real count + real per-code breakdown, parsed from pydocstyle's own
-          # output (format: "path.py:LINE in ...:" followed by an indented
-          # "    D1xx: <message>" line per violation) -- never a baked-in
-          # number. `|| true` on each: a clean grep/awk pipeline finding zero
-          # matches exits non-zero, which must not fail this step (robustness
-          # requirement -- this path must also work correctly when the count
-          # is legitimately zero, e.g. a pydocstyle tool error with no D-code
-          # lines at all).
-          COUNT=$(printf '%s\n' "${FINDINGS_OUTPUT}" | grep -cE '^[[:space:]]+D[0-9]{3}:' || true)
-          BREAKDOWN=$(printf '%s\n' "${FINDINGS_OUTPUT}" | grep -oE 'D[0-9]{3}' | sort | uniq -c | sort -rn | awk '{printf "%s x%s, ", $2, $1}' | sed 's/, $//' || true)
-          if [[ -z "${BREAKDOWN}" ]]; then
-            BREAKDOWN="(no per-code breakdown parsed -- see step log above for the full pydocstyle output)"
-          fi
-          if [[ "${TODAY}" > "${EXPIRY}" ]]; then
-            echo "::error::Time-boxed pydocstyle exception EXPIRED on ${EXPIRY}. pixelart_creator still fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see step log above for the full findings). This now BLOCKS: clear the findings (the documentation owner) -- do not extend the box without an explicit decision."
-            exit 1
-          fi
-          echo "::warning::pixelart_creator fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see pyproject.toml [tool.pydocstyle] for the ruleset and the step log above for the full findings). KNOWN and time-boxed until ${EXPIRY} (owner: documentation). This step BLOCKS the build after ${EXPIRY}."
+        # History: the gate was wired on 2026-07-30 as a time-boxed exception
+        # (a warning until 2026-08-31, a failure after it) while the first
+        # findings were being cleared. pixelart_creator has exited 0 since
+        # then, apart from a short regression repaid on 2026-08-18. The
+        # time-boxed scaffold was removed on the owner's ruling of
+        # 2026-10-23, leaving this step.
+        run: pydocstyle pixelart_creator
 
       - name: Documentation-reference gate (ADR citations + control-label currency, P11 script)
         # scripts/check_doc_references.py checks two independent legs, both
