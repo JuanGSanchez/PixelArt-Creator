@@ -21,12 +21,18 @@ and the default locale code are **string identifiers**, not numeric tuning value
 (Article II governs numerics), so ``DEFAULT_GUIDE_LOCALE`` is module-local here, not
 in ``constants.py`` (ADR-0001; spec §9). ``GuideModelError`` (a ``ValueError``, the
 repo convention) reports every malformed/inconsistent manifest.
+
+Localisation (``REQ-L10N-UI-007`` / ``REQ-L10N-UI-008``): the English manifest stays
+the structural and fallback source. A :class:`LocaleMeta` carries one language's
+section titles, topic titles, summaries and keywords (read from that language's
+``meta.json`` by the ``data`` reader), and the ``localised_*`` accessors return the
+language's text for an item or, **per item**, the English text when it has none.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Iterable
 
 from pixelart_creator.logic.constants import GUIDE_MAX_TOC_DEPTH
 
@@ -45,6 +51,11 @@ __all__ = [
     "CONTENT_DIR_NAME",
     "CONTENT_FILE_SUFFIX",
     "content_ref_path",
+    "LocaleMeta",
+    "localised_section_title",
+    "localised_title",
+    "localised_summary",
+    "localised_keywords",
 ]
 
 #: Fallback locale used when no localised doc exists for the active locale
@@ -130,6 +141,34 @@ class Manifest:
     schema_version: int
     default_locale: str
     sections: tuple[GuideSection, ...]
+
+
+@dataclass(frozen=True)
+class LocaleMeta:
+    """One language's guide metadata, mirroring ``content/<lang>/meta.json``.
+
+    Produced by :func:`pixelart_creator.data.guide_content.load_locale_meta` (which
+    reads and validates the file) and consumed by the ``localised_*`` accessors and
+    by :func:`pixelart_creator.logic.guide_search.query`. Every mapping is keyed by
+    the manifest's ids and may be **partial**: an id absent from a mapping means "no
+    translation", and the accessors fall back to English for that item only. English
+    itself has no ``LocaleMeta``; the manifest is its source.
+
+    Attributes:
+        locale: The language code the metadata belongs to (the folder name).
+        schema_version: The ``meta.json`` schema version (forward-compat marker).
+        section_titles: Section id to the section's title in this language.
+        topic_titles: Topic id to the topic's title in this language.
+        topic_summaries: Topic id to the topic's summary in this language.
+        topic_keywords: Topic id to the topic's search keywords in this language.
+    """
+
+    locale: str
+    schema_version: int
+    section_titles: Mapping[str, str]
+    topic_titles: Mapping[str, str]
+    topic_summaries: Mapping[str, str]
+    topic_keywords: Mapping[str, tuple[str, ...]]
 
 
 #: The functionality areas the guide MUST cover (REQ-UG-LOGIC-005; spec §2/§4). Each
@@ -296,10 +335,10 @@ def resolve_content_ref(
     Returns the localised content path when a doc for the topic exists in
     ``active_locale`` (i.e. ``active_locale`` is in ``available_locales``), otherwise
     falls back to the ``default_locale`` path (REQ-UG-LOGIC-004; CL-3). Pure and
-    deterministic — no I/O; the caller passes the set of locales that have this
-    topic's content (the bundle-level set from
-    :func:`pixelart_creator.data.guide_content.available_locales` when every topic
-    ships in every locale, the current invariant).
+    deterministic — no I/O; the caller passes the set of locales that hold **this
+    topic's** page (:func:`pixelart_creator.data.guide_content.topic_locales`), so a
+    locale folder that lacks one page falls back to English for that page only
+    (``REQ-L10N-UI-007``) and the other pages stay in the active language.
 
     Args:
         model: The built model.
@@ -331,3 +370,49 @@ def missing_required_areas(model: GuideModel) -> tuple[str, ...]:
     """
     covered = {section.id for section in model.sections if section.topics}
     return tuple(area for area in REQUIRED_AREAS if area not in covered)
+
+
+def localised_section_title(section: GuideSection, meta: LocaleMeta | None) -> str:
+    """Return ``section``'s title in ``meta``'s language, else the English title.
+
+    Falls back per item: a ``None`` ``meta`` (English, or no metadata shipped) or a
+    section id the metadata does not translate yields ``section.title``
+    (``REQ-L10N-UI-008``).
+    """
+    if meta is None:
+        return section.title
+    return meta.section_titles.get(section.id, section.title)
+
+
+def localised_title(topic: GuideTopic, meta: LocaleMeta | None) -> str:
+    """Return ``topic``'s title in ``meta``'s language, else the English title.
+
+    Falls back per item (``REQ-L10N-UI-008``): ``None`` or an untranslated topic id
+    yields ``topic.title``.
+    """
+    if meta is None:
+        return topic.title
+    return meta.topic_titles.get(topic.id, topic.title)
+
+
+def localised_summary(topic: GuideTopic, meta: LocaleMeta | None) -> str:
+    """Return ``topic``'s summary in ``meta``'s language, else the English summary.
+
+    Falls back per item (``REQ-L10N-UI-008``): ``None`` or an untranslated topic id
+    yields ``topic.summary``.
+    """
+    if meta is None:
+        return topic.summary
+    return meta.topic_summaries.get(topic.id, topic.summary)
+
+
+def localised_keywords(topic: GuideTopic, meta: LocaleMeta | None) -> tuple[str, ...]:
+    """Return ``topic``'s keywords in ``meta``'s language, else the English ones.
+
+    Falls back per item (``REQ-L10N-UI-008``): ``None`` or an untranslated topic id
+    yields ``topic.keywords``. The English keywords themselves are always available
+    from ``topic.keywords``; search indexes them beside these.
+    """
+    if meta is None:
+        return topic.keywords
+    return meta.topic_keywords.get(topic.id, topic.keywords)

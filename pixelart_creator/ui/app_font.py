@@ -43,14 +43,20 @@ The module binds to no domain logic (S11): it is Qt font plumbing only.
 
 from __future__ import annotations
 
+import functools
+import itertools
 import logging
+import operator
+from collections.abc import Sequence
 from importlib import resources
-from typing import Dict, Final, List, Optional, Tuple
+from typing import Dict, Final, FrozenSet, List, Optional, Tuple
 
 from PySide6.QtCore import QByteArray
-from PySide6.QtGui import QFont, QFontDatabase, QFontInfo
+from PySide6.QtGui import QFont, QFontDatabase, QFontInfo, QFontMetrics, QRawFont
 from PySide6.QtWidgets import QApplication, QWidget
 
+import pixelart_creator.logic.constants as logic_constants
+import pixelart_creator.logic.font_chain as font_chain
 from pixelart_creator.ui.theme import _UI_FONT_FALLBACKS
 
 __all__ = [
@@ -67,6 +73,8 @@ __all__ = [
     "ensure_interface_font",
     "resolved_family",
     "round_to_em",
+    "primary_holds_cjk",
+    "chain_font",
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -116,6 +124,40 @@ _registered_ids: List[int] = []
 #: The platform's default font and per-class fonts, captured once.
 _platform: Dict[str, object] = {"font": None, "classes": None, "style": None}
 _substitutions_installed = False
+
+#: The style-strategy flags a family-list tag may be built from, in the order the
+#: table below lists them. All four were kept on Linux, Windows and macOS; they
+#: name the choice between outline and bitmap fonts or the size to match, so on an
+#: outline face they select nothing different, yet Qt's font cache keys on them.
+_CHAIN_TAG_FLAGS: Final[Tuple[QFont.StyleStrategy, ...]] = (
+    QFont.StyleStrategy.PreferMatch,
+    QFont.StyleStrategy.PreferQuality,
+    QFont.StyleStrategy.PreferOutline,
+    QFont.StyleStrategy.ForceOutline,
+)
+
+#: One entry per tag: the non-empty combinations of :data:`_CHAIN_TAG_FLAGS`,
+#: fewest flags first and, within one size, in the order of the flags above. Tag
+#: ``n`` (counted from one) is entry ``n - 1``. The length is the capacity of
+#: :data:`_CHAIN_TAG_REGISTRY`.
+_CHAIN_TAG_STRATEGIES: Final[Tuple[QFont.StyleStrategy, ...]] = tuple(
+    functools.reduce(operator.or_, combination)
+    for combination in itertools.chain.from_iterable(
+        itertools.combinations(_CHAIN_TAG_FLAGS, size)
+        for size in range(len(_CHAIN_TAG_FLAGS) + 1)
+    )
+    if combination
+)
+
+#: Every flag any tag uses; cleared from a base font before its tag is set.
+_CHAIN_TAG_MASK: Final[QFont.StyleStrategy] = functools.reduce(
+    operator.or_, _CHAIN_TAG_FLAGS
+)
+
+#: The module's one registry of chain tags (see :func:`chain_font`).
+_CHAIN_TAG_REGISTRY: Final[font_chain.ChainTagRegistry] = font_chain.ChainTagRegistry(
+    len(_CHAIN_TAG_STRATEGIES)
+)
 
 
 def _font_bytes(file_name: str) -> Optional[bytes]:
@@ -229,6 +271,96 @@ def install_font_substitutions() -> None:
                 chain.append(family)
     QFont.insertSubstitutions(NIFEN_ART_FAMILY, chain)
     _substitutions_installed = True
+
+
+def chain_font(base: QFont, families: Sequence[str]) -> QFont:
+    """Return a copy of ``base`` that draws with the family list ``families``.
+
+    The one place in ``ui/`` where a family list is put on a font. Qt's font cache
+    does not tell two fonts apart by the families after the first, so a list of
+    two or more families also gets a tag (from :data:`_CHAIN_TAG_REGISTRY`)
+    carried in the style strategy: every tag flag is cleared from the base's
+    strategy first, so a base that already carried one cannot mask the tag, and
+    then the list's flags are set. A one-family list has no later families to
+    share and gets no flag.
+
+    When more lists share the first family than there are tags, a warning names
+    the family and the list and the result is the first family alone, with no
+    flag: degraded and visible, and never an untagged list, which would hand its
+    later families to any one-family font of the same first family.
+
+    Raises:
+        ValueError: ``families`` is empty.
+    """
+    font = QFont(base)
+    font.setFamilies(list(families))
+    strategy = font.styleStrategy() & ~_CHAIN_TAG_MASK
+    try:
+        tag = _CHAIN_TAG_REGISTRY.tag_for(families)
+    except font_chain.ChainTagsExhausted as exc:
+        _LOGGER.log(
+            logging.WARNING,
+            "no chain tag left for %r, drawing %r alone instead of %s",
+            exc.family,
+            families[0],
+            list(families),
+        )
+        font.setFamilies([families[0]])
+        tag = None
+    if tag is not None:
+        strategy |= _CHAIN_TAG_STRATEGIES[tag - 1]
+    font.setStyleStrategy(strategy)
+    return font
+
+
+@functools.lru_cache(maxsize=None)
+def _cjk_code_points(families: Tuple[str, ...]) -> FrozenSet[int]:
+    """Return the Han and Hangul code points the families ``families`` hold.
+
+    Cached by the names, so the answer changes when a face gets registered (the
+    key then names more families) and is otherwise computed once.
+    """
+    held: set[int] = set()
+    for family in families:
+        raw = QRawFont.fromFont(chain_font(QFont(), (family,)))
+        for first, last in (
+            *logic_constants.HAN_RANGES,
+            *logic_constants.HANGUL_RANGES,
+        ):
+            held.update(
+                code_point
+                for code_point in range(first, last + 1)
+                if raw.supportsCharacter(code_point)
+            )
+    return frozenset(held)
+
+
+def primary_holds_cjk(family: str) -> bool:
+    """Return whether ``family`` alone would draw a shipped Han or Hangul character.
+
+    The code points tested are the ones the registered bundled CJK families hold,
+    so "holds" means "would steal a shipped character", not "holds some Han". The
+    family is measured on its own with font merging off (no fallback family can
+    answer for it). Before those faces are registered the set is empty and the
+    answer is false, which is right: nothing shipped can be stolen yet.
+    """
+    present = set(QFontDatabase.families())
+    shipped = tuple(
+        name
+        for name in (
+            font_chain.CJK_SC_FAMILY,
+            font_chain.CJK_JP_FAMILY,
+            font_chain.CJK_HANGUL_FAMILY,
+        )
+        if name in present
+    )
+    held = _cjk_code_points(shipped)
+    if not held:
+        return False
+    probe = chain_font(QFont(), (family,))
+    probe.setStyleStrategy(probe.styleStrategy() | QFont.StyleStrategy.NoFontMerging)
+    metrics = QFontMetrics(probe)
+    return any(metrics.inFontUcs4(code_point) for code_point in sorted(held))
 
 
 def _target_font(use_system_font: bool) -> QFont:

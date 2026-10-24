@@ -24,12 +24,27 @@
 # payload root (at least one must exist):
 #   * every file the repository ships under pixelart_creator/fonts and
 #     pixelart_creator/themes is present beside it and byte-identical (cmp):
-#     both Nifen Art TTFs, OFL.txt, FONTLOG.txt and every theme file;
+#     the Nifen Art TTFs, the six Nifen Art CJK TTFs, OFL.txt, FONTLOG.txt,
+#     FONTLOG-CJK.txt and every theme file;
+#   * the eleven names fonts/ must hold are each named in the script and printed
+#     with their size, so a font the repository lost is still refused;
 #   * the shipped OFL.txt carries the Ark Pixel Font copyright line verbatim,
 #     a second, differently-dated copyright line (the typeface's own), and the
-#     Reserved Font Name declaration.
-# It prints the number of payload folders, files and notice lines examined,
-# and fails when it examined nothing.
+#     Reserved Font Name declaration;
+#   * the repository's root NOTICE travels with the payload (REQ-L10N-BUILD-008).
+#     For each payload package folder, with <parent> the folder that holds
+#     pixelart_creator, exactly three paths are NOTICE candidates:
+#         <parent>/NOTICE                       (the installers)
+#         <parent>/*.dist-info/licenses/NOTICE  (a wheel, current layout)
+#         <parent>/*.dist-info/NOTICE           (a wheel, the older layout)
+#     At least one must exist, and every one that exists must be byte-identical
+#     to the root NOTICE of the checkout this script sits in. Each compared path
+#     is printed with its verdict. A NOTICE anywhere else in a payload (a
+#     bundled third-party package's own) is outside the candidate set on
+#     purpose: neither required nor compared.
+# It prints the number of payload folders, files, notice lines and NOTICE files
+# examined, and fails when it examined nothing, or when a package folder had no
+# NOTICE to compare.
 #
 # EXIT: 0 every check passed; 1 a check failed or nothing was examined; 2 usage.
 # Needs only bash, find, cmp, grep and wc (Git for Windows and the macOS and
@@ -46,6 +61,7 @@ LABEL="$2"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REF_PKG="${REPO_ROOT}/pixelart_creator"
+REF_NOTICE="${REPO_ROOT}/NOTICE"
 DATA_DIRS="fonts themes"
 DONOR_LINE='Copyright (c) 2021, TakWolf (https://takwolf.com).'
 RESERVED_NAME='Reserved Font Name "Nifen Art"'
@@ -54,6 +70,32 @@ fail=0
 problem() {
     echo "  PROBLEM: $*" >&2
     fail=1
+}
+
+# The root NOTICE must travel with the payload. $1 is the payload package folder
+# (<parent>/pixelart_creator). Counts every candidate it compares in
+# notice_files, and fails the folder when none was compared.
+check_notice() {
+    local parent cand here
+    parent="$(dirname "$1")"
+    here=0
+    if [ ! -f "${REF_NOTICE}" ]; then
+        problem "the repository holds no root NOTICE (${REF_NOTICE}); nothing to compare"
+        return 0
+    fi
+    for cand in "${parent}/NOTICE" "${parent}"/*.dist-info/licenses/NOTICE "${parent}"/*.dist-info/NOTICE; do
+        [ -f "${cand}" ] || continue
+        here=$((here + 1))
+        notice_files=$((notice_files + 1))
+        if cmp -s "${REF_NOTICE}" "${cand}"; then
+            echo "    NOTICE ${cand}  identical to the repository's root NOTICE"
+        else
+            problem "NOTICE differs from the repository's root NOTICE: ${cand}"
+        fi
+    done
+    if [ "${here}" -eq 0 ]; then
+        problem "NOTICE is missing from the payload; looked in: ${parent}/NOTICE, ${parent}/*.dist-info/licenses/NOTICE, ${parent}/*.dist-info/NOTICE"
+    fi
 }
 
 if [ ! -d "${ROOT}" ]; then
@@ -71,6 +113,7 @@ echo "check_payload [${LABEL}]: payload root ${ROOT_ABS}"
 pkg_dirs=0
 files_examined=0
 notice_lines=0
+notice_files=0
 
 # Every payload folder that holds a pixelart_creator/fonts folder.
 while IFS= read -r fonts_dir; do
@@ -100,7 +143,13 @@ while IFS= read -r fonts_dir; do
         echo "  ${data}: ${present} of ${found} repository file(s) present and byte-identical"
     done
 
-    for f in NifenArt-Regular.ttf NifenArt-Bold.ttf OFL.txt FONTLOG.txt; do
+    # The eleven names the payload must carry in fonts/: the two Nifen Art TTFs, the six
+    # Nifen Art CJK TTFs (three families, Regular and Bold), the licence and the two change logs.
+    for f in NifenArt-Regular.ttf NifenArt-Bold.ttf \
+        NifenArtCJKJP-Regular.ttf NifenArtCJKJP-Bold.ttf \
+        NifenArtCJKSC-Regular.ttf NifenArtCJKSC-Bold.ttf \
+        NifenArtCJKKR-Regular.ttf NifenArtCJKKR-Bold.ttf \
+        OFL.txt FONTLOG.txt FONTLOG-CJK.txt; do
         if [ -f "${pkg}/fonts/${f}" ]; then
             echo "    fonts/${f}  $(wc -c < "${pkg}/fonts/${f}" | tr -d ' ') bytes"
         else
@@ -127,9 +176,11 @@ while IFS= read -r fonts_dir; do
             problem "OFL.txt lacks the declaration: ${RESERVED_NAME}"
         fi
     fi
+
+    check_notice "${pkg}"
 done < <(find "${ROOT_ABS}" -type d -path '*/pixelart_creator/fonts' | sort)
 
-echo "check_payload [${LABEL}]: ${pkg_dirs} payload package folder(s), ${files_examined} file(s) compared, ${notice_lines} notice line(s) found"
+echo "check_payload [${LABEL}]: ${pkg_dirs} payload package folder(s), ${files_examined} file(s) compared, ${notice_lines} notice line(s) found, ${notice_files} NOTICE file(s) compared"
 
 if [ "${pkg_dirs}" -eq 0 ]; then
     echo "check_payload [${LABEL}]: no pixelart_creator/fonts folder under the payload root; the check examined nothing" >&2

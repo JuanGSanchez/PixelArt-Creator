@@ -295,6 +295,19 @@ jobs:
       # fonts-dejavu-core: a bare Ubuntu runner ships no system font, so the
       # application font's fallback behaviour could not be exercised there at
       # all; installing one gives the font tests a real fallback face to find.
+      # fonts-noto-cjk: the CJK probe font. DejaVu has no Han, Hangul or kana,
+      # so without a face that does, the interface languages written in those
+      # scripts could never be seen falling back to an operating-system font on
+      # this leg: the fontconfig lookup would find nothing. The package is Noto
+      # Sans/Serif CJK (SIL OFL), one set covering all three scripts, in Ubuntu
+      # `main` for the runner's release (noble, 1:20230817+repack1-3), so it
+      # needs no extra repository. It is a PROBE, not a requirement of the
+      # product: the application ships its own faces and a user's system
+      # supplies whatever else it has. Because it makes the system CJK lookup
+      # succeed, a test that must prove the application's own family list does
+      # the drawing has to hide system fonts from fontconfig, or register every
+      # family it judges; a green result that depends on this package alone
+      # proves nothing about the list.
       - name: Install Qt runtime OS libraries (Ubuntu)
         if: runner.os == 'Linux'
         run: |
@@ -303,7 +316,7 @@ jobs:
             libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
-            fonts-dejavu-core
+            fonts-dejavu-core fonts-noto-cjk
 
       - name: Install project (runtime + dev) from manifest
         # -c constraints.txt: reproducibility lock — pins the full
@@ -405,11 +418,40 @@ jobs:
         # extra, pinned in constraints.txt.
         run: python scripts/font/build_nifen_art.py --lint
 
+      - name: CJK font source lint (REQ-L10N-BUILD-001)
+        if: runner.os == 'Linux'
+        # The same lint for the second face, over fonts-src/nifen-art-cjk: the
+        # grid contract, Bold equal to Regular, a Han and Hangul character map,
+        # every glyph drawn or a recipe of drawn glyphs, the R05 exemptions and
+        # the donor gate over the notices (none is a donor for this face). It
+        # prints each rule's count and the exempted glyphs, then the file list
+        # it scanned, and exits non-zero on a violation and when it examined
+        # nothing. fontTools comes from the dev extra, pinned in constraints.txt.
+        run: python scripts/font/build_nifen_art.py --lint --face nifen-art-cjk
+
+      - name: Existing face is unchanged (freeze manifest; REQ-L10N-BUILD-001)
+        if: runner.os == 'Linux'
+        # Compares every file the existing face is made of (sources, built
+        # fonts and notices) with the hashes in fonts-src/nifen-art-cjk/
+        # existing-face.sha256 and prints "N files compared, N identical". Exits
+        # non-zero on a changed, missing or unlisted file, and on a manifest that
+        # lists nothing. The manifest is never regenerated.
+        run: python scripts/font/build_nifen_art.py --verify-freeze
+
       - name: Font rebuild is byte-identical to the committed fonts (REQ-VI-BUILD-002)
         if: runner.os == 'Linux'
         # Builds both weights twice from the sources and compares both builds
         # with the committed TTFs in pixelart_creator/fonts, byte for byte.
         run: python scripts/font/build_nifen_art.py --check
+
+      - name: CJK font rebuild is byte-identical to the committed fonts (REQ-L10N-BUILD-001)
+        if: runner.os == 'Linux'
+        # The same comparison for the second face: builds the six Nifen Art CJK
+        # files (three families, Regular and Bold) twice from fonts-src/nifen-art-cjk
+        # and compares both builds with the committed TTFs in pixelart_creator/fonts,
+        # byte for byte. It prints the six files compared and exits non-zero on a
+        # difference, a missing file, and when it compared nothing.
+        run: python scripts/font/build_nifen_art.py --check --face nifen-art-cjk
 
       - name: Font glyph coverage (REQ-VI-BUILD-004)
         if: runner.os == 'Linux'
@@ -525,94 +567,25 @@ jobs:
         # exception needed.
         run: mkdocs build -f docs/site/mkdocs.yml --strict
 
-      - name: Docstring lint (pydocstyle, PEP 257) [TIME-BOXED EXCEPTION, expires 2026-08-31]
+      - name: Docstring lint (pydocstyle, PEP 257)
         if: runner.os == 'Linux'
         # Ruleset: [tool.pydocstyle] convention="pep257" in pyproject.toml (see
-        # that file's comment for why pep257 — the project's own documented
-        # docstring discipline — and not google/numpy, which would manufacture
+        # that file's comment for why pep257 -- the project's own documented
+        # docstring discipline -- and not google/numpy, which would manufacture
         # section-formatting findings against a style never adopted here).
         #
-        # HONEST MEASUREMENT, EXPLICIT EXCEPTION — same pattern as the
-        # non-client coverage gate above. This is the REAL pep257 check; it is
-        # NOT weakened (no add-ignore/add-select) and pixelart_creator is NOT
-        # excluded.
+        # A plain BLOCKING gate: the step's exit status is pydocstyle's own,
+        # so any pep257 finding in pixelart_creator fails the Linux leg. The
+        # target is the whole package; there is no ignore/select override, no
+        # excluded path and no continue-on-error.
         #
-        # Real numbers measured 2026-07-30 (local, py3.13, convention=pep257,
-        # no add-ignore): 102 findings across 41 files — D102 x48 (missing
-        # public-method docstring), D107 x16 (missing __init__ docstring),
-        # D401 x13 (first line not imperative mood), D105 x11 (missing
-        # magic-method docstring), plus D101/D209/D301/D402 (minor,
-        # single-digit each). Concentrated in Phase 1-3 modules; this
-        # redness is TRUE, not a tooling artefact — the gate simply never ran
-        # before. Clearing the findings is the documentation owner's job (docs content), not
-        # this workflow's.
-        #
-        # DEBT REPAID, THEN REGRESSED, THEN REPAID AGAIN -- history kept, not
-        # deleted (CI-warning fix, 2026-08-18):
-        #   - Repaid 2026-08-16 (job
-        #     20260816-spec-audit-test-rebuild-docs-move): `pydocstyle
-        #     pixelart_creator` exited 0.
-        #   - Regressed: PRs #9 and #10 reintroduced 15 findings across 4
-        #     files (logic/branch_diff.py, logic/history.py,
-        #     logic/project_prefs.py, ui/timeline_grid_view.py) -- codes
-        #     D102, D400, D205, D402, D107 dominant (measured on this branch
-        #     before the fix below landed; NOT the same breakdown as the
-        #     original 2026-07-30 102-finding redness, which was D102/D107/
-        #     D401/D105).
-        #   - Repaid again on this branch (fix-ci-hygiene, verified
-        #     2026-08-18): `pydocstyle pixelart_creator` exits 0.
-        # The 102-finding number that used to be hardcoded into the
-        # `::warning::` line below is now HISTORICAL CONTEXT ONLY, not the
-        # live state -- the step measures and reports its own real count
-        # every run instead (see the capture below), which is exactly the
-        # fix for the "warning reports a fixed historical number" defect
-        # this project keeps tripping on. The time-boxed exception scaffold
-        # stays in place (unexercised while the gate is green) so a future
-        # regression is still caught and self-expires on the same
-        # 2026-08-31 milestone.
-        #
-        # The time-box is SELF-ENFORCING, not a comment: past EXPIRY this step
-        # starts failing the build unconditionally. Same 2026-08-31 milestone
-        # as the non-client coverage exception above, so both known gaps are
-        # repaid on one shared deadline instead of drifting independently.
-        run: |
-          EXPIRY=2026-08-31
-          # Capture pydocstyle's OWN output + exit code (rather than letting
-          # the command's exit status drive `if` directly) so the real
-          # finding count and per-code breakdown can be parsed out of it for
-          # the warning line below -- the whole point of this fix is that the
-          # message must never again quote a number pydocstyle didn't just
-          # produce. `set +e`/`set -e` bracket the capture so a nonzero
-          # pydocstyle exit (findings present) never trips this script's own
-          # `-e` (GitHub's default bash step flags) before STATUS is read.
-          set +e
-          FINDINGS_OUTPUT="$(pydocstyle pixelart_creator 2>&1)"
-          STATUS=$?
-          set -e
-          if [[ ${STATUS} -eq 0 ]]; then
-            echo "pixelart_creator meets the pep257 docstring gate"
-            exit 0
-          fi
-          echo "${FINDINGS_OUTPUT}"
-          TODAY="$(date -u +%F)"
-          # Real count + real per-code breakdown, parsed from pydocstyle's own
-          # output (format: "path.py:LINE in ...:" followed by an indented
-          # "    D1xx: <message>" line per violation) -- never a baked-in
-          # number. `|| true` on each: a clean grep/awk pipeline finding zero
-          # matches exits non-zero, which must not fail this step (robustness
-          # requirement -- this path must also work correctly when the count
-          # is legitimately zero, e.g. a pydocstyle tool error with no D-code
-          # lines at all).
-          COUNT=$(printf '%s\n' "${FINDINGS_OUTPUT}" | grep -cE '^[[:space:]]+D[0-9]{3}:' || true)
-          BREAKDOWN=$(printf '%s\n' "${FINDINGS_OUTPUT}" | grep -oE 'D[0-9]{3}' | sort | uniq -c | sort -rn | awk '{printf "%s x%s, ", $2, $1}' | sed 's/, $//' || true)
-          if [[ -z "${BREAKDOWN}" ]]; then
-            BREAKDOWN="(no per-code breakdown parsed -- see step log above for the full pydocstyle output)"
-          fi
-          if [[ "${TODAY}" > "${EXPIRY}" ]]; then
-            echo "::error::Time-boxed pydocstyle exception EXPIRED on ${EXPIRY}. pixelart_creator still fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see step log above for the full findings). This now BLOCKS: clear the findings (the documentation owner) -- do not extend the box without an explicit decision."
-            exit 1
-          fi
-          echo "::warning::pixelart_creator fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see pyproject.toml [tool.pydocstyle] for the ruleset and the step log above for the full findings). KNOWN and time-boxed until ${EXPIRY} (owner: documentation). This step BLOCKS the build after ${EXPIRY}."
+        # History: the gate was wired on 2026-07-30 as a time-boxed exception
+        # (a warning until 2026-08-31, a failure after it) while the first
+        # findings were being cleared. pixelart_creator has exited 0 since
+        # then, apart from a short regression repaid on 2026-08-18. The
+        # time-boxed scaffold was removed on the owner's ruling of
+        # 2026-10-23, leaving this step.
+        run: pydocstyle pixelart_creator
 
       - name: Documentation-reference gate (ADR citations + control-label currency, P11 script)
         # scripts/check_doc_references.py checks two independent legs, both
@@ -815,6 +788,33 @@ jobs:
             --basetemp="${CI_TEMP_ROOT}/pytest-main" \
             --timeout=120 --timeout-method=thread --durations=15 \
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
+
+      - name: Print the font-cache measurements (font family chain, per-OS prints)
+        # The main pytest step above runs this module too, but a passing test's
+        # output is not shown there, so the per-OS measurements the module
+        # prints (the `[tag-verdict]` lines: which style-strategy flags each
+        # operating system keeps, the cache capacity, whether two font lists
+        # share one tail) never reach the log. `-rP` adds the captured output
+        # of every PASSED test to the summary, which is the whole purpose of
+        # this second, narrower run. The prints are information about the
+        # operating system; the assertions of the cases that make them are what
+        # gate.
+        #
+        # A GATING step like any other: its exit status is pytest's own, with no
+        # `continue-on-error` and no `|| true`. A selection that matches no test
+        # exits 5 and fails the step, so a rename that stops the selection from
+        # matching cannot leave this green while printing nothing. No `-n`: one
+        # process keeps the prints in order. Same offscreen environment as the
+        # main step (job-level QT_QPA_PLATFORM), its own --basetemp under the
+        # leg's CI temp root, and the same per-test timeout options.
+        env:
+          PIXELART_REQUIRE_FALLBACK_FONT: ${{ runner.os == 'Linux' && '1' || '' }}
+        run: |
+          python -m pytest -rP -p no:cacheprovider \
+            -k "chain_tag or share_one_tail" \
+            --basetemp="${CI_TEMP_ROOT}/pytest-font-cache" \
+            --timeout=120 --timeout-method=thread \
+            testing/suites/ui/test_font_family_chain_mechanism.py
 
       - name: Coverage gate — client package (>=90 line / >=80 branch, S13)
         if: runner.os == 'Linux'

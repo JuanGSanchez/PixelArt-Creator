@@ -185,9 +185,8 @@ class Macro_Controls(QWidget):
             self._pending = []
             return
         self._recording_count += 1
-        label = self.tr("Recording %1 (%2 steps)")
+        label = self.tr("Recording %1 (%n steps)", "", len(macro.ops))
         label = label.replace("%1", str(self._recording_count))
-        label = label.replace("%2", str(len(macro.ops)))
         self._add_macro(macro, label)
         self._pending = []
 
@@ -285,8 +284,9 @@ class Macro_Controls(QWidget):
 
     def _update_status(self) -> None:
         if self._recording:
-            text = self.tr("Recording… %1 steps captured")
-            self._status.setText(text.replace("%1", str(len(self._pending))))
+            self._status.setText(
+                self.tr("Recording… %n steps captured", "", len(self._pending))
+            )
         else:
             self._status.setText(self.tr("Not recording"))
 

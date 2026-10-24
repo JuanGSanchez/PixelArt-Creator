@@ -44,7 +44,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 from PySide6.QtCore import (
     QCoreApplication,
@@ -54,6 +54,8 @@ from PySide6.QtCore import (
     QTranslator,
     Signal,
 )
+
+import pixelart_creator.logic.locale_match as locale_match
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -361,19 +363,28 @@ class LanguageManager(QObject):
 
     # -- installation -----------------------------------------------------
 
-    def install_from_locale(self) -> str:
-        """Install the translator matching the system locale (fallback English).
+    def install_from_locale(self, preferred: Optional[Sequence[str]] = None) -> str:
+        """Install the translator matching the preferred languages (fallback English).
+
+        The matching rules (separator and case equivalence, script and
+        territory subtags, the Chinese script split) live in
+        :func:`pixelart_creator.logic.locale_match.match_ui_language`; this
+        method only supplies the list and the shipped codes and installs the
+        result.
+
+        Args:
+            preferred: Language tags, most preferred first (``fr_FR``,
+                ``zh-Hans-CN``, ...). ``None`` reads the system's preferred UI
+                languages from :meth:`QLocale.uiLanguages`; a list lets a
+                caller choose the locales without patching the system locale.
 
         Returns:
             The language code actually installed.
         """
-        available = self.available_languages()
-        for candidate in QLocale.system().uiLanguages():
-            code = candidate.replace("-", "_").split("_")[0]
-            if code in available:
-                self.set_language(code)
-                return self._current
-        self.set_language(FALLBACK_LANGUAGE)
+        if preferred is None:
+            preferred = QLocale.system().uiLanguages()
+        code = locale_match.match_ui_language(preferred, self.available_languages())
+        self.set_language(code)
         return self._current
 
     def set_language(self, code: str) -> bool:

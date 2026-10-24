@@ -170,9 +170,10 @@ class Version_History_Browser(QDialog):
             return
         # Placeholders (%1..) keep word order translatable (never string '+').
         self._detail.setText(
-            self.tr("Version %1 — %2 bytes (created marker %3).")
+            self.tr(
+                "Version %1 — %n bytes (created marker %3).", "", version.size_bytes
+            )
             .replace("%1", str(version.ordinal))
-            .replace("%2", str(version.size_bytes))
             .replace("%3", str(version.created_marker))
         )
 

@@ -1323,3 +1323,26 @@ review's rule that a widget keeps at least 2 px between a frame ring and its own
 sub-controls. The mechanism it serves (paint with the children's rectangles
 clipped out) was measured by the 2026-10-09 Qt probe: 0 pattern pixels inside
 text boxes in 48 of 48 runs, against 233-1,908 for a stylesheet background."""
+
+# --- Language scripts (feature six-ui-languages) -----------------------------
+
+HAN_RANGES: tuple[tuple[int, int], ...] = (
+    (0x3400, 0x4DBF),
+    (0x4E00, 0x9FFF),
+    (0xF900, 0xFAFF),
+    (0x20000, 0x323AF),
+)
+"""Inclusive ``(first, last)`` code points counted as Han (REQ-L10N-BUILD-001,
+REQ-L10N-UI-012): CJK Extension A (U+3400-U+4DBF), CJK Unified Ideographs
+(U+4E00-U+9FFF), CJK Compatibility Ideographs (U+F900-U+FAFF) and the span
+U+20000-U+323AF, which holds Extensions B to H. Source: the Unicode Standard's
+block assignments (``Blocks.txt``, unicode.org/Public/UCD/latest/ucd). Script=Han
+characters outside these blocks (U+3005, U+3006, U+3007, U+303B and the radicals
+U+2E80-U+2FDF) are deliberately **not** Han here. The single source for ``ui/`` and
+for the font scripts."""
+
+HANGUL_RANGES: tuple[tuple[int, int], ...] = ((0xAC00, 0xD7A3),)
+"""Inclusive ``(first, last)`` code points counted as Hangul (REQ-L10N-BUILD-001,
+REQ-L10N-UI-012): the Hangul Syllables block, U+AC00-U+D7A3. Source: the Unicode
+Standard's block assignments (``Blocks.txt``, unicode.org/Public/UCD/latest/ucd).
+Conjoining and compatibility jamo are deliberately **not** Hangul here."""

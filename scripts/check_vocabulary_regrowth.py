@@ -20,8 +20,15 @@
 #   nobody has requested).
 # RUNTIME: Python 3.8+ (CPython, stdlib only: argparse, json, os, re,
 #   subprocess, sys).
+# OWNER: the delivery and DevOps role (the script-test default for this
+#   repository's own scripts; see the architecture decision on the script test
+#   root).
 # ENTRYPOINT: python scripts/check_vocabulary_regrowth.py [--root .]
 #             [--base-sha SHA --head-sha SHA]
+#             python scripts/check_vocabulary_regrowth.py [--root .]
+#             --paths PATH [PATH ...] [--vendor-names]
+#             (the second form is the SCOPED SCAN, described in the section of
+#             that name below; the two forms never combine.)
 # INPUTS:
 #   --root      (CLI arg, optional, default "."): repo root, matching the
 #               neighbour scripts' `--root .` CI convention.
@@ -34,19 +41,29 @@
 #               stderr, naming the reason -- never silently treated as
 #               passing. Giving only one of the two is a usage error
 #               (exit 2): a half-specified range is not a range.
+#   --paths     (CLI arg, optional, one or more): switches to the SCOPED SCAN.
+#               Each argument is a file or a directory, relative to --root (an
+#               absolute path inside --root is accepted). See SCOPED SCAN.
+#   --vendor-names (CLI flag, only with --paths): also report the bare assistant-
+#               vendor names. Off by default, for the reason given in SCOPED
+#               SCAN.
 # OUTPUTS:
 #   stdout: JSON {"findings":[{"kind":"file"|"commit-message", "pattern",
 #            "file"|"commit", "line"|"subject", "token"}], "scanned":
 #            {"files_examined":N, "files_skipped_binary":N,
 #             "commit_messages_examined":N|null,
 #             "commit_message_check":"ran"|"skipped"}}.
+#            The scoped scan prints the same two top-level keys plus "mode":
+#            "paths", and its "scanned" object is given under SCOPED SCAN.
 #   stderr: human summary, including the denominator every run and, when the
 #            commit-message half is skipped, the loud, named reason. Exit
 #            code per EXIT CODES.
 # EXIT CODES: 0 clean (both denominators healthy, no findings) -> COMPLETED ;
 #   1 finding(s) -> FAILED ; 2 usage/environment error (root not found, git
 #   not resolvable, a half-specified commit range, a resolved commit range
-#   with zero commits in it, or zero tracked text files examined) -> BLOCKED.
+#   with zero commits in it, or zero tracked text files examined; for the
+#   scoped scan also a path that does not exist, lies outside --root or yields
+#   no scanned file, and --paths combined with a commit range) -> BLOCKED.
 #   A denominator of zero is NEVER read as "nothing to report" -- it is
 #   always the BLOCKED path (P11: this project has recorded five gates that
 #   passed while unable to answer their own question).
@@ -169,6 +186,80 @@
 #   A future maintainer must not widen this back to the whole file without
 #   an equivalent, reasoned narrowing in its place.
 #
+# SCOPED SCAN (`--paths`) -- a second question, asked of named files:
+#   The default mode answers "did this pull request ADD any of the eight
+#   patterns", over the tracked tree at HEAD and the pull request's commit
+#   messages. The scoped scan answers a different one -- "do THESE files carry
+#   any of them AT ALL" -- for the shipped translations (REQ-L10N-DATA-005),
+#   whose catalogues and guide trees must hold none, not merely none added.
+#   Differences, all deliberate:
+#   - EVERY OCCURRENCE is reported, on every line of every file, never only an
+#     introduced one. There is no base to compare against.
+#   - WHICH FILES: for each argument, the files git itself reports for that
+#     path -- tracked, or untracked and not ignored (`git ls-files --cached
+#     --others --exclude-standard`) -- so a batch just written and not yet
+#     committed IS scanned and ignored scratch is not. WHICH CONTENT: the
+#     working-tree bytes on disk, not HEAD, for the same reason. The default
+#     mode reads HEAD because it asks what a pull request adds; this one asks
+#     what is in the files now.
+#   - THE FAMILIES: the eight patterns above, with the same EXCLUDE and
+#     ALLOWLIST rules (a named path is not a back door around them), plus the
+#     AI-ATTRIBUTION family below. The default mode does not run the
+#     attribution family, and its commit-message half is untouched.
+#   - THE DENOMINATOR is printed and gated: the number of files scanned goes
+#     to stdout (scanned.files_examined and, per argument,
+#     scanned.per_path) and to stderr, and a run that scanned nothing -- or an
+#     argument that contributed nothing, so a mistyped directory cannot hide
+#     behind a healthy total -- exits 2 and never 0. Binary files, excluded
+#     files and unreadable files are counted and printed, not folded in.
+#   - Combining --paths with --base-sha/--head-sha is exit 2: a scoped scan has
+#     no commit range, and silently ignoring one would pass commit messages
+#     nobody examined.
+#
+#   THE ATTRIBUTION FAMILY (ATTRIBUTION_PATTERNS below), and why it is SHAPED
+#   rather than a list of bare names. Constitution Article IX section 4 forbids an AI
+#   or vendor attribution in file headers and repository metadata. The product
+#   also SHIPS an assistant feature with a native adapter for one vendor, so
+#   that vendor's name and its model family's name are legitimate shipped text
+#   -- a provider label in the catalogues, a sentence in the assistant page of
+#   the user guide, keywords in the guide manifest. Measured 2026-10-24 on the
+#   feature branch tree: with the bare-name tier on, 181 hits in 45 files, among
+#   them the provider label in every catalogue and the assistant page of the
+#   English and Spanish guides. Each translation of that label and of that page
+#   MUST therefore contain the names, and a bare-name rule would hold the
+#   shipped translations red for ever -- the "impossible gate" that teaches its
+#   reader to work with the red light on.
+#   The sibling commit-message gate (scripts/check_attribution.py) reached the
+#   same conclusion for the same reason and anchors every pattern to a SHAPE; so
+#   does this family. It reports, case-insensitively:
+#     attribution:co-authored-by  a trailer-style `Co-Authored-By:` naming a
+#                                 vendor, anywhere in a line
+#     attribution:generated-by    `generated / written / translated / ... with
+#                                 / by / using / via` followed by a vendor, an
+#                                 "AI", an "LLM", a "language model" or a
+#                                 "chatbot"
+#     attribution:ai-adjective    "AI-generated", "LLM written", ... (the
+#                                 adjective form)
+#     attribution:author-field    an `author` / `translator` / `reviewer` /
+#                                 `created by` ... key (`:` or `=`, quoted or
+#                                 not) whose value names a vendor -- the shape
+#                                 of a catalogue header or of metadata
+#     attribution:vendor-email    an e-mail address at a vendor domain, or with
+#                                 a vendor name as its local part
+#     attribution:vendor-url      a link into a vendor's chat or session
+#                                 surface (NOT its API host: the default
+#                                 endpoint of the shipped adapter is a
+#                                 legitimate string)
+#     attribution:assistant-tool  the vendor's coding tool, named in the form
+#                                 "<vendor> Code"
+#   `--vendor-names` adds attribution:vendor-name (the bare name of the vendor
+#   and of its model family). It exists to MEASURE and to scan a tree that must
+#   not name them at all; it is off by default because the shipped text above
+#   names them on purpose. Turning it on over the product tree reports those
+#   shipped mentions -- listed, never excluded.
+#   Every pattern is assembled from parts (see VENDOR_NAMES): no line of this
+#   source is a working trailer, e-mail address or link.
+#
 # ## Principles Applied
 # Inherited: P1 (grounded in the 2026-09-06 vocabulary-cleanup measurement
 #   and the maintainer's rulings that followed it), P2,
@@ -178,7 +269,8 @@
 #   P12 (reports every occurrence, not a count), P13.
 # Custom: reads tracked content through git (`git ls-files` / `git show`),
 #   never a filesystem walk, so ignored/untracked scratch can never turn
-#   this gate red; refuses (exit 2) on a zero denominator in either
+#   this gate red (the scoped scan lists files through git as well and reads
+#   them from disk); refuses (exit 2) on a zero denominator in either
 #   half, rather than reading an empty scan as a pass.
 #
 # SOURCES: the 2026-09-06 measurement establishing that the seven cleaned
@@ -254,6 +346,105 @@ PATTERNS = {
     "design-docs": re.compile("design" + "-docs"),
     "subagent-report": re.compile("subagent" + "-report"),
 }
+
+# ---------------------------------------------------------------------------
+# The AI-attribution family -- scoped scan only (module docstring, SCOPED SCAN).
+# ASSEMBLED FROM PARTS, ON PURPOSE: no line below is a working trailer, e-mail
+# address or link, so this source can be neither pasted into a commit message
+# as one nor found by a search for the leak.
+# ---------------------------------------------------------------------------
+VENDOR_NAMES = (
+    "claud" + "e",
+    "anthropi" + "c",
+    "copilot",
+    "chat" + "gpt",
+    "gpt",
+    "gemini",
+    "codex",
+    "open" + "ai",
+)
+# Chat / session surfaces only. The vendor's API host is ABSENT on purpose: the
+# shipped adapter's default endpoint is a legitimate string.
+VENDOR_SESSION_HOSTS = (
+    "claud" + "e[.]ai",
+    "claud" + "e[.]com",
+    "chat[.]open" + "ai[.]com",
+    "copilot[.]microsoft[.]com",
+    "gemini[.]google[.]com",
+)
+# The bare names of the vendor and of its model family: the opt-in tier.
+BARE_VENDOR_NAMES = ("claud" + "e", "anthropi" + "c")
+
+_ALNUM = "A-Za-z0-9"
+_NAME_ALT = "|".join(VENDOR_NAMES)
+# A vendor name as a WORD: `gpt` never fires inside `gptools`.
+_VENDOR = "(?<![%s])(?:%s)(?![%s])" % (_ALNUM, _NAME_ALT, _ALNUM)
+# What a "generated by ..." sentence may be generated by: a vendor, or an
+# AI-ish noun. `ai` needs its own boundary so it cannot start a longer word.
+_AI_NOUN = (
+    r"(?:%s|ai(?![%s])|a[.]i[.]|llm(?![%s])|(?:large[ \t]+)?language[ \t]+model"
+    r"|chatbot)" % (_VENDOR, _ALNUM, _ALNUM)
+)
+_VERBS = (
+    "generated|written|translated|authored|drafted|produced|composed|created|"
+    "reviewed|edited|assisted"
+)
+# The adjective form says what a text IS ("AI-generated"), so it takes fewer
+# verbs: "AI-assisted perspective inference" is a shipped feature description,
+# not an attribution (measured in the English user guide).
+_ADJ_VERBS = "generated|written|translated|authored|drafted|produced"
+_KEYS = (
+    "author(?:s)?|last[-_ ]translator|translator|translated[-_ ]by|reviewer|"
+    "reviewed[-_ ]by|contributor|creator|created[-_ ]by|written[-_ ]by|"
+    "maintainer|signed[-_ ]off[-_ ]by"
+)
+_HOST_ALT = "|".join(VENDOR_SESSION_HOSTS)
+_MAIL_HOSTS = "|".join(("anthropi" + "c[.]com", "open" + "ai[.]com", _HOST_ALT))
+
+ATTRIBUTION_PATTERNS = {
+    "attribution:co-authored-by": re.compile(
+        r"co[-_ ]?authored[-_ ]?by[ \t]*[:=][^\n]*?" + _VENDOR, re.IGNORECASE
+    ),
+    "attribution:generated-by": re.compile(
+        r"(?<![%s])(?:%s)[ \t]+(?:with|by|using|via)[ \t]+[\[(*_]*"
+        r"(?:an?[ \t]+|the[ \t]+)?%s" % (_ALNUM, _VERBS, _AI_NOUN),
+        re.IGNORECASE,
+    ),
+    "attribution:ai-adjective": re.compile(
+        r"(?<![%s])(?:ai|llm|gpt|chatbot)[-_ \t]?(?:%s)(?![%s])"
+        % (_ALNUM, _ADJ_VERBS, _ALNUM),
+        re.IGNORECASE,
+    ),
+    # The key must not trail a hyphen or underscore: that is how the product's
+    # own service name ends in a key word, followed by a provider id.
+    "attribution:author-field": re.compile(
+        r"(?<![%s_-])(?:%s)[\"']?[ \t]*[:=][ \t]*[\"']?[^\n]{0,60}?%s"
+        % (_ALNUM, _KEYS, _VENDOR),
+        re.IGNORECASE,
+    ),
+    "attribution:vendor-email": re.compile(
+        r"[%s._%%+-]+@(?:%s)\b|(?<![%s._%%+-])(?:%s)@[%s.-]+"
+        % (_ALNUM, _MAIL_HOSTS, _ALNUM, _NAME_ALT, _ALNUM),
+        re.IGNORECASE,
+    ),
+    "attribution:vendor-url": re.compile(
+        r"https?://(?:[%s.-]+[.])?(?:%s)\b[^\s<>\"')\]]*" % (_ALNUM, _HOST_ALT),
+        re.IGNORECASE,
+    ),
+    "attribution:assistant-tool": re.compile(
+        r"(?<![%s])(?:%s)[-_ \t]?code(?![%s])" % (_ALNUM, "claud" + "e", _ALNUM),
+        re.IGNORECASE,
+    ),
+}
+# The opt-in tier (`--vendor-names`): the bare names, as words.
+BARE_VENDOR_PATTERN = (
+    "attribution:vendor-name",
+    re.compile(
+        r"(?<![%s])(?:%s)(?![%s])" % (_ALNUM, "|".join(BARE_VENDOR_NAMES), _ALNUM),
+        re.IGNORECASE,
+    ),
+)
+MAX_QUOTE = 120
 
 
 def _run_git(args, root):
@@ -357,6 +548,212 @@ def commit_message_findings(root, base_sha, head_sha):
     return findings, len(hashes), None
 
 
+def _split_lines(text):
+    """Split `text` into lines on CRLF, LF and lone CR only.
+
+    Line numbers then agree with an editor's: `str.splitlines` also splits on
+    form feeds and Unicode separators, which would drift them in a translated
+    catalogue.
+    """
+    return text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+
+
+def _quote(token):
+    """Bound a matched token for the report, and say so when it was cut."""
+    if len(token) <= MAX_QUOTE:
+        return token
+    return token[:MAX_QUOTE] + " ...[truncated]"
+
+
+def scoped_text_findings(rel, text, vendor_names):
+    """Return every occurrence, on every line, of the scoped scan's patterns.
+
+    The eight patterns (minus this path's allowlisted pairs) and the
+    attribution family; `vendor_names` adds the opt-in bare-name pattern.
+    """
+    families = list(PATTERNS.items()) + list(ATTRIBUTION_PATTERNS.items())
+    if vendor_names:
+        families.append(BARE_VENDOR_PATTERN)
+    findings = []
+    for lineno, line in enumerate(_split_lines(text), start=1):
+        for name, pattern in families:
+            if (rel, name) in ALLOWLIST_HITS:
+                continue  # suppressed -- see ALLOWLIST_HITS reason
+            for m in pattern.finditer(line):
+                findings.append(
+                    {
+                        "kind": "file",
+                        "pattern": name,
+                        "file": rel,
+                        "line": lineno,
+                        "token": _quote(m.group(0)),
+                    }
+                )
+    return findings
+
+
+def resolve_scoped_paths(root, given):
+    """Resolve each `--paths` argument to the files git reports for it.
+
+    Returns (resolved, error): `resolved` is a list of (argument, [repo-relative
+    '/'-separated file paths]) in argument order, `error` a (code, message)
+    pair for an argument that does not exist or lies outside `root`. The file
+    list is git's own -- tracked, or untracked and not ignored -- never a
+    filesystem walk, so ignored scratch is not scanned.
+    """
+    root_abs = os.path.abspath(root)
+    resolved = []
+    for arg in given:
+        full = os.path.abspath(os.path.join(root_abs, arg))
+        try:
+            rel = os.path.relpath(full, root_abs).replace(os.sep, "/")
+        except ValueError:  # another drive: certainly outside the root
+            rel = ".."
+        if rel == ".." or rel.startswith("../"):
+            return None, ("path-outside-root", "path %r lies outside --root" % arg)
+        if not os.path.exists(full):
+            return None, ("path-not-found", "path %r does not exist" % arg)
+        spec = "." if rel == "." else ":(literal)" + rel
+        out, code = _run_git(
+            [
+                "ls-files",
+                "-z",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "--",
+                spec,
+            ],
+            root,
+        )
+        if code != 0:
+            return None, ("git-ls-files-failed", "`git ls-files` failed for %r" % arg)
+        resolved.append((arg, sorted(p for p in out.split("\x00") if p)))
+    return resolved, None
+
+
+def scoped_scan(root, resolved, vendor_names):
+    """Scan the resolved files' working-tree bytes.
+
+    Returns (findings, counts, per_path): `counts` holds the denominator
+    pieces, `per_path` maps each argument to the number of files it got
+    scanned. A file reached through two arguments is scanned once.
+    """
+    findings = []
+    seen = {}  # rel -> "examined" | "binary" | "excluded" | "unreadable"
+    per_path = {}
+    for arg, files in resolved:
+        examined_here = 0
+        for rel in files:
+            if rel not in seen:
+                if excluded(rel):
+                    seen[rel] = "excluded"
+                else:
+                    try:
+                        with open(os.path.join(root, rel), "rb") as handle:
+                            data = handle.read()
+                    except OSError:
+                        # e.g. tracked in the index but deleted from disk
+                        seen[rel] = "unreadable"
+                        continue
+                    if b"\x00" in data:
+                        seen[rel] = "binary"
+                    else:
+                        seen[rel] = "examined"
+                        text = data.decode("utf-8", errors="replace")
+                        findings.extend(scoped_text_findings(rel, text, vendor_names))
+            if seen[rel] == "examined":
+                examined_here += 1
+        per_path[arg] = examined_here
+    counts = {
+        "files_examined": sum(1 for v in seen.values() if v == "examined"),
+        "files_skipped_binary": sum(1 for v in seen.values() if v == "binary"),
+        "files_excluded": sum(1 for v in seen.values() if v == "excluded"),
+        "files_unreadable": sum(1 for v in seen.values() if v == "unreadable"),
+    }
+    return findings, counts, per_path
+
+
+def scoped_main(args):
+    """Run the `--paths` mode and return its exit code.
+
+    Reports every occurrence in the named files and prints the number of
+    files scanned. Exit 0 / 1 / 2 as the module header states; a scan that
+    examined nothing is 2, never 0.
+    """
+    resolved, error = resolve_scoped_paths(args.root, args.paths)
+    if error is not None:
+        code, message = error
+        sys.stderr.write("check_vocabulary_regrowth: %s.\n" % message)
+        print(json.dumps({"error": code, "mode": "paths"}))
+        return 2
+
+    findings, counts, per_path = scoped_scan(args.root, resolved, args.vendor_names)
+
+    empty = [arg for arg, n in per_path.items() if n == 0]
+    if counts["files_examined"] == 0 or empty:
+        sys.stderr.write(
+            "check_vocabulary_regrowth: scoped scan examined 0 text file(s) "
+            "for %s (%d binary, %d excluded, %d unreadable skipped overall) -- "
+            "a scan that examined nothing has not passed. Refusing to report "
+            "clean.\n"
+            % (
+                ", ".join(ascii(a) for a in empty) or "every path",
+                counts["files_skipped_binary"],
+                counts["files_excluded"],
+                counts["files_unreadable"],
+            )
+        )
+        print(
+            json.dumps(
+                {
+                    "error": "zero-files-examined",
+                    "mode": "paths",
+                    "scanned": dict(counts, per_path=per_path),
+                },
+                sort_keys=True,
+            )
+        )
+        return 2
+
+    findings.sort(key=lambda f: (f["file"], f["line"], f["pattern"], f["token"]))
+    scanned = dict(counts, per_path=per_path, vendor_names=args.vendor_names)
+    print(
+        json.dumps(
+            {"findings": findings, "mode": "paths", "scanned": scanned},
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    sys.stderr.write(
+        "check_vocabulary_regrowth: scoped scan of %d path(s): scanned %d "
+        "text file(s) (%d binary, %d excluded, %d unreadable skipped).\n"
+        % (
+            len(per_path),
+            counts["files_examined"],
+            counts["files_skipped_binary"],
+            counts["files_excluded"],
+            counts["files_unreadable"],
+        )
+    )
+    if not findings:
+        sys.stderr.write("check_vocabulary_regrowth: clean.\n")
+        return 0
+    by_pattern = {}
+    for f in findings:
+        by_pattern[f["pattern"]] = by_pattern.get(f["pattern"], 0) + 1
+    sys.stderr.write(
+        "check_vocabulary_regrowth: %d finding(s) -- %s\n"
+        % (len(findings), ", ".join("%s=%d" % kv for kv in sorted(by_pattern.items())))
+    )
+    for f in findings:
+        sys.stderr.write(
+            "  FILE    pattern=%s file=%s:%d token=%s\n"
+            % (f["pattern"], ascii(f["file"]), f["line"], ascii(f["token"]))
+        )
+    return 1
+
+
 def main():
     ap = argparse.ArgumentParser(
         description=(
@@ -370,11 +767,50 @@ def main():
     ap.add_argument("--root", default=".")
     ap.add_argument("--base-sha", default=None)
     ap.add_argument("--head-sha", default=None)
+    ap.add_argument(
+        "--paths",
+        nargs="+",
+        default=None,
+        metavar="PATH",
+        help=(
+            "scoped scan: report EVERY occurrence of the eight patterns and of "
+            "the AI-attribution family in these files or directories (relative "
+            "to --root) and print the number of files scanned; exits 2 when "
+            "nothing was scanned. Cannot be combined with --base-sha/--head-sha."
+        ),
+    )
+    ap.add_argument(
+        "--vendor-names",
+        action="store_true",
+        help=(
+            "with --paths: also report the bare assistant-vendor names "
+            "(off by default; the product ships them on purpose)."
+        ),
+    )
     args = ap.parse_args()
 
     if not os.path.isdir(args.root):
         sys.stderr.write("check_vocabulary_regrowth: root not found.\n")
         print(json.dumps({"error": "root-not-found"}))
+        return 2
+
+    if args.paths is None and args.vendor_names:
+        sys.stderr.write(
+            "check_vocabulary_regrowth: --vendor-names only applies to the "
+            "scoped scan (--paths).\n"
+        )
+        print(json.dumps({"error": "vendor-names-without-paths"}))
+        return 2
+
+    if args.paths is not None and (
+        args.base_sha is not None or args.head_sha is not None
+    ):
+        sys.stderr.write(
+            "check_vocabulary_regrowth: --paths cannot be combined with "
+            "--base-sha/--head-sha -- the scoped scan has no commit range, and "
+            "ignoring one would pass commit messages nobody examined.\n"
+        )
+        print(json.dumps({"error": "paths-with-commit-range", "mode": "paths"}))
         return 2
 
     if (args.base_sha is None) != (args.head_sha is None):
@@ -394,6 +830,9 @@ def main():
         )
         print(json.dumps({"error": "not-a-git-worktree"}))
         return 2
+
+    if args.paths is not None:
+        return scoped_main(args)
 
     paths = tracked_files(args.root)
     if paths is None:

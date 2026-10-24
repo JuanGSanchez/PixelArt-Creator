@@ -1,0 +1,14 @@
+# R05 exemptions of the CJK face: Regular glyphs that may hold a 2x2 pixel block.
+#
+# One line per glyph:
+#   U+XXXX set=<jp|sc|kr> reason=<text>
+# reason= is the last item of the line and runs to the end of it. An entry with no reason
+# is not a declaration: the lint refuses it and names it. An undeclared block fails the
+# lint and names the glyph. An entry for a glyph that has no block, an entry that names no
+# glyph of the set, and a glyph declared twice (here and by the solid flag of its record)
+# are refused too. The lint prints the number of exempted glyphs and the name of each.
+# A glyph flagged solid in its own record is exempt in the same way and is counted with
+# these; it keeps its reason in that record, not here.
+#
+# No entry exists: none of the ten glyphs drawn so far holds a 2x2 block, so the pilot's
+# house style is one-pixel strokes throughout and the exemption count is 0.

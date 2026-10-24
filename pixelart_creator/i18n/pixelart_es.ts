@@ -72,7 +72,7 @@
     <message>
         <location filename="../ui/about_dialog.py" line="307"/>
         <source>&amp;Copy</source>
-        <translation>&amp;Copiar</translation>
+        <translation>Copiar</translation>
     </message>
     <message>
         <location filename="../ui/about_dialog.py" line="308"/>
@@ -82,7 +82,7 @@
     <message>
         <location filename="../ui/about_dialog.py" line="309"/>
         <source>C&amp;lose</source>
-        <translation>Ce&amp;rrar</translation>
+        <translation>Cerrar</translation>
     </message>
     <message>
         <location filename="../ui/about_dialog.py" line="310"/>
@@ -174,9 +174,13 @@
         <translation>Artefacto de recurso (*%1)</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="518"/>
         <source>&quot;%1&quot; is a project bundle, not a single asset. Use &quot;Import project bundle...&quot; instead.</source>
-        <translation>«%1» es un paquete de proyecto, no un único recurso. Use «Importar paquete de proyecto...» en su lugar.</translation>
+        <translation type="vanished">«%1» es un paquete de proyecto, no un único recurso. Use «Importar paquete de proyecto...» en su lugar.</translation>
+    </message>
+    <message>
+        <location filename="../ui/asset_library_actions.py" line="518"/>
+        <source>&quot;%1&quot; is a project bundle, not a single asset. Use &quot;Import project bundle…&quot; instead.</source>
+        <translation>«%1» es un paquete de proyecto, no un único recurso. Usa «Importar paquete de proyecto…» en su lugar.</translation>
     </message>
     <message>
         <location filename="../ui/asset_library_actions.py" line="523"/>
@@ -251,15 +255,30 @@
 <context>
     <name>Asset_Register_Dialog</name>
     <message>
-        <location filename="../ui/asset_register_dialog.py" line="164"/>
         <source>Too many tags: %1 given, %2 allowed.</source>
         <extracomment>Combo order = the five shipped kinds, in the vocabulary&apos;s own declaration order (``logic/asset_catalog.AssetKind`` — RP-1&apos;s &quot;five shipped kinds&quot;).</extracomment>
-        <translation>Demasiadas etiquetas: %1 proporcionadas, %2 permitidas.</translation>
+        <translation type="vanished">Demasiadas etiquetas: %1 proporcionadas, %2 permitidas.</translation>
     </message>
     <message>
-        <location filename="../ui/asset_register_dialog.py" line="170"/>
         <source>Tag &quot;%1&quot; is too long (%2 bytes allowed).</source>
-        <translation>La etiqueta «%1» es demasiado larga (%2 bytes permitidos).</translation>
+        <translation type="vanished">La etiqueta «%1» es demasiado larga (%2 bytes permitidos).</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/asset_register_dialog.py" line="165"/>
+        <source>Too many tags: %n given, %2 allowed.</source>
+        <extracomment>Combo order = the five shipped kinds, in the vocabulary&apos;s own declaration order (``logic/asset_catalog.AssetKind`` — RP-1&apos;s &quot;five shipped kinds&quot;).</extracomment>
+        <translation>
+            <numerusform>Demasiadas etiquetas: %n indicada, máximo permitido: %2.</numerusform>
+            <numerusform>Demasiadas etiquetas: %n indicadas, máximo permitido: %2.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/asset_register_dialog.py" line="170"/>
+        <source>Tag &quot;%1&quot; is too long (%n bytes allowed).</source>
+        <translation>
+            <numerusform>La etiqueta «%1» es demasiado larga (se permite %n byte).</numerusform>
+            <numerusform>La etiqueta «%1» es demasiado larga (se permiten %n bytes).</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="../ui/asset_register_dialog.py" line="178"/>
@@ -420,9 +439,16 @@
         <translation>No se pudo encontrar esta referencia en la biblioteca local.</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="425"/>
         <source>%1 unresolved reference(s) in this project.</source>
-        <translation>%1 referencia(s) sin resolver en este proyecto.</translation>
+        <translation type="vanished">%1 referencia(s) sin resolver en este proyecto.</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/asset_reuse_panel.py" line="426"/>
+        <source>%n unresolved reference(s) in this project.</source>
+        <translation>
+            <numerusform>%n referencia sin resolver en este proyecto.</numerusform>
+            <numerusform>%n referencias sin resolver en este proyecto.</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="../ui/asset_reuse_panel.py" line="431"/>
@@ -769,79 +795,86 @@
     </message>
     <message>
         <location filename="../ui/asset_version_browser.py" line="231"/>
-        <location filename="../ui/asset_version_browser.py" line="252"/>
-        <location filename="../ui/asset_version_browser.py" line="262"/>
+        <location filename="../ui/asset_version_browser.py" line="251"/>
+        <location filename="../ui/asset_version_browser.py" line="261"/>
         <source>Version history</source>
         <translation>Historial de versiones</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="235"/>
         <source>Revision %1 — %2 bytes, marker %3, author %4</source>
-        <translation>Revisión %1 — %2 bytes, marca %3, autor %4</translation>
+        <translation type="vanished">Revisión %1 — %2 bytes, marca %3, autor %4</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/asset_version_browser.py" line="235"/>
+        <source>Revision %1 — %n bytes, marker %3, author %4</source>
+        <translation>
+            <numerusform>Revisión %1 — %n byte, marcador %3, autor %4</numerusform>
+            <numerusform>Revisión %1 — %n bytes, marcador %3, autor %4</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="314"/>
-        <location filename="../ui/asset_version_browser.py" line="319"/>
+        <location filename="../ui/asset_version_browser.py" line="313"/>
+        <location filename="../ui/asset_version_browser.py" line="318"/>
         <source>Revisions of: %1</source>
         <translation>Revisiones de: %1</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="322"/>
+        <location filename="../ui/asset_version_browser.py" line="321"/>
         <source>No asset selected</source>
         <translation>Ningún recurso seleccionado</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="326"/>
+        <location filename="../ui/asset_version_browser.py" line="325"/>
         <source>Asset version browser</source>
         <translation>Explorador de versiones del recurso</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="328"/>
+        <location filename="../ui/asset_version_browser.py" line="327"/>
         <source>#</source>
         <translation>#</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="328"/>
+        <location filename="../ui/asset_version_browser.py" line="327"/>
         <source>Created</source>
         <translation>Creado</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="328"/>
+        <location filename="../ui/asset_version_browser.py" line="327"/>
         <source>Author</source>
         <translation>Autor</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="328"/>
+        <location filename="../ui/asset_version_browser.py" line="327"/>
         <source>Content</source>
         <translation>Contenido</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="330"/>
+        <location filename="../ui/asset_version_browser.py" line="329"/>
         <source>Asset revisions</source>
         <translation>Revisiones del recurso</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="331"/>
+        <location filename="../ui/asset_version_browser.py" line="330"/>
         <source>Revision details</source>
         <translation>Detalles de la revisión</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="332"/>
+        <location filename="../ui/asset_version_browser.py" line="331"/>
         <source>Inspect</source>
         <translation>Inspeccionar</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="333"/>
+        <location filename="../ui/asset_version_browser.py" line="332"/>
         <source>Inspect selected revision</source>
         <translation>Inspeccionar la revisión seleccionada</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="334"/>
+        <location filename="../ui/asset_version_browser.py" line="333"/>
         <source>Restore</source>
         <translation>Restaurar</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="336"/>
+        <location filename="../ui/asset_version_browser.py" line="335"/>
         <source>Restore selected revision as a new head</source>
         <translation>Restaurar la revisión seleccionada como nueva versión principal</translation>
     </message>
@@ -1271,10 +1304,41 @@
         <source>No changes.</source>
         <translation>Sin cambios.</translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../ui/branch_diff_dialog.py" line="321"/>
+        <source>%n change(s).</source>
+        <translation>
+            <numerusform>%n cambio.</numerusform>
+            <numerusform>%n cambios.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/branch_diff_dialog.py" line="325"/>
+        <source>%n entries.</source>
+        <translation>
+            <numerusform>%n entrada.</numerusform>
+            <numerusform>%n entradas.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/branch_diff_dialog.py" line="337"/>
+        <source>%n regions.</source>
+        <translation>
+            <numerusform>%n región.</numerusform>
+            <numerusform>%n regiones.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/branch_diff_dialog.py" line="342"/>
+        <source>%n operation(s) total, across %2 distinct target(s).</source>
+        <translation>
+            <numerusform>%n operación en total; destinos distintos: %2.</numerusform>
+            <numerusform>%n operaciones en total; destinos distintos: %2.</numerusform>
+        </translation>
+    </message>
+    <message>
         <source>{count} change(s).</source>
-        <translation>{count} cambio(s).</translation>
+        <translation type="vanished">{count} cambio(s).</translation>
     </message>
     <message>
         <location filename="../ui/branch_diff_dialog.py" line="323"/>
@@ -1282,88 +1346,85 @@
         <translation>Lista de {title}</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="326"/>
         <source>{count} entries.</source>
-        <translation>{count} entradas.</translation>
+        <translation type="vanished">{count} entradas.</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="329"/>
+        <location filename="../ui/branch_diff_dialog.py" line="327"/>
         <source>Affected regions</source>
         <translation>Regiones afectadas</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="332"/>
+        <location filename="../ui/branch_diff_dialog.py" line="330"/>
         <source>Each region is reported at the whole {tile}×{tile} pixel tile granularity — a one-pixel change still covers a full tile here.</source>
         <translation>Cada región se informa con la granularidad completa de un tile de {tile}×{tile} píxeles — un cambio de un solo píxel sigue cubriendo un tile completo aquí.</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="337"/>
+        <location filename="../ui/branch_diff_dialog.py" line="335"/>
         <source>Affected regions list</source>
         <translation>Lista de regiones afectadas</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="339"/>
         <source>{count} regions.</source>
-        <translation>{count} regiones.</translation>
+        <translation type="vanished">{count} regiones.</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="344"/>
         <source>{total} operation(s) total, across {targets} distinct target(s).</source>
-        <translation>{total} operación(es) en total, en {targets} destino(s) distinto(s).</translation>
+        <translation type="vanished">{total} operación(es) en total, en {targets} destino(s) distinto(s).</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="350"/>
+        <location filename="../ui/branch_diff_dialog.py" line="347"/>
         <source>Divergence total</source>
         <translation>Divergencia total</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="352"/>
+        <location filename="../ui/branch_diff_dialog.py" line="349"/>
         <source>Continue to Merge</source>
         <translation>Continuar a la fusión</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="353"/>
+        <location filename="../ui/branch_diff_dialog.py" line="350"/>
         <source>Continue to merge</source>
         <translation>Continuar a la fusión</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="356"/>
+        <location filename="../ui/branch_diff_dialog.py" line="353"/>
         <source>Performs the same conflict-free merge as the branching panel&apos;s Merge control.</source>
         <translation>Realiza la misma fusión sin conflictos que el control Fusionar del panel de ramificación.</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="360"/>
-        <location filename="../ui/branch_diff_dialog.py" line="361"/>
+        <location filename="../ui/branch_diff_dialog.py" line="357"/>
+        <location filename="../ui/branch_diff_dialog.py" line="358"/>
         <source>Close</source>
         <translation>Cerrar</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="363"/>
+        <location filename="../ui/branch_diff_dialog.py" line="360"/>
         <source>Closes this view without merging or changing anything.</source>
         <translation>Cierra esta vista sin fusionar ni cambiar nada.</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="375"/>
+        <location filename="../ui/branch_diff_dialog.py" line="372"/>
         <source>frames {frames}</source>
         <translation>fotogramas {frames}</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="381"/>
+        <location filename="../ui/branch_diff_dialog.py" line="378"/>
         <source>layers {layers}</source>
         <translation>capas {layers}</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="389"/>
+        <location filename="../ui/branch_diff_dialog.py" line="386"/>
         <source>attributes {attrs}</source>
         <translation>atributos {attrs}</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="398"/>
+        <location filename="../ui/branch_diff_dialog.py" line="395"/>
         <source>metadata keys {keys}</source>
         <translation>claves de metadatos {keys}</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="404"/>
+        <location filename="../ui/branch_diff_dialog.py" line="401"/>
         <source>tiles {tiles}</source>
         <translation>tiles {tiles}</translation>
     </message>
@@ -1385,7 +1446,7 @@
     </message>
     <message>
         <location filename="../ui/branching_panel.py" line="368"/>
-        <location filename="../ui/branching_panel.py" line="479"/>
+        <location filename="../ui/branching_panel.py" line="480"/>
         <source>New Branch</source>
         <translation>Nueva rama</translation>
     </message>
@@ -1396,82 +1457,89 @@
     </message>
     <message>
         <location filename="../ui/branching_panel.py" line="397"/>
-        <location filename="../ui/branching_panel.py" line="483"/>
+        <location filename="../ui/branching_panel.py" line="484"/>
         <source>Merge</source>
         <translation>Fusionar</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="423"/>
         <source>Merged branch &apos;{name}&apos; ({count} edits) into mainline — conflict-free.</source>
-        <translation>Rama «{name}» fusionada ({count} ediciones) en la principal — sin conflictos.</translation>
+        <translation type="vanished">Rama «{name}» fusionada ({count} ediciones) en la principal — sin conflictos.</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/branching_panel.py" line="423"/>
+        <source>Merged branch &apos;{name}&apos; (%n edits) into mainline — conflict-free.</source>
+        <translation>
+            <numerusform>Rama «{name}» fusionada (%n edición) en la principal — sin conflictos.</numerusform>
+            <numerusform>Rama «{name}» fusionada (%n ediciones) en la principal — sin conflictos.</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="436"/>
+        <location filename="../ui/branching_panel.py" line="437"/>
         <source>{name} (active)</source>
         <translation>{name} (activa)</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="455"/>
+        <location filename="../ui/branching_panel.py" line="456"/>
         <source>Open the pre-merge diff for the selected branch.</source>
         <translation>Abre las diferencias previas a la fusión para la rama seleccionada.</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="459"/>
+        <location filename="../ui/branching_panel.py" line="460"/>
         <source>Disabled: open a project first.</source>
         <translation>Deshabilitado: abre un proyecto primero.</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="464"/>
+        <location filename="../ui/branching_panel.py" line="465"/>
         <source>Disabled: select a feature branch, not mainline, to view its diff.</source>
         <translation>Deshabilitado: selecciona una rama de función, no la principal, para ver sus diferencias.</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="471"/>
+        <location filename="../ui/branching_panel.py" line="472"/>
         <source>Branching</source>
         <translation>Ramificación</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="474"/>
+        <location filename="../ui/branching_panel.py" line="475"/>
         <source>Branch the project to edit a variation independently, then merge it back. Merges are conflict-free.</source>
         <translation>Ramifica el proyecto para editar una variación de forma independiente y luego fusionarla de nuevo. Las fusiones son sin conflictos.</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="478"/>
+        <location filename="../ui/branching_panel.py" line="479"/>
         <source>Branches</source>
         <translation>Ramas</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="480"/>
+        <location filename="../ui/branching_panel.py" line="481"/>
         <source>Create a new branch</source>
         <translation>Crear una nueva rama</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="481"/>
+        <location filename="../ui/branching_panel.py" line="482"/>
         <source>Switch</source>
         <translation>Cambiar</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="482"/>
+        <location filename="../ui/branching_panel.py" line="483"/>
         <source>Switch to the selected branch</source>
         <translation>Cambiar a la rama seleccionada</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="485"/>
+        <location filename="../ui/branching_panel.py" line="486"/>
         <source>Merge the selected branch into mainline</source>
         <translation>Fusionar la rama seleccionada en la principal</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="487"/>
+        <location filename="../ui/branching_panel.py" line="488"/>
         <source>Open Diff</source>
         <translation>Abrir diferencias</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="489"/>
+        <location filename="../ui/branching_panel.py" line="490"/>
         <source>Open the pre-merge diff for the selected branch</source>
         <translation>Abre las diferencias previas a la fusión para la rama seleccionada</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="491"/>
+        <location filename="../ui/branching_panel.py" line="492"/>
         <source>Merge outcome</source>
         <translation>Resultado de la fusión</translation>
     </message>
@@ -1513,24 +1581,24 @@
     <name>Canvas_View</name>
     <message>
         <location filename="../ui/canvas_view.py" line="318"/>
-        <location filename="../ui/canvas_view.py" line="1429"/>
+        <location filename="../ui/canvas_view.py" line="1443"/>
         <source>Canvas</source>
         <extracomment>Platform name reported by Qt when running without a windowing system. Emitted with the current zoom scale after any zoom change. Emitted with the buffer ``(x, y)`` when the canvas is right-clicked (seam). Emitted with the picked RGBA tuple when the colour-picker sets a colour. Emitted ``(is_active, is_copy)`` when a floating move/copy state changes (drives the shell&apos;s copy-mode status hint, REQ-P2-UI-032/-036). Emitted when a paint/mask-edit stroke is refused because the active layer is locked (D-05); the shell surfaces a &quot;layer is locked&quot; notice. Emitted when a left-click lands outside the active document&apos;s bounds (FIX 5, 2026-08-24 field defect): a click there must not arm a stroke, and must not fail silently — the shell surfaces a notice, following the ``lockedLayerEditRejected`` precedent exactly. Emitted when a paint/mask-edit is refused because the active layer is a REFERENCE or SMART layer (REQ-P3-UI-006 clause 5: non-editable targets are three classes, not two — locked, reference, and smart — and every one of them must be surfaced, never silently swallowed). Distinct from ``lockedLayerEditRejected`` so the shell can show the right notice; ``is_active_editable()`` returns ``False`` for all three classes, and this signal covers the two this view previously dropped on the floor. Emitted when a tool ran (the guards passed) but produced no pixel change — e.g. a flood fill on a region that already holds the picked colour (REQ-P1-UI-014), or a pencil placed on a pixel that already holds it — so no undo entry was pushed. An explicit, deliberate gesture (a completed colour-hub pick, REQ-P3-UI-006 clause 6) must never answer with silence even when it changed nothing. Emitted with the target frame index a ``Ctrl``+wheel / ``Ctrl``+middle- click frame gesture resolved to (REQ-IS-UI-010/-014); the shell routes it through the shipped frame-selection path. Pushes no command — frame navigation is view state (CL-13). Emitted when a confirmed ``Ctrl``+left-click (no floating move live) should add a frame after the active one (REQ-IS-UI-016); the shell builds and pushes the shipped undoable ``make_add_frame_command``. The three selection tools whose Shift/Alt modifiers stay the shipped add/subtract combine gesture (REQ-IS-UI-015) — Shift+drag pans for every other tool. Mirrors ``Main_Window._SELECTION_ENTRY_TOOL_IDS``. The wrapper every :class:`~pixelart_creator.ui.tools.base.ToolContext` is actually built with (see :class:`_RecordingUndoStack`); reads ``self._undo_stack``/``self._record_trace``/``self._recording_document`` live at each push, so `set_undo_stack`/`set_recording` need not rebuild it. A middle press awaiting the click/drag verdict (REQ-IS-UI-011): ``True`` between a middle press and either its release under ``CLICK_DRAG_THRESHOLD_PX`` (a click) or its promotion to ``_panning`` once the cursor travels past the threshold (a drag). A ``Ctrl``+left press awaiting the click/drag verdict (REQ-IS-UI-016, mirrors ``_middle_pending``): ``True`` between the press and either its release under ``CLICK_DRAG_THRESHOLD_PX`` (adds a frame) or its promotion to an ordinary paint/floating-move drag once the cursor travels past the threshold. The persisted Favourites model a plain wheel notch / unmodified middle click travel (REQ-IS-UI-008/-012); ``None`` until the shell binds one via :meth:`set_favourites_model`. The ``timestamp()`` of the RightButton press currently being dispatched through ``_menu_hook``, ``None`` for the keyboard (Menu key / Shift+F10) trigger. Consumed once via :meth:`pop_pending_right_press_timestamp` — deliberately NOT threaded as a third positional argument to ``_menu_hook`` itself, so the hook&apos;s signature (``Callable[[int, int], None]``) and every existing 2-argument hook (tests included) stay unchanged. Live mirror-centre override fed to ``logic.symmetry.mirror`` via each stroke&apos;s :class:`ToolContext` (D-28/CF-93); ``None`` keeps the shipped canvas-centre default. Fed by the shell&apos;s Symmetry_Panel. The guide currently being dragged (D-11), or ``None``. Raw (pre-snap) scene point at the start of the current stroke — the perspective direction-lock anchor (``logic.grids.perspective_snap``).</extracomment>
         <translation>Lienzo</translation>
     </message>
     <message>
         <location filename="../ui/canvas_view.py" line="320"/>
-        <location filename="../ui/canvas_view.py" line="1431"/>
+        <location filename="../ui/canvas_view.py" line="1445"/>
         <source>Pixel canvas: left-click to paint, middle-drag to pan</source>
         <translation>Lienzo de píxeles: clic izquierdo para pintar, arrastrar con el botón central para desplazar</translation>
     </message>
     <message>
-        <location filename="../ui/canvas_view.py" line="1321"/>
+        <location filename="../ui/canvas_view.py" line="1335"/>
         <source>Remove guide</source>
         <translation>Eliminar guía</translation>
     </message>
     <message>
-        <location filename="../ui/canvas_view.py" line="1332"/>
+        <location filename="../ui/canvas_view.py" line="1346"/>
         <source>No canvas actions yet</source>
         <translation>Aún no hay acciones de lienzo</translation>
     </message>
@@ -1799,9 +1867,9 @@
         <location filename="../ui/comments_panel.py" line="116"/>
         <location filename="../ui/comments_panel.py" line="124"/>
         <location filename="../ui/comments_panel.py" line="134"/>
-        <location filename="../ui/comments_panel.py" line="146"/>
-        <location filename="../ui/comments_panel.py" line="162"/>
-        <location filename="../ui/comments_panel.py" line="224"/>
+        <location filename="../ui/comments_panel.py" line="144"/>
+        <location filename="../ui/comments_panel.py" line="160"/>
+        <location filename="../ui/comments_panel.py" line="220"/>
         <source>Comments</source>
         <translation>Comentarios</translation>
     </message>
@@ -1816,102 +1884,116 @@
         <translation>Introduce tu id de miembro antes de comentar.</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="135"/>
         <source>A comment may be at most %1 bytes.</source>
-        <translation>Un comentario puede tener como máximo %1 bytes.</translation>
+        <translation type="vanished">Un comentario puede tener como máximo %1 bytes.</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="196"/>
+        <location filename="../ui/comments_panel.py" line="194"/>
         <source>Resolved</source>
         <translation>Resuelto</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="196"/>
+        <location filename="../ui/comments_panel.py" line="194"/>
         <source>Open</source>
         <translation>Abierto</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="211"/>
         <source>%1 / %2 bytes</source>
-        <translation>%1 / %2 bytes</translation>
+        <translation type="vanished">%1 / %2 bytes</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/comments_panel.py" line="135"/>
+        <source>A comment may be at most %n bytes.</source>
+        <translation>
+            <numerusform>Un comentario puede tener como máximo %n byte.</numerusform>
+            <numerusform>Un comentario puede tener como máximo %n bytes.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/comments_panel.py" line="209"/>
+        <source>%1 / %n bytes</source>
+        <translation>
+            <numerusform>%1 / %n byte</numerusform>
+            <numerusform>%1 / %n bytes</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="225"/>
+        <location filename="../ui/comments_panel.py" line="221"/>
         <source>Your member id:</source>
         <translation>Tu id de miembro:</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="226"/>
+        <location filename="../ui/comments_panel.py" line="222"/>
         <source>e.g. alice</source>
         <translation>p. ej. alice</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="227"/>
+        <location filename="../ui/comments_panel.py" line="223"/>
         <source>Comment author id</source>
         <translation>Id del autor del comentario</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="229"/>
+        <location filename="../ui/comments_panel.py" line="225"/>
         <source>Author</source>
         <translation>Autor</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="229"/>
+        <location filename="../ui/comments_panel.py" line="225"/>
         <source>Comment</source>
         <translation>Comentario</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="229"/>
+        <location filename="../ui/comments_panel.py" line="225"/>
         <source>Status</source>
         <translation>Estado</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="231"/>
+        <location filename="../ui/comments_panel.py" line="227"/>
         <source>Comment thread</source>
         <translation>Hilo de comentarios</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="232"/>
+        <location filename="../ui/comments_panel.py" line="228"/>
         <source>Write a comment…</source>
         <translation>Escribe un comentario…</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="233"/>
+        <location filename="../ui/comments_panel.py" line="229"/>
         <source>New comment text</source>
         <translation>Texto del nuevo comentario</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="234"/>
+        <location filename="../ui/comments_panel.py" line="230"/>
         <source>Reply to selected</source>
         <translation>Responder al seleccionado</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="235"/>
+        <location filename="../ui/comments_panel.py" line="231"/>
         <source>Reply to the selected comment</source>
         <translation>Responder al comentario seleccionado</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="236"/>
+        <location filename="../ui/comments_panel.py" line="232"/>
         <source>Add Comment</source>
         <translation>Añadir comentario</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="237"/>
+        <location filename="../ui/comments_panel.py" line="233"/>
         <source>Add the comment</source>
         <translation>Añadir el comentario</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="238"/>
+        <location filename="../ui/comments_panel.py" line="234"/>
         <source>Resolve</source>
         <translation>Resolver</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="239"/>
+        <location filename="../ui/comments_panel.py" line="235"/>
         <source>Resolve the selected comment</source>
         <translation>Resolver el comentario seleccionado</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="240"/>
+        <location filename="../ui/comments_panel.py" line="236"/>
         <source>Comment byte count</source>
         <translation>Recuento de bytes del comentario</translation>
     </message>
@@ -2769,45 +2851,59 @@
         <translation>Error de macro</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="188"/>
         <source>Recording %1 (%2 steps)</source>
-        <translation>Grabando %1 (%2 pasos)</translation>
+        <translation type="vanished">Grabando %1 (%2 pasos)</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="211"/>
+        <location filename="../ui/macro_controls.py" line="210"/>
         <source>Macro</source>
         <translation>Macro</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="229"/>
+        <location filename="../ui/macro_controls.py" line="228"/>
         <source>Save Macro</source>
         <translation>Guardar macro</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="231"/>
-        <location filename="../ui/macro_controls.py" line="251"/>
+        <location filename="../ui/macro_controls.py" line="230"/>
+        <location filename="../ui/macro_controls.py" line="250"/>
         <source>Macro files (*%1)</source>
         <translation>Archivos de macro (*%1)</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="238"/>
+        <location filename="../ui/macro_controls.py" line="237"/>
         <source>Save Macro Failed</source>
         <translation>Error al guardar la macro</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="249"/>
+        <location filename="../ui/macro_controls.py" line="248"/>
         <source>Load Macro</source>
         <translation>Cargar macro</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="258"/>
+        <location filename="../ui/macro_controls.py" line="257"/>
         <source>Load Macro Failed</source>
         <translation>Error al cargar la macro</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="288"/>
         <source>Recording… %1 steps captured</source>
-        <translation>Grabando… %1 pasos capturados</translation>
+        <translation type="vanished">Grabando… %1 pasos capturados</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/macro_controls.py" line="188"/>
+        <source>Recording %1 (%n steps)</source>
+        <translation>
+            <numerusform>Grabando %1 (%n paso)</numerusform>
+            <numerusform>Grabando %1 (%n pasos)</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/macro_controls.py" line="288"/>
+        <source>Recording… %n steps captured</source>
+        <translation>
+            <numerusform>Grabando… %n paso capturado</numerusform>
+            <numerusform>Grabando… %n pasos capturados</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="../ui/macro_controls.py" line="291"/>
@@ -2916,12 +3012,12 @@
         <location filename="../ui/main_window.py" line="1295"/>
         <source>&amp;Undo</source>
         <extracomment>Emitted when &quot;Use system font&quot; changes (stored here; the font itself is switched by the listener that owns it). Emitted when &quot;Pixel-perfect interface&quot; changes (stored here; it takes effect at the next launch). Live mirror-centre override from the Symmetry_Panel (D-28/CF-93); ``None`` keeps the shipped canvas-centre default. The DSL ops of the in-flight automation run (recorded into a macro on success if recording is active); ``None`` for a macro replay (a replay is not itself re-recorded). True while an in-session timelapse playback holds the active tab&apos;s canvas + the shared undo/redo actions read-only (REQ-P9-UI-016); see ``_on_timelapse_playback_lock_changed``. The cloud project id last saved to / opened from (drives version browse). D-13: the most recently fetched remote version list (cached from the last &quot;open_list&quot;/&quot;versions&quot;/&quot;save&quot; result) — feeds the read-only ``compute_sync_state`` for the Cloud menu status line and the version browser, without a network round trip on every tab switch. D-13: the version id of a restore/recover in flight, consumed once the reconstructed document lands in its new tab (see ``_on_cloud_succeeded``). Live-cursor overlays are per-tab (attached in _create_tab_aids); toggled on connect. The local member id broadcast with presence (never a token).</extracomment>
-        <translation>&amp;Deshacer</translation>
+        <translation>Deshacer</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="1297"/>
         <source>&amp;Redo</source>
-        <translation>&amp;Rehacer</translation>
+        <translation>Rehacer</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="2215"/>
@@ -3350,16 +3446,33 @@
         <translation>Error de exportación</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5441"/>
         <source>%1 export target(s) failed:
 %2</source>
-        <translation>%1 destino(s) de exportación fallaron:
+        <translation type="vanished">%1 destino(s) de exportación fallaron:
 %2</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5448"/>
         <source>Export complete (%1 file(s)).</source>
-        <translation>Exportación completada (%1 archivo(s)).</translation>
+        <translation type="vanished">Exportación completada (%1 archivo(s)).</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/main_window.py" line="5442"/>
+        <source>%n export target(s) failed:
+%2</source>
+        <translation>
+            <numerusform>Falló %n destino de exportación:
+%2</numerusform>
+            <numerusform>Fallaron %n destinos de exportación:
+%2</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/main_window.py" line="5450"/>
+        <source>Export complete (%n file(s)).</source>
+        <translation>
+            <numerusform>Exportación completada (%n archivo).</numerusform>
+            <numerusform>Exportación completada (%n archivos).</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5500"/>
@@ -3620,107 +3733,107 @@
     <message>
         <location filename="../ui/main_window.py" line="5663"/>
         <source>&amp;New</source>
-        <translation>&amp;Nuevo</translation>
+        <translation>Nuevo</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5664"/>
         <source>&amp;Open…</source>
-        <translation>&amp;Abrir…</translation>
+        <translation>Abrir…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5665"/>
         <source>&amp;Save</source>
-        <translation>&amp;Guardar</translation>
+        <translation>Guardar</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5666"/>
         <source>Save &amp;As…</source>
-        <translation>Guardar &amp;como…</translation>
+        <translation>Guardar como…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5667"/>
         <source>&amp;Export…</source>
-        <translation>&amp;Exportar…</translation>
+        <translation>Exportar…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5668"/>
         <source>&amp;Close</source>
-        <translation>&amp;Cerrar</translation>
+        <translation>Cerrar</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5670"/>
         <source>&amp;Connect…</source>
-        <translation>&amp;Conectar…</translation>
+        <translation>Conectar…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5671"/>
         <source>&amp;Disconnect</source>
-        <translation>&amp;Desconectar</translation>
+        <translation>Desconectar</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5672"/>
         <source>&amp;Save to Cloud…</source>
-        <translation>&amp;Guardar en la nube…</translation>
+        <translation>Guardar en la nube…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5673"/>
         <source>&amp;Open from Cloud…</source>
-        <translation>&amp;Abrir desde la nube…</translation>
+        <translation>Abrir desde la nube…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5674"/>
         <source>&amp;Version History…</source>
-        <translation>&amp;Historial de versiones…</translation>
+        <translation>Historial de versiones…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5676"/>
         <source>Start &amp;Real-time…</source>
-        <translation>Iniciar &amp;tiempo real…</translation>
+        <translation>Iniciar tiempo real…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5677"/>
         <source>Stop Real-&amp;time</source>
-        <translation>Detener t&amp;iempo real</translation>
+        <translation>Detener tiempo real</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5678"/>
         <source>Show &amp;Live Cursors</source>
-        <translation>Mostrar &amp;cursores en vivo</translation>
+        <translation>Mostrar cursores en vivo</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5679"/>
         <source>Zoom &amp;In</source>
-        <translation>&amp;Acercar</translation>
+        <translation>Acercar</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5680"/>
         <source>Zoom &amp;Out</source>
-        <translation>A&amp;lejar</translation>
+        <translation>Alejar</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5681"/>
         <source>&amp;Fit to View</source>
-        <translation>&amp;Ajustar a la vista</translation>
+        <translation>Ajustar a la vista</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5682"/>
         <source>Fit to &amp;Content</source>
-        <translation>Ajustar al &amp;contenido</translation>
+        <translation>Ajustar al contenido</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5683"/>
         <source>Show &amp;Grid</source>
-        <translation>Mostrar &amp;cuadrícula</translation>
+        <translation>Mostrar cuadrícula</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5684"/>
         <source>&amp;Snap to Grid</source>
-        <translation>&amp;Ajustar a la cuadrícula</translation>
+        <translation>Ajustar a la cuadrícula</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5685"/>
         <source>&amp;Anti-aliasing Off</source>
-        <translation>&amp;Suavizado desactivado</translation>
+        <translation>Suavizado desactivado</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5691"/>
@@ -3790,12 +3903,12 @@
     <message>
         <location filename="../ui/main_window.py" line="5709"/>
         <source>Fille&amp;d Shapes</source>
-        <translation>&amp;Formas rellenas</translation>
+        <translation>Formas rellenas</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5710"/>
         <source>&amp;Pixel Perfect</source>
-        <translation>&amp;Píxel perfecto</translation>
+        <translation>Píxel perfecto</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5731"/>
@@ -3805,7 +3918,7 @@
     <message>
         <location filename="../ui/main_window.py" line="5749"/>
         <source>Visual Ai&amp;ds</source>
-        <translation>Ayu&amp;das visuales</translation>
+        <translation>Ayudas visuales</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5772"/>
@@ -3867,37 +3980,37 @@
     <message>
         <location filename="../ui/main_window.py" line="5754"/>
         <source>&amp;Library</source>
-        <translation>&amp;Biblioteca</translation>
+        <translation>Biblioteca</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5756"/>
         <source>&amp;Register Active Document…</source>
-        <translation>Registrar &amp;documento activo…</translation>
+        <translation>Registrar documento activo…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5758"/>
         <source>Register &amp;Selection…</source>
-        <translation>Registrar &amp;selección…</translation>
+        <translation>Registrar selección…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5759"/>
         <source>&amp;Import Asset…</source>
-        <translation>&amp;Importar recurso…</translation>
+        <translation>Importar recurso…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5760"/>
         <source>&amp;Export Asset…</source>
-        <translation>&amp;Exportar recurso…</translation>
+        <translation>Exportar recurso…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5761"/>
         <source>Export Project &amp;Bundle…</source>
-        <translation>Exportar &amp;paquete de proyecto…</translation>
+        <translation>Exportar paquete de proyecto…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5762"/>
         <source>I&amp;mport Project Bundle…</source>
-        <translation>Importar pa&amp;quete de proyecto…</translation>
+        <translation>Importar paquete de proyecto…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5764"/>
@@ -3907,17 +4020,17 @@
     <message>
         <location filename="../ui/main_window.py" line="5765"/>
         <source>&amp;Help</source>
-        <translation>&amp;Ayuda</translation>
+        <translation>Ayuda</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5766"/>
         <source>&amp;User Guide</source>
-        <translation>&amp;Guía del usuario</translation>
+        <translation>Guía del usuario</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5767"/>
         <source>&amp;About PixelArt Creator</source>
-        <translation>&amp;Acerca de PixelArt Creator</translation>
+        <translation>Acerca de PixelArt Creator</translation>
     </message>
     <message>
         <source>Anti-aliasing Off</source>
@@ -3926,7 +4039,7 @@
     <message>
         <location filename="../ui/main_window.py" line="5686"/>
         <source>&amp;Tiled Mode</source>
-        <translation>Modo &amp;mosaico</translation>
+        <translation>Modo mosaico</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5687"/>
@@ -3974,57 +4087,57 @@
     <message>
         <location filename="../ui/main_window.py" line="5717"/>
         <source>&amp;Extract from Image…</source>
-        <translation>&amp;Extraer de imagen…</translation>
+        <translation>Extraer de imagen…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5718"/>
         <source>Palette &amp;Swap…</source>
-        <translation>Intercambio de &amp;paleta…</translation>
+        <translation>Intercambio de paleta…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5720"/>
         <source>Convert to Inde&amp;xed</source>
-        <translation>Convertir a inde&amp;xado</translation>
+        <translation>Convertir a indexado</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5721"/>
         <source>&amp;Convert to RGBA</source>
-        <translation>&amp;Convertir a RGBA</translation>
+        <translation>Convertir a RGBA</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5723"/>
         <source>Select &amp;All</source>
-        <translation>Seleccionar &amp;todo</translation>
+        <translation>Seleccionar todo</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5724"/>
         <source>&amp;Deselect</source>
-        <translation>&amp;Deseleccionar</translation>
+        <translation>Deseleccionar</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5725"/>
         <source>&amp;Invert Selection</source>
-        <translation>&amp;Invertir selección</translation>
+        <translation>Invertir selección</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5726"/>
         <source>&amp;Clear Selection</source>
-        <translation>&amp;Borrar selección</translation>
+        <translation>Borrar selección</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5728"/>
         <source>Flip &amp;Horizontal</source>
-        <translation>Voltear &amp;horizontalmente</translation>
+        <translation>Voltear horizontalmente</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5729"/>
         <source>Flip &amp;Vertical</source>
-        <translation>Voltear &amp;verticalmente</translation>
+        <translation>Voltear verticalmente</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5730"/>
         <source>Rotate 90° C&amp;W</source>
-        <translation>Rotar 90° &amp;horario</translation>
+        <translation>Rotar 90° horario</translation>
     </message>
     <message>
         <source>Rotate 90° CC&amp;W</source>
@@ -4033,77 +4146,77 @@
     <message>
         <location filename="../ui/main_window.py" line="5732"/>
         <source>&amp;Scale…</source>
-        <translation>&amp;Escalar…</translation>
+        <translation>Escalar…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5733"/>
         <source>Canvas S&amp;ize…</source>
-        <translation>Tamaño del l&amp;ienzo…</translation>
+        <translation>Tamaño del lienzo…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5734"/>
         <source>&amp;Rotate (RotSprite)…</source>
-        <translation>&amp;Rotar (RotSprite)…</translation>
+        <translation>Rotar (RotSprite)…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5736"/>
         <source>Guides &amp;&amp; &amp;Rulers</source>
-        <translation>Guías &amp;&amp; &amp;Reglas</translation>
+        <translation>Guías &amp;&amp; Reglas</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5737"/>
         <source>&amp;Isometric Grid</source>
-        <translation>Cuadrícula &amp;Isométrica</translation>
+        <translation>Cuadrícula Isométrica</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5738"/>
         <source>&amp;Configure Isometric Grid…</source>
-        <translation>&amp;Configurar cuadrícula isométrica…</translation>
+        <translation>Configurar cuadrícula isométrica…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5739"/>
         <source>&amp;Perspective Grid</source>
-        <translation>Cuadrícula en &amp;Perspectiva</translation>
+        <translation>Cuadrícula en Perspectiva</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5740"/>
         <source>Confi&amp;gure Perspective…</source>
-        <translation>Confi&amp;gurar perspectiva…</translation>
+        <translation>Configurar perspectiva…</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5741"/>
         <source>&amp;New View</source>
-        <translation>&amp;Nueva Vista</translation>
+        <translation>Nueva Vista</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5742"/>
         <source>Reference &amp;Board</source>
-        <translation>Panel de &amp;Referencia</translation>
+        <translation>Panel de Referencia</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5744"/>
         <source>&amp;File</source>
-        <translation>&amp;Archivo</translation>
+        <translation>Archivo</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5745"/>
         <source>&amp;Edit</source>
-        <translation>&amp;Editar</translation>
+        <translation>Editar</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5746"/>
         <source>&amp;Select</source>
-        <translation>&amp;Selección</translation>
+        <translation>Selección</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5747"/>
         <source>&amp;Image</source>
-        <translation>&amp;Imagen</translation>
+        <translation>Imagen</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5748"/>
         <source>&amp;View</source>
-        <translation>&amp;Ver</translation>
+        <translation>Ver</translation>
     </message>
     <message>
         <source>&amp;Aids</source>
@@ -4112,27 +4225,27 @@
     <message>
         <location filename="../ui/main_window.py" line="5750"/>
         <source>&amp;Palette</source>
-        <translation>&amp;Paleta</translation>
+        <translation>Paleta</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5751"/>
         <source>Tile&amp;map</source>
-        <translation>Mapa de &amp;tiles</translation>
+        <translation>Mapa de tiles</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5752"/>
         <source>&amp;Automation</source>
-        <translation>&amp;Automatización</translation>
+        <translation>Automatización</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5753"/>
         <source>&amp;Cloud</source>
-        <translation>&amp;Nube</translation>
+        <translation>Nube</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5763"/>
         <source>&amp;Theme</source>
-        <translation>&amp;Tema</translation>
+        <translation>Tema</translation>
     </message>
     <message>
         <source>&amp;Language</source>
@@ -5158,88 +5271,95 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
         <translation>Panel de referencia lleno</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="320"/>
         <source>The board already holds the maximum of {0} images.</source>
-        <translation>El panel ya contiene el máximo de {0} imágenes.</translation>
+        <translation type="vanished">El panel ya contiene el máximo de {0} imágenes.</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/reference_board.py" line="321"/>
+        <source>The board already holds the maximum of %n images.</source>
+        <translation>
+            <numerusform>El panel de referencia ya contiene el máximo de %n imagen.</numerusform>
+            <numerusform>El panel de referencia ya contiene el máximo de %n imágenes.</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="329"/>
+        <location filename="../ui/reference_board.py" line="331"/>
         <source>Cannot load image</source>
         <translation>No se puede cargar la imagen</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="330"/>
+        <location filename="../ui/reference_board.py" line="332"/>
         <source>The file could not be read as an image: {0}</source>
         <translation>No se pudo leer el archivo como imagen: {0}</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="401"/>
+        <location filename="../ui/reference_board.py" line="403"/>
         <source>Save Reference Board</source>
         <translation>Guardar panel de referencia</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="403"/>
-        <location filename="../ui/reference_board.py" line="417"/>
+        <location filename="../ui/reference_board.py" line="405"/>
+        <location filename="../ui/reference_board.py" line="419"/>
         <source>Reference board (*.pixboard)</source>
         <translation>Panel de referencia (*.pixboard)</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="410"/>
+        <location filename="../ui/reference_board.py" line="412"/>
         <source>Save failed</source>
         <translation>Error al guardar</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="415"/>
+        <location filename="../ui/reference_board.py" line="417"/>
         <source>Open Reference Board</source>
         <translation>Abrir panel de referencia</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="425"/>
+        <location filename="../ui/reference_board.py" line="427"/>
         <source>Open failed</source>
         <translation>Error al abrir</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="432"/>
+        <location filename="../ui/reference_board.py" line="434"/>
         <source>Add Reference Image</source>
         <translation>Añadir imagen de referencia</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="434"/>
+        <location filename="../ui/reference_board.py" line="436"/>
         <source>Images (*.png *.jpg *.jpeg *.bmp *.gif)</source>
         <translation>Imágenes (*.png *.jpg *.jpeg *.bmp *.gif)</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="500"/>
+        <location filename="../ui/reference_board.py" line="502"/>
         <source>Reference Board</source>
         <translation>Panel de referencia</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="501"/>
+        <location filename="../ui/reference_board.py" line="503"/>
         <source>Reference board</source>
         <translation>Panel de referencia</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="502"/>
+        <location filename="../ui/reference_board.py" line="504"/>
         <source>Reference board canvas</source>
         <translation>Lienzo del panel de referencia</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="503"/>
+        <location filename="../ui/reference_board.py" line="505"/>
         <source>Add Image…</source>
         <translation>Añadir imagen…</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="504"/>
+        <location filename="../ui/reference_board.py" line="506"/>
         <source>Save…</source>
         <translation>Guardar…</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="505"/>
+        <location filename="../ui/reference_board.py" line="507"/>
         <source>Open…</source>
         <translation>Abrir…</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="506"/>
+        <location filename="../ui/reference_board.py" line="508"/>
         <source>Always on Top</source>
         <translation>Siempre encima</translation>
     </message>
@@ -5483,9 +5603,9 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
     <message>
         <location filename="../ui/shared_projects_panel.py" line="143"/>
         <location filename="../ui/shared_projects_panel.py" line="150"/>
-        <location filename="../ui/shared_projects_panel.py" line="180"/>
-        <location filename="../ui/shared_projects_panel.py" line="187"/>
-        <location filename="../ui/shared_projects_panel.py" line="194"/>
+        <location filename="../ui/shared_projects_panel.py" line="182"/>
+        <location filename="../ui/shared_projects_panel.py" line="189"/>
+        <location filename="../ui/shared_projects_panel.py" line="196"/>
         <source>Shared Project</source>
         <extracomment>Fixed display order for the role combo (a stable subset of the module-local :data:`MEMBER_ROLES` vocabulary; presentation ordering, not a domain value). The roster being edited before it is committed via Share/Update.</extracomment>
         <translation>Proyecto compartido</translation>
@@ -5496,123 +5616,130 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
         <translation>El miembro %1 ya está en la lista.</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="151"/>
         <source>A shared project may have at most %1 members.</source>
-        <translation>Un proyecto compartido puede tener como máximo %1 miembros.</translation>
+        <translation type="vanished">Un proyecto compartido puede tener como máximo %1 miembros.</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/shared_projects_panel.py" line="152"/>
+        <source>A shared project may have at most %n members.</source>
+        <translation>
+            <numerusform>Un proyecto compartido puede tener como máximo %n miembro.</numerusform>
+            <numerusform>Un proyecto compartido puede tener como máximo %n miembros.</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="181"/>
+        <location filename="../ui/shared_projects_panel.py" line="183"/>
         <source>Enter a shared-project name first.</source>
         <translation>Introduce primero un nombre de proyecto compartido.</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="188"/>
+        <location filename="../ui/shared_projects_panel.py" line="190"/>
         <source>Add at least one member before sharing.</source>
         <translation>Añade al menos un miembro antes de compartir.</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="236"/>
+        <location filename="../ui/shared_projects_panel.py" line="238"/>
         <source>Owner</source>
         <translation>Propietario</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="237"/>
+        <location filename="../ui/shared_projects_panel.py" line="239"/>
         <source>Editor</source>
         <translation>Editor</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="238"/>
+        <location filename="../ui/shared_projects_panel.py" line="240"/>
         <source>Viewer</source>
         <translation>Visualizador</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="243"/>
+        <location filename="../ui/shared_projects_panel.py" line="245"/>
         <source>Shared projects</source>
         <translation>Proyectos compartidos</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="244"/>
+        <location filename="../ui/shared_projects_panel.py" line="246"/>
         <source>Shared-project name:</source>
         <translation>Nombre del proyecto compartido:</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="245"/>
+        <location filename="../ui/shared_projects_panel.py" line="247"/>
         <source>e.g. team-sprite</source>
         <translation>p. ej. team-sprite</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="246"/>
+        <location filename="../ui/shared_projects_panel.py" line="248"/>
         <source>Shared-project name</source>
         <translation>Nombre del proyecto compartido</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="247"/>
-        <location filename="../ui/shared_projects_panel.py" line="248"/>
+        <location filename="../ui/shared_projects_panel.py" line="249"/>
+        <location filename="../ui/shared_projects_panel.py" line="250"/>
         <source>Member id to invite</source>
         <translation>Id de miembro a invitar</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="249"/>
+        <location filename="../ui/shared_projects_panel.py" line="251"/>
         <source>Member role</source>
         <translation>Rol del miembro</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="252"/>
+        <location filename="../ui/shared_projects_panel.py" line="254"/>
         <source>Add Member</source>
         <translation>Añadir miembro</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="253"/>
+        <location filename="../ui/shared_projects_panel.py" line="255"/>
         <source>Add member to roster</source>
         <translation>Añadir miembro a la lista</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="254"/>
+        <location filename="../ui/shared_projects_panel.py" line="256"/>
         <source>Roster to share</source>
         <translation>Lista para compartir</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="255"/>
+        <location filename="../ui/shared_projects_panel.py" line="257"/>
         <source>Current members</source>
         <translation>Miembros actuales</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="256"/>
+        <location filename="../ui/shared_projects_panel.py" line="258"/>
         <source>Remove</source>
         <translation>Eliminar</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="257"/>
+        <location filename="../ui/shared_projects_panel.py" line="259"/>
         <source>Remove selected member</source>
         <translation>Eliminar el miembro seleccionado</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="258"/>
+        <location filename="../ui/shared_projects_panel.py" line="260"/>
         <source>Share / Update</source>
         <translation>Compartir / Actualizar</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="259"/>
+        <location filename="../ui/shared_projects_panel.py" line="261"/>
         <source>Share or update the project</source>
         <translation>Compartir o actualizar el proyecto</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="260"/>
+        <location filename="../ui/shared_projects_panel.py" line="262"/>
         <source>Member</source>
         <translation>Miembro</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="260"/>
+        <location filename="../ui/shared_projects_panel.py" line="262"/>
         <source>Role</source>
         <translation>Rol</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="263"/>
+        <location filename="../ui/shared_projects_panel.py" line="265"/>
         <source>Editable member roster</source>
         <translation>Lista de miembros editable</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="264"/>
+        <location filename="../ui/shared_projects_panel.py" line="266"/>
         <source>Shared member list</source>
         <translation>Lista de miembros compartida</translation>
     </message>
@@ -6263,63 +6390,63 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
 <context>
     <name>Timeline_Grid_View</name>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="555"/>
+        <location filename="../ui/timeline_grid_view.py" line="553"/>
         <source>Toggle Cel Visibility</source>
         <extracomment>Emitted with the frame index a selection (of any kind) settled on (REQ-P5-UI-023). Pushes no command. Emitted with the ``layer_id`` a cell/row-header selection settled on (REQ-P5-UI-023). Pushes no command. Emitted with the frame index the cursor is scrubbing over during a body drag away from any occupied cell (REQ-P5-UI-025). Pushes no command. Emitted when a Ctrl+right-click removal was refused because the target document has only one frame left (D-22). ``Document._ensure_frame_removable`` is the single, unconditional owner of that invariant; this view asks the bound document itself (``len(document.frames)``) rather than keeping a second, independently-maintained notion of &quot;removable&quot; — so the two can never drift apart. Pushes no command; the gesture stays inert.</extracomment>
         <translation>Alternar visibilidad de celda</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="591"/>
+        <location filename="../ui/timeline_grid_view.py" line="589"/>
         <source>Create Cel Here</source>
         <translation>Crear celda aquí</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="593"/>
+        <location filename="../ui/timeline_grid_view.py" line="591"/>
         <source>Create a new drawing on this track in this frame</source>
         <translation>Crear un nuevo dibujo en esta pista en este fotograma</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="611"/>
+        <location filename="../ui/timeline_grid_view.py" line="609"/>
         <source>Create Cel</source>
         <translation>Crear celda</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="644"/>
+        <location filename="../ui/timeline_grid_view.py" line="642"/>
         <source>Remove Frame</source>
         <translation>Eliminar fotograma</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="668"/>
+        <location filename="../ui/timeline_grid_view.py" line="666"/>
         <source>Reorder Frame</source>
         <translation>Reordenar fotograma</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="818"/>
+        <location filename="../ui/timeline_grid_view.py" line="816"/>
         <source>Copy Cel</source>
         <translation>Copiar celda</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="826"/>
+        <location filename="../ui/timeline_grid_view.py" line="824"/>
         <source>Move Cel</source>
         <translation>Mover celda</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="853"/>
+        <location filename="../ui/timeline_grid_view.py" line="851"/>
         <source>Timeline grid</source>
         <translation>Cuadrícula de la línea de tiempo</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="856"/>
+        <location filename="../ui/timeline_grid_view.py" line="854"/>
         <source>Frames as columns, layer tracks as rows; drag a header to reorder, drag a drawing to move it (hold Ctrl to copy), or open the context menu on an empty cell to create a cel there</source>
         <translation>Fotogramas como columnas, pistas de capa como filas; arrastra un encabezado para reordenar, arrastra un dibujo para moverlo (mantén Ctrl para copiar), o abre el menú contextual en una celda vacía para crear una celda ahí</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="861"/>
+        <location filename="../ui/timeline_grid_view.py" line="859"/>
         <source>Frame headers</source>
         <translation>Encabezados de fotograma</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="862"/>
+        <location filename="../ui/timeline_grid_view.py" line="860"/>
         <source>Layer track headers</source>
         <translation>Encabezados de pista de capa</translation>
     </message>
@@ -6439,7 +6566,7 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
 <context>
     <name>User_Guide_Dialog</name>
     <message>
-        <location filename="../ui/user_guide.py" line="461"/>
+        <location filename="../ui/user_guide.py" line="499"/>
         <source>Could not load this topic:
 
 %1</source>
@@ -6449,7 +6576,7 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
 %1</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="515"/>
+        <location filename="../ui/user_guide.py" line="553"/>
         <source>The User Guide content could not be loaded:
 
 %1</source>
@@ -6458,38 +6585,38 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
 %1</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="518"/>
+        <location filename="../ui/user_guide.py" line="556"/>
         <source>The User Guide content could not be loaded.</source>
         <translation>No se pudo cargar el contenido de la Guía del usuario.</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="610"/>
-        <location filename="../ui/user_guide.py" line="611"/>
+        <location filename="../ui/user_guide.py" line="649"/>
+        <location filename="../ui/user_guide.py" line="650"/>
         <source>User Guide</source>
         <translation>Guía del usuario</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="612"/>
+        <location filename="../ui/user_guide.py" line="651"/>
         <source>Search the guide…</source>
         <translation>Buscar en la guía…</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="613"/>
+        <location filename="../ui/user_guide.py" line="652"/>
         <source>Search the guide</source>
         <translation>Buscar en la guía</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="614"/>
+        <location filename="../ui/user_guide.py" line="653"/>
         <source>Guide contents</source>
         <translation>Índice de la guía</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="615"/>
+        <location filename="../ui/user_guide.py" line="654"/>
         <source>Search results</source>
         <translation>Resultados de la búsqueda</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="616"/>
+        <location filename="../ui/user_guide.py" line="655"/>
         <source>Guide content</source>
         <translation>Contenido de la guía</translation>
     </message>
@@ -6581,92 +6708,99 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
         <translation>Selecciona una versión para restaurar.</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="173"/>
         <source>Version %1 — %2 bytes (created marker %3).</source>
-        <translation>Versión %1 — %2 bytes (marcador de creación %3).</translation>
+        <translation type="vanished">Versión %1 — %2 bytes (marcador de creación %3).</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/version_history_browser.py" line="174"/>
+        <source>Version %1 — %n bytes (created marker %3).</source>
+        <translation>
+            <numerusform>Versión %1 — %n byte (marcador de creación %3).</numerusform>
+            <numerusform>Versión %1 — %n bytes (marcador de creación %3).</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="184"/>
+        <location filename="../ui/version_history_browser.py" line="185"/>
         <source>Up to date with the cloud.</source>
         <translation>Al día con la nube.</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="186"/>
+        <location filename="../ui/version_history_browser.py" line="187"/>
         <source>Local changes have not been saved to the cloud yet.</source>
         <translation>Los cambios locales aún no se han guardado en la nube.</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="188"/>
+        <location filename="../ui/version_history_browser.py" line="189"/>
         <source>A newer version exists in the cloud.</source>
         <translation>Hay una versión más reciente en la nube.</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="189"/>
+        <location filename="../ui/version_history_browser.py" line="190"/>
         <source>Local and cloud history have diverged.</source>
         <translation>El historial local y el de la nube han divergido.</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="194"/>
+        <location filename="../ui/version_history_browser.py" line="195"/>
         <source>Cloud Version History</source>
         <translation>Historial de versiones en la nube</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="197"/>
+        <location filename="../ui/version_history_browser.py" line="198"/>
         <source>Prior cloud saves, oldest first. Restoring opens the chosen version in a new tab — your current work is not overwritten.</source>
         <translation>Guardados anteriores en la nube, del más antiguo al más reciente. Al restaurar se abre la versión elegida en una nueva pestaña; tu trabajo actual no se sobrescribe.</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="202"/>
+        <location filename="../ui/version_history_browser.py" line="203"/>
         <source>Cloud sync status</source>
         <translation>Estado de sincronización con la nube</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="205"/>
+        <location filename="../ui/version_history_browser.py" line="206"/>
         <source>Version</source>
         <translation>Versión</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="206"/>
+        <location filename="../ui/version_history_browser.py" line="207"/>
         <source>Marker</source>
         <translation>Marcador</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="207"/>
+        <location filename="../ui/version_history_browser.py" line="208"/>
         <source>Size (bytes)</source>
         <translation>Tamaño (bytes)</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="208"/>
+        <location filename="../ui/version_history_browser.py" line="209"/>
         <source>Pinned</source>
         <translation>Fijada</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="209"/>
+        <location filename="../ui/version_history_browser.py" line="210"/>
         <source>Parent</source>
         <translation>Padre</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="212"/>
+        <location filename="../ui/version_history_browser.py" line="213"/>
         <source>Yes</source>
         <translation>Sí</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="213"/>
+        <location filename="../ui/version_history_browser.py" line="214"/>
         <source>No</source>
         <translation>No</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="221"/>
+        <location filename="../ui/version_history_browser.py" line="222"/>
         <source>Restore</source>
         <translation>Restaurar</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="222"/>
+        <location filename="../ui/version_history_browser.py" line="223"/>
         <source>Cloud version list</source>
         <translation>Lista de versiones en la nube</translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="223"/>
+        <location filename="../ui/version_history_browser.py" line="224"/>
         <source>Restore selected version</source>
         <translation>Restaurar la versión seleccionada</translation>
     </message>
@@ -6878,13 +7012,20 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
         <translation>%1
 %2 ms</translation>
     </message>
-    <message>
-        <location filename="../ui/timeline_grid_view.py" line="332"/>
-        <source>Frame %1, %2 milliseconds</source>
-        <translation>Fotograma %1, %2 milisegundos</translation>
+    <message numerus="yes">
+        <location filename="../ui/timeline_grid_view.py" line="331"/>
+        <source>Frame %1, %n milliseconds</source>
+        <translation>
+            <numerusform>Fotograma %1, %n milisegundo</numerusform>
+            <numerusform>Fotograma %1, %n milisegundos</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="343"/>
+        <source>Frame %1, %2 milliseconds</source>
+        <translation type="vanished">Fotograma %1, %2 milisegundos</translation>
+    </message>
+    <message>
+        <location filename="../ui/timeline_grid_view.py" line="341"/>
         <source>Track %1</source>
         <translation>Pista %1</translation>
     </message>
@@ -6926,13 +7067,13 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
 <context>
     <name>theme</name>
     <message>
-        <location filename="../ui/theme.py" line="149"/>
+        <location filename="../ui/theme.py" line="155"/>
         <source>unknown style: %1</source>
         <extracomment>%1 is the internal style name that could not be found.</extracomment>
         <translation>estilo desconocido: %1</translation>
     </message>
     <message>
-        <location filename="../ui/theme.py" line="154"/>
+        <location filename="../ui/theme.py" line="160"/>
         <source>unknown theme: %1</source>
         <translation>tema desconocido: %1</translation>
     </message>

@@ -7,13 +7,13 @@
 ```
 generator: sync_constitution_extract.py
 generator-version: 1.2.0
-constitution-version: v1.2
-constitution-date: 2026-08-30
+constitution-version: v1.5
+constitution-date: 2026-10-11
 articles: I..XI (11)
 clauses-redacted: 2
 clauses-exempted: IX §4
-source-region-sha256: 5f429df9b7542a69b90c9fa3984655eb416a245f35172a316f6236921f8b1dea
-body-sha256: 18785e5ef00fff07d220193bab18ceb9b5ff31c3579a3a413a8c29f71c19b762
+source-region-sha256: bfba9a68ed5d60e8bcde402c23248bd74221b3a994f51a259b71c811712ca870
+body-sha256: 89dadeda9875972e35d8b1d712033a6e993361257be3a94650062fff87763171
 ```
 
 <!-- END PROVENANCE -->
@@ -150,8 +150,9 @@ the same numbered clause here as in the source.
 
 1. All Python is formatted with **Black** and **isort**, passes **flake8**, and
    type-checks under **mypy** (strict for `logic/` and `data/`).
-2. **Gate:** a lint, format, or type error blocks the commit locally and fails
-   CI. No commit merges with a red quality gate.
+2. **Gate:** a lint, format, or type error fails CI. No commit merges with a
+   red quality gate. Which commits must be green, and which may be red on a
+   development branch, is set by Article IX §2.
 3. Naming follows these conventions: modules `snake_case`; widget classes `PascalCase`
    + suffix (`_Widget` / `_View` / `_Panel` / `_Dialog`); constants
    `UPPER_SNAKE_CASE`; test modules `test_<module>.py`.
@@ -225,8 +226,66 @@ the same numbered clause here as in the source.
 
 1. Commits follow **Conventional Commits** (`feat` / `fix` / `docs` / `refactor`
    / `test` / …) and carry the governing **REQ-ID(s)** in the message.
-2. Each commit leaves the gate **green**: quality (Art. III), tests + coverage
-   (Art. IV), layering (Art. I), and the SDD gate (Art. VIII) all pass.
+2. **Green where it merges into `main`.** The executable gate — quality
+   (Art. III), tests + coverage (Art. IV) and layering (Art. I) — binds at the
+   merge into `main`, not at every commit:
+   - **Must be green:** the pull-request head at the moment of merge, and the
+     commit the merge places on `main`'s first-parent history. *Green* means
+     that every check the repository requires for a merge into `main` ran on
+     that commit and passed. A check that was skipped, cancelled, neutral or
+     still pending is not green.
+   - **A release pull request** — one that sets the version a release tag will
+     publish — must also have a green installer build on its head before it
+     merges. Any other pull request needs only the required checks. *A green
+     installer build* is one run of the repository's installer workflow on that
+     exact head in which an installer was built for each operating system the
+     project ships for (Windows, macOS and Linux), and every job of the run that
+     builds, launches or checks the contents of an installer ran and passed.
+     Work that runs only for a release tag (publishing the release) is not part
+     of it, whether it ran or was skipped. Signing work that runs only when
+     signing credentials are configured is not part of it only when it was
+     skipped because no credentials are configured; when credentials are
+     configured and that signing work runs and fails, the build is not green and
+     the pull request does not merge. A build leg that was skipped, cancelled
+     or is still pending is not green, and a run on an earlier head stops
+     counting once a later commit lands.
+   - **How a pull request merges into `main`:** by a merge commit, or by
+     squashing it into a single commit — never by rebasing its commits onto
+     `main`. A rebase merge would place every intermediate commit of the
+     branch, red ones included, on `main`'s first-parent history, which must be
+     green. This binds whoever merges, whatever merge methods the repository's
+     settings allow.
+   - **May be red:** an intermediate commit on a development branch, including
+     one made red on purpose (a planted failing control, a work-in-progress
+     save). A merge between two development branches is itself an intermediate
+     commit. Red is a signal: it is analysed, and later commits on the same
+     branch fix it until the head is green. An intermediate commit is not
+     guaranteed a check run of its own, and nothing here claims it was tested.
+   - **Not relaxed by this clause:** §1 and §4 bind every commit, red or green;
+     Article VIII is unaffected; a fix and its regression test (Art. IV §4) are
+     both present by the pull-request head. Red is recovered only by adding
+     commits — never by replacing or rewriting commits already pushed, and
+     never by skipping, disabling or weakening a check.
+   - **Marking a test as an expected failure weakens it**, with one exception:
+     a strict expected failure (`xfail(strict=True)`, which fails the run as
+     soon as the test passes) for a known defect that has its own tracked
+     issue, added in a commit of its own that names that issue. It records a
+     known defect; it is never used to turn a red run green.
+   - **Two exceptions to "never rewriting commits already pushed"**, and no
+     others. Each is permitted only on the explicit mandate of the project's
+     owner — a person, never a tool — given for that repair:
+     - **Authorship that §4 prohibits.** Because §4 binds the entire history,
+       adding commits cannot cure it; removing it from commits already pushed
+       is permitted.
+     - **An internal identifier in a commit message** — an identifier that
+       belongs to the project's internal design work, not to the published
+       product. The pull-request checks read every commit message the pull
+       request adds, so adding commits cannot cure it either. The first defence
+       is to stop such an identifier before a commit is pushed; when one is
+       pushed regardless, removing it is permitted only on a development branch
+       not yet merged into `main`, never on `main`. Re-creating that branch's
+       commits on a new branch is the same repair and needs the same mandate. A
+       message that has already reached `main` stays as it is.
 3. *[Redacted — internal governance detail, not required to resolve a repository citation. The clause number is preserved so that citations of this section still resolve.]*
 4. **VCS ATTRIBUTION — HARD INVARIANT, NOT SCOPABLE, NOT AMENDABLE** by the
    normal amendment procedure:

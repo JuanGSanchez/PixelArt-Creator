@@ -1,0 +1,48 @@
+# Hangul set of the Nifen Art CJK face (family "Nifen Art CJK KR").
+#
+# One record per Hangul syllable (U+AC00-U+D7A3) of this set, and nothing else. The
+# drawing list is the measured set: exactly the syllables the shipped text uses. The
+# conjoining and compatibility jamo are not part of this set. The file starts without
+# records; the first ones are the pilot's.
+#
+# The record forms are the ones described in han-jp.txt, with set=kr. A Hangul record has
+# no same-as: the Han form sets do not share drawings with it.
+
+glyph U+AD6D set=kr src=drawn top=10 x=0
+..#######..
+........#..
+........#..
+...........
+###########
+.....#.....
+.....#.....
+...........
+..#######..
+........#..
+........#..
+
+glyph U+C5B4 set=kr src=drawn top=10 x=0
+..........#
+..........#
+..###.....#
+.#...#....#
+#.....#...#
+#.....#.###
+#.....#...#
+.#...#....#
+..###.....#
+..........#
+..........#
+
+glyph U+D55C set=kr src=drawn top=10 x=0
+...#....#..
+#######.#..
+........#..
+..###...###
+.#...#..#..
+..###...#..
+........#..
+.#.........
+.#.........
+.#.........
+.#########.

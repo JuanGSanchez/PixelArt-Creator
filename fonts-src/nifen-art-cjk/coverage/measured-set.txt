@@ -1,0 +1,23 @@
+# Measured CJK set: the Han and Hangul characters the shipped text uses.
+# Written by scripts/font/measure_cjk_set.py and by nothing else; this is
+# the drawing list of the CJK face. A line is <set>: <characters>.
+# jp holds the Japanese Han forms, sc the Simplified Han forms and kr the
+# Hangul syllables. A Han character of a language self-name is in the set of
+# its own language only; one used by any other text is in both jp and sc.
+# invocation: python scripts/font/measure_cjk_set.py
+# counts: jp 3, sc 4, kr 3; in both jp and sc 0; jp only 3; sc only 4
+# input catalogues: 2 files, 109 unique characters examined, Han+Hangul jp 0, sc 0, kr 0; sha256 442aab03f652486dcf7d327d038ba9d0ba9ff5ee6802e56d1eb2f7ae138f5891
+# input guide tree: 39 files, 18 unique characters examined, Han+Hangul jp 0, sc 0, kr 0; sha256 db6aa16a6b017a7831a94fbd09c7eebf4c0ff07ca5d96a952e0a2e26421441f2
+# input endonyms: 8 labels, 35 unique characters examined, Han+Hangul jp 3, sc 4, kr 3; sha256 76e132e6bae5f815e9750bd845d5896796b864650285f74800998385b4edd694
+# input python literals: 244 files, 43 unique characters examined, Han+Hangul jp 3, sc 4, kr 3; sha256 69be7b03314ff0336770df68c19ddfa5e299f49e1eb7d006c637c580afa3a859
+# definitions checked against 144 unique characters:
+#   script characters sent to the existing face: none
+#   unassigned code points inside a Han or Hangul range: none
+# change since the previous measurement:
+#   first measurement (no earlier file to compare with)
+# jp code points: U+65E5 U+672C U+8A9E
+# sc code points: U+4E2D U+4F53 U+6587 U+7B80
+# kr code points: U+AD6D U+C5B4 U+D55C
+jp: 日本語
+sc: 中体文简
+kr: 국어한

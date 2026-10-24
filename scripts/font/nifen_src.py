@@ -2,7 +2,9 @@
 
 Parses the text-grid sources, resolves every codepoint to a bitmap in either
 weight (drawn, aliased or composed by recipe, with the Bold rule and hand
-overlays), and converts bitmaps to rectilinear outlines.
+overlays), and converts bitmaps to rectilinear outlines. The CJK face has its own
+records (parse_cjk_sources, CjkFont): drawn, shared between form sets or composed
+by recipe, one drawing for both weights.
 
 Pure Python 3, standard library only. The font build (fontTools) lives in
 build_nifen_art.py; nothing here imports it.
@@ -724,3 +726,228 @@ def layout(font: Font, text: str, weight: str) -> Tuple[PixelSet, int]:
         px |= {(x + pen, y) for x, y in b.px}
         pen += b.adv
     return frozenset(px), pen
+
+
+# --------------------------------------------------------------------------
+# The CJK face: records of the Han and Hangul sets
+# --------------------------------------------------------------------------
+
+#: The three form sets of the CJK face, one family each: Japanese Han forms,
+#: Simplified Han forms, Hangul.
+CJK_SETS = ("jp", "sc", "kr")
+
+#: Record kinds of the existing face that the CJK sources do not take. A CJK Bold
+#: glyph is its Regular glyph, so there is no Bold drawing, and the lint reports each
+#: of these lines instead of reading it.
+CJK_REFUSED_HEADS = ("bold", "boldmark", "mark", "alias", "recipe")
+
+
+@dataclass
+class Exemption:
+    """One line of the R05 exemption list: ``U+XXXX set=<s> reason=<text>``."""
+
+    cp: int
+    attrs: Dict[str, str]
+    reason: Optional[str]  # None: the line has no reason= at all
+    path: str
+    line: int
+
+
+@dataclass
+class CjkSources:
+    """The CJK face as written: the face record, the glyph records of the three
+    sets (keyed by (key, set)), and the R05 exemption list."""
+
+    face: Dict[str, str] = field(default_factory=dict)
+    glyphs: Dict[Tuple[object, str], Record] = field(default_factory=dict)
+    set_files: Dict[str, str] = field(default_factory=dict)
+    exemptions: List[Exemption] = field(default_factory=list)
+    duplicates: List[str] = field(default_factory=list)
+    refused: List[str] = field(default_factory=list)
+    files: List[str] = field(default_factory=list)
+
+
+def _split_reason(line: str) -> Tuple[str, Optional[str]]:
+    """Split a header line at ``reason=``: everything after it is the reason text."""
+    idx = line.find(" reason=")
+    if idx < 0:
+        return line, None
+    return line[:idx], line[idx + len(" reason=") :].strip()
+
+
+def cjk_key(token: str, where: str) -> object:
+    """A glyph reference of the CJK sources: a code point, or ``part.<name>``."""
+    if token.startswith("U+"):
+        return parse_cp(token, where)
+    if token.startswith("part.") and len(token) > len("part."):
+        return token
+    raise SourceError(f"{where}: bad glyph reference {token!r}")
+
+
+def cjk_key_text(key: object) -> str:
+    return "U+%04X" % key if isinstance(key, int) else str(key)
+
+
+def _read_utf8(path: str) -> str:
+    if not os.path.isfile(path):
+        raise SourceError(f"{path}: the file is missing")
+    with open(path, "rb") as fh:
+        return fh.read().decode("utf-8")
+
+
+def _parse_cjk_records(text: str, name: str, cjk: CjkSources) -> None:
+    cur: Optional[Record] = None
+    skipping = False
+
+    def flush() -> None:
+        nonlocal cur
+        if cur is None:
+            return
+        key = (cur.key, cur.attrs.get("set", ""))
+        if key in cjk.glyphs:
+            cjk.duplicates.append(
+                f"{cur.path}:{cur.line}: duplicate {cjk_key_text(cur.key)} "
+                f"set={key[1]}"
+            )
+        else:
+            cjk.glyphs[key] = cur
+        cur = None
+
+    for n, raw in enumerate(text.split("\n"), 1):
+        line = raw.rstrip("\r")
+        if ROW_RE.match(line) and (cur is not None or skipping):
+            if cur is not None:
+                cur.rows.append(line)
+            continue
+        if not line.strip():
+            flush()
+            skipping = False
+            continue
+        if line.startswith("# ") or line.strip() == "#":
+            continue
+        head_text, reason = _split_reason(line)
+        toks = _strip_comment(head_text).split()
+        if not toks:
+            continue
+        head = toks[0]
+        flush()
+        skipping = False
+        if head == "glyph" and len(toks) >= 2:
+            attrs = _parse_attrs(toks[2:], f"{name}:{n}")
+            if reason is not None:
+                attrs["reason"] = reason
+            cur = Record("glyph", cjk_key(toks[1], f"{name}:{n}"), attrs, [], name, n)
+        elif head in CJK_REFUSED_HEADS:
+            cjk.refused.append(f"{name}:{n}: a {head} record")
+            skipping = True
+        else:
+            raise SourceError(f"{name}:{n}: unrecognised line {line!r}")
+    flush()
+
+
+def _parse_exemptions(text: str, name: str, cjk: CjkSources) -> None:
+    for n, raw in enumerate(text.split("\n"), 1):
+        line = raw.rstrip("\r")
+        if not line.strip() or line.startswith("#"):
+            continue
+        head_text, reason = _split_reason(line)
+        toks = head_text.split()
+        if not toks[0].startswith("U+"):
+            raise SourceError(
+                f"{name}:{n}: an exemption line is 'U+XXXX set=<s> reason=<text>'"
+            )
+        cjk.exemptions.append(
+            Exemption(
+                parse_cp(toks[0], f"{name}:{n}"),
+                _parse_attrs(toks[1:], f"{name}:{n}"),
+                reason,
+                name,
+                n,
+            )
+        )
+
+
+def parse_cjk_sources(cjk_dir: str) -> CjkSources:
+    """Parse face.txt, the three glyph-record files and the R05 exemption list."""
+    cjk = CjkSources()
+    face_path = os.path.join(cjk_dir, "face.txt")
+    if not os.path.isfile(face_path):
+        raise SourceError("face.txt: the file is missing")
+    cjk.face = parse_metrics(face_path)
+    for s in CJK_SETS:
+        key = "records_" + s
+        if key not in cjk.face:
+            raise SourceError(f"face.txt: {key} is not declared")
+        cjk.set_files[s] = cjk.face[key]
+    for s in CJK_SETS:
+        name = cjk.set_files[s]
+        cjk.files.append(name)
+        _parse_cjk_records(_read_utf8(os.path.join(cjk_dir, name)), name, cjk)
+    ex_name = cjk.face.get("exemptions", "")
+    if not ex_name:
+        raise SourceError("face.txt: exemptions is not declared")
+    cjk.files.append(ex_name)
+    _parse_exemptions(_read_utf8(os.path.join(cjk_dir, ex_name)), ex_name, cjk)
+    return cjk
+
+
+class CjkFont:
+    """The glyphs of the CJK face, resolved per form set.
+
+    A glyph is drawn (rows), the same drawing as another set's (``same-as=``), or a
+    recipe: the union of other glyphs of its own set, each shifted by the offset
+    given in ``at=`` (``src=recipe:<ids>`` with ``at=dx:dy,dx:dy``). The weights are
+    one drawing: ``pixels(..., "bold")`` returns the Regular bitmap unchanged.
+    """
+
+    def __init__(self, cjk: CjkSources):
+        self.cjk = cjk
+        self._cache: Dict[Tuple[object, str], PixelSet] = {}
+
+    def codepoints(self, s: str) -> List[int]:
+        return sorted(
+            k for (k, st) in self.cjk.glyphs if st == s and isinstance(k, int)
+        )
+
+    def pixels(
+        self, key: object, s: str, weight: str = "regular", _stack: Tuple = ()
+    ) -> PixelSet:
+        if weight not in WEIGHTS:
+            raise SourceError(f"unknown weight {weight!r}")
+        ident = (key, s)
+        if ident in _stack:
+            raise SourceError(f"recursive definition at {cjk_key_text(key)} set={s}")
+        if ident in self._cache:
+            return self._cache[ident]
+        rec = self.cjk.glyphs.get(ident)
+        if rec is None:
+            raise SourceError(f"{cjk_key_text(key)} set={s}: there is no such record")
+        where = f"{rec.path}:{rec.line}"
+        stack = _stack + (ident,)
+        same = rec.attrs.get("same-as")
+        src = rec.attrs.get("src", "")
+        if same:
+            if same == s or same not in CJK_SETS:
+                raise SourceError(f"{where}: same-as={same!r} is not another set")
+            px = self.pixels(key, same, "regular", stack)
+        elif src.startswith("recipe:"):
+            ids = [t for t in src[len("recipe:") :].split(",") if t]
+            offs = rec.attrs["at"].split(",") if "at" in rec.attrs else []
+            if not ids or (offs and len(offs) != len(ids)):
+                raise SourceError(f"{where}: a recipe needs one at= offset per id")
+            acc: Set[Pixel] = set()
+            for i, tok in enumerate(ids):
+                dx = dy = 0
+                if offs:
+                    try:
+                        a, b = offs[i].split(":")
+                        dx, dy = int(a), int(b)
+                    except ValueError:
+                        raise SourceError(f"{where}: bad at= offset {offs[i]!r}")
+                part = self.pixels(cjk_key(tok, where), s, "regular", stack)
+                acc |= shift(part, dx, dy)
+            px = frozenset(acc)
+        else:
+            px = rec.pixels()
+        self._cache[ident] = px
+        return px

@@ -7,9 +7,22 @@ NifenArt-Bold.ttf from the text-grid sources. Run from the repository root:
     python scripts/font/build_nifen_art.py --lint
     python scripts/font/build_nifen_art.py --build
     python scripts/font/build_nifen_art.py --check
+    python scripts/font/build_nifen_art.py --verify-freeze
 
 Defaults are repository-relative: sources in fonts-src/nifen-art, built fonts
 in pixelart_creator/fonts (the --check comparison target as well).
+
+--face nifen-art-cjk does the same for the second face: three families (Japanese
+Han forms, Simplified Han forms, Hangul), Regular and Bold, six fonts from the
+sources in fonts-src/nifen-art-cjk. Its Bold is its Regular, pixel for pixel. The
+face lints a declared R05 exemption list, holds its character map to Han and
+Hangul, and requires every glyph to be drawn or a recipe of drawn glyphs. A face
+with no glyph record yet lints clean (the glyph rules examine nothing) and has no
+font to build or check. The lint of either face runs the donor gate: one donor
+(the hiragana), none for the CJK face.
+
+--verify-freeze, and --check, compare the existing face with its freeze manifest
+(fonts-src/nifen-art-cjk/existing-face.sha256), which is never regenerated.
 
 Every command exits non-zero on any violation, on any mismatch, or when it
 examined nothing.
@@ -20,11 +33,13 @@ from __future__ import annotations
 import argparse
 import datetime
 import hashlib
+import importlib.util
 import os
 import re
 import sys
 import tempfile
 import unicodedata
+from dataclasses import dataclass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
@@ -34,15 +49,20 @@ sys.path.insert(0, HERE)
 sys.dont_write_bytecode = True
 
 from nifen_src import (  # noqa: E402
+    CJK_SETS,
+    CjkFont,
     Font,
     SourceError,
     bbox,
+    cjk_key,
+    cjk_key_text,
     components,
     contours,
     counters,
     fill_from_contours,
     lost_counters,
     make_console_safe,
+    parse_cjk_sources,
     parse_cp,
     parse_sources,
 )
@@ -78,6 +98,81 @@ UNSAFE = [
     ("orchestration term", re.compile(r"\bag" + r"ents?\b", re.I)),
     ("workflow term", re.compile(WORD_START + "j" + "ob" + WORD_END, re.I)),
 ]
+
+
+# --------------------------------------------------------------------------
+# The two faces and the donor record
+# --------------------------------------------------------------------------
+
+FACE_EXISTING = "nifen-art"
+FACE_CJK = "nifen-art-cjk"
+DEFAULT_CJK_SRC = os.path.join(REPO, "fonts-src", "nifen-art-cjk")
+DEFAULT_NOTICE = os.path.join(REPO, "NOTICE")
+
+# The donor record that the donor gate holds the sources to. It is fixed here, apart
+# from the metrics, so that an edit of the metrics cannot make the gate agree with a
+# changed donor: one donor, one version, and the code points it supplied.
+DONOR_NAME = "Ark Pixel Font"
+DONOR_VERSION = "2026.09.25"
+DONOR_LICENCE = "SIL Open Font License, Version 1.1"
+DONOR_HOLDER = "TakWolf"
+DONOR_FILES = ("hiragana-ark-pixel.txt",)
+DONOR_DERIVED_FILES = ("hiragana-ark-pixel.txt", "bold-overlays-ark-pixel.txt")
+DONOR_KEYS = (
+    "donor_files",
+    "donor_derived_files",
+    "donor_name",
+    "donor_version",
+    "donor_licence",
+)
+DONOR_SPANS = ((0x3041, 0x3096), (0x309D, 0x309F))
+OWN_HOLDERS = ("JuanGSanchez", "Juan Garcia Sanchez")
+# Fonts that the project looked at and did not use. Naming one in a source, a licence
+# file, a change log or a name table is read as crediting a second donor.
+OTHER_FONTS = (
+    "Galmuri",
+    "x12y12pxMaruMinyaHangul",
+    "Fusion Pixel",
+    "Misaki",
+    "Unifont",
+)
+
+# A copyright statement (the holder is the text after the year, up to a bracket or a
+# semicolon), and a sentence that credits the source of a drawing. A negated sentence
+# about "another font" is a statement of originality, not a credit.
+HOLDER_RE = re.compile(
+    r"copyright\s*(?:\(c\)|\u00a9)?\s*(?:19|20)\d\d(?:\s*[-,]\s*(?:19|20)\d\d)*"
+    r"\s*,?\s*([^(;]*)",
+    re.I,
+)
+HOLDER_END_RE = re.compile(r"\s*(?:[(;]|\.(?:\s|$))")
+DONOR_RE = re.compile(r"ark[\s_-]*pixel|tak[\s_-]*wolf", re.I)
+CREDIT_RE = re.compile(
+    r"\b(?:adapted|derived|taken|copied|traced|borrowed|redrawn)"
+    r"(?:\s+\w+){0,3}?\s+from\b",
+    re.I,
+)
+NEGATION_RE = re.compile(r"\b(?:no|not|never|nothing|none|neither|nor|without)\b", re.I)
+GENERIC_SOURCE_RE = re.compile(
+    r"\bfrom\s+(?:another|any|other|a|an)\s+(?:\w+\s+){0,2}fonts?\b", re.I
+)
+STRUCTURED_CREDIT_RE = re.compile(
+    r"code points\s+\w+\s+from\s+(.+?),\s*version\b", re.I
+)
+SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+MANIFEST_LINE_RE = re.compile(r"^[0-9a-f]{64}\s+\S+\s*$", re.M)
+
+
+@dataclass
+class Gate:
+    """Where the donor gate reads what the existing face's sources do not hold: the CJK
+    sources, the product's notice file and the built fonts (when they are to be read).
+    """
+
+    cjk_dir: str
+    notice: str
+    out_dir: str
+    ttfs: bool = True
 
 
 # --------------------------------------------------------------------------
@@ -134,6 +229,9 @@ def has_canonical_mark(cp):
 class Report:
     def __init__(self):
         self.rules = []  # (code, title, examined, [violations], [info])
+        # Rules that may examine nothing without failing: the glyph rules of a face
+        # that has no glyph record yet.
+        self.zero_ok = set()
 
     def add(self, code, title, examined, violations, info=None):
         self.rules.append((code, title, examined, list(violations), list(info or [])))
@@ -157,7 +255,7 @@ class Report:
     def failed(self):
         if any(v for _c, _t, _e, v, _i in self.rules):
             return True
-        if any(e == 0 for _c, _t, e, _v, _i in self.rules):
+        if any(e == 0 and c not in self.zero_ok for c, _t, e, _v, _i in self.rules):
             return True
         return False
 
@@ -208,7 +306,7 @@ def allowance(font: Font, cp, seen=()):
     return 0
 
 
-def lint(srcs, font: Font, script_files, src_dir, fonts_dir=None):
+def lint(srcs, font: Font, script_files, src_dir, fonts_dir=None, gate=None):
     rep = Report()
     if fonts_dir is None:
         fonts_dir = DEFAULT_OUT
@@ -929,7 +1027,47 @@ def lint(srcs, font: Font, script_files, src_dir, fonts_dir=None):
         ),
     )
 
-    # R14 provenance of merged letterforms ---------------------------------------------
+    # R14 provenance of merged letterforms and the donor gate ------------------------
+    n, v, donor_cps = provenance_checks(srcs, font, src_dir, fonts_dir)
+    info = (
+        [
+            "code points taken from the donor: %d: %s"
+            % (len(donor_cps), spans(donor_cps))
+        ]
+        if donor_cps
+        else []
+    )
+    if gate is not None:
+        gate_n, gate_v, gate_info = donor_gate(srcs, src_dir, fonts_dir, gate)
+        n, v, info = n + gate_n, v + gate_v, info + gate_info
+    rep.add(
+        "R14",
+        "provenance of merged letterforms (donor files and licence files)",
+        n,
+        v,
+        info,
+    )
+    return rep
+
+
+def spans(cps):
+    out, cps = [], sorted(set(cps))
+    i = 0
+    while i < len(cps):
+        j = i
+        while j + 1 < len(cps) and cps[j + 1] == cps[j] + 1:
+            j += 1
+        out.append("U+%04X" % cps[i] if i == j else "U+%04X-U+%04X" % (cps[i], cps[j]))
+        i = j + 1
+    return ", ".join(out)
+
+
+def provenance_checks(srcs, font: Font, src_dir, fonts_dir):
+    """Provenance of merged letterforms (rule R14): the donor files, the licence
+    file and the change log beside the fonts, and the Reserved Font Name clause.
+    Returns (examined, violations, donor code points)."""
+    m = srcs.metrics
+    # Provenance of merged letterforms ---------------------------------------------
     # Letterforms adapted from another font under its open licence live in their own
     # source files (metrics: donor_files, the files that draw donor code points).
     # Every source file derived from the donor, drawing files and correction files
@@ -1015,19 +1153,6 @@ def lint(srcs, font: Font, script_files, src_dir, fonts_dir=None):
             if r.key in font.recipe_by_cp:
                 v.append("U+%04X is both a donor drawing and a recipe" % r.key)
 
-    def spans(cps):
-        out, cps = [], sorted(set(cps))
-        i = 0
-        while i < len(cps):
-            j = i
-            while j + 1 < len(cps) and cps[j + 1] == cps[j] + 1:
-                j += 1
-            out.append(
-                "U+%04X" % cps[i] if i == j else "U+%04X-U+%04X" % (cps[i], cps[j])
-            )
-            i = j + 1
-        return ", ".join(out)
-
     if donor_cps:
         needs = {
             "OFL.txt": list(prior),
@@ -1087,21 +1212,323 @@ def lint(srcs, font: Font, script_files, src_dir, fonts_dir=None):
                 )
     elif not donor_cps:
         v.append("OFL.txt is not beside the fonts")
-    rep.add(
-        "R14",
-        "provenance of merged letterforms (donor files and licence files)",
-        n,
-        v,
-        (
-            [
-                "code points taken from the donor: %d: %s"
-                % (len(donor_cps), spans(donor_cps))
-            ]
-            if donor_cps
-            else []
-        ),
+    return n, v, donor_cps
+
+
+# --------------------------------------------------------------------------
+# The donor gate
+# --------------------------------------------------------------------------
+# The font has exactly one donor: the Ark Pixel Font hiragana (the 89 code points of
+# DONOR_SPANS). The gate fails when any other donor is declared or credited, when a
+# donor-derived code point lies outside those 89, or when the CJK face declares a donor
+# of any kind. It reads every file of the scan list, prints the list with the status of
+# each entry, and treats a missing entry as a violation, never as a file to skip.
+
+
+def walk_files(base):
+    """Every file below base, as sorted relative paths with forward slashes."""
+    names = []
+    for root, dirs, files in os.walk(base):
+        dirs.sort()
+        for name in sorted(files):
+            rel = os.path.relpath(os.path.join(root, name), base)
+            names.append(rel.replace(os.sep, "/"))
+    return sorted(names)
+
+
+def holder_ok(holder, allowed):
+    """True when a copyright holder text starts with the allowed holder's name."""
+    return re.match(re.escape(allowed) + r"(?![A-Za-z0-9])", holder, re.I) is not None
+
+
+def credit_findings(label, text, cjk_scope, prose, donors):
+    """What one text credits. Every copyright holder must be a declared one (the donor's
+    only outside the CJK face); the CJK face names no donor at all; no other font is
+    named; and, in a licence file, a change log, the notice file or a name record
+    (prose), a sentence that says a drawing was adapted, copied, traced or derived from
+    something must name the donor, unless it states that nothing was taken from another
+    font. Names found as donors are added to the set donors."""
+    out = []
+    flat = " ".join(text.replace("#", " ").split())
+    allowed = OWN_HOLDERS if cjk_scope else OWN_HOLDERS + (DONOR_HOLDER,)
+    for mt in HOLDER_RE.finditer(flat):
+        holder = HOLDER_END_RE.split(mt.group(1).strip(), 1)[0].rstrip(" .,;:")
+        if holder_ok(holder, DONOR_HOLDER):
+            donors.add(DONOR_NAME)
+        elif not any(holder_ok(holder, a) for a in allowed):
+            donors.add(holder[:40])
+        if not any(holder_ok(holder, a) for a in allowed):
+            out.append(
+                "%s: a copyright line credits %r, who is not a declared holder%s"
+                % (label, holder[:40], " of the CJK face" if cjk_scope else "")
+            )
+    if cjk_scope and DONOR_RE.search(flat):
+        out.append("%s: names the donor; the CJK face declares no donor" % label)
+    low = flat.lower()
+    for name in OTHER_FONTS:
+        if name.lower() in low:
+            donors.add(name)
+            out.append("%s: names another font (%s) as a donor" % (label, name))
+    for mt in STRUCTURED_CREDIT_RE.finditer(flat):
+        donors.add(mt.group(1).strip()[:40])
+    if prose:
+        for sentence in SENTENCE_SPLIT_RE.split(flat):
+            mt = CREDIT_RE.search(sentence)
+            if mt is None:
+                continue
+            if not cjk_scope and DONOR_NAME.lower() in sentence.lower():
+                continue
+            if NEGATION_RE.search(sentence[: mt.start()]) and GENERIC_SOURCE_RE.search(
+                sentence[mt.start() :]
+            ):
+                continue
+            out.append(
+                "%s: a credit sentence names no declared donor: %r"
+                % (label, sentence[:70])
+            )
+    return out
+
+
+def cjk_file_name(face, set_key, weight):
+    return "%s-%s.ttf" % (
+        face["postscript_" + set_key],
+        "Bold" if weight == "bold" else "Regular",
     )
-    return rep
+
+
+def cjk_name_table(m, face, set_key, weight):
+    """The name records of one CJK font. Only the Nifen Art copyright line: this face
+    declares no donor, so no prior copyright line comes before it."""
+    style = "Bold" if weight == "bold" else "Regular"
+    family = face["family_" + set_key]
+    return {
+        0: "Copyright (c) %s, %s (%s), %s"
+        % (
+            m["copyright_year"],
+            m["copyright_holder"],
+            m["copyright_url"],
+            m["copyright_rfn_clause"],
+        ),
+        1: family,
+        2: style,
+        3: "%s %s;%s" % (family, style, face["font_revision"]),
+        4: "%s %s" % (family, style),
+        5: face["version_string"],
+        6: "%s-%s" % (face["postscript_" + set_key], style),
+        9: m["designer"],
+        13: m["license_description"],
+        14: m["license_url"],
+    }
+
+
+def donor_gate(srcs, src_dir, fonts_dir, gate):
+    """The donor gate. Returns (examined, violations, info lines)."""
+    m = srcs.metrics
+    v, scan, donors = [], [], set()
+    n = 0
+
+    def read(path, label):
+        try:
+            with open(path, "rb") as fh:
+                return fh.read().decode("utf-8")
+        except FileNotFoundError:
+            v.append("%s is missing: a scanned file is never skipped" % label)
+            scan.append((label, "MISSING"))
+        except UnicodeDecodeError:
+            v.append("%s is not UTF-8 text" % label)
+            scan.append((label, "UNREADABLE"))
+        return None
+
+    # 1. The donor record in the metadata: one donor, as fixed above.
+    n += 1
+    for key in sorted(m):
+        if key.startswith("donor") and key not in DONOR_KEYS:
+            v.append("metrics.txt declares %s: a second donor is refused" % key)
+        if key.startswith("copyright_prior_line") and key != "copyright_prior_line_1":
+            v.append(
+                "metrics.txt declares %s: only the one donor's copyright line is "
+                "accepted" % key
+            )
+    if m.get("donor_name"):
+        donors.add(m["donor_name"])
+    for key, want in (
+        ("donor_name", DONOR_NAME),
+        ("donor_version", DONOR_VERSION),
+        ("donor_licence", DONOR_LICENCE),
+    ):
+        if m.get(key) != want:
+            v.append("metrics.txt %s is %r, expected %r" % (key, m.get(key), want))
+    if m.get("donor_files", "").split() != list(DONOR_FILES):
+        v.append(
+            "metrics.txt donor_files is %r, exactly %s is accepted"
+            % (m.get("donor_files", ""), " ".join(DONOR_FILES))
+        )
+    listed = m.get("donor_derived_files", "").split()
+    for name in listed:
+        if name not in DONOR_DERIVED_FILES:
+            v.append(
+                "%s is listed as a donor-derived file: a third one is refused "
+                "(exactly %s are accepted)" % (name, " and ".join(DONOR_DERIVED_FILES))
+            )
+    for name in DONOR_DERIVED_FILES:
+        if name not in listed:
+            v.append("%s is not listed in donor_derived_files" % name)
+    if DONOR_HOLDER not in m.get("copyright_prior_line_1", ""):
+        v.append("metrics.txt copyright_prior_line_1 does not name %s" % DONOR_HOLDER)
+
+    # 2. The donor-derived code points are exactly the 89 hiragana.
+    expected = {cp for lo, hi in DONOR_SPANS for cp in range(lo, hi + 1)}
+    derived_files = set(listed) | set(DONOR_DERIVED_FILES)
+    donor_cps = set()
+    for rec in list(srcs.glyphs.values()) + list(srcs.bold_glyphs.values()):
+        if rec.path in derived_files and isinstance(rec.key, int):
+            n += 1
+            donor_cps.add(rec.key)
+            if rec.key not in expected:
+                v.append(
+                    "U+%04X is donor-derived (%s:%d) but lies outside the 89 hiragana "
+                    "%s" % (rec.key, rec.path, rec.line, spans(sorted(expected)))
+                )
+    gone = sorted(expected - donor_cps)
+    if gone:
+        v.append(
+            "the donor-derived code points are not the 89 hiragana: %d missing, "
+            "first U+%04X" % (len(gone), gone[0])
+        )
+
+    # 3. The scan list: sources of both faces, licence files, change logs, notice file.
+    def scan_tree(display, base, cjk_scope):
+        nonlocal n
+        if not os.path.isdir(base):
+            v.append("%s is missing: a scanned folder is never skipped" % display)
+            scan.append((display + "/**", "MISSING"))
+            return
+        names = walk_files(base)
+        if not names:
+            v.append("%s holds no file: nothing was scanned" % display)
+        for rel in names:
+            label = display + "/" + rel
+            text = read(os.path.join(base, *rel.split("/")), label)
+            if text is None:
+                continue
+            n += 1
+            scan.append((label, "examined"))
+            if cjk_scope:
+                if DONOR_RE.search(rel):
+                    v.append("%s: a file of the CJK face named for the donor" % label)
+                if rel in DONOR_DERIVED_FILES or rel in listed:
+                    v.append("%s: a donor-derived file under the CJK face" % label)
+                text = MANIFEST_LINE_RE.sub("", text)
+            v.extend(credit_findings(label, text, cjk_scope, False, donors))
+
+    scan_tree("fonts-src/nifen-art", src_dir, False)
+    scan_tree("fonts-src/nifen-art-cjk", gate.cjk_dir, True)
+    for fname, cjk_scope in (
+        ("OFL.txt", False),
+        ("FONTLOG.txt", False),
+        ("FONTLOG-CJK.txt", True),
+    ):
+        label = "pixelart_creator/fonts/" + fname
+        text = read(os.path.join(fonts_dir, fname), label)
+        if text is not None:
+            n += 1
+            scan.append((label, "examined"))
+            v.extend(credit_findings(label, text, cjk_scope, True, donors))
+    text = read(gate.notice, "NOTICE")
+    if text is not None:
+        n += 1
+        scan.append(("NOTICE", "examined"))
+        v.extend(credit_findings("NOTICE", text, False, True, donors))
+
+    # 4. The name tables of all eight fonts.
+    try:
+        from fontTools.ttLib import TTFont
+    except ImportError:
+        TTFont = None
+        v.append("fontTools cannot be imported: the name tables cannot be examined")
+
+    def scan_names(label, texts, cjk_scope):
+        """Examine the name records of one font; one more entry examined."""
+        nonlocal n
+        n += 1
+        for nid, text in texts:
+            v.extend(
+                credit_findings(
+                    "%s name ID %d" % (label, nid), text, cjk_scope, True, donors
+                )
+            )
+
+    def disk_names(path):
+        with TTFont(path) as font:
+            return sorted((rec.nameID, rec.toUnicode()) for rec in font["name"].names)
+
+    if gate.ttfs and TTFont is not None:
+        for w in WEIGHTS:
+            fname = FILE_NAMES[w]
+            label = "pixelart_creator/fonts/" + fname
+            path = os.path.join(gate.out_dir, fname)
+            if not os.path.exists(path):
+                v.append("%s is missing: a scanned font is never skipped" % label)
+                scan.append((label, "MISSING"))
+                continue
+            texts = disk_names(path)
+            scan_names(label, texts, False)
+            scan.append((label, "examined (name table, %d records)" % len(texts)))
+    elif not gate.ttfs:
+        for w in WEIGHTS:
+            label = "pixelart_creator/fonts/" + FILE_NAMES[w]
+            scan.append((label, "read after this run builds it"))
+    face, counts = None, {}
+    try:
+        cjk = parse_cjk_sources(gate.cjk_dir)
+        face = cjk.face
+        counts = {s: len(CjkFont(cjk).codepoints(s)) for s in CJK_SETS}
+    except (SourceError, OSError) as exc:
+        v.append("the CJK sources cannot be read: %s" % exc)
+    if face is not None:
+        for s in CJK_SETS:
+            for w in WEIGHTS:
+                try:
+                    fname = cjk_file_name(face, s, w)
+                    names = cjk_name_table(m, face, s, w)
+                except KeyError as exc:
+                    v.append("face.txt lacks %s" % exc)
+                    continue
+                label = "pixelart_creator/fonts/" + fname
+                # The records the build writes are examined from the sources, so the
+                # name tables of fonts that do not exist yet are still gated.
+                scan_names(label + " (from the sources)", sorted(names.items()), True)
+                status = "examined from the sources"
+                path = os.path.join(gate.out_dir, fname)
+                if not gate.ttfs or TTFont is None:
+                    pass
+                elif os.path.exists(path):
+                    texts = disk_names(path)
+                    scan_names(label, texts, True)
+                    status += "; built, name table examined (%d records)" % len(texts)
+                elif counts[s] > 0:
+                    v.append(
+                        "%s is missing: the %s set has %d glyph records"
+                        % (label, s, counts[s])
+                    )
+                    status = "MISSING"
+                else:
+                    status += "; not built, the %s set has no glyph record yet" % s
+                scan.append((label, status))
+
+    if len(donors) != 1:
+        v.append(
+            "%d donors are declared (%s); exactly one is accepted"
+            % (len(donors), ", ".join(sorted(donors)) or "none")
+        )
+    info = [
+        "donors declared: %d (%s)" % (len(donors), ", ".join(sorted(donors)) or "none"),
+        "donor-derived code points: %d (%s)" % (len(donor_cps), spans(donor_cps)),
+        "donor-derived source files: %d (%s)" % (len(listed), " ".join(listed)),
+        "donor gate scan list: %d entries" % len(scan),
+    ]
+    info += ["  %s: %s" % (label, status) for label, status in scan]
+    return n, v, info
 
 
 # --------------------------------------------------------------------------
@@ -1281,19 +1708,23 @@ def name0_records(path):
         ]
 
 
-def name0_scan(paths, srcs):
+def name0_scan(paths, srcs, prior=None):
     """The copyright record (name ID 0) of every built font states each prior copyright
     line of the metrics, before the typeface's line (first record); and, at EVERY
     platform record, the typeface's own line ends with the Reserved Font Name clause
     and the clause is not attached to a prior line. A font with no name ID 0 record is
     a violation. The clause check of a weight runs once the prior lines are in order,
-    so each weight reports its first defect."""
+    so each weight reports its first defect. The CJK face passes prior=[]: its record
+    holds the typeface's own line only."""
     from fontTools.ttLib import TTFont
 
     m = srcs.metrics
-    prior = [
-        m[k] for k in sorted(m) if k.startswith("copyright_prior_line") and m[k].strip()
-    ]
+    if prior is None:
+        prior = [
+            m[k]
+            for k in sorted(m)
+            if k.startswith("copyright_prior_line") and m[k].strip()
+        ]
     v = []
     for w, p in sorted(paths.items()):
         rec = TTFont(p)["name"].getDebugName(0) or ""
@@ -1333,6 +1764,823 @@ def name0_scan(paths, srcs):
 
 
 # --------------------------------------------------------------------------
+# The CJK face: lint
+# --------------------------------------------------------------------------
+# Three families (Japanese Han forms, Simplified Han forms, Hangul), Regular and Bold,
+# one drawing per glyph for both weights. The rules below are the ones of the existing
+# face that apply to full-width glyphs, with these differences: R05 takes a declared,
+# reasoned and counted exemption list; R08 is the identity of the two weights; R14 is
+# the donor gate; R15 holds the character map to Han and Hangul; R16 holds every glyph
+# to a provenance of its own drawing. The rules R02, R03, R12 and R13 describe Latin
+# heights, proportional advances and kana, and have no counterpart here.
+
+FACE_REQUIRED = (
+    "face",
+    "version_string",
+    "font_revision",
+    "created_utc",
+    "modified_utc",
+    "exemptions",
+    "notdef_box_x",
+    "notdef_box_rows",
+) + tuple(
+    "%s_%s" % (kind, s)
+    for kind in ("family", "postscript", "records")
+    for s in CJK_SETS
+)
+# Keys that belong to the grid contract: read from the existing face's metrics.txt,
+# never restated in face.txt.
+GRID_KEYS = (
+    "em_px",
+    "units_per_px",
+    "units_per_em",
+    "cell_adv_px",
+    "cell_ink_x_regular",
+    "cell_ink_x_bold",
+    "cell_ink_rows",
+    "line_ascent_px",
+    "line_descent_px",
+    "line_gap_px",
+    "cap_px",
+    "x_px",
+    "asc_px",
+    "desc_px",
+    "em_top_px",
+    "em_bottom_px",
+)
+CJK_ATTRS = ("set", "src", "same-as", "top", "x", "dots", "solid", "at", "reason")
+# Attribute names that would record where a drawing came from. A CJK record names its
+# provenance in src= only, and the only values accepted are drawn and recipe.
+SOURCE_ATTRS = (
+    "copied",
+    "copied-from",
+    "copied_from",
+    "from",
+    "font",
+    "donor",
+    "adapted-from",
+    "traced-from",
+    "source",
+    "source-font",
+    "ref",
+)
+FREEZE_NAME = "existing-face.sha256"
+
+
+def han_hangul_ranges():
+    """The Han and Hangul code point ranges, read from logic/constants.py (the one
+    source) without importing the package."""
+    rel = "pixelart_creator/logic/constants.py"
+    path = os.path.join(REPO, *rel.split("/"))
+    spec = importlib.util.spec_from_file_location("_nifen_script_constants", path)
+    if spec is None or spec.loader is None or not os.path.isfile(path):
+        raise SourceError("%s cannot be loaded: the ranges are imported from it" % rel)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    try:
+        return tuple(module.HAN_RANGES), tuple(module.HANGUL_RANGES)
+    except AttributeError as exc:
+        raise SourceError("%s lacks %s" % (rel, exc))
+
+
+def in_ranges(cp, ranges):
+    return any(lo <= cp <= hi for lo, hi in ranges)
+
+
+def cjk_weight_pixels(cfont, key, set_key, weight):
+    """The bitmap of a CJK glyph in a weight. Bold is Regular, pixel for pixel."""
+    return cfont.pixels(key, set_key, "regular")
+
+
+def cjk_notdef(m, face):
+    """The missing-glyph box: a one-pixel frame in the declared columns and rows."""
+    a, b = rng(face["notdef_box_x"])
+    lo, hi = rng(face["notdef_box_rows"])
+    return frozenset(
+        (x, y)
+        for x in range(a, b + 1)
+        for y in range(lo, hi + 1)
+        if x in (a, b) or y in (lo, hi)
+    )
+
+
+def first_block(px):
+    """The first 2x2 block of lit pixels, as its lowest-leftmost pixel, or None."""
+    for x, y in sorted(px):
+        if (x + 1, y) in px and (x, y + 1) in px and (x + 1, y + 1) in px:
+            return (x, y)
+    return None
+
+
+def dots_of(rec):
+    try:
+        return int(rec.attrs.get("dots", "0"))
+    except ValueError:
+        return 0
+
+
+def cjk_allowance(cjk, key, set_key, seen=()):
+    """Declared isolated-pixel allowance of a glyph (its own dots plus its parts')."""
+    ident = (key, set_key)
+    rec = cjk.glyphs.get(ident)
+    if rec is None or ident in seen:
+        return 0
+    seen = seen + (ident,)
+    same = rec.attrs.get("same-as")
+    if same:
+        return cjk_allowance(cjk, key, same, seen)
+    src = rec.attrs.get("src", "")
+    total = dots_of(rec)
+    if src.startswith("recipe:"):
+        for tok in src[len("recipe:") :].split(","):
+            try:
+                part = cjk_key(tok, "")
+            except SourceError:
+                continue
+            total += cjk_allowance(cjk, part, set_key, seen)
+    return total
+
+
+def order_key(ident):
+    """Sort key: set order, then code points before parts, then the key."""
+    key, s = ident
+    rank = CJK_SETS.index(s) if s in CJK_SETS else len(CJK_SETS)
+    if isinstance(key, int):
+        return (rank, 0, key, "")
+    return (rank, 1, 0, str(key))
+
+
+def lint_cjk(srcs, font, cjk, cfont, script_files, src_dir, cjk_dir, fonts_dir, gate):
+    """Lint of the CJK face. Returns the report. A face with no glyph record yet is a
+    scaffold: the rules that examine glyphs report 0 examined and do not fail on that
+    alone (they fail as soon as a record exists and the rule reaches none of it)."""
+    rep = Report()
+    m = srcs.metrics
+    face = cjk.face
+    kx = rng(m["cell_ink_x_regular"])
+    ky = rng(m["cell_ink_rows"])
+    em_bot, em_top = mint(m, "em_bottom_px"), mint(m, "em_top_px")
+    idents = sorted(cjk.glyphs, key=order_key)
+    cp_idents = [i for i in idents if isinstance(i[0], int)]
+    if not idents:
+        rep.zero_ok.update(
+            ("R01", "R04", "R05", "R06", "R07", "R08", "R10", "R15", "R16")
+        )
+
+    # Resolve every record once. A record that does not resolve is reported by R06 and
+    # left out of the rules that need its bitmap.
+    pixels, unresolved = {}, {}
+    for ident in idents:
+        try:
+            pixels[ident] = cjk_weight_pixels(cfont, ident[0], ident[1], "regular")
+        except (SourceError, ValueError) as exc:
+            unresolved[ident] = str(exc)
+
+    def tag(ident):
+        return "%s set=%s" % (cjk_key_text(ident[0]), ident[1])
+
+    # R01 bounds ---------------------------------------------------------------------
+    v, n = [], 0
+    for ident in cp_idents:
+        if ident not in pixels:
+            continue
+        for w in WEIGHTS:
+            n += 1
+            bb = bbox(cjk_weight_pixels(cfont, ident[0], ident[1], w))
+            if bb is None:
+                v.append("%s %s has no ink" % (tag(ident), w))
+                continue
+            if bb[1] < em_bot or bb[3] > em_top - 1:
+                v.append(
+                    "%s %s ink rows %d..%d outside em box %d..%d"
+                    % (tag(ident), w, bb[1], bb[3], em_bot, em_top - 1)
+                )
+            if bb[0] < kx[0] or bb[2] > kx[1]:
+                v.append(
+                    "%s %s ink columns %d..%d outside cell columns %d..%d"
+                    % (tag(ident), w, bb[0], bb[2], kx[0], kx[1])
+                )
+            if bb[1] < ky[0] or bb[3] > ky[1]:
+                v.append(
+                    "%s %s ink rows %d..%d outside cell rows %d..%d"
+                    % (tag(ident), w, bb[1], bb[3], ky[0], ky[1])
+                )
+    rep.add("R01", "glyph within the em box and the cell", n, v)
+
+    # R04 orphan pixels --------------------------------------------------------------
+    v, n, declared = [], 0, 0
+    for ident in cp_idents:
+        if ident not in pixels:
+            continue
+        allow = cjk_allowance(cjk, ident[0], ident[1])
+        declared += allow
+        for w in WEIGHTS:
+            n += 1
+            px = cjk_weight_pixels(cfont, ident[0], ident[1], w)
+            lone = [c for c in components(px) if len(c) == 1]
+            if len(lone) > allow:
+                v.append(
+                    "%s %s has %d single-pixel components, %d declared"
+                    % (tag(ident), w, len(lone), allow)
+                )
+    rep.add(
+        "R04",
+        "orphan pixels (single-pixel components vs dots=)",
+        n,
+        v,
+        ["deliberate isolated pixels declared across the set: %d" % declared],
+    )
+
+    # R05 stems: Regular 1 px, with the declared exemptions ----------------------------
+    # A Regular glyph may hold a 2x2 block only if it is declared with a reason: on the
+    # list r05-exemptions.txt, or flagged solid in its own record. The lint prints the
+    # number of exempted glyphs and the name of each.
+    v, n = [], 0
+    valid = {}
+    first_line = {}
+    for e in cjk.exemptions:
+        s_attr = e.attrs.get("set", "")
+        ident = (e.cp, s_attr)
+        entry = "exemption entry U+%04X set=%s (%s:%d)" % (
+            e.cp,
+            s_attr or "?",
+            e.path,
+            e.line,
+        )
+        rec = cjk.glyphs.get(ident)
+        problem = None
+        if s_attr not in CJK_SETS:
+            problem = "names no set (jp, sc or kr)"
+        elif e.reason is None or not e.reason.strip():
+            problem = "gives no reason"
+        elif ident in first_line:
+            problem = "repeats the entry of line %d" % first_line[ident]
+        elif rec is None:
+            problem = "names a glyph that has no record in the set"
+        elif rec.attrs.get("same-as"):
+            problem = (
+                "names a glyph that shares another set's drawing: declare it there"
+            )
+        elif rec.has_flag("solid"):
+            problem = "is also flagged solid in its record: declare it once"
+        first_line.setdefault(ident, e.line)
+        if problem:
+            v.append("%s %s" % (entry, problem))
+        else:
+            valid[ident] = (e.reason.strip(), "list")
+    for ident in cp_idents:
+        rec = cjk.glyphs[ident]
+        if not rec.has_flag("solid"):
+            continue
+        reason = rec.attrs.get("reason", "").strip()
+        if not reason:
+            v.append("%s is flagged solid with no reason" % tag(ident))
+        elif rec.attrs.get("same-as"):
+            v.append(
+                "%s is flagged solid but shares another set's drawing" % tag(ident)
+            )
+        else:
+            valid[ident] = (reason, "solid")
+    for ident in cp_idents:
+        if ident not in pixels:
+            continue
+        n += 1
+        if cjk.glyphs[ident].attrs.get("same-as"):
+            continue  # the owning set's record carries the declaration
+        block = first_block(pixels[ident])
+        if block is not None and ident not in valid:
+            v.append(
+                "%s Regular has a 2x2 block at (%d,%d): stem wider than 1 px, and the "
+                "glyph is not declared" % ((tag(ident),) + block)
+            )
+        if block is None and ident in valid:
+            v.append(
+                "%s is declared exempt (%s) but holds no 2x2 block: remove the "
+                "declaration" % (tag(ident), valid[ident][1])
+            )
+    shown = sorted(valid, key=order_key)
+    rep.add(
+        "R05",
+        "stem width: Regular 1 px (no 2x2), declared exemptions",
+        n,
+        v,
+        ["exempted glyphs: %d%s" % (len(shown), "" if shown else " (none)")]
+        + ["exempt %s [%s]: %s" % (tag(i), valid[i][1], valid[i][0]) for i in shown],
+    )
+
+    # R06 same-as and recipes resolve ------------------------------------------------
+    v, n, used = [], 0, set()
+    for ident in idents:
+        n += 1
+        rec = cjk.glyphs[ident]
+        if ident in unresolved:
+            v.append("%s: %s" % (tag(ident), unresolved[ident]))
+            continue
+        same = rec.attrs.get("same-as")
+        if same:
+            other = cjk.glyphs.get((ident[0], same))
+            if ident[1] == "kr" or same == "kr":
+                v.append(
+                    "%s: a Hangul glyph never shares a drawing (same-as=%s)"
+                    % (tag(ident), same)
+                )
+            elif other is None:
+                v.append(
+                    "%s: same-as=%s but that set has no such record"
+                    % (tag(ident), same)
+                )
+            elif other.attrs.get("same-as"):
+                v.append(
+                    "%s: same-as=%s names a record that is itself shared"
+                    % (tag(ident), same)
+                )
+        src = rec.attrs.get("src", "")
+        if src.startswith("recipe:"):
+            for tok in src[len("recipe:") :].split(","):
+                try:
+                    used.add((cjk_key(tok, ""), ident[1]))
+                except SourceError:
+                    pass
+    rep.add(
+        "R06",
+        "every same-as and recipe resolves to drawn glyphs of the face",
+        n,
+        v,
+        [
+            "parts (drawings used by recipes, not characters): %d; unused: %d"
+            % (
+                sum(1 for i in idents if not isinstance(i[0], int)),
+                sum(1 for i in idents if not isinstance(i[0], int) and i not in used),
+            )
+        ],
+    )
+
+    # R07 duplicates and placement ---------------------------------------------------
+    v = list(cjk.duplicates)
+    for ident in idents:
+        rec = cjk.glyphs[ident]
+        if ident[1] not in CJK_SETS:
+            v.append(
+                "%s:%d: %s has no valid set= (jp, sc or kr)"
+                % (rec.path, rec.line, cjk_key_text(ident[0]))
+            )
+        elif rec.path != cjk.set_files[ident[1]]:
+            v.append(
+                "%s:%d: %s is a record of set %s but sits in %s"
+                % (rec.path, rec.line, cjk_key_text(ident[0]), ident[1], rec.path)
+            )
+    rep.add(
+        "R07", "no duplicate record, every record in its set's file", len(idents), v
+    )
+
+    # R08 Bold is Regular ------------------------------------------------------------
+    v, n = [], 0
+    for ident in cp_idents:
+        if ident not in pixels:
+            continue
+        n += 1
+        if cjk_weight_pixels(cfont, ident[0], ident[1], "regular") != cjk_weight_pixels(
+            cfont, ident[0], ident[1], "bold"
+        ):
+            v.append("%s: the Bold glyph is not the Regular glyph" % tag(ident))
+    for where in cjk.refused:
+        v.append(
+            "%s: refused, because Bold is Regular and has no drawing of its own" % where
+        )
+    rep.add(
+        "R08",
+        "Bold is Regular, pixel for pixel (pairs compared)",
+        n,
+        v,
+        ["glyph pairs compared: %d" % n],
+    )
+
+    # R09 public-safe scan -----------------------------------------------------------
+    v, n = [], 0
+    targets = [os.path.join(cjk_dir, "face.txt")]
+    targets += [os.path.join(cjk_dir, name) for name in cjk.files]
+    log = os.path.join(fonts_dir, "FONTLOG-CJK.txt")
+    if os.path.exists(log):
+        targets.append(log)
+    targets += script_files
+    for path in sorted(targets):
+        n += 1
+        with open(path, "rb") as fh:
+            text = fh.read().decode("utf-8")
+        for ln, line in enumerate(text.split("\n"), 1):
+            for label, pat in UNSAFE:
+                if pat.search(line):
+                    v.append("%s:%d contains %s" % (os.path.basename(path), ln, label))
+    rep.add("R09", "public-safe scan of sources and scripts", n, v)
+
+    # R10 outline fidelity -----------------------------------------------------------
+    v, n = [], 0
+    for ident in cp_idents:
+        if ident not in pixels:
+            continue
+        for w in WEIGHTS:
+            n += 1
+            px = cjk_weight_pixels(cfont, ident[0], ident[1], w)
+            if fill_from_contours(contours(px)) != px:
+                v.append(
+                    "%s %s outline does not reproduce the pixels" % (tag(ident), w)
+                )
+    rep.add("R10", "outline reproduces the pixel grid exactly", n, v)
+
+    # R11 contract constants and the face record -------------------------------------
+    v, n = [], 0
+    U = mint(m, "units_per_px")
+    for key, want in (("em_px", 12), ("units_per_px", 128), ("units_per_em", 1536)):
+        n += 1
+        if mint(m, key) != want:
+            v.append("%s is %s, expected %d" % (key, m[key], want))
+    n += 1
+    if mint(m, "units_per_em") != mint(m, "em_px") * U:
+        v.append("units_per_em is not em_px * units_per_px")
+    n += 1
+    if mint(m, "line_ascent_px") < em_top or mint(m, "line_descent_px") < -em_bot:
+        v.append("line box does not contain the em box")
+    for key in FACE_REQUIRED:
+        n += 1
+        if not face.get(key, "").strip():
+            v.append("face.txt does not declare %s" % key)
+    for key in sorted(face):
+        n += 1
+        if key in GRID_KEYS:
+            v.append(
+                "face.txt restates the grid key %s: it is read from metrics.txt" % key
+            )
+        if key.startswith("donor") or key.startswith("copyright_prior"):
+            v.append("face.txt declares %s: the CJK face declares no donor" % key)
+    for kind in ("family", "postscript", "records"):
+        n += 1
+        values = [face.get("%s_%s" % (kind, s), "") for s in CJK_SETS]
+        if len(set(values)) != len(values):
+            v.append("face.txt gives two sets the same %s" % kind)
+    try:
+        notdef = cjk_notdef(m, face)
+        bb = bbox(notdef)
+        n += 1
+        if (
+            bb is None
+            or bb[0] < kx[0]
+            or bb[2] > kx[1]
+            or bb[1] < ky[0]
+            or bb[3] > ky[1]
+        ):
+            v.append("the missing-glyph box lies outside the cell")
+    except (KeyError, ValueError):
+        v.append("face.txt notdef_box_x / notdef_box_rows are not column ranges")
+    rep.add("R11", "grid contract constants and the face record", n, v)
+
+    # R14 the donor gate -------------------------------------------------------------
+    n, v, donor_cps = provenance_checks(srcs, font, src_dir, fonts_dir)
+    info = (
+        [
+            "code points taken from the donor: %d: %s"
+            % (len(donor_cps), spans(donor_cps))
+        ]
+        if donor_cps
+        else []
+    )
+    gate_n, gate_v, gate_info = donor_gate(srcs, src_dir, fonts_dir, gate)
+    rep.add(
+        "R14",
+        "provenance of merged letterforms and the donor gate",
+        n + gate_n,
+        v + gate_v,
+        info + gate_info,
+    )
+
+    # R15 the character map holds Han and Hangul only --------------------------------
+    v, n = [], 0
+    han, hangul = han_hangul_ranges()
+    allowed = {"jp": han, "sc": han, "kr": hangul}
+    for ident in cp_idents:
+        n += 1
+        cp, s = ident
+        if s not in allowed:
+            continue
+        if in_ranges(cp, allowed[s]):
+            continue
+        if in_ranges(cp, han) or in_ranges(cp, hangul):
+            kind = "Han" if in_ranges(cp, han) else "Hangul"
+            v.append(
+                "U+%04X set=%s is %s: the %s set holds %s only"
+                % (cp, s, kind, s, "Hangul" if s == "kr" else "Han")
+            )
+        else:
+            v.append(
+                "U+%04X set=%s is neither Han nor Hangul: the CJK character map "
+                "holds Han and Hangul only, a space included" % (cp, s)
+            )
+    disk = 0
+    for s in CJK_SETS:
+        for w in WEIGHTS:
+            try:
+                path = os.path.join(gate.out_dir, cjk_file_name(face, s, w))
+            except KeyError:
+                continue
+            if not (gate.ttfs and os.path.exists(path)):
+                continue
+            from fontTools.ttLib import TTFont
+
+            disk += 1
+            with TTFont(path) as built:
+                for cp in sorted(built.getBestCmap()):
+                    n += 1
+                    if not in_ranges(cp, allowed[s]):
+                        v.append(
+                            "%s: U+%04X is in the character map but is not %s"
+                            % (
+                                os.path.basename(path),
+                                cp,
+                                "Hangul" if s == "kr" else "Han",
+                            )
+                        )
+    rep.add(
+        "R15",
+        "character map holds Han and Hangul only",
+        n,
+        v,
+        ["built CJK fonts whose character map was read: %d" % disk],
+    )
+
+    # R16 provenance of every glyph --------------------------------------------------
+    v, n = [], 0
+    for ident in idents:
+        n += 1
+        rec = cjk.glyphs[ident]
+        t = tag(ident)
+        for name, value in sorted(rec.attrs.items()):
+            if name in CJK_ATTRS:
+                continue
+            if name in SOURCE_ATTRS:
+                v.append(
+                    "%s: %s=%s records a font as the source of the drawing: a glyph "
+                    "copied from any font is refused" % (t, name, value)
+                )
+            else:
+                v.append("%s: the attribute %s is not part of a CJK record" % (t, name))
+        src = rec.attrs.get("src")
+        same = rec.attrs.get("same-as")
+        has_rows = any("#" in row for row in rec.rows)
+        if src is None:
+            v.append("%s: no src= (every glyph names its provenance)" % t)
+        elif src == "drawn":
+            if not has_rows and not same:
+                v.append("%s: src=drawn but the record draws nothing" % t)
+        elif src.startswith("recipe:"):
+            if not [tok for tok in src[len("recipe:") :].split(",") if tok]:
+                v.append("%s: src=recipe: names no glyph" % t)
+            if has_rows:
+                v.append("%s: a recipe has no rows of its own" % t)
+            if same:
+                v.append("%s: a recipe cannot also be same-as" % t)
+        else:
+            kind, _sep, rest = src.partition(":")
+            if rest:
+                v.append(
+                    "%s: provenance src=%s names another font (%s) as the source of "
+                    "the drawing: a glyph copied from any font is refused"
+                    % (t, src, rest)
+                )
+            else:
+                v.append("%s: provenance src=%s is not drawn or recipe" % (t, src))
+        if same and has_rows:
+            v.append("%s: a same-as record has no rows of its own" % t)
+        if same and src not in (None, "drawn"):
+            v.append("%s: same-as needs src=drawn" % t)
+        if not isinstance(ident[0], int) and (src != "drawn" or same):
+            v.append("%s: a part is a drawing of its own (src=drawn, no same-as)" % t)
+    rep.add("R16", "provenance: every glyph is drawn or a recipe of drawn glyphs", n, v)
+    return rep
+
+
+# --------------------------------------------------------------------------
+# The CJK face: build and checks of the built fonts
+# --------------------------------------------------------------------------
+
+
+def cjk_glyph_name(cp):
+    return "uni%04X" % cp if cp <= 0xFFFF else "u%05X" % cp
+
+
+def build_cjk_font(srcs, cjk, cfont, set_key, weight, out_path):
+    """One font of the CJK face. Both weights are the same drawing, so the two files of
+    a family differ in their name records and style flags only."""
+    from fontTools.fontBuilder import FontBuilder
+    from fontTools.pens.ttGlyphPen import TTGlyphPen
+
+    m, face = srcs.metrics, cjk.face
+    U = mint(m, "units_per_px")
+    adv = mint(m, "cell_adv_px")
+    cps = cfont.codepoints(set_key)
+    order = [".notdef"] + [cjk_glyph_name(cp) for cp in cps]
+    glyphs, metrics_ = {}, {}
+
+    def make(px):
+        pen = TTGlyphPen(None)
+        for loop in contours(px):
+            pts = [(x * U, y * U) for x, y in loop]
+            pen.moveTo(pts[0])
+            for p in pts[1:]:
+                pen.lineTo(p)
+            pen.closePath()
+        bb = bbox(px)
+        return pen.glyph(), (adv * U, 0 if bb is None else bb[0] * U)
+
+    glyphs[".notdef"], metrics_[".notdef"] = make(cjk_notdef(m, face))
+    cmap = {}
+    for cp in cps:
+        name = cjk_glyph_name(cp)
+        glyphs[name], metrics_[name] = make(
+            cjk_weight_pixels(cfont, cp, set_key, weight)
+        )
+        cmap[cp] = name
+
+    bold = weight == "bold"
+    asc, desc = mint(m, "line_ascent_px") * U, mint(m, "line_descent_px") * U
+    fb = FontBuilder(mint(m, "units_per_em"), isTTF=True)
+    fb.setupGlyphOrder(order)
+    fb.setupCharacterMap(cmap)
+    fb.setupGlyf(glyphs)
+    fb.setupHorizontalMetrics(metrics_)
+    fb.setupHorizontalHeader(
+        ascent=asc, descent=-desc, lineGap=mint(m, "line_gap_px") * U
+    )
+    fb.setupHead(
+        unitsPerEm=mint(m, "units_per_em"),
+        fontRevision=float(face["font_revision"]),
+        created=epoch_1904(face["created_utc"]),
+        modified=epoch_1904(face["modified_utc"]),
+        flags=0x0009,
+        lowestRecPPEM=mint(m, "em_px"),
+        macStyle=1 if bold else 0,
+        glyphDataFormat=0,
+    )
+    fb.setupNameTable(cjk_name_table(m, face, set_key, weight))
+    fb.setupOS2(
+        version=4,
+        usWeightClass=700 if bold else 400,
+        usWidthClass=5,
+        fsType=0,
+        achVendID=m["vendor_id"],
+        fsSelection=(0x20 if bold else 0x40) | 0x80,
+        sTypoAscender=asc,
+        sTypoDescender=-desc,
+        sTypoLineGap=mint(m, "line_gap_px") * U,
+        usWinAscent=asc,
+        usWinDescent=desc,
+        sxHeight=mint(m, "x_px") * U,
+        sCapHeight=mint(m, "cap_px") * U,
+        usDefaultChar=0,
+        usBreakChar=32,
+        ySubscriptXSize=7 * U,
+        ySubscriptYSize=7 * U,
+        ySubscriptXOffset=0,
+        ySubscriptYOffset=1 * U,
+        ySuperscriptXSize=7 * U,
+        ySuperscriptYSize=7 * U,
+        ySuperscriptXOffset=0,
+        ySuperscriptYOffset=4 * U,
+        yStrikeoutSize=U,
+        yStrikeoutPosition=3 * U,
+    )
+    fb.setupPost(underlinePosition=-2 * U, underlineThickness=U)
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    fb.save(out_path)
+
+
+def build_cjk_all(srcs, cjk, cfont, out_dir):
+    """Every font of every set that has a glyph record, as {(set, weight): path}."""
+    paths = {}
+    for s in CJK_SETS:
+        if not cfont.codepoints(s):
+            continue
+        for w in WEIGHTS:
+            p = os.path.join(out_dir, cjk_file_name(cjk.face, s, w))
+            build_cjk_font(srcs, cjk, cfont, s, w, p)
+            paths[(s, w)] = p
+    return paths
+
+
+def flat_labels(paths):
+    """{(set, weight): path} as {"jp-regular": path} for the name scans."""
+    return {"%s-%s" % key: p for key, p in sorted(paths.items())}
+
+
+def bold_identity(paths):
+    """Compare the Regular and Bold file of every set: same glyph order, same character
+    map, and for every glyph the same outline and the same advance. Returns
+    (glyph pairs compared, violations)."""
+    from fontTools.ttLib import TTFont
+
+    v, pairs = [], 0
+    for s in CJK_SETS:
+        if (s, "regular") not in paths or (s, "bold") not in paths:
+            continue
+        with TTFont(paths[(s, "regular")]) as fr, TTFont(paths[(s, "bold")]) as fb:
+            order = fr.getGlyphOrder()
+            where = os.path.basename(paths[(s, "bold")])
+            if order != fb.getGlyphOrder():
+                v.append("%s: the glyph order differs from Regular" % where)
+                continue
+            if fr.getBestCmap() != fb.getBestCmap():
+                v.append("%s: the character map differs from Regular" % where)
+            gr, gb = fr["glyf"], fb["glyf"]
+            for name in order:
+                pairs += 1
+                cr, cb = gr[name].getCoordinates(gr), gb[name].getCoordinates(gb)
+                same = (
+                    list(cr[0]) == list(cb[0])
+                    and list(cr[1]) == list(cb[1])
+                    and list(cr[2]) == list(cb[2])
+                    and fr["hmtx"][name] == fb["hmtx"][name]
+                )
+                if not same:
+                    v.append(
+                        "%s: glyph %s is not the Regular glyph, pixel for pixel"
+                        % (where, name)
+                    )
+    return pairs, v
+
+
+# --------------------------------------------------------------------------
+# The freeze manifest of the existing face
+# --------------------------------------------------------------------------
+
+
+def freeze_verify(root, manifest):
+    """Compare the existing face with its manifest: every listed file present and equal,
+    and no file under fonts-src/nifen-art that the manifest does not list. Returns
+    (files compared, violations, info lines)."""
+    v, info, listed = [], [], {}
+    if not os.path.isfile(manifest):
+        v.append("the freeze manifest %s is missing" % os.path.basename(manifest))
+        return 0, v, info
+    with open(manifest, "rb") as fh:
+        text = fh.read().decode("utf-8")
+    for number, line in enumerate(text.split("\n"), 1):
+        line = line.rstrip("\r")
+        if not line.strip() or line.startswith("#"):
+            continue
+        digest, sep, rel = line.partition("  ")
+        if not sep or not re.fullmatch(r"[0-9a-f]{64}", digest) or not rel.strip():
+            v.append(
+                "%s:%d is not '<sha256>  <path>'" % (os.path.basename(manifest), number)
+            )
+            continue
+        if rel in listed:
+            v.append("%s is listed twice" % rel)
+        listed[rel] = digest
+    n = same = 0
+    for rel, digest in sorted(listed.items()):
+        path = os.path.join(root, *rel.split("/"))
+        if not os.path.isfile(path):
+            v.append("%s is listed but missing" % rel)
+            continue
+        n += 1
+        if sha256(path) == digest:
+            same += 1
+        else:
+            v.append("%s differs from the manifest" % rel)
+    base = os.path.join(root, "fonts-src", "nifen-art")
+    extra = 0
+    if os.path.isdir(base):
+        for rel in walk_files(base):
+            key = "fonts-src/nifen-art/" + rel
+            if key not in listed:
+                extra += 1
+                v.append(
+                    "%s is not in the manifest: a file was added to the frozen face"
+                    % key
+                )
+    else:
+        v.append("fonts-src/nifen-art is missing")
+    if n == 0:
+        v.append("the manifest lists no file that exists: nothing was compared")
+    info.append(
+        "existing face frozen: %d files compared, %d identical, %d missing or "
+        "changed, %d not listed" % (n, same, len(listed) - same, extra)
+    )
+    return n, v, info
+
+
+def print_freeze(args):
+    """Run the freeze comparison and print it. Returns True when it is clean."""
+    root = getattr(args, "root", REPO)
+    manifest = os.path.join(getattr(args, "cjk_src", DEFAULT_CJK_SRC), FREEZE_NAME)
+    n, v, info = freeze_verify(root, manifest)
+    for line in info:
+        print(line)
+    for x in v:
+        print("  VIOLATION", x)
+    print("freeze check: %d files compared, %d violations" % (n, len(v)))
+    return not v and n > 0
+
+
+# --------------------------------------------------------------------------
 # Commands
 # --------------------------------------------------------------------------
 
@@ -1345,11 +2593,48 @@ def script_list():
     return out
 
 
+def existing_gate(args, ttfs):
+    """The donor gate's inputs beyond the existing face's own sources."""
+    return Gate(
+        getattr(args, "cjk_src", DEFAULT_CJK_SRC),
+        getattr(args, "notice", DEFAULT_NOTICE),
+        getattr(args, "out", DEFAULT_OUT),
+        ttfs,
+    )
+
+
+def built_name_findings(paths, cjk_scope):
+    """The donor gate's reading of the name records of fonts this run just built."""
+    from fontTools.ttLib import TTFont
+
+    donors, out = set(), []
+    for label, path in sorted(paths.items()):
+        with TTFont(path) as font:
+            for rec in font["name"].names:
+                out.extend(
+                    credit_findings(
+                        "%s name ID %d" % (label, rec.nameID),
+                        rec.toUnicode(),
+                        cjk_scope,
+                        True,
+                        donors,
+                    )
+                )
+    return out
+
+
 def cmd_lint(args):
+    if getattr(args, "face", FACE_EXISTING) == FACE_CJK:
+        return cmd_lint_cjk(args)
     srcs = parse_sources(args.src)
     font = Font(srcs)
     rep = lint(
-        srcs, font, script_list(), args.src, getattr(args, "licence_dir", DEFAULT_OUT)
+        srcs,
+        font,
+        script_list(),
+        args.src,
+        getattr(args, "licence_dir", DEFAULT_OUT),
+        existing_gate(args, True),
     )
     total = rep.print()
     cps = font.codepoints()
@@ -1364,11 +2649,51 @@ def cmd_lint(args):
     return 1 if rep.failed() else 0
 
 
+def cmd_lint_cjk(args):
+    srcs = parse_sources(args.src)
+    font = Font(srcs)
+    cjk_src = getattr(args, "cjk_src", DEFAULT_CJK_SRC)
+    cjk = parse_cjk_sources(cjk_src)
+    cfont = CjkFont(cjk)
+    rep = lint_cjk(
+        srcs,
+        font,
+        cjk,
+        cfont,
+        script_list(),
+        args.src,
+        cjk_src,
+        getattr(args, "licence_dir", DEFAULT_OUT),
+        existing_gate(args, True),
+    )
+    total = rep.print()
+    counts = {s: len(cfont.codepoints(s)) for s in CJK_SETS}
+    cps = sum(counts.values())
+    print(
+        "CJK glyphs: %d codepoints x 2 weights = %d examined; sets %s; records %d"
+        % (cps, cps * 2, counts, len(cjk.glyphs))
+    )
+    if not cjk.glyphs:
+        print(
+            "CJK glyph records: 0. Nothing is drawn yet, so the glyph rules examined "
+            "nothing; that does not fail the lint while no record exists."
+        )
+    print("lint violations: %d" % total)
+    return 1 if rep.failed() else 0
+
+
 def cmd_build(args):
+    if getattr(args, "face", FACE_EXISTING) == FACE_CJK:
+        return cmd_build_cjk(args)
     srcs = parse_sources(args.src)
     font = Font(srcs)
     rep = lint(
-        srcs, font, script_list(), args.src, getattr(args, "licence_dir", DEFAULT_OUT)
+        srcs,
+        font,
+        script_list(),
+        args.src,
+        getattr(args, "licence_dir", DEFAULT_OUT),
+        existing_gate(args, False),
     )
     if rep.failed():
         rep.print()
@@ -1376,7 +2701,7 @@ def cmd_build(args):
         return 1
     paths = build_all(srcs, font, args.out)
     n, v = name_table_scan(paths)
-    v = v + name0_scan(paths, srcs)
+    v = v + name0_scan(paths, srcs) + built_name_findings(paths, False)
     print("name records scanned: %d, public-safe violations: %d" % (n, len(v)))
     print(
         "name ID 0 records checked for the clause %r: %d"
@@ -1392,7 +2717,59 @@ def cmd_build(args):
     return 1 if v or n == 0 else 0
 
 
+def cmd_build_cjk(args):
+    srcs = parse_sources(args.src)
+    font = Font(srcs)
+    cjk_src = getattr(args, "cjk_src", DEFAULT_CJK_SRC)
+    cjk = parse_cjk_sources(cjk_src)
+    cfont = CjkFont(cjk)
+    rep = lint_cjk(
+        srcs,
+        font,
+        cjk,
+        cfont,
+        script_list(),
+        args.src,
+        cjk_src,
+        getattr(args, "licence_dir", DEFAULT_OUT),
+        existing_gate(args, False),
+    )
+    if rep.failed():
+        rep.print()
+        print("build refused: lint failed")
+        return 1
+    if not any(cfont.codepoints(s) for s in CJK_SETS):
+        print("build refused: the CJK face has no glyph record: nothing to build")
+        return 1
+    paths = build_cjk_all(srcs, cjk, cfont, args.out)
+    flat = flat_labels(paths)
+    n, v = name_table_scan(flat)
+    v = v + name0_scan(flat, srcs, prior=[]) + built_name_findings(flat, True)
+    pairs, bv = bold_identity(paths)
+    v = v + bv
+    print("name records scanned: %d, public-safe violations: %d" % (n, len(v)))
+    print(
+        "name ID 0 records checked for the clause %r: %d"
+        % (RFN_CLAUSE, sum(len(name0_records(p)) for p in flat.values()))
+    )
+    print("Bold == Regular: %d glyph pairs compared, %d differ" % (pairs, len(bv)))
+    for x in v:
+        print("  VIOLATION", x)
+    for key in sorted(paths):
+        print(
+            "built %s  %d bytes  sha256 %s"
+            % (
+                os.path.basename(paths[key]),
+                os.path.getsize(paths[key]),
+                sha256(paths[key]),
+            )
+        )
+    return 1 if v or n == 0 or pairs == 0 else 0
+
+
 def cmd_check(args):
+    if getattr(args, "face", FACE_EXISTING) == FACE_CJK:
+        return cmd_check_cjk(args)
     srcs = parse_sources(args.src)
     font = Font(srcs)
     if args.tmp:
@@ -1422,7 +2799,65 @@ def cmd_check(args):
         "--check: %d/%d weights byte-identical (two fresh rebuilds and the files on "
         "disk)" % (examined if ok else 0, examined)
     )
-    return 0 if ok and examined else 1
+    frozen = print_freeze(args)
+    return 0 if ok and examined and frozen else 1
+
+
+def cmd_check_cjk(args):
+    srcs = parse_sources(args.src)
+    cjk_src = getattr(args, "cjk_src", DEFAULT_CJK_SRC)
+    cjk = parse_cjk_sources(cjk_src)
+    cfont = CjkFont(cjk)
+    tmp = getattr(args, "tmp", None)
+    if tmp:
+        os.makedirs(tmp, exist_ok=True)
+    ok, examined = True, 0
+    on_disk = {}
+    if not any(cfont.codepoints(s) for s in CJK_SETS):
+        print(
+            "--check: the CJK face has no glyph record: no font to rebuild or compare"
+        )
+        ok = False
+    else:
+        with (
+            tempfile.TemporaryDirectory(dir=tmp) as t1,
+            tempfile.TemporaryDirectory(dir=tmp) as t2,
+        ):
+            p1 = build_cjk_all(srcs, cjk, cfont, t1)
+            srcs2 = parse_sources(args.src)
+            cjk2 = parse_cjk_sources(cjk_src)
+            p2 = build_cjk_all(srcs2, cjk2, CjkFont(cjk2), t2)
+            for key in sorted(p1):
+                name = os.path.basename(p1[key])
+                a, b = sha256(p1[key]), sha256(p2[key])
+                committed = os.path.join(args.out, name)
+                c = sha256(committed) if os.path.exists(committed) else "(missing)"
+                if c != "(missing)":
+                    on_disk[key] = committed
+                examined += 1
+                same = a == b == c
+                ok = ok and same
+                print("%-24s build1 %s" % (name, a))
+                print("%-24s build2 %s" % ("", b))
+                print(
+                    "%-24s disk   %s   %s"
+                    % ("", c, "IDENTICAL" if same else "DIFFERENT")
+                )
+        print(
+            "--check: %d/%d CJK files byte-identical (two fresh rebuilds and the files "
+            "on disk)" % (examined if ok else 0, examined)
+        )
+        pairs, bv = bold_identity(on_disk)
+        for x in bv:
+            print("  VIOLATION", x)
+        print("Bold == Regular: %d glyph pairs compared, %d differ" % (pairs, len(bv)))
+        ok = ok and not bv and pairs > 0
+    frozen = print_freeze(args)
+    return 0 if ok and frozen and examined else 1
+
+
+def cmd_verify_freeze(args):
+    return 0 if print_freeze(args) else 1
 
 
 def main():
@@ -1430,9 +2865,21 @@ def main():
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument(
+        "--face",
+        choices=(FACE_EXISTING, FACE_CJK),
+        default=FACE_EXISTING,
+        help="which face to lint, build or check (default: nifen-art)",
+    )
+    ap.add_argument(
         "--src",
         default=DEFAULT_SRC,
-        help="glyph sources folder (default: fonts-src/nifen-art)",
+        help="glyph sources folder of the existing face; the CJK face reads its grid "
+        "and donor facts from the metrics.txt in it (default: fonts-src/nifen-art)",
+    )
+    ap.add_argument(
+        "--cjk-src",
+        default=DEFAULT_CJK_SRC,
+        help="glyph sources folder of the CJK face (default: fonts-src/nifen-art-cjk)",
     )
     ap.add_argument(
         "--out",
@@ -1442,8 +2889,18 @@ def main():
     ap.add_argument(
         "--licence-dir",
         default=DEFAULT_OUT,
-        help="folder with OFL.txt and FONTLOG.txt that the provenance rule reads "
-        "(default: pixelart_creator/fonts)",
+        help="folder with OFL.txt, FONTLOG.txt and FONTLOG-CJK.txt that the provenance "
+        "rule and the donor gate read (default: pixelart_creator/fonts)",
+    )
+    ap.add_argument(
+        "--notice",
+        default=DEFAULT_NOTICE,
+        help="the product's notice file, scanned by the donor gate (default: NOTICE)",
+    )
+    ap.add_argument(
+        "--root",
+        default=REPO,
+        help="repository root that the freeze manifest's paths are relative to",
     )
     ap.add_argument(
         "--tmp",
@@ -1454,6 +2911,11 @@ def main():
     g.add_argument("--lint", action="store_true")
     g.add_argument("--build", action="store_true")
     g.add_argument("--check", action="store_true")
+    g.add_argument(
+        "--verify-freeze",
+        action="store_true",
+        help="compare the existing face with its freeze manifest",
+    )
     args = ap.parse_args()
     make_console_safe()
     try:
@@ -1461,6 +2923,8 @@ def main():
             return cmd_lint(args)
         if args.build:
             return cmd_build(args)
+        if args.verify_freeze:
+            return cmd_verify_freeze(args)
         return cmd_check(args)
     except SourceError as exc:
         print("source error:", exc)
