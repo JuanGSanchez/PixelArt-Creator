@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import pytest
 from PySide6.QtCore import QEvent, Qt
-from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
 from pixelart_creator.logic.constants import CRDT_TILE_SIZE_PX
 from pixelart_creator.logic.convergence import (
@@ -48,6 +48,7 @@ from pixelart_creator.logic.convergence import (
 )
 from pixelart_creator.logic.realtime_apply import branch
 from pixelart_creator.ui.branch_diff_dialog import Branch_Diff_Dialog
+from pixelart_creator.ui.i18n import FALLBACK_LANGUAGE, LanguageManager
 from pixelart_creator.ui.main_window import Main_Window
 
 _TILE = CRDT_TILE_SIZE_PX
@@ -289,6 +290,76 @@ def test_every_control_has_an_accessible_name(diverged_dialog):
     for _box, count_label, list_widget in dialog._groups.values():
         assert list_widget.accessibleName() != ""
         assert list_widget.accessibleDescription() != ""
+
+
+def _focusable_children(dialog):
+    """Every descendant widget the user can Tab to or click into (``focusPolicy``
+    other than ``NoFocus``) -- found by sweep, not by a hand-written list, so a
+    focusable widget added later (or one whose name is lost) cannot slip past.
+    """
+    return [
+        widget
+        for widget in dialog.findChildren(QWidget)
+        if widget.focusPolicy() != Qt.FocusPolicy.NoFocus
+    ]
+
+
+def test_every_focusable_child_has_an_accessible_name(diverged_dialog):
+    """``REQ-P10-UI-021``: a SWEEP over every focusable child --
+    the hand-written list above could not see the scroll area, whose missing
+    name a screen reader announced as an unnamed scroll pane.
+
+    The sweep must not be able to pass by finding nothing, so it is anchored:
+    it has to contain the scroll area, both buttons and every list (the four
+    op-tier lists and the region list).
+    """
+    dialog = diverged_dialog
+    swept = _focusable_children(dialog)
+    anchors = [
+        dialog._scroll,
+        dialog._continue_button,
+        dialog._close_button,
+        dialog._region_list,
+        *(list_widget for _b, _c, list_widget in dialog._groups.values()),
+    ]
+    for anchor in anchors:
+        assert anchor in swept, f"sweep missed {type(anchor).__name__}"
+    for widget in swept:
+        assert (
+            widget.accessibleName() != ""
+        ), f"focusable {type(widget).__name__} has no accessible name"
+
+
+def test_scroll_area_accessible_name_follows_language_change(
+    qtbot, qapp, make_document
+):
+    """``REQ-P10-UI-021`` + ``-023``: the scroll area (and every other focusable
+    child) keeps a non-empty accessible name after the REAL
+    ``LanguageManager.set_language("es")`` -> ``LanguageChange`` path and again
+    after switching back, and the scroll area's name actually changes language
+    (proving ``_retranslate`` re-sets it rather than it being a stale English
+    string that merely stays non-empty).
+
+    ``LanguageChange`` is delivered as a posted event, hence ``processEvents()``
+    (see ``test_about_dialog.py``, SC-AV-UI-012-2).
+    """
+    dialog = _make_dialog(qtbot, make_document)
+    english = dialog._scroll.accessibleName()
+    assert english != ""
+    manager = LanguageManager(qapp)
+    try:
+        assert manager.set_language("es") is True, "no es catalogue"
+        QApplication.processEvents()
+        spanish = dialog._scroll.accessibleName()
+        assert spanish != "" and spanish != english
+        for widget in _focusable_children(dialog):
+            assert widget.accessibleName() != ""
+    finally:
+        manager.set_language(FALLBACK_LANGUAGE)
+        QApplication.processEvents()
+    assert dialog._scroll.accessibleName() == english
+    for widget in _focusable_children(dialog):
+        assert widget.accessibleName() != ""
 
 
 def test_retranslates_on_language_change(qtbot, make_document):

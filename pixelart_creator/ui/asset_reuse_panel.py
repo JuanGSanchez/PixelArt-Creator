@@ -59,6 +59,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -96,6 +97,10 @@ _PCOL_SHARED = 3
 
 #: The selected asset row's ``asset_id`` is stashed on the name column (both trees).
 _ROLE_ASSET = Qt.ItemDataRole.UserRole
+
+
+#: Column of the in-project reference list that shows the resolve state.
+_STATE_COLUMN = 2
 
 
 class Asset_Reuse_Panel(QWidget):
@@ -483,6 +488,11 @@ class Asset_Reuse_Panel(QWidget):
             self.tr("References in the current project")
         )
         self._missing_label.setAccessibleName(self.tr("Missing reference count"))
+        # The state column is sized from its translated header (and rows), not a
+        # fixed default width, so a longer translation is never elided.
+        self._project_tree.header().setSectionResizeMode(
+            _STATE_COLUMN, QHeaderView.ResizeMode.ResizeToContents
+        )
         self._refresh()
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
