@@ -58,6 +58,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QWidget
 from pytestqt.exceptions import capture_exceptions
 
+from pixelart_creator.logic.language_names import selector_entries
 from pixelart_creator.ui.main_window import Main_Window
 
 _Result = TypeVar("_Result")
@@ -420,9 +421,18 @@ def test_switching_every_shipped_language_twice_on_one_window_raises_nothing(
     try:
         shipped = manager.available_languages()
         entries = list(_selector_entries(window))
-        assert entries == shipped, (
+        # The menu lists the SAME languages the manager reports (set equality,
+        # so a dropped or invented language fails) in the user-ruled selector
+        # order, not in the manager's alphabetical discovery order (REQ-L10N-UI-003).
+        # Order equality is exact, not a subset check.
+        assert set(entries) == set(shipped) and len(entries) == len(shipped), (
             f"the Language menu offers {entries!r} but the manager reports "
-            f"{shipped!r}"
+            f"{shipped!r}: the two do not list the same languages"
+        )
+        expected_order = [code for code, _ in selector_entries(shipped)]
+        assert entries == expected_order, (
+            f"the Language menu offers {entries!r} but the selector order for "
+            f"{shipped!r} is {expected_order!r}"
         )
         assert len(shipped) >= 2, f"only {shipped!r} is shipped: nothing to switch"
         assert shipped[0] == _SOURCE_LANGUAGE

@@ -37,6 +37,7 @@ from PySide6.QtGui import (
     QCursor,
     QDragEnterEvent,
     QDropEvent,
+    QFont,
     QGuiApplication,
     QIcon,
     QImage,
@@ -68,6 +69,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.logic.font_chain as font_chain
+import pixelart_creator.logic.language_names as language_names
 from pixelart_creator.data.asset_cas import default_content_store
 from pixelart_creator.data.asset_decision_journal import (
     JOURNAL_FILENAME,
@@ -154,8 +157,12 @@ from pixelart_creator.logic.version_history import CloudVersion
 from pixelart_creator.ui.about_dialog import About_Dialog
 from pixelart_creator.ui.app_font import (
     apply_interface_font,
+    chain_font,
     ensure_interface_font,
+    interface_font,
+    nifen_art_available,
     prepare_interface_font,
+    primary_holds_cjk,
 )
 from pixelart_creator.ui.app_icon import app_icon
 from pixelart_creator.ui.appearance_settings import (
@@ -1804,11 +1811,20 @@ class Main_Window(QMainWindow):
         self._theme_menu.addAction(self._interface_pixel_perfect_action)
 
         self._language_menu = bar.addMenu("")
-        for code in self._language_manager.available_languages():
-            action = QAction(code, self)
+        # Each entry is labelled by the language's own name (REQ-L10N-UI-003), the
+        # same in every language and so not a tr() string, and is drawn in its own
+        # language's font chain (REQ-L10N-UI-012). The label is the accessible name
+        # a menu entry reports.
+        self._language_entry_actions: List[Tuple[str, QAction]] = []
+        for code, endonym in language_names.selector_entries(
+            self._language_manager.available_languages()
+        ):
+            action = QAction(endonym, self)
             action.setData(code)
             action.triggered.connect(self._on_language_action)
             self._language_menu.addAction(action)
+            self._language_entry_actions.append((code, action))
+        self._apply_language_entry_fonts()
 
         # Help menu (REQ-UG-UI-001): hosts the User Guide entry, consistent with the
         # existing menu structure (added last, the conventional trailing menu).
@@ -5018,6 +5034,32 @@ class Main_Window(QMainWindow):
         )
         return image.copy()
 
+    def _language_role_font(self) -> QFont:
+        """Return the font the Language menu really gets (its UI role primary).
+
+        The interface font in the pixel-font mode; otherwise the platform's font
+        for menus, which the application font module puts back (the application
+        font when the platform gave menus none of their own).
+        """
+        if self._appearance.use_system_font or not nifen_art_available():
+            return QFont(QApplication.font(self._language_menu))
+        return interface_font()
+
+    def _apply_language_entry_fonts(self) -> None:
+        """Draw each Language entry in its own language's font chain.
+
+        Re-applied when the font mode changes and after a style or mode switch
+        re-applies the application font, never on a language change: the label
+        and its chain do not depend on the active language.
+        """
+        base = self._language_role_font()
+        primary = base.family()
+        holds_cjk = primary_holds_cjk(primary)
+        for code, action in self._language_entry_actions:
+            action.setFont(
+                chain_font(base, font_chain.label_chain(primary, code, holds_cjk))
+            )
+
     def _on_language_action(self) -> None:
         action = self.sender()
         if isinstance(action, QAction):
@@ -5109,6 +5151,7 @@ class Main_Window(QMainWindow):
     def _on_use_system_font_changed(self, enabled: bool) -> None:
         """Apply the "Use system font" choice at once (REQ-VI-UI-016)."""
         apply_interface_font(self._app, enabled)
+        self._apply_language_entry_fonts()
         if self._user_guide_dialog is not None:
             self._user_guide_dialog.set_use_system_font(enabled)
 
@@ -5147,6 +5190,7 @@ class Main_Window(QMainWindow):
         # Applies first: an unknown id raises here, before any state changes.
         apply_theme(self._app, mode, style_id)
         ensure_interface_font(self._app, self._appearance.use_system_font)
+        self._apply_language_entry_fonts()
         self._style = style_id
         self._theme = mode
         self._style_actions[style_id].setChecked(True)
