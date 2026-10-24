@@ -187,6 +187,12 @@ pixelart_creator = [
     # by building the wheel and listing it, not by reading these entries.
     "fonts/NifenArt-Regular.ttf",
     "fonts/NifenArt-Bold.ttf",
+    "fonts/NifenArtCJKJP-Regular.ttf",
+    "fonts/NifenArtCJKJP-Bold.ttf",
+    "fonts/NifenArtCJKSC-Regular.ttf",
+    "fonts/NifenArtCJKSC-Bold.ttf",
+    "fonts/NifenArtCJKKR-Regular.ttf",
+    "fonts/NifenArtCJKKR-Bold.ttf",
     "fonts/OFL.txt",
     "fonts/FONTLOG.txt",
     "fonts/FONTLOG-CJK.txt",

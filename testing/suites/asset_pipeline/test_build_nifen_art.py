@@ -36,6 +36,16 @@ Scenarios covered (one group each):
   (section 11).
 * The command line: modes, exit codes (0 pass, 1 violation, 2 source error or
   usage), the denominators printed, and failure when nothing was examined.
+* Section 12: the CJK face on SCRATCH sources that hold glyph records (the real
+  ones held 0 when it was written). SC-L10N-BUILD-001-3 (Bold is Regular),
+  -6 / -7 / -8 (R05 and its declared, counted exemptions), SC-L10N-BUILD-002-1 (one
+  donor, 89 donor-derived code points), -2 (the donor gate, all four rows, the scan
+  list and the scope that leaves the root CHANGELOG.md out), -3 (a glyph copied from a
+  font is refused), the CJK cmap rule, the scan list for a set with no record, and the
+  OS/2 range bits. SC-L10N-BUILD-001-4 is in ``test_existing_face_frozen.py``.
+* The lint-control SHARDS: their number is derived from the size of the
+  catalogue, ``CONTROLS_PER_SHARD`` controls to a shard, so a new control cannot
+  overload one.
 
 Independence of the numbers: the built fonts are read back with fontTools by the
 tests themselves (name table, metrics, outlines, cmap); the 12-row em, the capital
@@ -1974,7 +1984,35 @@ def test_lint_runs_to_the_end_on_a_legacy_console(scratch):
 #: guards is unchanged: ``lint_controls.main()`` runs to the end on a cp1252 stream,
 #: exits 0, writes nothing to stderr and says how many controls it ran and skipped.
 #: That every shard together is the WHOLE catalogue is asserted separately, below.
-CONTROL_SHARDS = 16
+#:
+#: The SIZE of a shard is the constant, not the number of shards. The
+#: catalogue grew from 89 controls to 142 with the CJK face and will grow again, and a
+#: fixed count of 16 shards made every shard grow with it (9 controls at 142, 13 at
+#: 200, 16 at 250). Now the number of shards is DERIVED, ``ceil(len(CONTROLS) /
+#: CONTROLS_PER_SHARD)``, so a control added to the catalogue adds a shard when the
+#: last one is full and never makes an existing one slower.
+#:
+#: Why 8. The costliest kind of control is the one that lints a scratch copy of the
+#: existing face: measured 2026-10-24 on the Windows machine, 1.28 to 1.53 s each when
+#: ``lint_controls`` runs the whole catalogue in one process (a control of the CJK
+#: fixture takes 0.3 to 0.4 s, one that builds a font 0.2 s, and the first CJK control
+#: of a process 1.1 s, because it builds the fixture fonts). A shard is budgeted as if
+#: all its controls were the costliest kind: 8 x 1.55 s = 12.4 s of work, plus about
+#: 0.6 s for the child to start (13.0 s), against the 20 s a test item may take locally
+#: (a sixth of the CI cap) and the 60 s it may take per OS in CI (half of it). That
+#: leaves a margin of 1.5x locally and 4.6x to the CI bound; the one earlier
+#: timeout on a loaded runner puts its factor above 1.41 and gives no ceiling, so the
+#: margin is a stated choice, not a derived figure. The cap itself (``--timeout=120`` in
+#: ``ci.yml``) is not touched, no control is dropped, merged or skipped, and the
+#: arithmetic is held by ``test_the_shard_budget_arithmetic_leaves_the_margin``.
+#: A task that adds controls re-measures ``MEASURED_SECONDS_PER_CONTROL`` and, when a
+#: shard item exceeds ``LOCAL_ITEM_BUDGET_SECONDS`` in the ``--durations`` listing,
+#: lowers ``CONTROLS_PER_SHARD`` in a further instance.
+CONTROLS_PER_SHARD = 8
+MEASURED_SECONDS_PER_CONTROL = 1.55
+CHILD_START_SECONDS = 0.6
+LOCAL_ITEM_BUDGET_SECONDS = 20
+CI_ITEM_BUDGET_SECONDS = 60
 
 #: Run by a child on the legacy console: load ``lint_controls.py`` by path, keep one
 #: slice of its catalogue and call its own ``main``. Pure ASCII, so the command line
@@ -2014,13 +2052,26 @@ sys.exit(module.main())
 """
 
 
-def _shard_bounds(total: int, shards: int) -> List[Tuple[int, int]]:
-    """Contiguous ``[lo, hi)`` slices of ``range(total)``; none is empty."""
-    size = -(-total // shards)
-    return [(lo, min(lo + size, total)) for lo in range(0, total, size)]
+def _shard_bounds(
+    total: int, per_shard: int = CONTROLS_PER_SHARD
+) -> List[Tuple[int, int]]:
+    """Contiguous ``[lo, hi)`` slices of ``range(total)``; none is empty and none holds
+    more than ``per_shard``. The number of slices is ``ceil(total / per_shard)`` and the
+    controls are spread over them as evenly as whole controls allow, so the sizes differ
+    by one at most."""
+    if total <= 0:
+        return []
+    count = -(-total // per_shard)
+    base, extra = divmod(total, count)
+    bounds, lo = [], 0
+    for index in range(count):
+        hi = lo + base + (1 if index < extra else 0)
+        bounds.append((lo, hi))
+        lo = hi
+    return bounds
 
 
-_SHARDS = _shard_bounds(len(_CONTROLS.CONTROLS), CONTROL_SHARDS)
+_SHARDS = _shard_bounds(len(_CONTROLS.CONTROLS))
 
 
 def test_the_control_shards_are_the_whole_catalogue_once():
@@ -2028,13 +2079,52 @@ def test_the_control_shards_are_the_whole_catalogue_once():
     together cover every control, so the shards below run exactly as many controls
     as the catalogue holds (and no fewer than the 48 delivered with the lint)."""
     total = len(_CONTROLS.CONTROLS)
+    print(
+        "catalogue: %d controls in %d shards of at most %d"
+        % (total, len(_SHARDS), CONTROLS_PER_SHARD)
+    )
     assert total >= 48
     assert _SHARDS and _SHARDS[0][0] == 0 and _SHARDS[-1][1] == total
     for (_, end), (start, _) in zip(_SHARDS, _SHARDS[1:]):
         assert end == start, "shards overlap or leave a gap at %d / %d" % (end, start)
     assert all(lo < hi for lo, hi in _SHARDS)
     assert sum(hi - lo for lo, hi in _SHARDS) == total
-    assert len(_SHARDS) <= CONTROL_SHARDS
+
+
+def test_the_control_catalogue_holds_the_142_controls_of_both_faces():
+    """No control is dropped, merged or skipped to make the shards fit. The catalogue
+    holds 142 (89 of the existing face and 53 of the CJK face); a lower count means
+    one of them was removed."""
+    assert len(_CONTROLS.CONTROLS) >= 142
+
+
+def test_the_shard_count_follows_the_catalogue_and_no_shard_outgrows_its_budget():
+    """The number of shards is derived from the size of the catalogue. For
+    every catalogue size from 1 to 1000, including sizes far past today's 142, the
+    slices cover it once, in order, none holds more than ``CONTROLS_PER_SHARD`` and
+    their number is ``ceil(total / CONTROLS_PER_SHARD)``. A catalogue that grows can
+    therefore add shards and can never make one of them slower."""
+    for total in range(1, 1001):
+        bounds = _shard_bounds(total)
+        assert len(bounds) == -(-total // CONTROLS_PER_SHARD), total
+        assert bounds[0][0] == 0 and bounds[-1][1] == total, total
+        assert all(a[1] == b[0] for a, b in zip(bounds, bounds[1:])), total
+        sizes = [hi - lo for lo, hi in bounds]
+        assert min(sizes) >= 1 and max(sizes) <= CONTROLS_PER_SHARD, total
+        assert max(sizes) - min(sizes) <= 1, total
+    assert _shard_bounds(0) == []
+    assert len(_SHARDS) == -(-len(_CONTROLS.CONTROLS) // CONTROLS_PER_SHARD)
+    assert max(hi - lo for lo, hi in _SHARDS) <= CONTROLS_PER_SHARD
+
+
+def test_the_shard_budget_arithmetic_leaves_the_margin():
+    """The constants above, held to their own stated arithmetic: a shard of the
+    costliest control kind fits the local item budget of 20 s and the per-OS CI bound
+    of 60 s, which are a sixth and a half of the 120 s cap that ``ci.yml`` keeps."""
+    worst = CONTROLS_PER_SHARD * MEASURED_SECONDS_PER_CONTROL + CHILD_START_SECONDS
+    assert worst <= LOCAL_ITEM_BUDGET_SECONDS, worst
+    assert worst * 4 <= CI_ITEM_BUDGET_SECONDS, worst
+    assert LOCAL_ITEM_BUDGET_SECONDS * 6 == 120 and CI_ITEM_BUDGET_SECONDS * 2 == 120
 
 
 @pytest.mark.parametrize(
@@ -2577,3 +2667,1034 @@ def test_sc_vi_build_011_2_the_same_build_without_the_damage_passes(capsys, scra
     shown = capsys.readouterr().out
     assert status == 0, shown
     assert "public-safe violations: 0" in shown and "VIOLATION" not in shown, shown
+
+
+# --------------------------------------------------------------------------
+# 12. The CJK face and the donor gate
+#     SC-L10N-BUILD-001-3, -6, -7, -8 and SC-L10N-BUILD-002-1, -2, -3
+# --------------------------------------------------------------------------
+#
+# The real CJK sources under ``fonts-src/nifen-art-cjk`` hold 0 glyph records until
+# the glyphs are drawn, so a glyph-level case run on them would examine nothing and
+# pass for nothing. Every case below runs on a SCRATCH WORLD: a copy of the existing
+# face's sources (``--src``), a CJK source folder written here with one record per set
+# (``--cjk-src``), a fonts folder holding the licence files, the existing face's two
+# fonts and the six CJK fonts that ``--build`` made from those scratch records
+# (``--out`` and ``--licence-dir``), and a copy of ``NOTICE`` (``--notice``). The world
+# is checked to hold more than 0 records per set before any case reads it, and the
+# lint's own record count is read back as well. Each planted case is paired with its
+# control: the same world, unplanted, passes.
+
+CJK_RECORD_FILES = {"jp": "han-jp.txt", "sc": "han-sc.txt", "kr": "hangul.txt"}
+CJK_FAMILIES = ("jp", "sc", "kr")
+CJK_FONT_STEMS = {"jp": "NifenArtCJKJP", "sc": "NifenArtCJKSC", "kr": "NifenArtCJKKR"}
+
+#: Three 11 x 11 drawings, every stroke one pixel wide and no isolated pixel, so the
+#: unplanted world lints clean: a plus (Simplified), a tee (Japanese) and an ell
+#: (Hangul). The code points are real members of the sets: U+7B80 (Simplified 简),
+#: U+65E5 (Japanese 日) and U+D55C (Hangul 한).
+PLUS_DRAWING = "\n".join([".....#....."] * 4 + ["###########"] + [".....#....."] * 6)
+PLUS_DRAWING += "\n"
+TEE_DRAWING = "\n".join(["###########"] + [".....#....."] * 10) + "\n"
+ELL_DRAWING = "\n".join(["#.........."] * 10 + ["###########"]) + "\n"
+#: The plus with a 2x2 block at its crossing: the stem is two pixels wide there.
+BLOCK_DRAWING = PLUS_DRAWING.replace(
+    ".....#.....\n###########\n.....#.....\n",
+    ".....##....\n###########\n.....##....\n",
+    1,
+)
+#: The tee with a 2x2 block under its bar.
+TEE_BLOCK_DRAWING = TEE_DRAWING.replace(".....#.....\n", ".....##....\n", 1)
+SC_HEAD = "glyph U+7B80 set=sc src=drawn top=10 x=0\n"
+JP_HEAD = "glyph U+65E5 set=jp src=drawn top=10 x=0\n"
+KR_HEAD = "glyph U+D55C set=kr src=drawn top=10 x=0\n"
+CJK_FIXTURE_FILES = {
+    "han-jp.txt": "# fixture\n" + JP_HEAD + TEE_DRAWING,
+    "han-sc.txt": "# fixture\n" + SC_HEAD + PLUS_DRAWING,
+    "hangul.txt": "# fixture\n" + KR_HEAD + ELL_DRAWING,
+    "r05-exemptions.txt": "# fixture: no entry\n",
+}
+CJK_FIXTURE_CODE_POINTS = {"jp": 0x65E5, "sc": 0x7B80, "kr": 0xD55C}
+
+LICENCE_FILES = ("OFL.txt", "FONTLOG.txt", "FONTLOG-CJK.txt")
+FONTLOG_ANCHOR = "Project: https://github.com/JuanGSanchez/PixelArt-Creator\n"
+NOTICE_ANCHOR = "This software depends on"
+OFL_DONOR_LINE = "Copyright (c) 2021, TakWolf (https://takwolf.com).\n"
+CJK_LINT_COUNT = re.compile(r"; records (\d+)\s*$", re.M)
+EXEMPTED = re.compile(r"exempted glyphs: (\d+)")
+BOLD_LINE = re.compile(
+    r"^Bold == Regular: (\d+) glyph pairs compared, (\d+) differ$", re.M
+)
+FREEZE_LINE = re.compile(
+    r"^freeze check: (\d+) files compared, (\d+) violations$", re.M
+)
+
+
+class World(NamedTuple):
+    """A scratch world for the CJK face; every field is a path under the scratch."""
+
+    src: Path
+    cjk: Path
+    fonts: Path
+    notice: Path
+    scratch: Path
+
+
+def edit_once(path: Path, old: str, new: str) -> None:
+    """Replace ``old`` by ``new`` in a scratch file, which must hold ``old`` once."""
+    text = path.read_bytes().decode("utf-8")
+    assert text.count(old) == 1, "%s: anchor found %d times, expected once: %r" % (
+        path.name,
+        text.count(old),
+        old[:60],
+    )
+    path.write_bytes(text.replace(old, new, 1).encode("utf-8"))
+
+
+def append_to(path: Path, text: str) -> None:
+    """Append to a scratch file, creating it when it is not there."""
+    old = path.read_bytes().decode("utf-8") if path.exists() else ""
+    path.write_bytes((old + text).encode("utf-8"))
+
+
+def write_cjk_sources(cjk: Path, files: Optional[Dict[str, str]] = None) -> None:
+    """The CJK source folder of a world: the real face record and freeze manifest,
+    copied, and the record files and exemption list from ``files``."""
+    cjk.mkdir(parents=True, exist_ok=True)
+    for name in ("face.txt", "existing-face.sha256"):
+        shutil.copy(TOOLS_ROOT / "fonts-src" / "nifen-art-cjk" / name, cjk / name)
+    for name, text in (files or CJK_FIXTURE_FILES).items():
+        (cjk / name).write_bytes(text.encode("utf-8"))
+
+
+def record_counts(cjk: Path) -> Dict[str, int]:
+    """Glyph records per set, counted here from the record files."""
+    return {
+        s: sum(
+            1
+            for ln in (cjk / name).read_text(encoding="utf-8").split("\n")
+            if ln.startswith("glyph ")
+        )
+        for s, name in CJK_RECORD_FILES.items()
+    }
+
+
+def cjk_args(world: World, mode: str, *more: object) -> List[object]:
+    return [
+        mode,
+        "--face",
+        "nifen-art-cjk",
+        "--src",
+        world.src,
+        "--cjk-src",
+        world.cjk,
+        "--out",
+        world.fonts,
+        "--licence-dir",
+        world.fonts,
+        "--notice",
+        world.notice,
+        *more,
+    ]
+
+
+def cjk_lint(world: World) -> Run:
+    return run_font(BUILD, cjk_args(world, "--lint"), world.scratch)
+
+
+def cjk_build(world: World, out: Optional[Path] = None) -> Run:
+    args = cjk_args(world, "--build")
+    if out is not None:
+        args[args.index("--out") + 1] = out
+    return run_font(BUILD, args, world.scratch)
+
+
+def cjk_check(world: World) -> Run:
+    return run_font(
+        BUILD,
+        cjk_args(world, "--check", "--tmp", world.scratch / "check-tmp"),
+        world.scratch,
+    )
+
+
+def violations_of(res: Run) -> List[str]:
+    return [ln.strip() for ln in res.stdout.split("\n") if "VIOLATION" in ln]
+
+
+def lint_lines(res: Run, text: str) -> List[str]:
+    """The lines of the report that carry ``text`` (violations and info alike)."""
+    return [ln.strip() for ln in res.stdout.split("\n") if text in ln]
+
+
+def r05_line(res: Run) -> str:
+    lines = [ln for ln in res.stdout.split("\n") if ln.startswith("R05")]
+    assert len(lines) == 1, res.stdout
+    return lines[0]
+
+
+@pytest.fixture(scope="module")
+def cjk_fixture_fonts(tmp_path_factory):
+    """The six CJK fonts built once by the real ``--build`` command from the scratch
+    records, with the licence files they are linted against."""
+    root = os.environ.get("ORCH_TEST_TMP")
+    if root:
+        base = Path(root) / "asset-pipeline-nifen"
+        base.mkdir(parents=True, exist_ok=True)
+        folder = Path(tempfile.mkdtemp(prefix="c-", dir=str(base)))
+    else:
+        folder = tmp_path_factory.mktemp("nifen-cjk-fixture")
+    cjk, fonts = folder / "cjk", folder / "fonts"
+    write_cjk_sources(cjk)
+    fonts.mkdir()
+    for name in LICENCE_FILES:
+        shutil.copy(FONT_DIR / name, fonts / name)
+    shutil.copy(TOOLS_ROOT / "NOTICE", folder / "NOTICE")
+    res = run_font(
+        BUILD,
+        [
+            "--build",
+            "--face",
+            "nifen-art-cjk",
+            "--cjk-src",
+            cjk,
+            "--out",
+            fonts,
+            "--licence-dir",
+            fonts,
+            "--notice",
+            folder / "NOTICE",
+        ],
+        folder,
+    )
+    assert res.returncode == 0, res.text
+    built = sorted(p.name for p in fonts.glob("*.ttf"))
+    assert len(built) == 6, built
+    yield fonts
+    shutil.rmtree(folder)
+
+
+@pytest.fixture
+def world(scratch, cjk_fixture_fonts):
+    """A scratch world with more than 0 records in each set, its six CJK fonts, the
+    existing face's two fonts, the licence files and ``NOTICE``."""
+    src = scratch / "world-src"
+    shutil.copytree(SOURCES, src)
+    cjk = scratch / "world-cjk"
+    write_cjk_sources(cjk)
+    fonts = scratch / "world-fonts"
+    shutil.copytree(cjk_fixture_fonts, fonts)
+    for name in FONT_FILES.values():
+        shutil.copy(FONT_DIR / name, fonts / name)
+    notice = scratch / "NOTICE"
+    shutil.copy(TOOLS_ROOT / "NOTICE", notice)
+    counts = record_counts(cjk)
+    assert all(n > 0 for n in counts.values()), (
+        "the scratch fixture holds no glyph record in a set: %s; a glyph-level case "
+        "on it would prove nothing" % counts
+    )
+    return World(src, cjk, fonts, notice, scratch)
+
+
+def clean_lint(world: World) -> Run:
+    """The control: the unplanted world passes, over records the lint counted."""
+    res = cjk_lint(world)
+    assert res.returncode == 0, res.text
+    assert violations_of(res) == [], res.text
+    found = CJK_LINT_COUNT.search(res.stdout)
+    assert found and int(found[1]) > 0, "the lint counted no CJK glyph record"
+    return res
+
+
+def exempted(res: Run) -> int:
+    found = EXEMPTED.search(res.stdout)
+    assert found, "no 'exempted glyphs: N' line in:\n" + res.stdout
+    return int(found[1])
+
+
+def test_the_scratch_world_holds_records_in_every_set_and_lints_clean(world):
+    """The foundation of the section: the fixture is not the real 0-record tree. Each
+    set holds one record, the lint counts 3, R05 examined 3 Regular glyphs, and the
+    whole report is clean."""
+    assert record_counts(world.cjk) == {"jp": 1, "sc": 1, "kr": 1}
+    res = clean_lint(world)
+    assert CJK_LINT_COUNT.search(res.stdout)[1] == "3"
+    assert " examined     3  violations   0" in r05_line(res), res.stdout
+    assert exempted(res) == 0
+    assert "lint violations: 0" in res.stdout
+
+
+# --- SC-L10N-BUILD-001-6, -7, -8: R05 on the CJK face ------------------------------
+
+
+def test_sc_l10n_build_001_6_r05_holds_outside_the_declared_exemptions(world):
+    """SC-L10N-BUILD-001-6: with one glyph declared on the list and one flagged solid,
+    and no other glyph holding a block, the lint passes; R05 examined 3 Regular glyphs,
+    the number of exempted glyphs is printed and each is named with its reason."""
+    edit_once(world.cjk / "han-sc.txt", SC_HEAD + PLUS_DRAWING, SC_HEAD + BLOCK_DRAWING)
+    append_to(
+        world.cjk / "r05-exemptions.txt",
+        "U+7B80 set=sc reason=the crossing is a solid square\n",
+    )
+    edit_once(
+        world.cjk / "han-jp.txt",
+        JP_HEAD + TEE_DRAWING,
+        JP_HEAD.rstrip("\n") + " solid reason=a filled bar\n" + TEE_BLOCK_DRAWING,
+    )
+    res = clean_lint(world)
+    assert exempted(res) == 2
+    assert "exempt U+7B80 set=sc [list]: the crossing is a solid square" in res.stdout
+    assert "exempt U+65E5 set=jp [solid]: a filled bar" in res.stdout
+    assert " examined     3  violations   0" in r05_line(res), res.stdout
+
+
+@pytest.mark.parametrize(
+    "how",
+    [
+        "a 2x2 block in a glyph that is not on the exemption list",
+        "a 2x2 block in a glyph whose exemption entry gives no reason",
+        "a 2x2 block in a glyph whose exemption entry has an empty reason=",
+    ],
+)
+def test_sc_l10n_build_001_7_r05_fails_on_an_undeclared_2x2_block(world, how):
+    """SC-L10N-BUILD-001-7: both rows of the outline (and the empty ``reason=`` form of
+    the second). The lint exits non-zero and names the glyph, or the entry; an entry
+    without a reason is not counted as an exemption."""
+    clean_lint(world)
+    edit_once(world.cjk / "han-sc.txt", SC_HEAD + PLUS_DRAWING, SC_HEAD + BLOCK_DRAWING)
+    entry = "exemption entry U+7B80 set=sc (r05-exemptions.txt:2) gives no reason"
+    if "empty" in how:
+        append_to(world.cjk / "r05-exemptions.txt", "U+7B80 set=sc reason=\n")
+        needle = entry
+    elif "no reason" in how:
+        append_to(world.cjk / "r05-exemptions.txt", "U+7B80 set=sc\n")
+        needle = entry
+    else:
+        needle = "U+7B80 set=sc Regular has a 2x2 block at ("
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    assert any(needle in v for v in violations_of(res)), res.text
+    assert exempted(res) == 0
+
+
+@pytest.mark.parametrize("declared_before", [0, 1])
+def test_sc_l10n_build_001_8_a_declared_2x2_block_passes_and_is_counted(
+    world, declared_before
+):
+    """SC-L10N-BUILD-001-8: the printed exemption count of the unplanted sources is
+    read first (0, then 1 with a solid glyph already declared); a block is planted in
+    one glyph not yet on the list and the glyph is added to it with a reason. R05 then
+    reports no violation, the count is exactly one more, and the glyph is named."""
+    if declared_before:
+        edit_once(
+            world.cjk / "han-jp.txt",
+            JP_HEAD + TEE_DRAWING,
+            JP_HEAD.rstrip("\n") + " solid reason=a filled bar\n" + TEE_BLOCK_DRAWING,
+        )
+    before = exempted(clean_lint(world))
+    assert before == declared_before
+    edit_once(world.cjk / "han-sc.txt", SC_HEAD + PLUS_DRAWING, SC_HEAD + BLOCK_DRAWING)
+    append_to(
+        world.cjk / "r05-exemptions.txt",
+        "U+7B80 set=sc reason=the crossing is a solid square\n",
+    )
+    res = cjk_lint(world)
+    assert res.returncode == 0, res.text
+    assert exempted(res) == before + 1
+    assert "exempt U+7B80 set=sc [list]: the crossing is a solid square" in res.stdout
+    assert "violations   0" in r05_line(res)
+
+
+def test_sc_l10n_build_001_8_a_solid_glyph_with_a_reason_is_counted(world):
+    """SC-L10N-BUILD-001-8 (the solid form): a glyph flagged ``solid reason=...`` passes
+    R05, the count rises by one and the glyph is named with its reason."""
+    before = exempted(clean_lint(world))
+    edit_once(
+        world.cjk / "han-sc.txt",
+        SC_HEAD + PLUS_DRAWING,
+        SC_HEAD.rstrip("\n") + " solid reason=a filled square\n" + BLOCK_DRAWING,
+    )
+    res = cjk_lint(world)
+    assert res.returncode == 0, res.text
+    assert exempted(res) == before + 1
+    assert "exempt U+7B80 set=sc [solid]: a filled square" in res.stdout
+
+
+def test_sc_l10n_build_001_7_a_solid_glyph_with_no_reason_fails(world):
+    """SC-L10N-BUILD-001-7 / R05: ``solid`` without ``reason=`` is not a declaration;
+    the lint exits non-zero, names the glyph, and does not count it as exempt."""
+    clean_lint(world)
+    edit_once(
+        world.cjk / "han-sc.txt",
+        SC_HEAD + PLUS_DRAWING,
+        SC_HEAD.rstrip("\n") + " solid\n" + BLOCK_DRAWING,
+    )
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    needle = "U+7B80 set=sc is flagged solid with no reason"
+    assert any(needle in v for v in violations_of(res)), res.text
+    assert exempted(res) == 0
+
+
+def test_sc_l10n_build_001_7_an_exemption_for_a_glyph_with_no_block_is_refused(world):
+    """R05, the other direction of the same list: an entry for a glyph that holds no
+    block is stale and the lint says so, so the exemption count cannot grow alone."""
+    clean_lint(world)
+    append_to(world.cjk / "r05-exemptions.txt", "U+7B80 set=sc reason=none needed\n")
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    needle = "is declared exempt (list) but holds no 2x2 block"
+    assert any(needle in v for v in violations_of(res)), res.text
+
+
+# --- SC-L10N-BUILD-001-3: Bold is Regular ------------------------------------------
+
+
+def read_glyph_outlines(path: Path) -> Dict[str, tuple]:
+    """Glyph name -> (coordinates, end points, flags, metrics), read with fontTools."""
+    from fontTools.ttLib import TTFont
+
+    out = {}
+    with TTFont(str(path)) as font:
+        glyf, hmtx = font["glyf"], font["hmtx"]
+        for name in font.getGlyphOrder():
+            coords, ends, flags = glyf[name].getCoordinates(glyf)
+            out[name] = (list(coords), list(ends), list(flags), tuple(hmtx[name]))
+    return out
+
+
+def count_pairs_and_differences(fonts: Path) -> Tuple[int, List[str]]:
+    """The test's own Bold == Regular comparison of the six fonts."""
+    pairs, differing = 0, []
+    for s in CJK_FAMILIES:
+        stem = CJK_FONT_STEMS[s]
+        regular = read_glyph_outlines(fonts / (stem + "-Regular.ttf"))
+        bold = read_glyph_outlines(fonts / (stem + "-Bold.ttf"))
+        assert list(regular) == list(bold), "glyph orders differ in " + stem
+        for name in regular:
+            pairs += 1
+            if regular[name] != bold[name]:
+                differing.append("%s %s" % (stem, name))
+    return pairs, differing
+
+
+def damage_bold(fonts: Path, family: str = "sc") -> None:
+    """Move the first point of the Bold glyph of a family's record by one pixel."""
+    from fontTools.ttLib import TTFont
+
+    path = fonts / (CJK_FONT_STEMS[family] + "-Bold.ttf")
+    with TTFont(str(path)) as font:
+        glyph = font["glyf"]["uni%04X" % CJK_FIXTURE_CODE_POINTS[family]]
+        coords = glyph.getCoordinates(font["glyf"])[0]
+        coords[0] = (coords[0][0] + 128, coords[0][1])
+        font.save(str(path))
+
+
+def test_sc_l10n_build_001_3_bold_glyphs_are_the_regular_glyphs_pair_for_pair(
+    scratch, world
+):
+    """SC-L10N-BUILD-001-3: ``--build`` on the scratch records prints that it compared
+    N glyph pairs with 0 differing, N is above 0, and N is the number of pairs the test
+    counted itself from the six built fonts (outline, flags and advance of each glyph:
+    the missing-glyph box and the record, in each of the three sets)."""
+    out = scratch / "built-here"
+    res = cjk_build(world, out)
+    assert res.returncode == 0, res.text
+    found = BOLD_LINE.search(res.stdout)
+    assert found, res.text
+    printed, differ = int(found[1]), int(found[2])
+    pairs, differing = count_pairs_and_differences(out)
+    assert printed > 0 and printed == pairs == 6
+    assert differ == 0 and differing == []
+
+
+def test_sc_l10n_build_001_3_control_the_tests_own_comparison_sees_a_moved_point(
+    world,
+):
+    """Control of the counter above: with one Bold point moved, the test's own
+    comparison finds the one glyph that differs, so '0 differ' is a reading and not a
+    blind spot of the comparison."""
+    assert count_pairs_and_differences(world.fonts) == (6, [])
+    damage_bold(world.fonts)
+    pairs, differing = count_pairs_and_differences(world.fonts)
+    assert pairs == 6 and differing == ["NifenArtCJKSC uni7B80"]
+
+
+def test_sc_l10n_build_001_3_a_bold_glyph_that_is_not_the_regular_glyph_fails_check(
+    world,
+):
+    """SC-L10N-BUILD-001-3: with one Bold point moved on disk, ``--check`` exits 1,
+    prints 6 pairs compared with 1 differing, and names the font and the glyph; the
+    undamaged world passes the same command first."""
+    ok = cjk_check(world)
+    assert ok.returncode == 0, ok.text
+    assert BOLD_LINE.search(ok.stdout).groups() == ("6", "0")
+    damage_bold(world.fonts)
+    res = cjk_check(world)
+    assert res.returncode == 1, res.text
+    assert BOLD_LINE.search(res.stdout).groups() == ("6", "1"), res.text
+    needle = "NifenArtCJKSC-Bold.ttf: glyph uni7B80 is not the Regular glyph"
+    assert any(needle in v for v in violations_of(res)), res.text
+
+
+def test_sc_l10n_build_001_3_a_bold_drawing_in_the_sources_is_refused(world):
+    """SC-L10N-BUILD-001-3 at the source: a ``bold`` record in a CJK file is refused by
+    the lint, because Bold has no drawing of its own."""
+    clean_lint(world)
+    append_to(
+        world.cjk / "han-sc.txt", "\nbold U+7B80 adv=12 top=10 x=0\n" + PLUS_DRAWING
+    )
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    assert any("a bold record: refused" in v for v in violations_of(res)), res.text
+
+
+def test_the_cjk_check_prints_the_freeze_line_after_the_bold_line(world):
+    """``--check`` on the CJK face ends with the freeze check too: 30 files
+    compared with 0 violations, printed after the Bold == Regular line."""
+    res = cjk_check(world)
+    assert res.returncode == 0, res.text
+    freeze = FREEZE_LINE.search(res.stdout)
+    assert freeze and freeze.groups() == ("30", "0"), res.text
+    assert res.stdout.index("Bold == Regular") < res.stdout.index("freeze check")
+
+
+# --- SC-L10N-BUILD-002-1: one donor, 89 donor-derived code points -------------------
+
+
+def hiragana_code_points() -> set:
+    """U+3041-U+3096 and U+309D-U+309F, written out here from the specification."""
+    return set(range(0x3041, 0x3097)) | set(range(0x309D, 0x30A0))
+
+
+def donor_file_code_points(name: str) -> set:
+    """The code points of every ``glyph``/``bold`` record of a donor-derived file."""
+    out = set()
+    for ln in (SOURCES / name).read_text(encoding="utf-8").split("\n"):
+        found = re.match(r"(?:glyph|bold) U\+([0-9A-F]{4,6})\b", ln)
+        if found:
+            out.add(int(found[1], 16))
+    return out
+
+
+def test_sc_l10n_build_002_1_one_donor_and_89_donor_derived_code_points(world):
+    """SC-L10N-BUILD-002-1: the lint prints ``donors declared: 1`` (Ark Pixel Font) and
+    ``donor-derived code points: 89``, and 89 is what the test counts itself from the
+    two donor-derived source files and from the specification's two spans."""
+    expected = hiragana_code_points()
+    assert len(expected) == 89
+    derived = donor_file_code_points("hiragana-ark-pixel.txt")
+    derived |= donor_file_code_points("bold-overlays-ark-pixel.txt")
+    assert derived == expected
+    res = clean_lint(world)
+    assert lint_lines(res, "donors declared: 1 (Ark Pixel Font)"), res.stdout
+    spans_text = "(U+3041-U+3096, U+309D-U+309F)"
+    assert lint_lines(res, "donor-derived code points: 89 " + spans_text), res.stdout
+    assert lint_lines(res, "donor-derived source files: 2"), res.stdout
+
+
+def test_sc_l10n_build_002_1_control_a_second_donor_changes_the_printed_count(world):
+    """Control of the counts above: with a second holder credited in ``OFL.txt``, the
+    printed count is no longer 1 and the lint fails, so ``donors declared: 1`` is a
+    reading of the sources and not a constant."""
+    edit_once(
+        world.fonts / "OFL.txt",
+        OFL_DONOR_LINE,
+        OFL_DONOR_LINE + "Copyright (c) 2019, Someone Else (https://example.org).\n",
+    )
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    assert not lint_lines(res, "donors declared: 1 ("), res.stdout
+    assert lint_lines(res, "donors declared: 2 ("), res.stdout
+
+
+def test_sc_l10n_build_002_1_the_scan_list_names_every_scanned_file(world):
+    """SC-L10N-BUILD-002-1 / -2: the donor gate prints its scan list. It holds the
+    sources of both faces, the licence and change-log files, ``NOTICE`` and the name
+    tables of the eight fonts, and each entry says how it was examined."""
+    res = clean_lint(world)
+    entries = [
+        ln.strip()[len("info") :].strip()
+        for ln in res.stdout.split("\n")
+        if ln.strip().startswith("info   ")
+    ]
+    count = re.search(r"donor gate scan list: (\d+) entries", res.stdout)
+    listed = [e for e in entries if ": examined" in e or ": MISSING" in e]
+    assert count and int(count[1]) == len(listed) > 0
+    wanted = [
+        "fonts-src/nifen-art-cjk/face.txt: examined",
+        "fonts-src/nifen-art-cjk/han-sc.txt: examined",
+        "pixelart_creator/fonts/OFL.txt: examined",
+        "pixelart_creator/fonts/FONTLOG.txt: examined",
+        "pixelart_creator/fonts/FONTLOG-CJK.txt: examined",
+        "NOTICE: examined",
+        "pixelart_creator/fonts/NifenArt-Regular.ttf: examined (name table",
+        "fonts/NifenArtCJKSC-Bold.ttf: examined from the sources; built",
+    ]
+    for item in wanted:
+        assert any(item in e for e in listed), (item, listed[:5])
+
+
+# --- SC-L10N-BUILD-002-2: the donor gate, four rows --------------------------------
+
+
+def test_sc_l10n_build_002_2_row_1_a_second_donor_declared_in_the_font_metadata(world):
+    """SC-L10N-BUILD-002-2, row 'a second donor declared in the font metadata'."""
+    clean_lint(world)
+    append_to(world.src / "metrics.txt", "donor_name_2 = Galmuri Font\n")
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    needle = "metrics.txt declares donor_name_2: a second donor is refused"
+    assert any(needle in v for v in violations_of(res)), res.text
+
+
+CREDIT_ROWS = [
+    (
+        "OFL.txt",
+        OFL_DONOR_LINE,
+        OFL_DONOR_LINE + "Copyright (c) 2019, Someone Else (https://example.org).\n",
+        "OFL.txt: a copyright line credits 'Someone Else'",
+    ),
+    (
+        "FONTLOG.txt",
+        FONTLOG_ANCHOR,
+        FONTLOG_ANCHOR + "\nSome Latin letters are adapted from Examplefont Sans.\n",
+        "FONTLOG.txt: a credit sentence names no declared donor",
+    ),
+    (
+        "FONTLOG-CJK.txt",
+        FONTLOG_ANCHOR,
+        FONTLOG_ANCHOR + "\nThe Hangul are adapted from Examplefont Sans.\n",
+        "FONTLOG-CJK.txt: a credit sentence names no declared donor",
+    ),
+    (
+        "NOTICE",
+        NOTICE_ANCHOR,
+        "  - Examplefont Sans -- the Hangul are adapted from it.\n\n" + NOTICE_ANCHOR,
+        "NOTICE: a credit sentence names no declared donor",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "place,old,new,needle", CREDIT_ROWS, ids=[row[0] for row in CREDIT_ROWS]
+)
+def test_sc_l10n_build_002_2_row_2_a_second_donor_credited_in_each_of_the_four_files(
+    world, place, old, new, needle
+):
+    """SC-L10N-BUILD-002-2, row 'a second donor credited in OFL.txt, FONTLOG.txt,
+    FONTLOG-CJK.txt or NOTICE': the credit is planted once per file (so the licence
+    file / change log row is planted once in ``FONTLOG-CJK.txt`` and once in
+    ``FONTLOG.txt``), the lint exits 1 and names the file, and the unplanted world
+    passed first."""
+    clean_lint(world)
+    path = world.notice if place == "NOTICE" else world.fonts / place
+    edit_once(path, old, new)
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    assert any(needle in v for v in violations_of(res)), res.text
+
+
+@pytest.mark.parametrize(
+    "name,record",
+    [
+        (
+            "hiragana-ark-pixel.txt",
+            "\nglyph U+3105 adv=12 x=0 cell=full ext=free top=9\n#\n",
+        ),
+        (
+            "bold-overlays-ark-pixel.txt",
+            "\nbold U+3105 adv=12 top=9 x=0 cell=full ext=free\n##\n",
+        ),
+    ],
+    ids=["glyph-record", "bold-record"],
+)
+def test_sc_l10n_build_002_2_row_3_a_donor_derived_code_point_outside_the_spans(
+    world, name, record
+):
+    """SC-L10N-BUILD-002-2, row 'a donor-derived code point outside U+3041-U+3096 and
+    U+309D-U+309F': planted in the donor's glyph file and in its Bold correction file.
+    """
+    clean_lint(world)
+    append_to(world.src / name, record)
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    assert any("U+3105 is donor-derived" in v for v in violations_of(res)), res.text
+
+
+@pytest.mark.parametrize(
+    "how", ["face-record-key", "cjk-source-names-donor", "fontlog-cjk-names-donor"]
+)
+def test_sc_l10n_build_002_2_row_4_a_donor_declared_for_the_cjk_face(world, how):
+    """SC-L10N-BUILD-002-2, row 'a donor declared for the CJK face': in the face
+    record, in a CJK source file and in ``FONTLOG-CJK.txt``. The lint exits 1 and names
+    where the CJK face names a donor."""
+    clean_lint(world)
+    if how == "face-record-key":
+        append_to(world.cjk / "face.txt", "donor_name = Ark Pixel Font\n")
+        needle = "face.txt declares donor_name: the CJK face declares no donor"
+    elif how == "cjk-source-names-donor":
+        append_to(world.cjk / "han-sc.txt", "# adapted from Ark Pixel Font\n")
+        needle = "han-sc.txt: names the donor; the CJK face declares no donor"
+    else:
+        edit_once(
+            world.fonts / "FONTLOG-CJK.txt",
+            FONTLOG_ANCHOR,
+            FONTLOG_ANCHOR + "\nSome strokes are adapted from Ark Pixel Font.\n",
+        )
+        needle = "FONTLOG-CJK.txt: names the donor; the CJK face declares no donor"
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    assert any(needle in v for v in violations_of(res)), res.text
+
+
+CHANGELOG_PLANT = (
+    "\nThe Hangul are adapted from Examplefont Sans, and some strokes from "
+    "Ark Pixel Font.\n"
+)
+
+
+def test_sc_l10n_build_002_2_the_root_changelog_is_outside_the_gate(world):
+    """SC-L10N-BUILD-002-2 (scope): the credits that fail the gate in
+    ``FONTLOG-CJK.txt`` are planted in the root ``CHANGELOG.md`` of the scratch copy
+    (beside ``NOTICE``) and the gate's result does not change by a byte: the exit
+    status, the whole report and the scan list are identical, and the file is not in
+    the scan list. This documents the scope; it does not argue for it. The control is
+    the same text in ``FONTLOG-CJK.txt``, which fails the gate."""
+    changelog = world.scratch / "CHANGELOG.md"
+    shutil.copy(TOOLS_ROOT / "CHANGELOG.md", changelog)
+    before = clean_lint(world)
+    append_to(changelog, CHANGELOG_PLANT)
+    assert CHANGELOG_PLANT in changelog.read_text(encoding="utf-8")
+    after = cjk_lint(world)
+    assert (after.returncode, after.stdout, after.stderr) == (
+        before.returncode,
+        before.stdout,
+        before.stderr,
+    )
+    assert "CHANGELOG" not in after.stdout
+    edit_once(
+        world.fonts / "FONTLOG-CJK.txt",
+        FONTLOG_ANCHOR,
+        FONTLOG_ANCHOR + CHANGELOG_PLANT,
+    )
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    assert violations_of(res), res.text
+
+
+def test_sc_l10n_build_002_2_a_scanned_file_that_is_missing_fails_and_is_not_skipped(
+    world,
+):
+    """SC-L10N-BUILD-002-2: a scanned file that is gone is a violation, not a file to
+    skip: ``OFL.txt``, ``FONTLOG-CJK.txt`` and ``NOTICE``, each removed in turn, fail
+    the gate and are named."""
+    clean_lint(world)
+    for name, target in (
+        ("OFL.txt", world.fonts / "OFL.txt"),
+        ("FONTLOG-CJK.txt", world.fonts / "FONTLOG-CJK.txt"),
+        ("NOTICE", world.notice),
+    ):
+        saved = target.read_bytes()
+        target.unlink()
+        res = cjk_lint(world)
+        target.write_bytes(saved)
+        needle = "%s is missing: a scanned file is never skipped" % name
+        assert res.returncode == 1, (name, res.text)
+        assert any(needle in v for v in violations_of(res)), (name, res.text)
+
+
+# --- SC-L10N-BUILD-002-3: a glyph copied from any font is refused ------------------
+
+
+@pytest.mark.parametrize(
+    "head,needle",
+    [
+        (
+            "glyph U+7B80 set=sc src=copied:Galmuri top=10 x=0\n",
+            "U+7B80 set=sc: provenance src=copied:Galmuri names another font (Galmuri)",
+        ),
+        (
+            "glyph U+7B80 set=sc src=traced:Unifont top=10 x=0\n",
+            "U+7B80 set=sc: provenance src=traced:Unifont names another font (Unifont)",
+        ),
+        (
+            "glyph U+7B80 set=sc src=drawn copied-from=SomeFont top=10 x=0\n",
+            "U+7B80 set=sc: copied-from=SomeFont records a font as the source",
+        ),
+    ],
+    ids=["src-copied", "src-traced", "copied-from-attribute"],
+)
+def test_sc_l10n_build_002_3_a_glyph_whose_provenance_names_a_font_is_refused(
+    world, head, needle
+):
+    """SC-L10N-BUILD-002-3: a record whose provenance names another font, as the value
+    of ``src=`` or as an attribute, makes the lint exit 1, naming the glyph and the
+    font. The unplanted world passed first, over a counted record."""
+    clean_lint(world)
+    edit_once(world.cjk / "han-sc.txt", SC_HEAD, head)
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    assert any(needle in v for v in violations_of(res)), res.text
+
+
+def test_sc_l10n_build_002_3_a_build_from_a_refused_record_writes_no_font(
+    scratch, world
+):
+    """SC-L10N-BUILD-002-3: ``--build`` over a glyph copied from a font stops with
+    'build refused' and exit 1, and writes none of the six fonts."""
+    edit_once(
+        world.cjk / "han-sc.txt",
+        SC_HEAD,
+        "glyph U+7B80 set=sc src=copied:Galmuri top=10 x=0\n",
+    )
+    out = scratch / "never-built"
+    res = cjk_build(world, out)
+    assert res.returncode == 1, res.text
+    assert "build refused: lint failed" in res.stdout
+    assert not out.exists() or not list(out.glob("*.ttf"))
+
+
+# --- The CJK character map holds Han and Hangul only (R15) --------------------------
+
+
+def cmap_of(path: Path) -> Dict[int, str]:
+    from fontTools.ttLib import TTFont
+
+    with TTFont(str(path)) as font:
+        return dict(font.getBestCmap())
+
+
+def han_or_hangul(cp: int, family: str) -> bool:
+    """Han (jp, sc) or Hangul (kr) by the Unicode block assignments, written here."""
+    han = ((0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xF900, 0xFAFF), (0x20000, 0x323AF))
+    hangul = ((0xAC00, 0xD7A3),)
+    return any(lo <= cp <= hi for lo, hi in (hangul if family == "kr" else han))
+
+
+def test_the_cjk_character_map_holds_han_and_hangul_only_in_all_six_fonts(world):
+    """The CJK cmap rule, measured from the built fonts by the test itself: the six
+    fonts map exactly the scratch record's code point, which is Han (jp, sc) or Hangul
+    (kr), with no U+0020 and nothing else; the lint prints that it read 6 of them."""
+    total = 0
+    for s in CJK_FAMILIES:
+        for style in ("Regular", "Bold"):
+            cmap = cmap_of(world.fonts / ("%s-%s.ttf" % (CJK_FONT_STEMS[s], style)))
+            assert sorted(cmap) == [CJK_FIXTURE_CODE_POINTS[s]]
+            assert 0x20 not in cmap
+            assert all(han_or_hangul(cp, s) for cp in cmap)
+            total += len(cmap)
+    assert total == 6
+    res = clean_lint(world)
+    assert lint_lines(res, "built CJK fonts whose character map was read: 6")
+
+
+@pytest.mark.parametrize(
+    "record_file,head,needle",
+    [
+        (
+            "han-sc.txt",
+            "glyph U+0020 set=sc src=drawn top=10 x=0\n",
+            "U+0020 set=sc is neither Han nor Hangul",
+        ),
+        (
+            "han-jp.txt",
+            "glyph U+3042 set=jp src=drawn top=10 x=0\n",
+            "U+3042 set=jp is neither Han nor Hangul",
+        ),
+        (
+            "hangul.txt",
+            "glyph U+0041 set=kr src=drawn top=10 x=0\n",
+            "U+0041 set=kr is neither Han nor Hangul",
+        ),
+        (
+            "han-jp.txt",
+            "glyph U+AC01 set=jp src=drawn top=10 x=0\n",
+            "U+AC01 set=jp is Hangul: the jp set holds Han only",
+        ),
+        (
+            "hangul.txt",
+            "glyph U+3401 set=kr src=drawn top=10 x=0\n",
+            "U+3401 set=kr is Han: the kr set holds Hangul only",
+        ),
+    ],
+    ids=["space-in-sc", "kana-in-jp", "latin-in-kr", "hangul-in-jp", "han-in-kr"],
+)
+def test_the_cjk_cmap_rule_refuses_a_source_outside_han_and_hangul(
+    world, record_file, head, needle
+):
+    """The CJK cmap rule at the source: a space (the U+0020 plant), a kana, a Latin
+    letter, and a Hangul syllable or a Han character in the wrong set make the lint
+    exit 1 and name the code point and the set."""
+    clean_lint(world)
+    append_to(world.cjk / record_file, "\n" + head + PLUS_DRAWING)
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    assert any(needle in v for v in violations_of(res)), res.text
+
+
+def test_the_cjk_cmap_rule_refuses_u0020_in_the_map_of_a_built_font(world):
+    """The CJK cmap rule on the BUILT file: U+0020 added to the character map of the
+    Simplified Regular font makes the lint exit 1 and name the font; the test's own
+    reader sees the space first."""
+    from fontTools.ttLib import TTFont
+
+    clean_lint(world)
+    path = world.fonts / "NifenArtCJKSC-Regular.ttf"
+    with TTFont(str(path)) as font:
+        for table in font["cmap"].tables:
+            if table.isUnicode():
+                table.cmap[0x20] = "uni7B80"
+        font.save(str(path))
+    assert 0x20 in cmap_of(path)
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    needle = "NifenArtCJKSC-Regular.ttf: U+0020 is in the character map"
+    assert any(needle in v for v in violations_of(res)), res.text
+
+
+def test_a_build_from_a_source_with_u0020_is_refused_and_writes_no_font(scratch, world):
+    """The cmap rule stops the build: a record at U+0020 makes ``--build`` refuse."""
+    append_to(
+        world.cjk / "han-sc.txt",
+        "\nglyph U+0020 set=sc src=drawn top=10 x=0\n" + PLUS_DRAWING,
+    )
+    out = scratch / "never-built-space"
+    res = cjk_build(world, out)
+    assert res.returncode == 1, res.text
+    assert "build refused: lint failed" in res.stdout
+    assert not out.exists() or not list(out.glob("*.ttf"))
+
+
+# --- A set with no glyph record: 'not built', examined from the sources ------------
+
+
+def remove_kr_fonts(world: World) -> None:
+    for style in ("Regular", "Bold"):
+        (world.fonts / ("NifenArtCJKKR-%s.ttf" % style)).unlink()
+
+
+def test_a_set_with_no_record_is_listed_as_not_built_and_examined_from_the_sources(
+    world,
+):
+    """A set with 0 glyph records and no TTF on disk: the lint passes and the scan list
+    prints both weights of that font as 'not built' and 'examined from the sources'. The
+    other two sets (1 record each, fonts on disk) are printed as built."""
+    (world.cjk / "hangul.txt").write_bytes(b"# fixture: no record yet\n")
+    remove_kr_fonts(world)
+    assert record_counts(world.cjk) == {"jp": 1, "sc": 1, "kr": 0}
+    res = cjk_lint(world)
+    assert res.returncode == 0, res.text
+    for style in ("Regular", "Bold"):
+        entry = (
+            "pixelart_creator/fonts/NifenArtCJKKR-%s.ttf: examined from the sources; "
+            "not built, the kr set has no glyph record yet" % style
+        )
+        assert lint_lines(res, entry), res.stdout
+        built = (
+            "NifenArtCJKSC-%s.ttf: examined from the sources; built, name table "
+            "examined" % style
+        )
+        assert lint_lines(res, built), res.stdout
+
+
+def test_a_set_with_1_or_more_records_and_no_ttf_on_disk_fails(world):
+    """The control of the case above: the same world with one Hangul record and still no
+    Hangul font on disk fails, naming both fonts; 'not built' is allowed only at 0."""
+    remove_kr_fonts(world)
+    assert record_counts(world.cjk)["kr"] == 1
+    res = cjk_lint(world)
+    assert res.returncode == 1, res.text
+    for style in ("Regular", "Bold"):
+        needle = (
+            "NifenArtCJKKR-%s.ttf is missing: the kr set has 1 glyph records" % style
+        )
+        assert any(needle in v for v in violations_of(res)), res.text
+    assert not lint_lines(res, "not built"), res.stdout
+
+
+def test_a_build_of_a_face_with_no_glyph_record_at_all_is_refused(scratch, world):
+    """A face with 0 records in every set has nothing to build: ``--build`` refuses with
+    exit 1 and writes no font (the state of the real tree before a glyph is drawn)."""
+    for name in CJK_RECORD_FILES.values():
+        (world.cjk / name).write_bytes(b"# fixture: no record yet\n")
+    assert record_counts(world.cjk) == {"jp": 0, "sc": 0, "kr": 0}
+    out = scratch / "never-built-empty"
+    res = cjk_build(world, out)
+    assert res.returncode == 1, res.text
+    assert "build refused: the CJK face has no glyph record" in res.stdout
+    assert not out.exists() or not list(out.glob("*.ttf"))
+
+
+# --- The OS/2 range bits of the CJK build ---------------------------------------
+
+
+def os2_bits(path: Path) -> Tuple[set, Tuple[int, int]]:
+    """``(ulUnicodeRange bits, (ulCodePageRange1, ulCodePageRange2))`` of a font."""
+    from fontTools.ttLib import TTFont
+
+    with TTFont(str(path)) as font:
+        os2 = font["OS/2"]
+        value = (
+            os2.ulUnicodeRange1
+            | (os2.ulUnicodeRange2 << 32)
+            | (os2.ulUnicodeRange3 << 64)
+            | (os2.ulUnicodeRange4 << 96)
+        )
+        pages = (os2.ulCodePageRange1, os2.ulCodePageRange2)
+    return {bit for bit in range(128) if (value >> bit) & 1}, pages
+
+
+@pytest.mark.parametrize("family,bit", [("jp", 59), ("sc", 59), ("kr", 56)])
+@pytest.mark.parametrize("style", ["Regular", "Bold"])
+def test_the_cjk_build_sets_the_unicode_range_bit_of_its_script_and_no_code_page(
+    cjk_fixture_fonts, family, bit, style
+):
+    """OS/2 range bits: a scratch CJK source with one Han record in each Han set and
+    one Hangul record, built with ``--face nifen-art-cjk --build --cjk-src
+    <scratch> --out <tmp>`` (the fixture of this section), reads back
+    ``ulUnicodeRange`` bit 59 (CJK Unified Ideographs) for the JP and SC families,
+    bit 56 (Hangul Syllables) for the KR family, no other bit, and
+    ``ulCodePageRange1..2`` = 0."""
+    path = cjk_fixture_fonts / ("%s-%s.ttf" % (CJK_FONT_STEMS[family], style))
+    bits, pages = os2_bits(path)
+    assert bits == {bit}, sorted(bits)
+    assert pages == (0, 0)
+
+
+def build_scratch_font(path: Path, os2_kwargs: dict) -> Path:
+    """A one-glyph Han font built with FontBuilder and the given ``setupOS2`` fields."""
+    from fontTools.fontBuilder import FontBuilder
+    from fontTools.pens.ttGlyphPen import TTGlyphPen
+
+    pen = TTGlyphPen(None)
+    names = [".notdef", "uni7B80"]
+    builder = FontBuilder(1536, isTTF=True)
+    builder.setupGlyphOrder(names)
+    builder.setupCharacterMap({0x7B80: "uni7B80"})
+    builder.setupGlyf({name: pen.glyph() for name in names})
+    builder.setupHorizontalMetrics({name: (1536, 0) for name in names})
+    builder.setupHorizontalHeader(ascent=1280, descent=-256)
+    builder.setupNameTable({"familyName": "Control", "styleName": "Regular"})
+    builder.setupOS2(**os2_kwargs)
+    builder.setupPost()
+    builder.save(str(path))
+    return path
+
+
+def test_the_os2_reader_can_see_not_set_and_set(tmp_path):
+    """Control of the OS/2 reader: a scratch font built with explicit zero ranges reads
+    no bit and zero code pages ('not set'); the same font built the way the CJK build
+    does, with no range passed, reads bit 59 (fontTools recalculates it from the map).
+    So the sets above are readings, and a zero is distinguishable from them."""
+    zero = {
+        "ulUnicodeRange1": 0,
+        "ulUnicodeRange2": 0,
+        "ulUnicodeRange3": 0,
+        "ulUnicodeRange4": 0,
+        "ulCodePageRange1": 0,
+        "ulCodePageRange2": 0,
+    }
+    bits, pages = os2_bits(build_scratch_font(tmp_path / "zero.ttf", zero))
+    assert bits == set() and pages == (0, 0)
+    bits, pages = os2_bits(build_scratch_font(tmp_path / "recalc.ttf", {}))
+    assert bits == {59} and pages == (0, 0)

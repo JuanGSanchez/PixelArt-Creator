@@ -418,11 +418,40 @@ jobs:
         # extra, pinned in constraints.txt.
         run: python scripts/font/build_nifen_art.py --lint
 
+      - name: CJK font source lint (REQ-L10N-BUILD-001)
+        if: runner.os == 'Linux'
+        # The same lint for the second face, over fonts-src/nifen-art-cjk: the
+        # grid contract, Bold equal to Regular, a Han and Hangul character map,
+        # every glyph drawn or a recipe of drawn glyphs, the R05 exemptions and
+        # the donor gate over the notices (none is a donor for this face). It
+        # prints each rule's count and the exempted glyphs, then the file list
+        # it scanned, and exits non-zero on a violation and when it examined
+        # nothing. fontTools comes from the dev extra, pinned in constraints.txt.
+        run: python scripts/font/build_nifen_art.py --lint --face nifen-art-cjk
+
+      - name: Existing face is unchanged (freeze manifest; REQ-L10N-BUILD-001)
+        if: runner.os == 'Linux'
+        # Compares every file the existing face is made of (sources, built
+        # fonts and notices) with the hashes in fonts-src/nifen-art-cjk/
+        # existing-face.sha256 and prints "N files compared, N identical". Exits
+        # non-zero on a changed, missing or unlisted file, and on a manifest that
+        # lists nothing. The manifest is never regenerated.
+        run: python scripts/font/build_nifen_art.py --verify-freeze
+
       - name: Font rebuild is byte-identical to the committed fonts (REQ-VI-BUILD-002)
         if: runner.os == 'Linux'
         # Builds both weights twice from the sources and compares both builds
         # with the committed TTFs in pixelart_creator/fonts, byte for byte.
         run: python scripts/font/build_nifen_art.py --check
+
+      - name: CJK font rebuild is byte-identical to the committed fonts (REQ-L10N-BUILD-001)
+        if: runner.os == 'Linux'
+        # The same comparison for the second face: builds the six Nifen Art CJK
+        # files (three families, Regular and Bold) twice from fonts-src/nifen-art-cjk
+        # and compares both builds with the committed TTFs in pixelart_creator/fonts,
+        # byte for byte. It prints the six files compared and exits non-zero on a
+        # difference, a missing file, and when it compared nothing.
+        run: python scripts/font/build_nifen_art.py --check --face nifen-art-cjk
 
       - name: Font glyph coverage (REQ-VI-BUILD-004)
         if: runner.os == 'Linux'

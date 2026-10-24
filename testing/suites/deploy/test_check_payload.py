@@ -67,6 +67,26 @@ THEME_FILES_IN_A_FIXTURE = 4
 #: SCRIPT and not the state of the tree it happens to sit in.
 CJK_FONTLOG = "FONTLOG-CJK.txt"
 
+#: The six Nifen Art CJK TTFs (three families, Regular and Bold) the script must
+#: name one by one. Fixtures copy the real fonts folder, so a fixture carries
+#: whichever of them the tree holds; the landing commit that adds the script's
+#: names is the one that adds the files.
+CJK_TTFS = tuple(
+    f"NifenArtCJK{family}-{weight}.ttf"
+    for family in ("JP", "SC", "KR")
+    for weight in ("Regular", "Bold")
+)
+
+#: Every name ``fonts/`` must hold in a payload, as the script prints them.
+FONT_FOLDER_NAMES = (
+    "NifenArt-Regular.ttf",
+    "NifenArt-Bold.ttf",
+    *CJK_TTFS,
+    "OFL.txt",
+    "FONTLOG.txt",
+    CJK_FONTLOG,
+)
+
 _WSL_LAUNCHER_PARTS = ("system32", "windowsapps")
 
 
@@ -213,6 +233,13 @@ def _run_payload(bash_exe: str, fx: Fixture, label: str = "fixture") -> Result:
 # --------------------------------------------------------------------------- #
 # The broken copies: one neutralised block each
 # --------------------------------------------------------------------------- #
+#: The three continuation lines of the script's required-name list that carry the six
+#: CJK TTF names, verbatim (a trailing backslash, then a newline, ends each).
+_CJK_NAME_LINES = "".join(
+    "        NifenArtCJK%s-Regular.ttf NifenArtCJK%s-Bold.ttf \\\n" % (family, family)
+    for family in ("JP", "SC", "KR")
+)
+
 #: name -> list of (text in the real script, replacement). Every "old" must occur
 #: exactly once in the script (asserted when applied).
 MUTATIONS: Dict[str, List[Tuple[str, str]]] = {
@@ -227,6 +254,19 @@ MUTATIONS: Dict[str, List[Tuple[str, str]]] = {
     # list and the comparison together; both are neutralised.
     "no-cjk-fontlog-checks": [
         (" FONTLOG.txt FONTLOG-CJK.txt; do", " FONTLOG.txt; do"),
+        (
+            'problem "${data}/${rel} is missing from the payload"',
+            'echo "${data}/${rel} is missing from the payload"',
+        ),
+    ],
+    # The six CJK TTF names removed from the required list: only the comparison loop
+    # (against the repository's copy) can then notice a TTF the payload lacks.
+    "no-cjk-ttf-name-list": [
+        (_CJK_NAME_LINES, ""),
+    ],
+    # Both the name list and the comparison loop's "missing" verdict neutralised.
+    "no-cjk-ttf-checks": [
+        (_CJK_NAME_LINES, ""),
         (
             'problem "${data}/${rel} is missing from the payload"',
             'echo "${data}/${rel} is missing from the payload"',
@@ -325,6 +365,21 @@ def _fontlog_cjk_missing_everywhere(fx: Fixture) -> None:
     (fx.repo / "pixelart_creator" / "fonts" / CJK_FONTLOG).unlink()
 
 
+def _cjk_ttf_missing_from_payload(name: str) -> Callable[[Fixture], None]:
+    def plant(fx: Fixture) -> None:
+        (fx.pkg / "fonts" / name).unlink()
+
+    return plant
+
+
+def _cjk_ttf_missing_everywhere(name: str) -> Callable[[Fixture], None]:
+    def plant(fx: Fixture) -> None:
+        (fx.pkg / "fonts" / name).unlink()
+        (fx.repo / "pixelart_creator" / "fonts" / name).unlink()
+
+    return plant
+
+
 def _ofl_differs_by_one_copyright_line(fx: Fixture) -> None:
     # The typeface's own line, not the donor's: the donor-line check must stay
     # satisfied so that only the byte comparison can refuse this payload.
@@ -400,6 +455,21 @@ REFUSALS: List[Case] = [
         "no-name-list-entry",
     ),
     Case(
+        "cjk-ttf-absent-from-the-payload",
+        _cjk_ttf_missing_from_payload("NifenArtCJKKR-Bold.ttf"),
+        "fonts/NifenArtCJKKR-Bold.ttf is missing from the payload",
+        "no-cjk-ttf-checks",
+    ),
+    *[
+        Case(
+            f"cjk-ttf-absent-everywhere-the-name-list-is-the-floor[{name}]",
+            _cjk_ttf_missing_everywhere(name),
+            f"fonts/{name} is not in the payload",
+            "no-cjk-ttf-name-list",
+        )
+        for name in CJK_TTFS
+    ],
+    Case(
         "ofl-differs-by-one-copyright-line",
         _ofl_differs_by_one_copyright_line,
         "OFL.txt differs from the repository copy",
@@ -448,6 +518,15 @@ def test_complete_payload_exits_0_and_prints_its_denominators(bash, tmp_path):
     assert int(match["lines"]) == 1 + own + 1  # donor line, own dated lines, RFN
     assert int(match["notices"]) == 1
     assert CJK_FONTLOG in res.out, "the FONTLOG-CJK.txt size line is printed"
+
+
+def test_complete_payload_prints_the_eleven_font_folder_names(bash, tmp_path):
+    fx = Fixture(tmp_path, REAL_SCRIPT.read_bytes())
+    res = _run_payload(bash, fx)
+    assert res.rc == 0, res.both
+    printed = re.findall(r"^    fonts/(\S+)  \d+ bytes$", res.out, re.MULTILINE)
+    assert sorted(printed) == sorted(FONT_FOLDER_NAMES), printed
+    assert len(printed) == 11
 
 
 @pytest.mark.parametrize(
@@ -587,6 +666,13 @@ def test_wrong_argument_count_exits_2(bash, tmp_path):
 def test_every_mutation_changes_the_script_exactly_where_it_says():
     for name in MUTATIONS:
         _mutated_script(name)  # asserts one occurrence per replacement
+
+
+def test_the_real_script_names_each_cjk_ttf_and_the_repository_ships_them():
+    text = REAL_SCRIPT.read_text(encoding="utf-8")
+    for name in CJK_TTFS:
+        assert text.count(name) == 1, f"{name} is named once in the required list"
+        assert (REAL_PKG / "fonts" / name).is_file(), f"{name} is not in the tree"
 
 
 def test_the_real_script_names_the_cjk_fontlog_and_checks_the_notice():

@@ -24,8 +24,10 @@
 # payload root (at least one must exist):
 #   * every file the repository ships under pixelart_creator/fonts and
 #     pixelart_creator/themes is present beside it and byte-identical (cmp):
-#     the Nifen Art TTFs, OFL.txt, FONTLOG.txt, FONTLOG-CJK.txt and every theme
-#     file;
+#     the Nifen Art TTFs, the six Nifen Art CJK TTFs, OFL.txt, FONTLOG.txt,
+#     FONTLOG-CJK.txt and every theme file;
+#   * the eleven names fonts/ must hold are each named in the script and printed
+#     with their size, so a font the repository lost is still refused;
 #   * the shipped OFL.txt carries the Ark Pixel Font copyright line verbatim,
 #     a second, differently-dated copyright line (the typeface's own), and the
 #     Reserved Font Name declaration;
@@ -141,7 +143,13 @@ while IFS= read -r fonts_dir; do
         echo "  ${data}: ${present} of ${found} repository file(s) present and byte-identical"
     done
 
-    for f in NifenArt-Regular.ttf NifenArt-Bold.ttf OFL.txt FONTLOG.txt FONTLOG-CJK.txt; do
+    # The eleven names the payload must carry in fonts/: the two Nifen Art TTFs, the six
+    # Nifen Art CJK TTFs (three families, Regular and Bold), the licence and the two change logs.
+    for f in NifenArt-Regular.ttf NifenArt-Bold.ttf \
+        NifenArtCJKJP-Regular.ttf NifenArtCJKJP-Bold.ttf \
+        NifenArtCJKSC-Regular.ttf NifenArtCJKSC-Bold.ttf \
+        NifenArtCJKKR-Regular.ttf NifenArtCJKKR-Bold.ttf \
+        OFL.txt FONTLOG.txt FONTLOG-CJK.txt; do
         if [ -f "${pkg}/fonts/${f}" ]; then
             echo "    fonts/${f}  $(wc -c < "${pkg}/fonts/${f}" | tr -d ' ') bytes"
         else
