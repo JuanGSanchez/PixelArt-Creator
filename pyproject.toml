@@ -189,6 +189,7 @@ pixelart_creator = [
     "fonts/NifenArt-Bold.ttf",
     "fonts/OFL.txt",
     "fonts/FONTLOG.txt",
+    "fonts/FONTLOG-CJK.txt",
     "themes/*.json",
     "themes/*/*.json",
     "themes/*/*.grid.txt",
