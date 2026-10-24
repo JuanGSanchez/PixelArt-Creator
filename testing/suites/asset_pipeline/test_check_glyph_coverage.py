@@ -17,6 +17,12 @@ Scenarios covered (one group each):
   weights, over a non-zero examined count, with the per-block totals printed.
 * SC-VI-BUILD-004-2 - the declared set is covered in Regular and in Bold, and its
   size is printed and equals the count its own header declares.
+* SC-L10N-BUILD-001-1 / -5 (the real tree through the production
+  invocation) - every scan is face-aware: Hangul is judged by the KR face, the Han
+  of an endonym by its own language's form set only (SC for the Simplified name, JP
+  for the Japanese one), Han in ``ja`` text by JP, Han in ``zh_CN`` text by SC, any
+  other Han by both form sets, everything else by the existing face. The routed
+  counts per face are computed here from the endonym table and the fonts' cmaps.
 * The command line: exit 0 on a pass, 1 on any gated missing character, 2 on an
   unreadable font; a failure for every mode that examined nothing (declared set,
   probe text, catalogues, ``--py-dir``, ``--text-dir``, ``--table``).
@@ -24,6 +30,14 @@ Scenarios covered (one group each):
   catalogue, Python literal, content text, table), in one weight only as well as in
   both, and a font glyph outside the declared set is caught too. The number the
   script reports is compared with a count taken straight from the font's cmap.
+* Batch mode (``--batch``, the contract in the checker's own docstring), over
+  SCRATCH pages and worklists only - never the real Korean guide tree, which is in
+  progress and uses syllables the KR face does not draw yet: a Latin-only batch
+  passes with every CJK face saying "nothing routed"; an undrawn Hangul syllable of
+  a ko page fails on both KR weights; an undrawn Han of a ja page fails on both JP
+  weights and is never asked of SC; a router that sends a character to no face (or
+  to a mix of faces) is a named routing error and not a silent drop; and each
+  face's examined count equals the characters routed to that face.
 
 fontTools is a BUILD-TIME dependency that the project must declare (the dev extra
 and ``constraints.txt``; see ``test_build_nifen_art``). If it is not importable
@@ -35,6 +49,7 @@ can be shown to catch a mutated script; it is unset in normal runs.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import importlib.util
 import os
@@ -173,10 +188,20 @@ def run_checker(
     *,
     env: Optional[Dict[str, str]] = None,
     cwd: Optional[Path] = None,
+    script: Optional[Path] = None,
 ) -> Run:
-    """Run the checker as a real subprocess (its documented entry point)."""
+    """Run the checker as a real subprocess (its documented entry point).
+
+    ``script`` names another copy of the checker (a deliberately broken one, built
+    under the per-test scratch folder); the committed script is the default.
+    """
     done = subprocess.run(
-        [sys.executable, "-B", str(FONT_SCRIPTS / CHECKER), *[str(a) for a in args]],
+        [
+            sys.executable,
+            "-B",
+            str(script or FONT_SCRIPTS / CHECKER),
+            *[str(a) for a in args],
+        ],
         cwd=str(cwd or TOOLS_ROOT),
         capture_output=True,
         text=True,
@@ -282,6 +307,182 @@ def ts_file(path: Path, *texts: str) -> Path:
 
 
 # --------------------------------------------------------------------------
+# Oracles of the two faces: every number below is computed here
+# --------------------------------------------------------------------------
+
+LANGUAGE_NAMES = TOOLS_ROOT / "pixelart_creator" / "logic" / "language_names.py"
+
+#: The Han form set that draws a language's own name, by catalogue code.
+FORM_OF_ENDONYM = {"zh_CN": "sc", "ja": "jp"}
+
+#: face -> weight -> font file name. ``existing`` is the Nifen Art pair.
+FACE_FILES: Dict[str, Dict[str, str]] = {
+    "existing": dict(FONT_FILES),
+    **{
+        face: {
+            weight: "NifenArtCJK%s-%s.ttf" % (face.upper(), weight.capitalize())
+            for weight in WEIGHTS
+        }
+        for face in ("jp", "sc", "kr")
+    },
+}
+
+ROUTED_LINE = re.compile(
+    r"^(?P<label>.+?): examined (?P<n>\d+) unique characters, routed: existing face "
+    r"(?P<existing>\d+), KR (?P<kr>\d+), JP only (?P<jp>\d+), SC only (?P<sc>\d+), "
+    r"JP and SC (?P<both>\d+) \(sum (?P<sum>\d+)\)$",
+    re.M,
+)
+
+
+def clean_catalogue(scratch: Path) -> List[object]:
+    """``--catalogue`` arguments naming a scratch catalogue with nothing to miss.
+
+    A scan without ``--catalogue`` discovers every ``pixelart_*.ts`` of the real
+    package, and with ``--gate-catalogues`` a language not yet drawn would fail the
+    run for a reason that is not the one under test.
+    """
+    return ["--catalogue", ts_file(scratch / "pixelart_en.ts", "Open")]
+
+
+def plain_chars(*texts: str) -> int:
+    """Unique characters a scratch catalogue of ``texts`` routes to the existing
+    face: those that are neither Han nor Hangul, and the ``s0``, ``s1`` ... source
+    labels that ``ts_file`` writes."""
+    seen = set()
+    for index, text in enumerate(texts):
+        seen.update(
+            c for c in "s%d%s" % (index, text) if not (is_han(c) or is_hangul(c))
+        )
+    return len(seen)
+
+
+def endonyms() -> Dict[str, str]:
+    """The language self-names, read from the one source (executed, not imported,
+    so that no bytecode is written next to the product code)."""
+    namespace: Dict[str, object] = {}
+    exec(  # noqa: S102 - the product's own constant table, read only
+        compile(LANGUAGE_NAMES.read_bytes(), str(LANGUAGE_NAMES), "exec"), namespace
+    )
+    return dict(namespace["ENDONYMS"])  # type: ignore[call-overload]
+
+
+def is_han(ch: str) -> bool:
+    """Own definition, from the character database (not the script's ranges)."""
+    return unicodedata.name(ch, "").startswith("CJK UNIFIED IDEOGRAPH")
+
+
+def is_hangul(ch: str) -> bool:
+    return unicodedata.name(ch, "").startswith("HANGUL SYLLABLE")
+
+
+def face_cmap(face: str, weight: str) -> Set[int]:
+    path = FONT_DIR / FACE_FILES[face][weight]
+    assert path.is_file(), (
+        "%s is not built: the CJK faces are required here" % path.name
+    )
+    return cmap_of(path)
+
+
+def assert_undrawn(chars: str) -> None:
+    """The planted characters are in none of the six CJK files (a precondition,
+    so that a 'missing' below cannot be a coincidence of the plant)."""
+    for face in ("jp", "sc", "kr"):
+        for weight in WEIGHTS:
+            held = [c for c in chars if ord(c) in face_cmap(face, weight)]
+            assert not held, (face, weight, held)
+
+
+def package_literal_chars() -> Set[str]:
+    """Own walk: the unique non-ASCII characters inside string literals of every
+    .py file of the package (docstrings included, as the checker reads them)."""
+    found: Set[str] = set()
+    for path in sorted(PACKAGE_DIR.rglob("*.py")):
+        tree = ast.parse(path.read_bytes(), filename=path.name)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                found.update(c for c in node.value if ord(c) > 127)
+    return found
+
+
+def route_package_chars(chars: Set[str], names: Dict[str, str]) -> Dict[str, Set[str]]:
+    """The faces that must draw each character of the package's literals.
+
+    Hangul -> KR; the Han of the zh_CN / ja self-name -> SC / JP only; any other
+    Han -> both form sets; everything else -> the existing face.
+    """
+    own: Dict[str, Set[str]] = {"sc": set(), "jp": set()}
+    for code, form in FORM_OF_ENDONYM.items():
+        own[form] |= {c for c in names[code] if is_han(c)}
+    faces: Dict[str, Set[str]] = {k: set() for k in ("existing", "kr", "jp", "sc")}
+    for ch in chars:
+        if is_hangul(ch):
+            faces["kr"].add(ch)
+        elif is_han(ch):
+            if ch in own["sc"]:
+                faces["sc"].add(ch)
+            elif ch in own["jp"]:
+                faces["jp"].add(ch)
+            else:
+                faces["sc"].add(ch)
+                faces["jp"].add(ch)
+        else:
+            faces["existing"].add(ch)
+    return faces
+
+
+def face_lines(text: str, prefix: str) -> Dict[str, Dict[str, Tuple[int, int]]]:
+    """face -> weight -> (examined, missing) of the ONE section starting ``prefix``.
+
+    A line that is not printed for a face and weight fails here: a silent section
+    is never read as 'nothing missing'.
+    """
+    sets = parse_sets(text)
+    labels = {label for label, _font in sets if label.startswith(prefix)}
+    assert len(labels) == 1, (prefix, sorted(labels), text[:400])
+    label = labels.pop()
+    out: Dict[str, Dict[str, Tuple[int, int]]] = {}
+    for face, files in FACE_FILES.items():
+        out[face] = {}
+        for weight, font in files.items():
+            assert (label, font) in sets, "no line for %s | %s" % (label, font)
+            out[face][weight] = sets[(label, font)]
+    return out
+
+
+def assert_faces(text: str, prefix: str, **expected: Tuple[int, int]) -> None:
+    """Every face's line, in both weights, equals (examined, missing)."""
+    assert set(expected) == set(FACE_FILES), sorted(expected)
+    got = face_lines(text, prefix)
+    for face, per_weight in got.items():
+        for weight, line in per_weight.items():
+            assert line == expected[face], (prefix, face, weight, line, expected[face])
+
+
+def routed_parts(text: str, prefix: str) -> Dict[str, int]:
+    """The routed-counts line of the ONE section starting ``prefix``."""
+    found = [m for m in ROUTED_LINE.finditer(text) if m["label"].startswith(prefix)]
+    assert len(found) == 1, (prefix, len(found))
+    return {k: int(v) for k, v in found[0].groupdict().items() if k != "label"}
+
+
+def missing_code_points(text: str, prefix: str, font: str) -> List[int]:
+    """The code points named on the ``missing:`` line under one section/font line."""
+    lines = text.split("\n")
+    for index, line in enumerate(lines):
+        if line.startswith(prefix) and (" | %s: " % font) in line:
+            for follow in lines[index + 1 :]:
+                if not follow.startswith("    "):
+                    break
+                if follow.startswith("    missing: "):
+                    return sorted(
+                        int(h, 16) for h in re.findall(r"U\+([0-9A-F]{4,6}) ", follow)
+                    )
+            return []
+    raise AssertionError("no line for %s | %s" % (prefix, font))
+
+
+# --------------------------------------------------------------------------
 # SC-VI-BUILD-004-1 / -2: the committed inputs pass, over counted denominators
 # --------------------------------------------------------------------------
 
@@ -339,7 +540,13 @@ def test_the_probe_text_carries_kana_greek_and_cyrillic_and_all_are_examined(scr
 def test_catalogues_interface_literals_and_guide_content_are_covered_when_gated(
     scratch,
 ):
-    """The production invocation: every source of shipped text, gated, counted."""
+    """The production invocation: every source of shipped text, gated, counted.
+
+    SC-L10N-BUILD-001-1 / -5 over the real tree and both faces: every line the run
+    prints, the six CJK files included, reads 0 missing; and for the package's
+    string literals the routed counts are exactly those the endonym table and the
+    fonts' cmaps give (existing face + SC + JP + KR = examined).
+    """
     res = run_checker(
         [
             "--gate-catalogues",
@@ -374,10 +581,51 @@ def test_catalogues_interface_literals_and_guide_content_are_covered_when_gated(
                 examined, missing = sets[(label, font)]
                 assert examined > 0, "%s examined nothing in %s" % (label, font)
                 assert missing == 0, "%s: %d missing in %s" % (label, missing, font)
+            # the routed scans print one line per CJK file as well, per weight
+            if not prefix.startswith(("declared set", "specimen strings")):
+                for face in ("jp", "sc", "kr"):
+                    for font in FACE_FILES[face].values():
+                        assert (label, font) in sets, "no line: %s | %s" % (label, font)
+                        assert sets[(label, font)][1] == 0, (label, font)
     for label in labels:
         if "python string literals" in label or "content text" in label:
             files = int(re.search(r"\((\d+) ", label)[1])
             assert files > 0, "%s scanned no file" % label
+    # the routed counts of the package's literals, from this module's own oracles
+    names = endonyms()
+    chars = package_literal_chars()
+    routed = route_package_chars(chars, names)
+    own_han = {c for lang in FORM_OF_ENDONYM for c in names[lang] if is_han(c)}
+    assert {
+        c for c in chars if is_han(c)
+    } == own_han, "a Han literal that is no endonym"
+    assert {c for c in chars if is_hangul(c)} == {
+        c for c in names["ko"] if is_hangul(c)
+    }
+    prefix = "python string literals of pixelart_creator"
+    expected = {}
+    for face, files in FACE_FILES.items():
+        wanted = routed[face]
+        for weight, font in files.items():
+            absent = sum(1 for c in wanted if ord(c) not in face_cmap(face, weight))
+            expected[(face, weight)] = (len(wanted), absent)
+    assert (len(routed["sc"]), len(routed["jp"]), len(routed["kr"])) == (4, 3, 3)
+    assert routed["sc"] == set("简体中文") and routed["jp"] == set("日本語")
+    got = face_lines(res.stdout, prefix)
+    for (face, weight), line in expected.items():
+        assert got[face][weight] == line, (face, weight, got[face][weight], line)
+        assert line[1] == 0, "%s %s: %d missing" % (face, weight, line[1])
+    assert sum(len(v) for v in routed.values()) == len(chars)
+    parts = routed_parts(res.stdout, prefix)
+    assert parts == {
+        "n": len(chars),
+        "existing": len(routed["existing"]),
+        "kr": len(routed["kr"]),
+        "jp": len(routed["jp"] - routed["sc"]),
+        "sc": len(routed["sc"] - routed["jp"]),
+        "both": len(routed["jp"] & routed["sc"]),
+        "sum": len(chars),
+    }, parts
 
 
 # --------------------------------------------------------------------------
@@ -574,58 +822,323 @@ def test_a_planted_character_in_the_probe_text_fails(scratch):
 
 
 def test_a_catalogue_character_is_information_unless_gated(scratch):
-    """Catalogue gaps are reported always, and fail only with --gate-catalogues."""
+    """Catalogue gaps are reported always, and fail only with --gate-catalogues.
+
+    The planted Han character sits in a catalogue of no known language, so it is
+    required of BOTH form sets (JP and SC, both weights) and of no other face; the
+    existing face's line examines the rest of the text and reads 0 missing.
+    """
+    assert_undrawn(KANJI)
     catalogue = ts_file(scratch / "planted.ts", "Open %s" % KANJI)
     plain = run_checker(["--catalogue", catalogue], scratch)
     gated = run_checker(["--catalogue", catalogue, "--gate-catalogues"], scratch)
     assert plain.returncode == 0, plain.text
     assert gated.returncode == 1, gated.text
     for res in (plain, gated):
-        sets = parse_sets(res.stdout)
-        for font in FONT_FILES.values():
-            assert sets[("catalogues (1 files)", font)][1] == 1
+        assert_faces(
+            res.stdout,
+            "catalogues (1 files)",
+            existing=(plain_chars("Open " + KANJI), 0),
+            jp=(1, 1),
+            sc=(1, 1),
+            kr=(0, 0),
+        )
         assert "U+6F22" in res.stdout
 
 
 def test_a_python_literal_character_is_counted_but_a_comment_is_not(scratch):
-    """``--py-dir`` reads string literals only; the missing one fails when gated."""
+    """``--py-dir`` reads string literals only; the missing one fails when gated.
+
+    The Han character is in a literal that is no endonym, so both form sets must
+    draw it; the existing face's line holds only the other character of the literal.
+    """
+    assert_undrawn(KANJI + "字")
     folder = scratch / "pycode"
     folder.mkdir()
     # the comment carries a different missing character: only the literal counts
     (folder / "mod.py").write_text(
         "# a comment with 字 in it\nvalue = 'nñ%s'\n" % KANJI, encoding="utf-8"
     )
-    plain = run_checker(["--py-dir", folder], scratch)
-    gated = run_checker(["--py-dir", folder, "--gate-catalogues"], scratch)
+    clean = clean_catalogue(scratch)
+    plain = run_checker(["--py-dir", folder, *clean], scratch)
+    gated = run_checker(["--py-dir", folder, *clean, "--gate-catalogues"], scratch)
     assert plain.returncode == 0, plain.text
     assert gated.returncode == 1, gated.text
     for res in (plain, gated):
-        sets = parse_sets(res.stdout)
-        entries = {k: v for k, v in sets.items() if "python string literals" in k[0]}
-        assert entries
-        for (_label, _font), (examined, missing) in entries.items():
-            assert (examined, missing) == (2, 1), "the comment must not be counted"
-        assert "U+5B57" not in res.stdout
+        # the comment's character would raise the JP and SC counts to 2 if read
+        assert_faces(
+            res.stdout,
+            "python string literals of pycode",
+            existing=(1, 0),
+            jp=(1, 1),
+            sc=(1, 1),
+            kr=(0, 0),
+        )
+        assert "U+6F22" in res.stdout and "U+5B57" not in res.stdout
 
 
 def test_a_content_text_character_is_counted_for_md_and_json_only(scratch):
+    """Only .md and .json are content text; a Han in a folder of no known language
+    is required of both form sets, and a .txt file's character is not read."""
+    assert_undrawn(KANJI + "字")
     folder = scratch / "guide"
     folder.mkdir()
     (folder / "page.md").write_text("Texto %s\n" % KANJI, encoding="utf-8")
     (folder / "data.json").write_text('{"k": "ñ"}\n', encoding="utf-8")
     (folder / "ignored.txt").write_text("字\n", encoding="utf-8")
-    plain = run_checker(["--text-dir", folder], scratch)
-    gated = run_checker(["--text-dir", folder, "--gate-catalogues"], scratch)
+    clean = clean_catalogue(scratch)
+    plain = run_checker(["--text-dir", folder, *clean], scratch)
+    gated = run_checker(["--text-dir", folder, *clean, "--gate-catalogues"], scratch)
     assert plain.returncode == 0, plain.text
     assert gated.returncode == 1, gated.text
     for res in (plain, gated):
-        entries = {
-            k: v for k, v in parse_sets(res.stdout).items() if "content text" in k[0]
-        }
-        assert entries
-        for (_label, _font), (examined, missing) in entries.items():
-            assert (examined, missing) == (2, 1)
+        assert_faces(
+            res.stdout,
+            "content text of guide",
+            existing=(1, 0),
+            jp=(1, 1),
+            sc=(1, 1),
+            kr=(0, 0),
+        )
         assert "(2 .md/.json files" in res.stdout and "U+5B57" not in res.stdout
+        assert "U+6F22" in res.stdout
+
+
+# --------------------------------------------------------------------------
+# SC-L10N-BUILD-001-1 / -5: every scan is face-aware
+# --------------------------------------------------------------------------
+
+
+def test_without_the_cjk_fonts_the_package_scan_names_exactly_the_endonym_points(
+    scratch,
+):
+    """Control (SC-L10N-BUILD-001-5): with only the two existing-face files in
+    ``--font`` the real package's scan fails and names the 10 endonym code points.
+
+    Each form set is named by its own points only: 简 体 中 文 for SC, 日 本 語 for
+    JP and 한 국 어 for KR; the existing face still reads 0 missing.
+    """
+    names = endonyms()
+    expected = {
+        "sc": sorted(ord(c) for c in names["zh_CN"] if is_han(c)),
+        "jp": sorted(ord(c) for c in names["ja"] if is_han(c)),
+        "kr": sorted(ord(c) for c in names["ko"] if is_hangul(c)),
+    }
+    assert [len(v) for v in expected.values()] == [4, 3, 3]
+    existing_only = [
+        a for f in FACE_FILES["existing"].values() for a in ("--font", FONT_DIR / f)
+    ]
+    res = run_checker(
+        existing_only
+        + [
+            "--gate-catalogues",
+            "--catalogue",
+            I18N_DIR / "pixelart_en.ts",
+            "--py-dir",
+            PACKAGE_DIR,
+        ],
+        scratch,
+    )
+    assert res.returncode == 1, res.text
+    prefix = "python string literals of pixelart_creator"
+    named: List[int] = []
+    for face, points in expected.items():
+        for font in FACE_FILES[face].values():
+            got = missing_code_points(res.stdout, prefix, font)
+            assert got == points, (font, got, points)
+            named.extend(got)
+    assert len(named) == 2 * 10 and sorted(set(named)) == sorted(
+        sum(expected.values(), [])
+    )
+    for font in FACE_FILES["existing"].values():
+        assert missing_code_points(res.stdout, prefix, font) == []
+    assert "font not provided: every routed character counts as missing" in res.stdout
+
+
+@pytest.mark.parametrize("origin", ["ko", "fr"])
+def test_hangul_is_routed_to_the_kr_face_whatever_the_language(scratch, origin):
+    """SC-L10N-BUILD-001-5: a Hangul syllable is judged by the KR face only.
+
+    한 is drawn there and 뷁 is not; the existing face and both form sets examine
+    nothing, so the miss is reported on the KR lines alone.
+    """
+    assert_undrawn("뷁")
+    assert ord("한") in face_cmap("kr", "regular") and ord("한") in face_cmap(
+        "kr", "bold"
+    )
+    catalogue = ts_file(scratch / ("pixelart_%s.ts" % origin), "한뷁")
+    res = run_checker(["--catalogue", catalogue, "--gate-catalogues"], scratch)
+    assert res.returncode == 1, res.text
+    assert_faces(
+        res.stdout,
+        "catalogues (1 files)",
+        existing=(plain_chars("한뷁"), 0),
+        jp=(0, 0),
+        sc=(0, 0),
+        kr=(2, 1),
+    )
+    total = plain_chars("한뷁") + 2
+    assert routed_parts(res.stdout, "catalogues (1 files)") == {
+        "n": total,
+        "existing": total - 2,
+        "kr": 2,
+        "jp": 0,
+        "sc": 0,
+        "both": 0,
+        "sum": total,
+    }
+    for font in FACE_FILES["kr"].values():
+        assert missing_code_points(res.stdout, "catalogues (1 files)", font) == [
+            ord("뷁")
+        ]
+
+
+#: language of the text -> (the character its form set draws, expected JP/SC lines)
+HAN_CASES = {
+    "ja": ("日", {"jp": (2, 1), "sc": (0, 0)}),
+    "zh_CN": ("简", {"jp": (0, 0), "sc": (2, 1)}),
+    "fr": ("日", {"jp": (2, 1), "sc": (2, 2)}),
+}
+
+
+def _han_text_run(scratch: Path, source: str, language: str, text: str) -> Run:
+    """Run the checker over ``text`` seen as ``language`` text, as a catalogue or as
+    a user-guide tree (a folder named for the language below the content root)."""
+    if source == "catalogue":
+        catalogue = ts_file(scratch / ("pixelart_%s.ts" % language), text)
+        return run_checker(["--catalogue", catalogue, "--gate-catalogues"], scratch)
+    page = scratch / "guide" / language / "page.md"
+    page.parent.mkdir(parents=True)
+    page.write_text(text + "\n", encoding="utf-8")
+    return run_checker(
+        [
+            "--text-dir",
+            scratch / "guide",
+            *clean_catalogue(scratch),
+            "--gate-catalogues",
+        ],
+        scratch,
+    )
+
+
+@pytest.mark.parametrize("source", ["catalogue", "guide tree"])
+@pytest.mark.parametrize("language", sorted(HAN_CASES))
+def test_han_is_routed_by_the_language_of_the_text(scratch, source, language):
+    """SC-L10N-BUILD-001-5: Han in ja text is required of JP only, Han in zh_CN text
+    of SC only, and Han in the text of any other language of both form sets.
+
+    Each text holds one character drawn by the set of its language (日 in JP, 简 in
+    SC) and the undrawn 漢, so the miss shows which faces were asked.
+    """
+    drawn, wanted = HAN_CASES[language]
+    assert_undrawn(KANJI)
+    res = _han_text_run(scratch, source, language, drawn + KANJI)
+    assert res.returncode == 1, res.text
+    prefix = (
+        "catalogues (1 files)" if source == "catalogue" else "content text of guide"
+    )
+    # fr: 日 is drawn by JP only, so SC misses both characters
+    existing = (plain_chars(drawn + KANJI), 0) if source == "catalogue" else (0, 0)
+    assert_faces(res.stdout, prefix, existing=existing, kr=(0, 0), **wanted)
+    jp_missing = missing_code_points(res.stdout, prefix, FACE_FILES["jp"]["bold"])
+    sc_missing = missing_code_points(res.stdout, prefix, FACE_FILES["sc"]["bold"])
+    assert jp_missing == ([ord(KANJI)] if wanted["jp"][0] else [])
+    if language == "fr":
+        assert sc_missing == sorted([ord(drawn), ord(KANJI)])
+    else:
+        assert sc_missing == ([ord(KANJI)] if wanted["sc"][0] else [])
+
+
+def test_an_endonym_literal_is_required_of_its_own_form_set_only(scratch):
+    """SC-L10N-BUILD-001-5: a literal that is exactly an endonym goes to its own face.
+
+    简体中文 is SC's alone and is never required of JP; 日本語 is JP's alone and is
+    never required of SC; 한국어 is KR's. All three are drawn, so the run exits 0.
+    """
+    names = endonyms()
+    folder = scratch / "names"
+    folder.mkdir()
+    (folder / "mod.py").write_text(
+        "A = %r\nB = %r\nC = %r\n" % (names["zh_CN"], names["ja"], names["ko"]),
+        encoding="utf-8",
+    )
+    res = run_checker(
+        ["--py-dir", folder, *clean_catalogue(scratch), "--gate-catalogues"], scratch
+    )
+    assert res.returncode == 0, res.text
+    assert_faces(
+        res.stdout,
+        "python string literals of names",
+        existing=(0, 0),
+        jp=(len(set(names["ja"])), 0),
+        sc=(len(set(names["zh_CN"])), 0),
+        kr=(len(set(names["ko"])), 0),
+    )
+    assert not set(names["zh_CN"]) & set(names["ja"]), "the two names share a character"
+
+
+def test_a_literal_that_is_more_than_an_endonym_is_required_of_both_form_sets(scratch):
+    """SC-L10N-BUILD-001-5: only a literal EQUAL to an endonym is routed as one.
+
+    日本語 inside a longer literal is any other Han: JP draws it, SC does not, so the
+    SC lines miss all three characters and the run fails.
+    """
+    names = endonyms()
+    folder = scratch / "longer"
+    folder.mkdir()
+    (folder / "mod.py").write_text(
+        "A = %r\n" % (names["ja"] + " text"), encoding="utf-8"
+    )
+    res = run_checker(
+        ["--py-dir", folder, *clean_catalogue(scratch), "--gate-catalogues"], scratch
+    )
+    assert res.returncode == 1, res.text
+    assert_faces(
+        res.stdout,
+        "python string literals of longer",
+        existing=(0, 0),
+        jp=(3, 0),
+        sc=(3, 3),
+        kr=(0, 0),
+    )
+
+
+def test_the_endonym_labels_scan_routes_each_name_to_its_own_face(scratch):
+    """SC-L10N-BUILD-001-5, ``--endonyms``: the eight self-names, routed and counted."""
+    names = endonyms()
+    plain = {
+        c for text in names.values() for c in text if not (is_han(c) or is_hangul(c))
+    }
+    res = run_checker(
+        ["--endonyms", *clean_catalogue(scratch), "--gate-catalogues"], scratch
+    )
+    assert res.returncode == 0, res.text
+    assert_faces(
+        res.stdout,
+        "endonym labels (%d)" % len(names),
+        existing=(len(plain), 0),
+        jp=(3, 0),
+        sc=(4, 0),
+        kr=(3, 0),
+    )
+    parts = routed_parts(res.stdout, "endonym labels")
+    assert parts["sum"] == parts["n"] == len(plain) + 10
+
+
+def test_a_face_with_nothing_routed_says_so_and_does_not_fail_alone(scratch):
+    """A plain-Latin catalogue routes nothing to the CJK faces: stated, exit 0."""
+    res = run_checker([*clean_catalogue(scratch), "--gate-catalogues"], scratch)
+    assert res.returncode == 0, res.text
+    assert_faces(
+        res.stdout,
+        "catalogues (1 files)",
+        existing=(plain_chars("Open"), 0),
+        jp=(0, 0),
+        sc=(0, 0),
+        kr=(0, 0),
+    )
+    for face in ("JP", "SC", "KR"):
+        assert "nothing routed to the %s face" % face in res.stdout
 
 
 def _table_rows(text: str) -> List[Tuple[str, int, int, int]]:
@@ -687,3 +1200,409 @@ def test_a_table_character_missing_from_a_font_is_caught(scratch):
     assert res.returncode == 1, res.text
     assert "coverage failures: 1" in res.stdout
     assert [r[3] for r in _table_rows(res.stdout)] == [1]
+
+
+# --------------------------------------------------------------------------
+# Batch mode (--batch): scratch pages and worklists, never the real guide tree
+# --------------------------------------------------------------------------
+#
+# The Korean guide tree of the working tree is in progress and uses syllables the
+# KR face does not draw yet, so none of these tests reads it: every batch below is
+# written under the per-test scratch folder. The counts expected are computed here
+# from the character database and the fonts' cmaps (own oracles), not from the
+# script's ranges.
+
+BATCH_PREFIX = "batch "
+
+BATCH_SUMMARY = re.compile(
+    r"^batch .+?: examined (?P<n>\d+) unique characters, routed: existing face "
+    r"(?P<existing>\d+), Han (?P<han>\d+), Hangul (?P<hangul>\d+) "
+    r"\(sum (?P<sum>\d+)\)$",
+    re.M,
+)
+BATCH_DEST = re.compile(
+    r"^    routed by destination: existing face (?P<existing>\d+), KR (?P<kr>\d+), "
+    r"JP only (?P<jp>\d+), SC only (?P<sc>\d+), JP and SC (?P<both>\d+) "
+    r"\(sum (?P<sum>\d+)\)$",
+    re.M,
+)
+
+#: The page of a ko batch. The heading and the Latin words are ASCII (a page reads
+#: its non-ASCII characters only); U+00E9 goes to the existing face, U+D55C is drawn
+#: by the KR face and U+BDC1 is not.
+KO_PAGE = "# Guide\n\nOpen é 한 뷁\n"
+UNDRAWN_HANGUL = "뷁"
+#: U+65E5 U+672C U+8A9E are drawn by the JP face, U+6F22 is drawn by no CJK file.
+JA_PAGE = "# Guide\n\n日本語 漢\n"
+
+
+def batch_page(scratch: Path, language: str, text: str, folder: str = "guide") -> Path:
+    """``<scratch>/<folder>/<language>/page.md`` holding ``text``; returns the page."""
+    page = scratch / folder / language / "page.md"
+    page.parent.mkdir(parents=True)
+    page.write_bytes(text.encode("utf-8"))
+    return page
+
+
+def batch_worklist(scratch: Path, language: str, translations: list) -> Path:
+    """A worklist whose ``source`` and ``context`` carry a character (U+0416) that no
+    translation has, so a count that includes them is visible."""
+    import json
+
+    entries = [
+        {"context": "CtxЖ", "source": "SrcЖ", "translation": form}
+        for form in translations
+    ]
+    path = scratch / "work" / "worklist.json"
+    path.parent.mkdir()
+    path.write_bytes(
+        json.dumps(
+            {"language": language, "entries": entries}, ensure_ascii=False
+        ).encode("utf-8")
+    )
+    return path
+
+
+def page_chars(text: str) -> Set[str]:
+    """What a page contributes: its non-ASCII characters (own parse)."""
+    return {c for c in text if ord(c) > 127}
+
+
+def worklist_chars(translations: list) -> Set[str]:
+    """What a worklist contributes: every character of every translation form."""
+    forms: List[str] = []
+    for item in translations:
+        forms.extend([item] if isinstance(item, str) else item)
+    return {c for form in forms for c in form if c not in "\n\r\t"}
+
+
+def batch_routing(chars: Set[str], language: str) -> Dict[str, Set[str]]:
+    """The faces that must draw each character of a ``language`` batch (own rules).
+
+    Hangul -> KR; Han -> JP only in ja text, SC only in zh_CN text, both form sets in
+    the text of any other language; everything else -> the existing face.
+    """
+    own = FORM_OF_ENDONYM.get(language)
+    out: Dict[str, Set[str]] = {k: set() for k in ("existing", "kr", "jp", "sc")}
+    for ch in chars:
+        if is_hangul(ch):
+            out["kr"].add(ch)
+        elif is_han(ch):
+            for form in [own] if own else ["jp", "sc"]:
+                out[form].add(ch)
+        else:
+            out["existing"].add(ch)
+    return out
+
+
+def batch_expected(
+    routing: Dict[str, Set[str]],
+) -> Dict[Tuple[str, str], Tuple[int, int]]:
+    """(face, weight) -> (examined, missing) from the routing and the real cmaps."""
+    expected = {}
+    for face, wanted in routing.items():
+        for weight in WEIGHTS:
+            cmap = face_cmap(face, weight)
+            expected[(face, weight)] = (
+                len(wanted),
+                sum(1 for c in wanted if ord(c) not in cmap),
+            )
+    return expected
+
+
+def batch_numbers(pattern: "re.Pattern[str]", text: str) -> Dict[str, int]:
+    """The ONE line a batch prints for ``pattern``, as numbers."""
+    found = list(pattern.finditer(text))
+    assert len(found) == 1, (pattern.pattern[:40], len(found), text[:500])
+    return {k: int(v) for k, v in found[0].groupdict().items()}
+
+
+def every_font_args() -> List[object]:
+    """``--font`` arguments naming all eight built files."""
+    names = [n for files in FACE_FILES.values() for n in files.values()]
+    return [a for n in names for a in ("--font", FONT_DIR / n)]
+
+
+def broken_checker(scratch: Path, old: str, new: str) -> Path:
+    """A COPY of the checker with ``old`` replaced by ``new`` (it must occur once).
+
+    The copy lives under the scratch folder and is run with ``script=``; the
+    committed script is never touched. Paths the copy would derive from its own
+    location are all passed on the command line by the caller.
+    """
+    source = (FONT_SCRIPTS / CHECKER).read_bytes().decode("utf-8")
+    assert source.count(old) == 1, (
+        "the patch target is not in the checker exactly once - the checker was "
+        "refactored, so rebuild this broken copy: %r" % old
+    )
+    target = scratch / "broken" / "scripts" / "font" / CHECKER
+    target.parent.mkdir(parents=True)
+    target.write_bytes(source.replace(old, new).encode("utf-8"))
+    return target
+
+
+def assert_all_drawn_by(face: str, chars: str) -> None:
+    for weight in WEIGHTS:
+        held = face_cmap(face, weight)
+        assert all(ord(c) in held for c in chars), (face, weight, chars)
+
+
+@pytest.mark.parametrize("source", ["page", "worklist"])
+def test_batch_of_latin_only_passes_and_every_cjk_face_says_nothing_was_routed(
+    scratch, source
+):
+    """A batch with no Han and no Hangul: exit 0, the existing face judges all of it,
+    and KR, JP and SC each print 'nothing routed' (examined 0, missing 0) per weight.
+
+    ``page`` is a guide page (its non-ASCII characters are read); ``worklist`` is a
+    translation worklist (every character of the translations is read).
+    """
+    if source == "page":
+        text = "# Ouvrir\n\nÇa va, señor – über ß ¿Qué?\n"
+        target = batch_page(scratch, "fr", text)
+        chars = page_chars(text)
+    else:
+        forms = [
+            "Ouvrir",
+            "Ça va, señor",
+            ["un fichier", "über ß ¿Qué?"],
+        ]
+        target = batch_worklist(scratch, "fr", forms)
+        chars = worklist_chars(forms)
+    routing = batch_routing(chars, "fr")
+    assert chars and not (routing["kr"] | routing["jp"] | routing["sc"])
+    total = len(chars)
+    res = run_checker(["--batch", target], scratch)
+    assert res.returncode == 0, res.text
+    assert "coverage failures: 0" in res.stdout
+    assert "nothing examined" not in res.stdout
+    assert_faces(
+        res.stdout, BATCH_PREFIX, existing=(total, 0), jp=(0, 0), sc=(0, 0), kr=(0, 0)
+    )
+    for face in ("JP", "SC", "KR"):
+        assert res.stdout.count("nothing routed to the %s face" % face) == 2, face
+    assert batch_numbers(BATCH_DEST, res.stdout) == {
+        "existing": total,
+        "kr": 0,
+        "jp": 0,
+        "sc": 0,
+        "both": 0,
+        "sum": total,
+    }
+    assert batch_numbers(BATCH_SUMMARY, res.stdout) == {
+        "n": total,
+        "existing": total,
+        "han": 0,
+        "hangul": 0,
+        "sum": total,
+    }
+
+
+@pytest.mark.parametrize("target", ["page", "folder"])
+def test_batch_of_a_ko_page_with_an_undrawn_hangul_syllable_fails_on_both_kr_weights(
+    scratch, target
+):
+    """U+BDC1 is in no CJK file: exit 1 and it is named on KR Regular AND KR Bold,
+    with the line it was found on, while every other face reads missing 0.
+
+    The page is named for its folder (``ko``) either as the file or as the folder
+    that contains it.
+    """
+    assert_undrawn(UNDRAWN_HANGUL)
+    assert_all_drawn_by("kr", "한")
+    page = batch_page(scratch, "ko", KO_PAGE)
+    shown = page if target == "page" else page.parent.parent
+    segment = "page.md:3" if target == "page" else "ko/page.md:3"
+    res = run_checker(["--batch", shown], scratch)
+    assert res.returncode == 1, res.text
+    assert_faces(
+        res.stdout, BATCH_PREFIX, existing=(1, 0), jp=(0, 0), sc=(0, 0), kr=(2, 1)
+    )
+    for font in FACE_FILES["kr"].values():
+        assert missing_code_points(res.stdout, BATCH_PREFIX, font) == [0xBDC1], font
+    assert (
+        len(
+            re.findall(
+                r"^    missing: U\+BDC1 [^\n]* - segment: %s$" % re.escape(segment),
+                res.stdout,
+                re.M,
+            )
+        )
+        == 2
+    ), res.stdout
+    for face in ("existing", "jp", "sc"):
+        for font in FACE_FILES[face].values():
+            assert missing_code_points(res.stdout, BATCH_PREFIX, font) == [], font
+    assert "language of the batch: ko" in res.stdout
+    assert "coverage failures: 2" in res.stdout
+    assert batch_numbers(BATCH_DEST, res.stdout) == {
+        "existing": 1,
+        "kr": 2,
+        "jp": 0,
+        "sc": 0,
+        "both": 0,
+        "sum": 3,
+    }
+
+
+@pytest.mark.parametrize("how", ["folder name", "--language flag"])
+def test_batch_of_a_ja_page_with_an_undrawn_han_fails_on_both_jp_weights(scratch, how):
+    """U+6F22 is in no CJK file: as ja text it is required of JP only, so it is named
+    on JP Regular AND JP Bold and the SC face is asked for nothing.
+
+    The language comes either from the folder named ``ja`` or, in a neutral folder,
+    from ``--language ja``.
+    """
+    assert_undrawn("漢")
+    assert_all_drawn_by("jp", "日本語")
+    folder = "ja" if how == "folder name" else "neutral"
+    page = batch_page(scratch, folder, JA_PAGE)
+    extra = [] if how == "folder name" else ["--language", "ja"]
+    res = run_checker(["--batch", page, *extra], scratch)
+    assert res.returncode == 1, res.text
+    assert_faces(
+        res.stdout, BATCH_PREFIX, existing=(0, 0), jp=(4, 1), sc=(0, 0), kr=(0, 0)
+    )
+    for font in FACE_FILES["jp"].values():
+        assert missing_code_points(res.stdout, BATCH_PREFIX, font) == [0x6F22], font
+    for face in ("existing", "sc", "kr"):
+        for font in FACE_FILES[face].values():
+            assert missing_code_points(res.stdout, BATCH_PREFIX, font) == [], font
+    assert res.stdout.count("nothing routed to the SC face") == 2
+    assert "language of the batch: ja" in res.stdout
+    assert "coverage failures: 2" in res.stdout
+    assert batch_numbers(BATCH_DEST, res.stdout) == {
+        "existing": 0,
+        "kr": 0,
+        "jp": 4,
+        "sc": 0,
+        "both": 0,
+        "sum": 4,
+    }
+
+
+def test_batch_control_the_same_han_page_in_another_language_asks_both_form_sets(
+    scratch,
+):
+    """Control for the ja case: the page is the same bytes, the language is not ja,
+    and now SC is asked for the four characters as well (it draws none of them)."""
+    page = batch_page(scratch, "fr", JA_PAGE)
+    res = run_checker(["--batch", page], scratch)
+    assert res.returncode == 1, res.text
+    expected = batch_expected(batch_routing(page_chars(JA_PAGE), "fr"))
+    assert expected[("jp", "regular")] == (4, 1)
+    assert expected[("sc", "regular")] == (4, 4)
+    assert_faces(
+        res.stdout, BATCH_PREFIX, existing=(0, 0), jp=(4, 1), sc=(4, 4), kr=(0, 0)
+    )
+    assert batch_numbers(BATCH_DEST, res.stdout)["both"] == 4
+
+
+#: The line of ``route`` that sends Hangul to KR, and what a broken router sends it to.
+HANGUL_ROUTE = 'return {"kr"}'
+BROKEN_ROUTERS = {
+    "empty destination": "return set()",
+    "mixed destination": 'return {"kr", "existing"}',
+}
+
+
+@pytest.mark.parametrize("router", sorted(BROKEN_ROUTERS))
+def test_batch_with_a_router_that_misplaces_hangul_is_a_named_routing_error(
+    scratch, router
+):
+    """A Hangul syllable routed to no face (or to a mix of faces) must not vanish.
+
+    The checker is run twice over the same ko page. The committed script is the
+    control: no routing error, KR examines both syllables. A COPY of it whose router
+    sends Hangul to nowhere (or to the existing face and KR at once) must exit 1
+    with 'routing error' and name the characters it could not place.
+    """
+    page = batch_page(scratch, "ko", KO_PAGE)
+    args = [
+        *every_font_args(),
+        "--constants",
+        TOOLS_ROOT / "pixelart_creator" / "logic" / "constants.py",
+        "--language-names",
+        LANGUAGE_NAMES,
+        "--batch",
+        page,
+    ]
+    control = run_checker(args, scratch)
+    assert control.returncode == 1, control.text  # U+BDC1 is undrawn
+    assert "routing error" not in control.stdout, control.stdout
+    assert "unrouted:" not in control.stdout
+    assert_faces(
+        control.stdout, BATCH_PREFIX, existing=(1, 0), jp=(0, 0), sc=(0, 0), kr=(2, 1)
+    )
+
+    script = broken_checker(scratch, HANGUL_ROUTE, BROKEN_ROUTERS[router])
+    res = run_checker(args, scratch, script=script)
+    assert res.returncode == 1, res.text
+    assert "routing error: routed counts sum to 1, not 3" in res.stdout, res.stdout
+    for cp in (0xD55C, 0xBDC1):
+        assert re.search(r"^    unrouted: U\+%04X " % cp, res.stdout, re.M), res.stdout
+    if router == "empty destination":
+        # nothing else fails: the two syllables are on no line at all, and the exit
+        # status is the routing error alone
+        assert_faces(
+            res.stdout, BATCH_PREFIX, existing=(1, 0), jp=(0, 0), sc=(0, 0), kr=(0, 0)
+        )
+        assert "coverage failures: 1" in res.stdout
+
+
+@pytest.mark.parametrize("source", ["page", "worklist"])
+def test_batch_each_face_is_judged_over_exactly_the_characters_routed_to_it(
+    scratch, source
+):
+    """The examined count of every face and weight equals the characters routed to
+    that face, and the two summary lines agree with it.
+
+    The text is French-tagged, so its Han go to both form sets (JP draws the two
+    here, SC draws neither) and its Hangul to KR (both syllables are drawn). The
+    worklist also holds a source and a context character that are no translation and
+    so must not be counted. The expected numbers come from the character database
+    and the fonts' cmaps.
+    """
+    forms = [
+        "Ça va, señor",
+        "日本 — 한국",
+        ["é", "über ß"],
+    ]
+    if source == "page":
+        text = "# Guide\n\n" + "\n".join(
+            f if isinstance(f, str) else " ".join(f) for f in forms
+        )
+        target = batch_page(scratch, "fr", text + "\n")
+        chars = page_chars(text)
+    else:
+        target = batch_worklist(scratch, "fr", forms)
+        chars = worklist_chars(forms)
+    assert "Ж" not in chars
+    routing = batch_routing(chars, "fr")
+    assert (len(routing["kr"]), len(routing["jp"]), len(routing["sc"])) == (2, 2, 2)
+    res = run_checker(["--batch", target], scratch)
+    expected = batch_expected(routing)
+    assert expected[("sc", "bold")] == (2, 2) and expected[("jp", "bold")] == (2, 0)
+    assert expected[("kr", "bold")] == (2, 0)
+    assert res.returncode == 1, res.text  # SC draws neither Han
+    got = face_lines(res.stdout, BATCH_PREFIX)
+    for (face, weight), line in expected.items():
+        assert got[face][weight] == line, (face, weight, got[face][weight], line)
+    total = len(chars)
+    n_existing = len(routing["existing"])
+    assert n_existing + 2 + 2 == total
+    assert batch_numbers(BATCH_SUMMARY, res.stdout) == {
+        "n": total,
+        "existing": n_existing,
+        "han": 2,
+        "hangul": 2,
+        "sum": total,
+    }
+    assert batch_numbers(BATCH_DEST, res.stdout) == {
+        "existing": n_existing,
+        "kr": 2,
+        "jp": 0,
+        "sc": 0,
+        "both": 2,
+        "sum": total,
+    }
