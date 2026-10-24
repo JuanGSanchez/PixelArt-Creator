@@ -837,13 +837,15 @@ class TestOnACopyOfTheRealBundle:
         self, tmp_path: Path
     ) -> None:
         copy = self._copy(tmp_path)
+        before = discover_locales(copy)
         (copy / CONTENT_DIR_NAME / "ru").mkdir()
         assert "ru" in discover_locales(copy)
         report = examine_locale(
             copy, guide_content.load_manifest(), "ru", len(discover_locales(copy))
         )
         assert not report.ok and len(report.missing) == 19
-        assert report.languages == 3
+        assert "ru" in discover_locales(copy)
+        assert report.languages == len(before) + 1
 
 
 class TestMetaRequirement:

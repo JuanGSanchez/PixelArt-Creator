@@ -36,13 +36,14 @@ Scenarios covered (one group each):
   (section 11).
 * The command line: modes, exit codes (0 pass, 1 violation, 2 source error or
   usage), the denominators printed, and failure when nothing was examined.
-* Section 12: the CJK face on SCRATCH sources that hold glyph records (the real
-  ones held 0 when it was written). SC-L10N-BUILD-001-3 (Bold is Regular),
-  -6 / -7 / -8 (R05 and its declared, counted exemptions), SC-L10N-BUILD-002-1 (one
-  donor, 89 donor-derived code points), -2 (the donor gate, all four rows, the scan
-  list and the scope that leaves the root CHANGELOG.md out), -3 (a glyph copied from a
-  font is refused), the CJK cmap rule, the scan list for a set with no record, and the
-  OS/2 range bits. SC-L10N-BUILD-001-4 is in ``test_existing_face_frozen.py``.
+* Section 12: the CJK face on SCRATCH sources that hold glyph records (never the
+  real ones, whose record count grows batch by batch and which no case here reads).
+  SC-L10N-BUILD-001-3 (Bold is Regular), -6 / -7 / -8 (R05 and its declared, counted
+  exemptions), SC-L10N-BUILD-002-1 (one donor, 89 donor-derived code points), -2 (the
+  donor gate, all four rows, the scan list and the scope that leaves the root
+  CHANGELOG.md out), -3 (a glyph copied from a font is refused), the CJK cmap rule,
+  the scan list for a set with no record, and the OS/2 range bits.
+  SC-L10N-BUILD-001-4 is in ``test_existing_face_frozen.py``.
 * The lint-control SHARDS: their number is derived from the size of the
   catalogue, ``CONTROLS_PER_SHARD`` controls to a shard, so a new control cannot
   overload one.
@@ -2674,16 +2675,19 @@ def test_sc_vi_build_011_2_the_same_build_without_the_damage_passes(capsys, scra
 #     SC-L10N-BUILD-001-3, -6, -7, -8 and SC-L10N-BUILD-002-1, -2, -3
 # --------------------------------------------------------------------------
 #
-# The real CJK sources under ``fonts-src/nifen-art-cjk`` hold 0 glyph records until
-# the glyphs are drawn, so a glyph-level case run on them would examine nothing and
-# pass for nothing. Every case below runs on a SCRATCH WORLD: a copy of the existing
-# face's sources (``--src``), a CJK source folder written here with one record per set
-# (``--cjk-src``), a fonts folder holding the licence files, the existing face's two
-# fonts and the six CJK fonts that ``--build`` made from those scratch records
-# (``--out`` and ``--licence-dir``), and a copy of ``NOTICE`` (``--notice``). The world
-# is checked to hold more than 0 records per set before any case reads it, and the
-# lint's own record count is read back as well. Each planted case is paired with its
-# control: the same world, unplanted, passes.
+# The real CJK sources under ``fonts-src/nifen-art-cjk`` are not read by any case
+# below. They held 0 glyph records when this section was written and hold more with
+# every batch drawn since; a case on them would depend on how far the drawing has
+# got (and, at 0, would examine nothing and pass for nothing). The only files of the
+# real folder a world takes are ``face.txt`` and the freeze manifest, neither of
+# which holds a glyph record. Every case below runs on a SCRATCH WORLD: a copy of the
+# existing face's sources (``--src``), a CJK source folder written here with one
+# record per set (``--cjk-src``), a fonts folder holding the licence files, the
+# existing face's two fonts and the six CJK fonts that ``--build`` made from those
+# scratch records (``--out`` and ``--licence-dir``), and a copy of ``NOTICE``
+# (``--notice``). The world is checked to hold more than 0 records per set before any
+# case reads it, and the lint's own record count is read back as well. Each planted
+# case is paired with its control: the same world, unplanted, passes.
 
 CJK_RECORD_FILES = {"jp": "han-jp.txt", "sc": "han-sc.txt", "kr": "hangul.txt"}
 CJK_FAMILIES = ("jp", "sc", "kr")
@@ -2912,9 +2916,9 @@ def exempted(res: Run) -> int:
 
 
 def test_the_scratch_world_holds_records_in_every_set_and_lints_clean(world):
-    """The foundation of the section: the fixture is not the real 0-record tree. Each
-    set holds one record, the lint counts 3, R05 examined 3 Regular glyphs, and the
-    whole report is clean."""
+    """The foundation of the section: the fixture is its own tree, whatever the real
+    one holds today. Each set holds one record, the lint counts 3, R05 examined 3
+    Regular glyphs, and the whole report is clean."""
     assert record_counts(world.cjk) == {"jp": 1, "sc": 1, "kr": 1}
     res = clean_lint(world)
     assert CJK_LINT_COUNT.search(res.stdout)[1] == "3"

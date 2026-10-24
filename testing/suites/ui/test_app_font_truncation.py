@@ -50,7 +50,12 @@ The groups of tests:
   the list the plan prescribes for a Han-capable platform family (the CJK families
   first) is built with the application's own ``family_chain`` and ``chain_font`` and
   applied app-wide, and every line says ``modelled``; when the application does it
-  itself the line says ``product``. A planted widget one pixel too short fails.
+  itself the line says ``product``. The height a text needs is the line box of the
+  family that really draws each DISPLAYED character (rich-text markup removed), read
+  one character at a time in the widget's own font: a text with a Latin letter, a
+  digit or a space is judged at the platform font's height, a text drawn wholly by a
+  CJK face at that face's own, shorter, height. A planted widget one pixel too short
+  fails, for a Latin label and for a label drawn wholly by a CJK face.
 * the user guide's page: with the same platform family, one rendered topic per
   language is laid out and no line is shorter than the tallest glyph drawn on it.
 * the detector's controls: for each widget kind a text is squeezed on purpose and
@@ -113,6 +118,7 @@ import pytest
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
+from PySide6 import QtGui
 from PySide6.QtCore import QByteArray, QCoreApplication, QModelIndex, QObject, Qt
 from PySide6.QtGui import (
     QFont,
@@ -284,6 +290,26 @@ def _columns(model, row: int, parent: QModelIndex) -> int:
     return max(1, count)
 
 
+def displayed_text(widget: QWidget, text: str) -> str:
+    """Return the text ``widget`` DISPLAYS for ``text``, rich-text markup removed.
+
+    A label whose text is rich (its format says so, or ``Auto`` and the text looks
+    like it) shows the text of the document, not the tags and attribute values
+    around it: ``<a href="https://example.org">저장소</a>`` displays ``저장소``. Any
+    other widget shows its text as it is.
+    """
+    if isinstance(widget, QLabel):
+        format_ = widget.textFormat()
+        rich = format_ == Qt.TextFormat.RichText or (
+            format_ == Qt.TextFormat.AutoText and QtGui.Qt.mightBeRichText(text)
+        )
+        if rich:
+            document = QTextDocument()
+            document.setHtml(text)
+            return document.toPlainText().replace(" ", "\n").replace(" ", "\n")
+    return text
+
+
 class Examiner:
     """Walks widgets once each, counts what it examined and collects findings.
 
@@ -305,6 +331,7 @@ class Examiner:
         self.vskipped: Counter = Counter()
         self.vfindings: List[Finding] = []
         self._ids: Dict[int, str] = {}
+        self._heights: Dict[Tuple[object, int], int] = {}
         self._menus: Set[int] = set()
         # Strong references: a widget's wrapper that is freed lets Python reuse its
         # id() for another widget, which the ``seen`` test would then skip.
@@ -379,18 +406,60 @@ class Examiner:
         text: str,
         given: int,
     ) -> None:
-        """Compare the height of ``text`` in the platform font with the height given."""
+        """Compare the height of the DISPLAYED ``text`` with the height given.
+
+        The height a text needs is the line height of the family that really draws
+        each of its characters in the widget's own font (see :meth:`text_height`),
+        never the line height of one family assumed for the whole text.
+        """
         if self.vfont is None:
             return
-        if "\n" in text or given <= 0:
+        shown = displayed_text(widget, text)
+        if "\n" in text or "\n" in shown or given <= 0 or not shown.strip():
             self.vskipped[kind] += 1
             return
         self.vexamined[kind] += 1
-        need = QFontMetrics(self.vfont).boundingRect(text).height()
+        need = self.text_height(widget.font(), shown)
         if need > given:
             self.vfindings.append(
-                Finding(kind, self._where(widget), text.strip()[:60], need, given, key)
+                Finding(kind, self._where(widget), shown.strip()[:60], need, given, key)
             )
+
+    def text_height(self, font: QFont, shown: str) -> int:
+        """Return the height ``shown`` needs when drawn in ``font``.
+
+        Each displayed character is attributed to the family that draws it
+        (:func:`drawing_family`, read one character at a time), and the text needs
+        the tallest line box among those families. The line box of a family is
+        measured by laying the character out in ``font`` narrowed to that family
+        alone, so it is that family's own metric and not a constant. A text drawn
+        by two families needs the taller of the two, so a label with a space, a
+        digit or a Latin letter among Hangul is still judged at the platform
+        font's height; a text drawn wholly by a face with a shorter line box is
+        judged at that face's height. When no family can be read for a character,
+        the platform font (``vfont``) is taken, which is the taller and stricter.
+        """
+        assert self.vfont is not None
+        base = (
+            tuple(font.families()),
+            font.family(),
+            font.pixelSize(),
+            font.weight(),
+            font.italic(),
+            font.styleStrategy(),
+        )
+        need = 0
+        for code_point in sorted({ord(ch) for ch in shown if ord(ch) >= 0x20}):
+            cached = self._heights.get((base, code_point))
+            if cached is None:
+                family = drawing_family(font, code_point) or self.vfont.family()
+                narrowed = QFont(font)
+                narrowed.setFamilies([family])
+                narrowed.setFamily(family)
+                cached = QFontMetrics(narrowed).boundingRect(chr(code_point)).height()
+                self._heights[(base, code_point)] = cached
+            need = max(need, cached)
+        return need
 
     # -- the rules -------------------------------------------------------
 
@@ -2396,6 +2465,205 @@ def test_the_vertical_check_fails_a_widget_one_pixel_too_short_and_passes_one_th
     assert kinds == ["button", "label"], short["findings"]
     for row in short["findings"]:
         assert (row[3], row[4]) == (height, height - 1), row
+
+
+# The vertical check measures each text in the family that DRAWS it. A CJK face has
+# a shorter line box (11 above, 3 below, 14 in all) than the platform stand-in
+# (13 and 3, 16 in all), so a label made only of characters a CJK face holds is
+# laid out 14 px high and must be judged at 14, not at the stand-in's 16. Three
+# controls keep that from becoming a way to excuse real clipping:
+#
+# * a label drawn wholly by the CJK face, one pixel below that face's line box,
+#   is reported (a check that never fails proves nothing);
+# * a label with a Latin letter or a space among the CJK characters is still
+#   judged at the stand-in's 16, and so is a link label whose DISPLAYED text is
+#   Latin even though its markup is not;
+# * the measure this check had before (the stand-in alone, on the raw text) is run
+#   on the same exact-fit label and must report it, so a check that fell back to
+#   it is caught by the first control.
+#
+# The families are the shipped faces and the characters are read from each face's
+# own cmap, so the control follows the coverage: Korean today, Japanese and Chinese
+# on the characters their faces already hold, and every Han the faces gain later.
+
+_CJK_FACE_FILES = {
+    "ko": "NifenArtCJKKR-Regular.ttf",
+    "ja": "NifenArtCJKJP-Regular.ttf",
+    "zh_CN": "NifenArtCJKSC-Regular.ttf",
+}
+_LINK = '<a href="https://example.org/a/path?x=1">{}</a>'
+
+
+def _face_facts(file_name: str) -> Tuple[str, int, str]:
+    """Return a shipped CJK face's family, line box in px and three characters.
+
+    Read from the file with fontTools, not from Qt: the line box is the font's
+    ascent minus descent in em units (the descent is negative), scaled to the
+    interface's pixel em.
+    """
+    fonts = Path(ui_package.__file__).resolve().parent.parent / "fonts"
+    face = TTFont(str(fonts / file_name))
+    units_per_px = face["head"].unitsPerEm / app_font.NIFEN_ART_EM_PX
+    hhea = face["hhea"]
+    line_box = (hhea.ascent - hhea.descent) / units_per_px
+    assert line_box == int(line_box), (file_name, line_box)
+    letters = "".join(chr(cp) for cp in sorted(face.getBestCmap()) if cp >= 0x3400)[:3]
+    assert len(letters) == 3, f"{file_name} holds fewer than three characters"
+    return face["name"].getDebugName(1), int(line_box), letters
+
+
+class _PlatformFontAloneExaminer(Examiner):
+    """The broken copy: the measure this check had before it followed the family.
+
+    The height needed is the stand-in's line box for any text, measured on the raw
+    text of the widget with its markup.
+    """
+
+    def _vertical(
+        self, kind: str, key: str, widget: QWidget, text: str, given: int
+    ) -> None:
+        assert self.vfont is not None
+        if "\n" in text or given <= 0:
+            self.vskipped[kind] += 1
+            return
+        self.vexamined[kind] += 1
+        need = QFontMetrics(self.vfont).boundingRect(text).height()
+        if need > given:
+            self.vfindings.append(
+                Finding(kind, self._where(widget), text.strip()[:60], need, given, key)
+            )
+
+
+def run_vertical_script_control(
+    standin: str, latin_only: str, language: str, face_file: str
+) -> Dict[str, object]:
+    """Plant labels and buttons at, and one pixel below, the height their text needs.
+
+    Called inside the child process, with the stand-in as the platform font and the
+    language's modelled chain. Every plant is measured by the real examiner; the
+    ones that fit are measured by the broken copy as well.
+    """
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+    register_instruments(standin, latin_only)
+    plugin = positive_control()
+    han_capable_platform(app, language)
+    family, face_box, pure = _face_facts(face_file)
+    # The premise of every case: the pure text really is drawn by the CJK face, and
+    # a Latin letter and a space really are not. A control whose premise does not
+    # hold would prove nothing, so it stops here.
+    for letter in pure:
+        drew = drawing_family(app.font(), ord(letter))
+        assert drew == family, f"{letter!r} is drawn by {drew!r}, not by {family!r}"
+    for other in "A ":
+        drew = drawing_family(app.font(), ord(other))
+        assert drew == STANDIN_FAMILY, f"{other!r} is drawn by {drew!r}"
+    standin_box = QFontMetrics(standin_font()).boundingRect("Hello").height()
+    # (name, widget classes, text, the height the text needs, the text displayed)
+    cases = [
+        ("pure", (QLabel, QPushButton), pure, face_box, pure),
+        ("mixed", (QLabel, QPushButton), f"{pure} A", standin_box, f"{pure} A"),
+        ("pure link", (QLabel,), _LINK.format(pure), face_box, pure),
+        ("latin link", (QLabel,), _LINK.format("Docs"), standin_box, "Docs"),
+    ]
+    results: Dict[str, Dict[str, object]] = {}
+    for name, classes, text, needed, displayed in cases:
+        entry: Dict[str, object] = {
+            "needs": needed,
+            "displayed": displayed,
+            "widgets": len(classes),
+        }
+        for variant, short, examiner_class in (
+            ("exact", 0, Examiner),
+            ("short", 1, Examiner),
+            ("exact, broken copy", 0, _PlatformFontAloneExaminer),
+        ):
+            host = QWidget()
+            layout = QVBoxLayout(host)
+            layout.setContentsMargins(0, 0, 0, 0)
+            for widget_class in classes:
+                planted = widget_class(text)
+                planted.setObjectName("planted")
+                planted.setFixedHeight(needed - short)
+                layout.addWidget(planted)
+            host.setFixedWidth(300)
+            host.show()
+            QApplication.processEvents()
+            examiner = examiner_class(vfont=standin_font())
+            examiner.prefix = "planted"
+            examiner.examine(host)
+            entry[variant] = examiner.dump()["vertical"]
+            host.close()
+        results[name] = entry
+    return {
+        "plugin": plugin,
+        "family": family,
+        "face_box": face_box,
+        "standin_box": standin_box,
+        "pure": pure,
+        "cases": results,
+    }
+
+
+_VERTICAL_SCRIPT_CHILD = """
+from testing.suites.ui.test_app_font_truncation import run_vertical_script_control
+out(**run_vertical_script_control({standin!r}, {latin_only!r}, {language!r}, {face!r}))
+"""
+
+
+@pytest.mark.parametrize("language", sorted(_CJK_FACE_FILES))
+def test_the_vertical_check_judges_a_text_by_the_family_that_draws_it(
+    tmp_path, instrument_faces, language, capsys
+):
+    """Control: a text wholly in a CJK face is judged at that face's line box, no lower.
+
+    Korean, Japanese and Chinese, each on the characters its shipped face holds. A
+    label of those characters fits at the face's line box (14) and is reported one
+    pixel below it (13): the check still catches real clipping of CJK text. A label
+    with a Latin letter and a space among them, and a link label whose displayed
+    text is Latin, are judged at the stand-in's 16; a link label whose displayed
+    text is CJK is judged by that text, not by the Latin URL in its markup. The
+    measure the check used before (the stand-in alone, on the raw text) reports
+    the labels that fit.
+    """
+    from testing.suites.ui.test_app_font import run_child
+
+    result = run_child(
+        _VERTICAL_SCRIPT_CHILD.format(
+            standin=instrument_faces["standin"],
+            latin_only=instrument_faces["latin_only"],
+            language=language,
+            face=_CJK_FACE_FILES[language],
+        ),
+        tmp_path,
+        timeout=120,
+        fonts=False,
+    )
+    face_box, standin_box = result["face_box"], result["standin_box"]
+    _report(
+        capsys,
+        f"[vertical control {language}] {result['family']}: line box {face_box} px; "
+        f"stand-in line box {standin_box} px; characters {result['pure']!r}",
+    )
+    assert standin_box == _STANDIN_ASCENT_PX + _STANDIN_DESCENT_PX, standin_box
+    assert face_box < standin_box, (face_box, standin_box)
+    for name, case in result["cases"].items():
+        needs, widgets = case["needs"], case["widgets"]
+        for variant in ("exact", "short", "exact, broken copy"):
+            assert sum(case[variant]["examined"].values()) == widgets, (name, case)
+        assert case["exact"]["findings"] == [], (name, case["exact"]["findings"])
+        short = case["short"]["findings"]
+        assert len(short) == widgets, (name, short)
+        for row in short:
+            assert (row[3], row[4]) == (needs, needs - 1), (name, row)
+            assert row[2] == case["displayed"].strip(), (name, row)
+            assert "href" not in row[2], (name, row)
+    pure_broken = result["cases"]["pure"]["exact, broken copy"]["findings"]
+    link_broken = result["cases"]["pure link"]["exact, broken copy"]["findings"]
+    assert len(pure_broken) == 2, pure_broken
+    assert len(link_broken) == 1 and "href" in link_broken[0][2], link_broken
+    for name in ("mixed", "latin link"):
+        assert result["cases"][name]["exact, broken copy"]["findings"] == [], name
 
 
 # --------------------------------------------------------------------------- #

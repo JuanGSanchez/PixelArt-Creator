@@ -84,7 +84,22 @@ PACKAGE_DIR = REPO_ROOT / "pixelart_creator"
 GUIDE_DIR = REPO_ROOT / "pixelart_creator" / "userguide_content"
 
 #: Characters no committed input contains and the fonts do not carry.
-KANJI = "漢"  # a CJK ideograph: out of scope for this typeface
+#:
+#: The two Han plants are the first two ideographs of CJK Extension A (U+3400, U+3401),
+#: archaic variants that no modern Chinese or Japanese text uses, so neither can enter
+#: a measured set as the CJK faces grow batch by batch. A plant taken from the common
+#: block (the 漢 and 字 these cases used first) is a character the measured sets DO
+#: grow to contain, and the cases would then fail for a reason that is not the one
+#: under test. Every case that plants one still states the precondition with
+#: ``assert_undrawn``, so a plant that did get drawn fails there, loudly and by name.
+KANJI = "㐀"  # a CJK ideograph: out of scope for this typeface, drawn by no face
+OTHER_KANJI = "㐁"  # a second one, for the cases that need a character to ignore
+#: The Han character that the Japanese family draws and the Simplified one never will:
+#: 語 (U+8A9E) is the traditional form of 语, which is the Simplified family's own
+#: shape. A case that needs "JP draws it and SC does not" uses this one, because the
+#: shared Han (日, 本) are drawn by SC as soon as its batch lands. The precondition is
+#: stated by ``assert_drawn_by_jp_only``.
+JP_ONLY_HAN = "語"
 COMBINING_GRAVE = "̀"  # the combining marks are not in the declared set
 
 FONTTOOLS_PIN = "4.63.0"
@@ -391,6 +406,16 @@ def assert_undrawn(chars: str) -> None:
         for weight in WEIGHTS:
             held = [c for c in chars if ord(c) in face_cmap(face, weight)]
             assert not held, (face, weight, held)
+
+
+def assert_drawn_by_jp_only(chars: str) -> None:
+    """The precondition of a case that needs a Han the JP face draws and the SC face
+    does not: drawn in both JP weights, absent from both SC weights."""
+    for weight in WEIGHTS:
+        jp, sc = face_cmap("jp", weight), face_cmap("sc", weight)
+        assert all(ord(c) in jp for c in chars), (weight, chars)
+        held = [c for c in chars if ord(c) in sc]
+        assert not held, ("SC draws a character this case needs it to lack", held)
 
 
 def package_literal_chars() -> Set[str]:
@@ -779,7 +804,7 @@ def test_a_planted_character_missing_from_both_weights_fails_the_declared_gate(
         assert oracle == sorted([ord(KANJI), ord(COMBINING_GRAVE)])
         examined, missing = sets[("declared set", FONT_FILES[weight])]
         assert (examined, missing) == (len(planted), len(oracle))
-    assert "U+6F22" in res.stdout and "U+0300" in res.stdout
+    assert "U+%04X" % ord(KANJI) in res.stdout and "U+0300" in res.stdout
 
 
 @pytest.mark.parametrize("weight", WEIGHTS)
@@ -843,7 +868,7 @@ def test_a_catalogue_character_is_information_unless_gated(scratch):
             sc=(1, 1),
             kr=(0, 0),
         )
-        assert "U+6F22" in res.stdout
+        assert "U+%04X" % ord(KANJI) in res.stdout
 
 
 def test_a_python_literal_character_is_counted_but_a_comment_is_not(scratch):
@@ -852,12 +877,13 @@ def test_a_python_literal_character_is_counted_but_a_comment_is_not(scratch):
     The Han character is in a literal that is no endonym, so both form sets must
     draw it; the existing face's line holds only the other character of the literal.
     """
-    assert_undrawn(KANJI + "字")
+    assert_undrawn(KANJI + OTHER_KANJI)
     folder = scratch / "pycode"
     folder.mkdir()
     # the comment carries a different missing character: only the literal counts
     (folder / "mod.py").write_text(
-        "# a comment with 字 in it\nvalue = 'nñ%s'\n" % KANJI, encoding="utf-8"
+        "# a comment with %s in it\nvalue = 'nñ%s'\n" % (OTHER_KANJI, KANJI),
+        encoding="utf-8",
     )
     clean = clean_catalogue(scratch)
     plain = run_checker(["--py-dir", folder, *clean], scratch)
@@ -874,18 +900,19 @@ def test_a_python_literal_character_is_counted_but_a_comment_is_not(scratch):
             sc=(1, 1),
             kr=(0, 0),
         )
-        assert "U+6F22" in res.stdout and "U+5B57" not in res.stdout
+        assert "U+%04X" % ord(KANJI) in res.stdout
+        assert "U+%04X" % ord(OTHER_KANJI) not in res.stdout
 
 
 def test_a_content_text_character_is_counted_for_md_and_json_only(scratch):
     """Only .md and .json are content text; a Han in a folder of no known language
     is required of both form sets, and a .txt file's character is not read."""
-    assert_undrawn(KANJI + "字")
+    assert_undrawn(KANJI + OTHER_KANJI)
     folder = scratch / "guide"
     folder.mkdir()
     (folder / "page.md").write_text("Texto %s\n" % KANJI, encoding="utf-8")
     (folder / "data.json").write_text('{"k": "ñ"}\n', encoding="utf-8")
-    (folder / "ignored.txt").write_text("字\n", encoding="utf-8")
+    (folder / "ignored.txt").write_text(OTHER_KANJI + "\n", encoding="utf-8")
     clean = clean_catalogue(scratch)
     plain = run_checker(["--text-dir", folder, *clean], scratch)
     gated = run_checker(["--text-dir", folder, *clean, "--gate-catalogues"], scratch)
@@ -900,8 +927,9 @@ def test_a_content_text_character_is_counted_for_md_and_json_only(scratch):
             sc=(1, 1),
             kr=(0, 0),
         )
-        assert "(2 .md/.json files" in res.stdout and "U+5B57" not in res.stdout
-        assert "U+6F22" in res.stdout
+        assert "(2 .md/.json files" in res.stdout
+        assert "U+%04X" % ord(OTHER_KANJI) not in res.stdout
+        assert "U+%04X" % ord(KANJI) in res.stdout
 
 
 # --------------------------------------------------------------------------
@@ -993,11 +1021,14 @@ def test_hangul_is_routed_to_the_kr_face_whatever_the_language(scratch, origin):
         ]
 
 
-#: language of the text -> (the character its form set draws, expected JP/SC lines)
+#: language of the text -> (the character its form set draws, expected JP/SC lines).
+#: ``fr`` asks both form sets, so its drawn character is the one only JP draws
+#: (``JP_ONLY_HAN``): a Han that SC also draws would leave the SC line with one miss
+#: instead of two and would no longer show that SC was asked about it.
 HAN_CASES = {
     "ja": ("日", {"jp": (2, 1), "sc": (0, 0)}),
     "zh_CN": ("简", {"jp": (0, 0), "sc": (2, 1)}),
-    "fr": ("日", {"jp": (2, 1), "sc": (2, 2)}),
+    "fr": (JP_ONLY_HAN, {"jp": (2, 1), "sc": (2, 2)}),
 }
 
 
@@ -1028,16 +1059,19 @@ def test_han_is_routed_by_the_language_of_the_text(scratch, source, language):
     of SC only, and Han in the text of any other language of both form sets.
 
     Each text holds one character drawn by the set of its language (日 in JP, 简 in
-    SC) and the undrawn 漢, so the miss shows which faces were asked.
+    SC, 語 for the language that asks both: JP draws it and SC never does) and the
+    undrawn plant ``KANJI``, so the miss shows which faces were asked.
     """
     drawn, wanted = HAN_CASES[language]
     assert_undrawn(KANJI)
+    if language == "fr":
+        assert_drawn_by_jp_only(drawn)
     res = _han_text_run(scratch, source, language, drawn + KANJI)
     assert res.returncode == 1, res.text
     prefix = (
         "catalogues (1 files)" if source == "catalogue" else "content text of guide"
     )
-    # fr: 日 is drawn by JP only, so SC misses both characters
+    # fr: the character is drawn by JP only, so SC misses both characters
     existing = (plain_chars(drawn + KANJI), 0) if source == "catalogue" else (0, 0)
     assert_faces(res.stdout, prefix, existing=existing, kr=(0, 0), **wanted)
     jp_missing = missing_code_points(res.stdout, prefix, FACE_FILES["jp"]["bold"])
@@ -1080,10 +1114,21 @@ def test_an_endonym_literal_is_required_of_its_own_form_set_only(scratch):
 def test_a_literal_that_is_more_than_an_endonym_is_required_of_both_form_sets(scratch):
     """SC-L10N-BUILD-001-5: only a literal EQUAL to an endonym is routed as one.
 
-    日本語 inside a longer literal is any other Han: JP draws it, SC does not, so the
-    SC lines miss all three characters and the run fails.
+    日本語 inside a longer literal is any other Han: JP draws it and SC is asked for
+    all three, so the SC lines examine three characters and miss the ones SC does not
+    draw (語 never; 日 and 本 until the SC batches land: the count is taken from the
+    SC cmap, not written here) and the run fails.
     """
     names = endonyms()
+    assert_drawn_by_jp_only(JP_ONLY_HAN)
+    assert JP_ONLY_HAN in names["ja"]
+    sc_missing = {
+        weight: sum(
+            1 for c in set(names["ja"]) if ord(c) not in face_cmap("sc", weight)
+        )
+        for weight in WEIGHTS
+    }
+    assert sc_missing["regular"] == sc_missing["bold"] >= 1, sc_missing
     folder = scratch / "longer"
     folder.mkdir()
     (folder / "mod.py").write_text(
@@ -1098,7 +1143,7 @@ def test_a_literal_that_is_more_than_an_endonym_is_required_of_both_form_sets(sc
         "python string literals of longer",
         existing=(0, 0),
         jp=(3, 0),
-        sc=(3, 3),
+        sc=(3, sc_missing["regular"]),
         kr=(0, 0),
     )
 
@@ -1232,8 +1277,8 @@ BATCH_DEST = re.compile(
 #: by the KR face and U+BDC1 is not.
 KO_PAGE = "# Guide\n\nOpen é 한 뷁\n"
 UNDRAWN_HANGUL = "뷁"
-#: U+65E5 U+672C U+8A9E are drawn by the JP face, U+6F22 is drawn by no CJK file.
-JA_PAGE = "# Guide\n\n日本語 漢\n"
+#: U+65E5 U+672C U+8A9E are drawn by the JP face, ``KANJI`` is drawn by no CJK file.
+JA_PAGE = "# Guide\n\n日本語 %s\n" % KANJI
 
 
 def batch_page(scratch: Path, language: str, text: str, folder: str = "guide") -> Path:
@@ -1447,13 +1492,13 @@ def test_batch_of_a_ko_page_with_an_undrawn_hangul_syllable_fails_on_both_kr_wei
 
 @pytest.mark.parametrize("how", ["folder name", "--language flag"])
 def test_batch_of_a_ja_page_with_an_undrawn_han_fails_on_both_jp_weights(scratch, how):
-    """U+6F22 is in no CJK file: as ja text it is required of JP only, so it is named
-    on JP Regular AND JP Bold and the SC face is asked for nothing.
+    """``KANJI`` is in no CJK file: as ja text it is required of JP only, so it is
+    named on JP Regular AND JP Bold and the SC face is asked for nothing.
 
     The language comes either from the folder named ``ja`` or, in a neutral folder,
     from ``--language ja``.
     """
-    assert_undrawn("漢")
+    assert_undrawn(KANJI)
     assert_all_drawn_by("jp", "日本語")
     folder = "ja" if how == "folder name" else "neutral"
     page = batch_page(scratch, folder, JA_PAGE)
@@ -1464,7 +1509,7 @@ def test_batch_of_a_ja_page_with_an_undrawn_han_fails_on_both_jp_weights(scratch
         res.stdout, BATCH_PREFIX, existing=(0, 0), jp=(4, 1), sc=(0, 0), kr=(0, 0)
     )
     for font in FACE_FILES["jp"].values():
-        assert missing_code_points(res.stdout, BATCH_PREFIX, font) == [0x6F22], font
+        assert missing_code_points(res.stdout, BATCH_PREFIX, font) == [ord(KANJI)], font
     for face in ("existing", "sc", "kr"):
         for font in FACE_FILES[face].values():
             assert missing_code_points(res.stdout, BATCH_PREFIX, font) == [], font
@@ -1485,15 +1530,26 @@ def test_batch_control_the_same_han_page_in_another_language_asks_both_form_sets
     scratch,
 ):
     """Control for the ja case: the page is the same bytes, the language is not ja,
-    and now SC is asked for the four characters as well (it draws none of them)."""
+    and now SC is asked for the four characters as well. SC does not draw 語 or the
+    plant, so it misses at least those two (it also misses 日 and 本 until its batches
+    land; the exact count is taken from the SC cmap, not written here)."""
+    assert_drawn_by_jp_only(JP_ONLY_HAN)
+    assert_undrawn(KANJI)
     page = batch_page(scratch, "fr", JA_PAGE)
     res = run_checker(["--batch", page], scratch)
     assert res.returncode == 1, res.text
     expected = batch_expected(batch_routing(page_chars(JA_PAGE), "fr"))
     assert expected[("jp", "regular")] == (4, 1)
-    assert expected[("sc", "regular")] == (4, 4)
+    sc_examined, sc_missing = expected[("sc", "regular")]
+    assert sc_examined == 4 and sc_missing >= 2, expected[("sc", "regular")]
+    assert expected[("sc", "bold")] == expected[("sc", "regular")]
     assert_faces(
-        res.stdout, BATCH_PREFIX, existing=(0, 0), jp=(4, 1), sc=(4, 4), kr=(0, 0)
+        res.stdout,
+        BATCH_PREFIX,
+        existing=(0, 0),
+        jp=(4, 1),
+        sc=(4, sc_missing),
+        kr=(0, 0),
     )
     assert batch_numbers(BATCH_DEST, res.stdout)["both"] == 4
 
@@ -1558,14 +1614,15 @@ def test_batch_each_face_is_judged_over_exactly_the_characters_routed_to_it(
     that face, and the two summary lines agree with it.
 
     The text is French-tagged, so its Han go to both form sets (JP draws the two
-    here, SC draws neither) and its Hangul to KR (both syllables are drawn). The
+    here; SC does not draw 語, whatever else it draws by then) and its Hangul to KR
+    (both syllables are drawn). The
     worklist also holds a source and a context character that are no translation and
     so must not be counted. The expected numbers come from the character database
     and the fonts' cmaps.
     """
     forms = [
         "Ça va, señor",
-        "日本 — 한국",
+        "日語 — 한국",
         ["é", "über ß"],
     ]
     if source == "page":
@@ -1582,9 +1639,11 @@ def test_batch_each_face_is_judged_over_exactly_the_characters_routed_to_it(
     assert (len(routing["kr"]), len(routing["jp"]), len(routing["sc"])) == (2, 2, 2)
     res = run_checker(["--batch", target], scratch)
     expected = batch_expected(routing)
-    assert expected[("sc", "bold")] == (2, 2) and expected[("jp", "bold")] == (2, 0)
+    assert_drawn_by_jp_only(JP_ONLY_HAN)
+    assert expected[("jp", "bold")] == (2, 0)
     assert expected[("kr", "bold")] == (2, 0)
-    assert res.returncode == 1, res.text  # SC draws neither Han
+    assert expected[("sc", "bold")][0] == 2 and expected[("sc", "bold")][1] >= 1
+    assert res.returncode == 1, res.text  # SC does not draw 語
     got = face_lines(res.stdout, BATCH_PREFIX)
     for (face, weight), line in expected.items():
         assert got[face][weight] == line, (face, weight, got[face][weight], line)
