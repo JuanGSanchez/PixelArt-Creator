@@ -2,11 +2,48 @@
 #
 # One record per Hangul syllable (U+AC00-U+D7A3) of this set, and nothing else. The
 # drawing list is the measured set: exactly the syllables the shipped text uses. The
-# conjoining and compatibility jamo are not part of this set. The file starts without
-# records; the first ones are the pilot's.
+# conjoining and compatibility jamo are not part of this set. A Hangul record has no
+# same-as: the Han form sets do not share drawings with it.
 #
-# The record forms are the ones described in han-jp.txt, with set=kr. A Hangul record has
-# no same-as: the Han form sets do not share drawings with it.
+# The record forms are the ones described in han-jp.txt, with set=kr:
+#   glyph U+XXXX set=kr src=drawn top=<row> x=<column>      a syllable drawn whole
+#   glyph U+XXXX set=kr src=recipe:<part>,<part>,...         a syllable composed of parts
+#   glyph part.<name> set=kr src=drawn top=<row> x=<column>  a drawing that recipes use
+# A recipe is the union of its parts, each already placed in the cell by its own top= and
+# x=, so a recipe carries no offsets. Every part is a drawing made for this typeface.
+#
+# How a syllable is built. The cell is 11 x 11 pixels, strokes are one pixel wide, and a
+# syllable has an initial consonant, a vowel and, when it has one, a final consonant. The
+# vowels fall into three families and each family has its own layout:
+#   A  vowels written upright, to the right of the initial (a ya eo yeo i, and ae e ye,
+#      which have two upright strokes). Rows are counted from the top of the cell, 0..10.
+#        no final:    initial 7 rows tall (rows 2..8), vowel the full height (rows 0..10)
+#        with final:  initial 6 rows tall (rows 0..5), vowel rows 0..5, a blank row 6,
+#                     final consonant rows 7..10
+#      The initial is 7 columns wide beside a one-stroke vowel (columns 0..6; the vowel
+#      stands in columns 8..10) and 6 columns wide beside a two-stroke vowel (columns
+#      0..5; the vowel stands in columns 7..10).
+#   B  vowels written flat, under the initial (o yo u yu eu)
+#        no final:    initial 7 rows tall (rows 0..6, columns 2..8), a blank row, the vowel in
+#                     rows 8..10 (the bar of eu in row 9); the bar is 11 columns wide
+#        with final:  initial 3 rows tall (rows 0..2, columns 2..8), a blank row, the vowel in
+#                     rows 4..5 (the bar of eu in row 4), a blank row 6, final rows 7..10
+#   C  vowels that combine both (wa wae oe wo we wi ui): the flat part under the initial on
+#      the left (7 columns wide, 6 beside a two-stroke upright vowel; the initial the same
+#      width, in the rows of family B) and the upright part of family A on the right, so
+#      wa = o + a, wae = o + ae, oe = o + i, wo = u + eo, we = u + e, wi = u + i, ui = eu + i.
+# Part names tell the layout: part.iA<f><w>-<jamo> is an initial of family A (<f> is 1
+# when a final follows, <w> is s for a one-stroke vowel and d for a two-stroke vowel),
+# part.vA<f>-<vowel> a vowel, part.iB<f>-<jamo> and part.vB<f>-<vowel> the initial and the
+# vowel of family B, part.iC<f><w>-<jamo> and part.fC<f><n>-<flat vowel> the initial and the flat
+# part of family C (<n> its width), part.f-<jamo> a final consonant 7 columns wide (columns 2..8,
+# rows 7..10) and part.fw-<jamo> a double final consonant 11 columns wide.
+#
+# Where a built syllable reads badly at this size, a syllable drawn whole replaces its
+# recipe; the lint lists no override, and the record simply is a drawing.
+#
+# A Regular glyph may hold a 2x2 pixel block only if it is declared in
+# r05-exemptions.txt, with a reason.
 
 glyph U+AD6D set=kr src=drawn top=10 x=0
 ..#######..
@@ -46,3 +83,2055 @@ glyph U+D55C set=kr src=drawn top=10 x=0
 .#.........
 .#.........
 .#########.
+
+# ---- parts: drawings that recipes use (not characters, not in the font)
+
+glyph part.f-b set=kr src=drawn top=3 x=2
+#.....#
+#######
+#.....#
+#######
+
+glyph part.f-ch set=kr src=drawn top=3 x=2
+...#...
+#######
+..#.#..
+.#...#.
+
+glyph part.f-d set=kr src=drawn top=3 x=2
+#######
+#......
+#......
+#######
+
+glyph part.f-g set=kr src=drawn top=3 x=2
+#######
+......#
+......#
+......#
+
+glyph part.f-gg set=kr src=drawn top=3 x=2
+###.###
+..#...#
+..#...#
+..#...#
+
+glyph part.f-h set=kr src=drawn top=3 x=2
+...#...
+#######
+.#...#.
+..###..
+
+glyph part.f-j set=kr src=drawn top=3 x=2
+#######
+...#...
+..#.#..
+.#...#.
+
+glyph part.f-m set=kr src=drawn top=3 x=2
+#######
+#.....#
+#.....#
+#######
+
+glyph part.f-n set=kr src=drawn top=3 x=2
+#......
+#......
+#......
+#######
+
+glyph part.f-ng set=kr src=drawn top=3 x=2
+.#####.
+#.....#
+#.....#
+.#####.
+
+glyph part.f-p set=kr src=drawn top=3 x=2
+#######
+.#...#.
+.#...#.
+#######
+
+glyph part.f-r set=kr src=drawn top=3 x=2
+#######
+......#
+#......
+#######
+
+glyph part.f-s set=kr src=drawn top=3 x=2
+...#...
+..#.#..
+.#...#.
+#.....#
+
+glyph part.f-ss set=kr src=drawn top=3 x=2
+.#...#.
+#.#.#.#
+#.#.#.#
+#.#.#.#
+
+glyph part.f-t set=kr src=drawn top=3 x=2
+#######
+#......
+#####..
+#######
+
+glyph part.fC06-o set=kr src=drawn top=2 x=0
+..#...
+..#...
+######
+
+glyph part.fC06-u set=kr src=drawn top=2 x=0
+######
+..#...
+..#...
+
+glyph part.fC07-eu set=kr src=drawn top=1 x=0
+#######
+
+glyph part.fC07-o set=kr src=drawn top=2 x=0
+...#...
+...#...
+#######
+
+glyph part.fC07-u set=kr src=drawn top=2 x=0
+#######
+...#...
+...#...
+
+glyph part.fC16-u set=kr src=drawn top=6 x=0
+######
+..#...
+
+glyph part.fC17-eu set=kr src=drawn top=6 x=0
+#######
+
+glyph part.fC17-o set=kr src=drawn top=6 x=0
+...#...
+#######
+
+glyph part.fC17-u set=kr src=drawn top=6 x=0
+#######
+...#...
+
+glyph part.fw-bs set=kr src=drawn top=3 x=0
+#...#...#..
+#####..#.#.
+#...#..#.#.
+#####.#...#
+
+glyph part.fw-nh set=kr src=drawn top=3 x=0
+#.......#..
+#.....#####
+#......#.#.
+#####...#..
+
+glyph part.fw-rb set=kr src=drawn top=3 x=0
+#####.#...#
+....#.#####
+#.....#...#
+#####.#####
+
+glyph part.fw-rg set=kr src=drawn top=3 x=0
+#####.#####
+....#.....#
+#.........#
+#####.....#
+
+glyph part.fw-rh set=kr src=drawn top=3 x=0
+#####...#..
+....#.#####
+#......#.#.
+#####...#..
+
+glyph part.fw-rm set=kr src=drawn top=3 x=0
+#####.#####
+....#.#...#
+#.....#...#
+#####.#####
+
+glyph part.iA0d-b set=kr src=drawn top=8 x=0
+#....#
+#....#
+#....#
+######
+#....#
+#....#
+######
+
+glyph part.iA0d-bb set=kr src=drawn top=8 x=0
+#.#.#
+#.#.#
+#.#.#
+#####
+#.#.#
+#.#.#
+#####
+
+glyph part.iA0d-ch set=kr src=drawn top=8 x=0
+..#...
+######
+.#..#.
+.#..#.
+#....#
+#....#
+#....#
+
+glyph part.iA0d-d set=kr src=drawn top=8 x=0
+######
+#.....
+#.....
+#.....
+#.....
+#.....
+######
+
+glyph part.iA0d-dd set=kr src=drawn top=8 x=0
+##.##
+#..#.
+#..#.
+#..#.
+#..#.
+#..#.
+##.##
+
+glyph part.iA0d-g set=kr src=drawn top=8 x=0
+######
+.....#
+.....#
+.....#
+.....#
+.....#
+.....#
+
+glyph part.iA0d-gg set=kr src=drawn top=8 x=0
+##.##
+.#..#
+.#..#
+.#..#
+.#..#
+.#..#
+.#..#
+
+glyph part.iA0d-h set=kr src=drawn top=8 x=0
+..#...
+######
+......
+..##..
+.#..#.
+.#..#.
+..##..
+
+glyph part.iA0d-j set=kr src=drawn top=8 x=0
+######
+.#..#.
+.#..#.
+.#..#.
+#....#
+#....#
+#....#
+
+glyph part.iA0d-jj set=kr src=drawn top=8 x=0
+#####
+.#.#.
+#.#.#
+#.#.#
+#.#.#
+#.#.#
+#.#.#
+
+glyph part.iA0d-k set=kr src=drawn top=8 x=0
+######
+.....#
+.....#
+######
+.....#
+.....#
+.....#
+
+glyph part.iA0d-m set=kr src=drawn top=8 x=0
+######
+#....#
+#....#
+#....#
+#....#
+#....#
+######
+
+glyph part.iA0d-n set=kr src=drawn top=8 x=0
+#.....
+#.....
+#.....
+#.....
+#.....
+#.....
+######
+
+glyph part.iA0d-ng set=kr src=drawn top=8 x=0
+..##..
+.#..#.
+#....#
+#....#
+#....#
+.#..#.
+..##..
+
+glyph part.iA0d-p set=kr src=drawn top=8 x=0
+######
+.#..#.
+.#..#.
+.#..#.
+.#..#.
+.#..#.
+######
+
+glyph part.iA0d-r set=kr src=drawn top=8 x=0
+######
+.....#
+.....#
+######
+#.....
+#.....
+######
+
+glyph part.iA0d-s set=kr src=drawn top=8 x=0
+..##..
+.#..#.
+.#..#.
+#....#
+#....#
+#....#
+#....#
+
+glyph part.iA0d-t set=kr src=drawn top=8 x=0
+######
+#.....
+#.....
+######
+#.....
+#.....
+######
+
+glyph part.iA0s-b set=kr src=drawn top=8 x=0
+#.....#
+#.....#
+#.....#
+#######
+#.....#
+#.....#
+#######
+
+glyph part.iA0s-bb set=kr src=drawn top=8 x=0
+#.#.#.#
+#.#.#.#
+#.#.#.#
+###.###
+#.#.#.#
+#.#.#.#
+###.###
+
+glyph part.iA0s-ch set=kr src=drawn top=8 x=0
+...#...
+#######
+...#...
+..#.#..
+..#.#..
+.#...#.
+#.....#
+
+glyph part.iA0s-d set=kr src=drawn top=8 x=0
+#######
+#......
+#......
+#......
+#......
+#......
+#######
+
+glyph part.iA0s-dd set=kr src=drawn top=8 x=0
+###.###
+#...#..
+#...#..
+#...#..
+#...#..
+#...#..
+###.###
+
+glyph part.iA0s-g set=kr src=drawn top=8 x=0
+#######
+......#
+......#
+......#
+......#
+......#
+......#
+
+glyph part.iA0s-gg set=kr src=drawn top=8 x=0
+###.###
+..#...#
+..#...#
+..#...#
+..#...#
+..#...#
+..#...#
+
+glyph part.iA0s-h set=kr src=drawn top=8 x=0
+...#...
+#######
+.......
+..###..
+.#...#.
+.#...#.
+..###..
+
+glyph part.iA0s-j set=kr src=drawn top=8 x=0
+#######
+...#...
+..#.#..
+..#.#..
+.#...#.
+.#...#.
+#.....#
+
+glyph part.iA0s-jj set=kr src=drawn top=8 x=0
+###.###
+.#...#.
+#.#.#.#
+#.#.#.#
+#.#.#.#
+#.#.#.#
+#.#.#.#
+
+glyph part.iA0s-k set=kr src=drawn top=8 x=0
+#######
+......#
+......#
+#######
+......#
+......#
+......#
+
+glyph part.iA0s-m set=kr src=drawn top=8 x=0
+#######
+#.....#
+#.....#
+#.....#
+#.....#
+#.....#
+#######
+
+glyph part.iA0s-n set=kr src=drawn top=8 x=0
+#......
+#......
+#......
+#......
+#......
+#......
+#######
+
+glyph part.iA0s-ng set=kr src=drawn top=8 x=0
+..###..
+.#...#.
+#.....#
+#.....#
+#.....#
+.#...#.
+..###..
+
+glyph part.iA0s-p set=kr src=drawn top=8 x=0
+#######
+.#...#.
+.#...#.
+.#...#.
+.#...#.
+.#...#.
+#######
+
+glyph part.iA0s-r set=kr src=drawn top=8 x=0
+#######
+......#
+......#
+#######
+#......
+#......
+#######
+
+glyph part.iA0s-s set=kr src=drawn top=8 x=0
+...#...
+..#.#..
+..#.#..
+.#...#.
+.#...#.
+#.....#
+#.....#
+
+glyph part.iA0s-ss set=kr src=drawn top=8 x=0
+.#...#.
+#.#.#.#
+#.#.#.#
+#.#.#.#
+#.#.#.#
+#.#.#.#
+#.#.#.#
+
+glyph part.iA0s-t set=kr src=drawn top=8 x=0
+#######
+#......
+#......
+#######
+#......
+#......
+#######
+
+glyph part.iA1d-b set=kr src=drawn top=10 x=0
+#....#
+#....#
+#....#
+######
+#....#
+######
+
+glyph part.iA1d-bb set=kr src=drawn top=10 x=0
+#.#.#
+#.#.#
+#.#.#
+#####
+#.#.#
+#####
+
+glyph part.iA1d-ch set=kr src=drawn top=10 x=0
+..#...
+######
+.#..#.
+.#..#.
+#....#
+#....#
+
+glyph part.iA1d-d set=kr src=drawn top=10 x=0
+######
+#.....
+#.....
+#.....
+#.....
+######
+
+glyph part.iA1d-g set=kr src=drawn top=10 x=0
+######
+.....#
+.....#
+.....#
+.....#
+.....#
+
+glyph part.iA1d-h set=kr src=drawn top=10 x=0
+..#...
+######
+......
+..##..
+.#..#.
+..##..
+
+glyph part.iA1d-j set=kr src=drawn top=10 x=0
+######
+.#..#.
+.#..#.
+#....#
+#....#
+#....#
+
+glyph part.iA1d-k set=kr src=drawn top=10 x=0
+######
+.....#
+######
+.....#
+.....#
+.....#
+
+glyph part.iA1d-m set=kr src=drawn top=10 x=0
+######
+#....#
+#....#
+#....#
+#....#
+######
+
+glyph part.iA1d-n set=kr src=drawn top=10 x=0
+#.....
+#.....
+#.....
+#.....
+#.....
+######
+
+glyph part.iA1d-ng set=kr src=drawn top=10 x=0
+..##..
+.#..#.
+#....#
+#....#
+.#..#.
+..##..
+
+glyph part.iA1d-p set=kr src=drawn top=10 x=0
+######
+.#..#.
+.#..#.
+.#..#.
+.#..#.
+######
+
+glyph part.iA1d-r set=kr src=drawn top=10 x=0
+######
+.....#
+######
+#.....
+#.....
+######
+
+glyph part.iA1d-s set=kr src=drawn top=10 x=0
+..##..
+.#..#.
+.#..#.
+#....#
+#....#
+#....#
+
+glyph part.iA1d-t set=kr src=drawn top=10 x=0
+######
+#.....
+######
+#.....
+#.....
+######
+
+glyph part.iA1s-b set=kr src=drawn top=10 x=0
+#.....#
+#.....#
+#.....#
+#######
+#.....#
+#######
+
+glyph part.iA1s-bb set=kr src=drawn top=10 x=0
+#.#.#.#
+#.#.#.#
+#.#.#.#
+###.###
+#.#.#.#
+###.###
+
+glyph part.iA1s-ch set=kr src=drawn top=10 x=0
+...#...
+#######
+...#...
+..#.#..
+.#...#.
+#.....#
+
+glyph part.iA1s-d set=kr src=drawn top=10 x=0
+#######
+#......
+#......
+#......
+#......
+#######
+
+glyph part.iA1s-dd set=kr src=drawn top=10 x=0
+###.###
+#...#..
+#...#..
+#...#..
+#...#..
+###.###
+
+glyph part.iA1s-g set=kr src=drawn top=10 x=0
+#######
+......#
+......#
+......#
+......#
+......#
+
+glyph part.iA1s-gg set=kr src=drawn top=10 x=0
+###.###
+..#...#
+..#...#
+..#...#
+..#...#
+..#...#
+
+glyph part.iA1s-h set=kr src=drawn top=10 x=0
+...#...
+#######
+.......
+..###..
+.#...#.
+..###..
+
+glyph part.iA1s-j set=kr src=drawn top=10 x=0
+#######
+...#...
+..#.#..
+..#.#..
+.#...#.
+#.....#
+
+glyph part.iA1s-jj set=kr src=drawn top=10 x=0
+###.###
+.#...#.
+#.#.#.#
+#.#.#.#
+#.#.#.#
+#.#.#.#
+
+glyph part.iA1s-k set=kr src=drawn top=10 x=0
+#######
+......#
+#######
+......#
+......#
+......#
+
+glyph part.iA1s-m set=kr src=drawn top=10 x=0
+#######
+#.....#
+#.....#
+#.....#
+#.....#
+#######
+
+glyph part.iA1s-n set=kr src=drawn top=10 x=0
+#......
+#......
+#......
+#......
+#......
+#######
+
+glyph part.iA1s-ng set=kr src=drawn top=10 x=0
+..###..
+.#...#.
+#.....#
+#.....#
+.#...#.
+..###..
+
+glyph part.iA1s-p set=kr src=drawn top=10 x=0
+#######
+.#...#.
+.#...#.
+.#...#.
+.#...#.
+#######
+
+glyph part.iA1s-r set=kr src=drawn top=10 x=0
+#######
+......#
+#######
+#......
+#......
+#######
+
+glyph part.iA1s-s set=kr src=drawn top=10 x=0
+...#...
+..#.#..
+..#.#..
+.#...#.
+.#...#.
+#.....#
+
+glyph part.iA1s-ss set=kr src=drawn top=10 x=0
+.#...#.
+#.#.#.#
+#.#.#.#
+#.#.#.#
+#.#.#.#
+#.#.#.#
+
+glyph part.iA1s-t set=kr src=drawn top=10 x=0
+#######
+#......
+#######
+#......
+#......
+#######
+
+glyph part.iB0-b set=kr src=drawn top=10 x=2
+#.....#
+#.....#
+#.....#
+#######
+#.....#
+#.....#
+#######
+
+glyph part.iB0-ch set=kr src=drawn top=10 x=2
+...#...
+#######
+...#...
+..#.#..
+..#.#..
+.#...#.
+#.....#
+
+glyph part.iB0-d set=kr src=drawn top=10 x=2
+#######
+#......
+#......
+#......
+#......
+#......
+#######
+
+glyph part.iB0-dd set=kr src=drawn top=10 x=2
+###.###
+#...#..
+#...#..
+#...#..
+#...#..
+#...#..
+###.###
+
+glyph part.iB0-g set=kr src=drawn top=10 x=2
+#######
+......#
+......#
+......#
+......#
+......#
+......#
+
+glyph part.iB0-gg set=kr src=drawn top=10 x=2
+###.###
+..#...#
+..#...#
+..#...#
+..#...#
+..#...#
+..#...#
+
+glyph part.iB0-h set=kr src=drawn top=10 x=2
+...#...
+#######
+.......
+..###..
+.#...#.
+.#...#.
+..###..
+
+glyph part.iB0-j set=kr src=drawn top=10 x=2
+#######
+...#...
+..#.#..
+..#.#..
+.#...#.
+.#...#.
+#.....#
+
+glyph part.iB0-k set=kr src=drawn top=10 x=2
+#######
+......#
+......#
+#######
+......#
+......#
+......#
+
+glyph part.iB0-m set=kr src=drawn top=10 x=2
+#######
+#.....#
+#.....#
+#.....#
+#.....#
+#.....#
+#######
+
+glyph part.iB0-n set=kr src=drawn top=10 x=2
+#......
+#......
+#......
+#......
+#......
+#......
+#######
+
+glyph part.iB0-ng set=kr src=drawn top=10 x=2
+..###..
+.#...#.
+#.....#
+#.....#
+#.....#
+.#...#.
+..###..
+
+glyph part.iB0-p set=kr src=drawn top=10 x=2
+#######
+.#...#.
+.#...#.
+.#...#.
+.#...#.
+.#...#.
+#######
+
+glyph part.iB0-r set=kr src=drawn top=10 x=2
+#######
+......#
+......#
+#######
+#......
+#......
+#######
+
+glyph part.iB0-s set=kr src=drawn top=10 x=2
+...#...
+..#.#..
+..#.#..
+.#...#.
+.#...#.
+#.....#
+#.....#
+
+glyph part.iB0-ss set=kr src=drawn top=10 x=2
+.#...#.
+#.#.#.#
+#.#.#.#
+#.#.#.#
+#.#.#.#
+#.#.#.#
+#.#.#.#
+
+glyph part.iB0-t set=kr src=drawn top=10 x=2
+#######
+#......
+#......
+#######
+#......
+#......
+#######
+
+glyph part.iB1-b set=kr src=drawn top=10 x=2
+#.....#
+#######
+#.....#
+
+glyph part.iB1-bb set=kr src=drawn top=10 x=2
+#.#.#.#
+###.###
+#.#.#.#
+
+glyph part.iB1-ch set=kr src=drawn top=10 x=2
+...#...
+#######
+.#...#.
+
+glyph part.iB1-d set=kr src=drawn top=10 x=2
+#######
+#......
+#######
+
+glyph part.iB1-dd set=kr src=drawn top=10 x=2
+###.###
+#...#..
+###.###
+
+glyph part.iB1-g set=kr src=drawn top=10 x=2
+#######
+......#
+......#
+
+glyph part.iB1-gg set=kr src=drawn top=10 x=2
+###.###
+..#...#
+..#...#
+
+glyph part.iB1-h set=kr src=drawn top=10 x=2
+...#...
+#######
+..###..
+
+glyph part.iB1-j set=kr src=drawn top=10 x=2
+#######
+..#.#..
+.#...#.
+
+glyph part.iB1-jj set=kr src=drawn top=10 x=2
+###.###
+.#...#.
+#.#.#.#
+
+glyph part.iB1-k set=kr src=drawn top=10 x=2
+#######
+......#
+...####
+
+glyph part.iB1-m set=kr src=drawn top=10 x=2
+#######
+#.....#
+#######
+
+glyph part.iB1-n set=kr src=drawn top=10 x=2
+#......
+#......
+#######
+
+glyph part.iB1-ng set=kr src=drawn top=10 x=2
+.#####.
+#.....#
+.#####.
+
+glyph part.iB1-p set=kr src=drawn top=10 x=2
+#######
+.#...#.
+#######
+
+glyph part.iB1-r set=kr src=drawn top=10 x=2
+######.
+....#..
+.######
+
+glyph part.iB1-s set=kr src=drawn top=10 x=2
+...#...
+..#.#..
+.#...#.
+
+glyph part.iB1-ss set=kr src=drawn top=10 x=2
+.#...#.
+#.#.#.#
+#.#.#.#
+
+glyph part.iB1-t set=kr src=drawn top=10 x=2
+#######
+#.###..
+#######
+
+glyph part.iC0d-ng set=kr src=drawn top=10 x=0
+..##..
+.#..#.
+#....#
+#....#
+#....#
+.#..#.
+..##..
+
+glyph part.iC0d-s set=kr src=drawn top=10 x=0
+..##..
+.#..#.
+.#..#.
+#....#
+#....#
+#....#
+#....#
+
+glyph part.iC0s-ch set=kr src=drawn top=10 x=0
+...#...
+#######
+...#...
+..#.#..
+..#.#..
+.#...#.
+#.....#
+
+glyph part.iC0s-d set=kr src=drawn top=10 x=0
+#######
+#......
+#......
+#......
+#......
+#......
+#######
+
+glyph part.iC0s-dd set=kr src=drawn top=10 x=0
+###.###
+#...#..
+#...#..
+#...#..
+#...#..
+#...#..
+###.###
+
+glyph part.iC0s-g set=kr src=drawn top=10 x=0
+#######
+......#
+......#
+......#
+......#
+......#
+......#
+
+glyph part.iC0s-gg set=kr src=drawn top=10 x=0
+###.###
+..#...#
+..#...#
+..#...#
+..#...#
+..#...#
+..#...#
+
+glyph part.iC0s-h set=kr src=drawn top=10 x=0
+...#...
+#######
+.......
+..###..
+.#...#.
+.#...#.
+..###..
+
+glyph part.iC0s-j set=kr src=drawn top=10 x=0
+#######
+...#...
+..#.#..
+..#.#..
+.#...#.
+.#...#.
+#.....#
+
+glyph part.iC0s-ng set=kr src=drawn top=10 x=0
+..###..
+.#...#.
+#.....#
+#.....#
+#.....#
+.#...#.
+..###..
+
+glyph part.iC0s-r set=kr src=drawn top=10 x=0
+#######
+......#
+......#
+#######
+#......
+#......
+#######
+
+glyph part.iC0s-s set=kr src=drawn top=10 x=0
+...#...
+..#.#..
+..#.#..
+.#...#.
+.#...#.
+#.....#
+#.....#
+
+glyph part.iC1d-ng set=kr src=drawn top=10 x=0
+.####.
+#....#
+.####.
+
+glyph part.iC1s-d set=kr src=drawn top=10 x=0
+#######
+#......
+#######
+
+glyph part.iC1s-dd set=kr src=drawn top=10 x=0
+###.###
+#...#..
+###.###
+
+glyph part.iC1s-g set=kr src=drawn top=10 x=0
+#######
+......#
+......#
+
+glyph part.iC1s-gg set=kr src=drawn top=10 x=0
+###.###
+..#...#
+..#...#
+
+glyph part.iC1s-h set=kr src=drawn top=10 x=0
+...#...
+#######
+..###..
+
+glyph part.iC1s-k set=kr src=drawn top=10 x=0
+#######
+......#
+...####
+
+glyph part.iC1s-ng set=kr src=drawn top=10 x=0
+.#####.
+#.....#
+.#####.
+
+glyph part.iC1s-s set=kr src=drawn top=10 x=0
+...#...
+..#.#..
+.#...#.
+
+glyph part.vA0-a set=kr src=drawn top=10 x=7
+.#..
+.#..
+.#..
+.#..
+.#..
+.###
+.#..
+.#..
+.#..
+.#..
+.#..
+
+glyph part.vA0-ae set=kr src=drawn top=10 x=7
+#..#
+#..#
+#..#
+#..#
+#..#
+##.#
+#..#
+#..#
+#..#
+#..#
+#..#
+
+glyph part.vA0-e set=kr src=drawn top=10 x=7
+.#.#
+.#.#
+.#.#
+.#.#
+.#.#
+##.#
+.#.#
+.#.#
+.#.#
+.#.#
+.#.#
+
+glyph part.vA0-eo set=kr src=drawn top=10 x=7
+...#
+...#
+...#
+...#
+...#
+.###
+...#
+...#
+...#
+...#
+...#
+
+glyph part.vA0-i set=kr src=drawn top=10 x=7
+..#.
+..#.
+..#.
+..#.
+..#.
+..#.
+..#.
+..#.
+..#.
+..#.
+..#.
+
+glyph part.vA0-ya set=kr src=drawn top=10 x=7
+.#..
+.#..
+.#..
+.###
+.#..
+.#..
+.#..
+.###
+.#..
+.#..
+.#..
+
+glyph part.vA0-ye set=kr src=drawn top=10 x=7
+.#.#
+.#.#
+.#.#
+##.#
+.#.#
+.#.#
+.#.#
+##.#
+.#.#
+.#.#
+.#.#
+
+glyph part.vA0-yeo set=kr src=drawn top=10 x=7
+...#
+...#
+...#
+.###
+...#
+...#
+...#
+.###
+...#
+...#
+...#
+
+glyph part.vA1-a set=kr src=drawn top=10 x=7
+.#..
+.#..
+.#..
+.###
+.#..
+.#..
+
+glyph part.vA1-ae set=kr src=drawn top=10 x=7
+#..#
+#..#
+#..#
+##.#
+#..#
+#..#
+
+glyph part.vA1-e set=kr src=drawn top=10 x=7
+.#.#
+.#.#
+.#.#
+##.#
+.#.#
+.#.#
+
+glyph part.vA1-eo set=kr src=drawn top=10 x=7
+...#
+...#
+...#
+.###
+...#
+...#
+
+glyph part.vA1-i set=kr src=drawn top=10 x=7
+..#.
+..#.
+..#.
+..#.
+..#.
+..#.
+
+glyph part.vA1-ya set=kr src=drawn top=10 x=7
+.#..
+.###
+.#..
+.#..
+.###
+.#..
+
+glyph part.vA1-yeo set=kr src=drawn top=10 x=7
+...#
+.###
+...#
+...#
+.###
+...#
+
+glyph part.vB0-eu set=kr src=drawn top=1 x=0
+###########
+
+glyph part.vB0-o set=kr src=drawn top=2 x=0
+.....#.....
+.....#.....
+###########
+
+glyph part.vB0-u set=kr src=drawn top=2 x=0
+###########
+.....#.....
+.....#.....
+
+glyph part.vB0-yo set=kr src=drawn top=2 x=0
+...#...#...
+...#...#...
+###########
+
+glyph part.vB0-yu set=kr src=drawn top=2 x=0
+###########
+...#...#...
+...#...#...
+
+glyph part.vB1-eu set=kr src=drawn top=6 x=0
+###########
+
+glyph part.vB1-o set=kr src=drawn top=6 x=0
+.....#.....
+###########
+
+glyph part.vB1-u set=kr src=drawn top=6 x=0
+###########
+.....#.....
+
+glyph part.vB1-yo set=kr src=drawn top=6 x=0
+...#...#...
+###########
+
+glyph part.vB1-yu set=kr src=drawn top=6 x=0
+###########
+...#...#...
+
+# ---- recipes: syllables composed of the parts above
+
+glyph U+AC00 set=kr src=recipe:part.iA0s-g,part.vA0-a
+glyph U+AC01 set=kr src=recipe:part.iA1s-g,part.vA1-a,part.f-g
+glyph U+AC04 set=kr src=recipe:part.iA1s-g,part.vA1-a,part.f-n
+glyph U+AC08 set=kr src=recipe:part.iA1s-g,part.vA1-a,part.f-r
+glyph U+AC10 set=kr src=recipe:part.iA1s-g,part.vA1-a,part.f-m
+glyph U+AC11 set=kr src=recipe:part.iA1s-g,part.vA1-a,part.f-b
+glyph U+AC12 set=kr src=recipe:part.iA1s-g,part.vA1-a,part.fw-bs
+glyph U+AC15 set=kr src=recipe:part.iA1s-g,part.vA1-a,part.f-ng
+glyph U+AC16 set=kr src=recipe:part.iA1s-g,part.vA1-a,part.f-j
+glyph U+AC19 set=kr src=recipe:part.iA1s-g,part.vA1-a,part.f-t
+glyph U+AC1C set=kr src=recipe:part.iA0d-g,part.vA0-ae
+glyph U+AC1D set=kr src=recipe:part.iA1d-g,part.vA1-ae,part.f-g
+glyph U+AC31 set=kr src=recipe:part.iA1d-g,part.vA1-ae,part.f-ng
+glyph U+AC70 set=kr src=recipe:part.iA0s-g,part.vA0-eo
+glyph U+AC74 set=kr src=recipe:part.iA1s-g,part.vA1-eo,part.f-n
+glyph U+AC77 set=kr src=recipe:part.iA1s-g,part.vA1-eo,part.f-d
+glyph U+AC78 set=kr src=recipe:part.iA1s-g,part.vA1-eo,part.f-r
+glyph U+AC80 set=kr src=recipe:part.iA1s-g,part.vA1-eo,part.f-m
+glyph U+AC83 set=kr src=recipe:part.iA1s-g,part.vA1-eo,part.f-s
+glyph U+AC8C set=kr src=recipe:part.iA0d-g,part.vA0-e
+glyph U+ACA0 set=kr src=recipe:part.iA1d-g,part.vA1-e,part.f-ss
+glyph U+ACA8 set=kr src=recipe:part.iA0s-g,part.vA0-yeo
+glyph U+ACA9 set=kr src=recipe:part.iA1s-g,part.vA1-yeo,part.f-g
+glyph U+ACAC set=kr src=recipe:part.iA1s-g,part.vA1-yeo,part.f-n
+glyph U+ACB0 set=kr src=recipe:part.iA1s-g,part.vA1-yeo,part.f-r
+glyph U+ACB9 set=kr src=recipe:part.iA1s-g,part.vA1-yeo,part.f-b
+glyph U+ACBD set=kr src=recipe:part.iA1s-g,part.vA1-yeo,part.f-ng
+glyph U+ACC4 set=kr src=recipe:part.iA0d-g,part.vA0-ye
+glyph U+ACE0 set=kr src=recipe:part.iB0-g,part.vB0-o
+glyph U+ACE7 set=kr src=recipe:part.iB1-g,part.vB1-o,part.f-d
+glyph U+ACF1 set=kr src=recipe:part.iB1-g,part.vB1-o,part.f-b
+glyph U+ACF3 set=kr src=recipe:part.iB1-g,part.vB1-o,part.f-s
+glyph U+ACF5 set=kr src=recipe:part.iB1-g,part.vB1-o,part.f-ng
+glyph U+ACFC set=kr src=recipe:part.iC0s-g,part.fC07-o,part.vA0-a
+glyph U+AD00 set=kr src=recipe:part.iC1s-g,part.fC17-o,part.vA1-a,part.f-n
+glyph U+AD04 set=kr src=recipe:part.iC1s-g,part.fC17-o,part.vA1-a,part.f-r
+glyph U+AD34 set=kr src=recipe:part.iC0s-g,part.fC07-o,part.vA0-i
+glyph U+AD50 set=kr src=recipe:part.iB0-g,part.vB0-yo
+glyph U+AD6C set=kr src=recipe:part.iB0-g,part.vB0-u
+glyph U+AD70 set=kr src=recipe:part.iB1-g,part.vB1-u,part.f-n
+glyph U+AD81 set=kr src=recipe:part.iB1-g,part.vB1-u,part.f-ng
+glyph U+AD8C set=kr src=recipe:part.iC1s-g,part.fC17-u,part.vA1-eo,part.f-n
+glyph U+ADC0 set=kr src=recipe:part.iC0s-g,part.fC07-u,part.vA0-i
+glyph U+ADDC set=kr src=recipe:part.iB0-g,part.vB0-yu
+glyph U+ADE0 set=kr src=recipe:part.iB1-g,part.vB1-yu,part.f-n
+glyph U+ADF8 set=kr src=recipe:part.iB0-g,part.vB0-eu
+glyph U+ADF9 set=kr src=recipe:part.iB1-g,part.vB1-eu,part.f-g
+glyph U+ADFC set=kr src=recipe:part.iB1-g,part.vB1-eu,part.f-n
+glyph U+AE00 set=kr src=recipe:part.iB1-g,part.vB1-eu,part.f-r
+glyph U+AE08 set=kr src=recipe:part.iB1-g,part.vB1-eu,part.f-m
+glyph U+AE09 set=kr src=recipe:part.iB1-g,part.vB1-eu,part.f-b
+glyph U+AE0B set=kr src=recipe:part.iB1-g,part.vB1-eu,part.f-s
+glyph U+AE30 set=kr src=recipe:part.iA0s-g,part.vA0-i
+glyph U+AE34 set=kr src=recipe:part.iA1s-g,part.vA1-i,part.f-n
+glyph U+AE38 set=kr src=recipe:part.iA1s-g,part.vA1-i,part.f-r
+glyph U+AE41 set=kr src=recipe:part.iA1s-g,part.vA1-i,part.f-b
+glyph U+AE4A set=kr src=recipe:part.iA1s-g,part.vA1-i,part.f-p
+glyph U+AE4C set=kr src=recipe:part.iA0s-gg,part.vA0-a
+glyph U+AE54 set=kr src=recipe:part.iA1s-gg,part.vA1-a,part.f-r
+glyph U+AE65 set=kr src=recipe:part.iA1s-gg,part.vA1-a,part.f-t
+glyph U+AE68 set=kr src=recipe:part.iA0d-gg,part.vA0-ae
+glyph U+AEBC set=kr src=recipe:part.iA0s-gg,part.vA0-eo
+glyph U+AED8 set=kr src=recipe:part.iA0d-gg,part.vA0-e
+glyph U+AF2D set=kr src=recipe:part.iB1-gg,part.vB1-o,part.f-g
+glyph U+AF34 set=kr src=recipe:part.iB1-gg,part.vB1-o,part.f-r
+glyph U+AFB8 set=kr src=recipe:part.iB0-gg,part.vB0-u
+glyph U+AFBC set=kr src=recipe:part.iB1-gg,part.vB1-u,part.f-n
+glyph U+AFC0 set=kr src=recipe:part.iB1-gg,part.vB1-u,part.f-r
+glyph U+AFC9 set=kr src=recipe:part.iB1-gg,part.vB1-u,part.f-b
+glyph U+AFD4 set=kr src=recipe:part.iC0s-gg,part.fC07-u,part.vA0-eo
+glyph U+B00C set=kr src=recipe:part.iC0s-gg,part.fC07-u,part.vA0-i
+glyph U+B010 set=kr src=recipe:part.iC1s-gg,part.fC17-u,part.vA1-i,part.f-n
+glyph U+B014 set=kr src=recipe:part.iC1s-gg,part.fC17-u,part.vA1-i,part.f-r
+glyph U+B01C set=kr src=recipe:part.iC1s-gg,part.fC17-u,part.vA1-i,part.f-m
+glyph U+B01D set=kr src=recipe:part.iC1s-gg,part.fC17-u,part.vA1-i,part.f-b
+glyph U+B044 set=kr src=recipe:part.iB0-gg,part.vB0-eu
+glyph U+B04A set=kr src=recipe:part.iB1-gg,part.vB1-eu,part.fw-nh
+glyph U+B04C set=kr src=recipe:part.iB1-gg,part.vB1-eu,part.f-r
+glyph U+B054 set=kr src=recipe:part.iB1-gg,part.vB1-eu,part.f-m
+glyph U+B055 set=kr src=recipe:part.iB1-gg,part.vB1-eu,part.f-b
+glyph U+B05D set=kr src=recipe:part.iB1-gg,part.vB1-eu,part.f-t
+glyph U+B07C set=kr src=recipe:part.iA0s-gg,part.vA0-i
+glyph U+B08C set=kr src=recipe:part.iA1s-gg,part.vA1-i,part.f-m
+glyph U+B098 set=kr src=recipe:part.iA0s-n,part.vA0-a
+glyph U+B09C set=kr src=recipe:part.iA1s-n,part.vA1-a,part.f-n
+glyph U+B0A0 set=kr src=recipe:part.iA1s-n,part.vA1-a,part.f-r
+glyph U+B0A8 set=kr src=recipe:part.iA1s-n,part.vA1-a,part.f-m
+glyph U+B0A9 set=kr src=recipe:part.iA1s-n,part.vA1-a,part.f-b
+glyph U+B0AC set=kr src=recipe:part.iA1s-n,part.vA1-a,part.f-ss
+glyph U+B0AE set=kr src=recipe:part.iA1s-n,part.vA1-a,part.f-j
+glyph U+B0B4 set=kr src=recipe:part.iA0d-n,part.vA0-ae
+glyph U+B0B8 set=kr src=recipe:part.iA1d-n,part.vA1-ae,part.f-n
+glyph U+B0BC set=kr src=recipe:part.iA1d-n,part.vA1-ae,part.f-r
+glyph U+B0C5 set=kr src=recipe:part.iA1d-n,part.vA1-ae,part.f-b
+glyph U+B108 set=kr src=recipe:part.iA0s-n,part.vA0-eo
+glyph U+B110 set=kr src=recipe:part.iA1s-n,part.vA1-eo,part.f-r
+glyph U+B113 set=kr src=recipe:part.iA1s-n,part.vA1-eo,part.fw-rb
+glyph U+B118 set=kr src=recipe:part.iA1s-n,part.vA1-eo,part.f-m
+glyph U+B123 set=kr src=recipe:part.iA1s-n,part.vA1-eo,part.f-h
+glyph U+B124 set=kr src=recipe:part.iA0d-n,part.vA0-e
+glyph U+B178 set=kr src=recipe:part.iB0-n,part.vB0-o
+glyph U+B17C set=kr src=recipe:part.iB1-n,part.vB1-o,part.f-n
+glyph U+B192 set=kr src=recipe:part.iB1-n,part.vB1-o,part.f-p
+glyph U+B193 set=kr src=recipe:part.iB1-n,part.vB1-o,part.f-h
+glyph U+B204 set=kr src=recipe:part.iB0-n,part.vB0-u
+glyph U+B208 set=kr src=recipe:part.iB1-n,part.vB1-u,part.f-n
+glyph U+B20C set=kr src=recipe:part.iB1-n,part.vB1-u,part.f-r
+glyph U+B274 set=kr src=recipe:part.iB0-n,part.vB0-yu
+glyph U+B290 set=kr src=recipe:part.iB0-n,part.vB0-eu
+glyph U+B294 set=kr src=recipe:part.iB1-n,part.vB1-eu,part.f-n
+glyph U+B298 set=kr src=recipe:part.iB1-n,part.vB1-eu,part.f-r
+glyph U+B2A5 set=kr src=recipe:part.iB1-n,part.vB1-eu,part.f-ng
+glyph U+B2C8 set=kr src=recipe:part.iA0s-n,part.vA0-i
+glyph U+B2CC set=kr src=recipe:part.iA1s-n,part.vA1-i,part.f-n
+glyph U+B2D0 set=kr src=recipe:part.iA1s-n,part.vA1-i,part.f-r
+glyph U+B2D8 set=kr src=recipe:part.iA1s-n,part.vA1-i,part.f-m
+glyph U+B2D9 set=kr src=recipe:part.iA1s-n,part.vA1-i,part.f-b
+glyph U+B2E4 set=kr src=recipe:part.iA0s-d,part.vA0-a
+glyph U+B2E8 set=kr src=recipe:part.iA1s-d,part.vA1-a,part.f-n
+glyph U+B2EB set=kr src=recipe:part.iA1s-d,part.vA1-a,part.f-d
+glyph U+B2EC set=kr src=recipe:part.iA1s-d,part.vA1-a,part.f-r
+glyph U+B2F4 set=kr src=recipe:part.iA1s-d,part.vA1-a,part.f-m
+glyph U+B2F5 set=kr src=recipe:part.iA1s-d,part.vA1-a,part.f-b
+glyph U+B2F7 set=kr src=recipe:part.iA1s-d,part.vA1-a,part.f-s
+glyph U+B2F9 set=kr src=recipe:part.iA1s-d,part.vA1-a,part.f-ng
+glyph U+B2FF set=kr src=recipe:part.iA1s-d,part.vA1-a,part.f-h
+glyph U+B300 set=kr src=recipe:part.iA0d-d,part.vA0-ae
+glyph U+B308 set=kr src=recipe:part.iA1d-d,part.vA1-ae,part.f-r
+glyph U+B311 set=kr src=recipe:part.iA1d-d,part.vA1-ae,part.f-b
+glyph U+B313 set=kr src=recipe:part.iA1d-d,part.vA1-ae,part.f-s
+glyph U+B354 set=kr src=recipe:part.iA0s-d,part.vA0-eo
+glyph U+B358 set=kr src=recipe:part.iA1s-d,part.vA1-eo,part.f-n
+glyph U+B35C set=kr src=recipe:part.iA1s-d,part.vA1-eo,part.f-r
+glyph U+B35F set=kr src=recipe:part.iA1s-d,part.vA1-eo,part.fw-rb
+glyph U+B367 set=kr src=recipe:part.iA1s-d,part.vA1-eo,part.f-s
+glyph U+B36E set=kr src=recipe:part.iA1s-d,part.vA1-eo,part.f-p
+glyph U+B370 set=kr src=recipe:part.iA0d-d,part.vA0-e
+glyph U+B371 set=kr src=recipe:part.iA1d-d,part.vA1-e,part.f-g
+glyph U+B378 set=kr src=recipe:part.iA1d-d,part.vA1-e,part.f-r
+glyph U+B3C4 set=kr src=recipe:part.iB0-d,part.vB0-o
+glyph U+B3C5 set=kr src=recipe:part.iB1-d,part.vB1-o,part.f-g
+glyph U+B3CC set=kr src=recipe:part.iB1-d,part.vB1-o,part.f-r
+glyph U+B3D9 set=kr src=recipe:part.iB1-d,part.vB1-o,part.f-ng
+glyph U+B418 set=kr src=recipe:part.iC0s-d,part.fC07-o,part.vA0-i
+glyph U+B41C set=kr src=recipe:part.iC1s-d,part.fC17-o,part.vA1-i,part.f-n
+glyph U+B420 set=kr src=recipe:part.iC1s-d,part.fC17-o,part.vA1-i,part.f-r
+glyph U+B428 set=kr src=recipe:part.iC1s-d,part.fC17-o,part.vA1-i,part.f-m
+glyph U+B429 set=kr src=recipe:part.iC1s-d,part.fC17-o,part.vA1-i,part.f-b
+glyph U+B450 set=kr src=recipe:part.iB0-d,part.vB0-u
+glyph U+B454 set=kr src=recipe:part.iB1-d,part.vB1-u,part.f-n
+glyph U+B458 set=kr src=recipe:part.iB1-d,part.vB1-u,part.f-r
+glyph U+B461 set=kr src=recipe:part.iB1-d,part.vB1-u,part.f-b
+glyph U+B4A4 set=kr src=recipe:part.iC0s-d,part.fC07-u,part.vA0-i
+glyph U+B4B7 set=kr src=recipe:part.iC1s-d,part.fC17-u,part.vA1-i,part.f-s
+glyph U+B4DC set=kr src=recipe:part.iB0-d,part.vB0-eu
+glyph U+B4DD set=kr src=recipe:part.iB1-d,part.vB1-eu,part.f-g
+glyph U+B4E0 set=kr src=recipe:part.iB1-d,part.vB1-eu,part.f-n
+glyph U+B4E4 set=kr src=recipe:part.iB1-d,part.vB1-eu,part.f-r
+glyph U+B4ED set=kr src=recipe:part.iB1-d,part.vB1-eu,part.f-b
+glyph U+B4F1 set=kr src=recipe:part.iB1-d,part.vB1-eu,part.f-ng
+glyph U+B514 set=kr src=recipe:part.iA0s-d,part.vA0-i
+glyph U+B529 set=kr src=recipe:part.iA1s-d,part.vA1-i,part.f-ng
+glyph U+B530 set=kr src=recipe:part.iA0s-dd,part.vA0-a
+glyph U+B54C set=kr src=recipe:part.iA0d-dd,part.vA0-ae
+glyph U+B5A4 set=kr src=recipe:part.iA1s-dd,part.vA1-eo,part.f-n
+glyph U+B5A8 set=kr src=recipe:part.iA1s-dd,part.vA1-eo,part.f-r
+glyph U+B5BB set=kr src=recipe:part.iA1s-dd,part.vA1-eo,part.f-h
+glyph U+B5BC set=kr src=recipe:part.iA0d-dd,part.vA0-e
+glyph U+B610 set=kr src=recipe:part.iB0-dd,part.vB0-o
+glyph U+B611 set=kr src=recipe:part.iB1-dd,part.vB1-o,part.f-g
+glyph U+B69C set=kr src=recipe:part.iB0-dd,part.vB0-u
+glyph U+B6F0 set=kr src=recipe:part.iC0s-dd,part.fC07-u,part.vA0-i
+glyph U+B701 set=kr src=recipe:part.iC1s-dd,part.fC17-u,part.vA1-i,part.f-b
+glyph U+B77C set=kr src=recipe:part.iA0s-r,part.vA0-a
+glyph U+B77D set=kr src=recipe:part.iA1s-r,part.vA1-a,part.f-g
+glyph U+B780 set=kr src=recipe:part.iA1s-r,part.vA1-a,part.f-n
+glyph U+B78C set=kr src=recipe:part.iA1s-r,part.vA1-a,part.f-m
+glyph U+B791 set=kr src=recipe:part.iA1s-r,part.vA1-a,part.f-ng
+glyph U+B798 set=kr src=recipe:part.iA0d-r,part.vA0-ae
+glyph U+B799 set=kr src=recipe:part.iA1d-r,part.vA1-ae,part.f-g
+glyph U+B79C set=kr src=recipe:part.iA1d-r,part.vA1-ae,part.f-n
+glyph U+B7A9 set=kr src=recipe:part.iA1d-r,part.vA1-ae,part.f-b
+glyph U+B7AB set=kr src=recipe:part.iA1d-r,part.vA1-ae,part.f-s
+glyph U+B7C9 set=kr src=recipe:part.iA1s-r,part.vA1-ya,part.f-ng
+glyph U+B7EC set=kr src=recipe:part.iA0s-r,part.vA0-eo
+glyph U+B7F0 set=kr src=recipe:part.iA1s-r,part.vA1-eo,part.f-n
+glyph U+B7FC set=kr src=recipe:part.iA1s-r,part.vA1-eo,part.f-m
+glyph U+B7FD set=kr src=recipe:part.iA1s-r,part.vA1-eo,part.f-b
+glyph U+B807 set=kr src=recipe:part.iA1s-r,part.vA1-eo,part.f-h
+glyph U+B808 set=kr src=recipe:part.iA0d-r,part.vA0-e
+glyph U+B809 set=kr src=recipe:part.iA1d-r,part.vA1-e,part.f-g
+glyph U+B80C set=kr src=recipe:part.iA1d-r,part.vA1-e,part.f-n
+glyph U+B824 set=kr src=recipe:part.iA0s-r,part.vA0-yeo
+glyph U+B825 set=kr src=recipe:part.iA1s-r,part.vA1-yeo,part.f-g
+glyph U+B828 set=kr src=recipe:part.iA1s-r,part.vA1-yeo,part.f-n
+glyph U+B82C set=kr src=recipe:part.iA1s-r,part.vA1-yeo,part.f-r
+glyph U+B834 set=kr src=recipe:part.iA1s-r,part.vA1-yeo,part.f-m
+glyph U+B837 set=kr src=recipe:part.iA1s-r,part.vA1-yeo,part.f-s
+glyph U+B839 set=kr src=recipe:part.iA1s-r,part.vA1-yeo,part.f-ng
+glyph U+B840 set=kr src=recipe:part.iA0d-r,part.vA0-ye
+glyph U+B85C set=kr src=recipe:part.iB0-r,part.vB0-o
+glyph U+B85D set=kr src=recipe:part.iB1-r,part.vB1-o,part.f-g
+glyph U+B860 set=kr src=recipe:part.iB1-r,part.vB1-o,part.f-n
+glyph U+B864 set=kr src=recipe:part.iB1-r,part.vB1-o,part.f-r
+glyph U+B86C set=kr src=recipe:part.iB1-r,part.vB1-o,part.f-m
+glyph U+B86D set=kr src=recipe:part.iB1-r,part.vB1-o,part.f-b
+glyph U+B86F set=kr src=recipe:part.iB1-r,part.vB1-o,part.f-s
+glyph U+B8B0 set=kr src=recipe:part.iC0s-r,part.fC07-o,part.vA0-i
+glyph U+B8CC set=kr src=recipe:part.iB0-r,part.vB0-yo
+glyph U+B8E8 set=kr src=recipe:part.iB0-r,part.vB0-u
+glyph U+B8F0 set=kr src=recipe:part.iB1-r,part.vB1-u,part.f-r
+glyph U+B8F9 set=kr src=recipe:part.iB1-r,part.vB1-u,part.f-b
+glyph U+B904 set=kr src=recipe:part.iC0s-r,part.fC07-u,part.vA0-eo
+glyph U+B958 set=kr src=recipe:part.iB0-r,part.vB0-yu
+glyph U+B960 set=kr src=recipe:part.iB1-r,part.vB1-yu,part.f-r
+glyph U+B974 set=kr src=recipe:part.iB0-r,part.vB0-eu
+glyph U+B978 set=kr src=recipe:part.iB1-r,part.vB1-eu,part.f-n
+glyph U+B97C set=kr src=recipe:part.iB1-r,part.vB1-eu,part.f-r
+glyph U+B984 set=kr src=recipe:part.iB1-r,part.vB1-eu,part.f-m
+glyph U+B985 set=kr src=recipe:part.iB1-r,part.vB1-eu,part.f-b
+glyph U+B9AC set=kr src=recipe:part.iA0s-r,part.vA0-i
+glyph U+B9AD set=kr src=recipe:part.iA1s-r,part.vA1-i,part.f-g
+glyph U+B9B0 set=kr src=recipe:part.iA1s-r,part.vA1-i,part.f-n
+glyph U+B9B4 set=kr src=recipe:part.iA1s-r,part.vA1-i,part.f-r
+glyph U+B9BC set=kr src=recipe:part.iA1s-r,part.vA1-i,part.f-m
+glyph U+B9BD set=kr src=recipe:part.iA1s-r,part.vA1-i,part.f-b
+glyph U+B9BF set=kr src=recipe:part.iA1s-r,part.vA1-i,part.f-s
+glyph U+B9C1 set=kr src=recipe:part.iA1s-r,part.vA1-i,part.f-ng
+glyph U+B9C8 set=kr src=recipe:part.iA0s-m,part.vA0-a
+glyph U+B9C9 set=kr src=recipe:part.iA1s-m,part.vA1-a,part.f-g
+glyph U+B9CC set=kr src=recipe:part.iA1s-m,part.vA1-a,part.f-n
+glyph U+B9CE set=kr src=recipe:part.iA1s-m,part.vA1-a,part.fw-nh
+glyph U+B9D0 set=kr src=recipe:part.iA1s-m,part.vA1-a,part.f-r
+glyph U+B9DD set=kr src=recipe:part.iA1s-m,part.vA1-a,part.f-ng
+glyph U+B9DE set=kr src=recipe:part.iA1s-m,part.vA1-a,part.f-j
+glyph U+B9E1 set=kr src=recipe:part.iA1s-m,part.vA1-a,part.f-t
+glyph U+B9E4 set=kr src=recipe:part.iA0d-m,part.vA0-ae
+glyph U+B9E8 set=kr src=recipe:part.iA1d-m,part.vA1-ae,part.f-n
+glyph U+B9F5 set=kr src=recipe:part.iA1d-m,part.vA1-ae,part.f-b
+glyph U+BA38 set=kr src=recipe:part.iA0s-m,part.vA0-eo
+glyph U+BA3C set=kr src=recipe:part.iA1s-m,part.vA1-eo,part.f-n
+glyph U+BA40 set=kr src=recipe:part.iA1s-m,part.vA1-eo,part.f-r
+glyph U+BA48 set=kr src=recipe:part.iA1s-m,part.vA1-eo,part.f-m
+glyph U+BA54 set=kr src=recipe:part.iA0d-m,part.vA0-e
+glyph U+BA64 set=kr src=recipe:part.iA1d-m,part.vA1-e,part.f-m
+glyph U+BA70 set=kr src=recipe:part.iA0s-m,part.vA0-yeo
+glyph U+BA74 set=kr src=recipe:part.iA1s-m,part.vA1-yeo,part.f-n
+glyph U+BA85 set=kr src=recipe:part.iA1s-m,part.vA1-yeo,part.f-ng
+glyph U+BA87 set=kr src=recipe:part.iA1s-m,part.vA1-yeo,part.f-ch
+glyph U+BAA8 set=kr src=recipe:part.iB0-m,part.vB0-o
+glyph U+BAA9 set=kr src=recipe:part.iB1-m,part.vB1-o,part.f-g
+glyph U+BABB set=kr src=recipe:part.iB1-m,part.vB1-o,part.f-s
+glyph U+BB34 set=kr src=recipe:part.iB0-m,part.vB0-u
+glyph U+BB36 set=kr src=recipe:part.iB1-m,part.vB1-u,part.f-gg
+glyph U+BB38 set=kr src=recipe:part.iB1-m,part.vB1-u,part.f-n
+glyph U+BB3B set=kr src=recipe:part.iB1-m,part.vB1-u,part.f-d
+glyph U+BB3C set=kr src=recipe:part.iB1-m,part.vB1-u,part.f-r
+glyph U+BB45 set=kr src=recipe:part.iB1-m,part.vB1-u,part.f-b
+glyph U+BBC0 set=kr src=recipe:part.iB0-m,part.vB0-eu
+glyph U+BBF8 set=kr src=recipe:part.iA0s-m,part.vA0-i
+glyph U+BC00 set=kr src=recipe:part.iA1s-m,part.vA1-i,part.f-r
+glyph U+BC0D set=kr src=recipe:part.iA1s-m,part.vA1-i,part.f-ng
+glyph U+BC0F set=kr src=recipe:part.iA1s-m,part.vA1-i,part.f-ch
+glyph U+BC14 set=kr src=recipe:part.iA0s-b,part.vA0-a
+glyph U+BC15 set=kr src=recipe:part.iA1s-b,part.vA1-a,part.f-g
+glyph U+BC16 set=kr src=recipe:part.iA1s-b,part.vA1-a,part.f-gg
+glyph U+BC18 set=kr src=recipe:part.iA1s-b,part.vA1-a,part.f-n
+glyph U+BC1B set=kr src=recipe:part.iA1s-b,part.vA1-a,part.f-d
+glyph U+BC1C set=kr src=recipe:part.iA1s-b,part.vA1-a,part.f-r
+glyph U+BC1D set=kr src=recipe:part.iA1s-b,part.vA1-a,part.fw-rg
+glyph U+BC29 set=kr src=recipe:part.iA1s-b,part.vA1-a,part.f-ng
+glyph U+BC30 set=kr src=recipe:part.iA0d-b,part.vA0-ae
+glyph U+BC31 set=kr src=recipe:part.iA1d-b,part.vA1-ae,part.f-g
+glyph U+BC84 set=kr src=recipe:part.iA0s-b,part.vA0-eo
+glyph U+BC88 set=kr src=recipe:part.iA1s-b,part.vA1-eo,part.f-n
+glyph U+BC94 set=kr src=recipe:part.iA1s-b,part.vA1-eo,part.f-m
+glyph U+BC95 set=kr src=recipe:part.iA1s-b,part.vA1-eo,part.f-b
+glyph U+BC97 set=kr src=recipe:part.iA1s-b,part.vA1-eo,part.f-s
+glyph U+BCA8 set=kr src=recipe:part.iA1d-b,part.vA1-e,part.f-r
+glyph U+BCBD set=kr src=recipe:part.iA1s-b,part.vA1-yeo,part.f-g
+glyph U+BCC0 set=kr src=recipe:part.iA1s-b,part.vA1-yeo,part.f-n
+glyph U+BCC4 set=kr src=recipe:part.iA1s-b,part.vA1-yeo,part.f-r
+glyph U+BCCD set=kr src=recipe:part.iA1s-b,part.vA1-yeo,part.f-b
+glyph U+BCD1 set=kr src=recipe:part.iA1s-b,part.vA1-yeo,part.f-ng
+glyph U+BCF4 set=kr src=recipe:part.iB0-b,part.vB0-o
+glyph U+BCF5 set=kr src=recipe:part.iB1-b,part.vB1-o,part.f-g
+glyph U+BCF8 set=kr src=recipe:part.iB1-b,part.vB1-o,part.f-n
+glyph U+BCFC set=kr src=recipe:part.iB1-b,part.vB1-o,part.f-r
+glyph U+BD05 set=kr src=recipe:part.iB1-b,part.vB1-o,part.f-b
+glyph U+BD07 set=kr src=recipe:part.iB1-b,part.vB1-o,part.f-s
+glyph U+BD09 set=kr src=recipe:part.iB1-b,part.vB1-o,part.f-ng
+glyph U+BD80 set=kr src=recipe:part.iB0-b,part.vB0-u
+glyph U+BD84 set=kr src=recipe:part.iB1-b,part.vB1-u,part.f-n
+glyph U+BD88 set=kr src=recipe:part.iB1-b,part.vB1-u,part.f-r
+glyph U+BD93 set=kr src=recipe:part.iB1-b,part.vB1-u,part.f-s
+glyph U+BD99 set=kr src=recipe:part.iB1-b,part.vB1-u,part.f-t
+glyph U+BDF0 set=kr src=recipe:part.iB0-b,part.vB0-yu
+glyph U+BE0C set=kr src=recipe:part.iB0-b,part.vB0-eu
+glyph U+BE14 set=kr src=recipe:part.iB1-b,part.vB1-eu,part.f-r
+glyph U+BE44 set=kr src=recipe:part.iA0s-b,part.vA0-i
+glyph U+BE48 set=kr src=recipe:part.iA1s-b,part.vA1-i,part.f-n
+glyph U+BE4C set=kr src=recipe:part.iA1s-b,part.vA1-i,part.f-r
+glyph U+BE60 set=kr src=recipe:part.iA0s-bb,part.vA0-a
+glyph U+BE68 set=kr src=recipe:part.iA1s-bb,part.vA1-a,part.f-r
+glyph U+BE7C set=kr src=recipe:part.iA0d-bb,part.vA0-ae
+glyph U+BE7D set=kr src=recipe:part.iA1d-bb,part.vA1-ae,part.f-g
+glyph U+BE80 set=kr src=recipe:part.iA1d-bb,part.vA1-ae,part.f-n
+glyph U+BE8D set=kr src=recipe:part.iA1d-bb,part.vA1-ae,part.f-b
+glyph U+BED7 set=kr src=recipe:part.iA1s-bb,part.vA1-eo,part.f-d
+glyph U+BF51 set=kr src=recipe:part.iB1-bb,part.vB1-o,part.f-b
+glyph U+BFD0 set=kr src=recipe:part.iB1-bb,part.vB1-u,part.f-n
+glyph U+C0AC set=kr src=recipe:part.iA0s-s,part.vA0-a
+glyph U+C0AD set=kr src=recipe:part.iA1s-s,part.vA1-a,part.f-g
+glyph U+C0B0 set=kr src=recipe:part.iA1s-s,part.vA1-a,part.f-n
+glyph U+C0B4 set=kr src=recipe:part.iA1s-s,part.vA1-a,part.f-r
+glyph U+C0BC set=kr src=recipe:part.iA1s-s,part.vA1-a,part.f-m
+glyph U+C0BD set=kr src=recipe:part.iA1s-s,part.vA1-a,part.f-b
+glyph U+C0C1 set=kr src=recipe:part.iA1s-s,part.vA1-a,part.f-ng
+glyph U+C0C8 set=kr src=recipe:part.iA0d-s,part.vA0-ae
+glyph U+C0C9 set=kr src=recipe:part.iA1d-s,part.vA1-ae,part.f-g
+glyph U+C0CC set=kr src=recipe:part.iA1d-s,part.vA1-ae,part.f-n
+glyph U+C0D8 set=kr src=recipe:part.iA1d-s,part.vA1-ae,part.f-m
+glyph U+C0DD set=kr src=recipe:part.iA1d-s,part.vA1-ae,part.f-ng
+glyph U+C0F7 set=kr src=recipe:part.iA1s-s,part.vA1-ya,part.f-s
+glyph U+C11C set=kr src=recipe:part.iA0s-s,part.vA0-eo
+glyph U+C11D set=kr src=recipe:part.iA1s-s,part.vA1-eo,part.f-g
+glyph U+C11E set=kr src=recipe:part.iA1s-s,part.vA1-eo,part.f-gg
+glyph U+C120 set=kr src=recipe:part.iA1s-s,part.vA1-eo,part.f-n
+glyph U+C124 set=kr src=recipe:part.iA1s-s,part.vA1-eo,part.f-r
+glyph U+C12F set=kr src=recipe:part.iA1s-s,part.vA1-eo,part.f-s
+glyph U+C131 set=kr src=recipe:part.iA1s-s,part.vA1-eo,part.f-ng
+glyph U+C138 set=kr src=recipe:part.iA0d-s,part.vA0-e
+glyph U+C139 set=kr src=recipe:part.iA1d-s,part.vA1-e,part.f-g
+glyph U+C13C set=kr src=recipe:part.iA1d-s,part.vA1-e,part.f-n
+glyph U+C140 set=kr src=recipe:part.iA1d-s,part.vA1-e,part.f-r
+glyph U+C149 set=kr src=recipe:part.iA1d-s,part.vA1-e,part.f-b
+glyph U+C14B set=kr src=recipe:part.iA1d-s,part.vA1-e,part.f-s
+glyph U+C158 set=kr src=recipe:part.iA1s-s,part.vA1-yeo,part.f-n
+glyph U+C170 set=kr src=recipe:part.iA0d-s,part.vA0-ye
+glyph U+C18C set=kr src=recipe:part.iB0-s,part.vB0-o
+glyph U+C18D set=kr src=recipe:part.iB1-s,part.vB1-o,part.f-g
+glyph U+C190 set=kr src=recipe:part.iB1-s,part.vB1-o,part.f-n
+glyph U+C194 set=kr src=recipe:part.iB1-s,part.vB1-o,part.f-r
+glyph U+C1A1 set=kr src=recipe:part.iB1-s,part.vB1-o,part.f-ng
+glyph U+C1C4 set=kr src=recipe:part.iC0d-s,part.fC06-o,part.vA0-ae
+glyph U+C218 set=kr src=recipe:part.iB0-s,part.vB0-u
+glyph U+C219 set=kr src=recipe:part.iB1-s,part.vB1-u,part.f-g
+glyph U+C21C set=kr src=recipe:part.iB1-s,part.vB1-u,part.f-n
+glyph U+C220 set=kr src=recipe:part.iB1-s,part.vB1-u,part.f-r
+glyph U+C228 set=kr src=recipe:part.iB1-s,part.vB1-u,part.f-m
+glyph U+C22B set=kr src=recipe:part.iB1-s,part.vB1-u,part.f-s
+glyph U+C26C set=kr src=recipe:part.iC0s-s,part.fC07-u,part.vA0-i
+glyph U+C27C set=kr src=recipe:part.iC1s-s,part.fC17-u,part.vA1-i,part.f-m
+glyph U+C27D set=kr src=recipe:part.iC1s-s,part.fC17-u,part.vA1-i,part.f-b
+glyph U+C2A4 set=kr src=recipe:part.iB0-s,part.vB0-eu
+glyph U+C2AC set=kr src=recipe:part.iB1-s,part.vB1-eu,part.f-r
+glyph U+C2B5 set=kr src=recipe:part.iB1-s,part.vB1-eu,part.f-b
+glyph U+C2B7 set=kr src=recipe:part.iB1-s,part.vB1-eu,part.f-s
+glyph U+C2B9 set=kr src=recipe:part.iB1-s,part.vB1-eu,part.f-ng
+glyph U+C2DC set=kr src=recipe:part.iA0s-s,part.vA0-i
+glyph U+C2DD set=kr src=recipe:part.iA1s-s,part.vA1-i,part.f-g
+glyph U+C2E0 set=kr src=recipe:part.iA1s-s,part.vA1-i,part.f-n
+glyph U+C2E4 set=kr src=recipe:part.iA1s-s,part.vA1-i,part.f-r
+glyph U+C2EC set=kr src=recipe:part.iA1s-s,part.vA1-i,part.f-m
+glyph U+C2ED set=kr src=recipe:part.iA1s-s,part.vA1-i,part.f-b
+glyph U+C2F1 set=kr src=recipe:part.iA1s-s,part.vA1-i,part.f-ng
+glyph U+C2F8 set=kr src=recipe:part.iA0s-ss,part.vA0-a
+glyph U+C309 set=kr src=recipe:part.iA1s-ss,part.vA1-a,part.f-b
+glyph U+C30D set=kr src=recipe:part.iA1s-ss,part.vA1-a,part.f-ng
+glyph U+C313 set=kr src=recipe:part.iA1s-ss,part.vA1-a,part.f-h
+glyph U+C37C set=kr src=recipe:part.iA1s-ss,part.vA1-eo,part.f-ss
+glyph U+C4F0 set=kr src=recipe:part.iB0-ss,part.vB0-eu
+glyph U+C4F4 set=kr src=recipe:part.iB1-ss,part.vB1-eu,part.f-n
+glyph U+C4F8 set=kr src=recipe:part.iB1-ss,part.vB1-eu,part.f-r
+glyph U+C501 set=kr src=recipe:part.iB1-ss,part.vB1-eu,part.f-b
+glyph U+C529 set=kr src=recipe:part.iA1s-ss,part.vA1-i,part.f-g
+glyph U+C544 set=kr src=recipe:part.iA0s-ng,part.vA0-a
+glyph U+C545 set=kr src=recipe:part.iA1s-ng,part.vA1-a,part.f-g
+glyph U+C548 set=kr src=recipe:part.iA1s-ng,part.vA1-a,part.f-n
+glyph U+C54A set=kr src=recipe:part.iA1s-ng,part.vA1-a,part.fw-nh
+glyph U+C54C set=kr src=recipe:part.iA1s-ng,part.vA1-a,part.f-r
+glyph U+C555 set=kr src=recipe:part.iA1s-ng,part.vA1-a,part.f-b
+glyph U+C558 set=kr src=recipe:part.iA1s-ng,part.vA1-a,part.f-ss
+glyph U+C559 set=kr src=recipe:part.iA1s-ng,part.vA1-a,part.f-ng
+glyph U+C55E set=kr src=recipe:part.iA1s-ng,part.vA1-a,part.f-p
+glyph U+C560 set=kr src=recipe:part.iA0d-ng,part.vA0-ae
+glyph U+C561 set=kr src=recipe:part.iA1d-ng,part.vA1-ae,part.f-g
+glyph U+C568 set=kr src=recipe:part.iA1d-ng,part.vA1-ae,part.f-r
+glyph U+C571 set=kr src=recipe:part.iA1d-ng,part.vA1-ae,part.f-b
+glyph U+C57C set=kr src=recipe:part.iA0s-ng,part.vA0-ya
+glyph U+C57D set=kr src=recipe:part.iA1s-ng,part.vA1-ya,part.f-g
+glyph U+C587 set=kr src=recipe:part.iA1s-ng,part.vA1-ya,part.fw-rb
+glyph U+C591 set=kr src=recipe:part.iA1s-ng,part.vA1-ya,part.f-ng
+glyph U+C5B5 set=kr src=recipe:part.iA1s-ng,part.vA1-eo,part.f-g
+glyph U+C5B8 set=kr src=recipe:part.iA1s-ng,part.vA1-eo,part.f-n
+glyph U+C5BB set=kr src=recipe:part.iA1s-ng,part.vA1-eo,part.f-d
+glyph U+C5BC set=kr src=recipe:part.iA1s-ng,part.vA1-eo,part.f-r
+glyph U+C5BD set=kr src=recipe:part.iA1s-ng,part.vA1-eo,part.fw-rg
+glyph U+C5C4 set=kr src=recipe:part.iA1s-ng,part.vA1-eo,part.f-m
+glyph U+C5C5 set=kr src=recipe:part.iA1s-ng,part.vA1-eo,part.f-b
+glyph U+C5C6 set=kr src=recipe:part.iA1s-ng,part.vA1-eo,part.fw-bs
+glyph U+C5C7 set=kr src=recipe:part.iA1s-ng,part.vA1-eo,part.f-s
+glyph U+C5C8 set=kr src=recipe:part.iA1s-ng,part.vA1-eo,part.f-ss
+glyph U+C5C9 set=kr src=recipe:part.iA1s-ng,part.vA1-eo,part.f-ng
+glyph U+C5D0 set=kr src=recipe:part.iA0d-ng,part.vA0-e
+glyph U+C5D4 set=kr src=recipe:part.iA1d-ng,part.vA1-e,part.f-n
+glyph U+C5EC set=kr src=recipe:part.iA0s-ng,part.vA0-yeo
+glyph U+C5ED set=kr src=recipe:part.iA1s-ng,part.vA1-yeo,part.f-g
+glyph U+C5F0 set=kr src=recipe:part.iA1s-ng,part.vA1-yeo,part.f-n
+glyph U+C5F4 set=kr src=recipe:part.iA1s-ng,part.vA1-yeo,part.f-r
+glyph U+C5FD set=kr src=recipe:part.iA1s-ng,part.vA1-yeo,part.f-b
+glyph U+C600 set=kr src=recipe:part.iA1s-ng,part.vA1-yeo,part.f-ss
+glyph U+C601 set=kr src=recipe:part.iA1s-ng,part.vA1-yeo,part.f-ng
+glyph U+C606 set=kr src=recipe:part.iA1s-ng,part.vA1-yeo,part.f-p
+glyph U+C608 set=kr src=recipe:part.iA0d-ng,part.vA0-ye
+glyph U+C624 set=kr src=recipe:part.iB0-ng,part.vB0-o
+glyph U+C625 set=kr src=recipe:part.iB1-ng,part.vB1-o,part.f-g
+glyph U+C628 set=kr src=recipe:part.iB1-ng,part.vB1-o,part.f-n
+glyph U+C62C set=kr src=recipe:part.iB1-ng,part.vB1-o,part.f-r
+glyph U+C62E set=kr src=recipe:part.iB1-ng,part.vB1-o,part.fw-rm
+glyph U+C635 set=kr src=recipe:part.iB1-ng,part.vB1-o,part.f-b
+glyph U+C640 set=kr src=recipe:part.iC0s-ng,part.fC07-o,part.vA0-a
+glyph U+C644 set=kr src=recipe:part.iC1s-ng,part.fC17-o,part.vA1-a,part.f-n
+glyph U+C655 set=kr src=recipe:part.iC1s-ng,part.fC17-o,part.vA1-a,part.f-ng
+glyph U+C678 set=kr src=recipe:part.iC0s-ng,part.fC07-o,part.vA0-i
+glyph U+C67C set=kr src=recipe:part.iC1s-ng,part.fC17-o,part.vA1-i,part.f-n
+glyph U+C694 set=kr src=recipe:part.iB0-ng,part.vB0-yo
+glyph U+C6A9 set=kr src=recipe:part.iB1-ng,part.vB1-yo,part.f-ng
+glyph U+C6B0 set=kr src=recipe:part.iB0-ng,part.vB0-u
+glyph U+C6B4 set=kr src=recipe:part.iB1-ng,part.vB1-u,part.f-n
+glyph U+C6B8 set=kr src=recipe:part.iB1-ng,part.vB1-u,part.f-r
+glyph U+C6C0 set=kr src=recipe:part.iB1-ng,part.vB1-u,part.f-m
+glyph U+C6C1 set=kr src=recipe:part.iB1-ng,part.vB1-u,part.f-b
+glyph U+C6C3 set=kr src=recipe:part.iB1-ng,part.vB1-u,part.f-s
+glyph U+C6CC set=kr src=recipe:part.iC0s-ng,part.fC07-u,part.vA0-eo
+glyph U+C6D0 set=kr src=recipe:part.iC1s-ng,part.fC17-u,part.vA1-eo,part.f-n
+glyph U+C6D4 set=kr src=recipe:part.iC1s-ng,part.fC17-u,part.vA1-eo,part.f-r
+glyph U+C6E0 set=kr src=recipe:part.iC1s-ng,part.fC17-u,part.vA1-eo,part.f-ss
+glyph U+C6E8 set=kr src=recipe:part.iC0d-ng,part.fC06-u,part.vA0-e
+glyph U+C6F9 set=kr src=recipe:part.iC1d-ng,part.fC16-u,part.vA1-e,part.f-b
+glyph U+C704 set=kr src=recipe:part.iC0s-ng,part.fC07-u,part.vA0-i
+glyph U+C720 set=kr src=recipe:part.iB0-ng,part.vB0-yu
+glyph U+C728 set=kr src=recipe:part.iB1-ng,part.vB1-yu,part.f-r
+glyph U+C73C set=kr src=recipe:part.iB0-ng,part.vB0-eu
+glyph U+C740 set=kr src=recipe:part.iB1-ng,part.vB1-eu,part.f-n
+glyph U+C744 set=kr src=recipe:part.iB1-ng,part.vB1-eu,part.f-r
+glyph U+C74C set=kr src=recipe:part.iB1-ng,part.vB1-eu,part.f-m
+glyph U+C751 set=kr src=recipe:part.iB1-ng,part.vB1-eu,part.f-ng
+glyph U+C758 set=kr src=recipe:part.iC0s-ng,part.fC07-eu,part.vA0-i
+glyph U+C774 set=kr src=recipe:part.iA0s-ng,part.vA0-i
+glyph U+C775 set=kr src=recipe:part.iA1s-ng,part.vA1-i,part.f-g
+glyph U+C778 set=kr src=recipe:part.iA1s-ng,part.vA1-i,part.f-n
+glyph U+C77C set=kr src=recipe:part.iA1s-ng,part.vA1-i,part.f-r
+glyph U+C77D set=kr src=recipe:part.iA1s-ng,part.vA1-i,part.fw-rg
+glyph U+C783 set=kr src=recipe:part.iA1s-ng,part.vA1-i,part.fw-rh
+glyph U+C784 set=kr src=recipe:part.iA1s-ng,part.vA1-i,part.f-m
+glyph U+C785 set=kr src=recipe:part.iA1s-ng,part.vA1-i,part.f-b
+glyph U+C788 set=kr src=recipe:part.iA1s-ng,part.vA1-i,part.f-ss
+glyph U+C790 set=kr src=recipe:part.iA0s-j,part.vA0-a
+glyph U+C791 set=kr src=recipe:part.iA1s-j,part.vA1-a,part.f-g
+glyph U+C798 set=kr src=recipe:part.iA1s-j,part.vA1-a,part.f-r
+glyph U+C7A0 set=kr src=recipe:part.iA1s-j,part.vA1-a,part.f-m
+glyph U+C7A1 set=kr src=recipe:part.iA1s-j,part.vA1-a,part.f-b
+glyph U+C7A5 set=kr src=recipe:part.iA1s-j,part.vA1-a,part.f-ng
+glyph U+C7AC set=kr src=recipe:part.iA0d-j,part.vA0-ae
+glyph U+C7AD set=kr src=recipe:part.iA1d-j,part.vA1-ae,part.f-g
+glyph U+C800 set=kr src=recipe:part.iA0s-j,part.vA0-eo
+glyph U+C801 set=kr src=recipe:part.iA1s-j,part.vA1-eo,part.f-g
+glyph U+C804 set=kr src=recipe:part.iA1s-j,part.vA1-eo,part.f-n
+glyph U+C808 set=kr src=recipe:part.iA1s-j,part.vA1-eo,part.f-r
+glyph U+C810 set=kr src=recipe:part.iA1s-j,part.vA1-eo,part.f-m
+glyph U+C811 set=kr src=recipe:part.iA1s-j,part.vA1-eo,part.f-b
+glyph U+C815 set=kr src=recipe:part.iA1s-j,part.vA1-eo,part.f-ng
+glyph U+C81C set=kr src=recipe:part.iA0d-j,part.vA0-e
+glyph U+C81D set=kr src=recipe:part.iA1d-j,part.vA1-e,part.f-g
+glyph U+C820 set=kr src=recipe:part.iA1d-j,part.vA1-e,part.f-n
+glyph U+C838 set=kr src=recipe:part.iA0s-j,part.vA0-yeo
+glyph U+C84C set=kr src=recipe:part.iA1s-j,part.vA1-yeo,part.f-ss
+glyph U+C870 set=kr src=recipe:part.iB0-j,part.vB0-o
+glyph U+C874 set=kr src=recipe:part.iB1-j,part.vB1-o,part.f-n
+glyph U+C881 set=kr src=recipe:part.iB1-j,part.vB1-o,part.f-b
+glyph U+C885 set=kr src=recipe:part.iB1-j,part.vB1-o,part.f-ng
+glyph U+C88B set=kr src=recipe:part.iB1-j,part.vB1-o,part.f-h
+glyph U+C88C set=kr src=recipe:part.iC0s-j,part.fC07-o,part.vA0-a
+glyph U+C8FC set=kr src=recipe:part.iB0-j,part.vB0-u
+glyph U+C900 set=kr src=recipe:part.iB1-j,part.vB1-u,part.f-n
+glyph U+C904 set=kr src=recipe:part.iB1-j,part.vB1-u,part.f-r
+glyph U+C90D set=kr src=recipe:part.iB1-j,part.vB1-u,part.f-b
+glyph U+C911 set=kr src=recipe:part.iB1-j,part.vB1-u,part.f-ng
+glyph U+C988 set=kr src=recipe:part.iB0-j,part.vB0-eu
+glyph U+C989 set=kr src=recipe:part.iB1-j,part.vB1-eu,part.f-g
+glyph U+C990 set=kr src=recipe:part.iB1-j,part.vB1-eu,part.f-r
+glyph U+C998 set=kr src=recipe:part.iB1-j,part.vB1-eu,part.f-m
+glyph U+C99D set=kr src=recipe:part.iB1-j,part.vB1-eu,part.f-ng
+glyph U+C9C0 set=kr src=recipe:part.iA0s-j,part.vA0-i
+glyph U+C9C1 set=kr src=recipe:part.iA1s-j,part.vA1-i,part.f-g
+glyph U+C9C4 set=kr src=recipe:part.iA1s-j,part.vA1-i,part.f-n
+glyph U+C9C8 set=kr src=recipe:part.iA1s-j,part.vA1-i,part.f-r
+glyph U+C9D0 set=kr src=recipe:part.iA1s-j,part.vA1-i,part.f-m
+glyph U+C9D1 set=kr src=recipe:part.iA1s-j,part.vA1-i,part.f-b
+glyph U+C9D3 set=kr src=recipe:part.iA1s-j,part.vA1-i,part.f-s
+glyph U+C9DC set=kr src=recipe:part.iA0s-jj,part.vA0-a
+glyph U+C9DD set=kr src=recipe:part.iA1s-jj,part.vA1-a,part.f-g
+glyph U+C9E7 set=kr src=recipe:part.iA1s-jj,part.vA1-a,part.fw-rb
+glyph U+C9F8 set=kr src=recipe:part.iA0d-jj,part.vA0-ae
+glyph U+CABD set=kr src=recipe:part.iB1-jj,part.vB1-o,part.f-g
+glyph U+CBE4 set=kr src=recipe:part.iB1-jj,part.vB1-eu,part.f-m
+glyph U+CC0D set=kr src=recipe:part.iA1s-jj,part.vA1-i,part.f-g
+glyph U+CC28 set=kr src=recipe:part.iA0s-ch,part.vA0-a
+glyph U+CC29 set=kr src=recipe:part.iA1s-ch,part.vA1-a,part.f-g
+glyph U+CC2C set=kr src=recipe:part.iA1s-ch,part.vA1-a,part.f-n
+glyph U+CC38 set=kr src=recipe:part.iA1s-ch,part.vA1-a,part.f-m
+glyph U+CC3C set=kr src=recipe:part.iA1s-ch,part.vA1-a,part.f-ss
+glyph U+CC3D set=kr src=recipe:part.iA1s-ch,part.vA1-a,part.f-ng
+glyph U+CC3E set=kr src=recipe:part.iA1s-ch,part.vA1-a,part.f-j
+glyph U+CC44 set=kr src=recipe:part.iA0d-ch,part.vA0-ae
+glyph U+CC57 set=kr src=recipe:part.iA1d-ch,part.vA1-ae,part.f-s
+glyph U+CC98 set=kr src=recipe:part.iA0s-ch,part.vA0-eo
+glyph U+CCA0 set=kr src=recipe:part.iA1s-ch,part.vA1-eo,part.f-r
+glyph U+CCA9 set=kr src=recipe:part.iA1s-ch,part.vA1-eo,part.f-b
+glyph U+CCAB set=kr src=recipe:part.iA1s-ch,part.vA1-eo,part.f-s
+glyph U+CCAD set=kr src=recipe:part.iA1s-ch,part.vA1-eo,part.f-ng
+glyph U+CCB4 set=kr src=recipe:part.iA0d-ch,part.vA0-e
+glyph U+CCD0 set=kr src=recipe:part.iA0s-ch,part.vA0-yeo
+glyph U+CD08 set=kr src=recipe:part.iB0-ch,part.vB0-o
+glyph U+CD18 set=kr src=recipe:part.iB1-ch,part.vB1-o,part.f-m
+glyph U+CD1D set=kr src=recipe:part.iB1-ch,part.vB1-o,part.f-ng
+glyph U+CD5C set=kr src=recipe:part.iC0s-ch,part.fC07-o,part.vA0-i
+glyph U+CD94 set=kr src=recipe:part.iB0-ch,part.vB0-u
+glyph U+CD95 set=kr src=recipe:part.iB1-ch,part.vB1-u,part.f-g
+glyph U+CD98 set=kr src=recipe:part.iB1-ch,part.vB1-u,part.f-n
+glyph U+CD9C set=kr src=recipe:part.iB1-ch,part.vB1-u,part.f-r
+glyph U+CDA4 set=kr src=recipe:part.iB1-ch,part.vB1-u,part.f-m
+glyph U+CDA5 set=kr src=recipe:part.iB1-ch,part.vB1-u,part.f-b
+glyph U+CDA9 set=kr src=recipe:part.iB1-ch,part.vB1-u,part.f-ng
+glyph U+CDB0 set=kr src=recipe:part.iC0s-ch,part.fC07-u,part.vA0-eo
+glyph U+CDE8 set=kr src=recipe:part.iC0s-ch,part.fC07-u,part.vA0-i
+glyph U+CE20 set=kr src=recipe:part.iB0-ch,part.vB0-eu
+glyph U+CE21 set=kr src=recipe:part.iB1-ch,part.vB1-eu,part.f-g
+glyph U+CE35 set=kr src=recipe:part.iB1-ch,part.vB1-eu,part.f-ng
+glyph U+CE58 set=kr src=recipe:part.iA0s-ch,part.vA0-i
+glyph U+CE59 set=kr src=recipe:part.iA1s-ch,part.vA1-i,part.f-g
+glyph U+CE5C set=kr src=recipe:part.iA1s-ch,part.vA1-i,part.f-n
+glyph U+CE60 set=kr src=recipe:part.iA1s-ch,part.vA1-i,part.f-r
+glyph U+CE68 set=kr src=recipe:part.iA1s-ch,part.vA1-i,part.f-m
+glyph U+CE69 set=kr src=recipe:part.iA1s-ch,part.vA1-i,part.f-b
+glyph U+CE6D set=kr src=recipe:part.iA1s-ch,part.vA1-i,part.f-ng
+glyph U+CE74 set=kr src=recipe:part.iA0s-k,part.vA0-a
+glyph U+CE78 set=kr src=recipe:part.iA1s-k,part.vA1-a,part.f-n
+glyph U+CE90 set=kr src=recipe:part.iA0d-k,part.vA0-ae
+glyph U+CE94 set=kr src=recipe:part.iA1d-k,part.vA1-ae,part.f-n
+glyph U+CE98 set=kr src=recipe:part.iA1d-k,part.vA1-ae,part.f-r
+glyph U+CEA1 set=kr src=recipe:part.iA1d-k,part.vA1-ae,part.f-b
+glyph U+CEE4 set=kr src=recipe:part.iA0s-k,part.vA0-eo
+glyph U+CEE8 set=kr src=recipe:part.iA1s-k,part.vA1-eo,part.f-n
+glyph U+CEEC set=kr src=recipe:part.iA1s-k,part.vA1-eo,part.f-r
+glyph U+CEF4 set=kr src=recipe:part.iA1s-k,part.vA1-eo,part.f-m
+glyph U+CEF7 set=kr src=recipe:part.iA1s-k,part.vA1-eo,part.f-s
+glyph U+CF00 set=kr src=recipe:part.iA0d-k,part.vA0-e
+glyph U+CF13 set=kr src=recipe:part.iA1d-k,part.vA1-e,part.f-s
+glyph U+CF1C set=kr src=recipe:part.iA0s-k,part.vA0-yeo
+glyph U+CF24 set=kr src=recipe:part.iA1s-k,part.vA1-yeo,part.f-r
+glyph U+CF2D set=kr src=recipe:part.iA1s-k,part.vA1-yeo,part.f-b
+glyph U+CF30 set=kr src=recipe:part.iA1s-k,part.vA1-yeo,part.f-ss
+glyph U+CF54 set=kr src=recipe:part.iB0-k,part.vB0-o
+glyph U+CF58 set=kr src=recipe:part.iB1-k,part.vB1-o,part.f-n
+glyph U+D000 set=kr src=recipe:part.iC1s-k,part.fC17-u,part.vA1-eo,part.f-n
+glyph U+D06C set=kr src=recipe:part.iB0-k,part.vB0-eu
+glyph U+D070 set=kr src=recipe:part.iB1-k,part.vB1-eu,part.f-n
+glyph U+D074 set=kr src=recipe:part.iB1-k,part.vB1-eu,part.f-r
+glyph U+D07C set=kr src=recipe:part.iB1-k,part.vB1-eu,part.f-m
+glyph U+D07D set=kr src=recipe:part.iB1-k,part.vB1-eu,part.f-b
+glyph U+D0A4 set=kr src=recipe:part.iA0s-k,part.vA0-i
+glyph U+D0A8 set=kr src=recipe:part.iA1s-k,part.vA1-i,part.f-n
+glyph U+D0AC set=kr src=recipe:part.iA1s-k,part.vA1-i,part.f-r
+glyph U+D0B5 set=kr src=recipe:part.iA1s-k,part.vA1-i,part.f-b
+glyph U+D0B9 set=kr src=recipe:part.iA1s-k,part.vA1-i,part.f-ng
+glyph U+D0C0 set=kr src=recipe:part.iA0s-t,part.vA0-a
+glyph U+D0C4 set=kr src=recipe:part.iA1s-t,part.vA1-a,part.f-n
+glyph U+D0C8 set=kr src=recipe:part.iA1s-t,part.vA1-a,part.f-r
+glyph U+D0D0 set=kr src=recipe:part.iA1s-t,part.vA1-a,part.f-m
+glyph U+D0D5 set=kr src=recipe:part.iA1s-t,part.vA1-a,part.f-ng
+glyph U+D0DC set=kr src=recipe:part.iA0d-t,part.vA0-ae
+glyph U+D0DD set=kr src=recipe:part.iA1d-t,part.vA1-ae,part.f-g
+glyph U+D0EC set=kr src=recipe:part.iA1d-t,part.vA1-ae,part.f-m
+glyph U+D0ED set=kr src=recipe:part.iA1d-t,part.vA1-ae,part.f-b
+glyph U+D130 set=kr src=recipe:part.iA0s-t,part.vA0-eo
+glyph U+D134 set=kr src=recipe:part.iA1s-t,part.vA1-eo,part.f-n
+glyph U+D14C set=kr src=recipe:part.iA0d-t,part.vA0-e
+glyph U+D14D set=kr src=recipe:part.iA1d-t,part.vA1-e,part.f-g
+glyph U+D150 set=kr src=recipe:part.iA1d-t,part.vA1-e,part.f-n
+glyph U+D15C set=kr src=recipe:part.iA1d-t,part.vA1-e,part.f-m
+glyph U+D1A0 set=kr src=recipe:part.iB0-t,part.vB0-o
+glyph U+D1A4 set=kr src=recipe:part.iB1-t,part.vB1-o,part.f-n
+glyph U+D1B1 set=kr src=recipe:part.iB1-t,part.vB1-o,part.f-b
+glyph U+D1B5 set=kr src=recipe:part.iB1-t,part.vB1-o,part.f-ng
+glyph U+D22C set=kr src=recipe:part.iB0-t,part.vB0-u
+glyph U+D234 set=kr src=recipe:part.iB1-t,part.vB1-u,part.f-r
+glyph U+D29C set=kr src=recipe:part.iB0-t,part.vB0-yu
+glyph U+D2B8 set=kr src=recipe:part.iB0-t,part.vB0-eu
+glyph U+D2B9 set=kr src=recipe:part.iB1-t,part.vB1-eu,part.f-g
+glyph U+D2BC set=kr src=recipe:part.iB1-t,part.vB1-eu,part.f-n
+glyph U+D2C0 set=kr src=recipe:part.iB1-t,part.vB1-eu,part.f-r
+glyph U+D2C8 set=kr src=recipe:part.iB1-t,part.vB1-eu,part.f-m
+glyph U+D2F0 set=kr src=recipe:part.iA0s-t,part.vA0-i
+glyph U+D2F4 set=kr src=recipe:part.iA1s-t,part.vA1-i,part.f-n
+glyph U+D300 set=kr src=recipe:part.iA1s-t,part.vA1-i,part.f-m
+glyph U+D301 set=kr src=recipe:part.iA1s-t,part.vA1-i,part.f-b
+glyph U+D305 set=kr src=recipe:part.iA1s-t,part.vA1-i,part.f-ng
+glyph U+D30C set=kr src=recipe:part.iA0s-p,part.vA0-a
+glyph U+D310 set=kr src=recipe:part.iA1s-p,part.vA1-a,part.f-n
+glyph U+D314 set=kr src=recipe:part.iA1s-p,part.vA1-a,part.f-r
+glyph U+D328 set=kr src=recipe:part.iA0d-p,part.vA0-ae
+glyph U+D37C set=kr src=recipe:part.iA0s-p,part.vA0-eo
+glyph U+D398 set=kr src=recipe:part.iA0d-p,part.vA0-e
+glyph U+D399 set=kr src=recipe:part.iA1d-p,part.vA1-e,part.f-g
+glyph U+D3B4 set=kr src=recipe:part.iA0s-p,part.vA0-yeo
+glyph U+D3B8 set=kr src=recipe:part.iA1s-p,part.vA1-yeo,part.f-n
+glyph U+D3BC set=kr src=recipe:part.iA1s-p,part.vA1-yeo,part.f-r
+glyph U+D3C9 set=kr src=recipe:part.iA1s-p,part.vA1-yeo,part.f-ng
+glyph U+D3D0 set=kr src=recipe:part.iA0d-p,part.vA0-ye
+glyph U+D3EC set=kr src=recipe:part.iB0-p,part.vB0-o
+glyph U+D3ED set=kr src=recipe:part.iB1-p,part.vB1-o,part.f-g
+glyph U+D3F4 set=kr src=recipe:part.iB1-p,part.vB1-o,part.f-r
+glyph U+D3FC set=kr src=recipe:part.iB1-p,part.vB1-o,part.f-m
+glyph U+D401 set=kr src=recipe:part.iB1-p,part.vB1-o,part.f-ng
+glyph U+D45C set=kr src=recipe:part.iB0-p,part.vB0-yo
+glyph U+D480 set=kr src=recipe:part.iB1-p,part.vB1-u,part.f-r
+glyph U+D488 set=kr src=recipe:part.iB1-p,part.vB1-u,part.f-m
+glyph U+D4E8 set=kr src=recipe:part.iB0-p,part.vB0-yu
+glyph U+D504 set=kr src=recipe:part.iB0-p,part.vB0-eu
+glyph U+D50C set=kr src=recipe:part.iB1-p,part.vB1-eu,part.f-r
+glyph U+D53C set=kr src=recipe:part.iA0s-p,part.vA0-i
+glyph U+D53D set=kr src=recipe:part.iA1s-p,part.vA1-i,part.f-g
+glyph U+D544 set=kr src=recipe:part.iA1s-p,part.vA1-i,part.f-r
+glyph U+D551 set=kr src=recipe:part.iA1s-p,part.vA1-i,part.f-ng
+glyph U+D558 set=kr src=recipe:part.iA0s-h,part.vA0-a
+glyph U+D560 set=kr src=recipe:part.iA1s-h,part.vA1-a,part.f-r
+glyph U+D568 set=kr src=recipe:part.iA1s-h,part.vA1-a,part.f-m
+glyph U+D569 set=kr src=recipe:part.iA1s-h,part.vA1-a,part.f-b
+glyph U+D56D set=kr src=recipe:part.iA1s-h,part.vA1-a,part.f-ng
+glyph U+D574 set=kr src=recipe:part.iA0d-h,part.vA0-ae
+glyph U+D575 set=kr src=recipe:part.iA1d-h,part.vA1-ae,part.f-g
+glyph U+D588 set=kr src=recipe:part.iA1d-h,part.vA1-ae,part.f-ss
+glyph U+D589 set=kr src=recipe:part.iA1d-h,part.vA1-ae,part.f-ng
+glyph U+D5A5 set=kr src=recipe:part.iA1s-h,part.vA1-ya,part.f-ng
+glyph U+D5C8 set=kr src=recipe:part.iA0s-h,part.vA0-eo
+glyph U+D5D8 set=kr src=recipe:part.iA1s-h,part.vA1-eo,part.f-m
+glyph U+D5E5 set=kr src=recipe:part.iA1d-h,part.vA1-e,part.f-g
+glyph U+D600 set=kr src=recipe:part.iA0s-h,part.vA0-yeo
+glyph U+D604 set=kr src=recipe:part.iA1s-h,part.vA1-yeo,part.f-n
+glyph U+D611 set=kr src=recipe:part.iA1s-h,part.vA1-yeo,part.f-b
+glyph U+D615 set=kr src=recipe:part.iA1s-h,part.vA1-yeo,part.f-ng
+glyph U+D638 set=kr src=recipe:part.iB0-h,part.vB0-o
+glyph U+D63C set=kr src=recipe:part.iB1-h,part.vB1-o,part.f-n
+glyph U+D648 set=kr src=recipe:part.iB1-h,part.vB1-o,part.f-m
+glyph U+D654 set=kr src=recipe:part.iC0s-h,part.fC07-o,part.vA0-a
+glyph U+D655 set=kr src=recipe:part.iC1s-h,part.fC17-o,part.vA1-a,part.f-g
+glyph U+D658 set=kr src=recipe:part.iC1s-h,part.fC17-o,part.vA1-a,part.f-n
+glyph U+D65C set=kr src=recipe:part.iC1s-h,part.fC17-o,part.vA1-a,part.f-r
+glyph U+D669 set=kr src=recipe:part.iC1s-h,part.fC17-o,part.vA1-a,part.f-ng
+glyph U+D68C set=kr src=recipe:part.iC0s-h,part.fC07-o,part.vA0-i
+glyph U+D68D set=kr src=recipe:part.iC1s-h,part.fC17-o,part.vA1-i,part.f-g
+glyph U+D69F set=kr src=recipe:part.iC1s-h,part.fC17-o,part.vA1-i,part.f-s
+glyph U+D6A8 set=kr src=recipe:part.iB0-h,part.vB0-yo
+glyph U+D6C4 set=kr src=recipe:part.iB0-h,part.vB0-u
+glyph U+D718 set=kr src=recipe:part.iC0s-h,part.fC07-u,part.vA0-i
+glyph U+D720 set=kr src=recipe:part.iC1s-h,part.fC17-u,part.vA1-i,part.f-r
+glyph U+D750 set=kr src=recipe:part.iB0-h,part.vB0-eu
+glyph U+D754 set=kr src=recipe:part.iB1-h,part.vB1-eu,part.f-n
+glyph U+D76C set=kr src=recipe:part.iC0s-h,part.fC07-eu,part.vA0-i
+glyph U+D770 set=kr src=recipe:part.iC1s-h,part.fC17-eu,part.vA1-i,part.f-n
+glyph U+D788 set=kr src=recipe:part.iA0s-h,part.vA0-i
+glyph U+D78C set=kr src=recipe:part.iA1s-h,part.vA1-i,part.f-n
+glyph U+D799 set=kr src=recipe:part.iA1s-h,part.vA1-i,part.f-b
