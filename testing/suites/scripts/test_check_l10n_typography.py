@@ -1383,6 +1383,708 @@ def case_a_root_without_the_endonym_module_exits_2_naming_it(
 
 
 # --------------------------------------------------------------------------- #
+# French number and unit (fr-num-unit; fr.md 5.1, 5.4).
+# --------------------------------------------------------------------------- #
+DEGREE = "\u00b0"
+UNIT_OCTET = "octet/octets/octet(s)"
+UNIT_MILLI = "milliseconde/millisecondes/milliseconde(s)"
+UNIT_SECOND = "seconde/secondes/seconde(s)"
+UNIT_FRAMES = "image(s) par seconde"
+
+#: The unit list the rule prints, in the order the script defines it.
+NUM_UNIT_LABELS = [
+    "px",
+    "ms",
+    "mm",
+    "cm",
+    "PPI",
+    "%",
+    DEGREE,
+    UNIT_OCTET,
+    "Ko",
+    "Mo",
+    "Go",
+    UNIT_MILLI,
+    UNIT_SECOND,
+    UNIT_FRAMES,
+]
+
+#: The exact source line of each entry of ``UNITS`` (one mutant drops each).
+UNIT_SOURCE_LINES = (
+    '    ("px", r"px"),\n',
+    '    ("ms", r"ms"),\n',
+    '    ("mm", r"mm"),\n',
+    '    ("cm", r"cm"),\n',
+    '    ("PPI", r"PPI"),\n',
+    '    ("%", r"%"),\n',
+    r'    ("\u00b0", r"\u00b0"),' + "\n",
+    '    ("octet/octets/octet(s)", r"octets?(?:\\(s\\))?"),\n',
+    '    ("Ko", r"Ko"),\n',
+    '    ("Mo", r"Mo"),\n',
+    '    ("Go", r"Go"),\n',
+    '    ("milliseconde/millisecondes/milliseconde(s)",'
+    ' r"millisecondes?(?:\\(s\\))?"),\n',
+    '    ("seconde/secondes/seconde(s)", r"secondes?(?:\\(s\\))?"),\n',
+    '    ("image(s) par seconde", r"images?(?:\\(s\\))? par seconde"),\n',
+)
+
+#: (unit label, number, unit text): every entry of ``UNITS`` at least once, in
+#: each spelling its pattern accepts, and every kind of number the rule takes.
+UNIT_SAMPLES = [
+    ("px", "5", "px"),
+    ("ms", "250", "ms"),
+    ("mm", "12", "mm"),
+    ("cm", "3,5", "cm"),
+    ("PPI", "300", "PPI"),
+    ("%", "50", "%"),
+    (DEGREE, "90", DEGREE),
+    (UNIT_OCTET, "1", "octet"),
+    (UNIT_OCTET, "2", "octets"),
+    (UNIT_OCTET, "3", "octet(s)"),
+    ("Ko", "4", "Ko"),
+    ("Mo", "5", "Mo"),
+    ("Go", "6", "Go"),
+    (UNIT_MILLI, "7", "milliseconde"),
+    (UNIT_MILLI, "8", "millisecondes"),
+    (UNIT_MILLI, "9", "milliseconde(s)"),
+    (UNIT_SECOND, "1", "seconde"),
+    (UNIT_SECOND, "2", "secondes"),
+    (UNIT_SECOND, "3", "seconde(s)"),
+    (UNIT_FRAMES, "30", "images par seconde"),
+    (UNIT_FRAMES, "1", "image par seconde"),
+    (UNIT_FRAMES, "5", "image(s) par seconde"),
+    ("px", "1.5", "px"),
+    ("px", "%n", "px"),
+    ("px", "%1", "px"),
+    ("px", "%L2", "px"),
+    ("px", "{width}", "px"),
+    ("PPI", "{0:.0f}", "PPI"),
+]
+
+#: Text after a number that is NOT a unit: a count noun, or a word that only
+#: begins like a unit. None of them is a pair, with any space.
+NOT_A_UNIT = ["5 pxl", "5 msg", "%n images", "3 points", "8 Gomme"]
+
+NUM_UNIT_MESSAGE = "Size: 5 px"
+ORDINARY = " "
+DOUBLED = "  "
+
+
+def gap_detail(number: str, unit: str, shown: str) -> str:
+    """Return the finding text of a wrong space between ``number`` and ``unit``."""
+    return f"{number} {unit}: {shown} between number and unit (needs one U+00A0)"
+
+
+def num_unit_line(
+    surface: str, examined: int, word: str, pairs: int | None, findings: int = 0
+) -> str:
+    """Return the text-report line of the ``fr-num-unit`` unit of ``surface``."""
+    split = "" if pairs is None else f" (pairs {pairs})"
+    return (
+        f"fr-num-unit [{surface}] fr: examined {examined} {word}{split}, "
+        f"{findings} finding(s)"
+    )
+
+
+def forms_entry(source: str, translation) -> dict:
+    """Build a worklist entry; a worklist holds its forms as a list."""
+    forms = translation if isinstance(translation, list) else [translation]
+    return entry(source, forms, numerus=len(forms) > 1)
+
+
+def french_runs(
+    tools: Tools, work: Path, label: str, rows: list
+) -> list[tuple[str, Tree, list[str], ScriptRun, dict]]:
+    """Scan the same French rows as a catalogue and as a worklist.
+
+    ``rows`` holds ``(source, translation)``; a list of forms makes the entry
+    a numerus one. Returns ``(surface, tree, extra arguments, run, report)``.
+    """
+    runs: list[tuple[str, Tree, list[str], ScriptRun, dict]] = []
+    folder = build_tree(work / f"{label}-catalogue")
+    folder.catalogue(
+        "fr", [Msg(src, tr, numerus=isinstance(tr, list)) for src, tr in rows]
+    )
+    run, payload = scan(tools, folder)
+    runs.append(("catalogue", folder, [], run, payload))
+    listing = build_tree(work / f"{label}-worklist")
+    path = write_worklist(
+        listing,
+        "fr",
+        [forms_entry(src, tr) for src, tr in rows],
+    )
+    args = ["--worklist", str(path)]
+    run, payload = scan(tools, listing, *args)
+    runs.append(("worklist", listing, args, run, payload))
+    return runs
+
+
+def num_unit_rows(payload: dict) -> list:
+    """Return the report rows of the ``fr-num-unit`` rule, whatever the surface."""
+    return [r for r in payload["rules"] if r["rule"] == "fr-num-unit"]
+
+
+@REGISTRY.regression(
+    mutant(
+        "rule-not-run-on-entries",
+        ty('    target = units["fr-num-unit"]\n', "    target = 0\n"),
+    ),
+    mutant(
+        "entry-counted-per-form",
+        ty(
+            '        target["examined"] += 1\n'
+            "        for form in forms:\n"
+            "            pairs, problems = num_unit_problems("
+            "markup_free(form, catalogues))\n",
+            "        for form in forms:\n"
+            '            target["examined"] += 1\n'
+            "            pairs, problems = num_unit_problems("
+            "markup_free(form, catalogues))\n",
+        ),
+    ),
+    mutant(
+        "pairs-are-the-denominator",
+        ty(
+            '        target["examined"] += 1\n'
+            "        for form in forms:\n"
+            "            pairs, problems = num_unit_problems("
+            "markup_free(form, catalogues))\n"
+            '            target["sub"]["pairs"] = target["sub"].get("pairs", 0)'
+            " + pairs\n",
+            "        for form in forms:\n"
+            "            pairs, problems = num_unit_problems("
+            "markup_free(form, catalogues))\n"
+            '            target["sub"]["pairs"] = target["sub"].get("pairs", 0)'
+            " + pairs\n"
+            '            target["examined"] += pairs\n',
+        ),
+    ),
+    mutant(
+        "pairs-keep-the-last-form",
+        ty(
+            '            target["sub"]["pairs"] = target["sub"].get("pairs", 0)'
+            " + pairs\n",
+            '            target["sub"]["pairs"] = pairs\n',
+        ),
+    ),
+    mutant(
+        "pairs-not-printed",
+        ty(
+            '        if row["rule"] == "fr-num-unit" and parts:\n',
+            "        if False:\n",
+        ),
+    ),
+    mutant(
+        "catalogue-says-pages",
+        ty(
+            '            unit = "page(s)" if row["surface"] == "guide"'
+            ' else "entr(ies)"\n',
+            '            unit = "page(s)"\n',
+        ),
+    ),
+    mutant(
+        "rule-not-limited-to-french",
+        ty(
+            '        "fr-num-unit": unit("fr-num-unit", "fr"),\n',
+            '        "fr-num-unit": tally.unit("fr-num-unit", surface, language),\n',
+        ),
+    ),
+    mutant(
+        "units-key-always-present",
+        ty(
+            '    if any(r["rule"] == "fr-num-unit" for r in rows):\n',
+            "    if True:\n",
+        ),
+    ),
+)
+def case_the_french_number_unit_rule_examines_entries_and_counts_pairs_apart(
+    tools: Tools, work: Path
+) -> None:
+    """The examined count is the French entries scanned; the pairs are a sub-count.
+
+    A batch with entries and no number+unit pair is clean (exit 0), so a French
+    batch with no unit is not blind. A numerus entry counts once however many
+    forms it has, and its pairs are summed over its forms; the count nouns
+    ``%n images`` and ``%n points`` are not units. The text row names the
+    entries and prints the pairs. No other language gets the rule.
+    """
+    quiet = [
+        ("Open?", f"Ouvrir{NBSP}?"),
+        ("%n images", ["%n image", "%n images"]),
+        ("%n points", ["%n point", "%n points"]),
+    ]
+    for surface, tree, args, run, payload in french_runs(tools, work, "none", quiet):
+        assert_clean(run, payload)
+        unit = row(payload, "fr-num-unit", surface, "fr")
+        assert unit["examined"] == 3, (surface, unit)
+        assert unit["sub_counts"] == {"pairs": 0}, (surface, unit)
+        assert unit["nothing_examined"] is False, (surface, unit)
+        assert unit["findings"] == [], (surface, unit)
+        text = text_of(tools, tree, *args)
+        assert text.returncode == 0, (surface, text.stdout, text.stderr)
+        assert num_unit_line(surface, 3, "entr(ies)", 0) in text.stdout, text.stdout
+
+    held = [
+        (NUM_UNIT_MESSAGE, f"Taille{NBSP}: 5{NBSP}px"),
+        ("%n s", [f"%n{NBSP}seconde", f"%n{NBSP}secondes"]),
+    ]
+    for surface, tree, args, run, payload in french_runs(tools, work, "held", held):
+        assert_clean(run, payload)
+        unit = row(payload, "fr-num-unit", surface, "fr")
+        assert unit["examined"] == 2, (surface, unit)
+        assert unit["sub_counts"] == {"pairs": 3}, (surface, unit)
+        assert unit["findings"] == [], (surface, unit)
+        assert payload.get("fr_num_unit_units") == NUM_UNIT_LABELS
+        # The rules that were there are counted as before.
+        marks = row(payload, "fr-nbsp", surface, "fr")
+        assert marks["sub_counts"] == {"guillemet sides": 0, "marks": 1}, marks
+        assert row(payload, "ellipsis", surface, "fr")["examined"] == 2
+        stray = row(payload, "no-u202f", surface, "fr")
+        assert stray["examined"] == (1 if surface == "catalogue" else 2), stray
+        assert payload["examined_total"] == sum(r["examined"] for r in payload["rules"])
+        text = text_of(tools, tree, *args)
+        assert num_unit_line(surface, 2, "entr(ies)", 3) in text.stdout, text.stdout
+
+    # Another language adds no row, no key and no line, spaces or not.
+    other = build_tree(work / "de")
+    other.catalogue("de", [Msg("Size", "Gr\u00f6\u00dfe 5 px")])
+    other.page("de", "index.md", "# Hilfe\n\nBreite 5 px.\n")
+    run, payload = scan(tools, other)
+    assert_clean(run, payload)
+    assert num_unit_rows(payload) == [], payload["rules"]
+    assert "fr_num_unit_units" not in payload
+    assert "fr-num-unit" not in text_of(tools, other).stdout
+    listing = build_tree(work / "de-worklist")
+    path = write_worklist(listing, "de", [entry("Size", ["Gr\u00f6\u00dfe 5 px"])])
+    run, payload = scan(tools, listing, "--worklist", str(path))
+    assert_clean(run, payload)
+    assert num_unit_rows(payload) == [] and "fr_num_unit_units" not in payload
+
+
+@REGISTRY.regression(
+    mutant(
+        "blind-rule-passes",
+        ty(
+            "    code = EXIT_FINDINGS if total or"
+            " blind or examined == 0 else EXIT_OK\n",
+            "    code = EXIT_FINDINGS if total else EXIT_OK\n",
+        ),
+    ),
+    mutant(
+        "blind-rule-unnamed",
+        ty('        if row["nothing_examined"]:\n', "        if False:\n"),
+    ),
+    mutant(
+        "empty-not-detected",
+        ty('        empty = unit["examined"] == 0\n', "        empty = False\n"),
+    ),
+    mutant(
+        "unfinished-examined",
+        ty(
+            '        if message.kind == "unfinished" or not forms or not all(forms):\n',
+            "        if not forms or not all(forms):\n",
+        ),
+    ),
+    mutant(
+        "partial-entry-examined",
+        ty(
+            "        or not all(isinstance(f, str) and f for f in forms)\n",
+            "        or False\n",
+        ),
+    ),
+)
+def case_a_french_batch_with_no_finished_entry_examines_no_number_unit(
+    tools: Tools, work: Path
+) -> None:
+    """No finished French entry: ``fr-num-unit`` examined 0, says so, exit 1.
+
+    An unfinished message, an unfilled worklist entry and a partly filled
+    numerus entry are not entries scanned; beside a finished one they leave
+    the count at one and the run clean.
+    """
+    unfinished = [Msg("Open?", "Ouvrir", kind="unfinished")]
+    run, payload = only_catalogue(tools, work, "unfinished", "fr", unfinished)
+    assert run.returncode == 1, (run.stdout, run.stderr)
+    unit = row(payload, "fr-num-unit", "catalogue", "fr")
+    assert unit["examined"] == 0 and unit["sub_counts"] == {}, unit
+    assert unit["nothing_examined"] is True, unit
+    tree = build_tree(work / "unfinished-text")
+    tree.catalogue("fr", unfinished)
+    text = text_of(tools, tree)
+    line = num_unit_line("catalogue", 0, "entr(ies)", None)
+    assert f"{line}\n  nothing examined\n" in text.stdout, text.stdout
+
+    unfilled = build_tree(work / "unfilled")
+    path = write_worklist(unfilled, "fr", [entry("Open?", [""]), entry("Save?", [""])])
+    run, payload = scan(tools, unfilled, "--worklist", str(path))
+    assert run.returncode == 1, (run.stdout, run.stderr)
+    unit = row(payload, "fr-num-unit", "worklist", "fr")
+    assert unit["examined"] == 0 and unit["nothing_examined"] is True, unit
+    text = text_of(tools, unfilled, "--worklist", str(path))
+    line = num_unit_line("worklist", 0, "entr(ies)", None)
+    assert f"{line}\n  nothing examined\n" in text.stdout, text.stdout
+
+    beside = [
+        Msg("Open?", f"Ouvrir{NBSP}?"),
+        Msg("Close", "Fermer", kind="unfinished"),
+    ]
+    run, payload = only_catalogue(tools, work, "beside", "fr", beside)
+    assert_clean(run, payload)
+    unit = row(payload, "fr-num-unit", "catalogue", "fr")
+    assert unit["examined"] == 1 and unit["sub_counts"] == {"pairs": 0}, unit
+
+    tree = build_tree(work / "beside-worklist")
+    listing = [
+        entry("Open?", [f"Ouvrir{NBSP}?"]),
+        entry("%n s", ["%n seconde", ""], numerus=True),
+        entry("Save", [""]),
+    ]
+    path = write_worklist(tree, "fr", listing)
+    run, payload = scan(tools, tree, "--worklist", str(path))
+    assert_clean(run, payload)
+    unit = row(payload, "fr-num-unit", "worklist", "fr")
+    assert unit["examined"] == 1 and unit["sub_counts"] == {"pairs": 0}, unit
+
+
+@REGISTRY.regression(
+    mutant(
+        "ordinary-space-passes",
+        ty("        if gap == NBSP:\n", '        if gap == NBSP or gap == " ":\n'),
+    ),
+    mutant(
+        "narrow-space-passes",
+        ty("        if gap == NBSP:\n", "        if gap in (NBSP, NARROW_NBSP):\n"),
+    ),
+    mutant(
+        "doubled-space-passes",
+        ty("        if gap == NBSP:\n", "        if gap == NBSP or len(gap) > 1:\n"),
+    ),
+    mutant(
+        "doubled-space-misnamed",
+        ty(
+            '        shown = "more than one space character"\n',
+            "        shown = _space_name(gap[0])\n",
+        ),
+    ),
+    mutant(
+        "ordinary-space-not-matched",
+        ty('(?P<gap>[ " + NBSP', '(?P<gap>[" + NBSP'),
+    ),
+    mutant(
+        "narrow-space-not-matched",
+        ty('" + NBSP + NARROW_NBSP + r"]+)"', '" + NBSP + r"]+)"'),
+    ),
+    mutant(
+        "pairs-not-counted",
+        ty(
+            '            target["sub"]["pairs"] = target["sub"].get("pairs", 0)'
+            " + pairs\n",
+            '            target["sub"]["pairs"] = target["sub"].get("pairs", 0)\n',
+        ),
+    ),
+)
+def case_a_number_and_its_unit_need_exactly_one_no_break_space(
+    tools: Tools, work: Path
+) -> None:
+    """``5 px`` with U+0020, U+202F or a doubled space is a finding; U+00A0 is not.
+
+    On the catalogue and the worklist: one finding per pair, named by the
+    pair and by the kind of space, at the entry that holds it.
+    """
+    planted = [
+        ("ordinary", ORDINARY, "an ordinary space"),
+        ("narrow", NNBSP, "U+202F"),
+        ("doubled", DOUBLED, "more than one space character"),
+    ]
+    wheres = {
+        "catalogue": f"pixelart_fr.ts [Panel] {NUM_UNIT_MESSAGE}",
+        "worklist": f"w.json entry 1 [Panel] {NUM_UNIT_MESSAGE}",
+    }
+    for label, gap, shown in planted:
+        rows = [(NUM_UNIT_MESSAGE, f"Taille{NBSP}: 5{gap}px")]
+        for surface, tree, args, run, payload in french_runs(tools, work, label, rows):
+            case = (label, surface)
+            assert run.returncode == 1, (case, run.stdout, run.stderr)
+            unit = row(payload, "fr-num-unit", surface, "fr")
+            detail = gap_detail("5", "px", shown)
+            assert details(unit) == [detail], (case, unit)
+            assert unit["findings"][0]["where"] == wheres[surface], (case, unit)
+            assert unit["examined"] == 1 and unit["sub_counts"] == {"pairs": 1}, case
+            # A U+202F is also a finding of the rule that bans it, once.
+            expected = 2 if label == "narrow" else 1
+            assert payload["findings_total"] == expected, (case, payload["rules"])
+            text = text_of(tools, tree, *args)
+            assert text.returncode == 1, (case, text.stdout, text.stderr)
+            assert f"  {wheres[surface]}: {detail}\n" in text.stdout, text.stdout
+            line = num_unit_line(surface, 1, "entr(ies)", 1, findings=1)
+            assert line in text.stdout, (case, text.stdout)
+
+    clean = [(NUM_UNIT_MESSAGE, f"Taille{NBSP}: 5{NBSP}px")]
+    for surface, _tree, _args, run, payload in french_runs(tools, work, "ok", clean):
+        assert_clean(run, payload)
+        unit = row(payload, "fr-num-unit", surface, "fr")
+        assert unit["findings"] == [] and unit["sub_counts"] == {"pairs": 1}, unit
+
+    two = [("Size 5 px, delay 3 ms", "Taille 5 px, d\u00e9lai 3 ms")]
+    for surface, _tree, _args, run, payload in french_runs(tools, work, "two", two):
+        assert run.returncode == 1, (surface, run.stdout, run.stderr)
+        unit = row(payload, "fr-num-unit", surface, "fr")
+        assert details(unit) == [
+            gap_detail("5", "px", "an ordinary space"),
+            gap_detail("3", "ms", "an ordinary space"),
+        ], (surface, unit)
+        assert unit["examined"] == 1 and unit["sub_counts"] == {"pairs": 2}, unit
+
+
+@REGISTRY.regression(
+    mutant(
+        "guide-says-entries",
+        ty(
+            '            unit = "page(s)" if row["surface"] == "guide"'
+            ' else "entr(ies)"\n',
+            '            unit = "entr(ies)"\n',
+        ),
+    ),
+    mutant("guide-not-scanned", ty('    if lang == "fr":\n', '    if lang == "xx":\n')),
+    mutant(
+        "guide-rule-not-limited-to-french",
+        ty('    if lang == "fr":\n', '    if lang in ("fr", "de"):\n'),
+    ),
+    mutant(
+        "guide-pages-are-pairs",
+        ty(
+            '        unit["examined"] += 1\n'
+            "        pairs, problems = num_unit_problems(prose)\n",
+            "        pairs, problems = num_unit_problems(prose)\n"
+            '        unit["examined"] += pairs\n',
+        ),
+    ),
+    mutant(
+        "guide-pairs-not-counted",
+        ty(
+            '        unit["sub"]["pairs"] = unit["sub"].get("pairs", 0) + pairs\n',
+            '        unit["sub"]["pairs"] = unit["sub"].get("pairs", 0)\n',
+        ),
+    ),
+    mutant(
+        "guide-line-wrong",
+        ty(
+            '        unit["sub"]["pairs"] = unit["sub"].get("pairs", 0) + pairs\n'
+            "        for offset, detail in problems:\n"
+            '            tally.add(unit, f"{rel}:{_line_of(prose, offset)}", detail)\n',
+            '        unit["sub"]["pairs"] = unit["sub"].get("pairs", 0) + pairs\n'
+            "        for offset, detail in problems:\n"
+            '            tally.add(unit, f"{rel}:{_line_of(prose, 0)}", detail)\n',
+        ),
+    ),
+    mutant("code-span-examined", ty('    re.compile(r"`[^`\\n]*`"),\n', "")),
+    mutant("link-target-examined", ty('    re.compile(r"\\]\\([^)\\n]*\\)"),\n', "")),
+    mutant(
+        "fenced-block-examined",
+        ty(
+            '    re.compile(r"^(```|~~~).*?^\\1[^\\n]*$", re.DOTALL | re.MULTILINE),\n',
+            "",
+        ),
+    ),
+)
+def case_the_french_guide_counts_pages_and_names_the_line_of_a_number_unit(
+    tools: Tools, work: Path
+) -> None:
+    """On the guide the examined count is pages; the pairs are a sub-count.
+
+    A French page with no unit is examined and clean; a pair spelled with
+    U+0020 is a finding at ``<page>:<line>``; a pair inside a code span, a link
+    target or a fenced block is not prose. A non-French tree has no such row.
+    """
+    quiet = build_tree(work / "quiet")
+    quiet.page("fr", "index.md", f"# Aide\n\nOuvrir le fichier{NBSP}?\n")
+    quiet.page("fr", "tools/pen.md", f"# Crayon\n\nFermer{NBSP}!\n")
+    run, payload = scan(tools, quiet)
+    assert_clean(run, payload)
+    unit = row(payload, "fr-num-unit", "guide", "fr")
+    assert unit["examined"] == 2 and unit["files"] == 2, unit
+    assert unit["sub_counts"] == {"pairs": 0}, unit
+    assert unit["nothing_examined"] is False and unit["findings"] == [], unit
+    text = text_of(tools, quiet)
+    assert num_unit_line("guide", 2, "page(s)", 0) in text.stdout, text.stdout
+
+    held = build_tree(work / "held")
+    held.page("fr", "index.md", f"# Aide\n\nEpaisseur{NBSP}: 5{NBSP}px.\n")
+    held.page("fr", "tools/code.md", f"# Code\n\nTapez `5 px` ici{NBSP}!\n")
+    held.page("fr", "tools/link.md", "# Lien\n\nVoir [la page](a 5 px b).\n")
+    held.page("fr", "tools/fence.md", "# Bloc\n\n```\nlargeur 5 px\n```\n")
+    run, payload = scan(tools, held)
+    assert_clean(run, payload)
+    unit = row(payload, "fr-num-unit", "guide", "fr")
+    assert unit["examined"] == 4 and unit["sub_counts"] == {"pairs": 1}, unit
+    assert payload.get("fr_num_unit_units") == NUM_UNIT_LABELS
+    text = text_of(tools, held)
+    assert num_unit_line("guide", 4, "page(s)", 1) in text.stdout, text.stdout
+
+    planted = build_tree(work / "planted")
+    planted.page("fr", "index.md", f"# Aide\n\nTaille{NBSP}: 5 px\n")
+    planted.page(
+        "fr", "z.md", f"# Zone\n\nLargeur{NBSP}: 2{NBSP}cm\n\nHauteur{NBSP}: 4  mm\n"
+    )
+    run, payload = scan(tools, planted)
+    assert run.returncode == 1, (run.stdout, run.stderr)
+    unit = row(payload, "fr-num-unit", "guide", "fr")
+    assert unit["examined"] == 2 and unit["sub_counts"] == {"pairs": 3}, unit
+    assert details(unit) == [
+        gap_detail("5", "px", "an ordinary space"),
+        gap_detail("4", "mm", "more than one space character"),
+    ], unit
+    assert [f["where"] for f in unit["findings"]] == ["fr/index.md:3", "fr/z.md:5"]
+    text = text_of(tools, planted)
+    assert text.returncode == 1, (text.stdout, text.stderr)
+    line = num_unit_line("guide", 2, "page(s)", 3, findings=2)
+    assert line in text.stdout, text.stdout
+    assert f"  fr/index.md:3: {unit['findings'][0]['detail']}\n" in text.stdout
+
+    other = build_tree(work / "other")
+    other.page("de", "index.md", "# Hilfe\n\nBreite 5 px.\n")
+    run, payload = scan(tools, other)
+    assert_clean(run, payload)
+    assert num_unit_rows(payload) == [], payload["rules"]
+    assert "fr_num_unit_units" not in payload
+
+
+def unit_removed(label: str, line: str):
+    """Return the mutant that deletes one entry of the script's ``UNITS``."""
+    return mutant(f"unit-dropped-{label}", ty(line, ""))
+
+
+@REGISTRY.regression(
+    *(
+        unit_removed(str(number), line)
+        for number, line in enumerate(UNIT_SOURCE_LINES, start=1)
+    ),
+    mutant(
+        "placeholder-not-a-number",
+        ty(
+            r'    r"(?P<num>(?<![\w%{.,])\d+(?:[.,]\d+)*|%L?(?:n|[1-9])|\{[^{}\n]*\})"'
+            + "\n",
+            r'    r"(?P<num>(?<![\w%{.,])\d+(?:[.,]\d+)*|\{[^{}\n]*\})"' + "\n",
+        ),
+    ),
+    mutant(
+        "field-not-a-number",
+        ty(
+            r'    r"(?P<num>(?<![\w%{.,])\d+(?:[.,]\d+)*|%L?(?:n|[1-9])|\{[^{}\n]*\})"'
+            + "\n",
+            r'    r"(?P<num>(?<![\w%{.,])\d+(?:[.,]\d+)*|%L?(?:n|[1-9]))"' + "\n",
+        ),
+    ),
+    mutant(
+        "decimal-not-a-number",
+        ty(
+            r'    r"(?P<num>(?<![\w%{.,])\d+(?:[.,]\d+)*|%L?(?:n|[1-9])|\{[^{}\n]*\})"'
+            + "\n",
+            r'    r"(?P<num>(?<![\w%{.,])\d+|%L?(?:n|[1-9])|\{[^{}\n]*\})"' + "\n",
+        ),
+    ),
+    mutant(
+        "unit-boundary-dropped",
+        ty(
+            r'    r"(?P<unit>(?:" + _UNIT_ALTERNATIVES + r")(?![\w]))"' + "\n",
+            r'    r"(?P<unit>(?:" + _UNIT_ALTERNATIVES + r"))"' + "\n",
+        ),
+    ),
+    mutant(
+        "count-noun-is-a-unit",
+        ty('    ("px", r"px"),\n', '    ("px", r"px"),\n    ("image", r"images?"),\n'),
+    ),
+    mutant(
+        "points-is-a-unit",
+        ty('    ("px", r"px"),\n', '    ("px", r"px"),\n    ("point", r"points?"),\n'),
+    ),
+    mutant(
+        "units-key-missing",
+        ty(
+            '        report["fr_num_unit_units"] = '
+            "[label for label, _pattern in UNITS]\n",
+            "        pass\n",
+        ),
+    ),
+    mutant(
+        "units-line-never-printed",
+        ty(
+            '    if any(row["rule"] == "fr-num-unit" for row in report["rules"]):\n',
+            "    if False:\n",
+        ),
+    ),
+    mutant(
+        "units-line-always-printed",
+        ty(
+            '    if any(row["rule"] == "fr-num-unit" for row in report["rules"]):\n',
+            "    if True:\n",
+        ),
+    ),
+)
+def case_every_listed_unit_and_number_form_is_matched_and_no_count_noun_is(
+    tools: Tools, work: Path
+) -> None:
+    """Each entry of ``UNITS`` is a unit after a digit run, a placeholder or a field.
+
+    The unit list and its count are printed with the rule and exposed as the
+    ``fr_num_unit_units`` key, for French only. A count noun (``%n images``,
+    ``3 points``) and a word that only begins like a unit (``5 pxl``) are not
+    pairs, with any space.
+    """
+    assert set(label for label, _n, _u in UNIT_SAMPLES) == set(NUM_UNIT_LABELS)
+    sentinel = [("Open?", f"Ouvrir{NBSP}?")]
+    absent = [
+        (f"Not a unit {n}", f"Valeur {text}") for n, text in enumerate(NOT_A_UNIT)
+    ]
+
+    def rows(gap: str) -> list:
+        """Return the sentinel, one row per sample and the non-units."""
+        samples = [
+            (f"Sample {n}", f"Valeur {number}{gap}{text}")
+            for n, (_label, number, text) in enumerate(UNIT_SAMPLES)
+        ]
+        return sentinel + samples + absent
+
+    tree = build_tree(work / "wrong")
+    path = write_worklist(
+        tree, "fr", [entry(src, [tr]) for src, tr in rows(ORDINARY)], "wrong.json"
+    )
+    run, payload = scan(tools, tree, "--worklist", str(path))
+    assert run.returncode == 1, (run.stdout, run.stderr)
+    unit = row(payload, "fr-num-unit", "worklist", "fr")
+    wanted = [
+        gap_detail(number, text, "an ordinary space")
+        for _label, number, text in UNIT_SAMPLES
+    ]
+    assert details(unit) == wanted, details(unit)
+    assert unit["examined"] == len(rows(ORDINARY)), unit
+    assert unit["sub_counts"] == {"pairs": len(UNIT_SAMPLES)}, unit
+    assert payload.get("fr_num_unit_units") == NUM_UNIT_LABELS
+    text = text_of(tools, tree, "--worklist", str(path))
+    header = f"fr-num-unit units ({len(NUM_UNIT_LABELS)}): " + ", ".join(
+        NUM_UNIT_LABELS
+    )
+    assert header + "\n" in text.stdout, text.stdout
+
+    tree = build_tree(work / "right")
+    path = write_worklist(
+        tree, "fr", [entry(src, [tr]) for src, tr in rows(NBSP)], "right.json"
+    )
+    run, payload = scan(tools, tree, "--worklist", str(path))
+    assert_clean(run, payload)
+    unit = row(payload, "fr-num-unit", "worklist", "fr")
+    assert unit["findings"] == [], unit
+    assert unit["sub_counts"] == {"pairs": len(UNIT_SAMPLES)}, unit
+
+    other = build_tree(work / "other")
+    other.catalogue("de", [Msg("Size", "Gr\u00f6\u00dfe 5 px")])
+    run, payload = scan(tools, other)
+    assert_clean(run, payload)
+    assert "fr_num_unit_units" not in payload
+    assert "fr-num-unit" not in text_of(tools, other).stdout
+
+
+# --------------------------------------------------------------------------- #
 # The generic tests: every case against the real script and its broken copies.
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("case", REGISTRY.real())

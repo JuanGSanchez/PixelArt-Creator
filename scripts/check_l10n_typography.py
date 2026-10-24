@@ -15,6 +15,18 @@
 #                 sub-counts (marks, guillemet sides) that add up to the
 #                 examined count, so a French batch with no quotation is not
 #                 blind.
+#     fr-num-unit  French, catalogue, worklist and guide: a number (digits, a
+#                 ``%n`` / ``%1``..``%9`` placeholder or a ``{name}`` / ``{0:.0f}``
+#                 format field) followed by a space and then a unit from the
+#                 explicit list ``UNITS`` below must be joined to it by exactly
+#                 one U+00A0 (fr.md 5.1, 5.4): an ordinary U+0020 or a U+202F is
+#                 a finding. Examined = fr entries (catalogue messages,
+#                 worklist entries) or fr guide pages scanned, so a French batch
+#                 with no unit is not blind; the number+unit pairs found (U+00A0
+#                 ones included) are a sub-count with no zero-failure. The unit
+#                 list and its count are printed with the rule. Count nouns
+#                 (``%n images``, ``%n points``) are not units; only
+#                 ``images par seconde`` is.
 #     ru-no-straight-quote  Russian: no U+0022 in prose, where the language
 #                 takes « » (markup attributes, code spans and link targets
 #                 are not prose). Both surfaces.
@@ -87,6 +99,30 @@ ZH_FULLWIDTH = "：！？（）"
 OPENING = "«"
 CLOSING = "»"
 STRAIGHT = '"'
+# Units that take U+00A0 after a number (fr-num-unit): (label, regex source).
+# Symbols carry no word boundary of their own; words must end at a non-word.
+UNITS = (
+    ("px", r"px"),
+    ("ms", r"ms"),
+    ("mm", r"mm"),
+    ("cm", r"cm"),
+    ("PPI", r"PPI"),
+    ("%", r"%"),
+    ("\u00b0", r"\u00b0"),
+    ("octet/octets/octet(s)", r"octets?(?:\(s\))?"),
+    ("Ko", r"Ko"),
+    ("Mo", r"Mo"),
+    ("Go", r"Go"),
+    ("milliseconde/millisecondes/milliseconde(s)", r"millisecondes?(?:\(s\))?"),
+    ("seconde/secondes/seconde(s)", r"secondes?(?:\(s\))?"),
+    ("image(s) par seconde", r"images?(?:\(s\))? par seconde"),
+)
+_UNIT_ALTERNATIVES = "|".join(pattern for _label, pattern in UNITS)
+NUM_UNIT = re.compile(
+    r"(?P<num>(?<![\w%{.,])\d+(?:[.,]\d+)*|%L?(?:n|[1-9])|\{[^{}\n]*\})"
+    r"(?P<gap>[ " + NBSP + NARROW_NBSP + r"]+)"
+    r"(?P<unit>(?:" + _UNIT_ALTERNATIVES + r")(?![\w]))"
+)
 SURFACES = ("catalogue", "guide")
 SHOWN = 20
 
@@ -270,6 +306,33 @@ def guillemet_problems(text: str) -> tuple:
     return examined, problems
 
 
+def num_unit_problems(text: str) -> tuple:
+    """Return ``(examined, [(offset, detail)])`` for the French number+unit rule.
+
+    A pair is a number or numeric placeholder, a run of space characters and a
+    unit from ``UNITS``. The run must be exactly one U+00A0.
+    """
+    examined = 0
+    problems = []
+    for match in NUM_UNIT.finditer(text):
+        examined += 1
+        gap = match.group("gap")
+        if gap == NBSP:
+            continue
+        if len(gap) > 1:
+            shown = "more than one space character"
+        else:
+            shown = _space_name(gap)
+        problems.append(
+            (
+                match.start("gap"),
+                f"{match.group('num')} {match.group('unit')}: "
+                f"{shown} between number and unit (needs one U+00A0)",
+            )
+        )
+    return examined, problems
+
+
 def french_problems(text: str) -> tuple:
     """Return ``(marks, guillemet_sides, [(offset, detail)])`` for ``fr-nbsp``."""
     marks, mark_problems = nbsp_problems(text)
@@ -369,6 +432,7 @@ def catalogue_units(tally: Tally, surface: str, language: str) -> dict:
     return {
         "ellipsis": tally.unit("ellipsis", surface, language),
         "fr-nbsp": unit("fr-nbsp", "fr"),
+        "fr-num-unit": unit("fr-num-unit", "fr"),
         "ru-no-straight-quote": unit("ru-no-straight-quote", "ru"),
         "ko-no-han": unit("ko-no-han", "ko"),
         "zh-fullwidth": unit("zh-fullwidth", "zh"),
@@ -389,6 +453,14 @@ def apply_message_rules(
             marks, sides, problems = french_problems(markup_free(form, catalogues))
             tally.credit(target, "marks", marks)
             tally.credit(target, "guillemet sides", sides)
+            for _offset, detail in problems:
+                tally.add(target, where, detail)
+    target = units["fr-num-unit"]
+    if target:
+        target["examined"] += 1
+        for form in forms:
+            pairs, problems = num_unit_problems(markup_free(form, catalogues))
+            target["sub"]["pairs"] = target["sub"].get("pairs", 0) + pairs
             for _offset, detail in problems:
                 tally.add(target, where, detail)
     target = units["ru-no-straight-quote"]
@@ -503,6 +575,13 @@ def scan_guide_page(path: str, rel: str, language: str, tally: Tally, endonyms):
         tally.credit(unit, "guillemet sides", sides)
         for offset, detail in problems:
             tally.add(unit, f"{rel}:{_line_of(prose, offset)}", detail)
+        unit = tally.unit("fr-num-unit", "guide", language)
+        unit["files"] += 1
+        unit["examined"] += 1
+        pairs, problems = num_unit_problems(prose)
+        unit["sub"]["pairs"] = unit["sub"].get("pairs", 0) + pairs
+        for offset, detail in problems:
+            tally.add(unit, f"{rel}:{_line_of(prose, offset)}", detail)
     if lang == "ru":
         unit = tally.unit("ru-no-straight-quote", "guide", language)
         unit["files"] += 1
@@ -532,7 +611,7 @@ def run(args) -> dict:
     keep = set(args.languages.split(",")) if args.languages else None
     tally = Tally()
     surfaces_run = []
-    skipped = []
+    skipped: list[str] = []
     if args.worklist:
         if args.surface or args.catalogues or args.guide_root:
             raise TypographyError(
@@ -618,7 +697,7 @@ def _report(tally: Tally, surfaces_run: list, skipped: list) -> dict:
     total = sum(len(r["findings"]) for r in rows)
     examined = sum(r["examined"] for r in rows)
     code = EXIT_FINDINGS if total or blind or examined == 0 else EXIT_OK
-    return {
+    report = {
         "surfaces": surfaces_run,
         "skipped": skipped,
         "excluded": tally.excluded,
@@ -628,6 +707,9 @@ def _report(tally: Tally, surfaces_run: list, skipped: list) -> dict:
         "rules_examining_nothing": blind,
         "exit": code,
     }
+    if any(r["rule"] == "fr-num-unit" for r in rows):
+        report["fr_num_unit_units"] = [label for label, _pattern in UNITS]
+    return report
 
 
 def print_report(report: dict, out) -> None:
@@ -636,12 +718,19 @@ def print_report(report: dict, out) -> None:
         print(f"skipped: {note}", file=out)
     for note in report["excluded"]:
         print(f"excluded: {note}", file=out)
+    if any(row["rule"] == "fr-num-unit" for row in report["rules"]):
+        labels = ", ".join(label for label, _pattern in UNITS)
+        print(f"fr-num-unit units ({len(UNITS)}): {labels}", file=out)
     for row in report["rules"]:
         unit = "item(s)"
         if row["rule"] == "no-u202f" and row["surface"] != "worklist":
             unit = "file(s)"
+        if row["rule"] == "fr-num-unit":
+            unit = "page(s)" if row["surface"] == "guide" else "entr(ies)"
         parts = ", ".join(f"{k} {v}" for k, v in row["sub_counts"].items())
         split = f" ({parts})" if row["rule"] == "fr-nbsp" and parts else ""
+        if row["rule"] == "fr-num-unit" and parts:
+            split = f" ({parts})"
         print(
             f"{row['rule']} [{row['surface']}] {row['language']}: examined "
             f"{row['examined']} {unit}{split}, {len(row['findings'])} finding(s)",
