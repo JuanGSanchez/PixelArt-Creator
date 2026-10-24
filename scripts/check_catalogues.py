@@ -28,7 +28,10 @@ translation (an ``&`` that is not half of ``&&``; the access-key marker is
 placed by the application, never typed by a translator); the catalogue's
 ``language`` attribute equals the code in its file name (the numerus form
 count is derived from it); numerus form count equals the language's Qt count,
-with no empty form.
+with no empty form; line-break parity (the count of real line breaks in each
+translated form equals the source's); no literal escape (a backslash followed
+by ``n``, ``t``, ``r`` or a second backslash, written as characters, is
+refused unless the source carries it as often).
 
 Every mode prints how many items it examined and exits 1 when that is zero.
 
@@ -68,11 +71,32 @@ PLACEHOLDER = re.compile(r"%L?(?:[1-9][0-9]?|n)")
 COUNT_PLACEHOLDER = re.compile(r"%L?n$")
 ENTITY = re.compile(r"&(?:[A-Za-z][A-Za-z0-9]*|#[0-9]+|#[xX][0-9A-Fa-f]+);")
 TAG = re.compile(r"<(/?)([A-Za-z][A-Za-z0-9]*)[^<>]*?(/?)>")
+LITERAL_ESCAPE = re.compile(r"\\[ntr\\]")
 OPTIONAL_PLURAL = re.compile(r"[A-Za-z]\((?:s|es|ies)\)")
 COUNT_WORDS = frozenset(
     {"n", "num", "nb", "count", "counts", "total", "number", "len", "frames"}
 )
 FILLERS = frozenset({"arg", "replace", "format"})
+
+# A placeholder: ``%1``, ``%L1``, ``{name}``, ``{0}`` or ``{0:.0f}``.
+ANY_PLACEHOLDER = r"(?:%L?[1-9][0-9]?|\{[A-Za-z_0-9]*(?::[^}]*)?\})"
+# A plural noun that a number agrees with. A placeholder written right before
+# one of these is a count, whatever the argument is called. Units
+# that are symbols (``ms``, ``px``, ``PPI``) are deliberately absent: they do
+# not inflect.
+COUNTED_NOUNS = (
+    "assets|bytes|changes|colours|colors|edits|entries|files|frames|images|"
+    "items|layers|members|milliseconds|minutes|objects|operations|palettes|"
+    "pixels|references|regions|seconds|steps|tags|targets|tiles|tracks"
+)
+COUNTED_NOUN = re.compile(ANY_PLACEHOLDER + r"\s+(?:" + COUNTED_NOUNS + r")\b")
+# The two forms in which a number stands beside no noun it could agree with:
+# a closing ``label: N`` and ``N of M``.
+LABEL_TAIL = r":\s*{token}\s*\.?\s*$"
+INDEX_OF_TOTAL = (
+    r"{token}\s+of\s+" + ANY_PLACEHOLDER,  # portability: ok (regex)
+    ANY_PLACEHOLDER + r"\s+of\s+{token}",  # portability: ok (regex)
+)
 WRAPPERS = frozenset({"str", "int", "float", "round", "abs"})
 
 
@@ -210,6 +234,11 @@ def _ampersands(text: str) -> tuple:
     return stripped.count("&&"), stripped.replace("&&", "").count("&")
 
 
+def _line_breaks(text: str) -> int:
+    """Return the number of real line breaks in a text (CRLF counts once)."""
+    return text.replace("\r\n", "\n").replace("\r", "\n").count("\n")
+
+
 def _show(counter: collections.Counter) -> str:
     """Render a Counter for a message."""
     return ", ".join(sorted(counter.elements())) or "none"
@@ -258,6 +287,25 @@ def _parity(source: str, text: str, numerus: bool) -> list:
             (
                 "lone-ampersand",
                 f"translation has {tr_lone} '&' that is not part of '&&'",
+            )
+        )
+    src_breaks, tr_breaks = _line_breaks(source), _line_breaks(text)
+    if src_breaks != tr_breaks:
+        problems.append(
+            (
+                "line-break-parity",
+                f"source has {src_breaks} line break(s), translation has {tr_breaks}",
+            )
+        )
+    extra = collections.Counter(LITERAL_ESCAPE.findall(text))
+    extra.subtract(collections.Counter(LITERAL_ESCAPE.findall(source)))
+    extra = +extra
+    if extra:
+        problems.append(
+            (
+                "literal-escape",
+                "translation has literal backslash sequence(s) the source lacks: "
+                + ", ".join(f"{k} x{v}" for k, v in sorted(extra.items())),
             )
         )
     return problems
@@ -585,11 +633,46 @@ def _scan_file(path: str, root: str) -> list:
     return sites
 
 
+def _agreement_free(source: str, tokens: list) -> str:
+    """Return why every counted token of ``source`` has no noun, or ''.
+
+    A number written as ``label: N`` at the end of a text, or as ``N of M``,
+    stands beside no noun whose form could change with it. The reason is
+    returned only when EVERY counted token present in the text is of that
+    kind; one token that sits before a noun keeps the message listed.
+    """
+    present = [t for t in tokens if t in source]
+    reasons = set()
+    for token in present:
+        escaped = re.escape(token)
+        if re.search(LABEL_TAIL.replace("{token}", escaped), source):
+            reasons.add("label-colon")
+        elif any(
+            re.search(form.replace("{token}", escaped), source)
+            for form in INDEX_OF_TOTAL
+        ):
+            reasons.add("index-of-total")
+        else:
+            return ""
+    return "+".join(sorted(reasons))
+
+
+def _is_listed(entry: dict, listed: list) -> bool:
+    """Return True when another rule lists the message of ``entry`` anyway."""
+    return any(
+        item["context"] == entry["context"] and item["source"] == entry["source"]
+        for item in listed
+    )
+
+
 def inventory_plurals(catalogue: Catalogue, py_dir: str) -> dict:
     """List count-bearing live messages that are not plural aware.
 
     The rules are fixed and run over the English catalogue and the tr() call
-    sites found under ``py_dir``.
+    sites found under ``py_dir``. A count-argument hit whose placeholders all
+    stand in a ``label: N`` or ``N of M`` form is not listed but is reported
+    under ``excluded`` with its reason; a message no other rule lists whose
+    placeholder precedes a plural noun is listed as ``counted-noun``.
     """
     live = catalogue.live_messages()
     sites = []
@@ -602,6 +685,7 @@ def inventory_plurals(catalogue: Catalogue, py_dir: str) -> dict:
     for site in sites:
         by_text[site["text"]].append(site)
     listed = []
+    excluded = []
     for message in live:
         if message.numerus:
             continue
@@ -616,8 +700,25 @@ def inventory_plurals(catalogue: Catalogue, py_dir: str) -> dict:
             if not s["aware"]
             and any(t in message.source for t in s["count_placeholders"])
         ]
+        kept = []
+        for site in sites_here:
+            reason = _agreement_free(message.source, site["count_placeholders"])
+            if not reason:
+                kept.append(site)
+            elif not any(e["source"] == message.source for e in excluded):
+                excluded.append(
+                    {
+                        "context": message.context,
+                        "source": message.source,
+                        "reason": reason,
+                        "call_sites": [f"{site['file']}:{site['line']}"],
+                    }
+                )
+        sites_here = kept
         if sites_here:
             rules.append("count-argument")
+        if not rules and COUNTED_NOUN.search(message.source):
+            rules.append("counted-noun")
         if rules:
             listed.append(
                 {
@@ -634,6 +735,7 @@ def inventory_plurals(catalogue: Catalogue, py_dir: str) -> dict:
         "python_files": files,
         "call_sites": len(sites),
         "listed": listed,
+        "excluded": [e for e in excluded if not _is_listed(e, listed)],
     }
 
 
@@ -754,10 +856,16 @@ def _run_inventory(args) -> int:
                 f"  {','.join(item['rules'])}: [{item['context']}] "
                 f"{_clip(item['source'])} ({sites})"
             )
+        for item in record["excluded"]:
+            print(
+                f"  excluded ({item['reason']}): [{item['context']}] "
+                f"{_clip(item['source'])} ({', '.join(item['call_sites'])})"
+            )
         print(
             f"examined {record['examined']} live message(s) and "
             f"{record['call_sites']} tr() call site(s) in "
             f"{record['python_files']} file(s); {len(record['listed'])} listed"
+            + (f", {len(record['excluded'])} excluded" if record["excluded"] else "")
         )
         if blind:
             print("nothing examined")

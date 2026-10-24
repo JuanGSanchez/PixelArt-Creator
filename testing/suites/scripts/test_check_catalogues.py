@@ -937,6 +937,367 @@ def case_the_inventory_runs_over_the_source_language_only(
 
 
 # --------------------------------------------------------------------------- #
+# The plural inventory: what it leaves out (and says so), and what it adds.
+# --------------------------------------------------------------------------- #
+# A number written as a closing ``label: N`` or as ``N of M`` stands beside no
+# noun that could agree with it, so the count-argument rule must not list it;
+# the message is reported under ``excluded`` with its reason instead, so that
+# nothing is dropped silently. The exclusion is a RULE (two regular
+# expressions), not a list of message keys: there is no entry that could go
+# stale, and the case "a rule that matches no live message excludes nothing"
+# is covered by the vanished and the absent messages below.
+REJECTED_SOURCE = """\
+class Rejected:
+    def build(self, problem_count, done_count, total_count, pending_count, width):
+        label = self.tr("Problems: %1").replace("%1", str(problem_count))
+        step = self.tr("Step %1 of %2").arg(done_count, total_count)
+        both = self.tr("Step %1 of %2, pending: %3").arg(
+            done_count, total_count, pending_count
+        )
+        found = self.tr("%1 problems found: %2").arg(problem_count, total_count)
+        suffix = self.tr("File(s) done: %1").arg(done_count)
+        aware = self.tr("Aware: %1", n=problem_count).replace("%1", str(problem_count))
+        size = self.tr("Size %1 px").arg(width)
+        gone = self.tr("Gone: %1").replace("%1", str(problem_count))
+        absent = self.tr("Absent: %1").replace("%1", str(problem_count))
+        return label, step, both, found, suffix, aware, size, gone, absent
+"""
+
+REJECTED_AGAIN = """\
+class Again:
+    def build(self, problem_count):
+        return self.tr("Problems: %1").replace("%1", str(problem_count))
+"""
+
+REJECTED_ENGLISH = [
+    Msg("Problems: %1", "", kind="unfinished"),
+    Msg("Step %1 of %2", "", kind="unfinished"),
+    Msg("Step %1 of %2, pending: %3", "", kind="unfinished"),
+    Msg("%1 problems found: %2", "", kind="unfinished"),
+    Msg("File(s) done: %1", "", kind="unfinished"),
+    Msg("Aware: %1", "", kind="unfinished"),
+    Msg("Size %1 px", "", kind="unfinished"),
+    Msg("Gone: %1", "", kind="vanished"),
+]
+
+
+def _plant(work: Path, name: str, files: dict[str, str]) -> Path:
+    """Write the scratch Python files ``files`` under ``work/name`` and return it."""
+    root = work / name
+    for relative, text in files.items():
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+    return root
+
+
+def _inventory(tools: Tools, work: Path, english: Path, tree: Path):
+    """Run the inventory both ways: return ``(json run, payload, text run)``."""
+    args = ["inventory-plurals", "--catalogue", str(english), "--py-dir", str(tree)]
+    run, payload = tools.json(CHECK, [*args, "--json"], work)
+    assert payload["mode"] == "inventory-plurals"
+    assert payload["exit"] == run.returncode
+    return run, payload, tools.run(CHECK, args, work)
+
+
+@REGISTRY.regression(
+    mutant(
+        "rejected-kind-is-listed-again",
+        edit("            if not reason:\n", "            if True:\n"),
+    ),
+    mutant(
+        "label-colon-form-is-dead",
+        edit(
+            'LABEL_TAIL = r":\\s*{token}\\s*\\.?\\s*$"',
+            'LABEL_TAIL = r":\\s*{token}\\s*\\.?\\s*#"',
+        ),
+    ),
+    mutant(
+        "n-of-m-first-number-is-dead",
+        edit(
+            '    r"{token}\\s+of\\s+" + ANY_PLACEHOLDER,'  # portability: ok (regex)
+            "  # portability: ok (regex)\n",
+            '    r"{token}\\s+off\\s+" + ANY_PLACEHOLDER,'  # portability: ok (regex)
+            "  # portability: ok (regex)\n",
+        ),
+    ),
+    mutant(
+        "n-of-m-second-number-is-dead",
+        edit(
+            '    ANY_PLACEHOLDER + r"\\s+of\\s+{token}",'  # portability: ok (regex)
+            "  # portability: ok (regex)\n",
+            '    ANY_PLACEHOLDER + r"\\s+off\\s+{token}",'  # portability: ok (regex)
+            "  # portability: ok (regex)\n",
+        ),
+    ),
+    mutant(
+        "one-agreement-free-number-excludes-the-message",
+        edit(
+            '            return ""\n    return "+".join(sorted(reasons))',
+            '            continue\n    return "+".join(sorted(reasons))',
+        ),
+    ),
+    mutant(
+        "excluded-key-is-empty",
+        edit(
+            '"excluded": [e for e in excluded if not _is_listed(e, listed)],',
+            '"excluded": [],',
+        ),
+    ),
+    mutant(
+        "a-listed-message-is-also-excluded",
+        edit(
+            '"excluded": [e for e in excluded if not _is_listed(e, listed)],',
+            '"excluded": excluded,',
+        ),
+    ),
+    mutant(
+        "an-exclusion-is-repeated-per-call-site",
+        edit("elif not any(", "elif True or any("),
+    ),
+    mutant(
+        "dead-messages-are-excluded-too",
+        edit(
+            "    for message in live:\n        if message.numerus:\n",
+            "    for message in catalogue.messages:\n        if message.numerus:\n",
+        ),
+    ),
+    mutant(
+        "the-reason-is-not-printed",
+        edit(
+            "f\"  excluded ({item['reason']}): [{item['context']}] \"",
+            "f\"  excluded: [{item['context']}] \"",
+        ),
+    ),
+    mutant(
+        "the-excluded-count-is-not-printed",
+        edit('if record["excluded"] else ""', 'if False else ""'),
+    ),
+    mutant(
+        "an-exclusion-fails-the-run",
+        edit(
+            'code = EXIT_FINDINGS if record["listed"] or blind else EXIT_OK',
+            'code = EXIT_FINDINGS if record["listed"] or record["excluded"] or blind '
+            "else EXIT_OK",
+        ),
+    ),
+)
+def case_a_label_or_position_number_is_excluded_not_listed(
+    tools: Tools, work: Path
+) -> None:
+    """``label: N`` and ``N of M`` are reported as excluded, with the reason."""
+    english = put(work, "en", "en", REJECTED_ENGLISH)
+    tree = _plant(
+        work, "src", {"ui/panel.py": REJECTED_SOURCE, "ui/second.py": REJECTED_AGAIN}
+    )
+    run, payload, text = _inventory(tools, work, english, tree)
+    assert run.returncode == 1, (run.stdout, run.stderr)
+    # 8 messages, 1 vanished: 7 examined. 9 call sites in panel.py + 1 in second.py.
+    assert payload["examined"] == 7
+    assert payload["python_files"] == 2 and payload["call_sites"] == 10
+
+    def line(fragment: str) -> int:
+        return _line_of(REJECTED_SOURCE, fragment)
+
+    # The rejected kinds are NOT listed; the controls are (or are not) as before.
+    listed = {item["source"]: item for item in payload["listed"]}
+    assert {name: item["rules"] for name, item in listed.items()} == {
+        "%1 problems found: %2": ["count-argument"],
+        "File(s) done: %1": ["optional-plural-suffix"],
+    }
+    assert listed["%1 problems found: %2"]["call_sites"] == [
+        f"ui/panel.py:{line('found = ')}"
+    ]
+    # They are reported, once each, with their reason and their first call site.
+    assert payload["excluded"] == [
+        {
+            "context": "Panel",
+            "source": "Problems: %1",
+            "reason": "label-colon",
+            "call_sites": [f"ui/panel.py:{line('label = ')}"],
+        },
+        {
+            "context": "Panel",
+            "source": "Step %1 of %2",
+            "reason": "index-of-total",
+            "call_sites": [f"ui/panel.py:{line('step = ')}"],
+        },
+        {
+            "context": "Panel",
+            "source": "Step %1 of %2, pending: %3",
+            "reason": "index-of-total+label-colon",
+            "call_sites": [f"ui/panel.py:{line('both = ')}"],
+        },
+    ]
+    # Not in either list: plural aware, a unit symbol, vanished, absent.
+    for name in ("Aware: %1", "Size %1 px", "Gone: %1", "Absent: %1"):
+        assert name not in listed
+        assert name not in [item["source"] for item in payload["excluded"]]
+
+    # The printed form carries the reason and the new count.
+    assert text.returncode == 1
+    out = text.stdout
+    assert (
+        f"  excluded (label-colon): [Panel] Problems: %1 "
+        f"(ui/panel.py:{line('label = ')})\n"
+    ) in out
+    assert (
+        f"  excluded (index-of-total): [Panel] Step %1 of %2 "
+        f"(ui/panel.py:{line('step = ')})\n"
+    ) in out
+    assert "  excluded (index-of-total+label-colon): [Panel] Step %1 of %2, pend" in out
+    assert (
+        "examined 7 live message(s) and 10 tr() call site(s) in 2 file(s); "
+        "2 listed, 3 excluded\n"
+    ) in out
+
+    # A catalogue whose only counted messages are of the rejected kind lists
+    # nothing and exits 0, yet still says what it left out.
+    only = put(work, "only", "en", REJECTED_ENGLISH[:2])
+    run, payload, text = _inventory(tools, work, only, tree)
+    assert run.returncode == 0, (run.stdout, run.stderr)
+    assert payload["listed"] == []
+    assert [item["source"] for item in payload["excluded"]] == [
+        "Problems: %1",
+        "Step %1 of %2",
+    ]
+    assert text.returncode == 0
+    assert "2 excluded" in text.stdout and "0 listed, 2 excluded" in text.stdout
+
+    # With nothing to leave out, the key is present and empty, and the summary
+    # line is exactly what it was before the key existed.
+    quiet = _plant(work, "quiet", {"a.py": "x = 1\n"})
+    nothing = put(work, "nothing", "en", [Msg("Open", "", kind="unfinished")])
+    run, payload, text = _inventory(tools, work, nothing, quiet)
+    assert run.returncode == 0 and payload["excluded"] == []
+    assert payload["listed"] == []
+    assert "excluded" not in text.stdout
+    assert text.stdout.rstrip().endswith("in 1 file(s); 0 listed")
+
+
+COUNTED_ENGLISH = [
+    Msg("Used %1 bytes", "", kind="unfinished"),
+    Msg("Pending %1 steps", "", kind="unfinished"),
+    Msg("The board holds {0} images.", "", kind="unfinished"),
+    Msg("Takes {0:.0f} milliseconds", "", kind="unfinished"),
+    Msg("%L1 bytes written", "", kind="unfinished"),
+    Msg("Copied %1 bytes (file(s))", "", kind="unfinished"),
+    Msg("Size %1 px", "", kind="unfinished"),
+    Msg("Delay %1 ms", "", kind="unfinished"),
+    Msg("Frame %1", "", kind="unfinished"),
+    Msg("Mount %1 filesystem", "", kind="unfinished"),
+    Msg("%n bytes", ["", ""], kind="unfinished", numerus=True),
+    Msg("Old %1 bytes", "", kind="vanished"),
+]
+
+# ``size_bytes`` and ``limit`` are not count-like names, so the count-argument
+# rule does not see these call sites: only the noun after the placeholder does.
+COUNTED_SOURCE = """\
+class Counted:
+    def build(self, size_bytes, limit, width, delay):
+        used = self.tr("Used %1 bytes").replace("%1", str(size_bytes))
+        board = self.tr("The board holds {0} images.").format(limit)
+        px = self.tr("Size %1 px").arg(width)
+        ms = self.tr("Delay %1 ms").arg(delay)
+        return used, board, px, ms
+"""
+
+
+@REGISTRY.regression(
+    mutant(
+        "counted-noun-rule-is-dead",
+        edit(
+            "if not rules and COUNTED_NOUN.search(message.source):",
+            'if not rules and COUNTED_NOUN.search(""):',
+        ),
+    ),
+    mutant(
+        "counted-noun-also-fires-beside-another-rule",
+        edit(
+            "if not rules and COUNTED_NOUN.search(message.source):",
+            "if COUNTED_NOUN.search(message.source):",
+        ),
+    ),
+    mutant(
+        "the-brace-placeholder-is-not-one",
+        edit(
+            'ANY_PLACEHOLDER = r"(?:%L?[1-9][0-9]?|\\{[A-Za-z_0-9]*(?::[^}]*)?\\})"',
+            'ANY_PLACEHOLDER = r"(?:%L?[1-9][0-9]?)"',
+        ),
+    ),
+    mutant(
+        "the-locale-placeholder-is-not-one",
+        edit(
+            'ANY_PLACEHOLDER = r"(?:%L?[1-9][0-9]?|',
+            'ANY_PLACEHOLDER = r"(?:%[1-9][0-9]?|',
+        ),
+    ),
+    mutant(
+        "the-px-symbol-is-a-noun",
+        edit(
+            '"pixels|references|regions|seconds|steps|tags|targets|tiles|tracks"',
+            '"pixels|px|references|regions|seconds|steps|tags|targets|tiles|tracks"',
+        ),
+    ),
+    mutant(
+        "the-ms-symbol-is-a-noun",
+        edit(
+            '"pixels|references|regions|seconds|steps|tags|targets|tiles|tracks"',
+            '"pixels|ms|references|regions|seconds|steps|tags|targets|tiles|tracks"',
+        ),
+    ),
+    mutant(
+        "a-noun-prefix-is-enough",
+        edit(
+            'ANY_PLACEHOLDER + r"\\s+(?:" + COUNTED_NOUNS + r")\\b")',
+            'ANY_PLACEHOLDER + r"\\s+(?:" + COUNTED_NOUNS + r")")',
+        ),
+    ),
+)
+def case_a_placeholder_before_a_plural_noun_is_listed(tools: Tools, work: Path) -> None:
+    """A count the name heuristic cannot see is listed as ``counted-noun``."""
+    english = put(work, "en", "en", COUNTED_ENGLISH)
+    tree = _plant(work, "src", {"ui/counted.py": COUNTED_SOURCE})
+    run, payload, text = _inventory(tools, work, english, tree)
+    assert run.returncode == 1, (run.stdout, run.stderr)
+    # 12 messages, 1 vanished: 11 examined. 4 call sites, none count-like.
+    assert payload["examined"] == 11 and payload["call_sites"] == 4
+    assert payload.get("excluded") == []
+    listed = {item["source"]: item for item in payload["listed"]}
+    # Only the rule that sees the noun lists these. The last one carries another
+    # rule already, and then counted-noun adds nothing.
+    assert {name: item["rules"] for name, item in listed.items()} == {
+        "Used %1 bytes": ["counted-noun"],
+        "Pending %1 steps": ["counted-noun"],
+        "The board holds {0} images.": ["counted-noun"],
+        "Takes {0:.0f} milliseconds": ["counted-noun"],
+        "%L1 bytes written": ["counted-noun"],
+        "Copied %1 bytes (file(s))": ["optional-plural-suffix"],
+    }
+    # A call site is named when there is one; otherwise the catalogue location.
+    assert listed["Used %1 bytes"]["call_sites"] == []
+    assert listed["Used %1 bytes"]["location"] == "../ui/panel.py:1"
+    assert listed["Pending %1 steps"]["location"] == "../ui/panel.py:2"
+    # Not listed: unit symbols, no noun, a word that merely starts like a noun,
+    # already numerus, vanished.
+    for name in (
+        "Size %1 px",
+        "Delay %1 ms",
+        "Frame %1",
+        "Mount %1 filesystem",
+        "%n bytes",
+        "Old %1 bytes",
+    ):
+        assert name not in listed
+    assert text.returncode == 1
+    assert "  counted-noun: [Panel] Used %1 bytes (../ui/panel.py:1)\n" in text.stdout
+    assert (
+        "examined 11 live message(s) and 4 tr() call site(s) in 1 file(s); "
+        "6 listed\n"
+    ) in text.stdout
+
+
+# --------------------------------------------------------------------------- #
 # The worklist mode.
 # --------------------------------------------------------------------------- #
 WORKLIST_CATALOGUE = [
