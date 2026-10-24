@@ -180,7 +180,7 @@
     <message>
         <location filename="../ui/asset_library_actions.py" line="518"/>
         <source>&quot;%1&quot; is a project bundle, not a single asset. Use &quot;Import project bundle…&quot; instead.</source>
-        <translation type="unfinished"></translation>
+        <translation>«%1» es un paquete de proyecto, no un único recurso. Usa «Importar paquete de proyecto…» en su lugar.</translation>
     </message>
     <message>
         <location filename="../ui/asset_library_actions.py" line="523"/>
@@ -267,17 +267,17 @@
         <location filename="../ui/asset_register_dialog.py" line="165"/>
         <source>Too many tags: %n given, %2 allowed.</source>
         <extracomment>Combo order = the five shipped kinds, in the vocabulary&apos;s own declaration order (``logic/asset_catalog.AssetKind`` — RP-1&apos;s &quot;five shipped kinds&quot;).</extracomment>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>Demasiadas etiquetas: %n indicada, máximo permitido: %2.</numerusform>
+            <numerusform>Demasiadas etiquetas: %n indicadas, máximo permitido: %2.</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <location filename="../ui/asset_register_dialog.py" line="170"/>
         <source>Tag &quot;%1&quot; is too long (%n bytes allowed).</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>La etiqueta «%1» es demasiado larga (se permite %n byte).</numerusform>
+            <numerusform>La etiqueta «%1» es demasiado larga (se permiten %n bytes).</numerusform>
         </translation>
     </message>
     <message>
@@ -445,9 +445,9 @@
     <message numerus="yes">
         <location filename="../ui/asset_reuse_panel.py" line="426"/>
         <source>%n unresolved reference(s) in this project.</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%n referencia sin resolver en este proyecto.</numerusform>
+            <numerusform>%n referencias sin resolver en este proyecto.</numerusform>
         </translation>
     </message>
     <message>
@@ -807,9 +807,9 @@
     <message numerus="yes">
         <location filename="../ui/asset_version_browser.py" line="235"/>
         <source>Revision %1 — %n bytes, marker %3, author %4</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>Revisión %1 — %n byte, marcador %3, autor %4</numerusform>
+            <numerusform>Revisión %1 — %n bytes, marcador %3, autor %4</numerusform>
         </translation>
     </message>
     <message>
@@ -1307,33 +1307,33 @@
     <message numerus="yes">
         <location filename="../ui/branch_diff_dialog.py" line="321"/>
         <source>%n change(s).</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%n cambio.</numerusform>
+            <numerusform>%n cambios.</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <location filename="../ui/branch_diff_dialog.py" line="325"/>
         <source>%n entries.</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%n entrada.</numerusform>
+            <numerusform>%n entradas.</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <location filename="../ui/branch_diff_dialog.py" line="337"/>
         <source>%n regions.</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%n región.</numerusform>
+            <numerusform>%n regiones.</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <location filename="../ui/branch_diff_dialog.py" line="342"/>
         <source>%n operation(s) total, across %2 distinct target(s).</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%n operación en total; destinos distintos: %2.</numerusform>
+            <numerusform>%n operaciones en total; destinos distintos: %2.</numerusform>
         </translation>
     </message>
     <message>
@@ -1468,9 +1468,9 @@
     <message numerus="yes">
         <location filename="../ui/branching_panel.py" line="423"/>
         <source>Merged branch &apos;{name}&apos; (%n edits) into mainline — conflict-free.</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>Rama «{name}» fusionada (%n edición) en la principal — sin conflictos.</numerusform>
+            <numerusform>Rama «{name}» fusionada (%n ediciones) en la principal — sin conflictos.</numerusform>
         </translation>
     </message>
     <message>
@@ -1904,17 +1904,17 @@
     <message numerus="yes">
         <location filename="../ui/comments_panel.py" line="135"/>
         <source>A comment may be at most %n bytes.</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>Un comentario puede tener como máximo %n byte.</numerusform>
+            <numerusform>Un comentario puede tener como máximo %n bytes.</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <location filename="../ui/comments_panel.py" line="209"/>
         <source>%1 / %n bytes</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%1 / %n byte</numerusform>
+            <numerusform>%1 / %n bytes</numerusform>
         </translation>
     </message>
     <message>
@@ -2892,17 +2892,17 @@
     <message numerus="yes">
         <location filename="../ui/macro_controls.py" line="188"/>
         <source>Recording %1 (%n steps)</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>Grabando %1 (%n paso)</numerusform>
+            <numerusform>Grabando %1 (%n pasos)</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <location filename="../ui/macro_controls.py" line="288"/>
         <source>Recording… %n steps captured</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>Grabando… %n paso capturado</numerusform>
+            <numerusform>Grabando… %n pasos capturados</numerusform>
         </translation>
     </message>
     <message>
@@ -3459,17 +3459,19 @@
         <location filename="../ui/main_window.py" line="5442"/>
         <source>%n export target(s) failed:
 %2</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>Falló %n destino de exportación:
+%2</numerusform>
+            <numerusform>Fallaron %n destinos de exportación:
+%2</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <location filename="../ui/main_window.py" line="5450"/>
         <source>Export complete (%n file(s)).</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>Exportación completada (%n archivo).</numerusform>
+            <numerusform>Exportación completada (%n archivos).</numerusform>
         </translation>
     </message>
     <message>
@@ -5275,9 +5277,9 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
     <message numerus="yes">
         <location filename="../ui/reference_board.py" line="321"/>
         <source>The board already holds the maximum of %n images.</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>El panel de referencia ya contiene el máximo de %n imagen.</numerusform>
+            <numerusform>El panel de referencia ya contiene el máximo de %n imágenes.</numerusform>
         </translation>
     </message>
     <message>
@@ -5620,9 +5622,9 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
     <message numerus="yes">
         <location filename="../ui/shared_projects_panel.py" line="152"/>
         <source>A shared project may have at most %n members.</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>Un proyecto compartido puede tener como máximo %n miembro.</numerusform>
+            <numerusform>Un proyecto compartido puede tener como máximo %n miembros.</numerusform>
         </translation>
     </message>
     <message>
@@ -6712,9 +6714,9 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
     <message numerus="yes">
         <location filename="../ui/version_history_browser.py" line="174"/>
         <source>Version %1 — %n bytes (created marker %3).</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>Versión %1 — %n byte (marcador de creación %3).</numerusform>
+            <numerusform>Versión %1 — %n bytes (marcador de creación %3).</numerusform>
         </translation>
     </message>
     <message>
@@ -7013,9 +7015,9 @@ El complemento se ejecuta en un entorno aislado y solo puede editar mediante com
     <message numerus="yes">
         <location filename="../ui/timeline_grid_view.py" line="331"/>
         <source>Frame %1, %n milliseconds</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>Fotograma %1, %n milisegundo</numerusform>
+            <numerusform>Fotograma %1, %n milisegundos</numerusform>
         </translation>
     </message>
     <message>
