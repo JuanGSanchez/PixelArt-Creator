@@ -232,9 +232,8 @@ class Asset_Version_Browser(QWidget):
             return
         author = revision.author if revision.author else self.tr("(unknown)")
         self._details_label.setText(
-            self.tr("Revision %1 — %2 bytes, marker %3, author %4")
+            self.tr("Revision %1 — %n bytes, marker %3, author %4", "", len(blob))
             .replace("%1", revision.content_hash[:_HASH_ABBREV])
-            .replace("%2", str(len(blob)))
             .replace("%3", str(revision.created_marker))
             .replace("%4", author)
         )

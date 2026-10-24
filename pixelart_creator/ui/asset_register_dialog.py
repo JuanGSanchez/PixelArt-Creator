@@ -161,14 +161,14 @@ class Asset_Register_Dialog(QDialog):
         raw = self._tags_edit.text().split(",")
         tags = frozenset(piece.strip() for piece in raw if piece.strip())
         if len(tags) > MAX_TAGS_PER_ASSET:
-            return tags, self.tr("Too many tags: %1 given, %2 allowed.").replace(
-                "%1", str(len(tags))
+            return tags, self.tr(
+                "Too many tags: %n given, %2 allowed.", "", len(tags)
             ).replace("%2", str(MAX_TAGS_PER_ASSET))
         for tag in tags:
             if len(tag.encode("utf-8")) > MAX_TAG_BYTES:
                 return tags, self.tr(
-                    'Tag "%1" is too long (%2 bytes allowed).'
-                ).replace("%1", tag).replace("%2", str(MAX_TAG_BYTES))
+                    'Tag "%1" is too long (%n bytes allowed).', "", MAX_TAG_BYTES
+                ).replace("%1", tag)
         return tags, None
 
     def _validate(self) -> None:

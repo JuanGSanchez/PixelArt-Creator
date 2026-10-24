@@ -148,8 +148,10 @@ class Shared_Projects_Panel(QWidget):
             QMessageBox.warning(
                 self,
                 self.tr("Shared Project"),
-                self.tr("A shared project may have at most %1 members.").replace(
-                    "%1", str(MAX_SHARED_MEMBERS)
+                self.tr(
+                    "A shared project may have at most %n members.",
+                    "",
+                    MAX_SHARED_MEMBERS,
                 ),
             )
             return

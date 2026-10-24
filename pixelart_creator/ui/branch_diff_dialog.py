@@ -318,13 +318,11 @@ class Branch_Diff_Dialog(QDialog):
             if count == 0:
                 count_label.setText(self.tr("No changes."))
             else:
-                count_label.setText(self.tr("{count} change(s).").format(count=count))
+                count_label.setText(self.tr("%n change(s).", "", count))
             list_widget.setAccessibleName(
                 self.tr("{title} list").format(title=titles[group_key])
             )
-            list_widget.setAccessibleDescription(
-                self.tr("{count} entries.").format(count=count)
-            )
+            list_widget.setAccessibleDescription(self.tr("%n entries.", "", count))
 
         self._region_box.setTitle(self.tr("Affected regions"))
         self._region_granularity_label.setText(
@@ -336,16 +334,15 @@ class Branch_Diff_Dialog(QDialog):
         )
         self._region_list.setAccessibleName(self.tr("Affected regions list"))
         self._region_list.setAccessibleDescription(
-            self.tr("{count} regions.").format(count=len(self._divergence.regions))
+            self.tr("%n regions.", "", len(self._divergence.regions))
         )
 
         self._total_label.setText(
             self.tr(
-                "{total} operation(s) total, across {targets} distinct target(s)."
-            ).format(
-                total=self._divergence.total,
-                targets=self._divergence.distinct_targets,
-            )
+                "%n operation(s) total, across %2 distinct target(s).",
+                "",
+                self._divergence.total,
+            ).replace("%2", str(self._divergence.distinct_targets))
         )
         self._total_label.setAccessibleName(self.tr("Divergence total"))
 

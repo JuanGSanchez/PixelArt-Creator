@@ -516,7 +516,7 @@ class Asset_Library_Session(QObject):
         if path.suffix == BUNDLE_SUFFIX:
             message = self.tr(
                 '"%1" is a project bundle, not a single asset. Use '
-                '"Import project bundle..." instead.'
+                '"Import project bundle…" instead.'
             ).replace("%1", path.name)
             self.libraryImportFailed.emit(message)
             if parent is not None:

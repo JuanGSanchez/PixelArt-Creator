@@ -420,9 +420,10 @@ class Branching_Panel(QWidget):
         name, _, count = summary.partition("|")
         self._outcome.setText(
             self.tr(
-                "Merged branch '{name}' ({count} edits) into mainline — "
-                "conflict-free."
-            ).format(name=name, count=count)
+                "Merged branch '{name}' (%n edits) into mainline — conflict-free.",
+                "",
+                int(count) if count.isdigit() else 0,
+            ).format(name=name)
         )
 
     # -- view population --------------------------------------------------

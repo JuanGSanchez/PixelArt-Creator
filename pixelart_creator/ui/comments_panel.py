@@ -132,9 +132,7 @@ class Comments_Panel(QWidget):
             QMessageBox.warning(
                 self,
                 self.tr("Comments"),
-                self.tr("A comment may be at most %1 bytes.").replace(
-                    "%1", str(MAX_COMMENT_BYTES)
-                ),
+                self.tr("A comment may be at most %n bytes.", "", MAX_COMMENT_BYTES),
             )
             return
         parent_id = (
@@ -208,9 +206,7 @@ class Comments_Panel(QWidget):
     def _update_counter(self) -> None:
         used = len(self._editor.toPlainText().encode("utf-8"))
         self._counter.setText(
-            self.tr("%1 / %2 bytes")
-            .replace("%1", str(used))
-            .replace("%2", str(MAX_COMMENT_BYTES))
+            self.tr("%1 / %n bytes", "", MAX_COMMENT_BYTES).replace("%1", str(used))
         )
 
     def _update_enabled(self) -> None:

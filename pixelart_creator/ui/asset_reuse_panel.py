@@ -422,8 +422,8 @@ class Asset_Reuse_Panel(QWidget):
             self._project_tree.addTopLevelItem(item)
         if unresolved:
             self._missing_label.setText(
-                self.tr("%1 unresolved reference(s) in this project.").replace(
-                    "%1", str(len(unresolved))
+                self.tr(
+                    "%n unresolved reference(s) in this project.", "", len(unresolved)
                 )
             )
         else:

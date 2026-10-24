@@ -5438,16 +5438,16 @@ class Main_Window(QMainWindow):
             QMessageBox.warning(
                 self,
                 self.tr("Export Failed"),
-                self.tr("%1 export target(s) failed:\n%2")
-                .replace("%1", str(len(self._export_run_failures)))
-                .replace("%2", detail),
+                self.tr(
+                    "%n export target(s) failed:\n%2",
+                    "",
+                    len(self._export_run_failures),
+                ).replace("%2", detail),
             )
             self.statusBar().clearMessage()
         else:
             self.statusBar().showMessage(
-                self.tr("Export complete (%1 file(s)).").replace(
-                    "%1", str(self._export_run_ok)
-                ),
+                self.tr("Export complete (%n file(s)).", "", self._export_run_ok),
                 UI_NOTICE_DURATION_MS,
             )
 

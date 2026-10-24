@@ -175,7 +175,7 @@
     </message>
     <message>
         <location filename="../ui/asset_library_actions.py" line="518"/>
-        <source>&quot;%1&quot; is a project bundle, not a single asset. Use &quot;Import project bundle...&quot; instead.</source>
+        <source>&quot;%1&quot; is a project bundle, not a single asset. Use &quot;Import project bundle…&quot; instead.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -250,16 +250,22 @@
 </context>
 <context>
     <name>Asset_Register_Dialog</name>
-    <message>
-        <location filename="../ui/asset_register_dialog.py" line="164"/>
-        <source>Too many tags: %1 given, %2 allowed.</source>
+    <message numerus="yes">
+        <location filename="../ui/asset_register_dialog.py" line="165"/>
+        <source>Too many tags: %n given, %2 allowed.</source>
         <extracomment>Combo order = the five shipped kinds, in the vocabulary&apos;s own declaration order (``logic/asset_catalog.AssetKind`` — RP-1&apos;s &quot;five shipped kinds&quot;).</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>
+            <numerusform>Too many tags: %n given, %2 allowed.</numerusform>
+            <numerusform>Too many tags: %n given, %2 allowed.</numerusform>
+        </translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../ui/asset_register_dialog.py" line="170"/>
-        <source>Tag &quot;%1&quot; is too long (%2 bytes allowed).</source>
-        <translation type="unfinished"></translation>
+        <source>Tag &quot;%1&quot; is too long (%n bytes allowed).</source>
+        <translation>
+            <numerusform>Tag &quot;%1&quot; is too long (%n byte allowed).</numerusform>
+            <numerusform>Tag &quot;%1&quot; is too long (%n bytes allowed).</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="../ui/asset_register_dialog.py" line="178"/>
@@ -419,10 +425,13 @@
         <source>This reference could not be found in the local library.</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <location filename="../ui/asset_reuse_panel.py" line="425"/>
-        <source>%1 unresolved reference(s) in this project.</source>
-        <translation type="unfinished"></translation>
+    <message numerus="yes">
+        <location filename="../ui/asset_reuse_panel.py" line="426"/>
+        <source>%n unresolved reference(s) in this project.</source>
+        <translation>
+            <numerusform>%n unresolved reference in this project.</numerusform>
+            <numerusform>%n unresolved references in this project.</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="../ui/asset_reuse_panel.py" line="431"/>
@@ -769,79 +778,82 @@
     </message>
     <message>
         <location filename="../ui/asset_version_browser.py" line="231"/>
-        <location filename="../ui/asset_version_browser.py" line="252"/>
-        <location filename="../ui/asset_version_browser.py" line="262"/>
+        <location filename="../ui/asset_version_browser.py" line="251"/>
+        <location filename="../ui/asset_version_browser.py" line="261"/>
         <source>Version history</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../ui/asset_version_browser.py" line="235"/>
-        <source>Revision %1 — %2 bytes, marker %3, author %4</source>
-        <translation type="unfinished"></translation>
+        <source>Revision %1 — %n bytes, marker %3, author %4</source>
+        <translation>
+            <numerusform>Revision %1 — %n byte, marker %3, author %4</numerusform>
+            <numerusform>Revision %1 — %n bytes, marker %3, author %4</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="314"/>
-        <location filename="../ui/asset_version_browser.py" line="319"/>
+        <location filename="../ui/asset_version_browser.py" line="313"/>
+        <location filename="../ui/asset_version_browser.py" line="318"/>
         <source>Revisions of: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="322"/>
+        <location filename="../ui/asset_version_browser.py" line="321"/>
         <source>No asset selected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="326"/>
+        <location filename="../ui/asset_version_browser.py" line="325"/>
         <source>Asset version browser</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="328"/>
+        <location filename="../ui/asset_version_browser.py" line="327"/>
         <source>#</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="328"/>
+        <location filename="../ui/asset_version_browser.py" line="327"/>
         <source>Created</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="328"/>
+        <location filename="../ui/asset_version_browser.py" line="327"/>
         <source>Author</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="328"/>
+        <location filename="../ui/asset_version_browser.py" line="327"/>
         <source>Content</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="330"/>
+        <location filename="../ui/asset_version_browser.py" line="329"/>
         <source>Asset revisions</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="331"/>
+        <location filename="../ui/asset_version_browser.py" line="330"/>
         <source>Revision details</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="332"/>
+        <location filename="../ui/asset_version_browser.py" line="331"/>
         <source>Inspect</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="333"/>
+        <location filename="../ui/asset_version_browser.py" line="332"/>
         <source>Inspect selected revision</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="334"/>
+        <location filename="../ui/asset_version_browser.py" line="333"/>
         <source>Restore</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="336"/>
+        <location filename="../ui/asset_version_browser.py" line="335"/>
         <source>Restore selected revision as a new head</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1271,10 +1283,37 @@
         <source>No changes.</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../ui/branch_diff_dialog.py" line="321"/>
-        <source>{count} change(s).</source>
-        <translation type="unfinished"></translation>
+        <source>%n change(s).</source>
+        <translation>
+            <numerusform>%n change.</numerusform>
+            <numerusform>%n changes.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/branch_diff_dialog.py" line="325"/>
+        <source>%n entries.</source>
+        <translation>
+            <numerusform>%n entry.</numerusform>
+            <numerusform>%n entries.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/branch_diff_dialog.py" line="337"/>
+        <source>%n regions.</source>
+        <translation>
+            <numerusform>%n region.</numerusform>
+            <numerusform>%n regions.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/branch_diff_dialog.py" line="342"/>
+        <source>%n operation(s) total, across %2 distinct target(s).</source>
+        <translation>
+            <numerusform>%n operation total, across %2 distinct target(s).</numerusform>
+            <numerusform>%n operations total, across %2 distinct target(s).</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="../ui/branch_diff_dialog.py" line="323"/>
@@ -1282,88 +1321,73 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="326"/>
-        <source>{count} entries.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/branch_diff_dialog.py" line="329"/>
+        <location filename="../ui/branch_diff_dialog.py" line="327"/>
         <source>Affected regions</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="332"/>
+        <location filename="../ui/branch_diff_dialog.py" line="330"/>
         <source>Each region is reported at the whole {tile}×{tile} pixel tile granularity — a one-pixel change still covers a full tile here.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="337"/>
+        <location filename="../ui/branch_diff_dialog.py" line="335"/>
         <source>Affected regions list</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="339"/>
-        <source>{count} regions.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/branch_diff_dialog.py" line="344"/>
-        <source>{total} operation(s) total, across {targets} distinct target(s).</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/branch_diff_dialog.py" line="350"/>
+        <location filename="../ui/branch_diff_dialog.py" line="347"/>
         <source>Divergence total</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="352"/>
+        <location filename="../ui/branch_diff_dialog.py" line="349"/>
         <source>Continue to Merge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="353"/>
+        <location filename="../ui/branch_diff_dialog.py" line="350"/>
         <source>Continue to merge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="356"/>
+        <location filename="../ui/branch_diff_dialog.py" line="353"/>
         <source>Performs the same conflict-free merge as the branching panel&apos;s Merge control.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="360"/>
-        <location filename="../ui/branch_diff_dialog.py" line="361"/>
+        <location filename="../ui/branch_diff_dialog.py" line="357"/>
+        <location filename="../ui/branch_diff_dialog.py" line="358"/>
         <source>Close</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="363"/>
+        <location filename="../ui/branch_diff_dialog.py" line="360"/>
         <source>Closes this view without merging or changing anything.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="375"/>
+        <location filename="../ui/branch_diff_dialog.py" line="372"/>
         <source>frames {frames}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="381"/>
+        <location filename="../ui/branch_diff_dialog.py" line="378"/>
         <source>layers {layers}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="389"/>
+        <location filename="../ui/branch_diff_dialog.py" line="386"/>
         <source>attributes {attrs}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="398"/>
+        <location filename="../ui/branch_diff_dialog.py" line="395"/>
         <source>metadata keys {keys}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="404"/>
+        <location filename="../ui/branch_diff_dialog.py" line="401"/>
         <source>tiles {tiles}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1385,7 +1409,7 @@
     </message>
     <message>
         <location filename="../ui/branching_panel.py" line="368"/>
-        <location filename="../ui/branching_panel.py" line="479"/>
+        <location filename="../ui/branching_panel.py" line="480"/>
         <source>New Branch</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1396,82 +1420,85 @@
     </message>
     <message>
         <location filename="../ui/branching_panel.py" line="397"/>
-        <location filename="../ui/branching_panel.py" line="483"/>
+        <location filename="../ui/branching_panel.py" line="484"/>
         <source>Merge</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../ui/branching_panel.py" line="423"/>
-        <source>Merged branch &apos;{name}&apos; ({count} edits) into mainline — conflict-free.</source>
-        <translation type="unfinished"></translation>
+        <source>Merged branch &apos;{name}&apos; (%n edits) into mainline — conflict-free.</source>
+        <translation>
+            <numerusform>Merged branch &apos;{name}&apos; (%n edit) into mainline — conflict-free.</numerusform>
+            <numerusform>Merged branch &apos;{name}&apos; (%n edits) into mainline — conflict-free.</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="436"/>
+        <location filename="../ui/branching_panel.py" line="437"/>
         <source>{name} (active)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="455"/>
+        <location filename="../ui/branching_panel.py" line="456"/>
         <source>Open the pre-merge diff for the selected branch.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="459"/>
+        <location filename="../ui/branching_panel.py" line="460"/>
         <source>Disabled: open a project first.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="464"/>
+        <location filename="../ui/branching_panel.py" line="465"/>
         <source>Disabled: select a feature branch, not mainline, to view its diff.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="471"/>
+        <location filename="../ui/branching_panel.py" line="472"/>
         <source>Branching</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="474"/>
+        <location filename="../ui/branching_panel.py" line="475"/>
         <source>Branch the project to edit a variation independently, then merge it back. Merges are conflict-free.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="478"/>
+        <location filename="../ui/branching_panel.py" line="479"/>
         <source>Branches</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="480"/>
+        <location filename="../ui/branching_panel.py" line="481"/>
         <source>Create a new branch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="481"/>
+        <location filename="../ui/branching_panel.py" line="482"/>
         <source>Switch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="482"/>
+        <location filename="../ui/branching_panel.py" line="483"/>
         <source>Switch to the selected branch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="485"/>
+        <location filename="../ui/branching_panel.py" line="486"/>
         <source>Merge the selected branch into mainline</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="487"/>
+        <location filename="../ui/branching_panel.py" line="488"/>
         <source>Open Diff</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="489"/>
+        <location filename="../ui/branching_panel.py" line="490"/>
         <source>Open the pre-merge diff for the selected branch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="491"/>
+        <location filename="../ui/branching_panel.py" line="492"/>
         <source>Merge outcome</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1513,24 +1540,24 @@
     <name>Canvas_View</name>
     <message>
         <location filename="../ui/canvas_view.py" line="318"/>
-        <location filename="../ui/canvas_view.py" line="1429"/>
+        <location filename="../ui/canvas_view.py" line="1443"/>
         <source>Canvas</source>
         <extracomment>Platform name reported by Qt when running without a windowing system. Emitted with the current zoom scale after any zoom change. Emitted with the buffer ``(x, y)`` when the canvas is right-clicked (seam). Emitted with the picked RGBA tuple when the colour-picker sets a colour. Emitted ``(is_active, is_copy)`` when a floating move/copy state changes (drives the shell&apos;s copy-mode status hint, REQ-P2-UI-032/-036). Emitted when a paint/mask-edit stroke is refused because the active layer is locked (D-05); the shell surfaces a &quot;layer is locked&quot; notice. Emitted when a left-click lands outside the active document&apos;s bounds (FIX 5, 2026-08-24 field defect): a click there must not arm a stroke, and must not fail silently — the shell surfaces a notice, following the ``lockedLayerEditRejected`` precedent exactly. Emitted when a paint/mask-edit is refused because the active layer is a REFERENCE or SMART layer (REQ-P3-UI-006 clause 5: non-editable targets are three classes, not two — locked, reference, and smart — and every one of them must be surfaced, never silently swallowed). Distinct from ``lockedLayerEditRejected`` so the shell can show the right notice; ``is_active_editable()`` returns ``False`` for all three classes, and this signal covers the two this view previously dropped on the floor. Emitted when a tool ran (the guards passed) but produced no pixel change — e.g. a flood fill on a region that already holds the picked colour (REQ-P1-UI-014), or a pencil placed on a pixel that already holds it — so no undo entry was pushed. An explicit, deliberate gesture (a completed colour-hub pick, REQ-P3-UI-006 clause 6) must never answer with silence even when it changed nothing. Emitted with the target frame index a ``Ctrl``+wheel / ``Ctrl``+middle- click frame gesture resolved to (REQ-IS-UI-010/-014); the shell routes it through the shipped frame-selection path. Pushes no command — frame navigation is view state (CL-13). Emitted when a confirmed ``Ctrl``+left-click (no floating move live) should add a frame after the active one (REQ-IS-UI-016); the shell builds and pushes the shipped undoable ``make_add_frame_command``. The three selection tools whose Shift/Alt modifiers stay the shipped add/subtract combine gesture (REQ-IS-UI-015) — Shift+drag pans for every other tool. Mirrors ``Main_Window._SELECTION_ENTRY_TOOL_IDS``. The wrapper every :class:`~pixelart_creator.ui.tools.base.ToolContext` is actually built with (see :class:`_RecordingUndoStack`); reads ``self._undo_stack``/``self._record_trace``/``self._recording_document`` live at each push, so `set_undo_stack`/`set_recording` need not rebuild it. A middle press awaiting the click/drag verdict (REQ-IS-UI-011): ``True`` between a middle press and either its release under ``CLICK_DRAG_THRESHOLD_PX`` (a click) or its promotion to ``_panning`` once the cursor travels past the threshold (a drag). A ``Ctrl``+left press awaiting the click/drag verdict (REQ-IS-UI-016, mirrors ``_middle_pending``): ``True`` between the press and either its release under ``CLICK_DRAG_THRESHOLD_PX`` (adds a frame) or its promotion to an ordinary paint/floating-move drag once the cursor travels past the threshold. The persisted Favourites model a plain wheel notch / unmodified middle click travel (REQ-IS-UI-008/-012); ``None`` until the shell binds one via :meth:`set_favourites_model`. The ``timestamp()`` of the RightButton press currently being dispatched through ``_menu_hook``, ``None`` for the keyboard (Menu key / Shift+F10) trigger. Consumed once via :meth:`pop_pending_right_press_timestamp` — deliberately NOT threaded as a third positional argument to ``_menu_hook`` itself, so the hook&apos;s signature (``Callable[[int, int], None]``) and every existing 2-argument hook (tests included) stay unchanged. Live mirror-centre override fed to ``logic.symmetry.mirror`` via each stroke&apos;s :class:`ToolContext` (D-28/CF-93); ``None`` keeps the shipped canvas-centre default. Fed by the shell&apos;s Symmetry_Panel. The guide currently being dragged (D-11), or ``None``. Raw (pre-snap) scene point at the start of the current stroke — the perspective direction-lock anchor (``logic.grids.perspective_snap``).</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../ui/canvas_view.py" line="320"/>
-        <location filename="../ui/canvas_view.py" line="1431"/>
+        <location filename="../ui/canvas_view.py" line="1445"/>
         <source>Pixel canvas: left-click to paint, middle-drag to pan</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/canvas_view.py" line="1321"/>
+        <location filename="../ui/canvas_view.py" line="1335"/>
         <source>Remove guide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/canvas_view.py" line="1332"/>
+        <location filename="../ui/canvas_view.py" line="1346"/>
         <source>No canvas actions yet</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1795,9 +1822,9 @@
         <location filename="../ui/comments_panel.py" line="116"/>
         <location filename="../ui/comments_panel.py" line="124"/>
         <location filename="../ui/comments_panel.py" line="134"/>
-        <location filename="../ui/comments_panel.py" line="146"/>
-        <location filename="../ui/comments_panel.py" line="162"/>
-        <location filename="../ui/comments_panel.py" line="224"/>
+        <location filename="../ui/comments_panel.py" line="144"/>
+        <location filename="../ui/comments_panel.py" line="160"/>
+        <location filename="../ui/comments_panel.py" line="220"/>
         <source>Comments</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1812,102 +1839,108 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="135"/>
-        <source>A comment may be at most %1 bytes.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/comments_panel.py" line="196"/>
+        <location filename="../ui/comments_panel.py" line="194"/>
         <source>Resolved</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="196"/>
+        <location filename="../ui/comments_panel.py" line="194"/>
         <source>Open</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <location filename="../ui/comments_panel.py" line="211"/>
-        <source>%1 / %2 bytes</source>
-        <translation type="unfinished"></translation>
+    <message numerus="yes">
+        <location filename="../ui/comments_panel.py" line="135"/>
+        <source>A comment may be at most %n bytes.</source>
+        <translation>
+            <numerusform>A comment may be at most %n byte.</numerusform>
+            <numerusform>A comment may be at most %n bytes.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/comments_panel.py" line="209"/>
+        <source>%1 / %n bytes</source>
+        <translation>
+            <numerusform>%1 / %n byte</numerusform>
+            <numerusform>%1 / %n bytes</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="225"/>
+        <location filename="../ui/comments_panel.py" line="221"/>
         <source>Your member id:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="226"/>
+        <location filename="../ui/comments_panel.py" line="222"/>
         <source>e.g. alice</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="227"/>
+        <location filename="../ui/comments_panel.py" line="223"/>
         <source>Comment author id</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="229"/>
+        <location filename="../ui/comments_panel.py" line="225"/>
         <source>Author</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="229"/>
+        <location filename="../ui/comments_panel.py" line="225"/>
         <source>Comment</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="229"/>
+        <location filename="../ui/comments_panel.py" line="225"/>
         <source>Status</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="231"/>
+        <location filename="../ui/comments_panel.py" line="227"/>
         <source>Comment thread</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="232"/>
+        <location filename="../ui/comments_panel.py" line="228"/>
         <source>Write a comment…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="233"/>
+        <location filename="../ui/comments_panel.py" line="229"/>
         <source>New comment text</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="234"/>
+        <location filename="../ui/comments_panel.py" line="230"/>
         <source>Reply to selected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="235"/>
+        <location filename="../ui/comments_panel.py" line="231"/>
         <source>Reply to the selected comment</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="236"/>
+        <location filename="../ui/comments_panel.py" line="232"/>
         <source>Add Comment</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="237"/>
+        <location filename="../ui/comments_panel.py" line="233"/>
         <source>Add the comment</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="238"/>
+        <location filename="../ui/comments_panel.py" line="234"/>
         <source>Resolve</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="239"/>
+        <location filename="../ui/comments_panel.py" line="235"/>
         <source>Resolve the selected comment</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="240"/>
+        <location filename="../ui/comments_panel.py" line="236"/>
         <source>Comment byte count</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2765,45 +2798,51 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="188"/>
-        <source>Recording %1 (%2 steps)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/macro_controls.py" line="211"/>
+        <location filename="../ui/macro_controls.py" line="210"/>
         <source>Macro</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="229"/>
+        <location filename="../ui/macro_controls.py" line="228"/>
         <source>Save Macro</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="231"/>
-        <location filename="../ui/macro_controls.py" line="251"/>
+        <location filename="../ui/macro_controls.py" line="230"/>
+        <location filename="../ui/macro_controls.py" line="250"/>
         <source>Macro files (*%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="238"/>
+        <location filename="../ui/macro_controls.py" line="237"/>
         <source>Save Macro Failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="249"/>
+        <location filename="../ui/macro_controls.py" line="248"/>
         <source>Load Macro</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="258"/>
+        <location filename="../ui/macro_controls.py" line="257"/>
         <source>Load Macro Failed</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
+    <message numerus="yes">
+        <location filename="../ui/macro_controls.py" line="188"/>
+        <source>Recording %1 (%n steps)</source>
+        <translation>
+            <numerusform>Recording %1 (%n step)</numerusform>
+            <numerusform>Recording %1 (%n steps)</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <location filename="../ui/macro_controls.py" line="288"/>
-        <source>Recording… %1 steps captured</source>
-        <translation type="unfinished"></translation>
+        <source>Recording… %n steps captured</source>
+        <translation>
+            <numerusform>Recording… %n step captured</numerusform>
+            <numerusform>Recording… %n steps captured</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="../ui/macro_controls.py" line="291"/>
@@ -3338,17 +3377,6 @@
     <message>
         <location filename="../ui/main_window.py" line="5440"/>
         <source>Export Failed</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/main_window.py" line="5441"/>
-        <source>%1 export target(s) failed:
-%2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/main_window.py" line="5448"/>
-        <source>Export complete (%1 file(s)).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3961,6 +3989,25 @@
         <location filename="../ui/main_window.py" line="5732"/>
         <source>&amp;Scale…</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/main_window.py" line="5442"/>
+        <source>%n export target(s) failed:
+%2</source>
+        <translation>
+            <numerusform>%n export target failed:
+%2</numerusform>
+            <numerusform>%n export targets failed:
+%2</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../ui/main_window.py" line="5450"/>
+        <source>Export complete (%n file(s)).</source>
+        <translation>
+            <numerusform>Export complete (%n file).</numerusform>
+            <numerusform>Export complete (%n files).</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5734"/>
@@ -5107,89 +5154,92 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
         <extracomment>Emitted with the picked RGBA tuple when a plain wheel notch travels the shared Favourites cursor (REQ-IS-UI-008, D-16). The board never touches the document/buffers/undo stack (REQ-P9-UI-010); this only sets the app-wide active colour/palette state, same as every other surface. The persisted Favourites model bound via :meth:`set_favourites_model` (D-16); ``None`` until the shell binds one.</extracomment>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <location filename="../ui/reference_board.py" line="320"/>
-        <source>The board already holds the maximum of {0} images.</source>
-        <translation type="unfinished"></translation>
+    <message numerus="yes">
+        <location filename="../ui/reference_board.py" line="321"/>
+        <source>The board already holds the maximum of %n images.</source>
+        <translation>
+            <numerusform>The board already holds the maximum of %n image.</numerusform>
+            <numerusform>The board already holds the maximum of %n images.</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="329"/>
+        <location filename="../ui/reference_board.py" line="331"/>
         <source>Cannot load image</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="330"/>
+        <location filename="../ui/reference_board.py" line="332"/>
         <source>The file could not be read as an image: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="401"/>
+        <location filename="../ui/reference_board.py" line="403"/>
         <source>Save Reference Board</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="403"/>
-        <location filename="../ui/reference_board.py" line="417"/>
+        <location filename="../ui/reference_board.py" line="405"/>
+        <location filename="../ui/reference_board.py" line="419"/>
         <source>Reference board (*.pixboard)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="410"/>
+        <location filename="../ui/reference_board.py" line="412"/>
         <source>Save failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="415"/>
+        <location filename="../ui/reference_board.py" line="417"/>
         <source>Open Reference Board</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="425"/>
+        <location filename="../ui/reference_board.py" line="427"/>
         <source>Open failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="432"/>
+        <location filename="../ui/reference_board.py" line="434"/>
         <source>Add Reference Image</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="434"/>
+        <location filename="../ui/reference_board.py" line="436"/>
         <source>Images (*.png *.jpg *.jpeg *.bmp *.gif)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="500"/>
+        <location filename="../ui/reference_board.py" line="502"/>
         <source>Reference Board</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="501"/>
+        <location filename="../ui/reference_board.py" line="503"/>
         <source>Reference board</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="502"/>
+        <location filename="../ui/reference_board.py" line="504"/>
         <source>Reference board canvas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="503"/>
+        <location filename="../ui/reference_board.py" line="505"/>
         <source>Add Image…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="504"/>
+        <location filename="../ui/reference_board.py" line="506"/>
         <source>Save…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="505"/>
+        <location filename="../ui/reference_board.py" line="507"/>
         <source>Open…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="506"/>
+        <location filename="../ui/reference_board.py" line="508"/>
         <source>Always on Top</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5433,9 +5483,9 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
     <message>
         <location filename="../ui/shared_projects_panel.py" line="143"/>
         <location filename="../ui/shared_projects_panel.py" line="150"/>
-        <location filename="../ui/shared_projects_panel.py" line="180"/>
-        <location filename="../ui/shared_projects_panel.py" line="187"/>
-        <location filename="../ui/shared_projects_panel.py" line="194"/>
+        <location filename="../ui/shared_projects_panel.py" line="182"/>
+        <location filename="../ui/shared_projects_panel.py" line="189"/>
+        <location filename="../ui/shared_projects_panel.py" line="196"/>
         <source>Shared Project</source>
         <extracomment>Fixed display order for the role combo (a stable subset of the module-local :data:`MEMBER_ROLES` vocabulary; presentation ordering, not a domain value). The roster being edited before it is committed via Share/Update.</extracomment>
         <translation type="unfinished"></translation>
@@ -5445,124 +5495,127 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
         <source>Member %1 is already in the roster.</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <location filename="../ui/shared_projects_panel.py" line="151"/>
-        <source>A shared project may have at most %1 members.</source>
-        <translation type="unfinished"></translation>
+    <message numerus="yes">
+        <location filename="../ui/shared_projects_panel.py" line="152"/>
+        <source>A shared project may have at most %n members.</source>
+        <translation>
+            <numerusform>A shared project may have at most %n member.</numerusform>
+            <numerusform>A shared project may have at most %n members.</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="181"/>
+        <location filename="../ui/shared_projects_panel.py" line="183"/>
         <source>Enter a shared-project name first.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="188"/>
+        <location filename="../ui/shared_projects_panel.py" line="190"/>
         <source>Add at least one member before sharing.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="236"/>
+        <location filename="../ui/shared_projects_panel.py" line="238"/>
         <source>Owner</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="237"/>
+        <location filename="../ui/shared_projects_panel.py" line="239"/>
         <source>Editor</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="238"/>
+        <location filename="../ui/shared_projects_panel.py" line="240"/>
         <source>Viewer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="243"/>
+        <location filename="../ui/shared_projects_panel.py" line="245"/>
         <source>Shared projects</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="244"/>
+        <location filename="../ui/shared_projects_panel.py" line="246"/>
         <source>Shared-project name:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="245"/>
+        <location filename="../ui/shared_projects_panel.py" line="247"/>
         <source>e.g. team-sprite</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="246"/>
+        <location filename="../ui/shared_projects_panel.py" line="248"/>
         <source>Shared-project name</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="247"/>
-        <location filename="../ui/shared_projects_panel.py" line="248"/>
+        <location filename="../ui/shared_projects_panel.py" line="249"/>
+        <location filename="../ui/shared_projects_panel.py" line="250"/>
         <source>Member id to invite</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="249"/>
+        <location filename="../ui/shared_projects_panel.py" line="251"/>
         <source>Member role</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="252"/>
+        <location filename="../ui/shared_projects_panel.py" line="254"/>
         <source>Add Member</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="253"/>
+        <location filename="../ui/shared_projects_panel.py" line="255"/>
         <source>Add member to roster</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="254"/>
+        <location filename="../ui/shared_projects_panel.py" line="256"/>
         <source>Roster to share</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="255"/>
+        <location filename="../ui/shared_projects_panel.py" line="257"/>
         <source>Current members</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="256"/>
+        <location filename="../ui/shared_projects_panel.py" line="258"/>
         <source>Remove</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="257"/>
+        <location filename="../ui/shared_projects_panel.py" line="259"/>
         <source>Remove selected member</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="258"/>
+        <location filename="../ui/shared_projects_panel.py" line="260"/>
         <source>Share / Update</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="259"/>
+        <location filename="../ui/shared_projects_panel.py" line="261"/>
         <source>Share or update the project</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="260"/>
+        <location filename="../ui/shared_projects_panel.py" line="262"/>
         <source>Member</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="260"/>
+        <location filename="../ui/shared_projects_panel.py" line="262"/>
         <source>Role</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="263"/>
+        <location filename="../ui/shared_projects_panel.py" line="265"/>
         <source>Editable member roster</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="264"/>
+        <location filename="../ui/shared_projects_panel.py" line="266"/>
         <source>Shared member list</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5977,9 +6030,9 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
         <location filename="../ui/timelapse_controls.py" line="422"/>
         <source>%n frame(s) were dropped because the edits they recorded were undone and replaced.</source>
         <extracomment>A Document -&gt; RGBA ``ndarray`` renderer (e.g. wrapping ``blend.composite_stack``), injected by the host rather than authored here (S11 — no domain/composite maths in this widget). Returns the currently active document for a bound ``QUndoStack`` (S11 — this widget reads it, it never derives it). Emitted with the current frame count after a record / load / reset. Emitted with one reconstructed RGBA ``ndarray`` per displayed frame, whichever substrate served it (in-session or a loaded payload). Emitted ``True`` while document edits must be refused (playing or paused mid-sequence), ``False`` once playback stops or completes. Emitted with the number of frames dropped by a discarded branch (REQ-P9-UI-021), once per occurrence. The per-recording identity half (REQ-P9-LOGIC-022; plan §10.1) — one :mod:`secrets` draw, minted once per recording (here, and again on every :meth:`reset`). Never an adversarial-strength token (``TIMELAPSE_RECORDING_ID_BYTES``&apos; own docstring): it only has to not collide, and it is paid for on every frame. The monotone ordinal half — only ever ``+= 1``, never reset, rewound, or derived from ``len(session.frames)``: every rewrite path rebuilds the frames *tuple*, and a counter living inside it would rewind with it (plan §10.1). The id of the document this session was recorded against (REQ-P9-UI-020) — ``None`` until the first frame is recorded. The id of the document currently bound (the active tab). stack index -&gt; the FrameId minted the last time that index was reached forward (plan §10.2). On every forward index change to ``i``, every entry with key ``&gt;= i`` is evicted **before** any new mint — an event-time observation, exact because nothing has been reused yet, never a resolution-time inference from a count. Its value set is both the surviving-identity set passed to :func:`~pixelart_creator.logic.timelapse.drop_discarded` and the live HISTORY extent handed to :class:`~pixelart_creator.ui.timelapse_playback.History_Document_Provider`. Set by :meth:`load_reopened_recording` when reviewing a loaded, cross-session payload rather than the live in-session history. ``True`` only while this widget is itself driving the bound ``QUndoStack`` through a provider (a historical render or a save&apos;s payload snapshot pass) — every ``indexChanged`` this causes is this widget&apos;s own bookkeeping, never a user commit, and must not be recorded or misread as a discard boundary (D1 fix; see ``_render_all``/``_build_payload_tables``).</extracomment>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%n frame was dropped because the edit it recorded was undone and replaced.</numerusform>
+            <numerusform>%n frames were dropped because the edits they recorded were undone and replaced.</numerusform>
         </translation>
     </message>
     <message>
@@ -6213,63 +6266,63 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Timeline_Grid_View</name>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="555"/>
+        <location filename="../ui/timeline_grid_view.py" line="553"/>
         <source>Toggle Cel Visibility</source>
         <extracomment>Emitted with the frame index a selection (of any kind) settled on (REQ-P5-UI-023). Pushes no command. Emitted with the ``layer_id`` a cell/row-header selection settled on (REQ-P5-UI-023). Pushes no command. Emitted with the frame index the cursor is scrubbing over during a body drag away from any occupied cell (REQ-P5-UI-025). Pushes no command. Emitted when a Ctrl+right-click removal was refused because the target document has only one frame left (D-22). ``Document._ensure_frame_removable`` is the single, unconditional owner of that invariant; this view asks the bound document itself (``len(document.frames)``) rather than keeping a second, independently-maintained notion of &quot;removable&quot; — so the two can never drift apart. Pushes no command; the gesture stays inert.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="591"/>
+        <location filename="../ui/timeline_grid_view.py" line="589"/>
         <source>Create Cel Here</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="593"/>
+        <location filename="../ui/timeline_grid_view.py" line="591"/>
         <source>Create a new drawing on this track in this frame</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="611"/>
+        <location filename="../ui/timeline_grid_view.py" line="609"/>
         <source>Create Cel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="644"/>
+        <location filename="../ui/timeline_grid_view.py" line="642"/>
         <source>Remove Frame</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="668"/>
+        <location filename="../ui/timeline_grid_view.py" line="666"/>
         <source>Reorder Frame</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="818"/>
+        <location filename="../ui/timeline_grid_view.py" line="816"/>
         <source>Copy Cel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="826"/>
+        <location filename="../ui/timeline_grid_view.py" line="824"/>
         <source>Move Cel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="853"/>
+        <location filename="../ui/timeline_grid_view.py" line="851"/>
         <source>Timeline grid</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="856"/>
+        <location filename="../ui/timeline_grid_view.py" line="854"/>
         <source>Frames as columns, layer tracks as rows; drag a header to reorder, drag a drawing to move it (hold Ctrl to copy), or open the context menu on an empty cell to create a cel there</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="861"/>
+        <location filename="../ui/timeline_grid_view.py" line="859"/>
         <source>Frame headers</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="862"/>
+        <location filename="../ui/timeline_grid_view.py" line="860"/>
         <source>Layer track headers</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6389,7 +6442,7 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>User_Guide_Dialog</name>
     <message>
-        <location filename="../ui/user_guide.py" line="461"/>
+        <location filename="../ui/user_guide.py" line="499"/>
         <source>Could not load this topic:
 
 %1</source>
@@ -6397,45 +6450,45 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="515"/>
+        <location filename="../ui/user_guide.py" line="553"/>
         <source>The User Guide content could not be loaded:
 
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="518"/>
+        <location filename="../ui/user_guide.py" line="556"/>
         <source>The User Guide content could not be loaded.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="610"/>
-        <location filename="../ui/user_guide.py" line="611"/>
+        <location filename="../ui/user_guide.py" line="649"/>
+        <location filename="../ui/user_guide.py" line="650"/>
         <source>User Guide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="612"/>
+        <location filename="../ui/user_guide.py" line="651"/>
         <source>Search the guide…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="613"/>
+        <location filename="../ui/user_guide.py" line="652"/>
         <source>Search the guide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="614"/>
+        <location filename="../ui/user_guide.py" line="653"/>
         <source>Guide contents</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="615"/>
+        <location filename="../ui/user_guide.py" line="654"/>
         <source>Search results</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="616"/>
+        <location filename="../ui/user_guide.py" line="655"/>
         <source>Guide content</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6526,93 +6579,96 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
         <extracomment>Column order of the version tree (presentation-only layout, not a domain value). QSS role-selector property (never a hard-coded colour): the status label carries the computed :class:`SyncState` as a dynamic property so BOTH themes can style it by role (``QLabel[syncState=&quot;diverged&quot;]`` etc.) — see D-13.</extracomment>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <location filename="../ui/version_history_browser.py" line="173"/>
-        <source>Version %1 — %2 bytes (created marker %3).</source>
-        <translation type="unfinished"></translation>
+    <message numerus="yes">
+        <location filename="../ui/version_history_browser.py" line="174"/>
+        <source>Version %1 — %n bytes (created marker %3).</source>
+        <translation>
+            <numerusform>Version %1 — %n byte (created marker %3).</numerusform>
+            <numerusform>Version %1 — %n bytes (created marker %3).</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="184"/>
+        <location filename="../ui/version_history_browser.py" line="185"/>
         <source>Up to date with the cloud.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="186"/>
+        <location filename="../ui/version_history_browser.py" line="187"/>
         <source>Local changes have not been saved to the cloud yet.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="188"/>
+        <location filename="../ui/version_history_browser.py" line="189"/>
         <source>A newer version exists in the cloud.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="189"/>
+        <location filename="../ui/version_history_browser.py" line="190"/>
         <source>Local and cloud history have diverged.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="194"/>
+        <location filename="../ui/version_history_browser.py" line="195"/>
         <source>Cloud Version History</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="197"/>
+        <location filename="../ui/version_history_browser.py" line="198"/>
         <source>Prior cloud saves, oldest first. Restoring opens the chosen version in a new tab — your current work is not overwritten.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="202"/>
+        <location filename="../ui/version_history_browser.py" line="203"/>
         <source>Cloud sync status</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="205"/>
+        <location filename="../ui/version_history_browser.py" line="206"/>
         <source>Version</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="206"/>
+        <location filename="../ui/version_history_browser.py" line="207"/>
         <source>Marker</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="207"/>
+        <location filename="../ui/version_history_browser.py" line="208"/>
         <source>Size (bytes)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="208"/>
+        <location filename="../ui/version_history_browser.py" line="209"/>
         <source>Pinned</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="209"/>
+        <location filename="../ui/version_history_browser.py" line="210"/>
         <source>Parent</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="212"/>
+        <location filename="../ui/version_history_browser.py" line="213"/>
         <source>Yes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="213"/>
+        <location filename="../ui/version_history_browser.py" line="214"/>
         <source>No</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="221"/>
+        <location filename="../ui/version_history_browser.py" line="222"/>
         <source>Restore</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="222"/>
+        <location filename="../ui/version_history_browser.py" line="223"/>
         <source>Cloud version list</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/version_history_browser.py" line="223"/>
+        <location filename="../ui/version_history_browser.py" line="224"/>
         <source>Restore selected version</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6823,13 +6879,16 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 %2 ms</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <location filename="../ui/timeline_grid_view.py" line="332"/>
-        <source>Frame %1, %2 milliseconds</source>
-        <translation type="unfinished"></translation>
+    <message numerus="yes">
+        <location filename="../ui/timeline_grid_view.py" line="331"/>
+        <source>Frame %1, %n milliseconds</source>
+        <translation>
+            <numerusform>Frame %1, %n millisecond</numerusform>
+            <numerusform>Frame %1, %n milliseconds</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../ui/timeline_grid_view.py" line="343"/>
+        <location filename="../ui/timeline_grid_view.py" line="341"/>
         <source>Track %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6871,13 +6930,13 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>theme</name>
     <message>
-        <location filename="../ui/theme.py" line="149"/>
+        <location filename="../ui/theme.py" line="155"/>
         <source>unknown style: %1</source>
         <extracomment>%1 is the internal style name that could not be found.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/theme.py" line="154"/>
+        <location filename="../ui/theme.py" line="160"/>
         <source>unknown theme: %1</source>
         <translation type="unfinished"></translation>
     </message>

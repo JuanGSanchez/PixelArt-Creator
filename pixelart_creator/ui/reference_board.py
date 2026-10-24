@@ -317,8 +317,10 @@ class Reference_Board(QWidget):
             QMessageBox.warning(
                 self,
                 self.tr("Reference board full"),
-                self.tr("The board already holds the maximum of {0} images.").format(
-                    MAX_REFERENCE_IMAGES
+                self.tr(
+                    "The board already holds the maximum of %n images.",
+                    "",
+                    MAX_REFERENCE_IMAGES,
                 ),
             )
             return None
