@@ -760,6 +760,33 @@ jobs:
             --timeout=120 --timeout-method=thread --durations=15 \
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 
+      - name: Print the font-cache measurements (font family chain, per-OS prints)
+        # The main pytest step above runs this module too, but a passing test's
+        # output is not shown there, so the per-OS measurements the module
+        # prints (the `[tag-verdict]` lines: which style-strategy flags each
+        # operating system keeps, the cache capacity, whether two font lists
+        # share one tail) never reach the log. `-rP` adds the captured output
+        # of every PASSED test to the summary, which is the whole purpose of
+        # this second, narrower run. The prints are information about the
+        # operating system; the assertions of the cases that make them are what
+        # gate.
+        #
+        # A GATING step like any other: its exit status is pytest's own, with no
+        # `continue-on-error` and no `|| true`. A selection that matches no test
+        # exits 5 and fails the step, so a rename that stops the selection from
+        # matching cannot leave this green while printing nothing. No `-n`: one
+        # process keeps the prints in order. Same offscreen environment as the
+        # main step (job-level QT_QPA_PLATFORM), its own --basetemp under the
+        # leg's CI temp root, and the same per-test timeout options.
+        env:
+          PIXELART_REQUIRE_FALLBACK_FONT: ${{ runner.os == 'Linux' && '1' || '' }}
+        run: |
+          python -m pytest -rP -p no:cacheprovider \
+            -k "chain_tag or share_one_tail" \
+            --basetemp="${CI_TEMP_ROOT}/pytest-font-cache" \
+            --timeout=120 --timeout-method=thread \
+            testing/suites/ui/test_font_family_chain_mechanism.py
+
       - name: Coverage gate — client package (>=90 line / >=80 branch, S13)
         if: runner.os == 'Linux'
         # SCOPE (made explicit): this gate reads the coverage.xml produced by the
