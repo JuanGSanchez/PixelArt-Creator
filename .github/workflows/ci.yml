@@ -295,6 +295,19 @@ jobs:
       # fonts-dejavu-core: a bare Ubuntu runner ships no system font, so the
       # application font's fallback behaviour could not be exercised there at
       # all; installing one gives the font tests a real fallback face to find.
+      # fonts-noto-cjk: the CJK probe font. DejaVu has no Han, Hangul or kana,
+      # so without a face that does, the interface languages written in those
+      # scripts could never be seen falling back to an operating-system font on
+      # this leg: the fontconfig lookup would find nothing. The package is Noto
+      # Sans/Serif CJK (SIL OFL), one set covering all three scripts, in Ubuntu
+      # `main` for the runner's release (noble, 1:20230817+repack1-3), so it
+      # needs no extra repository. It is a PROBE, not a requirement of the
+      # product: the application ships its own faces and a user's system
+      # supplies whatever else it has. Because it makes the system CJK lookup
+      # succeed, a test that must prove the application's own family list does
+      # the drawing has to hide system fonts from fontconfig, or register every
+      # family it judges; a green result that depends on this package alone
+      # proves nothing about the list.
       - name: Install Qt runtime OS libraries (Ubuntu)
         if: runner.os == 'Linux'
         run: |
@@ -303,7 +316,7 @@ jobs:
             libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
-            fonts-dejavu-core
+            fonts-dejavu-core fonts-noto-cjk
 
       - name: Install project (runtime + dev) from manifest
         # -c constraints.txt: reproducibility lock — pins the full
