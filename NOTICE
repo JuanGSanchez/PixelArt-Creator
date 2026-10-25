@@ -24,8 +24,8 @@ This product bundles two works that are licensed separately from the Apache Lice
   - Nifen Art CJK JP, Nifen Art CJK SC and Nifen Art CJK KR (each in Regular
     and Bold) -- the second face of the same pixel typeface, which the
     application uses for the Han characters and the Hangul syllables that
-    Nifen Art does not hold. Every glyph is an original drawing made for this
-    project, or is composed of such drawings; no third-party design is
+    Nifen Art does not hold. Every character is an original drawing made for
+    this project, or is composed of such drawings; no third-party design is
     included. Copyright 2026 JuanGSanchez; licensed under the SIL Open Font
     License, Version 1.1 (https://openfontlicense.org), with the Reserved Font
     Name "Nifen Art". The licence text ships in pixelart_creator/fonts/OFL.txt,
