@@ -176,6 +176,7 @@ exclude = ["testing*", "scripts*", "docs*", "sync_backend*", "web_viewer*"]
 pixelart_creator = [
     "userguide_content/**/*.md",
     "userguide_content/*.json",
+    "userguide_content/content/*/*.json",
     "i18n/*.qm",
     "i18n/*.ts",
     "icons/tools/*.svg",
