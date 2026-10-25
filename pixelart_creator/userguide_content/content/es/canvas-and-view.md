@@ -50,7 +50,7 @@ fácil confundir un cuadro del tablero con un píxel.
 La **cuadrícula de píxeles** te ayuda a colocar píxeles con precisión, y está
 **activada de forma predeterminada** en un documento nuevo.
 
-- **Alternar la cuadrícula** desde los controles de vista. Es una superposición
+- **Alternar la cuadrícula** con **Ver ▸ Mostrar cuadrícula**. Es una superposición
   dibujada encima de la obra — nunca pasa a formar parte de tus píxeles y nunca
   aparece en una exportación.
 - La cuadrícula es legible en ambos temas, claro y oscuro, dibujada para que se lea
@@ -65,7 +65,7 @@ La **cuadrícula de píxeles** te ayuda a colocar píxeles con precisión, y est
 
 ## Ajuste (snapping)
 
-Con el ajuste a la cuadrícula activado, las herramientas se alinean a la cuadrícula
+Con **Ver ▸ Ajustar a la cuadrícula** activado, las herramientas se alinean a la cuadrícula
 para que un trazo caiga exactamente en los límites de los píxeles. Esto es
 especialmente útil al colocar tiles o alinear formas. El ajuste es un ajuste de
 vista/herramienta, no una edición.

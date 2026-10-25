@@ -62,8 +62,8 @@ documento activo.
 
 !!! note "¿Qué formatos de paleta?"
     El conjunto de paletas de la v1 son los formatos de **texto** habituales
-    en pixel art: `.gpl`, `.hex` y `.pal`. Los formatos binarios de Adobe
-    **`.aco`** y **`.aseprite`** **aún no están soportados** — están
+    en pixel art: `.gpl`, `.hex` y `.pal`. Los formatos binarios
+    **`.aco`** (Adobe) y **`.aseprite`** (el formato propio de Aseprite) **aún no están soportados** — están
     planificados para una iteración posterior y se informan como un tipo no
     compatible por ahora.
 

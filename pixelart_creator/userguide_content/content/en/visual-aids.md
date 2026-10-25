@@ -17,7 +17,7 @@ this layer.
 
 ## Real-size preview
 
-The **Real-Size Preview** window shows your document at its **true physical size**, so you
+The **Real-Size Preview** panel shows your document at its **true physical size**, so you
 can judge how a sprite or icon will actually look.
 
 - The preview scales the document by exactly `screen_DPI / doc_PPI` — the document's
@@ -64,7 +64,7 @@ isometric standard).
   way).
 - Grid spacing (tile width) is bounded to **2–1024 px**.
 - **True-isometric** (about `1.732:1`) is configurable if you prefer it over 2:1 dimetric.
-- Open **Configure Isometric Grid** from **Aids**, right next to the isometric toggle, to
+- Open **Visual Aids ▸ Configure Isometric Grid…**, right next to the isometric toggle, to
   set exact values instead of eyeballing them: **tile width**, the **W:H tile ratio**
   (2.0 for dimetric, ~1.732 for true-isometric), and the lattice **origin** (X, Y). Click
   **OK** to apply the new configuration to the active tab, or **Cancel** to leave it
@@ -115,14 +115,14 @@ next to a fit-to-window overview.
 
 ## Timelapse recording
 
-Open the **Timelapse** dock from **Aids -> Timelapse** to record and play back a
+Open the **Timelapse** dock from **Visual Aids ▸ Timelapse** to record and play back a
 timelapse of your edit session, sharing how a piece was made.
 
 - Press **Record** to start capturing; the recorder appends **one frame per committed
   edit** (each undoable command). Press it again to stop.
 - Recording is **view/session state** — it is never undoable and never changes the
   document.
-- **Save Timelapse / Open Timelapse** the session as a `.pixtimelapse` file. The session
+- **Save… / Open…** the session as a `.pixtimelapse` file (the buttons open the **Save Timelapse** and **Open Timelapse** file dialogs). The session
   stores an ordered manifest of **command references, not pixels**, so it stays small and
   **replays deterministically**: the same recorded session replayed twice yields the
   **identical** frame sequence. Sessions are bounded to **4096** frames; a malformed file

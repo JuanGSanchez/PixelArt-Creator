@@ -21,7 +21,7 @@ activas desde un panel como desde un script de compilación.
 
 ## Macros — grabar, reproducir y el formato `.pixmacro`
 
-El **panel de macros** graba las operaciones que realizas y las reproduce
+El panel **Macros** graba las operaciones que realizas y las reproduce
 después:
 
 - **Grabar** captura las *entradas* de cada paso — los parámetros resueltos y,
@@ -137,16 +137,16 @@ vez** como un **único comando transaccional y reversible**:
 
 ## Generación procedural
 
-El **panel de procgen** rellena una región con contenido generado. Hay cinco
+El panel **Generación procedural** rellena una región con contenido generado. Hay cinco
 generadores propios y **con semilla** disponibles:
 
 | Generador | Qué produce |
 | --- | --- |
 | **Ruido de valor** | Ruido de cuadrícula de valor con semilla. |
 | **Ruido de gradiente** | Ruido de gradiente estilo Perlin. |
-| **OpenSimplex** | Un ruido de gradiente de cuadrícula simplex libre de patentes. |
-| **Celular** | Patrones de autómata celular. |
-| **Degradado con dithering** | Un degradado suave de dos colores con dithering aplicado sobre la paleta del documento (usando el dithering ordenado / de Floyd–Steinberg incluido), así que el resultado permanece dentro de la paleta. |
+| **Ruido OpenSimplex** | Un ruido de gradiente de cuadrícula simplex libre de patentes. |
+| **Autómatas celulares** | Patrones de autómata celular. |
+| **Gradiente con tramado** | Un degradado suave de dos colores con tramado aplicado sobre la paleta del documento (usando el tramado ordenado / de Floyd–Steinberg incluido), así que el resultado permanece dentro de la paleta. |
 
 Cada generador es una **función pura y determinista de sus parámetros y
 semilla** — la misma semilla y los mismos parámetros siempre producen la

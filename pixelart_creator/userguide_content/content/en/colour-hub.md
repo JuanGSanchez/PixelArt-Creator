@@ -18,9 +18,9 @@ picking anything, so you can back out and keep painting exactly where you were.
 
 **Favourites** is your personal, persisted list of go-to colours.
 
-- **Add** the current colour to Favourites so it is one click away next time.
+- **Add to Favourites** keeps the current colour in Favourites so it is one click away next time.
 - **Remove** a colour you no longer need.
-- **Reorder** favourites so the colours you use most sit first.
+- **Move Up** / **Move Down** reorder favourites so the colours you use most sit first.
 
 Your Favourites list **persists** between sessions, so your working palette is always
 there when you reopen the app. Clicking a favourite applies it immediately.
@@ -50,7 +50,7 @@ without guessing:
 | **Triadic** | Two hues 120° away (±120°) — balanced and vibrant. |
 | **Tetradic** | Three hues at evenly spaced 90° intervals — four-colour, high contrast. |
 | **Split-complementary** | The two hues either side of the complement (±150°). |
-| **Shade / tint ramps** | Darker (shade) and lighter (tint) steps of your colour. |
+| **Shades** and **Tints** | **Shades** are darker steps of your colour; **Tints** are lighter steps. The **Shade Ramps** panel (open it from the **Palette** menu) lays out whole ramps of shades, tints and tones for your active colour, each with an **Add to Palette** button. |
 
 The wheel itself and the harmony swatches — the small circles arranged around it —
 behave differently, and the two are worth keeping apart:
@@ -71,9 +71,9 @@ recompute live as you move around the wheel.
 
 ## Applying and saving
 
-- **Apply** — the picked colour becomes active immediately and the active swatch
+- **Picking** — the picked colour becomes active immediately and the active swatch
   reflects it, so your next stroke uses it.
-- **Save to Favourites** — keep a colour you like for later.
+- **Add to Favourites** — keep a colour you like for later.
 
 ## Palettes and indexed documents
 
@@ -86,4 +86,4 @@ undoable step.
 ## Related topics
 
 - Paint with your chosen colour on [the canvas](canvas-and-view.md).
-- Manage colour mode (RGBA vs indexed) in [The layer panel](layers.md).
+- Convert between RGBA and indexed colour mode from the **Palette** menu (**Convert to Indexed** / **Convert to RGBA**); see [The layer panel](layers.md) for what it does to the layers.

@@ -6,7 +6,7 @@
 Bienvenido a **PixelArt Creator** — un estudio de pixel art de escritorio con un lienzo
 de 8K, un sistema de capas no destructivo, una línea de tiempo de animación, un editor
 de tileset/mapa de tiles, una canalización de exportación, automatización y scripting,
-ayudas visuales y colaboración en la nube. Este tema te orienta en el espacio de
+ayudas visuales y herramientas de nube y colaboración. Este tema te orienta en el espacio de
 trabajo para que el resto de la guía tenga sentido.
 
 ## La ventana principal de un vistazo
@@ -18,9 +18,9 @@ trabajo para que el resto de la guía tenga sentido.
 - **Lienzo** (centro) — la superficie de dibujo. Consulta
   [El lienzo: zoom, desplazamiento y la cuadrícula](canvas-and-view.md).
 - **Paneles acoplables** (laterales) — el panel de capas, la línea de tiempo de
-  animación, el panel de tileset y los paneles de nube/colaboración. La mayoría de los
+  animación, el panel Editor de tileset y los paneles de nube/colaboración. La mayoría de los
   paneles se pueden activar o desactivar y organizar según tu flujo de trabajo.
-- **Barra de estado** (abajo) — lecturas de coordenadas, indicadores de progreso para
+- **Barra de estado** (abajo) — indicadores de progreso para
   trabajo en segundo plano (exportación, preparación de reproducción, guardados en la
   nube) y avisos breves.
 
@@ -99,16 +99,16 @@ mencione un atajo de teclado enlaza de vuelta a esta tabla en vez de repetirla.
 | Atajo | Acción |
 | --- | --- |
 | **A** | Herramienta Lápiz — pintura de píxeles a mano alzada. |
-| **Shift+A** | Herramienta selector de color (cuentagotas) — toma un color del lienzo. |
+| **Shift+A** | Herramienta Selector de color — toma un color del lienzo. |
 | **Q** | Herramienta Borrador. |
 | **S** | Herramienta Rectángulo. |
 | **W** | Herramienta Línea. |
 | **Shift+W** | Herramienta Elipse. |
-| **D** | Herramienta selectora rectangular (marquesina). |
+| **D** | Herramienta Selección rectangular. |
 | **F** | Herramienta Relleno. |
 | **Shift+F** | Herramienta Dither. |
-| **E** | Herramienta selectora Lazo (a mano alzada). |
-| **Shift+E** | Herramienta selectora de varita mágica (color contiguo). |
+| **E** | Herramienta Selección de lazo (a mano alzada). |
+| **Shift+E** | Herramienta Varita mágica (color contiguo). |
 | **Shift+S** | Alterna **Formas rellenas**, compartido por las herramientas rectángulo y elipse. |
 | **Shift+R** | Alterna **Pixel Perfect** en la vista de lienzo de cada pestaña abierta. |
 | **Shift+Q** | Vacía el contenido de la selección. |
@@ -154,5 +154,7 @@ exactamente qué cubre.
   través de la [exportación](export-and-pipeline.md).
 - Acelera el trabajo repetitivo con
   [automatización y scripting](automation-and-scripting.md), dibuja con más precisión
-  con las [ayudas visuales](visual-aids.md), y trabaja en equipo a través de la
-  [nube](cloud-and-collaboration.md) y la [colaboración](collaboration.md).
+  con las [ayudas visuales](visual-aids.md), y prueba las herramientas de
+  [nube](cloud-and-collaboration.md) y [colaboración](collaboration.md) dentro de la sesión
+  (en esta versión se ejecutan en memoria dentro de una sola ventana de la aplicación y no
+  te conectan con otras ventanas ni con otras personas).

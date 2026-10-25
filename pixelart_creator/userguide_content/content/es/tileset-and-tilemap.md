@@ -17,7 +17,7 @@ Tiled. Cada edición del mapa es un único paso de deshacer.
 ## Tilesets
 
 Un **tileset** es una imagen de origen dividida en una cuadrícula de tiles del mismo
-tamaño. Abre el panel de **Tileset** y añade un tileset desde una imagen; el
+tamaño. Abre el panel **Editor de tileset** (menú Mapa de tiles) y añade un tileset con **Mapa de tiles ▸ Nuevo tileset desde imagen…**; el
 divisor lee la imagen con tu **tamaño de tile**, un **margen** exterior opcional y un
 **espaciado** entre tiles, e indexa los tiles resultantes de izquierda a derecha, de
 arriba a abajo, empezando en `0`.
@@ -37,23 +37,23 @@ arriba a abajo, empezando en `0`.
 ## Pintar un mapa de tiles
 
 El **lienzo de mapa de tiles** pinta celdas sobre una cuadrícula, un tile por celda.
-Elige un tile en el panel de tileset y luego usa las herramientas del mapa:
+Elige un tile en el panel Editor de tileset y luego usa las herramientas del mapa:
 
 | Herramienta | Qué hace |
 | --- | --- |
-| **Sello** | Coloca el tile seleccionado en la celda bajo el cursor (arrastra para pintar una tirada). |
-| **Borrar** | Vacía la celda de vuelta a vacío. |
-| **Rellenar** | Rellena por inundación la región contigua de celdas similares bajo el cursor con el tile seleccionado. |
+| **Herramienta de sello** | Coloca el tile seleccionado en la celda bajo el cursor (arrastra para pintar una tirada). |
+| **Borrador de tiles** | Vacía la celda de vuelta a vacío. |
+| **Relleno rectangular** | Rellena con el tile seleccionado un rectángulo que arrastras. |
 
-Cada estampado/borrado/relleno es **exactamente un paso de deshacer**, y deshacer
+Cada estampado/borrado/relleno rectangular es **exactamente un paso de deshacer**, y deshacer
 restaura las celdas exactas anteriores. Pintar cerca de tiles existentes vuelve a
 resolver el vecindario de **auto-tile** para que los bordes se mantengan correctos
 mientras dibujas.
 
 ### Voltear y rotar
 
-Antes de estampar, puedes transformar el tile: **volteo H** y **volteo V** lo
-reflejan, y **rotar** lo hace avanzar por las cuatro orientaciones en ángulo recto. La
+Antes de estampar, puedes transformar el tile: **Voltear sello horizontalmente** y **Voltear sello verticalmente** lo
+reflejan, y **Rotar sello 90° a la derecha** lo hace avanzar por las cuatro orientaciones en ángulo recto. La
 transformación se almacena por celda colocada como un indicador compacto en el tile,
 así que voltear o rotar un tile no cuesta **entradas adicionales de tileset** y se
 persiste sin pérdidas. Las transformaciones se componen en un orden fijo (diagonal,
@@ -68,8 +68,8 @@ de esquina implicada por el borde, dando 47 tiles distintos). Pinta un único ti
 "terreno" y el mapa completa automáticamente los bordes rectos y las esquinas
 interiores y exteriores correctas.
 
-- **Alterna** el auto-tile con su control. Cuando está **activado**, pintar, borrar o
-  rellenar una celda también vuelve a resolver la celda afectada **y sus vecinos**
+- **Alterna** el auto-tile con la casilla **Auto-tile (Blob-47)** del panel Capas del mapa de tiles. Cuando está **activado**, pintar, borrar o
+  rellenar un rectángulo también vuelve a resolver las celdas afectadas **y sus vecinos**
   para que el borde sea siempre coherente — todo dentro del mismo paso de deshacer.
 - La resolución es una **función pura y determinista** de la colocación lógica y los
   vecinos, así que el mismo mapa siempre renderiza los mismos tiles de visualización.
@@ -80,7 +80,7 @@ interiores y exteriores correctas.
 
 Un mapa de tiles es **multicapa** — apila una capa de fondo, de terreno y de detalle,
 cada una pintada de forma independiente — usando el mismo modelo de capas que el
-resto del editor (añadir/eliminar/reordenar/mostrar-ocultar). El panel de **Capas de
+resto del editor (añadir/eliminar/reordenar/mostrar-ocultar). El panel **Capas del
 mapa de tiles** gestiona la pila; las capas visibles se componen juntas para su
 visualización.
 
@@ -104,11 +104,9 @@ un ciclo completo conserva las capas, cada celda y sus indicadores de volteo/
 rotación, y cualquier campo que el editor no use él mismo (los campos desconocidos se
 pasan literalmente).
 
-- **Exportar** escribe un mapa Tiled válido. Los datos de capa se emiten como
-  **CSV por defecto**; también se admite **base64** (crudo/comprimido con
-  gzip/zlib).
-- **Importar** lee mapas Tiled escritos con datos de capa en CSV o base64 (vacío/
-  gzip/zlib), y acepta una referencia externa de tileset **`.tsj`**.
+- **Exportar** (**Mapa de tiles ▸ Exportar JSON de Tiled…**) escribe un mapa Tiled válido con los datos de capa como **CSV**.
+- **Importar** (**Mapa de tiles ▸ Importar JSON de Tiled…**) lee mapas Tiled escritos con CSV o con datos de capa en base64
+  sin comprimir, gzip o zlib, y acepta una referencia externa de tileset **`.tsj`**.
 - Importar es una carga **defensiva y validada**: un mapa malformado, una capa
   comprimida con **zstd** no soportada, o una referencia externa de tileset
   **`.tsx`** se rechazan con un error claro en lugar de un fallo o una corrupción
@@ -130,18 +128,17 @@ simplemente cargan sin tilesets ni mapas de tiles.
 
 ## Deshacer, rehacer y lo que *no* es deshacible
 
-- **Deshacible (un paso cada uno):** estampar/borrar/rellenar una celda (incluyendo
+- **Deshacible (un paso cada uno):** estampar/borrar una celda, rellenar un área con un rectángulo (incluyendo
   cualquier nueva resolución de vecinos de auto-tile), y añadir/eliminar/reordenar/
   mostrar-ocultar una capa de mapa de tiles.
-- **No deshacible (estado de vista):** seleccionar un tile en el panel de tileset,
+- **No deshacible (estado de vista):** seleccionar un tile en el panel Editor de tileset,
   alternar el auto-tile, elegir un volteo/rotación para el siguiente estampado, y
   desplazarse por el mapa.
 
 ## Lo que no se cubre
 
 - Los datos de capa Tiled comprimidos con **zstd** y los tilesets externos
-  **`.tsx`** en la importación — rechazados por diseño (la importación acepta CSV/
-  base64 gzip/zlib y `.tsj` externo); usa una de las codificaciones soportadas.
+  **`.tsx`** en la importación — rechazados por diseño (la importación acepta CSV y base64 (sin comprimir, gzip o zlib) y `.tsj` externo); usa una de las codificaciones soportadas.
 - Los conjuntos de tiles **Wang de esquina/borde** más allá del esquema Blob-47 de
   8 vecinos — el auto-tile está diseñado para extenderse a ellos en una fase
   posterior.

@@ -3,10 +3,11 @@
 La biblioteca de recursos mantiene un **historial de versiones de solo
 adición** para cada recurso, te permite **reutilizar un recurso compartido en
 varios proyectos sin duplicar sus bytes**, **exportar e importar** los
-recursos que un proyecto referencia como un paquete autocontenido, y — cuando
-conectas un proveedor de nube — **respaldar los blobs compartidos en la
-nube** sin dejar de funcionar completamente sin conexión. Se accede a todo
-esto desde el menú **&Biblioteca**, junto a los paneles de
+recursos que un proyecto referencia como un paquete autocontenido, y
+funcionar **completamente sin conexión**; en la capa de almacenamiento existe un
+almacén de blobs respaldado en la nube, pero esta versión no lo conecta (consulta
+*Respaldo opcional en la nube*). Se accede a todo
+esto desde el menú **Biblioteca**, junto a los paneles de
 [biblioteca de recursos](asset-library.md) y
 [dependencias](dependency-graph.md) sobre los que se construyen.
 
@@ -43,7 +44,7 @@ una **revisión** al historial de ese recurso:
 
 ### Explorar y restaurar revisiones
 
-El **explorador de versiones de recursos** lista las revisiones del recurso
+El panel **Versiones del recurso** lista las revisiones del recurso
 seleccionado en orden. Selecciona una para **inspeccionarla**, o
 **restaura** una revisión anterior para volverla la actual de nuevo.
 
@@ -113,15 +114,18 @@ completo en otra máquina; **importar** trae de vuelta ese paquete.
 
 ## Respaldo opcional en la nube
 
-Por defecto la biblioteca almacena cada blob **localmente** y funciona
-**completamente sin conexión**. Si conectas un proveedor de nube (consulta
-[Nube, versiones y recuperación](cloud.md)), la biblioteca también puede
-**respaldar los blobs compartidos en la nube** — sin cambiar nada de cómo la
-usas:
+La biblioteca almacena cada blob **localmente** y funciona
+**completamente sin conexión**. La capa de almacenamiento también contiene un almacén
+de blobs opcional respaldado en la nube, pero **esta versión no lo conecta**: la
+biblioteca siempre es local, y ni **Nube ▸ Conectar…** (que conecta el adaptador
+integrado, en memoria, descrito en
+[Nube: guardado, versiones y guardado automático](cloud.md)) ni ningún proveedor
+real lo activa. Una vez conectado, el respaldo en la nube está diseñado para
+funcionar sin cambiar nada de cómo usas la biblioteca:
 
-- **Local por defecto.** Cuando no hay ningún proveedor conectado, la
-  biblioteca es puramente local; la nube se activa **solo cuando un
-  proveedor está conectado**. Nada del versionado, la reutilización o la
+- **Local primero.** En esta versión la biblioteca es puramente local; el
+  respaldo en la nube se activaría **solo cuando hay un proveedor
+  conectado**. Nada del versionado, la reutilización o la
   exportación requiere la nube.
 - **La misma interfaz de almacenamiento.** El respaldo en la nube es
   simplemente otro backend de blobs detrás de la misma interfaz que usa el

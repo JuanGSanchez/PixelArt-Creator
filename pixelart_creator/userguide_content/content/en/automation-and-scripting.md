@@ -16,7 +16,7 @@ script.
 
 ## Macros — record, replay, and the `.pixmacro` format
 
-The **macro panel** records the operations you perform and replays them later:
+The **Macros** panel records the operations you perform and replays them later:
 
 - **Record** captures the *inputs* of each step — the resolved parameters and, for any
   random step, the **seed** — not a pixel diff. What you record is what a replay re-runs.
@@ -55,7 +55,7 @@ passed to `eval`/`exec`.
 
 ## Running scripts
 
-The **script runner** dispatches a list of operations through the same trusted dispatcher
+The **Script Runner** dispatches a list of operations through the same trusted dispatcher
 a macro replay uses. A script run is **atomic**:
 
 1. **Every operation is validated up front** — all op-names are checked against the
@@ -69,24 +69,27 @@ Because the run is one grouped command, a completed script is a **single undo st
 
 ## Plugins — the manager, consent, and the trust model
 
-The **plugin manager** discovers, enables and disables plugins. Plugins extend the editor
+The **Plugins** panel discovers, enables and disables plugins. Plugins extend the editor
 by registering new DSL operations — and only that.
 
 - **Discovery is inert.** Installed plugins are *found* (via standard Python entry points)
   but **nothing is loaded or run** just because it is installed. You see them listed; they
   do nothing until you act.
 - **Deny by default, with explicit consent.** Enabling a plugin hands it a **capability
-  object whose only surface is the DSL command registry**. A plugin cannot `eval`/`exec`,
-  cannot reach the UI, and cannot touch the filesystem or network outside the capabilities
-  you grant it — **every capability it did not declare and you did not grant is denied**.
-  Its operations are namespaced under the plugin, so a plugin cannot shadow a built-in
-  operation.
+  object whose only surface is the DSL command registry**. Through that object a plugin
+  can do nothing it did not declare — **every capability it did not declare is denied**.
+  You approve a plugin's declared permissions as a whole, or you do not enable it.
+  Enabling a plugin in the panel does not itself run the plugin's code. Its operations are
+  namespaced under the plugin, so a plugin cannot shadow a built-in operation. This limits
+  what the plugin can do *through the app*; it does not restrict the plugin's own code (see
+  the note below).
 - **Disable is clean.** Disabling a plugin unregisters the operations it added.
 
 > **Trusted-with-consent, this release.** Because *loading* a Python plugin is itself
 > running code, the in-process capability model is **advisory-strength** — adequate for
 > **trusted extensions you install and consent to**, not for arbitrary code from an
-> untrusted marketplace. Only install plugins you trust.
+> untrusted marketplace. A plugin's code runs in the same process as the editor, with the
+> same access to your files and network as the app itself. Only install plugins you trust.
 
 ## Batch recolour
 
@@ -103,15 +106,15 @@ transactional, reversible command**:
 
 ## Procedural generation
 
-The **procgen panel** fills a region with generated content. Five in-house, **seeded**
+The **Procedural Generation** panel fills a region with generated content. Five in-house, **seeded**
 generators are available:
 
 | Generator | What it produces |
 | --- | --- |
 | **Value noise** | Seeded value-grid noise. |
 | **Gradient noise** | Perlin-style gradient noise. |
-| **OpenSimplex** | A patent-safe simplex-grid gradient noise. |
-| **Cellular** | Cellular-automata patterns. |
+| **OpenSimplex noise** | A patent-safe simplex-grid gradient noise. |
+| **Cellular automata** | Cellular-automata patterns. |
 | **Dithered gradient** | A smooth two-colour gradient dithered onto the document palette, so the result stays within the palette. |
 
 Every generator is a **pure, deterministic function of its parameters and seed** — the

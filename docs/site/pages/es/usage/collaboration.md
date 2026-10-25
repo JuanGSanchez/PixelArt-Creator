@@ -1,40 +1,48 @@
 # Proyectos compartidos: miembros, comentarios y presencia
 
-La **capa de colaboración** permite que varias personas trabajen alrededor de un
-proyecto en la nube. Puedes **compartir un proyecto** con un conjunto de miembros
-con nombre (cada uno con un rol), dejar y resolver **comentarios** en él, y ver
-**quién más está presente**. Todo aquí se construye sobre la
-[capa de nube](cloud.md) — un proyecto compartido sigue siendo un `.pixproj`
-almacenado a través del mismo puerto de nube agnóstico de proveedor; compartir
-añade una **lista de miembros**, un **hilo de comentarios** y un canal de
-**presencia efímera** por encima.
+En esta versión la **capa de colaboración** funciona dentro de una sola ventana
+de la aplicación en ejecución, enteramente en memoria (consulta la nota de
+abajo). En esa ventana puedes **compartir un proyecto** con un conjunto de
+miembros con nombre (cada uno con un rol), dejar y resolver **comentarios** en
+él, ver **quién más está presente**, y **ramificar** la obra como código fuente.
+**La coedición en tiempo real y los cursores en vivo no pueden conectarse en
+esta versión**: **Iniciar tiempo real…** no te une a nada, así que las secciones
+de tiempo real de abajo describen cómo funciona una sesión una vez que existe
+una conexión. La capa está pensada para que varias personas trabajen alrededor
+de un proyecto en la nube y sigue el diseño agnóstico de proveedor de la
+[capa de nube](cloud.md), pero en esta versión los paneles no guardan ni abren
+ningún `.pixproj`; compartir añade una **lista de miembros**, un **hilo de
+comentarios** y un canal de **presencia efímera**.
 
 Todo en esta guía se maneja desde el menú **Nube** de la barra de menús, que
 lleva los paneles acoplables de colaboración y los controles de tiempo real
 debajo de la entrada de historial de versiones:
 
-- **Nube → Proyectos compartidos** — comparte el proyecto actual y gestiona sus
+- **Nube ▸ Proyectos compartidos** — comparte el proyecto actual y gestiona sus
   miembros.
-- **Nube → Comentarios** — añade, encadena y resuelve comentarios.
-- **Nube → Presencia** — ve quién está presente y anúnciate.
-- **Nube → Iniciar tiempo real… / Detener tiempo real** — únete o abandona una
-  sesión de coedición en vivo en el documento activo.
-- **Nube → Mostrar cursores en vivo** — alterna en tu lienzo los cursores en
-  vivo de otros editores.
-- **Nube → Ramificación** — abre el panel de ramificar / cambiar / fusionar.
+- **Nube ▸ Comentarios** — añade, encadena y resuelve comentarios.
+- **Nube ▸ Presencia** — ve quién está presente y anúnciate.
+- **Nube ▸ Iniciar tiempo real… / Detener tiempo real** — únete o abandona una
+  sesión de coedición en vivo en el documento activo (no se puede conectar en
+  esta versión).
+- **Nube ▸ Mostrar cursores en vivo** — alterna en tu lienzo los cursores en
+  vivo de otros editores (no hay ninguno que mostrar hasta que una sesión en tiempo
+  real pueda conectarse).
+- **Nube ▸ Ramificación** — abre el panel de ramificar / cambiar / fusionar.
 
 Cada entrada de panel acoplable alterna el panel correspondiente, así que puedes
 organizarlos junto a los paneles de capas, línea de tiempo y demás paneles de
 trabajo.
 
-!!! success "Lo que se entrega en esta versión — la Fase 10 está completa"
-    Esta versión completa el hito de nube y colaboración. Además de proyectos
-    compartidos, comentarios, presencia y convergencia determinista (Fragmento B),
-    añade **coedición en tiempo real**, **cursores y selecciones en vivo de otros
-    editores**, y **ramificación de arte al estilo git** (Fragmento C), servidos
-    por un **backend de sincronización en tiempo real** dedicado. Conectar un
-    proveedor **real** de Google Drive / OneDrive / Dropbox se cubre en la
-    [guía de la nube](cloud.md).
+!!! success "Lo que funciona en esta versión, y lo que no se conecta"
+    Lo que funciona: proyectos compartidos, comentarios, presencia y convergencia
+    determinista (Fragmento B), y la **ramificación de arte al estilo git**
+    (Fragmento C), todo dentro de una sola ventana de la aplicación. Lo que no se
+    conecta: la **coedición en tiempo real** y los **cursores y selecciones en
+    vivo de otros editores** (Fragmento C), que dependen de un **backend de
+    sincronización en tiempo real** dedicado al que la aplicación no tiene
+    conexión en esta versión; tampoco se conectan los proveedores reales de
+    Google Drive / OneDrive / Dropbox. La [guía de la nube](cloud.md) explica los proveedores.
 
 !!! note "Un único puerto agnóstico de proveedor — sin dependencia de uno solo"
     Igual que los guardados en la nube de un solo usuario, la colaboración nunca
@@ -42,17 +50,20 @@ trabajo.
     comentarios y la presencia pasan todos por la **misma interfaz agnóstica de
     proveedor** (la familia del *puerto de nube*), así que la aplicación se
     comporta de forma idéntica sin importar qué proveedor la respalde. En esta
-    versión, esa interfaz la sirve un adaptador integrado, en memoria —
-    determinista, sin red ni cuenta — así que todo el flujo de colaboración está
-    completo y es utilizable de principio a fin. El respaldo con un proveedor real
-    llegará detrás de la misma interfaz más adelante, sin cambio alguno en los
-    pasos siguientes. Consulta **ADR-0026** (diseño del puerto de nube) y
-    **ADR-0028** (convergencia híbrida) para la arquitectura.
+    versión, esa interfaz la sirve un adaptador integrado, en memoria, que existe
+    solo dentro de la única ventana de la aplicación que lo creó — determinista,
+    sin red ni cuenta. Cada ventana tiene el suyo, así que una segunda ventana de
+    la aplicación no puede ver los proyectos compartidos, comentarios ni la
+    presencia de la primera. No se envía nada a nadie y todo desaparece al cerrar
+    la aplicación, así que tampoco puede verlos la copia de otra persona. El
+    respaldo con un proveedor real llegaría detrás de la misma interfaz más
+    adelante. Consulta **ADR-0026** (diseño del puerto de nube) y **ADR-0028**
+    (convergencia híbrida) para la arquitectura.
 
 ## Compartir un proyecto y gestionar la lista de miembros
 
 Compartir un proyecto se hace desde el panel de **Proyectos compartidos**. Ábrelo
-con **Nube → Proyectos compartidos**.
+con **Nube ▸ Proyectos compartidos**.
 
 ### Crear (compartir) un proyecto
 
@@ -64,7 +75,7 @@ con **Nube → Proyectos compartidos**.
     - Escribe un **id de miembro** (el identificador del colaborador) en el
       campo *Id de miembro a invitar*.
     - Elige un **rol** en el selector de rol — **Propietario**, **Editor** o
-      **Visor**.
+      **Visualizador**.
     - Haz clic en **Añadir miembro**. El miembro aparece en la lista editable
       *Lista para compartir* con su rol.
 3. Repite el paso 2 para cada colaborador. Para quitar a alguien antes de
@@ -79,7 +90,7 @@ con **Nube → Proyectos compartidos**.
 
     - **Propietario** — control total del proyecto compartido.
     - **Editor** — puede editar la obra y comentar.
-    - **Visor** — puede ver y comentar.
+    - **Visualizador** — puede ver y comentar.
 
     Los roles se almacenan con la membresía y se muestran tanto en la lista
     editable como en la lista de miembros actuales.
@@ -110,7 +121,7 @@ mismo proyecto a la vez.
 ## Añadir y ver comentarios
 
 Los comentarios viven en el proyecto compartido activo. Abre el hilo con
-**Nube → Comentarios**.
+**Nube ▸ Comentarios**.
 
 ### Leer el hilo
 
@@ -166,11 +177,11 @@ comentario ha sido atendido; el comentario permanece en el hilo como registro.
 ## Ver quién está presente
 
 El panel de **Presencia** muestra una lista en vivo de *quién está presente
-actualmente* en el proyecto compartido activo. Ábrelo con **Nube → Presencia**.
+actualmente* en el proyecto compartido activo. Ábrelo con **Nube ▸ Presencia**.
 
 1. Introduce **tu id de miembro** en el campo de presencia.
 2. Haz clic en **Unirse** para anunciarte como presente. Tu id aparece en la
-   lista de *Miembros presentes*.
+   lista de miembros presentes.
 3. Haz clic en **Salir** para borrar tu presencia cuando te alejes.
 
 !!! note "La presencia es efímera"
@@ -217,11 +228,21 @@ ediciones viajan a través de un **backend de sincronización en tiempo real**
 dedicado (consulta la [nota para operadores](#nota-para-operadores-ejecutar-el-backend-de-sincronizacion)
 más abajo).
 
+!!! warning "No se puede conectar en esta versión"
+    La aplicación de escritorio no tiene configurada ninguna conexión en tiempo
+    real, así que **Nube ▸ Iniciar tiempo real…** (después de introducir un id de
+    miembro) no te une a ninguna sesión: la barra de estado muestra un mensaje en
+    inglés que termina en "no real-time transport configured" (no hay transporte
+    en tiempo real configurado); no aparecen otros participantes ni cursores en
+    vivo, ni hay reproducción del historial para quien se une tarde. Los pasos
+    siguientes describen cómo funciona una sesión una vez que existe una
+    conexión.
+
 ### Iniciar o unirse a una sesión
 
 1. Abre el documento que quieres coeditar (un proyecto compartido o cualquier
    pestaña abierta).
-2. Elige **Nube → Iniciar tiempo real…**.
+2. Elige **Nube ▸ Iniciar tiempo real…**.
 3. Introduce **tu id de miembro** cuando se te pida — así es como te ven tus
    pares (y así se etiqueta tu cursor en vivo). La aplicación se une al relé en
    tiempo real del documento.
@@ -233,14 +254,14 @@ sesión. Si hay un proyecto compartido abierto, la sesión se asocia a ese
 proyecto compartido para que todo el equipo converja en un solo documento; si
 no, se asocia a tu documento local.
 
-Para salir, elige **Nube → Detener tiempo real**. Puedes volver a conectarte
+Para salir, elige **Nube ▸ Detener tiempo real**. Puedes volver a conectarte
 en cualquier momento; salir borra los cursores en vivo.
 
 !!! note "Quien se une tarde se pone al día automáticamente"
     El backend de sincronización **persiste** el flujo de ediciones de cada
     documento, así que un colaborador que se une después de que empezara la
     edición **reproduce el historial acumulado** y llega al mismo documento
-    converged que todos los demás.
+    convergido que todos los demás.
 
 !!! note "El tiempo real se mantiene receptivo"
     Las ediciones entrantes se reciben en un trabajador en segundo plano y se
@@ -258,7 +279,7 @@ en cualquier momento; salir borra los cursores en vivo.
 
 ### Cursores y selección en vivo
 
-Mientras el tiempo real está conectado, **Nube → Mostrar cursores en vivo**
+Mientras el tiempo real está conectado, **Nube ▸ Mostrar cursores en vivo**
 alterna una superposición que dibuja los cursores y selecciones de otros
 editores en tu lienzo, cada uno etiquetado con el id de miembro del par
 (`REQ-P10-UI-013`).
@@ -275,7 +296,7 @@ independiente de ediciones, trabajar en ella sin perturbar la línea principal,
 y **fusionarla** de vuelta **sin resolución manual de conflictos** — el mismo
 modelo CRDT / último-en-escribir-gana que impulsa la convergencia fusiona las
 dos líneas automáticamente (`REQ-P10-UI-012`, `REQ-P10-LOGIC-007`). Abre el
-panel con **Nube → Ramificación**.
+panel con **Nube ▸ Ramificación**.
 
 ### Crear una rama
 
@@ -302,21 +323,15 @@ fija de tiles de píxeles, de modo que incluso un cambio de un solo píxel se
 muestra como un tile completo — además de una advertencia de supervisión
 cuando corresponde. El diálogo no realiza ninguna fusión por sí mismo; desde
 él eliges **Continuar a la fusión** (que ejecuta la misma fusión descrita a
-continuación) o **Close** para volver sin fusionar.
-
-!!! note "Nota de idioma"
-    "Close" aparece todavía en inglés en la interfaz en español: el catálogo
-    de traducción (`i18n/pixelart_es.ts`) aún no incluye esta cadena del
-    diálogo de diferencias. Esto es un hueco de localización, no un error de
-    esta página.
+continuación) o **Cerrar** para volver sin fusionar.
 
 ### Fusionar una rama
 
 Selecciona una rama de funcionalidad y haz clic en **Fusionar**. Sus ediciones
 se fusionan en la **rama principal** sin conflictos, el documento fusionado se
 carga en la pestaña activa, y el panel muestra una línea de **resultado de
-fusión** resumiendo lo que ocurrió (por ejemplo, *"Merged branch 'experiment'
-(12 edits) into mainline"*).
+fusión** resumiendo lo que ocurrió (por ejemplo, *"Rama «experiment» fusionada
+(12 ediciones) en la principal — sin conflictos."*).
 
 !!! note "Las fusiones nunca te piden resolver un conflicto"
     Como el modelo subyacente es conmutativo y determinista, una fusión
@@ -348,8 +363,12 @@ habla con los clientes solo a través del transporte en tiempo real.
   un equipo distribuido es una **cuestión de despliegue** (host, puerto y
   gestión de procesos), separada de la aplicación de escritorio; su
   arquitectura y ubicación se registran en **ADR-0027**.
+- La aplicación de escritorio de esta versión no tiene configurada ninguna conexión
+  con un backend de sincronización, así que la aplicación todavía no puede
+  conectarse a un backend en ejecución.
 
 La arquitectura de tiempo real y ramificación se registra en **ADR-0027**
 (ubicación del backend de sincronización + tiempo real) y **ADR-0028** (modelo
-de convergencia híbrido + ramificación al estilo git); conectar un proveedor
-de nube real se cubre en la [guía de la nube](cloud.md).
+de convergencia híbrido + ramificación al estilo git); la [guía de la nube](cloud.md) explica
+que los proveedores de nube reales no se pueden elegir desde el menú Nube en
+esta versión.

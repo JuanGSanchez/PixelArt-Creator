@@ -17,8 +17,8 @@ organízalos con **etiquetas** libres, y encuentra el correcto rápidamente con
 
 ## Abrir la biblioteca
 
-El menú **Biblioteca** tiene tres alternadores de panel acoplable, cada uno mostrando
-u ocultando un panel:
+El menú **Biblioteca** tiene un alternador de panel acoplable para cada uno de estos
+tres paneles; cada alternador muestra u oculta su panel:
 
 | Entrada de menú | Panel | Para qué sirve |
 | --- | --- | --- |
@@ -80,8 +80,8 @@ completo junto con todo lo que referencia — consulta
 
 ## Explorar el catálogo
 
-El panel de **Biblioteca de recursos** lista el catálogo en tres columnas —
-**nombre**, **tipo** y **etiquetas**. Siempre muestra exactamente lo que contiene el
+El panel de **Biblioteca de recursos** lista el catálogo en cuatro columnas —
+**Nombre**, **Tipo**, **Etiquetas** y **Estado**. Siempre muestra exactamente lo que contiene el
 catálogo: añadir, eliminar o etiquetar un recurso actualiza la lista de inmediato.
 Seleccionar una fila elige ese recurso, que es lo que edita después el panel de
 **Etiquetado de recursos**.
@@ -171,4 +171,4 @@ disponible. Más allá del catálogo, el etiquetado y la búsqueda/filtro anteri
   restaurar), reutilización por referencia (sin copiar) de un recurso compartido
   entre proyectos, exportación/importación de los recursos que un proyecto
   referencia como un paquete autónomo, y respaldo opcional en la nube de los
-  blobs compartidos.
+  blobs compartidos (no conectado en esta versión).

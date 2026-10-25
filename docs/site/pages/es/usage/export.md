@@ -13,7 +13,7 @@ produce los **mismos bytes**.
     La exportación es **determinista**: para un documento de entrada fijo y los
     mismos parámetros, los bytes de salida son idénticos siempre — los fotogramas
     se recorren en orden explícito, el GIF usa una paleta compartida fija con el
-    dithering desactivado, y los codificadores están fijados (sin bloques de
+    tramado desactivado, y los codificadores están fijados (sin bloques de
     marca de tiempo, un nivel de compresión PNG fijado). La interfaz gráfica y la
     CLI usan el **mismo** motor, así que una exportación desde la interfaz y una
     exportación desde la CLI del mismo documento son **idénticas byte a byte**. La
@@ -26,15 +26,16 @@ produce los **mismos bytes**.
   imagen fija.
 - **GIF** exporta la animación: cada fotograma en orden, mostrado durante su
   propia **duración por fotograma** (las duraciones establecidas en la línea de
-  tiempo de animación), con el número de bucles, la disposición de fotogramas y
+  tiempo de animación), con el número de repeticiones, la disposición de fotogramas y
   la transparencia escritos en el archivo. Todos los fotogramas comparten **una
   paleta fija** (una reducción por corte de mediana sobre la animación) y el
-  dithering está **desactivado**, que es lo que mantiene el GIF reproducible byte
+  tramado está **desactivado**, que es lo que mantiene el GIF reproducible byte
   a byte.
 
-!!! tip "Número de bucles del GIF"
-    El indicador `--loop` (CLI) / campo de bucle (diálogo) establece cuántas
-    veces se repite el GIF; **`0` significa bucle infinito**. Déjalo en el valor
+!!! tip "Número de repeticiones del GIF"
+    El indicador `--loop` (CLI) / campo **Número de repeticiones** (diálogo)
+    establece cuántas veces se repite el GIF; **`0` significa repetir
+    indefinidamente**. Déjalo en el valor
     por defecto salvo que necesites un número fijo de reproducciones.
 
 ## Hojas de sprites y atlas de texturas
@@ -64,7 +65,7 @@ rectángulo, tamaño de origen y duración de cada fotograma) más un bloque `me
 que lleva las **etiquetas** de fotograma y las duraciones por fotograma. El JSON
 es **determinista** — las claves están ordenadas, los separadores son fijos y las
 coordenadas son enteros — así que se persiste y compara sin problemas. Actívalo
-con la opción JSON en el diálogo, o `--json` / `--no-json` en la CLI (activado
+con la casilla **Escribir metadatos JSON** del diálogo, o `--json` / `--no-json` en la CLI (activado
 por defecto).
 
 ## Preajustes de motor (Unity / Godot)
@@ -125,7 +126,7 @@ pixelart-export --input PROJECT.pixproj --format FORMAT --output OUT [options]
 | `--preset PRESET` | preajuste de motor: `none` (por defecto), `unity`, `godot`. |
 | `--columns N` | número de columnas de la hoja de sprites. |
 | `--padding N` | relleno entre sprites, en píxeles. |
-| `--loop N` | número de bucles del GIF (`0` = bucle infinito). |
+| `--loop N` | número de repeticiones del GIF (`0` = repetir indefinidamente). |
 | `--tag NAME` | exporta solo el rango de una etiqueta de fotograma con nombre (por defecto: el documento completo). |
 | `--json` / `--no-json` | emite el complemento JSON de la hoja de sprites/atlas (por defecto: activado). |
 

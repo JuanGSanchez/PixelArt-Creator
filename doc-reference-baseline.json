@@ -1,11 +1,5 @@
 [
   {
-    "file": "pixelart_creator/ui/colour_hub_menu.py",
-    "kind": "en-documentation-stale",
-    "line": 284,
-    "value": "Move Down"
-  },
-  {
     "file": "pixelart_creator/ui/script_runner_panel.py",
     "kind": "en-documentation-stale",
     "line": 184,
@@ -16,18 +10,6 @@
     "kind": "en-documentation-stale",
     "line": 5503,
     "value": "Select All"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "en-documentation-stale",
-    "line": 5392,
-    "value": "Shade Ramps"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "en-documentation-stale",
-    "line": 5395,
-    "value": "Tileset Editor"
   },
   {
     "file": "pixelart_creator/ui/reference_board.py",
@@ -74,32 +56,8 @@
   {
     "file": "pixelart_creator/ui/main_window.py",
     "kind": "es-documentation-stale",
-    "line": 5389,
-    "value": "Frame Tags"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "es-documentation-stale",
     "line": 5516,
     "value": "Guides & Rulers"
-  },
-  {
-    "file": "pixelart_creator/ui/reference_board.py",
-    "kind": "es-documentation-stale",
-    "line": 246,
-    "value": "Raise"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "es-documentation-stale",
-    "line": 5417,
-    "value": "Real-Size Preview"
-  },
-  {
-    "file": "pixelart_creator/ui/asset_tagging_panel.py",
-    "kind": "es-documentation-stale",
-    "line": 198,
-    "value": "Remove Tag"
   },
   {
     "file": "pixelart_creator/ui/assistant_dock.py",
@@ -114,34 +72,16 @@
     "value": "Tilemap Canvas"
   },
   {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "es-documentation-stale",
-    "line": 5396,
-    "value": "Tilemap Layers"
-  },
-  {
     "file": "pixelart_creator/ui/reference_board.py",
     "kind": "undocumented-control-label",
     "line": 503,
     "value": "Add Image"
   },
   {
-    "file": "pixelart_creator/ui/layer_panel.py",
-    "kind": "undocumented-control-label",
-    "line": 883,
-    "value": "Add Layer"
-  },
-  {
     "file": "pixelart_creator/ui/plugin_manager_panel.py",
     "kind": "undocumented-control-label",
     "line": 269,
     "value": "Add Manifest"
-  },
-  {
-    "file": "pixelart_creator/ui/layer_panel.py",
-    "kind": "undocumented-control-label",
-    "line": 891,
-    "value": "Add Mask"
   },
   {
     "file": "pixelart_creator/ui/batch_recolour_panel.py",
@@ -168,22 +108,10 @@
     "value": "Add Reference Image"
   },
   {
-    "file": "pixelart_creator/ui/asset_tagging_panel.py",
-    "kind": "undocumented-control-label",
-    "line": 196,
-    "value": "Add Tag"
-  },
-  {
     "file": "pixelart_creator/ui/batch_export_panel.py",
     "kind": "undocumented-control-label",
     "line": 184,
     "value": "Add Target"
-  },
-  {
-    "file": "pixelart_creator/ui/colour_hub_menu.py",
-    "kind": "undocumented-control-label",
-    "line": 644,
-    "value": "Add to Favourites"
   },
   {
     "file": "pixelart_creator/ui/main_window.py",
@@ -196,18 +124,6 @@
     "kind": "undocumented-control-label",
     "line": 291,
     "value": "Apply Batch Recolour"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
-    "line": 5412,
-    "value": "Asset Versions"
-  },
-  {
-    "file": "pixelart_creator/ui/tilemap_layer_panel.py",
-    "kind": "undocumented-control-label",
-    "line": 280,
-    "value": "Auto-tile (Blob-47)"
   },
   {
     "file": "pixelart_creator/ui/real_size_preview_window.py",
@@ -270,52 +186,16 @@
     "value": "Constraints"
   },
   {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
-    "line": 5501,
-    "value": "Convert to RGBA"
-  },
-  {
-    "file": "pixelart_creator/ui/layer_panel.py",
-    "kind": "undocumented-control-label",
-    "line": 885,
-    "value": "Duplicate Layer"
-  },
-  {
-    "file": "pixelart_creator/ui/layer_panel.py",
-    "kind": "undocumented-control-label",
-    "line": 888,
-    "value": "Edit Mask"
-  },
-  {
-    "file": "pixelart_creator/ui/frame_tags_panel.py",
-    "kind": "undocumented-control-label",
-    "line": 381,
-    "value": "Edit Tag"
-  },
-  {
     "file": "pixelart_creator/ui/tileset_editor_panel.py",
     "kind": "undocumented-control-label",
     "line": 191,
     "value": "Edit Tile"
   },
   {
-    "file": "pixelart_creator/ui/onion_skin_controls.py",
-    "kind": "undocumented-control-label",
-    "line": 174,
-    "value": "Enable onion skinning"
-  },
-  {
     "file": "pixelart_creator/ui/palette_editor_panel.py",
     "kind": "undocumented-control-label",
     "line": 279,
     "value": "Export Palette"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
-    "line": 5474,
-    "value": "Export Tiled JSON"
   },
   {
     "file": "pixelart_creator/ui/tilemap_io_actions.py",
@@ -356,18 +236,6 @@
   {
     "file": "pixelart_creator/ui/main_window.py",
     "kind": "undocumented-control-label",
-    "line": 5483,
-    "value": "Flip Stamp Horizontal"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
-    "line": 5484,
-    "value": "Flip Stamp Vertical"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
     "line": 5509,
     "value": "Flip Vertical"
   },
@@ -382,12 +250,6 @@
     "kind": "undocumented-control-label",
     "line": 295,
     "value": "Import Palette"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
-    "line": 5473,
-    "value": "Import Tiled JSON"
   },
   {
     "file": "pixelart_creator/ui/tilemap_io_actions.py",
@@ -414,22 +276,10 @@
     "value": "Load Macro"
   },
   {
-    "file": "pixelart_creator/ui/colour_hub_menu.py",
-    "kind": "undocumented-control-label",
-    "line": 283,
-    "value": "Move Up"
-  },
-  {
     "file": "pixelart_creator/ui/main_window.py",
     "kind": "undocumented-control-label",
     "line": 5472,
     "value": "New Tilemap"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
-    "line": 5471,
-    "value": "New Tileset from Image"
   },
   {
     "file": "pixelart_creator/ui/main_window.py",
@@ -480,22 +330,10 @@
     "value": "Re-slice"
   },
   {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
-    "line": 5479,
-    "value": "Rectangle Fill"
-  },
-  {
     "file": "pixelart_creator/ui/asset_reuse_panel.py",
     "kind": "undocumented-control-label",
     "line": 468,
     "value": "Reference into Project"
-  },
-  {
-    "file": "pixelart_creator/ui/layer_panel.py",
-    "kind": "undocumented-control-label",
-    "line": 884,
-    "value": "Remove Layer"
   },
   {
     "file": "pixelart_creator/ui/canvas_view.py",
@@ -530,12 +368,6 @@
   {
     "file": "pixelart_creator/ui/main_window.py",
     "kind": "undocumented-control-label",
-    "line": 5485,
-    "value": "Rotate Stamp 90\u00b0 CW"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
     "line": 5447,
     "value": "Save As"
   },
@@ -566,18 +398,6 @@
   {
     "file": "pixelart_creator/ui/main_window.py",
     "kind": "undocumented-control-label",
-    "line": 5464,
-    "value": "Show Grid"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
-    "line": 5465,
-    "value": "Snap to Grid"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
     "line": 5385,
     "value": "Symmetry"
   },
@@ -590,19 +410,7 @@
   {
     "file": "pixelart_creator/ui/main_window.py",
     "kind": "undocumented-control-label",
-    "line": 5477,
-    "value": "Tile Eraser"
-  },
-  {
-    "file": "pixelart_creator/ui/main_window.py",
-    "kind": "undocumented-control-label",
     "line": 5467,
     "value": "Tiled Mode"
-  },
-  {
-    "file": "pixelart_creator/ui/export_dialog.py",
-    "kind": "undocumented-control-label",
-    "line": 330,
-    "value": "Write JSON metadata"
   }
 ]

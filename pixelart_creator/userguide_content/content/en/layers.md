@@ -27,10 +27,10 @@ Each layer row exposes:
 
 ## Managing layers
 
-- **Add** — inserts a new empty layer above the active layer.
-- **Remove** — deletes the active layer. Removing the **last** layer of a frame is
+- **Add Layer** — inserts a new empty layer above the active layer.
+- **Remove Layer** — deletes the active layer. Removing the **last** layer of a frame is
   refused.
-- **Duplicate** — inserts a pixel-for-pixel copy, with copied attributes, above the
+- **Duplicate Layer** — inserts a pixel-for-pixel copy, with copied attributes, above the
   source.
 - **Drag-to-reorder** — drag a row to a new position to change z-order; the canvas
   recomposites in the new order. Dragging into or out of a group re-parents the layer.
@@ -50,8 +50,8 @@ group hides its whole subtree. Group nesting is bounded.
 
 Attach a **mask** to a layer to modulate its alpha non-destructively:
 
-1. Add a mask to the selected layer.
-2. Select the mask to make it the paint target — painting now edits the mask buffer,
+1. Choose **Add Mask** for the selected layer.
+2. Turn on **Edit Mask** to make the mask the paint target — painting now edits the mask buffer,
    not the layer's pixels.
 3. Where the mask is 0 the layer is hidden; where it is at maximum the layer is fully
    shown; intermediate values are proportional.
@@ -61,13 +61,13 @@ layer's own pixels. Attaching / removing a mask is undoable.
 
 ## Reference layers
 
-Mark a layer as a **reference** layer to trace over it: it stays visible in the
+Turn on **Reference** to mark a layer as a **reference** layer to trace over it: it stays visible in the
 composite but **rejects painting** (paint tools are no-ops on it), like a
 purpose-declared permanent lock. The flag is reversible.
 
 ## Smart layers
 
-Create a **smart layer** from a selected source layer. The smart layer is a
+Use **Smart Layer** to create a **smart layer** from a selected source layer. The smart layer is a
 non-destructive instance that **mirrors the source's pixels** (read-only) while
 carrying its own opacity, visibility and blend mode. Editing the source updates every
 smart instance on the next recomposite; the smart layer has no independently editable
@@ -85,7 +85,7 @@ prior state of the layer tree.
 The layer stack and blend modes apply to **RGBA** documents. **Indexed** documents are
 single-layer by design — the compositor is RGBA-only.
 
-- Converting a **multi-layer RGBA** document to indexed **flattens the composite into a
+- Converting a **multi-layer RGBA** document to indexed (**Palette ▸ Convert to Indexed**) **flattens the composite into a
   single indexed layer** (per frame). This is undoable: undo restores the full
   multi-layer RGBA tree — groups, masks, opacity, blend modes, references and smart
   links — exactly.

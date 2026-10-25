@@ -56,7 +56,7 @@ palette file and its colours **replace** your active document's palette.
 
 !!! note "Which palette formats?"
     The v1 palette set is the common **text** pixel-art formats: `.gpl`, `.hex`
-    and `.pal`. The binary Adobe formats **`.aco`** and **`.aseprite`** are
+    and `.pal`. The binary formats **`.aco`** (Adobe) and **`.aseprite`** (Aseprite's own format) are
     **not yet supported** — they are planned for a later iteration and are
     reported as an unsupported type for now.
 

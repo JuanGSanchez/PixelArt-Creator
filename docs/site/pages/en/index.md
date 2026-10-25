@@ -47,20 +47,22 @@ canvas system through cloud collaboration and the asset library:
   & rulers with snapping, isometric and perspective grids, a PureRef-style
   reference board, multiple synced views of one document, and reproducible
   timelapse recording — all non-destructive view aids.
-- **[Cloud, versions & recovery](usage/cloud.md)** — connect a cloud provider,
-  save a project to the cloud and open it again from any session, browse a full
-  version history and restore an earlier save, and rely on background autosave
-  with a crash-recovery prompt on restart — all behind one provider-agnostic
-  interface.
+- **[Cloud, versions & autosave](usage/cloud.md)** — connect the built-in cloud
+  adapter, save a project to it and open it again in the same session, browse a
+  version history and restore an earlier save, and get background autosave — all
+  behind one provider-agnostic interface. In this release the adapter is
+  in-memory, so history and autosave last only until you close the app.
 - **[Shared projects & comments](usage/collaboration.md)** — share a project with a
   named member roster (owner / editor / viewer roles), leave and resolve threaded
   comments, and see who else is present, with concurrent edits merged by a
-  deterministic hybrid convergence model — real-time co-editing, other editors'
+  deterministic hybrid convergence model, plus real-time co-editing, other editors'
   live cursors, and git-like art branching (with an optional pre-merge diff
-  review) all ship in this release.
+  review). In this release the panels run in memory inside one app window (another
+  window or another person's copy cannot see them), and real-time co-editing
+  cannot connect.
 - **[Asset library](usage/asset-library.md)** — catalog your sprites, animations,
   tilesets, tilemaps and palettes as named, tagged assets and find them fast with
-  search and filter by name, tag and kind, from the **&Library** menu.
+  search and filter by name, tag and kind, from the **Library** menu.
 - **[Asset dependencies & break detection](usage/dependency-graph.md)** — a queryable
   graph of how assets reference one another (`sprite → animation → tileset → tilemap`)
   and a passive indicator that flags — never blocks — a reference broken by a missing or
@@ -68,8 +70,8 @@ canvas system through cloud collaboration and the asset library:
 - **[Asset versioning & cross-project reuse](usage/asset-versioning.md)** — an
   append-only revision history per asset (inspect and restore, restore adds a new head),
   reference-not-copy reuse of a shared asset across projects, export/import of a project's
-  referenced assets as a self-contained bundle, and optional cloud backing of the shared
-  blobs while still working fully offline.
+  referenced assets as a self-contained bundle, and fully offline operation (the optional cloud backing of the shared
+  blobs is not connected in this release).
 
 ## Version & About
 

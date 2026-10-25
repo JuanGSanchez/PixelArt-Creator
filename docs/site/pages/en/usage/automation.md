@@ -10,14 +10,13 @@ you trigger it from a panel or from a build script.
     Scripting is a **bounded, data-driven command DSL**, not arbitrary Python. An
     automation is a *validated list of operations* (`{name, params, seed}`), never
     a language: there is **no `eval` / `exec` / `compile` / `__import__` of your
-    input anywhere** on this path — there is no interpreter to escape (constitution
-    Article VII, satisfied by construction). A single trusted dispatcher checks
+    input anywhere** on this path — there is no interpreter to escape. A single trusted dispatcher checks
     each operation's name against an **allow-list** and its parameters against a
     declared schema before building the reversible command it maps to.
 
 ## Macros — record, replay, and the `.pixmacro` format
 
-The **macro panel** records the operations you perform and replays them later:
+The **Macros** panel records the operations you perform and replays them later:
 
 - **Record** captures the *inputs* of each step — the resolved parameters and, for
   any random step, the **seed** — not a pixel diff. What you record is what a
@@ -86,11 +85,14 @@ editor by registering new DSL operations — and only that.
   points) but **nothing is loaded or run** just because it is installed. You see
   them listed; they do nothing until you act.
 - **Deny by default, with explicit consent.** Enabling a plugin hands it a
-  **capability object whose only surface is the DSL command registry**. A plugin
-  cannot `eval`/`exec`, cannot reach the UI, and cannot touch the filesystem or
-  network outside the capabilities you grant it — **every capability it did not
-  declare and you did not grant is denied**. Its operations are namespaced under
-  the plugin, so a plugin cannot shadow a built-in operation.
+  **capability object whose only surface is the DSL command registry**. Through
+  that object a plugin can do nothing it did not declare — **every capability it
+  did not declare is denied**. You approve a plugin's declared permissions as a
+  whole, or you do not enable it. Enabling a plugin in the panel does not itself
+  run the plugin's code. Its operations are namespaced under the plugin, so a
+  plugin cannot shadow a built-in operation. This limits what the plugin can do
+  *through the app*; it does not restrict the plugin's own code (see the note
+  below).
 - **Disable is clean.** Disabling a plugin unregisters the operations it added.
 
 !!! warning "Trusted-with-consent, this release"
@@ -98,8 +100,9 @@ editor by registering new DSL operations — and only that.
     capability model is **advisory-strength** — adequate for **trusted extensions
     you install and consent to**, not for arbitrary code from an untrusted
     marketplace. Full OS-level isolation of untrusted third-party plugins is
-    **deferred** to a later phase (constitution Article XI). Only install plugins
-    you trust.
+    **deferred** to a later phase. A plugin's code runs
+    in the same process as the editor, with the same access to your files and
+    network as the app itself. Only install plugins you trust.
 
 ## Batch recolour
 
@@ -117,15 +120,15 @@ editor by registering new DSL operations — and only that.
 
 ## Procedural generation
 
-The **procgen panel** fills a region with generated content. Five in-house,
+The **Procedural Generation** panel fills a region with generated content. Five in-house,
 **seeded** generators are available:
 
 | Generator | What it produces |
 | --- | --- |
 | **Value noise** | Seeded value-grid noise. |
 | **Gradient noise** | Perlin-style gradient noise. |
-| **OpenSimplex** | A patent-safe simplex-grid gradient noise. |
-| **Cellular** | Cellular-automata patterns. |
+| **OpenSimplex noise** | A patent-safe simplex-grid gradient noise. |
+| **Cellular automata** | Cellular-automata patterns. |
 | **Dithered gradient** | A smooth two-colour gradient dithered onto the document palette (using the shipped ordered / Floyd–Steinberg dithering), so the result stays within the palette. |
 
 Every generator is a **pure, deterministic function of its parameters and seed** —
@@ -178,8 +181,8 @@ unreadable input project or macro.
 
 - **Arbitrary Python scripting** — **not supported by design.** Scripting is a
   bounded, allow-listed command DSL, not a general-purpose interpreter; this is a
-  deliberate security boundary (Article VII), not a limitation to be lifted.
+  deliberate security boundary, not a limitation to be lifted.
 - **Untrusted third-party plugin isolation** — **deferred.** Plugins are
   trusted-with-consent for this release; OS-level sandboxing of untrusted
-  marketplace plugins is a later-phase follow-up (Article XI). Install only plugins
+  marketplace plugins is a later-phase follow-up. Install only plugins
   you trust.

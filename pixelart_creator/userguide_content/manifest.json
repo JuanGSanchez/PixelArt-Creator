@@ -142,8 +142,8 @@
           "id": "ai-assistant",
           "title": "The AI assistant: chat to drive the editor",
           "content": "ai-assistant",
-          "keywords": ["ai", "assistant", "chat", "chatbot", "natural language", "prompt", "llm", "model", "provider", "openai", "anthropic", "claude", "gemini", "ollama", "base url", "endpoint", "api key", "keyring", "credential-optional", "model-agnostic", "tiered safety", "reversible", "destructive", "confirm", "undo", "assistant menu", "dock"],
-          "summary": "The in-app, model-agnostic AI assistant: opening the chat dock, configuring a provider (OpenAI-compatible or Anthropic) with a base URL, model and API key stored in the OS keyring, chatting in natural language to drive the workflow over the safe automation layer, and the tiered safety (reversible edits auto-apply and are undoable; destructive actions ask for confirmation)."
+          "keywords": ["ai", "assistant", "chat", "chatbot", "natural language", "prompt", "llm", "model", "provider", "openai", "anthropic", "claude", "gemini", "ollama", "base url", "endpoint url", "endpoint", "api key", "keyring", "credential-optional", "model-agnostic", "tiered safety", "reversible", "destructive", "confirm", "undo", "assistant menu", "help menu", "ai assistant", "configure", "dock"],
+          "summary": "The in-app, model-agnostic AI assistant: opening the chat dock, configuring a provider (OpenAI-compatible or Anthropic) with an endpoint URL, model and API key stored in the OS keyring, chatting in natural language to drive the workflow over the safe automation layer, and the tiered safety (reversible edits auto-apply and are undoable; destructive actions ask for confirmation)."
         }
       ]
     },
@@ -166,17 +166,17 @@
       "topics": [
         {
           "id": "cloud-and-collaboration",
-          "title": "Cloud: save, versions, autosave & recovery",
+          "title": "Cloud: save, versions & autosave",
           "content": "cloud-and-collaboration",
           "keywords": ["cloud", "connect", "provider", "google drive", "onedrive", "dropbox", "save", "open", "version history", "restore", "autosave", "recovery", "oauth"],
-          "summary": "Connecting a cloud provider, saving and opening projects, browsing version history, restoring, and autosave/crash recovery."
+          "summary": "Connecting the built-in cloud adapter, saving and opening projects, browsing version history, restoring, and in-session autosave."
         },
         {
           "id": "collaboration",
           "title": "Shared projects, comments, presence & real-time",
           "content": "collaboration",
           "keywords": ["collaboration", "shared projects", "members", "roles", "comments", "presence", "real-time", "co-editing", "live cursors", "branching", "merge", "convergence"],
-          "summary": "Sharing a project with members, comments, presence, deterministic convergence, real-time co-editing with live cursors, and art branching."
+          "summary": "Sharing a project with members, comments and presence (in memory, inside one app window in this release), deterministic convergence and art branching; real-time co-editing with live cursors cannot connect in this release."
         }
       ]
     },
@@ -195,7 +195,7 @@
           "id": "asset-dependencies",
           "title": "Asset dependencies & break detection",
           "content": "asset-dependencies",
-          "keywords": ["dependency", "dependencies", "dependency graph", "depends on", "referenced by", "reference", "break", "break detection", "broken", "missing", "hash mismatch", "acyclic", "cycle", "graph view", "status"],
+          "keywords": ["dependency", "dependencies", "dependency graph", "depends on", "referenced by", "reference", "break", "break detection", "broken", "missing", "hash mismatch", "missing target", "changed target", "acyclic", "cycle", "graph view", "status"],
           "summary": "The dependency graph — depends-on and referenced-by relations between assets — and the passive break indicator that flags (never blocks) a reference broken by a missing or changed asset."
         },
         {
@@ -203,7 +203,7 @@
           "title": "Asset versioning & cross-project reuse",
           "content": "asset-versioning",
           "keywords": ["version", "versioning", "version history", "revision", "revisions", "append-only", "restore", "inspect", "reuse", "cross-project", "reference-not-copy", "shared", "export", "import", "bundle", "cloud backing", "offline", "content hash", "dedup"],
-          "summary": "Append-only per-asset version history (inspect and restore, where restore adds a new head), reference-not-copy reuse across projects, export/import of a project's referenced assets as a self-contained bundle, and optional cloud backing while still working fully offline."
+          "summary": "Append-only per-asset version history (inspect and restore, where restore adds a new head), reference-not-copy reuse across projects, export/import of a project's referenced assets as a self-contained bundle, and working fully offline (the optional cloud backing is not connected in this release)."
         }
       ]
     }

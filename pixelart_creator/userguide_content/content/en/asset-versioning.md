@@ -2,9 +2,9 @@
 
 The asset library keeps an **append-only version history** for each asset, lets you
 **reuse one shared asset across several projects without duplicating its bytes**,
-**export and import** the assets a project references as a self-contained bundle, and —
-when you connect a cloud provider — **back the shared blobs in the cloud** while still
-working fully offline. These are reached from the **Library** menu, alongside the
+**export and import** the assets a project references as a self-contained bundle, and
+work **fully offline**; a cloud-backed blob store exists in the storage layer, but this
+release does not connect it (see *Optional cloud backing*). These are reached from the **Library** menu, alongside the
 [asset library](asset-library.md) and [dependency](asset-dependencies.md) panels they build
 on.
 
@@ -32,7 +32,7 @@ asset's history:
 
 ### Browsing and restoring revisions
 
-The **Asset Version Browser** lists the selected asset's revisions in order. Select one to
+The **Asset Versions** panel lists the selected asset's revisions in order. Select one to
 **inspect** it, or **restore** a prior revision to make it current again.
 
 > **Restore adds a new revision — it never rewrites history.** Restoring an earlier revision
@@ -75,8 +75,8 @@ Opening a project that references a library asset which has since been edited sh
 
 Cancelling or closing the prompt behaves the same as **Keep the Referenced Version**.
 Ticking **Don't ask again** while choosing either option remembers that choice for future
-edits of this asset, in this project; you can restore the prompt later from **Edit →
-Project confirmations → When a referenced library asset changes**. The choice is saved
+edits of this asset, in this project; you can restore the prompt later from **Edit ▸
+Project confirmations ▸ When a referenced library asset changes**. The choice is saved
 as soon as you make it, whether or not you tick the box — you do not need to save the
 project for it to stick. Leaving **Don't ask again** unticked still applies your answer to
 this edit; the next, different edit of this asset asks again.
@@ -100,12 +100,14 @@ this edit; the next, different edit of this asset asks again.
 
 ## Optional cloud backing
 
-By default the library stores every blob **locally** and works **fully offline**. If you
-connect a cloud provider (see [Cloud, versions & recovery](cloud-and-collaboration.md)), the
-library can also **back the shared blobs in the cloud** — without changing anything about how
-you use it:
+The library stores every blob **locally** and works **fully offline**. The storage layer
+also contains an optional cloud-backed blob store, but **this release does not connect it**:
+the library is always local, and neither **Cloud ▸ Connect…** (which connects the built-in,
+in-memory adapter described in [Cloud: save, versions & autosave](cloud-and-collaboration.md))
+nor any real provider switches it on. Once it is connected, the cloud backing is designed to
+work without changing anything about how you use the library:
 
-- **Local-first.** When no provider is connected, the library is purely local; the cloud is
+- **Local-first.** In this release the library is purely local; the cloud backing would be
   engaged **only when a provider is connected**.
 - **The same storage interface.** Cloud backing is just another blob backend behind the same
   interface the local store uses, so the catalog, revisions and reuse behave identically

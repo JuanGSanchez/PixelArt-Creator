@@ -2,9 +2,9 @@
 
 The asset library keeps an **append-only version history** for each asset, lets you
 **reuse one shared asset across several projects without duplicating its bytes**,
-**export and import** the assets a project references as a self-contained bundle, and —
-when you connect a cloud provider — **back the shared blobs in the cloud** while still
-working fully offline. These are reached from the **&Library** menu, alongside the
+**export and import** the assets a project references as a self-contained bundle, and
+work **fully offline**; a cloud-backed blob store exists in the storage layer, but this
+release does not connect it (see *Optional cloud backing*). These are reached from the **Library** menu, alongside the
 [asset library](asset-library.md) and [dependency](dependency-graph.md) panels they build
 on.
 
@@ -34,7 +34,7 @@ asset's history:
 
 ### Browsing and restoring revisions
 
-The **Asset Version Browser** lists the selected asset's revisions in order. Select one to
+The **Asset Versions** panel lists the selected asset's revisions in order. Select one to
 **inspect** it, or **restore** a prior revision to make it current again.
 
 !!! tip "Restore adds a new revision — it never rewrites history"
@@ -91,11 +91,14 @@ a bundle back in.
 
 ## Optional cloud backing
 
-By default the library stores every blob **locally** and works **fully offline**. If you
-connect a cloud provider (see [Cloud, versions & recovery](cloud.md)), the library can also
-**back the shared blobs in the cloud** — without changing anything about how you use it:
+The library stores every blob **locally** and works **fully offline**. The storage layer
+also contains an optional cloud-backed blob store, but **this release does not connect it**:
+the library is always local, and neither **Cloud ▸ Connect…** (which connects the built-in,
+in-memory adapter described in [Cloud: save, versions & autosave](cloud.md))
+nor any real provider switches it on. Once it is connected, the cloud backing is designed to
+work without changing anything about how you use the library:
 
-- **Local-first.** When no provider is connected, the library is purely local; the cloud is
+- **Local-first.** In this release the library is purely local; the cloud backing would be
   engaged **only when a provider is connected**. Nothing about versioning, reuse or export
   requires the cloud.
 - **The same storage interface.** Cloud backing is just another blob backend behind the same

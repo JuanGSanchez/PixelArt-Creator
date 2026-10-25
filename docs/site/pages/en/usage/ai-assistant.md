@@ -7,21 +7,21 @@ The **AI assistant** lets you drive the editor in **plain language**. You type
 what you want in a chat panel, and the assistant carries it out by running the
 app's **own** operations — the same [automation](automation.md) commands you can
 record, script and batch by hand. It is **model-agnostic**: you point it at any
-AI provider you like and supply your own key (`ADR-0040`, delivered in Phase 14).
+AI provider you like and supply your own key (see **ADR-0040**).
 It is also **entirely optional** — the app is fully usable without ever
 configuring it.
 
 !!! note "The assistant acts through the safe automation layer — nothing new is exposed"
     Every action the assistant takes is an ordinary, allow-listed editor
     operation dispatched through the **same trusted, `eval`-free command layer**
-    that macros and scripts use (constitution Article VII). It cannot run
+    that macros and scripts use. It cannot run
     arbitrary code, reach past that command layer, or invent new powers — a chat
     message is **data**, never a licence to do something the editor cannot
     already do safely.
 
 ## Opening the assistant
 
-Open the chat panel from the **Assistant** menu. It appears as a **dockable
+Open the chat panel from **Help ▸ AI Assistant**. It appears as a **dockable
 panel** you can place beside the canvas, so you can watch the assistant work
 while your artwork stays in view. The panel shows the running conversation —
 your messages, the assistant's replies, and the edits it makes to the document.
@@ -32,18 +32,18 @@ configuring a provider is a one-time step.
 
 ## Configuring a provider and key
 
-Open the provider configuration dialog from the **Assistant** menu. The
+Open the provider configuration dialog with the **Configure…** button in the AI Assistant panel. The
 assistant is **model-agnostic**, so you choose the service and model that suit
 you and enter:
 
 | Field | What to enter |
 | --- | --- |
-| **Provider type** | Either an **OpenAI-compatible** service or **Anthropic**. The OpenAI-compatible option covers a wide range of endpoints (OpenAI itself, Gemini's OpenAI-compatible endpoint, and local runtimes such as Ollama or llama.cpp); the Anthropic option talks to Claude natively. |
-| **Base URL / endpoint** | The service's API endpoint. Point this at a hosted provider or at a local model server on your own machine. |
+| **Provider** | Either an **OpenAI-compatible** service or **Anthropic (Claude)**. The OpenAI-compatible option covers a wide range of endpoints (OpenAI itself, Gemini's OpenAI-compatible endpoint, and local runtimes such as Ollama or llama.cpp); the Anthropic option talks to Claude natively. |
+| **Endpoint URL** | The service's API endpoint. Point this at a hosted provider or at a local model server on your own machine. |
 | **Model** | The model name to use, as named by your chosen provider. |
-| **API key** | Your key for the provider (where the provider requires one — a local model server may not). |
+| **API key** | Your key for the provider. A key must be stored even for a local model server: the assistant counts a provider as configured only when an endpoint and a non-empty key are both saved, and it sends whatever you enter without checking it. If your local server does not check keys, enter any non-empty text it will accept. |
 
-Select **Connect** to make the provider active for the session.
+Select **Save** to store the provider settings.
 
 !!! note "Your key is stored securely — never in your project"
     The API key you enter is handed to the **operating system's secure
@@ -62,7 +62,8 @@ Select **Connect** to make the provider active for the session.
 
 ## Chatting to drive the workflow
 
-With a provider connected, type a request in natural language — for example,
+Once you have saved a provider's settings (an endpoint and an API key kept in
+your keyring), type a request in natural language — for example,
 asking the assistant to recolour a region or to generate some procedural
 content — and send it. The assistant interprets your request, decides which
 editor operations achieve it, and runs them, reporting back in the transcript
@@ -70,7 +71,7 @@ what it did. Because it is driving the **real** editor operations, the results
 are exactly what you would get by performing those steps yourself.
 
 A model round-trip runs on a **background worker**, so the window stays
-responsive while the assistant is thinking; a long request can be cancelled.
+responsive while the assistant is thinking.
 
 ## Tiered safety — reversible auto-runs, destructive asks first
 
@@ -93,7 +94,7 @@ a chat message can talk the editor out of it.
     be cleanly reversible. That means a new or unusual action can never slip
     through and auto-run just because nobody classified it — the reversible
     tier is a small, explicit set, and everything else earns a confirmation
-    prompt (Article VIII: a genuinely destructive operation added later cannot
+    prompt (a genuinely destructive operation added later cannot
     silently auto-run).
 
 ## What the assistant will not do
@@ -121,4 +122,5 @@ in the light and dark themes.
   [automation & extensibility](automation.md) system — macros, scripts, batch
   recolour and procedural generation.
 - Configuring a provider mirrors the credential-optional, keyring-backed
-  pattern used for [cloud storage](cloud.md).
+  pattern of the real providers in the [cloud storage](cloud.md) layer (not
+  selectable from the Cloud menu in this release).
