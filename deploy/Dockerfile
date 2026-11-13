@@ -9,10 +9,10 @@
 # Pillow/pycrdt (the GUI/desktop stack), keeping the image small.
 
 # Base pinned to the project's single parametric source: the repo-root
-# `.python-version` file ("3.13.13"), confirmed on Docker Hub 2026-05-20
-# (research findings on CI Python 3.13.13 pins, Q3). Kept in sync
+# `.python-version` file ("3.14.10"); the tag was confirmed to exist on Docker
+# Hub 2026-11-13 (research findings on the OF9 pin targets, Q1). Kept in sync
 # by scripts/check_python_version.py (exact-patch precision for this site).
-FROM python:3.13.13-slim-bookworm
+FROM python:3.14.10-slim-bookworm
 
 # Fail fast, unbuffered logs (so `docker logs` / journald see the "listening" line).
 ENV PYTHONUNBUFFERED=1 \

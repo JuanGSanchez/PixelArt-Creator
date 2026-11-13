@@ -897,23 +897,29 @@ jobs:
         # fixes/Documentation/Dependency-update), so it is the latest major
         # with no breaking change for a node-version-only usage like this one.
         #
-        # node-version bumped 20 -> 24 (same change): Node 20 ("Iron") reached
-        # its own end-of-life 2026-04-30 (nodejs/Release schedule.json,
-        # checked via the GitHub API), so this step was installing an EOL
-        # runtime to run the web-viewer JS-unit suite. Node 22 ("Jod") is
-        # Maintenance LTS as of this session (maintenance since 2025-10-21);
-        # Node 24 ("Krypton") is the current ACTIVE LTS (Active LTS since
-        # 2025-10-28, maintenance not until 2026-10-20) -- the version this
-        # project should be pinning to. Nothing in web_viewer/tests or this
-        # repository has any reason to stay on 20: the suite is a bare,
-        # framework-free ESM script (grep for "node-version"/"Node 20" across
-        # the tree turns up only this one line) with no lockfile, no bundler,
-        # and no Node-20-specific syntax. Verified before landing: `node
-        # web_viewer/tests/test_viewer_core.mjs` run locally on Node
-        # v24.18.0 -- 11/11 passed, exit 0.
+        # node-version history. Bumped 20 -> 24 on 2026-08-18: Node 20
+        # ("Iron") reached its own end-of-life 2026-04-30 (nodejs/Release
+        # schedule.json, checked via the GitHub API), so this step was
+        # installing an EOL runtime to run the web-viewer JS-unit suite. The
+        # suite is a bare, framework-free ESM script with no lockfile, no
+        # bundler and no Node-20-specific syntax. Verified then: `node
+        # web_viewer/tests/test_viewer_core.mjs` on Node v24.18.0 -- 11/11
+        # passed, exit 0.
+        #
+        # Bumped 24 -> 26 (OF9 environment relocation, together with the
+        # Python 3.14.10 pin). From nodejs/Release schedule.json, read
+        # 2026-11-13: v26 ("Lithium") entered LTS 2026-10-28 and goes to
+        # maintenance 2027-10-20; v24 ("Krypton") went to maintenance
+        # 2026-10-20. So on 2026-11-13 Node 26 is in its LTS phase and Node 24
+        # is in Maintenance. Verified locally: `node
+        # web_viewer/tests/test_viewer_core.mjs` on Node v26.13.1 -- "11/11
+        # passed", "executed 11 tests, 11 passed", exit 0.
+        # NOT yet observed in CI: that "26" resolves under actions/setup-node
+        # v7 on a runner is inferred from the node-versions manifest, not seen
+        # in a run. The first CI run on this change is the observation.
         uses: actions/setup-node@v7
         with:
-          node-version: "24"
+          node-version: "26"
 
       - name: Web-viewer JS-unit tests (node, framework-free)
         if: runner.os == 'Linux'

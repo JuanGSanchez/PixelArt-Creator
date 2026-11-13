@@ -34,8 +34,8 @@ translation, documentation, or task — whichever fits. A template asks for:
 
 ## Development setup
 
-The project targets **Python 3.13 or newer** (the repository pins an exact
-interpreter, 3.13.13, via `.python-version`, which is what CI runs).
+The project targets **Python 3.14 or newer** (the repository pins an exact
+interpreter, 3.14.10, via `.python-version`, which is what CI runs).
 
 Clone the repository and install it with the development extra, which pulls
 in the test and lint toolchain (pytest, black, isort, flake8, mypy,
