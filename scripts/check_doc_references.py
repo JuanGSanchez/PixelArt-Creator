@@ -34,7 +34,7 @@
 # LOCATION: scripts/check_doc_references.py
 # INVOKED BY: CI, as the doc-currency gate; and as a pre-flight check before
 #   publishing CHANGELOG/ADR/site updates.
-# RUNTIME: Python 3.8+ (CPython, stdlib only: ast, argparse, json, os, re,
+# RUNTIME: Python 3.14+ (CPython, stdlib only: ast, argparse, json, os, re,
 #   sys, xml.etree.ElementTree).
 # ENTRYPOINT: python scripts/check_doc_references.py [--root .]
 #             [--allowlist doc-reference-allowlist.json]
@@ -284,7 +284,7 @@ def collect_adr_citations(root, exclude_basenames=None):
         try:
             with open(path, "r", encoding="utf-8", errors="strict") as fh:
                 lines = fh.readlines()
-        except (OSError, UnicodeDecodeError):
+        except OSError, UnicodeDecodeError:
             continue
         rel = os.path.relpath(path, root).replace("\\", "/")
         for i, line in enumerate(lines, start=1):
@@ -627,7 +627,7 @@ def _load_markdown_corpus(dirpath):
                         with open(path, "r", encoding="utf-8") as fh:
                             parts.append(fh.read())
                         count += 1
-                    except (OSError, UnicodeDecodeError):
+                    except OSError, UnicodeDecodeError:
                         continue
     return "\n".join(parts).lower(), count
 

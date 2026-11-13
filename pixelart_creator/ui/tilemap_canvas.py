@@ -471,7 +471,7 @@ class _Tilemap_Scene(QGraphicsScene):
         if signals is not None:
             try:
                 signals.chunkReady.disconnect(self._on_chunk_warmed)
-            except (RuntimeError, TypeError):
+            except RuntimeError, TypeError:
                 # Already disconnected / carrier already torn down — idempotent.
                 pass
             self._warm_signals = None

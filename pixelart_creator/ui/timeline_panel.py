@@ -239,7 +239,7 @@ class Timeline_Panel(QWidget):
                 if not leaves:
                     return QPixmap()
                 image = self._buffer_to_image(leaves[-1].buffer, doc.palette.colors())
-        except (DocumentError, ValueError):
+        except DocumentError, ValueError:
             return QPixmap()
         scaled = image.scaled(
             _THUMBNAIL_EDGE,

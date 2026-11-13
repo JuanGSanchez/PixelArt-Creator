@@ -315,7 +315,7 @@ class Realtime_Client(QObject):
             ):
                 try:
                     signal.disconnect(slot)
-                except (RuntimeError, TypeError):
+                except RuntimeError, TypeError:
                     pass
             self._signals = None
 
