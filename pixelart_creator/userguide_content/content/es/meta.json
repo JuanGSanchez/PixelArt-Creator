@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "locale": "es",
+  "sections": {
+    "app-basics": {"title": "Conceptos básicos de la aplicación"},
+    "canvas-and-view": {"title": "Lienzo y vista"},
+    "colour-hub": {"title": "Centro de color"},
+    "layers": {"title": "Capas"},
+    "selection-and-transform": {"title": "Selección y transformación"},
+    "animation-timeline": {"title": "Línea de tiempo de animación"},
+    "tileset-and-tilemap": {"title": "Editor de tilesets y mapas de tiles"},
+    "export-and-pipeline": {"title": "Exportación y canalización"},
+    "automation-and-scripting": {"title": "Automatización y scripting"},
+    "visual-aids": {"title": "Ayudas visuales"},
+    "cloud-and-collaboration": {"title": "Nube y colaboración"},
+    "asset-library": {"title": "Biblioteca de recursos"}
+  },
+  "topics": {
+    "app-basics": {
+      "title": "Primeros pasos y el espacio de trabajo",
+      "keywords": ["resumen", "interfaz", "espacio de trabajo", "menús", "barra de menús", "primeros pasos", "conceptos básicos", "tema", "modo oscuro", "modo claro", "idioma", "atajos", "teclado", "deshacer", "rehacer", "documentos", "versión", "acerca de"],
+      "summary": "Orientación sobre el espacio de trabajo de PixelArt Creator: la barra de menús, los paneles, los documentos, deshacer/rehacer, los temas, el idioma y los atajos de teclado."
+    },
+    "drag-drop-import": {
+      "title": "Importar arrastrando y soltando",
+      "keywords": ["arrastrar", "soltar", "arrastrar y soltar", "importar", "abrir", "png", "jpg", "gif", "bmp", "pixproj", "paleta", "gpl", "hex", "pal"],
+      "summary": "Arrastra archivos desde el explorador de archivos a la ventana: las imágenes se abren como documentos nuevos, los proyectos se abren y las paletas se cargan en el documento activo."
+    },
+    "multi-canvas": {
+      "title": "Múltiples lienzos (artboards)",
+      "keywords": ["pestañas", "artboards", "múltiples", "lienzos", "documentos", "aislados", "variantes"],
+      "summary": "Trabaja con varios documentos a la vez, cada uno en su propia pestaña aislada, con sus propias capas, paleta e historial de deshacer."
+    },
+    "canvas-and-view": {
+      "title": "El lienzo: zoom, desplazamiento y la cuadrícula",
+      "keywords": ["lienzo", "vista", "zoom", "desplazamiento", "cuadrícula", "8k", "navegar", "ajuste", "pintar", "clic derecho", "vecino más cercano"],
+      "summary": "Trabajar con el lienzo grande de 8K: zoom, desplazamiento, la cuadrícula de píxeles y el ajuste a la cuadrícula, pintar y el menú del clic derecho."
+    },
+    "colour-hub": {
+      "title": "El centro de color al clic derecho",
+      "keywords": ["color", "paleta", "favoritos", "armonía", "rueda", "muestra", "complementario", "análogo", "triádico", "sombra", "tinte", "hsv"],
+      "summary": "El centro de color contextual: favoritos, la rueda de color RGB y armonías de teoría del color en vivo (complementaria, análoga, triádica y más)."
+    },
+    "layers": {
+      "title": "El panel de capas",
+      "keywords": ["capas", "panel de capas", "grupos", "opacidad", "visibilidad", "bloqueo", "máscara", "capa de referencia", "capa inteligente", "no destructivo", "indexado", "reordenar"],
+      "summary": "El sistema de capas no destructivo: capas, grupos, opacidad, visibilidad, bloqueos, máscaras, capas de referencia e inteligentes, y conversión del modo de color."
+    },
+    "blend-modes": {
+      "title": "Modos de fusión",
+      "keywords": ["modos de fusión", "normal", "multiplicar", "trama", "superponer", "oscurecer", "aclarar", "sobreexponer color", "subexponer color", "luz fuerte", "luz suave", "diferencia", "exclusión", "composición"],
+      "summary": "Los doce modos de fusión y cómo se compone la pila de capas de abajo arriba."
+    },
+    "selection-and-transform": {
+      "title": "Selección y movimiento/copia flotante",
+      "keywords": ["selección", "transformar", "mover", "copiar", "escalar", "rotar", "selección flotante", "lazo", "varita mágica", "rectángulo", "ctrl", "añadir", "restar"],
+      "summary": "Crear selecciones y transformarlas: la vista previa flotante de mover/copiar, los gestos de añadir/restar, confirmar y cancelar."
+    },
+    "animation-timeline": {
+      "title": "La línea de tiempo de animación",
+      "keywords": ["animación", "línea de tiempo", "fotogramas", "papel cebolla", "reproducción", "bucle", "ping-pong", "etiquetas", "duración", "fps", "recorrer"],
+      "summary": "La línea de tiempo de animación: gestión de fotogramas, duración por fotograma, modos de reproducción, papel cebolla y etiquetas de fotogramas con nombre."
+    },
+    "tileset-and-tilemap": {
+      "title": "Tilesets, mapas de tiles y auto-tile",
+      "keywords": ["tileset", "mapa de tiles", "tiles", "autotile", "blob-47", "diseño de niveles", "sello", "relleno", "voltear", "rotar", "tiled", "json", "mapa infinito", "chunks"],
+      "summary": "Dividir una imagen en un tileset, pintar un mapa de tiles infinito de varias capas, bordes con auto-tile e importación y exportación de JSON de Tiled."
+    },
+    "export-and-pipeline": {
+      "title": "Exportación y canalización",
+      "keywords": ["exportar", "hoja de sprites", "png", "gif", "atlas", "canalización", "lote", "unity", "godot", "preajuste", "json", "cli", "pixelart-export", "reproducible byte a byte"],
+      "summary": "Exportar tu trabajo: PNG, GIF animado, hojas de sprites, atlas de texturas, metadatos JSON, preajustes de Unity/Godot, exportación por lotes y la CLI."
+    },
+    "automation-and-scripting": {
+      "title": "Automatización, macros, scripting y complementos",
+      "keywords": ["automatización", "scripting", "macro", "pixmacro", "recolor por lotes", "complementos", "procedural", "procgen", "ruido", "cli", "pixelart-run", "determinista", "semilla"],
+      "summary": "Automatizar tareas: grabar y reproducir macros, el DSL de scripting, complementos, recolor por lotes, generación procedural y la CLI."
+    },
+    "ai-assistant": {
+      "title": "El asistente de IA: chatea para manejar el editor",
+      "keywords": ["ia", "inteligencia artificial", "asistente", "chat", "chatbot", "lenguaje natural", "prompt", "llm", "modelo", "proveedor", "openai", "anthropic", "claude", "gemini", "ollama", "url base", "url del punto de conexión", "endpoint", "clave de api", "llavero", "credencial opcional", "agnóstico del modelo", "seguridad por niveles", "reversible", "destructivo", "confirmar", "deshacer", "menú del asistente", "menú ayuda", "asistente de ia", "configurar", "panel acoplable"],
+      "summary": "El asistente de IA integrado y agnóstico del modelo: abrir el panel de chat, configurar un proveedor (compatible con OpenAI o Anthropic) con una URL del punto de conexión, un modelo y una clave de API guardada en el llavero del sistema operativo, chatear en lenguaje natural para manejar el flujo de trabajo mediante la capa de automatización segura, y la seguridad por niveles (las ediciones reversibles se aplican solas y se pueden deshacer; las acciones destructivas piden confirmación)."
+    },
+    "visual-aids": {
+      "title": "Ayudas visuales y experiencia de usuario",
+      "keywords": ["cuadrículas", "guías", "reglas", "vista previa a tamaño real", "panel de referencia", "timelapse", "multivista", "isométrico", "perspectiva", "punto de fuga", "ajuste", "ppi"],
+      "summary": "Ayudas visuales no destructivas: vista previa a tamaño real, guías y reglas, cuadrículas isométricas y en perspectiva, panel de referencia, multivista y timelapse."
+    },
+    "cloud-and-collaboration": {
+      "title": "Nube: guardado, versiones y guardado automático",
+      "keywords": ["nube", "conectar", "proveedor", "google drive", "onedrive", "dropbox", "guardar", "abrir", "historial de versiones", "restaurar", "guardado automático", "recuperación", "oauth"],
+      "summary": "Conectar el adaptador de nube integrado, guardar y abrir proyectos, consultar el historial de versiones, restaurar y usar el guardado automático dentro de la sesión."
+    },
+    "collaboration": {
+      "title": "Proyectos compartidos, comentarios, presencia y tiempo real",
+      "keywords": ["colaboración", "proyectos compartidos", "miembros", "roles", "comentarios", "presencia", "tiempo real", "coedición", "cursores en vivo", "ramificación", "fusión", "convergencia"],
+      "summary": "Compartir un proyecto con miembros, comentarios y presencia (en memoria, dentro de una ventana de la aplicación en esta versión), convergencia determinista y ramificación del arte; la coedición en tiempo real con cursores en vivo no puede conectarse en esta versión."
+    },
+    "asset-library": {
+      "title": "La biblioteca de recursos: explorar, etiquetar y buscar",
+      "keywords": ["recurso", "biblioteca de recursos", "catálogo", "etiquetas", "etiquetado", "buscar", "filtrar", "tipo", "sprite", "tileset", "paleta", "direccionable por contenido", "deduplicación", "id estable", "menú biblioteca"],
+      "summary": "Catalogar sprites, animaciones, tilesets, mapas de tiles y paletas como recursos con nombre; etiquetarlos; y encontrarlos por nombre, etiqueta y tipo desde el menú Biblioteca."
+    },
+    "asset-dependencies": {
+      "title": "Dependencias de recursos y detección de roturas",
+      "keywords": ["dependencia", "dependencias", "grafo de dependencias", "depende de", "referenciado por", "referencia", "rotura", "detección de roturas", "roto", "ausente", "hash distinto", "destino faltante", "destino modificado", "acíclico", "ciclo", "vista de grafo", "estado"],
+      "summary": "El grafo de dependencias (relaciones «depende de» y «referenciado por» entre recursos) y el indicador pasivo de roturas, que señala (sin bloquear nunca) una referencia rota por un recurso ausente o modificado."
+    },
+    "asset-versioning": {
+      "title": "Versionado de recursos y reutilización entre proyectos",
+      "keywords": ["versión", "versionado", "historial de versiones", "revisión", "revisiones", "de solo adición", "restaurar", "inspeccionar", "reutilización", "entre proyectos", "referencia en lugar de copia", "compartido", "exportar", "importar", "paquete", "respaldo en la nube", "sin conexión", "hash de contenido", "deduplicación"],
+      "summary": "Historial de versiones de cada recurso en el que solo se añade (inspeccionar y restaurar, donde restaurar añade una nueva revisión a la cabeza), reutilización entre proyectos por referencia y no por copia, exportación e importación de los recursos referenciados de un proyecto como un paquete autónomo, y funcionamiento totalmente sin conexión (el respaldo opcional en la nube no está conectado en esta versión)."
+    }
+  }
+}

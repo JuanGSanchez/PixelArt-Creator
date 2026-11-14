@@ -80,7 +80,7 @@ EXPECTED_LANGUAGE_COUNT = 8
 EIGHT_LANGUAGE_FLOOR_ENFORCED = False
 
 #: Switch for the Spanish ``meta.json`` requirement. ``False`` makes it conditional.
-ES_META_REQUIRED = False
+ES_META_REQUIRED = True
 
 #: The locale whose ``meta.json`` requirement is conditional until its file lands.
 _META_CONDITIONAL_LOCALE = "es"
@@ -838,13 +838,18 @@ class TestOnACopyOfTheRealBundle:
     ) -> None:
         copy = self._copy(tmp_path)
         before = discover_locales(copy)
-        (copy / CONTENT_DIR_NAME / "ru").mkdir()
-        assert "ru" in discover_locales(copy)
+        # A BCP 47 private-use tag (RFC 5646 section 2.2.7): the "x" singleton
+        # can never be a language subtag, so no shipped or future locale
+        # (en es fr de ru ja ko zh_CN or any other ISO code) can collide.
+        fake = "x-test"
+        assert fake not in before
+        (copy / CONTENT_DIR_NAME / fake).mkdir()
+        assert fake in discover_locales(copy)
         report = examine_locale(
-            copy, guide_content.load_manifest(), "ru", len(discover_locales(copy))
+            copy, guide_content.load_manifest(), fake, len(discover_locales(copy))
         )
         assert not report.ok and len(report.missing) == 19
-        assert "ru" in discover_locales(copy)
+        assert fake in discover_locales(copy)
         assert report.languages == len(before) + 1
 
 
@@ -857,7 +862,10 @@ class TestMetaRequirement:
         assert report.meta_state == META_REQUIRED_MISSING
         assert not report.ok
 
-    def test_es_without_meta_is_conditional_and_says_so(self, tmp_path: Path) -> None:
+    def test_es_without_meta_is_conditional_and_says_so(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(_THIS, "ES_META_REQUIRED", False)
         root = _write_tree(
             tmp_path, {"en": {"layers": _EN_PAGE}, "es": {"layers": _TR_PAGE}}
         )
@@ -879,8 +887,9 @@ class TestMetaRequirement:
         assert not report.ok
 
     def test_es_meta_present_is_checked_even_while_conditional(
-        self, tmp_path: Path
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        monkeypatch.setattr(_THIS, "ES_META_REQUIRED", False)
         root = _write_tree(
             tmp_path,
             {"en": {"layers": _EN_PAGE}, "es": {"layers": _TR_PAGE}},
