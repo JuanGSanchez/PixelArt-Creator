@@ -229,7 +229,7 @@ class Cloud_Controller(QObject):
             ):
                 try:
                     signal.disconnect(slot)
-                except (RuntimeError, TypeError):
+                except RuntimeError, TypeError:
                     # Already disconnected / carrier already torn down — idempotent.
                     pass
             self._signals = None

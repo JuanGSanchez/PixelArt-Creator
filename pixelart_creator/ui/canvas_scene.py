@@ -1514,7 +1514,7 @@ class CanvasScene(QGraphicsScene):
             # is a harmless no-op against the now-disconnected carrier.
             try:
                 signals.frameReady.disconnect(self._on_frame_warmed)
-            except (RuntimeError, TypeError):
+            except RuntimeError, TypeError:
                 # Already disconnected / carrier already torn down — idempotent.
                 pass
             self._warm_signals = None
@@ -1612,7 +1612,7 @@ class CanvasScene(QGraphicsScene):
                 tint_prev=self._onion_tint_prev,
                 tint_next=self._onion_tint_next,
             )
-        except (AnimationError, BlendError):
+        except AnimationError, BlendError:
             self._onion_item.clear()
             return
         ordered: List[Tuple[int, QImage]] = [

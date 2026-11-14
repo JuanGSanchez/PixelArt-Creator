@@ -38,14 +38,35 @@ def _controls(qtbot):
     return controls
 
 
+# A parentless QUndoStack holding a command, bound to a Timelapse_Controls (which
+# connects one of its own methods to the stack's signals), crashes natively (access
+# violation, PySide6 6.11.1) when the stack is destroyed from inside the widget's own
+# teardown; Python 3.14 releases a function's locals in reverse order, which exposed
+# it. Unbinding in a finalizer detaches the stack first, and also runs when an
+# assertion fails. Hardening the widget itself is a separate follow-up, after which
+# this fixture can go.
+@pytest.fixture
+def unbind_stack_at_teardown(request):
+    """Return a callable that unbinds ``controls``' undo stack when the test ends."""
+
+    def _register(controls: Timelapse_Controls) -> None:
+        # The closure also keeps the widget alive past the test function's return.
+        request.addfinalizer(lambda: controls.bind_undo_stack(None))
+
+    return _register
+
+
 # --- SC-UI-009-1: recording captures forward commands ----------------------- #
 
 
-def test_sc_ui_009_1_records_one_frame_per_forward_command(qtbot):
+def test_sc_ui_009_1_records_one_frame_per_forward_command(
+    qtbot, unbind_stack_at_teardown
+):
     """SC-UI-009-1: each committed (forward) command records exactly one frame."""
     controls = _controls(qtbot)
     stack = QUndoStack()
     controls.bind_undo_stack(stack)
+    unbind_stack_at_teardown(controls)
     controls._record_button.setChecked(True)  # start recording
     assert controls.is_recording() is True
     stack.push(_NoopCommand())
@@ -53,11 +74,12 @@ def test_sc_ui_009_1_records_one_frame_per_forward_command(qtbot):
     assert controls.frame_count() == 2
 
 
-def test_sc_ui_009_1_undo_does_not_record(qtbot):
+def test_sc_ui_009_1_undo_does_not_record(qtbot, unbind_stack_at_teardown):
     """SC-UI-009-1: an undo (backward move) records no frame."""
     controls = _controls(qtbot)
     stack = QUndoStack()
     controls.bind_undo_stack(stack)
+    unbind_stack_at_teardown(controls)
     controls._record_button.setChecked(True)
     stack.push(_NoopCommand())
     stack.push(_NoopCommand())
@@ -66,11 +88,12 @@ def test_sc_ui_009_1_undo_does_not_record(qtbot):
     assert controls.frame_count() == 2
 
 
-def test_sc_ui_009_1_recording_pushes_no_undo_command(qtbot):
+def test_sc_ui_009_1_recording_pushes_no_undo_command(qtbot, unbind_stack_at_teardown):
     """SC-UI-009-1: toggling/recording adds nothing to the document undo stack."""
     controls = _controls(qtbot)
     stack = QUndoStack()
     controls.bind_undo_stack(stack)
+    unbind_stack_at_teardown(controls)
     controls._record_button.setChecked(True)
     # Only the explicit edit commands are on the stack — recording itself adds none.
     stack.push(_NoopCommand())
@@ -81,7 +104,9 @@ def test_sc_ui_009_1_recording_pushes_no_undo_command(qtbot):
 # --- SC-UI-009-1 / DATA-001: persistence + reproducible replay -------------- #
 
 
-def test_sc_ui_009_1_session_round_trips_and_replays_identically(qtbot, tmp_path):
+def test_sc_ui_009_1_session_round_trips_and_replays_identically(
+    qtbot, tmp_path, unbind_stack_at_teardown
+):
     """SC-UI-009-1: save -> load yields an equal session (the round-trip pin).
 
     **Re-specified 2026-08-18 (plan §8.2).** The
@@ -137,6 +162,7 @@ def test_sc_ui_009_1_session_round_trips_and_replays_identically(qtbot, tmp_path
     controls = _controls(qtbot)
     stack = QUndoStack()
     controls.bind_undo_stack(stack)
+    unbind_stack_at_teardown(controls)
     controls._record_button.setChecked(True)
     for _ in range(3):
         stack.push(_NoopCommand())
@@ -165,11 +191,12 @@ def test_sc_ui_009_1_malformed_manifest_raises(tmp_path):
         load_session(bad)
 
 
-def test_sc_ui_009_1_reset_clears_session(qtbot):
+def test_sc_ui_009_1_reset_clears_session(qtbot, unbind_stack_at_teardown):
     """SC-UI-009-1: reset discards recorded frames and stops recording."""
     controls = _controls(qtbot)
     stack = QUndoStack()
     controls.bind_undo_stack(stack)
+    unbind_stack_at_teardown(controls)
     controls._record_button.setChecked(True)
     stack.push(_NoopCommand())
     assert controls.frame_count() == 1

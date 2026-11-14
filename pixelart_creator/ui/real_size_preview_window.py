@@ -240,7 +240,7 @@ class Real_Size_Preview_Window(QWidget):
             # monitor (research §4.3). Reconnect defensively (idempotent).
             try:
                 handle.screenChanged.disconnect(self._on_screen_changed)
-            except (RuntimeError, TypeError):
+            except RuntimeError, TypeError:
                 pass
             handle.screenChanged.connect(self._on_screen_changed)
         self.recompute_scale()

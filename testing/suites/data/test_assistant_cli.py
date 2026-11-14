@@ -318,9 +318,9 @@ def test_error_path_after_partial_apply_does_not_save(tmp_path):
     assert rc == 1
     assert not output_path.exists()  # no partial document written
     # The input on disk is untouched.
-    assert (
-        input_path.read_bytes() == _write_input(Path(tempfile.mkdtemp())).read_bytes()
-    )
+    reference_dir = Path(tmp_path) / "reference"
+    reference_dir.mkdir()
+    assert input_path.read_bytes() == _write_input(reference_dir).read_bytes()
     assert "assistant error" in err
 
 

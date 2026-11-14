@@ -239,7 +239,7 @@ def _decode_source(blob: Any) -> Optional[PixelBuffer]:
         width = int(blob["width"])
         height = int(blob["height"])
         raw = zlib.decompress(base64.b64decode(blob["data"], validate=True))
-    except (KeyError, ValueError, TypeError, zlib.error):
+    except KeyError, ValueError, TypeError, zlib.error:
         return None
     channels = 4 if mode is ColorMode.RGBA else 1
     if len(raw) != width * height * channels:

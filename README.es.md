@@ -9,7 +9,7 @@
 [![Última versión](https://img.shields.io/github/v/release/JuanGSanchez/PixelArt-Creator)](https://github.com/JuanGSanchez/PixelArt-Creator/releases)
 [![Descargas](https://img.shields.io/github/downloads/JuanGSanchez/PixelArt-Creator/total)](https://github.com/JuanGSanchez/PixelArt-Creator/releases)
 [![Último commit](https://img.shields.io/github/last-commit/JuanGSanchez/PixelArt-Creator)](https://github.com/JuanGSanchez/PixelArt-Creator/commits/main)
-![Python](https://img.shields.io/badge/python-3.13%2B-blue)
+![Python](https://img.shields.io/badge/python-3.14%2B-blue)
 ![UI](https://img.shields.io/badge/UI-PySide6%20%2F%20Qt6-41CD52)
 ![Plataformas](https://img.shields.io/badge/plataforma-windows%20%7C%20macos%20%7C%20linux-lightgrey)
 
@@ -129,10 +129,10 @@ a partir del estado del producto versionado con
 
 ### Requisitos
 
-- **Python 3.13 o más reciente** (`requires-python = ">=3.13"`) — ese es el mínimo de
+- **Python 3.14 o más reciente** (`requires-python = ">=3.14"`) — ese es el mínimo de
   instalación. El propio proyecto se desarrolla y se prueba contra un intérprete fijado
-  de forma exacta, **3.13.13** (`.python-version`), que es lo que ejecutan CI y la imagen
-  de despliegue; cualquier 3.13.x más reciente (o posterior) satisface el mínimo para
+  de forma exacta, **3.14.10** (`.python-version`), que es lo que ejecutan CI y la imagen
+  de despliegue; cualquier 3.14.x más reciente (o posterior) satisface el mínimo para
   ejecutar la aplicación.
 - Las dependencias en tiempo de ejecución están declaradas en `pyproject.toml` y se instalan
   automáticamente: PySide6 (Qt 6), NumPy, Pillow, y las bibliotecas de colaboración `pycrdt` y
@@ -216,7 +216,7 @@ pixelart_creator` es el punto de entrada del módulo; `pixelart-creator` es el c
 consola de GUI instalado (declarado en `pyproject.toml` bajo `[project.gui-scripts]`),
 disponible tras `pip install .`.
 
-La aplicación se ejecuta en Windows, Linux y macOS allí donde PySide6 (Qt 6) y Python 3.13+
+La aplicación se ejecuta en Windows, Linux y macOS allí donde PySide6 (Qt 6) y Python 3.14+
 estén disponibles.
 
 ### Solución de problemas: ventana en blanco

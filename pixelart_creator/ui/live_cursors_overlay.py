@@ -159,7 +159,7 @@ class Live_Cursors_Overlay(QGraphicsItem):
         try:
             x = float(cursor.get("x", 0))
             y = float(cursor.get("y", 0))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return
         selection = _selection_rect(payload.get("selection"))
         self.set_cursor(member_id, x, y, selection)
@@ -260,7 +260,7 @@ def _selection_rect(value: object) -> Optional[QRectF]:
         y = float(value.get("y", 0))
         width = float(value.get("width", 0))
         height = float(value.get("height", 0))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     if width <= 0.0 or height <= 0.0:
         return None

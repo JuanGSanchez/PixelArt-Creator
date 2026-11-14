@@ -10,7 +10,7 @@
 # FLAVOUR: standalone
 # LOCATION: scripts/coverage_gate.py
 # INVOKED BY: CI, as the coverage quality gate; and locally as a pre-flight check.
-# RUNTIME: Python 3.8+ (CPython, stdlib only: xml.etree, argparse, json, os, sys, re).
+# RUNTIME: Python 3.14+ (CPython, stdlib only: xml.etree, argparse, json, os, sys, re).
 # ENTRYPOINT: python scripts/coverage_gate.py [--xml coverage.xml]
 #             [--line 90] [--branch 80]
 # INPUTS:
@@ -72,7 +72,7 @@ _CONDITION_RE = re.compile(r"\((\d+)/(\d+)\)")
 def pct(rate):
     try:
         return round(float(rate) * 100.0, 2)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 0.0
 
 

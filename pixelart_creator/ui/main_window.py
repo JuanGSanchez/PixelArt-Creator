@@ -4086,7 +4086,7 @@ class Main_Window(QMainWindow):
         """Load the persisted Favourites (empty on first run or on error)."""
         try:
             return load_favourites(self._favourites_path())
-        except (FavouritesIOError, OSError):
+        except FavouritesIOError, OSError:
             from pixelart_creator.logic.favourites import Favourites
 
             return Favourites()
@@ -4095,7 +4095,7 @@ class Main_Window(QMainWindow):
         """Persist the Favourites model after an add / remove / reorder."""
         try:
             save_favourites(self._favourites_path(), self._favourites)
-        except (FavouritesIOError, OSError):
+        except FavouritesIOError, OSError:
             pass  # a non-writable config dir must not crash the editor.
 
     def _open_colour_hub(self, x: int, y: int) -> None:

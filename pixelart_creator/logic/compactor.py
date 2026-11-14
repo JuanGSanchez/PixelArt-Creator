@@ -12,7 +12,7 @@
 # LOCATION: pixelart_creator/logic/compactor.py
 # INVOKED BY: the logic layer (primary owner) and the ui layer via import
 #   `from pixelart_creator.logic.compactor import compact, CompactionError`.
-# RUNTIME: Python 3.8+ (CPython, stdlib only). No Qt, no NumPy required.
+# RUNTIME: Python 3.14+ (CPython, stdlib only). No Qt, no NumPy required.
 # ENTRYPOINT (library): compact(rects, max_width, max_height) -> Packing
 #   Optional CLI for smoke test: python -m pixelart_creator.logic.compactor
 # INPUTS:
@@ -105,7 +105,7 @@ def _coerce(rects: Iterable[InputRect]) -> List[Rect]:
         else:
             try:
                 rid, w, h = r
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 raise CompactionError("rect %d is not (id, w, h)" % i, "invalid-input")
         if not isinstance(w, int) or not isinstance(h, int) or w < 0 or h < 0:
             raise CompactionError(
