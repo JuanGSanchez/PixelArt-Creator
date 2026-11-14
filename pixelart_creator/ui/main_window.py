@@ -1303,6 +1303,11 @@ class Main_Window(QMainWindow):
         self._undo_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_Z)
         self._redo_action = self._undo_group.createRedoAction(self, self.tr("&Redo"))
         self._redo_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_Y)
+        # Qt fixes the prefix when the action is created (before any catalogue
+        # is installed), so it is re-set from the existing messages after Qt's
+        # own slot runs, on every command-text change and on a language change.
+        self._undo_group.undoTextChanged.connect(self._retranslate_undo_redo)
+        self._undo_group.redoTextChanged.connect(self._retranslate_undo_redo)
 
         self._new_action = QAction(self)
         self._new_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_N)
@@ -5641,8 +5646,22 @@ class Main_Window(QMainWindow):
 
     # -- i18n -------------------------------------------------------------
 
+    def _retranslate_undo_redo(self) -> None:
+        """Re-set Edit > Undo / Redo as translated prefix + command text."""
+        undo_prefix = self.tr("&Undo")
+        redo_prefix = self.tr("&Redo")
+        undo_text = self._undo_group.undoText()
+        redo_text = self._undo_group.redoText()
+        self._undo_action.setText(
+            f"{undo_prefix} {undo_text}" if undo_text else undo_prefix
+        )
+        self._redo_action.setText(
+            f"{redo_prefix} {redo_text}" if redo_text else redo_prefix
+        )
+
     def _retranslate(self) -> None:
         self.setWindowTitle(about_info.window_title(self.tr("PixelArt Creator")))
+        self._retranslate_undo_redo()
         self._toolbar.setWindowTitle(self.tr("Tools"))
         self._palette_dock.setWindowTitle(self.tr("Palette"))
         self._symmetry_dock.setWindowTitle(self.tr("Symmetry"))
