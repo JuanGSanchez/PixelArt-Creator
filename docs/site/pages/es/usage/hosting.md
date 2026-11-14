@@ -1,4 +1,3 @@
-<!-- REQ-P13-BACKEND-003 -->
 <!-- surface-only: site — contenido de despliegue/instalación; extraído de la sección "Nota para operadores: ejecutar el backend de sincronización" de collaboration.md del bundle, que sigue siendo la única mención de este material en el bundle -->
 # Alojar el relé en tiempo real: tres opciones equivalentes
 
@@ -22,8 +21,7 @@ backend en sí.
 !!! important "Ninguna opción es obligatoria"
     Ninguna de las tres opciones es obligatoria ni se recomienda sobre las
     demás, incluido no usar ninguna de ellas, y adoptar cualquiera de ellas no
-    requiere **ningún cambio de código** en la app ni en el backend
-    (`REQ-P13-BACKEND-003`). El enlace por defecto del propio relé es
+    requiere **ningún cambio de código** en la app ni en el backend. El enlace por defecto del propio relé es
     **local/loopback**; el lanzador de `deploy/` de la Opción 3 se enlaza a
     `0.0.0.0` salvo que `PIXELART_SYNC_HOST` indique otra cosa.
 

@@ -13,8 +13,7 @@ activas desde un panel como desde un script de compilación.
     Python arbitrario. Una automatización es una *lista validada de
     operaciones* (`{name, params, seed}`), nunca un lenguaje: **no hay
     `eval` / `exec` / `compile` / `__import__` de tu entrada en ningún punto**
-    de este camino — no hay ningún intérprete del que escapar (Artículo VII de
-    la constitución, satisfecho por construcción). Un único despachador de
+    de este camino — no hay ningún intérprete del que escapar. Un único despachador de
     confianza comprueba el nombre de cada operación contra una **lista de
     permitidos** y sus parámetros contra un esquema declarado antes de
     construir el comando reversible al que se asigna.
@@ -91,7 +90,7 @@ Como la ejecución es un único comando agrupado, un script completado es **un
 
 ## Complementos — el gestor, el consentimiento y el modelo de confianza
 
-El **gestor de complementos** descubre, activa y desactiva complementos. Los
+El **gestor de complementos** descubre, habilita y deshabilita complementos. Los
 complementos amplían el editor registrando nuevas operaciones del DSL — y
 solo eso.
 
@@ -99,15 +98,18 @@ solo eso.
   (mediante los puntos de entrada estándar de Python) pero **nada se carga ni
   se ejecuta** solo por estar instalado. Los ves listados; no hacen nada hasta
   que actúas.
-- **Denegar por defecto, con consentimiento explícito.** Activar un
+- **Denegar por defecto, con consentimiento explícito.** Habilitar un
   complemento le entrega un **objeto de capacidad cuya única superficie es el
-  registro de comandos del DSL**. Un complemento no puede hacer
-  `eval`/`exec`, no puede alcanzar la interfaz, y no puede tocar el sistema de
-  archivos o la red fuera de las capacidades que le concedas — **toda
-  capacidad que no declaró y no le concediste se deniega**. Sus operaciones
+  registro de comandos del DSL**. A través de ese
+  objeto, un complemento no puede hacer nada que no haya declarado — **toda
+  capacidad que no declaró se deniega**. Apruebas los permisos declarados de
+  un complemento en conjunto, o no lo habilitas. Habilitar un complemento en el
+  gestor de complementos no ejecuta por sí mismo el código del complemento. Sus operaciones
   están asociadas al espacio de nombres del complemento, así que un
-  complemento no puede suplantar una operación integrada.
-- **Desactivar es limpio.** Desactivar un complemento anula el registro de
+  complemento no puede suplantar una operación integrada. Esto limita lo que
+  el complemento puede hacer *a través de la aplicación*; no restringe el
+  código propio del complemento (consulta la nota de abajo).
+- **Deshabilitar es limpio.** Deshabilitar un complemento anula el registro de
   las operaciones que añadió.
 
 !!! warning "De confianza con consentimiento, en esta versión"
@@ -116,8 +118,10 @@ solo eso.
     para **extensiones de confianza que instalas y consientes**, no para
     código arbitrario de un mercado no confiable. El aislamiento a nivel de
     sistema operativo de complementos de terceros no confiables queda
-    **aplazado** a una fase posterior (Artículo XI de la constitución). Instala
-    solo complementos en los que confíes.
+    **aplazado** a una fase posterior. El código de un complemento se ejecuta en
+    el mismo proceso que el editor, con el mismo acceso a tus archivos y a la
+    red que la propia aplicación. Instala solo complementos en los que
+    confíes.
 
 ## Recolor por lotes
 
@@ -204,9 +208,9 @@ argumentos incorrectos o un proyecto o macro de entrada malformado / ilegible.
 - **Scripting arbitrario en Python** — **no soportado por diseño.** El
   scripting es un DSL de comandos acotado y basado en lista de permitidos, no
   un intérprete de propósito general; esto es un límite de seguridad
-  deliberado (Artículo VII), no una limitación pendiente de levantar.
+  deliberado, no una limitación pendiente de levantar.
 - **Aislamiento de complementos de terceros no confiables** — **aplazado.**
   Los complementos son de confianza con consentimiento en esta versión; el
   sandboxing a nivel de sistema operativo de complementos de mercado no
-  confiables es un desarrollo posterior de una fase futura (Artículo XI).
+  confiables es un seguimiento previsto para una fase posterior.
   Instala solo complementos en los que confíes.

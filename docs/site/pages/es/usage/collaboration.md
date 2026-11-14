@@ -156,7 +156,7 @@ comentario ha sido atendido; el comentario permanece en el hilo como registro.
 !!! warning "Límites de comentarios"
     Se aplican dos límites, ambos comprobados en el borde del panel con
     retroalimentación y verificados de nuevo por la capa de almacenamiento
-    (Artículo VII, defensa en profundidad):
+    (defensa en profundidad):
 
     - **Tamaño de comentario** — un solo comentario puede tener como máximo
       **4096 bytes** (`MAX_COMMENT_BYTES`). El límite se mide sobre la
@@ -191,15 +191,14 @@ actualmente* en el proyecto compartido activo. Ábrelo con **Nube ▸ Presencia*
 
 !!! info "Lista de presencia frente a cursores en vivo"
     El panel de Presencia muestra la **lista de presencia** — quién está
-    presente (`REQ-P10-UI-011`). Dibujar los **cursores y selecciones en vivo**
+    presente. Dibujar los **cursores y selecciones en vivo**
     de otros colaboradores en tu lienzo es una función distinta — consulta
-    [Coedición en tiempo real](#coedicion-en-tiempo-real) más abajo
-    (`REQ-P10-UI-013`).
+    [Coedición en tiempo real](#coedicion-en-tiempo-real) más abajo.
 
 ## Cómo convergen las ediciones simultáneas
 
 Cuando varios miembros editan un proyecto compartido, sus cambios se concilian
-mediante un **modelo de convergencia híbrido determinista** (`REQ-P10-LOGIC-006`),
+mediante un **modelo de convergencia híbrido determinista**,
 así que todos terminan con el **mismo** proyecto sin importar el orden en que
 lleguen las ediciones:
 
@@ -223,7 +222,7 @@ es el camino de tiempo real que se describe a continuación.
 
 La coedición en tiempo real aplica las ediciones de cada participante al
 lienzo de **todos** los pares a medida que ocurren, convergiendo con el mismo
-modelo determinista que la fusión por lotes anterior (`REQ-P10-LOGIC-007`). Las
+modelo determinista que la fusión por lotes anterior. Las
 ediciones viajan a través de un **backend de sincronización en tiempo real**
 dedicado (consulta la [nota para operadores](#nota-para-operadores-ejecutar-el-backend-de-sincronizacion)
 más abajo).
@@ -273,16 +272,14 @@ en cualquier momento; salir borra los cursores en vivo.
 
 !!! warning "No confiable por construcción"
     Cada edición y cada payload de cursor entrante se **valida por esquema y
-    tamaño** antes de aplicarse y **nunca** se ejecuta como código (Artículo
-    VII). Un mensaje malformado o demasiado grande se rechaza con un aviso en
+    tamaño** antes de aplicarse y **nunca** se ejecuta como código. Un mensaje malformado o demasiado grande se rechaza con un aviso en
     la barra de estado, nunca con un fallo.
 
 ### Cursores y selección en vivo
 
 Mientras el tiempo real está conectado, **Nube ▸ Mostrar cursores en vivo**
 alterna una superposición que dibuja los cursores y selecciones de otros
-editores en tu lienzo, cada uno etiquetado con el id de miembro del par
-(`REQ-P10-UI-013`).
+editores en tu lienzo, cada uno etiquetado con el id de miembro del par.
 
 - Los cursores son **efímeros** — son solo una señal en vivo y **nunca** se
   escriben en el `.pixproj` ni en el estado guardado del proyecto.
@@ -295,7 +292,7 @@ La ramificación te permite bifurcar el proyecto actual en una línea
 independiente de ediciones, trabajar en ella sin perturbar la línea principal,
 y **fusionarla** de vuelta **sin resolución manual de conflictos** — el mismo
 modelo CRDT / último-en-escribir-gana que impulsa la convergencia fusiona las
-dos líneas automáticamente (`REQ-P10-UI-012`, `REQ-P10-LOGIC-007`). Abre el
+dos líneas automáticamente. Abre el
 panel con **Nube ▸ Ramificación**.
 
 ### Crear una rama

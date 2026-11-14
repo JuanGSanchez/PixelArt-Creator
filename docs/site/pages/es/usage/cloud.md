@@ -54,7 +54,7 @@ Las acciones de nube están desactivadas hasta que te conectas.
     aplicación solo abre tu navegador del sistema por ti. Los tokens **nunca**
     se muestran a la interfaz, **nunca** se escriben en un `.pixproj`, y
     **nunca** se escriben en logs. La interfaz solo ve un estado simple de
-    *conectado / no conectado* (`REQ-P10-DATA-008`).
+    *conectado / no conectado*.
 
 !!! tip "El adaptador integrado"
     La conexión de esta versión es un adaptador integrado, en memoria, que es
@@ -71,7 +71,7 @@ La capa de almacenamiento contiene proveedores **reales** de Google Drive,
 OneDrive y Dropbox que se sitúan detrás del **mismo** puerto de nube que el
 adaptador integrado. Cuando se usa uno de estos proveedores, los pasos de esta
 guía (guardar, abrir, historial de versiones) funcionan igual sobre tu
-almacenamiento en línea (`REQ-P10-DATA-001`, `-007`). Esta versión no tiene
+almacenamiento en línea. Esta versión no tiene
 ningún comando del menú Nube que seleccione uno: **Conectar…** conecta el
 adaptador integrado.
 
@@ -105,14 +105,14 @@ adaptador integrado.
     del sistema operativo** (con clave por proveedor); el token de acceso de
     corta duración se mantiene solo en memoria y se renueva automáticamente.
     Los tokens **nunca** se muestran a la interfaz, **nunca** se escriben en un
-    `.pixproj`, y **nunca** se escriben en logs (`REQ-P10-DATA-008`). El resto
+    `.pixproj`, y **nunca** se escriben en logs. El resto
     de la aplicación solo ve un estado simple de *conectado / no conectado*.
 
 !!! note "Mismo comportamiento, cualquier proveedor"
     Como todos los proveedores están detrás del mismo puerto de nube, guardar y
     explorar versiones funcionan igual tanto si los respalda el adaptador
     integrado como Drive / OneDrive / Dropbox. Ese es el diseño sin dependencia
-    de un solo proveedor (`REQ-P10-DATA-007`); elegir un proveedor desde el menú
+    de un solo proveedor; elegir un proveedor desde el menú
     Nube no está disponible en esta versión.
 
 ## Guardar un proyecto en la nube
@@ -129,13 +129,12 @@ adaptador integrado.
 Cada guardado se transporta como un `.pixproj` completo — el **mismo** formato
 de guardado validado y versionado que se usa para archivos locales. La capa de
 nube no añade ningún formato nuevo propio; simplemente transporta el
-`.pixproj` como la *unidad de sincronización* atómica (`REQ-P10-DATA-002`).
+`.pixproj` como la *unidad de sincronización* atómica.
 
 !!! note "Guardar nunca congela la aplicación"
     La serialización + subida se ejecutan **fuera del hilo de la interfaz**,
     así que la ventana permanece receptiva incluso para un proyecto grande (de
-    hasta 8K) — puedes seguir trabajando mientras se completa un guardado
-    (`REQ-P10-UI-005`).
+    hasta 8K) — puedes seguir trabajando mientras se completa un guardado.
 
 !!! warning "Cada guardado es una versión nueva"
     Guardar **no** sobrescribe el guardado anterior en la nube — añade una
@@ -157,8 +156,7 @@ proyecto de la nube llega como su propia pestaña.
     igual que un archivo local: cada campo se comprueba por tipo y límites, la
     carga útil tiene un tope de tamaño, y un archivo malformado, demasiado
     grande o de versión desconocida se rechaza con un **error claro** — nunca
-    con un fallo y **nunca** ejecutando código del archivo
-    (`REQ-P10-DATA-006`). Si un proyecto obtenido no se puede validar, obtienes
+    con un fallo y **nunca** ejecutando código del archivo. Si un proyecto obtenido no se puede validar, obtienes
     un diálogo de advertencia y tu trabajo actual queda intacto.
 
 ## Explorar el historial de versiones y restaurar una versión
@@ -187,8 +185,7 @@ Guarda una copia local del proyecto para todo lo que quieras conservar.
 !!! note "Restaurar es seguro — abre una pestaña nueva"
     Restaurar una versión anterior la obtiene y valida, y luego la abre en una
     **pestaña nueva**. **No** sobrescribe tu trabajo actual ni tu último
-    guardado en la nube — tú decides qué hacer con la copia restaurada
-    (`REQ-P10-UI-002`).
+    guardado en la nube — tú decides qué hacer con la copia restaurada.
 
 La lista de versiones se obtiene fuera del hilo de la interfaz antes de que se
 abra el diálogo, así que explorar el historial nunca congela la aplicación.
@@ -205,7 +202,7 @@ memoria, así que protege tu trabajo dentro de la sesión, no ante un fallo.
   documento limpio nunca se guarda automáticamente.
 - La ranura de recuperación está **separada de tu historial de versiones**. El
   guardado automático nunca crea una versión visible y **nunca sobrescribe tu
-  último guardado explícito en la nube** (`REQ-P10-DATA-004`).
+  último guardado explícito en la nube**.
 - El guardado automático se ejecuta fuera del hilo de la interfaz, así que
   nunca interrumpe tu dibujo.
 

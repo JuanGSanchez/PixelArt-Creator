@@ -79,28 +79,32 @@ paso de deshacer**.
 
 ## Complementos — el gestor, el consentimiento y el modelo de confianza
 
-El panel **Complementos** descubre, activa y desactiva complementos. Los
+El panel **Complementos** descubre, habilita y deshabilita complementos. Los
 complementos amplían el editor registrando nuevas operaciones del DSL — y solo eso.
 
 - **El descubrimiento es inerte.** Los complementos instalados se *encuentran*
   (mediante los puntos de entrada estándar de Python) pero **nada se carga ni se
   ejecuta** solo por estar instalado. Los ves listados; no hacen nada hasta que
   actúas.
-- **Denegar por defecto, con consentimiento explícito.** Activar un complemento le
+- **Denegar por defecto, con consentimiento explícito.** Habilitar un complemento le
   entrega un **objeto de capacidad cuya única superficie es el registro de comandos
-  del DSL**. Un complemento no puede hacer `eval`/`exec`, no puede alcanzar la
-  interfaz, y no puede tocar el sistema de archivos o la red fuera de las
-  capacidades que le concedas — **toda capacidad que no declaró y no le concediste
-  se deniega**. Sus operaciones están asociadas al espacio de nombres del
-  complemento, así que un complemento no puede suplantar una operación integrada.
-- **Desactivar es limpio.** Desactivar un complemento anula el registro de las
+  del DSL**. A través de ese objeto, un complemento no puede hacer nada que no
+  haya declarado — **toda capacidad que no declaró se deniega**. Apruebas los
+  permisos declarados de un complemento en conjunto, o no lo habilitas. Habilitar un
+  complemento en el panel no ejecuta por sí mismo el código del complemento. Sus
+  operaciones están asociadas al espacio de nombres del complemento, así que un
+  complemento no puede suplantar una operación integrada. Esto limita lo que el
+  complemento puede hacer *a través de la aplicación*; no restringe el código propio
+  del complemento (consulta la nota de abajo).
+- **Deshabilitar es limpio.** Deshabilitar un complemento anula el registro de las
   operaciones que añadió.
 
 > **Con confianza y consentimiento, en esta versión.** Como *cargar* un complemento
 > de Python es en sí mismo ejecutar código, el modelo de capacidades en proceso es de
 > **fuerza consultiva** — adecuado para **extensiones de confianza que instalas y
-> consientes**, no para código arbitrario de un mercado no confiable. Instala solo
-> complementos en los que confíes.
+> consientes**, no para código arbitrario de un mercado no confiable. El código de un complemento
+> se ejecuta en el mismo proceso que el editor, con el mismo acceso a tus archivos y a
+> la red que la propia aplicación. Instala solo complementos en los que confíes.
 
 ## Recolor por lotes
 

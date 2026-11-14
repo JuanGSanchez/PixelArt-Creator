@@ -8,15 +8,14 @@ Escribes lo que quieres en un panel de chat, y el asistente lo lleva a cabo
 ejecutando las **propias** operaciones de la aplicación — los mismos comandos de
 [automatización](automation.md) que puedes grabar, programar con scripts y
 procesar por lotes a mano. Es **agnóstico de modelo**: lo apuntas al proveedor de
-IA que prefieras y aportas tu propia clave (`ADR-0040`, entregado en la Fase 14).
+IA que prefieras y aportas tu propia clave (consulta **ADR-0040**, diseño del puerto agnóstico de modelo).
 También es **completamente opcional** — la aplicación es totalmente usable sin
 configurarlo nunca.
 
 !!! note "El asistente actúa a través de la capa de automatización segura — no se expone nada nuevo"
     Cada acción que el asistente realiza es una operación del editor ordinaria y
     permitida, despachada a través de la **misma capa de comandos de confianza y
-    libre de `eval`** que usan las macros y los scripts (constitución, Artículo
-    VII). No puede ejecutar código arbitrario, ni alcanzar más allá de esa capa
+    libre de `eval`** que usan las macros y los scripts. No puede ejecutar código arbitrario, ni alcanzar más allá de esa capa
     de comandos, ni inventar capacidades nuevas — un mensaje de chat es
     **datos**, nunca una licencia para hacer algo que el editor no pueda hacer
     ya de forma segura.
@@ -104,9 +103,9 @@ redacción en un mensaje de chat puede convencer al editor de saltársela.
     certeza que es limpiamente reversible. Eso significa que una acción nueva
     o inusual nunca puede colarse y ejecutarse automáticamente solo porque
     nadie la clasificó — el nivel reversible es un conjunto pequeño y
-    explícito, y todo lo demás se gana un aviso de confirmación (Artículo
-    VIII: una operación genuinamente destructiva añadida más tarde no puede
-    ejecutarse automáticamente en silencio).
+    explícito, y todo lo demás se gana un aviso de confirmación (una
+    operación genuinamente destructiva añadida más tarde no puede ejecutarse
+    automáticamente en silencio).
 
 ## Lo que el asistente no hará
 

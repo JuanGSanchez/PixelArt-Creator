@@ -62,7 +62,7 @@ La plataforma se ha construido por fases; las capacidades siguientes están **en
   exportación por lotes; y un exportador de línea de comandos sin interfaz gráfica. La salida
   es byte-reproducible para una entrada fija.
 - **Automatización y scripting** — graba y reproduce macros deterministas, ejecuta un DSL de
-  comandos aislado y basado en datos (sin `eval`/`exec`), amplía la aplicación con
+  comandos acotado y basado en una lista de permitidos (sin `eval`/`exec`), amplía la aplicación con
   complementos de confianza y consentimiento explícito, recolorea por lotes muchos objetivos
   a la vez, genera contenido de forma procedural, y ejecuta cualquier automatización sin
   interfaz gráfica desde la línea de comandos.

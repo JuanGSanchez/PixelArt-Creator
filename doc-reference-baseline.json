@@ -36,18 +36,6 @@
     "value": "Browse"
   },
   {
-    "file": "pixelart_creator/ui/plugin_manager_panel.py",
-    "kind": "es-documentation-stale",
-    "line": 271,
-    "value": "Disable"
-  },
-  {
-    "file": "pixelart_creator/ui/plugin_manager_panel.py",
-    "kind": "es-documentation-stale",
-    "line": 270,
-    "value": "Enable"
-  },
-  {
     "file": "pixelart_creator/ui/batch_export_panel.py",
     "kind": "es-documentation-stale",
     "line": 186,
