@@ -914,9 +914,8 @@ jobs:
         # is in Maintenance. Verified locally: `node
         # web_viewer/tests/test_viewer_core.mjs` on Node v26.13.1 -- "11/11
         # passed", "executed 11 tests, 11 passed", exit 0.
-        # NOT yet observed in CI: that "26" resolves under actions/setup-node
-        # v7 on a runner is inferred from the node-versions manifest, not seen
-        # in a run. The first CI run on this change is the observation.
+        # The job selects Node by major version only ("26"); actions/setup-node
+        # v7 resolves that to the newest 26.x in the node-versions manifest.
         uses: actions/setup-node@v7
         with:
           node-version: "26"
