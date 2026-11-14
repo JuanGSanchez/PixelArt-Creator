@@ -1572,6 +1572,7 @@ glyph U+B290 set=kr src=recipe:part.iB0-n,part.vB0-eu
 glyph U+B294 set=kr src=recipe:part.iB1-n,part.vB1-eu,part.f-n
 glyph U+B298 set=kr src=recipe:part.iB1-n,part.vB1-eu,part.f-r
 glyph U+B2A5 set=kr src=recipe:part.iB1-n,part.vB1-eu,part.f-ng
+glyph U+B2A6 set=kr src=recipe:part.iB1-n,part.vB1-eu,part.f-j
 glyph U+B2C8 set=kr src=recipe:part.iA0s-n,part.vA0-i
 glyph U+B2CC set=kr src=recipe:part.iA1s-n,part.vA1-i,part.f-n
 glyph U+B2D0 set=kr src=recipe:part.iA1s-n,part.vA1-i,part.f-r
@@ -1693,7 +1694,6 @@ glyph U+B9C9 set=kr src=recipe:part.iA1s-m,part.vA1-a,part.f-g
 glyph U+B9CC set=kr src=recipe:part.iA1s-m,part.vA1-a,part.f-n
 glyph U+B9CE set=kr src=recipe:part.iA1s-m,part.vA1-a,part.fw-nh
 glyph U+B9D0 set=kr src=recipe:part.iA1s-m,part.vA1-a,part.f-r
-glyph U+B9DD set=kr src=recipe:part.iA1s-m,part.vA1-a,part.f-ng
 glyph U+B9DE set=kr src=recipe:part.iA1s-m,part.vA1-a,part.f-j
 glyph U+B9E1 set=kr src=recipe:part.iA1s-m,part.vA1-a,part.f-t
 glyph U+B9E4 set=kr src=recipe:part.iA0d-m,part.vA0-ae
@@ -1830,6 +1830,7 @@ glyph U+C2F8 set=kr src=recipe:part.iA0s-ss,part.vA0-a
 glyph U+C309 set=kr src=recipe:part.iA1s-ss,part.vA1-a,part.f-b
 glyph U+C30D set=kr src=recipe:part.iA1s-ss,part.vA1-a,part.f-ng
 glyph U+C313 set=kr src=recipe:part.iA1s-ss,part.vA1-a,part.f-h
+glyph U+C368 set=kr src=recipe:part.iA0s-ss,part.vA0-eo
 glyph U+C37C set=kr src=recipe:part.iA1s-ss,part.vA1-eo,part.f-ss
 glyph U+C4F0 set=kr src=recipe:part.iB0-ss,part.vB0-eu
 glyph U+C4F4 set=kr src=recipe:part.iB1-ss,part.vB1-eu,part.f-n
