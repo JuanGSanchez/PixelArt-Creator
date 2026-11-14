@@ -237,7 +237,7 @@ def _isatty(stream: TextIO) -> bool:
     """Return whether ``stream`` is an interactive TTY (defensive: never raises)."""
     try:
         return bool(stream.isatty())
-    except (ValueError, OSError):  # pragma: no cover - closed/detached stream
+    except ValueError, OSError:  # pragma: no cover - closed/detached stream
         return False
 
 

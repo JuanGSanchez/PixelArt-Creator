@@ -351,7 +351,7 @@ class Timelapse_Controls(QWidget):
         if self._stack is not None:
             try:
                 self._stack.indexChanged.disconnect(self._on_stack_index_changed)
-            except (RuntimeError, TypeError):
+            except RuntimeError, TypeError:
                 pass
         self._stack = stack
         self._document_getter = document_getter

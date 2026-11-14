@@ -9,7 +9,7 @@
 [![Latest release](https://img.shields.io/github/v/release/JuanGSanchez/PixelArt-Creator)](https://github.com/JuanGSanchez/PixelArt-Creator/releases)
 [![Downloads](https://img.shields.io/github/downloads/JuanGSanchez/PixelArt-Creator/total)](https://github.com/JuanGSanchez/PixelArt-Creator/releases)
 [![Last commit](https://img.shields.io/github/last-commit/JuanGSanchez/PixelArt-Creator)](https://github.com/JuanGSanchez/PixelArt-Creator/commits/main)
-![Python](https://img.shields.io/badge/python-3.13%2B-blue)
+![Python](https://img.shields.io/badge/python-3.14%2B-blue)
 ![UI](https://img.shields.io/badge/UI-PySide6%20%2F%20Qt6-41CD52)
 ![Platforms](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey)
 
@@ -108,9 +108,9 @@ from the committed product state with [`scripts/showcase/`](scripts/showcase/REA
 
 ### Requirements
 
-- **Python 3.13 or newer** (`requires-python = ">=3.13"`) — that is the install floor.
-  The project itself develops and tests against an exact pinned interpreter, **3.13.13**
-  (`.python-version`), which is what CI and the deployment image run; a newer 3.13.x (or
+- **Python 3.14 or newer** (`requires-python = ">=3.14"`) — that is the install floor.
+  The project itself develops and tests against an exact pinned interpreter, **3.14.10**
+  (`.python-version`), which is what CI and the deployment image run; a newer 3.14.x (or
   later) satisfies the floor for running the application.
 - Runtime dependencies are declared in `pyproject.toml` and installed automatically:
   PySide6 (Qt 6), NumPy, Pillow, and the collaboration libraries `pycrdt` and `websockets`.
@@ -186,7 +186,7 @@ and font fallbacks, then runs the Qt event loop). `python -m pixelart_creator` i
 module entry point; `pixelart-creator` is the installed GUI console command (declared in
 `pyproject.toml` under `[project.gui-scripts]`), available after `pip install .`.
 
-The application runs on Windows, Linux and macOS wherever PySide6 (Qt 6) and Python 3.13+
+The application runs on Windows, Linux and macOS wherever PySide6 (Qt 6) and Python 3.14+
 are available.
 
 ### Troubleshooting: blank window

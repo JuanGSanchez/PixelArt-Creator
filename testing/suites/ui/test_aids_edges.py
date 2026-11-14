@@ -382,7 +382,27 @@ def test_reference_board_apply_layout_skips_unloadable(qtbot, tmp_path, monkeypa
 # --------------------------------------------------------------------------- #
 
 
-def test_timelapse_save_load_handlers(qtbot, tmp_path, monkeypatch, make_document):
+# A parentless QUndoStack holding a command, bound to a Timelapse_Controls (which
+# connects one of its own methods to the stack's signals), crashes natively (access
+# violation, PySide6 6.11.1) when the stack is destroyed from inside the widget's own
+# teardown; Python 3.14 releases a function's locals in reverse order, which exposed
+# it. Unbinding in a finalizer detaches the stack first, and also runs when an
+# assertion fails. Hardening the widget itself is a separate follow-up, after which
+# this fixture can go.
+@pytest.fixture
+def unbind_stack_at_teardown(request):
+    """Return a callable that unbinds ``controls``' undo stack when the test ends."""
+
+    def _register(controls: Timelapse_Controls) -> None:
+        # The closure also keeps the widget alive past the test function's return.
+        request.addfinalizer(lambda: controls.bind_undo_stack(None))
+
+    return _register
+
+
+def test_timelapse_save_load_handlers(
+    qtbot, tmp_path, monkeypatch, make_document, unbind_stack_at_teardown
+):
     """_on_save / _on_load drive through monkeypatched dialogs (round-trip).
 
     ``bind_undo_stack`` is called with a real ``document_getter`` (matching
@@ -410,6 +430,7 @@ def test_timelapse_save_load_handlers(qtbot, tmp_path, monkeypatch, make_documen
     controls.bind_undo_stack(
         stack, document_getter=lambda: document, document_id=id(document)
     )
+    unbind_stack_at_teardown(controls)
     controls._record_button.setChecked(True)
     stack.push(_Noop())
     target = str(tmp_path / "c.pixtimelapse")
@@ -457,7 +478,9 @@ def test_timelapse_load_error_surfaces(qtbot, tmp_path, monkeypatch):
     assert calls
 
 
-def test_timelapse_frame_budget_exceeded_stops_recording(qtbot, monkeypatch):
+def test_timelapse_frame_budget_exceeded_stops_recording(
+    qtbot, monkeypatch, unbind_stack_at_teardown
+):
     """A record_frame budget error stops recording and surfaces a notice."""
     from PySide6.QtGui import QUndoCommand, QUndoStack
 
@@ -477,6 +500,7 @@ def test_timelapse_frame_budget_exceeded_stops_recording(qtbot, monkeypatch):
     qtbot.addWidget(controls)
     stack = QUndoStack()
     controls.bind_undo_stack(stack)
+    unbind_stack_at_teardown(controls)
     controls._record_button.setChecked(True)
     monkeypatch.setattr(tl_module, "record_frame", _boom)
     calls: list = []
@@ -488,7 +512,7 @@ def test_timelapse_frame_budget_exceeded_stops_recording(qtbot, monkeypatch):
     assert calls
 
 
-def test_timelapse_rebind_disconnects_previous_stack(qtbot):
+def test_timelapse_rebind_disconnects_previous_stack(qtbot, unbind_stack_at_teardown):
     """bind_undo_stack twice disconnects the previous stack (no double-record)."""
     from PySide6.QtGui import QUndoCommand, QUndoStack
 
@@ -505,6 +529,7 @@ def test_timelapse_rebind_disconnects_previous_stack(qtbot):
     second = QUndoStack()
     controls.bind_undo_stack(first)
     controls.bind_undo_stack(second)  # disconnect branch on the first
+    unbind_stack_at_teardown(controls)
     controls._record_button.setChecked(True)
     first.push(_Noop())  # the old stack is disconnected -> no frame
     assert controls.frame_count() == 0

@@ -350,7 +350,7 @@ class _Track_Table_Model(QAbstractTableModel):
             return QIcon()
         try:
             image = _node_to_image(node.buffer, self._document.palette.colors())
-        except (ValueError, AttributeError):
+        except ValueError, AttributeError:
             return QIcon()
         scaled = image.scaled(
             _THUMBNAIL_EDGE,
