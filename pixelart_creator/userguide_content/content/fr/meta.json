@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "locale": "fr",
+  "sections": {
+    "app-basics": {"title": "Notions de base de l'application"},
+    "canvas-and-view": {"title": "Canvas et vue"},
+    "colour-hub": {"title": "Centre de couleurs"},
+    "layers": {"title": "Calques"},
+    "selection-and-transform": {"title": "Sélection et transformation"},
+    "animation-timeline": {"title": "Ligne temporelle d'animation"},
+    "tileset-and-tilemap": {"title": "Éditeur de tilesets et de tilemaps"},
+    "export-and-pipeline": {"title": "Exportation et pipeline"},
+    "automation-and-scripting": {"title": "Automatisation et scripts"},
+    "visual-aids": {"title": "Aides visuelles"},
+    "cloud-and-collaboration": {"title": "Cloud et collaboration"},
+    "asset-library": {"title": "Bibliothèque de ressources"}
+  },
+  "topics": {
+    "app-basics": {
+      "title": "Premiers pas et espace de travail",
+      "keywords": ["aperçu", "interface", "espace de travail", "menus", "barre de menus", "premiers pas", "notions de base", "thème", "mode sombre", "mode clair", "langue", "raccourcis", "clavier", "annuler", "rétablir", "documents", "version", "à propos"],
+      "summary": "Présentation de l'espace de travail de PixelArt Creator : la barre de menus, les panneaux, les documents, annuler / rétablir, les thèmes, la langue et les raccourcis clavier."
+    },
+    "multi-canvas": {
+      "title": "Plusieurs canvas (plans de travail)",
+      "keywords": ["onglets", "plans de travail", "multi-documents", "canvas", "documents", "isolés", "variantes"],
+      "summary": "Travaillez sur plusieurs documents à la fois, chacun dans son propre onglet isolé, avec ses propres calques, sa propre palette et son propre historique d'annulation."
+    },
+    "canvas-and-view": {
+      "title": "Le canvas : zoom, déplacement et grille",
+      "keywords": ["canvas", "vue", "zoom", "déplacement", "grille", "8k", "navigation", "alignement", "peinture", "clic droit", "plus proche voisin"],
+      "summary": "Travailler avec le grand canvas 8K : zoom, déplacement, grille de pixels et alignement, peinture et menu du clic droit."
+    },
+    "colour-hub": {
+      "title": "Le centre de couleurs du clic droit",
+      "keywords": ["couleur", "palette", "favoris", "harmonie", "roue", "pastille", "nuancier", "complémentaire", "analogue", "triadique", "tons foncés", "tons clairs", "hsv"],
+      "summary": "Le centre de couleurs contextuel : les favoris, la roue chromatique RGB et les harmonies de la théorie des couleurs en direct (complémentaire, analogue, triadique, etc.)."
+    },
+    "layers": {
+      "title": "Le panneau des calques",
+      "keywords": ["calques", "panneau des calques", "groupes", "opacité", "visibilité", "verrouillage", "masque", "calque de référence", "calque intelligent", "non destructif", "indexé", "réorganiser"],
+      "summary": "Le système de calques non destructif : calques, groupes, opacité, visibilité, verrouillages, masques, calques de référence et intelligents, et conversion du mode de couleur."
+    },
+    "blend-modes": {
+      "title": "Modes de fusion",
+      "keywords": ["modes de fusion", "normal", "produit", "superposition", "incrustation", "assombrir", "éclaircir", "densité de couleur -", "densité de couleur +", "lumière crue", "lumière tamisée", "différence", "exclusion", "composition"],
+      "summary": "Les douze modes de fusion et la façon dont la pile de calques est composée de bas en haut."
+    },
+    "selection-and-transform": {
+      "title": "Sélection et déplacement/copie flottants",
+      "keywords": ["sélection", "transformation", "déplacer", "copier", "mettre à l'échelle", "pivoter", "sélection flottante", "lasso", "baguette magique", "rectangle", "ctrl", "ajouter", "soustraire"],
+      "summary": "Faire des sélections et les transformer : l'aperçu flottant de déplacement et de copie, les gestes d'ajout et de soustraction, la validation et l'annulation."
+    },
+    "drag-drop-import": {
+      "title": "Importation par glisser-déposer",
+      "keywords": ["glisser", "déposer", "importer", "ouvrir", "png", "jpg", "gif", "bmp", "pixproj", "palette", "gpl", "hex", "pal"],
+      "summary": "Faites glisser des fichiers depuis votre explorateur de fichiers dans la fenêtre : les images s'ouvrent comme de nouveaux documents, les projets s'ouvrent et les palettes se chargent dans le document actif."
+    },
+    "animation-timeline": {
+      "title": "La ligne temporelle d'animation",
+      "keywords": ["animation", "ligne temporelle", "images", "pelure d'oignon", "lecture", "boucle", "ping-pong", "étiquettes", "durée", "fps", "défilement manuel"],
+      "summary": "La ligne temporelle d'animation : gestion des images, durée de chaque image, modes de lecture, pelure d'oignon et étiquettes d'images nommées."
+    },
+    "tileset-and-tilemap": {
+      "title": "Tilesets, tilemaps et tuilage automatique",
+      "keywords": ["tileset", "tilemap", "tuiles", "tuilage automatique", "blob-47", "conception de niveaux", "tampon", "remplissage", "retourner", "pivoter", "tiled", "json", "carte infinie", "blocs"],
+      "summary": "Découper une image en tileset, peindre une tilemap infinie à plusieurs calques, résoudre les bordures grâce au tuilage automatique, et importer ou exporter du JSON Tiled."
+    },
+    "visual-aids": {
+      "title": "Aides visuelles et ergonomie",
+      "keywords": ["grilles", "repères", "règles", "aperçu à taille réelle", "planche de référence", "timelapse", "multivue", "isométrique", "perspective", "point de fuite", "alignement", "ppi"],
+      "summary": "Des aides visuelles non destructives : aperçu à taille réelle, repères et règles, grilles isométrique et en perspective, planche de référence, multivue et timelapse."
+    },
+    "export-and-pipeline": {
+      "title": "Exportation et intégration au pipeline",
+      "keywords": ["exportation", "feuille de sprites", "png", "gif", "atlas", "pipeline", "lot", "unity", "godot", "préréglage", "json", "ligne de commande", "pixelart-export", "reproductible à l'octet près"],
+      "summary": "Exporter votre travail : PNG, GIF animé, feuilles de sprites, atlas de textures, métadonnées JSON, préréglages Unity/Godot, exportation par lot et ligne de commande."
+    },
+    "automation-and-scripting": {
+      "title": "Automatisation, macros, scripts et plugins",
+      "keywords": ["automatisation", "scripts", "macro", "pixmacro", "recoloration par lot", "plugins", "procédural", "génération procédurale", "bruit", "ligne de commande", "pixelart-run", "déterministe", "graine"],
+      "summary": "Automatiser des tâches : capture et relecture de macros, DSL de scripts, plugins, recoloration par lot, génération procédurale et ligne de commande."
+    },
+    "ai-assistant": {
+      "title": "L'assistant IA : piloter l'éditeur par la conversation",
+      "keywords": ["ia", "assistant", "discussion", "chatbot", "langage naturel", "invite", "llm", "modèle", "fournisseur", "openai", "anthropic", "claude", "gemini", "ollama", "url de base", "url du point de terminaison", "point de terminaison", "clé d'api", "trousseau de clés", "identifiants facultatifs", "indépendant du modèle", "sécurité à deux niveaux", "réversible", "destructeur", "confirmer", "annuler", "menu de l'assistant", "menu aide", "assistant ia", "configurer", "dock"],
+      "summary": "L'assistant IA intégré, indépendant du modèle : ouvrir le panneau de discussion, configurer un fournisseur (compatible OpenAI ou Anthropic) avec une URL de point de terminaison, un modèle et une clé d'API stockée dans le trousseau de clés du système, discuter en langage naturel pour piloter le flux de travail par la couche d'automatisation sûre, et la sécurité à deux niveaux (les modifications réversibles s'appliquent seules et sont annulables ; les actions destructrices demandent une confirmation)."
+    },
+    "asset-library": {
+      "title": "La bibliothèque de ressources : parcourir, étiqueter et rechercher",
+      "keywords": ["ressource", "bibliothèque de ressources", "catalogue", "étiquettes", "étiquetage", "recherche", "filtre", "type", "sprite", "tileset", "palette", "adressable par le contenu", "déduplication", "identifiant stable", "menu bibliothèque"],
+      "summary": "Cataloguer sprites, animations, tilesets, tilemaps et palettes comme ressources nommées ; les étiqueter ; et les retrouver par nom, étiquette et type grâce au menu Bibliothèque."
+    },
+    "asset-dependencies": {
+      "title": "Dépendances des ressources et détection des ruptures",
+      "keywords": ["dépendance", "dépendances", "graphe de dépendances", "dépend de", "référencé par", "référence", "rupture", "détection des ruptures", "rompue", "manquant", "hachage différent", "cible manquante", "cible modifiée", "acyclique", "cycle", "vue en graphe", "statut"],
+      "summary": "Le graphe de dépendances — relations « dépend de » et « référencé par » entre ressources — et l'indicateur de rupture passif qui signale (sans jamais bloquer) une référence rompue par une ressource manquante ou modifiée."
+    },
+    "asset-versioning": {
+      "title": "Versionnage des ressources et réutilisation entre projets",
+      "keywords": ["version", "versionnage", "historique des versions", "révision", "révisions", "ajout seul", "restaurer", "examiner", "réutilisation", "entre projets", "référence plutôt que copie", "partagé", "exporter", "importer", "paquet", "stockage cloud", "hors ligne", "hachage de contenu", "déduplication"],
+      "summary": "Historique de versions en ajout seul pour chaque ressource (examen et restauration, la restauration ajoutant une nouvelle révision de tête), réutilisation entre projets par référence plutôt que par copie, exportation / importation des ressources référencées d'un projet sous la forme d'un paquet autonome, et travail entièrement hors ligne (le stockage cloud facultatif n'est pas connecté dans cette version)."
+    },
+    "cloud-and-collaboration": {
+      "title": "Cloud : enregistrement, versions et enregistrement automatique",
+      "keywords": ["cloud", "connexion", "fournisseur", "google drive", "onedrive", "dropbox", "enregistrer", "ouvrir", "historique des versions", "restaurer", "enregistrement automatique", "récupération", "oauth"],
+      "summary": "Connexion de l'adaptateur cloud intégré, enregistrement et ouverture de projets, parcours de l'historique des versions, restauration et enregistrement automatique au sein de la session."
+    },
+    "collaboration": {
+      "title": "Projets partagés, commentaires, présence et temps réel",
+      "keywords": ["collaboration", "projets partagés", "membres", "rôles", "commentaires", "présence", "temps réel", "co-édition", "curseurs en direct", "branches", "fusion", "convergence"],
+      "summary": "Partage d'un projet avec des membres, commentaires et présence (en mémoire, à l'intérieur d'une seule fenêtre de l'application dans cette version), convergence déterministe et branches de l'œuvre ; la co-édition en temps réel avec curseurs en direct ne peut pas se connecter dans cette version."
+    }
+  }
+}
