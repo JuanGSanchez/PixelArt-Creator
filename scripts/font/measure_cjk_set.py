@@ -155,7 +155,7 @@ def parse_previous(path):
         return None, {}
     try:
         sets = cov.read_measured_set(path)
-    except (OSError, ValueError, cov.ToolError):
+    except OSError, ValueError, cov.ToolError:
         return None, {}
     hashes = {}
     with open(path, "rb") as fh:

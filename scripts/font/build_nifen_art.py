@@ -2229,7 +2229,7 @@ def lint_cjk(srcs, font, cjk, cfont, script_files, src_dir, cjk_dir, fonts_dir, 
             or bb[3] > ky[1]
         ):
             v.append("the missing-glyph box lies outside the cell")
-    except (KeyError, ValueError):
+    except KeyError, ValueError:
         v.append("face.txt notdef_box_x / notdef_box_rows are not column ranges")
     rep.add("R11", "grid contract constants and the face record", n, v)
 
