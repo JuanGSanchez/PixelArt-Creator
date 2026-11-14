@@ -11,10 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Breaking for installs from source or with pip:** the minimum supported Python is raised from 3.13 to **3.14** (`requires-python` goes from `>=3.13` to `>=3.14`, and the package classifier from 3.13 to 3.14). Installing from source or with pip now requires Python 3.14 or newer. The packaged installers (Windows, macOS and Linux) are self-contained builds and are not affected. The READMEs, in English and Spanish, and CONTRIBUTING state the new floor, and the Python badge reads 3.14+.
+- **BREAKING:** the minimum supported Python is raised from 3.13 to **3.14** (`requires-python` goes from `>=3.13` to `>=3.14`, and the package classifier from 3.13 to 3.14). This affects installs from source or with pip: to upgrade, use Python 3.14 or newer, or stay on 0.4.0, the last release that installs on Python 3.13. The packaged installers (Windows, macOS and Linux) are self-contained builds and are not affected by the Python requirement. The READMEs, in English and Spanish, and CONTRIBUTING state the new floor, and the Python badge reads 3.14+.
 - The pinned development interpreter moves from Python 3.13.13 to **3.14.10**. The pin file `.python-version` is the single source: CI reads it, the deployment image is now `python:3.14.10-slim-bookworm`, and the operator instruction in the systemd unit creates the virtual environment with `python3.14`. Black now targets `py314` and mypy checks against Python 3.14.
 - CI runs the web-viewer core suite on Node 26 instead of Node 24.
 - 19 source files were reformatted by Black under the `py314` target, which writes multi-exception `except` clauses without parentheses (`except OSError, UnicodeDecodeError:`, PEP 758). Formatting only, with no change in behaviour. Three runtime headers that still said Python 3.8+ now say "Python 3.14+".
+
+### Known issues
+
+- On rare occasions, on Windows, the application prints the console warning `QFont::setPointSize: Point size <= 0 (-1)`. It was seen once in about ninety automated walks of the main window, and its cause is not yet established. No visible effect has been observed: where the warning could be provoked deliberately, the drawn result was pixel-identical. 0.4.0 stopped drop-down lists (combo boxes) printing this warning on Windows 11; this is a different, rarer path that fix does not cover.
 
 ## [0.4.0] - 2026-10-23
 
