@@ -462,6 +462,331 @@ jobs:
         # any missing character and when nothing was examined.
         run: python scripts/font/check_glyph_coverage.py --gate-catalogues --py-dir pixelart_creator/ui
 
+      - name: Localisation typography (REQ-L10N-DATA-004)
+        # No `if:` -- this step runs on all three legs (stdlib only, no OS
+        # dependence). scripts/check_l10n_typography.py judges the committed
+        # catalogues and guide trees by the rules of REQ-L10N-DATA-004. On its
+        # own it has one blind spot: a language whose catalogue is missing or
+        # renamed simply produces no rule rows, and it still exits 0. This step
+        # closes that with a floor and two controls, all in one program below.
+        #
+        # THE FLOOR. The shipped set is the pixelart_<code>.qm files under
+        # pixelart_creator/i18n (the product's own definition, see
+        # `available_languages`), English aside; the guide set is the folders
+        # under userguide_content/content, English aside. Nothing is listed by
+        # hand per language. For each shipped code the catalogue surface must
+        # show every rule of that language with examined > 0 (ellipsis and
+        # no-u202f for all; fr-nbsp and fr-num-unit for fr; ru-no-straight-quote
+        # for ru; ko-no-han for ko; zh-fullwidth for zh_CN). For each guide
+        # folder the guide surface must show no-u202f, plus the French, Russian
+        # and Korean rules for those languages. Each landing of a language
+        # therefore raises the floor by itself. The step prints both sets and
+        # one line per floor entry, and names each missing (rule, surface,
+        # language).
+        #
+        # CONTROL (i), blind. The typography checker is run over a copy of the catalogue folder
+        # without pixelart_fr.ts while the shipped set is still read from the
+        # real folder; the floor must fail and name fr-num-unit [catalogue] fr.
+        #
+        # CONTROL (ii), planted, FORM (a): an existing message picked at run
+        # time. The program reads the finished fr messages the way the checker does and
+        # applies the script's own NUM_UNIT to each form's markup-free text; a
+        # match whose gap is exactly one U+00A0 is a candidate, for ANY unit of
+        # the script's UNITS list (read at run time, never re-typed here). The
+        # first candidate in file order whose number, U+00A0 and unit occur
+        # exactly once in that message's translation gets its U+00A0 replaced by
+        # U+0020, in a copy. The unplanted copy must exit 0; the planted copy
+        # must exit 1 with exactly one more fr-num-unit finding, whose location
+        # names the planted message. There is no fallback to a synthetic entry:
+        # if no candidate is left the control fails with "control site not
+        # found". The denominator (candidates, fr messages examined) and the
+        # planted message, its unit and the form are printed on every run.
+        #
+        # Both copies live under CI_TEMP_ROOT; nothing tracked is written.
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          L10N_TMP="${CI_TEMP_ROOT}/l10n-typography"
+          rm -rf "${L10N_TMP}"
+          mkdir -p "${L10N_TMP}"
+          TYPOGRAPHY_EXIT=0
+          python scripts/check_l10n_typography.py --json > "${L10N_TMP}/report.json" || TYPOGRAPHY_EXIT=$?
+          python -I - "${L10N_TMP}/report.json" "${TYPOGRAPHY_EXIT}" <<'PY'
+          import collections
+          import importlib.util
+          import json
+          import os
+          import re
+          import shutil
+          import subprocess
+          import sys
+
+          sys.dont_write_bytecode = True
+          sys.stdout.reconfigure(encoding="utf-8")
+
+          REPORT_PATH, REAL_EXIT = sys.argv[1], int(sys.argv[2])
+          ROOT = os.getcwd()
+          SCRIPT = os.path.join(ROOT, "scripts", "check_l10n_typography.py")
+          I18N = os.path.join(ROOT, "pixelart_creator", "i18n")
+          GUIDE = os.path.join(ROOT, "pixelart_creator", "userguide_content", "content")
+          WORK = os.path.join(os.environ["CI_TEMP_ROOT"], "l10n-typography")
+          NBSP = chr(0xA0)
+          CATALOGUE_RULES = {
+              "fr": ("fr-nbsp", "fr-num-unit"),
+              "ru": ("ru-no-straight-quote",),
+              "ko": ("ko-no-han",),
+              "zh": ("zh-fullwidth",),
+          }
+          GUIDE_RULES = {
+              "fr": ("fr-nbsp", "fr-num-unit"),
+              "ru": ("ru-no-straight-quote",),
+              "ko": ("ko-no-han",),
+          }
+          failures = []
+
+
+          def fail(text):
+              failures.append(text)
+              print(f"::error::{text}")
+
+
+          spec = importlib.util.spec_from_file_location("check_l10n_typography", SCRIPT)
+          tm = importlib.util.module_from_spec(spec)
+          sys.modules["check_l10n_typography"] = tm
+          spec.loader.exec_module(tm)
+          catalogues = tm._catalogue_reader()
+
+
+          def run_checker(folder, surface=None):
+              command = [sys.executable, SCRIPT, "--catalogues", folder, "--json"]
+              if surface:
+                  command += ["--surface", surface]
+              done = subprocess.run(
+                  command, cwd=ROOT, capture_output=True, text=True,
+                  encoding="utf-8", errors="replace",
+              )
+              try:
+                  parsed = json.loads(done.stdout)
+              except ValueError:
+                  parsed = None
+              return done.returncode, parsed, done.stderr.strip()
+
+
+          def copy_catalogues(folder, skip=()):
+              shutil.rmtree(folder, ignore_errors=True)
+              os.makedirs(folder)
+              names = sorted(
+                  n for n in os.listdir(I18N)
+                  if n.startswith("pixelart_") and n.endswith(".ts") and n not in skip
+              )
+              for name in names:
+                  shutil.copyfile(os.path.join(I18N, name), os.path.join(folder, name))
+              return names
+
+
+          def rule_row(parsed, rule, surface, language):
+              for row in parsed["rules"]:
+                  if (row["rule"], row["surface"], row["language"]) == (rule, surface, language):
+                      return row
+              return None
+
+
+          # ---- the real run: the checker's own report and exit code ----
+          print(f"typography checker exit code on the committed content: {REAL_EXIT}")
+          try:
+              with open(REPORT_PATH, encoding="utf-8") as handle:
+                  report = json.load(handle)
+          except (OSError, ValueError) as exc:
+              report = None
+              fail(f"the typography checker wrote no readable report (exit {REAL_EXIT}): {exc}")
+          if REAL_EXIT != 0:
+              fail(f"the typography checker exited {REAL_EXIT} on the committed content")
+          if report is None:
+              sys.exit(1)
+          tm.print_report(report, sys.stdout)
+
+          # ---- the floor, derived from the shipped files ----
+          shipped = sorted(
+              n[len("pixelart_") : -len(".qm")]
+              for n in os.listdir(I18N)
+              if n.startswith("pixelart_") and n.endswith(".qm")
+          )
+          shipped = [code for code in shipped if code and code != "en"]
+          guide_set = sorted(
+              n for n in os.listdir(GUIDE)
+              if os.path.isdir(os.path.join(GUIDE, n)) and n != "en"
+          )
+          print("shipped set (pixelart_<code>.qm, English aside): " + (", ".join(shipped) or "NONE"))
+          print("guide set (folders under content/, English aside): " + (", ".join(guide_set) or "NONE"))
+          if not shipped:
+              fail("floor: no pixelart_<code>.qm other than English was found, so the floor has no denominator")
+          floor = []
+          for code in shipped:
+              rules = ("ellipsis", "no-u202f") + CATALOGUE_RULES.get(tm.primary(code), ())
+              floor += [(rule, "catalogue", code) for rule in rules]
+          for code in guide_set:
+              rules = ("no-u202f",) + GUIDE_RULES.get(tm.primary(code), ())
+              floor += [(rule, "guide", code) for rule in rules]
+
+
+          def check_floor(parsed):
+              missing = []
+              lines = []
+              for entry in floor:
+                  row = rule_row(parsed, *entry)
+                  count = row["examined"] if row else 0
+                  verdict = "ok" if count > 0 else "MISSING"
+                  lines.append(f"  floor {entry[0]} [{entry[1]}] {entry[2]}: examined {count} {verdict}")
+                  if count == 0:
+                      missing.append(entry)
+              return lines, missing
+
+
+          lines, missing = check_floor(report)
+          print(f"floor: {len(floor)} entries")
+          print("\n".join(lines))
+          for rule, surface, code in missing:
+              fail(f"floor: {rule} [{surface}] {code} was not examined (examined 0 or no rule row)")
+
+          # ---- control (i), blind: no pixelart_fr.ts in the copy ----
+          fr_ts = os.path.join(I18N, "pixelart_fr.ts")
+          if not (os.path.isfile(fr_ts) and os.path.isfile(os.path.join(I18N, "pixelart_fr.qm"))):
+              fail("control (i): control site not found (pixelart_fr.ts and pixelart_fr.qm are not both present)")
+          else:
+              blind = os.path.join(WORK, "blind")
+              names = copy_catalogues(blind, skip=("pixelart_fr.ts",))
+              code, parsed, err = run_checker(blind)
+              print(f"control (i), blind: the checker over {len(names)} catalogues copied without pixelart_fr.ts")
+              if parsed is None:
+                  fail(f"control (i): the checker wrote no readable report on the blind copy (exit {code}): {err}")
+              else:
+                  print(
+                      f"  the checker alone on the blind copy: exit {code}, {len(parsed['rules'])} rule units, "
+                      f"{parsed['examined_total']} examined"
+                  )
+                  _lines, blind_missing = check_floor(parsed)
+                  for rule, surface, language in blind_missing:
+                      print(f"  floor names: {rule} [{surface}] {language}")
+                  if ("fr-num-unit", "catalogue", "fr") in blind_missing:
+                      print("  the floor failed and named fr-num-unit [catalogue] fr: control (i) OK")
+                  else:
+                      fail("control (i): the floor did not name fr-num-unit [catalogue] fr on a copy without pixelart_fr.ts")
+
+          # ---- control (ii), planted, form (a) ----
+          print("control (ii), planted, form (a): an existing fr message picked at run time by the script's NUM_UNIT")
+
+
+          def unit_label(unit):
+              for label, pattern in tm.UNITS:
+                  if re.fullmatch(pattern, unit):
+                      return label
+              return "?"
+
+
+          def names_message(where, message):
+              prefix = f"pixelart_fr.ts [{message.context}] "
+              if not where.startswith(prefix):
+                  return False
+              tail = where[len(prefix):]
+              normal = " ".join(message.source.split())
+              return tail == normal or (tail.endswith("...") and normal.startswith(tail[:-3]))
+
+
+          def control_planted():
+              if not os.path.isfile(fr_ts):
+                  fail("control (ii): control site not found (no pixelart_fr.ts)")
+                  return
+              fr = catalogues.load_catalogue(fr_ts)
+              with open(fr_ts, "rb") as handle:
+                  raw = handle.read().decode("utf-8")
+              blocks = list(re.finditer(r"<message(?:\s[^>]*)?>.*?</message>", raw, re.DOTALL))
+              if len(blocks) != len(fr.messages):
+                  fail(f"control (ii): control site not found ({len(blocks)} message blocks in the file, {len(fr.messages)} parsed)")
+                  return
+              examined = 0
+              candidates = []
+              for message, block in zip(fr.messages, blocks):
+                  if not message.live or message.kind == "unfinished" or not message.forms or not all(message.forms):
+                      continue
+                  examined += 1
+                  for form in message.forms:
+                      text = tm.markup_free(form, catalogues)
+                      for match in tm.NUM_UNIT.finditer(text):
+                          if match.group("gap") == NBSP:
+                              candidates.append((message, block, match))
+              by_unit = collections.Counter(unit_label(m.group("unit")) for _msg, _blk, m in candidates)
+              spread = ", ".join(f"{label} {n}" for label, n in sorted(by_unit.items()))
+              print(f"  fr messages examined by this step: {examined}")
+              print(f"  candidates (number, U+00A0, unit): {len(candidates)} over {len(by_unit)} of {len(tm.UNITS)} UNITS entries ({spread})")
+              row = rule_row(report, "fr-num-unit", "catalogue", "fr")
+              if row is None or row["examined"] != examined:
+                  fail(f"control (ii): the step read {examined} finished fr messages but the checker examined {row['examined'] if row else 'none'}")
+                  return
+              chosen = None
+              for message, block, match in candidates:
+                  pair = match.group(0)
+                  translation = re.search(r"<translation(?:\s[^>]*)?>.*?</translation>", raw[block.start():block.end()], re.DOTALL)
+                  if translation is None or translation.group(0).count(pair) != 1:
+                      continue
+                  site = block.start() + translation.start() + translation.group(0).index(pair) + len(match.group("num"))
+                  if raw[site] != NBSP:
+                      continue
+                  chosen = (message, match, site)
+                  break
+              if chosen is None:
+                  fail("control (ii): control site not found (no candidate whose number, U+00A0 and unit occur exactly once in its translation)")
+                  return
+              message, match, site = chosen
+              unit = match.group("unit")
+              print(
+                  f"  planted: [{message.context}] {' '.join(message.source.split())[:60]} | "
+                  f"pair {match.group('num')}+U+00A0+{unit} | unit {unit!r} = UNITS entry {unit_label(unit)!r} | form (a)"
+              )
+              unplanted_dir = os.path.join(WORK, "unplanted")
+              planted_dir = os.path.join(WORK, "planted")
+              copy_catalogues(unplanted_dir)
+              copy_catalogues(planted_dir)
+              with open(os.path.join(planted_dir, "pixelart_fr.ts"), "wb") as handle:
+                  handle.write((raw[:site] + " " + raw[site + 1:]).encode("utf-8"))
+              base_code, base, base_err = run_checker(unplanted_dir, "catalogue")
+              plant_code, plant, plant_err = run_checker(planted_dir, "catalogue")
+              if base is None or plant is None:
+                  fail(f"control (ii): the checker wrote no readable report (unplanted exit {base_code}: {base_err}; planted exit {plant_code}: {plant_err})")
+                  return
+              base_row = rule_row(base, "fr-num-unit", "catalogue", "fr")
+              plant_row = rule_row(plant, "fr-num-unit", "catalogue", "fr")
+              if base_row is None or plant_row is None:
+                  fail("control (ii): control site not found (the checker did not read fr-num-unit on the copies)")
+                  return
+              before = collections.Counter(f["where"] for f in base_row["findings"])
+              extra = collections.Counter(f["where"] for f in plant_row["findings"]) - before
+              print(f"  unplanted copy: exit {base_code}, fr-num-unit findings {len(base_row['findings'])}")
+              print(f"  planted copy:   exit {plant_code}, fr-num-unit findings {len(plant_row['findings'])}")
+              if base_code != 0:
+                  fail(f"control (ii): the checker on the unplanted copy exited {base_code}, expected 0")
+              if plant_code != 1:
+                  fail(f"control (ii): the checker on the planted copy exited {plant_code}, expected 1")
+              if len(plant_row["findings"]) != len(base_row["findings"]) + 1 or sum(extra.values()) != 1:
+                  fail(f"control (ii): expected exactly one more fr-num-unit finding, got {len(plant_row['findings'])} against {len(base_row['findings'])}")
+                  return
+              where = next(iter(extra))
+              if not names_message(where, message):
+                  fail(f"control (ii): the new finding does not name the planted message: {where}")
+                  return
+              detail = [f["detail"] for f in plant_row["findings"] if f["where"] == where][-1]
+              print(f"  the new finding names the planted message: {where}: {detail}")
+              if not failures:
+                  print("  control (ii) OK")
+
+
+          control_planted()
+
+          if failures:
+              print(f"Localisation typography step: {len(failures)} failure(s)")
+              sys.exit(1)
+          print("Localisation typography step: checker clean, floor met, both controls behaved")
+          PY
+
       - name: Application icon family (REQ-VI-BUILD-007/-008)
         if: runner.os == 'Linux'
         # scripts/derive_app_icons.py --check: every committed icon member
