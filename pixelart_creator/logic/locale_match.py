@@ -10,13 +10,16 @@ subtag does not prevent a match. Chinese is the one language whose script
 matters: Simplified (``zh``, ``zh_CN``, ``zh_SG``, ``zh-Hans*``) maps to
 ``zh_CN``; Traditional (``zh-Hant*``, ``zh_TW``, ``zh_HK``, ``zh_MO``) maps to
 nothing shipped, so such an entry is skipped like any other unshipped language.
+
+:func:`formatting_locale_name` (``REQ-L10N-UI-015``) applies the same entry mapping
+once more, to decide which locale name the number formats follow.
 """
 
 from __future__ import annotations
 
 from collections.abc import Collection, Sequence
 
-__all__ = ["match_ui_language"]
+__all__ = ["formatting_locale_name", "match_ui_language"]
 
 _FALLBACK = "en"
 _CHINESE = "zh"
@@ -80,3 +83,31 @@ def match_ui_language(preferred: Sequence[str], available: Collection[str]) -> s
         if found is not None:
             return found
     return _FALLBACK
+
+
+def formatting_locale_name(
+    system_name: str, ui_language: str, available: Collection[str]
+) -> str:
+    """Return the locale name whose number formats the interface language uses.
+
+    The system's own locale is kept when that single entry **maps** to
+    ``ui_language`` under the same entry mapping as :func:`match_ui_language`, so
+    a user's regional settings are never overridden where they already read the
+    interface language (``es_ES`` with ``es``, ``en_GB`` with ``en``). In every
+    other case the interface language decides. A fallback is not a match: an
+    entry that maps to nothing shipped is not taken as English, so a ``pt_BR``
+    system with English active gets ``en``.
+
+    Args:
+        system_name: the system locale's name (``es_ES``, ``fr_CA``, ...).
+        ui_language: the active interface language code (``fr``, ``zh_CN``, ...).
+        available: the catalogue codes that ship.
+
+    Returns:
+        ``system_name`` exactly when it maps to ``ui_language``; ``ui_language``
+        otherwise.
+    """
+    lookup = {code.lower(): code for code in available}
+    if _map_entry(system_name, lookup) == ui_language:
+        return system_name
+    return ui_language

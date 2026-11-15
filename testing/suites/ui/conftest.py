@@ -67,6 +67,7 @@ from pixelart_creator.ui.dependency_graph_view import (  # noqa: E402
     Dependency_Graph_View,
 )
 from pixelart_creator.ui.guides_rulers_overlay import Ruler_Strip  # noqa: E402
+from pixelart_creator.ui.i18n import LanguageManager  # noqa: E402
 from pixelart_creator.ui.live_cursors_overlay import (  # noqa: E402
     Live_Cursors_Overlay,
 )
@@ -739,6 +740,27 @@ def make_document():
         return Document(width, height, palette=Palette(STARTER))
 
     return _make
+
+
+@pytest.fixture
+def english_on_a_spanish_system(qapp) -> Iterator[LanguageManager]:
+    """An English interface on a system whose own locale is ``es_ES``.
+
+    A test that reads a data size or a number from a dialog needs to know which
+    locale formats it, and the machine's own default locale must not decide: the
+    manager's system locale is injected through its constructor argument, so the
+    formatting locale is English whatever the machine reads. Where the
+    machine's own locale is ``es_ES`` this also separates "the interface
+    language" from "the system", so a dialog that still read the system would
+    show Spanish figures. The manager is the application's registered one for
+    the length of the test and is put back to English afterwards.
+    """
+    manager = LanguageManager(qapp, system_locale=lambda: QLocale("es_ES"))
+    manager.set_language("en")
+    try:
+        yield manager
+    finally:
+        manager.set_language("en")
 
 
 @pytest.fixture

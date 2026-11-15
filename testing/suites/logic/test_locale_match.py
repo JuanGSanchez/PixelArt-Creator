@@ -280,3 +280,167 @@ class TestSeparatorAndCaseInvariance:
         """Return only a shipped code, whatever the spelling."""
         _, text = drawn
         assert locale_match.match_ui_language([text], SHIPPED) in SHIPPED
+
+
+# --- formatting_locale_name: numbers follow the interface language ----------------
+
+# Every entry of the table above, with the shipped language it SELECTS (not the
+# fallback it ends on): the rows that end on English only because nothing shipped
+# matched (zh_TW, zh-HK, zh_MO, zh-Hant, zh-Hant-TW, pt_BR, sv) select nothing.
+_NOT_SELECTING = frozenset(
+    entry for entry, installed in TABLE_ROWS if installed == "en"
+)
+_SELECTS = {
+    entry: (None if entry in _NOT_SELECTING else installed)
+    for entry, installed in TABLE_ROWS
+} | {"en": "en", "en_US": "en", "en-GB": "en"}
+
+
+class TestFormattingLocaleNameScenarioRows:
+    """The seven rows of the decision on the formatting locale."""
+
+    @pytest.mark.parametrize(
+        ("system", "language", "formatting"),
+        [
+            ("es_ES", "es", "es_ES"),
+            ("es_ES", "fr", "fr"),
+            ("es_ES", "en", "en"),
+            ("en_GB", "en", "en_GB"),
+            ("fr_CA", "fr", "fr_CA"),
+            ("zh_TW", "zh_CN", "zh_CN"),
+            ("ja_JP", "ko", "ko"),
+        ],
+    )
+    def test_row_gives_the_formatting_locale_the_scenario_names(
+        self, system, language, formatting
+    ):
+        """Choose the system's own locale or the language, as each row says."""
+        chosen = locale_match.formatting_locale_name(system, language, SHIPPED)
+        assert chosen == formatting
+
+
+class TestFormattingLocaleNameControl:
+    """A fallback is not a match: ``pt_BR`` is in none of the eight languages."""
+
+    @pytest.mark.parametrize("language", SHIPPED)
+    def test_pt_br_system_gives_each_language_itself(self, language):
+        """Give the interface language, never ``pt_BR``, for every shipped language."""
+        assert (
+            locale_match.formatting_locale_name("pt_BR", language, SHIPPED) == language
+        )
+
+    def test_pt_br_with_english_gives_en_not_the_system_name(self):
+        """Do not take English as a match for ``pt_BR`` because the walk falls to it."""
+        assert locale_match.formatting_locale_name("pt_BR", "en", SHIPPED) == "en"
+
+    @pytest.mark.parametrize("system", ["sv", "sv_SE", "it_IT", "zh_TW", "zh-Hant"])
+    def test_system_in_no_shipped_language_gives_english_when_english_is_active(
+        self, system
+    ):
+        """Give ``en`` for a system locale that maps to nothing shipped."""
+        assert locale_match.formatting_locale_name(system, "en", SHIPPED) == "en"
+
+    def test_traditional_script_system_with_simplified_chosen_gives_zh_cn(self):
+        """Give ``zh_CN`` for a Traditional system, never the Traditional name."""
+        chosen = locale_match.formatting_locale_name("zh-Hant-TW", "zh_CN", SHIPPED)
+        assert chosen == "zh_CN"
+
+
+class TestFormattingLocaleNameKeepsTheSystemName:
+    """The system's name comes back exactly as given when it is in the language."""
+
+    @pytest.mark.parametrize(
+        ("system", "language"),
+        [
+            ("es-MX", "es"),
+            ("fr_BE", "fr"),
+            ("de_AT", "de"),
+            ("en_US", "en"),
+            ("ru_RU", "ru"),
+            ("ko_KR", "ko"),
+            ("ja_JP", "ja"),
+            ("zh_SG", "zh_CN"),
+            ("zh-Hans-CN", "zh_CN"),
+            ("zh_CN", "zh_CN"),
+        ],
+    )
+    def test_system_in_the_language_is_kept(self, system, language):
+        """Keep the system locale's own name for a system in the active language."""
+        assert locale_match.formatting_locale_name(system, language, SHIPPED) == system
+
+    @pytest.mark.parametrize("system", ["FR_ca", "fr_CA.UTF-8", "  fr_FR  ", "fr-CA@x"])
+    def test_system_name_is_returned_unnormalised(self, system):
+        """Return the spelling the system gave, not a lower-cased or trimmed copy."""
+        assert locale_match.formatting_locale_name(system, "fr", SHIPPED) == system
+
+    @pytest.mark.parametrize("system", ["fr_FR", "de_DE", "ru_RU", "ja_JP", "ko_KR"])
+    def test_other_language_active_gives_that_language(self, system):
+        """Give the interface language when the system speaks another one."""
+        assert locale_match.formatting_locale_name(system, "es", SHIPPED) == "es"
+
+
+class TestFormattingLocaleNameAvailableCodes:
+    """The mapping uses the catalogues that ship, as the startup match does."""
+
+    def test_system_language_that_does_not_ship_is_not_a_match(self):
+        """Give the language, not ``fr_CA``, when the French catalogue is absent."""
+        chosen = locale_match.formatting_locale_name("fr_CA", "fr", ["en", "es"])
+        assert chosen == "fr"
+
+    def test_accepts_any_collection_type(self):
+        """Accept a frozenset as the available codes."""
+        chosen = locale_match.formatting_locale_name("de_AT", "de", frozenset(SHIPPED))
+        assert chosen == "de_AT"
+
+    def test_does_not_mutate_the_available_codes(self):
+        """Leave the available set untouched."""
+        available = set(SHIPPED)
+        locale_match.formatting_locale_name("fr_CA", "fr", available)
+        assert available == set(SHIPPED)
+
+    def test_territory_code_that_ships_matches_exactly(self):
+        """Keep ``pt_BR`` when ``pt_BR`` is itself the active shipped language."""
+        chosen = locale_match.formatting_locale_name("pt-BR", "pt_BR", ["en", "pt_BR"])
+        assert chosen == "pt-BR"
+
+
+class TestFormattingLocaleNameProperties:
+    """Invariants of the choice over every table entry and every language."""
+
+    @pytest.mark.parametrize("language", SHIPPED)
+    @pytest.mark.parametrize("system", sorted(_SELECTS))
+    def test_choice_follows_the_table(self, system, language):
+        """Keep the system name exactly when the table says it selects the language."""
+        expected = system if _SELECTS[system] == language else language
+        chosen = locale_match.formatting_locale_name(system, language, SHIPPED)
+        assert chosen == expected
+
+    @given(_spelling(), st.sampled_from(SHIPPED))
+    def test_chosen_name_is_one_of_the_two_candidates(self, drawn, language):
+        """Return the system name or the language, and nothing else."""
+        _, text = drawn
+        chosen = locale_match.formatting_locale_name(text, language, SHIPPED)
+        assert chosen in (text, language)
+
+    @given(_spelling(), st.sampled_from(SHIPPED))
+    def test_any_spelling_decides_as_the_canonical_spelling_does(self, drawn, language):
+        """Decide keep-or-replace alike for every separator and case spelling."""
+        parts, text = drawn
+        canonical = "_".join(parts)
+        kept_text = locale_match.formatting_locale_name(text, language, SHIPPED) == text
+        kept_canonical = (
+            locale_match.formatting_locale_name(canonical, language, SHIPPED)
+            == canonical
+        )
+        assert kept_text == kept_canonical
+
+    @given(st.sampled_from(sorted(_SELECTS)), st.sampled_from(SHIPPED))
+    def test_a_kept_name_selects_the_language_and_a_replaced_one_does_not(
+        self, system, language
+    ):
+        """Keep the system name only for a system that selects the language."""
+        chosen = locale_match.formatting_locale_name(system, language, SHIPPED)
+        if chosen == system and system != language:
+            assert _SELECTS[system] == language
+        elif chosen == language and system != language:
+            assert _SELECTS[system] != language

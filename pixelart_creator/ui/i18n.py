@@ -43,8 +43,9 @@ unit-testable directly.
 from __future__ import annotations
 
 import logging
+import weakref
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import Callable, List, Optional, Sequence
 
 from PySide6.QtCore import (
     QCoreApplication,
@@ -312,6 +313,51 @@ class _MnemonicTranslator(QTranslator):
         return apply_source_mnemonic(source_text, result)
 
 
+#: The application's manager, registered by its constructor (the most recently
+#: constructed one). A weak reference, so the registry never keeps a manager
+#: alive; read by :func:`current_formatting_locale` and
+#: :func:`current_ui_language`.
+_APP_MANAGER: Optional["weakref.ref[LanguageManager]"] = None
+
+
+def _read_system_locale() -> QLocale:
+    """Return ``QLocale.system()``, looked up at call time (the one reader)."""
+    return QLocale.system()
+
+
+def current_formatting_locale() -> QLocale:
+    """Return the locale the interface's numbers and sizes are formatted in.
+
+    The registered application manager's :meth:`LanguageManager.formatting_locale`.
+    With no manager (none constructed yet, or it has been collected) this is
+    ``QLocale()``, the untouched application default. It never calls
+    ``QLocale.setDefault`` and never reads ``QLocale.system()``; the result is
+    an independent value, so it is safe to call from any thread.
+
+    A widget that shows a number reads this explicitly (``setLocale`` on a
+    spin box, ``formattedDataSize`` on the result, ``decimalPoint()`` for a
+    Python-formatted decimal) and re-reads it when ``languageChanged`` fires.
+    """
+    manager = _APP_MANAGER() if _APP_MANAGER is not None else None
+    if manager is None:
+        return QLocale()
+    return manager.formatting_locale()
+
+
+def current_ui_language() -> str:
+    """Return the active interface language code of the registered manager.
+
+    ``FALLBACK_LANGUAGE`` with no manager. This is the code to hand to
+    :func:`pixelart_creator.logic.number_format.with_unit_space`; the
+    formatting locale's own name is not a substitute, because the system's
+    ``es_ES`` is kept under ``es`` and a different code is used otherwise.
+    """
+    manager = _APP_MANAGER() if _APP_MANAGER is not None else None
+    if manager is None:
+        return FALLBACK_LANGUAGE
+    return manager.current_language()
+
+
 class LanguageManager(QObject):
     """Installs/swaps the application :class:`QTranslator` by language code.
 
@@ -321,6 +367,11 @@ class LanguageManager(QObject):
         translations_dir: Directory holding ``pixelart_<code>.qm`` catalogues.
             Defaults to the package-internal ``i18n/`` folder (resolved portably).
         parent: Optional Qt parent.
+        system_locale: Returns the system locale; ``None`` (the default)
+            reads ``QLocale.system()`` at each call, looked up late so a
+            test that patches ``QLocale.system`` still takes effect. The
+            ONLY reader of the system locale in this module; a test injects
+            a fixed :class:`QLocale` here instead of patching the system.
     """
 
     #: Emitted with the newly active language code after a successful switch.
@@ -331,10 +382,17 @@ class LanguageManager(QObject):
         app: QCoreApplication,
         translations_dir: Optional[Path] = None,
         parent: Optional[QObject] = None,
+        system_locale: Optional[Callable[[], QLocale]] = None,
     ) -> None:
         """Bind to `app` and resolve the translations dir, starting untranslated."""
+        global _APP_MANAGER
         super().__init__(parent)
         self._app = app
+        self._system_locale: Callable[[], QLocale] = (
+            system_locale if system_locale is not None else _read_system_locale
+        )
+        self._formatting_locale = QLocale()
+        _APP_MANAGER = weakref.ref(self)
         self._dir = (
             Path(translations_dir) if translations_dir else _default_translations_dir()
         )
@@ -361,6 +419,30 @@ class LanguageManager(QObject):
         """Return the currently active language code."""
         return self._current
 
+    def formatting_locale(self) -> QLocale:
+        """Return the locale for numbers and sizes under the active language.
+
+        Set by :meth:`set_language` after the catalogues are installed and
+        before ``languageChanged`` is emitted, so a slot connected to that
+        signal already reads the new value. The system locale object itself
+        when it already reads the interface language (``es_ES`` system, ``es``
+        interface), else ``QLocale(<language code>)``; the rule is
+        :func:`pixelart_creator.logic.locale_match.formatting_locale_name`.
+        Before the first :meth:`set_language` it is ``QLocale()``.
+        """
+        return self._formatting_locale
+
+    def _update_formatting_locale(self) -> None:
+        """Recompute the formatting locale for the language now active."""
+        system = self._system_locale()
+        name = locale_match.formatting_locale_name(
+            system.name(), self._current, self.available_languages()
+        )
+        if name == system.name():
+            self._formatting_locale = system
+        else:
+            self._formatting_locale = QLocale(name)
+
     # -- installation -----------------------------------------------------
 
     def install_from_locale(self, preferred: Optional[Sequence[str]] = None) -> str:
@@ -382,7 +464,7 @@ class LanguageManager(QObject):
             The language code actually installed.
         """
         if preferred is None:
-            preferred = QLocale.system().uiLanguages()
+            preferred = self._system_locale().uiLanguages()
         code = locale_match.match_ui_language(preferred, self.available_languages())
         self.set_language(code)
         return self._current
@@ -393,6 +475,9 @@ class LanguageManager(QObject):
         Removes any active catalogue and, for a non-English code, loads and
         installs ``pixelart_<code>.qm``. Posting the translator change triggers
         the :data:`QEvent.Type.LanguageChange` that drives live retranslation.
+        The formatting locale (:meth:`formatting_locale`) is recomputed for the
+        language that ended up active, before ``languageChanged`` is emitted;
+        no application-wide default locale is touched.
 
         Args:
             code: Target language code (e.g. ``"en"``, ``"es"``).
@@ -404,6 +489,7 @@ class LanguageManager(QObject):
         if code == FALLBACK_LANGUAGE:
             self._current = FALLBACK_LANGUAGE
             self._apply_qt_base_catalogue(self._current)
+            self._update_formatting_locale()
             self.languageChanged.emit(self._current)
             return True
 
@@ -412,12 +498,14 @@ class LanguageManager(QObject):
             # No catalogue on disk yet: stay on the English source strings.
             self._current = FALLBACK_LANGUAGE
             self._apply_qt_base_catalogue(self._current)
+            self._update_formatting_locale()
             self.languageChanged.emit(self._current)
             return False
 
         self._app.installTranslator(self._translator)
         self._current = code
         self._apply_qt_base_catalogue(self._current)
+        self._update_formatting_locale()
         self.languageChanged.emit(self._current)
         return True
 

@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.constants import MAX_CANVAS_HEIGHT, MAX_CANVAS_WIDTH
 
 
@@ -44,6 +45,7 @@ class Scale_Dialog(QDialog):
         self._updating = False
 
         self._factor = QDoubleSpinBox(self)
+        self._factor.setLocale(i18n.current_formatting_locale())
         self._factor.setDecimals(4)
         self._factor.setRange(1.0 / self._src_w, MAX_CANVAS_WIDTH / self._src_w)
         self._factor.setSingleStep(0.5)

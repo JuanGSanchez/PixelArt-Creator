@@ -1744,3 +1744,22 @@ GUIDE_MD_EMPHASIS_MODULUS: int = 3
 GUIDE_MD_ESCAPE_LENGTH: int = 2
 """Characters of a backslash escape: the backslash and the character it escapes
 (CommonMark §2.4). Also the step by which a run of backslashes pairs off."""
+
+# --- Number formatting (feature six-ui-languages) ----------------------------
+
+UNIT_NBSP_LANGUAGES: tuple[str, ...] = ("fr", "ru")
+"""Interface languages that keep a number and its unit together with a no-break
+space. Source: the user's ruling of 2026-11-14 on the formatting of sizes in the
+French and Russian interface (spec ``REQ-L10N-UI-015``, acceptance "one U+00A0
+between the figure and the unit"; ``research-of8-language-conventions-and-
+terminology.md``). The other six languages keep what Qt's data gives."""
+
+NO_BREAK_SPACE: int = 0x00A0
+"""Code point of the character that joins a number and its unit in
+``UNIT_NBSP_LANGUAGES``: U+00A0 NO-BREAK SPACE (Unicode Standard, Latin-1
+Supplement; named by ``REQ-L10N-UI-015``)."""
+
+NUMBER_UNIT_SEPARATORS: tuple[int, ...] = (0x0020, NO_BREAK_SPACE, 0x202F)
+"""Code points Qt's data-size text may put between a number and its unit, which
+``with_unit_space`` replaces: U+0020 SPACE, U+00A0 NO-BREAK SPACE and U+202F
+NARROW NO-BREAK SPACE, the three that scenario SC-L10N-UI-015-3 names."""

@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.constants import (
     MAX_CANVAS_HEIGHT,
     MAX_CANVAS_WIDTH,
@@ -61,16 +62,19 @@ class Iso_Grid_Dialog(QDialog):
 
         self._ratio_label = QLabel(self)
         self._ratio_spin = QDoubleSpinBox(self)
+        self._ratio_spin.setLocale(i18n.current_formatting_locale())
         self._ratio_spin.setRange(_MIN_RATIO, _MAX_RATIO)
         self._ratio_spin.setDecimals(3)
         self._ratio_spin.setSingleStep(0.1)
 
         self._origin_x_label = QLabel(self)
         self._origin_x_spin = QDoubleSpinBox(self)
+        self._origin_x_spin.setLocale(i18n.current_formatting_locale())
         self._origin_x_spin.setRange(-MAX_CANVAS_WIDTH, 2 * MAX_CANVAS_WIDTH)
 
         self._origin_y_label = QLabel(self)
         self._origin_y_spin = QDoubleSpinBox(self)
+        self._origin_y_spin.setLocale(i18n.current_formatting_locale())
         self._origin_y_spin.setRange(-MAX_CANVAS_HEIGHT, 2 * MAX_CANVAS_HEIGHT)
 
         form = QFormLayout()

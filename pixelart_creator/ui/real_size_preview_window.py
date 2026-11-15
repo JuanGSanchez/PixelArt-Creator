@@ -45,7 +45,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.constants import DEFAULT_DOCUMENT_PPI
+from pixelart_creator.logic.number_format import LocaleDecimal
 from pixelart_creator.logic.preview import PreviewError, real_size_scale
 
 #: On-screen calibration bar length in device-independent px (a known ruler the
@@ -77,6 +79,7 @@ class Real_Size_Calibration_Dialog(QDialog):
         self._bar.setStyleSheet("background-color: palette(highlight);")
         self._length_label = QLabel(self)
         self._length_spin = QDoubleSpinBox(self)
+        self._length_spin.setLocale(i18n.current_formatting_locale())
         self._length_spin.setRange(1.0, 2000.0)
         self._length_spin.setValue(self._bar_px / 96.0 * _MM_PER_INCH)
         self._length_spin.setSuffix(self.tr(" mm"))
@@ -256,7 +259,9 @@ class Real_Size_Preview_Window(QWidget):
         )
         self._status.setText(
             self.tr("Real size: {0:.0f} PPI ({1}), scale {2:.2f}×").format(
-                self._screen_dpi(), source, scale
+                self._screen_dpi(),
+                source,
+                LocaleDecimal(scale, i18n.current_formatting_locale().decimalPoint()),
             )
         )
 
