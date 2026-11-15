@@ -18,24 +18,25 @@ mnemonics, and shortcuts are theme-invariant but the parity run is asserted for 
 
 from __future__ import annotations
 
-import sys
-
 import pytest
 from PySide6.QtGui import QKeySequence
 
 from pixelart_creator.ui.main_window import Main_Window
 
-#: macOS (Aqua) intentionally strips ``&``-derived Alt mnemonics, so
-#: ``QKeySequence.mnemonic()`` returns an empty QKeySequence on darwin — Alt
-#: mnemonics are simply not a macOS UI concept. The mnemonic assertions below
-#: stay exact on Windows/Linux and are skipped only on darwin. Non-mnemonic a11y
-#: coverage (menu presence, checkable, named, shortcuts, distinct names) still
-#: runs on all three platforms.
-_skip_on_darwin_no_mnemonic = pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="macOS strips &-derived Alt mnemonics per Aqua HIG (QTBUG); "
-    "Alt mnemonics are not a macOS concept",
-)
+#: The three access-key tests below (the View menu's own letter, the three
+#: drawing-mode letters, and their distinctness) assert the letter on EVERY
+#: operating system, macOS included: ``REQ-L10N-UI-004`` says nothing about
+#: macOS, and neither do ``REQ-P2-UI-003``, ``-004`` or ``-009``.
+#: ``QKeySequence.mnemonic()`` reads a process-wide flag that Qt itself
+#: defaults to OFF on macOS (``qt_set_sequence_auto_mnemonic``); with it off the
+#: call returns an empty sequence for every string, whatever marker the string
+#: carries. That is a difference in the ORACLE's platform default, not a macOS
+#: stripping of the product's ``&`` markers. So each of the three tests requests
+#: the ``_qt_auto_mnemonic_enabled`` fixture (``conftest.py``), which forces the
+#: flag on for the test and restores the platform default afterwards. What this
+#: proves on macOS: the marker the product wrote names the right letter. It does
+#: not prove that an Alt key press reaches the item, which native macOS menus do
+#: not offer.
 
 
 def _window(qtbot) -> Main_Window:
@@ -54,8 +55,7 @@ _VIEW_MENU_MNEMONICS = {
 }
 
 
-@_skip_on_darwin_no_mnemonic
-def test_view_menu_has_mnemonic_itself(qtbot):
+def test_view_menu_has_mnemonic_itself(qtbot, _qt_auto_mnemonic_enabled):
     """The View menu is itself Alt-reachable (Alt+V), the prefix of every chord."""
     win = _window(qtbot)
     assert QKeySequence.mnemonic(win._view_menu.title()) == QKeySequence("Alt+V")
@@ -63,7 +63,7 @@ def test_view_menu_has_mnemonic_itself(qtbot):
 
 @pytest.mark.parametrize("attr,expected", sorted(_VIEW_MENU_MNEMONICS.items()))
 def test_a11y_p2_1_drawing_mode_toggle_in_view_menu_with_mnemonic(
-    qtbot, attr, expected
+    qtbot, _qt_auto_mnemonic_enabled, attr, expected
 ):
     """A11Y-P2-1: each drawing-mode toggle is in the View menu with its mnemonic."""
     win = _window(qtbot)
@@ -73,15 +73,13 @@ def test_a11y_p2_1_drawing_mode_toggle_in_view_menu_with_mnemonic(
     # A toggle, operable from the keyboard.
     assert action.isCheckable()
     assert action.text() != ""  # tr()-wrapped accessible name
-    # Carries the expected Alt mnemonic (Alt+V, <letter>). macOS (Aqua) strips
-    # &-derived Alt mnemonics, so this check is Windows/Linux-only; the
-    # in-menu / checkable / named a11y assertions above still run on darwin.
-    if sys.platform != "darwin":
-        assert QKeySequence.mnemonic(action.text()) == QKeySequence(expected)
+    # Carries the expected Alt mnemonic (Alt+V, <letter>), on every OS: the
+    # fixture makes Qt's oracle read the marker on macOS as well (see the note
+    # at the top of the module).
+    assert QKeySequence.mnemonic(action.text()) == QKeySequence(expected)
 
 
-@_skip_on_darwin_no_mnemonic
-def test_a11y_p2_1_view_menu_mnemonics_are_distinct(qtbot):
+def test_a11y_p2_1_view_menu_mnemonics_are_distinct(qtbot, _qt_auto_mnemonic_enabled):
     """The View-menu drawing-mode mnemonics do not collide with each other."""
     win = _window(qtbot)
     seqs = [
