@@ -8,8 +8,11 @@ and dark themes via the autouse ``theme`` fixture in ``conftest.py`` (REQ-DDI-UI
 Test seams (per the UI implementation's A-B report):
     * drive ``dragEnterEvent`` / ``dropEvent`` with synthetic Qt drag events, or
       call ``_route_dropped_files([...])`` directly;
-    * monkeypatch ``QMessageBox.warning`` (dirty guard + error notice) and
-      ``QFileDialog.getSaveFileName`` (the Save branch of the guard).
+    * monkeypatch ``QMessageBox.warning`` (the error notices) and
+      ``QFileDialog.getSaveFileName`` (the Save branch of the guard);
+    * the dirty guard builds its own message box, so a timer finds the box while
+      the handler blocks in its modal loop, reads it as the user sees it, and
+      answers it by clicking a button by its text or by pressing a key.
 
 Mapping (Gherkin ↔ REQ, ``specs/drag-drop-import/spec.md`` §11):
     UI-001 accept file-URL drops         SC-U001-1/-2
@@ -26,12 +29,15 @@ Mapping (Gherkin ↔ REQ, ``specs/drag-drop-import/spec.md`` §11):
 from __future__ import annotations
 
 import hashlib
+import time
+from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import Callable, Iterator, List, Optional, Tuple
 
 import pytest
 from PIL import Image
-from PySide6.QtCore import QEvent, QMimeData, QPoint, QPointF, Qt, QUrl
+from PySide6.QtCore import QEvent, QMimeData, QPoint, QPointF, Qt, QTimer, QUrl
 from PySide6.QtGui import (
     QColor,
     QDragEnterEvent,
@@ -39,7 +45,8 @@ from PySide6.QtGui import (
     QImage,
     QUndoCommand,
 )
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from pixelart_creator.data.project_io import FILE_SUFFIX
 from pixelart_creator.logic.constants import MAX_CANVAS_WIDTH
@@ -171,6 +178,107 @@ def _active_buffer(window: Main_Window):
 def _mark_dirty(window: Main_Window) -> None:
     """Push a no-op command so the active tab's undo stack is not clean."""
     window.active_tab().stack.push(QUndoCommand("edit"))
+
+
+#: The three words of the unsaved-changes prompt, as the user guide quotes them
+#: (``drag-drop-import``, "Drop a .pixproj"): Save, Discard, Cancel.
+_PROMPT_SAVE = "Save"
+_PROMPT_DISCARD = "Discard"
+_PROMPT_CANCEL = "Cancel"
+
+#: How long a box may stay on screen after it was answered before it is closed
+#: by force, so a failing case fails instead of hanging the run.
+_PROMPT_WATCHDOG_MS = 8000
+
+
+@dataclass
+class _SeenPrompt:
+    """What the unsaved-changes box showed the moment it was on screen."""
+
+    buttons: List[Tuple[str, QMessageBox.ButtonRole]]
+    default: Optional[str]
+    escape: Optional[str]
+
+
+def _click(text: str) -> Callable[[QMessageBox], None]:
+    """Answer a box by clicking its one button that shows ``text``."""
+
+    def respond(box: QMessageBox) -> None:
+        found = [b for b in box.buttons() if b.text() == text]
+        assert len(found) == 1, f"{len(found)} buttons show {text!r}"
+        found[0].click()
+
+    return respond
+
+
+def _press(key: Qt.Key) -> Callable[[QMessageBox], None]:
+    """Answer a box by pressing ``key`` on it."""
+
+    def respond(box: QMessageBox) -> None:
+        QTest.keyClick(box, key)
+
+    return respond
+
+
+@contextmanager
+def _prompt_answered(
+    respond: Callable[[QMessageBox], None],
+) -> Iterator[List[_SeenPrompt]]:
+    """Answer the message box the body opens, and yield what each one showed.
+
+    The drop handler blocks in the box's modal loop, so a timer finds a visible,
+    not yet answered box, records its buttons (text and role), default and escape
+    button, then calls ``respond``. An error inside ``respond`` closes the box and
+    is raised when the block ends; a box that stays up after its answer is closed
+    by a watchdog and fails the block. An empty list means no box appeared.
+    """
+    seen: List[_SeenPrompt] = []
+    failures: List[BaseException] = []
+    answered: List[QMessageBox] = []
+    stuck: List[bool] = []
+    started = time.monotonic()
+    timer = QTimer()
+    timer.setInterval(5)
+
+    def poll() -> None:
+        boxes = [
+            w
+            for w in QApplication.topLevelWidgets()
+            if isinstance(w, QMessageBox) and w.isVisible()
+        ]
+        fresh = [b for b in boxes if not any(b is done for done in answered)]
+        if fresh:
+            box = fresh[0]
+            answered.append(box)
+            try:
+                default = box.defaultButton()
+                escape = box.escapeButton()
+                seen.append(
+                    _SeenPrompt(
+                        buttons=[(b.text(), box.buttonRole(b)) for b in box.buttons()],
+                        default=default.text() if default is not None else None,
+                        escape=escape.text() if escape is not None else None,
+                    )
+                )
+                respond(box)
+            except BaseException as exc:  # raised after the loop, not inside it
+                failures.append(exc)
+                box.done(int(QMessageBox.StandardButton.Cancel))
+            return
+        if boxes and (time.monotonic() - started) * 1000 > _PROMPT_WATCHDOG_MS:
+            stuck.append(True)
+            for box in boxes:
+                box.done(int(QMessageBox.StandardButton.Cancel))
+
+    timer.timeout.connect(poll)
+    timer.start()
+    try:
+        yield seen
+    finally:
+        timer.stop()
+    if failures:
+        raise failures[0]
+    assert not stuck, "a message box stayed on screen after it was answered"
 
 
 def _sha256(path: Path) -> str:
@@ -339,42 +447,36 @@ def test_ui003_source_file_not_modified_on_disk(win, tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def test_ui004_clean_document_opens_without_prompt(win, tmp_path, monkeypatch):
+def test_ui004_clean_document_opens_without_prompt(win, tmp_path):
     """SC-U004-1: a clean active document opens the dropped project with no prompt."""
     proj = _make_pixproj(win, tmp_path / f"p{FILE_SUFFIX}")
-    warned: List[tuple] = []
-    monkeypatch.setattr(
-        QMessageBox,
-        "warning",
-        lambda *a, **k: warned.append(a) or QMessageBox.StandardButton.Save,
-    )
+    kept = win.active_document()
     # save_document marked the active stack clean, so the guard must not prompt.
-    _drop(win, [str(proj)])
-    assert warned == []
+    # A box that did appear is answered Cancel, which would also leave the old
+    # document in place, so both the box and the outcome are asserted.
+    with _prompt_answered(_click(_PROMPT_CANCEL)) as seen:
+        _drop(win, [str(proj)])
+    assert seen == [], "a clean document must not raise the unsaved-changes prompt"
     # The project opened (REPLACE keeps the tab count at one).
     assert win.active_document() is not None
+    assert win.active_document() is not kept
 
 
-def test_ui004_dirty_document_prompts_save_discard_cancel(win, tmp_path, monkeypatch):
+def test_ui004_dirty_document_prompts_save_discard_cancel(win, tmp_path):
     """SC-U004-2: a dirty active document triggers a Save/Discard/Cancel prompt."""
     proj = _make_pixproj(win, tmp_path / f"p{FILE_SUFFIX}")
     _mark_dirty(win)
-    seen: List[object] = []
-
-    def _warn(parent, title, text, buttons, default):
-        seen.append(buttons)
-        return QMessageBox.StandardButton.Cancel
-
-    monkeypatch.setattr(QMessageBox, "warning", _warn)
-    _drop(win, [str(proj)])
+    with _prompt_answered(_click(_PROMPT_CANCEL)) as seen:
+        _drop(win, [str(proj)])
     assert seen, "no Save/Discard/Cancel prompt shown for a dirty document"
-    offered = seen[0]
-    for expected in (
-        QMessageBox.StandardButton.Save,
-        QMessageBox.StandardButton.Discard,
-        QMessageBox.StandardButton.Cancel,
-    ):
-        assert offered & expected
+    assert len(seen) == 1, "the guard prompted more than once for one drop"
+    # Exactly three buttons, one per role, each in the application's own words.
+    assert dict(seen[0].buttons) == {
+        _PROMPT_SAVE: QMessageBox.ButtonRole.AcceptRole,
+        _PROMPT_DISCARD: QMessageBox.ButtonRole.DestructiveRole,
+        _PROMPT_CANCEL: QMessageBox.ButtonRole.RejectRole,
+    }
+    assert len(seen[0].buttons) == 3
 
 
 def test_ui004_cancel_aborts_open_leaves_state_unchanged(win, tmp_path, monkeypatch):
@@ -383,28 +485,36 @@ def test_ui004_cancel_aborts_open_leaves_state_unchanged(win, tmp_path, monkeypa
     _mark_dirty(win)
     kept = win.active_document()
     tabs_before = win._tab_widget.count()
+    save_calls: List[int] = []
     monkeypatch.setattr(
-        QMessageBox, "warning", lambda *a, **k: QMessageBox.StandardButton.Cancel
+        QFileDialog,
+        "getSaveFileName",
+        lambda *a, **k: save_calls.append(1) or ("", ""),
     )
-    _drop(win, [str(proj)])
+    with _prompt_answered(_click(_PROMPT_CANCEL)) as seen:
+        _drop(win, [str(proj)])
+    assert seen, "no prompt was shown, so Cancel was never chosen"
     assert win.active_document() is kept
     assert win._tab_widget.count() == tabs_before
+    assert not win.active_tab().stack.isClean(), "Cancel must not mark it saved"
+    assert save_calls == [], "Cancel must not invoke the Save-As dialog"
 
 
 def test_ui004_save_persists_then_opens(win, tmp_path, monkeypatch):
     """SC-U004-4: Save persists the current document to disk, then opens the drop."""
     proj = _make_pixproj(win, tmp_path / f"dropped{FILE_SUFFIX}")
     _mark_dirty(win)
+    kept = win.active_document()
     save_target = tmp_path / f"saved{FILE_SUFFIX}"
-    monkeypatch.setattr(
-        QMessageBox, "warning", lambda *a, **k: QMessageBox.StandardButton.Save
-    )
     monkeypatch.setattr(
         QFileDialog, "getSaveFileName", lambda *a, **k: (str(save_target), "")
     )
-    _drop(win, [str(proj)])
+    with _prompt_answered(_click(_PROMPT_SAVE)) as seen:
+        _drop(win, [str(proj)])
+    assert seen, "no prompt was shown, so Save was never chosen"
     assert save_target.exists(), "Save branch did not persist the current document"
     assert win.active_document() is not None
+    assert win.active_document() is not kept, "the dropped project did not open"
 
 
 def test_ui004_save_cancelled_dialog_aborts_open(win, tmp_path, monkeypatch):
@@ -413,31 +523,38 @@ def test_ui004_save_cancelled_dialog_aborts_open(win, tmp_path, monkeypatch):
     _mark_dirty(win)
     kept = win.active_document()
     tabs_before = win._tab_widget.count()
+    save_calls: List[int] = []
     monkeypatch.setattr(
-        QMessageBox, "warning", lambda *a, **k: QMessageBox.StandardButton.Save
+        QFileDialog,
+        "getSaveFileName",
+        lambda *a, **k: save_calls.append(1) or ("", ""),
     )
-    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **k: ("", ""))
-    _drop(win, [str(proj)])
+    with _prompt_answered(_click(_PROMPT_SAVE)) as seen:
+        _drop(win, [str(proj)])
+    assert seen, "no prompt was shown, so Save was never chosen"
+    assert save_calls == [1], "Save did not offer the Save-As dialog"
     assert win.active_document() is kept
     assert win._tab_widget.count() == tabs_before
+    assert not win.active_tab().stack.isClean(), "nothing was saved, so still unsaved"
 
 
 def test_ui004_discard_opens_without_saving(win, tmp_path, monkeypatch):
     """SC-U004-5: Discard opens the dropped project without writing a save file."""
     proj = _make_pixproj(win, tmp_path / f"dropped{FILE_SUFFIX}")
     _mark_dirty(win)
+    kept = win.active_document()
     save_calls: List[int] = []
-    monkeypatch.setattr(
-        QMessageBox, "warning", lambda *a, **k: QMessageBox.StandardButton.Discard
-    )
     monkeypatch.setattr(
         QFileDialog,
         "getSaveFileName",
         lambda *a, **k: save_calls.append(1) or ("", ""),
     )
-    _drop(win, [str(proj)])
+    with _prompt_answered(_click(_PROMPT_DISCARD)) as seen:
+        _drop(win, [str(proj)])
+    assert seen, "no prompt was shown, so Discard was never chosen"
     assert save_calls == [], "Discard must not invoke the Save-As dialog"
     assert win.active_document() is not None
+    assert win.active_document() is not kept, "the dropped project did not open"
 
 
 # --------------------------------------------------------------------------- #
@@ -685,34 +802,62 @@ def test_ui009_notice_strings_are_translatable_and_rendered(win, tmp_path):
     assert "thing.dat" in message
 
 
-def test_ui009_error_dialog_offers_keyboard_reachable_default(
-    win, tmp_path, monkeypatch
-):
+def test_ui009_error_dialog_offers_keyboard_reachable_default(win, tmp_path):
     """SC-U009-2: the dirty prompt exposes a default (keyboard-operable) button.
 
-    A QMessageBox is inherently keyboard-reachable; we assert the guard supplies
-    Save/Discard/Cancel with a Save default so Enter/Esc resolve deterministically.
+    A message box is keyboard-reachable; we assert the guard supplies
+    Save/Discard/Cancel with a Save default and a Cancel escape button, so
+    Enter/Esc resolve deterministically.
     """
     proj = _make_pixproj(win, tmp_path / f"p{FILE_SUFFIX}")
     _mark_dirty(win)
-    seen: List[tuple] = []
-
-    def _warn(parent, title, text, buttons, default):
-        seen.append((buttons, default))
-        return QMessageBox.StandardButton.Cancel
-
-    monkeypatch.setattr(QMessageBox, "warning", _warn)
-    _drop(win, [str(proj)])
+    with _prompt_answered(_click(_PROMPT_CANCEL)) as seen:
+        _drop(win, [str(proj)])
 
     assert seen, "guard did not open a keyboard-operable prompt"
-    _buttons, default = seen[0]
-    assert default == QMessageBox.StandardButton.Save
+    assert seen[0].default == _PROMPT_SAVE
+    assert seen[0].escape == _PROMPT_CANCEL
+
+
+def test_ui009_enter_on_the_prompt_chooses_save(win, tmp_path, monkeypatch):
+    """SC-U009-2: Enter on the dirty prompt is Save: it saves, then opens the drop."""
+    proj = _make_pixproj(win, tmp_path / f"dropped{FILE_SUFFIX}")
+    _mark_dirty(win)
+    kept = win.active_document()
+    save_target = tmp_path / f"saved{FILE_SUFFIX}"
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", lambda *a, **k: (str(save_target), "")
+    )
+    with _prompt_answered(_press(Qt.Key.Key_Return)) as seen:
+        _drop(win, [str(proj)])
+    assert seen, "no prompt was shown, so Enter was never pressed"
+    assert save_target.exists(), "Enter did not choose Save"
+    assert win.active_document() is not kept, "the dropped project did not open"
+
+
+def test_ui009_escape_on_the_prompt_chooses_cancel(win, tmp_path, monkeypatch):
+    """SC-U009-2: Escape on the dirty prompt is Cancel: nothing changes."""
+    proj = _make_pixproj(win, tmp_path / f"p{FILE_SUFFIX}")
+    _mark_dirty(win)
+    kept = win.active_document()
+    tabs_before = win._tab_widget.count()
+    save_calls: List[int] = []
+    monkeypatch.setattr(
+        QFileDialog,
+        "getSaveFileName",
+        lambda *a, **k: save_calls.append(1) or ("", ""),
+    )
+    with _prompt_answered(_press(Qt.Key.Key_Escape)) as seen:
+        _drop(win, [str(proj)])
+    assert seen, "no prompt was shown, so Escape was never pressed"
+    assert win.active_document() is kept
+    assert win._tab_widget.count() == tabs_before
+    assert save_calls == [], "Escape must not invoke the Save-As dialog"
+    assert not win.active_tab().stack.isClean(), "Escape must not mark it saved"
 
 
 def test_ui009_window_renders_after_drop_in_active_theme(win, tmp_path, theme):
     """SC-U009-3: after a drop the app is still rendered under the active theme."""
-    from PySide6.QtWidgets import QApplication
-
     _drop(win, [str(_make_png(tmp_path / "x.png", 4, 4))])
     # A non-empty, role-based stylesheet is applied (both themes via fixture).
     assert QApplication.instance().styleSheet() != ""

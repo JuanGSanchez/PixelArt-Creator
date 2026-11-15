@@ -3158,21 +3158,31 @@ class Main_Window(QMainWindow):
         record = self.active_tab()
         previous_index = self._tab_widget.currentIndex()
         if record is not None and not record.stack.isClean():
-            choice = QMessageBox.warning(
-                self,
-                self.tr("Unsaved Changes"),
+            # The three buttons carry the application's own words, never the
+            # platform theme's (it renames Discard on macOS and GNOME).
+            box = QMessageBox(self)
+            box.setIcon(QMessageBox.Icon.Warning)
+            box.setWindowTitle(self.tr("Unsaved Changes"))
+            box.setText(
                 self.tr(
                     "The current document has unsaved changes. Save it before "
                     "opening the dropped project?"
-                ),
-                QMessageBox.StandardButton.Save
-                | QMessageBox.StandardButton.Discard
-                | QMessageBox.StandardButton.Cancel,
-                QMessageBox.StandardButton.Save,
+                )
             )
-            if choice == QMessageBox.StandardButton.Cancel:
+            save_button = box.addButton(
+                self.tr("Save"), QMessageBox.ButtonRole.AcceptRole
+            )
+            box.addButton(self.tr("Discard"), QMessageBox.ButtonRole.DestructiveRole)
+            cancel_button = box.addButton(
+                self.tr("Cancel"), QMessageBox.ButtonRole.RejectRole
+            )
+            box.setDefaultButton(save_button)
+            box.setEscapeButton(cancel_button)
+            box.exec()
+            clicked = box.clickedButton()
+            if clicked is cancel_button or clicked is None:
                 return  # abort: leave everything unchanged (SC-U004-3)
-            if choice == QMessageBox.StandardButton.Save and not self._save_for_guard():
+            if clicked is save_button and not self._save_for_guard():
                 return  # a cancelled save must not lose the unsaved work
         self.open_document(path)
         # REPLACE the previously active document: the project opened in a new tab
