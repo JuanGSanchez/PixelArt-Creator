@@ -250,7 +250,7 @@ class Realtime_Client(QObject):
         if self._signals is None or self.is_active():
             return
         if self._factory is None:
-            self.errorOccurred.emit("no real-time transport configured")
+            self.errorOccurred.emit(self.tr("no real-time transport configured"))
             return
         self._document_id = document_id
         self._stop = threading.Event()
