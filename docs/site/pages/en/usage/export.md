@@ -78,7 +78,8 @@ The **batch export panel** queues **several targets at once** — for example a 
 a GIF and a Unity atlas from one project in a single run. Batch export is
 **continue-on-failure**: if one target fails (say an atlas that will not fit), the
 remaining targets still export and the failure is reported for that target alone,
-so one bad target never aborts the batch.
+so one bad target never aborts the batch. The **Export All** button exports the
+document in the active tab to every queued target in one run.
 
 ## Responsiveness
 

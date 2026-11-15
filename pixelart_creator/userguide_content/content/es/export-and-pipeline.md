@@ -88,6 +88,8 @@ ejemplo un PNG, un GIF y un atlas de Unity de un proyecto en una sola ejecución
 exportación por lotes **continúa ante un fallo**: si un objetivo falla (por ejemplo,
 un atlas que no cabe), los demás objetivos se siguen exportando y el fallo se informa
 solo para ese objetivo, así que un objetivo defectuoso nunca aborta el lote completo.
+El botón **Exportar todo** exporta el documento de la pestaña activa a cada objetivo
+encolado en una sola ejecución.
 
 ## Añadir una exportación a la biblioteca de recursos
 

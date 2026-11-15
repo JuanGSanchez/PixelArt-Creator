@@ -16,7 +16,7 @@ esto desde el menú **Biblioteca**, junto a los paneles de
     recurso se almacenan **una sola vez**, indexados por su contenido, en un
     almacén direccionable por contenido, y un proyecto solo guarda una
     **referencia** (un id estable más el hash de contenido que espera). El
-    versionado, la reutilización y la exportación mueven referencias y
+    versionado y la reutilización mueven referencias y
     verifican el contenido — nunca hacen una segunda copia de tu obra.
 
 ## Historial de versiones

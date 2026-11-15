@@ -2,7 +2,7 @@
 
 Drag a file straight from your operating system's file explorer (Windows Explorer,
 macOS Finder, Linux Nautilus) **into** the PixelArt Creator window and it does the
-obvious thing for that kind of file. There is no File ▸ Open dance — drop it anywhere
+obvious thing for that kind of file. There is no File ▸ Open… dance — drop it anywhere
 on the window and the app routes it **by file type**, not by where on the window you
 let go.
 

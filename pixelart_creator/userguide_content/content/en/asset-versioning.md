@@ -11,7 +11,7 @@ on.
 > **Reference, not copy.** Everything here rests on one idea already used by the library: an
 > asset's bytes are stored **once**, keyed by their content, in a content-addressable store,
 > and a project holds only a **reference** (a stable id plus the content hash it expects).
-> Versioning, reuse and export all move references and verify content — they never make a
+> Versioning and reuse both move references and verify content — they never make a
 > second copy of your artwork.
 
 ## Version history
