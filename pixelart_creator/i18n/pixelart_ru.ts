@@ -4019,7 +4019,7 @@
     <message>
         <location filename="../ui/main_window.py" line="5747"/>
         <source>&amp;Image</source>
-        <translation>Изображение</translation>
+        <translation>Рисунок</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5748"/>
@@ -4029,7 +4029,7 @@
     <message>
         <location filename="../ui/main_window.py" line="5749"/>
         <source>Visual Ai&amp;ds</source>
-        <translation>Наглядность</translation>
+        <translation>Утилиты</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5750"/>
@@ -4044,7 +4044,7 @@
     <message>
         <location filename="../ui/main_window.py" line="5752"/>
         <source>&amp;Automation</source>
-        <translation>Автоматизация</translation>
+        <translation>Автоматика</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5753"/>
@@ -4054,7 +4054,7 @@
     <message>
         <location filename="../ui/main_window.py" line="5754"/>
         <source>&amp;Library</source>
-        <translation>Библиотека</translation>
+        <translation>Ресурсы</translation>
     </message>
     <message>
         <location filename="../ui/main_window.py" line="5756"/>
