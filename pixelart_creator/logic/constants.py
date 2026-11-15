@@ -1349,6 +1349,31 @@ REQ-L10N-UI-012): the Hangul Syllables block, U+AC00-U+D7A3. Source: the Unicode
 Standard's block assignments (``Blocks.txt``, unicode.org/Public/UCD/latest/ucd).
 Conjoining and compatibility jamo are deliberately **not** Hangul here."""
 
+# --- Menu bar (feature six-ui-languages) ------------------------------------
+
+MENU_BAR_ITEM_PADDING_VERTICAL_PX: int = 3
+"""Vertical padding, in logical px, above and below the text of each top-level
+menu-bar item (the ``padding`` of the ``QMenuBar::item`` rule). Source: the value
+the application has always used; it is not a tuning target, so it is unchanged.
+Qt Style Sheets reference, "Customizing QMenuBar"
+(doc.qt.io/qt-6/stylesheet-examples.html#customizing-qmenubar)."""
+
+MENU_BAR_ITEM_PADDING_HORIZONTAL_PX: int = 6
+"""Horizontal padding, in logical px, on each side of the text of every top-level
+menu-bar item (REQ-L10N-UI-013: the bar must fit the 1,280 px window, every title
+visible, in every language). It is 6 px, the smallest value the rule allows, and
+that is the only value measured to fit: with the accepted Russian titles and the
+Tilemap title, on the DejaVu Sans stand-in for a CI runner's system font, the bar
+needs 1,294 px at 8 px, 1,266 px at 7 px (14 px to spare) and 1,238 px at 6 px
+(42 px to spare), against a 1,280 px window; the margin the requirement asks for is
+16 px, which 7 px does not leave. English needs 907 px at 8 px, and the Nifen Art
+face 1,100 px, so the bar fits in them with room. Source: scratch measurement of the
+real main window offscreen at 1,280 x 800 (``QMenuBar.actionGeometry`` of the 14
+visible items, window widened to read the full width), padding swept in whole
+pixels, both themes agreeing to the pixel; the CI margin reading overrides it. Not
+below 6 px: the floor set for this padding, so that the item text keeps a
+visible gap from its highlight edge."""
+
 # --- Guide soft line breaks ---------------------------------------------------
 
 GUIDE_UCD_TABLES_VERSION: str = "16.0.0"
