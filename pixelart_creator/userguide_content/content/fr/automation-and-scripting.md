@@ -1,8 +1,8 @@
 # Automatisation, macros, scripts et plugins
 
 Le **système d'automatisation** vous permet de capturer, de scripter, de rejouer et de traiter
-par lot les propres opérations de l'éditeur, de générer du contenu de façon procédurale et
-d'étendre l'application avec des plugins de confiance — le tout via **un seul** moteur que
+par lot les propres opérations de l'éditeur, et de générer du contenu de façon procédurale — le tout via **un seul**
+moteur que
 partagent l'interface graphique et la ligne de commande sans interface `pixelart-run`, si bien
 qu'une automatisation s'exécute **de la même façon**, que vous la déclenchiez depuis un panneau
 ou depuis un script de build.
@@ -75,30 +75,51 @@ d'annulation**.
 
 ## Plugins — le gestionnaire, le consentement et le modèle de confiance
 
-Le panneau **Plugins** détecte, active et désactive les plugins. Les plugins étendent l'éditeur
-en ajoutant de nouvelles opérations au DSL — et rien d'autre.
+Le panneau **Plugins** liste les plugins, affiche les permissions de chaque plugin dont vous
+avez chargé le manifeste, et les active et les désactive. Un plugin est destiné à étendre
+l'éditeur en ajoutant de nouvelles opérations au DSL. **Dans cette version, l'application n'a
+aucune étape qui charge ou exécute le code d'un plugin :** détecter un plugin, charger un
+manifeste, activer et désactiver n'appellent jamais un plugin. Les permissions que déclare un
+manifeste décrivent l'usage prévu du plugin ; elles ne limitent pas ce que peut faire le code
+propre du plugin (voir la note ci-dessous).
 
-- **La détection est inerte.** Les plugins installés sont *trouvés* (via les points d'entrée
-  Python standard), mais **rien n'est chargé ni exécuté** du seul fait qu'un plugin est installé.
-  Vous les voyez listés ; ils ne font rien tant que vous n'agissez pas.
-- **Refus par défaut, avec consentement explicite.** Activer un plugin lui remet un **objet de
-  capacités dont la seule surface est le registre de commandes du DSL**. À travers cet objet, un
-  plugin ne peut rien faire de ce qu'il n'a pas déclaré — **toute capacité qu'il n'a pas déclarée
-  est refusée**. Vous approuvez en bloc les permissions déclarées d'un plugin, ou vous ne
-  l'activez pas. Activer un plugin dans le panneau n'exécute pas, en soi, le code du plugin. Ses
-  opérations sont placées dans l'espace de noms du plugin, si bien qu'un plugin ne peut pas
-  supplanter une opération intégrée. Cela limite ce que le plugin peut faire *à travers
-  l'application* ; cela ne restreint pas le code propre du plugin (voir la note ci-dessous).
-- **La désactivation est propre.** Désactiver un plugin retire les opérations qu'il avait
-  ajoutées.
+- **La détection est inerte.** L'application trouve les plugins installés via les points
+  d'entrée Python standard, mais elle ne lit que leurs noms et leurs versions : elle
+  **ne charge ni n'exécute** leur code. Un plugin détecté n'affiche aucune permission et ne
+  peut pas être activé, car l'application ne lit pas les permissions dans le plugin lui-même.
+  Elles proviennent d'un fichier de manifeste que vous ajoutez au panneau depuis le disque, et
+  qui apparaît comme sa propre entrée dans la liste. L'application ne vérifie pas qu'un
+  manifeste appartient à un plugin que vous avez installé.
+- **Le consentement couvre ce que déclare le manifeste.** **Activer** affiche les permissions
+  que déclare le manifeste et vous demande de confirmer. Vous les approuvez en bloc, ou vous
+  n'activez pas le plugin. L'application ne compare pas le manifeste à ce que fait réellement
+  le code du plugin. Activer un plugin consigne en mémoire les permissions que vous avez
+  approuvées et le marque comme activé ; cela n'exécute pas le code du plugin, car
+  l'application n'a aucune étape qui le fasse. Votre consentement n'est pas enregistré :
+  chaque plugin est de nouveau désactivé quand vous fermez l'éditeur. L'hôte de plugins est
+  écrit de telle sorte que, si un appelant lui fournissait une étape d'activation, cette étape
+  reçoive un objet de permissions et qu'un appel fait via cet objet, sans que la permission ait
+  été accordée, soit refusé ; rien dans cette version ne fournit une telle étape. Les
+  opérations ajoutées via cet objet reçoivent le nom du plugin comme préfixe, de sorte qu'elles
+  ne peuvent pas coïncider avec le nom d'une opération intégrée, et une permission de lecture
+  via cet objet renvoie le document qui lui est transmis, et non une copie. Le code qui ne
+  passe pas par l'objet n'est pas limité par lui : il peut ajouter ou retirer des opérations
+  directement, y compris des opérations intégrées.
+- **Désactiver retire les opérations du plugin.** **Désactiver** supprime les opérations qui
+  ont été ajoutées via l'objet de permissions ; dans cette version, il n'y en a aucune, car
+  rien n'en ajoute. Cela n'annule rien de ce que le code propre d'un plugin a déjà fait.
 
-> **Confiance et consentement, dans cette version.** Comme *charger* un plugin Python
-> revient déjà à exécuter du code, le modèle de capacités, qui s'applique dans le même processus
-> que le code du plugin, n'offre qu'une protection **non contraignante** : elle limite ce que le plugin peut faire à travers l'application, mais pas ce que fait le code propre du plugin. Cette protection convient aux
-> **extensions de confiance que vous installez et auxquelles vous consentez**, et non à du code
-> arbitraire issu d'une place de marché non fiable. Le code d'un plugin s'exécute dans le même
-> processus que l'éditeur, avec le même accès à vos fichiers et au réseau que l'application
-> elle-même. N'installez que des plugins auxquels vous faites confiance.
+> **Les plugins ne sont pas placés dans un bac à sable.** Un plugin n'est pas isolé de votre
+> ordinateur, et l'application n'offre d'isolation à aucun plugin dans cette version.
+> Installer un plugin met sur votre ordinateur du code Python écrit par quelqu'un d'autre, et
+> l'application n'effectue ni ne vérifie l'installation. Un paquet peut aussi demander à
+> Python d'exécuter du code chaque fois que Python démarre dans l'environnement où il est
+> installé, ce qui inclut l'éditeur, si bien qu'installer un plugin peut suffire à ce que son
+> code s'exécute, même si vous n'ouvrez jamais le panneau **Plugins**. Le code qui s'exécute
+> dans le propre processus de l'éditeur, quelle que soit la façon dont il y est arrivé, a le
+> même accès à vos fichiers et au réseau que l'éditeur lui-même, quelles que soient les
+> permissions que le plugin a déclarées. N'installez et n'activez que des plugins auxquels vous
+> faites confiance.
 
 ## Recoloration par lot
 
@@ -160,7 +181,7 @@ pixelart-run --input PROJECT.pixproj --macro MACRO.pixmacro --output OUT.pixproj
 | `--param KEY=VALUE` | injecte ou remplace un paramètre de macro ; répétable. |
 
 **Codes de sortie :** `0` succès ; `1` un échec d'automatisation (une erreur de script / de macro
-/ de plugin / de lot / de génération procédurale, ou un échec d'écriture) ; `2` des arguments
+/ de lot / de génération procédurale, ou un échec d'écriture) ; `2` des arguments
 incorrects ou un projet d'entrée mal formé ou illisible, ou une macro mal formée ou illisible.
 
 > **Point d'entrée console.** `pixelart-run` est installé comme script console lors du
@@ -171,8 +192,9 @@ incorrects ou un projet d'entrée mal formé ou illisible, ou une macro mal form
 - **Les scripts Python arbitraires** — **non pris en charge par conception.** Le scriptage est un
   DSL de commandes borné, à liste d'autorisation, et non un interpréteur généraliste ; c'est une
   frontière de sécurité délibérée, et non une limite appelée à disparaître.
-- **L'isolation des plugins tiers non fiables** — **différée.** Dans cette version, les plugins sont admis sur la base de votre confiance et de votre consentement ; n'installez que des plugins auxquels vous faites
-  confiance.
+- **L'isolation des plugins tiers non fiables** — **différée.** Dans cette version, les
+  plugins ne sont pas placés dans un bac à sable ; n'installez et n'activez que des plugins
+  auxquels vous faites confiance.
 
 ## Sujets connexes
 

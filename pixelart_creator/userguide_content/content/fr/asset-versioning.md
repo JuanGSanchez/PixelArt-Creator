@@ -12,8 +12,8 @@ données adossé au cloud existe dans la couche de stockage, mais cette version 
 > **Référence, pas copie.** Tout ce qui suit repose sur une idée que la bibliothèque applique déjà :
 > les octets d'une ressource sont stockés **une seule fois**, avec pour clé leur contenu, dans un
 > magasin adressable par le contenu, et un projet ne conserve qu'une **référence** (un identifiant
-> stable et le hachage de contenu qu'il attend). Le versionnage, la réutilisation et l'exportation
-> déplacent des références et vérifient le contenu — ils ne font jamais de seconde copie de votre
+> stable et le hachage de contenu qu'il attend). Le versionnage et la réutilisation déplacent
+> tous deux des références et vérifient le contenu — ils ne font jamais de seconde copie de votre
 > œuvre.
 
 ## Historique des versions

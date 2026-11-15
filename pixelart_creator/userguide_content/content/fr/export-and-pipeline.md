@@ -85,7 +85,9 @@ Le **panneau d'exportation par lot** met **plusieurs cibles en file d'attente à
 exemple un PNG, un GIF et un atlas Unity issus d'un même projet, en une seule exécution.
 L'exportation par lot **se poursuit malgré les échecs** : si une cible échoue (par exemple un
 atlas qui ne tient pas), les autres cibles sont tout de même exportées et l'échec n'est signalé
-que pour cette cible, si bien qu'une mauvaise cible n'interrompt jamais le lot.
+que pour cette cible, si bien qu'une mauvaise cible n'interrompt jamais le lot. Le bouton
+**Tout exporter** exporte le document de l'onglet actif vers chaque cible de la file
+d'attente, en une seule exécution.
 
 ## Inscrire un fichier exporté dans la bibliothèque
 
