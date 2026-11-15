@@ -162,88 +162,88 @@
 <context>
     <name>Asset_Library_Session</name>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="506"/>
+        <location filename="../ui/asset_library_actions.py" line="507"/>
         <source>Import asset artifact</source>
         <extracomment>Emitted after any change to the catalog (add / remove / tag do-undo) so the bound panels re-read and repaint. No payload — panels pull the fresh catalog. Emitted after the dependency graph is replaced so the dependency-graph view and the passive break surface re-read and repaint. No payload. Emitted after a registration action commits — carries the :class:`RegistrationOutcome` (REQ-P11-UI-017). Emitted when a registration action cannot commit — carries a translatable message; the catalog, store and revision history are all left unchanged (REQ-P11-UI-017). Emitted when the user cancels the registration prompt — cancelling is not a failure (REQ-P11-UI-017; RP-4). Emitted after a successful registration&apos;s derived dependency edges are computed (ruling P11-R6, REQ-P11-LOGIC-010 / REQ-P11-UI-018) — carries the **accumulated** edge set (this session&apos;s current graph edges plus the newly derived ones), because the bound consumer (:meth:`~pixelart_creator.ui.dependency_graph_view.Dependency_Graph_View. show_edges`) *replaces* the graph it is handed rather than merging into it. This session never calls :meth:`set_graph` itself and never imports the view — ``show_edges`` alone decides whether the accumulated set is accepted (and, on a closed cycle, rejected passively, the prior graph kept) — see ``main_window.py``&apos;s connection of this signal. Emitted after a single library artifact (``.pixasset``) is imported and merged + committed into the already-open library (ruling P11-R5, REQ-P11-UI-015/-016) — carries the imported ``Tuple[AssetDescriptor, ...]``. Emitted when a library-artifact import cannot commit — a translatable message; the catalog and store are unchanged. Emitted when the user cancels the &quot;Import asset artifact&quot; file dialog. Emitted after a chosen catalog subset is written to a library artifact file (REQ-P11-UI-016) — carries the destination path as ``str``. Emitted when a library-subset export cannot complete — a translatable message; no file is written. Emitted when the user cancels the &quot;Export asset artifact&quot; file dialog. Emitted after a project + its whole reference set is written to a ``.pixbundle`` file (the shipped :func:`~pixelart_creator.data.asset_export.export_project_bundle`, unchanged) — carries the destination path as ``str``. Emitted when a project-bundle export cannot complete — a translatable message; no file is written. Emitted when the user cancels the &quot;Export project bundle&quot; file dialog. Emitted after a ``.pixbundle`` is reconstructed into a new project directory (the shipped :func:`~pixelart_creator.data.asset_export.import_project_bundle`, unchanged) — carries the ``(Document, AssetCatalog)`` tuple. This session&apos;s own catalog is untouched: the bundle reconstructs a **new** project, never merging into the open library (plan Section 3.7). Emitted when a project-bundle import cannot complete — a translatable message; ``target_dir`` is left exactly as it was (the shipped function&apos;s own atomic-move guarantee). Emitted when the user cancels the &quot;Import project bundle&quot; file dialog. The shared undo stack the tag commands push onto (REQ-P11-UI-002). The durable catalog root once bound (REQ-P11-DATA-008); ``None`` until :meth:`bind_root` is called, so an unbound session stays purely in-memory. The content-addressable store the registration actions write blobs through, once bound; ``None`` until :meth:`bind_content_store`. The revision store the registration actions record through, once bound; ``None`` until :meth:`bind_revision_store`.</extracomment>
         <translation>アセットファイルをインポート</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="507"/>
-        <location filename="../ui/asset_library_actions.py" line="570"/>
+        <location filename="../ui/asset_library_actions.py" line="508"/>
+        <location filename="../ui/asset_library_actions.py" line="571"/>
         <source>Asset artifact (*%1)</source>
         <translation>アセットファイル (*%1)</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="518"/>
+        <location filename="../ui/asset_library_actions.py" line="519"/>
         <source>&quot;%1&quot; is a project bundle, not a single asset. Use &quot;Import project bundle…&quot; instead.</source>
         <translation>“%1” は単一のアセットではなく、プロジェクトバンドルです。代わりに [プロジェクトバンドルをインポート…] を使用してください。</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="523"/>
-        <location filename="../ui/asset_library_actions.py" line="723"/>
+        <location filename="../ui/asset_library_actions.py" line="524"/>
+        <location filename="../ui/asset_library_actions.py" line="728"/>
         <source>Import asset</source>
         <translation>アセットをインポート</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="569"/>
+        <location filename="../ui/asset_library_actions.py" line="570"/>
         <source>Export asset artifact</source>
         <translation>アセットファイルをエクスポート</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="624"/>
-        <location filename="../ui/asset_library_actions.py" line="741"/>
+        <location filename="../ui/asset_library_actions.py" line="625"/>
+        <location filename="../ui/asset_library_actions.py" line="752"/>
         <source>Export project bundle</source>
         <translation>プロジェクトバンドルをエクスポート</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="625"/>
-        <location filename="../ui/asset_library_actions.py" line="676"/>
+        <location filename="../ui/asset_library_actions.py" line="626"/>
+        <location filename="../ui/asset_library_actions.py" line="677"/>
         <source>Project bundle (*%1)</source>
         <translation>プロジェクトバンドル (*%1)</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="675"/>
-        <location filename="../ui/asset_library_actions.py" line="752"/>
+        <location filename="../ui/asset_library_actions.py" line="676"/>
+        <location filename="../ui/asset_library_actions.py" line="765"/>
         <source>Import project bundle</source>
         <translation>プロジェクトバンドルをインポート</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="720"/>
+        <location filename="../ui/asset_library_actions.py" line="722"/>
         <source>Could not import the asset: %1</source>
         <translation>アセットをインポートできませんでした: %1</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="727"/>
+        <location filename="../ui/asset_library_actions.py" line="733"/>
         <source>Could not export the asset: %1</source>
         <translation>アセットをエクスポートできませんでした: %1</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="730"/>
+        <location filename="../ui/asset_library_actions.py" line="739"/>
         <source>Export asset</source>
         <translation>アセットをエクスポート</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="736"/>
+        <location filename="../ui/asset_library_actions.py" line="746"/>
         <source>Could not export the project bundle: %1</source>
         <translation>プロジェクトバンドルをエクスポートできませんでした: %1</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="747"/>
+        <location filename="../ui/asset_library_actions.py" line="759"/>
         <source>Could not import the project bundle: %1</source>
         <translation>プロジェクトバンドルをインポートできませんでした: %1</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="817"/>
+        <location filename="../ui/asset_library_actions.py" line="830"/>
         <source>There is no active selection to register.</source>
         <translation>登録するアクティブな選択範囲がありません。</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="1136"/>
+        <location filename="../ui/asset_library_actions.py" line="1151"/>
         <source>Could not register the asset: %1</source>
         <translation>アセットを登録できませんでした: %1</translation>
     </message>
     <message>
-        <location filename="../ui/asset_library_actions.py" line="1139"/>
+        <location filename="../ui/asset_library_actions.py" line="1157"/>
         <source>Asset registration</source>
         <translation>アセットの登録</translation>
     </message>
@@ -374,177 +374,177 @@
 <context>
     <name>Asset_Reuse_Panel</name>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="249"/>
+        <location filename="../ui/asset_reuse_panel.py" line="254"/>
         <source>The selected asset is not available.</source>
-        <extracomment>Columns of the in-project reference list (REQ-P11-UI-021 indicators). The selected asset row&apos;s ``asset_id`` is stashed on the name column (both trees). Emitted with ``(asset_id, project)`` after a successful reference. Each open project&apos;s real, durable reference set (REQ-P11-UI-021), bound through :meth:`set_project_reference_set` or created empty by :meth:`add_project`. Never a predicate&apos;s own scratch state. In-project reference list — the resolve-state / shared-state indicators (REQ-P11-UI-021), over the *current* project&apos;s real reference set.</extracomment>
+        <extracomment>Columns of the in-project reference list (REQ-P11-UI-021 indicators). The selected asset row&apos;s ``asset_id`` is stashed on the name column (both trees). Column of the in-project reference list that shows the resolve state. Emitted with ``(asset_id, project)`` after a successful reference. Each open project&apos;s real, durable reference set (REQ-P11-UI-021), bound through :meth:`set_project_reference_set` or created empty by :meth:`add_project`. Never a predicate&apos;s own scratch state. In-project reference list — the resolve-state / shared-state indicators (REQ-P11-UI-021), over the *current* project&apos;s real reference set.</extracomment>
         <translation>選択したアセットは利用できません。</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="256"/>
+        <location filename="../ui/asset_reuse_panel.py" line="261"/>
         <source>Shared content for %1 is not available.</source>
         <translation>%1 の共有コンテンツは利用できません。</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="271"/>
+        <location filename="../ui/asset_reuse_panel.py" line="276"/>
         <source>%1 is already referenced in %2.</source>
         <translation>%1 は既に %2 で参照されています。</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="277"/>
+        <location filename="../ui/asset_reuse_panel.py" line="282"/>
         <source>Referenced %1 into %2.</source>
         <translation>%1 を %2 に参照として追加しました。</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="340"/>
-        <location filename="../ui/asset_reuse_panel.py" line="403"/>
-        <location filename="../ui/asset_reuse_panel.py" line="465"/>
-        <location filename="../ui/asset_reuse_panel.py" line="479"/>
+        <location filename="../ui/asset_reuse_panel.py" line="345"/>
+        <location filename="../ui/asset_reuse_panel.py" line="408"/>
+        <location filename="../ui/asset_reuse_panel.py" line="470"/>
+        <location filename="../ui/asset_reuse_panel.py" line="484"/>
         <source>Shared</source>
         <translation>共有</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="352"/>
-        <location filename="../ui/asset_reuse_panel.py" line="420"/>
+        <location filename="../ui/asset_reuse_panel.py" line="357"/>
+        <location filename="../ui/asset_reuse_panel.py" line="425"/>
         <source>Referenced by another open project</source>
         <translation>他の開いているプロジェクトから参照されています</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="399"/>
+        <location filename="../ui/asset_reuse_panel.py" line="404"/>
         <source>In library</source>
         <translation>ライブラリ内</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="401"/>
+        <location filename="../ui/asset_reuse_panel.py" line="406"/>
         <source>Not found in library</source>
         <translation>ライブラリに見つかりません</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="416"/>
+        <location filename="../ui/asset_reuse_panel.py" line="421"/>
         <source>This reference could not be found in the local library.</source>
         <translation>この参照はローカルライブラリに見つかりませんでした。</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/asset_reuse_panel.py" line="426"/>
+        <location filename="../ui/asset_reuse_panel.py" line="431"/>
         <source>%n unresolved reference(s) in this project.</source>
         <translation>
             <numerusform>このプロジェクトに未解決の参照が %n 件あります。</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="431"/>
+        <location filename="../ui/asset_reuse_panel.py" line="436"/>
         <source>All references resolve in the local library.</source>
         <translation>すべての参照がローカルライブラリで解決されます。</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="447"/>
+        <location filename="../ui/asset_reuse_panel.py" line="452"/>
         <source>Sprite</source>
         <translation>スプライト</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="448"/>
+        <location filename="../ui/asset_reuse_panel.py" line="453"/>
         <source>Animation</source>
         <translation>アニメーション</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="449"/>
+        <location filename="../ui/asset_reuse_panel.py" line="454"/>
         <source>Tileset</source>
         <translation>タイルセット</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="450"/>
+        <location filename="../ui/asset_reuse_panel.py" line="455"/>
         <source>Tilemap</source>
         <translation>タイルマップ</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="451"/>
+        <location filename="../ui/asset_reuse_panel.py" line="456"/>
         <source>Palette</source>
         <translation>パレット</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="457"/>
+        <location filename="../ui/asset_reuse_panel.py" line="462"/>
         <source>Cross-project reuse</source>
         <translation>プロジェクト間の再利用</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="458"/>
+        <location filename="../ui/asset_reuse_panel.py" line="463"/>
         <source>Project:</source>
         <translation>プロジェクト:</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="459"/>
+        <location filename="../ui/asset_reuse_panel.py" line="464"/>
         <source>Target project</source>
         <translation>対象プロジェクト</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="460"/>
-        <location filename="../ui/asset_reuse_panel.py" line="461"/>
+        <location filename="../ui/asset_reuse_panel.py" line="465"/>
+        <location filename="../ui/asset_reuse_panel.py" line="466"/>
         <source>New project name</source>
         <translation>新しいプロジェクト名</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="462"/>
+        <location filename="../ui/asset_reuse_panel.py" line="467"/>
         <source>Add Project</source>
         <translation>プロジェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="463"/>
+        <location filename="../ui/asset_reuse_panel.py" line="468"/>
         <source>Add a project</source>
         <translation>プロジェクトを一覧に追加</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="465"/>
-        <location filename="../ui/asset_reuse_panel.py" line="476"/>
+        <location filename="../ui/asset_reuse_panel.py" line="470"/>
+        <location filename="../ui/asset_reuse_panel.py" line="481"/>
         <source>Name</source>
         <translation>名前</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="465"/>
-        <location filename="../ui/asset_reuse_panel.py" line="477"/>
+        <location filename="../ui/asset_reuse_panel.py" line="470"/>
+        <location filename="../ui/asset_reuse_panel.py" line="482"/>
         <source>Kind</source>
         <translation>種類</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="465"/>
+        <location filename="../ui/asset_reuse_panel.py" line="470"/>
         <source>Projects</source>
         <translation>プロジェクト</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="467"/>
+        <location filename="../ui/asset_reuse_panel.py" line="472"/>
         <source>Shared assets</source>
         <translation>共有アセット</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="468"/>
+        <location filename="../ui/asset_reuse_panel.py" line="473"/>
         <source>Reference into Project</source>
         <translation>プロジェクトに参照を追加</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="470"/>
+        <location filename="../ui/asset_reuse_panel.py" line="475"/>
         <source>Reference the selected asset into the project</source>
         <translation>選択したアセットをプロジェクトに参照として追加</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="472"/>
+        <location filename="../ui/asset_reuse_panel.py" line="477"/>
         <source>Reuse status</source>
         <translation>再利用の状態</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="473"/>
+        <location filename="../ui/asset_reuse_panel.py" line="478"/>
         <source>References in this project:</source>
         <translation>このプロジェクトの参照:</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="478"/>
+        <location filename="../ui/asset_reuse_panel.py" line="483"/>
         <source>Resolve state</source>
         <translation>解決状態</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="483"/>
+        <location filename="../ui/asset_reuse_panel.py" line="488"/>
         <source>References in the current project</source>
         <translation>現在のプロジェクトの参照</translation>
     </message>
     <message>
-        <location filename="../ui/asset_reuse_panel.py" line="485"/>
+        <location filename="../ui/asset_reuse_panel.py" line="490"/>
         <source>Missing reference count</source>
         <translation>欠落している参照の数</translation>
     </message>
@@ -637,65 +637,65 @@
 <context>
     <name>Asset_Tagging_Panel</name>
     <message>
-        <location filename="../ui/asset_tagging_panel.py" line="121"/>
-        <location filename="../ui/asset_tagging_panel.py" line="145"/>
+        <location filename="../ui/asset_tagging_panel.py" line="124"/>
+        <location filename="../ui/asset_tagging_panel.py" line="154"/>
         <source>Tagging</source>
         <extracomment>The asset whose tags are being edited (``&quot;&quot;`` when none is selected).</extracomment>
         <translation>タグ付け</translation>
     </message>
     <message>
-        <location filename="../ui/asset_tagging_panel.py" line="126"/>
+        <location filename="../ui/asset_tagging_panel.py" line="133"/>
         <source>Add tag &quot;%1&quot;</source>
         <translation>タグ “%1” を追加</translation>
     </message>
     <message>
-        <location filename="../ui/asset_tagging_panel.py" line="150"/>
+        <location filename="../ui/asset_tagging_panel.py" line="163"/>
         <source>Remove tag &quot;%1&quot;</source>
         <translation>タグ “%1” を削除</translation>
     </message>
     <message>
-        <location filename="../ui/asset_tagging_panel.py" line="185"/>
+        <location filename="../ui/asset_tagging_panel.py" line="198"/>
         <source>No asset selected</source>
         <translation>アセットが選択されていません</translation>
     </message>
     <message>
-        <location filename="../ui/asset_tagging_panel.py" line="188"/>
+        <location filename="../ui/asset_tagging_panel.py" line="201"/>
         <source>Tags for: %1</source>
         <translation>タグの対象: %1</translation>
     </message>
     <message>
-        <location filename="../ui/asset_tagging_panel.py" line="192"/>
+        <location filename="../ui/asset_tagging_panel.py" line="205"/>
         <source>Asset tagging</source>
         <translation>アセットのタグ付け</translation>
     </message>
     <message>
-        <location filename="../ui/asset_tagging_panel.py" line="193"/>
+        <location filename="../ui/asset_tagging_panel.py" line="206"/>
         <source>Asset tags</source>
         <translation>アセットのタグ</translation>
     </message>
     <message>
-        <location filename="../ui/asset_tagging_panel.py" line="194"/>
-        <location filename="../ui/asset_tagging_panel.py" line="195"/>
+        <location filename="../ui/asset_tagging_panel.py" line="207"/>
+        <location filename="../ui/asset_tagging_panel.py" line="208"/>
         <source>New tag</source>
         <translation>新しいタグ</translation>
     </message>
     <message>
-        <location filename="../ui/asset_tagging_panel.py" line="196"/>
+        <location filename="../ui/asset_tagging_panel.py" line="209"/>
         <source>Add Tag</source>
         <translation>タグを追加</translation>
     </message>
     <message>
-        <location filename="../ui/asset_tagging_panel.py" line="197"/>
+        <location filename="../ui/asset_tagging_panel.py" line="210"/>
         <source>Add tag to asset</source>
         <translation>アセットにタグを追加</translation>
     </message>
     <message>
-        <location filename="../ui/asset_tagging_panel.py" line="198"/>
+        <location filename="../ui/asset_tagging_panel.py" line="211"/>
         <source>Remove Tag</source>
         <translation>タグを削除</translation>
     </message>
     <message>
-        <location filename="../ui/asset_tagging_panel.py" line="199"/>
+        <location filename="../ui/asset_tagging_panel.py" line="212"/>
         <source>Remove selected tag</source>
         <translation>選択したタグを削除</translation>
     </message>
@@ -762,94 +762,94 @@
 <context>
     <name>Asset_Version_Browser</name>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="193"/>
+        <location filename="../ui/asset_version_browser.py" line="194"/>
         <source>%1 (current)</source>
         <extracomment>The selected row&apos;s revision ``content_hash`` is stashed on the order column. How many leading characters of a content hash the browser shows (the full hash is kept on the tooltip / item data — this is display abbreviation only, not identity). Emitted with the new head&apos;s ``content_hash`` after a successful restore (so a caller / test can react); no payload semantics beyond the reinstated head hash. The asset whose revisions are shown (``&quot;&quot;`` when none is selected).</extracomment>
         <translation>%1 (現在)</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="194"/>
-        <location filename="../ui/asset_version_browser.py" line="233"/>
+        <location filename="../ui/asset_version_browser.py" line="195"/>
+        <location filename="../ui/asset_version_browser.py" line="240"/>
         <source>(unknown)</source>
         <translation>(不明)</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="231"/>
-        <location filename="../ui/asset_version_browser.py" line="251"/>
-        <location filename="../ui/asset_version_browser.py" line="261"/>
+        <location filename="../ui/asset_version_browser.py" line="234"/>
+        <location filename="../ui/asset_version_browser.py" line="260"/>
+        <location filename="../ui/asset_version_browser.py" line="276"/>
         <source>Version history</source>
         <translation>バージョン履歴</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/asset_version_browser.py" line="235"/>
+        <location filename="../ui/asset_version_browser.py" line="242"/>
         <source>Revision %1 — %n bytes, marker %3, author %4</source>
         <translation>
             <numerusform>リビジョン %1 — %n バイト、マーカー %3、作成者 %4</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="313"/>
-        <location filename="../ui/asset_version_browser.py" line="318"/>
+        <location filename="../ui/asset_version_browser.py" line="332"/>
+        <location filename="../ui/asset_version_browser.py" line="337"/>
         <source>Revisions of: %1</source>
         <translation>リビジョンの対象: %1</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="321"/>
+        <location filename="../ui/asset_version_browser.py" line="340"/>
         <source>No asset selected</source>
         <translation>アセットが選択されていません</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="325"/>
+        <location filename="../ui/asset_version_browser.py" line="344"/>
         <source>Asset version browser</source>
         <translation>アセットバージョンブラウザー</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="327"/>
+        <location filename="../ui/asset_version_browser.py" line="346"/>
         <source>#</source>
         <translation>#</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="327"/>
+        <location filename="../ui/asset_version_browser.py" line="346"/>
         <source>Created</source>
         <translation>作成日時</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="327"/>
+        <location filename="../ui/asset_version_browser.py" line="346"/>
         <source>Author</source>
         <translation>作成者</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="327"/>
+        <location filename="../ui/asset_version_browser.py" line="346"/>
         <source>Content</source>
         <translation>内容</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="329"/>
+        <location filename="../ui/asset_version_browser.py" line="348"/>
         <source>Asset revisions</source>
         <translation>アセットのリビジョン</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="330"/>
+        <location filename="../ui/asset_version_browser.py" line="349"/>
         <source>Revision details</source>
         <translation>リビジョンの詳細</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="331"/>
+        <location filename="../ui/asset_version_browser.py" line="350"/>
         <source>Inspect</source>
         <translation>詳細を表示</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="332"/>
+        <location filename="../ui/asset_version_browser.py" line="351"/>
         <source>Inspect selected revision</source>
         <translation>選択したリビジョンの詳細を表示</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="333"/>
+        <location filename="../ui/asset_version_browser.py" line="352"/>
         <source>Restore</source>
         <translation>復元</translation>
     </message>
     <message>
-        <location filename="../ui/asset_version_browser.py" line="335"/>
+        <location filename="../ui/asset_version_browser.py" line="354"/>
         <source>Restore selected revision as a new head</source>
         <translation>選択したリビジョンを最新のリビジョンとして復元</translation>
     </message>
@@ -857,113 +857,113 @@
 <context>
     <name>Assistant_Dock</name>
     <message>
-        <location filename="../ui/assistant_dock.py" line="159"/>
+        <location filename="../ui/assistant_dock.py" line="160"/>
         <source>No AI provider is configured. Use Configure… to set an endpoint and API key.</source>
         <extracomment>Provider of the active document (``None`` when no document tab is open). Provider of the current chat backend (a configured ``data/llm`` adapter, or ``None`` when the user has not configured a provider). Probed fresh on each send so a config change takes effect immediately; ``ui/`` never sees a provider/HTTP type. ``(commands, label)`` — the turn&apos;s ordered, unapplied reversible commands and a translatable undo label; the host wraps them in one ``AssistantCommand``. How many transcript messages have already been rendered (render the tail).</extracomment>
         <translation>AI プロバイダーが設定されていません。[設定…] でエンドポイントと API キーを設定してください。</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="167"/>
+        <location filename="../ui/assistant_dock.py" line="168"/>
         <source>Open a document before chatting with the assistant.</source>
         <translation>アシスタントとチャットする前にドキュメントを開いてください。</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="184"/>
+        <location filename="../ui/assistant_dock.py" line="185"/>
         <source>Assistant edit</source>
         <translation>アシスタントによる編集</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="188"/>
+        <location filename="../ui/assistant_dock.py" line="191"/>
         <source>Assistant error: {0}</source>
         <translation>アシスタントエラー: {0}</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="206"/>
+        <location filename="../ui/assistant_dock.py" line="211"/>
         <source>Confirm assistant action</source>
         <translation>アシスタントの操作の確認</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="209"/>
+        <location filename="../ui/assistant_dock.py" line="214"/>
         <source>The assistant wants to run &quot;{0}&quot;, which cannot be reliably undone. Allow it?</source>
         <translation>アシスタントが “{0}” を実行しようとしています。この操作は確実には元に戻せません。許可しますか?</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="226"/>
+        <location filename="../ui/assistant_dock.py" line="231"/>
         <source>Provider configuration saved.</source>
         <translation>プロバイダーの設定を保存しました。</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="235"/>
+        <location filename="../ui/assistant_dock.py" line="240"/>
         <source>Working…</source>
         <translation>処理中…</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="248"/>
+        <location filename="../ui/assistant_dock.py" line="253"/>
         <source>You</source>
         <translation>あなた</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="251"/>
+        <location filename="../ui/assistant_dock.py" line="256"/>
         <source>Assistant</source>
         <translation>アシスタント</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="252"/>
+        <location filename="../ui/assistant_dock.py" line="257"/>
         <source>(taking an action…)</source>
         <translation>(操作を実行中…)</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="254"/>
+        <location filename="../ui/assistant_dock.py" line="259"/>
         <source>Action</source>
         <translation>操作</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="284"/>
+        <location filename="../ui/assistant_dock.py" line="289"/>
         <source>AI Assistant</source>
         <translation>AI アシスタント</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="285"/>
+        <location filename="../ui/assistant_dock.py" line="290"/>
         <source>AI assistant chat</source>
         <translation>AI アシスタントのチャット</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="286"/>
+        <location filename="../ui/assistant_dock.py" line="291"/>
         <source>Assistant conversation</source>
         <translation>アシスタントとの会話</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="287"/>
+        <location filename="../ui/assistant_dock.py" line="292"/>
         <source>Message to the assistant</source>
         <translation>アシスタントへのメッセージ</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="288"/>
+        <location filename="../ui/assistant_dock.py" line="293"/>
         <source>Ask the assistant to edit…</source>
         <translation>アシスタントに編集を依頼…</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="289"/>
+        <location filename="../ui/assistant_dock.py" line="294"/>
         <source>Send</source>
         <translation>送信</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="290"/>
+        <location filename="../ui/assistant_dock.py" line="295"/>
         <source>Send message</source>
         <translation>メッセージを送信</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="291"/>
+        <location filename="../ui/assistant_dock.py" line="296"/>
         <source>Configure…</source>
         <translation>設定…</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="292"/>
+        <location filename="../ui/assistant_dock.py" line="297"/>
         <source>Configure AI provider</source>
         <translation>AI プロバイダーを設定</translation>
     </message>
     <message>
-        <location filename="../ui/assistant_dock.py" line="293"/>
+        <location filename="../ui/assistant_dock.py" line="298"/>
         <source>Assistant working indicator</source>
         <translation>アシスタントの処理中インジケーター</translation>
     </message>
@@ -971,68 +971,68 @@
 <context>
     <name>Batch_Export_Panel</name>
     <message>
-        <location filename="../ui/batch_export_panel.py" line="159"/>
+        <location filename="../ui/batch_export_panel.py" line="160"/>
         <source>%1 — done</source>
         <extracomment>Optional provider returning the document to export against (the active tab).</extracomment>
         <translation>%1 — 完了</translation>
     </message>
     <message>
-        <location filename="../ui/batch_export_panel.py" line="163"/>
+        <location filename="../ui/batch_export_panel.py" line="167"/>
         <source>%1 — failed: %2</source>
         <translation>%1 — 失敗: %2</translation>
     </message>
     <message>
-        <location filename="../ui/batch_export_panel.py" line="184"/>
+        <location filename="../ui/batch_export_panel.py" line="190"/>
         <source>Add Target…</source>
         <translation>エクスポート先を追加…</translation>
     </message>
     <message>
-        <location filename="../ui/batch_export_panel.py" line="185"/>
+        <location filename="../ui/batch_export_panel.py" line="191"/>
         <source>Remove</source>
         <translation>削除</translation>
     </message>
     <message>
-        <location filename="../ui/batch_export_panel.py" line="186"/>
+        <location filename="../ui/batch_export_panel.py" line="192"/>
         <source>Export All</source>
         <translation>すべてエクスポート</translation>
     </message>
     <message>
-        <location filename="../ui/batch_export_panel.py" line="187"/>
+        <location filename="../ui/batch_export_panel.py" line="193"/>
         <source>Cancel</source>
         <translation>キャンセル</translation>
     </message>
     <message>
-        <location filename="../ui/batch_export_panel.py" line="188"/>
+        <location filename="../ui/batch_export_panel.py" line="194"/>
         <source>Batch export</source>
         <translation>一括エクスポート</translation>
     </message>
     <message>
-        <location filename="../ui/batch_export_panel.py" line="189"/>
+        <location filename="../ui/batch_export_panel.py" line="195"/>
         <source>Batch export targets</source>
         <translation>一括エクスポート先</translation>
     </message>
     <message>
-        <location filename="../ui/batch_export_panel.py" line="190"/>
+        <location filename="../ui/batch_export_panel.py" line="196"/>
         <source>Batch export progress</source>
         <translation>一括エクスポートの進行状況</translation>
     </message>
     <message>
-        <location filename="../ui/batch_export_panel.py" line="191"/>
+        <location filename="../ui/batch_export_panel.py" line="197"/>
         <source>Add export target</source>
         <translation>エクスポート先を追加</translation>
     </message>
     <message>
-        <location filename="../ui/batch_export_panel.py" line="192"/>
+        <location filename="../ui/batch_export_panel.py" line="198"/>
         <source>Remove export target</source>
         <translation>エクスポート先を削除</translation>
     </message>
     <message>
-        <location filename="../ui/batch_export_panel.py" line="193"/>
+        <location filename="../ui/batch_export_panel.py" line="199"/>
         <source>Export all targets</source>
         <translation>すべてのエクスポート先をエクスポート</translation>
     </message>
     <message>
-        <location filename="../ui/batch_export_panel.py" line="194"/>
+        <location filename="../ui/batch_export_panel.py" line="200"/>
         <source>Cancel batch export</source>
         <translation>一括エクスポートをキャンセル</translation>
     </message>
@@ -1040,143 +1040,143 @@
 <context>
     <name>Batch_Recolour_Panel</name>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="168"/>
+        <location filename="../ui/batch_recolour_panel.py" line="172"/>
         <source>Running…</source>
         <extracomment>Combo indices for the mapping mode (module-local UI enumeration). Upper bound for the index spin boxes — the widest palette a buffer can address (a display range for the spin control, not a domain tuning value). ``(ops, label)`` — the host should dispatch the ``batch_recolour`` op on the worker as one undoable grouped command (REQ-P8-UI-006/-009). Each pair is ``(src, dst)`` — ints for index mode, RGBA tuples for colour mode. Kept parallel to the visible list.</extracomment>
         <translation>実行中…</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="170"/>
+        <location filename="../ui/batch_recolour_panel.py" line="174"/>
         <source>Done</source>
         <translation>完了</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="171"/>
+        <location filename="../ui/batch_recolour_panel.py" line="175"/>
         <source>Idle</source>
         <translation>待機中</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="209"/>
+        <location filename="../ui/batch_recolour_panel.py" line="213"/>
         <source>Pick a colour</source>
         <translation>色を選択</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="218"/>
+        <location filename="../ui/batch_recolour_panel.py" line="222"/>
         <source>From: %1</source>
         <translation>変換元: %1</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="221"/>
+        <location filename="../ui/batch_recolour_panel.py" line="225"/>
         <source>To: %1</source>
         <translation>変換先: %1</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="234"/>
+        <location filename="../ui/batch_recolour_panel.py" line="238"/>
         <source>%1 → %2</source>
         <translation>%1 → %2</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="264"/>
+        <location filename="../ui/batch_recolour_panel.py" line="268"/>
         <source>Batch Recolour</source>
         <translation>一括色替え</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="285"/>
+        <location filename="../ui/batch_recolour_panel.py" line="289"/>
         <source>Mapping:</source>
         <translation>マッピング:</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="286"/>
+        <location filename="../ui/batch_recolour_panel.py" line="290"/>
         <source>Index remap</source>
         <translation>インデックスの置き換え</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="287"/>
+        <location filename="../ui/batch_recolour_panel.py" line="291"/>
         <source>Colour remap</source>
         <translation>色の置き換え</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="288"/>
+        <location filename="../ui/batch_recolour_panel.py" line="292"/>
         <source>Frame:</source>
         <translation>フレーム:</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="289"/>
+        <location filename="../ui/batch_recolour_panel.py" line="293"/>
         <source>Add Pair</source>
         <translation>ペアを追加</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="290"/>
+        <location filename="../ui/batch_recolour_panel.py" line="294"/>
         <source>Remove</source>
         <translation>削除</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="291"/>
+        <location filename="../ui/batch_recolour_panel.py" line="295"/>
         <source>Apply Batch Recolour</source>
         <translation>一括色替えを適用</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="293"/>
+        <location filename="../ui/batch_recolour_panel.py" line="297"/>
         <source>Batch recolour</source>
         <translation>一括色替え</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="294"/>
+        <location filename="../ui/batch_recolour_panel.py" line="298"/>
         <source>Recolour mapping mode</source>
         <translation>色替えマッピングのモード</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="295"/>
+        <location filename="../ui/batch_recolour_panel.py" line="299"/>
         <source>Target frame index</source>
         <translation>対象フレームの番号</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="296"/>
+        <location filename="../ui/batch_recolour_panel.py" line="300"/>
         <source>Source palette index</source>
         <translation>変換元パレットのインデックス</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="297"/>
+        <location filename="../ui/batch_recolour_panel.py" line="301"/>
         <source>Destination palette index</source>
         <translation>変換先パレットのインデックス</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="298"/>
+        <location filename="../ui/batch_recolour_panel.py" line="302"/>
         <source>Pick source colour</source>
         <translation>変換元の色を選択</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="299"/>
+        <location filename="../ui/batch_recolour_panel.py" line="303"/>
         <source>Pick destination colour</source>
         <translation>変換先の色を選択</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="300"/>
+        <location filename="../ui/batch_recolour_panel.py" line="304"/>
         <source>Recolour mapping pairs</source>
         <translation>色替えマッピングのペア</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="301"/>
+        <location filename="../ui/batch_recolour_panel.py" line="305"/>
         <source>Add a recolour pair</source>
         <translation>色替えペアを追加</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="302"/>
+        <location filename="../ui/batch_recolour_panel.py" line="306"/>
         <source>Remove the selected pair</source>
         <translation>選択したペアを削除</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="303"/>
+        <location filename="../ui/batch_recolour_panel.py" line="307"/>
         <source>Apply the batch recolour</source>
         <translation>一括色替えを適用</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="304"/>
+        <location filename="../ui/batch_recolour_panel.py" line="308"/>
         <source>Progress</source>
         <translation>進行状況</translation>
     </message>
     <message>
-        <location filename="../ui/batch_recolour_panel.py" line="305"/>
+        <location filename="../ui/batch_recolour_panel.py" line="309"/>
         <source>Batch recolour progress</source>
         <translation>一括色替えの進行状況</translation>
     </message>
@@ -1184,202 +1184,203 @@
 <context>
     <name>Branch_Diff_Dialog</name>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="179"/>
+        <location filename="../ui/branch_diff_dialog.py" line="214"/>
         <source>Metadata changes</source>
         <extracomment>The four op-tier groups, fixed display order (``REQ-P10-UI-016``) — matches ``branch_diff._CLASS_RANK``&apos;s declaration order (metadata, layer_attr, layer_order, raster; ``convergence.py:228``). Emitted with ``source_name`` when the user activates *Continue to merge*. This view performs **no** merge itself (``REQ-P10-UI-018``) — the caller runs the unchanged ``Branching_Session.merge_to_mainline`` (the same shipped path the panel&apos;s own Merge button uses, ``REQ-P10-UI-019``).</extracomment>
         <translation>メタデータの変更</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="180"/>
+        <location filename="../ui/branch_diff_dialog.py" line="215"/>
         <source>Layer attribute changes</source>
         <translation>レイヤー属性の変更</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="181"/>
+        <location filename="../ui/branch_diff_dialog.py" line="216"/>
         <source>Layer order changes</source>
         <translation>レイヤー順序の変更</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="182"/>
+        <location filename="../ui/branch_diff_dialog.py" line="217"/>
         <source>Raster (pixel) changes</source>
         <translation>ラスター (ピクセル) の変更</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="194"/>
+        <location filename="../ui/branch_diff_dialog.py" line="229"/>
         <source>Metadata &apos;{key}&apos; set to &apos;{value}&apos;</source>
         <translation>メタデータ “{key}” を “{value}” に設定</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="198"/>
+        <location filename="../ui/branch_diff_dialog.py" line="233"/>
         <source>Frame {frame}, layer {layer}: {attr} = {value}</source>
         <translation>フレーム {frame}、レイヤー {layer}: {attr} = {value}</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="202"/>
+        <location filename="../ui/branch_diff_dialog.py" line="237"/>
         <source>Frame {frame}: layer order changed</source>
         <translation>フレーム {frame}: レイヤー順序が変更されました</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="207"/>
+        <location filename="../ui/branch_diff_dialog.py" line="242"/>
         <source>Frame {frame}, layer {layer}: tile ({tile_x}, {tile_y})</source>
         <translation>フレーム {frame}、レイヤー {layer}: タイル ({tile_x}, {tile_y})</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="242"/>
+        <location filename="../ui/branch_diff_dialog.py" line="277"/>
         <source>Frame {frame}, layer {layer}: ({x}, {y}) {width}×{height}</source>
         <translation>フレーム {frame}、レイヤー {layer}: ({x}, {y}) {width}×{height}</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="269"/>
+        <location filename="../ui/branch_diff_dialog.py" line="304"/>
         <source>Diff: &apos;{source}&apos; vs &apos;{target}&apos;</source>
         <translation>差分: “{source}” と “{target}”</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="273"/>
+        <location filename="../ui/branch_diff_dialog.py" line="308"/>
+        <location filename="../ui/branch_diff_dialog.py" line="309"/>
         <source>Branch diff</source>
         <translation>ブランチの差分</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="276"/>
+        <location filename="../ui/branch_diff_dialog.py" line="312"/>
         <source>Comparing branch &apos;{source}&apos; (source) against &apos;{target}&apos; (target). This is a snapshot taken now — the merge has not happened yet.</source>
         <translation>ブランチ “{source}” (ソース) を “{target}” (ターゲット) と比較しています。これは現時点のスナップショットで、マージはまだ実行されていません。</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="281"/>
+        <location filename="../ui/branch_diff_dialog.py" line="317"/>
         <source>Diff basis</source>
         <translation>差分の基準</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="286"/>
+        <location filename="../ui/branch_diff_dialog.py" line="322"/>
         <source>Checked: the recorded changes account for everything on this branch.</source>
         <translation>確認済み: このブランチのすべての変更が、記録された変更に含まれています。</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="293"/>
+        <location filename="../ui/branch_diff_dialog.py" line="329"/>
         <source>Warning: some changes on this branch are not recorded and will not be merged. {detail}</source>
         <translation>警告: このブランチの一部の変更は記録されておらず、マージされません。{detail}</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="297"/>
+        <location filename="../ui/branch_diff_dialog.py" line="333"/>
         <source>Supervision result</source>
         <translation>検証結果</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="300"/>
+        <location filename="../ui/branch_diff_dialog.py" line="336"/>
         <source>States whether the recorded operation log explains every change on this branch&apos;s live document.</source>
         <translation>記録された操作ログが、このブランチの現在のドキュメントのすべての変更を説明できているかどうかを示します。</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="307"/>
+        <location filename="../ui/branch_diff_dialog.py" line="343"/>
         <source>This branch has no changes to merge.</source>
         <translation>このブランチにはマージする変更がありません。</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="319"/>
+        <location filename="../ui/branch_diff_dialog.py" line="355"/>
         <source>No changes.</source>
         <translation>変更はありません。</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/branch_diff_dialog.py" line="321"/>
+        <location filename="../ui/branch_diff_dialog.py" line="357"/>
         <source>%n change(s).</source>
         <translation>
             <numerusform>%n 件の変更。</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="323"/>
+        <location filename="../ui/branch_diff_dialog.py" line="359"/>
         <source>{title} list</source>
         <translation>{title} の一覧</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/branch_diff_dialog.py" line="325"/>
+        <location filename="../ui/branch_diff_dialog.py" line="361"/>
         <source>%n entries.</source>
         <translation>
             <numerusform>%n 件のエントリ。</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="327"/>
+        <location filename="../ui/branch_diff_dialog.py" line="363"/>
         <source>Affected regions</source>
         <translation>影響を受ける領域</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="330"/>
+        <location filename="../ui/branch_diff_dialog.py" line="366"/>
         <source>Each region is reported at the whole {tile}×{tile} pixel tile granularity — a one-pixel change still covers a full tile here.</source>
         <translation>各領域は {tile}×{tile} ピクセルのタイル単位で報告されます。1 ピクセルの変更でも、ここではタイル全体が対象になります。</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="335"/>
+        <location filename="../ui/branch_diff_dialog.py" line="371"/>
         <source>Affected regions list</source>
         <translation>影響を受ける領域の一覧</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/branch_diff_dialog.py" line="337"/>
+        <location filename="../ui/branch_diff_dialog.py" line="373"/>
         <source>%n regions.</source>
         <translation>
             <numerusform>%n 個の領域。</numerusform>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/branch_diff_dialog.py" line="342"/>
+        <location filename="../ui/branch_diff_dialog.py" line="378"/>
         <source>%n operation(s) total, across %2 distinct target(s).</source>
         <translation>
             <numerusform>操作は合計 %n 件、異なる対象は %2 個です。</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="347"/>
+        <location filename="../ui/branch_diff_dialog.py" line="383"/>
         <source>Divergence total</source>
         <translation>差異の合計</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="349"/>
+        <location filename="../ui/branch_diff_dialog.py" line="385"/>
         <source>Continue to Merge</source>
         <translation>マージに進む</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="350"/>
+        <location filename="../ui/branch_diff_dialog.py" line="386"/>
         <source>Continue to merge</source>
         <translation>マージに進む</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="353"/>
+        <location filename="../ui/branch_diff_dialog.py" line="389"/>
         <source>Performs the same conflict-free merge as the branching panel&apos;s Merge control.</source>
         <translation>ブランチパネルの [マージ] と同じ、競合のないマージを実行します。</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="357"/>
-        <location filename="../ui/branch_diff_dialog.py" line="358"/>
+        <location filename="../ui/branch_diff_dialog.py" line="393"/>
+        <location filename="../ui/branch_diff_dialog.py" line="394"/>
         <source>Close</source>
         <translation>閉じる</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="360"/>
+        <location filename="../ui/branch_diff_dialog.py" line="396"/>
         <source>Closes this view without merging or changing anything.</source>
         <translation>マージや変更を行わずに、このビューを閉じます。</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="372"/>
+        <location filename="../ui/branch_diff_dialog.py" line="408"/>
         <source>frames {frames}</source>
         <translation>フレーム {frames}</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="378"/>
+        <location filename="../ui/branch_diff_dialog.py" line="414"/>
         <source>layers {layers}</source>
         <translation>レイヤー {layers}</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="386"/>
+        <location filename="../ui/branch_diff_dialog.py" line="422"/>
         <source>attributes {attrs}</source>
         <translation>属性 {attrs}</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="395"/>
+        <location filename="../ui/branch_diff_dialog.py" line="431"/>
         <source>metadata keys {keys}</source>
         <translation>メタデータキー {keys}</translation>
     </message>
     <message>
-        <location filename="../ui/branch_diff_dialog.py" line="401"/>
+        <location filename="../ui/branch_diff_dialog.py" line="437"/>
         <source>tiles {tiles}</source>
         <translation>タイル {tiles}</translation>
     </message>
@@ -1387,109 +1388,109 @@
 <context>
     <name>Branching_Panel</name>
     <message>
-        <location filename="../ui/branching_panel.py" line="363"/>
-        <location filename="../ui/branching_panel.py" line="375"/>
-        <location filename="../ui/branching_panel.py" line="386"/>
+        <location filename="../ui/branching_panel.py" line="364"/>
+        <location filename="../ui/branching_panel.py" line="378"/>
+        <location filename="../ui/branching_panel.py" line="395"/>
         <source>Branch</source>
         <extracomment>The reserved name of the always-present mainline branch. emitted when the set of branches changed (create / merge). ``(name,)`` — the active branch changed. ``(document,)`` — a branch was materialised/merged; the caller loads it into the active tab (a whole Qt-free :class:`~pixelart_creator.logic.document.Document`). ``(summary,)`` — a merge completed conflict-free; carries a translatable-ready outcome summary the panel surfaces (REQ-P10-UI-012). The Document object the active branch&apos;s edits actually land on — the same instance the caller (``ui/main_window.py``) mutates in place, so a raster trace&apos;s tile bytes are always read post-edit (plan §8.2). ``None`` until a base document is set. ``(name,)`` — the user activated the open-diff affordance for the selected feature branch (REQ-P10-UI-014). The caller (``ui/main_window.py``) supplies the active tab&apos;s live ``Document`` to ``logic/branch_diff.supervise`` and, once ``ui/branch_diff_dialog.py`` exists, opens the pre-merge diff view from it.</extracomment>
         <translation>ブランチ</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="364"/>
+        <location filename="../ui/branching_panel.py" line="365"/>
         <source>Open a project first.</source>
         <translation>先にプロジェクトを開いてください。</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="368"/>
-        <location filename="../ui/branching_panel.py" line="480"/>
+        <location filename="../ui/branching_panel.py" line="369"/>
+        <location filename="../ui/branching_panel.py" line="499"/>
         <source>New Branch</source>
         <translation>新しいブランチ</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="368"/>
+        <location filename="../ui/branching_panel.py" line="369"/>
         <source>Branch name:</source>
         <translation>ブランチ名:</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="397"/>
-        <location filename="../ui/branching_panel.py" line="484"/>
+        <location filename="../ui/branching_panel.py" line="412"/>
+        <location filename="../ui/branching_panel.py" line="503"/>
         <source>Merge</source>
         <translation>マージ</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/branching_panel.py" line="423"/>
+        <location filename="../ui/branching_panel.py" line="442"/>
         <source>Merged branch &apos;{name}&apos; (%n edits) into mainline — conflict-free.</source>
         <translation>
             <numerusform>ブランチ “{name}” (%n 件の編集) をメインラインにマージしました。競合はありません。</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="437"/>
+        <location filename="../ui/branching_panel.py" line="456"/>
         <source>{name} (active)</source>
         <translation>{name} (アクティブ)</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="456"/>
+        <location filename="../ui/branching_panel.py" line="475"/>
         <source>Open the pre-merge diff for the selected branch.</source>
         <translation>選択したブランチのマージ前の差分を開きます。</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="460"/>
+        <location filename="../ui/branching_panel.py" line="479"/>
         <source>Disabled: open a project first.</source>
         <translation>無効: 先にプロジェクトを開いてください。</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="465"/>
+        <location filename="../ui/branching_panel.py" line="484"/>
         <source>Disabled: select a feature branch, not mainline, to view its diff.</source>
         <translation>無効: 差分を表示するには、メインラインではなくフィーチャーブランチを選択してください。</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="472"/>
+        <location filename="../ui/branching_panel.py" line="491"/>
         <source>Branching</source>
         <translation>ブランチ</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="475"/>
+        <location filename="../ui/branching_panel.py" line="494"/>
         <source>Branch the project to edit a variation independently, then merge it back. Merges are conflict-free.</source>
         <translation>プロジェクトをブランチに分けてバリエーションを個別に編集し、後でマージして戻します。マージで競合は発生しません。</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="479"/>
+        <location filename="../ui/branching_panel.py" line="498"/>
         <source>Branches</source>
         <translation>ブランチ一覧</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="481"/>
+        <location filename="../ui/branching_panel.py" line="500"/>
         <source>Create a new branch</source>
         <translation>新しいブランチを作成</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="482"/>
+        <location filename="../ui/branching_panel.py" line="501"/>
         <source>Switch</source>
         <translation>切り替え</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="483"/>
+        <location filename="../ui/branching_panel.py" line="502"/>
         <source>Switch to the selected branch</source>
         <translation>選択したブランチに切り替え</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="486"/>
+        <location filename="../ui/branching_panel.py" line="505"/>
         <source>Merge the selected branch into mainline</source>
         <translation>選択したブランチをメインラインにマージ</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="488"/>
+        <location filename="../ui/branching_panel.py" line="507"/>
         <source>Open Diff</source>
         <translation>差分を開く</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="490"/>
+        <location filename="../ui/branching_panel.py" line="509"/>
         <source>Open the pre-merge diff for the selected branch</source>
         <translation>選択したブランチのマージ前の差分を開く</translation>
     </message>
     <message>
-        <location filename="../ui/branching_panel.py" line="492"/>
+        <location filename="../ui/branching_panel.py" line="511"/>
         <source>Merge outcome</source>
         <translation>マージ結果</translation>
     </message>
@@ -1497,32 +1498,32 @@
 <context>
     <name>Canvas_Size_Dialog</name>
     <message>
-        <location filename="../ui/canvas_size_dialog.py" line="76"/>
+        <location filename="../ui/canvas_size_dialog.py" line="79"/>
         <source>Canvas Size</source>
         <translation>キャンバスサイズ</translation>
     </message>
     <message>
-        <location filename="../ui/canvas_size_dialog.py" line="77"/>
+        <location filename="../ui/canvas_size_dialog.py" line="80"/>
         <source>Canvas size dialog</source>
         <translation>キャンバスサイズのダイアログ</translation>
     </message>
     <message>
-        <location filename="../ui/canvas_size_dialog.py" line="78"/>
+        <location filename="../ui/canvas_size_dialog.py" line="81"/>
         <source>Target canvas width in pixels</source>
         <translation>変更後のキャンバスの幅 (ピクセル)</translation>
     </message>
     <message>
-        <location filename="../ui/canvas_size_dialog.py" line="79"/>
+        <location filename="../ui/canvas_size_dialog.py" line="82"/>
         <source>Target canvas height in pixels</source>
         <translation>変更後のキャンバスの高さ (ピクセル)</translation>
     </message>
     <message>
-        <location filename="../ui/canvas_size_dialog.py" line="80"/>
+        <location filename="../ui/canvas_size_dialog.py" line="83"/>
         <source>Width (px)</source>
         <translation>幅 (px)</translation>
     </message>
     <message>
-        <location filename="../ui/canvas_size_dialog.py" line="81"/>
+        <location filename="../ui/canvas_size_dialog.py" line="84"/>
         <source>Height (px)</source>
         <translation>高さ (px)</translation>
     </message>
@@ -1601,53 +1602,53 @@
 <context>
     <name>Colour_Cycling_Panel</name>
     <message>
-        <location filename="../ui/colour_cycling_panel.py" line="152"/>
+        <location filename="../ui/colour_cycling_panel.py" line="156"/>
         <source>Colour Cycling</source>
         <extracomment>Milliseconds per cycling tick, derived from the tuning FPS (S12). Emitted with a list of display colours to preview (rotated palette). Emitted with ``(start, end, step)`` when Apply commits the cycle state.</extracomment>
         <translation>カラーサイクリング</translation>
     </message>
     <message>
-        <location filename="../ui/colour_cycling_panel.py" line="153"/>
+        <location filename="../ui/colour_cycling_panel.py" line="157"/>
         <source>Colour cycling panel</source>
         <translation>カラーサイクリングパネル</translation>
     </message>
     <message>
-        <location filename="../ui/colour_cycling_panel.py" line="154"/>
+        <location filename="../ui/colour_cycling_panel.py" line="158"/>
         <source>Start</source>
         <translation>開始</translation>
     </message>
     <message>
-        <location filename="../ui/colour_cycling_panel.py" line="155"/>
+        <location filename="../ui/colour_cycling_panel.py" line="159"/>
         <source>End</source>
         <translation>終了</translation>
     </message>
     <message>
-        <location filename="../ui/colour_cycling_panel.py" line="156"/>
+        <location filename="../ui/colour_cycling_panel.py" line="160"/>
         <source>Step</source>
         <translation>ステップ</translation>
     </message>
     <message>
-        <location filename="../ui/colour_cycling_panel.py" line="157"/>
+        <location filename="../ui/colour_cycling_panel.py" line="161"/>
         <source>Cycle range start index</source>
         <translation>サイクル範囲の開始インデックス</translation>
     </message>
     <message>
-        <location filename="../ui/colour_cycling_panel.py" line="158"/>
+        <location filename="../ui/colour_cycling_panel.py" line="162"/>
         <source>Cycle range end index</source>
         <translation>サイクル範囲の終了インデックス</translation>
     </message>
     <message>
-        <location filename="../ui/colour_cycling_panel.py" line="159"/>
+        <location filename="../ui/colour_cycling_panel.py" line="163"/>
         <source>Cycle step</source>
         <translation>サイクルのステップ</translation>
     </message>
     <message>
-        <location filename="../ui/colour_cycling_panel.py" line="160"/>
+        <location filename="../ui/colour_cycling_panel.py" line="164"/>
         <source>Play / Stop</source>
         <translation>再生 / 停止</translation>
     </message>
     <message>
-        <location filename="../ui/colour_cycling_panel.py" line="161"/>
+        <location filename="../ui/colour_cycling_panel.py" line="165"/>
         <source>Apply</source>
         <translation>適用</translation>
     </message>
@@ -1679,130 +1680,130 @@
 <context>
     <name>Colour_Wheel_Widget</name>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="353"/>
-        <location filename="../ui/colour_wheel_widget.py" line="627"/>
+        <location filename="../ui/colour_wheel_widget.py" line="354"/>
+        <location filename="../ui/colour_wheel_widget.py" line="637"/>
         <source>Red channel</source>
         <extracomment>Emitted with the picked :class:`QColor` on any user-initiated change that ADOPTS into the wheel (wheel-pad drag, value slider, numeric entries, and a harmony/shade/tint swatch&apos;s double-click/keyboard activation — never a swatch&apos;s single click). Emitted with a harmony/shade/tint swatch&apos;s own RGBA tuple on a single left click (REQ-IS-UI-020). PAINT-only: the wheel&apos;s own selection is deliberately left unchanged, unlike :attr:`colorPicked`.</extracomment>
         <translation>赤チャンネル</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="356"/>
-        <location filename="../ui/colour_wheel_widget.py" line="628"/>
+        <location filename="../ui/colour_wheel_widget.py" line="357"/>
+        <location filename="../ui/colour_wheel_widget.py" line="638"/>
         <source>Green channel</source>
         <translation>緑チャンネル</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="359"/>
-        <location filename="../ui/colour_wheel_widget.py" line="629"/>
+        <location filename="../ui/colour_wheel_widget.py" line="360"/>
+        <location filename="../ui/colour_wheel_widget.py" line="639"/>
         <source>Blue channel</source>
         <translation>青チャンネル</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="362"/>
-        <location filename="../ui/colour_wheel_widget.py" line="630"/>
+        <location filename="../ui/colour_wheel_widget.py" line="363"/>
+        <location filename="../ui/colour_wheel_widget.py" line="640"/>
         <source>Hue</source>
         <translation>色相</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="365"/>
-        <location filename="../ui/colour_wheel_widget.py" line="631"/>
+        <location filename="../ui/colour_wheel_widget.py" line="366"/>
+        <location filename="../ui/colour_wheel_widget.py" line="641"/>
         <source>Saturation</source>
         <translation>彩度</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="368"/>
-        <location filename="../ui/colour_wheel_widget.py" line="619"/>
-        <location filename="../ui/colour_wheel_widget.py" line="632"/>
+        <location filename="../ui/colour_wheel_widget.py" line="369"/>
+        <location filename="../ui/colour_wheel_widget.py" line="629"/>
+        <location filename="../ui/colour_wheel_widget.py" line="642"/>
         <source>Value</source>
         <translation>明度</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="555"/>
+        <location filename="../ui/colour_wheel_widget.py" line="564"/>
         <source>Current colour %1</source>
         <translation>現在の色 %1</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="618"/>
+        <location filename="../ui/colour_wheel_widget.py" line="627"/>
         <source>Colour wheel picker</source>
         <translation>カラーホイールピッカー</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="620"/>
+        <location filename="../ui/colour_wheel_widget.py" line="630"/>
         <source>Brightness value</source>
         <translation>明度の値</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="621"/>
+        <location filename="../ui/colour_wheel_widget.py" line="631"/>
         <source>R</source>
         <translation>R</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="622"/>
+        <location filename="../ui/colour_wheel_widget.py" line="632"/>
         <source>G</source>
         <translation>G</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="623"/>
+        <location filename="../ui/colour_wheel_widget.py" line="633"/>
         <source>B</source>
         <translation>B</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="624"/>
+        <location filename="../ui/colour_wheel_widget.py" line="634"/>
         <source>H</source>
         <translation>H</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="625"/>
+        <location filename="../ui/colour_wheel_widget.py" line="635"/>
         <source>S</source>
         <translation>S</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="626"/>
+        <location filename="../ui/colour_wheel_widget.py" line="636"/>
         <source>V</source>
         <translation>V</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="633"/>
+        <location filename="../ui/colour_wheel_widget.py" line="643"/>
         <source>Hex colour</source>
         <translation>16 進カラー</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="634"/>
+        <location filename="../ui/colour_wheel_widget.py" line="644"/>
         <source>Complementary</source>
         <translation>補色</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="635"/>
+        <location filename="../ui/colour_wheel_widget.py" line="645"/>
         <source>Analogous</source>
         <translation>類似色</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="636"/>
+        <location filename="../ui/colour_wheel_widget.py" line="646"/>
         <source>Triadic</source>
         <translation>トライアド</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="637"/>
+        <location filename="../ui/colour_wheel_widget.py" line="647"/>
         <source>Tetradic</source>
         <translation>テトラッド</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="638"/>
+        <location filename="../ui/colour_wheel_widget.py" line="648"/>
         <source>Split-complementary</source>
         <translation>スプリット補色</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="639"/>
+        <location filename="../ui/colour_wheel_widget.py" line="649"/>
         <source>Shades</source>
         <translation>シェード</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="640"/>
+        <location filename="../ui/colour_wheel_widget.py" line="650"/>
         <source>Tints</source>
         <translation>ティント</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="651"/>
+        <location filename="../ui/colour_wheel_widget.py" line="661"/>
         <source>harmony</source>
         <translation>配色</translation>
     </message>
@@ -1810,126 +1811,126 @@
 <context>
     <name>Comments_Panel</name>
     <message>
-        <location filename="../ui/comments_panel.py" line="116"/>
-        <location filename="../ui/comments_panel.py" line="124"/>
-        <location filename="../ui/comments_panel.py" line="134"/>
-        <location filename="../ui/comments_panel.py" line="144"/>
-        <location filename="../ui/comments_panel.py" line="160"/>
-        <location filename="../ui/comments_panel.py" line="220"/>
+        <location filename="../ui/comments_panel.py" line="117"/>
+        <location filename="../ui/comments_panel.py" line="125"/>
+        <location filename="../ui/comments_panel.py" line="135"/>
+        <location filename="../ui/comments_panel.py" line="147"/>
+        <location filename="../ui/comments_panel.py" line="169"/>
+        <location filename="../ui/comments_panel.py" line="233"/>
         <source>Comments</source>
         <translation>コメント</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="117"/>
+        <location filename="../ui/comments_panel.py" line="118"/>
         <source>Open a shared project before commenting.</source>
         <translation>コメントする前に共有プロジェクトを開いてください。</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="125"/>
+        <location filename="../ui/comments_panel.py" line="126"/>
         <source>Enter your member id before commenting.</source>
         <translation>コメントする前にメンバー ID を入力してください。</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/comments_panel.py" line="135"/>
+        <location filename="../ui/comments_panel.py" line="136"/>
         <source>A comment may be at most %n bytes.</source>
         <translation>
             <numerusform>コメントは最大 %n バイトまでです。</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="194"/>
+        <location filename="../ui/comments_panel.py" line="207"/>
         <source>Resolved</source>
         <translation>解決済み</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="194"/>
+        <location filename="../ui/comments_panel.py" line="207"/>
         <source>Open</source>
         <translation>未解決</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/comments_panel.py" line="209"/>
+        <location filename="../ui/comments_panel.py" line="222"/>
         <source>%1 / %n bytes</source>
         <translation>
             <numerusform>%1 / %n バイト</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="221"/>
+        <location filename="../ui/comments_panel.py" line="234"/>
         <source>Your member id:</source>
         <translation>自分のメンバー ID:</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="222"/>
+        <location filename="../ui/comments_panel.py" line="235"/>
         <source>e.g. alice</source>
         <translation>例: alice</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="223"/>
+        <location filename="../ui/comments_panel.py" line="236"/>
         <source>Comment author id</source>
         <translation>コメント作成者 ID</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="225"/>
+        <location filename="../ui/comments_panel.py" line="238"/>
         <source>Author</source>
         <translation>作成者</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="225"/>
+        <location filename="../ui/comments_panel.py" line="238"/>
         <source>Comment</source>
         <translation>コメント</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="225"/>
+        <location filename="../ui/comments_panel.py" line="238"/>
         <source>Status</source>
         <translation>状態</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="227"/>
+        <location filename="../ui/comments_panel.py" line="240"/>
         <source>Comment thread</source>
         <translation>コメントスレッド</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="228"/>
+        <location filename="../ui/comments_panel.py" line="241"/>
         <source>Write a comment…</source>
         <translation>コメントを入力…</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="229"/>
+        <location filename="../ui/comments_panel.py" line="242"/>
         <source>New comment text</source>
         <translation>新しいコメントのテキスト</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="230"/>
+        <location filename="../ui/comments_panel.py" line="243"/>
         <source>Reply to selected</source>
         <translation>選択項目に返信</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="231"/>
+        <location filename="../ui/comments_panel.py" line="244"/>
         <source>Reply to the selected comment</source>
         <translation>選択したコメントに返信</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="232"/>
+        <location filename="../ui/comments_panel.py" line="245"/>
         <source>Add Comment</source>
         <translation>コメントを追加</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="233"/>
+        <location filename="../ui/comments_panel.py" line="246"/>
         <source>Add the comment</source>
         <translation>このコメントを追加</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="234"/>
+        <location filename="../ui/comments_panel.py" line="247"/>
         <source>Resolve</source>
         <translation>解決</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="235"/>
+        <location filename="../ui/comments_panel.py" line="248"/>
         <source>Resolve the selected comment</source>
         <translation>選択したコメントを解決済みにする</translation>
     </message>
     <message>
-        <location filename="../ui/comments_panel.py" line="236"/>
+        <location filename="../ui/comments_panel.py" line="249"/>
         <source>Comment byte count</source>
         <translation>コメントのバイト数</translation>
     </message>
@@ -1947,103 +1948,103 @@
 <context>
     <name>Dependency_Graph_View</name>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="166"/>
+        <location filename="../ui/dependency_graph_view.py" line="169"/>
         <source>Dependency cycle detected (graph unchanged): %1</source>
-        <extracomment>Item roles: whether a row is a broken edge, and the edge it stands for. The asset in scope (``&quot;&quot;`` = the whole catalog). The last cycle the model reported at :meth:`show_edges` (``&quot;&quot;`` = none).</extracomment>
+        <extracomment>Item roles: whether a row is a broken edge, and the edge it stands for. The asset in scope (``&quot;&quot;`` = the whole catalog). The kind of the last cycle failure at :meth:`show_edges` (``None`` = none).</extracomment>
         <translation>依存関係の循環を検出しました (グラフは変更されていません): %1</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="198"/>
+        <location filename="../ui/dependency_graph_view.py" line="202"/>
         <source>Dependencies (depends on)</source>
         <translation>依存先 (依存する対象)</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="204"/>
+        <location filename="../ui/dependency_graph_view.py" line="208"/>
         <source>Dependents (referenced by)</source>
         <translation>依存元 (参照元)</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="234"/>
+        <location filename="../ui/dependency_graph_view.py" line="238"/>
         <source>Broken (%1)</source>
         <translation>参照切れ (%1)</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="258"/>
+        <location filename="../ui/dependency_graph_view.py" line="262"/>
         <source>%1 (%2)</source>
         <translation>%1 (%2)</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="266"/>
+        <location filename="../ui/dependency_graph_view.py" line="270"/>
         <source>Sprite</source>
         <translation>スプライト</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="267"/>
+        <location filename="../ui/dependency_graph_view.py" line="271"/>
         <source>Animation</source>
         <translation>アニメーション</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="268"/>
+        <location filename="../ui/dependency_graph_view.py" line="272"/>
         <source>Tileset</source>
         <translation>タイルセット</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="269"/>
+        <location filename="../ui/dependency_graph_view.py" line="273"/>
         <source>Tilemap</source>
         <translation>タイルマップ</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="270"/>
+        <location filename="../ui/dependency_graph_view.py" line="274"/>
         <source>Palette</source>
         <translation>パレット</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="277"/>
+        <location filename="../ui/dependency_graph_view.py" line="281"/>
         <source>missing target</source>
         <translation>参照先が見つからない</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="279"/>
+        <location filename="../ui/dependency_graph_view.py" line="283"/>
         <source>changed target</source>
         <translation>参照先が変更されている</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="286"/>
+        <location filename="../ui/dependency_graph_view.py" line="290"/>
         <source>No broken references</source>
         <translation>参照切れはありません</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="289"/>
+        <location filename="../ui/dependency_graph_view.py" line="293"/>
         <source>Broken references: %1</source>
         <translation>参照切れ: %1</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="291"/>
+        <location filename="../ui/dependency_graph_view.py" line="295"/>
         <source>Broken reference summary</source>
         <translation>参照切れの概要</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="295"/>
+        <location filename="../ui/dependency_graph_view.py" line="299"/>
         <source>Dependency graph</source>
         <translation>依存関係グラフ</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="296"/>
+        <location filename="../ui/dependency_graph_view.py" line="300"/>
         <source>Asset</source>
         <translation>アセット</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="296"/>
+        <location filename="../ui/dependency_graph_view.py" line="300"/>
         <source>Status</source>
         <translation>状態</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="297"/>
+        <location filename="../ui/dependency_graph_view.py" line="301"/>
         <source>Dependency relations</source>
         <translation>依存関係</translation>
     </message>
     <message>
-        <location filename="../ui/dependency_graph_view.py" line="298"/>
+        <location filename="../ui/dependency_graph_view.py" line="302"/>
         <source>Dependency cycle notice</source>
         <translation>依存関係の循環の通知</translation>
     </message>
@@ -2051,42 +2052,42 @@
 <context>
     <name>Document_Transform_Confirm_Dialog</name>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="88"/>
+        <location filename="../ui/document_transform_dialogs.py" line="92"/>
         <source>Confirm Large Transform</source>
         <translation>大規模な変形の確認</translation>
     </message>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="89"/>
+        <location filename="../ui/document_transform_dialogs.py" line="93"/>
         <source>Confirm large document transform dialog</source>
         <translation>大規模なドキュメント変形の確認ダイアログ</translation>
     </message>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="92"/>
+        <location filename="../ui/document_transform_dialogs.py" line="99"/>
         <source>%1 will resample every layer and mask of this document to %2 × %3 px, using up to %4 of memory at once. Proceed?</source>
         <translation>%1 を実行すると、このドキュメントのすべてのレイヤーとマスクが %2 × %3 px にリサンプリングされ、最大 %4 のメモリが同時に使用されます。続行しますか?</translation>
     </message>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="100"/>
+        <location filename="../ui/document_transform_dialogs.py" line="107"/>
         <source>Transform cost summary</source>
         <translation>変形の負荷の概要</translation>
     </message>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="101"/>
+        <location filename="../ui/document_transform_dialogs.py" line="108"/>
         <source>Proceed</source>
         <translation>続行</translation>
     </message>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="102"/>
+        <location filename="../ui/document_transform_dialogs.py" line="109"/>
         <source>Proceed with the transform</source>
         <translation>変形を続行</translation>
     </message>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="103"/>
+        <location filename="../ui/document_transform_dialogs.py" line="110"/>
         <source>Cancel</source>
         <translation>キャンセル</translation>
     </message>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="104"/>
+        <location filename="../ui/document_transform_dialogs.py" line="111"/>
         <source>Cancel the transform</source>
         <translation>変形をキャンセル</translation>
     </message>
@@ -2094,38 +2095,38 @@
 <context>
     <name>Document_Transform_Progress_Dialog</name>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="190"/>
+        <location filename="../ui/document_transform_dialogs.py" line="197"/>
         <source>Transforming Document</source>
         <extracomment>Emitted when the user asks to stop — via the button, Escape, or the window&apos;s close control. The caller (the runner) decides what &quot;stop&quot; means; this dialog only reports the request.</extracomment>
         <translation>ドキュメントを変形中</translation>
     </message>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="191"/>
+        <location filename="../ui/document_transform_dialogs.py" line="198"/>
         <source>Document transform progress dialog</source>
         <translation>ドキュメント変形の進行状況ダイアログ</translation>
     </message>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="192"/>
+        <location filename="../ui/document_transform_dialogs.py" line="199"/>
         <source>%1…</source>
         <translation>%1…</translation>
     </message>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="193"/>
+        <location filename="../ui/document_transform_dialogs.py" line="200"/>
         <source>Transform operation in progress</source>
         <translation>変形処理を実行中</translation>
     </message>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="194"/>
+        <location filename="../ui/document_transform_dialogs.py" line="201"/>
         <source>Transform progress</source>
         <translation>変形の進行状況</translation>
     </message>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="195"/>
+        <location filename="../ui/document_transform_dialogs.py" line="202"/>
         <source>Cancel</source>
         <translation>キャンセル</translation>
     </message>
     <message>
-        <location filename="../ui/document_transform_dialogs.py" line="196"/>
+        <location filename="../ui/document_transform_dialogs.py" line="203"/>
         <source>Cancel the transform</source>
         <translation>変形をキャンセル</translation>
     </message>
@@ -2147,196 +2148,196 @@
 <context>
     <name>Export_Dialog</name>
     <message>
-        <location filename="../ui/export_dialog.py" line="259"/>
+        <location filename="../ui/export_dialog.py" line="265"/>
         <source>%1 → %2</source>
         <extracomment>Presentation-only spin bounds (UI clamps; the logic layer re-validates, S12).</extracomment>
         <translation>%1 → %2</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="287"/>
+        <location filename="../ui/export_dialog.py" line="293"/>
         <source>Whole document</source>
         <translation>ドキュメント全体</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="295"/>
+        <location filename="../ui/export_dialog.py" line="301"/>
         <source>Animated GIF (*.gif)</source>
         <translation>アニメーション GIF (*.gif)</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="297"/>
+        <location filename="../ui/export_dialog.py" line="303"/>
         <source>PNG image (*.png)</source>
         <translation>PNG 画像 (*.png)</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="299"/>
+        <location filename="../ui/export_dialog.py" line="305"/>
         <source>Export To</source>
         <translation>エクスポート先</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="307"/>
+        <location filename="../ui/export_dialog.py" line="313"/>
         <source>Export</source>
         <translation>エクスポート</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="308"/>
+        <location filename="../ui/export_dialog.py" line="314"/>
         <source>Format</source>
         <translation>形式</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="309"/>
-        <location filename="../ui/export_dialog.py" line="337"/>
+        <location filename="../ui/export_dialog.py" line="315"/>
+        <location filename="../ui/export_dialog.py" line="343"/>
         <source>Engine preset</source>
         <translation>エンジンプリセット</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="310"/>
+        <location filename="../ui/export_dialog.py" line="316"/>
         <source>Destination</source>
         <translation>保存先</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="311"/>
+        <location filename="../ui/export_dialog.py" line="317"/>
         <source>Browse…</source>
         <translation>参照…</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="312"/>
+        <location filename="../ui/export_dialog.py" line="318"/>
         <source>Also add to the asset library</source>
         <translation>アセットライブラリにも追加</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="314"/>
+        <location filename="../ui/export_dialog.py" line="320"/>
         <source>PNG image</source>
         <translation>PNG 画像</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="315"/>
+        <location filename="../ui/export_dialog.py" line="321"/>
         <source>Animated GIF</source>
         <translation>アニメーション GIF</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="316"/>
+        <location filename="../ui/export_dialog.py" line="322"/>
         <source>Sprite sheet</source>
         <translation>スプライトシート</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="317"/>
+        <location filename="../ui/export_dialog.py" line="323"/>
         <source>Texture atlas</source>
         <translation>テクスチャアトラス</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="318"/>
+        <location filename="../ui/export_dialog.py" line="324"/>
         <source>None</source>
         <translation>なし</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="319"/>
+        <location filename="../ui/export_dialog.py" line="325"/>
         <source>Unity</source>
         <translation>Unity</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="320"/>
+        <location filename="../ui/export_dialog.py" line="326"/>
         <source>Godot</source>
         <translation>Godot</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="323"/>
+        <location filename="../ui/export_dialog.py" line="329"/>
         <source>Exports the first frame as a flattened PNG image.</source>
         <translation>最初のフレームを統合した PNG 画像としてエクスポートします。</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="325"/>
+        <location filename="../ui/export_dialog.py" line="331"/>
         <source>Frames</source>
         <translation>フレーム</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="326"/>
+        <location filename="../ui/export_dialog.py" line="332"/>
         <source>Loop count</source>
         <translation>ループ回数</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="327"/>
+        <location filename="../ui/export_dialog.py" line="333"/>
         <source>Loop count (0 = loop forever).</source>
         <translation>ループ回数 (0 = 無限にループ)。</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="328"/>
+        <location filename="../ui/export_dialog.py" line="334"/>
         <source>Columns</source>
         <translation>列数</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="329"/>
-        <location filename="../ui/export_dialog.py" line="331"/>
+        <location filename="../ui/export_dialog.py" line="335"/>
+        <location filename="../ui/export_dialog.py" line="337"/>
         <source>Padding (px)</source>
         <translation>パディング (px)</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="330"/>
-        <location filename="../ui/export_dialog.py" line="333"/>
+        <location filename="../ui/export_dialog.py" line="336"/>
+        <location filename="../ui/export_dialog.py" line="339"/>
         <source>Write JSON metadata</source>
         <translation>JSON メタデータを書き出す</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="332"/>
+        <location filename="../ui/export_dialog.py" line="338"/>
         <source>Max dimension (px)</source>
         <translation>最大サイズ (px)</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="336"/>
+        <location filename="../ui/export_dialog.py" line="342"/>
         <source>Export format</source>
         <translation>エクスポート形式</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="338"/>
+        <location filename="../ui/export_dialog.py" line="344"/>
         <source>Destination path</source>
         <translation>保存先のパス</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="339"/>
+        <location filename="../ui/export_dialog.py" line="345"/>
         <source>Browse for destination</source>
         <translation>保存先を参照</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="341"/>
+        <location filename="../ui/export_dialog.py" line="347"/>
         <source>Also add this export to the asset library</source>
         <translation>このエクスポートをアセットライブラリにも追加</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="343"/>
+        <location filename="../ui/export_dialog.py" line="349"/>
         <source>GIF frame source</source>
         <translation>GIF のフレームの取得元</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="344"/>
+        <location filename="../ui/export_dialog.py" line="350"/>
         <source>GIF loop count</source>
         <translation>GIF のループ回数</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="345"/>
+        <location filename="../ui/export_dialog.py" line="351"/>
         <source>Sprite-sheet columns</source>
         <translation>スプライトシートの列数</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="346"/>
+        <location filename="../ui/export_dialog.py" line="352"/>
         <source>Sprite-sheet padding</source>
         <translation>スプライトシートのパディング</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="347"/>
+        <location filename="../ui/export_dialog.py" line="353"/>
         <source>Write sprite-sheet JSON</source>
         <translation>スプライトシートの JSON を書き出す</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="348"/>
+        <location filename="../ui/export_dialog.py" line="354"/>
         <source>Atlas padding</source>
         <translation>アトラスのパディング</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="349"/>
+        <location filename="../ui/export_dialog.py" line="355"/>
         <source>Atlas max dimension</source>
         <translation>アトラスの最大サイズ</translation>
     </message>
     <message>
-        <location filename="../ui/export_dialog.py" line="350"/>
+        <location filename="../ui/export_dialog.py" line="356"/>
         <source>Write atlas JSON</source>
         <translation>アトラスの JSON を書き出す</translation>
     </message>
@@ -2344,76 +2345,110 @@
 <context>
     <name>Extract_Palette_Dialog</name>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="127"/>
+        <location filename="../ui/extract_palette_dialog.py" line="130"/>
         <source>Choose Image</source>
         <extracomment>Extraction method tokens carried in the method combo&apos;s item data.</extracomment>
         <translation>画像を選択</translation>
     </message>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="129"/>
+        <location filename="../ui/extract_palette_dialog.py" line="132"/>
         <source>Images (*.png *.jpg *.jpeg *.bmp *.gif)</source>
         <translation>画像 (*.png *.jpg *.jpeg *.bmp *.gif)</translation>
     </message>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="136"/>
-        <location filename="../ui/extract_palette_dialog.py" line="153"/>
+        <location filename="../ui/extract_palette_dialog.py" line="139"/>
+        <location filename="../ui/extract_palette_dialog.py" line="158"/>
         <source>Extract Palette</source>
         <translation>パレットを抽出</translation>
     </message>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="136"/>
+        <location filename="../ui/extract_palette_dialog.py" line="139"/>
         <source>Could not load the image.</source>
         <translation>画像を読み込めませんでした。</translation>
     </message>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="160"/>
+        <location filename="../ui/extract_palette_dialog.py" line="169"/>
         <source>Extract Palette from Image</source>
         <translation>画像からパレットを抽出</translation>
     </message>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="161"/>
+        <location filename="../ui/extract_palette_dialog.py" line="170"/>
         <source>Extract palette dialog</source>
         <translation>パレット抽出ダイアログ</translation>
     </message>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="162"/>
+        <location filename="../ui/extract_palette_dialog.py" line="171"/>
         <source>Choose Image…</source>
         <translation>画像を選択…</translation>
     </message>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="163"/>
+        <location filename="../ui/extract_palette_dialog.py" line="172"/>
         <source>No image chosen</source>
         <translation>画像が選択されていません</translation>
     </message>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="164"/>
+        <location filename="../ui/extract_palette_dialog.py" line="173"/>
         <source>Colours (N)</source>
         <translation>色数 (N)</translation>
     </message>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="165"/>
+        <location filename="../ui/extract_palette_dialog.py" line="174"/>
         <source>Method</source>
         <translation>方法</translation>
     </message>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="166"/>
+        <location filename="../ui/extract_palette_dialog.py" line="175"/>
         <source>Number of colours</source>
         <translation>色数</translation>
     </message>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="167"/>
+        <location filename="../ui/extract_palette_dialog.py" line="176"/>
         <source>Extraction method</source>
         <translation>抽出方法</translation>
     </message>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="168"/>
+        <location filename="../ui/extract_palette_dialog.py" line="177"/>
         <source>Median cut (fast)</source>
         <translation>メディアンカット (高速)</translation>
     </message>
     <message>
-        <location filename="../ui/extract_palette_dialog.py" line="169"/>
+        <location filename="../ui/extract_palette_dialog.py" line="178"/>
         <source>K-means (higher quality)</source>
         <translation>K-means (高品質)</translation>
+    </message>
+</context>
+<context>
+    <name>Failure_Messages</name>
+    <message>
+        <location filename="../ui/failure_messages.py" line="151"/>
+        <source>The operation timed out.</source>
+        <extracomment>The most links of a chain read; a longer chain is read only this far.</extracomment>
+        <translation>操作がタイムアウトしました。</translation>
+    </message>
+    <message>
+        <location filename="../ui/failure_messages.py" line="155"/>
+        <source>The connection failed.</source>
+        <translation>接続に失敗しました。</translation>
+    </message>
+    <message>
+        <location filename="../ui/failure_messages.py" line="157"/>
+        <source>The file or folder could not be found.</source>
+        <translation>ファイルまたはフォルダーが見つかりませんでした。</translation>
+    </message>
+    <message>
+        <location filename="../ui/failure_messages.py" line="161"/>
+        <source>Access to the file or folder was denied.</source>
+        <translation>ファイルまたはフォルダーへのアクセスが拒否されました。</translation>
+    </message>
+    <message>
+        <location filename="../ui/failure_messages.py" line="165"/>
+        <source>A value was not valid for this operation.</source>
+        <translation>この操作では無効な値が指定されました。</translation>
+    </message>
+    <message>
+        <location filename="../ui/failure_messages.py" line="168"/>
+        <source>The operation could not be completed.</source>
+        <translation>操作を完了できませんでした。</translation>
     </message>
 </context>
 <context>
@@ -2453,68 +2488,68 @@
 <context>
     <name>Frame_Tags_Panel</name>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="261"/>
+        <location filename="../ui/frame_tags_panel.py" line="266"/>
         <source>%1  [%2–%3]  %4</source>
         <extracomment>Emitted with the :class:`FrameTag` to play as a named animation (UI-014).</extracomment>
         <translation>%1  [%2–%3]  %4</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="262"/>
+        <location filename="../ui/frame_tags_panel.py" line="267"/>
         <source>(unnamed)</source>
         <translation>(名前なし)</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="311"/>
-        <location filename="../ui/frame_tags_panel.py" line="313"/>
-        <location filename="../ui/frame_tags_panel.py" line="379"/>
+        <location filename="../ui/frame_tags_panel.py" line="317"/>
+        <location filename="../ui/frame_tags_panel.py" line="323"/>
+        <location filename="../ui/frame_tags_panel.py" line="394"/>
         <source>Add Tag</source>
         <translation>タグを追加</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="335"/>
-        <location filename="../ui/frame_tags_panel.py" line="337"/>
-        <location filename="../ui/frame_tags_panel.py" line="380"/>
+        <location filename="../ui/frame_tags_panel.py" line="346"/>
+        <location filename="../ui/frame_tags_panel.py" line="352"/>
+        <location filename="../ui/frame_tags_panel.py" line="395"/>
         <source>Edit Tag</source>
         <translation>タグを編集</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="348"/>
-        <location filename="../ui/frame_tags_panel.py" line="381"/>
+        <location filename="../ui/frame_tags_panel.py" line="363"/>
+        <location filename="../ui/frame_tags_panel.py" line="396"/>
         <source>Remove Tag</source>
         <translation>タグを削除</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="373"/>
+        <location filename="../ui/frame_tags_panel.py" line="388"/>
         <source>Frame tags panel</source>
         <translation>フレームタグパネル</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="374"/>
+        <location filename="../ui/frame_tags_panel.py" line="389"/>
         <source>Tag actions</source>
         <translation>タグ操作</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="375"/>
+        <location filename="../ui/frame_tags_panel.py" line="390"/>
         <source>Frame tags</source>
         <translation>フレームタグ</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="377"/>
+        <location filename="../ui/frame_tags_panel.py" line="392"/>
         <source>Named animations; double-click to edit</source>
         <translation>名前付きアニメーション (ダブルクリックで編集)</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="382"/>
+        <location filename="../ui/frame_tags_panel.py" line="397"/>
         <source>Play Tag</source>
         <translation>タグを再生</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="384"/>
+        <location filename="../ui/frame_tags_panel.py" line="399"/>
         <source>Play the selected tag as its own animation</source>
         <translation>選択したタグを単独のアニメーションとして再生</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="386"/>
+        <location filename="../ui/frame_tags_panel.py" line="401"/>
         <source>Play tag</source>
         <translation>タグを再生</translation>
     </message>
@@ -2531,58 +2566,58 @@
 <context>
     <name>Iso_Grid_Dialog</name>
     <message>
-        <location filename="../ui/iso_grid_dialog.py" line="117"/>
+        <location filename="../ui/iso_grid_dialog.py" line="122"/>
         <source>Configure Isometric Grid</source>
         <extracomment>Sane bounds for the ``W:H`` tile ratio field (2:1 dimetric default is 2.0; true-iso is ~1.732). Not a lattice geometry decision — just a widget bound keeping the field away from non-finite/degenerate input before it ever reaches ``IsoGridConfig`` validation (S12).</extracomment>
         <translation>アイソメトリックグリッドを設定</translation>
     </message>
     <message>
-        <location filename="../ui/iso_grid_dialog.py" line="118"/>
+        <location filename="../ui/iso_grid_dialog.py" line="123"/>
         <source>Tile width</source>
         <translation>タイルの幅</translation>
     </message>
     <message>
-        <location filename="../ui/iso_grid_dialog.py" line="119"/>
+        <location filename="../ui/iso_grid_dialog.py" line="124"/>
         <source>Tile ratio (W:H)</source>
         <translation>タイルの比率 (W:H)</translation>
     </message>
     <message>
-        <location filename="../ui/iso_grid_dialog.py" line="120"/>
+        <location filename="../ui/iso_grid_dialog.py" line="125"/>
         <source>Origin X</source>
         <translation>原点 X</translation>
     </message>
     <message>
-        <location filename="../ui/iso_grid_dialog.py" line="121"/>
+        <location filename="../ui/iso_grid_dialog.py" line="126"/>
         <source>Origin Y</source>
         <translation>原点 Y</translation>
     </message>
     <message>
-        <location filename="../ui/iso_grid_dialog.py" line="122"/>
+        <location filename="../ui/iso_grid_dialog.py" line="127"/>
         <source>Isometric tile width</source>
         <translation>アイソメトリックのタイル幅</translation>
     </message>
     <message>
-        <location filename="../ui/iso_grid_dialog.py" line="123"/>
+        <location filename="../ui/iso_grid_dialog.py" line="128"/>
         <source>Isometric tile ratio</source>
         <translation>アイソメトリックのタイル比率</translation>
     </message>
     <message>
-        <location filename="../ui/iso_grid_dialog.py" line="124"/>
+        <location filename="../ui/iso_grid_dialog.py" line="129"/>
         <source>Isometric grid origin X</source>
         <translation>アイソメトリックグリッドの原点 X</translation>
     </message>
     <message>
-        <location filename="../ui/iso_grid_dialog.py" line="125"/>
+        <location filename="../ui/iso_grid_dialog.py" line="130"/>
         <source>Isometric grid origin Y</source>
         <translation>アイソメトリックグリッドの原点 Y</translation>
     </message>
     <message>
-        <location filename="../ui/iso_grid_dialog.py" line="128"/>
+        <location filename="../ui/iso_grid_dialog.py" line="133"/>
         <source>OK</source>
         <translation>OK</translation>
     </message>
     <message>
-        <location filename="../ui/iso_grid_dialog.py" line="131"/>
+        <location filename="../ui/iso_grid_dialog.py" line="136"/>
         <source>Cancel</source>
         <translation>キャンセル</translation>
     </message>
@@ -2766,168 +2801,168 @@
 <context>
     <name>Macro_Controls</name>
     <message>
-        <location filename="../ui/macro_controls.py" line="143"/>
+        <location filename="../ui/macro_controls.py" line="144"/>
         <source>Running…</source>
         <extracomment>``(Macro, label)`` — the host should replay this macro on the active document (as one undoable grouped command, REQ-P8-UI-002). ``(recording,)`` — recording started / stopped (view state, not undoable). The user asked to cancel the in-flight automation run (C-07); the host relays this to ``Automation_Controller.cancel()``.</extracomment>
         <translation>実行中…</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="145"/>
+        <location filename="../ui/macro_controls.py" line="146"/>
         <source>Done</source>
         <translation>完了</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="146"/>
+        <location filename="../ui/macro_controls.py" line="147"/>
         <source>Idle</source>
         <translation>待機中</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="184"/>
+        <location filename="../ui/macro_controls.py" line="187"/>
         <source>Macro Error</source>
         <translation>マクロエラー</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/macro_controls.py" line="188"/>
+        <location filename="../ui/macro_controls.py" line="195"/>
         <source>Recording %1 (%n steps)</source>
         <translation>
             <numerusform>%1 を記録中 (%n ステップ)</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="210"/>
+        <location filename="../ui/macro_controls.py" line="217"/>
         <source>Macro</source>
         <translation>マクロ</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="228"/>
+        <location filename="../ui/macro_controls.py" line="235"/>
         <source>Save Macro</source>
         <translation>マクロを保存</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="230"/>
-        <location filename="../ui/macro_controls.py" line="250"/>
+        <location filename="../ui/macro_controls.py" line="237"/>
+        <location filename="../ui/macro_controls.py" line="263"/>
         <source>Macro files (*%1)</source>
         <translation>マクロファイル (*%1)</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="237"/>
+        <location filename="../ui/macro_controls.py" line="246"/>
         <source>Save Macro Failed</source>
         <translation>マクロの保存に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="248"/>
+        <location filename="../ui/macro_controls.py" line="261"/>
         <source>Load Macro</source>
         <translation>マクロを読み込み</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="257"/>
+        <location filename="../ui/macro_controls.py" line="272"/>
         <source>Load Macro Failed</source>
         <translation>マクロの読み込みに失敗しました</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/macro_controls.py" line="288"/>
+        <location filename="../ui/macro_controls.py" line="307"/>
         <source>Recording… %n steps captured</source>
         <translation>
             <numerusform>記録中… %n ステップを取得済み</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="291"/>
+        <location filename="../ui/macro_controls.py" line="310"/>
         <source>Not recording</source>
         <translation>記録していません</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="295"/>
+        <location filename="../ui/macro_controls.py" line="314"/>
         <source>Stop Recording</source>
         <translation>記録を停止</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="295"/>
+        <location filename="../ui/macro_controls.py" line="314"/>
         <source>Record Macro</source>
         <translation>マクロを記録</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="297"/>
+        <location filename="../ui/macro_controls.py" line="316"/>
         <source>Replay</source>
         <translation>再生</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="298"/>
+        <location filename="../ui/macro_controls.py" line="317"/>
         <source>Save…</source>
         <translation>保存…</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="299"/>
+        <location filename="../ui/macro_controls.py" line="318"/>
         <source>Load…</source>
         <translation>読み込み…</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="300"/>
+        <location filename="../ui/macro_controls.py" line="319"/>
         <source>Remove</source>
         <translation>削除</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="301"/>
+        <location filename="../ui/macro_controls.py" line="320"/>
         <source>Cancel</source>
         <translation>キャンセル</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="302"/>
+        <location filename="../ui/macro_controls.py" line="321"/>
         <source>Macro controls</source>
         <translation>マクロのコントロール</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="303"/>
+        <location filename="../ui/macro_controls.py" line="322"/>
         <source>Record or stop a macro</source>
         <translation>マクロの記録を開始または停止</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="304"/>
+        <location filename="../ui/macro_controls.py" line="323"/>
         <source>Macro recording status</source>
         <translation>マクロ記録の状態</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="305"/>
+        <location filename="../ui/macro_controls.py" line="324"/>
         <source>Recorded and loaded macros</source>
         <translation>記録済みおよび読み込み済みのマクロ</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="306"/>
+        <location filename="../ui/macro_controls.py" line="325"/>
         <source>Replay the selected macro</source>
         <translation>選択したマクロを再生</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="307"/>
+        <location filename="../ui/macro_controls.py" line="326"/>
         <source>Save the selected macro</source>
         <translation>選択したマクロを保存</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="308"/>
+        <location filename="../ui/macro_controls.py" line="327"/>
         <source>Load a macro from a file</source>
         <translation>ファイルからマクロを読み込む</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="309"/>
+        <location filename="../ui/macro_controls.py" line="328"/>
         <source>Remove the selected macro</source>
         <translation>選択したマクロを削除</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="310"/>
+        <location filename="../ui/macro_controls.py" line="329"/>
         <source>Cancel the running automation</source>
         <translation>実行中の自動化をキャンセル</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="312"/>
+        <location filename="../ui/macro_controls.py" line="331"/>
         <source>Stops the in-flight automation run; enabled only while busy.</source>
         <translation>実行中の自動化を停止します。処理中のみ有効です。</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="314"/>
+        <location filename="../ui/macro_controls.py" line="333"/>
         <source>Progress</source>
         <translation>進行状況</translation>
     </message>
     <message>
-        <location filename="../ui/macro_controls.py" line="315"/>
+        <location filename="../ui/macro_controls.py" line="334"/>
         <source>Macro replay progress</source>
         <translation>マクロ再生の進行状況</translation>
     </message>
@@ -2935,440 +2970,462 @@
 <context>
     <name>Main_Window</name>
     <message>
-        <location filename="../ui/main_window.py" line="1295"/>
+        <location filename="../ui/main_window.py" line="1309"/>
+        <location filename="../ui/main_window.py" line="5770"/>
         <source>&amp;Undo</source>
         <extracomment>Emitted when &quot;Use system font&quot; changes (stored here; the font itself is switched by the listener that owns it). Emitted when &quot;Pixel-perfect interface&quot; changes (stored here; it takes effect at the next launch). Live mirror-centre override from the Symmetry_Panel (D-28/CF-93); ``None`` keeps the shipped canvas-centre default. The DSL ops of the in-flight automation run (recorded into a macro on success if recording is active); ``None`` for a macro replay (a replay is not itself re-recorded). True while an in-session timelapse playback holds the active tab&apos;s canvas + the shared undo/redo actions read-only (REQ-P9-UI-016); see ``_on_timelapse_playback_lock_changed``. The cloud project id last saved to / opened from (drives version browse). D-13: the most recently fetched remote version list (cached from the last &quot;open_list&quot;/&quot;versions&quot;/&quot;save&quot; result) — feeds the read-only ``compute_sync_state`` for the Cloud menu status line and the version browser, without a network round trip on every tab switch. D-13: the version id of a restore/recover in flight, consumed once the reconstructed document lands in its new tab (see ``_on_cloud_succeeded``). Live-cursor overlays are per-tab (attached in _create_tab_aids); toggled on connect. The local member id broadcast with presence (never a token).</extracomment>
         <translation>元に戻す</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="1297"/>
+        <location filename="../ui/main_window.py" line="1311"/>
+        <location filename="../ui/main_window.py" line="5771"/>
         <source>&amp;Redo</source>
         <translation>やり直す</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2215"/>
+        <location filename="../ui/main_window.py" line="2244"/>
         <source>Untitled</source>
         <translation>無題</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="2790"/>
+        <location filename="../ui/main_window.py" line="2819"/>
         <source>Add Frame</source>
         <translation>フレームを追加</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3141"/>
+        <location filename="../ui/main_window.py" line="3172"/>
         <source>Unsaved Changes</source>
         <translation>未保存の変更</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3143"/>
+        <location filename="../ui/main_window.py" line="3175"/>
         <source>The current document has unsaved changes. Save it before opening the dropped project?</source>
         <translation>現在のドキュメントには未保存の変更があります。ドロップされたプロジェクトを開く前に保存しますか?</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3178"/>
+        <location filename="../ui/main_window.py" line="3180"/>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <location filename="../ui/main_window.py" line="3182"/>
+        <source>Discard</source>
+        <translation>破棄</translation>
+    </message>
+    <message>
+        <location filename="../ui/main_window.py" line="3184"/>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <location filename="../ui/main_window.py" line="3217"/>
         <source>Load Palette</source>
         <translation>パレットを読み込み</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3206"/>
-        <location filename="../ui/main_window.py" line="4227"/>
+        <location filename="../ui/main_window.py" line="3245"/>
+        <location filename="../ui/main_window.py" line="4307"/>
         <source>Save Project</source>
         <translation>プロジェクトを保存</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3208"/>
-        <location filename="../ui/main_window.py" line="4213"/>
-        <location filename="../ui/main_window.py" line="4229"/>
+        <location filename="../ui/main_window.py" line="3247"/>
+        <location filename="../ui/main_window.py" line="4293"/>
+        <location filename="../ui/main_window.py" line="4309"/>
         <source>Pixel projects (*%1)</source>
         <translation>ピクセルプロジェクト (*%1)</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3218"/>
+        <location filename="../ui/main_window.py" line="3257"/>
         <source>Unsupported file type: %1</source>
         <translation>サポートされていないファイル形式です: %1</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3229"/>
+        <location filename="../ui/main_window.py" line="3268"/>
         <source>Layer is locked.</source>
         <translation>レイヤーはロックされています。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3244"/>
+        <location filename="../ui/main_window.py" line="3283"/>
         <source>This is the last remaining frame; a document must keep at least one.</source>
         <translation>これは最後のフレームです。ドキュメントには少なくとも 1 つのフレームが必要です。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3257"/>
+        <location filename="../ui/main_window.py" line="3296"/>
         <source>Click was outside the document.</source>
         <translation>ドキュメントの外側がクリックされました。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3270"/>
+        <location filename="../ui/main_window.py" line="3309"/>
         <source>This layer cannot be edited directly.</source>
         <translation>このレイヤーは直接編集できません。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3283"/>
+        <location filename="../ui/main_window.py" line="3322"/>
         <source>No change: the colour already matched.</source>
         <translation>変更なし: 色はすでに一致していました。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3296"/>
+        <location filename="../ui/main_window.py" line="3335"/>
         <source>No tileset bound to this tilemap yet.</source>
         <translation>このタイルマップには、まだタイルセットが関連付けられていません。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3308"/>
+        <location filename="../ui/main_window.py" line="3347"/>
         <source>Select a tile first.</source>
         <translation>先にタイルを選択してください。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3315"/>
+        <location filename="../ui/main_window.py" line="3354"/>
         <source>Open a document before loading a palette.</source>
         <translation>パレットを読み込む前にドキュメントを開いてください。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3323"/>
+        <location filename="../ui/main_window.py" line="3362"/>
         <source>Import Failed</source>
         <translation>インポートに失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3324"/>
+        <location filename="../ui/main_window.py" line="3363"/>
         <source>Could not import %1:
 %2</source>
         <translation>%1 をインポートできませんでした:
 %2</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3443"/>
+        <location filename="../ui/main_window.py" line="3487"/>
         <source>Copying selection — release, Enter to commit, Esc to cancel</source>
         <extracomment>Incoming tool ids that discard the active selection on entry (REQ-IS-UI-029). Re-activating an already-active selection tool is included deliberately, so it doubles as a start-fresh gesture — an assumption, flagged and cheap to reverse. Every other incoming tool leaves the selection untouched, so mask-constrained drawing (REQ-P2-LOGIC-006) survives a tool switch.</extracomment>
         <translation>選択範囲をコピー中 — ボタンを離し、Enter キーで確定、Esc キーでキャンセル</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3448"/>
+        <location filename="../ui/main_window.py" line="3492"/>
         <source>Moving selection — hold Ctrl to copy; Enter to commit, Esc to cancel</source>
         <translation>選択範囲を移動中 — Ctrl キーを押したままでコピー、Enter キーで確定、Esc キーでキャンセル</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3559"/>
+        <location filename="../ui/main_window.py" line="3603"/>
         <source>Add Shade Ramp</source>
         <translation>カラーランプを追加</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3577"/>
-        <location filename="../ui/main_window.py" line="3583"/>
+        <location filename="../ui/main_window.py" line="3623"/>
+        <location filename="../ui/main_window.py" line="3633"/>
         <source>Constrain to Palette</source>
         <translation>パレットに制限</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3604"/>
-        <location filename="../ui/main_window.py" line="3613"/>
-        <location filename="../ui/main_window.py" line="5612"/>
+        <location filename="../ui/main_window.py" line="3654"/>
+        <location filename="../ui/main_window.py" line="3665"/>
+        <location filename="../ui/main_window.py" line="5794"/>
         <source>Colour Cycling</source>
         <translation>カラーサイクリング</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3605"/>
+        <location filename="../ui/main_window.py" line="3655"/>
         <source>Colour cycling applies to indexed documents.</source>
         <translation>カラーサイクリングはインデックスカラーのドキュメントに適用されます。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3619"/>
+        <location filename="../ui/main_window.py" line="3675"/>
         <source>Colour Cycle</source>
         <translation>カラーサイクリング</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3637"/>
+        <location filename="../ui/main_window.py" line="3693"/>
         <source>Extract Palette</source>
         <translation>パレットを抽出</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3648"/>
-        <location filename="../ui/main_window.py" line="3666"/>
-        <location filename="../ui/main_window.py" line="3672"/>
+        <location filename="../ui/main_window.py" line="3704"/>
+        <location filename="../ui/main_window.py" line="3724"/>
+        <location filename="../ui/main_window.py" line="3734"/>
         <source>Palette Swap</source>
         <translation>パレットスワップ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3649"/>
+        <location filename="../ui/main_window.py" line="3705"/>
         <source>Palette swap applies to indexed documents.</source>
         <translation>パレットスワップはインデックスカラーのドキュメントに適用されます。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3695"/>
-        <location filename="../ui/main_window.py" line="3701"/>
+        <location filename="../ui/main_window.py" line="3759"/>
+        <location filename="../ui/main_window.py" line="3769"/>
         <source>Convert to Indexed</source>
         <translation>インデックスカラーに変換</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3721"/>
-        <location filename="../ui/main_window.py" line="3727"/>
+        <location filename="../ui/main_window.py" line="3791"/>
+        <location filename="../ui/main_window.py" line="3801"/>
         <source>Convert to RGBA</source>
         <translation>RGBA に変換</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3853"/>
+        <location filename="../ui/main_window.py" line="3929"/>
         <source>Register Selection</source>
         <translation>選択範囲を登録</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3942"/>
+        <location filename="../ui/main_window.py" line="4022"/>
         <source>Choose a new folder for the imported project</source>
         <translation>インポートしたプロジェクトの新しいフォルダーを選択</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3951"/>
+        <location filename="../ui/main_window.py" line="4031"/>
         <source>&quot;%1&quot; already exists. Choose a name for a new folder.</source>
         <translation>“%1” は既に存在します。新しいフォルダーの名前を選択してください。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="3970"/>
+        <location filename="../ui/main_window.py" line="4050"/>
         <source>Imported Project</source>
         <translation>インポートしたプロジェクト</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4211"/>
+        <location filename="../ui/main_window.py" line="4291"/>
         <source>Open Project</source>
         <translation>プロジェクトを開く</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4238"/>
+        <location filename="../ui/main_window.py" line="4318"/>
         <source>Cloud project name:</source>
         <translation>クラウドプロジェクト名:</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4243"/>
+        <location filename="../ui/main_window.py" line="4323"/>
         <source>Enter a project name.</source>
         <translation>プロジェクト名を入力してください。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4252"/>
+        <location filename="../ui/main_window.py" line="4332"/>
         <source>Connect to a cloud provider first.</source>
         <translation>先にクラウドプロバイダーに接続してください。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4286"/>
+        <location filename="../ui/main_window.py" line="4366"/>
         <source>Cloud status: —</source>
         <translation>クラウドの状態: —</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4294"/>
+        <location filename="../ui/main_window.py" line="4374"/>
         <source>Cloud status: Up to date</source>
         <translation>クラウドの状態: 最新</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4296"/>
+        <location filename="../ui/main_window.py" line="4376"/>
         <source>Cloud status: Not yet saved to cloud</source>
         <translation>クラウドの状態: クラウドに未保存</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4298"/>
+        <location filename="../ui/main_window.py" line="4378"/>
         <source>Cloud status: Newer version in cloud</source>
         <translation>クラウドの状態: クラウドに新しいバージョンあり</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4299"/>
+        <location filename="../ui/main_window.py" line="4379"/>
         <source>Cloud status: Diverged</source>
         <translation>クラウドの状態: 分岐</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4305"/>
+        <location filename="../ui/main_window.py" line="4385"/>
         <source>Real-time</source>
         <translation>リアルタイム</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4308"/>
-        <location filename="../ui/main_window.py" line="4456"/>
+        <location filename="../ui/main_window.py" line="4388"/>
+        <location filename="../ui/main_window.py" line="4552"/>
         <source>Open a document first.</source>
         <translation>先にドキュメントを開いてください。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4310"/>
+        <location filename="../ui/main_window.py" line="4390"/>
         <source>Your member id:</source>
         <translation>自分のメンバー ID:</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4340"/>
+        <location filename="../ui/main_window.py" line="4427"/>
+        <source>Real-time. {msg}</source>
+        <translation>リアルタイム。{msg}</translation>
+    </message>
+    <message>
+        <location filename="../ui/main_window.py" line="4429"/>
         <source>Real-time: {msg}</source>
         <translation>リアルタイム: {msg}</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4444"/>
+        <location filename="../ui/main_window.py" line="4536"/>
         <source>Merge</source>
         <translation>マージ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4451"/>
+        <location filename="../ui/main_window.py" line="4547"/>
         <source>Save to Cloud</source>
         <translation>クラウドに保存</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4473"/>
+        <location filename="../ui/main_window.py" line="4569"/>
         <source>Open from Cloud</source>
         <translation>クラウドから開く</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4491"/>
-        <location filename="../ui/main_window.py" line="4608"/>
+        <location filename="../ui/main_window.py" line="4587"/>
+        <location filename="../ui/main_window.py" line="4704"/>
         <source>Cloud Version History</source>
         <translation>クラウドのバージョン履歴</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4578"/>
+        <location filename="../ui/main_window.py" line="4674"/>
         <source>Saved to cloud.</source>
         <translation>クラウドに保存しました。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4585"/>
+        <location filename="../ui/main_window.py" line="4681"/>
         <source>Cloud Project</source>
         <translation>クラウドプロジェクト</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4587"/>
+        <location filename="../ui/main_window.py" line="4683"/>
         <source>Recovered</source>
         <translation>復旧済み</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4595"/>
+        <location filename="../ui/main_window.py" line="4691"/>
         <source>Restored from cloud.</source>
         <translation>クラウドから復元しました。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4609"/>
+        <location filename="../ui/main_window.py" line="4705"/>
         <source>No versions found for this project.</source>
         <translation>このプロジェクトのバージョンが見つかりません。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4636"/>
+        <location filename="../ui/main_window.py" line="4732"/>
         <source>Cloud</source>
         <translation>クラウド</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4762"/>
+        <location filename="../ui/main_window.py" line="4858"/>
         <source>Clear Selection</source>
         <translation>選択範囲を消去</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4877"/>
+        <location filename="../ui/main_window.py" line="4973"/>
         <source>Flip Horizontal</source>
         <translation>左右反転</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4880"/>
+        <location filename="../ui/main_window.py" line="4976"/>
         <source>Flip Vertical</source>
         <translation>上下反転</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4884"/>
+        <location filename="../ui/main_window.py" line="4980"/>
         <source>Rotate 90° CW</source>
         <translation>90° 時計回りに回転</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4889"/>
+        <location filename="../ui/main_window.py" line="4985"/>
         <source>Rotate 90° CCW</source>
         <translation>90° 反時計回りに回転</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4910"/>
-        <location filename="../ui/main_window.py" line="4913"/>
-        <location filename="../ui/main_window.py" line="4917"/>
-        <location filename="../ui/main_window.py" line="4926"/>
-        <location filename="../ui/main_window.py" line="4929"/>
+        <location filename="../ui/main_window.py" line="5006"/>
+        <location filename="../ui/main_window.py" line="5011"/>
+        <location filename="../ui/main_window.py" line="5019"/>
+        <location filename="../ui/main_window.py" line="5030"/>
+        <location filename="../ui/main_window.py" line="5037"/>
         <source>Scale Canvas</source>
         <translation>キャンバスを拡大縮小</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4958"/>
-        <location filename="../ui/main_window.py" line="4961"/>
+        <location filename="../ui/main_window.py" line="5066"/>
+        <location filename="../ui/main_window.py" line="5071"/>
         <source>Canvas Size</source>
         <translation>キャンバスサイズ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="4979"/>
+        <location filename="../ui/main_window.py" line="5093"/>
         <source>Rotate (RotSprite)</source>
         <translation>回転 (RotSprite)</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5127"/>
+        <location filename="../ui/main_window.py" line="5268"/>
         <source>Pixel-perfect interface: the change applies the next time the application starts.</source>
         <translation>ピクセルパーフェクトインターフェイス: 変更は次回アプリケーションを起動したときに適用されます。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5254"/>
-        <location filename="../ui/main_window.py" line="5263"/>
+        <location filename="../ui/main_window.py" line="5396"/>
+        <location filename="../ui/main_window.py" line="5407"/>
         <source>Open Tileset Image</source>
         <translation>タイルセット画像を開く</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5256"/>
+        <location filename="../ui/main_window.py" line="5398"/>
         <source>Images (*.png *.jpg *.jpeg *.bmp *.gif)</source>
         <translation>画像 (*.png *.jpg *.jpeg *.bmp *.gif)</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5272"/>
+        <location filename="../ui/main_window.py" line="5422"/>
         <source>New Tileset</source>
         <translation>新しいタイルセット</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5278"/>
+        <location filename="../ui/main_window.py" line="5432"/>
         <source>Add Tileset</source>
         <translation>タイルセットを追加</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5288"/>
-        <location filename="../ui/main_window.py" line="5339"/>
+        <location filename="../ui/main_window.py" line="5442"/>
+        <location filename="../ui/main_window.py" line="5493"/>
         <source>Attach Tileset</source>
         <translation>タイルセットを関連付け</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5301"/>
+        <location filename="../ui/main_window.py" line="5455"/>
         <source>Tilemap</source>
         <translation>タイルマップ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5304"/>
+        <location filename="../ui/main_window.py" line="5458"/>
         <source>Layer 1</source>
         <translation>レイヤー 1</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5311"/>
+        <location filename="../ui/main_window.py" line="5465"/>
         <source>Add Tilemap</source>
         <translation>タイルマップを追加</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5331"/>
+        <location filename="../ui/main_window.py" line="5485"/>
         <source>Import Tilemap</source>
         <translation>タイルマップをインポート</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5363"/>
+        <location filename="../ui/main_window.py" line="5517"/>
         <source>Export Tiled Map</source>
         <translation>Tiled マップをエクスポート</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5364"/>
+        <location filename="../ui/main_window.py" line="5518"/>
         <source>There is no tilemap to export.</source>
         <translation>エクスポートするタイルマップがありません。</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5392"/>
+        <location filename="../ui/main_window.py" line="5546"/>
         <source>Exporting…</source>
         <translation>エクスポート中…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5397"/>
+        <location filename="../ui/main_window.py" line="5551"/>
         <source>Exporting %1 of %2…</source>
         <translation>%2 件中 %1 件をエクスポート中…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5440"/>
+        <location filename="../ui/main_window.py" line="5594"/>
         <source>Export Failed</source>
         <translation>エクスポートに失敗しました</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/main_window.py" line="5442"/>
+        <location filename="../ui/main_window.py" line="5596"/>
         <source>%n export target(s) failed:
 %2</source>
         <translation>
@@ -3377,750 +3434,750 @@
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/main_window.py" line="5450"/>
+        <location filename="../ui/main_window.py" line="5604"/>
         <source>Export complete (%n file(s)).</source>
         <translation>
             <numerusform>エクスポートが完了しました (%n ファイル)。</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5500"/>
+        <location filename="../ui/main_window.py" line="5654"/>
         <source>Automation</source>
         <translation>自動化</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5522"/>
+        <location filename="../ui/main_window.py" line="5676"/>
         <source>Automation Error</source>
         <translation>自動化エラー</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5540"/>
+        <location filename="../ui/main_window.py" line="5694"/>
         <source>Running automation…</source>
         <translation>自動化を実行中…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5586"/>
+        <location filename="../ui/main_window.py" line="5740"/>
         <source>Assistant edit</source>
         <translation>アシスタントによる編集</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5601"/>
+        <location filename="../ui/main_window.py" line="5782"/>
         <source>PixelArt Creator</source>
         <translation>PixelArt Creator</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5602"/>
+        <location filename="../ui/main_window.py" line="5784"/>
         <source>Tools</source>
         <translation>ツール</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5603"/>
+        <location filename="../ui/main_window.py" line="5785"/>
         <source>Palette</source>
         <translation>パレット</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5604"/>
+        <location filename="../ui/main_window.py" line="5786"/>
         <source>Symmetry</source>
         <translation>対称</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5605"/>
+        <location filename="../ui/main_window.py" line="5787"/>
         <source>Layers</source>
         <translation>レイヤー</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5606"/>
+        <location filename="../ui/main_window.py" line="5788"/>
         <source>Timeline</source>
         <translation>タイムライン</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5607"/>
+        <location filename="../ui/main_window.py" line="5789"/>
         <source>Onion Skin</source>
         <translation>オニオンスキン</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5608"/>
+        <location filename="../ui/main_window.py" line="5790"/>
         <source>Frame Tags</source>
         <translation>フレームタグ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5609"/>
+        <location filename="../ui/main_window.py" line="5791"/>
         <source>Palette Editor</source>
         <translation>パレットエディター</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5610"/>
+        <location filename="../ui/main_window.py" line="5792"/>
         <source>Constraints</source>
         <translation>制約</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5611"/>
+        <location filename="../ui/main_window.py" line="5793"/>
         <source>Shade Ramps</source>
         <translation>カラーランプ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5613"/>
+        <location filename="../ui/main_window.py" line="5795"/>
         <source>Analytics</source>
         <translation>分析</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5614"/>
+        <location filename="../ui/main_window.py" line="5796"/>
         <source>Tileset Editor</source>
         <translation>タイルセットエディター</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5615"/>
+        <location filename="../ui/main_window.py" line="5797"/>
         <source>Tilemap Layers</source>
         <translation>タイルマップレイヤー</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5616"/>
+        <location filename="../ui/main_window.py" line="5798"/>
         <source>Tilemap Canvas</source>
         <translation>タイルマップキャンバス</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5617"/>
+        <location filename="../ui/main_window.py" line="5799"/>
         <source>Batch Export</source>
         <translation>一括エクスポート</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5618"/>
+        <location filename="../ui/main_window.py" line="5800"/>
         <source>Macros</source>
         <translation>マクロ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5619"/>
+        <location filename="../ui/main_window.py" line="5801"/>
         <source>Script Runner</source>
         <translation>スクリプトランナー</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5620"/>
+        <location filename="../ui/main_window.py" line="5802"/>
         <source>Plugins</source>
         <translation>プラグイン</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5621"/>
+        <location filename="../ui/main_window.py" line="5803"/>
         <source>Batch Recolour</source>
         <translation>一括色替え</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5622"/>
+        <location filename="../ui/main_window.py" line="5804"/>
         <source>Procedural Generation</source>
         <translation>プロシージャル生成</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5623"/>
+        <location filename="../ui/main_window.py" line="5805"/>
         <source>Shared Projects</source>
         <translation>共有プロジェクト</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5624"/>
+        <location filename="../ui/main_window.py" line="5806"/>
         <source>Comments</source>
         <translation>コメント</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5625"/>
+        <location filename="../ui/main_window.py" line="5807"/>
         <source>Presence</source>
         <translation>プレゼンス</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5626"/>
+        <location filename="../ui/main_window.py" line="5808"/>
         <source>Branching</source>
         <translation>ブランチ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5627"/>
+        <location filename="../ui/main_window.py" line="5809"/>
         <source>Asset Library</source>
         <translation>アセットライブラリ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5628"/>
+        <location filename="../ui/main_window.py" line="5810"/>
         <source>Asset Search</source>
         <translation>アセット検索</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5629"/>
+        <location filename="../ui/main_window.py" line="5811"/>
         <source>Asset Tagging</source>
         <translation>アセットのタグ付け</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5630"/>
+        <location filename="../ui/main_window.py" line="5812"/>
         <source>Dependency Graph</source>
         <translation>依存関係グラフ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5631"/>
+        <location filename="../ui/main_window.py" line="5813"/>
         <source>Asset Versions</source>
         <translation>アセットのバージョン</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5632"/>
+        <location filename="../ui/main_window.py" line="5814"/>
         <source>Asset Reuse</source>
         <translation>アセットの再利用</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5636"/>
+        <location filename="../ui/main_window.py" line="5818"/>
         <source>Real-Size Preview</source>
         <translation>実寸プレビュー</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5637"/>
+        <location filename="../ui/main_window.py" line="5819"/>
         <source>Timelapse</source>
         <translation>タイムラプス</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5638"/>
+        <location filename="../ui/main_window.py" line="5820"/>
         <source>Reopened Recording</source>
         <translation>再度開いた記録</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5639"/>
+        <location filename="../ui/main_window.py" line="5821"/>
         <source>Open documents</source>
         <translation>開いているドキュメント</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5640"/>
+        <location filename="../ui/main_window.py" line="5822"/>
         <source>Floating selection status</source>
         <translation>フローティング選択範囲の状態</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5644"/>
+        <location filename="../ui/main_window.py" line="5826"/>
         <source>Pencil</source>
         <translation>鉛筆</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5645"/>
+        <location filename="../ui/main_window.py" line="5827"/>
         <source>Eraser</source>
         <translation>消しゴム</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5646"/>
+        <location filename="../ui/main_window.py" line="5828"/>
         <source>Fill</source>
         <translation>バケツ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5647"/>
+        <location filename="../ui/main_window.py" line="5829"/>
         <source>Line</source>
         <translation>直線</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5648"/>
+        <location filename="../ui/main_window.py" line="5830"/>
         <source>Colour picker</source>
         <translation>スポイト</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5649"/>
+        <location filename="../ui/main_window.py" line="5831"/>
         <source>Rectangle</source>
         <translation>長方形</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5650"/>
+        <location filename="../ui/main_window.py" line="5832"/>
         <source>Ellipse</source>
         <translation>楕円</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5651"/>
+        <location filename="../ui/main_window.py" line="5833"/>
         <source>Rectangle select</source>
         <translation>矩形選択</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5652"/>
+        <location filename="../ui/main_window.py" line="5834"/>
         <source>Lasso select</source>
         <translation>投げ縄選択</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5653"/>
+        <location filename="../ui/main_window.py" line="5835"/>
         <source>Magic wand</source>
         <translation>自動選択</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5654"/>
-        <location filename="../ui/main_window.py" line="5713"/>
+        <location filename="../ui/main_window.py" line="5836"/>
+        <location filename="../ui/main_window.py" line="5895"/>
         <source>Dither</source>
         <translation>ディザ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5663"/>
+        <location filename="../ui/main_window.py" line="5845"/>
         <source>&amp;New</source>
         <translation>新規作成</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5664"/>
+        <location filename="../ui/main_window.py" line="5846"/>
         <source>&amp;Open…</source>
         <translation>開く…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5665"/>
+        <location filename="../ui/main_window.py" line="5847"/>
         <source>&amp;Save</source>
         <translation>保存</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5666"/>
+        <location filename="../ui/main_window.py" line="5848"/>
         <source>Save &amp;As…</source>
         <translation>名前を付けて保存…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5667"/>
+        <location filename="../ui/main_window.py" line="5849"/>
         <source>&amp;Export…</source>
         <translation>エクスポート…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5668"/>
+        <location filename="../ui/main_window.py" line="5850"/>
         <source>&amp;Close</source>
         <translation>閉じる</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5670"/>
+        <location filename="../ui/main_window.py" line="5852"/>
         <source>&amp;Connect…</source>
         <translation>接続…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5671"/>
+        <location filename="../ui/main_window.py" line="5853"/>
         <source>&amp;Disconnect</source>
         <translation>切断</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5672"/>
+        <location filename="../ui/main_window.py" line="5854"/>
         <source>&amp;Save to Cloud…</source>
         <translation>クラウドに保存…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5673"/>
+        <location filename="../ui/main_window.py" line="5855"/>
         <source>&amp;Open from Cloud…</source>
         <translation>クラウドから開く…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5674"/>
+        <location filename="../ui/main_window.py" line="5856"/>
         <source>&amp;Version History…</source>
         <translation>バージョン履歴…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5676"/>
+        <location filename="../ui/main_window.py" line="5858"/>
         <source>Start &amp;Real-time…</source>
         <translation>リアルタイムを開始…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5677"/>
+        <location filename="../ui/main_window.py" line="5859"/>
         <source>Stop Real-&amp;time</source>
         <translation>リアルタイムを停止</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5678"/>
+        <location filename="../ui/main_window.py" line="5860"/>
         <source>Show &amp;Live Cursors</source>
         <translation>ライブカーソルを表示</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5679"/>
+        <location filename="../ui/main_window.py" line="5861"/>
         <source>Zoom &amp;In</source>
         <translation>ズームイン</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5680"/>
+        <location filename="../ui/main_window.py" line="5862"/>
         <source>Zoom &amp;Out</source>
         <translation>ズームアウト</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5681"/>
+        <location filename="../ui/main_window.py" line="5863"/>
         <source>&amp;Fit to View</source>
         <translation>ビューに合わせる</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5682"/>
+        <location filename="../ui/main_window.py" line="5864"/>
         <source>Fit to &amp;Content</source>
         <translation>コンテンツに合わせる</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5683"/>
+        <location filename="../ui/main_window.py" line="5865"/>
         <source>Show &amp;Grid</source>
         <translation>グリッドを表示</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5684"/>
+        <location filename="../ui/main_window.py" line="5866"/>
         <source>&amp;Snap to Grid</source>
         <translation>グリッドにスナップ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5685"/>
+        <location filename="../ui/main_window.py" line="5867"/>
         <source>&amp;Anti-aliasing Off</source>
         <translation>アンチエイリアスをオフ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5686"/>
+        <location filename="../ui/main_window.py" line="5868"/>
         <source>&amp;Tiled Mode</source>
         <translation>タイルモード</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5687"/>
+        <location filename="../ui/main_window.py" line="5869"/>
         <source>Light</source>
         <translation>ライト</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5688"/>
+        <location filename="../ui/main_window.py" line="5870"/>
         <source>Dark</source>
         <translation>ダーク</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5691"/>
+        <location filename="../ui/main_window.py" line="5873"/>
         <source>New Tileset from Image…</source>
         <translation>画像から新しいタイルセット…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5692"/>
+        <location filename="../ui/main_window.py" line="5874"/>
         <source>New Tilemap</source>
         <translation>新しいタイルマップ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5693"/>
+        <location filename="../ui/main_window.py" line="5875"/>
         <source>Import Tiled JSON…</source>
         <translation>Tiled JSON をインポート…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5694"/>
+        <location filename="../ui/main_window.py" line="5876"/>
         <source>Export Tiled JSON…</source>
         <translation>Tiled JSON をエクスポート…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5695"/>
+        <location filename="../ui/main_window.py" line="5877"/>
         <source>Stamp Tool</source>
         <translation>スタンプツール</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5696"/>
+        <location filename="../ui/main_window.py" line="5878"/>
         <source>Place the selected tile</source>
         <translation>選択したタイルを配置</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5697"/>
+        <location filename="../ui/main_window.py" line="5879"/>
         <source>Tile Eraser</source>
         <translation>タイル消しゴム</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5698"/>
+        <location filename="../ui/main_window.py" line="5880"/>
         <source>Clear the target cell</source>
         <translation>対象のセルを消去</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5699"/>
+        <location filename="../ui/main_window.py" line="5881"/>
         <source>Rectangle Fill</source>
         <translation>矩形塗りつぶし</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5701"/>
+        <location filename="../ui/main_window.py" line="5883"/>
         <source>Fill a dragged rectangle with the selected tile</source>
         <translation>ドラッグした矩形を選択したタイルで塗りつぶす</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5703"/>
+        <location filename="../ui/main_window.py" line="5885"/>
         <source>Flip Stamp Horizontal</source>
         <translation>スタンプを左右反転</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5704"/>
+        <location filename="../ui/main_window.py" line="5886"/>
         <source>Flip Stamp Vertical</source>
         <translation>スタンプを上下反転</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5705"/>
+        <location filename="../ui/main_window.py" line="5887"/>
         <source>Rotate Stamp 90° CW</source>
         <translation>スタンプを 90° 時計回りに回転</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5709"/>
+        <location filename="../ui/main_window.py" line="5891"/>
         <source>Fille&amp;d Shapes</source>
         <translation>塗りつぶし図形</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5710"/>
+        <location filename="../ui/main_window.py" line="5892"/>
         <source>&amp;Pixel Perfect</source>
         <translation>ピクセルパーフェクト</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5711"/>
+        <location filename="../ui/main_window.py" line="5893"/>
         <source>Tolerance</source>
         <translation>許容値</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5712"/>
+        <location filename="../ui/main_window.py" line="5894"/>
         <source>Magic-wand tolerance</source>
         <translation>自動選択の許容値</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5714"/>
+        <location filename="../ui/main_window.py" line="5896"/>
         <source>Dither mode</source>
         <translation>ディザモード</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5715"/>
+        <location filename="../ui/main_window.py" line="5897"/>
         <source>Ordered (Bayer)</source>
         <translation>組織的ディザ (Bayer)</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5716"/>
+        <location filename="../ui/main_window.py" line="5898"/>
         <source>Floyd–Steinberg</source>
         <translation>Floyd–Steinberg</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5717"/>
+        <location filename="../ui/main_window.py" line="5899"/>
         <source>&amp;Extract from Image…</source>
         <translation>画像から抽出…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5718"/>
+        <location filename="../ui/main_window.py" line="5900"/>
         <source>Palette &amp;Swap…</source>
         <translation>パレットスワップ…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5720"/>
+        <location filename="../ui/main_window.py" line="5902"/>
         <source>Convert to Inde&amp;xed</source>
         <translation>インデックスカラーに変換</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5721"/>
+        <location filename="../ui/main_window.py" line="5903"/>
         <source>&amp;Convert to RGBA</source>
         <translation>RGBA に変換</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5723"/>
+        <location filename="../ui/main_window.py" line="5905"/>
         <source>Select &amp;All</source>
         <translation>すべて選択</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5724"/>
+        <location filename="../ui/main_window.py" line="5906"/>
         <source>&amp;Deselect</source>
         <translation>選択を解除</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5725"/>
+        <location filename="../ui/main_window.py" line="5907"/>
         <source>&amp;Invert Selection</source>
         <translation>選択範囲を反転</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5726"/>
+        <location filename="../ui/main_window.py" line="5908"/>
         <source>&amp;Clear Selection</source>
         <translation>選択範囲を消去</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5728"/>
+        <location filename="../ui/main_window.py" line="5910"/>
         <source>Flip &amp;Horizontal</source>
         <translation>左右反転</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5729"/>
+        <location filename="../ui/main_window.py" line="5911"/>
         <source>Flip &amp;Vertical</source>
         <translation>上下反転</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5730"/>
+        <location filename="../ui/main_window.py" line="5912"/>
         <source>Rotate 90° C&amp;W</source>
         <translation>90° 時計回りに回転</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5731"/>
+        <location filename="../ui/main_window.py" line="5913"/>
         <source>Rotate 90° &amp;CCW</source>
         <translation>90° 反時計回りに回転</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5732"/>
+        <location filename="../ui/main_window.py" line="5914"/>
         <source>&amp;Scale…</source>
         <translation>拡大縮小…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5733"/>
+        <location filename="../ui/main_window.py" line="5915"/>
         <source>Canvas S&amp;ize…</source>
         <translation>キャンバスサイズ…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5734"/>
+        <location filename="../ui/main_window.py" line="5916"/>
         <source>&amp;Rotate (RotSprite)…</source>
         <translation>回転 (RotSprite)…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5736"/>
+        <location filename="../ui/main_window.py" line="5918"/>
         <source>Guides &amp;&amp; &amp;Rulers</source>
         <translation>ガイド &amp;&amp; 定規</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5737"/>
+        <location filename="../ui/main_window.py" line="5919"/>
         <source>&amp;Isometric Grid</source>
         <translation>アイソメトリックグリッド</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5738"/>
+        <location filename="../ui/main_window.py" line="5920"/>
         <source>&amp;Configure Isometric Grid…</source>
         <translation>アイソメトリックグリッドを設定…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5739"/>
+        <location filename="../ui/main_window.py" line="5921"/>
         <source>&amp;Perspective Grid</source>
         <translation>パースグリッド</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5740"/>
+        <location filename="../ui/main_window.py" line="5922"/>
         <source>Confi&amp;gure Perspective…</source>
         <translation>パースグリッドを設定…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5741"/>
+        <location filename="../ui/main_window.py" line="5923"/>
         <source>&amp;New View</source>
         <translation>新しいビュー</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5742"/>
+        <location filename="../ui/main_window.py" line="5924"/>
         <source>Reference &amp;Board</source>
         <translation>リファレンスボード</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5744"/>
+        <location filename="../ui/main_window.py" line="5926"/>
         <source>&amp;File</source>
         <translation>ファイル</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5745"/>
+        <location filename="../ui/main_window.py" line="5927"/>
         <source>&amp;Edit</source>
         <translation>編集</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5746"/>
+        <location filename="../ui/main_window.py" line="5928"/>
         <source>&amp;Select</source>
         <translation>選択</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5747"/>
+        <location filename="../ui/main_window.py" line="5929"/>
         <source>&amp;Image</source>
         <translation>画像</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5748"/>
+        <location filename="../ui/main_window.py" line="5930"/>
         <source>&amp;View</source>
         <translation>表示</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5749"/>
+        <location filename="../ui/main_window.py" line="5931"/>
         <source>Visual Ai&amp;ds</source>
         <translation>表示補助</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5750"/>
+        <location filename="../ui/main_window.py" line="5932"/>
         <source>&amp;Palette</source>
         <translation>パレット</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5751"/>
+        <location filename="../ui/main_window.py" line="5933"/>
         <source>Tile&amp;map</source>
         <translation>タイルマップ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5752"/>
+        <location filename="../ui/main_window.py" line="5934"/>
         <source>&amp;Automation</source>
         <translation>自動化</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5753"/>
+        <location filename="../ui/main_window.py" line="5935"/>
         <source>&amp;Cloud</source>
         <translation>クラウド</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5754"/>
+        <location filename="../ui/main_window.py" line="5936"/>
         <source>&amp;Library</source>
         <translation>ライブラリ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5756"/>
+        <location filename="../ui/main_window.py" line="5938"/>
         <source>&amp;Register Active Document…</source>
         <translation>アクティブなドキュメントを登録…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5758"/>
+        <location filename="../ui/main_window.py" line="5940"/>
         <source>Register &amp;Selection…</source>
         <translation>選択範囲を登録…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5759"/>
+        <location filename="../ui/main_window.py" line="5941"/>
         <source>&amp;Import Asset…</source>
         <translation>アセットをインポート…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5760"/>
+        <location filename="../ui/main_window.py" line="5942"/>
         <source>&amp;Export Asset…</source>
         <translation>アセットをエクスポート…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5761"/>
+        <location filename="../ui/main_window.py" line="5943"/>
         <source>Export Project &amp;Bundle…</source>
         <translation>プロジェクトバンドルをエクスポート…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5762"/>
+        <location filename="../ui/main_window.py" line="5944"/>
         <source>I&amp;mport Project Bundle…</source>
         <translation>プロジェクトバンドルをインポート…</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5763"/>
+        <location filename="../ui/main_window.py" line="5945"/>
         <source>&amp;Theme</source>
         <translation>テーマ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5764"/>
+        <location filename="../ui/main_window.py" line="5946"/>
         <source>La&amp;nguage</source>
         <translation>言語</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5765"/>
+        <location filename="../ui/main_window.py" line="5947"/>
         <source>&amp;Help</source>
         <translation>ヘルプ</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5766"/>
+        <location filename="../ui/main_window.py" line="5948"/>
         <source>&amp;User Guide</source>
         <translation>ユーザーガイド</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5767"/>
+        <location filename="../ui/main_window.py" line="5949"/>
         <source>&amp;About PixelArt Creator</source>
         <translation>PixelArt Creator について</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5772"/>
+        <location filename="../ui/main_window.py" line="5954"/>
         <source>Washi &amp;&amp; Kintsugi</source>
         <translation>Washi &amp;&amp; Kintsugi</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5773"/>
+        <location filename="../ui/main_window.py" line="5955"/>
         <source>Edo Night</source>
         <translation>Edo Night</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5774"/>
+        <location filename="../ui/main_window.py" line="5956"/>
         <source>Arcade Kikko</source>
         <translation>Arcade Kikko</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5780"/>
+        <location filename="../ui/main_window.py" line="5962"/>
         <source>&amp;Style</source>
         <translation>スタイル</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5781"/>
+        <location filename="../ui/main_window.py" line="5963"/>
         <source>Choose the visual style</source>
         <translation>ビジュアルスタイルを選択</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5784"/>
+        <location filename="../ui/main_window.py" line="5966"/>
         <source>Use system &amp;font</source>
         <translation>システムフォントを使用</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5786"/>
+        <location filename="../ui/main_window.py" line="5968"/>
         <source>Use the operating system&apos;s interface font instead of Nifen Art</source>
         <translation>Nifen Art の代わりに、オペレーティングシステムのインターフェイスフォントを使用します</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5789"/>
+        <location filename="../ui/main_window.py" line="5971"/>
         <source>Pixel-perfect &amp;interface</source>
         <translation>ピクセルパーフェクトインターフェイス</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="5792"/>
+        <location filename="../ui/main_window.py" line="5974"/>
         <source>Scale the interface by whole numbers only (next launch)</source>
         <translation>インターフェイスを整数倍でのみ拡大縮小します (次回起動時)</translation>
     </message>
@@ -4128,32 +4185,32 @@
 <context>
     <name>New_Document_Dialog</name>
     <message>
-        <location filename="../ui/new_document_dialog.py" line="78"/>
+        <location filename="../ui/new_document_dialog.py" line="81"/>
         <source>New Document</source>
         <translation>新しいドキュメント</translation>
     </message>
     <message>
-        <location filename="../ui/new_document_dialog.py" line="79"/>
+        <location filename="../ui/new_document_dialog.py" line="82"/>
         <source>New document dialog</source>
         <translation>新しいドキュメントのダイアログ</translation>
     </message>
     <message>
-        <location filename="../ui/new_document_dialog.py" line="80"/>
+        <location filename="../ui/new_document_dialog.py" line="83"/>
         <source>Document width in pixels</source>
         <translation>ドキュメントの幅 (ピクセル)</translation>
     </message>
     <message>
-        <location filename="../ui/new_document_dialog.py" line="81"/>
+        <location filename="../ui/new_document_dialog.py" line="84"/>
         <source>Document height in pixels</source>
         <translation>ドキュメントの高さ (ピクセル)</translation>
     </message>
     <message>
-        <location filename="../ui/new_document_dialog.py" line="82"/>
+        <location filename="../ui/new_document_dialog.py" line="85"/>
         <source>Width (px)</source>
         <translation>幅 (px)</translation>
     </message>
     <message>
-        <location filename="../ui/new_document_dialog.py" line="83"/>
+        <location filename="../ui/new_document_dialog.py" line="86"/>
         <source>Height (px)</source>
         <translation>高さ (px)</translation>
     </message>
@@ -4161,68 +4218,68 @@
 <context>
     <name>Onion_Skin_Controls</name>
     <message>
-        <location filename="../ui/onion_skin_controls.py" line="105"/>
-        <location filename="../ui/onion_skin_controls.py" line="173"/>
+        <location filename="../ui/onion_skin_controls.py" line="108"/>
+        <location filename="../ui/onion_skin_controls.py" line="176"/>
         <source>Previous frames</source>
         <extracomment>Emitted with the current :class:`OnionSettings` on any change (live update).</extracomment>
         <translation>前のフレーム</translation>
     </message>
     <message>
-        <location filename="../ui/onion_skin_controls.py" line="106"/>
-        <location filename="../ui/onion_skin_controls.py" line="174"/>
+        <location filename="../ui/onion_skin_controls.py" line="109"/>
+        <location filename="../ui/onion_skin_controls.py" line="177"/>
         <source>Next frames</source>
         <translation>次のフレーム</translation>
     </message>
     <message>
-        <location filename="../ui/onion_skin_controls.py" line="132"/>
-        <location filename="../ui/onion_skin_controls.py" line="180"/>
+        <location filename="../ui/onion_skin_controls.py" line="135"/>
+        <location filename="../ui/onion_skin_controls.py" line="183"/>
         <source>Previous-frame tint</source>
         <translation>前のフレームの色合い</translation>
     </message>
     <message>
-        <location filename="../ui/onion_skin_controls.py" line="139"/>
-        <location filename="../ui/onion_skin_controls.py" line="182"/>
+        <location filename="../ui/onion_skin_controls.py" line="142"/>
+        <location filename="../ui/onion_skin_controls.py" line="185"/>
         <source>Next-frame tint</source>
         <translation>次のフレームの色合い</translation>
     </message>
     <message>
-        <location filename="../ui/onion_skin_controls.py" line="170"/>
+        <location filename="../ui/onion_skin_controls.py" line="173"/>
         <source>Onion skin controls</source>
         <translation>オニオンスキンコントロール</translation>
     </message>
     <message>
-        <location filename="../ui/onion_skin_controls.py" line="171"/>
+        <location filename="../ui/onion_skin_controls.py" line="174"/>
         <source>Enable onion skinning</source>
         <translation>オニオンスキンを有効にする</translation>
     </message>
     <message>
-        <location filename="../ui/onion_skin_controls.py" line="172"/>
+        <location filename="../ui/onion_skin_controls.py" line="175"/>
         <source>Onion skin toggle</source>
         <translation>オニオンスキンの切り替え</translation>
     </message>
     <message>
-        <location filename="../ui/onion_skin_controls.py" line="175"/>
+        <location filename="../ui/onion_skin_controls.py" line="178"/>
         <source>Previous onion frame count</source>
         <translation>前のオニオンフレーム数</translation>
     </message>
     <message>
-        <location filename="../ui/onion_skin_controls.py" line="176"/>
+        <location filename="../ui/onion_skin_controls.py" line="179"/>
         <source>How many earlier frames to ghost</source>
         <translation>残像として表示する前のフレームの数</translation>
     </message>
     <message>
-        <location filename="../ui/onion_skin_controls.py" line="177"/>
+        <location filename="../ui/onion_skin_controls.py" line="180"/>
         <source>Next onion frame count</source>
         <translation>次のオニオンフレーム数</translation>
     </message>
     <message>
-        <location filename="../ui/onion_skin_controls.py" line="178"/>
+        <location filename="../ui/onion_skin_controls.py" line="181"/>
         <source>How many later frames to ghost</source>
         <translation>残像として表示する後のフレームの数</translation>
     </message>
     <message>
-        <location filename="../ui/onion_skin_controls.py" line="179"/>
-        <location filename="../ui/onion_skin_controls.py" line="181"/>
+        <location filename="../ui/onion_skin_controls.py" line="182"/>
+        <location filename="../ui/onion_skin_controls.py" line="184"/>
         <source>Tint…</source>
         <translation>色合い…</translation>
     </message>
@@ -4236,6 +4293,7 @@
     </message>
     <message>
         <location filename="../ui/overwrite_confirm_dialog.py" line="77"/>
+        <location filename="../ui/project_prefs_actions.py" line="223"/>
         <source>Overwrite existing pixels confirmation</source>
         <translation>既存ピクセルの上書き確認</translation>
     </message>
@@ -4333,88 +4391,88 @@
 <context>
     <name>Palette_Editor_Panel</name>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="225"/>
-        <location filename="../ui/palette_editor_panel.py" line="229"/>
+        <location filename="../ui/palette_editor_panel.py" line="226"/>
+        <location filename="../ui/palette_editor_panel.py" line="230"/>
         <source>Add Colour</source>
         <extracomment>Edge of an editor swatch icon, px (presentation-only sizing). Maps a save/open dialog filter label to the ``palette_io`` format token. Emitted with an RGBA tuple when a swatch is selected (sets active colour).</extracomment>
         <translation>色を追加</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="225"/>
+        <location filename="../ui/palette_editor_panel.py" line="226"/>
         <source>The palette is full.</source>
         <translation>パレットがいっぱいです。</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="244"/>
+        <location filename="../ui/palette_editor_panel.py" line="245"/>
         <source>Remove Colour</source>
         <translation>色を削除</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="256"/>
-        <location filename="../ui/palette_editor_panel.py" line="270"/>
+        <location filename="../ui/palette_editor_panel.py" line="257"/>
+        <location filename="../ui/palette_editor_panel.py" line="271"/>
         <source>Reorder Palette</source>
         <translation>パレットを並べ替え</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="279"/>
-        <location filename="../ui/palette_editor_panel.py" line="288"/>
+        <location filename="../ui/palette_editor_panel.py" line="280"/>
+        <location filename="../ui/palette_editor_panel.py" line="291"/>
         <source>Export Palette</source>
         <translation>パレットをエクスポート</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="295"/>
-        <location filename="../ui/palette_editor_panel.py" line="305"/>
-        <location filename="../ui/palette_editor_panel.py" line="307"/>
+        <location filename="../ui/palette_editor_panel.py" line="302"/>
+        <location filename="../ui/palette_editor_panel.py" line="314"/>
+        <location filename="../ui/palette_editor_panel.py" line="320"/>
         <source>Import Palette</source>
         <translation>パレットをインポート</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="321"/>
+        <location filename="../ui/palette_editor_panel.py" line="334"/>
         <source>Palette Editor</source>
         <translation>パレットエディター</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="322"/>
+        <location filename="../ui/palette_editor_panel.py" line="335"/>
         <source>Palette editor panel</source>
         <translation>パレットエディターパネル</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="323"/>
+        <location filename="../ui/palette_editor_panel.py" line="336"/>
         <source>Editable colour palette</source>
         <translation>編集可能なカラーパレット</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="324"/>
+        <location filename="../ui/palette_editor_panel.py" line="337"/>
         <source>Add</source>
         <translation>追加</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="325"/>
+        <location filename="../ui/palette_editor_panel.py" line="338"/>
         <source>Add the active colour</source>
         <translation>現在の色を追加</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="326"/>
+        <location filename="../ui/palette_editor_panel.py" line="339"/>
         <source>Remove</source>
         <translation>削除</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="327"/>
+        <location filename="../ui/palette_editor_panel.py" line="340"/>
         <source>Move Up</source>
         <translation>上へ移動</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="328"/>
+        <location filename="../ui/palette_editor_panel.py" line="341"/>
         <source>Move Down</source>
         <translation>下へ移動</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="329"/>
+        <location filename="../ui/palette_editor_panel.py" line="342"/>
         <source>Import…</source>
         <translation>インポート…</translation>
     </message>
     <message>
-        <location filename="../ui/palette_editor_panel.py" line="330"/>
+        <location filename="../ui/palette_editor_panel.py" line="343"/>
         <source>Export…</source>
         <translation>エクスポート…</translation>
     </message>
@@ -4422,33 +4480,33 @@
 <context>
     <name>Palette_Panel</name>
     <message>
-        <location filename="../ui/main_window.py" line="545"/>
+        <location filename="../ui/main_window.py" line="555"/>
         <source>Colour palette</source>
         <extracomment>Stable cloud recovery-slot key for the working document when no named cloud project is active (presentation-only identifier, not a domain tuning value). A sensible starter palette for a new document (usability, not a spec value). Swatch icon edge, px (presentation-only sizing, not a domain tuning value). Filename of the app-level Favourites store under AppConfigLocation (ADR-0004). Longest edge of a RotSprite preview thumbnail, px (presentation-only sizing, not a domain tuning value — cf. _SWATCH_PX). Tool ids whose stroke WRITES the active colour to the buffer: the value written is ``ctx.paint_value()`` / ``ctx.active_color`` itself, not merely a live-preview tint. These five run under REQ-P3-UI-006 leg (2) from a completed colour-hub pick; the other six tool ids (eraser, the three selection tools, picker, dither) hide the hub&apos;s wheel/value/numeric/harmony pick surface (``set_pick_surface_visible``) and never run from a hub pick, even a Favourites activation (SC-U006-13). Tool identifiers, not numeric tuning values, so this stays a set of the tools&apos; own ``tool_id`` class attributes rather than a `constants.py` entry. FIX 3 (2026-08-24 field defect, RC-1 follow-up). Every right-hand &quot;workflow&quot; panel is tabified into ONE dock group (``_add_workflow_dock``), and a Qt tab group&apos;s minimum width is the MAXIMUM over its members&apos; own content-derived ``minimumSizeHint()`` — verified up to 766 px for one panel (probe-runtime-canvas-20260824.py). That floor overrides FIX 1&apos;s ``CANVAS_PANE_WIDTH_RATIO`` split regardless of window width, so no per-panel edit can fix it: the override has to happen once, here, at the single place every workflow dock is created. Overriding ``QWidget.setMinimumWidth()`` on the panel (verified empirically to lower ``QDockWidget.minimumSizeHint()`` even though the panel&apos;s own ``minimumSizeHint()`` is unchanged and content can clip below it — Qt&apos;s dock layout consults the explicit minimum, not the generic ``QLayoutItem.minimumSize()`` ``expandedTo`` rule) is presentation sizing, not a domain tuning value, so it stays local exactly like _SWATCH_PX / _PREVIEW_MAX_EDGE_PX above — see the FIX-3 report note requesting this be promoted to logic/constants.py (a logic-layer surface) as e.g. ``WORKFLOW_DOCK_MIN_WIDTH_PX`` rather than reached into from here. FIX 3 (2026-08-24 field defect). Bound on ``Main_Window._settle_width()``&apos;s event-flush loop (presentation-only startup timing, not a domain tuning value — cf. _SWATCH_PX / _PREVIEW_MAX_EDGE_PX above). Observed settling in 2 passes on the probe&apos;s offscreen run; this leaves generous headroom without risking an unbounded/hanging wait on a layout that never settles. FIX 1 (2026-08-24 field defect, RC-1 follow-up on the earlier FIX 1). The window was never given an explicit default size; Qt sized it to its layout hint, which on a real desktop happened to land the canvas at only ~10% of the window even after the FIX 1/FIX 3 dock-splitting work above, because that split is a RATIO of whatever width the window already has -- a window with no deliberate width defeats a width RATIO. Fraction of the primary screen&apos;s *available* geometry (excludes taskbars/docks) the window claims on first launch, absent any saved geometry restore (presentation-only startup sizing, not a domain tuning value -- cf. _WORKFLOW_DOCK_MIN_WIDTH_PX / _SWATCH_PX above). Report note: a candidate for promotion to logic/constants.py as e.g. DEFAULT_LAUNCH_SIZE_RATIO, exactly like that floor&apos;s own promotion note -- left local here on the same precedent.</extracomment>
         <translation>カラーパレット</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="546"/>
+        <location filename="../ui/main_window.py" line="556"/>
         <source>Palette panel</source>
         <translation>パレットパネル</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="547"/>
+        <location filename="../ui/main_window.py" line="557"/>
         <source>Colour mode</source>
         <translation>カラーモード</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="552"/>
+        <location filename="../ui/main_window.py" line="562"/>
         <source>Mode: Indexed</source>
         <translation>モード: インデックスカラー</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="554"/>
+        <location filename="../ui/main_window.py" line="564"/>
         <source>Mode: RGBA</source>
         <translation>モード: RGBA</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.py" line="556"/>
+        <location filename="../ui/main_window.py" line="566"/>
         <source>Mode: —</source>
         <translation>モード: —</translation>
     </message>
@@ -4456,47 +4514,47 @@
 <context>
     <name>Palette_Swap_Dialog</name>
     <message>
-        <location filename="../ui/palette_swap_dialog.py" line="102"/>
+        <location filename="../ui/palette_swap_dialog.py" line="106"/>
         <source>Palette Swap</source>
         <translation>パレットスワップ</translation>
     </message>
     <message>
-        <location filename="../ui/palette_swap_dialog.py" line="103"/>
+        <location filename="../ui/palette_swap_dialog.py" line="107"/>
         <source>Palette swap dialog</source>
         <translation>パレットスワップのダイアログ</translation>
     </message>
     <message>
-        <location filename="../ui/palette_swap_dialog.py" line="104"/>
+        <location filename="../ui/palette_swap_dialog.py" line="108"/>
         <source>From index</source>
         <translation>変更前のインデックス</translation>
     </message>
     <message>
-        <location filename="../ui/palette_swap_dialog.py" line="105"/>
+        <location filename="../ui/palette_swap_dialog.py" line="109"/>
         <source>To index</source>
         <translation>変更後のインデックス</translation>
     </message>
     <message>
-        <location filename="../ui/palette_swap_dialog.py" line="106"/>
+        <location filename="../ui/palette_swap_dialog.py" line="110"/>
         <source>Source index</source>
         <translation>元のインデックス</translation>
     </message>
     <message>
-        <location filename="../ui/palette_swap_dialog.py" line="107"/>
+        <location filename="../ui/palette_swap_dialog.py" line="111"/>
         <source>Target index</source>
         <translation>先のインデックス</translation>
     </message>
     <message>
-        <location filename="../ui/palette_swap_dialog.py" line="108"/>
+        <location filename="../ui/palette_swap_dialog.py" line="112"/>
         <source>Add</source>
         <translation>追加</translation>
     </message>
     <message>
-        <location filename="../ui/palette_swap_dialog.py" line="109"/>
+        <location filename="../ui/palette_swap_dialog.py" line="113"/>
         <source>Remove</source>
         <translation>削除</translation>
     </message>
     <message>
-        <location filename="../ui/palette_swap_dialog.py" line="110"/>
+        <location filename="../ui/palette_swap_dialog.py" line="114"/>
         <source>Index remap entries</source>
         <translation>インデックス置き換えの項目</translation>
     </message>
@@ -4576,136 +4634,168 @@
 <context>
     <name>Plugin_Manager_Panel</name>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="133"/>
+        <location filename="../ui/plugin_manager_panel.py" line="138"/>
         <source>Add Plugin Manifest</source>
         <extracomment>Enabled plugin handles keyed by plugin name (view/session state).</extracomment>
         <translation>プラグインマニフェストを追加</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="135"/>
+        <location filename="../ui/plugin_manager_panel.py" line="140"/>
         <source>Manifest files (*.json)</source>
         <translation>マニフェストファイル (*.json)</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="142"/>
+        <location filename="../ui/plugin_manager_panel.py" line="149"/>
         <source>Install Failed</source>
         <translation>インストールに失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="165"/>
+        <location filename="../ui/plugin_manager_panel.py" line="176"/>
         <source>No Manifest</source>
         <translation>マニフェストなし</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="167"/>
+        <location filename="../ui/plugin_manager_panel.py" line="178"/>
         <source>This plugin has no loaded manifest. Use Add Manifest to load its declared permissions before enabling it.</source>
         <translation>このプラグインにはマニフェストが読み込まれていません。有効にする前に、[マニフェストを追加] で宣言された権限を読み込んでください。</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="174"/>
+        <location filename="../ui/plugin_manager_panel.py" line="185"/>
         <source>Enable Plugin</source>
         <translation>プラグインを有効化</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="176"/>
         <source>Enable %1 and grant it these permissions?
 
 %2
 
 The plugin runs sandboxed and can only edit through reversible commands. It cannot reach the UI, filesystem, or network.</source>
-        <translation>%1 を有効にして、次の権限を付与しますか?
+        <translation type="vanished">%1 を有効にして、次の権限を付与しますか?
 
 %2
 
 プラグインはサンドボックス内で実行され、元に戻せるコマンドを通じてのみ編集できます。UI、ファイルシステム、ネットワークにはアクセスできません。</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="188"/>
+        <location filename="../ui/plugin_manager_panel.py" line="187"/>
+        <source>Enable %1 and approve these permissions?
+
+%2
+
+Plugins are not isolated from your computer. Only enable plugins you trust. These permissions are checked only on requests made through the app&apos;s permission object, not on what the plugin&apos;s own code can do.</source>
+        <translation>%1 を有効にして、次の権限を許可しますか?
+
+%2
+
+プラグインはコンピューターから分離されていません。自分が信頼するプラグインだけを有効にしてください。これらの権限は、アプリの権限オブジェクトを通じて行われた要求に対してだけ検査され、プラグイン自身のコードにできることに対しては検査されません。</translation>
+    </message>
+    <message>
+        <location filename="../ui/plugin_manager_panel.py" line="203"/>
         <source>Enable Failed</source>
         <translation>有効化に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="215"/>
+        <location filename="../ui/plugin_manager_panel.py" line="234"/>
         <source>enabled</source>
         <translation>有効</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="215"/>
+        <location filename="../ui/plugin_manager_panel.py" line="234"/>
         <source>disabled</source>
         <translation>無効</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="216"/>
+        <location filename="../ui/plugin_manager_panel.py" line="235"/>
         <source>%1 v%2 — %3</source>
         <translation>%1 v%2 — %3</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="245"/>
+        <location filename="../ui/plugin_manager_panel.py" line="264"/>
         <source>(no manifest loaded — permissions unknown)</source>
         <translation>(マニフェスト未読み込み — 権限不明)</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="258"/>
+        <location filename="../ui/plugin_manager_panel.py" line="278"/>
+        <source>Read the open document</source>
+        <translation>開いているドキュメントの読み取り</translation>
+    </message>
+    <message>
+        <location filename="../ui/plugin_manager_panel.py" line="280"/>
+        <source>Change the document through the app&apos;s commands</source>
+        <translation>アプリのコマンドを通じたドキュメントの変更</translation>
+    </message>
+    <message>
+        <location filename="../ui/plugin_manager_panel.py" line="282"/>
+        <source>Add new script commands</source>
+        <translation>新しいスクリプトコマンドの追加</translation>
+    </message>
+    <message>
+        <location filename="../ui/plugin_manager_panel.py" line="284"/>
+        <source>Add new procedural generation commands</source>
+        <translation>新しいプロシージャル生成コマンドの追加</translation>
+    </message>
+    <message>
+        <location filename="../ui/plugin_manager_panel.py" line="299"/>
         <source>Select a plugin to view its permissions.</source>
         <translation>プラグインを選択すると、その権限を表示します。</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="268"/>
+        <location filename="../ui/plugin_manager_panel.py" line="309"/>
         <source>Refresh</source>
         <translation>更新</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="269"/>
+        <location filename="../ui/plugin_manager_panel.py" line="310"/>
         <source>Add Manifest…</source>
         <translation>マニフェストを追加…</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="270"/>
+        <location filename="../ui/plugin_manager_panel.py" line="311"/>
         <source>Enable</source>
         <translation>有効にする</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="271"/>
+        <location filename="../ui/plugin_manager_panel.py" line="312"/>
         <source>Disable</source>
         <translation>無効にする</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="272"/>
+        <location filename="../ui/plugin_manager_panel.py" line="313"/>
         <source>Declared permissions:</source>
         <translation>宣言された権限:</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="273"/>
+        <location filename="../ui/plugin_manager_panel.py" line="314"/>
         <source>Plugin manager</source>
         <translation>プラグインマネージャー</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="274"/>
+        <location filename="../ui/plugin_manager_panel.py" line="315"/>
         <source>Discovered and installed plugins</source>
         <translation>検出済みおよびインストール済みのプラグイン</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="275"/>
+        <location filename="../ui/plugin_manager_panel.py" line="316"/>
         <source>Selected plugin permissions</source>
         <translation>選択したプラグインの権限</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="276"/>
+        <location filename="../ui/plugin_manager_panel.py" line="317"/>
         <source>Refresh the plugin list</source>
         <translation>プラグインの一覧を更新</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="277"/>
+        <location filename="../ui/plugin_manager_panel.py" line="318"/>
         <source>Add a plugin manifest</source>
         <translation>プラグインのマニフェストを追加</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="278"/>
+        <location filename="../ui/plugin_manager_panel.py" line="319"/>
         <source>Enable the selected plugin</source>
         <translation>選択したプラグインを有効にする</translation>
     </message>
     <message>
-        <location filename="../ui/plugin_manager_panel.py" line="279"/>
+        <location filename="../ui/plugin_manager_panel.py" line="320"/>
         <source>Disable the selected plugin</source>
         <translation>選択したプラグインを無効にする</translation>
     </message>
@@ -4713,56 +4803,56 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Presence_Panel</name>
     <message>
-        <location filename="../ui/presence_panel.py" line="100"/>
-        <location filename="../ui/presence_panel.py" line="108"/>
-        <location filename="../ui/presence_panel.py" line="115"/>
-        <location filename="../ui/presence_panel.py" line="154"/>
+        <location filename="../ui/presence_panel.py" line="101"/>
+        <location filename="../ui/presence_panel.py" line="109"/>
+        <location filename="../ui/presence_panel.py" line="118"/>
+        <location filename="../ui/presence_panel.py" line="161"/>
         <source>Presence</source>
         <translation>プレゼンス</translation>
     </message>
     <message>
-        <location filename="../ui/presence_panel.py" line="101"/>
+        <location filename="../ui/presence_panel.py" line="102"/>
         <source>Open a shared project first.</source>
         <translation>先に共有プロジェクトを開いてください。</translation>
     </message>
     <message>
-        <location filename="../ui/presence_panel.py" line="109"/>
+        <location filename="../ui/presence_panel.py" line="110"/>
         <source>Enter your member id to announce presence.</source>
         <translation>メンバー ID を入力してプレゼンスを通知してください。</translation>
     </message>
     <message>
-        <location filename="../ui/presence_panel.py" line="157"/>
+        <location filename="../ui/presence_panel.py" line="164"/>
         <source>Members currently present in the shared project. Presence is ephemeral and is never saved into the project file.</source>
         <translation>共有プロジェクトに現在参加しているメンバーです。プレゼンスは一時的な情報で、プロジェクトファイルには保存されません。</translation>
     </message>
     <message>
-        <location filename="../ui/presence_panel.py" line="161"/>
-        <location filename="../ui/presence_panel.py" line="162"/>
+        <location filename="../ui/presence_panel.py" line="168"/>
+        <location filename="../ui/presence_panel.py" line="169"/>
         <source>Your member id</source>
         <translation>あなたのメンバー ID</translation>
     </message>
     <message>
-        <location filename="../ui/presence_panel.py" line="163"/>
+        <location filename="../ui/presence_panel.py" line="170"/>
         <source>Join</source>
         <translation>参加</translation>
     </message>
     <message>
-        <location filename="../ui/presence_panel.py" line="164"/>
+        <location filename="../ui/presence_panel.py" line="171"/>
         <source>Announce your presence</source>
         <translation>プレゼンスを通知</translation>
     </message>
     <message>
-        <location filename="../ui/presence_panel.py" line="165"/>
+        <location filename="../ui/presence_panel.py" line="172"/>
         <source>Leave</source>
         <translation>退出</translation>
     </message>
     <message>
-        <location filename="../ui/presence_panel.py" line="166"/>
+        <location filename="../ui/presence_panel.py" line="173"/>
         <source>Clear your presence</source>
         <translation>プレゼンスを解除</translation>
     </message>
     <message>
-        <location filename="../ui/presence_panel.py" line="167"/>
+        <location filename="../ui/presence_panel.py" line="174"/>
         <source>Present members</source>
         <translation>参加中のメンバー</translation>
     </message>
@@ -4800,141 +4890,141 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Procgen_Panel</name>
     <message>
-        <location filename="../ui/procgen_panel.py" line="79"/>
-        <location filename="../ui/procgen_panel.py" line="83"/>
-        <location filename="../ui/procgen_panel.py" line="207"/>
-        <location filename="../ui/procgen_panel.py" line="208"/>
+        <location filename="../ui/procgen_panel.py" line="82"/>
+        <location filename="../ui/procgen_panel.py" line="87"/>
+        <location filename="../ui/procgen_panel.py" line="213"/>
+        <location filename="../ui/procgen_panel.py" line="214"/>
         <source> px</source>
         <extracomment>Largest seed the spin box offers (a display range for the control; the engine accepts any int seed). 2**31 - 1 keeps the value in the Qt spin box&apos;s int range. ``(ops, label)`` — the host should dispatch the ``procgen`` op on the worker as one undoable grouped command (REQ-P8-UI-007/-009).</extracomment>
         <translation> px</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="150"/>
+        <location filename="../ui/procgen_panel.py" line="156"/>
         <source>Running…</source>
         <translation>実行中…</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="152"/>
+        <location filename="../ui/procgen_panel.py" line="158"/>
         <source>Done</source>
         <translation>完了</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="153"/>
+        <location filename="../ui/procgen_panel.py" line="159"/>
         <source>Idle</source>
         <translation>待機中</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="168"/>
+        <location filename="../ui/procgen_panel.py" line="174"/>
         <source>Procedural Generation</source>
         <translation>プロシージャル生成</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="191"/>
+        <location filename="../ui/procgen_panel.py" line="197"/>
         <source>Value noise</source>
         <translation>バリューノイズ</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="192"/>
+        <location filename="../ui/procgen_panel.py" line="198"/>
         <source>Gradient noise</source>
         <translation>グラデーションノイズ</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="193"/>
+        <location filename="../ui/procgen_panel.py" line="199"/>
         <source>OpenSimplex noise</source>
         <translation>OpenSimplex ノイズ</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="194"/>
+        <location filename="../ui/procgen_panel.py" line="200"/>
         <source>Cellular automata</source>
         <translation>セルオートマトン</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="195"/>
+        <location filename="../ui/procgen_panel.py" line="201"/>
         <source>Dithered gradient</source>
         <translation>ディザグラデーション</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="201"/>
+        <location filename="../ui/procgen_panel.py" line="207"/>
         <source>Algorithm</source>
         <translation>アルゴリズム</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="202"/>
+        <location filename="../ui/procgen_panel.py" line="208"/>
         <source>Seed</source>
         <translation>シード</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="203"/>
+        <location filename="../ui/procgen_panel.py" line="209"/>
         <source>Width</source>
         <translation>幅</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="204"/>
+        <location filename="../ui/procgen_panel.py" line="210"/>
         <source>Height</source>
         <translation>高さ</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="205"/>
+        <location filename="../ui/procgen_panel.py" line="211"/>
         <source>Frequency</source>
         <translation>周波数</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="206"/>
+        <location filename="../ui/procgen_panel.py" line="212"/>
         <source>Octaves</source>
         <translation>オクターブ</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="209"/>
+        <location filename="../ui/procgen_panel.py" line="215"/>
         <source>Generate</source>
         <translation>生成</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="211"/>
+        <location filename="../ui/procgen_panel.py" line="217"/>
         <source>Procedural generation</source>
         <translation>プロシージャル生成</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="212"/>
+        <location filename="../ui/procgen_panel.py" line="218"/>
         <source>Generation algorithm</source>
         <translation>生成アルゴリズム</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="213"/>
+        <location filename="../ui/procgen_panel.py" line="219"/>
         <source>Random seed</source>
         <translation>乱数シード</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="214"/>
+        <location filename="../ui/procgen_panel.py" line="220"/>
         <source>Output width in pixels</source>
         <translation>出力の幅 (ピクセル)</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="215"/>
+        <location filename="../ui/procgen_panel.py" line="221"/>
         <source>Output height in pixels</source>
         <translation>出力の高さ (ピクセル)</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="216"/>
+        <location filename="../ui/procgen_panel.py" line="222"/>
         <source>Noise base frequency</source>
         <translation>ノイズの基本周波数</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="217"/>
+        <location filename="../ui/procgen_panel.py" line="223"/>
         <source>Noise octaves</source>
         <translation>ノイズのオクターブ数</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="218"/>
+        <location filename="../ui/procgen_panel.py" line="224"/>
         <source>Generate content</source>
         <translation>コンテンツを生成</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="219"/>
+        <location filename="../ui/procgen_panel.py" line="225"/>
         <source>Progress</source>
         <translation>進行状況</translation>
     </message>
     <message>
-        <location filename="../ui/procgen_panel.py" line="220"/>
+        <location filename="../ui/procgen_panel.py" line="226"/>
         <source>Generation progress</source>
         <translation>生成の進行状況</translation>
     </message>
@@ -4942,89 +5032,89 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Provider_Config_Dialog</name>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="257"/>
+        <location filename="../ui/provider_config_dialog.py" line="258"/>
         <source>The OS keyring is unavailable; install the &apos;assistant_live&apos; extra to store an API key. The provider settings were saved.</source>
         <extracomment>Provider-kind identifiers. These double as the keyring service namespace segment (``pixelart-creator:assistant:{provider}``) and the adapter&apos;s ``provider`` arg, so the key stored here is the key the adapter loads. Module-local vocabulary (ADR-0001), not a numeric constant. The keyring account the single-user key is stored under (matches ``data/llm``&apos;s ``_DEFAULT_ACCOUNT`` so the adapter loads the same credential). :class:`QSettings` group + keys for the NON-SECRET configuration only. Sensible default endpoints per provider kind (the user may override).</extracomment>
         <translation>OS のキーリングが利用できません。API キーを保存するには、“assistant_live” extra をインストールしてください。プロバイダーの設定は保存されました。</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="267"/>
+        <location filename="../ui/provider_config_dialog.py" line="269"/>
         <source>Could not store the API key: {0}</source>
         <translation>API キーを保存できませんでした: {0}</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="275"/>
+        <location filename="../ui/provider_config_dialog.py" line="282"/>
         <source>Configure AI Assistant Provider</source>
         <translation>AI アシスタントのプロバイダーを設定</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="276"/>
+        <location filename="../ui/provider_config_dialog.py" line="283"/>
         <source>AI assistant provider configuration</source>
         <translation>AI アシスタントのプロバイダー設定</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="277"/>
+        <location filename="../ui/provider_config_dialog.py" line="284"/>
         <source>OpenAI-compatible</source>
         <translation>OpenAI 互換</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="278"/>
+        <location filename="../ui/provider_config_dialog.py" line="285"/>
         <source>Anthropic (Claude)</source>
         <translation>Anthropic (Claude)</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="279"/>
-        <location filename="../ui/provider_config_dialog.py" line="280"/>
+        <location filename="../ui/provider_config_dialog.py" line="286"/>
+        <location filename="../ui/provider_config_dialog.py" line="287"/>
         <source>Provider</source>
         <translation>プロバイダー</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="281"/>
+        <location filename="../ui/provider_config_dialog.py" line="288"/>
         <source>Endpoint URL</source>
         <translation>エンドポイント URL</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="282"/>
+        <location filename="../ui/provider_config_dialog.py" line="289"/>
         <source>Provider endpoint URL</source>
         <translation>プロバイダーのエンドポイント URL</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="283"/>
+        <location filename="../ui/provider_config_dialog.py" line="290"/>
         <source>https://…</source>
         <translation>https://…</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="284"/>
+        <location filename="../ui/provider_config_dialog.py" line="291"/>
         <source>Model</source>
         <translation>モデル</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="285"/>
+        <location filename="../ui/provider_config_dialog.py" line="292"/>
         <source>Model name</source>
         <translation>モデル名</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="286"/>
+        <location filename="../ui/provider_config_dialog.py" line="293"/>
         <source>e.g. gpt-4o-mini</source>
         <translation>例: gpt-4o-mini</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="287"/>
+        <location filename="../ui/provider_config_dialog.py" line="294"/>
         <source>API key</source>
         <translation>API キー</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="288"/>
+        <location filename="../ui/provider_config_dialog.py" line="295"/>
         <source>API key (stored in the OS keyring)</source>
         <translation>API キー (OS のキーリングに保存)</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="290"/>
+        <location filename="../ui/provider_config_dialog.py" line="297"/>
         <source>Leave blank to keep the existing key</source>
         <translation>既存のキーを維持するには空欄のままにします</translation>
     </message>
     <message>
-        <location filename="../ui/provider_config_dialog.py" line="294"/>
+        <location filename="../ui/provider_config_dialog.py" line="301"/>
         <source>The API key is stored only in your OS keyring — never in a project file or a log.</source>
         <translation>API キーは OS のキーリングにのみ保存され、プロジェクトファイルやログには保存されません。</translation>
     </message>
@@ -5032,33 +5122,33 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Real_Size_Calibration_Dialog</name>
     <message>
-        <location filename="../ui/real_size_preview_window.py" line="82"/>
+        <location filename="../ui/real_size_preview_window.py" line="85"/>
         <source> mm</source>
         <extracomment>On-screen calibration bar length in device-independent px (a known ruler the user matches against a real ruler / credit card to derive the true DPI). Millimetres per inch (calibration converts a measured mm length to DPI).</extracomment>
         <translation> mm</translation>
     </message>
     <message>
-        <location filename="../ui/real_size_preview_window.py" line="109"/>
+        <location filename="../ui/real_size_preview_window.py" line="112"/>
         <source>Calibrate Real Size</source>
         <translation>実寸のキャリブレーション</translation>
     </message>
     <message>
-        <location filename="../ui/real_size_preview_window.py" line="112"/>
+        <location filename="../ui/real_size_preview_window.py" line="115"/>
         <source>Hold a ruler against the bar below and enter its measured length so real size matches your screen.</source>
         <translation>下のバーに定規を当てて測った長さを入力すると、実寸が画面に合うように調整されます。</translation>
     </message>
     <message>
-        <location filename="../ui/real_size_preview_window.py" line="116"/>
+        <location filename="../ui/real_size_preview_window.py" line="119"/>
         <source>Measured length</source>
         <translation>測定した長さ</translation>
     </message>
     <message>
-        <location filename="../ui/real_size_preview_window.py" line="118"/>
+        <location filename="../ui/real_size_preview_window.py" line="121"/>
         <source>Measured calibration bar length in millimetres</source>
         <translation>測定したキャリブレーションバーの長さ (ミリメートル)</translation>
     </message>
     <message>
-        <location filename="../ui/real_size_preview_window.py" line="120"/>
+        <location filename="../ui/real_size_preview_window.py" line="123"/>
         <source>Calibration bar</source>
         <translation>キャリブレーションバー</translation>
     </message>
@@ -5066,40 +5156,49 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Real_Size_Preview_Window</name>
     <message>
-        <location filename="../ui/real_size_preview_window.py" line="255"/>
+        <location filename="../ui/real_size_preview_window.py" line="258"/>
         <source>calibrated</source>
         <extracomment>A user-calibrated DPI override (``None`` =&gt; use the queried physical DPI).</extracomment>
         <translation>キャリブレーション済み</translation>
     </message>
     <message>
-        <location filename="../ui/real_size_preview_window.py" line="255"/>
+        <location filename="../ui/real_size_preview_window.py" line="258"/>
         <source>screen</source>
         <translation>画面</translation>
     </message>
     <message>
-        <location filename="../ui/real_size_preview_window.py" line="258"/>
+        <location filename="../ui/real_size_preview_window.py" line="261"/>
         <source>Real size: {0:.0f} PPI ({1}), scale {2:.2f}×</source>
         <translation>実寸: {0:.0f} PPI ({1})、倍率 {2:.2f}×</translation>
     </message>
     <message>
-        <location filename="../ui/real_size_preview_window.py" line="264"/>
+        <location filename="../ui/real_size_preview_window.py" line="269"/>
         <source>Real-Size Preview</source>
         <translation>実寸プレビュー</translation>
     </message>
     <message>
-        <location filename="../ui/real_size_preview_window.py" line="265"/>
+        <location filename="../ui/real_size_preview_window.py" line="270"/>
         <source>Real-size preview</source>
         <translation>実寸プレビュー</translation>
     </message>
     <message>
-        <location filename="../ui/real_size_preview_window.py" line="266"/>
+        <location filename="../ui/real_size_preview_window.py" line="271"/>
         <source>Real-size document preview</source>
         <translation>ドキュメントの実寸プレビュー</translation>
     </message>
     <message>
-        <location filename="../ui/real_size_preview_window.py" line="267"/>
+        <location filename="../ui/real_size_preview_window.py" line="272"/>
         <source>Calibrate…</source>
         <translation>キャリブレーション…</translation>
+    </message>
+</context>
+<context>
+    <name>Realtime_Client</name>
+    <message>
+        <location filename="../ui/realtime_worker.py" line="255"/>
+        <source>no real-time transport configured</source>
+        <extracomment>Builds a fresh :class:`TransportPort` on connect, called **on the worker thread**. Injectable so a test (or the out-of-CI WebSocket path) swaps the loopback transport with no UI change — the port is the provider-agnostic seam (REQ-P10-DATA-007). Poll cadence, seconds — how often the worker drains inbound frames when idle. A presentation-loop timing (not a domain tuning value, so module-local): outbound sends wake the loop immediately via the queue, so this only bounds inbound latency. Bounded wait for the worker thread to join on teardown, ms (presentation-only timing, mirrors ``cloud_worker._CLOUD_SHUTDOWN_WAIT_MS``). Past this the daemon backstop guarantees the thread cannot block interpreter exit. Sentinel pushed to the outbound queue to wake a blocking ``get`` on stop. ``(document_id, raw_frame_bytes)`` — one inbound, transport-validated framed message; the consumer routes it with ``sync_protocol.decode_message``. ``(connected,)`` — the worker joined (``True``) the document&apos;s relay. ``(kind,)`` — the worker hit a transport error (surfaced, never a crash); the payload is a ``FailureKind`` value, translated on the GUI thread. emitted once when the worker loop has fully exited (thread is ending). ``(document_id, raw_frame_bytes)`` — one inbound framed message (GUI thread). ``(connected,)`` — the real-time connection state changed. ``(message, is_failure)`` — a transport error occurred (surfaced to the user). ``is_failure`` is ``True`` for a failure sentence and ``False`` for a reason that is not one (no transport configured); the status bar frames the two differently.</extracomment>
+        <translation>リアルタイムの通信手段が設定されていません</translation>
     </message>
 </context>
 <context>
@@ -5138,96 +5237,96 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Reference_Board</name>
     <message>
-        <location filename="../ui/reference_board.py" line="319"/>
+        <location filename="../ui/reference_board.py" line="320"/>
         <source>Reference board full</source>
         <extracomment>Emitted with the picked RGBA tuple when a plain wheel notch travels the shared Favourites cursor (REQ-IS-UI-008, D-16). The board never touches the document/buffers/undo stack (REQ-P9-UI-010); this only sets the app-wide active colour/palette state, same as every other surface. The persisted Favourites model bound via :meth:`set_favourites_model` (D-16); ``None`` until the shell binds one.</extracomment>
         <translation>リファレンスボードがいっぱいです</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/reference_board.py" line="321"/>
+        <location filename="../ui/reference_board.py" line="322"/>
         <source>The board already holds the maximum of %n images.</source>
         <translation>
             <numerusform>ボードにはすでに上限の %n 枚の画像が配置されています。</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="331"/>
+        <location filename="../ui/reference_board.py" line="332"/>
         <source>Cannot load image</source>
         <translation>画像を読み込めません</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="332"/>
+        <location filename="../ui/reference_board.py" line="333"/>
         <source>The file could not be read as an image: {0}</source>
         <translation>ファイルを画像として読み取れませんでした: {0}</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="403"/>
+        <location filename="../ui/reference_board.py" line="404"/>
         <source>Save Reference Board</source>
         <translation>リファレンスボードを保存</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="405"/>
-        <location filename="../ui/reference_board.py" line="419"/>
+        <location filename="../ui/reference_board.py" line="406"/>
+        <location filename="../ui/reference_board.py" line="426"/>
         <source>Reference board (*.pixboard)</source>
         <translation>リファレンスボード (*.pixboard)</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="412"/>
+        <location filename="../ui/reference_board.py" line="415"/>
         <source>Save failed</source>
         <translation>保存に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="417"/>
+        <location filename="../ui/reference_board.py" line="424"/>
         <source>Open Reference Board</source>
         <translation>リファレンスボードを開く</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="427"/>
+        <location filename="../ui/reference_board.py" line="436"/>
         <source>Open failed</source>
         <translation>開くことに失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="434"/>
+        <location filename="../ui/reference_board.py" line="447"/>
         <source>Add Reference Image</source>
         <translation>リファレンス画像を追加</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="436"/>
+        <location filename="../ui/reference_board.py" line="449"/>
         <source>Images (*.png *.jpg *.jpeg *.bmp *.gif)</source>
         <translation>画像 (*.png *.jpg *.jpeg *.bmp *.gif)</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="502"/>
+        <location filename="../ui/reference_board.py" line="515"/>
         <source>Reference Board</source>
         <translation>リファレンスボード</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="503"/>
+        <location filename="../ui/reference_board.py" line="516"/>
         <source>Reference board</source>
         <translation>リファレンスボード</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="504"/>
+        <location filename="../ui/reference_board.py" line="517"/>
         <source>Reference board canvas</source>
         <translation>リファレンスボードのキャンバス</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="505"/>
+        <location filename="../ui/reference_board.py" line="518"/>
         <source>Add Image…</source>
         <translation>画像を追加…</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="506"/>
+        <location filename="../ui/reference_board.py" line="519"/>
         <source>Save…</source>
         <translation>保存…</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="507"/>
+        <location filename="../ui/reference_board.py" line="520"/>
         <source>Open…</source>
         <translation>開く…</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="508"/>
+        <location filename="../ui/reference_board.py" line="521"/>
         <source>Always on Top</source>
         <translation>常に手前に表示</translation>
     </message>
@@ -5235,13 +5334,13 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Reference_Item</name>
     <message>
-        <location filename="../ui/reference_board.py" line="246"/>
+        <location filename="../ui/reference_board.py" line="247"/>
         <source>Raise</source>
         <extracomment>Per-wheel-notch board zoom step. Corner grab-handle edge, in item-local px (REQ-P9-UI-006 resize gesture). No matching UI-metric constant exists in ``logic/constants.py`` today (gap reported in this task&apos;s EXIT_STATUS); this module already keeps its own UI-only metrics locally (see ``_BOARD_ZOOM_STEP`` above), so the same convention is followed here rather than inlining a literal (S12). Minimum absolute scale factor a corner-drag resize may reach (guards against a degenerate/zero-size or inverted reference item). Opposite-corner anchor used while resizing (the anchor stays fixed).</extracomment>
         <translation>前面へ移動</translation>
     </message>
     <message>
-        <location filename="../ui/reference_board.py" line="249"/>
+        <location filename="../ui/reference_board.py" line="250"/>
         <source>Lower</source>
         <translation>背面へ移動</translation>
     </message>
@@ -5249,33 +5348,33 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>RotSprite_Dialog</name>
     <message>
-        <location filename="../ui/rotsprite_dialog.py" line="90"/>
+        <location filename="../ui/rotsprite_dialog.py" line="93"/>
         <source>No preview</source>
         <extracomment>Angle input bounds, degrees (a full turn either way; not a domain tuning value). Preview label edge, px (presentation-only sizing). Renders a preview :class:`QImage` for a candidate angle (or ``None``).</extracomment>
         <translation>プレビューなし</translation>
     </message>
     <message>
-        <location filename="../ui/rotsprite_dialog.py" line="103"/>
+        <location filename="../ui/rotsprite_dialog.py" line="106"/>
         <source>Rotate (RotSprite)</source>
         <translation>回転 (RotSprite)</translation>
     </message>
     <message>
-        <location filename="../ui/rotsprite_dialog.py" line="104"/>
+        <location filename="../ui/rotsprite_dialog.py" line="107"/>
         <source>RotSprite rotation dialog</source>
         <translation>RotSprite 回転ダイアログ</translation>
     </message>
     <message>
-        <location filename="../ui/rotsprite_dialog.py" line="105"/>
+        <location filename="../ui/rotsprite_dialog.py" line="108"/>
         <source>Rotation angle in degrees</source>
         <translation>回転角度 (度)</translation>
     </message>
     <message>
-        <location filename="../ui/rotsprite_dialog.py" line="106"/>
+        <location filename="../ui/rotsprite_dialog.py" line="109"/>
         <source>Rotation preview</source>
         <translation>回転のプレビュー</translation>
     </message>
     <message>
-        <location filename="../ui/rotsprite_dialog.py" line="107"/>
+        <location filename="../ui/rotsprite_dialog.py" line="110"/>
         <source>Angle (deg)</source>
         <translation>角度 (度)</translation>
     </message>
@@ -5307,42 +5406,42 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Scale_Dialog</name>
     <message>
-        <location filename="../ui/transform_dialog.py" line="107"/>
+        <location filename="../ui/transform_dialog.py" line="111"/>
         <source>Scale Canvas</source>
         <translation>キャンバスを拡大縮小</translation>
     </message>
     <message>
-        <location filename="../ui/transform_dialog.py" line="108"/>
+        <location filename="../ui/transform_dialog.py" line="112"/>
         <source>Scale canvas dialog</source>
         <translation>キャンバス拡大縮小ダイアログ</translation>
     </message>
     <message>
-        <location filename="../ui/transform_dialog.py" line="109"/>
+        <location filename="../ui/transform_dialog.py" line="113"/>
         <source>Scale factor</source>
         <translation>拡大縮小の倍率</translation>
     </message>
     <message>
-        <location filename="../ui/transform_dialog.py" line="110"/>
+        <location filename="../ui/transform_dialog.py" line="114"/>
         <source>Target width in pixels</source>
         <translation>変更後の幅 (ピクセル)</translation>
     </message>
     <message>
-        <location filename="../ui/transform_dialog.py" line="111"/>
+        <location filename="../ui/transform_dialog.py" line="115"/>
         <source>Target height in pixels</source>
         <translation>変更後の高さ (ピクセル)</translation>
     </message>
     <message>
-        <location filename="../ui/transform_dialog.py" line="112"/>
+        <location filename="../ui/transform_dialog.py" line="116"/>
         <source>Factor</source>
         <translation>倍率</translation>
     </message>
     <message>
-        <location filename="../ui/transform_dialog.py" line="113"/>
+        <location filename="../ui/transform_dialog.py" line="117"/>
         <source>Width (px)</source>
         <translation>幅 (px)</translation>
     </message>
     <message>
-        <location filename="../ui/transform_dialog.py" line="114"/>
+        <location filename="../ui/transform_dialog.py" line="118"/>
         <source>Height (px)</source>
         <translation>高さ (px)</translation>
     </message>
@@ -5350,84 +5449,84 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Script_Runner_Panel</name>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="113"/>
+        <location filename="../ui/script_runner_panel.py" line="114"/>
         <source>Running…</source>
         <extracomment>A compact, copy-pasteable example so the empty editor is self-documenting. ``(ops, label)`` — the host should dispatch these DSL ops on the worker as one undoable grouped command (REQ-P8-UI-004/-009).</extracomment>
         <translation>実行中…</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="115"/>
+        <location filename="../ui/script_runner_panel.py" line="116"/>
         <source>Done</source>
         <translation>完了</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="116"/>
+        <location filename="../ui/script_runner_panel.py" line="117"/>
         <source>Idle</source>
         <translation>待機中</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="131"/>
+        <location filename="../ui/script_runner_panel.py" line="134"/>
         <source>Invalid JSON: %1</source>
         <translation>JSON が無効です: %1</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="133"/>
+        <location filename="../ui/script_runner_panel.py" line="141"/>
         <source>A script must be a JSON array of steps.</source>
         <translation>スクリプトはステップの JSON 配列である必要があります。</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="138"/>
+        <location filename="../ui/script_runner_panel.py" line="146"/>
         <source>Each step needs a &apos;name&apos; and optional &apos;params&apos;/&apos;seed&apos;.</source>
         <translation>各ステップには “name” が必要で、“params” と “seed” は省略可能です。</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="144"/>
+        <location filename="../ui/script_runner_panel.py" line="152"/>
         <source>Step &apos;name&apos; must be a string.</source>
         <translation>ステップの “name” は文字列である必要があります。</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="146"/>
+        <location filename="../ui/script_runner_panel.py" line="154"/>
         <source>Step &apos;params&apos; must be an object.</source>
         <translation>ステップの “params” はオブジェクトである必要があります。</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="158"/>
+        <location filename="../ui/script_runner_panel.py" line="165"/>
         <source>Script Error</source>
         <translation>スクリプトエラー</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="162"/>
-        <location filename="../ui/script_runner_panel.py" line="184"/>
+        <location filename="../ui/script_runner_panel.py" line="169"/>
+        <location filename="../ui/script_runner_panel.py" line="191"/>
         <source>Run Script</source>
         <translation>スクリプトを実行</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="183"/>
+        <location filename="../ui/script_runner_panel.py" line="190"/>
         <source>DSL script (JSON list of steps):</source>
         <translation>DSL スクリプト (ステップの JSON リスト):</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="185"/>
+        <location filename="../ui/script_runner_panel.py" line="192"/>
         <source>Script runner</source>
         <translation>スクリプトランナー</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="186"/>
+        <location filename="../ui/script_runner_panel.py" line="193"/>
         <source>Script source</source>
         <translation>スクリプトのソース</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="187"/>
+        <location filename="../ui/script_runner_panel.py" line="194"/>
         <source>Run the script</source>
         <translation>スクリプトを実行</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="188"/>
+        <location filename="../ui/script_runner_panel.py" line="195"/>
         <source>Progress</source>
         <translation>進行状況</translation>
     </message>
     <message>
-        <location filename="../ui/script_runner_panel.py" line="189"/>
+        <location filename="../ui/script_runner_panel.py" line="196"/>
         <source>Script run progress</source>
         <translation>スクリプト実行の進行状況</translation>
     </message>
@@ -5469,140 +5568,140 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Shared_Projects_Panel</name>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="143"/>
-        <location filename="../ui/shared_projects_panel.py" line="150"/>
-        <location filename="../ui/shared_projects_panel.py" line="182"/>
-        <location filename="../ui/shared_projects_panel.py" line="189"/>
-        <location filename="../ui/shared_projects_panel.py" line="196"/>
+        <location filename="../ui/shared_projects_panel.py" line="144"/>
+        <location filename="../ui/shared_projects_panel.py" line="151"/>
+        <location filename="../ui/shared_projects_panel.py" line="183"/>
+        <location filename="../ui/shared_projects_panel.py" line="190"/>
+        <location filename="../ui/shared_projects_panel.py" line="199"/>
         <source>Shared Project</source>
         <extracomment>Fixed display order for the role combo (a stable subset of the module-local :data:`MEMBER_ROLES` vocabulary; presentation ordering, not a domain value). The roster being edited before it is committed via Share/Update.</extracomment>
         <translation>共有プロジェクト</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="144"/>
+        <location filename="../ui/shared_projects_panel.py" line="145"/>
         <source>Member %1 is already in the roster.</source>
         <translation>メンバー %1 は既にメンバー一覧に含まれています。</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/shared_projects_panel.py" line="152"/>
+        <location filename="../ui/shared_projects_panel.py" line="153"/>
         <source>A shared project may have at most %n members.</source>
         <translation>
             <numerusform>共有プロジェクトのメンバーは最大 %n 人です。</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="183"/>
+        <location filename="../ui/shared_projects_panel.py" line="184"/>
         <source>Enter a shared-project name first.</source>
         <translation>先に共有プロジェクト名を入力してください。</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="190"/>
+        <location filename="../ui/shared_projects_panel.py" line="191"/>
         <source>Add at least one member before sharing.</source>
         <translation>共有する前に、メンバーを 1 人以上追加してください。</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="238"/>
+        <location filename="../ui/shared_projects_panel.py" line="245"/>
         <source>Owner</source>
         <translation>オーナー</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="239"/>
+        <location filename="../ui/shared_projects_panel.py" line="246"/>
         <source>Editor</source>
         <translation>編集者</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="240"/>
+        <location filename="../ui/shared_projects_panel.py" line="247"/>
         <source>Viewer</source>
         <translation>閲覧者</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="245"/>
+        <location filename="../ui/shared_projects_panel.py" line="252"/>
         <source>Shared projects</source>
         <translation>共有プロジェクト</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="246"/>
+        <location filename="../ui/shared_projects_panel.py" line="253"/>
         <source>Shared-project name:</source>
         <translation>共有プロジェクト名:</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="247"/>
+        <location filename="../ui/shared_projects_panel.py" line="254"/>
         <source>e.g. team-sprite</source>
         <translation>例: team-sprite</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="248"/>
+        <location filename="../ui/shared_projects_panel.py" line="255"/>
         <source>Shared-project name</source>
         <translation>共有プロジェクト名</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="249"/>
-        <location filename="../ui/shared_projects_panel.py" line="250"/>
+        <location filename="../ui/shared_projects_panel.py" line="256"/>
+        <location filename="../ui/shared_projects_panel.py" line="257"/>
         <source>Member id to invite</source>
         <translation>招待するメンバー ID</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="251"/>
+        <location filename="../ui/shared_projects_panel.py" line="258"/>
         <source>Member role</source>
         <translation>メンバーの役割</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="254"/>
+        <location filename="../ui/shared_projects_panel.py" line="261"/>
         <source>Add Member</source>
         <translation>メンバーを追加</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="255"/>
+        <location filename="../ui/shared_projects_panel.py" line="262"/>
         <source>Add member to roster</source>
         <translation>メンバーを一覧に追加</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="256"/>
+        <location filename="../ui/shared_projects_panel.py" line="263"/>
         <source>Roster to share</source>
         <translation>共有するメンバー一覧</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="257"/>
+        <location filename="../ui/shared_projects_panel.py" line="264"/>
         <source>Current members</source>
         <translation>現在のメンバー</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="258"/>
+        <location filename="../ui/shared_projects_panel.py" line="265"/>
         <source>Remove</source>
         <translation>削除</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="259"/>
+        <location filename="../ui/shared_projects_panel.py" line="266"/>
         <source>Remove selected member</source>
         <translation>選択したメンバーを削除</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="260"/>
+        <location filename="../ui/shared_projects_panel.py" line="267"/>
         <source>Share / Update</source>
         <translation>共有 / 更新</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="261"/>
+        <location filename="../ui/shared_projects_panel.py" line="268"/>
         <source>Share or update the project</source>
         <translation>プロジェクトを共有または更新</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="262"/>
+        <location filename="../ui/shared_projects_panel.py" line="269"/>
         <source>Member</source>
         <translation>メンバー</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="262"/>
+        <location filename="../ui/shared_projects_panel.py" line="269"/>
         <source>Role</source>
         <translation>役割</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="265"/>
+        <location filename="../ui/shared_projects_panel.py" line="272"/>
         <source>Editable member roster</source>
         <translation>編集可能なメンバー一覧</translation>
     </message>
     <message>
-        <location filename="../ui/shared_projects_panel.py" line="266"/>
+        <location filename="../ui/shared_projects_panel.py" line="273"/>
         <source>Shared member list</source>
         <translation>共有メンバー一覧</translation>
     </message>
@@ -5610,78 +5709,78 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Symmetry_Panel</name>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="155"/>
+        <location filename="../ui/symmetry_panel.py" line="158"/>
         <source>Off</source>
         <extracomment>Emitted with the newly selected :class:`SymmetryAxis`. Emitted with the mirror centre as ``Optional[Tuple[int, int]]`` once the user edits a position spinbox (``None`` = unset, ``mirror`` defaults to the canvas centre itself, CL-9). Never emitted from programmatic :meth:`set_canvas_size` calls, so a resize alone never fabricates a user-authored position. Axis order shown in the combo (value stored in the item&apos;s user data).</extracomment>
         <translation>オフ</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="156"/>
+        <location filename="../ui/symmetry_panel.py" line="159"/>
         <source>Vertical</source>
         <translation>垂直</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="157"/>
+        <location filename="../ui/symmetry_panel.py" line="160"/>
         <source>Horizontal</source>
         <translation>水平</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="158"/>
+        <location filename="../ui/symmetry_panel.py" line="161"/>
         <source>Both</source>
         <translation>両方</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="159"/>
+        <location filename="../ui/symmetry_panel.py" line="162"/>
         <source>Diagonal</source>
         <translation>斜め</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="163"/>
+        <location filename="../ui/symmetry_panel.py" line="166"/>
         <source>Symmetry</source>
         <translation>対称</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="164"/>
+        <location filename="../ui/symmetry_panel.py" line="167"/>
         <source>Axis position</source>
         <translation>軸の位置</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="165"/>
+        <location filename="../ui/symmetry_panel.py" line="168"/>
         <source>X</source>
         <translation>X</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="166"/>
+        <location filename="../ui/symmetry_panel.py" line="169"/>
         <source>Y</source>
         <translation>Y</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="167"/>
+        <location filename="../ui/symmetry_panel.py" line="170"/>
         <source>Reset to centre</source>
         <translation>中央にリセット</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="168"/>
+        <location filename="../ui/symmetry_panel.py" line="171"/>
         <source>Symmetry axis panel</source>
         <translation>対称軸パネル</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="169"/>
+        <location filename="../ui/symmetry_panel.py" line="172"/>
         <source>Symmetry axis</source>
         <translation>対称軸</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="170"/>
+        <location filename="../ui/symmetry_panel.py" line="173"/>
         <source>Symmetry axis position X</source>
         <translation>対称軸の位置 X</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="171"/>
+        <location filename="../ui/symmetry_panel.py" line="174"/>
         <source>Symmetry axis position Y</source>
         <translation>対称軸の位置 Y</translation>
     </message>
     <message>
-        <location filename="../ui/symmetry_panel.py" line="173"/>
+        <location filename="../ui/symmetry_panel.py" line="176"/>
         <source>Reset symmetry axis position to centre</source>
         <translation>対称軸の位置を中央にリセット</translation>
     </message>
@@ -5689,73 +5788,73 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Tag_Dialog</name>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="145"/>
-        <location filename="../ui/frame_tags_panel.py" line="187"/>
+        <location filename="../ui/frame_tags_panel.py" line="150"/>
+        <location filename="../ui/frame_tags_panel.py" line="192"/>
         <source>Tag colour</source>
         <translation>タグの色</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="174"/>
+        <location filename="../ui/frame_tags_panel.py" line="179"/>
         <source>Frame Tag</source>
         <translation>フレームタグ</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="175"/>
+        <location filename="../ui/frame_tags_panel.py" line="180"/>
         <source>Name</source>
         <translation>名前</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="176"/>
+        <location filename="../ui/frame_tags_panel.py" line="181"/>
         <source>From frame</source>
         <translation>開始フレーム</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="177"/>
+        <location filename="../ui/frame_tags_panel.py" line="182"/>
         <source>To frame</source>
         <translation>終了フレーム</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="178"/>
+        <location filename="../ui/frame_tags_panel.py" line="183"/>
         <source>Mode</source>
         <translation>モード</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="179"/>
+        <location filename="../ui/frame_tags_panel.py" line="184"/>
         <source>Repeat (0 = infinite)</source>
         <translation>繰り返し (0 = 無限)</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="180"/>
+        <location filename="../ui/frame_tags_panel.py" line="185"/>
         <source>Colour</source>
         <translation>色</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="181"/>
+        <location filename="../ui/frame_tags_panel.py" line="186"/>
         <source>Tag name</source>
         <translation>タグ名</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="182"/>
+        <location filename="../ui/frame_tags_panel.py" line="187"/>
         <source>Tag start frame</source>
         <translation>タグの開始フレーム</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="183"/>
+        <location filename="../ui/frame_tags_panel.py" line="188"/>
         <source>Tag end frame</source>
         <translation>タグの終了フレーム</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="184"/>
+        <location filename="../ui/frame_tags_panel.py" line="189"/>
         <source>Tag playback mode</source>
         <translation>タグの再生モード</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="185"/>
+        <location filename="../ui/frame_tags_panel.py" line="190"/>
         <source>Tag repeat count</source>
         <translation>タグの繰り返し回数</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="186"/>
+        <location filename="../ui/frame_tags_panel.py" line="191"/>
         <source>Colour…</source>
         <translation>色…</translation>
     </message>
@@ -5763,7 +5862,7 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Tile_Edit_Dialog</name>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="191"/>
+        <location filename="../ui/tileset_editor_panel.py" line="193"/>
         <source>Edit Tile</source>
         <translation>タイルを編集</translation>
     </message>
@@ -5771,48 +5870,48 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Tilemap_Canvas</name>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="732"/>
+        <location filename="../ui/tilemap_canvas.py" line="734"/>
         <source>Auto-tile</source>
         <extracomment>Initial scene window (px) for a fresh infinite map; grows to include stamps. Edge (px) of one checker square drawn behind the map (presentation-only). Platform name Qt reports with no windowing system (keep the raster viewport). MiB budget of the chunk pixmap LRU (D1). A 16x16 chunk at 16 px tiles is a 256x256 RGBA pixmap (~256 KiB), so ~128 MiB keeps a large working set resident while staying bounded on an infinite / fully filled map. Presentation/resource sizing (like frame_cache&apos;s budget), so it lives here in ui/, not logic/constants. Max cold chunks rendered *inline* per paint before the rest stream off-thread (D4). A cold chunk is ~0.84 ms (measured), so a handful stays well under the 16 ms budget and keeps a stamp / small pan instant; a full cold viewport streams. Bounded wait (ms) for an in-flight off-thread chunk render to finish on rebind / window close before the pool is torn down (mirrors canvas_scene&apos;s shutdown wait). Emitted after a layer&apos;s auto-tile mode changes (drives the panel checkbox). Emitted when a stamp/fill is refused because the tilemap has no tileset bound yet (CI-red field defect, 2026-08-24: the original FIX 5 routed this refusal through a blocking ``QMessageBox.warning``, which hangs a headless parallel worker with nothing to dismiss it). Follows the ``Canvas_View.lockedLayerEditRejected`` precedent exactly -- a signal the shell surfaces non-blockingly, never a modal, for a refusal reachable from a plain mouse gesture. Emitted when a stamp/fill is refused because no tile is selected as the active brush (a tileset IS bound; the brush gid is 0). Kept distinct from ``noTilesetBoundRejected`` so the shell shows the honest message for each case, exactly as the two ``_warn_no_active_brush`` branches already did. Emitted with the picked RGBA tuple when a plain wheel notch / an unmodified middle click travels the shared Favourites cursor (REQ-IS-UI-008/-012). Mirrors ``Canvas_View.colorPicked`` — the tilemap has no colour of its own to paint with, but the app-wide active colour/palette state is shared across every surface. A middle press awaiting the click/drag verdict — see ``Canvas_View._middle_pending`` (REQ-IS-UI-011); same behaviour here. The persisted Favourites model bound via :meth:`set_favourites_model` ``None`` until the shell binds one.</extracomment>
         <translation>オートタイル</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="990"/>
+        <location filename="../ui/tilemap_canvas.py" line="997"/>
         <source>Stamp</source>
         <translation>スタンプ</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="992"/>
+        <location filename="../ui/tilemap_canvas.py" line="1003"/>
         <source>Stamp Tile</source>
         <translation>タイルをスタンプ</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="1001"/>
+        <location filename="../ui/tilemap_canvas.py" line="1013"/>
         <source>Erase</source>
         <translation>消去</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="1003"/>
+        <location filename="../ui/tilemap_canvas.py" line="1019"/>
         <source>Erase Tile</source>
         <translation>タイルを消去</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="1021"/>
+        <location filename="../ui/tilemap_canvas.py" line="1038"/>
         <source>Fill</source>
         <translation>塗りつぶし</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="1023"/>
+        <location filename="../ui/tilemap_canvas.py" line="1044"/>
         <source>Fill Rectangle</source>
         <translation>矩形を塗りつぶし</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="1081"/>
+        <location filename="../ui/tilemap_canvas.py" line="1102"/>
         <source>Tilemap canvas</source>
         <translation>タイルマップキャンバス</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_canvas.py" line="1084"/>
+        <location filename="../ui/tilemap_canvas.py" line="1105"/>
         <source>Tilemap: left-click to stamp/erase/fill, middle-drag to pan, H/V flip, R rotate</source>
         <translation>タイルマップ: 左クリックでスタンプ/消去/塗りつぶし、中ボタンのドラッグでパン、H/V で反転、R で回転</translation>
     </message>
@@ -5820,83 +5919,83 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Tilemap_Layer_Panel</name>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="174"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="175"/>
         <source>Layer %1</source>
         <extracomment>Emitted with the active layer index (view state, no undo). Emitted when the auto-tile checkbox is toggled (canvas builds the ruleset).</extracomment>
         <translation>レイヤー %1</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="178"/>
         <location filename="../ui/tilemap_layer_panel.py" line="180"/>
-        <location filename="../ui/tilemap_layer_panel.py" line="276"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="186"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="297"/>
         <source>Add Layer</source>
         <translation>レイヤーを追加</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="190"/>
-        <location filename="../ui/tilemap_layer_panel.py" line="192"/>
-        <location filename="../ui/tilemap_layer_panel.py" line="277"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="197"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="203"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="298"/>
         <source>Remove Layer</source>
         <translation>レイヤーを削除</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="224"/>
-        <location filename="../ui/tilemap_layer_panel.py" line="226"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="236"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="242"/>
         <source>Reorder Layer</source>
         <translation>レイヤーを並べ替え</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="242"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="259"/>
         <source>Layer Visibility</source>
         <translation>レイヤーの表示</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="244"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="265"/>
         <source>Toggle Layer Visibility</source>
         <translation>レイヤーの表示を切り替え</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="270"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="291"/>
         <source>Tilemap layers panel</source>
         <translation>タイルマップレイヤーパネル</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="271"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="292"/>
         <source>Layer actions</source>
         <translation>レイヤー操作</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="272"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="293"/>
         <source>Tilemap layers</source>
         <translation>タイルマップレイヤー</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="274"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="295"/>
         <source>Ordered map layers; tick to show/hide, top layer first</source>
         <translation>順序付きのマップレイヤー (チェックで表示/非表示、一番上のレイヤーが先頭)</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="278"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="299"/>
         <source>Move Up</source>
         <translation>上へ移動</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="279"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="300"/>
         <source>Move Down</source>
         <translation>下へ移動</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="280"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="301"/>
         <source>Auto-tile (Blob-47)</source>
         <translation>オートタイル (Blob-47)</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="282"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="303"/>
         <source>Resolve tile edges automatically from neighbours</source>
         <translation>隣接するタイルに合わせて、タイルの端を自動的に選択</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_layer_panel.py" line="284"/>
+        <location filename="../ui/tilemap_layer_panel.py" line="305"/>
         <source>Auto-tile toggle</source>
         <translation>オートタイルの切り替え</translation>
     </message>
@@ -5904,109 +6003,109 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Tileset_Editor_Panel</name>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="216"/>
-        <location filename="../ui/tileset_editor_panel.py" line="416"/>
-        <location filename="../ui/tileset_editor_panel.py" line="424"/>
+        <location filename="../ui/tileset_editor_panel.py" line="218"/>
+        <location filename="../ui/tileset_editor_panel.py" line="429"/>
+        <location filename="../ui/tileset_editor_panel.py" line="437"/>
         <source>Tile width</source>
         <extracomment>Emitted with the selected tile&apos;s **global gid** (view state, no undo).</extracomment>
         <translation>タイルの幅</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="219"/>
-        <location filename="../ui/tileset_editor_panel.py" line="417"/>
-        <location filename="../ui/tileset_editor_panel.py" line="425"/>
+        <location filename="../ui/tileset_editor_panel.py" line="221"/>
+        <location filename="../ui/tileset_editor_panel.py" line="430"/>
+        <location filename="../ui/tileset_editor_panel.py" line="438"/>
         <source>Tile height</source>
         <translation>タイルの高さ</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="222"/>
-        <location filename="../ui/tileset_editor_panel.py" line="426"/>
+        <location filename="../ui/tileset_editor_panel.py" line="224"/>
+        <location filename="../ui/tileset_editor_panel.py" line="439"/>
         <source>Tile margin</source>
         <translation>タイルの余白</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="225"/>
-        <location filename="../ui/tileset_editor_panel.py" line="427"/>
+        <location filename="../ui/tileset_editor_panel.py" line="227"/>
+        <location filename="../ui/tileset_editor_panel.py" line="440"/>
         <source>Tile spacing</source>
         <translation>タイルの間隔</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="316"/>
+        <location filename="../ui/tileset_editor_panel.py" line="318"/>
         <source>Tile %1</source>
         <translation>タイル %1</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="367"/>
-        <location filename="../ui/tileset_editor_panel.py" line="369"/>
+        <location filename="../ui/tileset_editor_panel.py" line="371"/>
+        <location filename="../ui/tileset_editor_panel.py" line="377"/>
         <source>Re-slice Tileset</source>
         <translation>タイルセットを再分割</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="386"/>
-        <location filename="../ui/tileset_editor_panel.py" line="388"/>
+        <location filename="../ui/tileset_editor_panel.py" line="395"/>
+        <location filename="../ui/tileset_editor_panel.py" line="401"/>
         <source>Edit Tile</source>
         <translation>タイルを編集</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="415"/>
+        <location filename="../ui/tileset_editor_panel.py" line="428"/>
         <source>Tileset editor panel</source>
         <translation>タイルセットエディターパネル</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="418"/>
+        <location filename="../ui/tileset_editor_panel.py" line="431"/>
         <source>Margin</source>
         <translation>余白</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="419"/>
+        <location filename="../ui/tileset_editor_panel.py" line="432"/>
         <source>Spacing</source>
         <translation>間隔</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="420"/>
-        <location filename="../ui/tileset_editor_panel.py" line="421"/>
-        <location filename="../ui/tileset_editor_panel.py" line="422"/>
-        <location filename="../ui/tileset_editor_panel.py" line="423"/>
+        <location filename="../ui/tileset_editor_panel.py" line="433"/>
+        <location filename="../ui/tileset_editor_panel.py" line="434"/>
+        <location filename="../ui/tileset_editor_panel.py" line="435"/>
+        <location filename="../ui/tileset_editor_panel.py" line="436"/>
         <source> px</source>
         <translation> px</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="428"/>
+        <location filename="../ui/tileset_editor_panel.py" line="441"/>
         <source>Re-slice</source>
         <translation>再分割</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="429"/>
+        <location filename="../ui/tileset_editor_panel.py" line="442"/>
         <source>Re-slice the source image</source>
         <translation>元の画像を再分割</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="430"/>
+        <location filename="../ui/tileset_editor_panel.py" line="443"/>
         <source>Re-slice tileset</source>
         <translation>タイルセットを再分割</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="431"/>
+        <location filename="../ui/tileset_editor_panel.py" line="444"/>
         <source>Edit Tile…</source>
         <translation>タイルを編集…</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="432"/>
+        <location filename="../ui/tileset_editor_panel.py" line="445"/>
         <source>Paint into the selected source tile</source>
         <translation>選択した元のタイルに描画</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="433"/>
+        <location filename="../ui/tileset_editor_panel.py" line="446"/>
         <source>Edit selected tile</source>
         <translation>選択したタイルを編集</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="434"/>
+        <location filename="../ui/tileset_editor_panel.py" line="447"/>
         <source>Tileset tiles</source>
         <translation>タイルセットのタイル</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="436"/>
+        <location filename="../ui/tileset_editor_panel.py" line="449"/>
         <source>Sliced tiles in row-major order; click to select for stamping</source>
         <translation>分割されたタイルを行優先の順に表示 (クリックしてスタンプ用に選択)</translation>
     </message>
@@ -6014,7 +6113,7 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Timelapse_Controls</name>
     <message numerus="yes">
-        <location filename="../ui/timelapse_controls.py" line="422"/>
+        <location filename="../ui/timelapse_controls.py" line="435"/>
         <source>%n frame(s) were dropped because the edits they recorded were undone and replaced.</source>
         <extracomment>A Document -&gt; RGBA ``ndarray`` renderer (e.g. wrapping ``blend.composite_stack``), injected by the host rather than authored here (S11 — no domain/composite maths in this widget). Returns the currently active document for a bound ``QUndoStack`` (S11 — this widget reads it, it never derives it). Emitted with the current frame count after a record / load / reset. Emitted with one reconstructed RGBA ``ndarray`` per displayed frame, whichever substrate served it (in-session or a loaded payload). Emitted ``True`` while document edits must be refused (playing or paused mid-sequence), ``False`` once playback stops or completes. Emitted with the number of frames dropped by a discarded branch (REQ-P9-UI-021), once per occurrence. The per-recording identity half (REQ-P9-LOGIC-022; plan §10.1) — one :mod:`secrets` draw, minted once per recording (here, and again on every :meth:`reset`). Never an adversarial-strength token (``TIMELAPSE_RECORDING_ID_BYTES``&apos; own docstring): it only has to not collide, and it is paid for on every frame. The monotone ordinal half — only ever ``+= 1``, never reset, rewound, or derived from ``len(session.frames)``: every rewrite path rebuilds the frames *tuple*, and a counter living inside it would rewind with it (plan §10.1). The id of the document this session was recorded against (REQ-P9-UI-020) — ``None`` until the first frame is recorded. The id of the document currently bound (the active tab). stack index -&gt; the FrameId minted the last time that index was reached forward (plan §10.2). On every forward index change to ``i``, every entry with key ``&gt;= i`` is evicted **before** any new mint — an event-time observation, exact because nothing has been reused yet, never a resolution-time inference from a count. Its value set is both the surviving-identity set passed to :func:`~pixelart_creator.logic.timelapse.drop_discarded` and the live HISTORY extent handed to :class:`~pixelart_creator.ui.timelapse_playback.History_Document_Provider`. Set by :meth:`load_reopened_recording` when reviewing a loaded, cross-session payload rather than the live in-session history. ``True`` only while this widget is itself driving the bound ``QUndoStack`` through a provider (a historical render or a save&apos;s payload snapshot pass) — every ``indexChanged`` this causes is this widget&apos;s own bookkeeping, never a user commit, and must not be recorded or misread as a discard boundary (D1 fix; see ``_render_all``/``_build_payload_tables``).</extracomment>
         <translation>
@@ -6022,205 +6121,205 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
         </translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="464"/>
+        <location filename="../ui/timelapse_controls.py" line="469"/>
         <source>Recording stopped</source>
         <translation>記録を停止しました</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="466"/>
+        <location filename="../ui/timelapse_controls.py" line="471"/>
         <source>Recording was stopped because it reached the maximum number of frames. The frames already recorded are kept. Save this recording, or reset it to start a new one.</source>
         <translation>最大フレーム数に達したため、記録を停止しました。記録済みのフレームは保持されています。この記録を保存するか、リセットして新しい記録を開始してください。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="538"/>
+        <location filename="../ui/timelapse_controls.py" line="543"/>
         <source>Different document</source>
         <translation>別のドキュメント</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="540"/>
+        <location filename="../ui/timelapse_controls.py" line="545"/>
         <source>This recording belongs to a different document. Switch to that document to resume it, or reset first to start a new one here.</source>
         <translation>この記録は別のドキュメントのものです。再開するにはそのドキュメントに切り替えるか、先にリセットしてここで新しい記録を開始してください。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="557"/>
+        <location filename="../ui/timelapse_controls.py" line="562"/>
         <source>Save Timelapse</source>
         <translation>タイムラプスを保存</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="559"/>
-        <location filename="../ui/timelapse_controls.py" line="673"/>
+        <location filename="../ui/timelapse_controls.py" line="564"/>
+        <location filename="../ui/timelapse_controls.py" line="678"/>
         <source>Timelapse (*.pixtimelapse)</source>
         <translation>タイムラプス (*.pixtimelapse)</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="568"/>
-        <location filename="../ui/timelapse_controls.py" line="586"/>
-        <location filename="../ui/timelapse_controls.py" line="603"/>
+        <location filename="../ui/timelapse_controls.py" line="573"/>
+        <location filename="../ui/timelapse_controls.py" line="591"/>
+        <location filename="../ui/timelapse_controls.py" line="608"/>
         <source>Save failed</source>
         <translation>保存に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="570"/>
+        <location filename="../ui/timelapse_controls.py" line="575"/>
         <source>This recording could not be saved because a recorded state could not be reconstructed from the current history.</source>
         <translation>現在の履歴から記録済みの状態を再構築できなかったため、この記録を保存できませんでした。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="588"/>
+        <location filename="../ui/timelapse_controls.py" line="593"/>
         <source>This recording was not saved because it is too large. Nothing was written. Discard some frames and try again.</source>
         <translation>この記録は大きすぎるため保存されませんでした。何も書き込まれていません。フレームをいくつか破棄してから、もう一度やり直してください。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="605"/>
+        <location filename="../ui/timelapse_controls.py" line="610"/>
         <source>This recording could not be saved. The file could not be written, or its data could not be encoded.</source>
         <translation>この記録を保存できませんでした。ファイルを書き込めなかったか、データをエンコードできませんでした。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="671"/>
+        <location filename="../ui/timelapse_controls.py" line="676"/>
         <source>Open Timelapse</source>
         <translation>タイムラプスを開く</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="688"/>
+        <location filename="../ui/timelapse_controls.py" line="693"/>
         <source>Open failed</source>
         <translation>開くのに失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="690"/>
+        <location filename="../ui/timelapse_controls.py" line="695"/>
         <source>This file could not be opened. It is missing, unreadable, or not a valid timelapse recording.</source>
         <translation>このファイルを開けませんでした。ファイルが見つからないか、読み取れないか、有効なタイムラプス記録ではありません。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="749"/>
+        <location filename="../ui/timelapse_controls.py" line="754"/>
         <source>There is nothing recorded to play yet.</source>
         <translation>再生できる記録がまだありません。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="756"/>
+        <location filename="../ui/timelapse_controls.py" line="761"/>
         <source>This recording belongs to a different document. Switch to that document to play it.</source>
         <translation>この記録は別のドキュメントのものです。再生するにはそのドキュメントに切り替えてください。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="761"/>
+        <location filename="../ui/timelapse_controls.py" line="766"/>
         <source>Playback is not available yet.</source>
         <translation>まだ再生できません。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="777"/>
+        <location filename="../ui/timelapse_controls.py" line="782"/>
         <source>This recording was saved in a form that cannot be replayed.</source>
         <translation>この記録は再生できない形式で保存されています。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="782"/>
+        <location filename="../ui/timelapse_controls.py" line="787"/>
         <source>This recording&apos;s saved data is incomplete and cannot be fully replayed.</source>
         <translation>この記録の保存データが不完全なため、完全には再生できません。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="788"/>
+        <location filename="../ui/timelapse_controls.py" line="793"/>
         <source>Some recorded frames are no longer reachable in the current history and cannot be played.</source>
         <translation>記録されたフレームの一部が現在の履歴で到達できなくなっているため、再生できません。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="793"/>
+        <location filename="../ui/timelapse_controls.py" line="798"/>
         <source>This recording&apos;s history no longer matches; it cannot be replayed from here.</source>
         <translation>この記録の履歴が一致しなくなったため、ここから再生することはできません。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="807"/>
+        <location filename="../ui/timelapse_controls.py" line="812"/>
         <source>This recording was saved in an earlier form whose frames cannot be told apart reliably, so it will not be replayed.</source>
         <translation>この記録は、フレームを確実に区別できない以前の形式で保存されているため、再生されません。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="810"/>
+        <location filename="../ui/timelapse_controls.py" line="815"/>
         <source>This recording cannot be played.</source>
         <translation>この記録は再生できません。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="839"/>
+        <location filename="../ui/timelapse_controls.py" line="845"/>
         <source>Cannot play</source>
         <translation>再生できません</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="847"/>
+        <location filename="../ui/timelapse_controls.py" line="853"/>
         <source>Playback failed</source>
         <translation>再生に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="848"/>
+        <location filename="../ui/timelapse_controls.py" line="854"/>
         <source>This recording could not be replayed.</source>
         <translation>この記録を再生できませんでした。</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="935"/>
+        <location filename="../ui/timelapse_controls.py" line="941"/>
         <source>Frame {0} of {1}</source>
         <translation>フレーム {0} / {1}</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="940"/>
+        <location filename="../ui/timelapse_controls.py" line="946"/>
         <source>Recorded frames: {0}</source>
         <translation>記録済みフレーム: {0}</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="972"/>
+        <location filename="../ui/timelapse_controls.py" line="978"/>
         <source>Stop Recording</source>
         <translation>記録を停止</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="972"/>
+        <location filename="../ui/timelapse_controls.py" line="978"/>
         <source>Record</source>
         <translation>記録</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="977"/>
+        <location filename="../ui/timelapse_controls.py" line="983"/>
         <source>Pause</source>
         <translation>一時停止</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="977"/>
+        <location filename="../ui/timelapse_controls.py" line="983"/>
         <source>Play</source>
         <translation>再生</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="981"/>
+        <location filename="../ui/timelapse_controls.py" line="987"/>
         <source>Timelapse</source>
         <translation>タイムラプス</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="982"/>
+        <location filename="../ui/timelapse_controls.py" line="988"/>
         <source>Timelapse controls</source>
         <translation>タイムラプスのコントロール</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="983"/>
+        <location filename="../ui/timelapse_controls.py" line="989"/>
         <source>Save…</source>
         <translation>保存…</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="984"/>
+        <location filename="../ui/timelapse_controls.py" line="990"/>
         <source>Open…</source>
         <translation>開く…</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="985"/>
+        <location filename="../ui/timelapse_controls.py" line="991"/>
         <source>Stop</source>
         <translation>停止</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="986"/>
+        <location filename="../ui/timelapse_controls.py" line="992"/>
         <source>Timelapse position</source>
         <translation>タイムラプスの位置</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="987"/>
+        <location filename="../ui/timelapse_controls.py" line="993"/>
         <source>Playback speed</source>
         <translation>再生速度</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="992"/>
+        <location filename="../ui/timelapse_controls.py" line="998"/>
         <source>Playback refusal reason</source>
         <translation>再生できない理由</translation>
     </message>
     <message>
-        <location filename="../ui/timelapse_controls.py" line="993"/>
+        <location filename="../ui/timelapse_controls.py" line="999"/>
         <source>Recorded frame count</source>
         <translation>記録済みフレーム数</translation>
     </message>
@@ -6316,111 +6415,111 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Timeline_Panel</name>
     <message>
-        <location filename="../ui/timeline_panel.py" line="272"/>
+        <location filename="../ui/timeline_panel.py" line="274"/>
         <source>Frame %1</source>
         <extracomment>Index of the strip surface in the cell-surface QStackedWidget — the default (REQ-P5-UI-020: &quot;the strip is the default&quot;). Not a domain constant (Article II does not reach a fixed widget-stack index); grouped with the other presentation literals this module already carries. Longest edge (px) of a cached per-cell frame thumbnail. Presentation-only sizing (like ``_SWATCH_PX`` in ``main_window``); the resident buffer is never culled — only the small display thumbnail is downscaled (F7). Ceiling for the per-frame duration spin box (ms). A presentation-only cap on how high the editor spins (like ``_THUMBNAIL_EDGE``); it is NOT a domain tuning value — the authoritative bound is the logic ``make_set_frame_duration_command`` positive-int guard, which alone validates. Emitted with the frame index a click/keyboard selected (settled — onion on). Emitted with the frame index the cursor is dragging over (scrub — onion off). Emitted with a ``layer_id`` the grid cell surface&apos;s selection settled on (REQ-P5-UI-023, BF-G1); the strip has no layer axis and never emits this.</extracomment>
         <translation>フレーム %1</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="280"/>
+        <location filename="../ui/timeline_panel.py" line="282"/>
         <source>Frame %1 — %2 ms</source>
         <translation>フレーム %1 — %2 ms</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="394"/>
-        <location filename="../ui/timeline_panel.py" line="513"/>
+        <location filename="../ui/timeline_panel.py" line="396"/>
+        <location filename="../ui/timeline_panel.py" line="515"/>
         <source>Add Frame</source>
         <translation>フレームを追加</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="406"/>
-        <location filename="../ui/timeline_panel.py" line="515"/>
+        <location filename="../ui/timeline_panel.py" line="408"/>
+        <location filename="../ui/timeline_panel.py" line="517"/>
         <source>Remove Frame</source>
         <translation>フレームを削除</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="417"/>
-        <location filename="../ui/timeline_panel.py" line="517"/>
+        <location filename="../ui/timeline_panel.py" line="419"/>
+        <location filename="../ui/timeline_panel.py" line="519"/>
         <source>Duplicate Frame</source>
         <translation>フレームを複製</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="450"/>
+        <location filename="../ui/timeline_panel.py" line="452"/>
         <source>Reorder Frame</source>
         <translation>フレームを並べ替え</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="466"/>
+        <location filename="../ui/timeline_panel.py" line="468"/>
         <source>Set Frame Duration</source>
         <translation>フレームの表示時間を設定</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="507"/>
+        <location filename="../ui/timeline_panel.py" line="509"/>
         <source>Timeline panel</source>
         <translation>タイムラインパネル</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="508"/>
+        <location filename="../ui/timeline_panel.py" line="510"/>
         <source>Frame actions</source>
         <translation>フレーム操作</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="509"/>
+        <location filename="../ui/timeline_panel.py" line="511"/>
         <source>Frame strip</source>
         <translation>フレームストリップ</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="511"/>
+        <location filename="../ui/timeline_panel.py" line="513"/>
         <source>Frames left-to-right in playback order; drag to reorder</source>
         <translation>フレームを再生順に左から右へ表示 (ドラッグで並べ替え)</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="514"/>
+        <location filename="../ui/timeline_panel.py" line="516"/>
         <source>Insert a new frame after the active one</source>
         <translation>現在のフレームの後に新しいフレームを挿入</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="516"/>
+        <location filename="../ui/timeline_panel.py" line="518"/>
         <source>Delete the active frame</source>
         <translation>現在のフレームを削除</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="519"/>
+        <location filename="../ui/timeline_panel.py" line="521"/>
         <source>Insert a copy of the active frame after it</source>
         <translation>現在のフレームのコピーをその後に挿入</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="521"/>
+        <location filename="../ui/timeline_panel.py" line="523"/>
         <source>Grid View</source>
         <translation>グリッドビュー</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="523"/>
+        <location filename="../ui/timeline_panel.py" line="525"/>
         <source>Show frames and layer tracks as a grid instead of a strip</source>
         <translation>ストリップの代わりに、フレームとレイヤートラックをグリッドで表示</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="525"/>
+        <location filename="../ui/timeline_panel.py" line="527"/>
         <source>Timeline cell surface</source>
         <translation>タイムラインのセル表示</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="526"/>
+        <location filename="../ui/timeline_panel.py" line="528"/>
         <source>Duration</source>
         <translation>表示時間</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="528"/>
+        <location filename="../ui/timeline_panel.py" line="530"/>
         <source> ms</source>
         <translation> ms</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="529"/>
+        <location filename="../ui/timeline_panel.py" line="531"/>
         <source>Frame duration</source>
         <translation>フレームの表示時間</translation>
     </message>
     <message>
-        <location filename="../ui/timeline_panel.py" line="531"/>
+        <location filename="../ui/timeline_panel.py" line="533"/>
         <source>Display time of the active frame, in milliseconds</source>
         <translation>現在のフレームの表示時間 (ミリ秒)</translation>
     </message>
@@ -6428,7 +6527,7 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>User_Guide_Dialog</name>
     <message>
-        <location filename="../ui/user_guide.py" line="499"/>
+        <location filename="../ui/user_guide.py" line="509"/>
         <source>Could not load this topic:
 
 %1</source>
@@ -6438,7 +6537,7 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 %1</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="553"/>
+        <location filename="../ui/user_guide.py" line="568"/>
         <source>The User Guide content could not be loaded:
 
 %1</source>
@@ -6447,38 +6546,38 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 %1</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="556"/>
+        <location filename="../ui/user_guide.py" line="571"/>
         <source>The User Guide content could not be loaded.</source>
         <translation>ユーザーガイドの内容を読み込めませんでした。</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="649"/>
-        <location filename="../ui/user_guide.py" line="650"/>
+        <location filename="../ui/user_guide.py" line="711"/>
+        <location filename="../ui/user_guide.py" line="712"/>
         <source>User Guide</source>
         <translation>ユーザーガイド</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="651"/>
+        <location filename="../ui/user_guide.py" line="713"/>
         <source>Search the guide…</source>
         <translation>ガイドを検索…</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="652"/>
+        <location filename="../ui/user_guide.py" line="714"/>
         <source>Search the guide</source>
         <translation>ガイドを検索</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="653"/>
+        <location filename="../ui/user_guide.py" line="715"/>
         <source>Guide contents</source>
         <translation>ガイドの目次</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="654"/>
+        <location filename="../ui/user_guide.py" line="716"/>
         <source>Search results</source>
         <translation>検索結果</translation>
     </message>
     <message>
-        <location filename="../ui/user_guide.py" line="655"/>
+        <location filename="../ui/user_guide.py" line="717"/>
         <source>Guide content</source>
         <translation>ガイドの内容</translation>
     </message>
@@ -6486,77 +6585,77 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>Vanishing_Point_Dialog</name>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="152"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="156"/>
         <source>1-point</source>
         <translation>1 点透視</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="153"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="157"/>
         <source>2-point</source>
         <translation>2 点透視</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="154"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="158"/>
         <source>3-point</source>
         <translation>3 点透視</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="158"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="162"/>
         <source>Configure Perspective</source>
         <translation>パースを設定</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="159"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="163"/>
         <source>Vanishing points</source>
         <translation>消失点</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="160"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="164"/>
         <source>Horizon Y</source>
         <translation>水平線 Y</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="161"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="165"/>
         <source>Vanishing-point mode</source>
         <translation>消失点モード</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="162"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="166"/>
         <source>Horizon Y position</source>
         <translation>水平線の Y 位置</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="166"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="170"/>
         <source>Vanishing point {n}</source>
         <translation>消失点 {n}</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="168"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="172"/>
         <source>X</source>
         <translation>X</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="169"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="173"/>
         <source>Y</source>
         <translation>Y</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="171"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="175"/>
         <source>Vanishing point {n} X</source>
         <translation>消失点 {n} の X</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="174"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="178"/>
         <source>Vanishing point {n} Y</source>
         <translation>消失点 {n} の Y</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="178"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="182"/>
         <source>OK</source>
         <translation>OK</translation>
     </message>
     <message>
-        <location filename="../ui/vanishing_point_dialog.py" line="181"/>
+        <location filename="../ui/vanishing_point_dialog.py" line="185"/>
         <source>Cancel</source>
         <translation>キャンセル</translation>
     </message>
@@ -6760,50 +6859,50 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>_Project_Prefs_Menu</name>
     <message>
-        <location filename="../ui/project_prefs_actions.py" line="71"/>
+        <location filename="../ui/project_prefs_actions.py" line="72"/>
         <source>Ask me every time</source>
         <extracomment>A domain wider than this renders as a nested exclusive submenu rather than a single checkable action (plan §3.4) — a plain boolean-shaped preference (ask / suppressed) keeps the shipped single-checkbox rendering. Menu-rendering strings share one translation context with the class below so :func:`value_label_for` — a free function, exported for a future renderer (phase-6&apos;s settings dialog) — is caught by the same ``tr()`` extraction pass as the class&apos;s own strings.</extracomment>
         <translation>毎回確認する</translation>
     </message>
     <message>
-        <location filename="../ui/project_prefs_actions.py" line="74"/>
+        <location filename="../ui/project_prefs_actions.py" line="75"/>
         <source>Always pick up the library change</source>
         <translation>常にライブラリの変更を取り込む</translation>
     </message>
     <message>
-        <location filename="../ui/project_prefs_actions.py" line="77"/>
+        <location filename="../ui/project_prefs_actions.py" line="78"/>
         <source>Always keep the referenced version</source>
         <translation>常に参照中のバージョンを維持する</translation>
     </message>
     <message>
-        <location filename="../ui/project_prefs_actions.py" line="83"/>
+        <location filename="../ui/project_prefs_actions.py" line="84"/>
         <source>Set to: %1</source>
         <translation>設定値: %1</translation>
     </message>
     <message>
-        <location filename="../ui/project_prefs_actions.py" line="218"/>
+        <location filename="../ui/project_prefs_actions.py" line="219"/>
         <source>Confirm before overwriting a cel</source>
         <extracomment>The provider the caller supplies: returns the active document, or ``None`` when no document is open.</extracomment>
         <translation>セルを上書きする前に確認する</translation>
     </message>
     <message>
-        <location filename="../ui/project_prefs_actions.py" line="220"/>
+        <location filename="../ui/project_prefs_actions.py" line="221"/>
         <source>When a referenced library asset changes</source>
         <translation>参照しているライブラリのアセットが変更されたとき</translation>
     </message>
     <message>
-        <location filename="../ui/project_prefs_actions.py" line="221"/>
+        <location filename="../ui/project_prefs_actions.py" line="227"/>
         <source>Confirm: %1</source>
         <translation>確認: %1</translation>
     </message>
     <message>
-        <location filename="../ui/project_prefs_actions.py" line="224"/>
-        <location filename="../ui/project_prefs_actions.py" line="225"/>
+        <location filename="../ui/project_prefs_actions.py" line="230"/>
+        <location filename="../ui/project_prefs_actions.py" line="231"/>
         <source>Project confirmations</source>
         <translation>プロジェクトの確認</translation>
     </message>
     <message>
-        <location filename="../ui/project_prefs_actions.py" line="230"/>
+        <location filename="../ui/project_prefs_actions.py" line="236"/>
         <source>Restore this confirmation so it asks again</source>
         <translation>この確認を元に戻して、再び確認するようにする</translation>
     </message>
@@ -6811,15 +6910,15 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>_Tile_Pixel_Editor</name>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="111"/>
-        <location filename="../ui/tileset_editor_panel.py" line="155"/>
+        <location filename="../ui/tileset_editor_panel.py" line="113"/>
+        <location filename="../ui/tileset_editor_panel.py" line="157"/>
         <source>Tile pixel editor</source>
         <extracomment>Thumbnail edge (px) for a tile swatch in the grid list (presentation-only, not a domain tuning value — cf. Palette_Panel&apos;s swatch size). On-screen pixel size of one tile pixel in the tile editor dialog.</extracomment>
         <translation>タイルピクセルエディター</translation>
     </message>
     <message>
-        <location filename="../ui/tileset_editor_panel.py" line="113"/>
-        <location filename="../ui/tileset_editor_panel.py" line="157"/>
+        <location filename="../ui/tileset_editor_panel.py" line="115"/>
+        <location filename="../ui/tileset_editor_panel.py" line="159"/>
         <source>Left-click to paint, right-click to erase</source>
         <translation>左クリックで描画、右クリックで消去</translation>
     </message>
@@ -6885,13 +6984,13 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>_WheelPad</name>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="308"/>
+        <location filename="../ui/colour_wheel_widget.py" line="309"/>
         <source>Colour wheel</source>
         <extracomment>Hue at the top of the circle, in degrees (achromatic fallback keeps this hue). Number of conical-gradient stops sweeping the hue circle (six primaries + wrap). Edge of a harmony/preview swatch button, px (presentation-only sizing). Minimum wheel diameter, px (presentation-only sizing). Marker radius drawn at the current hue/saturation, px. Keyboard nudge steps for the wheel (hue degrees / saturation fraction). Single left click — paint this swatch&apos;s colour, leave the wheel alone. Double left click / Space / Return — adopt this swatch&apos;s colour into the wheel, paint nothing. Emitted with ``(hue_degrees, saturation)`` when the user picks on the wheel.</extracomment>
         <translation>カラーホイール</translation>
     </message>
     <message>
-        <location filename="../ui/colour_wheel_widget.py" line="311"/>
+        <location filename="../ui/colour_wheel_widget.py" line="312"/>
         <source>Hue and saturation wheel; use the arrow keys or the numeric fields to pick a colour without a mouse</source>
         <translation>色相と彩度のホイール (マウスを使わずに色を選ぶには、矢印キーまたは数値フィールドを使用)</translation>
     </message>
@@ -6919,13 +7018,13 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>theme</name>
     <message>
-        <location filename="../ui/theme.py" line="155"/>
+        <location filename="../ui/theme.py" line="161"/>
         <source>unknown style: %1</source>
         <extracomment>%1 is the internal style name that could not be found.</extracomment>
         <translation>不明なスタイル: %1</translation>
     </message>
     <message>
-        <location filename="../ui/theme.py" line="160"/>
+        <location filename="../ui/theme.py" line="166"/>
         <source>unknown theme: %1</source>
         <translation>不明なテーマ: %1</translation>
     </message>
@@ -6933,33 +7032,33 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>tilemap_io</name>
     <message>
-        <location filename="../ui/tilemap_io_actions.py" line="38"/>
+        <location filename="../ui/tilemap_io_actions.py" line="39"/>
         <source>Export Tiled Map</source>
         <extracomment>Tiled JSON file filter (format identifier, not a translated string).</extracomment>
         <translation>Tiled マップをエクスポート</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_io_actions.py" line="49"/>
+        <location filename="../ui/tilemap_io_actions.py" line="50"/>
         <source>Export failed</source>
         <translation>エクスポートに失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_io_actions.py" line="50"/>
+        <location filename="../ui/tilemap_io_actions.py" line="52"/>
         <source>Could not export the map: %1</source>
         <translation>マップをエクスポートできませんでした: %1</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_io_actions.py" line="67"/>
+        <location filename="../ui/tilemap_io_actions.py" line="74"/>
         <source>Import Tiled Map</source>
         <translation>Tiled マップをインポート</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_io_actions.py" line="78"/>
+        <location filename="../ui/tilemap_io_actions.py" line="85"/>
         <source>Import failed</source>
         <translation>インポートに失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/tilemap_io_actions.py" line="79"/>
+        <location filename="../ui/tilemap_io_actions.py" line="87"/>
         <source>Could not import the map: %1</source>
         <translation>マップをインポートできませんでした: %1</translation>
     </message>
@@ -7042,22 +7141,22 @@ The plugin runs sandboxed and can only edit through reversible commands. It cann
 <context>
     <name>widget</name>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="60"/>
+        <location filename="../ui/frame_tags_panel.py" line="62"/>
         <source>Loop</source>
         <translation>ループ</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="61"/>
+        <location filename="../ui/frame_tags_panel.py" line="63"/>
         <source>Once</source>
         <translation>1 回</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="62"/>
+        <location filename="../ui/frame_tags_panel.py" line="64"/>
         <source>Ping-Pong</source>
         <translation>往復</translation>
     </message>
     <message>
-        <location filename="../ui/frame_tags_panel.py" line="63"/>
+        <location filename="../ui/frame_tags_panel.py" line="65"/>
         <source>Reverse</source>
         <translation>逆再生</translation>
     </message>
