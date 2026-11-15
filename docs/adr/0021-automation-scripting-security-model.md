@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Accepted** |
+| Status | **Superseded in part** (six plugin-confinement statements, withdrawn by ADR-0074; the scripting DSL, the no-`eval`/`exec` invariant and the rest of the plugin model stand) |
 | Date | 2026-07-04 |
 | Author | Architecture |
 | Feature | `phase-8-automation` |
 | Supersedes | — |
-| Superseded by | — |
+| Superseded by | ADR-0074 — in part: the statements that plugins may only register/invoke DSL commands and cannot reach the filesystem/network outside their grants, that the capability object is a plugin's only API surface, "no silent bypass", "inert until the user explicitly enables it", the advisory-isolation mitigation, and the Context's "cannot bypass" read as a description of the product. Their replacements and evidence are in ADR-0074, which also lists what stands. |
 
 ## Context
 
