@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.macro_io import MacroIOError, load_manifest
 from pixelart_creator.logic.plugins import (
     PluginError,
@@ -139,7 +140,13 @@ class Plugin_Manager_Panel(QWidget):
         try:
             manifest = load_manifest(path)
         except (MacroIOError, PluginError, OSError) as exc:
-            QMessageBox.warning(self, self.tr("Install Failed"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Install Failed"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._add_manifest_item(manifest, source=Path(path).name)
         self._update_permissions()
@@ -185,7 +192,13 @@ class Plugin_Manager_Panel(QWidget):
         try:
             handle = enable(manifest, set(manifest.capabilities))
         except PluginError as exc:
-            QMessageBox.warning(self, self.tr("Enable Failed"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Enable Failed"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._handles[manifest.name] = handle
         self._mark_status()

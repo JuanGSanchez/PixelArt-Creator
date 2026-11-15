@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.cloud import SharedProjectError
 from pixelart_creator.logic.cloud_validation import MEMBER_ROLES
 from pixelart_creator.logic.constants import MAX_SHARED_MEMBERS
@@ -193,7 +194,13 @@ class Shared_Projects_Panel(QWidget):
         try:
             self._session.share(project_id, tuple(self._draft))
         except SharedProjectError as exc:
-            QMessageBox.warning(self, self.tr("Shared Project"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Shared Project"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
 
     # -- session reactions ------------------------------------------------
 

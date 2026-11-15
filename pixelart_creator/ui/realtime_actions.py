@@ -38,6 +38,7 @@ from typing import Optional, Sequence
 
 from PySide6.QtCore import QObject, Signal
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic import sync_protocol
 from pixelart_creator.logic.cloud_validation import CloudValidationError
 from pixelart_creator.logic.convergence import Operation
@@ -165,7 +166,9 @@ class Realtime_Session(QObject):
         try:
             blob = encode_update(ops)
         except (RealtimeError, CloudValidationError) as exc:
-            self.errorOccurred.emit(f"{type(exc).__name__}: {exc}")
+            self.errorOccurred.emit(
+                failure_messages.failure_text(failure_messages.logged_failure_kind(exc))
+            )
             return
         self._state.accept(ops)
         self._client.send_update(blob)
@@ -192,7 +195,9 @@ class Realtime_Session(QObject):
         try:
             data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
-            self.errorOccurred.emit(f"{type(exc).__name__}: {exc}")
+            self.errorOccurred.emit(
+                failure_messages.failure_text(failure_messages.logged_failure_kind(exc))
+            )
             return
         self._client.send_presence(data)
 
@@ -211,7 +216,9 @@ class Realtime_Session(QObject):
         try:
             message = sync_protocol.decode_message(bytes(frame))
         except CloudValidationError as exc:
-            self.errorOccurred.emit(f"{type(exc).__name__}: {exc}")
+            self.errorOccurred.emit(
+                failure_messages.failure_text(failure_messages.logged_failure_kind(exc))
+            )
             return
         if message.kind is sync_protocol.ControlKind.UPDATE:
             self._apply_update(message.blob)
@@ -227,6 +234,8 @@ class Realtime_Session(QObject):
             apply_remote(self._document, blob, site_id=self._site_id, state=self._state)
             regions = dirty_regions(blob)
         except (RealtimeError, CloudValidationError) as exc:
-            self.errorOccurred.emit(f"{type(exc).__name__}: {exc}")
+            self.errorOccurred.emit(
+                failure_messages.failure_text(failure_messages.logged_failure_kind(exc))
+            )
             return
         self.remoteUpdateApplied.emit(regions)

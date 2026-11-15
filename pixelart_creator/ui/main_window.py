@@ -71,6 +71,7 @@ from PySide6.QtWidgets import (
 
 import pixelart_creator.logic.font_chain as font_chain
 import pixelart_creator.logic.language_names as language_names
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.asset_cas import default_content_store
 from pixelart_creator.data.asset_decision_journal import (
     JOURNAL_FILENAME,
@@ -3344,7 +3345,12 @@ class Main_Window(QMainWindow):
             self.tr("Import Failed"),
             self.tr("Could not import %1:\n%2")
             .replace("%1", Path(path).name)
-            .replace("%2", str(exc)),
+            .replace(
+                "%2",
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            ),
         )
 
     # -- slots ------------------------------------------------------------
@@ -3595,7 +3601,13 @@ class Main_Window(QMainWindow):
                 buffer, palette, mask=mask, target=self._edit_target(record)
             )
         except (QuantizeError, PaletteError) as exc:
-            QMessageBox.warning(self, self.tr("Constrain to Palette"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Constrain to Palette"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(
             LogicCommand(
@@ -3631,7 +3643,13 @@ class Main_Window(QMainWindow):
                 buffer, start, end, step, target=self._edit_target(record)
             )
         except PaletteError as exc:
-            QMessageBox.warning(self, self.tr("Colour Cycling"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Colour Cycling"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(
             LogicCommand(
@@ -3684,7 +3702,13 @@ class Main_Window(QMainWindow):
                 target=self._edit_target(record),
             )
         except PaletteError as exc:
-            QMessageBox.warning(self, self.tr("Palette Swap"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Palette Swap"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(
             LogicCommand(
@@ -3713,7 +3737,13 @@ class Main_Window(QMainWindow):
         try:
             command = record.document.make_convert_to_indexed_command(palette)
         except (DocumentError, IndexedModeError, PaletteError) as exc:
-            QMessageBox.warning(self, self.tr("Convert to Indexed"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Convert to Indexed"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(
             LogicCommand(
@@ -3739,7 +3769,13 @@ class Main_Window(QMainWindow):
         try:
             command = record.document.make_convert_to_rgba_command(palette)
         except (DocumentError, IndexedModeError, PaletteError) as exc:
-            QMessageBox.warning(self, self.tr("Convert to RGBA"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Convert to RGBA"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(
             LogicCommand(
@@ -3871,7 +3907,13 @@ class Main_Window(QMainWindow):
                     extracted = extract_masked(layer.buffer, mask)
                     document = Document.from_buffer(extracted, name="Selection")
                 except (PixelBufferError, DocumentError, SelectionError) as exc:
-                    QMessageBox.warning(self, self.tr("Register Selection"), str(exc))
+                    QMessageBox.warning(
+                        self,
+                        self.tr("Register Selection"),
+                        failure_messages.failure_text(
+                            failure_messages.logged_failure_kind(exc)
+                        ),
+                    )
                     return
         self._asset_session.register_selection(document, parent=self)
 
@@ -4462,7 +4504,13 @@ class Main_Window(QMainWindow):
         try:
             self._branching_session.merge_to_mainline(name)
         except RealtimeError as exc:
-            QMessageBox.warning(self, self.tr("Merge"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Merge"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         if self._branch_diff_dialog is not None:
             self._branch_diff_dialog.close()
@@ -4931,7 +4979,13 @@ class Main_Window(QMainWindow):
                     document, fn, new_w, new_h, self.tr("Scale Canvas"), self
                 )
             except TransformError as exc:
-                QMessageBox.warning(self, self.tr("Scale Canvas"), str(exc))
+                QMessageBox.warning(
+                    self,
+                    self.tr("Scale Canvas"),
+                    failure_messages.failure_text(
+                        failure_messages.logged_failure_kind(exc)
+                    ),
+                )
                 return
             if command is None:
                 return
@@ -4944,7 +4998,13 @@ class Main_Window(QMainWindow):
                 layer, fn, mask, target=self._edit_target(record)
             )
         except TransformError as exc:
-            QMessageBox.warning(self, self.tr("Scale Canvas"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Scale Canvas"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         dims_change = isinstance(command, history.FunctionCommand)
         self._apply_buffer_command(command, dims_change, self.tr("Scale Canvas"))
@@ -4979,7 +5039,13 @@ class Main_Window(QMainWindow):
                 document, new_w, new_h, rebind, self.tr("Canvas Size")
             )
         except PixelBufferError as exc:
-            QMessageBox.warning(self, self.tr("Canvas Size"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Canvas Size"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(command)
 
@@ -5309,7 +5375,13 @@ class Main_Window(QMainWindow):
         try:
             source = decode_image(path)
         except ImageImportError as exc:
-            QMessageBox.warning(self, self.tr("Open Tileset Image"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Open Tileset Image"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         doc = record.document
         first_gid = 1
@@ -5318,7 +5390,13 @@ class Main_Window(QMainWindow):
         try:
             tileset = Tileset(source, first_gid=first_gid, name=Path(path).stem)
         except TilesetError as exc:
-            QMessageBox.warning(self, self.tr("New Tileset"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("New Tileset"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(
             TilesetCommand(

@@ -75,6 +75,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QMessageBox, QWidget
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic.autotile import BLOB_TILE_COUNT, AutotileRuleset
 from pixelart_creator.logic.constants import (
     CLICK_DRAG_THRESHOLD_PX,
@@ -729,7 +730,12 @@ class Tilemap_Canvas(QGraphicsView):
                 tilemap.resolve(gid)  # every frame must be a known tile
             ruleset = AutotileRuleset(terrain_gid=base, frame_gids=frame_gids)
         except (TilemapError, ValueError) as exc:
-            self._warn(self.tr("Auto-tile"), str(exc))
+            self._warn(
+                self.tr("Auto-tile"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             self.autotileChanged.emit(False)
             return
         layer.autotile = ruleset
@@ -987,7 +993,12 @@ class Tilemap_Canvas(QGraphicsView):
         try:
             command = tilemap.make_stamp_command(self._active_layer, cx, cy, gid)
         except TilemapError as exc:
-            self._warn(self.tr("Stamp"), str(exc))
+            self._warn(
+                self.tr("Stamp"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(command, self.tr("Stamp Tile"), cx, cy, 1, 1)
 
@@ -998,7 +1009,12 @@ class Tilemap_Canvas(QGraphicsView):
         try:
             command = tilemap.make_erase_command(self._active_layer, cx, cy)
         except TilemapError as exc:
-            self._warn(self.tr("Erase"), str(exc))
+            self._warn(
+                self.tr("Erase"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(command, self.tr("Erase Tile"), cx, cy, 1, 1)
 
@@ -1018,7 +1034,12 @@ class Tilemap_Canvas(QGraphicsView):
                 self._active_layer, x0, y0, width, height, gid
             )
         except TilemapError as exc:
-            self._warn(self.tr("Fill"), str(exc))
+            self._warn(
+                self.tr("Fill"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(command, self.tr("Fill Rectangle"), x0, y0, width, height)
 

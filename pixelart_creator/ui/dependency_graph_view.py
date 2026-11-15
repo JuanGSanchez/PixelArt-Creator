@@ -52,6 +52,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic.asset_catalog import AssetCatalog, AssetKind
 from pixelart_creator.logic.break_detection import (
     REASON_HASH_MISMATCH,
@@ -83,8 +84,8 @@ class Dependency_Graph_View(QWidget):
         self._session: Optional[Asset_Library_Session] = None
         #: The asset in scope (``""`` = the whole catalog).
         self._asset_id: str = ""
-        #: The last cycle the model reported at :meth:`show_edges` (``""`` = none).
-        self._cycle_report: str = ""
+        #: The kind of the last cycle failure at :meth:`show_edges` (``None`` = none).
+        self._cycle_report: Optional[failure_messages.FailureKind] = None
 
         self._break_label = QLabel(self)
         self._break_label.setWordWrap(True)
@@ -124,9 +125,10 @@ class Dependency_Graph_View(QWidget):
 
         Delegates cycle detection to the model: on success the session graph is
         replaced (``graphChanged`` triggers the refresh); on a reported cycle the
-        :class:`DependencyGraphError` message is surfaced in the passive cycle label
-        and the last good graph is kept — the view never walks the edges itself, so a
-        cyclic edge set can never hang it (REQ-P11-UI-005 acceptance).
+        :class:`DependencyGraphError` is surfaced (as a failure sentence) in the
+        passive cycle label and the last good graph is kept — the view never walks
+        the edges itself, so a cyclic edge set can never hang it (REQ-P11-UI-005
+        acceptance).
 
         Args:
             edges: The dependency edges to build the graph from.
@@ -134,10 +136,10 @@ class Dependency_Graph_View(QWidget):
         try:
             graph = DependencyGraph(edges=tuple(edges))
         except DependencyGraphError as exc:
-            self._cycle_report = str(exc)
+            self._cycle_report = failure_messages.logged_failure_kind(exc)
             self._refresh()
             return
-        self._cycle_report = ""
+        self._cycle_report = None
         if self._session is not None:
             self._session.set_graph(graph)
         else:
@@ -160,11 +162,11 @@ class Dependency_Graph_View(QWidget):
     def _refresh(self) -> None:
         """Repopulate the tree + break surface from the current graph/catalog."""
         self._tree.clear()
-        self._cycle_label.setVisible(bool(self._cycle_report))
-        if self._cycle_report:
+        self._cycle_label.setVisible(self._cycle_report is not None)
+        if self._cycle_report is not None:
             self._cycle_label.setText(
                 self.tr("Dependency cycle detected (graph unchanged): %1").replace(
-                    "%1", self._cycle_report
+                    "%1", failure_messages.failure_text(self._cycle_report)
                 )
             )
         if self._session is None:

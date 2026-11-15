@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.constants import (
     DEFAULT_TILE_HEIGHT,
@@ -364,7 +365,12 @@ class Tileset_Editor_Panel(QWidget):
                 spacing=self._spacing_spin.value(),
             )
         except TilesetError as exc:
-            self._warn(self.tr("Re-slice Tileset"), str(exc))
+            self._warn(
+                self.tr("Re-slice Tileset"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(command, self.tr("Re-slice Tileset"))
 
@@ -383,7 +389,12 @@ class Tileset_Editor_Panel(QWidget):
         try:
             command = tileset.make_edit_tile_command(row, dialog.edited_buffer())
         except TilesetError as exc:
-            self._warn(self.tr("Edit Tile"), str(exc))
+            self._warn(
+                self.tr("Edit Tile"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(command, self.tr("Edit Tile"))
 

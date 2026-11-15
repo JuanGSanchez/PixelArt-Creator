@@ -11,6 +11,7 @@ both themes.
 
 from __future__ import annotations
 
+import logging
 import threading
 
 from pixelart_creator.ui.automation_worker import (
@@ -20,6 +21,7 @@ from pixelart_creator.ui.automation_worker import (
     make_dispatch_job,
     make_replay_job,
 )
+from pixelart_creator.ui.failure_messages import FailureKind
 from testing.suites.ui._automation_helpers import (
     arrays_equal,
     buffer_of,
@@ -107,8 +109,13 @@ def test_worker_run_drops_result_when_cancelled_during_job(qtbot, make_document)
     assert got["done"] == [9]
 
 
-def test_worker_run_emits_failed_then_done_on_error(qtbot, make_document):
-    """A raising job surfaces a typed failed message and still fires the terminal done."""
+def test_worker_run_emits_failed_then_done_on_error(qtbot, make_document, caplog):
+    """A raising job surfaces a typed failed message and still fires the terminal done.
+
+    REQ-L10N-UI-018: the worker thread emits only the KIND of the failure (the
+    documented kind for a ``ValueError`` is ``invalid_value``), never the exception's
+    message or type name; the detail goes to the log.
+    """
     doc = make_document(64, 64)
     signals = AutomationWorkerSignals()
     got = _capture(signals)
@@ -117,10 +124,18 @@ def test_worker_run_emits_failed_then_done_on_error(qtbot, make_document):
         raise ValueError("kaboom")
 
     worker = Automation_Worker(5, _boom, threading.Event(), signals)
-    worker.run()
-    assert got["failed"] and got["failed"][0][0] == 5
-    assert "kaboom" in got["failed"][0][1]
+    with caplog.at_level(logging.WARNING):
+        worker.run()
+    assert len(got["failed"]) == 1
+    token, payload = got["failed"][0]
+    assert token == 5
+    assert payload == FailureKind.INVALID_VALUE.value
+    assert FailureKind(payload) is FailureKind.INVALID_VALUE
+    assert "kaboom" not in payload
+    assert "ValueError" not in payload
     assert got["done"] == [5]
+    logged = [str(record.exc_info[1]) for record in caplog.records if record.exc_info]
+    assert "kaboom" in logged
 
 
 def test_controller_drops_stale_token_emissions(qtbot):

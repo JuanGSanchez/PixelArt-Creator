@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.reference_board_io import (
     ReferenceBoardIOError,
     ReferenceBoardLayout,
@@ -409,7 +410,13 @@ class Reference_Board(QWidget):
         try:
             save_board(self.to_layout(), path)
         except ReferenceBoardIOError as exc:
-            QMessageBox.warning(self, self.tr("Save failed"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Save failed"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
 
     def _on_load(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -424,7 +431,13 @@ class Reference_Board(QWidget):
             layout = load_board(path)
         except ReferenceBoardIOError as exc:
             # Malformed / unknown-version file → user-facing error, never a crash.
-            QMessageBox.warning(self, self.tr("Open failed"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Open failed"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self.apply_layout(layout)
 

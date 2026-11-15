@@ -11,6 +11,7 @@ themes via the autouse fixture (these are thread-free and theme-invariant).
 
 from __future__ import annotations
 
+import logging
 import threading
 
 from pixelart_creator.data.cloud import (
@@ -35,6 +36,7 @@ from pixelart_creator.ui.cloud_worker import (
     Cloud_Worker,
     CloudWorkerSignals,
 )
+from pixelart_creator.ui.failure_messages import FailureKind
 
 STARTER = [(0, 0, 0, 255), (255, 255, 255, 255), (230, 30, 30, 255)]
 
@@ -153,16 +155,29 @@ def test_worker_cancel_after_run_discards_result_but_done_fires():
     assert got["done"] == [1]
 
 
-def test_worker_error_emits_failed_then_done():
-    """A raising job emits failed with a typed message, then done (never a crash)."""
+def test_worker_error_emits_failed_then_done(caplog):
+    """A raising job emits failed with a typed message, then done (never a crash).
+
+    REQ-L10N-UI-018: the worker emits only the kind of the failure (a ``CloudError``
+    is a ``ValueError``, whose documented kind is ``invalid_value``), neither the
+    exception's message nor its type name; the detail goes to the log.
+    """
 
     def job(_c):
         raise CloudError("kaboom")
 
-    got = _run_worker("save", job, _no_cancel())
-    assert got["failed"] and "kaboom" in got["failed"][0][1]
-    assert "CloudError" in got["failed"][0][1]
+    with caplog.at_level(logging.WARNING):
+        got = _run_worker("save", job, _no_cancel())
+    assert len(got["failed"]) == 1
+    operation, payload = got["failed"][0]
+    assert operation == "save"
+    assert payload == FailureKind.INVALID_VALUE.value
+    assert FailureKind(payload) is FailureKind.INVALID_VALUE
+    assert "kaboom" not in payload
+    assert "CloudError" not in payload
     assert got["done"] == [1]
+    logged = [str(record.exc_info[1]) for record in caplog.records if record.exc_info]
+    assert "kaboom" in logged
 
 
 # -- Cloud_Controller edge paths -----------------------------------------------

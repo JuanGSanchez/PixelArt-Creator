@@ -22,7 +22,7 @@ every control carries an accessible name (REQ-P8-UI-012).
 from __future__ import annotations
 
 import json
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from PySide6.QtCore import QEvent, Signal
 from PySide6.QtWidgets import (
@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic.macro import Op
 from pixelart_creator.ui.automation_worker import STAGE_COMPLETE, STAGE_RUNNING
 
@@ -117,45 +118,50 @@ class Script_Runner_Panel(QWidget):
 
     # -- run --------------------------------------------------------------
 
-    def _parse_ops(self, text: str) -> List[Op]:
+    def _parse_ops(self, text: str) -> Tuple[List[Op], Optional[str]]:
         """Parse the JSON DSL text into :class:`Op` steps (inert data, no exec).
 
-        Raises:
-            ValueError: On invalid JSON or a malformed step (surfaced as a
-                user-facing error; the trusted dispatcher performs the
-                authoritative op-name / param validation).
+        Returns:
+            The steps and ``None``, or an empty list and the translated
+            message for invalid JSON or a malformed step (shown to the user;
+            the trusted dispatcher performs the authoritative op-name / param
+            validation).
         """
         try:
             data = json.loads(text)
         except json.JSONDecodeError as exc:
-            raise ValueError(self.tr("Invalid JSON: %1").replace("%1", str(exc)))
+            return [], self.tr("Invalid JSON: %1").replace(
+                "%1",
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
         if not isinstance(data, list):
-            raise ValueError(self.tr("A script must be a JSON array of steps."))
+            return [], self.tr("A script must be a JSON array of steps.")
         ops: List[Op] = []
         for entry in data:
             if not isinstance(entry, dict) or "name" not in entry:
-                raise ValueError(
-                    self.tr("Each step needs a 'name' and optional 'params'/'seed'.")
+                return [], self.tr(
+                    "Each step needs a 'name' and optional 'params'/'seed'."
                 )
             name = entry.get("name")
             params = entry.get("params", {})
             seed = entry.get("seed")
             if not isinstance(name, str):
-                raise ValueError(self.tr("Step 'name' must be a string."))
+                return [], self.tr("Step 'name' must be a string.")
             if not isinstance(params, dict):
-                raise ValueError(self.tr("Step 'params' must be an object."))
+                return [], self.tr("Step 'params' must be an object.")
             ops.append(Op(name=name, params=params, seed=seed))
-        return ops
+        return ops, None
 
     def _on_run(self) -> None:
         """Parse the editor text and request the host dispatch it (undoable)."""
         text = self._editor.toPlainText().strip()
         if not text:
             return
-        try:
-            ops = self._parse_ops(text)
-        except ValueError as exc:
-            QMessageBox.warning(self, self.tr("Script Error"), str(exc))
+        ops, problem = self._parse_ops(text)
+        if problem is not None:
+            QMessageBox.warning(self, self.tr("Script Error"), problem)
             return
         if not ops:
             return

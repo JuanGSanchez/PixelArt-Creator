@@ -9,6 +9,12 @@ surfaces a graceful error with no command landing. Headless; both themes.
 
 from __future__ import annotations
 
+import json
+import logging
+
+import pytest
+
+from pixelart_creator.ui.failure_messages import failure_kind, failure_text
 from pixelart_creator.ui.main_window import Main_Window
 from testing.suites.ui._automation_helpers import (
     RUN_TIMEOUT_MS,
@@ -76,3 +82,59 @@ def test_sc_ui_004_invalid_json_rejected_before_dispatch(qtbot, mute_message_box
     assert stack.count() == 0
     assert any(kind == "warning" for kind, *_ in mute_message_boxes)
     assert not win._automation_controller.is_busy()
+
+
+def test_sc_ui_004_invalid_json_shows_the_sentence_and_no_exception_text(
+    qtbot, mute_message_boxes, caplog
+):
+    """SC-UI-004-1 + REQ-L10N-UI-018: a rejected script never shows the parser's text.
+
+    Invalid JSON is rejected in-panel: the box reads "Invalid JSON: " followed by the
+    sentence for the failure's kind (a ``json.JSONDecodeError`` is a ``ValueError``)
+    in the active language. Neither the decoder's own message nor its type name is in
+    it, and the detail is logged. The four messages the panel writes itself for a
+    malformed step are still shown as they were, and nothing is dispatched.
+    """
+    win = _window(qtbot)
+    stack = win.active_tab().stack
+    panel = win._script_runner_panel
+
+    bad_text = "{ this is not valid json"
+    with pytest.raises(json.JSONDecodeError) as raised:
+        json.loads(bad_text)
+    decoder_error = raised.value
+    sentence = failure_text(failure_kind(decoder_error))
+
+    panel._editor.setPlainText(bad_text)
+    with caplog.at_level(logging.WARNING):
+        panel._on_run()
+
+    assert stack.count() == 0
+    assert not win._automation_controller.is_busy()
+    boxes = [text for kind, _title, text in mute_message_boxes if kind == "warning"]
+    assert len(boxes) == 1
+    shown = boxes[0]
+    assert shown.startswith("Invalid JSON: ")
+    assert shown.endswith(sentence)
+    assert decoder_error.msg not in shown
+    assert str(decoder_error) not in shown
+    assert type(decoder_error).__name__ not in shown
+    logged = [str(record.exc_info[1]) for record in caplog.records if record.exc_info]
+    assert str(decoder_error) in logged
+
+    # The panel's own four messages for a well-formed JSON text with a bad shape
+    # still reach the user unchanged (they carry no exception text), one box each.
+    own_messages = {
+        '{"name": "procgen"}': "A script must be a JSON array of steps.",
+        '[{"params": {}}]': "Each step needs a 'name' and optional 'params'/'seed'.",
+        '[{"name": 5}]': "Step 'name' must be a string.",
+        '[{"name": "procgen", "params": 3}]': "Step 'params' must be an object.",
+    }
+    for script, message in own_messages.items():
+        before = len(mute_message_boxes)
+        panel._editor.setPlainText(script)
+        panel._on_run()
+        assert [text for _kind, _title, text in mute_message_boxes[before:]] == [
+            message
+        ], script
+        assert stack.count() == 0

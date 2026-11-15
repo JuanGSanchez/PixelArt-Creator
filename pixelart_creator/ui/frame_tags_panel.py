@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic.animation import (
     DEFAULT_PLAYBACK_MODE,
     FrameTag,
@@ -308,7 +309,12 @@ class Frame_Tags_Panel(QWidget):
                 name, from_frame, to_frame, mode=mode, repeat=repeat, color=color
             )
         except DocumentError as exc:
-            self._warn(self.tr("Add Tag"), str(exc))
+            self._warn(
+                self.tr("Add Tag"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(cmd, self.tr("Add Tag"))
 
@@ -332,7 +338,12 @@ class Frame_Tags_Panel(QWidget):
                 color=color,
             )
         except DocumentError as exc:
-            self._warn(self.tr("Edit Tag"), str(exc))
+            self._warn(
+                self.tr("Edit Tag"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(cmd, self.tr("Edit Tag"))
 

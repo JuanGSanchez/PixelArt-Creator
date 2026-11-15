@@ -43,12 +43,14 @@ UI-side transformation.
 
 from __future__ import annotations
 
+import logging
 import threading
 from dataclasses import dataclass
 from typing import Optional, Sequence, Tuple
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.export_io import (
     ExportWriteError,
     write_engine_preset,
@@ -65,6 +67,8 @@ from pixelart_creator.logic.export import (
 #: Bounded wait for a running export to finish on teardown, ms (presentation-only
 #: timing, not a domain tuning value — mirrors ``_WARM_SHUTDOWN_WAIT_MS``).
 _EXPORT_SHUTDOWN_WAIT_MS = 5000
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -92,7 +96,7 @@ class ExportWorkerSignals(QObject):
     progress = Signal(int, int, int, str)
     #: ``(token, index, ExportResult)`` — a target finished successfully.
     targetSucceeded = Signal(int, int, object)
-    #: ``(token, index, message)`` — a target failed (batch continues).
+    #: ``(token, index, kind)`` — a target failed; ``kind`` is a ``FailureKind`` value.
     targetFailed = Signal(int, int, str)
     #: ``(token,)`` — the whole run finished (all targets done, or cancelled).
     batchFinished = Signal(int)
@@ -160,9 +164,11 @@ class Export_Worker(QRunnable):
                 # ``run_batch`` raises only when ``requests`` itself is too large
                 # (MAX_BATCH_TARGETS); every target is reported failed with the
                 # same message rather than stranding the UI with no signal at all.
+                failure_messages.log_failure(exc)
+                kind = failure_messages.failure_kind(exc).value
                 for index in range(total):
                     self._signals.progress.emit(self._token, index, total, "")
-                    self._signals.targetFailed.emit(self._token, index, str(exc))
+                    self._signals.targetFailed.emit(self._token, index, kind)
                 return
             for index, target in enumerate(self._targets):
                 if self._cancel.is_set():
@@ -173,8 +179,20 @@ class Export_Worker(QRunnable):
                     # CONTINUE-ON-FAILURE (D-15): report the failure captured by
                     # ``run_batch`` and move on; one bad target never aborts the
                     # rest or crashes the app (REQ-P7-UI-005/-008).
+                    # ``run_batch`` carries the exception itself: its text goes to
+                    # the log, and its classes (not its text) pick the sentence the
+                    # user reads. Without an exception the generic sentence applies.
+                    _LOGGER.log(
+                        logging.WARNING, "export target failed: %s", target_result.error
+                    )
+                    caught = target_result.caught_exception
+                    failed_kind = (
+                        failure_messages.FailureKind.GENERIC
+                        if caught is None
+                        else failure_messages.failure_kind(caught)
+                    )
                     self._signals.targetFailed.emit(
-                        self._token, index, str(target_result.error)
+                        self._token, index, failed_kind.value
                     )
                     continue
                 result = target_result.result
@@ -188,15 +206,23 @@ class Export_Worker(QRunnable):
                     # A successful export can still fail to WRITE (disk full,
                     # permissions, …); that too is a per-target failure, not a
                     # batch abort (REQ-P7-UI-005/-008).
-                    self._signals.targetFailed.emit(self._token, index, str(exc))
+                    failure_messages.log_failure(exc)
+                    self._signals.targetFailed.emit(
+                        self._token,
+                        index,
+                        failure_messages.failure_kind(exc).value,
+                    )
                     continue
                 except Exception as exc:  # noqa: BLE001 - deliberate UI backstop
                     # SAFETY NET: an unforeseen error type must STILL not strand the UI
                     # on "Exporting…". Surface it to the user (never silently swallow)
                     # with its type prefixed for diagnosis, then continue like any other
                     # per-target failure (REQ-P7-UI-005/-008).
+                    failure_messages.log_failure(exc)
                     self._signals.targetFailed.emit(
-                        self._token, index, f"{type(exc).__name__}: {exc}"
+                        self._token,
+                        index,
+                        failure_messages.failure_kind(exc).value,
                     )
                     continue
                 self._signals.targetSucceeded.emit(self._token, index, result)
@@ -332,7 +358,10 @@ class Export_Controller(QObject):
     @Slot(int, int, str)
     def _on_target_failed(self, token: int, index: int, message: str) -> None:
         if token == self._token:
-            self.targetFailed.emit(index, message)
+            self.targetFailed.emit(
+                index,
+                failure_messages.failure_text(failure_messages.FailureKind(message)),
+            )
 
     @Slot(int)
     def _on_batch_finished(self, token: int) -> None:

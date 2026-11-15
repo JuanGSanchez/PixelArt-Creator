@@ -59,6 +59,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.asset_revision_store import (
     AssetRevisionStore,
     AssetRevisionStoreError,
@@ -228,7 +229,13 @@ class Asset_Version_Browser(QWidget):
         try:
             blob = self._store.fetch(self._asset_id, revision.content_hash)
         except (AssetRevisionStoreError, AssetVersionError) as exc:
-            QMessageBox.warning(self, self.tr("Version history"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Version history"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         author = revision.author if revision.author else self.tr("(unknown)")
         self._details_label.setText(
@@ -248,7 +255,13 @@ class Asset_Version_Browser(QWidget):
         try:
             blob = self._store.fetch(self._asset_id, revision.content_hash)
         except (AssetRevisionStoreError, AssetVersionError) as exc:
-            QMessageBox.warning(self, self.tr("Version history"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Version history"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         try:
             new_head = self._store.record(
@@ -258,7 +271,13 @@ class Asset_Version_Browser(QWidget):
                 author=revision.author,
             )
         except (AssetRevisionStoreError, AssetVersionError) as exc:
-            QMessageBox.warning(self, self.tr("Version history"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Version history"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._sync_catalog(new_head.content_hash)
         self._refresh()

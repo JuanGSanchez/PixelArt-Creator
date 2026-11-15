@@ -122,6 +122,7 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import QDialog, QFileDialog, QMessageBox, QWidget
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.asset_cas import ContentAddressableStore
 from pixelart_creator.data.asset_catalog_io import (
     INDEX_FILENAME,
@@ -717,14 +718,20 @@ class Asset_Library_Session(QObject):
 
     def _report_import_failure(self, exc: Exception, parent: Optional[QWidget]) -> None:
         """Emit :data:`libraryImportFailed` and, with a ``parent``, a message box."""
-        message = self.tr("Could not import the asset: %1").replace("%1", str(exc))
+        message = self.tr("Could not import the asset: %1").replace(
+            "%1",
+            failure_messages.failure_text(failure_messages.logged_failure_kind(exc)),
+        )
         self.libraryImportFailed.emit(message)
         if parent is not None:
             QMessageBox.warning(parent, self.tr("Import asset"), message)
 
     def _report_export_failure(self, exc: Exception, parent: Optional[QWidget]) -> None:
         """Emit :data:`libraryExportFailed` and, with a ``parent``, a message box."""
-        message = self.tr("Could not export the asset: %1").replace("%1", str(exc))
+        message = self.tr("Could not export the asset: %1").replace(
+            "%1",
+            failure_messages.failure_text(failure_messages.logged_failure_kind(exc)),
+        )
         self.libraryExportFailed.emit(message)
         if parent is not None:
             QMessageBox.warning(parent, self.tr("Export asset"), message)
@@ -734,7 +741,8 @@ class Asset_Library_Session(QObject):
     ) -> None:
         """Emit :data:`projectBundleExportFailed` and, with a ``parent``, a box."""
         message = self.tr("Could not export the project bundle: %1").replace(
-            "%1", str(exc)
+            "%1",
+            failure_messages.failure_text(failure_messages.logged_failure_kind(exc)),
         )
         self.projectBundleExportFailed.emit(message)
         if parent is not None:
@@ -745,7 +753,8 @@ class Asset_Library_Session(QObject):
     ) -> None:
         """Emit :data:`projectBundleImportFailed` and, with a ``parent``, a box."""
         message = self.tr("Could not import the project bundle: %1").replace(
-            "%1", str(exc)
+            "%1",
+            failure_messages.failure_text(failure_messages.logged_failure_kind(exc)),
         )
         self.projectBundleImportFailed.emit(message)
         if parent is not None:
@@ -1131,9 +1140,13 @@ class Asset_Library_Session(QObject):
         then fails reports here too (``AssetRevisionStoreError``), because
         the two are not one atomic operation — the catalog write already
         happened. That distinction is not hidden: the message names what
-        happened via ``str(exc)``, translated as this module's idiom.
+        happened by the failure sentence for its class, translated as this module's
+        idiom.
         """
-        message = self.tr("Could not register the asset: %1").replace("%1", str(exc))
+        message = self.tr("Could not register the asset: %1").replace(
+            "%1",
+            failure_messages.failure_text(failure_messages.logged_failure_kind(exc)),
+        )
         self.registrationFailed.emit(message)
         if parent is not None:
             QMessageBox.warning(parent, self.tr("Asset registration"), message)

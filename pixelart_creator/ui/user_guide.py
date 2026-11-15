@@ -65,6 +65,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.guide_content import (
     GuideContentError,
     available_locales,
@@ -228,11 +229,14 @@ class User_Guide_Dialog(QDialog):
     def _resolve_model(
         model: Optional[GuideModel],
         content_locales: Optional[Iterable[str]],
-    ) -> tuple[Optional[GuideModel], frozenset[str], Optional[str]]:
+    ) -> tuple[
+        Optional[GuideModel], frozenset[str], Optional[failure_messages.FailureKind]
+    ]:
         """Return ``(model, content_locales, error)`` — building from the bundle.
 
-        A missing/malformed bundle is caught and reported as an error string (shown
-        in the content pane), so opening the guide never raises (REQ-UG-UI-005).
+        A missing/malformed bundle is caught and reported as a failure kind (shown
+        in the content pane as its sentence), so opening the guide never raises
+        (REQ-UG-UI-005).
         """
         if model is not None:
             locales = (
@@ -250,7 +254,8 @@ class User_Guide_Dialog(QDialog):
             )
             return built, locales, None
         except (GuideContentError, GuideModelError) as exc:
-            return None, frozenset(), str(exc)
+            failure_messages.log_failure(exc)
+            return None, frozenset(), failure_messages.failure_kind(exc)
 
     def _build_ui(self) -> None:
         """Assemble the search box, ToC/results stack, and content pane."""
@@ -496,7 +501,12 @@ class User_Guide_Dialog(QDialog):
             # a single translatable unit with a ``%1`` placeholder (no '+'-join of a
             # translated string — word order stays under the translator's control).
             self._content_view.setPlainText(
-                self.tr("Could not load this topic:\n\n%1").replace("%1", str(exc))
+                self.tr("Could not load this topic:\n\n%1").replace(
+                    "%1",
+                    failure_messages.failure_text(
+                        failure_messages.logged_failure_kind(exc)
+                    ),
+                )
             )
             self._logo_switch.place()
             return
@@ -548,10 +558,10 @@ class User_Guide_Dialog(QDialog):
     def _show_load_error(self) -> None:
         """Show the bundle load-error message and disable navigation controls."""
         self._search_edit.setEnabled(False)
-        if self._load_error:
+        if self._load_error is not None:
             message = self.tr(
                 "The User Guide content could not be loaded:\n\n%1"
-            ).replace("%1", self._load_error)
+            ).replace("%1", failure_messages.failure_text(self._load_error))
         else:
             message = self.tr("The User Guide content could not be loaded.")
         self._content_view.setPlainText(message)

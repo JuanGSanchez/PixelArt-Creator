@@ -17,6 +17,7 @@ executed (Article VII); the guide is fully offline (no network object exists).
 
 from __future__ import annotations
 
+import logging
 from typing import Dict
 
 import pytest
@@ -35,6 +36,7 @@ from pixelart_creator.logic.guide_model import (
     content_ref_path,
     missing_required_areas,
 )
+from pixelart_creator.ui.failure_messages import failure_kind, failure_text
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.user_guide import User_Guide_Dialog
 
@@ -252,18 +254,33 @@ def test_sc_u005_2b_external_link_is_a_noop(qtbot):
         assert dialog.current_topic_id() == "layers"  # unchanged, no navigation
 
 
-def test_sc_u005_3_content_load_error_surfaces_message_no_crash(qtbot):
-    """SC-U005-3: a content-load error surfaces a user-facing message, not a crash."""
+def test_sc_u005_3_content_load_error_surfaces_message_no_crash(qtbot, caplog):
+    """SC-U005-3: a content-load error surfaces a user-facing message, not a crash.
+
+    REQ-L10N-UI-018: the pane shows the frame sentence and the sentence for the
+    failure's kind in the active language, and nothing of the exception: neither its
+    message nor its type name. The detail is logged.
+    """
+    refs_asked: list = []
 
     def _raising_reader(ref: str) -> str:
+        refs_asked.append(ref)
         raise GuideContentError(f"boom: {ref}")
 
-    dialog = _make_dialog(qtbot, reader=_raising_reader)
+    with caplog.at_level(logging.WARNING):
+        dialog = _make_dialog(qtbot, reader=_raising_reader)
     # No exception was raised building/showing; the pane holds the error message
     # rendered as PLAIN text (never interpreted as markup).
     text = dialog._content_view.toPlainText()
+    assert refs_asked, "the failing reader must have been asked for a topic"
+    detail = f"boom: {refs_asked[0]}"
     assert "Could not load this topic" in text
-    assert "boom" in text
+    assert failure_text(failure_kind(GuideContentError(detail))) in text
+    assert "boom" not in text
+    assert detail not in text
+    assert "GuideContentError" not in text
+    logged = [str(record.exc_info[1]) for record in caplog.records if record.exc_info]
+    assert detail in logged
 
 
 def test_sc_u005_3b_malformed_bundle_degrades_to_error_screen(qtbot, monkeypatch):
