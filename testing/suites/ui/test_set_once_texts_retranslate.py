@@ -17,7 +17,10 @@ pair, and is the source text for English. Undo and Redo are compared after the
 access-key presentation is removed from both sides (the ``&`` and a trailing
 `` (X)``; ``&&`` stays a literal ampersand); the access key itself is asserted
 separately, through ``QKeySequence.mnemonic``, to be Alt+U and Alt+R in every
-language (REQ-L10N-UI-004). The one exception to reading the ``.ts`` is the
+language (REQ-L10N-UI-004). That reader consults a process-wide Qt flag whose
+default differs by platform (off on macOS), so every case here forces the flag on
+for its duration (the ``_qt_auto_mnemonic_enabled`` fixture) and the verdict does
+not depend on the platform. The one exception to reading the ``.ts`` is the
 numerus frames-dropped notice: its expected text comes from a plain
 ``QTranslator`` loaded straight from the shipped ``.qm``, which is Qt's own
 plural lookup and not product code.
@@ -205,6 +208,15 @@ def _expected_prefixes(code: str) -> Tuple[str, str]:
 # --------------------------------------------------------------------------- #
 # Fixtures                                                                    #
 # --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(autouse=True)
+def _access_keys_are_read_by_qt(_qt_auto_mnemonic_enabled) -> None:
+    """Every case reads access keys with Qt's mnemonic reader switched on.
+
+    Without it the reader answers an empty key for every text on a platform whose
+    default is off, whatever the product's text carries.
+    """
 
 
 @pytest.fixture
