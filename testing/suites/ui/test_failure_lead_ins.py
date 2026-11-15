@@ -61,6 +61,7 @@ from typing import (
 )
 
 import pytest
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QFileDialog, QWidget
 
 import pixelart_creator
@@ -803,6 +804,7 @@ def _drive_status_bar(env: Env, kind: str) -> str:
         return raising
 
     session.connect_realtime("doc", "alice")  # no transport: the reason is shown
+    assert not client.is_active(), "the no-transport connect started a worker"
     bar.clearMessage()
     frame = sync_protocol.encode_update(
         "doc", encode_update((MetadataOp("k", "v", 1, 1),))
@@ -844,11 +846,29 @@ def _drive_status_bar(env: Env, kind: str) -> str:
         def __call__(self) -> Any:
             raise plant(RuntimeError, kind)
 
-    session.set_transport_factory(_Boom())
-    session.connect_realtime("doc", "alice")
-    env.qtbot.waitUntil(lambda: bar.currentMessage() != "", timeout=5000)
-    read()
-    session.disconnect_realtime()
+    # The factory is this drive's own and is put back when the drive ends. Left set, it
+    # made the NEXT drive's first connect (the no-transport one above) start a worker
+    # that raised THIS kind: its queued failure reached the bar in the next drive,
+    # ahead of (or instead of, when that worker was still running and the connect
+    # below was a no-op) the next kind's own.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(client, "_factory", _Boom())
+        assert (
+            not client.is_active()
+        ), "a worker is running: the connect below would do nothing"
+        with env.qtbot.waitSignal(
+            session.errorOccurred, timeout=5000, raising=True
+        ) as delivered:
+            session.connect_realtime("doc", "alice")
+        read()
+        session.disconnect_realtime()
+    assert (
+        delivered.args is not None and delivered.args[1] is True
+    ), f"the worker's failure was not delivered as a failure: {delivered.args!r}"
+    QCoreApplication.processEvents()  # a late delivery would show on the bar now
+    assert (
+        bar.currentMessage() == ""
+    ), f"a delivery reached the status bar after the drive's: {bar.currentMessage()!r}"
     assert len(shown) == 5 and all(shown), f"the five real-time sites showed {shown!r}"
     return "\n@@\n".join(shown)
 
