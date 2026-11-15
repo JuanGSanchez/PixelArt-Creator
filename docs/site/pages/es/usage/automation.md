@@ -2,8 +2,7 @@
 
 El **sistema de automatización** te permite grabar, programar mediante
 scripts, reproducir y procesar por lotes las operaciones propias del editor,
-generar contenido de forma procedural, y ampliar la aplicación con
-complementos de confianza — todo a través de **un solo** motor que la interfaz
+generar contenido de forma procedural — todo a través de **un solo** motor que la interfaz
 gráfica y la línea de comandos sin interfaz gráfica `pixelart-run` comparten,
 así que una automatización se ejecuta **de forma idéntica** tanto si la
 activas desde un panel como desde un script de compilación.
@@ -90,38 +89,54 @@ Como la ejecución es un único comando agrupado, un script completado es **un
 
 ## Complementos — el gestor, el consentimiento y el modelo de confianza
 
-El **gestor de complementos** descubre, habilita y deshabilita complementos. Los
-complementos amplían el editor registrando nuevas operaciones del DSL — y
-solo eso.
+El **gestor de complementos** descubre, habilita y deshabilita complementos. Un complemento
+está pensado para ampliar el editor registrando nuevas operaciones del DSL. **En esta
+versión la aplicación no tiene ningún paso que cargue o ejecute el código de un
+complemento:** descubrir un complemento, cargar un manifiesto, habilitar y
+deshabilitar nunca invocan a un complemento. Los permisos que declara un manifiesto
+describen el uso previsto del complemento; no son un límite de lo que puede hacer el
+código propio del complemento (consulta la nota de abajo).
 
-- **El descubrimiento es inerte.** Los complementos instalados se *encuentran*
-  (mediante los puntos de entrada estándar de Python) pero **nada se carga ni
-  se ejecuta** solo por estar instalado. Los ves listados; no hacen nada hasta
-  que actúas.
-- **Denegar por defecto, con consentimiento explícito.** Habilitar un
-  complemento le entrega un **objeto de capacidad cuya única superficie es el
-  registro de comandos del DSL**. A través de ese
-  objeto, un complemento no puede hacer nada que no haya declarado — **toda
-  capacidad que no declaró se deniega**. Apruebas los permisos declarados de
-  un complemento en conjunto, o no lo habilitas. Habilitar un complemento en el
-  gestor de complementos no ejecuta por sí mismo el código del complemento. Sus operaciones
-  están asociadas al espacio de nombres del complemento, así que un
-  complemento no puede suplantar una operación integrada. Esto limita lo que
-  el complemento puede hacer *a través de la aplicación*; no restringe el
-  código propio del complemento (consulta la nota de abajo).
-- **Deshabilitar es limpio.** Deshabilitar un complemento anula el registro de
-  las operaciones que añadió.
+- **El descubrimiento es inerte.** La aplicación encuentra los complementos instalados
+  mediante los puntos de entrada estándar de Python, pero solo lee sus nombres y
+  versiones: **no** carga ni ejecuta su código. Un complemento descubierto no muestra
+  permisos y no se puede habilitar, porque la aplicación no lee los permisos del propio
+  complemento. Los permisos proceden de un archivo de manifiesto que añades al panel
+  desde el disco, y que aparece como una entrada propia en la lista. La aplicación no
+  comprueba que un manifiesto pertenezca a un complemento que hayas instalado.
+- **El consentimiento cubre lo que declara el manifiesto.** **Habilitar** muestra los
+  permisos que declara el manifiesto y te pide que confirmes. Los apruebas en
+  conjunto, o no habilitas el complemento. La aplicación no comprueba el manifiesto
+  frente a lo que el código del complemento hace realmente. Habilitar registra los
+  permisos que aprobaste, en memoria, y marca el complemento como habilitado; no
+  ejecuta el código del complemento, porque la aplicación no tiene ningún paso que lo
+  haga. Tu consentimiento no se guarda: todos los complementos vuelven a quedar
+  deshabilitados cuando cierras el editor. El anfitrión de complementos está escrito de
+  modo que, si el código que lo llama le proporcionara un paso de activación, a ese paso
+  se le entregaría un objeto de permisos, y se rechazaría toda llamada a través de ese
+  objeto cuyo permiso no se hubiera concedido; en esta versión nada proporciona un
+  paso así. Las operaciones registradas a través de ese objeto llevan como prefijo el
+  nombre del complemento, así que no pueden coincidir con el nombre de una operación
+  integrada, y un permiso de lectura a través de él devuelve el documento que se le
+  pasa, no una copia. El código que no pasa por el objeto no queda limitado por él:
+  puede registrar o eliminar operaciones directamente, incluidas las integradas.
+- **Deshabilitar elimina las operaciones del complemento.** **Deshabilitar** anula el
+  registro de las operaciones que se registraron a través del objeto de permisos; en
+  esta versión no hay ninguna, porque nada registra ninguna. No deshace nada de lo que
+  el código propio de un complemento ya ha hecho.
 
-!!! warning "De confianza con consentimiento, en esta versión"
-    Como *cargar* un complemento de Python es en sí mismo ejecutar código, el
-    modelo de capacidades en proceso es de **fuerza consultiva** — adecuado
-    para **extensiones de confianza que instalas y consientes**, no para
-    código arbitrario de un mercado no confiable. El aislamiento a nivel de
-    sistema operativo de complementos de terceros no confiables queda
-    **aplazado** a una fase posterior. El código de un complemento se ejecuta en
-    el mismo proceso que el editor, con el mismo acceso a tus archivos y a la
-    red que la propia aplicación. Instala solo complementos en los que
-    confíes.
+!!! warning "Los complementos no están dentro de un entorno aislado (sandbox)"
+    Un complemento
+    no está aislado de tu equipo, y la aplicación no proporciona aislamiento para ningún
+    complemento en esta versión. Instalar un complemento coloca en tu equipo código de
+    Python ajeno, y la aplicación ni realiza ni comprueba la instalación. Un paquete
+    también puede pedirle a Python que ejecute código cada vez que Python se inicia en el
+    entorno donde está instalado, lo cual incluye el editor, así que instalar un
+    complemento puede bastar para que su código se ejecute, aunque nunca abras el panel
+    **Complementos**. El código que se ejecuta en el propio proceso del editor, sea cual
+    sea el modo en que haya llegado allí, tiene el mismo acceso a tus archivos y a la red
+    que el editor mismo, cualesquiera que sean los permisos que haya declarado el
+    complemento. Instala y habilita solo complementos en los que confíes.
 
 ## Recolor por lotes
 
@@ -192,7 +207,7 @@ pixelart-run --input PROJECT.pixproj --macro MACRO.pixmacro --output OUT.pixproj
 | `--param KEY=VALUE` | inyecta o sustituye un parámetro de la macro; se puede repetir. Un valor numérico se interpreta como entero; en caso contrario se conserva como cadena. |
 
 **Códigos de salida:** `0` éxito; `1` un fallo de automatización (un error de
-script / macro / complemento / lote / procgen, o un fallo de escritura); `2`
+script / macro / lote / procgen, o un fallo de escritura); `2`
 argumentos incorrectos o un proyecto o macro de entrada malformado / ilegible.
 
 !!! tip "El mismo camino que la interfaz gráfica"
@@ -209,8 +224,6 @@ argumentos incorrectos o un proyecto o macro de entrada malformado / ilegible.
   scripting es un DSL de comandos acotado y basado en lista de permitidos, no
   un intérprete de propósito general; esto es un límite de seguridad
   deliberado, no una limitación pendiente de levantar.
-- **Aislamiento de complementos de terceros no confiables** — **aplazado.**
-  Los complementos son de confianza con consentimiento en esta versión; el
-  sandboxing a nivel de sistema operativo de complementos de mercado no
-  confiables es un seguimiento previsto para una fase posterior.
-  Instala solo complementos en los que confíes.
+- **Aislamiento de complementos de terceros no confiables** — **aplazado.** Los
+  complementos no están dentro de un entorno aislado en esta versión; instala y
+  habilita solo complementos en los que confíes.

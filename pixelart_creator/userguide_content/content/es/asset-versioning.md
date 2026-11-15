@@ -14,7 +14,7 @@ los paneles de [biblioteca de recursos](asset-library.md) y
 > usa: los bytes de un recurso se almacenan **una vez**, con clave según su
 > contenido, en un almacén direccionable por contenido, y un proyecto solo
 > mantiene una **referencia** (un id estable más el hash de contenido que espera).
-> El versionado, la reutilización y la exportación mueven referencias y verifican
+> Tanto el versionado como la reutilización mueven referencias y verifican
 > contenido — nunca hacen una segunda copia de tu obra.
 
 ## Historial de versiones
