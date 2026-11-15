@@ -78,7 +78,8 @@ Das Bedienfeld **Stapelexport** stellt **mehrere Ziele auf einmal** in eine Wart
 ein PNG, ein GIF und einen Unity-Atlas aus einem Projekt in einem einzigen Durchlauf. Der Stapelexport
 **läuft bei Fehlern weiter**: Schlägt ein Ziel fehl (etwa ein Atlas, der nicht passt), werden die
 übrigen Ziele trotzdem exportiert, und der Fehler wird nur für dieses Ziel gemeldet – ein fehlerhaftes
-Ziel bricht den Stapel also nie ab.
+Ziel bricht den Stapel also nie ab. Die Schaltfläche **Alle exportieren** exportiert das Dokument im
+aktiven Tab in einem Durchlauf in alle Exportziele der Warteschlange.
 
 ## Eine exportierte Datei in der Bibliothek registrieren
 

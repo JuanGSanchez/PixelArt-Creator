@@ -1,9 +1,9 @@
 # Automatisierung, Makros, Skripte und Plugins
 
 Das **Automatisierungssystem** ermöglicht es Ihnen, die eigenen Operationen des Editors aufzunehmen, zu
-skripten, abzuspielen und stapelweise auszuführen, Inhalte prozedural zu erzeugen und die Anwendung um
-Plugins zu erweitern, denen Sie vertrauen – alles über **eine** Engine, die die GUI und die headless
-ausgeführte Befehlszeile `pixelart-run` gemeinsam nutzen. Eine Automatisierung läuft daher
+skripten, abzuspielen und stapelweise auszuführen sowie Inhalte prozedural zu erzeugen –
+alles über **eine** Engine, die die GUI und die headless ausgeführte
+Befehlszeile `pixelart-run` gemeinsam nutzen. Eine Automatisierung läuft daher
 **identisch** ab, ob Sie sie über ein Bedienfeld oder über ein Build-Skript auslösen.
 
 > **Sicherheit durch Entwurf – kein `eval`, niemals.** Skripting ist eine **begrenzte, datengesteuerte
@@ -74,32 +74,51 @@ Da der Lauf ein gruppierter Befehl ist, ist ein abgeschlossenes Skript **ein ein
 
 ## Plugins – Verwaltung, Zustimmung und Vertrauensmodell
 
-Das Bedienfeld **Plugins** erkennt, aktiviert und deaktiviert Plugins. Plugins erweitern den Editor,
-indem sie neue DSL-Operationen registrieren – und nur das.
+Das Bedienfeld **Plugins** listet Plugins auf, zeigt die Berechtigungen jedes Plugins an, dessen
+Manifest Sie geladen haben, und aktiviert und deaktiviert sie. Ein Plugin soll den Editor erweitern,
+indem es neue DSL-Operationen registriert. **In dieser Version hat die Anwendung keinen Vorgang, der
+den Code eines Plugins lädt oder ausführt:** Das Auffinden eines Plugins, das Laden eines Manifests
+sowie das Aktivieren und das Deaktivieren rufen nie ein Plugin auf. Die Berechtigungen, die ein
+Manifest deklariert, beschreiben die beabsichtigte Verwendung des Plugins; sie sind keine Begrenzung
+dessen, was der Code des Plugins selbst tun kann (siehe den Hinweis unten).
 
-- **Das Auffinden hat keine Wirkung.** Installierte Plugins werden *gefunden* (über die
-  standardmäßigen Python-Entry-Points), aber **nichts wird geladen oder ausgeführt**, nur weil sie
-  installiert sind. Sie sehen sie aufgelistet; sie tun nichts, bis Sie handeln.
-- **Standardmäßig verweigert, mit ausdrücklicher Zustimmung.** Beim Aktivieren erhält ein Plugin ein
-  **Capability-Objekt, dessen einzige Schnittstelle die DSL-Befehlsregistrierung ist** (ein Objekt, das
-  festlegt, was das Plugin über die Anwendung tun darf). Über dieses
-  Objekt kann ein Plugin nichts tun, was es nicht deklariert hat – **jede nicht deklarierte Capability
-  wird verweigert**. Sie genehmigen die deklarierten Berechtigungen eines Plugins als Ganzes, oder Sie
-  aktivieren es nicht. Das Aktivieren eines Plugins im Bedienfeld führt den Code des Plugins nicht selbst
-  aus. Seine Operationen liegen im Namensraum des Plugins, sodass ein Plugin keine eingebaute Operation
-  überdecken kann. Das begrenzt, was das Plugin *über die Anwendung* tun kann; den eigenen Code des
-  Plugins schränkt es nicht ein (siehe den Hinweis unten).
-- **Deaktivieren räumt sauber auf.** Beim Deaktivieren eines Plugins werden die von ihm hinzugefügten
-  Operationen wieder entfernt.
+- **Das Auffinden listet Plugins nur auf.** Die Anwendung findet installierte Plugins über die
+  standardmäßigen Python-Entry-Points, liest aber nur deren Namen und Versionen: Der Code dieser
+  Plugins wird **nicht** geladen oder ausgeführt. Ein gefundenes Plugin zeigt keine Berechtigungen und
+  lässt sich nicht aktivieren, weil die Anwendung Berechtigungen nicht aus dem Plugin selbst liest. Die
+  Berechtigungen stammen aus einer Manifestdatei, die Sie von einem Datenträger zum Bedienfeld
+  hinzufügen und die dort als eigener Eintrag in der Liste erscheint. Die Anwendung prüft nicht, ob ein
+  Manifest zu einem Plugin gehört, das Sie installiert haben.
+- **Ihre Zustimmung bezieht sich auf das Manifest, nicht auf den Code des Plugins.** **Aktivieren**
+  zeigt die Berechtigungen an, die das Manifest deklariert, und bittet Sie um Bestätigung. Sie
+  genehmigen die Berechtigungen als Ganzes, oder Sie aktivieren das Plugin nicht. Die Anwendung gleicht
+  das Manifest nicht mit dem ab, was der Code des Plugins tatsächlich tut. Das Aktivieren hält die
+  Berechtigungen, die Sie genehmigt haben, im Arbeitsspeicher fest und markiert das Plugin als
+  aktiviert; es führt den Code des Plugins nicht aus, weil die Anwendung keinen Vorgang hat, der das
+  tut. Ihre Zustimmung wird nicht gespeichert: Beim Schließen des Editors ist jedes Plugin wieder
+  deaktiviert. Der Plugin-Host ist so programmiert: Gäbe ihm ein Aufrufer Code, der beim Aktivieren
+  eines Plugins ausgeführt werden soll, so würde dieser Code ein Berechtigungsobjekt erhalten, und ein
+  Aufruf über dieses Objekt, für den keine Berechtigung erteilt wurde, würde abgelehnt; in dieser
+  Version übergibt ihm nichts derartigen Code. Über dieses Objekt registrierte Operationen erhalten den
+  Namen des Plugins als Präfix, sodass sie nicht mit dem Namen einer eingebauten Operation
+  übereinstimmen können, und eine Leseberechtigung über dieses Objekt liefert das übergebene Dokument
+  selbst zurück, nicht eine Kopie. Code, der nicht über das Objekt läuft, wird davon nicht begrenzt: Er
+  kann Operationen direkt registrieren oder entfernen, auch eingebaute.
+- **Deaktivieren entfernt Operationen, nicht den Code des Plugins.** **Deaktivieren** hebt die
+  Registrierung der Operationen auf, die über das Berechtigungsobjekt registriert wurden; in dieser
+  Version gibt es keine, weil nichts welche registriert. Es macht nichts rückgängig, was der Code eines
+  Plugins bereits getan hat.
 
-> **Vertrauen und Zustimmung – in dieser Version.** Weil schon das *Laden* eines Python-Plugins das
-> Ausführen von Code ist, ist das prozessinterne Capability-Modell nur ein **unverbindlicher** Schutz
-> und keine harte Sicherheitsgrenze: Es begrenzt, was ein Plugin über die Anwendung tun kann, nicht
-> aber, was der eigene Code des Plugins tun kann. Es genügt für **Erweiterungen, denen Sie vertrauen,
-> die Sie selbst installieren und denen Sie zustimmen**, nicht für beliebigen Code aus einem nicht
-> vertrauenswürdigen Marktplatz. Der Code eines Plugins läuft im selben Prozess wie der Editor, mit
-> demselben Zugriff auf Ihre Dateien und das Netzwerk wie die Anwendung selbst. Installieren Sie nur
-> Plugins, denen Sie vertrauen.
+> **Plugins sind nicht in einer Sandbox gekapselt.** Ein Plugin ist nicht von Ihrem Computer isoliert,
+> und die Anwendung bietet in dieser Version für kein Plugin eine Isolierung. Die Installation eines
+> Plugins bringt fremden Python-Code auf Ihren Computer, und die Anwendung führt die Installation weder
+> durch noch prüft sie diese. Eine Python-Distribution kann Python außerdem darum bitten, bei jedem
+> Start von Python in der Umgebung, in der diese Distribution installiert ist und zu der der Editor
+> gehört, Code auszuführen, sodass das Installieren eines Plugins genügen kann, damit dessen Code
+> ausgeführt wird, auch wenn Sie das Bedienfeld **Plugins** nie öffnen. Code, der im Prozess des
+> Editors läuft, hat – gleichgültig, wie er dorthin gelangt ist – denselben Zugriff auf Ihre Dateien
+> und das Netzwerk wie der Editor selbst, unabhängig davon, welche Berechtigungen das Plugin
+> deklariert hat. Installieren und aktivieren Sie nur Plugins, denen Sie vertrauen.
 
 ## Stapelumfärbung
 
@@ -160,7 +179,7 @@ pixelart-run --input PROJECT.pixproj --macro MACRO.pixmacro --output OUT.pixproj
 | `--seed N` | den Startwert für Operationen überschreiben, die keinen aufgenommen haben (ein aufgenommener Startwert hat immer Vorrang). |
 | `--param KEY=VALUE` | einen Makroparameter einfügen oder überschreiben; wiederholbar. |
 
-**Exit-Codes:** `0` Erfolg; `1` ein Automatisierungsfehler (ein Fehler bei Skript, Makro, Plugin, Stapel
+**Exit-Codes:** `0` Erfolg; `1` ein Automatisierungsfehler (ein Fehler bei Skript, Makro, Stapel
 oder prozeduraler Generierung oder ein Schreibfehler); `2` ungültige Argumente oder ein fehlerhaftes bzw.
 nicht lesbares Eingabeprojekt oder Makro.
 
@@ -172,7 +191,7 @@ nicht lesbares Eingabeprojekt oder Makro.
   begrenzte DSL aus Befehlen auf einer Positivliste, kein Allzweck-Interpreter; das ist eine bewusste
   Sicherheitsgrenze, keine Einschränkung, die aufgehoben werden soll.
 - **Isolierung nicht vertrauenswürdiger Plugins von Drittanbietern** – **zurückgestellt.** Plugins sind in
-  dieser Version auf Ihr Vertrauen und Ihre Zustimmung angewiesen; installieren Sie nur Plugins, denen
+  dieser Version nicht in einer Sandbox gekapselt; installieren und aktivieren Sie nur Plugins, denen
   Sie vertrauen.
 
 ## Verwandte Themen
