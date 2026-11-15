@@ -69,7 +69,9 @@ what the layout gave it):
 * a label (no word wrap): narrower than its ``sizeHint``; with word wrap: shorter
   than ``heightForWidth(width)``;
 * a push, tool, check or radio button showing text: narrower than its ``sizeHint``;
-* a group box: narrower than its ``sizeHint``;
+* a group box: its title reaching past the box's edge (the title's own rectangle,
+  as the box's style computes it; never the box's contents, which a ``sizeHint``
+  would include);
 * a tab: its rectangle narrower than ``tabSizeHint``;
 * a dock title: the title wider than the text rectangle the style gives the title
   bar (what Qt elides with an ellipsis);
@@ -161,7 +163,7 @@ from shiboken6 import isValid
 import pixelart_creator.logic.font_chain as font_chain
 import pixelart_creator.ui as ui_package
 from pixelart_creator.ui import app_font
-from pixelart_creator.ui.theme import apply_theme
+from pixelart_creator.ui.theme import DEFAULT_STYLE, apply_theme
 from testing.suites.ui.focus_helpers import image_array
 from testing.suites.ui.test_app_font import (  # noqa: F401  (fixtures used by name)
     NIFEN,
@@ -496,23 +498,35 @@ class Examiner:
         self._vertical("button", key, button, button.text(), button.height())
 
     def group_box(self, box: QGroupBox) -> None:
-        """A group box title: the box narrower than its size hint."""
+        """A group box title: the title reaches past the edge of the box that holds it.
+
+        Only the title is measured, never what the box contains. The rectangle the
+        title needs is the one the box's own style computes for it in the font it
+        really has (the text, the indicator of a checkable box, the style's padding,
+        the alignment); the title is cut when that rectangle ends beyond the box's
+        width, or starts before its left edge. ``need`` is the extent of the title
+        measured from the box's left edge (or from the title's own left edge when
+        that lies outside) and ``have`` is the width of the box. The box's
+        ``sizeHint`` is not used: it is the larger of the title and the contents, so
+        a box narrower than the default hint of a list inside it would be reported
+        with every title intact.
+        """
         if not box.title():
             return
         self.examined["group box"] += 1
         key = self._note("group box", self.identity(box))
-        need = box.sizeHint().width()
-        if box.width() < need:
+        option = QStyleOptionGroupBox()
+        box.initStyleOption(option)
+        label = box.style().subControlRect(
+            QStyle.ComplexControl.CC_GroupBox,
+            option,
+            QStyle.SubControl.SC_GroupBoxLabel,
+            box,
+        )
+        need = label.right() + 1 - min(label.left(), 0)
+        if label.left() < 0 or label.right() + 1 > box.width():
             self._flag("group box", box, box.title(), need, box.width(), key)
         if self.vfont is not None:
-            option = QStyleOptionGroupBox()
-            box.initStyleOption(option)
-            label = box.style().subControlRect(
-                QStyle.ComplexControl.CC_GroupBox,
-                option,
-                QStyle.SubControl.SC_GroupBoxLabel,
-                box,
-            )
             self._vertical(
                 "group box",
                 key,
@@ -871,6 +885,117 @@ def test_the_detector_reports_an_item_view_row_that_would_be_elided(qtbot):
     roomy = Examiner()
     roomy.examine(view)
     assert roomy.examined["row"] == 1 and roomy.findings == [], roomy.report()
+
+
+_GROUP_TITLE = "A group box title that is rather long"
+
+#: The two modes the group-box controls run in (the module's own sheet is Light).
+_CONTROL_MODES = ("light", "dark")
+
+#: The width of a box that shows any title of these controls whole.
+_ROOMY_PX = 700
+
+
+def _group_box(
+    qtbot, title: str, width: int, contents: Optional[QWidget] = None
+) -> QGroupBox:
+    """Return a shown group box of exactly ``width`` px, with ``contents`` if given."""
+    box = QGroupBox(title)
+    if contents is not None:
+        QVBoxLayout(box).addWidget(contents)
+    box.setFixedWidth(width)
+    box._host = _host(qtbot, width + 40, box)  # type: ignore[attr-defined]
+    return box
+
+
+def _title_is_drawn_past(qtbot, title: str, edge: int) -> bool:
+    """Say whether Qt draws ``title`` beyond ``edge`` px from the box's left side.
+
+    The same box is rendered wide enough to show the title whole, once with the
+    title and once with a blank one, and the rows of the title strip right of
+    ``edge`` are compared: they differ only if the title (or the gap it leaves in
+    the frame) is drawn there. This is what Qt draws, not what the detector
+    computes, so it is the control's own ground truth.
+    """
+    shown = _group_box(qtbot, title, _ROOMY_PX)
+    blank = _group_box(qtbot, " ", _ROOMY_PX)
+    option = QStyleOptionGroupBox()
+    shown.initStyleOption(option)
+    rows = (
+        shown.style()
+        .subControlRect(
+            QStyle.ComplexControl.CC_GroupBox,
+            option,
+            QStyle.SubControl.SC_GroupBoxLabel,
+            shown,
+        )
+        .height()
+        + 2
+    )
+    with_title = image_array(shown.grab().toImage())[:rows, edge:]
+    without = image_array(blank.grab().toImage())[:rows, edge:]
+    return not np.array_equal(with_title, without)
+
+
+@pytest.mark.parametrize("mode", _CONTROL_MODES)
+def test_the_detector_reports_a_group_box_title_cut_by_the_box(qapp, qtbot, mode):
+    """Control (positive): a title wider than its 60 px box is reported, and drawn cut.
+
+    The ground truth is the rendering: the same title in a wide box has ink beyond
+    60 px. The detector must then report the box, with the title's extent beyond
+    the width the box has.
+    """
+    apply_theme(qapp, mode, DEFAULT_STYLE)
+    assert _title_is_drawn_past(qtbot, _GROUP_TITLE, 60), "the title fits in 60 px"
+    box = _group_box(qtbot, _GROUP_TITLE, 60)
+    examiner = Examiner()
+    examiner.examine(box)
+    assert examiner.examined["group box"] == 1, examiner.report()
+    assert len(examiner.findings) == 1, examiner.report()
+    found = examiner.findings[0]
+    assert found.kind == "group box" and found.text == _GROUP_TITLE
+    assert found.have == 60 and found.need > found.have, examiner.report()
+
+
+@pytest.mark.parametrize("mode", _CONTROL_MODES)
+def test_the_detector_passes_a_group_box_whose_title_has_room(qapp, qtbot, mode):
+    """Control (negative): the same title in a box that shows it whole passes."""
+    apply_theme(qapp, mode, DEFAULT_STYLE)
+    box = _group_box(qtbot, _GROUP_TITLE, _ROOMY_PX)
+    examiner = Examiner()
+    examiner.examine(box)
+    assert examiner.examined["group box"] == 1, examiner.report()
+    assert examiner.findings == [], examiner.report()
+
+
+@pytest.mark.parametrize("mode", _CONTROL_MODES)
+def test_the_detector_passes_a_group_box_squeezed_below_its_contents_hint(
+    qapp, qtbot, mode
+):
+    """Control (negative): a short title is not cut because the contents want more room.
+
+    A list's default size hint is wide. The box is made narrower than that hint (the
+    condition the earlier rule, a comparison with the box's size hint, reported) and
+    wider than its short title. Qt draws the title whole, so nothing is reported.
+    """
+    from PySide6.QtWidgets import QListWidget
+
+    apply_theme(qapp, mode, DEFAULT_STYLE)
+    title = "Short"
+    view = QListWidget()
+    probe = QGroupBox(title)
+    QVBoxLayout(probe).addWidget(view)
+    narrow = 90
+    assert probe.sizeHint().width() > narrow, "the contents do not ask for more room"
+    box = _group_box(qtbot, title, narrow, QListWidget())
+    assert (
+        box.width() < box.sizeHint().width()
+    ), "the box is not squeezed below its hint"
+    assert not _title_is_drawn_past(qtbot, title, narrow), "the short title is cut"
+    examiner = Examiner()
+    examiner.examine(box)
+    assert examiner.examined["group box"] == 1, examiner.report()
+    assert examiner.findings == [], examiner.report()
 
 
 #: Width at the right of a dock's title bar left out of the text comparison: the
