@@ -16,8 +16,9 @@ The decision (:func:`decide`) is the spec's five ordered clauses, judged on the 
 2. both sides East Asian Width F, W or H and neither Hangul: not shown;
 3. in a ``ja`` or ``zh_CN`` page, one side punctuation or a symbol of width A and the
    other F, W or H and not Hangul: not shown;
-4. in a ``ja`` or ``zh_CN`` page, one side U+3001 or U+3002 and the other a Latin
-   letter or a decimal digit: not shown;
+4. in a ``ja`` or ``zh_CN`` page, one side a mark that the page's language lists
+   (:data:`~pixelart_creator.logic.constants.GUIDE_SOFTBREAK_IDEOGRAPHIC_MARKS`) and
+   the other a Latin letter or a decimal digit: not shown;
 5. otherwise: shown as one space.
 
 An Emoji character of width W or N counts as A in clauses 2 and 3.
@@ -48,8 +49,11 @@ library only.
 
 The East Asian Width, the general category and ``Nd`` come from ``unicodedata``.
 Script Hangul, Script Latin and Emoji are range tables in
-:mod:`pixelart_creator.logic.constants` (UCD 15.1.0). Importing this module fails
-loudly (:class:`SoftBreakTableError`) while the Emoji table is missing.
+:mod:`pixelart_creator.logic.constants` (UCD 16.0.0, the version of the
+interpreter's ``unicodedata``; emoji-data.txt SHA-256
+``f1365a5173eee18e1f98b240cdc492e84a25f1ce7e0c9d1094eb29c41a22696a``).
+Importing this module fails loudly (:class:`SoftBreakTableError`) while the Emoji
+table is missing.
 """
 
 from __future__ import annotations
@@ -85,6 +89,7 @@ from pixelart_creator.logic.constants import (
     GUIDE_MD_TAB_STOP,
     GUIDE_SOFTBREAK_IDEOGRAPHIC_MARKS,
     GUIDE_SOFTBREAK_ZERO_WIDTH_SPACE,
+    GUIDE_UCD_TABLES_VERSION,
 )
 
 __all__ = [
@@ -108,8 +113,9 @@ class SoftBreakTableError(RuntimeError):
 #: so that a ruling that separates the two clauses is a data edit.
 CLAUSE3_LANGUAGES: frozenset[str] = frozenset({"ja", "zh_CN"})
 
-#: Page codes for which clause 4 applies.
-CLAUSE4_LANGUAGES: frozenset[str] = frozenset({"ja", "zh_CN"})
+#: Page codes for which clause 4 applies: the languages that have a list of marks in
+#: :data:`~pixelart_creator.logic.constants.GUIDE_SOFTBREAK_IDEOGRAPHIC_MARKS`.
+CLAUSE4_LANGUAGES: frozenset[str] = frozenset(GUIDE_SOFTBREAK_IDEOGRAPHIC_MARKS)
 
 #: What a removed break leaves between the two lines where syntax would form at the
 #: join (the pairs of :data:`_JOINER_PAIRS`): an empty HTML comment. It shows
@@ -207,7 +213,8 @@ def _check_emoji_table() -> None:
     if size != GUIDE_EMOJI_TOTAL_ELEMENTS:
         raise SoftBreakTableError(
             f"GUIDE_EMOJI_RANGES holds {size} code points, not the "
-            f"{GUIDE_EMOJI_TOTAL_ELEMENTS} of the Emoji property at UCD 15.1.0: the "
+            f"{GUIDE_EMOJI_TOTAL_ELEMENTS} of the Emoji property at UCD "
+            f"{GUIDE_UCD_TABLES_VERSION}: the "
             "table is incomplete or was edited: regenerate it from emoji-data.txt"
         )
 
@@ -266,9 +273,9 @@ def _is_latin_or_digit(ch: str) -> bool:
     return _is_latin_letter(ch) or unicodedata.category(ch) == "Nd"
 
 
-def _is_ideographic_mark(ch: str) -> bool:
-    """Return whether ``ch`` is a character of clause 4."""
-    return ord(ch) in GUIDE_SOFTBREAK_IDEOGRAPHIC_MARKS
+def _is_ideographic_mark(ch: str, language: str) -> bool:
+    """Return whether ``ch`` is a clause-4 mark of the page's ``language``."""
+    return ord(ch) in GUIDE_SOFTBREAK_IDEOGRAPHIC_MARKS.get(language, ())
 
 
 def decide(before: str, after: str, language: str) -> SoftBreakClause:
@@ -301,8 +308,8 @@ def decide(before: str, after: str, language: str) -> SoftBreakClause:
     ):
         return SoftBreakClause.AMBIGUOUS_PUNCTUATION
     if language in CLAUSE4_LANGUAGES and (
-        (_is_ideographic_mark(before) and _is_latin_or_digit(after))
-        or (_is_ideographic_mark(after) and _is_latin_or_digit(before))
+        (_is_ideographic_mark(before, language) and _is_latin_or_digit(after))
+        or (_is_ideographic_mark(after, language) and _is_latin_or_digit(before))
     ):
         return SoftBreakClause.IDEOGRAPHIC_COMMA_OR_STOP
     return SoftBreakClause.SPACE

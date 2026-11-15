@@ -1,16 +1,17 @@
 """Tests for the Unicode tables of the soft-line-break rule.
 
 ``pixelart_creator.logic.constants`` declares three inclusive range tables at
-UCD 15.1.0, because ``unicodedata`` carries neither the Script nor the Emoji
+the Unicode version named by ``GUIDE_UCD_TABLES_VERSION``, because ``unicodedata``
+carries neither the Script nor the Emoji
 property: ``GUIDE_HANGUL_SCRIPT_RANGES``, ``GUIDE_LATIN_SCRIPT_RANGES`` and
 ``GUIDE_EMOJI_RANGES`` (none of them is in ``unicodedata``). This module proves them:
 
 * shape: sorted, disjoint, inside the code space, every code point assigned;
 * Hangul and Latin against ``fontTools.unicodedata``, the independent oracle,
   at the equal Unicode version, printing what was read;
-* the interpreter named by ``.python-version`` carries the tables' version, so
-  CI can never skip the cross-check;
-* the Emoji property: 1,424 elements, members, non-members and range-edge
+* the interpreter named by ``.python-version`` carries the tables' version, and no
+  case skips for the version, so CI can never skip the cross-check;
+* the Emoji property: 1,431 elements, members, non-members and range-edge
   samples written as literal characters.
 
 The Emoji tests fail clearly, with the reason, if the table is missing.
@@ -38,18 +39,18 @@ from ._softbreak_support import REPO_ROOT, load_softbreak
 sb = load_softbreak()  # the module under test must import: the tables serve it
 
 MAX_CODE_POINT = 0x10FFFF
-EXPECTED_TABLES_VERSION = "15.1.0"
-EMOJI_TOTAL = 1424  # "# Total elements: 1424" of the Emoji block, emoji-data.txt 15.1.0
-EMOJI_RANGE_COUNT = 151  # the coalesced ranges of those 1,424 code points
+EXPECTED_TABLES_VERSION = "16.0.0"
+EMOJI_TOTAL = 1431  # "# Total elements: 1431" of the Emoji block, emoji-data.txt 16.0.0
+EMOJI_RANGE_COUNT = 150  # the coalesced ranges of those 1,431 code points
 #: SHA-256 of the table written as ``FIRST-LAST`` hex lines (upper case, one per range,
-#: each ending in a line feed). Measured from the table that was generated from
-#: emoji-data.txt 15.1.0 (file SHA-256 d7aef489...5cc1) and found equal, as a set of
-#: code points, to that file's ``Emoji`` property by an independent parse. A deliberate
+#: each ending in a line feed). Derived from emoji-data.txt 16.0.0 (file SHA-256
+#: f1365a51...696a): its ``Emoji`` lines parsed independently of the product, the code
+#: points coalesced, written in this format and hashed. A deliberate
 #: regeneration changes this value; an accidental edit that keeps the total no longer
 #: passes unseen.
-EMOJI_TABLE_DIGEST = "1783589a07b08879382e29b964c0350e120a11cc5d04f99c3ace59127421f175"
-HANGUL_TOTAL = 11739  # "# Total code points: 11739", Scripts.txt 15.1.0
-LATIN_TOTAL = 1481  # "# Total code points: 1481", Scripts.txt 15.1.0
+EMOJI_TABLE_DIGEST = "51bd3cc7f01f449a39d4f13a66765fcab028e204d4a85d15cdca1e58d2465506"
+HANGUL_TOTAL = 11739  # "# Total code points: 11739", Scripts.txt 16.0.0
+LATIN_TOTAL = 1487  # "# Total code points: 1487", Scripts.txt 16.0.0
 
 #: Differences between a table and fontTools that are accepted, with the UCD
 #: reason. EMPTY when last measured (fontTools 4.63.0, Scripts-17.0.0, 0
@@ -140,8 +141,25 @@ def running_version() -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_the_tables_version_constant_is_unicode_15_1_0():
-    assert C.GUIDE_UCD_TABLES_VERSION == EXPECTED_TABLES_VERSION
+def assert_tables_version(constant: str) -> None:
+    """The tables' version is the expected one and the interpreter's, both reported."""
+    assert constant == EXPECTED_TABLES_VERSION == unicodedata.unidata_version, (
+        f"tables version constant {constant!r}, expected {EXPECTED_TABLES_VERSION!r}, "
+        f"unicodedata.unidata_version {unicodedata.unidata_version!r}"
+    )
+
+
+def test_the_tables_version_constant_equals_the_expected_and_the_interpreters():
+    assert_tables_version(C.GUIDE_UCD_TABLES_VERSION)
+
+
+def test_a_stale_version_constant_fails_with_both_versions_in_the_message():
+    with pytest.raises(AssertionError) as caught:
+        assert_tables_version("15.1.0")
+    message = str(caught.value)
+    assert "'15.1.0'" in message
+    assert EXPECTED_TABLES_VERSION in message
+    assert unicodedata.unidata_version in message
 
 
 def test_the_font_coverage_hangul_constant_is_a_different_thing():
@@ -178,7 +196,8 @@ class TestTableShape:
         unassigned = sorted(listed - assigned_code_points())
         assert not unassigned, (
             f"{name}: {len(unassigned)} listed code points are unassigned (Cn) at "
-            f"unidata {unicodedata.unidata_version}: {[hex(c) for c in unassigned[:10]]}. "
+            f"unidata {unicodedata.unidata_version}: "
+            f"{[hex(c) for c in unassigned[:10]]}. "
             f"The tables are newer than the runtime."
         )
 
@@ -192,7 +211,8 @@ def versions_line() -> str:
     return (
         f"interpreter {sys.version.split()[0]}, unicodedata.unidata_version "
         f"{unicodedata.unidata_version}, fontTools {fontTools.version}, "
-        f"fontTools Scripts header '{scripts_header()}', tables {C.GUIDE_UCD_TABLES_VERSION}"
+        f"fontTools Scripts header '{scripts_header()}', "
+        f"tables {C.GUIDE_UCD_TABLES_VERSION}"
     )
 
 
@@ -208,15 +228,11 @@ class TestFontToolsCrossCheck:
         self, name, capsys
     ):
         if unicodedata.unidata_version != C.GUIDE_UCD_TABLES_VERSION:
-            if running_version() == python_version_pin():
-                pytest.fail(
-                    "the .python-version interpreter must carry the tables' Unicode version: "
-                    + versions_line(),
-                    pytrace=False,
-                )
-            pytest.skip(
-                "unidata_version differs from the tables' version, so the cross-check does not "
-                "stand for CI: " + versions_line()
+            pytest.fail(
+                "the interpreter must carry the tables' Unicode version (pinned "
+                f"{python_version_pin()}, running {running_version()}): "
+                + versions_line(),
+                pytrace=False,
             )
         listed = expand(table(name)) - ALLOW_LIST[name]
         oracle = oracle_points()[name] - ALLOW_LIST[name]
@@ -224,8 +240,9 @@ class TestFontToolsCrossCheck:
         extra = sorted(listed - oracle)
         with capsys.disabled():
             print(
-                f"[softbreak][FONTTOOLS] {name}: table {len(listed)}, oracle {len(oracle)}, "
-                f"table-only {len(extra)}, oracle-only {len(missing)}; {versions_line()}"
+                f"[softbreak][FONTTOOLS] {name}: table {len(listed)}, "
+                f"oracle {len(oracle)}, table-only {len(extra)}, "
+                f"oracle-only {len(missing)}; {versions_line()}"
             )
         assert (
             not extra
@@ -245,18 +262,18 @@ class TestPinnedInterpreter:
             part.isdigit() for part in pin.split(".")
         ), pin
 
-    def test_the_pinned_interpreter_carries_unicode_15_1_0(self, capsys):
+    def test_the_pinned_interpreter_carries_the_tables_version(self, capsys):
         pin = python_version_pin()
-        if running_version() != pin:
-            pytest.skip(
-                f"running {running_version()}, .python-version names {pin}: the pinned-interpreter "
-                f"assertion is not exercised here ({versions_line()})"
-            )
         with capsys.disabled():
             print(
-                f"[softbreak][PIN] {running_version()} == .python-version; {versions_line()}"
+                f"[softbreak][PIN] running {running_version()}, .python-version {pin}; "
+                f"{versions_line()}"
             )
-        assert unicodedata.unidata_version == "15.1.0"
+        assert running_version() == pin, (
+            f"running {running_version()}, .python-version names {pin}: "
+            f"{versions_line()}"
+        )
+        assert unicodedata.unidata_version == EXPECTED_TABLES_VERSION
         assert unicodedata.unidata_version == C.GUIDE_UCD_TABLES_VERSION
 
 
@@ -305,12 +322,21 @@ def test_latin_non_members(char):
     assert not contains(table("latin"), char), hex(ord(char))
 
 
-def test_the_fifteen_one_latin_edge_before_the_sixteen_additions():
-    # 16.0.0 widened two ranges (U+A7CB..A7CD, U+A7DA..A7DC); the 15.1.0 table does not hold them.
-    assert not contains(table("latin"), "Ɤ")
-    assert not contains(table("latin"), "Ƛ")
-    assert contains(table("latin"), "ꟊ")
-    assert contains(table("latin"), "ꟙ")
+LATIN_EDGE_MEMBERS = [0xA7CA, 0xA7D9, *range(0xA7CB, 0xA7CE), *range(0xA7DA, 0xA7DD)]
+
+
+@pytest.mark.parametrize("code_point", LATIN_EDGE_MEMBERS)
+def test_the_latin_table_holds_the_newest_script_additions_and_their_neighbours(
+    code_point,
+):
+    # Scripts.txt 16.0.0 lists Latin at A7CA, A7CB..A7CD, A7D9 and A7DA..A7DC.
+    assert contains(table("latin"), chr(code_point)), hex(code_point)
+
+
+@pytest.mark.parametrize("code_point", [0xA7CE, 0xA7CF, 0xA7D2, 0xA7D4, 0xA7DD])
+def test_the_latin_table_omits_the_code_points_beside_those_additions(code_point):
+    # none of these is Script=Latin in Scripts.txt 16.0.0
+    assert not contains(table("latin"), chr(code_point)), hex(code_point)
 
 
 # ---------------------------------------------------------------------------
@@ -338,7 +364,7 @@ class TestEmojiTable:
         assert sum(b - a + 1 for a, b in ranges) == EMOJI_TOTAL
         assert hashlib.sha256(text.encode("ascii")).hexdigest() != EMOJI_TABLE_DIGEST
 
-    def test_it_holds_the_stated_total_of_1424(self):
+    def test_it_holds_the_stated_total(self):
         total = sum(last - first + 1 for first, last in table("emoji"))
         assert total == EMOJI_TOTAL
         assert len(expand(table("emoji"))) == EMOJI_TOTAL
@@ -346,6 +372,14 @@ class TestEmojiTable:
     @pytest.mark.parametrize("char", ["\U0001f600", "©", "0", "#", "*", "™", "‼", "®"])
     def test_members(self, char):
         assert contains(table("emoji"), char), hex(ord(char))
+
+    @pytest.mark.parametrize(
+        "code_point",
+        [0x1FA89, 0x1FA8F, 0x1FABE, 0x1FAC6, 0x1FADC, 0x1FADF, 0x1FAE9],
+    )
+    def test_the_newest_emoji_additions_are_members(self, code_point):
+        # the seven code points emoji-data.txt 16.0.0 lists beyond the 15.1.0 file
+        assert contains(table("emoji"), chr(code_point)), hex(code_point)
 
     @pytest.mark.parametrize("char", ["A", "日", "a", "z", " ", "　", "한", "$", "​"])
     def test_non_members(self, char):

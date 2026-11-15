@@ -64,8 +64,8 @@ sb = load_softbreak()
 # The floors. One line per tree that arrives is added in the commit that brings the
 # tree.
 # ---------------------------------------------------------------------------
-REQUIRED_NON_CJK_TREES: Tuple[str, ...] = ("en", "es", "ko")
-REQUIRED_CJ_TREES: Tuple[str, ...] = ()
+REQUIRED_NON_CJK_TREES: Tuple[str, ...] = ("en", "es", "ko", "de", "fr", "ru")
+REQUIRED_CJ_TREES: Tuple[str, ...] = ("ja",)
 
 CJK_TREES_SKIP_REASON = (
     "shipped-tree half: no tracked ja or zh_CN tree (REQUIRED_CJ_TREES = ())"
@@ -81,6 +81,31 @@ CL = {
     0: sb.SoftBreakClause.UNDECIDED,
 }
 NUMBER_OF = {member: number for number, member in CL.items()}
+
+#: Clause 4's marks per page language, copied from the requirement's own lists (never read
+#: from the constant under test). A language with no entry has no clause-4 mark.
+CLAUSE4_MARKS_TEXT = {
+    "zh_CN": "、 。 ， ； ： ！ ？ （ ） 《 》 “ ”",
+    "ja": "、 。 「 」 『 』",
+}
+CLAUSE4_MARKS = {
+    language: tuple(text.split()) for language, text in CLAUSE4_MARKS_TEXT.items()
+}
+ALL_CLAUSE4_MARKS = sorted({m for marks in CLAUSE4_MARKS.values() for m in marks})
+#: Marks near the lists but on neither: halfwidth ideographic comma and full stop, and the
+#: fullwidth full stop.
+UNLISTED_EVERYWHERE = ("､", "｡", "．")
+#: Per language, the marks its page list lacks (the other language's, and the near misses).
+UNLISTED_MARKS = {
+    language: [m for m in ALL_CLAUSE4_MARKS + list(UNLISTED_EVERYWHERE) if m not in own]
+    for language, own in CLAUSE4_MARKS.items()
+}
+
+
+def oracle(before: str, after: str, language: str) -> int:
+    """The independent oracle's clause number, with the requirement's marks per language."""
+    return oracle_clause(before, after, language, marks=CLAUSE4_MARKS.get(language, ()))
+
 
 JOINER = "<!---->"
 BACKSLASH = chr(92)
@@ -346,9 +371,15 @@ class TestDecideClauseThree:
         assert d("—", "ﾡ", "ja") is CL[5]
 
     def test_the_other_side_must_be_wide(self):
-        assert d("“", "C", "zh_CN") is CL[5]
+        # Clause 3 never decides a pair whose other side is a Latin letter.
+        assert d("“", "C", "zh_CN") is not CL[3]
         assert d("—", "C", "ja") is CL[5]
         assert d("C", "”", "ja") is CL[5]
+
+    def test_a_listed_mark_beside_a_latin_letter_is_clause_four_not_three(self):
+        # “ and ” are ambiguous-width punctuation and are on the zh_CN list only.
+        assert d("“", "C", "zh_CN") is CL[4]
+        assert d("C", "”", "zh_CN") is CL[4]
 
     def test_ambiguous_letters_and_numbers_are_not_punctuation_or_symbols(self):
         # α is A and a letter, Ⅳ is A and Nl, ² is A and No: none is P or S.
@@ -366,10 +397,12 @@ class TestDecideClauseThree:
 
 
 class TestDecideClauseFour:
-    """Clause 4: U+3001 or U+3002 beside a Latin letter or Nd, ja and zh_CN only."""
+    """Clause 4: a listed mark beside a Latin letter or Nd, in its own page language only."""
 
-    @pytest.mark.parametrize("mark", ["、", "。"])
-    @pytest.mark.parametrize("language", ["ja", "zh_CN"])
+    @pytest.mark.parametrize(
+        ("language", "mark"),
+        [(lang, mark) for lang, marks in CLAUSE4_MARKS.items() for mark in marks],
+    )
     @pytest.mark.parametrize(
         "other", ["P", "a", "é", "Z", "K", "ª", "ǅ", "0", "4", "٣"]
     )
@@ -380,14 +413,20 @@ class TestDecideClauseFour:
         assert d(other, mark, language) is CL[4]
 
     @pytest.mark.parametrize("language", ["en", "es", "fr", "de", "ru", "ko"])
-    def test_not_applied_outside_chinese_and_japanese_pages(self, language):
-        assert d("、", "E", language) is CL[5]
-        assert d("G", "。", language) is CL[5]
+    @pytest.mark.parametrize("mark", ALL_CLAUSE4_MARKS)
+    def test_not_applied_outside_chinese_and_japanese_pages(self, language, mark):
+        assert d(mark, "E", language) is CL[5]
+        assert d("G", mark, language) is CL[5]
 
-    @pytest.mark.parametrize("near_miss", ["，", "､", "｡", "．", "：", "；"])
-    def test_other_marks_are_not_covered(self, near_miss):
-        assert d(near_miss, "E", "ja") is CL[5]
-        assert d("4", near_miss, "zh_CN") is CL[5]
+    @pytest.mark.parametrize(
+        ("language", "near_miss"),
+        [(lang, mark) for lang, marks in UNLISTED_MARKS.items() for mark in marks],
+    )
+    def test_a_mark_the_page_language_does_not_list_is_not_covered(
+        self, language, near_miss
+    ):
+        assert d(near_miss, "E", language) is CL[5]
+        assert d("4", near_miss, language) is CL[5]
 
     def test_the_latin_letter_is_a_letter_and_not_any_latin_script_character(self):
         # Ⅳ (U+2163) is Script=Latin but its category is Nl, not L.
@@ -401,8 +440,15 @@ class TestDecideClauseFour:
         assert d("。", "α", "ja") is CL[5]  # Greek
         assert d("。", "Ж", "zh_CN") is CL[5]  # Cyrillic
 
-    def test_the_marks_come_from_the_constant(self):
-        assert tuple(C.GUIDE_SOFTBREAK_IDEOGRAPHIC_MARKS) == (0x3001, 0x3002)
+    @pytest.mark.parametrize("language", sorted(CLAUSE4_MARKS))
+    def test_the_marks_come_from_the_constant(self, language):
+        listed = C.GUIDE_SOFTBREAK_IDEOGRAPHIC_MARKS[language]
+        expected = [ord(mark) for mark in CLAUSE4_MARKS[language]]
+        assert len(listed) == len(expected)
+        assert sorted(listed) == sorted(expected)
+
+    def test_the_constant_lists_exactly_the_two_languages(self):
+        assert set(C.GUIDE_SOFTBREAK_IDEOGRAPHIC_MARKS) == set(CLAUSE4_MARKS)
 
 
 class TestDecideClauseFive:
@@ -482,7 +528,7 @@ DIGITS = "059" + "٣" + "²" + "½"
 OTHER_LETTERS = "αΩжЖ"
 AMBIG_MARKS = "“”‘’…—·※→×°±§"
 NEAR_MISS_MARKS = "，､｡．：；"
-IDEOGRAPHIC = "、。"
+IDEOGRAPHIC = "".join(ALL_CLAUSE4_MARKS)
 ASCII_PUNCT = ".,;:!?()-+/=<>|~"
 SPACES = "　 "
 EMOJI_CHARS = "\U0001f600\U0001f601\U0001f389\U0001f680✨⭐⌚☀❤ℹ©®™‼⁉#*0123456789"
@@ -511,13 +557,17 @@ class TestOracleSanity:
             ("“", "日", "en", 5),
             ("、", "P", "ja", 4),
             ("、", "P", "ko", 5),
+            ("“", "C", "zh_CN", 4),
+            ("“", "C", "ja", 5),
+            ("「", "C", "ja", 4),
+            ("「", "C", "zh_CN", 5),
             (ZWSP, "a", "ru", 1),
             ("©", "山", "ja", 3),
             ("\U0001f600", "\U0001f600", "ja", 5),
         ],
     )
     def test_oracle_matches_the_spec(self, before, after, language, clause):
-        assert oracle_clause(before, after, language) == clause
+        assert oracle(before, after, language) == clause
 
     def test_every_oracle_emoji_character_has_a_known_width(self):
         for char in EMOJI_ORACLE:
@@ -526,14 +576,14 @@ class TestOracleSanity:
 
 @given(CHAR_NON_EMOJI, CHAR_NON_EMOJI, LANGUAGES)
 def test_p5_decide_agrees_with_the_oracle_without_emoji(before, after, language):
-    expected = CL[oracle_clause(before, after, language)]
+    expected = CL[oracle(before, after, language)]
     assert sb.decide(before, after, language) is expected
 
 
 @given(CHAR_ANY, CHAR_ANY, LANGUAGES)
 def test_p5_decide_agrees_with_the_oracle_with_emoji(before, after, language):
     require_emoji_table()
-    expected = CL[oracle_clause(before, after, language)]
+    expected = CL[oracle(before, after, language)]
     assert sb.decide(before, after, language) is expected
 
 
@@ -602,10 +652,8 @@ OTHER_BREAKS_ROWS = [
     ("en", "日本 —\n語", "—", "語"),
     ("ja", "選択 —\nCtrl キー", "—", "C"),
     ("ja", "韓国語 “\n한국어”", "“", "한"),
-    ("zh_CN", "使用“\nCtrl”键", "“", "C"),
     ("ko", "끝。\nCtrl 키", "。", "C"),
     ("en", "表示、\nEdit", "、", "E"),
-    ("zh_CN", "选择，\nCtrl 键", "，", "C"),
     ("ja", "表示､\nEdit", "､", "E"),
 ]
 
@@ -652,6 +700,9 @@ IDEOGRAPHIC_PUNCTUATION_ROWS = [
     ("zh_CN", "支持 PNG、\nGIF 和", "支持 PNG、GIF 和", "、", "G"),
     ("zh_CN", "完成。\nPixelArt Creator 会", "完成。PixelArt Creator 会", "。", "P"),
     ("zh_CN", "版本 2\n。", "版本 2。", "2", "。"),
+    ("zh_CN", "使用“\nCtrl”键", "使用“Ctrl”键", "“", "C"),
+    ("zh_CN", "选择，\nCtrl 键", "选择，Ctrl 键", "，", "C"),
+    ("ja", "キーは「\nCtrl+S」です", "キーは「Ctrl+S」です", "「", "C"),
 ]
 
 # (language, source, expected source or None = unchanged, before, after, clause number)
@@ -675,7 +726,7 @@ def _expect_row(language, source, expected, before, after, clause_number):
     assert (item.line, item.before, item.after) == (1, before, after)
     assert number(item) == clause_number
     # the premise of the row, recomputed from the Unicode database and the spec
-    assert oracle_clause(before, after, language) == clause_number
+    assert oracle(before, after, language) == clause_number
     assert sb.decide(before, after, language) is CL[clause_number]
     assert item.removed is (clause_number <= 4)
 
@@ -756,7 +807,7 @@ class TestAmbiguousPunctuation:
 
 
 class TestIdeographicPunctuation:
-    """U+3001 or U+3002 beside a Latin letter or a digit."""
+    """A listed mark beside a Latin letter or a digit, in its own page language."""
 
     @pytest.mark.parametrize(
         ("language", "source", "expected", "before", "after"),
@@ -765,6 +816,51 @@ class TestIdeographicPunctuation:
     )
     def test_row(self, language, source, expected, before, after):
         _expect_row(language, source, expected, before, after, 4)
+
+
+#: (language, the marks as the requirement's row lists them, whether the break is removed).
+MARKS_PER_LANGUAGE_ROWS = [
+    ("zh_CN", "、 。 ， ； ： ！ ？ （ ） 《 》 “ ”", True),
+    ("ja", "、 。 「 」 『 』", True),
+    ("ja", "， ； ： ！ ？ （ ） 《 》 “ ”", False),
+    ("zh_CN", "「 」 『 』", False),
+]
+
+
+class TestMarksPerLanguage:
+    """Each mark is removed beside a Latin letter or a digit only in its own language's pages."""
+
+    @pytest.mark.parametrize(
+        ("language", "marks_text", "removed"),
+        MARKS_PER_LANGUAGE_ROWS,
+        ids=_ids("marks-per-language", MARKS_PER_LANGUAGE_ROWS),
+    )
+    def test_row(self, language, marks_text, removed, capsys):
+        marks = marks_text.split()
+        paragraphs = []
+        for mark in marks:
+            paragraphs += [f"{mark}\nA", f"A\n{mark}", f"{mark}\n1", f"1\n{mark}"]
+        page = "\n\n".join(paragraphs) + "\n"
+        result = sb.apply_soft_break_rule(page, language)
+
+        assert len(result.breaks) == len(paragraphs)
+        examined = set()
+        for item in result.breaks:
+            marks_here = {c for c in (item.before, item.after) if c in marks}
+            assert len(marks_here) == 1, (item.before, item.after)
+            examined |= marks_here
+            assert item.removed is removed, (language, item.before, item.after)
+            assert number(item) == (4 if removed else 5)
+            assert oracle(item.before, item.after, language) == number(item)
+        shown = [p.replace("\n", "") if removed else p for p in paragraphs]
+        assert result.markdown == "\n\n".join(shown) + "\n"
+
+        with capsys.disabled():
+            print(
+                f"[softbreak][marks] {language}: marks examined {len(examined)} "
+                f"of {len(marks)}, {'removed' if removed else 'kept as one space'}"
+            )
+        assert len(examined) == len(marks)
 
 
 class TestEmojiWidth:
@@ -1971,7 +2067,7 @@ def test_every_examined_break_agrees_with_decide_and_the_oracle(page, language):
         ):
             continue
         assert item.clause is sb.decide(item.before, item.after, language)
-        assert number(item) == oracle_clause(item.before, item.after, language)
+        assert number(item) == oracle(item.before, item.after, language)
 
 
 # --- P6: documents generated from a grammar know where their breaks are --------
@@ -2424,7 +2520,7 @@ def cjk_tree_check(
         if item.clause is CL[0]:
             violations.append(f"{name}: line {item.line}: undecided")
             continue
-        wanted = oracle_clause(item.before, item.after, language)
+        wanted = oracle(item.before, item.after, language)
         if wanted <= 4:
             violations.append(
                 f"{name}: line {item.line}: clause {wanted} break is shown as a space"
