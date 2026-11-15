@@ -803,6 +803,26 @@ jobs:
           print("Localisation typography step: checker clean, floor met, both controls behaved")
           PY
 
+      - name: Exception text reaching the user (REQ-L10N-UI-018)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
+        # No `runner.os` test -- this step runs on all three legs (stdlib only,
+        # no OS dependence: it parses the interface sources with `ast` and
+        # imports none of them). scripts/check_exception_text.py finds every
+        # place under pixelart_creator/ui where the text of a caught exception
+        # can reach a surface the user reads (message box, translated template,
+        # worker signal, stored for later display, direct surface) and fails on
+        # each place whose shown text takes a value from the exception: a
+        # message that comes from the exception is English whatever language the
+        # interface is in. It prints the denominators first, then the count per
+        # channel (sites and tainted) and the total, so a green step names what
+        # it looked at.
+        # Exit codes, all fatal to this step: 0 clean (a non-zero number of
+        # sites, none tainted); 1 any tainted site, or nothing examined, or no
+        # site found (a zero denominator is a failure, never a pass); 2 usage
+        # error, a missing root, or a file that cannot be parsed. Nothing here
+        # swallows a non-zero exit: no `|| true`, no `continue-on-error`.
+        run: python scripts/check_exception_text.py
+
       - name: Application icon family (REQ-VI-BUILD-007/-008)
         if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # scripts/derive_app_icons.py --check: every committed icon member

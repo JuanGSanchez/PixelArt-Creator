@@ -329,6 +329,10 @@ _REAL_NAMES = _later_step_names(_load())
 # --------------------------------------------------------------------------- #
 # The real workflow
 # --------------------------------------------------------------------------- #
+def test_the_real_workflow_satisfies_every_rule(real_doc):
+    assert all_violations(real_doc) == []
+
+
 def test_the_real_workflow_behaves_in_every_scenario(real_doc):
     assert semantic_violations(real_doc) == []
 
@@ -437,6 +441,10 @@ def _plant_as_expression(doc: Dict[str, Any]) -> None:
     ] = "${{ runner.os != 'Linux' }}"
 
 
+def _plant_false_value(doc: Dict[str, Any]) -> None:
+    _step(doc, EXCEPTION_TEXT_NAME)["continue-on-error"] = False
+
+
 @pytest.mark.parametrize(
     "plant",
     [
@@ -445,6 +453,7 @@ def _plant_as_expression(doc: Dict[str, Any]) -> None:
         _plant_on_job,
         _plant_on_other_job,
         _plant_as_expression,
+        _plant_false_value,
     ],
     ids=lambda f: f.__name__.replace("_plant_", ""),
 )
@@ -542,3 +551,65 @@ def test_a_renamed_glyph_id_leaves_the_conditions_reading_nothing(real_doc):
     name = "Docs build (mkdocs --strict, F14)"
     assert runner.eval_step_condition(_step(doc, name)["if"], ctx) is False
     assert glyph_step_fails_the_job(doc) != []
+
+
+# --------------------------------------------------------------------------- #
+# The exception-text step (REQ-L10N-UI-018)
+# --------------------------------------------------------------------------- #
+def test_the_exception_text_step_runs_on_every_leg_and_fails_the_job(real_doc):
+    step = _step(real_doc, EXCEPTION_TEXT_NAME)
+    assert _expr(step["if"]) == CORE
+    assert LINUX not in _expr(step["if"])
+    assert step["run"].strip() == EXCEPTION_TEXT_RUN
+    assert "continue-on-error" not in step
+
+
+@pytest.mark.parametrize("os_name", ["Linux", "Windows", "macOS"])
+def test_the_exception_text_step_runs_on_each_leg(real_doc, os_name):
+    runner = _load_runner()
+    step = _step(real_doc, EXCEPTION_TEXT_NAME)
+    healthy = _ctx(os_name, False, False, "skipped")
+    assert runner.eval_step_condition(step["if"], healthy) is True
+
+
+def _exception_linux_only(doc: Dict[str, Any]) -> None:
+    _step(doc, EXCEPTION_TEXT_NAME)["if"] = "${{ " + f"{CORE} && {LINUX}" + " }}"
+
+
+def _exception_swallowed(doc: Dict[str, Any]) -> None:
+    step = _step(doc, EXCEPTION_TEXT_NAME)
+    step["run"] = step["run"] + " || true"
+
+
+def _exception_continue_on_error(doc: Dict[str, Any]) -> None:
+    _step(doc, EXCEPTION_TEXT_NAME)["continue-on-error"] = True
+
+
+def _exception_no_condition(doc: Dict[str, Any]) -> None:
+    _step(doc, EXCEPTION_TEXT_NAME).pop("if")
+
+
+def _exception_removed(doc: Dict[str, Any]) -> None:
+    steps = _steps(doc)
+    steps.pop(_index_of(doc, EXCEPTION_TEXT_NAME))
+
+
+@pytest.mark.parametrize(
+    "plant",
+    [
+        _exception_linux_only,
+        _exception_swallowed,
+        _exception_continue_on_error,
+        _exception_no_condition,
+        _exception_removed,
+    ],
+    ids=lambda f: f.__name__.replace("_exception_", ""),
+)
+def test_an_exception_text_step_that_cannot_gate_every_leg_is_reported(real_doc, plant):
+    doc = _planted(real_doc)
+    plant(doc)
+    real = exception_text_step_gates_every_leg(real_doc) + no_continue_on_error(
+        real_doc
+    )
+    planted = exception_text_step_gates_every_leg(doc) + no_continue_on_error(doc)
+    assert len(planted) > len(real), planted
