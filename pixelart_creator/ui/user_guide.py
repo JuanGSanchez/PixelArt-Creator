@@ -80,11 +80,13 @@ from pixelart_creator.logic.guide_model import (
     GuideModelError,
     LocaleMeta,
     build_model,
+    content_ref_locale,
     localised_section_title,
     localised_title,
     resolve_content_ref,
 )
 from pixelart_creator.logic.guide_search import query
+from pixelart_creator.logic.guide_softbreak import apply_soft_break_rule
 from pixelart_creator.ui.app_font import (
     NIFEN_ART_EM_PX,
     interface_font,
@@ -494,6 +496,7 @@ class User_Guide_Dialog(QDialog):
                 locale,
                 available_locales=available,
             )
+            language = content_ref_locale(ref)
             text = self._reader(ref)
         except (GuideModelError, GuideContentError) as exc:
             # A content-load error surfaces a user-facing message, not a crash
@@ -510,7 +513,7 @@ class User_Guide_Dialog(QDialog):
             )
             self._logo_switch.place()
             return
-        self._content_view.setMarkdown(text)
+        self._content_view.setMarkdown(apply_soft_break_rule(text, language).markdown)
         # The mark reaches the browser ONLY as an in-memory QTextDocument
         # resource -- never a filesystem search path (setSearchPaths) and
         # never a path from importlib.resources.as_file, whose temporary
