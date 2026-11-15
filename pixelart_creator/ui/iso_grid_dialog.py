@@ -58,6 +58,7 @@ class Iso_Grid_Dialog(QDialog):
         super().__init__(parent)
         self._tile_width_label = QLabel(self)
         self._tile_width_spin = QSpinBox(self)
+        self._tile_width_spin.setLocale(i18n.current_formatting_locale())
         self._tile_width_spin.setRange(MIN_GRID_SPACING, MAX_GRID_SPACING)
 
         self._ratio_label = QLabel(self)

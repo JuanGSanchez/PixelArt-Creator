@@ -52,6 +52,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDockWidget,
+    QDoubleSpinBox,
     QFileDialog,
     QGraphicsScene,
     QGridLayout,
@@ -72,6 +73,7 @@ from PySide6.QtWidgets import (
 import pixelart_creator.logic.font_chain as font_chain
 import pixelart_creator.logic.language_names as language_names
 import pixelart_creator.ui.failure_messages as failure_messages
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.data.asset_cas import default_content_store
 from pixelart_creator.data.asset_decision_journal import (
     JOURNAL_FILENAME,
@@ -1247,6 +1249,10 @@ class Main_Window(QMainWindow):
         ensure_interface_font(self._app, self._appearance.use_system_font)
         self.useSystemFontChanged.connect(self._on_use_system_font_changed)
         self._language_manager.install_from_locale()
+        # Fields the panels built above took the manager's initial formatting
+        # locale; give them the installed language's (REQ-L10N-UI-015). Direct
+        # call, not a languageChanged slot: a live switch leaves them as built.
+        self._apply_formatting_locale_to_spin_boxes()
 
         self.new_document()
         self._retranslate()
@@ -1497,6 +1503,7 @@ class Main_Window(QMainWindow):
 
         # Magic-wand tolerance control (REQ-P2-UI-006).
         self._tolerance_spin = QSpinBox(self)
+        self._tolerance_spin.setLocale(i18n.current_formatting_locale())
         self._tolerance_spin.setRange(0, 255)
         self._tolerance_spin.setValue(self._wand_tool.tolerance)
         self._tolerance_spin.valueChanged.connect(self._on_tolerance_changed)
@@ -5733,6 +5740,20 @@ class Main_Window(QMainWindow):
         )
 
     # -- i18n -------------------------------------------------------------
+
+    def _apply_formatting_locale_to_spin_boxes(self) -> None:
+        """Give every integer and decimal field of the window the formatting locale.
+
+        Run once, right after the language is installed at startup: the panels
+        are built before that point, so their fields read the manager's initial
+        locale when they were made. Not connected to ``languageChanged``; a field
+        keeps the locale it was given until it is built again.
+        """
+        locale = i18n.current_formatting_locale()
+        for spin in self.findChildren(QSpinBox):
+            spin.setLocale(locale)
+        for dspin in self.findChildren(QDoubleSpinBox):
+            dspin.setLocale(locale)
 
     def _retranslate_undo_redo(self) -> None:
         """Re-set Edit > Undo / Redo as translated prefix + command text."""

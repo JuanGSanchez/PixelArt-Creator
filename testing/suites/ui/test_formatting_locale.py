@@ -52,6 +52,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDoubleSpinBox,
     QGraphicsScene,
+    QSpinBox,
     QWidget,
 )
 
@@ -69,10 +70,14 @@ from pixelart_creator.logic.grids import (
     PerspectiveConfig,
     VanishingPoint,
 )
+from pixelart_creator.ui.canvas_size_dialog import Canvas_Size_Dialog
 from pixelart_creator.ui.document_transform_dialogs import (
     Document_Transform_Confirm_Dialog,
 )
+from pixelart_creator.ui.export_dialog import Export_Dialog
 from pixelart_creator.ui.export_worker import ExportTarget
+from pixelart_creator.ui.extract_palette_dialog import Extract_Palette_Dialog
+from pixelart_creator.ui.frame_tags_panel import Tag_Dialog
 from pixelart_creator.ui.i18n import (
     FALLBACK_LANGUAGE,
     LanguageManager,
@@ -80,6 +85,8 @@ from pixelart_creator.ui.i18n import (
 )
 from pixelart_creator.ui.iso_grid_dialog import Iso_Grid_Dialog
 from pixelart_creator.ui.main_window import Main_Window
+from pixelart_creator.ui.new_document_dialog import New_Document_Dialog
+from pixelart_creator.ui.palette_swap_dialog import Palette_Swap_Dialog
 from pixelart_creator.ui.real_size_preview_window import (
     Real_Size_Calibration_Dialog,
     Real_Size_Preview_Window,
@@ -785,6 +792,435 @@ def test_the_spin_box_walk_accepts_a_set_locale_and_fails_on_each_planted_gap():
         _PLANTED_OTHER_FUNCTION,
     ):
         assert spin_boxes_without_formatting_locale(planted), planted
+
+
+# --------------------------------------------------------------------------- #
+# SC-L10N-UI-015-7, integer fields: the same rule as the decimal fields        #
+# --------------------------------------------------------------------------- #
+
+#: The dialogs that hold the app's integer fields, each built as the app builds it.
+INTEGER_DIALOGS: Dict[str, Tuple[type, Callable[[QWidget], QDialog]]] = {
+    "canvas size": (
+        Canvas_Size_Dialog,
+        lambda parent: Canvas_Size_Dialog(16, 16, parent),
+    ),
+    "export": (
+        Export_Dialog,
+        lambda parent: Export_Dialog(animation_document(), parent),
+    ),
+    "extract palette": (
+        Extract_Palette_Dialog,
+        lambda parent: Extract_Palette_Dialog(parent),
+    ),
+    "frame tag": (Tag_Dialog, lambda parent: Tag_Dialog(3, None, parent)),
+    "iso grid": (
+        Iso_Grid_Dialog,
+        lambda parent: Iso_Grid_Dialog(
+            IsoGridConfig(tile_width=40, ratio=1.2, origin=(1.0, 2.0)), parent
+        ),
+    ),
+    "new document": (New_Document_Dialog, lambda parent: New_Document_Dialog(parent)),
+    "palette swap": (
+        Palette_Swap_Dialog,
+        lambda parent: Palette_Swap_Dialog(255, parent),
+    ),
+    "scale": (Scale_Dialog, lambda parent: Scale_Dialog(16, 16, parent)),
+}
+
+#: The record of the plan's count, printed beside the derived one and never compared.
+PLANNED_INTEGER_CONSTRUCTIONS = 37
+
+BIG_VALUE = 1234  # needs a group separator in French when one is shown
+
+
+@pytest.fixture
+def french_window_on_a_spanish_system(qtbot, monkeypatch) -> Iterator[Main_Window]:
+    """A main window built while French is active on an ``es_ES`` system.
+
+    The fields a window builds are created with it, so the window itself has to be
+    built under French for its panels' fields to be created under French. The
+    system locale is ``es_ES`` and its preferred languages are French, so the
+    manager installs French at start and the formatting locale is ``fr``.
+    """
+    monkeypatch.setattr(
+        QLocale, "system", staticmethod(lambda: QLocale(SPANISH_SYSTEM)), raising=True
+    )
+    monkeypatch.setattr(
+        QLocale, "uiLanguages", lambda self, *a, **k: ["fr-FR", "fr"], raising=True
+    )
+    window = Main_Window()
+    qtbot.addWidget(window)
+    assert window._language_manager.current_language() == "fr"
+    try:
+        yield window
+    finally:
+        window._language_manager.set_language(FALLBACK_LANGUAGE)
+
+
+def _owner_name(spin: QWidget) -> str:
+    """Return the class of the nearest ancestor that the app itself defines."""
+    parent = spin.parent()
+    while parent is not None:
+        module = type(parent).__module__
+        if module.startswith("pixelart_creator.ui."):
+            return type(parent).__name__
+        parent = parent.parent()
+    return "?"
+
+
+def _owner_file(spin: QWidget) -> str:
+    """Return the file of the nearest ancestor class that the app itself defines."""
+    parent = spin.parent()
+    while parent is not None:
+        if type(parent).__module__.startswith("pixelart_creator.ui."):
+            return Path(inspect.getfile(type(parent))).name
+        parent = parent.parent()
+    return "?"
+
+
+def integer_fields_of(window: Main_Window, qtbot) -> List[Tuple[str, str, QSpinBox]]:
+    """Return ``(label, file, field)`` for each integer field the app shows.
+
+    The main window's panels are walked with ``findChildren(QSpinBox)``; each
+    dialog that holds integer fields is opened as the app opens it.
+    """
+    found: List[Tuple[str, str, QSpinBox]] = []
+    for index, spin in enumerate(window.findChildren(QSpinBox)):
+        label = (
+            f"window/{_owner_name(spin)}#{index} "
+            f"(range {spin.minimum()}..{spin.maximum()})"
+        )
+        found.append((label, _owner_file(spin), spin))
+    for name, (cls, build) in INTEGER_DIALOGS.items():
+        dialog = build(window)
+        qtbot.addWidget(dialog)
+        file_name = Path(inspect.getfile(cls)).name
+        for index, spin in enumerate(dialog.findChildren(QSpinBox)):
+            label = f"{name}#{index} (range {spin.minimum()}..{spin.maximum()})"
+            found.append((label, file_name, spin))
+    return found
+
+
+def _sample_value(spin: QSpinBox) -> int:
+    """Return a value inside the field's range, one that shows a group separator if
+    grouped."""
+    low, high = spin.minimum(), spin.maximum()
+    for candidate in (BIG_VALUE, 12, 1):
+        if low <= candidate <= high and not (
+            spin.specialValueText() and candidate == low
+        ):
+            return candidate
+    return high if spin.specialValueText() and high > low else low
+
+
+def _other_value(spin: QSpinBox, value: int) -> Optional[int]:
+    """Return a second value inside the range, or ``None`` when the range has one
+    value."""
+    for candidate in (value + 1, value - 1):
+        if spin.minimum() <= candidate <= spin.maximum() and not (
+            spin.specialValueText() and candidate == spin.minimum()
+        ):
+            return candidate
+    return None
+
+
+def integer_field_problems(
+    label: str, spin: QSpinBox, formatting: QLocale
+) -> List[str]:
+    """Return what is wrong with one integer field, each line naming the field.
+
+    The field uses the formatting locale; it shows its value as that locale's data
+    formats the integer (digits, and the sign when negative), with no group
+    separator; a value typed as shown is accepted; the field does not show a
+    group separator and asks Qt for none.
+    """
+    problems: List[str] = []
+    if spin.locale().name() != formatting.name():
+        problems.append(
+            f"{label}: locale {spin.locale().name()}, not {formatting.name()}"
+        )
+    if spin.isGroupSeparatorShown():
+        problems.append(f"{label}: shows a group separator, which is not ruled")
+    ungrouped = QLocale(formatting)
+    ungrouped.setNumberOptions(QLocale.NumberOption.OmitGroupSeparator)
+    value = _sample_value(spin)
+    spin.setValue(value)
+    shown = spin.text()
+    core = shown.removeprefix(spin.prefix()).removesuffix(spin.suffix())
+    expected = ungrouped.toString(spin.value())
+    if core != expected:
+        problems.append(
+            f"{label}: shows {core!r}, the locale's data gives {expected!r}"
+        )
+    for separator in {formatting.groupSeparator(), " ", " "}:
+        if separator and separator in core:
+            problems.append(
+                f"{label}: {core!r} holds the group separator {separator!r}"
+            )
+    other = _other_value(spin, spin.value())
+    if other is not None:
+        typed = ungrouped.toString(other)
+        spin.lineEdit().setText(f"{spin.prefix()}{typed}{spin.suffix()}")
+        spin.interpretText()
+        if spin.value() != other:
+            problems.append(
+                f"{label}: typing {typed!r} gave {spin.value()}, not {other}"
+            )
+    return problems
+
+
+def test_sc_l10n_ui_015_7_the_decimal_and_integer_fields_examined_are_counted(
+    french_window_on_a_spanish_system, qtbot, capsys
+):
+    """SC-L10N-UI-015-7: the number of decimal fields and of integer fields examined.
+
+    Both are printed and each is non-zero. The plan's count of constructions is
+    printed beside the derived one as a record and is never compared with it.
+    """
+    window = french_window_on_a_spanish_system
+    fields = integer_fields_of(window, qtbot)
+    decimals = _decimal_fields(window, qtbot) + [
+        ("window", spin) for spin in window.findChildren(QDoubleSpinBox)
+    ]
+    in_panels = sum(1 for f in fields if f[0].startswith("window/"))
+    line = (
+        f"[numeric fields] decimal fields examined {len(decimals)}, integer fields "
+        f"examined {len(fields)} ({in_panels} in the main window's panels); "
+        f"record, never compared: the plan counted "
+        f"{PLANNED_INTEGER_CONSTRUCTIONS} constructions"
+    )
+    print(line)
+    with capsys.disabled():
+        print(line)
+    assert len(decimals) > 0 and len(fields) > 0
+
+
+def test_sc_l10n_ui_015_7_the_dialogs_integer_fields_use_the_formatting_locale(
+    french_window_on_a_spanish_system, qtbot
+):
+    """SC-L10N-UI-015-7: French on es_ES: each integer field of a dialog uses ``fr``.
+
+    Each dialog that holds integer fields is opened as the app opens it, with
+    French active; every field has the locale ``fr``, shows its value as ``fr``'s
+    data formats the integer (prefix and suffix aside), shows no group separator,
+    and accepts a value typed as it is shown.
+    """
+    formatting = QLocale("fr")
+    problems: List[str] = []
+    examined = 0
+    for label, _file, spin in integer_fields_of(
+        french_window_on_a_spanish_system, qtbot
+    ):
+        if label.startswith("window/"):
+            continue
+        examined += 1
+        problems += integer_field_problems(label, spin, formatting)
+    assert examined > 0
+    assert problems == [], f"{len(problems)} problems:\n" + "\n".join(problems)
+
+
+def test_sc_l10n_ui_015_7_the_main_windows_integer_fields_use_the_formatting_locale(
+    french_window_on_a_spanish_system, qtbot
+):
+    """SC-L10N-UI-015-7: French on es_ES: each integer field of the main window's
+    panels.
+
+    The window is built with French active (the system locale is ``es_ES`` and its
+    preferred languages are French); its panels' fields, found with
+    ``findChildren(QSpinBox)``, were created with it. Each has the locale ``fr`` and
+    shows and accepts its value as ``fr``'s data formats it.
+    """
+    formatting = QLocale("fr")
+    problems: List[str] = []
+    examined = 0
+    for label, _file, spin in integer_fields_of(
+        french_window_on_a_spanish_system, qtbot
+    ):
+        if not label.startswith("window/"):
+            continue
+        examined += 1
+        problems += integer_field_problems(label, spin, formatting)
+    assert examined > 0
+    assert problems == [], f"{len(problems)} problems:\n" + "\n".join(problems)
+
+
+def test_sc_l10n_ui_015_7_the_integer_fields_are_those_the_source_constructs(
+    french_window_on_a_spanish_system, qtbot
+):
+    """SC-L10N-UI-015-7: the fields walked belong to every file that builds an
+    integer field."""
+    walked = {
+        file
+        for _label, file, _spin in integer_fields_of(
+            french_window_on_a_spanish_system, qtbot
+        )
+    }
+    constructing = {
+        path.name
+        for path in UI_DIR.rglob("*.py")
+        if spin_constructions(path.read_text(encoding="utf-8"), "QSpinBox") > 0
+    }
+    assert constructing == walked, (
+        "a file builds an integer field that the walk does not reach: "
+        f"{sorted(constructing - walked)}; the walk reaches fields of files that build "
+        f"none: {sorted(walked - constructing)}"
+    )
+
+
+def spin_constructions(source: str, class_name: str) -> int:
+    """Count the ``<class_name>(...)`` constructions in ``source``."""
+    return sum(
+        1
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call) and _called_name(node) == class_name
+    )
+
+
+def unlocalised_constructions(source: str, class_name: str) -> List[str]:
+    """Return a line for each ``class_name`` construction never given the formatting
+    locale.
+
+    A construction passes only when it is assigned to a name or an attribute and,
+    in the same function, ``<that same target>.setLocale(current_formatting_locale())``
+    is called. A helper that builds many fields counts once per construction.
+    """
+    tree = ast.parse(source)
+    parents: Dict[ast.AST, ast.AST] = {}
+    for parent in ast.walk(tree):
+        for child in ast.iter_child_nodes(parent):
+            parents[child] = parent
+    problems: List[str] = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and _called_name(node) == class_name):
+            continue
+        assign = parents.get(node)
+        function = assign
+        while function is not None and not isinstance(
+            function, (ast.FunctionDef, ast.AsyncFunctionDef)
+        ):
+            function = parents.get(function)
+        if not (isinstance(assign, ast.Assign) and len(assign.targets) == 1):
+            problems.append(f"line {node.lineno}: not assigned to one target")
+            continue
+        if function is None:
+            problems.append(f"line {node.lineno}: built outside a function")
+            continue
+        target = ast.unparse(assign.targets[0])
+        if not any(
+            _sets_formatting_locale(call, target) for call in ast.walk(function)
+        ):
+            problems.append(
+                f"line {node.lineno}: setLocale(...) is never called on {target}"
+            )
+    return problems
+
+
+def test_sc_l10n_ui_015_7_every_integer_field_construction_sets_the_locale(capsys):
+    """SC-L10N-UI-015-7: in ui/, each QSpinBox gets the formatting locale in its
+    function.
+
+    Walks the source of every module of ``ui/``; the count is printed (and is not
+    compared with the plan's) and is non-zero.
+    """
+    total = 0
+    problems: List[str] = []
+    for path in sorted(UI_DIR.rglob("*.py")):
+        source = path.read_text(encoding="utf-8")
+        total += spin_constructions(source, "QSpinBox")
+        problems += [
+            f"{path.name} {problem}"
+            for problem in unlocalised_constructions(source, "QSpinBox")
+        ]
+    line = (
+        f"[numeric fields] {total} QSpinBox constructions in ui/ (record, never "
+        f"compared: the plan counted {PLANNED_INTEGER_CONSTRUCTIONS})"
+    )
+    print(line)
+    with capsys.disabled():
+        print(line)
+    assert total > 0
+    assert problems == [], "\n".join(problems)
+
+
+_PLANTED_INTEGER_GOOD = """
+import pixelart_creator.ui.i18n as i18n
+class Dialog:
+    def __init__(self):
+        self._count = QSpinBox(self)
+        self._count.setLocale(i18n.current_formatting_locale())
+def _make_spin(parent):
+    spin = QSpinBox(parent)
+    spin.setLocale(i18n.current_formatting_locale())
+    return spin
+"""
+_PLANTED_INTEGER_BARE = """
+class Dialog:
+    def __init__(self):
+        self._count = QSpinBox(self)
+"""
+_PLANTED_INTEGER_HELPER_BARE = """
+def _make_spin(parent):
+    spin = QSpinBox(parent)
+    return spin
+"""
+_PLANTED_INTEGER_OTHER_LOCALE = """
+class Dialog:
+    def __init__(self):
+        self._count = QSpinBox(self)
+        self._count.setLocale(QLocale())
+"""
+
+
+def test_the_integer_walk_accepts_a_set_locale_and_fails_on_each_planted_gap():
+    """The controls of the integer walk: it passes the good source and fails on each
+    gap."""
+    assert unlocalised_constructions(_PLANTED_INTEGER_GOOD, "QSpinBox") == []
+    assert spin_constructions(_PLANTED_INTEGER_GOOD, "QSpinBox") == 2
+    for planted in (
+        _PLANTED_INTEGER_BARE,
+        _PLANTED_INTEGER_HELPER_BARE,
+        _PLANTED_INTEGER_OTHER_LOCALE,
+    ):
+        assert unlocalised_constructions(planted, "QSpinBox"), planted
+
+
+def test_sc_l10n_ui_015_7_a_field_left_on_the_system_locale_fails_naming_it(qtbot):
+    """SC-L10N-UI-015-7: one integer field planted on the system's locale is named.
+
+    Three stand-in fields: one on ``fr``, one left on ``es_ES``, one on ``fr`` that
+    shows a group separator. The first passes; the other two fail, each naming
+    its own label and nothing else.
+    """
+    formatting = QLocale("fr")
+    good, system, grouped = QSpinBox(), QSpinBox(), QSpinBox()
+    for spin in (good, system, grouped):
+        qtbot.addWidget(spin)
+        spin.setRange(0, 5000)
+    good.setLocale(formatting)
+    system.setLocale(QLocale(SPANISH_SYSTEM))
+    grouped.setLocale(formatting)
+    grouped.setGroupSeparatorShown(True)
+
+    assert integer_field_problems("good field", good, formatting) == []
+    left = integer_field_problems("system field", system, formatting)
+    assert left and all(problem.startswith("system field:") for problem in left)
+    assert any("es_ES" in problem for problem in left)
+
+
+def test_sc_l10n_ui_015_7_a_field_that_shows_a_group_separator_fails_naming_it(qtbot):
+    """SC-L10N-UI-015-7: a field with ``setGroupSeparatorShown(True)`` fails and
+    names itself."""
+    formatting = QLocale("fr")
+    grouped = QSpinBox()
+    qtbot.addWidget(grouped)
+    grouped.setRange(0, 5000)
+    grouped.setLocale(formatting)
+    grouped.setGroupSeparatorShown(True)
+    problems = integer_field_problems("grouped field", grouped, formatting)
+    assert problems and all(
+        problem.startswith("grouped field:") for problem in problems
+    )
+    assert any("group separator" in problem for problem in problems)
 
 
 # --------------------------------------------------------------------------- #

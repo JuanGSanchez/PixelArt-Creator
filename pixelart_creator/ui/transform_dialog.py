@@ -53,11 +53,13 @@ class Scale_Dialog(QDialog):
         self._factor.valueChanged.connect(self._on_factor_changed)
 
         self._width = QSpinBox(self)
+        self._width.setLocale(i18n.current_formatting_locale())
         self._width.setRange(1, MAX_CANVAS_WIDTH)
         self._width.setValue(self._src_w)
         self._width.valueChanged.connect(self._on_size_changed)
 
         self._height = QSpinBox(self)
+        self._height.setLocale(i18n.current_formatting_locale())
         self._height.setRange(1, MAX_CANVAS_HEIGHT)
         self._height.setValue(self._src_h)
         self._height.valueChanged.connect(self._on_size_changed)

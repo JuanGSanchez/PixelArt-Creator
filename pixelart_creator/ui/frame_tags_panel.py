@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
 )
 
 import pixelart_creator.ui.failure_messages as failure_messages
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.animation import (
     DEFAULT_PLAYBACK_MODE,
     FrameTag,
@@ -82,13 +83,16 @@ class Tag_Dialog(QDialog):
 
         self._name_edit = QLineEdit(self)
         self._from_spin = QSpinBox(self)
+        self._from_spin.setLocale(i18n.current_formatting_locale())
         self._from_spin.setRange(0, high)
         self._to_spin = QSpinBox(self)
+        self._to_spin.setLocale(i18n.current_formatting_locale())
         self._to_spin.setRange(0, high)
         self._mode_combo = QComboBox(self)
         for mode in PlaybackMode:
             self._mode_combo.addItem(_mode_label(self, mode), mode)
         self._repeat_spin = QSpinBox(self)
+        self._repeat_spin.setLocale(i18n.current_formatting_locale())
         self._repeat_spin.setRange(0, 9999)
         self._color_button = Swatch_Button(self)
         self._color_button.clicked.connect(self._pick_color)

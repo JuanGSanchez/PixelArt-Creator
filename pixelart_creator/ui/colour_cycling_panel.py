@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.constants import CYCLE_DEFAULT_FPS
 from pixelart_creator.logic.palette import Palette
@@ -54,8 +55,11 @@ class Colour_Cycling_Panel(QWidget):
 
         self._title = QLabel(self)
         self._start_spin = QSpinBox(self)
+        self._start_spin.setLocale(i18n.current_formatting_locale())
         self._end_spin = QSpinBox(self)
+        self._end_spin.setLocale(i18n.current_formatting_locale())
         self._step_spin = QSpinBox(self)
+        self._step_spin.setLocale(i18n.current_formatting_locale())
         self._step_spin.setRange(1, 255)
         self._step_spin.setValue(1)
         for spin in (self._start_spin, self._end_spin):

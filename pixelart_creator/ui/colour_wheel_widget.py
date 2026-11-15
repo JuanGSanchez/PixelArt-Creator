@@ -61,6 +61,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.color import CHANNEL_MAX, RGBA, to_hex
 from pixelart_creator.logic.color_theory import (
     analogous,
@@ -397,6 +398,7 @@ class Colour_Wheel_Widget(QWidget):
 
     def _make_spin(self, maximum: int, slot, accessible_name: str) -> QSpinBox:
         spin = QSpinBox(self)
+        spin.setLocale(i18n.current_formatting_locale())
         spin.setRange(0, maximum)
         spin.valueChanged.connect(slot)
         # Named at construction (not only in `_retranslate`) so the control is

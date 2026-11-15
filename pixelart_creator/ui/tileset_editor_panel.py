@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
 )
 
 import pixelart_creator.ui.failure_messages as failure_messages
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.constants import (
     DEFAULT_TILE_HEIGHT,
@@ -334,6 +335,7 @@ class Tileset_Editor_Panel(QWidget):
         self, value: int, *, minimum: int, accessible_name: str
     ) -> QSpinBox:
         spin = QSpinBox(self)
+        spin.setLocale(i18n.current_formatting_locale())
         spin.setRange(minimum, MAX_TILE_DIMENSION)
         spin.setValue(value)
         # Named at construction (not only in `_retranslate`) so the control is
