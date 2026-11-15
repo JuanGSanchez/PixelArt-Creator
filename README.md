@@ -56,9 +56,8 @@ The platform has been built in phases; the capabilities below are **shipped**.
   with Aseprite-style JSON metadata and Unity / Godot engine presets; batch export; and a
   headless command-line exporter. Output is byte-reproducible for a fixed input.
 - **Automation & scripting** — record and replay deterministic macros, run a bounded,
-  allow-listed command DSL (no `eval`/`exec`), extend the app with trusted, consent-gated
-  plugins, batch-recolour many targets at once, generate content procedurally, and run any
-  automation headlessly from the command line.
+  allow-listed command DSL (no `eval`/`exec`), batch-recolour many targets at once,
+  generate content procedurally, and run any automation headlessly from the command line.
 - **Visual aids** — a live real-size preview, guides & rulers with snapping, isometric and
   perspective grids, a PureRef-style reference board, multiple synced views of one document,
   and reproducible timelapse recording — all non-destructive.

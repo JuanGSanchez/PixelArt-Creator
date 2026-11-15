@@ -35,8 +35,7 @@ canvas system through cloud collaboration and the asset library:
   command line — all byte-reproducible.
 - **[Automation & extensibility](usage/automation.md)** — record and replay
   macros (`.pixmacro`, deterministic), run bounded-DSL scripts (no `eval`/`exec`),
-  extend the app with trusted, consent-gated plugins, batch-recolour many targets
-  at once, generate content procedurally, and run any automation headlessly with
+  batch-recolour many targets at once, generate content procedurally, and run any automation headlessly with
   the `pixelart-run` command line.
 - **[AI assistant](usage/ai-assistant.md)** — drive the editor in plain language
   over a model-agnostic chat panel: connect any OpenAI-compatible or Anthropic
