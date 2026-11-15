@@ -122,6 +122,16 @@ _CYCLE_FRAME = (
     "Dependency cycle detected (graph unchanged): %1",
 )
 
+#: The frames the interface composes as a lead-in, a line break and the sentence
+#: (``failure_on_own_line``; REQ-L10N-UI-020 clause 1). For such a frame the
+#: requirement's clause 1 of REQ-L10N-UI-018 is read of each part (spec section 9,
+#: round-22 note; plan R31-4). The guide frame is not one of them: its template
+#: already ends in a line break and is shown as the catalogue holds it.
+_COMPOSED_FRAMES = (_CYCLE_FRAME,)
+
+#: The token that stands for the sentence in both frames.
+_PLACEHOLDER = "%1"
+
 #: The channels, in the order the requirement lists them.
 CHANNELS = (
     "message box",
@@ -171,8 +181,38 @@ def _sentence(code: str, kind: str) -> str:
     return _catalogue_message(code, _FAILURE_CONTEXT, SENTENCES[kind][1])
 
 
+def _lead_in_and_tail(code: str, frame: Tuple[str, str]) -> Tuple[str, str]:
+    """Return a composed frame's lead-in and the text after its placeholder.
+
+    The lead-in is the catalogue's finished text of the template up to its
+    placeholder, without the whitespace at its end: what stands before the line
+    break. The tail is what a translation puts after the placeholder, stripped
+    (empty when nothing follows it). Written here from the catalogue text, never by
+    calling the function the interface composes with.
+    """
+    template = _catalogue_message(code, *frame)
+    assert template.count(_PLACEHOLDER) == 1, f"{frame[0]}: {template!r}: placeholder"
+    head, _found, tail = template.partition(_PLACEHOLDER)
+    lead_in = head.rstrip()
+    assert lead_in, f"{frame[0]}: {template!r} has no lead-in before the placeholder"
+    return lead_in, tail.strip()
+
+
+def _composed(code: str, frame: Tuple[str, str], kind: str) -> str:
+    """Return a composed frame as shown: lead-in, a line break, the sentence."""
+    lead_in, tail = _lead_in_and_tail(code, frame)
+    return lead_in + "\n" + _sentence(code, kind) + ("\n" + tail if tail else "")
+
+
 def _framed(code: str, frame: Tuple[str, str], kind: str) -> str:
-    """Return the frame's catalogue text with the sentence in its placeholder."""
+    """Return what a frame shows for the sentence of ``kind``.
+
+    A composed frame (REQ-L10N-UI-020) shows its lead-in and the sentence on a line
+    of its own; any other frame shows its catalogue text with the sentence in its
+    placeholder.
+    """
+    if frame in _COMPOSED_FRAMES:
+        return _composed(code, frame, kind)
     template = _catalogue_message(code, *frame)
     assert template.count("%1") == 1, f"{frame[0]}: {template!r} has no placeholder"
     return template.replace("%1", _sentence(code, kind))
@@ -204,6 +244,36 @@ def assert_clean(shown: List[str], expected: str, base: Type[BaseException]) -> 
     assert message == expected, f"shown {message!r}, the catalogue holds {expected!r}"
     for text in (MARKER, PLANTED_TYPE, base.__name__):
         assert text not in message, f"{text!r} is shown in {message!r}"
+
+
+def assert_each_part(message: str, lead_in: str, sentence: str, tail: str = "") -> None:
+    """Fail unless ``message`` is the lead-in, a line break and the sentence.
+
+    A message composed under REQ-L10N-UI-020 is read part by part
+    (REQ-L10N-UI-018 clause 1 "still holds of each part"): the lead-in is the
+    catalogue's finished translation of the template up to its placeholder, the
+    sentence is its own finished translation, and the sentence starts on a line of
+    its own (REQ-L10N-UI-020 clause 1), so it never continues on the lead-in's
+    line. ``tail`` is what a translation puts after the placeholder (kept on a
+    line after the sentence).
+    """
+    first, found, rest = message.partition("\n")
+    assert sentence not in first, (
+        f"the sentence {sentence!r} continues on the lead-in's line "
+        f"{lead_in!r}: {message!r}"
+    )
+    assert found, (
+        f"the sentence {sentence!r} does not start on a line of its own after "
+        f"the lead-in {lead_in!r}: {message!r}"
+    )
+    assert (
+        first == lead_in
+    ), f"the lead-in shown is {first!r}, the catalogue's is {lead_in!r}"
+    wanted = sentence + ("\n" + tail if tail else "")
+    assert rest == wanted, (
+        f"after the lead-in {lead_in!r} {rest!r} is shown, "
+        f"the catalogue's sentence is {wanted!r}"
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -351,6 +421,22 @@ def _expected(code: str, channel: str, kind: str) -> str:
     return _sentence(code, kind) if frame is None else _framed(code, frame, kind)
 
 
+def assert_channel(
+    shown: List[str], code: str, channel: str, kind: str, base: Type[BaseException]
+) -> None:
+    """Fail unless ``channel`` showed the catalogue's message for ``kind``, cleanly.
+
+    For a composed frame each part is asserted first (lead-in, then sentence), then
+    the whole message and the marker and type-name checks of :func:`assert_clean`,
+    which are the same for every channel.
+    """
+    frame = _frame_for(channel)
+    if frame in _COMPOSED_FRAMES and len(shown) == 1:
+        lead_in, tail = _lead_in_and_tail(code, frame)
+        assert_each_part(shown[0], lead_in, _sentence(code, kind), tail)
+    assert_clean(shown, _expected(code, channel, kind), base)
+
+
 def run_channel(
     channel: str,
     qtbot,
@@ -391,7 +477,7 @@ def test_a_failure_is_shown_as_the_catalogue_sentence_without_the_exception_text
     """
     language(code)
     shown, base = run_channel(channel, qtbot, monkeypatch, mute_message_boxes)
-    assert_clean(shown, _expected(code, channel, "INVALID_VALUE"), base)
+    assert_channel(shown, code, channel, "INVALID_VALUE", base)
 
 
 CAUSE_MARKER = "ZQX cause marker"
@@ -413,7 +499,7 @@ def test_a_wrapped_operating_system_failure_is_shown_as_its_own_sentence(
     language(code)
     cause = FileNotFoundError(CAUSE_MARKER)
     shown, base = run_channel(channel, qtbot, monkeypatch, mute_message_boxes, cause)
-    assert_clean(shown, _expected(code, channel, "NOT_FOUND"), base)
+    assert_channel(shown, code, channel, "NOT_FOUND", base)
     assert CAUSE_MARKER not in shown[0], shown
     assert "FileNotFoundError" not in shown[0], shown
 
@@ -432,7 +518,7 @@ def test_the_languages_and_channels_examined_are_printed(
     for channel in CHANNELS:
         mute_message_boxes.clear()
         shown, base = run_channel(channel, qtbot, monkeypatch, mute_message_boxes)
-        assert_clean(shown, _expected(code, channel, "INVALID_VALUE"), base)
+        assert_channel(shown, code, channel, "INVALID_VALUE", base)
         examined += 1
     line = (
         f"languages examined: {len(LANGUAGES_UNDER_TEST)} of {EXPECTED_LANGUAGE_COUNT} "
@@ -507,6 +593,62 @@ def test_the_verdict_accepts_a_clean_message_and_rejects_each_fault():
         assert_clean([f"{good} (ValueError)"], f"{good} (ValueError)", ValueError)
     with pytest.raises(AssertionError):
         assert_clean(["another sentence"], good, ValueError)
+
+
+def test_the_per_part_verdict_accepts_a_composed_message_and_rejects_each_fault():
+    """SC-L10N-UI-018-2 control: written with literals, so the product plays no part.
+
+    A composed message is the lead-in, a line break and the sentence, each as the
+    catalogue holds it. Each fault of a part, and the old inline junction, is
+    rejected, naming what is wrong.
+    """
+    lead_in = "Dependency cycle detected (graph unchanged):"
+    good = SENTENCES["INVALID_VALUE"][1]
+    assert_each_part(f"{lead_in}\n{good}", lead_in, good)
+    assert_each_part(f"{lead_in}\n{good}\nafter", lead_in, good, "after")
+    # The old composition: the sentence continues on the lead-in's line.
+    with pytest.raises(AssertionError, match="continues on the lead-in's line"):
+        assert_each_part(f"{lead_in} {good}", lead_in, good)
+    # The same, the sentence lower-cased (the Spanish reviewer's variant).
+    with pytest.raises(AssertionError, match="does not start on a line of its own"):
+        assert_each_part(f"{lead_in} {good[0].lower()}{good[1:]}", lead_in, good)
+    # Each part wrong in turn: the lead-in, the sentence, a stray trailing space.
+    with pytest.raises(AssertionError, match="the lead-in shown is"):
+        assert_each_part(f"Another lead-in:\n{good}", lead_in, good)
+    with pytest.raises(AssertionError, match="the lead-in shown is"):
+        assert_each_part(f"{lead_in} \n{good}", lead_in, good)
+    with pytest.raises(AssertionError, match="the catalogue's sentence is"):
+        assert_each_part(f"{lead_in}\n{good[0].lower()}{good[1:]}", lead_in, good)
+    with pytest.raises(AssertionError, match="the catalogue's sentence is"):
+        assert_each_part(f"{lead_in}\n{SENTENCES['GENERIC'][1]}", lead_in, good)
+    with pytest.raises(AssertionError, match="the catalogue's sentence is"):
+        assert_each_part(f"{lead_in}\n{good}\nafter", lead_in, good)
+
+
+def test_the_old_inline_composition_of_the_cycle_frame_is_caught(
+    qtbot, monkeypatch, mute_message_boxes
+):
+    """SC-L10N-UI-018-2 control: the junction planted as it was before T129-j fails.
+
+    ``failure_on_own_line`` is replaced, at the seam the view calls, by the
+    composition the interface used before round 23 (the sentence in the
+    placeholder, on the lead-in's line). The real view is driven; what it shows
+    reads ``...(graph unchanged): <sentence>`` and the per-part verdict must
+    reject it naming the lead-in and the sentence.
+    """
+    monkeypatch.setattr(
+        failure_messages,
+        "failure_on_own_line",
+        lambda template, placeholder, sentence: template.replace(placeholder, sentence),
+    )
+    shown, base = run_channel(
+        "stored for later display", qtbot, monkeypatch, mute_message_boxes
+    )
+    assert (
+        len(shown) == 1 and "\n" not in shown[0]
+    ), f"the plant did not reach it: {shown}"
+    with pytest.raises(AssertionError, match="continues on the lead-in's line"):
+        assert_channel(shown, "en", "stored for later display", "INVALID_VALUE", base)
 
 
 # --------------------------------------------------------------------------- #

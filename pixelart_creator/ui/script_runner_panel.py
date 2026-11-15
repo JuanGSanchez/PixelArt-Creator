@@ -130,7 +130,8 @@ class Script_Runner_Panel(QWidget):
         try:
             data = json.loads(text)
         except json.JSONDecodeError as exc:
-            return [], self.tr("Invalid JSON: %1").replace(
+            return [], failure_messages.failure_on_own_line(
+                self.tr("Invalid JSON: %1"),
                 "%1",
                 failure_messages.failure_text(
                     failure_messages.logged_failure_kind(exc)

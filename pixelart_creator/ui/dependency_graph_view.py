@@ -165,8 +165,10 @@ class Dependency_Graph_View(QWidget):
         self._cycle_label.setVisible(self._cycle_report is not None)
         if self._cycle_report is not None:
             self._cycle_label.setText(
-                self.tr("Dependency cycle detected (graph unchanged): %1").replace(
-                    "%1", failure_messages.failure_text(self._cycle_report)
+                failure_messages.failure_on_own_line(
+                    self.tr("Dependency cycle detected (graph unchanged): %1"),
+                    "%1",
+                    failure_messages.failure_text(self._cycle_report),
                 )
             )
         if self._session is None:

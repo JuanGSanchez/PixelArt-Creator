@@ -265,10 +265,12 @@ class Provider_Config_Dialog(QDialog):
                 store_token(config.provider, _ACCOUNT, key)
             except TokenStoreError as exc:
                 self._hint_label.setText(
-                    self.tr("Could not store the API key: {0}").format(
+                    failure_messages.failure_on_own_line(
+                        self.tr("Could not store the API key: {0}"),
+                        "{0}",
                         failure_messages.failure_text(
                             failure_messages.logged_failure_kind(exc)
-                        )
+                        ),
                     )
                 )
                 return

@@ -4415,9 +4415,19 @@ class Main_Window(QMainWindow):
             # Auto-show the live-cursor overlay on connect.
             self._live_cursors_action.setChecked(True)
 
-    def _on_realtime_error(self, message: str) -> None:
-        """Surface a rejected/failed real-time frame (never a crash — Article VII)."""
-        self.statusBar().showMessage(self.tr("Real-time: {msg}").format(msg=message))
+    def _on_realtime_error(self, message: str, is_failure: bool = False) -> None:
+        """Surface a rejected/failed real-time frame (never a crash — Article VII).
+
+        A failure sentence is shown in the failure-only frame, whose lead-in ends as a
+        sentence; any other message (the reason no transport is configured) keeps
+        the ``Real-time: {msg}`` frame. The frame is chosen by the message's kind as
+        the session tagged it, never by comparing the shown text (REQ-L10N-UI-020).
+        """
+        if is_failure:
+            frame = self.tr("Real-time. {msg}")
+        else:
+            frame = self.tr("Real-time: {msg}")
+        self.statusBar().showMessage(frame.format(msg=message))
 
     def _on_remote_update_applied(self, regions: object) -> None:
         """Repaint ONLY the tiles a remote CRDT update touched (dirty-rect redraw).

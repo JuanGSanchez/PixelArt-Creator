@@ -208,8 +208,10 @@ class Realtime_Client(QObject):
     frameReceived = Signal(str, object)
     #: ``(connected,)`` — the real-time connection state changed.
     connectionChanged = Signal(bool)
-    #: ``(message,)`` — a transport error occurred (surfaced to the user).
-    errorOccurred = Signal(str)
+    #: ``(message, is_failure)`` — a transport error occurred (surfaced to the user).
+    #: ``is_failure`` is ``True`` for a failure sentence and ``False`` for a reason that
+    #: is not one (no transport configured); the status bar frames the two differently.
+    errorOccurred = Signal(str, bool)
 
     def __init__(
         self,
@@ -250,7 +252,8 @@ class Realtime_Client(QObject):
         if self._signals is None or self.is_active():
             return
         if self._factory is None:
-            self.errorOccurred.emit(self.tr("no real-time transport configured"))
+            reason = self.tr("no real-time transport configured")
+            self.errorOccurred.emit(reason, False)
             return
         self._document_id = document_id
         self._stop = threading.Event()
@@ -332,9 +335,8 @@ class Realtime_Client(QObject):
         self.connectionChanged.emit(connected)
 
     def _on_failed(self, message: str) -> None:
-        self.errorOccurred.emit(
-            failure_messages.failure_text(failure_messages.FailureKind(message))
-        )
+        sentence = failure_messages.failure_text(failure_messages.FailureKind(message))
+        self.errorOccurred.emit(sentence, True)
 
 
 def make_loopback_factory() -> Tuple[object, TransportFactory]:

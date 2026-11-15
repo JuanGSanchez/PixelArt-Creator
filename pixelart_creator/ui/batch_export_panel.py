@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic.document import Document
 from pixelart_creator.ui.export_dialog import Export_Dialog
 from pixelart_creator.ui.export_worker import Export_Controller, ExportTarget
@@ -160,7 +161,12 @@ class Batch_Export_Panel(QWidget):
 
     def _on_target_failed(self, index: int, message: str) -> None:
         if self._running:
-            self._mark(index, self.tr("%1 — failed: %2").replace("%2", message))
+            self._mark(
+                index,
+                failure_messages.failure_on_own_line(
+                    self.tr("%1 — failed: %2"), "%2", message
+                ),
+            )
 
     def _on_batch_finished(self) -> None:
         self._running = False

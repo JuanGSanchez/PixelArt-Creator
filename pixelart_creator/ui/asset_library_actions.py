@@ -718,7 +718,8 @@ class Asset_Library_Session(QObject):
 
     def _report_import_failure(self, exc: Exception, parent: Optional[QWidget]) -> None:
         """Emit :data:`libraryImportFailed` and, with a ``parent``, a message box."""
-        message = self.tr("Could not import the asset: %1").replace(
+        message = failure_messages.failure_on_own_line(
+            self.tr("Could not import the asset: %1"),
             "%1",
             failure_messages.failure_text(failure_messages.logged_failure_kind(exc)),
         )
@@ -728,7 +729,8 @@ class Asset_Library_Session(QObject):
 
     def _report_export_failure(self, exc: Exception, parent: Optional[QWidget]) -> None:
         """Emit :data:`libraryExportFailed` and, with a ``parent``, a message box."""
-        message = self.tr("Could not export the asset: %1").replace(
+        message = failure_messages.failure_on_own_line(
+            self.tr("Could not export the asset: %1"),
             "%1",
             failure_messages.failure_text(failure_messages.logged_failure_kind(exc)),
         )
@@ -740,7 +742,8 @@ class Asset_Library_Session(QObject):
         self, exc: Exception, parent: Optional[QWidget]
     ) -> None:
         """Emit :data:`projectBundleExportFailed` and, with a ``parent``, a box."""
-        message = self.tr("Could not export the project bundle: %1").replace(
+        message = failure_messages.failure_on_own_line(
+            self.tr("Could not export the project bundle: %1"),
             "%1",
             failure_messages.failure_text(failure_messages.logged_failure_kind(exc)),
         )
@@ -752,7 +755,8 @@ class Asset_Library_Session(QObject):
         self, exc: Exception, parent: Optional[QWidget]
     ) -> None:
         """Emit :data:`projectBundleImportFailed` and, with a ``parent``, a box."""
-        message = self.tr("Could not import the project bundle: %1").replace(
+        message = failure_messages.failure_on_own_line(
+            self.tr("Could not import the project bundle: %1"),
             "%1",
             failure_messages.failure_text(failure_messages.logged_failure_kind(exc)),
         )
@@ -1143,7 +1147,8 @@ class Asset_Library_Session(QObject):
         happened by the failure sentence for its class, translated as this module's
         idiom.
         """
-        message = self.tr("Could not register the asset: %1").replace(
+        message = failure_messages.failure_on_own_line(
+            self.tr("Could not register the asset: %1"),
             "%1",
             failure_messages.failure_text(failure_messages.logged_failure_kind(exc)),
         )

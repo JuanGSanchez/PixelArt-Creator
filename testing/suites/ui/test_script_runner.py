@@ -14,6 +14,7 @@ import logging
 
 import pytest
 
+from pixelart_creator.ui import failure_messages
 from pixelart_creator.ui.failure_messages import failure_kind, failure_text
 from pixelart_creator.ui.main_window import Main_Window
 from testing.suites.ui._automation_helpers import (
@@ -84,16 +85,34 @@ def test_sc_ui_004_invalid_json_rejected_before_dispatch(qtbot, mute_message_box
     assert not win._automation_controller.is_busy()
 
 
+def _assert_sentence_on_its_own_line(shown: str, lead_in: str, sentence: str) -> None:
+    """Fail unless ``shown`` is the lead-in, a line break and the sentence alone.
+
+    REQ-L10N-UI-020 clause 1: the sentence never continues on the lead-in's line, so
+    the lead-in line holds the lead-in and nothing of the sentence (clause 3: the
+    lead-in keeps what it says, minus the space that stood before the sentence), and
+    the sentence is the whole of what follows the line break, as the catalogue holds
+    it (clause 2).
+    """
+    first, found, rest = shown.partition("\n")
+    assert sentence not in first, f"{sentence!r} continues on the line of {lead_in!r}"
+    assert found, f"{sentence!r} does not start on a line of its own: {shown!r}"
+    assert first == lead_in, f"the lead-in line is {first!r}, not {lead_in!r}"
+    assert rest == sentence, f"after {lead_in!r} the line is {rest!r}, not {sentence!r}"
+
+
 def test_sc_ui_004_invalid_json_shows_the_sentence_and_no_exception_text(
     qtbot, mute_message_boxes, caplog
 ):
     """SC-UI-004-1 + REQ-L10N-UI-018: a rejected script never shows the parser's text.
 
-    Invalid JSON is rejected in-panel: the box reads "Invalid JSON: " followed by the
-    sentence for the failure's kind (a ``json.JSONDecodeError`` is a ``ValueError``)
-    in the active language. Neither the decoder's own message nor its type name is in
-    it, and the detail is logged. The four messages the panel writes itself for a
-    malformed step are still shown as they were, and nothing is dispatched.
+    Invalid JSON is rejected in-panel: the box reads the lead-in "Invalid JSON:" and,
+    on a line of its own after it (REQ-L10N-UI-020 clause 1), the sentence for the
+    failure's kind (a ``json.JSONDecodeError`` is a ``ValueError``) in the active
+    language, as the catalogue holds it (clause 2). Neither the decoder's own message
+    nor its type name is in it, and the detail is logged. The four messages the panel
+    writes itself for a malformed step are still shown as they were, and nothing is
+    dispatched.
     """
     win = _window(qtbot)
     stack = win.active_tab().stack
@@ -114,7 +133,8 @@ def test_sc_ui_004_invalid_json_shows_the_sentence_and_no_exception_text(
     boxes = [text for kind, _title, text in mute_message_boxes if kind == "warning"]
     assert len(boxes) == 1
     shown = boxes[0]
-    assert shown.startswith("Invalid JSON: ")
+    assert sentence == "A value was not valid for this operation."
+    _assert_sentence_on_its_own_line(shown, "Invalid JSON:", sentence)
     assert shown.endswith(sentence)
     assert decoder_error.msg not in shown
     assert str(decoder_error) not in shown
@@ -138,3 +158,47 @@ def test_sc_ui_004_invalid_json_shows_the_sentence_and_no_exception_text(
             message
         ], script
         assert stack.count() == 0
+
+
+def test_sc_ui_004_the_inline_junction_of_the_invalid_json_box_is_caught(
+    qtbot, monkeypatch, mute_message_boxes
+):
+    """REQ-L10N-UI-020 control: the junction as it was before T129-j fails the verdict.
+
+    ``failure_on_own_line`` is replaced, at the seam the panel calls, by the
+    composition the interface used before (the sentence in the placeholder, on the
+    lead-in's line). The real panel is driven; the box reads
+    ``Invalid JSON: <sentence>`` and the verdict that the test above applies must
+    reject it, naming the sentence. Written beside literals that it accepts and
+    rejects, so the verdict's two sides are both seen.
+    """
+    sentence = "A value was not valid for this operation."
+    _assert_sentence_on_its_own_line(
+        f"Invalid JSON:\n{sentence}", "Invalid JSON:", sentence
+    )
+    for fault in (
+        f"Invalid JSON: {sentence}",  # the old composition
+        f"Invalid JSON:{sentence}",  # no break at all
+        f"Invalid JSON: \n{sentence}",  # the space left before the break
+        f"Invalid JSON:\n{sentence}\n",  # a stray line after the sentence
+        f"Invalid JSON:\n{sentence[0].lower()}{sentence[1:]}",  # not its catalogue form
+    ):
+        with pytest.raises(AssertionError):
+            _assert_sentence_on_its_own_line(fault, "Invalid JSON:", sentence)
+
+    monkeypatch.setattr(
+        failure_messages,
+        "failure_on_own_line",
+        lambda template, placeholder, text: template.replace(placeholder, text),
+    )
+    win = _window(qtbot)
+    win._script_runner_panel._editor.setPlainText("{ this is not valid json")
+    win._script_runner_panel._on_run()
+    boxes = [text for kind, _title, text in mute_message_boxes if kind == "warning"]
+    assert boxes == [
+        f"Invalid JSON: {sentence}"
+    ], f"the plant did not reach the box: {boxes}"
+    with pytest.raises(
+        AssertionError, match="continues on the line of 'Invalid JSON:'"
+    ):
+        _assert_sentence_on_its_own_line(boxes[0], "Invalid JSON:", sentence)

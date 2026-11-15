@@ -48,9 +48,10 @@ def export_tilemap_dialog(parent: QWidget, tilemap: Tilemap) -> Optional[str]:
         QMessageBox.warning(
             parent,
             QCoreApplication.translate("tilemap_io", "Export failed"),
-            QCoreApplication.translate(
-                "tilemap_io", "Could not export the map: %1"
-            ).replace(
+            failure_messages.failure_on_own_line(
+                QCoreApplication.translate(
+                    "tilemap_io", "Could not export the map: %1"
+                ),
                 "%1",
                 failure_messages.failure_text(
                     failure_messages.logged_failure_kind(exc)
@@ -82,9 +83,10 @@ def import_tilemap_dialog(parent: QWidget) -> Optional[Tilemap]:
         QMessageBox.warning(
             parent,
             QCoreApplication.translate("tilemap_io", "Import failed"),
-            QCoreApplication.translate(
-                "tilemap_io", "Could not import the map: %1"
-            ).replace(
+            failure_messages.failure_on_own_line(
+                QCoreApplication.translate(
+                    "tilemap_io", "Could not import the map: %1"
+                ),
                 "%1",
                 failure_messages.failure_text(
                     failure_messages.logged_failure_kind(exc)

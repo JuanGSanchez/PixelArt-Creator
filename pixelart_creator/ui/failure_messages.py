@@ -168,3 +168,29 @@ def failure_text(kind: FailureKind) -> str:
     return QCoreApplication.translate(
         "Failure_Messages", "The operation could not be completed."
     )
+
+
+def failure_on_own_line(template: str, placeholder: str, sentence: str) -> str:
+    """Return ``template`` with ``sentence`` on a line of its own after the lead-in.
+
+    ``template`` is the *translated* message and ``placeholder`` the token that
+    stands for the sentence in it (``%1``, ``{0}`` and so on). The text before the
+    placeholder (the lead-in) keeps its words, minus the whitespace at its end; a
+    line break follows it and then the sentence, so a sentence never continues on
+    its lead-in's line whatever the language's convention is. A lead-in that
+    already ends in a line break is left as it is, an empty lead-in leaves the
+    sentence to start the text, and text a translation puts after the placeholder
+    is kept on a line of its own after the sentence. A template without the
+    placeholder is returned unchanged.
+    """
+    head, found, tail = template.partition(placeholder)
+    if not found:
+        return template
+    if not head.strip():
+        lead = ""
+    elif head.endswith("\n"):
+        lead = head
+    else:
+        lead = head.rstrip() + "\n"
+    rest = tail.strip()
+    return lead + sentence + ("\n" + rest if rest else "")
