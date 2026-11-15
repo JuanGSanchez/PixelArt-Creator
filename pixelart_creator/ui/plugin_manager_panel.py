@@ -9,19 +9,22 @@
 :func:`pixelart_creator.data.macro_io.load_manifest`), **displays the declared
 capabilities / permissions BEFORE the plugin is enabled**, and enables a plugin
 **only** on an explicit consent action (deny-by-default, **no auto-run** —
-REQ-P8-LOGIC-008/-009/-010). Enabling grants exactly the plugin's declared
-capabilities and hands it the capability object that is its ONLY surface (it
-cannot reach ``ui/`` / the filesystem / the network, and cannot mutate outside a
-reversible command); a denied or failed enable surfaces a **user-facing error**,
+REQ-P8-LOGIC-008/-009/-010). Enabling records a grant of exactly the plugin's
+declared capabilities and marks the plugin enabled for the session; the panel passes
+no ``activate`` callable, so enabling does not load or run any plugin code. Nothing
+here is a sandbox: the capability object limits only calls made through it, not the
+plugin's own code. A denied or failed enable surfaces a **user-facing error**,
 never a silent boundary crossing (REQ-P8-UI-008). Enable / disable is
 view/session state and pushes **no** undo command (CL-8).
 
-Presentation + wiring only (S11): the sandbox, capability enforcement and
-manifest validation all live in ``logic.plugins`` — this panel only shows the
-declared permissions and relays the user's consent. There is **no
-``eval``/``exec``** here. Every user-visible string is ``tr()``-wrapped with a
-``changeEvent`` retranslate (REQ-P8-UI-014) and every control carries an
-accessible name (REQ-P8-UI-012).
+Presentation + wiring only (S11): capability enforcement (through the capability
+object only) and manifest validation live in ``logic.plugins`` — this panel only
+shows the declared permissions and relays the user's consent. There is **no
+``eval``/``exec``** here. The panel's own fixed strings are ``tr()``-wrapped with a
+``changeEvent`` retranslate (REQ-P8-UI-014) and every control carries an accessible
+name (REQ-P8-UI-012); the two error dialogs (a failed add, a failed enable) show the
+translated sentence for the kind of failure, never the exception's own text (that
+goes to the log).
 """
 
 from __future__ import annotations
@@ -45,6 +48,7 @@ from PySide6.QtWidgets import (
 import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.macro_io import MacroIOError, load_manifest
 from pixelart_creator.logic.plugins import (
+    Capability,
     PluginError,
     PluginHandle,
     PluginManifest,
@@ -180,9 +184,11 @@ class Plugin_Manager_Panel(QWidget):
             self,
             self.tr("Enable Plugin"),
             self.tr(
-                "Enable %1 and grant it these permissions?\n\n%2\n\n"
-                "The plugin runs sandboxed and can only edit through reversible "
-                "commands. It cannot reach the UI, filesystem, or network."
+                "Enable %1 and approve these permissions?\n\n%2\n\n"
+                "Plugins are not isolated from your computer. Only enable plugins "
+                "you trust. These permissions are checked only on requests made "
+                "through the app's permission object, not on what the plugin's own "
+                "code can do."
             )
             .replace("%1", manifest.name)
             .replace("%2", self._format_capabilities(manifest)),
@@ -256,7 +262,29 @@ class Plugin_Manager_Panel(QWidget):
     def _format_capabilities(self, manifest: PluginManifest) -> str:
         if not manifest.capabilities:
             return self.tr("(no manifest loaded — permissions unknown)")
-        return "\n".join(f"• {cap.value}" for cap in manifest.capabilities)
+        return "\n".join(
+            f"• {self._capability_name(cap)}" for cap in manifest.capabilities
+        )
+
+    def _capability_name(self, capability: Capability) -> str:
+        """Return the translated name in words of one declared permission.
+
+        One message per :class:`Capability` member, shared by the consent prompt and
+        the permissions label (REQ-L10N-UI-016). There is no fallback to the
+        identifier: a member without a name raises ``KeyError``, so a new permission
+        cannot ship unnamed.
+        """
+        names = {
+            Capability.READ_DOCUMENT: self.tr("Read the open document"),
+            Capability.WRITE_VIA_COMMAND: self.tr(
+                "Change the document through the app's commands"
+            ),
+            Capability.REGISTER_COMMAND: self.tr("Add new script commands"),
+            Capability.REGISTER_PROCGEN: self.tr(
+                "Add new procedural generation commands"
+            ),
+        }
+        return names[capability]
 
     # -- permission display (BEFORE enable — REQ-P8-UI-005) ---------------
 
