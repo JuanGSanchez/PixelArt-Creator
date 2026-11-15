@@ -34,7 +34,10 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
-from pixelart_creator.logic.constants import GUIDE_MAX_TOC_DEPTH
+from pixelart_creator.logic.constants import (
+    GUIDE_CONTENT_REF_MIN_SEGMENTS,
+    GUIDE_MAX_TOC_DEPTH,
+)
 
 __all__ = [
     "GuideModelError",
@@ -51,6 +54,7 @@ __all__ = [
     "CONTENT_DIR_NAME",
     "CONTENT_FILE_SUFFIX",
     "content_ref_path",
+    "content_ref_locale",
     "LocaleMeta",
     "localised_section_title",
     "localised_title",
@@ -320,6 +324,35 @@ def content_ref_path(content_ref: str, locale: str) -> str:
     is what :func:`pixelart_creator.data.guide_content.read_content` resolves + guards.
     """
     return _REF_SEP.join((CONTENT_DIR_NAME, locale, content_ref + CONTENT_FILE_SUFFIX))
+
+
+def content_ref_locale(content_ref: str) -> str:
+    """Return the locale folder of a bundle content path (inverse of the builder).
+
+    For ``content/<locale>/<stem>.md`` (as :func:`content_ref_path` builds it, the
+    stem possibly holding ``/``) this returns ``<locale>``: the guide folder a shown
+    page came from, which is the page's language (``REQ-L10N-UI-014``). It is the
+    exact inverse for every ``content_ref`` that :func:`build_model` accepts.
+
+    Raises:
+        GuideModelError: If ``content_ref`` is not of that shape (a different
+            directory, fewer than three non-empty segments, or no ``.md`` suffix on
+            a non-empty stem).
+    """
+    if not isinstance(content_ref, str):
+        raise GuideModelError(f"not a guide content path: {content_ref!r}")
+    parts = content_ref.split(_REF_SEP)
+    stem = parts[-1]
+    well_formed = (
+        len(parts) >= GUIDE_CONTENT_REF_MIN_SEGMENTS
+        and parts[0] == CONTENT_DIR_NAME
+        and all(parts)
+        and stem.endswith(CONTENT_FILE_SUFFIX)
+        and len(stem) > len(CONTENT_FILE_SUFFIX)
+    )
+    if not well_formed:
+        raise GuideModelError(f"not a guide content path: {content_ref!r}")
+    return parts[1]
 
 
 def resolve_content_ref(
