@@ -510,8 +510,10 @@ jobs:
         # match whose gap is exactly one U+00A0 is a candidate, for ANY unit of
         # the script's UNITS list (read at run time, never re-typed here). The
         # first candidate in file order whose number, U+00A0 and unit occur
-        # exactly once in that message's translation gets its U+00A0 replaced by
-        # U+0020, in a copy. The unplanted copy must exit 0; the planted copy
+        # exactly once in that message's translation (over both spellings the file
+        # may use for U+00A0: the raw character and a numeric reference such as
+        # &#xa0;, which the extraction writes) gets that U+00A0, whichever spelling,
+        # replaced by U+0020, in a copy. The unplanted copy must exit 0; the planted copy
         # must exit 1 with exactly one more fr-num-unit finding, whose location
         # names the planted message. There is no fallback to a synthetic entry:
         # if no candidate is left the control fails with "control site not
@@ -547,6 +549,8 @@ jobs:
           GUIDE = os.path.join(ROOT, "pixelart_creator", "userguide_content", "content")
           WORK = os.path.join(os.environ["CI_TEMP_ROOT"], "l10n-typography")
           NBSP = chr(0xA0)
+          # U+00A0 as the file may spell it: the raw character or a numeric reference.
+          NBSP_FORMS = "(?:" + NBSP + "|&#(?:[xX]0*[aA]0|0*160);)"
           CATALOGUE_RULES = {
               "fr": ("fr-nbsp", "fr-num-unit"),
               "ru": ("ru-no-straight-quote",),
@@ -740,19 +744,26 @@ jobs:
                   return
               chosen = None
               for message, block, match in candidates:
-                  pair = match.group(0)
                   translation = re.search(r"<translation(?:\s[^>]*)?>.*?</translation>", raw[block.start():block.end()], re.DOTALL)
-                  if translation is None or translation.group(0).count(pair) != 1:
+                  if translation is None:
                       continue
-                  site = block.start() + translation.start() + translation.group(0).index(pair) + len(match.group("num"))
-                  if raw[site] != NBSP:
+                  # The file may write U+00A0 as the raw character or as a numeric reference
+                  # (the extraction writes `&#xa0;`); the pair is searched in either spelling
+                  # and must occur exactly once over both.
+                  spelled = re.compile(re.escape(match.group("num")) + NBSP_FORMS + re.escape(match.group("unit")))
+                  hits = list(spelled.finditer(translation.group(0)))
+                  if len(hits) != 1:
                       continue
-                  chosen = (message, match, site)
+                  site = block.start() + translation.start() + hits[0].start() + len(match.group("num"))
+                  width = hits[0].end() - hits[0].start() - len(match.group("num")) - len(match.group("unit"))
+                  if not re.fullmatch(NBSP_FORMS, raw[site:site + width]):
+                      continue
+                  chosen = (message, match, site, width)
                   break
               if chosen is None:
                   fail("control (ii): control site not found (no candidate whose number, U+00A0 and unit occur exactly once in its translation)")
                   return
-              message, match, site = chosen
+              message, match, site, width = chosen
               unit = match.group("unit")
               print(
                   f"  planted: [{message.context}] {' '.join(message.source.split())[:60]} | "
@@ -763,7 +774,7 @@ jobs:
               copy_catalogues(unplanted_dir)
               copy_catalogues(planted_dir)
               with open(os.path.join(planted_dir, "pixelart_fr.ts"), "wb") as handle:
-                  handle.write((raw[:site] + " " + raw[site + 1:]).encode("utf-8"))
+                  handle.write((raw[:site] + " " + raw[site + width:]).encode("utf-8"))
               base_code, base, base_err = run_checker(unplanted_dir, "catalogue")
               plant_code, plant, plant_err = run_checker(planted_dir, "catalogue")
               if base is None or plant is None:
