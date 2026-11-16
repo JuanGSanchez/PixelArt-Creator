@@ -13,6 +13,7 @@ import contextlib
 import functools
 import os
 import shutil
+import sys
 import types
 import weakref
 from pathlib import Path
@@ -28,7 +29,7 @@ from PySide6.QtCore import (  # noqa: E402
     QStandardPaths,
     Qt,
 )
-from PySide6.QtGui import QUndoStack  # noqa: E402
+from PySide6.QtGui import QUndoStack, qt_set_sequence_auto_mnemonic  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 
@@ -67,6 +68,7 @@ from pixelart_creator.ui.dependency_graph_view import (  # noqa: E402
     Dependency_Graph_View,
 )
 from pixelart_creator.ui.guides_rulers_overlay import Ruler_Strip  # noqa: E402
+from pixelart_creator.ui.i18n import LanguageManager  # noqa: E402
 from pixelart_creator.ui.live_cursors_overlay import (  # noqa: E402
     Live_Cursors_Overlay,
 )
@@ -574,7 +576,7 @@ def _drain_prewarm_after_test():
         if isinstance(obj, Realtime_Session):
             try:
                 obj.shutdown()
-            except (RuntimeError, AttributeError):
+            except RuntimeError, AttributeError:
                 pass
     for obj in tracked:
         try:
@@ -582,7 +584,7 @@ def _drain_prewarm_after_test():
                 obj.shutdown_prewarm()
             elif isinstance(obj, Tilemap_Canvas):
                 obj.shutdown_warm()
-        except (RuntimeError, AttributeError):
+        except RuntimeError, AttributeError:
             # RuntimeError: underlying Qt C++ object already deleted.
             # AttributeError: instance from a __init__ that raised before the warm
             # attributes existed -> nothing live to drain.
@@ -595,7 +597,7 @@ def _drain_prewarm_after_test():
         try:
             if isinstance(obj, Tilemap_Canvas):
                 obj._scene._chunk_cache.clear()
-        except (RuntimeError, AttributeError):
+        except RuntimeError, AttributeError:
             pass
 
     # DISPOSE the tracked widgets deterministically. Headless (offscreen, no running
@@ -625,7 +627,7 @@ def _drain_prewarm_after_test():
             try:
                 if shiboken6.isValid(obj):
                     shiboken6.delete(obj)
-            except (RuntimeError, AttributeError):
+            except RuntimeError, AttributeError:
                 pass
 
     # Collect NOW, while every pool is drained and every carrier disconnected, so no
@@ -732,6 +734,35 @@ def theme(request: pytest.FixtureRequest, qapp) -> str:
 
 
 @pytest.fixture
+def _qt_auto_mnemonic_enabled(qapp):
+    """Force Qt's sequence auto-mnemonic system ON for one test, then
+    restore the platform's own default.
+
+    ``QKeySequence.mnemonic()`` -- the oracle the tests that read a string's
+    REAL, Qt-resolved keyboard mnemonic use -- consults a process-wide flag
+    (``qt_set_sequence_auto_mnemonic``) that Qt itself defaults to OFF on macOS
+    (mnemonics/underlined-letter keyboard access is not a native macOS pattern)
+    and ON everywhere else. With it off, ``QKeySequence.mnemonic()`` returns an
+    EMPTY sequence for every string, regardless of what mnemonic marker it
+    carries -- a difference in the ORACLE's own platform default, not in the
+    product under test (measured: CI failed only on macOS, every failure reading
+    exactly ``'' == 'Alt+<letter>'``, the signature of the flag being off, never
+    a wrong letter). Forcing it True here makes the oracle itself
+    platform-independent for the duration of the test; the platform's own
+    default (False on macOS, True elsewhere) is restored on teardown so no
+    OTHER test running in the same process observes a changed global flag.
+    What this does and does not prove on macOS: that the marker the product
+    wrote names the right letter; not that an Alt key press reaches the item,
+    which native macOS menus do not offer.
+    """
+    qt_set_sequence_auto_mnemonic(True)
+    try:
+        yield
+    finally:
+        qt_set_sequence_auto_mnemonic(sys.platform != "darwin")
+
+
+@pytest.fixture
 def make_document():
     """Factory returning a fresh :class:`Document` with the starter palette."""
 
@@ -739,6 +770,27 @@ def make_document():
         return Document(width, height, palette=Palette(STARTER))
 
     return _make
+
+
+@pytest.fixture
+def english_on_a_spanish_system(qapp) -> Iterator[LanguageManager]:
+    """An English interface on a system whose own locale is ``es_ES``.
+
+    A test that reads a data size or a number from a dialog needs to know which
+    locale formats it, and the machine's own default locale must not decide: the
+    manager's system locale is injected through its constructor argument, so the
+    formatting locale is English whatever the machine reads. Where the
+    machine's own locale is ``es_ES`` this also separates "the interface
+    language" from "the system", so a dialog that still read the system would
+    show Spanish figures. The manager is the application's registered one for
+    the length of the test and is put back to English afterwards.
+    """
+    manager = LanguageManager(qapp, system_locale=lambda: QLocale("es_ES"))
+    manager.set_language("en")
+    try:
+        yield manager
+    finally:
+        manager.set_language("en")
 
 
 @pytest.fixture

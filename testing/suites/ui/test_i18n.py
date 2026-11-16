@@ -152,10 +152,17 @@ def test_sc_ui_022_2_default_es_retranslates_live(qtbot):
 # =========================================================================== #
 
 
-def test_sc_csd_u014_1_confirm_dialog_strings_are_tr_wrapped_and_placeheld(qtbot):
+def test_sc_csd_u014_1_confirm_dialog_strings_are_tr_wrapped_and_placeheld(
+    qtbot, english_on_a_spanish_system
+):
     """SC-CSD-U014-1: the confirm dialog's title/message/button labels are all
     `tr()`-produced, and the projected size + target geometry are inserted via
-    FORMAT PLACEHOLDERS (never a concatenated translated fragment + number)."""
+    FORMAT PLACEHOLDERS (never a concatenated translated fragment + number).
+
+    The size is the interface language's: English on an ``es_ES`` system reads
+    "5.08 GiB", Qt's own English text, and not the system's "5,08 GiB"
+    (REQ-L10N-UI-015).
+    """
     dialog = Document_Transform_Confirm_Dialog(
         "Scale Canvas", 5_454_692_352, 7680, 4320
     )
@@ -172,7 +179,8 @@ def test_sc_csd_u014_1_confirm_dialog_strings_are_tr_wrapped_and_placeheld(qtbot
     assert "Scale Canvas" in message
     assert "7680" in message
     assert "4320" in message
-    assert QLocale().formattedDataSize(5_454_692_352) in message
+    assert QLocale("en").formattedDataSize(5_454_692_352) in message
+    assert QLocale("es_ES").formattedDataSize(5_454_692_352) not in message
     # No stray, un-substituted placeholder survives into the shown text.
     for placeholder in ("%1", "%2", "%3", "%4"):
         assert placeholder not in message

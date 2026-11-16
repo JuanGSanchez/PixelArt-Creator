@@ -307,6 +307,7 @@ class Timelapse_Controls(QWidget):
             else 0
         )
         self._reason_label = QLabel(self)
+        self._dropped_notice: Optional[int] = None
         self._reason_label.setWordWrap(True)
 
         controls = QHBoxLayout()
@@ -417,14 +418,8 @@ class Timelapse_Controls(QWidget):
             dropped = before - len(self._session.frames)
             if dropped:
                 self.framesDropped.emit(dropped)
-                self._set_reason_text(
-                    self.tr(
-                        "%n frame(s) were dropped because the edits they recorded "
-                        "were undone and replaced.",
-                        "",
-                        dropped,
-                    )
-                )
+                self._dropped_notice = dropped
+                self._set_reason_text(self._dropped_text(dropped))
                 self._emit_count()
         if (
             self._recording
@@ -433,6 +428,16 @@ class Timelapse_Controls(QWidget):
         ):
             self._record_committed(index)
         self._update_play_availability(keep_reason_text=bool(dropped))
+
+    def _dropped_text(self, dropped: int) -> str:
+        """Return the frames-dropped notice for ``dropped`` frames."""
+        notice = self.tr(
+            "%n frame(s) were dropped because the edits they recorded "
+            "were undone and replaced.",
+            "",
+            dropped,
+        )
+        return notice
 
     def _record_committed(self, command_id: int) -> None:
         # Mint the identity (plan §10.1): a per-recording secrets draw beside
@@ -822,6 +827,7 @@ class Timelapse_Controls(QWidget):
         self._play_button.setEnabled(reason is None or self._playing)
         if keep_reason_text:
             return
+        self._dropped_notice = None
         self._set_reason_text(reason or "")
         self._reason_label.setVisible(reason is not None)
 
@@ -993,7 +999,17 @@ class Timelapse_Controls(QWidget):
         self._count_label.setAccessibleName(self.tr("Recorded frame count"))
         self._retranslate_record()
         self._retranslate_play()
+        self._retranslate_reason()
         self._emit_count()
+
+    def _retranslate_reason(self) -> None:
+        """Re-render the reason text in the new language, state unchanged."""
+        if self._dropped_notice is not None:
+            self._set_reason_text(self._dropped_text(self._dropped_notice))
+        elif self._reason_label.text():
+            reason = self._play_refusal()
+            if reason is not None:
+                self._set_reason_text(reason)
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
         """Re-set the control strings on a language change (Qt override)."""

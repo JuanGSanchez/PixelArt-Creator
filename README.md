@@ -19,7 +19,7 @@
 PySide6 (Qt 6). It pairs a large, 8K-capable editable canvas with a non-destructive layer
 model and a fast, region-scoped compositor, and grows outward into animation, tilemaps, a
 byte-reproducible export pipeline, automation and scripting, non-destructive visual aids,
-cloud storage and collaboration, and a studio-level team & asset-management layer — all
+an in-session cloud and collaboration layer, and a studio-level team & asset-management layer — all
 documented from inside the app by a comprehensive, offline User Guide.
 
 Its architecture is a strict three-layer split: `ui/` (PySide6), `logic/` (pure Python, no
@@ -55,25 +55,32 @@ The platform has been built in phases; the capabilities below are **shipped**.
 - **Export pipeline** — export as PNG, animated GIF, sprite sheet or packed texture atlas
   with Aseprite-style JSON metadata and Unity / Godot engine presets; batch export; and a
   headless command-line exporter. Output is byte-reproducible for a fixed input.
-- **Automation & scripting** — record and replay deterministic macros, run a sandboxed,
-  data-driven command DSL (no `eval`/`exec`), extend the app with trusted, consent-gated
-  plugins, batch-recolour many targets at once, generate content procedurally, and run any
-  automation headlessly from the command line.
+- **Automation & scripting** — record and replay deterministic macros, run a bounded,
+  allow-listed command DSL (no `eval`/`exec`), batch-recolour many targets at once,
+  generate content procedurally, and run any automation headlessly from the command line.
 - **Visual aids** — a live real-size preview, guides & rulers with snapping, isometric and
   perspective grids, a PureRef-style reference board, multiple synced views of one document,
   and reproducible timelapse recording — all non-destructive.
-- **Cloud & collaboration** — save/open projects through a provider-agnostic cloud
-  interface with full version history, autosave and crash recovery; share a project with a
-  member roster (owner / editor / viewer), threaded comments and presence; real-time
-  co-editing with live cursors; and git-like art branching with conflict-free merge.
+- **Cloud & collaboration** — in this release everything here runs in memory. Save and open
+  projects through a provider-agnostic cloud interface, with version history and an autosave
+  copy: **Cloud ▸ Connect…** uses a built-in in-memory adapter, so history and the autosave
+  copy last only until you close the app and do not survive a crash or restart. Share a
+  project with a member roster (owner / editor / viewer), threaded comments and presence;
+  these also live in memory, inside one app window, so another window or another machine
+  does not see them. Git-like art branching with conflict-free merge is a local, in-session
+  feature. Not available in this release: the Google Drive, OneDrive and Dropbox providers
+  exist in the storage layer but cannot be selected from the Cloud menu, and real-time
+  co-editing with live cursors is built but **Start Real-time…** cannot connect.
 - **Team & asset management** — catalog sprites, animations, tilesets, tilemaps and palettes
   as named, tagged, searchable assets stored once by content (de-duplicated); a queryable
   dependency graph with a passive break indicator; an append-only per-asset version history;
-  reference-not-copy reuse across projects; export/import of a project's referenced assets;
-  and optional cloud backing of shared blobs.
+  reference-not-copy reuse across projects; and export/import of a project's referenced
+  assets. The library is always local: an optional cloud-backed blob store exists in the
+  storage layer but is not connected in this release.
 - **AI assistant** — an in-app, **model-agnostic** chat dock that drives the editor in plain
-  language over the same safe, `eval`-free automation layer. You supply any **OpenAI-compatible**
-  or **Anthropic** provider (base URL, model and key); it is **credential-optional** and your key
+  language over the same safe, `eval`-free automation layer, opened from **Help ▸ AI Assistant**.
+  You supply any **OpenAI-compatible** or **Anthropic** provider (**Endpoint URL**, **Model** and **API key** — a
+  key must be stored even for a local model server); the assistant is optional, and your key
   is stored in the **OS keyring**, never in the project file. Actions are tiered for safety —
   reversible edits apply automatically and stay undoable, while destructive actions ask for
   confirmation first.
@@ -132,9 +139,10 @@ pip install ".[cloud_live]"
 ```
 
 The `cloud_live` extra adds OS-keyring support (`keyring`) used by the real Google Drive /
-OneDrive / Dropbox provider adapters. It is **not** required for offline use, for the
-in-memory/loopback collaboration paths, or for the rest of the platform — connect a real
-provider only if you intend to use live cloud storage.
+OneDrive / Dropbox provider adapters in the storage layer. It is **not** required for offline
+use, for the in-memory collaboration paths, or for the rest of the platform. This release has
+no Cloud menu command that selects one of those providers, so the extra does not by itself
+enable live cloud storage in the desktop app.
 
 Developers can install the test/lint toolchain with the `dev` extra:
 
@@ -227,11 +235,16 @@ from the build artifacts:
 
 ### Hosting the real-time sync backend
 
-Real-time collaboration works out of the box with **no hosting setup** — the sync backend
-runs locally on the loopback interface by default. Hosting it elsewhere is **optional**, and
-there is **no forced default**: the relay can run **locally/loopback** (the default), behind
-the **cloud provider-adapter** path, or be **self-hosted on a VPS**. Adopting any option
-requires **no change** to the app or the backend code.
+The desktop app has no real-time connection configured in this release (**Cloud ▸ Start
+Real-time…** reports "no real-time transport configured"), so none of the options below can be
+joined from the app yet; they describe where the relay itself can run. The relay needs no
+hosting setup to run locally: the relay's own default bind is the loopback interface
+(`127.0.0.1`), which is what the automated tests use, whereas the VPS launcher
+`deploy/run_sync_backend.py` binds `0.0.0.0` unless `PIXELART_SYNC_HOST` says otherwise.
+Hosting it elsewhere is **optional**, and no one option is required or recommended over the
+others: the relay can run **locally/loopback**, behind the **cloud provider-adapter** path, or
+be **self-hosted on a VPS**. Adopting any option requires **no change** to the app or the
+backend code.
 
 For VPS self-hosting, the committed `deploy/` directory carries the artifacts to run the
 (unchanged) `sync_backend/` relay on your own server, each with inline setup instructions:
@@ -255,6 +268,9 @@ HTML/CSS/JS client (no build step, no new dependency) served by the same sync ba
 stack: the client loads from an Nginx `/viewer/` static location and connects back over the
 existing WSS relay, presenting the signed token. The token is short-lived, view-scoped, and
 verified-never-stored, so a link only ever grants a read-only window onto one project.
+
+The desktop app has no command that creates a share link in this release; link generation is
+implemented in `web_viewer/dev_server.py`, and the viewer connects to a relay you run yourself.
 
 The client lives in `web_viewer/` and the production serving block in
 `deploy/nginx-sync.conf`. The wire format and the signed-token contract are specified in

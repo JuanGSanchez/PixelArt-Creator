@@ -59,7 +59,9 @@ would pass for the wrong reason.
 
 from __future__ import annotations
 
+import functools
 import json
+import operator
 import os
 import subprocess
 import sys
@@ -313,6 +315,7 @@ class Facts:
     pixel: int
     no_smoothing: bool
     no_hinting: bool
+    stray_strategy: str = ""
 
     def describe(self) -> str:
         """Return the facts as one readable string."""
@@ -323,17 +326,37 @@ class Facts:
         )
 
 
+#: Every style-strategy flag a family-list tag may carry, read from the tag table
+#: itself (the union of its entries), so a flag added to the table is allowed here
+#: without an edit and a flag outside it is not.
+_TAG_FLAGS_ALLOWED = functools.reduce(operator.or_, app_font._CHAIN_TAG_STRATEGIES)
+
+
+def stray_strategy_of(strategy: QFont.StyleStrategy) -> QFont.StyleStrategy:
+    """Return the bits of ``strategy`` that are not NoAntialias or a chain-tag flag.
+
+    A multi-family font carries a chain tag beside NoAntialias (``PreferMatch |
+    NoAntialias``), so the strategy is no longer *equal* to NoAntialias. What the
+    interface font must keep is that the NoAntialias bit is set and that nothing
+    else is, other than the flags the tag table may use.
+    """
+    return strategy & ~(QFont.StyleStrategy.NoAntialias | _TAG_FLAGS_ALLOWED)
+
+
 def facts_of(font: QFont) -> Facts:
     """Return the :class:`Facts` of ``font``."""
     info = QFontInfo(font)
+    strategy = font.styleStrategy()
+    stray = stray_strategy_of(strategy)
     return Facts(
         declared=font.family(),
         resolved=info.family(),
         style=info.styleName(),
         weight=info.weight(),
         pixel=info.pixelSize(),
-        no_smoothing=font.styleStrategy() == QFont.StyleStrategy.NoAntialias,
+        no_smoothing=bool(strategy & QFont.StyleStrategy.NoAntialias),
         no_hinting=font.hintingPreference() == QFont.HintingPreference.PreferNoHinting,
+        stray_strategy=str(stray) if stray else "",
     )
 
 
@@ -353,6 +376,11 @@ def nifen_problems(label: str, font: QFont, *, bold: bool = False) -> List[str]:
         wrong.append(f"{label}: {f.pixel} px, not {EM}")
     if not f.no_smoothing:
         wrong.append(f"{label}: smoothing is not switched off")
+    if f.stray_strategy:
+        wrong.append(
+            f"{label}: style strategy carries {f.stray_strategy}, "
+            "which is neither NoAntialias nor a chain-tag flag"
+        )
     if not f.no_hinting:
         wrong.append(f"{label}: hinting is not switched off")
     want = (700, "Bold") if bold else (400, "Regular")

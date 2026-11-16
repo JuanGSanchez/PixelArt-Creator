@@ -1,0 +1,67 @@
+# Japanese-form Han set of the Nifen Art CJK face (family "Nifen Art CJK JP").
+#
+# One record per Han code point of this set, and nothing else. The drawing list is the
+# measured set: exactly the Han characters the shipped text uses, each in the form of the
+# Japanese standard (the Joyo kanji glyph forms, and the table of forms for characters
+# outside the Joyo list). A character outside the measured set is not drawn. The file
+# starts without records; the first ones are the pilot's.
+#
+# A drawn glyph:
+#   glyph U+XXXX set=jp src=drawn top=<row> x=<column> [dots=<n>] [solid reason=<text>]
+#   <the rows: '#' lit, '.' unlit, top row first, one row per line>
+# top is the grid row of the first line (rows count upward from the baseline, as in the
+# existing face) and x is the column of the first character (default 0). Ink stays
+# inside the full-width cell of the grid contract in fonts-src/nifen-art/metrics.txt; the
+# advance is always one full cell. dots=<n> declares n deliberate single-pixel parts.
+# A Regular glyph may hold a 2x2 pixel block only if it is listed in r05-exemptions.txt
+# or carries the solid flag, and either way it gives a reason (reason= is the last item
+# of the line and runs to the end of it).
+#
+# The other forms of record:
+#   glyph U+XXXX set=jp src=drawn same-as=sc
+#       the drawing of the Simplified set, with no rows of its own; only where both
+#       standards give the character the same form
+#   glyph U+XXXX set=jp src=recipe:<id>,<id> at=<dx>:<dy>,<dx>:<dy>
+#       the union of other glyphs of this set (a code point or a part.<name> drawing),
+#       each shifted by its offset; the pieces are drawings made for this typeface
+#   glyph part.<name> set=jp src=drawn top=<row> x=<column>
+#       a drawing that recipes use; it is not a character and is not in the font
+# Every record names its provenance with src=. Only drawn and recipe are accepted: a
+# record that names any other source, a font in particular, is refused by the lint.
+
+glyph U+65E5 set=jp src=drawn top=9 x=2
+#######
+#.....#
+#.....#
+#.....#
+#######
+#.....#
+#.....#
+#.....#
+#######
+
+glyph U+672C set=jp src=drawn top=10 x=0
+.....#.....
+.....#.....
+.....#.....
+.#########.
+.....#.....
+....###....
+...#.#.#...
+..#.###.#..
+.#...#...#.
+#....#....#
+.....#.....
+
+glyph U+8A9E set=jp src=drawn top=10 x=0 dots=1
+..#...#####
+........#..
+#####..####
+........#.#
+.###....#.#
+......#####
+.###.......
+......#####
+.###..#...#
+.#.#..#...#
+.###..#####

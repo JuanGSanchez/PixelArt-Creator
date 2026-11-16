@@ -7,7 +7,7 @@ none of them touches a single pixel.
 
 ## Fit to Content
 
-**View ▸ Fit to Content** (REQ-IS-UI-018) zooms and centres the active tab on
+**View ▸ Fit to Content** zooms and centres the active tab on
 the **painted-pixel bounding box** of the current frame — the smallest
 rectangle that contains every non-transparent pixel — instead of the whole
 document rectangle. It is the named, keyboard- and screen-reader-reachable

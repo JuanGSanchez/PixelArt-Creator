@@ -1,7 +1,7 @@
 # Automation, macros, scripting & plugins
 
 The **automation system** lets you record, script, replay and batch the editor's own
-operations, generate content procedurally, and extend the app with trusted plugins — all
+operations, and generate content procedurally — all
 through **one** engine that the GUI and the headless `pixelart-run` command line share, so
 an automation runs **identically** whether you trigger it from a panel or from a build
 script.
@@ -16,7 +16,7 @@ script.
 
 ## Macros — record, replay, and the `.pixmacro` format
 
-The **macro panel** records the operations you perform and replays them later:
+The **Macros** panel records the operations you perform and replays them later:
 
 - **Record** captures the *inputs* of each step — the resolved parameters and, for any
   random step, the **seed** — not a pixel diff. What you record is what a replay re-runs.
@@ -55,7 +55,7 @@ passed to `eval`/`exec`.
 
 ## Running scripts
 
-The **script runner** dispatches a list of operations through the same trusted dispatcher
+The **Script Runner** dispatches a list of operations through the same trusted dispatcher
 a macro replay uses. A script run is **atomic**:
 
 1. **Every operation is validated up front** — all op-names are checked against the
@@ -69,24 +69,46 @@ Because the run is one grouped command, a completed script is a **single undo st
 
 ## Plugins — the manager, consent, and the trust model
 
-The **plugin manager** discovers, enables and disables plugins. Plugins extend the editor
-by registering new DSL operations — and only that.
+The **Plugins** panel lists plugins, shows the permissions of each plugin whose manifest
+you have loaded, and enables and disables them. A plugin is meant to extend the editor by
+registering new DSL operations. **In this release the app has no step that loads or runs a
+plugin's code:** discovering a plugin, loading a manifest, enabling and disabling
+never call a plugin. The permissions a manifest declares describe the plugin's intended use;
+they are not a limit on what the plugin's own code can do (see the note below).
 
-- **Discovery is inert.** Installed plugins are *found* (via standard Python entry points)
-  but **nothing is loaded or run** just because it is installed. You see them listed; they
-  do nothing until you act.
-- **Deny by default, with explicit consent.** Enabling a plugin hands it a **capability
-  object whose only surface is the DSL command registry**. A plugin cannot `eval`/`exec`,
-  cannot reach the UI, and cannot touch the filesystem or network outside the capabilities
-  you grant it — **every capability it did not declare and you did not grant is denied**.
-  Its operations are namespaced under the plugin, so a plugin cannot shadow a built-in
-  operation.
-- **Disable is clean.** Disabling a plugin unregisters the operations it added.
+- **Discovery only lists plugins.** The app finds installed plugins through standard Python entry
+  points, but it reads only their names and versions: it does **not** load or run their
+  code. A discovered plugin shows no permissions and cannot be enabled, because the app
+  does not read permissions from the plugin itself. They come from a manifest file that
+  you add to the panel from disk, which appears as its own entry in the list. The app
+  does not check that a manifest belongs to a plugin you have installed.
+- **Consent covers the manifest, not the plugin's code.** **Enable** shows the permissions the
+  manifest declares and asks you to confirm. You approve them as a whole, or you do not
+  enable the plugin. The app does not check the manifest against what the plugin's code
+  actually does. Enabling records the permissions you approved, in memory, and marks the
+  plugin as enabled; it does not run the plugin's code, because the app has no step
+  that does. Your consent is not saved: every plugin is disabled again when you close the
+  editor. The plugin host is written so that, if a caller gave it code to run when a plugin
+  is enabled, that code would be handed a permission object, and a call through that object
+  that was not granted would be refused; nothing in this release gives it any such code. Operations
+  registered through that object get the plugin's name as a prefix, so they cannot match
+  the name of a built-in operation, and a read permission through it returns the
+  document it is passed, not a copy. Code that does not go through the object is not limited by
+  it: it can register or remove operations directly, built-in ones included.
+- **Disable removes operations, not the plugin's code.** **Disable** unregisters the operations
+  that were registered through the permission object; in this release there are none,
+  because nothing registers any. It does not undo anything a plugin's own code has
+  already done.
 
-> **Trusted-with-consent, this release.** Because *loading* a Python plugin is itself
-> running code, the in-process capability model is **advisory-strength** — adequate for
-> **trusted extensions you install and consent to**, not for arbitrary code from an
-> untrusted marketplace. Only install plugins you trust.
+> **Plugins are not sandboxed.** A plugin is not isolated from your computer, and the app
+> provides no isolation for any plugin in this release. Installing a plugin puts someone
+> else's Python code on your computer, and the app neither performs nor checks the
+> installation. A package can also ask Python to run code each time Python starts in the
+> environment where the package is installed, which includes the editor, so installing a plugin can
+> be enough for its code to run, even if you never open the **Plugins** panel. Code that
+> runs in the editor's own process, however it got there, has the same access to your
+> files and network as the editor itself, whatever permissions the plugin declared.
+> Install and enable only plugins you trust.
 
 ## Batch recolour
 
@@ -103,15 +125,15 @@ transactional, reversible command**:
 
 ## Procedural generation
 
-The **procgen panel** fills a region with generated content. Five in-house, **seeded**
+The **Procedural Generation** panel fills a region with generated content. Five in-house, **seeded**
 generators are available:
 
 | Generator | What it produces |
 | --- | --- |
 | **Value noise** | Seeded value-grid noise. |
 | **Gradient noise** | Perlin-style gradient noise. |
-| **OpenSimplex** | A patent-safe simplex-grid gradient noise. |
-| **Cellular** | Cellular-automata patterns. |
+| **OpenSimplex noise** | A patent-safe simplex-grid gradient noise. |
+| **Cellular automata** | Cellular-automata patterns. |
 | **Dithered gradient** | A smooth two-colour gradient dithered onto the document palette, so the result stays within the palette. |
 
 Every generator is a **pure, deterministic function of its parameters and seed** — the
@@ -144,7 +166,7 @@ pixelart-run --input PROJECT.pixproj --macro MACRO.pixmacro --output OUT.pixproj
 | `--seed N` | override the seed for operations that recorded none (a recorded seed always wins). |
 | `--param KEY=VALUE` | inject or override a macro parameter; repeatable. |
 
-**Exit codes:** `0` success; `1` an automation failure (a script / macro / plugin / batch
+**Exit codes:** `0` success; `1` an automation failure (a script / macro / batch
 / procgen error, or a write failure); `2` bad arguments or a malformed / unreadable input
 project or macro.
 
@@ -156,8 +178,8 @@ project or macro.
 - **Arbitrary Python scripting** — **not supported by design.** Scripting is a bounded,
   allow-listed command DSL, not a general-purpose interpreter; this is a deliberate
   security boundary, not a limitation to be lifted.
-- **Untrusted third-party plugin isolation** — **deferred.** Plugins are
-  trusted-with-consent for this release; install only plugins you trust.
+- **Untrusted third-party plugin isolation** — **deferred.** Plugins are not
+  sandboxed in this release; install and enable only plugins you trust.
 
 ## Related topics
 

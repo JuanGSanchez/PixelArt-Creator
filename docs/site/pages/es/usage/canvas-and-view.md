@@ -15,8 +15,7 @@ saltan entre los mismos puntos fijos de zoom del lienzo (100 %, 200 %, 400 %,
 
 ## Ajustar al contenido
 
-**Ver ▸ Ajustar al contenido** (*Fit to Content* en el código fuente,
-REQ-IS-UI-018) hace zoom y centra la pestaña
+**Ver ▸ Ajustar al contenido** hace zoom y centra la pestaña
 activa en el **rectángulo delimitador de los píxeles pintados** del fotograma
 actual — el rectángulo más pequeño que contiene todos los píxeles no
 transparentes — en lugar del rectángulo completo del documento. Es el

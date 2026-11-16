@@ -146,7 +146,9 @@ def _fail_on_message_box(monkeypatch) -> List[tuple]:
 # -- SC-CSD-U008-1 / -2 (REQ-CSD-UI-008): confirmation states a real figure --
 
 
-def test_sc_csd_u008_1_confirm_shows_real_figure_before_resample(qtbot, monkeypatch):
+def test_sc_csd_u008_1_confirm_shows_real_figure_before_resample(
+    qtbot, monkeypatch, english_on_a_spanish_system
+):
     """SC-CSD-U008-1 (DEFECT): above threshold, one modal confirmation appears
     before any buffer resamples, naming a real human-readable size and the
     target geometry, with explicit proceed/decline actions.
@@ -176,7 +178,8 @@ def test_sc_csd_u008_1_confirm_shows_real_figure_before_resample(qtbot, monkeypa
 
     assert len(confirms) == 1  # exactly one confirmation
     dialog = confirms[0]
-    expected_size_text = QLocale().formattedDataSize(projected)
+    # The interface language's figure (English), not the machine's own locale.
+    expected_size_text = QLocale("en").formattedDataSize(projected)
     assert expected_size_text in dialog._message.text()
     assert str(target[0]) in dialog._message.text()
     assert str(target[1]) in dialog._message.text()
@@ -186,7 +189,9 @@ def test_sc_csd_u008_1_confirm_shows_real_figure_before_resample(qtbot, monkeypa
     assert result is None
 
 
-def test_sc_csd_u008_2_figure_accounts_for_results_and_sources(qtbot, monkeypatch):
+def test_sc_csd_u008_2_figure_accounts_for_results_and_sources(
+    qtbot, monkeypatch, english_on_a_spanish_system
+):
     """SC-CSD-U008-2 (DEFECT): the displayed figure is results + retained
     sources, not the result size alone.
 
@@ -218,8 +223,9 @@ def test_sc_csd_u008_2_figure_accounts_for_results_and_sources(qtbot, monkeypatc
     )
 
     dialog = confirms[0]
-    assert QLocale().formattedDataSize(projected) in dialog._message.text()
-    assert QLocale().formattedDataSize(results_term) not in dialog._message.text() or (
+    english = QLocale("en")
+    assert english.formattedDataSize(projected) in dialog._message.text()
+    assert english.formattedDataSize(results_term) not in dialog._message.text() or (
         # only acceptable if the two format identically, which they do not here
         results_term
         == projected

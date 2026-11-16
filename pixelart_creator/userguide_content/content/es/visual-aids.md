@@ -20,7 +20,7 @@ reales son deshacibles, y no se ven afectadas por esta capa.
 
 ## Vista previa a tamaño real
 
-La ventana de **Vista previa a tamaño real** muestra tu documento a su **tamaño
+El panel **Vista a tamaño real** (su ventana se titula **Vista previa a tamaño real**) muestra tu documento a su **tamaño
 físico real**, para que puedas juzgar cómo se verá realmente un sprite o icono.
 
 - La vista previa escala el documento exactamente por `DPI_pantalla / PPI_doc` — los
@@ -74,7 +74,7 @@ del pixel art).
 - El espaciado de la cuadrícula (ancho de tile) está acotado entre **2 y 1024 px**.
 - La **isometría verdadera** (aproximadamente `1,732:1`) es configurable si la
   prefieres sobre la dimétrica 2:1.
-- Abre **Configurar cuadrícula isométrica** desde el menú **Ayudas**, justo al lado
+- Abre **Ayudas visuales ▸ Configurar cuadrícula isométrica…**, justo al lado
   del interruptor de la cuadrícula isométrica, para fijar valores exactos en lugar
   de calcularlos a ojo: el **ancho de tile**, la **relación de tile W:H** (2,0 para
   dimétrica, ~1,732 para isometría verdadera) y el **origen** de la retícula (X, Y).
@@ -135,7 +135,7 @@ detalle con zoom junto a una vista general ajustada a la ventana.
 
 ## Grabación de timelapse
 
-Abre el panel **Timelapse** desde **Ayudas -> Timelapse** para grabar y reproducir
+Abre el panel **Timelapse** desde **Ayudas visuales ▸ Timelapse** para grabar y reproducir
 un timelapse de tu sesión de edición, y así compartir cómo se hizo una pieza.
 
 - Pulsa **Grabar** para empezar a capturar; el grabador añade **un fotograma por
@@ -143,7 +143,7 @@ un timelapse de tu sesión de edición, y así compartir cómo se hizo una pieza
   detenerlo.
 - Grabar es **estado de vista/sesión** — nunca es deshacible y nunca cambia el
   documento.
-- **Guardar timelapse / Abrir timelapse** la sesión como un archivo `.pixtimelapse`. La sesión almacena un
+- **Guardar… / Abrir…** la sesión como un archivo `.pixtimelapse` (los botones abren los cuadros de diálogo de archivo **Guardar timelapse** y **Abrir timelapse**). La sesión almacena un
   manifiesto ordenado de **referencias de comandos, no de píxeles**, así que se
   mantiene pequeña y **se reproduce de forma determinista**: la misma sesión
   grabada, reproducida dos veces, produce la **misma** secuencia de fotogramas de

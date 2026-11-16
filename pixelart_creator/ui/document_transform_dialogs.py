@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import QEvent, QLocale, Signal
+from PySide6.QtCore import QEvent, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QDialog,
@@ -37,6 +37,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
+from pixelart_creator.logic.number_format import with_unit_space
+
 
 class Document_Transform_Confirm_Dialog(QDialog):
     """Ask before a projected-peak-cost whole-document transform proceeds.
@@ -44,8 +47,9 @@ class Document_Transform_Confirm_Dialog(QDialog):
     Shown only when the projected cost exceeds
     ``DOCUMENT_TRANSFORM_CONFIRM_BYTES`` (the caller's decision, not this
     dialog's) — this class only presents the question. The size text comes
-    from ``QLocale().formattedDataSize`` (PL-CSD-D5): no unit string is
-    authored here, so none can be mistranslated. Declining (or closing) the
+    from the formatting locale's ``formattedDataSize`` (PL-CSD-D5), with the
+    unit space of the interface language: no unit string is authored here,
+    so none can be mistranslated. Declining (or closing) the
     dialog rejects it; proceeding accepts it — nothing else is inferred.
     """
 
@@ -87,7 +91,10 @@ class Document_Transform_Confirm_Dialog(QDialog):
     def _retranslate(self) -> None:
         self.setWindowTitle(self.tr("Confirm Large Transform"))
         self.setAccessibleName(self.tr("Confirm large document transform dialog"))
-        size_text = QLocale().formattedDataSize(self._projected_bytes)
+        size_text = with_unit_space(
+            i18n.current_formatting_locale().formattedDataSize(self._projected_bytes),
+            i18n.current_ui_language(),
+        )
         message = self.tr(
             "%1 will resample every layer and mask of this document to "
             "%2 × %3 px, using up to %4 of memory at once. Proceed?"

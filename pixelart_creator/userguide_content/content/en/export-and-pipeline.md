@@ -6,7 +6,7 @@ optional **Aseprite-style JSON** metadata and ready-to-drop **engine presets** f
 **Unity** and **Godot**. You can export one target from the export dialog, queue several
 with the batch panel, or run the whole thing headlessly from the `pixelart-export`
 command line — and every path produces the **same bytes**. Open the export dialog from
-the Export menu or with **Ctrl+Shift+E**.
+**File ▸ Export…** or with **Ctrl+Shift+E**.
 
 > **Byte-reproducible export.** Export is **deterministic**: for a fixed input document
 > and the same parameters the output bytes are identical every time — frames are
@@ -28,7 +28,7 @@ the Export menu or with **Ctrl+Shift+E**.
   share **one fixed palette** (a median-cut reduction over the animation) and dithering
   is **off**, which is what keeps the GIF byte-reproducible.
 
-> **GIF loop count.** The `--loop` flag (CLI) / loop field (dialog) sets how many times
+> **GIF loop count.** The `--loop` flag (CLI) / **Loop count** field (dialog) sets how many times
 > the GIF repeats; **`0` means loop forever**.
 
 ## Sprite sheets and texture atlases
@@ -51,7 +51,7 @@ Sprite-sheet and atlas exports can emit a **JSON metadata sidecar** in the **Ase
 *Array*** format: a `frames[]` array (each frame's rect, source size and duration) plus a
 `meta{}` block carrying the frame **tags** and per-frame durations. The JSON is
 **deterministic** — keys are sorted, separators are fixed, and coordinates are integers —
-so it round-trips and diffs cleanly. Toggle it with the JSON option in the dialog, or
+so it round-trips and diffs cleanly. Toggle it with the **Write JSON metadata** checkbox in the dialog, or
 `--json` / `--no-json` on the CLI (on by default).
 
 ## Engine presets (Unity / Godot)
@@ -74,7 +74,8 @@ The **batch export panel** queues **several targets at once** — for example a 
 and a Unity atlas from one project in a single run. Batch export is
 **continue-on-failure**: if one target fails (say an atlas that will not fit), the
 remaining targets still export and the failure is reported for that target alone, so one
-bad target never aborts the batch.
+bad target never aborts the batch. The **Export All** button exports the document in the
+active tab to every queued target in one run.
 
 ## Registering an exported artifact in the library
 

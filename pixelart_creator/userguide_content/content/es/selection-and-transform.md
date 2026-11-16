@@ -19,8 +19,8 @@ Usa las herramientas de selección para definir la región en la que quieres tra
 
 | Herramienta | Qué selecciona |
 | --- | --- |
-| **Rectángulo** | Una región rectangular que arrastras. |
-| **Lazo** | Una región a mano alzada que dibujas alrededor. |
+| **Selección rectangular** | Una región rectangular que arrastras. |
+| **Selección de lazo** | Una región a mano alzada que dibujas alrededor. |
 | **Varita mágica** | Un área contigua de color similar bajo el clic. |
 
 **Duración de la selección.** Cambiar a una de las tres herramientas de
@@ -63,7 +63,7 @@ tabla de [Primeros pasos](app-basics.md).
 La selección flotante levanta la selección que ya está activa — **no** crea una
 nueva forma de selección, reutiliza la máscara que ya tienes.
 
-1. Con la herramienta de selección/movimiento activa, **presiona dentro** de la
+1. Con una de las herramientas de selección (Selección rectangular, Selección de lazo o Varita mágica) activa, **presiona dentro** de la
    selección activa. Los píxeles enmascarados se levantan en una vista previa
    flotante.
 2. **Arrastra.** Los colores flotantes siguen al cursor; la región de origen se lee

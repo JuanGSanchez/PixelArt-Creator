@@ -22,7 +22,7 @@ nav:
       - Automation & extensibility: usage/automation.md
       - AI assistant: usage/ai-assistant.md
       - Visual aids & UX: usage/visual-aids.md
-      - Cloud, versions & recovery: usage/cloud.md
+      - Cloud, versions & autosave: usage/cloud.md
       - Shared projects & comments: usage/collaboration.md
       - Hosting the real-time relay: usage/hosting.md
       - Asset library: usage/asset-library.md
@@ -73,7 +73,7 @@ plugins:
             Automation & extensibility: Automatización y extensibilidad
             AI assistant: Asistente de IA
             Visual aids & UX: Ayudas visuales y UX
-            Cloud, versions & recovery: Nube, versiones y recuperación
+            Cloud, versions & autosave: Nube, versiones y guardado automático
             Shared projects & comments: Proyectos compartidos y comentarios
             Hosting the real-time relay: Alojar el relé en tiempo real
             Asset library: Biblioteca de recursos

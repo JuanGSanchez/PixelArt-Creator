@@ -7,12 +7,12 @@ estilo Aseprite** opcionales y **preajustes de motor** listos para usar en **Uni
 **Godot**. Puedes exportar un objetivo desde el diálogo de exportación, encolar
 varios con el panel de lotes, o ejecutar todo el proceso sin interfaz gráfica desde
 la línea de comandos `pixelart-export` — y cada camino produce los **mismos bytes**.
-Abre el diálogo de exportación desde el menú Exportar o con **Ctrl+Shift+E**.
+Abre el diálogo de exportación desde **Archivo ▸ Exportar…** o con **Ctrl+Shift+E**.
 
 > **Exportación reproducible byte a byte.** La exportación es **determinista**: para
 > un documento de entrada fijo y los mismos parámetros, los bytes de salida son
 > idénticos siempre — los fotogramas se recorren en orden explícito, el GIF usa una
-> paleta compartida fija con el dithering desactivado, y los codificadores están
+> paleta compartida fija con el tramado desactivado, y los codificadores están
 > fijados. La interfaz gráfica y la CLI usan el **mismo** motor, así que una
 > exportación desde la interfaz y una desde la CLI del mismo documento son
 > **idénticas byte a byte**. La garantía es de *mismo entorno* (una cadena de
@@ -28,15 +28,15 @@ Abre el diálogo de exportación desde el menú Exportar o con **Ctrl+Shift+E**.
   imagen fija.
 - **GIF** exporta la animación: cada fotograma en orden, mostrado durante su propia
   **duración por fotograma** (las duraciones establecidas en la
-  [línea de tiempo de animación](animation-timeline.md)), con el número de bucles, la
+  [línea de tiempo de animación](animation-timeline.md)), con el número de repeticiones, la
   disposición de fotogramas y la transparencia escritos en el archivo. Todos los
   fotogramas comparten **una paleta fija** (una reducción por corte de mediana sobre
-  la animación) y el dithering está **desactivado**, que es lo que mantiene el GIF
+  la animación) y el tramado está **desactivado**, que es lo que mantiene el GIF
   reproducible byte a byte.
 
-> **Número de bucles del GIF.** El indicador `--loop` (CLI) / campo de bucle
-> (diálogo) establece cuántas veces se repite el GIF; **`0` significa bucle
-> infinito**.
+> **Número de repeticiones del GIF.** El indicador `--loop` (CLI) / campo **Número de repeticiones**
+> (diálogo) establece cuántas veces se repite el GIF; **`0` significa repetir
+> indefinidamente**.
 
 ## Hojas de sprites y atlas de texturas
 
@@ -62,8 +62,8 @@ metadatos JSON** en el formato **Array de Aseprite**: un array `frames[]` (el
 rectángulo, tamaño de origen y duración de cada fotograma) más un bloque `meta{}` que
 lleva las **etiquetas** de fotograma y las duraciones por fotograma. El JSON es
 **determinista** — las claves están ordenadas, los separadores son fijos y las
-coordenadas son enteros — así que se persiste y compara sin problemas. Actívalo con
-la opción JSON en el diálogo, o `--json` / `--no-json` en la CLI (activado por
+coordenadas son enteros — así que se persiste y compara sin problemas. Actívalo o desactívalo con
+la casilla **Escribir metadatos JSON** del diálogo, o con `--json` / `--no-json` en la CLI (activado por
 defecto).
 
 ## Preajustes de motor (Unity / Godot)
@@ -88,6 +88,8 @@ ejemplo un PNG, un GIF y un atlas de Unity de un proyecto en una sola ejecución
 exportación por lotes **continúa ante un fallo**: si un objetivo falla (por ejemplo,
 un atlas que no cabe), los demás objetivos se siguen exportando y el fallo se informa
 solo para ese objetivo, así que un objetivo defectuoso nunca aborta el lote completo.
+El botón **Exportar todo** exporta el documento de la pestaña activa a cada objetivo
+encolado en una sola ejecución.
 
 ## Añadir una exportación a la biblioteca de recursos
 
@@ -132,7 +134,7 @@ pixelart-export --input PROYECTO.pixproj --format FORMATO --output SALIDA [opcio
 | `--preset PREAJUSTE` | preajuste de motor: `none` (por defecto), `unity`, `godot`. |
 | `--columns N` | número de columnas de la hoja de sprites. |
 | `--padding N` | relleno entre sprites, en píxeles. |
-| `--loop N` | número de bucles del GIF (`0` = bucle infinito). |
+| `--loop N` | número de repeticiones del GIF (`0` = repetir indefinidamente). |
 | `--tag NOMBRE` | exporta solo el rango de una etiqueta de fotograma con nombre (por defecto: el documento completo). |
 | `--json` / `--no-json` | emite el complemento JSON de la hoja de sprites/atlas (por defecto: activado). |
 

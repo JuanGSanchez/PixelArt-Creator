@@ -28,7 +28,7 @@ headlessly from the `pixelart-export` command line — and every path produces t
   dithering is **off**, which is what keeps the GIF byte-reproducible.
 
 !!! tip "GIF loop count"
-    The `--loop` flag (CLI) / loop field (dialog) sets how many times the GIF
+    The `--loop` flag (CLI) / **Loop count** field (dialog) sets how many times the GIF
     repeats; **`0` means loop forever**. Leave it at the default unless you need a
     fixed number of plays.
 
@@ -55,8 +55,7 @@ Sprite-sheet and atlas exports can emit a **JSON metadata sidecar** in the
 **Aseprite *Array*** format: a `frames[]` array (each frame's rect, source size
 and duration) plus a `meta{}` block carrying the frame **tags** and per-frame
 durations. The JSON is **deterministic** — keys are sorted, separators are fixed,
-and coordinates are integers — so it round-trips and diffs cleanly. Toggle it with
-the JSON option in the dialog, or `--json` / `--no-json` on the CLI (on by
+and coordinates are integers — so it round-trips and diffs cleanly. Toggle it with the **Write JSON metadata** checkbox in the dialog, or `--json` / `--no-json` on the CLI (on by
 default).
 
 ## Engine presets (Unity / Godot)
@@ -79,7 +78,8 @@ The **batch export panel** queues **several targets at once** — for example a 
 a GIF and a Unity atlas from one project in a single run. Batch export is
 **continue-on-failure**: if one target fails (say an atlas that will not fit), the
 remaining targets still export and the failure is reported for that target alone,
-so one bad target never aborts the batch.
+so one bad target never aborts the batch. The **Export All** button exports the
+document in the active tab to every queued target in one run.
 
 ## Responsiveness
 

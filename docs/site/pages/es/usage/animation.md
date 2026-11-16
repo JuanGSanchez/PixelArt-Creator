@@ -3,13 +3,13 @@
 El **sistema de animación** convierte la lista de fotogramas de un documento
 en una *línea de tiempo*: añade, elimina, reordena y duplica fotogramas; da a
 cada fotograma su propia duración en pantalla; reproduce la secuencia en uno
-de cuatro modos; ve los fotogramas adyacentes con onion skinning; y agrupa
+de cuatro modos; ve los fotogramas adyacentes con papel cebolla; y agrupa
 rangos de fotogramas en **animaciones con nombre** mediante etiquetas de
 fotograma. Cada edición de fotograma y de etiqueta es un único paso de
 deshacer.
 
 Esto alcanza la paridad con **Aseprite** en línea de tiempo, reproducción,
-onion skinning y etiquetas, y va más allá con **varias animaciones
+papel cebolla y etiquetas, y va más allá con **varias animaciones
 independientes con nombre en un mismo archivo** (andar, correr, en reposo) a
 través de las etiquetas de fotograma.
 
@@ -19,7 +19,7 @@ través de las etiquetas de fotograma.
     máscaras se respetan todos por fotograma). Los *cels enlazados* — una
     capa compartida entre fotogramas — no forman parte de esta versión. En
     un documento **indexado** un fotograma es una única capa indexada, y el
-    onion skinning no se muestra (el compositor es solo RGBA).
+    papel cebolla no se muestra (el compositor es solo RGBA).
 
 ## La tira de fotogramas
 
@@ -105,12 +105,12 @@ siguiente pasada.
     presupuesto de memoria acotado; un fotograma expulsado de la caché
     simplemente se vuelve a preparar la próxima vez que se necesita.
 
-## Onion skinning
+## Papel cebolla
 
-El onion skinning muestra los **fotogramas adyacentes** detrás del que estás
+El papel cebolla muestra los **fotogramas adyacentes** detrás del que estás
 editando, para que puedas alinear el movimiento.
 
-- **Actívalo** con el interruptor de onion skinning. Los fotogramas fantasma
+- **Actívalo** con la casilla **Activar papel cebolla** del panel Papel cebolla. Los fotogramas fantasma
   se renderizan detrás del fotograma activo; el fotograma activo en sí no
   cambia.
 - Define cuántos fotogramas **anteriores** y **siguientes** mostrar (cada
@@ -119,9 +119,9 @@ editando, para que puedas alinear el movimiento.
 - Define el **tinte** de cada lado — **rojo** para los anteriores, **azul**
   para los siguientes por defecto. Los fotogramas más lejanos se desvanecen.
 
-Los recuentos y tintes del onion skinning son **ajustes de vista** — cambiarlos
+Los recuentos y tintes del papel cebolla son **ajustes de vista** — cambiarlos
 actualiza la superposición en vivo y no crea **ningún** paso de deshacer. El
-onion skinning se **suprime durante la reproducción** (es una ayuda de
+papel cebolla se **suprime durante la reproducción** (es una ayuda de
 edición, no una vista previa) y durante un scrub.
 
 ## Etiquetas de fotograma (animaciones con nombre)
@@ -131,12 +131,14 @@ animación. Un mismo archivo puede contener varias etiquetas — por ejemplo
 `andar` sobre los fotogramas 1–4, `reposo` sobre el fotograma 0 — y pueden
 solaparse.
 
-Desde el panel de **Etiquetas de fotograma**:
+Desde el panel de **Etiquetas de fotogramas**:
 
-- **Añadir / editar / eliminar** una etiqueta — cada acción abre un diálogo
+- **Añadir etiqueta / Editar etiqueta** — cada una abre un diálogo
   para el **nombre** de la etiqueta, el rango inclusivo **desde / hasta**, el
   **modo de reproducción**, el número de **repeticiones** (`0` = infinito
-  para los modos en bucle) y un **color**. Cada cambio es **un paso de
+  para los modos en bucle) y un **color**. **Eliminar etiqueta** borra la
+  etiqueta seleccionada al instante, sin diálogo, y solo está disponible
+  mientras haya una etiqueta seleccionada. Cada cambio es **un paso de
   deshacer**. Una etiqueta se muestra como un tramo a lo largo de los
   fotogramas que cubre.
 - **Reproducir etiqueta** reproduce la etiqueta seleccionada como su propia
@@ -152,7 +154,7 @@ juntos.
 
 ## Vista de cuadrícula (la cuadrícula de celdas)
 
-El alternador **Grid View** (aún sin traducir al español en esta versión) de la
+El alternador **Vista de cuadrícula** de la
 barra de herramientas de la línea de tiempo cambia de la tira horizontal a una
 **cuadrícula de celdas**: fotogramas como columnas, pistas de capa como filas, al
 estilo de la cuadrícula de celdas de Aseprite. Muestra el mismo documento que la
@@ -166,8 +168,8 @@ tira — alternar entre ambas vistas nunca pierde tu posición.
   abre el diálogo **¿Sobrescribir celda existente?** pidiéndote confirmación
   antes de reemplazarlo. Marca su casilla
   **"No volver a preguntar para este proyecto"** para dejar de recibir esa
-  pregunta el resto de este proyecto; restáurala desde el menú
-  **Project confirmations** (bajo Editar).
+  pregunta el resto de este proyecto; restáurala desde
+  **Editar ▸ Confirmaciones del proyecto**.
 - **Alternar visibilidad por celda** — haz clic en el indicador de visibilidad de una
   celda para mostrar/ocultar la capa de ese fotograma; es un paso de deshacer, igual
   que el alternador de visibilidad en cualquier otro lugar.
@@ -180,17 +182,12 @@ tira — alternar entre ambas vistas nunca pierde tu posición.
 - **Reordenar columnas** — arrastra el encabezado de una columna para reordenar
   fotogramas, el equivalente en la cuadrícula de arrastrar una celda de la tira.
 
-!!! note "Nota de idioma"
-    "Grid View" aparece todavía en inglés en la interfaz en español: el catálogo
-    de traducción (`i18n/pixelart_es.ts`) aún no incluye esta cadena. Esto es un
-    hueco de localización, no un error de esta página.
-
 !!! note "Confirmaciones del proyecto"
     La confirmación de sobrescritura de la vista de cuadrícula es una de las
     preferencias por proyecto de la aplicación: una vez suprimida con
     "No volver a preguntar para este proyecto," permanece desactivada para ese
-    proyecto hasta que se restaure desde el menú **Project confirmations**
-    (bajo Editar), que lista todas las confirmaciones suprimidas y reactiva
+    proyecto hasta que se restaure desde **Editar ▸ Confirmaciones del proyecto**,
+    que lista todas las confirmaciones suprimidas y reactiva
     cada una individualmente.
 
 ## Persistencia
@@ -212,7 +209,7 @@ etiquetas vacía.
   mover/copiar una celda, alternar la visibilidad de una celda, y crear una celda.
 - **No deshacible (estado de vista):** seleccionar o explorar (scrub) un
   fotograma, reproducir / pausar / detener, cambiar los recuentos o
-  tintes del onion skinning, y alternar entre la tira y la vista de cuadrícula.
+  tintes del papel cebolla, y alternar entre la tira y la vista de cuadrícula.
 
 ## Lo que no se cubre
 

@@ -82,6 +82,7 @@ from typing import Callable, Optional, Sequence
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic import macro as macro_engine
 from pixelart_creator.logic import scripting
 from pixelart_creator.logic.document import Document
@@ -210,7 +211,7 @@ class AutomationWorkerSignals(QObject):
 
     #: ``(token, Command)`` — the job produced an unapplied reversible command.
     finished = Signal(int, object)
-    #: ``(token, message)`` — the job raised (surfaced to the user, never a crash).
+    #: ``(token, kind)`` — the job raised; ``kind`` is a ``FailureKind`` value.
     failed = Signal(int, str)
     #: ``(token,)`` — the job ended (success, failure, or cancel); clears busy.
     done = Signal(int)
@@ -305,7 +306,10 @@ class Automation_Worker(QRunnable):
             # Any engine error (ScriptError / MacroError / ProcgenError /
             # BatchError / PluginError / value error) surfaces as a user-facing
             # message; it never crashes the app and never re-raises through Qt.
-            self._signals.failed.emit(self._token, f"{type(exc).__name__}: {exc}")
+            failure_messages.log_failure(exc)
+            self._signals.failed.emit(
+                self._token, failure_messages.failure_kind(exc).value
+            )
         finally:
             self._signals.done.emit(self._token)
 
@@ -432,7 +436,9 @@ class Automation_Controller(QObject):
     @Slot(int, str)
     def _on_failed(self, token: int, message: str) -> None:
         if token == self._token:
-            self.failed.emit(message)
+            self.failed.emit(
+                failure_messages.failure_text(failure_messages.FailureKind(message))
+            )
 
     @Slot(int)
     def _on_done(self, token: int) -> None:

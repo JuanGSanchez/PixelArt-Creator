@@ -2,7 +2,7 @@
 
 Drag a file straight from your operating system's file explorer (Windows
 Explorer, macOS Finder, Linux Nautilus) **into** the PixelArt Creator window and
-it does the obvious thing for that kind of file. There is no File ▸ Open dance —
+it does the obvious thing for that kind of file. There is no File ▸ Open… dance —
 drop it anywhere on the window and the app routes it **by file type**, not by
 where on the window you let go.
 
@@ -56,7 +56,7 @@ palette file and its colours **replace** your active document's palette.
 
 !!! note "Which palette formats?"
     The v1 palette set is the common **text** pixel-art formats: `.gpl`, `.hex`
-    and `.pal`. The binary Adobe formats **`.aco`** and **`.aseprite`** are
+    and `.pal`. The binary formats **`.aco`** (Adobe) and **`.aseprite`** (Aseprite's own format) are
     **not yet supported** — they are planned for a later iteration and are
     reported as an unsupported type for now.
 

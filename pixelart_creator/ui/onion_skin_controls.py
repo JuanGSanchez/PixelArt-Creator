@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.constants import (
     DEFAULT_ONION_NEXT,
@@ -75,11 +76,13 @@ class Onion_Skin_Controls(QWidget):
         self._enable_check.toggled.connect(self._emit)
 
         self._prev_spin = QSpinBox(self)
+        self._prev_spin.setLocale(i18n.current_formatting_locale())
         self._prev_spin.setRange(0, MAX_ONION_SKIN_FRAMES)
         self._prev_spin.setValue(DEFAULT_ONION_PREV)
         self._prev_spin.valueChanged.connect(self._emit)
 
         self._next_spin = QSpinBox(self)
+        self._next_spin.setLocale(i18n.current_formatting_locale())
         self._next_spin.setRange(0, MAX_ONION_SKIN_FRAMES)
         self._next_spin.setValue(DEFAULT_ONION_NEXT)
         self._next_spin.valueChanged.connect(self._emit)

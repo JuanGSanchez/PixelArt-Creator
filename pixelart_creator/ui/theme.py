@@ -33,6 +33,10 @@ from PySide6.QtGui import QColor, QFont, QGuiApplication, QScreen
 from PySide6.QtWidgets import QApplication
 
 from pixelart_creator.data import style_catalog
+from pixelart_creator.logic.constants import (
+    MENU_BAR_ITEM_PADDING_HORIZONTAL_PX,
+    MENU_BAR_ITEM_PADDING_VERTICAL_PX,
+)
 from pixelart_creator.ui.pixel_chrome import (
     SWATCH_PROPERTY,
     chrome_filter,
@@ -117,7 +121,9 @@ _CHECK_INDICATOR_PX = 14
 _CHECK_CLEARANCE_PX = 4
 _SLIDER_CLEARANCE_PX = 2
 _MENU_ITEM_PADDING = "3px 18px 3px 22px"
-_MENU_BAR_ITEM_PADDING = "3px 8px"
+_MENU_BAR_ITEM_PADDING = (
+    f"{MENU_BAR_ITEM_PADDING_VERTICAL_PX}px {MENU_BAR_ITEM_PADDING_HORIZONTAL_PX}px"
+)
 _MENU_INDICATOR_LEFT_PX = 4
 _MENU_SEPARATOR_MARGIN = "2px 4px"
 _HEADING_PADDING = "2px 6px"

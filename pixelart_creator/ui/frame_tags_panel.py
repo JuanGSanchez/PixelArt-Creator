@@ -42,6 +42,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.animation import (
     DEFAULT_PLAYBACK_MODE,
     FrameTag,
@@ -81,13 +83,16 @@ class Tag_Dialog(QDialog):
 
         self._name_edit = QLineEdit(self)
         self._from_spin = QSpinBox(self)
+        self._from_spin.setLocale(i18n.current_formatting_locale())
         self._from_spin.setRange(0, high)
         self._to_spin = QSpinBox(self)
+        self._to_spin.setLocale(i18n.current_formatting_locale())
         self._to_spin.setRange(0, high)
         self._mode_combo = QComboBox(self)
         for mode in PlaybackMode:
             self._mode_combo.addItem(_mode_label(self, mode), mode)
         self._repeat_spin = QSpinBox(self)
+        self._repeat_spin.setLocale(i18n.current_formatting_locale())
         self._repeat_spin.setRange(0, 9999)
         self._color_button = Swatch_Button(self)
         self._color_button.clicked.connect(self._pick_color)
@@ -308,7 +313,12 @@ class Frame_Tags_Panel(QWidget):
                 name, from_frame, to_frame, mode=mode, repeat=repeat, color=color
             )
         except DocumentError as exc:
-            self._warn(self.tr("Add Tag"), str(exc))
+            self._warn(
+                self.tr("Add Tag"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(cmd, self.tr("Add Tag"))
 
@@ -332,7 +342,12 @@ class Frame_Tags_Panel(QWidget):
                 color=color,
             )
         except DocumentError as exc:
-            self._warn(self.tr("Edit Tag"), str(exc))
+            self._warn(
+                self.tr("Edit Tag"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(cmd, self.tr("Edit Tag"))
 

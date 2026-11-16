@@ -25,8 +25,8 @@ de todo el catálogo o del único recurso seleccionado actualmente en el panel d
 
 | Relación | Se lee como | Muestra |
 | --- | --- | --- |
-| **Depende de** | lo que este recurso *referencia* | los recursos a los que apunta el recurso seleccionado |
-| **Referenciado por** | lo que *referencia* a este recurso | los recursos que apuntan al recurso seleccionado |
+| **Dependencias (depende de)** | lo que este recurso *referencia* | los recursos a los que apunta el recurso seleccionado |
+| **Dependientes (referenciado por)** | lo que *referencia* a este recurso | los recursos que apuntan al recurso seleccionado |
 
 Ambas relaciones se muestran como listas estables y ordenadas alfabéticamente. Por
 defecto, la vista muestra los vecinos **directos**; las mismas relaciones se pueden
@@ -62,8 +62,8 @@ Una referencia se informa como rota por una de dos razones:
 
 | Razón | Significado |
 | --- | --- |
-| **Falta** | el recurso referenciado ya no está en el catálogo (se eliminó). |
-| **Desajuste de hash** | el recurso referenciado sigue presente, pero su contenido ha cambiado desde que se hizo la referencia. |
+| **destino faltante** | el recurso referenciado ya no está en el catálogo (se eliminó). El Grafo de dependencias lo muestra como "Rota (destino faltante)". |
+| **destino modificado** | el recurso referenciado sigue presente, pero su contenido ha cambiado desde que se hizo la referencia. El Grafo de dependencias lo muestra como "Rota (destino modificado)". |
 
 Un recurso cuyas referencias siguen siendo todas válidas no muestra ningún
 indicador; solo se señala una referencia genuinamente rota, así que la advertencia
@@ -81,7 +81,7 @@ El seguimiento de dependencias y la detección de roturas se construyen sobre el
 catálogo de la [biblioteca de recursos](asset-library.md). La capacidad
 complementaria — un historial de versiones de solo adición por recurso, más la
 **reutilización entre proyectos**, la **exportación/importación** y el **respaldo
-opcional en la nube** — está documentada en
+opcional en la nube** (no conectado en esta versión) — está documentada en
 [Versionado de recursos y reutilización entre proyectos](asset-versioning.md). Un
 recurso reutilizado es una referencia como cualquier otra, así que el indicador de
 roturas descrito aquí marca una reutilización cuyo destino desaparece o cambia más

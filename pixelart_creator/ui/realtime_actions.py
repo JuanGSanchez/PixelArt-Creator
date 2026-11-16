@@ -38,6 +38,7 @@ from typing import Optional, Sequence
 
 from PySide6.QtCore import QObject, Signal
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic import sync_protocol
 from pixelart_creator.logic.cloud_validation import CloudValidationError
 from pixelart_creator.logic.convergence import Operation
@@ -73,9 +74,11 @@ class Realtime_Session(QObject):
     #: ``(presence_mapping,)`` — an ephemeral presence payload arrived (member_id +
     #: optional cursor/selection); drives the live-cursor overlay.
     presenceReceived = Signal(object)
-    #: ``(message,)`` — a malformed/oversized frame or transport error was rejected
-    #: (surfaced, never a crash — Article VII).
-    errorOccurred = Signal(str)
+    #: ``(message, is_failure)`` — a malformed/oversized frame or transport error was
+    #: rejected (surfaced, never a crash — Article VII). ``is_failure`` is ``True`` for
+    #: a failure sentence and ``False`` for a reason that is not one (no transport
+    #: configured); the status bar frames the two differently.
+    errorOccurred = Signal(str, bool)
 
     def __init__(
         self,
@@ -94,7 +97,7 @@ class Realtime_Session(QObject):
         self._client = client or Realtime_Client(transport_factory, parent=self)
         self._client.frameReceived.connect(self._on_frame)
         self._client.connectionChanged.connect(self.connectionChanged)
-        self._client.errorOccurred.connect(self.errorOccurred)
+        self._client.errorOccurred.connect(self._on_client_error)
         self._site_id = int(site_id)
         self._member_id = ""
         self._document: Optional[Document] = None
@@ -149,6 +152,17 @@ class Realtime_Session(QObject):
         self._document = None
         self._document_id = None
 
+    def _on_client_error(self, message: str, is_failure: bool = False) -> None:
+        """Relay the client's tagged error (an injected client may omit the tag)."""
+        self.errorOccurred.emit(message, is_failure)
+
+    def _report_failure(self, exc: BaseException) -> None:
+        """Surface ``exc`` as its failure sentence, tagged as one (the logged kind)."""
+        sentence = failure_messages.failure_text(
+            failure_messages.logged_failure_kind(exc)
+        )
+        self.errorOccurred.emit(sentence, True)
+
     # -- outbound ---------------------------------------------------------
 
     def push_local_update(self, ops: Sequence[Operation]) -> None:
@@ -165,7 +179,7 @@ class Realtime_Session(QObject):
         try:
             blob = encode_update(ops)
         except (RealtimeError, CloudValidationError) as exc:
-            self.errorOccurred.emit(f"{type(exc).__name__}: {exc}")
+            self._report_failure(exc)
             return
         self._state.accept(ops)
         self._client.send_update(blob)
@@ -192,7 +206,7 @@ class Realtime_Session(QObject):
         try:
             data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
-            self.errorOccurred.emit(f"{type(exc).__name__}: {exc}")
+            self._report_failure(exc)
             return
         self._client.send_presence(data)
 
@@ -211,7 +225,7 @@ class Realtime_Session(QObject):
         try:
             message = sync_protocol.decode_message(bytes(frame))
         except CloudValidationError as exc:
-            self.errorOccurred.emit(f"{type(exc).__name__}: {exc}")
+            self._report_failure(exc)
             return
         if message.kind is sync_protocol.ControlKind.UPDATE:
             self._apply_update(message.blob)
@@ -227,6 +241,6 @@ class Realtime_Session(QObject):
             apply_remote(self._document, blob, site_id=self._site_id, state=self._state)
             regions = dirty_regions(blob)
         except (RealtimeError, CloudValidationError) as exc:
-            self.errorOccurred.emit(f"{type(exc).__name__}: {exc}")
+            self._report_failure(exc)
             return
         self.remoteUpdateApplied.emit(regions)

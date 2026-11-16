@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.macro import Op
 from pixelart_creator.logic.scripting import OP_BATCH_RECOLOUR
 from pixelart_creator.ui.automation_worker import STAGE_COMPLETE, STAGE_RUNNING
@@ -76,13 +77,16 @@ class Batch_Recolour_Panel(QWidget):
 
         self._frame_label = QLabel(self)
         self._frame_spin = QSpinBox(self)
+        self._frame_spin.setLocale(i18n.current_formatting_locale())
         self._frame_spin.setMinimum(0)
         self._frame_spin.setMaximum(0)
 
         # Index-mode editor.
         self._src_index = QSpinBox(self)
+        self._src_index.setLocale(i18n.current_formatting_locale())
         self._src_index.setRange(0, _MAX_INDEX)
         self._dst_index = QSpinBox(self)
+        self._dst_index.setLocale(i18n.current_formatting_locale())
         self._dst_index.setRange(0, _MAX_INDEX)
 
         # Colour-mode editor.

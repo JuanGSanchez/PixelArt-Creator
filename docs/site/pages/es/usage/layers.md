@@ -31,10 +31,10 @@ Cada fila de capa expone:
 
 ## Gestionar capas
 
-- **Añadir** — inserta una nueva capa vacía encima de la capa activa.
-- **Eliminar** — borra la capa activa. Eliminar la **última** capa de un
+- **Añadir capa** — inserta una nueva capa vacía encima de la capa activa.
+- **Eliminar capa** — borra la capa activa. Eliminar la **última** capa de un
   fotograma se rechaza.
-- **Duplicar** — inserta una copia píxel a píxel, con los atributos copiados,
+- **Duplicar capa** — inserta una copia píxel a píxel, con los atributos copiados,
   encima del origen.
 - **Arrastrar para reordenar** — arrastra una fila a una nueva posición para
   cambiar el orden z; el lienzo se recompone en el nuevo orden. Arrastrar
@@ -58,8 +58,8 @@ subárbol. El anidamiento de grupos está acotado por `MAX_GROUP_NESTING_DEPTH`.
 Adjunta una **máscara** a una capa para modular su alfa de forma no
 destructiva:
 
-1. Añade una máscara a la capa seleccionada.
-2. Selecciona la máscara para convertirla en el objetivo de pintura — pintar
+1. Elige **Añadir máscara** para la capa seleccionada.
+2. Activa **Editar máscara** para convertir la máscara en el objetivo de pintura — pintar
    ahora edita el búfer de la máscara, no los píxeles de la capa.
 3. Donde la máscara es 0 la capa está oculta; donde está al máximo la capa se
    muestra por completo; los valores intermedios son proporcionales.
@@ -70,14 +70,14 @@ máscara es deshacible.
 
 ## Capas de referencia
 
-Marca una capa como capa de **referencia** para calcarla: permanece visible en
+Activa **Referencia** para marcar una capa como capa de **referencia** y poder calcarla: permanece visible en
 la composición pero **rechaza pintar** (las herramientas de pintura no hacen
 nada sobre ella), como un bloqueo permanente con un propósito declarado. El
 indicador es reversible.
 
 ## Capas inteligentes
 
-Crea una **capa inteligente** a partir de una capa de origen seleccionada. La
+Usa **Capa inteligente** para crear una **capa inteligente** a partir de una capa de origen seleccionada. La
 capa inteligente es una instancia no destructiva que **refleja los píxeles del
 origen** (de solo lectura) mientras mantiene su propia opacidad, visibilidad y
 modo de fusión. Editar el origen actualiza cada instancia inteligente en la
@@ -100,7 +100,7 @@ La pila de capas y los modos de fusión se aplican a documentos **RGBA**. Los
 documentos **indexados** son de una sola capa por diseño — el compositor es
 solo RGBA.
 
-- Convertir un documento **RGBA multicapa** a indexado **aplana la composición
+- Convertir un documento **RGBA multicapa** a indexado (**Paleta ▸ Convertir a indexado**) **aplana la composición
   en una única capa indexada** (por fotograma). Esto es deshacible: deshacer
   restaura el árbol RGBA multicapa completo — grupos, máscaras, opacidad,
   modos de fusión, referencias y enlaces inteligentes — con exactitud.

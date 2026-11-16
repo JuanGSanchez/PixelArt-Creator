@@ -295,6 +295,19 @@ jobs:
       # fonts-dejavu-core: a bare Ubuntu runner ships no system font, so the
       # application font's fallback behaviour could not be exercised there at
       # all; installing one gives the font tests a real fallback face to find.
+      # fonts-noto-cjk: the CJK probe font. DejaVu has no Han, Hangul or kana,
+      # so without a face that does, the interface languages written in those
+      # scripts could never be seen falling back to an operating-system font on
+      # this leg: the fontconfig lookup would find nothing. The package is Noto
+      # Sans/Serif CJK (SIL OFL), one set covering all three scripts, in Ubuntu
+      # `main` for the runner's release (noble, 1:20230817+repack1-3), so it
+      # needs no extra repository. It is a PROBE, not a requirement of the
+      # product: the application ships its own faces and a user's system
+      # supplies whatever else it has. Because it makes the system CJK lookup
+      # succeed, a test that must prove the application's own family list does
+      # the drawing has to hide system fonts from fontconfig, or register every
+      # family it judges; a green result that depends on this package alone
+      # proves nothing about the list.
       - name: Install Qt runtime OS libraries (Ubuntu)
         if: runner.os == 'Linux'
         run: |
@@ -303,7 +316,7 @@ jobs:
             libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
-            fonts-dejavu-core
+            fonts-dejavu-core fonts-noto-cjk
 
       - name: Install project (runtime + dev) from manifest
         # -c constraints.txt: reproducibility lock — pins the full
@@ -405,23 +418,424 @@ jobs:
         # extra, pinned in constraints.txt.
         run: python scripts/font/build_nifen_art.py --lint
 
+      - name: CJK font source lint (REQ-L10N-BUILD-001)
+        if: runner.os == 'Linux'
+        # The same lint for the second face, over fonts-src/nifen-art-cjk: the
+        # grid contract, Bold equal to Regular, a Han and Hangul character map,
+        # every glyph drawn or a recipe of drawn glyphs, the R05 exemptions and
+        # the donor gate over the notices (none is a donor for this face). It
+        # prints each rule's count and the exempted glyphs, then the file list
+        # it scanned, and exits non-zero on a violation and when it examined
+        # nothing. fontTools comes from the dev extra, pinned in constraints.txt.
+        run: python scripts/font/build_nifen_art.py --lint --face nifen-art-cjk
+
+      - name: Existing face is unchanged (freeze manifest; REQ-L10N-BUILD-001)
+        if: runner.os == 'Linux'
+        # Compares every file the existing face is made of (sources, built
+        # fonts and notices) with the hashes in fonts-src/nifen-art-cjk/
+        # existing-face.sha256 and prints "N files compared, N identical". Exits
+        # non-zero on a changed, missing or unlisted file, and on a manifest that
+        # lists nothing. The manifest is never regenerated.
+        run: python scripts/font/build_nifen_art.py --verify-freeze
+
       - name: Font rebuild is byte-identical to the committed fonts (REQ-VI-BUILD-002)
         if: runner.os == 'Linux'
         # Builds both weights twice from the sources and compares both builds
         # with the committed TTFs in pixelart_creator/fonts, byte for byte.
         run: python scripts/font/build_nifen_art.py --check
 
+      - name: CJK font rebuild is byte-identical to the committed fonts (REQ-L10N-BUILD-001)
+        if: runner.os == 'Linux'
+        # The same comparison for the second face: builds the six Nifen Art CJK
+        # files (three families, Regular and Bold) twice from fonts-src/nifen-art-cjk
+        # and compares both builds with the committed TTFs in pixelart_creator/fonts,
+        # byte for byte. It prints the six files compared and exits non-zero on a
+        # difference, a missing file, and when it compared nothing.
+        run: python scripts/font/build_nifen_art.py --check --face nifen-art-cjk
+
       - name: Font glyph coverage (REQ-VI-BUILD-004)
+        id: glyph_coverage
         if: runner.os == 'Linux'
         # --gate-catalogues makes a character used in a shipped translation
         # catalogue, or in an interface string literal under ui/, that either
         # weight lacks a FAILURE; without it those are only reported. The
         # declared set and the probe text are always gated. Exit non-zero on
         # any missing character and when nothing was examined.
+        #
+        # A FAILURE HERE DOES NOT HIDE THE STEPS BELOW IT (REQ-L10N-BUILD-006).
+        # Every step after this one carries the condition
+        #   !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure')
+        # (joined with its own runner.os test where it has one), so the
+        # coverage gates, the documentation gates, the JS tests and the perf
+        # gates each run and report their own verdict when this step failed.
+        # The job still FAILS on this step: it is not continue-on-error, its
+        # command and thresholds are unchanged, and GitHub marks a job failed
+        # when any of its steps failed, whatever the later steps do. A failure
+        # in any OTHER step before this one keeps stopping the later steps, as
+        # before: success() is then false and this step did not fail. On a leg
+        # where this step is skipped (Windows, macOS) the condition reduces to
+        # the implicit success() every step had, so those legs are unchanged.
         run: python scripts/font/check_glyph_coverage.py --gate-catalogues --py-dir pixelart_creator/ui
 
+      - name: Localisation typography (REQ-L10N-DATA-004)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
+        # No `runner.os` test -- this step runs on all three legs (stdlib only, no OS
+        # dependence). scripts/check_l10n_typography.py judges the committed
+        # catalogues and guide trees by the rules of REQ-L10N-DATA-004. On its
+        # own it has one blind spot: a language whose catalogue is missing or
+        # renamed simply produces no rule rows, and it still exits 0. This step
+        # closes that with a floor and two controls, all in one program below.
+        #
+        # THE FLOOR. The shipped set is the pixelart_<code>.qm files under
+        # pixelart_creator/i18n (the product's own definition, see
+        # `available_languages`), English aside; the guide set is the folders
+        # under userguide_content/content, English aside. Nothing is listed by
+        # hand per language. For each shipped code the catalogue surface must
+        # show every rule of that language with examined > 0 (ellipsis and
+        # no-u202f for all; fr-nbsp and fr-num-unit for fr; ru-no-straight-quote
+        # for ru; ko-no-han for ko; zh-fullwidth for zh_CN). For each guide
+        # folder the guide surface must show no-u202f, plus the French, Russian
+        # and Korean rules for those languages. Each landing of a language
+        # therefore raises the floor by itself. The step prints both sets and
+        # one line per floor entry, and names each missing (rule, surface,
+        # language).
+        #
+        # CONTROL (i), blind. The typography checker is run over a copy of the catalogue folder
+        # without pixelart_fr.ts while the shipped set is still read from the
+        # real folder; the floor must fail and name fr-num-unit [catalogue] fr.
+        #
+        # CONTROL (ii), planted, FORM (a): an existing message picked at run
+        # time. The program reads the finished fr messages the way the checker does and
+        # applies the script's own NUM_UNIT to each form's markup-free text; a
+        # match whose gap is exactly one U+00A0 is a candidate, for ANY unit of
+        # the script's UNITS list (read at run time, never re-typed here). The
+        # first candidate in file order whose number, U+00A0 and unit occur
+        # exactly once in that message's translation (over both spellings the file
+        # may use for U+00A0: the raw character and a numeric reference such as
+        # &#xa0;, which the extraction writes) gets that U+00A0, whichever spelling,
+        # replaced by U+0020, in a copy. The unplanted copy must exit 0; the planted copy
+        # must exit 1 with exactly one more fr-num-unit finding, whose location
+        # names the planted message. There is no fallback to a synthetic entry:
+        # if no candidate is left the control fails with "control site not
+        # found". The denominator (candidates, fr messages examined) and the
+        # planted message, its unit and the form are printed on every run.
+        #
+        # Both copies live under CI_TEMP_ROOT; nothing tracked is written.
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          L10N_TMP="${CI_TEMP_ROOT}/l10n-typography"
+          rm -rf "${L10N_TMP}"
+          mkdir -p "${L10N_TMP}"
+          TYPOGRAPHY_EXIT=0
+          python scripts/check_l10n_typography.py --json > "${L10N_TMP}/report.json" || TYPOGRAPHY_EXIT=$?
+          python -I - "${L10N_TMP}/report.json" "${TYPOGRAPHY_EXIT}" <<'PY'
+          import collections
+          import importlib.util
+          import json
+          import os
+          import re
+          import shutil
+          import subprocess
+          import sys
+
+          sys.dont_write_bytecode = True
+          sys.stdout.reconfigure(encoding="utf-8")
+
+          REPORT_PATH, REAL_EXIT = sys.argv[1], int(sys.argv[2])
+          ROOT = os.getcwd()
+          SCRIPT = os.path.join(ROOT, "scripts", "check_l10n_typography.py")
+          I18N = os.path.join(ROOT, "pixelart_creator", "i18n")
+          GUIDE = os.path.join(ROOT, "pixelart_creator", "userguide_content", "content")
+          WORK = os.path.join(os.environ["CI_TEMP_ROOT"], "l10n-typography")
+          NBSP = chr(0xA0)
+          # U+00A0 as the file may spell it: the raw character or a numeric reference.
+          NBSP_FORMS = "(?:" + NBSP + "|&#(?:[xX]0*[aA]0|0*160);)"
+          CATALOGUE_RULES = {
+              "fr": ("fr-nbsp", "fr-num-unit"),
+              "ru": ("ru-no-straight-quote",),
+              "ko": ("ko-no-han",),
+              "zh": ("zh-fullwidth",),
+          }
+          GUIDE_RULES = {
+              "fr": ("fr-nbsp", "fr-num-unit"),
+              "ru": ("ru-no-straight-quote",),
+              "ko": ("ko-no-han",),
+          }
+          failures = []
+
+
+          def fail(text):
+              failures.append(text)
+              print(f"::error::{text}")
+
+
+          spec = importlib.util.spec_from_file_location("check_l10n_typography", SCRIPT)
+          tm = importlib.util.module_from_spec(spec)
+          sys.modules["check_l10n_typography"] = tm
+          spec.loader.exec_module(tm)
+          catalogues = tm._catalogue_reader()
+
+
+          def run_checker(folder, surface=None):
+              command = [sys.executable, SCRIPT, "--catalogues", folder, "--json"]
+              if surface:
+                  command += ["--surface", surface]
+              done = subprocess.run(
+                  command, cwd=ROOT, capture_output=True, text=True,
+                  encoding="utf-8", errors="replace",
+              )
+              try:
+                  parsed = json.loads(done.stdout)
+              except ValueError:
+                  parsed = None
+              return done.returncode, parsed, done.stderr.strip()
+
+
+          def copy_catalogues(folder, skip=()):
+              shutil.rmtree(folder, ignore_errors=True)
+              os.makedirs(folder)
+              names = sorted(
+                  n for n in os.listdir(I18N)
+                  if n.startswith("pixelart_") and n.endswith(".ts") and n not in skip
+              )
+              for name in names:
+                  shutil.copyfile(os.path.join(I18N, name), os.path.join(folder, name))
+              return names
+
+
+          def rule_row(parsed, rule, surface, language):
+              for row in parsed["rules"]:
+                  if (row["rule"], row["surface"], row["language"]) == (rule, surface, language):
+                      return row
+              return None
+
+
+          # ---- the real run: the checker's own report and exit code ----
+          print(f"typography checker exit code on the committed content: {REAL_EXIT}")
+          try:
+              with open(REPORT_PATH, encoding="utf-8") as handle:
+                  report = json.load(handle)
+          except (OSError, ValueError) as exc:
+              report = None
+              fail(f"the typography checker wrote no readable report (exit {REAL_EXIT}): {exc}")
+          if REAL_EXIT != 0:
+              fail(f"the typography checker exited {REAL_EXIT} on the committed content")
+          if report is None:
+              sys.exit(1)
+          tm.print_report(report, sys.stdout)
+
+          # ---- the floor, derived from the shipped files ----
+          shipped = sorted(
+              n[len("pixelart_") : -len(".qm")]
+              for n in os.listdir(I18N)
+              if n.startswith("pixelart_") and n.endswith(".qm")
+          )
+          shipped = [code for code in shipped if code and code != "en"]
+          guide_set = sorted(
+              n for n in os.listdir(GUIDE)
+              if os.path.isdir(os.path.join(GUIDE, n)) and n != "en"
+          )
+          print("shipped set (pixelart_<code>.qm, English aside): " + (", ".join(shipped) or "NONE"))
+          print("guide set (folders under content/, English aside): " + (", ".join(guide_set) or "NONE"))
+          if not shipped:
+              fail("floor: no pixelart_<code>.qm other than English was found, so the floor has no denominator")
+          floor = []
+          for code in shipped:
+              rules = ("ellipsis", "no-u202f") + CATALOGUE_RULES.get(tm.primary(code), ())
+              floor += [(rule, "catalogue", code) for rule in rules]
+          for code in guide_set:
+              rules = ("no-u202f",) + GUIDE_RULES.get(tm.primary(code), ())
+              floor += [(rule, "guide", code) for rule in rules]
+
+
+          def check_floor(parsed):
+              missing = []
+              lines = []
+              for entry in floor:
+                  row = rule_row(parsed, *entry)
+                  count = row["examined"] if row else 0
+                  verdict = "ok" if count > 0 else "MISSING"
+                  lines.append(f"  floor {entry[0]} [{entry[1]}] {entry[2]}: examined {count} {verdict}")
+                  if count == 0:
+                      missing.append(entry)
+              return lines, missing
+
+
+          lines, missing = check_floor(report)
+          print(f"floor: {len(floor)} entries")
+          print("\n".join(lines))
+          for rule, surface, code in missing:
+              fail(f"floor: {rule} [{surface}] {code} was not examined (examined 0 or no rule row)")
+
+          # ---- control (i), blind: no pixelart_fr.ts in the copy ----
+          fr_ts = os.path.join(I18N, "pixelart_fr.ts")
+          if not (os.path.isfile(fr_ts) and os.path.isfile(os.path.join(I18N, "pixelart_fr.qm"))):
+              fail("control (i): control site not found (pixelart_fr.ts and pixelart_fr.qm are not both present)")
+          else:
+              blind = os.path.join(WORK, "blind")
+              names = copy_catalogues(blind, skip=("pixelart_fr.ts",))
+              code, parsed, err = run_checker(blind)
+              print(f"control (i), blind: the checker over {len(names)} catalogues copied without pixelart_fr.ts")
+              if parsed is None:
+                  fail(f"control (i): the checker wrote no readable report on the blind copy (exit {code}): {err}")
+              else:
+                  print(
+                      f"  the checker alone on the blind copy: exit {code}, {len(parsed['rules'])} rule units, "
+                      f"{parsed['examined_total']} examined"
+                  )
+                  _lines, blind_missing = check_floor(parsed)
+                  for rule, surface, language in blind_missing:
+                      print(f"  floor names: {rule} [{surface}] {language}")
+                  if ("fr-num-unit", "catalogue", "fr") in blind_missing:
+                      print("  the floor failed and named fr-num-unit [catalogue] fr: control (i) OK")
+                  else:
+                      fail("control (i): the floor did not name fr-num-unit [catalogue] fr on a copy without pixelart_fr.ts")
+
+          # ---- control (ii), planted, form (a) ----
+          print("control (ii), planted, form (a): an existing fr message picked at run time by the script's NUM_UNIT")
+
+
+          def unit_label(unit):
+              for label, pattern in tm.UNITS:
+                  if re.fullmatch(pattern, unit):
+                      return label
+              return "?"
+
+
+          def names_message(where, message):
+              prefix = f"pixelart_fr.ts [{message.context}] "
+              if not where.startswith(prefix):
+                  return False
+              tail = where[len(prefix):]
+              normal = " ".join(message.source.split())
+              return tail == normal or (tail.endswith("...") and normal.startswith(tail[:-3]))
+
+
+          def control_planted():
+              if not os.path.isfile(fr_ts):
+                  fail("control (ii): control site not found (no pixelart_fr.ts)")
+                  return
+              fr = catalogues.load_catalogue(fr_ts)
+              with open(fr_ts, "rb") as handle:
+                  raw = handle.read().decode("utf-8")
+              blocks = list(re.finditer(r"<message(?:\s[^>]*)?>.*?</message>", raw, re.DOTALL))
+              if len(blocks) != len(fr.messages):
+                  fail(f"control (ii): control site not found ({len(blocks)} message blocks in the file, {len(fr.messages)} parsed)")
+                  return
+              examined = 0
+              candidates = []
+              for message, block in zip(fr.messages, blocks):
+                  if not message.live or message.kind == "unfinished" or not message.forms or not all(message.forms):
+                      continue
+                  examined += 1
+                  for form in message.forms:
+                      text = tm.markup_free(form, catalogues)
+                      for match in tm.NUM_UNIT.finditer(text):
+                          if match.group("gap") == NBSP:
+                              candidates.append((message, block, match))
+              by_unit = collections.Counter(unit_label(m.group("unit")) for _msg, _blk, m in candidates)
+              spread = ", ".join(f"{label} {n}" for label, n in sorted(by_unit.items()))
+              print(f"  fr messages examined by this step: {examined}")
+              print(f"  candidates (number, U+00A0, unit): {len(candidates)} over {len(by_unit)} of {len(tm.UNITS)} UNITS entries ({spread})")
+              row = rule_row(report, "fr-num-unit", "catalogue", "fr")
+              if row is None or row["examined"] != examined:
+                  fail(f"control (ii): the step read {examined} finished fr messages but the checker examined {row['examined'] if row else 'none'}")
+                  return
+              chosen = None
+              for message, block, match in candidates:
+                  translation = re.search(r"<translation(?:\s[^>]*)?>.*?</translation>", raw[block.start():block.end()], re.DOTALL)
+                  if translation is None:
+                      continue
+                  # The file may write U+00A0 as the raw character or as a numeric reference
+                  # (the extraction writes `&#xa0;`); the pair is searched in either spelling
+                  # and must occur exactly once over both.
+                  spelled = re.compile(re.escape(match.group("num")) + NBSP_FORMS + re.escape(match.group("unit")))
+                  hits = list(spelled.finditer(translation.group(0)))
+                  if len(hits) != 1:
+                      continue
+                  site = block.start() + translation.start() + hits[0].start() + len(match.group("num"))
+                  width = hits[0].end() - hits[0].start() - len(match.group("num")) - len(match.group("unit"))
+                  if not re.fullmatch(NBSP_FORMS, raw[site:site + width]):
+                      continue
+                  chosen = (message, match, site, width)
+                  break
+              if chosen is None:
+                  fail("control (ii): control site not found (no candidate whose number, U+00A0 and unit occur exactly once in its translation)")
+                  return
+              message, match, site, width = chosen
+              unit = match.group("unit")
+              print(
+                  f"  planted: [{message.context}] {' '.join(message.source.split())[:60]} | "
+                  f"pair {match.group('num')}+U+00A0+{unit} | unit {unit!r} = UNITS entry {unit_label(unit)!r} | form (a)"
+              )
+              unplanted_dir = os.path.join(WORK, "unplanted")
+              planted_dir = os.path.join(WORK, "planted")
+              copy_catalogues(unplanted_dir)
+              copy_catalogues(planted_dir)
+              with open(os.path.join(planted_dir, "pixelart_fr.ts"), "wb") as handle:
+                  handle.write((raw[:site] + " " + raw[site + width:]).encode("utf-8"))
+              base_code, base, base_err = run_checker(unplanted_dir, "catalogue")
+              plant_code, plant, plant_err = run_checker(planted_dir, "catalogue")
+              if base is None or plant is None:
+                  fail(f"control (ii): the checker wrote no readable report (unplanted exit {base_code}: {base_err}; planted exit {plant_code}: {plant_err})")
+                  return
+              base_row = rule_row(base, "fr-num-unit", "catalogue", "fr")
+              plant_row = rule_row(plant, "fr-num-unit", "catalogue", "fr")
+              if base_row is None or plant_row is None:
+                  fail("control (ii): control site not found (the checker did not read fr-num-unit on the copies)")
+                  return
+              before = collections.Counter(f["where"] for f in base_row["findings"])
+              extra = collections.Counter(f["where"] for f in plant_row["findings"]) - before
+              print(f"  unplanted copy: exit {base_code}, fr-num-unit findings {len(base_row['findings'])}")
+              print(f"  planted copy:   exit {plant_code}, fr-num-unit findings {len(plant_row['findings'])}")
+              if base_code != 0:
+                  fail(f"control (ii): the checker on the unplanted copy exited {base_code}, expected 0")
+              if plant_code != 1:
+                  fail(f"control (ii): the checker on the planted copy exited {plant_code}, expected 1")
+              if len(plant_row["findings"]) != len(base_row["findings"]) + 1 or sum(extra.values()) != 1:
+                  fail(f"control (ii): expected exactly one more fr-num-unit finding, got {len(plant_row['findings'])} against {len(base_row['findings'])}")
+                  return
+              where = next(iter(extra))
+              if not names_message(where, message):
+                  fail(f"control (ii): the new finding does not name the planted message: {where}")
+                  return
+              detail = [f["detail"] for f in plant_row["findings"] if f["where"] == where][-1]
+              print(f"  the new finding names the planted message: {where}: {detail}")
+              if not failures:
+                  print("  control (ii) OK")
+
+
+          control_planted()
+
+          if failures:
+              print(f"Localisation typography step: {len(failures)} failure(s)")
+              sys.exit(1)
+          print("Localisation typography step: checker clean, floor met, both controls behaved")
+          PY
+
+      - name: Exception text reaching the user (REQ-L10N-UI-018)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
+        # No `runner.os` test -- this step runs on all three legs (stdlib only,
+        # no OS dependence: it parses the interface sources with `ast` and
+        # imports none of them). scripts/check_exception_text.py finds every
+        # place under pixelart_creator/ui where the text of a caught exception
+        # can reach a surface the user reads (message box, translated template,
+        # worker signal, stored for later display, direct surface) and fails on
+        # each place whose shown text takes a value from the exception: a
+        # message that comes from the exception is English whatever language the
+        # interface is in. It prints the denominators first, then the count per
+        # channel (sites and tainted) and the total, so a green step names what
+        # it looked at.
+        # Exit codes, all fatal to this step: 0 clean (a non-zero number of
+        # sites, none tainted); 1 any tainted site, or nothing examined, or no
+        # site found (a zero denominator is a failure, never a pass); 2 usage
+        # error, a missing root, or a file that cannot be parsed. Nothing here
+        # swallows a non-zero exit: no `|| true`, no `continue-on-error`.
+        run: python scripts/check_exception_text.py
+
       - name: Application icon family (REQ-VI-BUILD-007/-008)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # scripts/derive_app_icons.py --check: every committed icon member
         # equals the one re-derived from the five hand-drawn masters, compared
         # as decoded pixels (a re-encoded PNG's bytes depend on the platform's
@@ -431,7 +845,7 @@ jobs:
         run: python scripts/derive_app_icons.py --check
 
       - name: Asset-pipeline suite is collected (named-test presence check)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # The main pytest step below already runs testing/suites/asset_pipeline
         # as part of testpaths. This step makes that fact a gate of its own: a
         # suite that stops being collected (a moved folder, a renamed module, a
@@ -479,7 +893,7 @@ jobs:
           exit "${MISSING}"
 
       - name: Wheel content check (fonts, themes, licence notices; REQ-VI-BUILD-005)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Builds the wheel from a clean export of the checked-out commit (the
         # build runs in the CI temp root, so no build/ or egg-info folder lands
         # in the workspace the later steps scan), unpacks it there and runs
@@ -516,7 +930,7 @@ jobs:
       # never wired, so a red docs build or a docstring regression could never
       # have blocked a merge. Ubuntu-only, same as the other static gates. -----
       - name: Docs build (mkdocs --strict, F14)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # main/docs/site/mkdocs.yml (mkdocs-site skill). --strict turns
         # every warning (broken internal link, a nav entry with no matching
         # page, etc.) into a build failure so the published User Guide can
@@ -525,96 +939,28 @@ jobs:
         # exception needed.
         run: mkdocs build -f docs/site/mkdocs.yml --strict
 
-      - name: Docstring lint (pydocstyle, PEP 257) [TIME-BOXED EXCEPTION, expires 2026-08-31]
-        if: runner.os == 'Linux'
+      - name: Docstring lint (pydocstyle, PEP 257)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Ruleset: [tool.pydocstyle] convention="pep257" in pyproject.toml (see
-        # that file's comment for why pep257 — the project's own documented
-        # docstring discipline — and not google/numpy, which would manufacture
+        # that file's comment for why pep257 -- the project's own documented
+        # docstring discipline -- and not google/numpy, which would manufacture
         # section-formatting findings against a style never adopted here).
         #
-        # HONEST MEASUREMENT, EXPLICIT EXCEPTION — same pattern as the
-        # non-client coverage gate above. This is the REAL pep257 check; it is
-        # NOT weakened (no add-ignore/add-select) and pixelart_creator is NOT
-        # excluded.
+        # A plain BLOCKING gate: the step's exit status is pydocstyle's own,
+        # so any pep257 finding in pixelart_creator fails the Linux leg. The
+        # target is the whole package; there is no ignore/select override, no
+        # excluded path and no continue-on-error.
         #
-        # Real numbers measured 2026-07-30 (local, py3.13, convention=pep257,
-        # no add-ignore): 102 findings across 41 files — D102 x48 (missing
-        # public-method docstring), D107 x16 (missing __init__ docstring),
-        # D401 x13 (first line not imperative mood), D105 x11 (missing
-        # magic-method docstring), plus D101/D209/D301/D402 (minor,
-        # single-digit each). Concentrated in Phase 1-3 modules; this
-        # redness is TRUE, not a tooling artefact — the gate simply never ran
-        # before. Clearing the findings is the documentation owner's job (docs content), not
-        # this workflow's.
-        #
-        # DEBT REPAID, THEN REGRESSED, THEN REPAID AGAIN -- history kept, not
-        # deleted (CI-warning fix, 2026-08-18):
-        #   - Repaid 2026-08-16 (job
-        #     20260816-spec-audit-test-rebuild-docs-move): `pydocstyle
-        #     pixelart_creator` exited 0.
-        #   - Regressed: PRs #9 and #10 reintroduced 15 findings across 4
-        #     files (logic/branch_diff.py, logic/history.py,
-        #     logic/project_prefs.py, ui/timeline_grid_view.py) -- codes
-        #     D102, D400, D205, D402, D107 dominant (measured on this branch
-        #     before the fix below landed; NOT the same breakdown as the
-        #     original 2026-07-30 102-finding redness, which was D102/D107/
-        #     D401/D105).
-        #   - Repaid again on this branch (fix-ci-hygiene, verified
-        #     2026-08-18): `pydocstyle pixelart_creator` exits 0.
-        # The 102-finding number that used to be hardcoded into the
-        # `::warning::` line below is now HISTORICAL CONTEXT ONLY, not the
-        # live state -- the step measures and reports its own real count
-        # every run instead (see the capture below), which is exactly the
-        # fix for the "warning reports a fixed historical number" defect
-        # this project keeps tripping on. The time-boxed exception scaffold
-        # stays in place (unexercised while the gate is green) so a future
-        # regression is still caught and self-expires on the same
-        # 2026-08-31 milestone.
-        #
-        # The time-box is SELF-ENFORCING, not a comment: past EXPIRY this step
-        # starts failing the build unconditionally. Same 2026-08-31 milestone
-        # as the non-client coverage exception above, so both known gaps are
-        # repaid on one shared deadline instead of drifting independently.
-        run: |
-          EXPIRY=2026-08-31
-          # Capture pydocstyle's OWN output + exit code (rather than letting
-          # the command's exit status drive `if` directly) so the real
-          # finding count and per-code breakdown can be parsed out of it for
-          # the warning line below -- the whole point of this fix is that the
-          # message must never again quote a number pydocstyle didn't just
-          # produce. `set +e`/`set -e` bracket the capture so a nonzero
-          # pydocstyle exit (findings present) never trips this script's own
-          # `-e` (GitHub's default bash step flags) before STATUS is read.
-          set +e
-          FINDINGS_OUTPUT="$(pydocstyle pixelart_creator 2>&1)"
-          STATUS=$?
-          set -e
-          if [[ ${STATUS} -eq 0 ]]; then
-            echo "pixelart_creator meets the pep257 docstring gate"
-            exit 0
-          fi
-          echo "${FINDINGS_OUTPUT}"
-          TODAY="$(date -u +%F)"
-          # Real count + real per-code breakdown, parsed from pydocstyle's own
-          # output (format: "path.py:LINE in ...:" followed by an indented
-          # "    D1xx: <message>" line per violation) -- never a baked-in
-          # number. `|| true` on each: a clean grep/awk pipeline finding zero
-          # matches exits non-zero, which must not fail this step (robustness
-          # requirement -- this path must also work correctly when the count
-          # is legitimately zero, e.g. a pydocstyle tool error with no D-code
-          # lines at all).
-          COUNT=$(printf '%s\n' "${FINDINGS_OUTPUT}" | grep -cE '^[[:space:]]+D[0-9]{3}:' || true)
-          BREAKDOWN=$(printf '%s\n' "${FINDINGS_OUTPUT}" | grep -oE 'D[0-9]{3}' | sort | uniq -c | sort -rn | awk '{printf "%s x%s, ", $2, $1}' | sed 's/, $//' || true)
-          if [[ -z "${BREAKDOWN}" ]]; then
-            BREAKDOWN="(no per-code breakdown parsed -- see step log above for the full pydocstyle output)"
-          fi
-          if [[ "${TODAY}" > "${EXPIRY}" ]]; then
-            echo "::error::Time-boxed pydocstyle exception EXPIRED on ${EXPIRY}. pixelart_creator still fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see step log above for the full findings). This now BLOCKS: clear the findings (the documentation owner) -- do not extend the box without an explicit decision."
-            exit 1
-          fi
-          echo "::warning::pixelart_creator fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see pyproject.toml [tool.pydocstyle] for the ruleset and the step log above for the full findings). KNOWN and time-boxed until ${EXPIRY} (owner: documentation). This step BLOCKS the build after ${EXPIRY}."
+        # History: the gate was wired on 2026-07-30 as a time-boxed exception
+        # (a warning until 2026-08-31, a failure after it) while the first
+        # findings were being cleared. pixelart_creator has exited 0 since
+        # then, apart from a short regression repaid on 2026-08-18. The
+        # time-boxed scaffold was removed on the owner's ruling of
+        # 2026-10-23, leaving this step.
+        run: pydocstyle pixelart_creator
 
       - name: Documentation-reference gate (ADR citations + control-label currency, P11 script)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
         # scripts/check_doc_references.py checks two independent legs, both
         # over the WHOLE checkout (no OS-gate needed -- pure-Python, stdlib
         # only, deterministic):
@@ -694,6 +1040,7 @@ jobs:
         run: python scripts/check_doc_references.py --root .
 
       - name: Internal-vocabulary regrowth gate (P11 script)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
         # scripts/check_vocabulary_regrowth.py -- fails on any new occurrence,
         # in a tracked file OR in a commit message this pull request adds, of
         # one of the internal development-system identifier families cleaned
@@ -740,6 +1087,7 @@ jobs:
           fi
 
       - name: VCS attribution gate (P11 script)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
         # scripts/check_attribution.py -- fails on any AI/vendor authorship in
         # the commit MESSAGES or the author/committer IDENTITIES this pull
         # request adds: a vendor co-author trailer, an assistant session
@@ -773,6 +1121,7 @@ jobs:
           fi
 
       - name: Tests (pytest, headless, parallel, with coverage XML)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
         # -n auto: pytest-xdist fans the suite across all runner cores, cutting
         # the ~46-48 min single-process wall-time to a fraction (FU-20). Per-test
         # QStandardPaths app-config is isolated to a per-test tmp dir in the ui
@@ -816,8 +1165,36 @@ jobs:
             --timeout=120 --timeout-method=thread --durations=15 \
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 
+      - name: Print the font-cache measurements (font family chain, per-OS prints)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
+        # The main pytest step above runs this module too, but a passing test's
+        # output is not shown there, so the per-OS measurements the module
+        # prints (the `[tag-verdict]` lines: which style-strategy flags each
+        # operating system keeps, the cache capacity, whether two font lists
+        # share one tail) never reach the log. `-rP` adds the captured output
+        # of every PASSED test to the summary, which is the whole purpose of
+        # this second, narrower run. The prints are information about the
+        # operating system; the assertions of the cases that make them are what
+        # gate.
+        #
+        # A GATING step like any other: its exit status is pytest's own, with no
+        # `continue-on-error` and no `|| true`. A selection that matches no test
+        # exits 5 and fails the step, so a rename that stops the selection from
+        # matching cannot leave this green while printing nothing. No `-n`: one
+        # process keeps the prints in order. Same offscreen environment as the
+        # main step (job-level QT_QPA_PLATFORM), its own --basetemp under the
+        # leg's CI temp root, and the same per-test timeout options.
+        env:
+          PIXELART_REQUIRE_FALLBACK_FONT: ${{ runner.os == 'Linux' && '1' || '' }}
+        run: |
+          python -m pytest -rP -p no:cacheprovider \
+            -k "chain_tag or share_one_tail" \
+            --basetemp="${CI_TEMP_ROOT}/pytest-font-cache" \
+            --timeout=120 --timeout-method=thread \
+            testing/suites/ui/test_font_family_chain_mechanism.py
+
       - name: Coverage gate — client package (>=90 line / >=80 branch, S13)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # SCOPE (made explicit): this gate reads the coverage.xml produced by the
         # pytest step above, which measures `--cov=pixelart_creator` ONLY. It
         # therefore says NOTHING about the two shipped non-three-layer packages
@@ -841,7 +1218,7 @@ jobs:
       # files. The omit drops the test modules themselves from the measurement so
       # only shipped code is graded.
       - name: Measure non-client coverage (sync_backend + web_viewer)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         env:
           COVERAGE_FILE: .coverage.nonclient
         run: |
@@ -855,7 +1232,7 @@ jobs:
           python -m coverage xml --omit="*/tests/*" -o coverage/nonclient.xml
 
       - name: Coverage gate — non-client packages (>=90 line / >=80 branch, S13)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Formerly a time-boxed exception (expired scaffolding removed
         # 2026-07-30): sync_backend/web_viewer measured below the
         # constitutional 90/80 on 2026-07-29 (sync_backend 93.57%/76.00%,
@@ -877,7 +1254,7 @@ jobs:
       # integer-scale + render-fidelity vs the shipped Python reference (+/-1 LSB).
       # A distinct step: a JS-unit failure fails THIS leg. -----
       - name: Set up Node.js (web-viewer JS-unit)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # actions/setup-node@v7 (was @v4, CI-warning fix, 2026-08-18): v4 is
         # the only stale action in this file -- its own manifest declares
         # `using: node20`, a runtime GitHub has deprecated and is
@@ -921,14 +1298,14 @@ jobs:
           node-version: "26"
 
       - name: Web-viewer JS-unit tests (node, framework-free)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         run: node web_viewer/tests/test_viewer_core.mjs
 
       # ----- Perf gates: Ubuntu-only. The ceilings are calibrated to the Ubuntu
       # GitHub runner; running them on Windows/macOS would compare against the
       # wrong baseline (plan §6, invoker directive). -----
       - name: 8K paint/redraw perf gate (P-A scenario, D-32, REQ-P1-UI-023)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-1 (D-32 rebuild, then CI wiring, decision
         # batch 2026-08-16). The rebuilt scripts/perf_profile.py default
         # (tiling) mode now imports and drives the REAL
@@ -950,7 +1327,7 @@ jobs:
         run: python scripts/perf_profile.py --width 7680 --height 4320 --zoom 0.25 --viewport 1920 1080 --frames 60
 
       - name: Compositor region-recomposite perf gate (FU-15)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Standalone, Qt-free P11 gate: times the region-recomposite path on an
         # 8K multi-layer document and exits non-zero if the median exceeds
         # COMPOSITE_REGION_CEILING_MS (200 ms, logic/constants.py). No pytest
@@ -959,7 +1336,7 @@ jobs:
         run: python scripts/perf_profile.py --composite
 
       - name: Tilemap render_region perf gate — part 1 (interactive frame budget)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Standalone, Qt-free P11 gate (Phase-6). Times
         # logic/tilemap.render_region over a typical interactive viewport tile
         # (256x256 px @ 16 px tiles = 16x16 cells) and exits non-zero if the
@@ -969,7 +1346,7 @@ jobs:
         run: python scripts/perf_profile.py --tilemap --tm-region 256 256 --tm-tile 16 --frames 30
 
       - name: Tilemap render_region perf gate — part 2 (catastrophic ceiling)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Companion catastrophic-ceiling gate: renders the full 8K region
         # (7680x4320 px @ 16 px tiles = 480x270 cells) and exits non-zero if the
         # median exceeds TILEMAP_VIEWPORT_CEILING_MS (3000 ms, logic/constants.py,
@@ -979,7 +1356,7 @@ jobs:
         run: python scripts/perf_profile.py --tilemap --tm-region 7680 4320 --tm-tile 16 --frames 8 --budget-ms 3000
 
       - name: Visual-aids overlay perf gate — part 1 (worst-case iso overlay)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-9 (REQ-P9-UI-011). Times the REAL shipped iso-grid
         # overlay item's paint() over the full-scene worst case (fine 2 px tiles,
         # 1920x1080 viewport) and exits non-zero if the median frame exceeds
@@ -990,14 +1367,14 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind iso --ov-tile 2 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 2 (zoomed iso, exposed sub-rect)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Companion iso gate at an interactive zoom (16x) over a small exposed
         # sub-rect (120x67 px) — the culled-viewport draw the user actually pays
         # for while editing. Same OVERLAY_FRAME_CEILING_MS (48 ms) ceiling.
         run: python scripts/perf_profile.py --overlay --ov-kind iso --ov-tile 2 --ov-zoom 16 --ov-exposed 120 67 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 3 (combined multi-view + preview)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Combined dirty-rect composite: 7 extra views + the real-size preview each
         # blit a 64x64 dirty sub-rect (MinimalViewportUpdate — cost scales with the
         # dirty rect x views, not the 8K canvas x N). Guards the REQ-P9-UI-008
@@ -1005,7 +1382,7 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind combined --ov-views 7 --ov-dirty 64 64 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 4 (Slice-C live cursors)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-10 Slice C (report §5, REQ-P10-UI-013). Times the REAL
         # shipped Live_Cursors_Overlay.paint() with the worst case of
         # MAX_SHARED_MEMBERS (32) collaborator cursors all inside the exposed rect
@@ -1015,7 +1392,7 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind cursors --ov-cursors 32 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 5 (Slice-C combined apply + cursors frame)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Companion Slice-C gate: the COMBINED interactive frame — one
         # realtime_apply.apply_remote plus the 32-cursor overlay paint — against
         # the same 48 ms OVERLAY_FRAME_CEILING_MS. Guards the live-collab render
@@ -1024,7 +1401,7 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind cursors-rt --ov-cursors 32 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 6 (D-29, 8K overlay catastrophic ceiling)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-9/Phase-12 (D-29 rebuild, then CI wiring, decision
         # batch 2026-08-16). The literal 8K overlay viewport
         # (`--ov-viewport 7680 4320`) was missing entirely from every wired
@@ -1047,7 +1424,7 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind iso --ov-tile 32 --ov-viewport 7680 4320 --frames 30 --budget-ms 2000
 
       - name: Realtime apply-remote perf gate (Slice-C, sub-frame ceiling)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-10 Slice C (REQ-P10-LOGIC — realtime_apply). Standalone
         # Qt-free P11 gate: times a single realtime_apply.apply_remote of a 47-tile
         # remote update on an 8K document and exits non-zero if the median exceeds
@@ -1059,7 +1436,7 @@ jobs:
         run: python scripts/perf_profile.py --realtime --rt-tiles 47 --frames 30
 
       - name: Full-frame flatten perf gate (Slice-A, realistic-content ceiling)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-12 Slice A (RE-PROFILE, REQ-P12-LOGIC-001/-002/-003).
         # Standalone, Qt-free P11 gate: times the OPTIMISED cold full-frame flatten
         # — blend.composite_stack(region=None) over an 8K, 8-layer realistic stack
@@ -1073,7 +1450,7 @@ jobs:
         run: python scripts/perf_profile.py --full-frame --content realistic --layers 8 --frames 3
 
       - name: Viewport-recomposite commit perf gate (Slice-B, opacity-drag)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-12 Slice B (RE-PROFILE, REQ-P12-LOGIC-004/-005 + UI-001).
         # Standalone, Qt-free P11 gate: times the opacity-drag split-cache COMMIT
         # path — blend.composite_range suffix re-blend over the worst-case culled

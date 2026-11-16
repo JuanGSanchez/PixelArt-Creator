@@ -5,7 +5,7 @@ sí — un sprite es un fotograma *de* una animación, un sprite es la imagen de
 origen *de* un tileset, un tileset se usa *en* un mapa de tiles — y el
 **indicador de rotura** advierte de forma pasiva cuando cambiar un recurso
 rompería otro que apunta a él. Ambos se acceden desde el menú
-**&Biblioteca**, junto a los paneles de la [biblioteca de recursos](asset-library.md)
+**Biblioteca**, junto a los paneles de la [biblioteca de recursos](asset-library.md)
 sobre los que se construyen.
 
 !!! note "Qué es una dependencia"
@@ -20,7 +20,7 @@ sobre los que se construyen.
 
 ## Abrir el grafo de dependencias
 
-El menú **&Biblioteca** gana un alternador de panel acoplable de **Grafo de
+El menú **Biblioteca** gana un alternador de panel acoplable de **Grafo de
 dependencias**. La vista del **Grafo de dependencias** visualiza las
 referencias de todo el catálogo o del único recurso seleccionado actualmente
 en el panel de [Biblioteca de recursos](asset-library.md), en dos
@@ -28,8 +28,8 @@ direcciones:
 
 | Relación | Se lee como | Muestra |
 | --- | --- | --- |
-| **Depende de** | lo que este recurso *referencia* | los recursos a los que apunta el recurso seleccionado |
-| **Referenciado por** | lo que *referencia* a este recurso | los recursos que apuntan al recurso seleccionado |
+| **Dependencias (depende de)** | lo que este recurso *referencia* | los recursos a los que apunta el recurso seleccionado |
+| **Dependientes (referenciado por)** | lo que *referencia* a este recurso | los recursos que apuntan al recurso seleccionado |
 
 Ambas relaciones se muestran como listas estables y ordenadas
 alfabéticamente. Por defecto, la vista muestra los vecinos **directos**; las
@@ -67,8 +67,8 @@ Una referencia se informa como rota por una de dos razones:
 
 | Razón | Significado |
 | --- | --- |
-| **Falta** | el recurso referenciado ya no está en el catálogo (se eliminó). |
-| **Desajuste de hash** | el recurso referenciado sigue presente, pero su contenido ha cambiado desde que se hizo la referencia. |
+| **destino faltante** | el recurso referenciado ya no está en el catálogo (se eliminó). El Grafo de dependencias lo muestra como "Rota (destino faltante)". |
+| **destino modificado** | el recurso referenciado sigue presente, pero su contenido ha cambiado desde que se hizo la referencia. El Grafo de dependencias lo muestra como "Rota (destino modificado)". |
 
 Un recurso cuyas referencias siguen siendo todas válidas no muestra ningún
 indicador; solo se señala una referencia genuinamente rota, así que la
@@ -87,7 +87,7 @@ El seguimiento de dependencias y la detección de roturas se construyen sobre
 el catálogo de la [biblioteca de recursos](asset-library.md). La
 capacidad complementaria — un **historial de versiones** de solo adición por
 recurso, más **reutilización entre proyectos**, **exportación/importación** y
-**respaldo opcional en la nube** — se documenta en
+**respaldo opcional en la nube** (no conectado en esta versión) — se documenta en
 [Versionado de recursos y reutilización entre proyectos](asset-versioning.md).
 Un recurso reutilizado es una referencia como cualquier otra, así que el
 indicador de rotura descrito aquí señala una reutilización cuyo destino más

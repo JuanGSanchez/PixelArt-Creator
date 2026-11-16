@@ -328,10 +328,8 @@ class _Track_Table_Model(QAbstractTableModel):
                     .replace("%2", str(duration_ms))
                 )
             if role == Qt.ItemDataRole.AccessibleTextRole:
-                return (
-                    self.tr("Frame %1, %2 milliseconds")
-                    .replace("%1", str(section + 1))
-                    .replace("%2", str(duration_ms))
+                return self.tr("Frame %1, %n milliseconds", "", duration_ms).replace(
+                    "%1", str(section + 1)
                 )
             return None
         if not 0 <= section < len(self._table.rows):

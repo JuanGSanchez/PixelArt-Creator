@@ -1,0 +1,38 @@
+# SHA-256 of the existing Nifen Art face as the release v0.4.0 merge left it: every file under
+# fonts-src/nifen-art/, the two built fonts, FONTLOG.txt and OFL.txt.
+# Merge commit: 221e51d25577330584702ad70b8f69b3daddbe23 (tag v0.4.0).
+# Paths are relative to the repository root. One line per file: <sha256>  <path>.
+# The build's --check and --verify-freeze commands compare every line, and refuse a
+# listed file that is missing, a changed file and a file that is not listed. This
+# manifest is written once, from the merged files, and never regenerated to agree
+# with a changed face.
+7e5db73c48407a81987aa3ffba51a1b8c66f7a779369ba72138580c608517487  fonts-src/nifen-art/aliases.txt
+3f13054fa8885fa31146469bf742433b3f7303da4ea5af803d484e459c1aabc0  fonts-src/nifen-art/bold-overlays-ark-pixel.txt
+2cf57565338be7dbe94ecdcf68cd2ac989dd5d2b3296c514fe68439a80f68b6a  fonts-src/nifen-art/bold-overlays-b6.txt
+e48544a07a5da3a7758bd7685a3f00a5e91fbcb6eabfa91a4d0ae7fd2fca4855  fonts-src/nifen-art/bold-overlays-b7.txt
+a1f9876367d66c5697ec30b76efcb367446559412c7ac649df2c250af779b50d  fonts-src/nifen-art/bold-overlays.txt
+457b19c9ca2880d0e35aece119e23e9aec89cdda2c871f7b0b054a190e46c479  fonts-src/nifen-art/cjk-fullwidth.txt
+0041860e00f727bc2ac9097f0340bb753ca6e21d17f6169b99174f667ff27894  fonts-src/nifen-art/cjk-punct-b6.txt
+6a44fc23c0f0dfc1b09351ec95bd9aa88d64d224ff3e761efda4b3300e92d63e  fonts-src/nifen-art/coverage/declared-set.txt
+426ad196b0e2d4d7ac2992073c13d14eec3c3b1b4bf742e55700e937c458462d  fonts-src/nifen-art/coverage/probe-text.txt
+326e33edda891fb9f819d3a92e027e052a548cc3310faa6d3703ec4373381ee0  fonts-src/nifen-art/cyrillic.txt
+273b61c708142cae1b4b5616f49533656f97df6dac01cd683f0a995397b38d49  fonts-src/nifen-art/greek.txt
+8343720e6b81d7799db5ab52cd8321a4c427324a2c243eecdf8e20ea572c52bb  fonts-src/nifen-art/hiragana-ark-pixel.txt
+20e9e638c061adb57e34d3d185a6e000253db3d2e5732c63857eb3731f6db340  fonts-src/nifen-art/kana.txt
+dee9b37312ac34929073e5a3e4caf2626b26b7e452555c7c2aa1452c1b87beef  fonts-src/nifen-art/katakana.txt
+0a125432238c40b09494554f1b333e0a96f068e0f57eb09318e50543752a8da1  fonts-src/nifen-art/latin-basic.txt
+ffd9a968c6586c65c8527592869ddcbea0aa33ae3c5ed6c45d24741789bad1cb  fonts-src/nifen-art/latin-ext-a.txt
+c75dc35559bc69baddee7b9bbcbdc35b8638c6fb6c256616398f59cb7a0142c5  fonts-src/nifen-art/latin1.txt
+5da7d9314ad21f5ac9c760e96d3a0273037c748961eea0c32bf8af5ae82fdc28  fonts-src/nifen-art/marks.txt
+bebf49e159fe55c8026d30a0a0ec252309f35b2294c3bd7dd8897fe878302e4c  fonts-src/nifen-art/metrics.txt
+e8b4439d35e7bf3731b9ecc1e64c8a64b2a0d962940fdcd2ec10264bd8df3b98  fonts-src/nifen-art/punctuation.txt
+368aa9fcb7a088c898418cfdd6d764eb298c9db80553d43ba1a867e8ab078234  fonts-src/nifen-art/recipes-b5.txt
+615d3f550861c4040e09e53d56a0ca6b4a17841ee1e122d467d7fe7bed8386b2  fonts-src/nifen-art/recipes-b6.txt
+c1a62db68de1986d3b19c37a3b0705b839efbf4503ed0cd77a7fb39cc7644d0e  fonts-src/nifen-art/recipes-ext-a.txt
+e6bbbae71cb6064fb92fa1d6b4fe59986ba8ba09619326f323132c77014bf008  fonts-src/nifen-art/recipes.txt
+17a3788db0d4a52a94ff81af43d3026b035a4fd6e27da9862624cdf071fee028  fonts-src/nifen-art/spacing.txt
+8a3fa4093b25c1d1cde2ba76720c51182f5d1ce1ba66a011f6b2ce677d621828  fonts-src/nifen-art/symbols.txt
+45c29f465bb12d5455eeda828ff22082ec5176afcfcea61cf5db0bc6600070e8  pixelart_creator/fonts/FONTLOG.txt
+7113681d70883e456836671af1275fa9c2bb3fe08961256e4aa9a6f3dd9fffd3  pixelart_creator/fonts/NifenArt-Bold.ttf
+dc95d5abe5a08cc06a6f29d2f7e6f4d9da83a7ae584aaaf513f91d6607e965de  pixelart_creator/fonts/NifenArt-Regular.ttf
+12412b5c2ce5bfc9a1e986b7a25823dab92f6556d21756bf8a2f8d5fc4d0ef2e  pixelart_creator/fonts/OFL.txt

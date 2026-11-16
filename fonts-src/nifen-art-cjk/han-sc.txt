@@ -1,0 +1,63 @@
+# Simplified-form Han set of the Nifen Art CJK face (family "Nifen Art CJK SC").
+#
+# One record per Han code point of this set, and nothing else. The drawing list is the
+# measured set: exactly the Han characters the shipped text uses, each in the form of the
+# Chinese standard (the table of general standard Chinese characters). A character
+# outside the measured set is not drawn. The file starts without records; the first ones
+# are the pilot's.
+#
+# The record forms are the ones described in han-jp.txt, with set=sc. A record may be the
+# same drawing as the Japanese set's (src=drawn same-as=jp) only where both standards
+# give the character the same form.
+
+glyph U+4E2D set=sc src=drawn top=10 x=0
+.....#.....
+.....#.....
+.....#.....
+.#########.
+.#...#...#.
+.#...#...#.
+.#...#...#.
+.#########.
+.....#.....
+.....#.....
+.....#.....
+
+glyph U+4F53 set=sc src=drawn top=10 x=0
+..#....#...
+.#.....#...
+##..#######
+.#.....#...
+.#....###..
+.#...#.#.#.
+.#...#.#.#.
+.#..#..#..#
+.#..#.###.#
+.#.....#...
+.#.....#...
+
+glyph U+6587 set=sc src=drawn top=10 x=0
+.....#.....
+.....#.....
+.#########.
+...#...#...
+....#.#....
+.....#.....
+....#.#....
+...#...#...
+..#.....#..
+.#.......#.
+#.........#
+
+glyph U+7B80 set=sc src=drawn top=10 x=0
+..#.....#..
+.####..####
+#..#..#..#.
+...........
+.#########.
+.#.......#.
+.#..###..#.
+.#..#.#..#.
+.#..###..#.
+.#..#.#..#.
+.#..###..#.

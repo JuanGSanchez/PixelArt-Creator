@@ -1,11 +1,12 @@
-# Nube: guardado, versiones, guardado automático y recuperación
+# Nube: guardado, versiones y guardado automático
 
-La **capa de nube** permite que un proyecto viva en la nube en lugar de solo en una
-máquina. Puedes **conectar un proveedor de nube**, **guardar** el proyecto actual en
-la nube, **abrirlo** de nuevo desde cualquier sesión, explorar un **historial de
-versiones** completo y **restaurar** un guardado anterior, y confiar en el
-**guardado automático + recuperación tras fallos** para que un cierre no limpio
-nunca pierda tu trabajo sin guardar.
+En esta versión la **capa de nube** funciona con un adaptador integrado, en memoria, así
+que el historial de versiones y la copia autoguardada duran solo hasta que cierras la
+aplicación; no te protegen de un fallo ni de un corte de energía. Guarda una copia local
+del proyecto para todo lo que quieras conservar. Dentro de ese límite, la capa de nube te
+permite **conectar**, **guardar** el proyecto actual, **abrirlo** de nuevo, explorar un
+**historial de versiones** y **restaurar** un guardado anterior, y mantener una **copia de
+trabajo autoguardada** mientras trabajas.
 
 Todo en esta guía se maneja desde el menú **Nube** de la barra de menús.
 
@@ -17,13 +18,15 @@ Todo en esta guía se maneja desde el menú **Nube** de la barra de menús.
 > sin importar qué proveedor la respalde, así que no estás atado a uno, y un
 > proveedor nuevo es solo un nuevo adaptador detrás del mismo puerto.
 
-El hito completo de nube y colaboración se entrega en esta versión: el puerto
-agnóstico de proveedor, un adaptador integrado totalmente probado, el ciclo completo
-de `.pixproj` en la nube, historial de versiones + restauración, y guardado
-automático/recuperación tras fallos; **proyectos compartidos, comentarios y
-presencia**; y **coedición en tiempo real, cursores en vivo y ramificación de arte**
-más los **proveedores reales de Google Drive / OneDrive / Dropbox**. Compartir,
-comentarios, presencia, tiempo real y ramificación se tratan en
+Lo que funciona en esta versión: el puerto agnóstico de proveedor, un adaptador integrado
+totalmente probado, el ciclo completo de `.pixproj` en la nube, historial de versiones +
+restauración y guardado automático; los **proyectos compartidos, comentarios y
+presencia**, que se ejecutan en un adaptador en memoria dentro de una sola ventana de la
+aplicación (otra ventana o la copia de otra persona no pueden verlos); y la
+**ramificación de arte** local. Lo que todavía no funciona: los **proveedores reales de
+Google Drive / OneDrive / Dropbox** están implementados en la capa de almacenamiento, pero
+no se pueden elegir desde el menú Nube, y la **coedición en tiempo real con cursores en
+vivo** no puede conectarse. Todas estas funciones de colaboración se tratan en
 [Proyectos compartidos, comentarios, presencia y tiempo real](collaboration.md).
 
 ## Conectar un proveedor de nube
@@ -31,10 +34,10 @@ comentarios, presencia, tiempo real y ramificación se tratan en
 Las acciones de nube están desactivadas hasta que te conectas.
 
 1. Abre el menú **Nube**.
-2. Elige **Conectar…**. Esto establece una conexión agnóstica de proveedor a través
-   del puerto de nube y activa el resto del menú Nube (**Guardar en la nube**,
-   **Abrir desde la nube**, **Historial de versiones** y **Desconectar**).
-3. Para cerrar sesión, elige **Nube → Desconectar**. Esto libera la conexión y
+2. Elige **Conectar…**. Esto conecta el adaptador integrado a través del puerto de
+   nube y activa el resto del menú Nube (**Guardar en la nube…**,
+   **Abrir desde la nube…**, **Historial de versiones…** y **Desconectar**).
+3. Para cerrar sesión, elige **Nube ▸ Desconectar**. Esto libera la conexión y
    vuelve a desactivar las acciones de nube hasta que te conectes de nuevo.
 
 > **Tus credenciales nunca salen de la capa de almacenamiento.** Cuando se usa un
@@ -44,37 +47,42 @@ Las acciones de nube están desactivadas hasta que te conectas.
 > **nunca** se escriben en un `.pixproj`, y **nunca** se escriben en logs. La
 > interfaz solo ve un estado simple de *conectado / no conectado*.
 
-> **El adaptador integrado.** La conexión por defecto es un adaptador integrado, en
-> memoria, que es determinista y no necesita red ni cuenta — existe para que todo el
-> flujo de guardado/versiones/recuperación esté completo y sea utilizable de
-> principio a fin. Para usar un proveedor real en línea en su lugar, consulta
-> *Conectar un proveedor de nube real* a continuación.
+> **El adaptador integrado.** La conexión de esta versión es un adaptador
+> integrado, en memoria, que es determinista y no necesita red ni cuenta — hace que
+> todo el flujo de guardado/versiones sea utilizable dentro de una sesión. Como vive
+> en memoria, todo lo que contiene desaparece al cerrar la aplicación. Los
+> proveedores reales en línea se describen en *Conectar un proveedor de nube real* a
+> continuación, pero no se pueden elegir desde el menú Nube en esta versión.
 
 ## Conectar un proveedor de nube real
 
-Puedes conectar una cuenta **real** de Google Drive, OneDrive o Dropbox detrás del
-**mismo** flujo de Conectar, así que cada paso de esta guía (guardar, abrir,
-historial de versiones, guardado automático/recuperación) funciona de forma idéntica
-sobre tu almacenamiento en línea.
+La capa de almacenamiento contiene proveedores **reales** de Google Drive, OneDrive y
+Dropbox que se sitúan detrás del **mismo** puerto de nube que el adaptador
+integrado. Cuando se usa uno de estos proveedores, los pasos de esta guía (guardar,
+abrir, historial de versiones) funcionan igual sobre tu almacenamiento en línea.
+Esta versión no tiene ningún comando del menú Nube que seleccione uno: **Conectar…**
+conecta el adaptador integrado.
 
 > **Función protegida por credenciales.** Los proveedores reales están
-> **protegidos por credenciales**: cada uno necesita un **id de cliente** OAuth
-> para el servicio elegido y acceso a la red en vivo, así que se configuran de
-> forma deliberada en lugar de estar activados por defecto. El adaptador integrado
-> anterior no necesita nada de esto.
+> **protegidos por credenciales**: cada uno necesitaría un **id de cliente** OAuth
+> para el servicio elegido y acceso a la red en vivo, así que no están activados por
+> defecto, y esta versión no tiene ningún comando del menú Nube que active uno. El
+> adaptador integrado anterior no necesita nada de esto.
 
 ### Cómo funciona el inicio de sesión
 
-1. Elige **Nube → Conectar…** y selecciona el proveedor real que configuraste.
-2. La aplicación abre tu **navegador del sistema** en la página de inicio de
+1. Al usar un proveedor de la capa de almacenamiento se inicia el flujo de acceso del
+   proveedor. **Nube ▸ Conectar…** no lo hace en esta versión: conecta el adaptador
+   integrado.
+2. Ese flujo abre tu **navegador del sistema** en la página de inicio de
    sesión/consentimiento del proveedor. PixelArt Creator usa el flujo estándar de
    escritorio **código de autorización OAuth + PKCE sobre una redirección
    loopback** — no hay **ninguna vista web integrada** y **ningún secreto de
    cliente** almacenado en la aplicación.
 3. Aprueba el acceso en el navegador. El navegador redirige de vuelta a la
    aplicación, que completa la conexión. Las acciones de guardar/abrir/versiones
-   del menú Nube se activan igual que para el adaptador integrado.
-4. Para cerrar sesión, elige **Nube → Desconectar**.
+   del menú Nube se activan entonces igual que para el adaptador integrado.
+4. Para cerrar sesión, elige **Nube ▸ Desconectar**.
 
 > **Tus credenciales nunca salen de la capa de almacenamiento.** Todo el inicio de
 > sesión se ejecuta **enteramente dentro de la capa de almacenamiento**. Tu
@@ -84,13 +92,14 @@ sobre tu almacenamiento en línea.
 > interfaz, se escriben en un `.pixproj`, ni se escriben en logs.
 
 > **Mismo comportamiento, cualquier proveedor.** Como todos los proveedores están
-> detrás del mismo puerto de nube, cambiar del adaptador integrado a Drive /
-> OneDrive / Dropbox — o entre ellos — no cambia **nada** en cómo guardas,
-> exploras versiones o recuperas trabajo.
+> detrás del mismo puerto de nube, guardar y explorar versiones funcionan igual
+> tanto si los respalda el adaptador integrado como Drive / OneDrive / Dropbox. Ese
+> es el diseño sin dependencia de un solo proveedor; elegir un proveedor desde el
+> menú Nube no está disponible en esta versión.
 
 ## Guardar un proyecto en la nube
 
-1. Con un proyecto abierto y un proveedor conectado, elige **Nube → Guardar en la
+1. Con un proyecto abierto y un proveedor conectado, elige **Nube ▸ Guardar en la
    nube…**.
 2. Introduce un **nombre de proyecto en la nube** cuando se te pida. Esta es la
    clave bajo la que se almacena tu proyecto; reutiliza el mismo nombre para seguir
@@ -115,7 +124,7 @@ añade ningún formato nuevo propio; simplemente transporta el `.pixproj` como l
 
 ## Abrir un proyecto desde la nube
 
-1. Elige **Nube → Abrir desde la nube…**.
+1. Elige **Nube ▸ Abrir desde la nube…**.
 2. Introduce el **nombre del proyecto en la nube** a abrir.
 3. La aplicación obtiene la última versión del proyecto y la abre en una **pestaña
    nueva**.
@@ -134,15 +143,17 @@ proyecto de la nube llega como su propia pestaña.
 ## Explorar el historial de versiones y restaurar una versión
 
 Cada guardado crea una versión nueva y ordenada, y puedes volver a cualquiera de
-ellas.
+ellas. El historial de versiones dura solo la sesión actual: el adaptador integrado
+lo mantiene en memoria y empieza vacío la próxima vez que inicies la aplicación.
+Guarda una copia local del proyecto para todo lo que quieras conservar.
 
-1. Elige **Nube → Historial de versiones…** (si no has abierto ni guardado un
+1. Elige **Nube ▸ Historial de versiones…** (si no has abierto ni guardado un
    proyecto en la nube en esta sesión, primero se te pedirá el nombre del proyecto
    en la nube).
 2. El diálogo de **Historial de versiones en la nube** lista cada versión
    almacenada, de la más antigua a la más reciente, con estas columnas:
     - **Versión** — el ordinal/identificador de la versión.
-    - **Marca** — el marcador de orden de la versión.
+    - **Marcador** — el marcador de orden de la versión.
     - **Tamaño (bytes)** — el tamaño del `.pixproj` almacenado.
     - **Fijada** — si la versión está fijada (conservada) — *Sí* / *No*.
     - **Padre** — la versión a la que siguió este guardado.
@@ -159,11 +170,12 @@ ellas.
 La lista de versiones se obtiene fuera del hilo de la interfaz antes de que se abra
 el diálogo, así que explorar el historial nunca congela la aplicación.
 
-## Guardado automático y recuperación tras fallos
+## Guardado automático y la ranura de recuperación
 
 Mientras trabajas en un proyecto conectado, la aplicación **guarda
 automáticamente** tu copia de trabajo en una **ranura de recuperación** dedicada en
-segundo plano.
+segundo plano. En esta versión la ranura se mantiene solo en memoria, así que
+protege tu trabajo dentro de la sesión, no ante un fallo.
 
 - El guardado automático se ejecuta en un ciclo fijo (cada **2 minutos** por
   defecto) y **solo cuando el documento tiene cambios sin guardar** — un documento
@@ -176,10 +188,14 @@ segundo plano.
 
 ### El aviso de recuperación al reiniciar
 
-Si la aplicación se cierra de forma no limpia (un fallo o un corte de energía)
-mientras tenías trabajo sin guardar, la próxima vez que la inicies **y te
-conectes**, detecta la ranura de recuperación sobrante y muestra un aviso de
-**Recuperar trabajo sin guardar**:
+La recuperación al reiniciar no está disponible en esta versión. El adaptador
+integrado no conserva la ranura de recuperación tras un reinicio, y el aviso de
+**Recuperar trabajo sin guardar** se comprueba una sola vez, cuando la aplicación
+arranca, antes de que puedas conectarte. Tras un fallo o un corte de energía, no
+aparece ningún aviso la próxima vez que inicies la aplicación. Hasta que se pueda
+elegir un proveedor persistente, confía en guardar una copia local del proyecto.
+
+El propio aviso ofrece dos opciones (no lo verás en esta versión):
 
 - **Recuperar** — obtiene y valida la copia autoguardada y la abre en una
   **pestaña nueva**. Tu último guardado explícito no se ve afectado.
@@ -187,20 +203,21 @@ conectes**, detecta la ranura de recuperación sobrante y muestra un aviso de
 
 > **La recuperación también se descodifica de forma defensiva.** La copia
 > recuperada pasa por la misma validación de entrada no confiable que cualquier
-> archivo de la nube, así que una ranura de recuperación corrupta nunca puede hacer
-> fallar la aplicación al iniciar — en el peor caso obtienes un error claro y
-> puedes continuar.
+> archivo de la nube, así que una ranura de recuperación malformada se rechaza con
+> un error claro en lugar de abrirse.
 
-> **El guardado automático necesita un proveedor conectado.** El guardado
-> automático y el aviso de recuperación al reiniciar operan a través del puerto de
-> nube, así que están activos mientras estás **conectado**. Conecta un proveedor
-> al principio de una sesión para mantener una red de seguridad en funcionamiento.
+> **El guardado automático necesita una conexión.** El guardado automático opera a
+> través del puerto de nube, así que se ejecuta solo mientras estás **conectado**.
+> Protege tu trabajo dentro de la sesión, no ante un fallo.
 
 ## El resto del hito de nube y colaboración
 
 Esta página cubre el trabajo en la nube de un solo usuario — guardado, versiones,
-guardado automático/recuperación — más conectar un proveedor real. Las funciones de
-colaboración que se construyen encima — **proyectos compartidos y membresía**,
-**comentarios**, **presencia**, **convergencia determinista**, **coedición en tiempo
-real y cursores en vivo**, y **ramificación de arte** — se cubren todas en
-[Proyectos compartidos, comentarios, presencia y tiempo real](collaboration.md).
+guardado automático — más los proveedores de la capa de almacenamiento. Las
+funciones de colaboración se tratan en
+[Proyectos compartidos, comentarios, presencia y tiempo real](collaboration.md):
+**proyectos compartidos y membresía**, **comentarios**, **presencia**,
+**convergencia determinista**, **coedición en tiempo real y cursores en vivo** y
+**ramificación de arte**. En esta versión se ejecutan en su propio adaptador en
+memoria, por ventana de la aplicación, y la coedición en tiempo real y los
+cursores en vivo no pueden conectarse.

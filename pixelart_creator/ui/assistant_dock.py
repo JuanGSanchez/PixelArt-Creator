@@ -52,6 +52,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic.assistant import (
     ChatBackend,
     ConfirmationRequest,
@@ -185,7 +186,11 @@ class Assistant_Dock(QDockWidget):
 
     def _on_failed(self, message: str) -> None:
         """Surface a turn error in the transcript (never swallowed)."""
-        self._append_status(self.tr("Assistant error: {0}").format(message))
+        self._append_status(
+            failure_messages.failure_on_own_line(
+                self.tr("Assistant error: {0}"), "{0}", message
+            )
+        )
 
     # -- tiered-safety confirmation (GUI thread) --------------------------
 

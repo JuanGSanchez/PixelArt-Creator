@@ -9,6 +9,7 @@ is busy — the UI never freezes. A failing op surfaces as a ``QMessageBox`` via
 
 from __future__ import annotations
 
+import logging
 import threading
 
 from PySide6.QtWidgets import QInputDialog
@@ -19,6 +20,7 @@ from pixelart_creator.logic.document import Document
 from pixelart_creator.logic.palette import Palette
 from pixelart_creator.ui.cloud_actions import Cloud_Session, make_save_job
 from pixelart_creator.ui.cloud_worker import Cloud_Controller
+from pixelart_creator.ui.failure_messages import failure_kind, failure_text
 from pixelart_creator.ui.main_window import Main_Window
 
 STARTER = [(0, 0, 0, 255), (255, 255, 255, 255), (230, 30, 30, 255)]
@@ -59,12 +61,19 @@ def test_sc_ui_005_submit_is_non_blocking_gui_stays_live(qtbot, monkeypatch):
         controller.shutdown()
 
 
-def test_sc_ui_005_failure_surfaces_via_signal_not_crash(qtbot):
-    """SC-UI-005-1: a port error surfaces on operationFailed (never a crash)."""
+def test_sc_ui_005_failure_surfaces_via_signal_not_crash(qtbot, caplog):
+    """SC-UI-005-1: a port error surfaces on operationFailed (never a crash).
+
+    REQ-L10N-UI-018: what surfaces is the sentence for the failure's kind in the
+    active language; the provider's own message and the exception's type name stay
+    out of it and are logged instead.
+    """
+    outage = CloudError("simulated provider outage")
+    expected = failure_text(failure_kind(outage))
 
     class _RaisingAdapter(FakeCloudAdapter):
         def put(self, *a, **k):
-            raise CloudError("simulated provider outage")
+            raise outage
 
     session = Cloud_Session(factory=lambda: _RaisingAdapter(connected=True))
     session.connect_provider()
@@ -79,12 +88,19 @@ def test_sc_ui_005_failure_surfaces_via_signal_not_crash(qtbot):
         # signal is delivered, the UI is not stranded on "Working…".
         failures: list = []
         controller.operationFailed.connect(lambda k, m: failures.append((k, m)))
-        with qtbot.waitSignal(controller.operationFinished, timeout=5000):
-            controller.submit("save", make_save_job(port, "proj", _doc()))
+        with caplog.at_level(logging.WARNING):
+            with qtbot.waitSignal(controller.operationFinished, timeout=5000):
+                controller.submit("save", make_save_job(port, "proj", _doc()))
         assert len(failures) == 1  # failed fired before the terminal
         kind, message = failures[0]
         assert kind == "save"
-        assert "simulated provider outage" in message
+        assert message == expected
+        assert "simulated provider outage" not in message
+        assert type(outage).__name__ not in message
+        logged = [
+            str(record.exc_info[1]) for record in caplog.records if record.exc_info
+        ]
+        assert "simulated provider outage" in logged
         # Busy cleared via the terminal done -> the UI is not stranded on "Working…".
         assert controller.is_busy() is False
     finally:

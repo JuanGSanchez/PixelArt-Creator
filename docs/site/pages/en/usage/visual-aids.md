@@ -20,7 +20,7 @@ and they are unchanged by this layer.
 
 ## Real-size preview
 
-The **Real-Size Preview** window shows your document at its **true physical
+The **Real-Size Preview** panel shows your document at its **true physical
 size**, so you can judge how a sprite or icon will actually look.
 
 - The preview scales the document by exactly `screen_DPI / doc_PPI` — the
@@ -125,14 +125,14 @@ detail view next to a fit-to-window overview.
 
 ## Timelapse recording
 
-Open the **Timelapse** dock from **Visual Aids -> Timelapse** to record and play back a
+Open the **Timelapse** dock from **Visual Aids ▸ Timelapse** to record and play back a
 timelapse of your edit session, sharing how a piece was made.
 
 - Press **Record** to start capturing; the recorder appends **one frame per
   committed edit** (each undoable command). Press it again to stop.
 - Recording is **view/session state** — it is never undoable and never changes
   the document.
-- **Save Timelapse / Open Timelapse** the session as a `.pixtimelapse` file. The
+- **Save… / Open…** the session as a `.pixtimelapse` file (the buttons open the **Save Timelapse** and **Open Timelapse** file dialogs). The
   session stores an ordered manifest of **command references, not pixels**, so it
   stays small and **replays deterministically**: the same recorded session replayed
   twice yields the **identical** frame sequence (frames re-render from the

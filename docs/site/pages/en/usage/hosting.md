@@ -1,8 +1,7 @@
-<!-- REQ-P13-BACKEND-003 -->
 <!-- surface-only: site — deployment/installation content; split out of the bundle's collaboration.md "Operator note: running the sync backend" section, which stays the bundle's single mention of this material -->
 # Hosting the real-time relay: three co-equal options
 
-Real-time collaboration (live co-editing, cursors, and branching) is carried by
+Real-time collaboration (live co-editing and cursors) is carried by
 a small **sync backend** relay (see the
 [Real-time co-editing](collaboration.md#real-time-co-editing) section of the
 Shared projects guide). Where that relay runs is **your choice**, and the
@@ -10,31 +9,36 @@ platform ships **three co-equal hosting options** — none of them is a
 "recommended" or "production" default, and picking one changes **nothing**
 about the app or backend itself.
 
-!!! important "No forced default"
-    The app's collaboration behaviour is identical no matter which option you
-    use, including if you use none of them: the shipped default is
-    **local / loopback**, and adopting either of the other two options requires
-    **no code change** to the app or the backend (`REQ-P13-BACKEND-003`).
+!!! warning "Not reachable from the app in this release"
+    The desktop app has no real-time connection configured: **Cloud ▸ Start
+    Real-time…** shows a status-bar message ending in "no real-time transport
+    configured" instead of joining a relay. None of the options below can be
+    joined from the app yet; they describe where the relay itself can run.
+
+!!! important "No option is required"
+    None of the three options is required or recommended over the others,
+    including using none of them, and adopting any of them requires **no code
+    change** to the app or the backend. The relay's own
+    default bind is **local / loopback**; the `deploy/` launcher of Option 3 binds
+    `0.0.0.0` unless `PIXELART_SYNC_HOST` says otherwise.
 
 ## Option 1 — Local / loopback (the shipped default)
 
-Nothing to set up. The relay's default bind is `127.0.0.1` (loopback), and this
-is what the app uses out of the box — single machine, local testing, or offline
-use. This is the baseline every other option is measured against, and it is
+Nothing to set up. The relay's own default bind (`SyncServer`) is `127.0.0.1`
+(loopback) — single machine, local testing, or offline use. The `deploy/`
+launcher of Option 3 overrides that default with `0.0.0.0`. This is the baseline every other option is measured against, and it is
 fully exercised end to end by the automated test suite.
 
 ## Option 2 — Cloud provider-adapter
 
-Collaboration can also flow through the same **provider-agnostic cloud port**
-used for single-user cloud saves (see the [Cloud](cloud.md) guide): the
-built-in in-memory adapter by default, or a real Google Drive / OneDrive /
-Dropbox account behind the identical Connect flow. Pick this option if you
-already route projects through a cloud provider and want collaboration to
-follow the same path — everything is driven from the in-app **Cloud** menu, so
-no server administration is required on your part. See
+Collaboration is designed to flow through the same **provider-agnostic cloud
+port** used for single-user cloud saves (see the [Cloud](cloud.md) guide). In
+this release that port is served only by the built-in in-memory adapter, and the
+real Google Drive / OneDrive / Dropbox providers cannot be selected from the
+**Cloud** menu, so this option is not available from the app yet. See
 [Connecting a cloud provider](cloud.md#connecting-a-cloud-provider) and
-[Shared projects & comments](collaboration.md) for the connect / share
-workflow.
+[Shared projects & comments](collaboration.md) for what the Cloud menu does
+today.
 
 ## Option 3 — Self-hosted VPS
 
@@ -69,10 +73,11 @@ alongside the backend:
 
 | Option | Setup effort | Good for |
 | --- | --- | --- |
-| Local / loopback | None — it's the default | Single machine, local testing, offline use |
-| Cloud provider-adapter | Connect a provider from the Cloud menu | Teams already using a cloud provider |
+| Local / loopback | None — it's the relay's own default bind | Single machine, local testing, offline use |
+| Cloud provider-adapter | Not available from the app in this release | Teams already using a cloud provider |
 | Self-hosted VPS | Deploy the `deploy/` artifacts above | Hosting the relay yourself, on your own server |
 
-Whichever you choose (or none), the rest of the collaboration workflow —
-sharing, comments, presence, real-time co-editing, and branching — behaves
-exactly as documented in [Shared projects & comments](collaboration.md).
+Whichever you choose (or none), the app and the backend source are the same.
+The collaboration workflow — sharing, comments, presence, real-time co-editing,
+and branching — is documented in [Shared projects & comments](collaboration.md),
+including which parts cannot connect in this release.

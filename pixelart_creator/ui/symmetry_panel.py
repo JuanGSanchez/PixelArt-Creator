@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.constants import MAX_CANVAS_HEIGHT, MAX_CANVAS_WIDTH
 from pixelart_creator.logic.symmetry import SymmetryAxis
 
@@ -75,7 +76,9 @@ class Symmetry_Panel(QWidget):
         self._x_label = QLabel(self)
         self._y_label = QLabel(self)
         self._x_spin = QSpinBox(self)
+        self._x_spin.setLocale(i18n.current_formatting_locale())
         self._y_spin = QSpinBox(self)
+        self._y_spin.setLocale(i18n.current_formatting_locale())
         self._reset_button = QPushButton(self)
         self._canvas_width = MAX_CANVAS_WIDTH
         self._canvas_height = MAX_CANVAS_HEIGHT

@@ -8,22 +8,21 @@ Escribes lo que quieres en un panel de chat, y el asistente lo lleva a cabo
 ejecutando las **propias** operaciones de la aplicación — los mismos comandos de
 [automatización](automation.md) que puedes grabar, programar con scripts y
 procesar por lotes a mano. Es **agnóstico de modelo**: lo apuntas al proveedor de
-IA que prefieras y aportas tu propia clave (`ADR-0040`, entregado en la Fase 14).
+IA que prefieras y aportas tu propia clave (consulta **ADR-0040**, diseño del puerto agnóstico de modelo).
 También es **completamente opcional** — la aplicación es totalmente usable sin
 configurarlo nunca.
 
 !!! note "El asistente actúa a través de la capa de automatización segura — no se expone nada nuevo"
     Cada acción que el asistente realiza es una operación del editor ordinaria y
     permitida, despachada a través de la **misma capa de comandos de confianza y
-    libre de `eval`** que usan las macros y los scripts (constitución, Artículo
-    VII). No puede ejecutar código arbitrario, ni alcanzar más allá de esa capa
+    libre de `eval`** que usan las macros y los scripts. No puede ejecutar código arbitrario, ni alcanzar más allá de esa capa
     de comandos, ni inventar capacidades nuevas — un mensaje de chat es
     **datos**, nunca una licencia para hacer algo que el editor no pueda hacer
     ya de forma segura.
 
 ## Abrir el asistente
 
-Abre el panel de chat desde el menú **Asistente**. Aparece como un **panel
+Abre el panel de chat desde **Ayuda ▸ Asistente de IA**. Aparece como un **panel
 acoplable** que puedes colocar junto al lienzo, así puedes observar al
 asistente trabajar mientras tu obra permanece a la vista. El panel muestra la
 conversación en curso — tus mensajes, las respuestas del asistente, y las
@@ -36,18 +35,19 @@ sola vez.
 
 ## Configurar un proveedor y una clave
 
-Abre el diálogo de configuración de proveedor desde el menú **Asistente**. El
+Abre el diálogo de configuración de proveedor con el botón **Configurar…** del panel
+Asistente de IA. El
 asistente es **agnóstico de modelo**, así que eliges el servicio y el modelo
 que te convengan e introduces:
 
 | Campo | Qué introducir |
 | --- | --- |
-| **Tipo de proveedor** | Un servicio **compatible con OpenAI** o **Anthropic**. La opción compatible con OpenAI cubre una amplia gama de endpoints (OpenAI en sí, el endpoint compatible con OpenAI de Gemini, y entornos de ejecución locales como Ollama o llama.cpp); la opción Anthropic habla con Claude de forma nativa. |
-| **URL base / endpoint** | El punto de conexión de la API del servicio. Apunta esto a un proveedor alojado o a un servidor de modelo local en tu propia máquina. |
+| **Proveedor** | Un servicio **compatible con OpenAI** o **Anthropic (Claude)**. La opción compatible con OpenAI cubre una amplia gama de endpoints (OpenAI en sí, el endpoint compatible con OpenAI de Gemini, y entornos de ejecución locales como Ollama o llama.cpp); la opción Anthropic habla con Claude de forma nativa. |
+| **URL del punto de conexión** | El punto de conexión de la API del servicio. Apunta esto a un proveedor alojado o a un servidor de modelo local en tu propia máquina. |
 | **Modelo** | El nombre del modelo a usar, tal como lo nombra tu proveedor elegido. |
-| **Clave de API** | Tu clave para el proveedor (cuando el proveedor requiere una — un servidor de modelo local puede no necesitarla). |
+| **Clave de API** | Tu clave para el proveedor. Hay que almacenar una clave incluso para un servidor de modelo local: el asistente considera configurado un proveedor solo cuando hay guardados un punto de conexión y una clave no vacía, y envía lo que introduzcas sin comprobarlo. Si tu servidor local no comprueba las claves, introduce cualquier texto no vacío que acepte. |
 
-Selecciona **Conectar** para activar el proveedor para la sesión.
+Selecciona **Guardar** para guardar los ajustes del proveedor.
 
 !!! note "Tu clave se almacena de forma segura — nunca en tu proyecto"
     La clave de API que introduces se entrega al **almacén seguro de
@@ -68,7 +68,8 @@ Selecciona **Conectar** para activar el proveedor para la sesión.
 
 ## Chatear para manejar el flujo de trabajo
 
-Con un proveedor conectado, escribe una petición en lenguaje natural — por
+Una vez que hayas guardado los ajustes de un proveedor (un punto de conexión y una
+clave de API conservada en tu llavero), escribe una petición en lenguaje natural — por
 ejemplo, pidiendo al asistente que recoloree una región o que genere algo de
 contenido procedural — y envíala. El asistente interpreta tu petición, decide
 qué operaciones del editor la cumplen, y las ejecuta, informando en la
@@ -77,8 +78,7 @@ del editor, los resultados son exactamente lo que obtendrías realizando esos
 pasos tú mismo.
 
 Un intercambio con el modelo se ejecuta en un **trabajador en segundo plano**,
-así que la ventana permanece receptiva mientras el asistente está pensando; una
-petición larga se puede cancelar.
+así que la ventana permanece receptiva mientras el asistente está pensando.
 
 ## Seguridad por niveles — lo reversible se aplica solo, lo destructivo pregunta antes
 
@@ -103,9 +103,9 @@ redacción en un mensaje de chat puede convencer al editor de saltársela.
     certeza que es limpiamente reversible. Eso significa que una acción nueva
     o inusual nunca puede colarse y ejecutarse automáticamente solo porque
     nadie la clasificó — el nivel reversible es un conjunto pequeño y
-    explícito, y todo lo demás se gana un aviso de confirmación (Artículo
-    VIII: una operación genuinamente destructiva añadida más tarde no puede
-    ejecutarse automáticamente en silencio).
+    explícito, y todo lo demás se gana un aviso de confirmación (una
+    operación genuinamente destructiva añadida más tarde no puede ejecutarse
+    automáticamente en silencio).
 
 ## Lo que el asistente no hará
 
@@ -134,5 +134,6 @@ ambas superficies se renderizan correctamente en los temas claro y oscuro.
   [automatización y extensibilidad](automation.md) — macros, scripts, recolor
   por lotes y generación procedural.
 - Configurar un proveedor refleja el mismo patrón de credenciales opcionales
-  respaldado por el llavero que se usa para el
-  [almacenamiento en la nube](cloud.md).
+  respaldado por el llavero de los proveedores reales de la capa de
+  [almacenamiento en la nube](cloud.md) (no se pueden elegir desde el menú Nube en
+  esta versión).

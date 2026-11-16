@@ -364,6 +364,59 @@ def test_sc_u027_6_no_notice_entry_added_for_the_glyphs():
         )
 
 
+#: Entries a maintainer might add for the tool glyphs, each paired with the banned
+#: word the rule above must name when it refuses it. The text is the real `NOTICE`
+#: plus one planted entry, held in memory; the file on disk is never written.
+_PLANTED_ATTRIBUTIONS = {
+    "icon-set credit": (
+        "  - Lucide icons (ISC licence) -- the images on the tool buttons.\n",
+        "icon",
+    ),
+    "tool-icon directory": (
+        "  - Artwork in pixelart_creator/icons/tools is adapted from a public set.\n",
+        "icon",
+    ),
+    "svg file named": (
+        "  - pencil.svg and eraser.svg are taken from an open set.\n",
+        "svg",
+    ),
+    "glyph credit": (
+        "  - Some Pixel Set (CC-BY 4.0) -- the glyphs drawn on the tool buttons.\n",
+        "glyph",
+    ),
+    "glyph credit inside a font entry": (
+        "\n  - Nifen Art Extra -- a face. Its glyphs for the tool buttons are "
+        "taken from an open set.\n",
+        "glyph",
+    ),
+    "icon credit inside a font entry": (
+        "\n  - Nifen Art Extra -- a face whose tool icons are taken from an open "
+        "set.\n",
+        "icon",
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(_PLANTED_ATTRIBUTIONS))
+def test_sc_u027_6_an_attribution_for_the_glyphs_is_still_refused(name, monkeypatch):
+    """Control: the assertion above refuses a planted attribution.
+
+    Without this the passing test above would also pass if its rule were emptied.
+    The assertion under test is the one above, called as it stands: only the read
+    of `NOTICE` is replaced, with the real text plus one planted entry.
+    """
+    planted, word = _PLANTED_ATTRIBUTIONS[name]
+    real_read_text = Path.read_text
+
+    def read_text(self, *args, **kwargs):
+        text = real_read_text(self, *args, **kwargs)
+        return text + "\n" + planted if self.name == "NOTICE" else text
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    with pytest.raises(AssertionError, match=repr(word)):
+        test_sc_u027_6_no_notice_entry_added_for_the_glyphs()
+
+
 # ---------------------------------------------------------------------------
 # The tint follows (mode, style) -- REQ-VI-UI-003, ADR-0070 decision 6
 #

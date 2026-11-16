@@ -4,7 +4,7 @@ The **asset library** is a studio-level catalog of your reusable assets — spri
 animations, tilesets, tilemaps and palettes — in one place. Register the entities you
 have already made as **named assets**, organise them with free-form **tags**, and find
 the right one fast with **search and filter**. The library and its three panels are
-reached from the **&Library** menu.
+reached from the **Library** menu.
 
 !!! note "What an asset is"
     An asset is a **catalog entry** that *references* one of the entities you have
@@ -16,7 +16,7 @@ reached from the **&Library** menu.
 
 ## Opening the library
 
-The **&Library** menu holds three dock toggles, each showing or hiding one panel:
+The **Library** menu has a dock toggle for each of these three panels, each showing or hiding one panel:
 
 | Menu entry | Panel | What it is for |
 | --- | --- | --- |
@@ -30,8 +30,7 @@ catalog, so a change made in one panel is reflected immediately in the others.
 
 ## Browsing the catalog
 
-The **Asset Library** panel lists the catalog in three columns — **name**, **kind** and
-**tags**. It always shows exactly what the catalog holds: adding, removing or tagging an
+The **Asset Library** panel lists the catalog in four columns — **Name**, **Kind**, **Tags** and **Status**. It always shows exactly what the catalog holds: adding, removing or tagging an
 asset updates the list straight away. Selecting a row picks that asset, which is what the
 **Asset Tagging** panel then edits.
 
@@ -114,4 +113,4 @@ catalog, tagging and search/filter on this page:
 - **[Asset versioning & cross-project reuse](asset-versioning.md)** — an append-only
   revision history per asset (inspect and restore), reference-not-copy reuse of a shared
   asset across projects, export/import of a project's referenced assets as a self-contained
-  bundle, and optional cloud backing of the shared blobs.
+  bundle, and optional cloud backing of the shared blobs (not connected in this release).

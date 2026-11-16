@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.cloud import SharedProjectError
 from pixelart_creator.ui.collaboration_actions import Collaboration_Session
 
@@ -112,7 +113,13 @@ class Presence_Panel(QWidget):
         try:
             self._session.announce_presence(project_id, member_id)
         except SharedProjectError as exc:
-            QMessageBox.warning(self, self.tr("Presence"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Presence"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
 
     def _on_leave(self) -> None:
         """Clear the local member's ephemeral presence."""

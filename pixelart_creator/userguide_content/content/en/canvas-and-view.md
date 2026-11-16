@@ -46,7 +46,7 @@ for a pixel.
 The **pixel grid** helps you place pixels precisely, and it is **on by default** for a
 new document.
 
-- **Toggle the grid** from the view controls. It is an overlay drawn on top of the
+- **Toggle the grid** with **View ▸ Show Grid**. It is an overlay drawn on top of the
   artwork — it never becomes part of your pixels and never appears in an export.
 - The grid is legible in both the light and dark themes, drawn so it reads clearly
   over any artwork colour.
@@ -60,7 +60,7 @@ new document.
 
 ## Snapping
 
-With grid snapping on, the tools align to the grid so a stroke lands exactly on pixel
+With **View ▸ Snap to Grid** on, the tools align to the grid so a stroke lands exactly on pixel
 boundaries. This is especially useful when placing tiles or aligning shapes. Snapping
 is a view/tool setting, not an edit.
 

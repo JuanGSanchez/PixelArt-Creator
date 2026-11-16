@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.macro_io import (
     FILE_SUFFIX,
     MacroIOError,
@@ -181,13 +182,18 @@ class Macro_Controls(QWidget):
         try:
             macro = record(self._pending)
         except MacroError as exc:
-            QMessageBox.warning(self, self.tr("Macro Error"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Macro Error"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             self._pending = []
             return
         self._recording_count += 1
-        label = self.tr("Recording %1 (%2 steps)")
+        label = self.tr("Recording %1 (%n steps)", "", len(macro.ops))
         label = label.replace("%1", str(self._recording_count))
-        label = label.replace("%2", str(len(macro.ops)))
         self._add_macro(macro, label)
         self._pending = []
 
@@ -235,7 +241,13 @@ class Macro_Controls(QWidget):
         try:
             save_macro(macro, path)
         except (MacroIOError, MacroError, OSError) as exc:
-            QMessageBox.warning(self, self.tr("Save Macro Failed"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Save Macro Failed"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
 
     def _on_load(self) -> None:
         """Load a ``.pixmacro`` file; a malformed file surfaces a graceful error.
@@ -255,7 +267,13 @@ class Macro_Controls(QWidget):
         try:
             macro = load_macro(path)
         except (MacroIOError, MacroError, OSError) as exc:
-            QMessageBox.warning(self, self.tr("Load Macro Failed"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Load Macro Failed"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._add_macro(macro, Path(path).name)
 
@@ -285,8 +303,9 @@ class Macro_Controls(QWidget):
 
     def _update_status(self) -> None:
         if self._recording:
-            text = self.tr("Recording… %1 steps captured")
-            self._status.setText(text.replace("%1", str(len(self._pending))))
+            self._status.setText(
+                self.tr("Recording… %n steps captured", "", len(self._pending))
+            )
         else:
             self._status.setText(self.tr("Not recording"))
 

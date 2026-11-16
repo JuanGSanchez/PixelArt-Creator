@@ -1,0 +1,98 @@
+FONTLOG for Nifen Art CJK
+=========================
+
+This file gives information about the Nifen Art CJK Font Software. It is meant to be
+distributed with the fonts and with any derivative of them.
+
+Nifen Art CJK is licensed under the SIL Open Font License, Version 1.1 (see OFL.txt,
+which is distributed with the fonts and covers these fonts as it covers Nifen Art). The
+license applies to the font files and to the glyph sources they are built from. The
+program that bundles the fonts is licensed separately.
+
+The first face of the typeface, Nifen Art, has its own change log (FONTLOG.txt). This
+file is the change log of the second face.
+
+
+Basic Font Information
+----------------------
+
+Nifen Art CJK is the second face of the Nifen Art pixel typeface. It holds the Han
+characters and the Hangul syllables that the first face leaves out, so that interface
+text in Japanese, Simplified Chinese and Korean can be set in the same pixel style. It
+is made of three families, each in two files (Regular and Bold) that form one
+style-linked family:
+
+- Nifen Art CJK JP: Han characters in the Japanese forms;
+- Nifen Art CJK SC: Han characters in the Simplified Chinese forms;
+- Nifen Art CJK KR: Hangul syllables.
+
+Design facts:
+
+- The grid is the one of Nifen Art. One em is 12 pixels, every pixel is a square of
+  128 font units, so the em is 1536 units. The glyphs are meant to be shown at 12 px, or
+  at whole multiples of 12 px, without antialiasing.
+- Every glyph is full-width: its advance is one 12 pixel cell, and its ink takes at most
+  11 columns and 11 rows of that cell (columns 0 to 10, rows -1 to 9).
+- The line box is the one of Nifen Art (11 pixels above the baseline and 3 below), so
+  that a line does not change height when it moves from one face to the other.
+- Bold is Regular. In every family the Bold file holds the same outlines as the Regular
+  file, pixel for pixel. The two files differ in their names and style flags only. The
+  Bold kana of Nifen Art are heavier than these characters; that is accepted.
+- The character map of a family holds Han characters (Japanese and Simplified families)
+  or Hangul syllables (Korean family), and nothing else: no space, no punctuation, no
+  kana and no Latin letters. Those stay in Nifen Art.
+
+Character coverage:
+
+- A family holds exactly the characters of its kind that the application's text uses:
+  its interface texts, its user guide pages and the names of the languages in the
+  language selector. It is not a standard character list. The glyphs are drawn in
+  batches as the text is written, and a character that no family holds is shown in a
+  system font.
+- Each Han form set is measured from its own language's text. A language name is drawn
+  in the forms of its own language whatever the interface language is.
+
+Design notes:
+
+- Every glyph is an original drawing made for this grid, or is composed from other
+  glyphs drawn for this project. No glyph, outline or metric was copied or adapted from
+  another font.
+- The forms of the Han characters follow the glyph forms of the national standards of
+  each language. A standard decides which form a drawing shows; it supplies no bitmap.
+- At 11 by 11 pixels a stroke is one pixel wide in Regular. A glyph may hold a block of
+  2 by 2 pixels only where the sources declare it, with a reason.
+- The fonts are generated from plain-text glyph grids by a deterministic build:
+  rebuilding the same sources gives byte-identical files.
+
+Reserved Font Name: "Nifen Art". The author declared this on 10 October 2026, and the
+declaration is made in the copyright line of OFL.txt and in the copyright record (name ID
+0) of every font file of the typeface, these included. Under clause 3 of the SIL Open
+Font License a Modified Version of this Font Software may not use the name "Nifen Art" as
+its primary font name unless the copyright holder gives written permission; a modified
+font needs another name. The rest of the licence is unchanged.
+
+Project: https://github.com/JuanGSanchez/PixelArt-Creator
+
+
+ChangeLog
+---------
+
+24 October 2026 (JuanGSanchez)
+  Nifen Art CJK version 0.100, work in progress.
+  - The CJK face is added as a second face of the typeface: three families (Japanese
+    Han forms, Simplified Han forms, Hangul), Regular and Bold, with Bold equal to
+    Regular.
+  - The glyph sets are filled in batches, starting with the language names of the
+    language selector.
+
+
+Acknowledgements
+----------------
+
+Designer of Nifen Art CJK: JuanGSanchez.
+
+The fonts are produced with fontTools (https://github.com/fonttools/fonttools, MIT
+License) at build time. No fontTools code is part of the fonts.
+
+If you modify this Font Software, add your name and a short description of your changes
+to the ChangeLog above.

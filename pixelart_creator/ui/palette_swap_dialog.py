@@ -29,6 +29,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
+
 
 class Palette_Swap_Dialog(QDialog):
     """Collect an index→index remap to apply to an indexed buffer."""
@@ -40,7 +42,9 @@ class Palette_Swap_Dialog(QDialog):
         bound = max(0, min(255, max_index))
 
         self._from_spin = QSpinBox(self)
+        self._from_spin.setLocale(i18n.current_formatting_locale())
         self._to_spin = QSpinBox(self)
+        self._to_spin.setLocale(i18n.current_formatting_locale())
         for spin in (self._from_spin, self._to_spin):
             spin.setRange(0, bound)
         self._from_label = QLabel(self)

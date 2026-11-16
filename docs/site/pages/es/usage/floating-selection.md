@@ -23,8 +23,8 @@ reutiliza la máscara que ya tienes.
 
 ## Levantar y mover (arrastrar)
 
-1. Con la herramienta de selección/movimiento activa, **presiona dentro** de
-   la selección activa. Los píxeles enmascarados se levantan en una vista
+1. Con una de las herramientas de selección (Selección rectangular, Selección de lazo o Varita
+   mágica) activa, **presiona dentro** de la selección activa. Los píxeles enmascarados se levantan en una vista
    previa flotante.
 2. **Arrastra.** Los colores flotantes siguen al cursor; la región de origen
    se lee como **borrada a transparente** (índice 0 en modo indexado) en la

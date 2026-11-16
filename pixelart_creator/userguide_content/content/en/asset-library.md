@@ -15,7 +15,7 @@ reached from the **Library** menu.
 
 ## Opening the library
 
-The **Library** menu holds three dock toggles, each showing or hiding one panel:
+The **Library** menu has a dock toggle for each of these three panels, each showing or hiding one panel:
 
 | Menu entry | Panel | What it is for |
 | --- | --- | --- |
@@ -73,8 +73,8 @@ whole project plus everything it references — see
 
 ## Browsing the catalog
 
-The **Asset Library** panel lists the catalog in three columns — **name**, **kind** and
-**tags**. It always shows exactly what the catalog holds: adding, removing or tagging an
+The **Asset Library** panel lists the catalog in four columns — **Name**, **Kind**, **Tags** and
+**Status**. It always shows exactly what the catalog holds: adding, removing or tagging an
 asset updates the list straight away. Selecting a row picks that asset, which is what the
 **Asset Tagging** panel then edits.
 
@@ -151,4 +151,4 @@ catalog, tagging and search/filter above:
 - **[Asset versioning & cross-project reuse](asset-versioning.md)** — an append-only
   revision history per asset (inspect and restore), reference-not-copy reuse of a shared
   asset across projects, export/import of a project's referenced assets as a self-contained
-  bundle, and optional cloud backing of the shared blobs.
+  bundle, and optional cloud backing of the shared blobs (not connected in this release).

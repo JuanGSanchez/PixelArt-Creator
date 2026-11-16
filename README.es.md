@@ -19,9 +19,9 @@
 sobre Python y PySide6 (Qt 6). Combina un lienzo editable de gran tamaño con capacidad para
 8K con un modelo de capas no destructivo y un compositor rápido y acotado por región, y crece
 hacia animación, mapas de tiles, un pipeline de exportación byte-reproducible, automatización
-y scripting, ayudas visuales no destructivas, almacenamiento en la nube y colaboración, y una
+y scripting, ayudas visuales no destructivas, una capa de nube y colaboración dentro de la sesión, y una
 capa de gestión de equipo y recursos a nivel de estudio — todo documentado desde dentro de la
-aplicación mediante una Guía de usuario completa y sin conexión.
+aplicación mediante una Guía del usuario completa y sin conexión.
 
 Su arquitectura es una división estricta en tres capas: `ui/` (PySide6), `logic/` (Python
 puro, sin Qt) y `data/` (E/S, sin Qt). El comportamiento del dominio vive en las capas puras y
@@ -52,7 +52,7 @@ La plataforma se ha construido por fases; las capacidades siguientes están **en
 - **Selección y transformación** — selecciones de rectángulo / lazo / varita mágica y una
   vista previa flotante de mover/copiar con gestos de sumar/restar, confirmar y cancelar.
 - **Animación** — una línea de tiempo de fotogramas con duración por fotograma, modos de
-  reproducción (bucle / una vez / ping-pong / inversa), onion skinning, y etiquetas de
+  reproducción (bucle / una vez / ping-pong / inversa), papel cebolla, y etiquetas de
   fotograma con nombre.
 - **Mapas de tiles y diseño de niveles** — divide una imagen en un tileset, pinta un mapa de
   tiles multicapa e infinito con estampar / borrar / rellenar, resuelve bordes con auto-tile
@@ -62,7 +62,7 @@ La plataforma se ha construido por fases; las capacidades siguientes están **en
   exportación por lotes; y un exportador de línea de comandos sin interfaz gráfica. La salida
   es byte-reproducible para una entrada fija.
 - **Automatización y scripting** — graba y reproduce macros deterministas, ejecuta un DSL de
-  comandos aislado y basado en datos (sin `eval`/`exec`), amplía la aplicación con
+  comandos acotado y basado en una lista de permitidos (sin `eval`/`exec`), amplía la aplicación con
   complementos de confianza y consentimiento explícito, recolorea por lotes muchos objetivos
   a la vez, genera contenido de forma procedural, y ejecuta cualquier automatización sin
   interfaz gráfica desde la línea de comandos.
@@ -70,26 +70,35 @@ La plataforma se ha construido por fases; las capacidades siguientes están **en
   cuadrículas isométricas y de perspectiva, un tablero de referencia de estilo PureRef, varias
   vistas sincronizadas de un mismo documento, y grabación reproducible de timelapse — todo no
   destructivo.
-- **Nube y colaboración** — guarda/abre proyectos mediante una interfaz de nube agnóstica de
-  proveedor con historial de versiones completo, guardado automático y recuperación ante
-  fallos; comparte un proyecto con un listado de miembros (propietario / editor / espectador),
-  comentarios encadenados y presencia; co-edición en tiempo real con cursores en vivo; y
-  ramificado de arte al estilo git con fusión libre de conflictos.
+- **Nube y colaboración** — en esta versión todo lo de aquí se ejecuta en memoria. Guarda y
+  abre proyectos mediante una interfaz de nube agnóstica de proveedor, con historial de
+  versiones y una copia de guardado automático: **Nube ▸ Conectar…** usa un adaptador
+  integrado en memoria, así que el historial y la copia de guardado automático duran solo
+  hasta que cierras la aplicación y no sobreviven a un fallo ni a un reinicio. Comparte un
+  proyecto con un listado de miembros (propietario / editor / visualizador), comentarios
+  encadenados y presencia; esto también vive en memoria, dentro de una sola ventana de la
+  aplicación, así que otra ventana u otro equipo no lo ve. La ramificación de arte al estilo
+  git con fusión libre de conflictos es una función local, dentro de la sesión. No disponible
+  en esta versión: los proveedores de Google Drive, OneDrive y Dropbox existen en la capa de
+  almacenamiento, pero no se pueden elegir desde el menú Nube, y la coedición en tiempo real
+  con cursores en vivo está implementada, pero **Iniciar tiempo real…** no puede conectarse.
 - **Gestión de equipo y recursos** — cataloga sprites, animaciones, tilesets, mapas de tiles y
   paletas como recursos con nombre, etiquetados y buscables, almacenados una sola vez por
   contenido (deduplicados); un grafo de dependencias consultable con un indicador pasivo de
   roturas; un historial de versiones por recurso de solo adición; reutilización por referencia
   (no por copia) entre proyectos; exportación/importación de los recursos referenciados de un
-  proyecto; y respaldo opcional en la nube de los blobs compartidos.
+  proyecto. La biblioteca siempre es local: en la capa de almacenamiento existe un almacén
+  de blobs opcional respaldado en la nube, pero no está conectado en esta versión.
 - **Asistente de IA** — un panel de chat integrado y **agnóstico de modelo** que maneja el
-  editor en lenguaje natural sobre la misma capa de automatización segura y libre de `eval`.
-  Tú aportas cualquier proveedor compatible con **OpenAI** o **Anthropic** (URL base, modelo y
-  clave); es **opcional respecto a credenciales** y tu clave se guarda en el **llavero (keyring)
+  editor en lenguaje natural sobre la misma capa de automatización segura y libre de `eval`,
+  y se abre desde **Ayuda ▸ Asistente de IA**. Tú aportas cualquier proveedor compatible con
+  **OpenAI** o **Anthropic** (**URL del punto de conexión**, **Modelo** y **Clave de API** — hay
+  que guardar una clave incluso para un servidor de modelo local); el asistente es opcional y tu clave se guarda en el **llavero (keyring)
   del sistema operativo**, nunca en el archivo del proyecto. Las acciones están clasificadas
   por niveles de seguridad — las ediciones reversibles se aplican automáticamente y siguen
   siendo deshacibles, mientras que las acciones destructivas piden confirmación primero.
-- **Guía de usuario integrada** — una guía completa, sin conexión y con búsqueda que cubre
-  cada área funcional, abierta desde **Ayuda ▸ Guía de usuario** o **F1**.
+- **Guía del usuario integrada** — una guía completa, sin conexión y con búsqueda que cubre
+  cada área funcional, abierta desde **Ayuda ▸ Guía del usuario** o **F1**.
 
 ## Galería
 
@@ -108,7 +117,7 @@ La plataforma se ha construido por fases; las capacidades siguientes están **en
 </tr>
 <tr>
 <td><img src="docs/images/screenshots/colour-hub.png" alt="Ventana emergente del Centro de Color de PixelArt Creator con un color turquesa activo seleccionado." width="100%"><br><sub>Centro de Color</sub></td>
-<td><img src="docs/images/screenshots/user-guide.png" alt="Cuadro de diálogo de la Guía del Usuario integrada en PixelArt Creator, contenido en inglés." width="100%"><br><sub>Guía de usuario integrada</sub></td>
+<td><img src="docs/images/screenshots/user-guide.png" alt="Cuadro de diálogo de la Guía del usuario integrada en PixelArt Creator, contenido en inglés." width="100%"><br><sub>Guía del usuario integrada</sub></td>
 </tr>
 </table>
 
@@ -146,10 +155,11 @@ pip install ".[cloud_live]"
 ```
 
 El extra `cloud_live` añade soporte de llavero del sistema operativo (`keyring`) usado por
-los adaptadores de proveedor reales de Google Drive / OneDrive / Dropbox. **No** es necesario
-para el uso sin conexión, para las rutas de colaboración en memoria/loopback, ni para el resto
-de la plataforma — conecta un proveedor real solo si pretendes usar almacenamiento en la nube
-en vivo.
+los adaptadores de proveedor reales de Google Drive / OneDrive / Dropbox de la capa de
+almacenamiento. **No** es necesario para el uso sin conexión, para las rutas de colaboración
+en memoria, ni para el resto de la plataforma. Esta versión no tiene ningún comando del menú
+Nube que seleccione uno de esos proveedores, así que el extra no habilita por sí solo el
+almacenamiento en la nube en vivo en la aplicación de escritorio.
 
 Quienes desarrollan pueden instalar el conjunto de herramientas de pruebas/lint con el extra
 `dev`:
@@ -250,12 +260,18 @@ de build/tag) y descargables desde los artefactos de build:
 
 ### Alojar el backend de sincronización en tiempo real
 
-La colaboración en tiempo real funciona lista para usar **sin configuración de alojamiento**
-— el backend de sincronización se ejecuta localmente en la interfaz loopback por defecto.
-Alojarlo en otro sitio es **opcional**, y **no hay una opción forzada por defecto**: el relé
-puede ejecutarse **localmente/loopback** (la opción por defecto), a través del **adaptador de
-proveedor de nube**, o **autoalojado en un VPS**. Adoptar cualquier opción **no requiere
-ningún cambio** en la app ni en el código del backend.
+La aplicación de escritorio no tiene configurada ninguna conexión en tiempo real en esta
+versión (**Nube ▸ Iniciar tiempo real…** muestra un mensaje en inglés, "no real-time transport
+configured", es decir, no hay transporte en tiempo real configurado), así que la aplicación
+todavía no puede conectarse a ninguna de las opciones siguientes; describen dónde puede
+ejecutarse el propio relé. El relé no necesita configuración de alojamiento para ejecutarse
+localmente: su enlace por defecto es la interfaz loopback (`127.0.0.1`), que es la que usan
+las pruebas automáticas, mientras que el lanzador para VPS `deploy/run_sync_backend.py` se
+enlaza a `0.0.0.0` salvo que `PIXELART_SYNC_HOST` indique otra cosa. Alojarlo en otro sitio es
+**opcional**, y ninguna opción es obligatoria ni se recomienda sobre las demás: el relé puede
+ejecutarse **localmente/loopback**, a través del **adaptador de proveedor de nube**, o
+**autoalojado en un VPS**. Adoptar cualquier opción **no requiere ningún cambio** en la app ni
+en el código del backend.
 
 Para el autoalojamiento en VPS, el directorio `deploy/` versionado incluye los artefactos para
 ejecutar el relé `sync_backend/` (sin cambios) en tu propio servidor, cada uno con
@@ -285,6 +301,10 @@ través del relé WSS existente, presentando el token firmado. El token es de co
 limitado a solo lectura, y se verifica sin almacenarse nunca, así que un enlace solo concede
 una ventana de solo lectura a un proyecto.
 
+La aplicación de escritorio no tiene en esta versión ningún comando que cree un enlace de
+compartición; la generación de enlaces está implementada en `web_viewer/dev_server.py`, y el
+visor se conecta a un relé que ejecutas tú mismo.
+
 El cliente vive en `web_viewer/` y el bloque de servicio de producción en
 `deploy/nginx-sync.conf`. El formato de la conexión y el contrato del token firmado están
 especificados en [ADR-0036](docs/adr/0036-web-viewer-wire-and-signed-token-contract.md); la
@@ -296,10 +316,10 @@ guía única y consolidada para operadores que reúna todo esto.
 
 ## Documentación
 
-- **Guía de usuario integrada** — la documentación principal para el usuario, disponible sin
-  conexión desde **Ayuda ▸ Guía de usuario** (o **F1**). Cubre cada área funcional con flujos
+- **Guía del usuario integrada** — la documentación principal para el usuario, disponible sin
+  conexión desde **Ayuda ▸ Guía del usuario** (o **F1**). Cubre cada área funcional con flujos
   de trabajo paso a paso y es buscable desde dentro de la aplicación.
-- La misma Guía de usuario también está publicada en línea, en inglés y en español, en
+- La misma Guía del usuario también está publicada en línea, en inglés y en español, en
   **https://juangsanchez.github.io/PixelArt-Creator/**.
 - La documentación del proyecto (registro de cambios, páginas de uso y registros de diseño)
   se mantiene junto al código fuente y se mantiene al día conforme se entregan funcionalidades.

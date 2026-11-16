@@ -68,6 +68,7 @@ from typing import Callable, Optional, Sequence, Tuple
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic.assistant import (
     AssistantError,
     ChatBackend,
@@ -129,7 +130,7 @@ class AssistantWorkerSignals(QObject):
     confirmRequested = Signal(int, object)
     #: ``(token, TurnOutcome)`` — the turn produced a result (transcript + commands).
     succeeded = Signal(int, object)
-    #: ``(token, message)`` — the turn raised (surfaced to the user, never a crash).
+    #: ``(token, kind)`` — the turn raised; ``kind`` is a ``FailureKind`` value.
     failed = Signal(int, str)
     #: ``(token,)`` — the turn ended (success, failure, or cancel); clears busy.
     done = Signal(int)
@@ -182,7 +183,10 @@ class Assistant_Worker(QRunnable):
                 return
             self._signals.succeeded.emit(self._token, outcome)
         except Exception as exc:  # noqa: BLE001 - deliberate UI backstop
-            self._signals.failed.emit(self._token, f"{type(exc).__name__}: {exc}")
+            failure_messages.log_failure(exc)
+            self._signals.failed.emit(
+                self._token, failure_messages.failure_kind(exc).value
+            )
         finally:
             self._signals.done.emit(self._token)
 
@@ -299,7 +303,11 @@ class Assistant_Controller(QObject):
                 # (e.g. the LLMError) so the dock shows the meaningful message.
                 for command in reversed(exc.applied_commands):
                     command.undo()
-                raise (exc.__cause__ if exc.__cause__ is not None else exc) from None
+                # ``from <the raised error's own cause>`` hides the AssistantError
+                # context but keeps the chain: ``from None`` would erase the wrapped
+                # operating-system or network failure that sorts the failure sentence.
+                failure = exc.__cause__ if exc.__cause__ is not None else exc
+                raise failure from failure.__cause__
             # Success: leave the live document restored; the GUI thread re-applies the
             # turn's commands as one undoable AssistantCommand (mirrors
             # make_dispatch_job).
@@ -390,7 +398,9 @@ class Assistant_Controller(QObject):
     def _on_failed(self, token: int, message: str) -> None:
         if token == self._token:
             self._set_busy(False)
-            self.failed.emit(message)
+            self.failed.emit(
+                failure_messages.failure_text(failure_messages.FailureKind(message))
+            )
 
     @Slot(int)
     def _on_done(self, token: int) -> None:

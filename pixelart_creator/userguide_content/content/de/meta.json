@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "locale": "de",
+  "sections": {
+    "app-basics": {"title": "Grundlagen der Anwendung"},
+    "canvas-and-view": {"title": "Arbeitsfläche und Ansicht"},
+    "colour-hub": {"title": "Farbzentrale"},
+    "layers": {"title": "Ebenen"},
+    "selection-and-transform": {"title": "Auswahl und Transformation"},
+    "animation-timeline": {"title": "Animationszeitleiste"},
+    "tileset-and-tilemap": {"title": "Tileset- und Tilemap-Editor"},
+    "export-and-pipeline": {"title": "Export und Pipeline"},
+    "automation-and-scripting": {"title": "Automatisierung und Skripting"},
+    "visual-aids": {"title": "Visuelle Hilfen"},
+    "cloud-and-collaboration": {"title": "Cloud und Zusammenarbeit"},
+    "asset-library": {"title": "Asset-Bibliothek"}
+  },
+  "topics": {
+    "app-basics": {
+      "title": "Erste Schritte und der Arbeitsbereich",
+      "keywords": ["Überblick", "Oberfläche", "Arbeitsbereich", "Menüs", "Menüleiste", "erste Schritte", "Grundlagen", "Design", "dunkler Modus", "heller Modus", "Sprache", "Tastenkürzel", "Tastatur", "Rückgängig", "Wiederholen", "Dokumente", "Version", "Info"],
+      "summary": "Orientierung im Arbeitsbereich von PixelArt Creator: Menüleiste, Bedienfelder, Dokumente, Rückgängig/Wiederholen, Designs, Sprache und Tastenkürzel."
+    },
+    "multi-canvas": {
+      "title": "Mehrere Arbeitsflächen (Artboards)",
+      "keywords": ["Tabs", "Artboards", "mehrere", "Arbeitsflächen", "Dokumente", "isoliert", "Varianten"],
+      "summary": "Arbeiten Sie mit mehreren Dokumenten gleichzeitig, jedes in einem eigenen isolierten Tab mit eigenen Ebenen, eigener Palette und eigenem Rückgängig-Verlauf."
+    },
+    "canvas-and-view": {
+      "title": "Die Arbeitsfläche: Zoom, Verschieben und Raster",
+      "keywords": ["Arbeitsfläche", "Ansicht", "Zoom", "Verschieben", "Raster", "8k", "Navigieren", "Ausrichten", "Malen", "Rechtsklick", "Nearest-Neighbor"],
+      "summary": "Arbeiten mit der großen 8K-Arbeitsfläche: Zoom, Verschieben, Pixelraster und Ausrichten, Malen und das Rechtsklick-Menü."
+    },
+    "colour-hub": {
+      "title": "Die Farbzentrale per Rechtsklick",
+      "keywords": ["Farbe", "Farben", "Palette", "Favoriten", "Harmonie", "Farbrad", "Farbfeld", "Komplementär", "Analog", "Triadisch", "Schattierung", "Tönung", "HSV"],
+      "summary": "Die kontextbezogene Farbzentrale: Favoriten, das RGB-Farbrad und Farbharmonien nach der Farbtheorie in Echtzeit (komplementär, analog, triadisch und mehr)."
+    },
+    "layers": {
+      "title": "Das Ebenenbedienfeld",
+      "keywords": ["Ebenen", "Ebenenbedienfeld", "Gruppen", "Deckkraft", "Sichtbarkeit", "Sperre", "Maske", "Referenzebene", "Smart-Ebene", "nicht destruktiv", "indiziert", "umordnen"],
+      "summary": "Das nicht destruktive Ebenensystem: Ebenen, Gruppen, Deckkraft, Sichtbarkeit, Sperren, Masken, Referenz- und Smart-Ebenen sowie die Umwandlung des Farbmodus."
+    },
+    "blend-modes": {
+      "title": "Mischmodi",
+      "keywords": ["Mischmodi", "Normal", "Multiplizieren", "Bildschirm", "Overlay", "Abdunkeln", "Aufhellen", "Farbig abwedeln", "Farbig nachbelichten", "Hartes Licht", "Weiches Licht", "Differenz", "Ausschluss", "Zusammensetzen"],
+      "summary": "Die zwölf Mischmodi und wie der Ebenenstapel von unten nach oben zusammengesetzt wird."
+    },
+    "selection-and-transform": {
+      "title": "Auswahl und schwebendes Verschieben/Kopieren",
+      "keywords": ["Auswahl", "Transformation", "Verschieben", "Kopieren", "Skalieren", "Drehen", "schwebende Auswahl", "Lasso", "Zauberstab", "Rechteck", "Ctrl", "Hinzufügen", "Abziehen"],
+      "summary": "Auswahlen erstellen und transformieren: die schwebende Vorschau zum Verschieben und Kopieren, Gesten zum Hinzufügen und Abziehen, Bestätigen und Abbrechen."
+    },
+    "drag-drop-import": {
+      "title": "Import per Drag-and-drop",
+      "keywords": ["Ziehen", "Ablegen", "Import", "Öffnen", "png", "jpg", "gif", "bmp", "pixproj", "Palette", "gpl", "hex", "pal"],
+      "summary": "Ziehen Sie Dateien aus dem Datei-Explorer in das Fenster: Bilder öffnen sich als neue Dokumente, Projekte werden geöffnet, und Paletten werden in das aktive Dokument geladen."
+    },
+    "animation-timeline": {
+      "title": "Die Animationszeitleiste",
+      "keywords": ["Animation", "Zeitleiste", "Frames", "Zwiebelschichten", "Wiedergabe", "Schleife", "Ping-Pong", "Tags", "Dauer", "FPS", "Scrubben"],
+      "summary": "Die Animationszeitleiste: Frames verwalten, Dauer pro Frame, Wiedergabemodi, Zwiebelschichten und benannte Frame-Tags."
+    },
+    "tileset-and-tilemap": {
+      "title": "Tilesets, Tilemaps und Auto-Tiling",
+      "keywords": ["Tileset", "Tilemap", "Tiles", "Auto-Tile", "Blob-47", "Leveldesign", "Stempel", "Füllen", "Spiegeln", "Drehen", "Tiled", "JSON", "unendliche Map", "Chunks"],
+      "summary": "Ein Bild in ein Tileset aufteilen, eine unendliche Tilemap mit mehreren Ebenen malen, Ränder per Auto-Tiling bestimmen sowie Tiled-JSON importieren und exportieren."
+    },
+    "visual-aids": {
+      "title": "Visuelle Hilfen und Bedienkomfort",
+      "keywords": ["Raster", "Hilfslinien", "Lineale", "Vorschau in Originalgröße", "Referenzboard", "Zeitraffer", "Mehrfachansicht", "isometrisch", "Perspektive", "Fluchtpunkt", "Ausrichten", "PPI"],
+      "summary": "Nicht destruktive visuelle Hilfen: Vorschau in Originalgröße, Hilfslinien und Lineale, isometrisches Raster und Perspektivraster, Referenzboard, Mehrfachansicht und Zeitraffer."
+    },
+    "export-and-pipeline": {
+      "title": "Export und Pipeline-Integration",
+      "keywords": ["Export", "Sprite Sheet", "PNG", "GIF", "Atlas", "Pipeline", "Stapel", "Unity", "Godot", "Voreinstellung", "JSON", "CLI", "pixelart-export", "bytegenau reproduzierbar"],
+      "summary": "Ihre Arbeit exportieren: PNG, animiertes GIF, Sprite Sheets, Texturatlanten, JSON-Metadaten, Voreinstellungen für Unity und Godot, Stapelexport und die Befehlszeile."
+    },
+    "automation-and-scripting": {
+      "title": "Automatisierung, Makros, Skripte und Plugins",
+      "keywords": ["Automatisierung", "Skripting", "Makro", "pixmacro", "Stapelumfärbung", "Plugins", "prozedural", "procgen", "Rauschen", "CLI", "pixelart-run", "deterministisch", "Startwert"],
+      "summary": "Aufgaben automatisieren: Makros aufnehmen und abspielen, die Skript-DSL, Plugins, Stapelumfärbung, prozedurale Generierung und die Befehlszeile."
+    },
+    "ai-assistant": {
+      "title": "Der KI-Assistent – den Editor per Chat steuern",
+      "keywords": ["KI", "Assistent", "Chat", "Chatbot", "natürliche Sprache", "Prompt", "LLM", "Modell", "Anbieter", "OpenAI", "Anthropic", "Claude", "Gemini", "Ollama", "Basis-URL", "Endpunkt-URL", "Endpunkt", "API-Schlüssel", "Schlüsselbund", "Zugangsdaten optional", "modellunabhängig", "gestufte Absicherung", "umkehrbar", "destruktiv", "Bestätigung", "Rückgängig", "Assistenten-Menü", "Hilfe-Menü", "KI-Assistent", "Konfigurieren", "Dock"],
+      "summary": "Der in die Anwendung eingebaute, modellunabhängige KI-Assistent: das Chat-Bedienfeld öffnen, einen Anbieter (OpenAI-kompatibel oder Anthropic) mit Endpunkt-URL, Modell und API-Schlüssel im Schlüsselbund des Betriebssystems konfigurieren, den Arbeitsablauf in natürlicher Sprache über die sichere Automatisierungsschicht steuern und die gestufte Absicherung (umkehrbare Änderungen werden automatisch angewendet und lassen sich rückgängig machen; destruktive Aktionen fragen vorher nach)."
+    },
+    "asset-library": {
+      "title": "Die Asset-Bibliothek – durchsuchen, taggen und finden",
+      "keywords": ["Asset", "Asset-Bibliothek", "Katalog", "Tags", "Tagging", "Suche", "Filter", "Typ", "Sprite", "Tileset", "Palette", "inhaltsadressierbar", "Deduplizierung", "stabile ID", "Menü Bibliothek"],
+      "summary": "Sprites, Animationen, Tilesets, Tilemaps und Paletten als benannte Assets katalogisieren, taggen und über das Menü Bibliothek nach Name, Tag und Typ finden."
+    },
+    "asset-dependencies": {
+      "title": "Asset-Abhängigkeiten und Erkennung defekter Referenzen",
+      "keywords": ["Abhängigkeit", "Abhängigkeiten", "Abhängigkeitsdiagramm", "hängt ab von", "referenziert von", "Referenz", "Defekt", "Erkennung defekter Referenzen", "defekte Referenz", "fehlend", "Hash-Abweichung", "fehlendes Ziel", "geändertes Ziel", "azyklisch", "Zyklus", "Diagrammansicht", "Status"],
+      "summary": "Das Abhängigkeitsdiagramm – die Beziehungen „hängt ab von“ und „referenziert von“ zwischen Assets – und die passive Anzeige, die eine durch ein fehlendes oder geändertes Asset defekte Referenz markiert (und nie blockiert)."
+    },
+    "asset-versioning": {
+      "title": "Asset-Versionierung und projektübergreifende Wiederverwendung",
+      "keywords": ["Version", "Versionierung", "Versionsverlauf", "Revision", "Revisionen", "nur angehängt", "wiederherstellen", "ansehen", "Wiederverwendung", "projektübergreifend", "Referenz statt Kopie", "geteilt", "Export", "Import", "Paket", "Cloud-Anbindung", "offline", "Inhalts-Hash", "Deduplizierung"],
+      "summary": "Versionsverlauf pro Asset, an den nur angehängt wird (ansehen und wiederherstellen, wobei das Wiederherstellen eine neue aktuelle Revision hinzufügt), Wiederverwendung über Projekte hinweg per Referenz statt per Kopie, Export und Import der referenzierten Assets eines Projekts als in sich geschlossenes Paket sowie vollständig offline arbeiten (die optionale Cloud-Anbindung ist in dieser Version nicht angeschlossen)."
+    },
+    "cloud-and-collaboration": {
+      "title": "Cloud: Speichern, Versionen und automatisches Speichern",
+      "keywords": ["Cloud", "verbinden", "Anbieter", "Google Drive", "OneDrive", "Dropbox", "speichern", "öffnen", "Versionsverlauf", "wiederherstellen", "automatisches Speichern", "Wiederherstellung", "OAuth"],
+      "summary": "Den integrierten Cloud-Adapter verbinden, Projekte speichern und öffnen, den Versionsverlauf durchsuchen, Versionen wiederherstellen und das automatische Speichern innerhalb der Sitzung."
+    },
+    "collaboration": {
+      "title": "Geteilte Projekte, Kommentare, Anwesenheit und Echtzeit",
+      "keywords": ["Zusammenarbeit", "geteilte Projekte", "Mitglieder", "Rollen", "Kommentare", "Anwesenheit", "Echtzeit", "gemeinsames Bearbeiten", "Live-Cursor", "Branching", "Zusammenführen", "Konvergenz"],
+      "summary": "Ein Projekt mit Mitgliedern teilen; Kommentare und Anwesenheit (in dieser Version im Arbeitsspeicher, innerhalb eines einzelnen Anwendungsfensters) sowie deterministische Konvergenz und Branching der Grafik; das gemeinsame Bearbeiten in Echtzeit mit Live-Cursorn kann in dieser Version keine Verbindung herstellen."
+    }
+  }
+}
