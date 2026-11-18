@@ -27,9 +27,9 @@ The oracle is never the code under test. The six sentences are the English sourc
 messages the requirement's plan names for the six kinds of failure; the two
 frames are read from the catalogue file (the pair must exist there). For a
 language other than English the expected text is read from that language's own
-``.ts`` file, finished entries only. Only English is examined for now: the other
-seven languages are added to ``LANGUAGES_UNDER_TEST`` as their catalogues carry the
-new messages, and every printed line says how many of the eight were examined.
+``.ts`` file, finished entries only (a missing or ``unfinished`` entry fails the
+row). All eight languages are examined, and every printed line says how many of the
+eight were.
 
 The leak controls plant, at the one seam that turns a failure into text
 (``failure_text``), a version that returns what ``str(exc)`` with its type name
@@ -47,7 +47,8 @@ import zipfile
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Type
 
 import pytest
-from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QTextDocument
+from PySide6.QtWidgets import QApplication, QTextEdit
 
 import pixelart_creator.logic.export as logic_export
 import pixelart_creator.ui.asset_tagging_panel as asset_tagging_panel
@@ -98,9 +99,18 @@ PLANTED_TYPE = "ZqxPlantedError"
 #: The number of languages the finished product ships (English included).
 EXPECTED_LANGUAGE_COUNT = 8
 
-#: The languages examined now. A language joins when its catalogue holds the new
-#: messages as finished entries.
-LANGUAGES_UNDER_TEST: Tuple[str, ...] = (FALLBACK_LANGUAGE,)
+#: The languages examined: all eight. Each one's catalogue must hold the new
+#: messages as finished entries, or its rows fail.
+LANGUAGES_UNDER_TEST: Tuple[str, ...] = (
+    FALLBACK_LANGUAGE,
+    "es",
+    "fr",
+    "de",
+    "ru",
+    "zh_CN",
+    "ko",
+    "ja",
+)
 
 _FAILURE_CONTEXT = "Failure_Messages"
 
@@ -338,6 +348,20 @@ def _drive_message_box(
     return [text for (shown, _title, text) in boxes if shown == "warning"], base
 
 
+def _shown_text(document: QTextDocument) -> str:
+    """Return the text a document shows, keeping its non-breaking spaces.
+
+    ``QTextDocument.toPlainText`` turns every U+00A0 into a plain space, and a
+    catalogue may hold one on purpose (French sets one before a colon). The raw text
+    is what the document holds; only its paragraph, line and frame separators are
+    turned into the line breaks ``toPlainText`` would give.
+    """
+    raw = document.toRawText()
+    for separator in ("\u2029", "\u2028", "\ufdd0", "\ufdd1"):
+        raw = raw.replace(separator, "\n")
+    return raw
+
+
 def _drive_template(
     qtbot, cause: Optional[BaseException] = None
 ) -> Tuple[List[str], Type[BaseException]]:
@@ -353,7 +377,7 @@ def _drive_template(
     dialog = User_Guide_Dialog(None, reader=raising, content_locales=frozenset({"en"}))
     qtbot.addWidget(dialog)
     assert asked, "the failing reader was never asked for a topic"
-    return [dialog._content_view.toPlainText()], base
+    return [_shown_text(dialog._content_view.document())], base
 
 
 def _drive_worker(
@@ -510,8 +534,8 @@ def test_the_languages_and_channels_examined_are_printed(
 ):
     """REQ-L10N-UI-018: the run says how many languages and channels it examined.
 
-    English is examined now, so the line reads one of eight; every channel is driven
-    and none may be skipped or examine nothing.
+    Every language is examined, so the line reads eight of eight; every channel is
+    driven and none may be skipped or examine nothing.
     """
     language(code)
     examined = 0
@@ -529,7 +553,23 @@ def test_the_languages_and_channels_examined_are_printed(
     with capsys.disabled():
         print(f"[failure messages] {line}")
     assert examined == len(CHANNELS) == 4
-    assert len(LANGUAGES_UNDER_TEST) >= 1
+    assert len(LANGUAGES_UNDER_TEST) == EXPECTED_LANGUAGE_COUNT == 8
+    assert len(set(LANGUAGES_UNDER_TEST)) == EXPECTED_LANGUAGE_COUNT
+
+
+def test_the_template_reader_keeps_a_non_breaking_space():
+    """Control: the reader of the guide pane keeps U+00A0, as the catalogue holds it.
+
+    French sets a non-breaking space before the colon of the guide frame, and
+    ``toPlainText`` would show it as a plain space, so a row read through it would
+    fail on a correct pane. The reader gives the text of two paragraphs with both
+    the space and the line break, and the plain-text reading is shown to lose it.
+    """
+    view = QTextEdit()
+    view.setPlainText("rubrique\u00a0:\n\nvaleur")
+    assert _shown_text(view.document()) == "rubrique\u00a0:\n\nvaleur"
+    assert view.toPlainText() == "rubrique :\n\nvaleur"
+    view.deleteLater()
 
 
 # --------------------------------------------------------------------------- #
