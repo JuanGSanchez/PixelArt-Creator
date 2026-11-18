@@ -110,18 +110,38 @@ import pkgutil
 import shutil
 import subprocess
 import sys
+import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    cast,
+)
 
 import numpy as np
 import pytest
+import shiboken6
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
 from PySide6 import QtGui
-from PySide6.QtCore import QByteArray, QCoreApplication, QModelIndex, QObject, Qt
+from PySide6.QtCore import (
+    QByteArray,
+    QCoreApplication,
+    QModelIndex,
+    QObject,
+    Qt,
+    QTimer,
+)
 from PySide6.QtGui import (
     QFont,
     QFontDatabase,
@@ -131,6 +151,7 @@ from PySide6.QtGui import (
     QTextCursor,
     QTextDocument,
     QTextLayout,
+    QUndoCommand,
 )
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -146,6 +167,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QMenuBar,
+    QMessageBox,
     QPushButton,
     QStyle,
     QStyleOptionComboBox,
@@ -234,7 +256,10 @@ class Finding:
 
     def describe(self) -> str:
         """Return the finding as one line."""
-        return f"{self.kind} {self.where}: {self.text!r} needs {self.need}, has {self.have}"
+        return (
+            f"{self.kind} {self.where}: {self.text!r} "
+            f"needs {self.need}, has {self.have}"
+        )
 
 
 _VERTICAL_SHAPES = (
@@ -246,7 +271,8 @@ _VERTICAL_SHAPES = (
 
 
 def _drawn_elided(view: QAbstractItemView, index: QModelIndex) -> Optional[bool]:
-    """Say whether Qt draws this cell's text elided: draw it, widen the cell, draw again.
+    """Say whether Qt draws this cell's text elided: draw it, widen the cell, draw
+    again.
 
     The same region of the viewport is grabbed with the cell as it is and with the
     view and the column made 400 px wider; the text is drawn from the same left
@@ -285,7 +311,9 @@ def _drawn_elided(view: QAbstractItemView, index: QModelIndex) -> Optional[bool]
 
 
 def _columns(model, row: int, parent: QModelIndex) -> int:
-    """Return how many columns ``row`` has (a model's ``columnCount`` is private here)."""
+    """Return how many columns ``row`` has (a model's ``columnCount`` is private
+    here).
+    """
     count = 0
     while count < 16 and model.index(row, count, parent).isValid():
         count += 1
@@ -630,7 +658,7 @@ class Examiner:
                 self._vertical("menu", key, bar, action.text(), geometry.height())
         for index, action in enumerate(bar.actions()):
             if action.menu() is not None:
-                self.menu(action.menu(), f"{trail}#{index}")
+                self.menu(cast(QMenu, action.menu()), f"{trail}#{index}")
 
     def menu(self, menu: QMenu, trail: str) -> None:
         """Every action row of a menu, and of its submenus, is as wide as its text."""
@@ -657,7 +685,7 @@ class Examiner:
                     self._flag("menu action", menu, text, need, row.width(), key)
                 self._vertical("menu action", key, menu, text, row.height())
             if action.menu() is not None:
-                self.menu(action.menu(), f"{trail}.{index}")
+                self.menu(cast(QMenu, action.menu()), f"{trail}.{index}")
 
     def item_view(self, view: QAbstractItemView, limit: int = 400) -> None:
         """Rows and header sections: the text against the cell it is drawn in."""
@@ -845,7 +873,9 @@ def _controls(qtbot, squeezed: bool) -> Examiner:
 
 
 def test_the_detector_reports_squeezed_text(qtbot):
-    """Control (positive): a label, a button and a tab squeezed into 60 px are reported."""
+    """Control (positive): a label, a button and a tab squeezed into 60 px are
+    reported.
+    """
     examiner = _controls(qtbot, squeezed=True)
     kinds = {f.kind for f in examiner.findings}
     assert {"label", "button"} <= kinds, examiner.report()
@@ -853,14 +883,18 @@ def test_the_detector_reports_squeezed_text(qtbot):
 
 
 def test_the_detector_passes_text_that_has_room(qtbot):
-    """Control (negative): the same widgets in 700 px are examined and none is reported."""
+    """Control (negative): the same widgets in 700 px are examined and none is
+    reported.
+    """
     examiner = _controls(qtbot, squeezed=False)
     assert sum(examiner.examined.values()) >= 3
     assert examiner.findings == [], examiner.report()
 
 
 def test_the_detector_reports_an_item_view_row_that_would_be_elided(qtbot):
-    """Control: a tree row wider than its cell is reported (and drawn elided); a roomy one is not."""
+    """Control: a tree row wider than its cell is reported (and drawn elided); a
+    roomy one is not.
+    """
     from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
 
     view = QTreeWidget()
@@ -904,7 +938,7 @@ def _group_box(
     if contents is not None:
         QVBoxLayout(box).addWidget(contents)
     box.setFixedWidth(width)
-    box._host = _host(qtbot, width + 40, box)  # type: ignore[attr-defined]
+    cast(Any, box)._host = _host(qtbot, width + 40, box)
     return box
 
 
@@ -1179,8 +1213,8 @@ def _factories() -> Dict[str, Callable[[], QWidget]]:
         "Document_Transform_Confirm_Dialog": lambda: Document_Transform_Confirm_Dialog(
             "Scale Canvas", 600_000_000, 7680, 4320
         ),
-        "Document_Transform_Progress_Dialog": lambda: Document_Transform_Progress_Dialog(
-            "Scale Canvas", 7
+        "Document_Transform_Progress_Dialog": lambda: (
+            Document_Transform_Progress_Dialog("Scale Canvas", 7)
         ),
         "Export_Dialog": lambda: Export_Dialog(_documents()),
         "Extract_Palette_Dialog": lambda: Extract_Palette_Dialog(),
@@ -1243,6 +1277,175 @@ def test_every_dialog_class_of_the_interface_is_built_here_or_named():
 
 
 # --------------------------------------------------------------------------- #
+# The prompts: message boxes the interface raises                              #
+# --------------------------------------------------------------------------- #
+#
+# A message box is a ``QMessageBox`` and not a ``QDialog`` subclass of the ``ui``
+# package, so the completeness test above cannot find it. Each prompt that shows
+# words of the interface on buttons is listed here instead, and each row is
+# examined as the dialogs are, on the "dialogs" surface, by the same detector and
+# the same rule (a language against English, by widget identity). A row is opened by
+# the interface's own handler, so what is measured is the box the user sees and not
+# a copy of it: the handler blocks in its modal loop, and a timer reads the box while
+# it is open, then closes it.
+
+PROMPT_POLL_MS = 5
+PROMPT_WATCHDOG_MS = 8000
+
+
+def _open_unsaved_changes_prompt(win: QWidget) -> None:
+    """Drop a project onto a window whose document has unsaved changes."""
+    tab = cast(Any, win).active_tab()
+    assert tab is not None, "the window has no open document"
+    if tab.stack.isClean():
+        tab.stack.push(QUndoCommand("edit"))
+    cast(Any, win)._import_project_drop("dropped-project.pixproj")
+
+
+def _open_plugin_consent_prompt(win: QWidget) -> None:
+    """Press Enable on a plugin that declares two permissions."""
+    from pixelart_creator.logic.plugins import validate_manifest
+    from pixelart_creator.ui.plugin_manager_panel import Plugin_Manager_Panel
+
+    panel = Plugin_Manager_Panel()
+    try:
+        panel._add_manifest_item(
+            validate_manifest(
+                {
+                    "name": "lang-probe",
+                    "version": "1.0",
+                    "api_version": "1",
+                    "capabilities": ["read_document", "write_via_command"],
+                }
+            )
+        )
+        assert panel._enable_button.isEnabled(), "Enable is not available"
+        panel._enable_button.click()
+    finally:
+        if isValid(panel):
+            shiboken6.delete(panel)
+
+
+#: The inventory: prompt name -> the opener that makes the interface raise it. The
+#: name is the first part of every key of the row's texts.
+PROMPTS: Dict[str, Callable[[QWidget], None]] = {
+    "Unsaved_Changes_Prompt": _open_unsaved_changes_prompt,
+    "Plugin_Consent_Prompt": _open_plugin_consent_prompt,
+}
+
+#: The fewest button texts each row must show, as measured: the unsaved-changes
+#: prompt's Save, Discard and Cancel, and the consent prompt's two answers.
+PROMPT_BUTTONS: Dict[str, int] = {
+    "Unsaved_Changes_Prompt": 3,
+    "Plugin_Consent_Prompt": 2,
+}
+
+
+def examine_prompt(
+    win: QWidget,
+    name: str,
+    examiner: "Examiner",
+    tweak: Optional[Callable[[QMessageBox], None]] = None,
+) -> QMessageBox:
+    """Open the prompt ``name``, examine its box while it is on screen, close it.
+
+    ``tweak`` is called on the open box before the examination (a planted control
+    uses it to give a button less room than its text needs). Returns the box, which
+    is gone when the handler built it as a static call does; an error raised while
+    examining is carried out of the Qt loop and raised here, and a box that stays on
+    screen is closed by a watchdog and reported.
+    """
+    opened: List[QMessageBox] = []
+    problem: List[BaseException] = []
+    started = time.monotonic()
+    timer = QTimer()
+    timer.setInterval(PROMPT_POLL_MS)
+
+    def poll() -> None:
+        boxes = [
+            widget
+            for widget in QApplication.topLevelWidgets()
+            if isinstance(widget, QMessageBox) and widget.isVisible()
+        ]
+        if not boxes:
+            return
+        box = boxes[0]
+        if opened:
+            if (time.monotonic() - started) * 1000 > PROMPT_WATCHDOG_MS:
+                problem.append(AssertionError(f"{name}: a box stayed on screen"))
+                box.done(int(QMessageBox.StandardButton.Cancel))
+            return
+        opened.append(box)
+        try:
+            if tweak is not None:
+                tweak(box)
+            QApplication.processEvents()
+            examiner.prefix = name
+            examiner.examine(box)
+            examiner.examined["prompts"] += 1
+        except BaseException as exc:  # carried out of the Qt loop, then raised
+            problem.append(exc)
+        finally:
+            box.done(int(QMessageBox.StandardButton.Cancel))
+
+    timer.timeout.connect(poll)
+    timer.start()
+    try:
+        PROMPTS[name](win)
+    finally:
+        timer.stop()
+    if problem:
+        raise problem[0]
+    assert len(opened) == 1, f"{name}: {len(opened)} message boxes were opened, not 1"
+    box = opened[0]
+    if isValid(box):
+        shiboken6.delete(box)
+    return box
+
+
+def prompt_rows(keys: Dict[str, List[str]]) -> Dict[str, Dict[str, int]]:
+    """Count the texts examined on each prompt row, by kind, from the item's keys."""
+    rows: Dict[str, Dict[str, int]] = {name: {} for name in PROMPTS}
+    for kind, found in keys.items():
+        for key in found:
+            prefix = key.split("|", 2)[1]
+            if prefix in rows:
+                rows[prefix][kind] = rows[prefix].get(kind, 0) + 1
+    return rows
+
+
+def test_the_prompt_inventory_names_the_two_prompts():
+    """REQ-L10N-UI-013: the inventory holds the unsaved-changes and consent prompts."""
+    assert set(PROMPTS) == {"Unsaved_Changes_Prompt", "Plugin_Consent_Prompt"}
+    assert set(PROMPT_BUTTONS) == set(PROMPTS)
+    assert PROMPT_BUTTONS["Unsaved_Changes_Prompt"] == 3
+
+
+def test_a_prompt_is_examined_with_its_buttons_and_its_text(qtbot):
+    """REQ-L10N-UI-013: each prompt row yields its buttons and its message.
+
+    The real handler of each prompt is run in the test's own window; the examiner
+    reads the open box. Each row must show at least its buttons, and its message
+    text is a label examined besides. A prompt the handler never opens fails.
+    """
+    from pixelart_creator.ui.main_window import Main_Window
+
+    win = Main_Window()
+    qtbot.addWidget(win)
+    win.show()
+    QApplication.processEvents()
+    examiner = Examiner()
+    for name in PROMPTS:
+        examine_prompt(win, name, examiner)
+    rows = prompt_rows(examiner.keys)
+    assert examiner.examined["prompts"] == len(PROMPTS)
+    for name, buttons in PROMPT_BUTTONS.items():
+        assert rows[name].get("button", 0) >= buttons, (name, rows[name])
+        assert rows[name].get("label", 0) >= 1, (name, rows[name])
+    assert not examiner.duplicate_keys()
+
+
+# --------------------------------------------------------------------------- #
 # The faces the instruments stand on                                           #
 # --------------------------------------------------------------------------- #
 #
@@ -1286,7 +1489,11 @@ def _standin_code_points() -> List[int]:
         )
     fonts = Path(ui_package.__file__).resolve().parent.parent / "fonts"
     for face in sorted(fonts.glob("NifenArtCJK*.ttf")):
-        held.update(cp for cp in TTFont(str(face)).getBestCmap() if cp <= 0xFFFF)
+        held.update(
+            cp
+            for cp in cast(Dict[int, str], TTFont(str(face)).getBestCmap())
+            if cp <= 0xFFFF
+        )
     return sorted(held)
 
 
@@ -1486,10 +1693,10 @@ def han_capable_platform(app: QApplication, language: str) -> Dict[str, object]:
 # The measurement: Nifen Art against the platform font, in a child process     #
 # --------------------------------------------------------------------------- #
 #
-# The requirement is that no label is truncated BY THE CHANGE OF FONT. Text that is cut short
-# with the platform font as well (27 dock tabs in one tab bar are, with any font)
-# is not caused by the change, so the verdict is a comparison: every examined
-# widget is measured with Nifen Art and again, in the same window, with "Use
+# The requirement is that no label is truncated BY THE CHANGE OF FONT. Text that
+# is cut short with the platform font as well (27 dock tabs in one tab bar are,
+# with any font) is not caused by the change, so the verdict is a comparison: every
+# examined widget is measured with Nifen Art and again, in the same window, with "Use
 # system font" on; only text that is truncated with Nifen Art and NOT with the
 # platform font fails. Text truncated with both is counted and printed (it is
 # real and the owner should know), but it is not what this requirement asks.
@@ -1586,7 +1793,8 @@ def _point_the_generic_family_at_the_operating_system_ui_font() -> str:
         metrics = _Metrics()
         metrics.cbSize = ctypes.sizeof(_Metrics)
         spi_getnonclientmetrics = 0x0029
-        ok = ctypes.windll.user32.SystemParametersInfoW(  # type: ignore[attr-defined]
+        windll = getattr(ctypes, "windll")  # Windows only; absent elsewhere
+        ok = windll.user32.SystemParametersInfoW(
             spi_getnonclientmetrics, metrics.cbSize, ctypes.byref(metrics), 0
         )
         face = metrics.lfMessageFont.lfFaceName if ok else ""
@@ -1596,7 +1804,10 @@ def _point_the_generic_family_at_the_operating_system_ui_font() -> str:
 
 
 def _examine_surface(win: QWidget, surface: str, examiner: Examiner) -> None:
-    """Examine one surface: the main window with every dock raised, or every dialog."""
+    """Examine one surface: the main window with every dock raised, or every dialog.
+
+    The "dialogs" surface also opens each prompt of :data:`PROMPTS`.
+    """
     if surface == "main":
         examiner.prefix = "main"
         examiner.examine(win)
@@ -1617,6 +1828,8 @@ def _examine_surface(win: QWidget, surface: str, examiner: Examiner) -> None:
         examiner.examined["dialogs"] += 1
         dialog.hide()
         dialog.deleteLater()
+    for name in PROMPTS:
+        examine_prompt(win, name, examiner)
 
 
 def run_matrix(
@@ -1638,8 +1851,6 @@ def run_matrix(
     (``timing``), which is printed with the verdict so a slow item shows where its
     time went.
     """
-    import time
-
     from PySide6.QtGui import QFontDatabase
 
     from pixelart_creator.ui.appearance_settings import KEY_MODE
@@ -1718,7 +1929,9 @@ def run_matrix(
         examiner = Examiner(vfont=standin_font())
         _examine_surface(win, surface, examiner)
         dumped = examiner.dump()
-        vertical = dict(platform, plugin=plugin, **dumped["vertical"])  # type: ignore
+        vertical = dict(
+            platform, plugin=plugin, **cast(Dict[str, object], dumped["vertical"])
+        )
         lap("vertical")
     win._language_manager.set_language(EN)
     return {
@@ -1779,7 +1992,7 @@ def judge_language_alone(
 
 
 def _findings(rows: Iterable[Sequence[object]]) -> List[Finding]:
-    return [Finding(*row) for row in rows]  # type: ignore[arg-type]
+    return [Finding(*cast(Any, row)) for row in rows]
 
 
 @dataclass
@@ -1959,9 +2172,10 @@ def _run_child(
         tmp_path,
         timeout=170,
     )
-    assert (
-        result["families"] > 0
-    ), "the child sees no platform font besides Nifen Art: there is nothing to compare with"
+    assert result["families"] > 0, (
+        "the child sees no platform font besides Nifen Art: "
+        "there is nothing to compare with"
+    )
     return result
 
 
@@ -2022,17 +2236,19 @@ def _measure(
             tmp_path, faces, shared, scale, mode, surface, style
         )
     verdict = judge(language, result, reference)
-    nifen = result["results"]["nifen"]
-    system = result["results"]["system"]
+    results = cast(Dict[str, Dict[str, Any]], result["results"])
+    nifen = results["nifen"]
+    system = results["system"]
+    vertical = cast(Dict[str, Any], result["vertical"])
     total = sum(nifen["examined"].values())
     found = {c: len(f) for c, f in verdict.against_english.items()}
-    shared = {c: len(f) for c, f in verdict.english_too.items()}
+    both = {c: len(f) for c, f in verdict.english_too.items()}
     english = (
         ""
         if reference is None
         else "; against English (reference examined "
         f"{verdict.reference_examined}): findings {found}, truncated in English as "
-        f"well {shared}, no English counterpart {verdict.unmatched}"
+        f"well {both}, no English counterpart {verdict.unmatched}"
     )
     _report(
         capsys,
@@ -2041,11 +2257,24 @@ def _measure(
         f"{sum(system['examined'].values())} with {result['platform']!r}; "
         f"truncated with Nifen Art only: {len(verdict.platform_only)}, with both: "
         f"{verdict.both_fonts}{english}; vertical ({verdict.vertical_source} chain "
-        f"{result['vertical']['chain']}): examined {verdict.vertical_examined}, "
+        f"{vertical['chain']}): examined {verdict.vertical_examined}, "
         f"clipped {len(verdict.clipped)}; child seconds {result['timing']}",
     )
     if verdict.english_too:
         print(verdict.english_report())
+    if surface == "dialogs":
+        rows = prompt_rows(nifen["keys"])
+        _report(
+            capsys,
+            f"prompt rows [{language} scale{scale} {mode} {style}]: "
+            + "; ".join(f"{name} {kinds}" for name, kinds in rows.items()),
+        )
+        for name, buttons in PROMPT_BUTTONS.items():
+            assert rows[name].get("button", 0) >= buttons, (
+                f"{language}: the {name} row examined {rows[name]}, "
+                f"fewer than {buttons} buttons"
+            )
+            assert rows[name].get("label", 0) >= 1, f"{name}: no message examined"
     assert total > (
         200 if surface == "main" else 100
     ), f"{style}: almost nothing examined"
@@ -2075,7 +2304,7 @@ def _discover_languages() -> Tuple[str, ...]:
     """Return the compiled languages the interface can switch to, English first."""
     from pixelart_creator.ui.i18n import LanguageManager
 
-    manager = LanguageManager(QCoreApplication.instance())
+    manager = LanguageManager(cast(QCoreApplication, QCoreApplication.instance()))
     return tuple(manager.available_languages())
 
 
@@ -2199,7 +2428,9 @@ def test_the_items_cover_every_combination_exactly_once():
     )
     marks = [
         mark
-        for mark in test_nifen_art_truncates_nothing_the_platform_font_does_not.pytestmark
+        for mark in (
+            test_nifen_art_truncates_nothing_the_platform_font_does_not.pytestmark
+        )
         if mark.name == "parametrize"
     ]
     assert len(marks) == 1, "the measuring test must carry exactly one parametrize mark"
@@ -2323,14 +2554,16 @@ def _lrelease() -> str:
     )
 
 
-def _plant_catalogue(folder: Path, source: str, translation: str) -> Path:
+def _plant_catalogue(
+    folder: Path, source: str, translation: str, context: str = "Planted"
+) -> Path:
     """Write and compile a scratch ``pixelart_fr.qm`` holding one planted message."""
     folder.mkdir(parents=True, exist_ok=True)
     ts = folder / "pixelart_fr.ts"
     ts.write_text(
         '<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE TS>\n'
         '<TS version="2.1" language="fr_FR">\n<context>\n'
-        "    <name>Planted</name>\n    <message>\n"
+        f"    <name>{context}</name>\n    <message>\n"
         f"        <source>{source}</source>\n"
         f"        <translation>{translation}</translation>\n"
         "    </message>\n</context>\n</TS>\n",
@@ -2511,6 +2744,171 @@ def test_a_label_that_fits_in_both_languages_passes_with_nothing_to_print(tmp_pa
 
 
 # --------------------------------------------------------------------------- #
+# SC-L10N-UI-013-2 on a prompt row: the same planted cases, on a real prompt   #
+# --------------------------------------------------------------------------- #
+#
+# The unsaved-changes prompt is opened by the interface's own handler in a window
+# of its own. Its Discard button is the planted label: the French translation is
+# planted in a scratch catalogue under the context the window's strings belong to,
+# and the button is given a fixed width, so that English fits it (or does not) and
+# the planted French does not. The judge is the same ``judge()`` the matrix uses.
+
+#: case -> (English source text of the button, planted French translation, sizing)
+PLANTED_PROMPT_CASES: Dict[str, Tuple[str, str, str]] = {
+    "fr-only": (
+        "Discard",
+        "Abandonner les modifications et ouvrir quand même",
+        "english-fits",
+    ),
+    "fr-and-english": (
+        "Discard",
+        "Abandonner les modifications et ouvrir quand même",
+        "english-squeezed",
+    ),
+    "fits-in-both": ("Discard", "Ok", "english-fits"),
+}
+
+
+def run_planted_prompt(case: str, catalogue_dir: str) -> Dict[str, object]:
+    """Measure the planted Discard button in English, then in French.
+
+    Called inside the child process. Art scale 1, Light, one style, the prompt row
+    "Unsaved_Changes_Prompt" as the one surface, the same ``Examiner`` as the matrix.
+    The width the English button is given in the first measurement is the width the
+    French button is given in the second.
+    """
+    from pixelart_creator.data import style_catalog
+    from pixelart_creator.ui.appearance_settings import KEY_MODE
+    from pixelart_creator.ui.i18n import LanguageManager
+    from pixelart_creator.ui.main_window import Main_Window
+    from testing.suites.ui.test_app_font import plant
+
+    _source, _translation, sizing = PLANTED_PROMPT_CASES[case]
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+    app_font.register_app_fonts()
+    plant(**{KEY_MODE: "light"})
+    win = Main_Window()
+    win.resize(1280, 800)
+    win.show()
+    QApplication.processEvents()
+    apply_theme(app, "light", style_catalog.style_ids()[0], scale=1)
+    app_font.apply_interface_font(app, False)
+    manager = LanguageManager(app, Path(catalogue_dir))
+    given: Dict[str, int] = {}
+    shown: Dict[str, str] = {}
+
+    def discard_of(box: QMessageBox) -> QAbstractButton:
+        role = QMessageBox.ButtonRole.DestructiveRole
+        return next(b for b in box.buttons() if box.buttonRole(b) == role)
+
+    def give_width(box: QMessageBox) -> None:
+        button = discard_of(box)
+        if "width" not in given:
+            hint = button.sizeHint().width()
+            given["width"] = hint if sizing == "english-fits" else hint // 2
+        button.setFixedWidth(given["width"])
+        shown["text"] = button.text()
+
+    def measure() -> Dict[str, object]:
+        examiner = Examiner()
+        examine_prompt(win, "Unsaved_Changes_Prompt", examiner, tweak=give_width)
+        return {"results": {"nifen": examiner.dump()}}
+
+    english = measure()
+    assert manager.set_language("fr") is True, "the planted catalogue did not load"
+    QApplication.processEvents()
+    french = measure()
+    manager.set_language(EN)
+    return {"en": english, "fr": french, "french_text": shown["text"]}
+
+
+_PLANTED_PROMPT_CHILD = """
+from testing.suites.ui.test_app_font_truncation import run_planted_prompt
+out(**run_planted_prompt({case!r}, {folder!r}))
+"""
+
+
+def _run_planted_prompt_case(tmp_path: Path, case: str) -> Dict[str, object]:
+    """Compile the case's scratch catalogue and measure the prompt in a child."""
+    from testing.suites.ui.test_app_font import run_child
+
+    source, translation, _sizing = PLANTED_PROMPT_CASES[case]
+    folder = _plant_catalogue(
+        tmp_path / "catalogue", source, translation, context="Main_Window"
+    )
+    result = run_child(
+        _PLANTED_PROMPT_CHILD.format(case=case, folder=str(folder)),
+        tmp_path,
+        timeout=150,
+    )
+    assert result["french_text"] == translation, (
+        "the planted translation was not applied: the button shows "
+        f"{result['french_text']!r}"
+    )
+    return result
+
+
+def test_a_prompt_button_truncated_in_french_only_fails_naming_label_widget_language(
+    tmp_path, capsys
+):
+    """SC-L10N-UI-013-2 on a prompt: a button only French cuts off is a finding.
+
+    The unsaved-changes prompt is opened by the interface's own handler. English
+    fits the Discard button's width, the planted French does not: a non-zero exit
+    naming the button's text, its widget and the language.
+    """
+    planted = _run_planted_prompt_case(tmp_path, "fr-only")
+    verdict = judge("fr", planted["fr"], planted["en"])
+    _report(
+        capsys,
+        f"planted prompt fr-only: examined {verdict.examined['nifen']}, "
+        f"exit {verdict.exit_status}\n{verdict.report()}",
+    )
+    assert verdict.examined["nifen"] >= 4, "the prompt's texts were not examined"
+    assert verdict.exit_status != 0, "the check passed a button only French cuts off"
+    report = verdict.report()
+    assert "Abandonner les modifications et ouvrir quand même" in report, report
+    assert "QMessageBox/QPushButton[]" in report, report
+    assert "language fr" in report, report
+    assert verdict.english_too["nifen"] == []
+
+
+def test_a_prompt_button_truncated_in_french_and_in_english_passes_and_is_printed(
+    tmp_path, capsys
+):
+    """SC-L10N-UI-013-2 on a prompt: a button English cuts off too is printed.
+
+    The Discard button is given half the width English needs, so English cuts it
+    off and so does the planted French. It is not a finding; it is counted and
+    printed among those truncated in English as well, for ``fr``.
+    """
+    planted = _run_planted_prompt_case(tmp_path, "fr-and-english")
+    english = planted["en"]["results"]["nifen"]
+    assert len(english["findings"]) == 1, "English must already cut the button off"
+    verdict = judge("fr", planted["fr"], planted["en"])
+    _report(
+        capsys,
+        f"planted prompt fr-and-english: exit {verdict.exit_status}\n"
+        f"{verdict.english_report()}",
+    )
+    assert verdict.exit_status == 0, verdict.report()
+    printed = verdict.english_report()
+    assert "truncated in English as well, for fr" in printed, printed
+    assert "Abandonner les modifications et ouvrir quand même" in printed, printed
+    assert len(verdict.english_too["nifen"]) == 1
+
+
+def test_a_prompt_button_that_fits_in_both_languages_is_not_reported(tmp_path):
+    """Control (negative): a Discard button that fits in both languages is silent."""
+    planted = _run_planted_prompt_case(tmp_path, "fits-in-both")
+    verdict = judge("fr", planted["fr"], planted["en"])
+    assert verdict.examined["nifen"] >= 4
+    assert verdict.exit_status == 0, verdict.report()
+    assert verdict.english_too["nifen"] == [] and verdict.english_report() == ""
+
+
+# --------------------------------------------------------------------------- #
 # The vertical check's own control                                             #
 # --------------------------------------------------------------------------- #
 
@@ -2628,13 +3026,17 @@ def _face_facts(file_name: str) -> Tuple[str, int, str]:
     """
     fonts = Path(ui_package.__file__).resolve().parent.parent / "fonts"
     face = TTFont(str(fonts / file_name))
-    units_per_px = face["head"].unitsPerEm / app_font.NIFEN_ART_EM_PX
+    units_per_px = cast(Any, face["head"]).unitsPerEm / app_font.NIFEN_ART_EM_PX
     hhea = face["hhea"]
     line_box = (hhea.ascent - hhea.descent) / units_per_px
     assert line_box == int(line_box), (file_name, line_box)
-    letters = "".join(chr(cp) for cp in sorted(face.getBestCmap()) if cp >= 0x3400)[:3]
+    letters = "".join(
+        chr(cp)
+        for cp in sorted(cast(Dict[int, str], face.getBestCmap()))
+        if cp >= 0x3400
+    )[:3]
     assert len(letters) == 3, f"{file_name} holds fewer than three characters"
-    return face["name"].getDebugName(1), int(line_box), letters
+    return cast(str, face["name"].getDebugName(1)), int(line_box), letters
 
 
 class _PlatformFontAloneExaminer(Examiner):
