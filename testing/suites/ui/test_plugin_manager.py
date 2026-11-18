@@ -143,7 +143,7 @@ def test_sc_ui_005_declared_permissions_shown_before_enable(
 
 
 def test_sc_ui_005_the_listing_by_identifier_is_caught(qtbot, monkeypatch, tmp_path):
-    """Control: the label as it stood before round 22 fails the verdict, naming a line.
+    """Control: the label listing identifiers alone fails the verdict, naming a line.
 
     The panel's listing is planted as it was (``• read_document``, one line per
     declared permission, the identifier alone); the real panel is driven as in the
@@ -199,7 +199,8 @@ def test_sc_ui_005_the_verdict_rejects_each_fault_of_a_listing():
 def test_sc_ui_005_enable_requires_explicit_consent_and_grants_exactly_declared(
     qtbot, monkeypatch, tmp_path, plugin_isolation
 ):
-    """SC-UI-005-1: consent gates enabling; a grant is exactly the declared caps, no auto-run."""
+    """SC-UI-005-1: consent gates enabling; a grant is exactly the declared caps, no
+    auto-run."""
     win = _window(qtbot)
     panel = win._plugin_manager_panel
     manifest = write_manifest(

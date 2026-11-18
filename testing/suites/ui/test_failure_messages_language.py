@@ -134,8 +134,8 @@ _CYCLE_FRAME = (
 
 #: The frames the interface composes as a lead-in, a line break and the sentence
 #: (``failure_on_own_line``; REQ-L10N-UI-020 clause 1). For such a frame the
-#: requirement's clause 1 of REQ-L10N-UI-018 is read of each part (spec section 9,
-#: round-22 note; plan R31-4). The guide frame is not one of them: its template
+#: requirement's clause 1 of REQ-L10N-UI-018 is read of each part, the lead-in and
+#: the sentence apart. The guide frame is not one of them: its template
 #: already ends in a line break and is shown as the catalogue holds it.
 _COMPOSED_FRAMES = (_CYCLE_FRAME,)
 
@@ -668,13 +668,13 @@ def test_the_per_part_verdict_accepts_a_composed_message_and_rejects_each_fault(
 def test_the_old_inline_composition_of_the_cycle_frame_is_caught(
     qtbot, monkeypatch, mute_message_boxes
 ):
-    """SC-L10N-UI-018-2 control: the junction planted as it was before T129-j fails.
+    """SC-L10N-UI-018-2 control: the junction as it was before the own line fails.
 
     ``failure_on_own_line`` is replaced, at the seam the view calls, by the
-    composition the interface used before round 23 (the sentence in the
-    placeholder, on the lead-in's line). The real view is driven; what it shows
-    reads ``...(graph unchanged): <sentence>`` and the per-part verdict must
-    reject it naming the lead-in and the sentence.
+    composition the interface used before the sentence got its own line (the
+    sentence in the placeholder, on the lead-in's line). The real view is driven;
+    what it shows reads ``...(graph unchanged): <sentence>`` and the per-part
+    verdict must reject it naming the lead-in and the sentence.
     """
     monkeypatch.setattr(
         failure_messages,

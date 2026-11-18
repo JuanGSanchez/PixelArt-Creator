@@ -1744,46 +1744,46 @@ def test_qts_table_model_is_what_the_rule_follows(qtbot, label, source, grids):
 #: (name, source, the source Qt must be left to show). ``None`` means the source
 #: itself, byte for byte; the others lose only the break Qt shows inside a paragraph.
 TABLE_ROWS = [
-    ("T01 a delimiter row inside a paragraph", "日\n本\n|-|-|\n​語\n", None),
-    ("T02 a header-shaped line above it", "a|日\n本|\n|-|-|\n​語\n", None),
-    ("T03 a header candidate", "a|日\n本|\n|-|-|\n", None),
-    ("T04 a table, then a ZW-led line", "a|b|c\n|-|-|\n​語\n", None),
-    ("T05 a table, then two lines", "a|b|c\n|-|-|\n日\n本\n", None),
-    ("T06 a one-line header, then two lines", "日\n|-|-|\n日\n本\n", None),
-    ("T07 a header on a second line", "日\n本|\n|-|\n", None),
+    ("a delimiter row inside a paragraph", "日\n本\n|-|-|\n​語\n", None),
+    ("a header-shaped line above it", "a|日\n本|\n|-|-|\n​語\n", None),
+    ("a header candidate", "a|日\n本|\n|-|-|\n", None),
+    ("a table, then a ZW-led line", "a|b|c\n|-|-|\n​語\n", None),
+    ("a table, then two lines", "a|b|c\n|-|-|\n日\n本\n", None),
+    ("a one-line header, then two lines", "日\n|-|-|\n日\n本\n", None),
+    ("a header on a second line", "日\n本|\n|-|\n", None),
     (
-        "T08 a second-line header, then two lines",
+        "a second-line header, then two lines",
         "日\na|b\n|-|-|\n日\n本\n",
         "日\na|b\n|-|-|\n日本\n",
     ),
-    ("T09 inside a quote", "> 日\n> 本|\n> |-|\n", None),
-    ("T10 a heading below a table", "a|b\n|-|-|\n# h\n日\n本\n", None),
+    ("inside a quote", "> 日\n> 本|\n> |-|\n", None),
+    ("a heading below a table", "a|b\n|-|-|\n# h\n日\n本\n", None),
     (
-        "T11 a fence below a table",
+        "a fence below a table",
         "a|b\n|-|-|\n```\n日\n本\n\n日\n本\n",
         "a|b\n|-|-|\n```\n日\n本\n\n日本\n",
     ),
     (
-        "T12 an indented line below a table",
+        "an indented line below a table",
         "a|b\n|-|-|\n    code\n日\n本\n",
         "a|b\n|-|-|\n    code\n日本\n",
     ),
     (
-        "T13 a definition, then a header",
+        "a definition, then a header",
         "[a]: /x\nb|c\n|-|-|\n日\n本\n",
         "[a]: /x\nb|c\n|-|-|\n日本\n",
     ),
     (
-        "T14 control: a table, a blank line, a paragraph",
+        "control: a table, a blank line, a paragraph",
         "a|b\n|-|-|\n日\n本\n\n日\n本\n",
         "a|b\n|-|-|\n日\n本\n\n日本\n",
     ),
     (
-        "T15 control: a thematic break ends a table",
+        "control: a thematic break ends a table",
         "a|b\n|-|-|\n***\n日\n本\n",
         "a|b\n|-|-|\n***\n日本\n",
     ),
-    ("T16 control: a plain pair", "日\n本\n", "日本\n"),
+    ("control: a plain pair", "日\n本\n", "日本\n"),
 ]
 
 
@@ -1821,7 +1821,24 @@ def test_a_table_row_that_must_stay_is_shown_byte_for_byte(qtbot, name, source):
 
 def test_the_table_rows_are_sixteen_and_include_the_ones_that_damage_a_grid():
     """Control: the sixteen rows are all there, the damaging ones among them."""
-    assert [row[0][:3] for row in TABLE_ROWS] == [f"T{n:02d}" for n in range(1, 17)]
+    assert [row[0] for row in TABLE_ROWS] == [
+        "a delimiter row inside a paragraph",
+        "a header-shaped line above it",
+        "a header candidate",
+        "a table, then a ZW-led line",
+        "a table, then two lines",
+        "a one-line header, then two lines",
+        "a header on a second line",
+        "a second-line header, then two lines",
+        "inside a quote",
+        "a heading below a table",
+        "a fence below a table",
+        "an indented line below a table",
+        "a definition, then a header",
+        "control: a table, a blank line, a paragraph",
+        "control: a thematic break ends a table",
+        "control: a plain pair",
+    ]
     left = [row for row in TABLE_ROWS if row[2] is None]
     assert len(left) == 9
 

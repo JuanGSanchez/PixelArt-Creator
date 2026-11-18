@@ -385,12 +385,12 @@ EXPECTED_LANGUAGE_COUNT = 8
 LANGUAGES: Tuple[str, ...] = ("en", "es", "fr", "de", "ru", "zh_CN", "ko", "ja")
 
 #: The digest the truth check recorded for the English source message of the
-#: prompt (report ``agt08-consent-truth-r30.md`` section 5): the UTF-8 bytes of the
-#: unescaped text, both placeholders left in, four line feeds, no trailing newline.
+#: prompt: the UTF-8 bytes of the unescaped text, both placeholders left in, four
+#: line feeds, no trailing newline.
 RECORDED_SHA256 = "19f52cf91aedea74481271c425af5d294004568d738b70c6b185d36f9a33974b"
-#: The digest the same report records for the round-17 text, which a stale reading
-#: would hash to.
-ROUND_17_SHA256 = "610042f122b1ff24248e2573e78529467c1ce3bd1e4bbb42086f4ee988a26978"
+#: The digest recorded for the earlier "own commands" English text (the second of
+#: the two earlier texts below), which a stale reading would hash to.
+OWN_COMMANDS_SHA256 = "610042f122b1ff24248e2573e78529467c1ce3bd1e4bbb42086f4ee988a26978"
 
 #: The plugin the rows enable, and the permissions its manifest declares, in order,
 #: each with the English source message that names it in the catalogue.
@@ -402,7 +402,7 @@ DECLARED = (
 BULLET = "• "
 
 #: The two earlier English source texts of the prompt (the "runs sandboxed" text and
-#: the one written to round 17's clause 3).
+#: the "own commands" text that said what the permissions limit).
 EARLIER_TEXTS = (RUNS_SANDBOXED_TEXT, OWN_COMMANDS_TEXT)
 
 Message = Tuple[str, str, Optional[str], Optional[str]]
@@ -611,8 +611,9 @@ def test_sc_l10n_ui_016_3_neither_earlier_english_text_is_live_in_any_catalogue(
     """SC-L10N-UI-016-3: neither earlier English source text is a live message.
 
     Each of the eight ``.ts`` files is read in full; a message whose source is the
-    "runs sandboxed" text or the round-17 text, live, is a finding. The number of
-    catalogues and of messages examined is printed and must be non-zero.
+    "runs sandboxed" text or the earlier "own commands" text, live, is a finding.
+    The number of catalogues and of messages examined is printed and must be
+    non-zero.
     """
     examined = {code: len(_messages(code)) for code in LANGUAGES}
     line = (
@@ -649,7 +650,7 @@ def _scratch_catalogue(
 
 
 @pytest.mark.parametrize(
-    "which", range(len(EARLIER_TEXTS)), ids=["sandboxed", "round-17"]
+    "which", range(len(EARLIER_TEXTS)), ids=["sandboxed", "own-commands"]
 )
 def test_sc_l10n_ui_016_3_a_live_earlier_text_is_found_and_named(tmp_path, which):
     """SC-L10N-UI-016-3 control: each earlier text, planted live, fails naming its file.
@@ -739,13 +740,13 @@ def test_sc_l10n_ui_016_3_the_english_source_is_the_text_whose_digest_was_record
 def test_sc_l10n_ui_016_3_a_stale_reading_hashes_differently():
     """SC-L10N-UI-016-3 control: an earlier text, a trailing line feed, a changed word.
 
-    The round-17 text reproduces its recorded digest (so the hashing is the truth
-    check's own), and it, the "runs sandboxed" text, the current text with a
-    trailing line feed and the current text with one letter changed all differ from
-    the recorded digest.
+    The earlier "own commands" text reproduces its recorded digest (so the hashing
+    is the truth check's own), and it, the "runs sandboxed" text, the current text
+    with a trailing line feed and the current text with one letter changed all
+    differ from the recorded digest.
     """
     current = prompt_template("en")
-    assert digest(OWN_COMMANDS_TEXT) == ROUND_17_SHA256
+    assert digest(OWN_COMMANDS_TEXT) == OWN_COMMANDS_SHA256
     assert digest(OWN_COMMANDS_TEXT) != RECORDED_SHA256
     assert digest(RUNS_SANDBOXED_TEXT) != RECORDED_SHA256
     assert digest(current + "\n") != RECORDED_SHA256

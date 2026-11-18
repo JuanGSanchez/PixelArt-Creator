@@ -56,7 +56,8 @@ def test_sc_ui_004_script_edit_is_one_undoable_command(qtbot):
 
 
 def test_sc_ui_004_unknown_op_script_surfaces_graceful_error(qtbot, mute_message_boxes):
-    """SC-UI-004-1: an unknown-op script is rejected by the dispatcher (graceful error)."""
+    """SC-UI-004-1: an unknown-op script is rejected by the dispatcher (graceful
+    error)."""
     win = _window(qtbot)
     stack = win.active_tab().stack
 
@@ -73,7 +74,8 @@ def test_sc_ui_004_unknown_op_script_surfaces_graceful_error(qtbot, mute_message
 
 
 def test_sc_ui_004_invalid_json_rejected_before_dispatch(qtbot, mute_message_boxes):
-    """SC-UI-004-1: invalid JSON is rejected in-panel before any worker run (no exec)."""
+    """SC-UI-004-1: invalid JSON is rejected in-panel before any worker run (no
+    exec)."""
     win = _window(qtbot)
     stack = win.active_tab().stack
 
@@ -163,7 +165,7 @@ def test_sc_ui_004_invalid_json_shows_the_sentence_and_no_exception_text(
 def test_sc_ui_004_the_inline_junction_of_the_invalid_json_box_is_caught(
     qtbot, monkeypatch, mute_message_boxes
 ):
-    """REQ-L10N-UI-020 control: the junction as it was before T129-j fails the verdict.
+    """REQ-L10N-UI-020 control: the old inline junction fails the verdict.
 
     ``failure_on_own_line`` is replaced, at the seam the panel calls, by the
     composition the interface used before (the sentence in the placeholder, on the

@@ -13,8 +13,8 @@ The scenario has two halves, and every row of its table gets both:
   first found by its English source text; the same entry (same position) is then
   read after the window's own language manager switches to Russian.
 
-The expected titles are literals copied from the scenario's table (round 21: the
-user's ruling of 2026-11-15 replaced two of the earlier titles). The table is
+The expected titles are literals copied from the scenario's table (the user's
+ruling of 2026-11-15 replaced two of the earlier titles). The table is
 written out once, here, and nothing derives it from the catalogue under test.
 
 Both themes run, through the suite's autouse ``theme`` fixture. English is restored
