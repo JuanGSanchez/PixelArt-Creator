@@ -41,8 +41,7 @@ biblioteca de recursos:
   gráfica con la línea de comandos `pixelart-export` — todo byte-reproducible.
 - **[Automatización y extensibilidad](usage/automation.md)** — graba y reproduce
   macros (`.pixmacro`, deterministas), ejecuta scripts DSL acotados (sin
-  `eval`/`exec`), amplía la aplicación con complementos de confianza y
-  consentimiento explícito, recolorea por lotes muchos objetivos a la vez,
+  `eval`/`exec`), recolorea por lotes muchos objetivos a la vez,
   genera contenido de forma procedural, y ejecuta cualquier automatización sin
   interfaz gráfica con la línea de comandos `pixelart-run`.
 - **[Asistente de IA](usage/ai-assistant.md)** — maneja el editor en lenguaje

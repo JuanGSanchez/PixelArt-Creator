@@ -3,7 +3,7 @@
 Arrastra un archivo directamente desde el explorador de archivos de tu sistema
 operativo (Explorador de Windows, Finder de macOS, Nautilus de Linux) **hacia**
 la ventana de PixelArt Creator y hará lo obvio para ese tipo de archivo. No hay
-que pasar por Archivo ▸ Abrir — suéltalo en cualquier parte de la ventana y la
+que pasar por Archivo ▸ Abrir… — suéltalo en cualquier parte de la ventana y la
 aplicación lo enruta **por tipo de archivo**, no por dónde en la ventana lo
 soltaste.
 

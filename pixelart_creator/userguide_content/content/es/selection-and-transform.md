@@ -32,7 +32,7 @@ trazos siguen recortados a la selección mientras pintas con otra herramienta.
 
 Mientras una de las tres herramientas de selección de arriba está activa,
 **Shift** y **Alt** significan algo distinto que en el resto del lienzo —
-consulta [Desplazar frente a construir una selección](#desplazar-frente-a-construir-una-seleccion)
+consulta [Desplazar frente a construir una selección](#panning-vs-building-a-selection)
 más abajo:
 
 | Modificador | Resultado con una herramienta de selección activa |
@@ -96,7 +96,7 @@ mover y copiar **durante** el arrastre pulsando o soltando Ctrl.
 | *sin modificador* | Levantar/**mover** la selección (el origen se vacía al confirmar) |
 | **Ctrl** | **Copiar** la selección (el origen se conserva) |
 | **Alt** | **Restar** de la selección (gesto de construcción) |
-| **Shift** | **Añadir** a la selección (gesto de construcción) — fuera de una herramienta de selección activa, **Shift+left-drag** desplaza el lienzo en vez de añadir; consulta [Desplazar frente a construir una selección](#desplazar-frente-a-construir-una-seleccion) más arriba. |
+| **Shift** | **Añadir** a la selección (gesto de construcción) — fuera de una herramienta de selección activa, **Shift+left-drag** desplaza el lienzo en vez de añadir; consulta [Desplazar frente a construir una selección](#panning-vs-building-a-selection) más arriba. |
 
 ## Confirmar o cancelar
 

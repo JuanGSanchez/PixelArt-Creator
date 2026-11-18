@@ -4,7 +4,7 @@ El **sistema de exportación** convierte un proyecto en los recursos que consume
 canalización de videojuego: un único **PNG**, un **GIF animado**, una **hoja de
 sprites** o un **atlas de texturas** empaquetado, cada uno con metadatos **JSON al
 estilo Aseprite** opcionales y **preajustes de motor** listos para usar en **Unity** y
-**Godot**. Puedes exportar un objetivo desde el diálogo de exportación, encolar
+**Godot**. Puedes exportar un destino desde el diálogo de exportación, encolar
 varios con el panel de lotes, o ejecutar todo el proceso sin interfaz gráfica desde
 la línea de comandos `pixelart-export` — y cada camino produce los **mismos bytes**.
 Abre el diálogo de exportación desde **Archivo ▸ Exportar…** o con **Ctrl+Shift+E**.
@@ -83,12 +83,12 @@ metadatos de disposición que la imagen.
 
 ## Exportación por lotes
 
-El **panel de exportación por lotes** encola **varios objetivos a la vez** — por
+El **panel de exportación por lotes** encola **varios destinos a la vez** — por
 ejemplo un PNG, un GIF y un atlas de Unity de un proyecto en una sola ejecución. La
-exportación por lotes **continúa ante un fallo**: si un objetivo falla (por ejemplo,
-un atlas que no cabe), los demás objetivos se siguen exportando y el fallo se informa
-solo para ese objetivo, así que un objetivo defectuoso nunca aborta el lote completo.
-El botón **Exportar todo** exporta el documento de la pestaña activa a cada objetivo
+exportación por lotes **continúa ante un fallo**: si un destino falla (por ejemplo,
+un atlas que no cabe), los demás destinos se siguen exportando y el fallo se informa
+solo para ese destino, así que un destino defectuoso nunca aborta el lote completo.
+El botón **Exportar todo** exporta el documento de la pestaña activa a cada destino
 encolado en una sola ejecución.
 
 ## Añadir una exportación a la biblioteca de recursos
@@ -109,8 +109,8 @@ que exportar una animación o un atlas grande nunca congela la ventana. La
 exportación es **de solo lectura** sobre tu documento: nunca lo muta y no apila
 ningún paso de deshacer.
 
-> **Cancelar un único objetivo grande.** Cancelar surte efecto entre objetivos con
-> prontitud; cancelar **a mitad de la codificación de un único objetivo grande** es
+> **Cancelar un único destino grande.** Cancelar surte efecto entre destinos con
+> prontitud; cancelar **a mitad de la codificación de un único destino grande** es
 > más grueso — la codificación en curso termina antes de que se observe la
 > cancelación.
 
@@ -154,8 +154,8 @@ archivos); `2` argumentos incorrectos o un proyecto de entrada malformado/ilegib
 - Salida **idéntica byte a byte entre máquinas** — la garantía de reproducibilidad
   byte a byte es de *mismo entorno* (una cadena de herramientas fijada); la cadena de
   herramientas de una máquina distinta puede producir bytes diferentes.
-- Cancelación **de grano fino a mitad de codificación** de un único objetivo grande —
-  la cancelación se observa entre objetivos, no a mitad de la codificación de uno.
+- Cancelación **de grano fino a mitad de codificación** de un único destino grande —
+  la cancelación se observa entre destinos, no a mitad de la codificación de uno.
 
 ## Temas relacionados
 

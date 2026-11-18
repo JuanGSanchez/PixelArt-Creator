@@ -146,14 +146,14 @@ tira — alternar entre ambas vistas nunca pierde tu posición.
   para copiarlo en su lugar, dejando el origen intacto. Ambas acciones son un único
   paso de deshacer. Este es un gesto **distinto** de **Ctrl+drag** en el lienzo, que
   sigue copiando una selección flotante — consulta
-  [Selección y movimiento/copia flotante](selection-and-transform.md#copiar-en-lugar-de-mover-manten-pulsado-ctrl)
+  [Selección y movimiento/copia flotante](selection-and-transform.md#copy-instead-of-move-hold-ctrl)
   — el modificador es el mismo, pero cuál se aplica depende de dónde arrastres.
 - **Confirmación de sobrescritura** — soltar sobre una celda que ya tiene contenido
   abre el diálogo **¿Sobrescribir celda existente?** pidiéndote confirmación
   antes de reemplazarlo. Marca su casilla
   **"No volver a preguntar para este proyecto"** para dejar de recibir esa
   pregunta el resto de este proyecto; consulta [Confirmaciones del
-  proyecto](#confirmaciones-del-proyecto) más abajo para volver a activarla.
+  proyecto](#project-confirmations) más abajo para volver a activarla.
 - **Alternar visibilidad por celda** — haz clic en el indicador de visibilidad de una
   celda para mostrar/ocultar la capa de ese fotograma; es un paso de deshacer, igual
   que el alternador de visibilidad en cualquier otro lugar.
@@ -180,7 +180,7 @@ individualmente.
 
 La tira de fotogramas responde a cuatro gestos de puntero modificados con
 **Ctrl**, además de los botones de la barra de herramientas de
-[Gestionar fotogramas](#gestionar-fotogramas) arriba:
+[Gestionar fotogramas](#managing-frames) arriba:
 
 | Gesto | Resultado |
 | --- | --- |
