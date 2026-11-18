@@ -174,7 +174,7 @@ geschehen, ist der als Nächstes beschriebene Echtzeit-Pfad.
 Beim gemeinsamen Bearbeiten in Echtzeit werden die Änderungen jeder teilnehmenden Person auf die
 Arbeitsfläche **jeder** anderen teilnehmenden Person angewendet, während sie geschehen, und konvergieren mit demselben
 deterministischen Modell wie die Stapel-Zusammenführung oben. Die Änderungen laufen über ein eigenes
-**Echtzeit-Sync-Backend** (siehe den Betriebshinweis am Ende).
+**Echtzeit-Sync-Backend** (siehe den Hinweis für Betreibende am Ende).
 
 > **In dieser Version nicht verbindbar.** Die Desktop-Anwendung hat keine Echtzeit-Verbindung konfiguriert,
 > sodass **Cloud ▸ Echtzeit starten…** (nachdem Sie eine Mitglieds-ID eingegeben haben) keiner Sitzung
@@ -270,7 +270,7 @@ zusammengeführt.*).
 
 <!-- split-with: docs/site/pages/en/usage/hosting.md (that page extracts and expands this section's deployment detail; this section stays the bundle's single mention) -->
 
-## Betriebshinweis: das Sync-Backend betreiben
+## Hinweis für Betreibende: das Sync-Backend betreiben
 
 Das gemeinsame Bearbeiten in Echtzeit braucht ein **Sync-Backend** – einen kleinen, eigenständigen Dienst, der
 Änderungen zwischen den Mitwirkenden weiterleitet und dauerhaft speichert. Es ist **nicht** Teil des
