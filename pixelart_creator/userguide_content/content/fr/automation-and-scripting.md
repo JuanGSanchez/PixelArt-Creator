@@ -99,7 +99,7 @@ code du plugin (voir la note ci-dessous).
   chaque plugin est de nouveau désactivé quand vous fermez l'éditeur. L'hôte de plugins est
   écrit de telle sorte que, si un appelant lui fournissait du code à exécuter lorsqu'un plugin est activé,
   ce code reçoive un objet de permissions. Un appel fait via cet objet, sans que la permission ait été
-  accordée, serait alors refusé ; rien dans cette version ne lui fournit un tel code. Les
+  accordée, serait alors refusé ; rien dans cette version ne fournit un tel code à l'hôte. Les
   opérations ajoutées via cet objet reçoivent le nom du plugin comme préfixe, de sorte qu'elles
   ne peuvent pas coïncider avec le nom d'une opération intégrée, et une permission de lecture
   via cet objet renvoie le document qui lui est transmis, et non une copie. Le code qui ne
