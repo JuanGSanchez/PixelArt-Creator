@@ -15,6 +15,17 @@ scratch ``sys.path`` only, writes a marker file when its module is imported;
 no marker after Enable proves the code did not run, and a control that loads
 the same entry point writes it.
 
+SC-L10N-UI-016-3: the prompt is shown in every interface language. With each of
+the eight languages active in turn and a plugin with a loaded manifest, Enable
+shows the text of that catalogue's finished translation of the prompt, with the
+plugin's name and its permission list (each permission named by that catalogue's
+finished translation of its name) in the two placeholders; the number of languages
+examined, 8, is printed. Neither earlier English source text of the prompt is a live
+message of any of the eight catalogues, and the English source message is the text
+whose SHA-256 the truth check recorded (a stale reading hashes differently). The
+expected text is read from each language's own ``.ts``, never from the code under
+test.
+
 Both themes (the suite's ``theme`` fixture applies to every case), offscreen.
 Nothing outside ``tmp_path`` is written, and no catalogue or product file is
 changed: the catalogue is only read.
@@ -22,12 +33,13 @@ changed: the catalogue is only read.
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import sys
 import xml.etree.ElementTree as ET
 from importlib import metadata
 from pathlib import Path
-from typing import Dict, Iterator, List
+from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
 import pytest
 from PySide6.QtWidgets import QFileDialog, QMessageBox
@@ -35,6 +47,11 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 import pixelart_creator
 from pixelart_creator.logic import plugins
 from pixelart_creator.logic.plugins import ENTRY_POINT_GROUP
+from pixelart_creator.ui.i18n import (
+    FALLBACK_LANGUAGE,
+    LanguageManager,
+    _default_translations_dir,
+)
 from pixelart_creator.ui.plugin_manager_panel import Plugin_Manager_Panel
 from testing.suites.ui._automation_helpers import write_manifest
 
@@ -357,3 +374,379 @@ def test_sc_l10n_ui_016_2_clause_5_control_loading_the_plugin_writes_the_marker(
     assert not probe_plugin["marker"].exists()
     points[0].load()
     assert probe_plugin["marker"].read_text() == "ran"
+
+
+# --------------------------------------------------------------------------- #
+# SC-L10N-UI-016-3: the prompt in every interface language                    #
+# --------------------------------------------------------------------------- #
+
+#: The languages the finished product ships (English included).
+EXPECTED_LANGUAGE_COUNT = 8
+LANGUAGES: Tuple[str, ...] = ("en", "es", "fr", "de", "ru", "zh_CN", "ko", "ja")
+
+#: The digest the truth check recorded for the English source message of the
+#: prompt (report ``agt08-consent-truth-r30.md`` section 5): the UTF-8 bytes of the
+#: unescaped text, both placeholders left in, four line feeds, no trailing newline.
+RECORDED_SHA256 = "19f52cf91aedea74481271c425af5d294004568d738b70c6b185d36f9a33974b"
+#: The digest the same report records for the round-17 text, which a stale reading
+#: would hash to.
+ROUND_17_SHA256 = "610042f122b1ff24248e2573e78529467c1ce3bd1e4bbb42086f4ee988a26978"
+
+#: The plugin the rows enable, and the permissions its manifest declares, in order,
+#: each with the English source message that names it in the catalogue.
+PLUGIN_NAME = "lang-probe"
+DECLARED = (
+    ("read_document", "Read the open document"),
+    ("write_via_command", "Change the document through the app's commands"),
+)
+BULLET = "• "
+
+#: The two earlier English source texts of the prompt (the "runs sandboxed" text and
+#: the one written to round 17's clause 3).
+EARLIER_TEXTS = (RUNS_SANDBOXED_TEXT, OWN_COMMANDS_TEXT)
+
+Message = Tuple[str, str, Optional[str], Optional[str]]
+
+
+def digest(text: str) -> str:
+    """Return the SHA-256 of ``text`` as the truth check hashed it (UTF-8)."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _folded(text: str) -> str:
+    """Return ``text`` with one kind of apostrophe and single spaces only."""
+    return " ".join(text.replace("’", "'").split())
+
+
+def _messages(code: str, directory: Optional[Path] = None) -> List[Message]:
+    """Return every message of a catalogue as (context, source, kind, text)."""
+    folder = directory if directory is not None else _default_translations_dir()
+    root = ET.parse(folder / f"pixelart_{code}.ts").getroot()
+    found: List[Message] = []
+    for context in root.iter("context"):
+        name = context.findtext("name") or ""
+        for message in context.iter("message"):
+            translation = message.find("translation")
+            kind = None if translation is None else translation.get("type")
+            text = None if translation is None else translation.text
+            found.append((name, message.findtext("source") or "", kind, text))
+    return found
+
+
+def _is_live(kind: Optional[str]) -> bool:
+    """Return whether a message of this translation kind is live in its catalogue."""
+    return kind not in ("obsolete", "vanished")
+
+
+def prompt_template(code: str, directory: Optional[Path] = None) -> str:
+    """Return the prompt's text in ``code``: the catalogue's, with both placeholders.
+
+    There must be exactly one live message of the panel's context that starts with
+    the prompt's opening. English shows its source; any other language shows the
+    entry's translation, which must be finished, with a text, hold each placeholder
+    once and differ from the English source.
+    """
+    hits = [
+        (source, kind, text)
+        for context, source, kind, text in _messages(code, directory)
+        if context == CONTEXT and source.startswith(OPENING) and _is_live(kind)
+    ]
+    assert len(hits) == 1, f"{code}: {len(hits)} live prompt messages: {hits!r}"
+    source, kind, text = hits[0]
+    if code == FALLBACK_LANGUAGE:
+        return source
+    assert text, f"{code}: the prompt has no translation text"
+    assert kind != "unfinished", f"{code}: the prompt is unfinished"
+    for placeholder in PLACEHOLDERS:
+        assert text.count(placeholder) == 1, f"{code}: {placeholder} not once: {text!r}"
+    assert text != source, f"{code}: the prompt is its English source"
+    return text
+
+
+def permission_name(code: str, source: str, directory: Optional[Path] = None) -> str:
+    """Return the catalogue's finished name of one permission in ``code``."""
+    hits = [
+        (kind, text)
+        for context, found, kind, text in _messages(code, directory)
+        if context == CONTEXT and found == source
+    ]
+    assert len(hits) == 1, f"{code}: {len(hits)} entries for {source!r}"
+    kind, text = hits[0]
+    if code == FALLBACK_LANGUAGE:
+        return source
+    assert text and kind != "unfinished", f"{code}: {source!r} is not finished"
+    return text
+
+
+def expected_prompt(code: str) -> str:
+    """Return the prompt the user must be shown in ``code`` for the probe plugin."""
+    listing = "\n".join(
+        BULLET + permission_name(code, source) for _value, source in DECLARED
+    )
+    template = prompt_template(code)
+    return template.replace("%1", PLUGIN_NAME).replace("%2", listing)
+
+
+def earlier_texts_live(
+    directory: Optional[Path] = None, codes: Sequence[str] = LANGUAGES
+) -> List[str]:
+    """Return a finding for each live message, in any catalogue, that is an old prompt.
+
+    A message is one of the earlier prompts when its source, with one kind of
+    apostrophe and single spaces, equals either earlier text so folded. A message
+    marked obsolete or vanished is not live, and an absent one is not found.
+    """
+    old = {_folded(text): text for text in EARLIER_TEXTS}
+    findings: List[str] = []
+    for code in codes:
+        for context, source, kind, _text in _messages(code, directory):
+            if _folded(source) in old and _is_live(kind):
+                findings.append(
+                    f"pixelart_{code}.ts: context {context}: the earlier prompt "
+                    f"{source[:40]!r}... is live (translation type {kind!r})"
+                )
+    return findings
+
+
+@pytest.fixture
+def language(qapp) -> Iterator[LanguageManager]:
+    """Hand out the app's own language manager; restore English afterwards."""
+    manager = LanguageManager(qapp)
+    try:
+        yield manager
+    finally:
+        manager.set_language(FALLBACK_LANGUAGE)
+
+
+def shown_prompt(
+    qtbot, monkeypatch, tmp_path: Path, manager: LanguageManager, code: str
+) -> str:
+    """Enable the probe plugin with ``code`` active; return the prompt it showed.
+
+    The plugin's manifest is a file under ``tmp_path`` loaded through the panel's
+    own install action, Enable is pressed on the real button, and the one question
+    box it raises is answered No, so nothing is enabled.
+    """
+    assert manager.set_language(code) is True, f"{code!r} did not load"
+    panel = Plugin_Manager_Panel()
+    qtbot.addWidget(panel)
+    manifest = write_manifest(
+        tmp_path / f"lang-probe-{code}.json",
+        name=PLUGIN_NAME,
+        capabilities=[value for value, _source in DECLARED],
+    )
+    _install(panel, monkeypatch, manifest)
+    shown = _answer(monkeypatch, QMessageBox.StandardButton.No)
+    assert panel._enable_button.isEnabled(), "Enable is not available for the probe"
+    panel._enable_button.click()
+    assert len(shown) == 1, f"{len(shown)} prompts were shown, not one: {shown!r}"
+    return shown[0]
+
+
+@pytest.mark.parametrize("code", LANGUAGES)
+def test_sc_l10n_ui_016_3_the_prompt_is_the_catalogue_text_with_both_filled(
+    qtbot, monkeypatch, tmp_path, language, code
+):
+    """SC-L10N-UI-016-3: Enable shows that catalogue's finished prompt, filled in.
+
+    With ``code`` active and the probe plugin's manifest loaded, the one prompt shown
+    equals the catalogue's text for the prompt with the plugin's name in ``%1`` and
+    the permission list (a bullet and that catalogue's finished name for each
+    declared permission, one per line) in ``%2``; no placeholder is left in it.
+    """
+    shown = shown_prompt(qtbot, monkeypatch, tmp_path, language, code)
+    expected = expected_prompt(code)
+    assert shown == expected, f"[{code}] shown {shown!r}, catalogue gives {expected!r}"
+    assert "%1" not in shown and "%2" not in shown, shown
+    assert shown.count(PLUGIN_NAME) == 1, shown
+
+
+def test_sc_l10n_ui_016_3_the_languages_examined_are_printed(
+    qtbot, monkeypatch, tmp_path, language, capsys
+):
+    """SC-L10N-UI-016-3: the run says how many of the eight languages it examined."""
+    examined: List[str] = []
+    for code in LANGUAGES:
+        shown = shown_prompt(qtbot, monkeypatch, tmp_path, language, code)
+        assert shown == expected_prompt(code), f"[{code}] {shown!r}"
+        examined.append(code)
+    line = (
+        f"languages examined: {len(examined)} of {EXPECTED_LANGUAGE_COUNT} {examined}; "
+        f"permissions per prompt: {len(DECLARED)}"
+    )
+    print(line)
+    with capsys.disabled():
+        print(f"[consent prompt] {line}")
+    assert len(examined) == EXPECTED_LANGUAGE_COUNT == 8
+    assert examined == list(LANGUAGES)
+
+
+def test_sc_l10n_ui_016_3_the_english_prompt_shown_is_the_source_message(
+    qtbot, monkeypatch, tmp_path, language
+):
+    """SC-L10N-UI-016-3: in English the prompt is the source message, filled in."""
+    shown = shown_prompt(qtbot, monkeypatch, tmp_path, language, "en")
+    assert shown.startswith(f"Enable {PLUGIN_NAME} and ")
+    listing = "\n".join(BULLET + name for _value, name in DECLARED)
+    assert shown == prompt_template("en").replace("%1", PLUGIN_NAME).replace(
+        "%2", listing
+    )
+
+
+@pytest.mark.parametrize("code", LANGUAGES)
+def test_sc_l10n_ui_016_3_each_catalogue_holds_one_live_prompt(code):
+    """SC-L10N-UI-016-3: one live prompt per catalogue, finished, both placeholders.
+
+    ``prompt_template`` is the oracle of the rows above; this case holds it to
+    account on its own, so a catalogue that lost, duplicated or left the message
+    unfinished is named without any window.
+    """
+    template = prompt_template(code)
+    assert template.count("%1") == 1 and template.count("%2") == 1, template
+
+
+def test_sc_l10n_ui_016_3_neither_earlier_english_text_is_live_in_any_catalogue(
+    capsys,
+):
+    """SC-L10N-UI-016-3: neither earlier English source text is a live message.
+
+    Each of the eight ``.ts`` files is read in full; a message whose source is the
+    "runs sandboxed" text or the round-17 text, live, is a finding. The number of
+    catalogues and of messages examined is printed and must be non-zero.
+    """
+    examined = {code: len(_messages(code)) for code in LANGUAGES}
+    line = (
+        f"catalogues examined: {len(examined)} of {EXPECTED_LANGUAGE_COUNT}; "
+        f"messages examined: {sum(examined.values())}; earlier texts: "
+        f"{len(EARLIER_TEXTS)}"
+    )
+    print(line)
+    with capsys.disabled():
+        print(f"[consent prompt] {line}")
+    assert len(examined) == EXPECTED_LANGUAGE_COUNT
+    assert all(count > 0 for count in examined.values()), examined
+    assert earlier_texts_live() == []
+
+
+def _scratch_catalogue(
+    folder: Path, code: str, source: str, kind: Optional[str], text: str = "x"
+) -> None:
+    """Write a one-message catalogue for ``code`` under ``folder`` (a scratch copy)."""
+    folder.mkdir(parents=True, exist_ok=True)
+    attr = "" if kind is None else f' type="{kind}"'
+
+    def escape(value: str) -> str:
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace("'", "&apos;")
+
+    (folder / f"pixelart_{code}.ts").write_text(
+        '<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE TS>\n'
+        f'<TS version="2.1" language="{code}"><context><name>{CONTEXT}</name>'
+        f"<message><source>{escape(source)}</source>"
+        f"<translation{attr}>{escape(text)}</translation>"
+        "</message></context></TS>\n",
+        encoding="utf-8",
+    )
+
+
+@pytest.mark.parametrize(
+    "which", range(len(EARLIER_TEXTS)), ids=["sandboxed", "round-17"]
+)
+def test_sc_l10n_ui_016_3_a_live_earlier_text_is_found_and_named(tmp_path, which):
+    """SC-L10N-UI-016-3 control: each earlier text, planted live, fails naming its file.
+
+    A scratch catalogue under ``tmp_path`` holds the earlier text as a live message
+    (unmarked, then marked ``unfinished``); the scan names the file and the context.
+    The same text marked ``obsolete`` or ``vanished`` is not live and is not found.
+    """
+    text = EARLIER_TEXTS[which]
+    for kind in (None, "unfinished"):
+        folder = tmp_path / f"live-{kind}"
+        _scratch_catalogue(folder, "de", text, kind)
+        findings = earlier_texts_live(folder, codes=("de",))
+        assert len(findings) == 1, findings
+        assert "pixelart_de.ts" in findings[0] and CONTEXT in findings[0], findings
+    for kind in ("obsolete", "vanished"):
+        folder = tmp_path / f"dead-{kind}"
+        _scratch_catalogue(folder, "de", text, kind)
+        assert earlier_texts_live(folder, codes=("de",)) == []
+
+
+def test_sc_l10n_ui_016_3_an_earlier_text_is_found_in_another_spelling(tmp_path):
+    """SC-L10N-UI-016-3 control: a curly apostrophe or a line break does not hide it."""
+    curly = OWN_COMMANDS_TEXT.replace("'", "’")
+    wrapped = RUNS_SANDBOXED_TEXT.replace(" ", "\n", 3)
+    for name, text in (("curly", curly), ("wrapped", wrapped)):
+        folder = tmp_path / name
+        _scratch_catalogue(folder, "ja", text, None)
+        assert len(earlier_texts_live(folder, codes=("ja",))) == 1, name
+
+
+def test_sc_l10n_ui_016_3_the_current_prompt_is_not_an_earlier_text(tmp_path):
+    """SC-L10N-UI-016-3 control: the current English source is not found as old."""
+    folder = tmp_path / "current"
+    _scratch_catalogue(folder, "fr", prompt_template("en"), None)
+    assert earlier_texts_live(folder, codes=("fr",)) == []
+
+
+def test_sc_l10n_ui_016_3_the_oracle_refuses_an_unfinished_or_missing_prompt(
+    tmp_path,
+):
+    """SC-L10N-UI-016-3 control: ``prompt_template`` fails on each broken catalogue.
+
+    Scratch catalogues under ``tmp_path``: the prompt unfinished, translated without
+    ``%2``, equal to its English source, and absent.
+    """
+    source = prompt_template("en")
+    cases = {
+        "unfinished": ("unfinished", source.replace("Enable", "Activer")),
+        "no-second-placeholder": (None, "Activer %1 et rien d'autre"),
+        "english-source": (None, source),
+    }
+    for name, (kind, text) in cases.items():
+        folder = tmp_path / name
+        _scratch_catalogue(folder, "fr", source, kind, text)
+        with pytest.raises(AssertionError):
+            prompt_template("fr", folder)
+    folder = tmp_path / "unfinished-empty"
+    _scratch_catalogue(folder, "fr", source, "unfinished", "")
+    with pytest.raises(AssertionError, match="no translation text"):
+        prompt_template("fr", folder)
+    folder = tmp_path / "absent"
+    _scratch_catalogue(folder, "fr", "Some other message", None)
+    with pytest.raises(AssertionError, match="0 live prompt messages"):
+        prompt_template("fr", folder)
+    folder = tmp_path / "good"
+    _scratch_catalogue(folder, "fr", source, None, "Activer %1 ? %2")
+    assert prompt_template("fr", folder) == "Activer %1 ? %2"
+
+
+def test_sc_l10n_ui_016_3_the_english_source_is_the_text_whose_digest_was_recorded(
+    qtbot, monkeypatch, tmp_path
+):
+    """SC-L10N-UI-016-3: the English source message hashes to the recorded digest.
+
+    Both readings of the one message are hashed: the source message of the English
+    catalogue and the source text the panel passes to ``tr()`` when Enable is chosen.
+    A stale reading hashes differently (the next case).
+    """
+    from_catalogue = prompt_template("en")
+    from_panel = panel_prompt_source(qtbot, monkeypatch, tmp_path)
+    assert digest(from_panel) == RECORDED_SHA256, f"the panel's text: {from_panel!r}"
+    assert digest(from_catalogue) == RECORDED_SHA256, f"catalogue: {from_catalogue!r}"
+    assert from_catalogue == from_panel
+
+
+def test_sc_l10n_ui_016_3_a_stale_reading_hashes_differently():
+    """SC-L10N-UI-016-3 control: an earlier text, a trailing line feed, a changed word.
+
+    The round-17 text reproduces its recorded digest (so the hashing is the truth
+    check's own), and it, the "runs sandboxed" text, the current text with a
+    trailing line feed and the current text with one letter changed all differ from
+    the recorded digest.
+    """
+    current = prompt_template("en")
+    assert digest(OWN_COMMANDS_TEXT) == ROUND_17_SHA256
+    assert digest(OWN_COMMANDS_TEXT) != RECORDED_SHA256
+    assert digest(RUNS_SANDBOXED_TEXT) != RECORDED_SHA256
+    assert digest(current + "\n") != RECORDED_SHA256
+    assert digest(current.replace("trust", "Trust")) != RECORDED_SHA256
