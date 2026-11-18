@@ -484,7 +484,7 @@ jobs:
         # catalogues and guide trees by the rules of REQ-L10N-DATA-004. On its
         # own it has one blind spot: a language whose catalogue is missing or
         # renamed simply produces no rule rows, and it still exits 0. This step
-        # closes that with a floor and two controls, all in one program below.
+        # closes that with a floor and three controls, all in one program below.
         #
         # THE FLOOR. The shipped set is the pixelart_<code>.qm files under
         # pixelart_creator/i18n (the product's own definition, see
@@ -495,7 +495,9 @@ jobs:
         # no-u202f for all; fr-nbsp and fr-num-unit for fr; ru-no-straight-quote
         # for ru; ko-no-han for ko; zh-fullwidth for zh_CN). For each guide
         # folder the guide surface must show no-u202f, plus the French, Russian
-        # and Korean rules for those languages. Each landing of a language
+        # and Korean rules for those languages, and the four Simplified Chinese
+        # rules for zh_CN (REQ-L10N-DATA-004; the page count of each is printed
+        # on its floor line, and is non-zero or the floor fails). Each landing of a language
         # therefore raises the floor by itself. The step prints both sets and
         # one line per floor entry, and names each missing (rule, surface,
         # language).
@@ -520,7 +522,21 @@ jobs:
         # found". The denominator (candidates, fr messages examined) and the
         # planted message, its unit and the form are printed on every run.
         #
-        # Both copies live under CI_TEMP_ROOT; nothing tracked is written.
+        # CONTROL (iii), planted, one defect per zh_CN guide rule. Applies once
+        # content/ holds a zh_CN folder; without one the checker itself exits 1
+        # on a guide run with no zh_CN page, so the real run above is red. The
+        # zh_CN tree is copied twice; the second copy gains one page of four
+        # paragraphs, each breaking exactly one of the four rules (a U+0020-less
+        # edge between Han and a Latin letter; a full-width mark against a Latin
+        # letter; a number and a listed unit with a space between; a trailing
+        # symbol closed against Han). The checker is run over each copy
+        # (--guide-root, --surface guide, --languages zh_CN). The unplanted copy
+        # must exit 0; the planted copy must exit 1, examine one more page under
+        # each of the four rules, and report exactly one more finding per rule,
+        # at the planted page and line, and exactly four more in all. Each rule's
+        # page count and finding count before and after are printed.
+        #
+        # Every copy lives under CI_TEMP_ROOT; nothing tracked is written.
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
@@ -561,6 +577,7 @@ jobs:
               "fr": ("fr-nbsp", "fr-num-unit"),
               "ru": ("ru-no-straight-quote",),
               "ko": ("ko-no-han",),
+              "zh": ("zh-space-han-latin", "zh-space-mark-latin", "zh-num-unit-closed", "zh-space-symbol"),
           }
           failures = []
 
@@ -808,10 +825,96 @@ jobs:
 
           control_planted()
 
+          # ---- control (iii), planted, one defect per zh_CN guide rule ----
+          print("control (iii), planted: one defect per zh_CN guide rule, in a copy of the zh_CN tree")
+          ZH_PLANT_PAGE = "zz-planted-control.md"
+          ZH_PLANTS = (
+              # (rule, the one paragraph that breaks it and no other); Han by code point
+              ("zh-space-han-latin", chr(0x4F7F) + chr(0x7528) + "F"),
+              ("zh-space-mark-latin", chr(0xFF08) + "A"),
+              ("zh-num-unit-closed", chr(0x5BBD) + " 3 px"),
+              ("zh-space-symbol", chr(0x8BBE) + chr(0x4E3A) + " 100%" + chr(0x7684)),
+          )
+
+
+          def run_zh_guide(guide_root):
+              command = [
+                  sys.executable, SCRIPT, "--guide-root", guide_root,
+                  "--surface", "guide", "--languages", "zh_CN", "--json",
+              ]
+              done = subprocess.run(
+                  command, cwd=ROOT, capture_output=True, text=True,
+                  encoding="utf-8", errors="replace",
+              )
+              try:
+                  parsed = json.loads(done.stdout)
+              except ValueError:
+                  parsed = None
+              return done.returncode, parsed, done.stderr.strip()
+
+
+          def control_zh_planted():
+              source = os.path.join(GUIDE, "zh_CN")
+              if not os.path.isdir(source):
+                  print("  not applicable: content/ has no zh_CN folder (the checker exits 1 on a guide run with no zh_CN page)")
+                  return
+              mark = len(failures)
+              lines = ["# Planted", ""]
+              placed = {}
+              for rule, paragraph in ZH_PLANTS:
+                  lines.append(paragraph)
+                  placed[rule] = len(lines)
+                  lines.append("")
+              unplanted_root = os.path.join(WORK, "zh-unplanted")
+              planted_root = os.path.join(WORK, "zh-planted")
+              for folder in (unplanted_root, planted_root):
+                  shutil.rmtree(folder, ignore_errors=True)
+                  shutil.copytree(source, os.path.join(folder, "zh_CN"))
+              with open(os.path.join(planted_root, "zh_CN", ZH_PLANT_PAGE), "wb") as handle:
+                  handle.write(("\n".join(lines) + "\n").encode("utf-8"))
+              base_code, base, base_err = run_zh_guide(unplanted_root)
+              plant_code, plant, plant_err = run_zh_guide(planted_root)
+              if base is None or plant is None:
+                  fail(f"control (iii): the checker wrote no readable report (unplanted exit {base_code}: {base_err}; planted exit {plant_code}: {plant_err})")
+                  return
+              print(f"  unplanted copy: exit {base_code}, {base['findings_total']} finding(s)")
+              print(f"  planted copy:   exit {plant_code}, {plant['findings_total']} finding(s)")
+              if base_code != 0:
+                  fail(f"control (iii): the checker on the unplanted zh_CN copy exited {base_code}, expected 0")
+              if plant_code != 1:
+                  fail(f"control (iii): the checker on the planted zh_CN copy exited {plant_code}, expected 1")
+              if plant["findings_total"] != base["findings_total"] + len(ZH_PLANTS):
+                  fail(f"control (iii): expected exactly {len(ZH_PLANTS)} more findings in all, got {plant['findings_total']} against {base['findings_total']}")
+              for rule, _paragraph in ZH_PLANTS:
+                  base_row = rule_row(base, rule, "guide", "zh_CN")
+                  plant_row = rule_row(plant, rule, "guide", "zh_CN")
+                  if base_row is None or plant_row is None:
+                      fail(f"control (iii): {rule} [guide] zh_CN was not read on the copies")
+                      continue
+                  place = f"zh_CN/{ZH_PLANT_PAGE}:{placed[rule]}"
+                  before = collections.Counter(f["where"] for f in base_row["findings"])
+                  extra = collections.Counter(f["where"] for f in plant_row["findings"]) - before
+                  print(
+                      f"  {rule}: planted at line {placed[rule]}, pages {base_row['examined']} -> {plant_row['examined']}, "
+                      f"findings {len(base_row['findings'])} -> {len(plant_row['findings'])}"
+                  )
+                  if plant_row["examined"] != base_row["examined"] + 1:
+                      fail(f"control (iii): {rule} examined {plant_row['examined']} page(s) on the planted copy against {base_row['examined']}, expected one more")
+                  if len(plant_row["findings"]) != len(base_row["findings"]) + 1 or extra != collections.Counter([place]):
+                      fail(f"control (iii): {rule}: expected exactly one more finding, at {place}; got {len(plant_row['findings'])} against {len(base_row['findings'])} ({', '.join(extra) or 'none new'})")
+                      continue
+                  detail = [f["detail"] for f in plant_row["findings"] if f["where"] == place][-1]
+                  print(f"    the new finding names {place}: {detail}")
+              if len(failures) == mark:
+                  print("  control (iii) OK")
+
+
+          control_zh_planted()
+
           if failures:
               print(f"Localisation typography step: {len(failures)} failure(s)")
               sys.exit(1)
-          print("Localisation typography step: checker clean, floor met, both controls behaved")
+          print("Localisation typography step: checker clean, floor met, all three controls behaved")
           PY
 
       - name: Exception text reaching the user (REQ-L10N-UI-018)

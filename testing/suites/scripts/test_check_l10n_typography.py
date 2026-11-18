@@ -35,18 +35,40 @@ is gone. The module's generic tests run every case against the real script (it
 must hold) and against each broken copy (it must raise an ``AssertionError``).
 The registry, the scratch-catalogue writer, the worklist builders and the edit
 types are imported from the sibling module for ``check_catalogues.py``.
+
+The four Simplified Chinese guide-page rules (a space between Han and a Latin
+letter or digit; a space between a full-width mark and a Latin letter, a digit
+or a number's symbol; a number written closed against a listed unit; a space
+after a number's trailing symbol before Han and before a symbol that opens a
+number) read the shown text the way the guide's soft-line-break module reads
+it, and the script loads that module from the ROOT it is given. So every
+fixture that holds a ``zh_CN`` page gets the module and the constants it
+imports copied into its scratch root (:func:`provide_softbreak`). Those rules
+exit 1 on a run that reaches the guide surface and finds no ``zh_CN`` page, so
+every other guide fixture that expects exit 0 also holds one clean ``zh_CN``
+page (:meth:`Tree.chinese_page`).
+
+A verbatim quotation of an interface message is exempt from all four of those
+rules (SC-L10N-DATA-004-16, ``REQ-L10N-DATA-004``): the script reads the
+``zh_CN`` catalogue of the catalogue folder it is given, and the cases plant the
+scenario's four finished messages there (:data:`QUOTE_MESSAGES`), put each of
+the scenario's eight lines on a ``zh_CN`` page, and judge the exit code, the
+findings and the quotations the report lists with their page, line and source
+text, in the JSON and in the text report.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import NamedTuple
 
 import pytest
 
-from .conftest import SCRIPTS_DIR, ScriptRun
+from .conftest import REPO_ROOT, SCRIPTS_DIR, ScriptRun
 from .test_check_catalogues import (
     CHECK,
     Case,
@@ -91,6 +113,11 @@ ZH_OPEN = "\u6253\u5f00\u6587\u4ef6"
 
 CAT_DIR = "pixelart_creator/i18n"
 GUIDE_DIR = "pixelart_creator/userguide_content/content"
+ZH_LANGUAGE = "zh_CN"
+#: The product files the soft-line-break module needs beside it in a scratch root.
+SOFTBREAK_FILES = ("guide_softbreak.py", "constants.py")
+#: A ``zh_CN`` page every Chinese rule reads and none of them objects to.
+CLEAN_ZH_PAGE = "# 标题\n\n使用 F1 键。\n"
 
 
 def ty(old: str, new: str) -> Edit:
@@ -136,11 +163,43 @@ class Tree(NamedTuple):
         return put(self.root, CAT_DIR, code, messages, **options)
 
     def page(self, language: str, name: str, text: str) -> Path:
-        """Write one guide page of ``language`` as UTF-8 bytes."""
+        """Write one guide page of ``language`` as UTF-8 bytes.
+
+        A ``zh_CN`` page is read through the soft-line-break module, so the
+        first one written also makes that module reachable from the root.
+        """
+        if language == ZH_LANGUAGE:
+            provide_softbreak(self.root)
         path = self.root / GUIDE_DIR / language / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(text.encode("utf-8"))
         return path
+
+    def chinese_page(self) -> Path:
+        """Write one clean ``zh_CN`` page, so the Chinese rules have a page to read."""
+        return self.page(ZH_LANGUAGE, "companion.md", CLEAN_ZH_PAGE)
+
+
+def provide_softbreak(root: Path) -> None:
+    """Make the product's soft-line-break module importable from a scratch root.
+
+    The script loads ``pixelart_creator/logic/guide_softbreak.py`` by path from
+    the root it is given and that module imports the product's constants, so
+    both are copied (as bytes) beside empty package markers. A copy of the
+    script made elsewhere cannot fall back on the product that holds it, which
+    is why the fixture carries its own.
+    """
+    package = root / "pixelart_creator"
+    logic = package / "logic"
+    logic.mkdir(parents=True, exist_ok=True)
+    for folder in (package, logic):
+        marker = folder / "__init__.py"
+        if not marker.exists():
+            marker.write_bytes(b"")
+    for name in SOFTBREAK_FILES:
+        target = logic / name
+        if not target.exists():
+            shutil.copyfile(REPO_ROOT / "pixelart_creator" / "logic" / name, target)
 
 
 def endonym_module(endonyms: dict[str, str]) -> str:
@@ -238,9 +297,15 @@ def only_catalogue(
 def only_page(
     tools: Tools, work: Path, label: str, language: str, text: str, *args: str
 ) -> tuple[ScriptRun, dict]:
-    """Scan a root holding one guide page and nothing else."""
+    """Scan a root holding one guide page of ``language`` and nothing else.
+
+    The Chinese rules fail a guide run that has no ``zh_CN`` page, so a page of
+    another language comes with one clean ``zh_CN`` page beside it.
+    """
     tree = build_tree(work / label)
     tree.page(language, "index.md", text)
+    if language != ZH_LANGUAGE:
+        tree.chinese_page()
     return scan(tools, tree, *args)
 
 
@@ -495,6 +560,7 @@ def case_the_french_rule_counts_marks_and_guillemet_sides_together(
         else:
             tree = build_tree(work / label)
             tree.page("fr", "index.md", f"# Aide\n\n{content}\n")
+            tree.chinese_page()
         run, payload = scan(tools, tree)
         unit = row(payload, "fr-nbsp", surface, "fr")
         assert unit["sub_counts"] == {"guillemet sides": sides, "marks": marks}, label
@@ -536,6 +602,7 @@ def case_no_narrow_no_break_space_anywhere(tools: Tools, work: Path) -> None:
     tree.catalogue("de", [Msg("Open", "\u00d6ffnen")])
     tree.catalogue("es", [Msg("Open", "Abrir")])
     tree.page("de", "index.md", "# Hilfe\n\nText.\n")
+    tree.chinese_page()
     run, payload = scan(tools, tree)
     assert_clean(run, payload)
     assert row(payload, "no-u202f", "catalogue", "de")["files"] == 1
@@ -554,6 +621,7 @@ def case_no_narrow_no_break_space_anywhere(tools: Tools, work: Path) -> None:
 
     guide = build_tree(work / "guide")
     page = guide.page("de", "index.md", f"# Hilfe\n\nEin{NNBSP}Text.\n")
+    guide.chinese_page()
     run, payload = scan(tools, guide)
     assert run.returncode == 1, (run.stdout, run.stderr)
     unit = row(payload, "no-u202f", "guide", "de")
@@ -678,6 +746,7 @@ def case_a_narrow_no_break_space_is_found_in_every_spelling(
     plain = len(bodies)
     lines = "\n\n".join(f"{body}." for body in bodies)
     page = guide.page("de", "index.md", f"# Hilfe\n\n{lines}\n")
+    guide.chinese_page()
     run, payload = scan(tools, guide, "--surface", "guide")
     assert run.returncode == 1, (run.stdout, run.stderr)
     unit = row(payload, "no-u202f", "guide", "de")
@@ -697,6 +766,7 @@ def case_a_narrow_no_break_space_is_found_in_every_spelling(
     )
     lines = "\n\n".join(f"Ein{each}Text." for each in [*near, NNBSP_UNCLOSED])
     clean.page("de", "index.md", f"# Hilfe\n\n{lines}\n")
+    clean.chinese_page()
     run, payload = scan(tools, clean)
     assert_clean(run, payload)
     assert row(payload, "no-u202f", "catalogue", "de")["examined"] == 1
@@ -1408,6 +1478,7 @@ def case_the_surface_and_the_languages_select_what_is_scanned(
     tree.catalogue("fr", [Msg("Open?", f"Ouvrir{NBSP}?")])
     tree.catalogue("de", [Msg("Open", "\u00d6ffnen")])
     tree.page("fr", "index.md", "# Aide\n\nOuvrir?\n")
+    tree.chinese_page()
     run, payload = scan(tools, tree)
     assert run.returncode == 1, (run.stdout, run.stderr)
     assert details(row(payload, "fr-nbsp", "guide", "fr")) == [
@@ -1433,6 +1504,7 @@ def case_the_surface_and_the_languages_select_what_is_scanned(
 
     only_guide = build_tree(work / "guide-only")
     only_guide.page("fr", "index.md", f"# Aide\n\nOuvrir{NBSP}?\n")
+    only_guide.chinese_page()
     run, payload = scan(tools, only_guide)
     assert_clean(run, payload)
     assert payload["surfaces"] == ["guide"]
@@ -1712,8 +1784,8 @@ def num_unit_rows(payload: dict) -> list:
     mutant(
         "pairs-not-printed",
         ty(
-            '        if row["rule"] == "fr-num-unit" and parts:\n',
-            "        if False:\n",
+            '        if row["rule"] in ("fr-num-unit", *ZH_RULE_NAMES) and parts:\n',
+            '        if row["rule"] in ZH_RULE_NAMES and parts:\n',
         ),
     ),
     mutant(
@@ -1791,6 +1863,7 @@ def case_the_french_number_unit_rule_examines_entries_and_counts_pairs_apart(
     other = build_tree(work / "de")
     other.catalogue("de", [Msg("Size", "Gr\u00f6\u00dfe 5 px")])
     other.page("de", "index.md", "# Hilfe\n\nBreite 5 px.\n")
+    other.chinese_page()
     run, payload = scan(tools, other)
     assert_clean(run, payload)
     assert num_unit_rows(payload) == [], payload["rules"]
@@ -2041,6 +2114,7 @@ def case_the_french_guide_counts_pages_and_names_the_line_of_a_number_unit(
     quiet = build_tree(work / "quiet")
     quiet.page("fr", "index.md", f"# Aide\n\nOuvrir le fichier{NBSP}?\n")
     quiet.page("fr", "tools/pen.md", f"# Crayon\n\nFermer{NBSP}!\n")
+    quiet.chinese_page()
     run, payload = scan(tools, quiet)
     assert_clean(run, payload)
     unit = row(payload, "fr-num-unit", "guide", "fr")
@@ -2055,6 +2129,7 @@ def case_the_french_guide_counts_pages_and_names_the_line_of_a_number_unit(
     held.page("fr", "tools/code.md", f"# Code\n\nTapez `5 px` ici{NBSP}!\n")
     held.page("fr", "tools/link.md", "# Lien\n\nVoir [la page](a 5 px b).\n")
     held.page("fr", "tools/fence.md", "# Bloc\n\n```\nlargeur 5 px\n```\n")
+    held.chinese_page()
     run, payload = scan(tools, held)
     assert_clean(run, payload)
     unit = row(payload, "fr-num-unit", "guide", "fr")
@@ -2085,6 +2160,7 @@ def case_the_french_guide_counts_pages_and_names_the_line_of_a_number_unit(
 
     other = build_tree(work / "other")
     other.page("de", "index.md", "# Hilfe\n\nBreite 5 px.\n")
+    other.chinese_page()
     run, payload = scan(tools, other)
     assert_clean(run, payload)
     assert num_unit_rows(payload) == [], payload["rules"]
@@ -2224,6 +2300,1458 @@ def case_every_listed_unit_and_number_form_is_matched_and_no_count_noun_is(
     assert_clean(run, payload)
     assert "fr_num_unit_units" not in payload
     assert "fr-num-unit" not in text_of(tools, other).stdout
+
+
+# --------------------------------------------------------------------------- #
+# Simplified Chinese guide pages: the four half-width space rules.
+#
+# Each example below is one fixture page: line 3 holds the text, the run covers
+# the guide surface, and the page's findings are judged rule by rule. A space
+# that matters is written with a name (NBSP, IDEOGRAPHIC, DOUBLED); an ordinary
+# space is an ordinary space. ``\n`` in a text is a soft line break.
+# --------------------------------------------------------------------------- #
+IDEOGRAPHIC = "\u3000"
+FULLWIDTH_THREE = "\uff13"
+FULLWIDTH_RGBA = "\uff32\uff27\uff22\uff21"
+FULLWIDTH_CTRL = "\uff23\uff54\uff52\uff4c"
+ZH_HEAD = "# \u6807\u9898\n\n"
+ZH_PAGE = "page.md"
+ZH_WHERE = f"{ZH_LANGUAGE}/{ZH_PAGE}"
+
+ZH_HAN_LATIN = "zh-space-han-latin"
+ZH_MARK_LATIN = "zh-space-mark-latin"
+ZH_UNIT = "zh-num-unit-closed"
+ZH_SYMBOL = "zh-space-symbol"
+ZH_RULE_ROWS = (ZH_HAN_LATIN, ZH_MARK_LATIN, ZH_UNIT, ZH_SYMBOL)
+
+ZH_UNIT_LIST = ["px"]
+ZH_TRAILING_LIST = ["%", "\u00b0"]
+ZH_OPENING_LIST = ["\u00b1"]
+
+#: A backslash and the letter ``u``: how the script's own source spells a code
+#: point. The anchors that quote that source join it to the digits, so that this
+#: file holds no word-backslash-word text for the path-portability check to read
+#: as a path separator.
+ESCAPE_U = "\\u"
+
+NOTHING_BETWEEN = "nothing stands between them"
+MORE_THAN_ONE = "more than one space character"
+HIDES = "the guide hides"
+SHOWN_AS_SPACE = "shows as a space"
+
+
+class Found(NamedTuple):
+    """A finding an example expects: its rule and the words of its detail, in order."""
+
+    rule: str
+    words: tuple[str, ...]
+
+
+class Example(NamedTuple):
+    """One example: line 3 of the page, its findings and the edges it must count."""
+
+    text: str
+    found: tuple[Found, ...]
+    counts: tuple[int, ...]
+
+
+class Scenario(NamedTuple):
+    """What a group of examples measures: a rule, its sub-counts and printed lists.
+
+    ``summed`` says that the examples give one number, the total of the rule's
+    sub-counts, instead of one number per sub-count.
+    """
+
+    rule: str
+    parts: tuple[str, ...]
+    summed: bool = False
+    lists: tuple[tuple[str, list[str]], ...] = ()
+
+
+def ok(text: str, *counts: int) -> Example:
+    """Build an example the rules accept, with the edges they must count."""
+    return Example(text, (), counts)
+
+
+def bad(text: str, counts: tuple[int, ...], *found: Found) -> Example:
+    """Build an example that exits 1 with exactly ``found``."""
+    return Example(text, found, counts)
+
+
+def at(rule: str, *words: str) -> Found:
+    """Build a finding of ``rule`` whose detail holds ``words``, in this order."""
+    return Found(rule, words)
+
+
+def in_order(detail: str, words: tuple[str, ...]) -> bool:
+    """Return whether every word occurs in ``detail``, each after the one before."""
+    start = 0
+    for word in words:
+        start = detail.find(word, start)
+        if start < 0:
+            return False
+        start += len(word)
+    return True
+
+
+# Simplified Chinese guide pages put one space between a Han character and a
+# Latin letter or a digit. Counts: the edges.
+HAN_LATIN_SCENARIO = Scenario(ZH_HAN_LATIN, ("edges",))
+HAN_LATIN_EXAMPLES = [
+    ok("使用 **F1** 键", 2),
+    ok("RGBA 值", 1),
+    ok("共 3 个", 2),
+    ok("共\n3 个", 2),
+    ok("使用 `RGBA` 值", 2),
+    bad(
+        "使用**F1**键",
+        (2,),
+        at(ZH_HAN_LATIN, "用", "F", NOTHING_BETWEEN),
+        at(ZH_HAN_LATIN, "1", "键", NOTHING_BETWEEN),
+    ),
+    bad(f"RGBA{DOUBLED}值", (1,), at(ZH_HAN_LATIN, "A", "值", MORE_THAN_ONE)),
+    bad(f"RGBA{NBSP}值", (1,), at(ZH_HAN_LATIN, "A", "值", "U+00A0")),
+    bad(f"RGBA{IDEOGRAPHIC}值", (1,), at(ZH_HAN_LATIN, "A", "值", "U+3000")),
+    bad(
+        "使用`RGBA`值",
+        (2,),
+        at(ZH_HAN_LATIN, "用", "R", NOTHING_BETWEEN),
+        at(ZH_HAN_LATIN, "A", "值", NOTHING_BETWEEN),
+    ),
+    ok(f"共 {FULLWIDTH_THREE} 个", 2),
+    ok(f"使用 {FULLWIDTH_RGBA} 值", 2),
+    bad(
+        f"共{FULLWIDTH_THREE}个",
+        (2,),
+        at(ZH_HAN_LATIN, "共", FULLWIDTH_THREE, NOTHING_BETWEEN),
+        at(ZH_HAN_LATIN, FULLWIDTH_THREE, "个", NOTHING_BETWEEN),
+    ),
+    bad(
+        f"共\n{FULLWIDTH_THREE} 个",
+        (2,),
+        at(ZH_HAN_LATIN, "共", FULLWIDTH_THREE, HIDES),
+    ),
+]
+
+# ... between a full-width mark and a Latin letter or a digit. Counts: the mark
+# edges and the symbol edges together.
+MARK_LATIN_SCENARIO = Scenario(
+    ZH_MARK_LATIN, ("mark edges", "symbol edges"), summed=True
+)
+MARK_LATIN_EXAMPLES = [
+    ok("撤销， Ctrl+Y 重做", 1),
+    ok("颜色模式（ RGBA ）", 2),
+    ok("“ RGBA ”", 2),
+    ok("第 1 、 2 步", 2),
+    ok("撤销， **Ctrl+Y**", 1),
+    ok(f"撤销， {FULLWIDTH_CTRL}", 1),
+    ok("的，然后", 0),
+    ok("选择 ‘RGBA’ 模式", 0),
+    bad("撤销，Ctrl+Y 重做", (1,), at(ZH_MARK_LATIN, "，", "C", NOTHING_BETWEEN)),
+    bad(
+        "颜色模式（RGBA）",
+        (2,),
+        at(ZH_MARK_LATIN, "（", "R", NOTHING_BETWEEN),
+        at(ZH_MARK_LATIN, "A", "）", NOTHING_BETWEEN),
+    ),
+    bad(
+        "（3）",
+        (2,),
+        at(ZH_MARK_LATIN, "（", "3", NOTHING_BETWEEN),
+        at(ZH_MARK_LATIN, "3", "）", NOTHING_BETWEEN),
+    ),
+    bad(f"撤销，{NBSP}Ctrl+Y", (1,), at(ZH_MARK_LATIN, "，", "C", "U+00A0")),
+    bad(f"撤销，{IDEOGRAPHIC}Ctrl+Y", (1,), at(ZH_MARK_LATIN, "，", "C", "U+3000")),
+    bad(f"撤销，{DOUBLED}Ctrl+Y", (1,), at(ZH_MARK_LATIN, "，", "C", MORE_THAN_ONE)),
+    bad("撤销，`Ctrl+Y`", (1,), at(ZH_MARK_LATIN, "，", "C", NOTHING_BETWEEN)),
+    bad(
+        "撤销，\nCtrl+Y 重做",
+        (1,),
+        at(ZH_MARK_LATIN, "，", "C", HIDES, "clause 4"),
+    ),
+    bad(
+        f"撤销，\n{FULLWIDTH_CTRL}",
+        (1,),
+        at(ZH_MARK_LATIN, "，", FULLWIDTH_CTRL[0], HIDES, "clause 2"),
+    ),
+    ok("设为 100% ，然后", 1),
+    ok("（ 100% ）", 2),
+    bad("设为 100%，然后", (1,), at(ZH_MARK_LATIN, "%", "，", NOTHING_BETWEEN)),
+    bad(
+        "（±5）",
+        (2,),
+        at(ZH_MARK_LATIN, "（", "±", NOTHING_BETWEEN),
+        at(ZH_MARK_LATIN, "5", "）", NOTHING_BETWEEN),
+    ),
+]
+
+# ... a number is written closed against a unit of the printed list (px). Counts:
+# the number+unit pairs.
+UNIT_SCENARIO = Scenario(
+    ZH_UNIT, ("pairs",), lists=(("zh_num_unit_units", ZH_UNIT_LIST),)
+)
+UNIT_EXAMPLES = [
+    ok("宽度 3px", 1),
+    ok("宽度 1.5px", 1),
+    ok("宽度 3 像素", 0),
+    bad("宽度 3 px", (1,), at(ZH_UNIT, "3 px", "U+0020")),
+    bad(f"宽度 3{NBSP}px", (1,), at(ZH_UNIT, "3", "px", "U+00A0")),
+    bad("宽度 3\npx", (1,), at(ZH_UNIT, "3", "px", SHOWN_AS_SPACE)),
+    ok("宽度 `3 px`", 0),
+    ok("宽度 3 个", 0),
+]
+
+# ... one space after a number's trailing symbol before Han, and before a symbol
+# that opens a number. Counts: the trailing-symbol edges, the opening-symbol edges.
+SYMBOL_SCENARIO = Scenario(
+    ZH_SYMBOL,
+    ("trailing-symbol edges", "opening-symbol edges"),
+    lists=(
+        ("zh_trailing_symbols", ZH_TRAILING_LIST),
+        ("zh_opening_symbols", ZH_OPENING_LIST),
+    ),
+)
+SYMBOL_EXAMPLES = [
+    ok("设为 100% 的不透明度", 1, 0),
+    ok("旋转 90° 后", 1, 0),
+    ok("设为 100%\n的不透明度", 1, 0),
+    bad("设为 100%的不透明度", (1, 0), at(ZH_SYMBOL, "%", "的", NOTHING_BETWEEN)),
+    bad("旋转 90°后", (1, 0), at(ZH_SYMBOL, "°", "后", NOTHING_BETWEEN)),
+    bad(f"设为 100%{NBSP}的", (1, 0), at(ZH_SYMBOL, "%", "的", "U+00A0")),
+    bad(f"设为 100%{IDEOGRAPHIC}的", (1, 0), at(ZH_SYMBOL, "%", "的", "U+3000")),
+    bad("宽 3px的画笔", (0, 0), at(ZH_HAN_LATIN, "x", "的", NOTHING_BETWEEN)),
+    bad("旋转 90°\n后", (1, 0), at(ZH_SYMBOL, "°", "后", HIDES, "clause 3")),
+    bad("误差约\n±5", (0, 1), at(ZH_SYMBOL, "约", "±", HIDES, "clause 3")),
+    ok("误差约 ±5", 0, 1),
+    bad("误差约±5", (0, 1), at(ZH_SYMBOL, "约", "±", NOTHING_BETWEEN)),
+]
+
+
+def check_example(
+    tools: Tools, work: Path, scenario: Scenario, example: Example
+) -> None:
+    """Run the guide surface over one page and judge the report against ``example``.
+
+    Exit code, the findings of each of the four rules (the rule, the page, the
+    line, the words naming the edge), one page examined by every rule, the
+    sub-counts of the scenario's own rule and the printed lists.
+    """
+    tree = build_tree(work)
+    tree.page(ZH_LANGUAGE, ZH_PAGE, f"{ZH_HEAD}{example.text}\n")
+    run, payload = scan(tools, tree, "--surface", "guide")
+    expected = len(example.found)
+    assert run.returncode == (1 if expected else 0), (run.stdout, run.stderr)
+    assert payload["findings_total"] == expected, payload["rules"]
+    assert payload["rules_examining_nothing"] == 0, payload["rules"]
+    for rule in ZH_RULE_ROWS:
+        unit = row(payload, rule, "guide", ZH_LANGUAGE)
+        assert unit["examined"] == 1 and unit["files"] == 1, unit
+        assert unit["nothing_examined"] is False, unit
+        wanted = [item for item in example.found if item.rule == rule]
+        assert len(unit["findings"]) == len(wanted), (rule, unit["findings"])
+        for finding, want in zip(unit["findings"], wanted):
+            place, _, line = finding["where"].rpartition(":")
+            assert place == ZH_WHERE, finding
+            assert 3 <= int(line) <= 3 + example.text.count("\n"), finding
+            if "\n" not in example.text:
+                assert int(line) == 3, finding
+            assert in_order(finding["detail"], want.words), (want.words, finding)
+    sub = row(payload, scenario.rule, "guide", ZH_LANGUAGE)["sub_counts"]
+    if scenario.summed:
+        assert set(scenario.parts) <= set(sub), sub
+        assert (sum(sub.values()),) == example.counts, sub
+    else:
+        assert set(sub) == set(scenario.parts), sub
+        assert tuple(sub[part] for part in scenario.parts) == example.counts, sub
+    for key, listed in scenario.lists:
+        assert payload[key] == listed, (key, payload.get(key))
+
+
+def check_examples(
+    tools: Tools,
+    work: Path,
+    label: str,
+    scenario: Scenario,
+    examples: list[Example],
+) -> None:
+    """Judge every example, in parallel, and name every one that fails.
+
+    One report per scenario instead of one failure at the first example makes a
+    broken copy name all the rows it breaks.
+    """
+
+    def one(item: tuple[int, Example]) -> str:
+        number, example = item
+        try:
+            check_example(tools, work / f"{label}-{number}", scenario, example)
+        except Exception as error:  # every kind of failure is a failed example
+            return f"example {number} {example.text!r}: {str(error)[:260]}"
+        return ""
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        failures = [text for text in pool.map(one, enumerate(examples, 1)) if text]
+    assert not failures, f"{len(failures)} example(s) failed:\n" + "\n".join(failures)
+
+
+def judged(rule: str, count: str) -> str:
+    """Return the line of the script that judges an edge counted under ``count``."""
+    return f'                self.judge("{rule}", "{count}", left, right, gap)\n'
+
+
+def counted(count: str) -> str:
+    """Return a line that counts the edge and never judges it."""
+    return f'                self.counts["{count}"] += 1\n'
+
+
+#: The mutants that damage the shared reading of a gap, whichever rule asks.
+NBSP_ACCEPTED = mutant(
+    "no-break-space-accepted",
+    ty(
+        '    if cell.kind == "soft" or cell.char == ZH_SPACE:\n',
+        '    if cell.kind == "soft" or cell.char in (ZH_SPACE, "\\u00a0"):\n',
+    ),
+)
+IDEOGRAPHIC_ACCEPTED = mutant(
+    "ideographic-space-accepted",
+    ty(
+        '    if cell.kind == "soft" or cell.char == ZH_SPACE:\n',
+        '    if cell.kind == "soft" or cell.char in (ZH_SPACE, "\\u3000"):\n',
+    ),
+)
+DOUBLED_ACCEPTED = mutant(
+    "doubled-space-accepted",
+    ty("\n    if len(gap) > 1:\n", "\n    if len(gap) > 5:\n"),
+)
+HIDDEN_BREAKS_IGNORED = mutant(
+    "hidden-breaks-read-as-shown-spaces",
+    ty(
+        "            hidden = soft is not None and soft.removed\n",
+        "            hidden = False\n",
+    ),
+)
+EVERY_BREAK_HIDDEN = mutant(
+    "every-break-hidden",
+    ty(
+        "            hidden = soft is not None and soft.removed\n",
+        "            hidden = soft is not None\n",
+    ),
+)
+OTHER_LANGUAGES_BREAKS = mutant(
+    "breaks-decided-for-another-language",
+    ty(
+        "        b.line: b for b in module.apply_soft_break_rule("
+        "text, ZH_LANGUAGE).breaks\n",
+        "        b.line: b for b in module.apply_soft_break_rule("
+        'text, "en").breaks\n',
+    ),
+)
+CODE_SPAN_EDGES_NOT_TEXT = mutant(
+    "code-span-edges-not-text",
+    ty('                kinds[at] = "T"\n', '                kinds[at] = "M"\n'),
+)
+FULLWIDTH_DIGIT_NOT_DIGIT = mutant(
+    "full-width-digit-not-a-digit",
+    ty(
+        '    return unicodedata.category(char) == "Nd"\n',
+        '    return unicodedata.category(char) == "Nd" and char.isascii()\n',
+    ),
+)
+FULLWIDTH_LATIN_NOT_LATIN = mutant(
+    "full-width-latin-not-latin",
+    ty(
+        "        return index >= 0 and code <= self.latin[index][1]\n",
+        "        return index >= 0 and code <= self.latin[index][1]"
+        " and char.isascii()\n",
+    ),
+)
+
+
+@REGISTRY.regression(
+    mutant(
+        "han-latin-edges-not-judged",
+        ty(
+            judged("zh-space-han-latin", "edges"),
+            counted("edges"),
+        ),
+    ),
+    HIDDEN_BREAKS_IGNORED,
+    EVERY_BREAK_HIDDEN,
+    CODE_SPAN_EDGES_NOT_TEXT,
+    FULLWIDTH_DIGIT_NOT_DIGIT,
+    FULLWIDTH_LATIN_NOT_LATIN,
+    NBSP_ACCEPTED,
+    IDEOGRAPHIC_ACCEPTED,
+    DOUBLED_ACCEPTED,
+)
+def case_a_chinese_page_puts_one_space_between_han_and_a_latin_letter_or_digit(
+    tools: Tools, work: Path
+) -> None:
+    """Han beside a Latin letter or a digit takes exactly one U+0020, either order.
+
+    The fourteen examples of the scenario, one page each: the spaced forms exit
+    0 (a soft line break the guide shows counts as the one space, a full-width
+    letter or digit is a Latin letter or a digit); the others exit 1 naming the
+    page, line 3 and the edge, and the kind of gap (nothing, two spaces,
+    U+00A0, U+3000, a code span's first or last character, a soft line break
+    the guide hides). The edges found are the rule's sub-count.
+    """
+    assert len(HAN_LATIN_EXAMPLES) == 14
+    check_examples(tools, work, "han", HAN_LATIN_SCENARIO, HAN_LATIN_EXAMPLES)
+
+
+@REGISTRY.regression(
+    mutant(
+        "mark-edges-not-judged",
+        ty(
+            judged("zh-space-mark-latin", "mark edges"),
+            counted("mark edges"),
+        ),
+    ),
+    mutant(
+        "symbol-edges-not-judged",
+        ty(
+            judged("zh-space-mark-latin", "symbol edges"),
+            counted("symbol edges"),
+        ),
+    ),
+    mutant(
+        "curly-quotes-not-marks",
+        ty(
+            "    if char in ZH_QUOTES:\n        return True\n",
+            "    if False:\n        return True\n",
+        ),
+    ),
+    mutant(
+        "single-quotes-are-marks",
+        ty(
+            f'ZH_QUOTES = "{ESCAPE_U}201c{ESCAPE_U}201d"\n',
+            f'ZH_QUOTES = "{ESCAPE_U}201c{ESCAPE_U}201d{ESCAPE_U}2018{ESCAPE_U}2019"\n',
+        ),
+    ),
+    HIDDEN_BREAKS_IGNORED,
+    OTHER_LANGUAGES_BREAKS,
+    CODE_SPAN_EDGES_NOT_TEXT,
+    FULLWIDTH_LATIN_NOT_LATIN,
+    NBSP_ACCEPTED,
+    IDEOGRAPHIC_ACCEPTED,
+    DOUBLED_ACCEPTED,
+)
+def case_a_chinese_page_spaces_a_full_width_mark_from_a_latin_letter_or_digit(
+    tools: Tools, work: Path
+) -> None:
+    """A full-width mark beside Latin, a digit or a number's symbol takes one space.
+
+    The twenty-one examples of the scenario. The curly double quotes are marks
+    for this rule and the single ones are not; there is no rule between a mark
+    and Han; emphasis delimiters are not characters; a code span's first
+    character is text; a soft line break the guide hides after a mark (by the
+    mark's own clause, or by the full-width letter's) is a finding; a number's
+    symbol beside a mark takes the space as well.
+    """
+    assert len(MARK_LATIN_EXAMPLES) == 21
+    check_examples(tools, work, "mark", MARK_LATIN_SCENARIO, MARK_LATIN_EXAMPLES)
+
+
+@REGISTRY.regression(
+    mutant(
+        "pair-spacing-passes",
+        ty(
+            "            if not gap:\n                continue\n",
+            "            continue\n",
+        ),
+    ),
+    mutant("unit-list-empty", ty('ZH_NUM_UNITS = ("px",)\n', "ZH_NUM_UNITS = ()\n")),
+    mutant(
+        "pairs-inside-a-code-span-examined",
+        ty(
+            "            if len(owners) == 1 and 0 not in owners:\n",
+            "            if False:\n",
+        ),
+    ),
+    EVERY_BREAK_HIDDEN,
+)
+def case_a_chinese_page_writes_a_number_closed_against_a_listed_unit(
+    tools: Tools, work: Path
+) -> None:
+    """``3px`` is closed; any space inside it, or a shown soft break, is a finding.
+
+    The eight examples of the scenario. The unit list (px) is printed, a unit
+    written in Han takes the Han rule's space instead, a Han classifier is not
+    a unit (0 pairs), and the inside of a code span is not examined.
+    """
+    assert len(UNIT_EXAMPLES) == 8
+    check_examples(tools, work, "unit", UNIT_SCENARIO, UNIT_EXAMPLES)
+
+
+@REGISTRY.regression(
+    mutant(
+        "trailing-symbol-edges-not-judged",
+        ty(
+            judged("zh-space-symbol", "trailing-symbol edges"),
+            counted("trailing-symbol edges"),
+        ),
+    ),
+    mutant(
+        "opening-symbol-edges-not-judged",
+        ty(
+            judged("zh-space-symbol", "opening-symbol edges"),
+            counted("opening-symbol edges"),
+        ),
+    ),
+    mutant(
+        "degree-not-a-trailing-symbol",
+        ty(
+            'ZH_TRAILING_SYMBOLS = ("%", "\\u00b0")\n',
+            'ZH_TRAILING_SYMBOLS = ("%",)\n',
+        ),
+    ),
+    mutant(
+        "plus-minus-not-an-opening-symbol",
+        ty('ZH_OPENING_SYMBOLS = ("\\u00b1",)\n', "ZH_OPENING_SYMBOLS = ()\n"),
+    ),
+    mutant(
+        "han-latin-edges-not-judged",
+        ty(
+            judged("zh-space-han-latin", "edges"),
+            counted("edges"),
+        ),
+    ),
+    HIDDEN_BREAKS_IGNORED,
+    EVERY_BREAK_HIDDEN,
+    NBSP_ACCEPTED,
+    IDEOGRAPHIC_ACCEPTED,
+)
+def case_a_chinese_page_spaces_a_numbers_symbols_from_the_han_beside_them(
+    tools: Tools, work: Path
+) -> None:
+    """One space after ``%`` or ``\u00b0`` before Han, and before ``\u00b1`` after Han.
+
+    The twelve examples of the scenario. Both symbol lists are printed. A Latin
+    unit before Han (``3px`` then Han) is the Han rule's edge, not this
+    rule's. A soft line break the guide hides at a spaced edge is a finding and
+    one it shows counts as the space.
+    """
+    assert len(SYMBOL_EXAMPLES) == 12
+    check_examples(tools, work, "symbol", SYMBOL_SCENARIO, SYMBOL_EXAMPLES)
+
+
+# --------------------------------------------------------------------------- #
+# The scope of the four rules, and what they print.
+# --------------------------------------------------------------------------- #
+#: The text of the four scenarios' first failing rows, which a page that is not
+#: ``zh_CN`` or a catalogue message may hold without a finding.
+OFFENDING = ["使用**F1**键", "撤销，Ctrl+Y", "宽度 3 px", "设为 100%的不透明度"]
+
+
+@REGISTRY.regression(
+    mutant(
+        "ja-pages-also-scanned",
+        ty(
+            "    if language == ZH_LANGUAGE:\n"
+            "        scan_zh_page(text, rel, tally, root)\n",
+            '    if language in (ZH_LANGUAGE, "ja"):\n'
+            "        scan_zh_page(text, rel, tally, root)\n",
+        ),
+    ),
+    mutant(
+        "every-language-scanned",
+        ty(
+            "    if language == ZH_LANGUAGE:\n"
+            "        scan_zh_page(text, rel, tally, root)\n",
+            "    if True:\n        scan_zh_page(text, rel, tally, root)\n",
+        ),
+    ),
+)
+def case_the_chinese_rules_read_zh_cn_guide_pages_only(
+    tools: Tools, work: Path
+) -> None:
+    """A ``ja`` page, a page of another language or a ``zh_CN`` message is not examined.
+
+    The same text that fails on a ``zh_CN`` guide page (the first failing row
+    of each of the four scenarios) sits in a ``ja`` page, an English page, a
+    Spanish page and two ``zh_CN`` catalogue messages: exit 0, and every
+    Chinese rule examined exactly the one ``zh_CN`` page.
+    """
+    tree = build_tree(work / "scope")
+    tree.chinese_page()
+    prose = "\n\n".join(OFFENDING)
+    for language in ("ja", "en", "es"):
+        tree.page(language, "index.md", f"{ZH_HEAD}{prose}\n")
+    messages = [Msg(f"Text {n}", text) for n, text in enumerate(OFFENDING[:2])]
+    tree.catalogue(ZH_LANGUAGE, messages)
+    run, payload = scan(tools, tree)
+    assert_clean(run, payload)
+    for rule in ZH_RULE_ROWS:
+        unit = row(payload, rule, "guide", ZH_LANGUAGE)
+        assert unit["examined"] == 1 and unit["files"] == 1, unit
+        assert unit["findings"] == [], unit
+    stray = [
+        (r["rule"], r["surface"], r["language"])
+        for r in payload["rules"]
+        if r["rule"] in ZH_RULE_ROWS
+        and (r["surface"], r["language"]) != ("guide", "zh_CN")
+    ]
+    assert stray == [], stray
+    assert row(payload, "zh-fullwidth", "catalogue", ZH_LANGUAGE)["examined"] == 2
+
+
+@REGISTRY.regression(
+    mutant(
+        "chinese-rules-not-declared",
+        ty("                declare_zh_units(tally)\n", "                pass\n"),
+    ),
+    mutant(
+        "blind-rule-passes",
+        ty(
+            "    code = EXIT_FINDINGS if total or"
+            " blind or examined == 0 else EXIT_OK\n",
+            "    code = EXIT_FINDINGS if total else EXIT_OK\n",
+        ),
+    ),
+    mutant(
+        "blind-rule-unnamed",
+        ty('        if row["nothing_examined"]:\n', "        if False:\n"),
+    ),
+)
+def case_a_guide_run_with_no_zh_cn_page_exits_1_saying_nothing_examined(
+    tools: Tools, work: Path
+) -> None:
+    """Each of the four rules, with no ``zh_CN`` page to read, examines nothing.
+
+    A guide with only a ``ja`` page, a guide whose ``zh_CN`` folder holds no
+    page and a guide of French and Japanese pages all exit 1, and each of the
+    four rules prints its row with 0 pages and 0 edges and then
+    ``nothing examined``. The same tree with one clean ``zh_CN`` page exits 0.
+    """
+    only_ja = build_tree(work / "only-ja")
+    only_ja.page("ja", "index.md", f"{ZH_HEAD}{OFFENDING[0]}\n")
+    empty = build_tree(work / "empty-folder")
+    empty.page("ja", "index.md", f"{ZH_HEAD}{OFFENDING[0]}\n")
+    (empty.root / GUIDE_DIR / ZH_LANGUAGE).mkdir(parents=True)
+    french = build_tree(work / "fr-and-ja")
+    french.page("fr", "index.md", f"# Aide\n\nOuvrir{NBSP}?\n")
+    french.page("ja", "index.md", f"{ZH_HEAD}{OFFENDING[0]}\n")
+    for label, tree in (("only-ja", only_ja), ("empty", empty), ("fr-ja", french)):
+        run, payload = scan(tools, tree)
+        assert run.returncode == 1, (label, run.stdout, run.stderr)
+        blind = {r["rule"] for r in payload["rules"] if r["nothing_examined"]}
+        assert set(ZH_RULE_ROWS) <= blind, (label, payload["rules"])
+        text = text_of(tools, tree)
+        assert text.returncode == 1, (label, text.stdout, text.stderr)
+        lines = text.stdout.splitlines()
+        for rule in ZH_RULE_ROWS:
+            unit = row(payload, rule, "guide", ZH_LANGUAGE)
+            assert unit["examined"] == 0 and unit["nothing_examined"] is True, unit
+            assert set(unit["sub_counts"].values()) == {0}, unit
+            head = f"{rule} [guide] "
+            printed = [n for n, line in enumerate(lines) if line.startswith(head)]
+            assert len(printed) == 1, (label, rule, text.stdout)
+            assert "examined 0 page(s)" in lines[printed[0]], lines[printed[0]]
+            assert lines[printed[0] + 1] == "  nothing examined", (label, text.stdout)
+    only_ja.chinese_page()
+    run, payload = scan(tools, only_ja)
+    assert_clean(run, payload)
+
+
+def printed_counts(stdout: str, rule: str) -> tuple[int, dict[str, int], int]:
+    """Return ``(pages, sub-counts, findings)`` from the printed row of ``rule``."""
+    pattern = re.compile(
+        rf"^{re.escape(rule)} \[guide\] zh_CN: examined (\d+) page\(s\)"
+        r"(?: \((.*)\))?, (\d+) finding\(s\)$",
+        re.MULTILINE,
+    )
+    found = pattern.findall(stdout)
+    assert len(found) == 1, (rule, stdout)
+    pages, parts, findings = found[0]
+    counts = {}
+    for part in filter(None, parts.split(", ")):
+        name, _, number = part.rpartition(" ")
+        counts[name] = int(number)
+    return int(pages), counts, int(findings)
+
+
+def printed_list(stdout: str, marker: str) -> str:
+    """Return the one printed line that holds ``marker``."""
+    lines = [line for line in stdout.splitlines() if marker in line]
+    assert len(lines) == 1, (marker, stdout)
+    return lines[0]
+
+
+#: Line 3 of a page whose edges are all spaced as the rules want, by hand:
+#: Han beside Latin or a digit 4, marks beside Latin or a digit 2, one closed
+#: pair, one trailing symbol before Han and one opening symbol after Han.
+COUNTED_TEXT = "设为 100% 的 A ，宽 3px 约 ±5 。"
+
+
+@REGISTRY.regression(
+    mutant(
+        "chinese-lists-not-printed",
+        ty(
+            '    if any(row["rule"] in ZH_RULE_NAMES for row in report["rules"]):\n'
+            "        print_zh_lists(report, out)\n",
+            '    if any(row["rule"] in ZH_RULE_NAMES for row in report["rules"]):\n'
+            "        pass\n",
+        ),
+    ),
+    mutant(
+        "chinese-sub-counts-not-printed",
+        ty(
+            '        if row["rule"] in ("fr-num-unit", *ZH_RULE_NAMES) and parts:\n',
+            '        if row["rule"] == "fr-num-unit" and parts:\n',
+        ),
+    ),
+    mutant(
+        "chinese-rows-count-items",
+        ty(
+            '        if row["rule"] in ZH_RULE_NAMES:\n            unit = "page(s)"\n',
+            '        if row["rule"] in ZH_RULE_NAMES:\n            unit = "item(s)"\n',
+        ),
+    ),
+    mutant(
+        "unit-list-reported-empty",
+        ty(
+            '        report["zh_num_unit_units"] = list(ZH_NUM_UNITS)\n',
+            '        report["zh_num_unit_units"] = []\n',
+        ),
+    ),
+    mutant(
+        "trailing-list-reported-empty",
+        ty(
+            '        report["zh_trailing_symbols"] = list(ZH_TRAILING_SYMBOLS)\n',
+            '        report["zh_trailing_symbols"] = []\n',
+        ),
+    ),
+    mutant(
+        "opening-list-reported-empty",
+        ty(
+            '        report["zh_opening_symbols"] = list(ZH_OPENING_SYMBOLS)\n',
+            '        report["zh_opening_symbols"] = []\n',
+        ),
+    ),
+)
+def case_the_chinese_rules_print_their_pages_sub_counts_and_lists(
+    tools: Tools, work: Path
+) -> None:
+    """The report gives the pages examined, each rule's edges and the three lists.
+
+    Two ``zh_CN`` pages (the clean companion and one with known edges) are
+    counted by hand. The text report prints, per rule, the pages examined with
+    the sub-counts beside them (and 0 where there are none), and the unit list,
+    the trailing-symbol list and the opening-symbol list each with its length;
+    a page with a finding prints it at ``<page>:<line>``.
+    """
+    tree = build_tree(work / "counted")
+    tree.page(ZH_LANGUAGE, ZH_PAGE, f"{ZH_HEAD}{COUNTED_TEXT}\n")
+    tree.chinese_page()
+    run, payload = scan(tools, tree, "--surface", "guide")
+    assert_clean(run, payload)
+    text = text_of(tools, tree, "--surface", "guide")
+    assert text.returncode == 0, (text.stdout, text.stderr)
+    expected = {
+        ZH_HAN_LATIN: {"edges": 6},
+        ZH_MARK_LATIN: {"mark edges": 2, "symbol edges": 0},
+        ZH_UNIT: {"pairs": 1},
+        ZH_SYMBOL: {"trailing-symbol edges": 1, "opening-symbol edges": 1},
+    }
+    for rule, counts in expected.items():
+        assert printed_counts(text.stdout, rule) == (2, counts, 0), (rule, text.stdout)
+        assert row(payload, rule, "guide", ZH_LANGUAGE)["sub_counts"] == counts
+    assert re.search(r"\(1\): px$", printed_list(text.stdout, f"{ZH_UNIT} units"))
+    trailing = printed_list(text.stdout, "trailing symbols")
+    assert re.search(r"\(2\): %, \u00b0$", trailing), trailing
+    opening = printed_list(text.stdout, "opening symbols")
+    assert re.search(r"\(1\): \u00b1$", opening), opening
+    assert payload["zh_num_unit_units"] == ZH_UNIT_LIST
+    assert payload["zh_trailing_symbols"] == ZH_TRAILING_LIST
+    assert payload["zh_opening_symbols"] == ZH_OPENING_LIST
+
+    failing = build_tree(work / "failing")
+    failing.page(ZH_LANGUAGE, "bad.md", f"{ZH_HEAD}{OFFENDING[0]}\n")
+    text = text_of(tools, failing, "--surface", "guide")
+    assert text.returncode == 1, (text.stdout, text.stderr)
+    assert printed_counts(text.stdout, ZH_HAN_LATIN) == (1, {"edges": 2}, 2)
+    named = [x for x in text.stdout.splitlines() if x.startswith("  zh_CN/bad.md:3: ")]
+    assert len(named) == 2, text.stdout
+
+
+# --------------------------------------------------------------------------- #
+# A verbatim quotation of an interface message (SC-L10N-DATA-004-16).
+#
+# The planted ``zh_CN`` catalogue holds the scenario's four finished messages:
+# M1 with the page's quotation marks inside it, M2 with a placeholder, M3 with
+# no wording at all, M4 with one space. Each example is line 3 of a ``zh_CN``
+# page; the run covers the guide surface; every one of the four Chinese rules
+# judges it. A quotation is listed with its page, its line and the source text
+# of the message it quotes.
+# --------------------------------------------------------------------------- #
+ZH_LQ = "\u201c"
+ZH_RQ = "\u201d"
+QUOTE_M1 = Msg("Merged into the main branch", f"已合并到{ZH_LQ}main{ZH_RQ}分支")
+QUOTE_M2 = Msg("Export %1 frames", "导出%1帧")
+QUOTE_M3 = Msg("%1: %2", "%1: %2")
+QUOTE_M4 = Msg("Export as PNG", "导出为 PNG")
+QUOTE_MESSAGES = [QUOTE_M1, QUOTE_M2, QUOTE_M3, QUOTE_M4]
+QUOTE_CATALOGUE = "pixelart_zh_CN.ts"
+#: The finished messages the script reads, and the ones that quote some wording
+#: (M3 holds none, so three of the four).
+QUOTE_FINISHED = 4
+QUOTE_QUOTABLE = 3
+QUOTE_HEADING = re.compile(
+    r"zh quotations exempted from all four rules \((\d+)\), (\S+): "
+    r"(\d+) finished message\(s\) read, (\d+) quotable"
+)
+
+
+class QuoteRow(NamedTuple):
+    """One row of the scenario: line 3, the findings it expects, what it quotes."""
+
+    text: str
+    found: tuple[Found, ...]
+    quoted: tuple[Msg, ...]
+    #: Whether the row also judges the messages the report says it read and could
+    #: quote: the row whose reason is that one message holds no wording.
+    reads: bool = False
+
+
+QUOTE_ROWS = [
+    # 1. The marks beside main are the message's own.
+    QuoteRow(f"界面显示：已合并到{ZH_LQ}main{ZH_RQ}分支。", (), (QUOTE_M1,)),
+    # 2. One character differs: not verbatim, judged whole.
+    QuoteRow(
+        f"界面显示：已合并至{ZH_LQ}main{ZH_RQ}分支。",
+        (
+            at(ZH_MARK_LATIN, "between ", ZH_LQ, " and m: ", NOTHING_BETWEEN),
+            at(ZH_MARK_LATIN, "between n and ", ZH_RQ, NOTHING_BETWEEN),
+        ),
+        (),
+    ),
+    # 3. The shown text equals the message; the hidden break is inside it.
+    QuoteRow(f"界面显示：已合并到{ZH_LQ}\nmain{ZH_RQ}分支。", (), (QUOTE_M1,)),
+    # 4. The placeholder matches 12.
+    QuoteRow("状态栏显示：导出12帧。", (), (QUOTE_M2,)),
+    # 5. M3 holds no wording: it exempts nothing.
+    QuoteRow(
+        "比值为3: 4倍",
+        (
+            at(ZH_HAN_LATIN, "between ", "为", " and 3: ", NOTHING_BETWEEN),
+            at(ZH_HAN_LATIN, "between 4 and ", "倍", NOTHING_BETWEEN),
+        ),
+        (),
+        reads=True,
+    ),
+    # 6. The page's own mark is outside the quotation (M4).
+    QuoteRow(
+        f"选择{ZH_LQ}导出为 PNG{ZH_RQ}。",
+        (at(ZH_MARK_LATIN, "between G and ", ZH_RQ, NOTHING_BETWEEN),),
+        (QUOTE_M4,),
+    ),
+    # 7. The same with the one space the mark needs.
+    QuoteRow(f"选择{ZH_LQ}导出为 PNG {ZH_RQ}。", (), (QUOTE_M4,)),
+    # 8. Outside the quotation the rules apply as before.
+    QuoteRow(
+        f"共3个，已合并到{ZH_LQ}main{ZH_RQ}分支",
+        (
+            at(ZH_HAN_LATIN, "between ", "共", " and 3: ", NOTHING_BETWEEN),
+            at(ZH_HAN_LATIN, "between 3 and ", "个", NOTHING_BETWEEN),
+        ),
+        (QUOTE_M1,),
+    ),
+]
+
+
+def quote_tree(work: Path, pages: dict[str, str]) -> Tree:
+    """Build a root with the planted ``zh_CN`` catalogue and one page per entry.
+
+    ``pages`` maps a page name to what follows its two-line heading.
+    """
+    tree = build_tree(work)
+    tree.catalogue(ZH_LANGUAGE, QUOTE_MESSAGES)
+    for name, text in pages.items():
+        tree.page(ZH_LANGUAGE, name, f"{ZH_HEAD}{text}\n")
+    return tree
+
+
+def item_key(item: dict) -> tuple[str, int]:
+    """Return the sort key of a listed quotation: its page and its line."""
+    return item["page"], item["line"]
+
+
+def quote_items(quoted: list[tuple[str, int, Msg]]) -> list[dict]:
+    """Return the report items of ``(page, line, message)`` quotations, as sorted."""
+    items = [{"page": p, "line": n, "source": m.source} for p, n, m in quoted]
+    return sorted(items, key=item_key)
+
+
+def judge_quote_report(
+    payload: dict, quoted: list[tuple[str, int, Msg]], reads: bool = False
+) -> None:
+    """Judge what a JSON report says of the quotations it exempted.
+
+    The number exempted on the block and on each of the four rules' rows, the
+    items (page, line, source text of the message), and, when ``reads`` is set,
+    the messages read and the ones that can be quoted.
+    """
+    block = payload.get("zh_quotations")
+    assert block is not None, "no zh_quotations block in the report"
+    wanted = {
+        "catalogue": QUOTE_CATALOGUE,
+        "exempted": len(quoted),
+        "items": quote_items(quoted),
+    }
+    if reads:
+        wanted["finished_messages"] = QUOTE_FINISHED
+        wanted["quotable_messages"] = QUOTE_QUOTABLE
+    got = {key: block.get(key) for key in wanted}
+    got["items"] = sorted(got["items"] or [], key=item_key)
+    assert got == wanted, block
+    for rule in ZH_RULE_ROWS:
+        unit = row(payload, rule, "guide", ZH_LANGUAGE)
+        assert unit.get("quotations_exempted") == len(quoted), unit
+
+
+def judge_quote_text(
+    stdout: str, quoted: list[tuple[str, int, Msg]], reads: bool = False
+) -> None:
+    """Judge what the text report prints of the quotations it exempted.
+
+    One heading with the number (0 included), and then one line per quotation
+    with its page, line and the message's source text; no other message's
+    source text is printed as a quotation.
+    """
+    lines = stdout.splitlines()
+    heads = [found for found in map(QUOTE_HEADING.fullmatch, lines) if found]
+    assert len(heads) == 1, stdout
+    count, name, finished, quotable = heads[0].groups()
+    assert (int(count), name) == (len(quoted), QUOTE_CATALOGUE), heads[0].string
+    if reads:
+        assert (int(finished), int(quotable)) == (
+            QUOTE_FINISHED,
+            QUOTE_QUOTABLE,
+        ), stdout
+    expected = sorted(f"  {p}:{n}: {m.source}" for p, n, m in quoted)
+    printed = sorted(
+        line
+        for line in lines
+        if any(line.endswith(f": {message.source}") for message in QUOTE_MESSAGES)
+    )
+    assert printed == expected, (printed, expected)
+
+
+def check_quote_row(tools: Tools, work: Path, example: QuoteRow) -> None:
+    """Judge one row of the scenario on both reports.
+
+    Exit code; the findings of each of the four rules with the page and line 3
+    and the words that name the edge; one page examined by every rule; and the
+    quotations, in the JSON and in the text.
+    """
+    tree = quote_tree(work, {ZH_PAGE: example.text})
+    run, payload = scan(tools, tree, "--surface", "guide")
+    expected = len(example.found)
+    assert run.returncode == (1 if expected else 0), (run.stdout, run.stderr)
+    assert payload["findings_total"] == expected, payload["rules"]
+    assert payload["rules_examining_nothing"] == 0, payload["rules"]
+    for rule in ZH_RULE_ROWS:
+        unit = row(payload, rule, "guide", ZH_LANGUAGE)
+        assert unit["examined"] == 1 and unit["files"] == 1, unit
+        wanted = [item for item in example.found if item.rule == rule]
+        assert len(unit["findings"]) == len(wanted), (rule, unit["findings"])
+        for finding, want in zip(unit["findings"], wanted):
+            assert finding["where"] == f"{ZH_WHERE}:3", finding
+            assert in_order(finding["detail"], want.words), (want.words, finding)
+    quoted = [(ZH_WHERE, 3, message) for message in example.quoted]
+    judge_quote_report(payload, quoted, example.reads)
+    text = text_of(tools, tree, "--surface", "guide")
+    assert text.returncode == run.returncode, (text.stdout, text.stderr)
+    judge_quote_text(text.stdout, quoted, example.reads)
+
+
+def check_quote_rows(tools: Tools, work: Path, rows: tuple[int, ...] = ()) -> None:
+    """Judge the scenario's rows (all of them, or the numbered ones), in parallel.
+
+    Every row that fails is named, so that a broken copy shows which rows it
+    breaks.
+    """
+    assert len(QUOTE_ROWS) == 8
+    chosen = [(n, QUOTE_ROWS[n - 1]) for n in (rows or range(1, 9))]
+
+    def one(item: tuple[int, QuoteRow]) -> str:
+        number, example = item
+        try:
+            check_quote_row(tools, work / f"row-{number}", example)
+        except Exception as error:  # every kind of failure is a failed row
+            return f"row {number} {example.text!r}: {str(error)[:260]}"
+        return ""
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        failures = [text for text in pool.map(one, chosen) if text]
+    assert not failures, f"{len(failures)} row(s) failed:\n" + "\n".join(failures)
+
+
+#: A copy that exempts what lies one character beyond the quotation: the page's
+#: own mark beside it (row 6).
+QUOTE_MARKS_EXEMPT = mutant(
+    "edge-with-the-pages-own-mark-exempt",
+    ty(
+        "            if a <= first and last <= b:\n",
+        "            if a - 1 <= first and last <= b + 1:\n",
+    ),
+)
+#: A copy that exempts every edge of a paragraph that holds a quotation (rows 6
+#: and 8).
+QUOTE_PARAGRAPH_EXEMPT = mutant(
+    "paragraph-holding-a-quotation-exempt",
+    ty(
+        "            self.quote = self.inside(keep[index], keep[index + 1])\n",
+        "            self.quote = 0 if self.runs else -1\n",
+    ),
+)
+#: A copy that reads a message without wording as a quotation of something (the
+#: only trace of it in the report is the count of messages that can be quoted).
+QUOTE_NO_WORDING_PASSES = mutant(
+    "wording-free-message-counts-as-quotable",
+    ty(
+        "    return texts, any(char.isalpha() for char in outside)\n",
+        "    return texts, True\n",
+    ),
+)
+#: The same copy, whose message with no wording also takes the longest run for
+#: each placeholder at its edge, so that it exempts the whole of row 5's page.
+QUOTE_NO_WORDING_EXEMPTS = mutant(
+    "wording-free-message-exempts-the-whole-run",
+    ty(
+        "    return texts, any(char.isalpha() for char in outside)\n",
+        "    return texts, True\n",
+    ),
+    ty('ZH_ANY_RUN = r"[^\\ufffc]+?"\n', 'ZH_ANY_RUN = r"[^\\ufffc]+"\n'),
+)
+#: A copy that accepts a run that differs from the message by one character
+#: (row 2): any one character of the message may be another one.
+QUOTE_NEAR_VERBATIM = mutant(
+    "run-differing-by-one-character-accepted",
+    ty(
+        "                pattern = re.compile("
+        "ZH_ANY_RUN.join(re.escape(p) for p in pieces))\n",
+        "                pattern = re.compile(ZH_ANY_RUN.join("
+        '"(?:" + "|".join(re.escape(p[:i]) + "." + re.escape(p[i + 1 :]) '
+        'for i in range(len(p))) + ")" for p in pieces))\n',
+    ),
+    ty(
+        "                probe = max(pieces, key=len)\n",
+        "                probe = max(pieces, key=len)[:2]\n",
+    ),
+)
+
+
+@REGISTRY.regression(
+    QUOTE_MARKS_EXEMPT,
+    QUOTE_PARAGRAPH_EXEMPT,
+    QUOTE_NO_WORDING_PASSES,
+    QUOTE_NO_WORDING_EXEMPTS,
+    QUOTE_NEAR_VERBATIM,
+    mutant(
+        "quotations-never-loaded",
+        ty(
+            "                load_zh_quotes(tally, folder, catalogues)\n",
+            "                pass\n",
+        ),
+    ),
+    mutant(
+        "numbered-placeholder-is-literal-text",
+        ty("(?:n|[1-9][0-9]?)", "(?:n|z)"),
+    ),
+    mutant(
+        "hidden-break-kept-in-the-shown-text",
+        ty(
+            '        if cell.kind != "hidden":\n            chars.append(cell.char)\n',
+            '        if True:\n            chars.append(cell.char or "\\n")\n',
+        ),
+    ),
+)
+def case_a_verbatim_quotation_of_a_message_is_not_judged_by_the_chinese_rules(
+    tools: Tools, work: Path
+) -> None:
+    """The eight rows of SC-L10N-DATA-004-16, with M1 to M4 planted.
+
+    Rows 1, 3, 4 and 7 exit 0 with one quotation (the marks beside main are the
+    message's; the shown text equals the message with a hidden break inside it;
+    the placeholder matches 12; the mark's space). Row 2 differs by one
+    character, so it is not verbatim and exits 1 after the mark and before the
+    other. Row 5 quotes a message with no wording and exempts nothing. Row 6
+    exits 1 naming only the page's own mark, row 8 names the two edges outside
+    its quotation.
+    """
+    check_quote_rows(tools, work)
+
+
+@REGISTRY.regression(
+    mutant(
+        "quotation-block-not-printed",
+        ty(
+            "    if quoted:\n"
+            '        where = quoted["catalogue"] or "no zh_CN catalogue read"\n',
+            "    if False:\n"
+            '        where = quoted["catalogue"] or "no zh_CN catalogue read"\n',
+        ),
+    ),
+    mutant(
+        "quotation-items-not-printed",
+        ty('        for item in quoted["items"]:\n', "        for item in []:\n"),
+    ),
+    mutant(
+        "quotation-count-printed-as-zero",
+        ty("rules ({quoted['exempted']}), ", "rules (0), "),
+    ),
+    mutant(
+        "quotation-line-not-printed",
+        ty(
+            "print(f\"  {item['page']}:{item['line']}: {source}\", file=out)",
+            "print(f\"  {item['page']}: {source}\", file=out)",
+        ),
+    ),
+    mutant(
+        "quotation-source-not-printed",
+        ty(
+            "print(f\"  {item['page']}:{item['line']}: {source}\", file=out)",
+            "print(f\"  {item['page']}:{item['line']}:\", file=out)",
+        ),
+    ),
+    mutant(
+        "quotation-not-reported-in-json",
+        ty('        report["zh_quotations"] = {\n', '        report["quoted"] = {\n'),
+    ),
+    mutant(
+        "quotation-count-missing-from-the-rows",
+        ty(
+            '                row["quotations_exempted"] = len(tally.zh_exempted)\n',
+            "                pass\n",
+        ),
+    ),
+    mutant(
+        "exemption-applied-but-not-recorded",
+        ty(
+            "        tally.zh_exempted.append("
+            '{"page": rel, "line": line, "source": source})\n',
+            "        pass\n",
+        ),
+    ),
+)
+def case_the_chinese_rules_report_each_quotation_they_exempted(
+    tools: Tools, work: Path
+) -> None:
+    """The number of quotations is printed with each one's page, line and source.
+
+    Three quotations on two pages (M4 on line 3 of one, M1 on line 3 and M2 on
+    line 5 of the other) are listed, in the JSON and in the text report, each
+    with its page, its line and the message's source text. A page that quotes
+    nothing prints 0, and no listing.
+    """
+    pages = {
+        "other.md": f"选择{ZH_LQ}导出为 PNG {ZH_RQ}。",
+        ZH_PAGE: f"界面显示：已合并到{ZH_LQ}main{ZH_RQ}分支。\n\n状态栏显示：导出12帧。",
+    }
+    tree = quote_tree(work / "listed", pages)
+    quoted = [
+        ("zh_CN/other.md", 3, QUOTE_M4),
+        (ZH_WHERE, 3, QUOTE_M1),
+        (ZH_WHERE, 5, QUOTE_M2),
+    ]
+    run, payload = scan(tools, tree, "--surface", "guide")
+    assert_clean(run, payload)
+    judge_quote_report(payload, quoted)
+    text = text_of(tools, tree, "--surface", "guide")
+    assert text.returncode == 0, (text.stdout, text.stderr)
+    judge_quote_text(text.stdout, quoted)
+    none = quote_tree(work / "none", {ZH_PAGE: "使用 F1 键。"})
+    run, payload = scan(tools, none, "--surface", "guide")
+    assert_clean(run, payload)
+    judge_quote_report(payload, [])
+    text = text_of(tools, none, "--surface", "guide")
+    assert text.returncode == 0, (text.stdout, text.stderr)
+    judge_quote_text(text.stdout, [])
+
+
+# --------------------------------------------------------------------------- #
+# The exemption's readings that the scenario's rows leave open: overlapping
+# quotations, no ``zh_CN`` catalogue, and a message that
+# quotes no wording. Each case plants messages and a page of its own; the
+# scenario's M1 to M4 and its eight rows are not touched.
+# --------------------------------------------------------------------------- #
+#: A message the planted pages never quote: a catalogue that holds only this one
+#: judges every page as if nothing could be exempted.
+BYSTANDER = Msg("Unrelated", "无关内容")
+HEADING_PREFIX = "zh quotations exempted from all four rules ("
+
+
+def planted_tree(work: Path, messages: list[Msg], text: str) -> Tree:
+    """Build a root whose ``zh_CN`` catalogue holds ``messages`` and one page.
+
+    ``text`` is what follows the page's two-line heading, so it is line 3.
+    """
+    tree = build_tree(work)
+    tree.catalogue(ZH_LANGUAGE, messages)
+    tree.page(ZH_LANGUAGE, ZH_PAGE, f"{ZH_HEAD}{text}\n")
+    return tree
+
+
+def planted_run(
+    tools: Tools, work: Path, messages: list[Msg], text: str
+) -> tuple[ScriptRun, dict, ScriptRun]:
+    """Run both reports over a planted page: the JSON run, its payload, the text."""
+    tree = planted_tree(work, messages, text)
+    run, payload = scan(tools, tree, "--surface", "guide")
+    printed = text_of(tools, tree, "--surface", "guide")
+    assert printed.returncode == run.returncode, (printed.stdout, printed.stderr)
+    return run, payload, printed
+
+
+def findings_of(payload: dict) -> list[tuple[str, str, str]]:
+    """Return every finding of the report as (rule, place, detail), in report order."""
+    return [
+        (unit["rule"], item["where"], item["detail"])
+        for unit in payload["rules"]
+        for item in unit["findings"]
+    ]
+
+
+def judge_found(run: ScriptRun, payload: dict, wanted: tuple[Found, ...]) -> None:
+    """Judge the exit code and the findings of each of the four rules, by words."""
+    assert run.returncode == (1 if wanted else 0), (run.stdout, run.stderr)
+    assert payload["findings_total"] == len(wanted), payload["rules"]
+    assert payload["rules_examining_nothing"] == 0, payload["rules"]
+    for rule in ZH_RULE_ROWS:
+        got = details(row(payload, rule, "guide", ZH_LANGUAGE))
+        mine = [item for item in wanted if item.rule == rule]
+        assert len(got) == len(mine), (rule, got)
+        for detail, want in zip(got, mine):
+            assert in_order(detail, want.words), (want.words, detail)
+
+
+def judge_listing(
+    payload: dict, stdout: str, quoted: list[Msg], planted: list[Msg]
+) -> None:
+    """Judge the quotations a report lists: all on line 3 of the one page.
+
+    ``quoted`` are the messages the report must list, in the JSON and in the
+    text; ``planted`` every message of the catalogue, so that a line printing
+    one that was not quoted is seen. The order is not judged.
+    """
+    wanted = sorted((ZH_WHERE, 3, message.source) for message in quoted)
+    block = payload["zh_quotations"]
+    assert block["exempted"] == len(quoted), block
+    got = sorted(
+        (item["page"], item["line"], item["source"]) for item in block["items"]
+    )
+    assert got == wanted, block
+    for rule in ZH_RULE_ROWS:
+        unit = row(payload, rule, "guide", ZH_LANGUAGE)
+        assert unit["quotations_exempted"] == len(quoted), unit
+    lines = stdout.splitlines()
+    assert any(line.startswith(f"{HEADING_PREFIX}{len(quoted)}), ") for line in lines)
+    every = [f"  {ZH_WHERE}:3: {message.source}" for message in planted]
+    printed = sorted(line for line in lines if line in every)
+    assert printed == sorted(f"  {ZH_WHERE}:3: {item[2]}" for item in wanted), stdout
+
+
+# (b) Overlapping quotations. Two messages whose runs overlap on ``abc`` and a
+# page that holds both, with one edge inside each run only: the Han beside the
+# Latin letters ``a`` (inside the first run) and the Han after ``c`` (inside the
+# second). The requirement exempts "the inside of the quotation", and nothing lets
+# one quotation displace another, so both edges are exempt and both quotations
+# are listed. The script's precedence keeps the first message's run when the two
+# weigh the same and the second's when it is longer, so each message is the
+# overlapped one in one of the two variants; the case does not depend on which.
+OVERLAP_FIRST = Msg("Test run", "测试abc")
+OVERLAPS = [
+    ("equal", Msg("Demo run", "abc演示"), "页面 测试abc演示 结束"),
+    ("second-longer", Msg("Demo deck", "abc演示文稿"), "页面 测试abc演示文稿 结束"),
+]
+EDGE_BEFORE_LATIN = at(ZH_HAN_LATIN, "between ", "试", " and a: ", NOTHING_BETWEEN)
+EDGE_AFTER_LATIN = at(ZH_HAN_LATIN, "between c and ", "演", NOTHING_BETWEEN)
+
+
+@REGISTRY.regression(
+    mutant(
+        "overlapped-quotation-dropped",
+        ty(
+            "        for start, end, number in (*kept, *overlapped)\n",
+            "        for start, end, number in (*kept,)\n",
+        ),
+    ),
+    mutant(
+        "only-the-first-listed-quotation-exempts",
+        ty(
+            "        for number, (a, b) in enumerate(self.runs):\n",
+            "        for number, (a, b) in enumerate(self.runs[:1]):\n",
+        ),
+    ),
+)
+def case_an_edge_inside_an_overlapping_quotation_is_not_judged(
+    tools: Tools, work: Path
+) -> None:
+    """Both edges are exempt and both quotations listed; alone, each exempts its own.
+
+    The page judged with only an unrelated message has both edges as findings,
+    so they are real. With both messages planted the run exits 0, counts both
+    edges and lists both quotations. With either message alone, only the edge
+    inside that message's run is exempt.
+    """
+    for label, second, text in OVERLAPS:
+        first = OVERLAP_FIRST
+        planted = [first, second, BYSTANDER]
+        place = work / label
+        both = [first, second]
+        run, payload, printed = planted_run(tools, place / "both", both, text)
+        judge_found(run, payload, ())
+        assert row(payload, ZH_HAN_LATIN, "guide", ZH_LANGUAGE)["sub_counts"] == {
+            "edges": 2
+        }, (label, payload["rules"])
+        judge_listing(payload, printed.stdout, both, planted)
+        scenes = [
+            ("none", [BYSTANDER], [], (EDGE_BEFORE_LATIN, EDGE_AFTER_LATIN)),
+            ("first", [first], [first], (EDGE_AFTER_LATIN,)),
+            ("second", [second], [second], (EDGE_BEFORE_LATIN,)),
+        ]
+        for name, messages, quoted, found in scenes:
+            run, payload, printed = planted_run(tools, place / name, messages, text)
+            judge_found(run, payload, found)
+            judge_listing(payload, printed.stdout, quoted, planted)
+
+
+# (c) No ``zh_CN`` catalogue. The page quotes M1 (the scenario's row 1), which a
+# ``zh_CN`` catalogue would exempt. With none the report names the path it tried
+# and "0 finished message(s) read", nothing is exempted, and the findings are
+# those of the same page judged without the exemption. A catalogue of another
+# language that holds M1 is not read for it.
+NO_CATALOGUE = re.compile(
+    re.escape(f"{HEADING_PREFIX}0), no zh_CN catalogue read (tried ")
+    + r"(.+)"
+    + re.escape("): 0 finished message(s) read")
+    + r"(?:,.*)?"
+)
+
+
+def judge_no_catalogue(run: ScriptRun, payload: dict, printed: ScriptRun, tree: Tree):
+    """Judge a run whose root holds no ``zh_CN`` catalogue: what it says it read."""
+    block = payload["zh_quotations"]
+    assert (block["exempted"], block["items"], block["finished_messages"]) == (0, [], 0)
+    for rule in ZH_RULE_ROWS:
+        unit = row(payload, rule, "guide", ZH_LANGUAGE)
+        assert unit["quotations_exempted"] == 0, unit
+    heads = [
+        found
+        for found in map(NO_CATALOGUE.fullmatch, printed.stdout.splitlines())
+        if found
+    ]
+    assert len(heads) == 1, printed.stdout
+    tried = Path(heads[0].group(1))
+    assert tried.resolve() == (tree.root / CAT_DIR / QUOTE_CATALOGUE).resolve(), tried
+    assert f"  {ZH_WHERE}:3: {QUOTE_M1.source}" not in printed.stdout.splitlines()
+
+
+@REGISTRY.regression(
+    mutant(
+        "path-tried-not-printed",
+        ty(
+            "            where = f\"{where} (tried {quoted['tried']})\"\n",
+            "            pass\n",
+        ),
+    ),
+    mutant(
+        "path-tried-not-recorded",
+        ty(
+            '    tried = os.path.join(folder, f"pixelart_{ZH_LANGUAGE}.ts")\n',
+            '    tried = ""\n',
+        ),
+    ),
+    mutant(
+        "messages-read-not-named",
+        ty(
+            "{quoted['finished_messages']} finished message(s) read, ",
+            "{quoted['finished_messages']} message(s) read, ",
+        ),
+    ),
+    mutant(
+        "another-languages-catalogue-read",
+        ty(
+            "                and catalogues.file_code(candidate) == ZH_LANGUAGE\n",
+            "                and catalogues.file_code(candidate) is not None\n",
+        ),
+    ),
+)
+def case_a_run_with_no_zh_cn_catalogue_names_the_path_and_exempts_nothing(
+    tools: Tools, work: Path
+) -> None:
+    """The report names the catalogue path tried and "0 finished message(s) read".
+
+    The page quotes M1. A root with no catalogue folder, and a root whose folder
+    holds only a German catalogue that carries M1, each exit 1 with the findings
+    of the page judged by a ``zh_CN`` catalogue that holds nothing it quotes;
+    with M1 in a ``zh_CN`` catalogue the same page exits 0 with one quotation.
+    """
+    page = QUOTE_ROWS[0].text
+    alone_run, alone, _printed = planted_run(tools, work / "alone", [BYSTANDER], page)
+    baseline = findings_of(alone)
+    assert alone_run.returncode == 1 and len(baseline) == 2, baseline
+    run, payload, printed = planted_run(tools, work / "control", [QUOTE_M1], page)
+    judge_found(run, payload, ())
+    judge_listing(payload, printed.stdout, [QUOTE_M1], [QUOTE_M1])
+
+    none = build_tree(work / "none")
+    none.page(ZH_LANGUAGE, ZH_PAGE, f"{ZH_HEAD}{page}\n")
+    other = build_tree(work / "other")
+    other.catalogue("de", [QUOTE_M1])
+    other.page(ZH_LANGUAGE, ZH_PAGE, f"{ZH_HEAD}{page}\n")
+    for tree in (none, other):
+        run, payload = scan(tools, tree, "--surface", "guide")
+        printed = text_of(tools, tree, "--surface", "guide")
+        assert run.returncode == printed.returncode == 1, (run.stdout, printed.stdout)
+        assert findings_of(payload) == baseline, (tree.root, payload["rules"])
+        judge_no_catalogue(run, payload, printed, tree)
+
+
+# (d) The wording clause, by behaviour. The wording-free message ``%1（%2`` quotes
+# no wording, so it exempts nothing: its page, ``3（R``, is judged as if no
+# message were planted, and both rule-(b) edges inside the shortest run (the digit
+# beside the mark, the mark beside the Latin letter) are findings. A message that
+# does quote wording (``%1（abc%2``) exempts the same shape of page.
+WORDING_FREE = Msg("%1 (%2", "%1（%2")
+WORDING_FULL = Msg("%1 (abc%2", "%1（abc%2")
+WORDING_FREE_EDGES = (
+    at(ZH_MARK_LATIN, "between 3 and ", "（", NOTHING_BETWEEN),
+    at(ZH_MARK_LATIN, "between ", "（", " and R: ", NOTHING_BETWEEN),
+)
+
+
+@REGISTRY.regression(
+    QUOTE_NO_WORDING_PASSES,
+    mutant(
+        "any-character-outside-the-placeholders-is-wording",
+        ty(
+            "    return texts, any(char.isalpha() for char in outside)\n",
+            "    return texts, bool(outside)\n",
+        ),
+    ),
+)
+def case_a_message_with_no_wording_exempts_nothing(tools: Tools, work: Path) -> None:
+    """The edges inside a wording-free message's run are findings; with wording, exempt.
+
+    ``3（R`` against ``%1（%2`` exits 1 naming both edges, lists no quotation and
+    gives the findings of the same page with no message that matches it.
+    ``3（abcR`` against ``%1（abc%2`` exits 0 with the one quotation.
+    """
+    run, payload, printed = planted_run(tools, work / "free", [WORDING_FREE], "3（R")
+    judge_found(run, payload, WORDING_FREE_EDGES)
+    judge_listing(payload, printed.stdout, [], [WORDING_FREE])
+    none_run, none, _printed = planted_run(tools, work / "none", [BYSTANDER], "3（R")
+    assert none_run.returncode == 1, (none_run.stdout, none_run.stderr)
+    assert findings_of(payload) == findings_of(none), (payload["rules"], none["rules"])
+
+    text = "3（abcR"
+    run, payload, printed = planted_run(tools, work / "full", [WORDING_FULL], text)
+    judge_found(run, payload, ())
+    judge_listing(payload, printed.stdout, [WORDING_FULL], [WORDING_FULL])
+    bare_run, bare, _printed = planted_run(tools, work / "bare", [BYSTANDER], text)
+    assert bare_run.returncode == 1 and len(findings_of(bare)) == 2, bare["rules"]
 
 
 # --------------------------------------------------------------------------- #

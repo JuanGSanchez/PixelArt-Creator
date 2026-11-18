@@ -23,7 +23,15 @@ going red:
   its command gains ``|| true``, its own ``if:`` changes so it never runs, or it
   loses the ``id`` the later conditions read;
 * the step that checks exception text (REQ-L10N-UI-018) loses its place on
-  every leg, or stops failing the job.
+  every leg, or stops failing the job;
+* the localisation-typography step (REQ-L10N-DATA-004) loses its place on every
+  leg, or its program loses what it holds for the ``zh_CN`` guide tree:
+  the four Simplified Chinese rules in the guide floor, the planted control that
+  breaks each of them once, the printed report (pages, sub-counts, quotations
+  exempted) and the exit on any failure. The program is read as a syntax tree,
+  never run: what it does is proved by running it (the typography-control
+  module and the step's own run); this rule only keeps each part from being
+  removed or made unreachable without a test going red.
 
 HOW IT IS PROVED NOT TO BE VACUOUS. Every rule has PLANTED controls below: a
 copy of the real workflow with one defect planted in memory must be reported,
@@ -41,8 +49,10 @@ verified only by a real run.
 
 from __future__ import annotations
 
+import ast
 import copy
 import importlib.util
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, NamedTuple, Optional, Tuple
@@ -65,6 +75,18 @@ GLYPH_RUN_MUST_NOT_HAVE = ("||", ";", "&", "|", "set +e", "exit 0", "true")
 CLEANUP_NAME = "Clean up CI temp root (CI-PixelArtCreator)"
 EXCEPTION_TEXT_NAME = "Exception text reaching the user (REQ-L10N-UI-018)"
 EXCEPTION_TEXT_RUN = "python scripts/check_exception_text.py"
+
+TYPOGRAPHY_NAME = "Localisation typography (REQ-L10N-DATA-004)"
+#: The four Simplified Chinese guide rules the step must floor and plant a defect for.
+ZH_GUIDE_RULES = (
+    "zh-space-han-latin",
+    "zh-space-mark-latin",
+    "zh-num-unit-closed",
+    "zh-space-symbol",
+)
+ZH_CONTROL = "control_zh_planted"
+#: The program the step's shell feeds to ``python -I -``: the heredoc's body.
+_PROGRAM = re.compile(r"<<'PY'\n(?P<program>.*)\nPY\s*\Z", re.DOTALL)
 
 CORE = "!cancelled() && (success() || steps.glyph_coverage.outcome == 'failure')"
 LINUX = "runner.os == 'Linux'"
@@ -198,11 +220,138 @@ def exception_text_step_gates_every_leg(doc: Dict[str, Any]) -> List[str]:
     return found
 
 
+def _program_of(step: Dict[str, Any]) -> Optional[ast.Module]:
+    """The step's embedded program as a syntax tree, or None when it is not one."""
+    found = _PROGRAM.search(str(step.get("run", "")))
+    if found is None:
+        return None
+    try:
+        return ast.parse(found.group("program"))
+    except SyntaxError:
+        return None
+
+
+def _assigned(tree: ast.Module, name: str) -> Optional[ast.expr]:
+    """The value assigned to module-level ``name``, or None."""
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == name for t in node.targets
+        ):
+            return node.value
+    return None
+
+
+def _strings(node: Optional[ast.expr], index: Optional[int] = None) -> List[str]:
+    """The string constants of a tuple value, or of each element's ``index``-th item."""
+    out: List[str] = []
+    if isinstance(node, ast.Tuple):
+        for item in node.elts:
+            if index is not None and isinstance(item, ast.Tuple):
+                item = item.elts[index] if len(item.elts) > index else item
+            if isinstance(item, ast.Constant) and isinstance(item.value, str):
+                out.append(item.value)
+    return out
+
+
+def _called_at_top_level(tree: ast.Module, function: str) -> bool:
+    """Whether a statement of the module body (not nested in a branch) calls it."""
+    return any(
+        isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == function
+        for node in tree.body
+    )
+
+
+def _calls(tree: ast.Module, attribute: str) -> bool:
+    """Whether the program calls ``<something>.<attribute>(...)`` anywhere."""
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == attribute
+        for node in ast.walk(tree)
+    )
+
+
+def _exits_when_failed(tree: ast.Module) -> bool:
+    """Whether the body has ``if failures:`` at module level that calls ``*.exit``."""
+    for node in tree.body:
+        if (
+            isinstance(node, ast.If)
+            and isinstance(node.test, ast.Name)
+            and node.test.id == "failures"
+        ):
+            return any(
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and call.func.attr == "exit"
+                for stmt in node.body
+                for call in ast.walk(stmt)
+            )
+    return False
+
+
+def typography_step_gates_the_zh_tree(doc: Dict[str, Any]) -> List[str]:
+    """The typography step runs on every leg and its program keeps the zh_CN parts."""
+    at = _index_of(doc, TYPOGRAPHY_NAME)
+    if at is None:
+        return [f"the step {TYPOGRAPHY_NAME!r} is not present exactly once"]
+    step = _steps(doc)[at]
+    found: List[str] = []
+    if _expr(step.get("if")) != CORE:
+        found.append(
+            f"typography step: if is {step.get('if')!r}; it must be {CORE!r} alone, "
+            "with no runner.os test, so that it runs on every leg"
+        )
+    tree = _program_of(step)
+    if tree is None:
+        return found + [
+            "typography step: its program is not a <<'PY' heredoc that parses"
+        ]
+    floor = _assigned(tree, "GUIDE_RULES")
+    zh_floor: List[str] = []
+    if isinstance(floor, ast.Dict):
+        for key, value in zip(floor.keys, floor.values):
+            if isinstance(key, ast.Constant) and key.value == "zh":
+                zh_floor = _strings(value)
+    if sorted(zh_floor) != sorted(ZH_GUIDE_RULES):
+        found.append(
+            f"typography step: the guide floor for zh is {zh_floor!r}, not the four "
+            f"rules {list(ZH_GUIDE_RULES)!r}"
+        )
+    planted = _strings(_assigned(tree, "ZH_PLANTS"), 0)
+    if sorted(planted) != sorted(ZH_GUIDE_RULES):
+        found.append(
+            f"typography step: the zh_CN control plants for {planted!r}, not for "
+            f"each of {list(ZH_GUIDE_RULES)!r}"
+        )
+    if not any(
+        isinstance(node, ast.FunctionDef) and node.name == ZH_CONTROL
+        for node in tree.body
+    ):
+        found.append(f"typography step: the program defines no {ZH_CONTROL}()")
+    if not _called_at_top_level(tree, ZH_CONTROL):
+        found.append(
+            f"typography step: {ZH_CONTROL}() is never called at the program's top "
+            "level, so the planted control cannot run"
+        )
+    if not _calls(tree, "print_report"):
+        found.append(
+            "typography step: the program no longer prints the checker's report "
+            "(pages, sub-counts, quotations exempted)"
+        )
+    if not _exits_when_failed(tree):
+        found.append("typography step: a failure no longer ends the program with exit")
+    return found
+
+
 RULES = (
     no_continue_on_error,
     glyph_step_fails_the_job,
     later_steps_report_their_own_result,
     exception_text_step_gates_every_leg,
+    typography_step_gates_the_zh_tree,
 )
 
 
@@ -612,4 +761,99 @@ def test_an_exception_text_step_that_cannot_gate_every_leg_is_reported(real_doc,
         real_doc
     )
     planted = exception_text_step_gates_every_leg(doc) + no_continue_on_error(doc)
+    assert len(planted) > len(real), planted
+
+
+# --------------------------------------------------------------------------- #
+# The localisation-typography step and the zh_CN guide tree (REQ-L10N-DATA-004)
+# --------------------------------------------------------------------------- #
+def test_the_typography_step_runs_on_every_leg_with_its_zh_parts(real_doc):
+    assert typography_step_gates_the_zh_tree(real_doc) == []
+    step = _step(real_doc, TYPOGRAPHY_NAME)
+    assert _expr(step["if"]) == CORE
+    assert "continue-on-error" not in step
+
+
+@pytest.mark.parametrize("os_name", ["Linux", "Windows", "macOS"])
+def test_the_typography_step_runs_on_each_leg(real_doc, os_name):
+    runner = _load_runner()
+    step = _step(real_doc, TYPOGRAPHY_NAME)
+    healthy = _ctx(os_name, False, False, "skipped")
+    assert runner.eval_step_condition(step["if"], healthy) is True
+
+
+def _edit_program(doc: Dict[str, Any], old: str, new: str) -> None:
+    """Replace ``old`` by ``new`` in the typography program; ``old`` must occur once."""
+    step = _step(doc, TYPOGRAPHY_NAME)
+    assert step["run"].count(old) == 1, old
+    step["run"] = step["run"].replace(old, new)
+
+
+def _typography_linux_only(doc: Dict[str, Any]) -> None:
+    _step(doc, TYPOGRAPHY_NAME)["if"] = "${{ " + f"{CORE} && {LINUX}" + " }}"
+
+
+def _typography_continue_on_error(doc: Dict[str, Any]) -> None:
+    _step(doc, TYPOGRAPHY_NAME)["continue-on-error"] = True
+
+
+def _typography_removed(doc: Dict[str, Any]) -> None:
+    at = _index_of(doc, TYPOGRAPHY_NAME)
+    assert at is not None
+    _steps(doc).pop(at)
+
+
+def _zh_floor_dropped(doc: Dict[str, Any]) -> None:
+    _edit_program(doc, '"zh": ("zh-space-han-latin"', '"xx": ("zh-space-han-latin"')
+
+
+def _zh_plant_dropped(doc: Dict[str, Any]) -> None:
+    _edit_program(doc, '("zh-space-symbol", chr(', '("zh-space-symbol-gone", chr(')
+
+
+def _zh_control_not_called(doc: Dict[str, Any]) -> None:
+    _edit_program(doc, f"\n{ZH_CONTROL}()\n", "\n")
+
+
+def _zh_control_unreachable(doc: Dict[str, Any]) -> None:
+    _edit_program(doc, f"\n{ZH_CONTROL}()\n", f"\nif False:\n    {ZH_CONTROL}()\n")
+
+
+def _zh_control_removed(doc: Dict[str, Any]) -> None:
+    _edit_program(doc, f"def {ZH_CONTROL}():", "def control_zh_renamed():")
+
+
+def _report_not_printed(doc: Dict[str, Any]) -> None:
+    _edit_program(doc, "tm.print_report(report, sys.stdout)", "pass")
+
+
+def _failure_does_not_exit(doc: Dict[str, Any]) -> None:
+    _edit_program(
+        doc,
+        '    sys.exit(1)\nprint("Localisation typography step: checker clean',
+        '    pass\nprint("Localisation typography step: checker clean',
+    )
+
+
+@pytest.mark.parametrize(
+    "plant",
+    [
+        _typography_linux_only,
+        _typography_continue_on_error,
+        _typography_removed,
+        _zh_floor_dropped,
+        _zh_plant_dropped,
+        _zh_control_not_called,
+        _zh_control_unreachable,
+        _zh_control_removed,
+        _report_not_printed,
+        _failure_does_not_exit,
+    ],
+    ids=lambda f: f.__name__.lstrip("_"),
+)
+def test_a_typography_step_that_loses_a_zh_part_is_reported(real_doc, plant):
+    doc = _planted(real_doc)
+    plant(doc)
+    real = typography_step_gates_the_zh_tree(real_doc) + no_continue_on_error(real_doc)
+    planted = typography_step_gates_the_zh_tree(doc) + no_continue_on_error(doc)
     assert len(planted) > len(real), planted

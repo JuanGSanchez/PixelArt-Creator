@@ -43,6 +43,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from typing import (
+    Any,
     Callable,
     Dict,
     Iterable,
@@ -50,6 +51,7 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
+    cast,
 )
 
 import pytest
@@ -77,7 +79,7 @@ REQUIRED_SC4_TREES: Tuple[str, ...] = ("en", "es", "ko", "de", "fr", "ru")
 
 #: The tracked Chinese and Japanese trees: judged with the fifth scenario. A tree
 #: joins when it is committed; one that is only in a working copy is not judged.
-REQUIRED_CJ_TREES: Tuple[str, ...] = ("ja",)
+REQUIRED_CJ_TREES: Tuple[str, ...] = ("ja", "zh_CN")
 
 CJ_LOCALES = ("ja", "zh_CN")
 
@@ -1413,7 +1415,9 @@ def copy_problems(shown: QTextDocument, expected: QTextDocument) -> List[str]:
 def rule_calls(monkeypatch) -> List[object]:
     """Record every result the dialog gets from the rule, and use the real rule."""
     results: List[object] = []
-    real = getattr(user_guide, "apply_soft_break_rule", None)
+    real = cast(
+        Callable[[str, str], Any], getattr(user_guide, "apply_soft_break_rule", None)
+    )
 
     def spy(text: str, language: str):
         result = real(text, language)

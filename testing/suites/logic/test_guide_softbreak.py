@@ -65,7 +65,7 @@ sb = load_softbreak()
 # tree.
 # ---------------------------------------------------------------------------
 REQUIRED_NON_CJK_TREES: Tuple[str, ...] = ("en", "es", "ko", "de", "fr", "ru")
-REQUIRED_CJ_TREES: Tuple[str, ...] = ("ja",)
+REQUIRED_CJ_TREES: Tuple[str, ...] = ("ja", "zh_CN")
 
 CJK_TREES_SKIP_REASON = (
     "shipped-tree half: no tracked ja or zh_CN tree (REQUIRED_CJ_TREES = ())"

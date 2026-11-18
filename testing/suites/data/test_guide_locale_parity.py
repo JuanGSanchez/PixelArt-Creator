@@ -77,7 +77,7 @@ from pixelart_creator.logic.scope_floor import ScopeFloorError, require_non_empt
 EXPECTED_LANGUAGE_COUNT = 8
 
 #: Switch for the language-count floor. ``False`` holds it (floor in force = 1).
-EIGHT_LANGUAGE_FLOOR_ENFORCED = False
+EIGHT_LANGUAGE_FLOOR_ENFORCED = True
 
 #: Switch for the Spanish ``meta.json`` requirement. ``False`` makes it conditional.
 ES_META_REQUIRED = True
