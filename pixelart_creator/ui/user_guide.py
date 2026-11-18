@@ -74,6 +74,7 @@ from pixelart_creator.data.guide_content import (
     read_content,
     topic_locales,
 )
+from pixelart_creator.logic.guide_anchors import heading_ordinal
 from pixelart_creator.logic.guide_model import (
     DEFAULT_GUIDE_LOCALE,
     GuideModel,
@@ -81,6 +82,7 @@ from pixelart_creator.logic.guide_model import (
     LocaleMeta,
     build_model,
     content_ref_locale,
+    content_ref_path,
     localised_section_title,
     localised_title,
     resolve_content_ref,
@@ -635,6 +637,11 @@ class User_Guide_Dialog(QDialog):
         External/filesystem schemes are ignored (offline + safe, REQ-UG-UI-007). An
         in-guide link may be ``topic:<id>``, a ``#<id>`` fragment, or a bare id; the
         target is matched against a known topic id and navigated to, else ignored.
+
+        A fragment that is not a topic id names a heading of the target page
+        (REQ-L10N-UI-019): a link with a path opens that page, then moves to the
+        heading; a link with no path moves to the heading of the page shown. A
+        fragment that names no heading moves nothing and shows nothing.
         """
         if url.scheme().lower() in _EXTERNAL_SCHEMES:
             return
@@ -644,8 +651,50 @@ class User_Guide_Dialog(QDialog):
         if candidate.endswith(".md"):
             stem = candidate.rsplit("/", 1)[-1][: -len(".md")]
             candidate = self._topic_id_for_stem(stem) or candidate
+        fragment = url.fragment().lstrip("#").strip()
+        if url.path():
+            if candidate not in self._toc_items:
+                return
+            self.show_topic(candidate)
+            if fragment and fragment not in self._toc_items:
+                self._scroll_to_heading(candidate, fragment)
+            return
         if candidate in self._toc_items:
             self.show_topic(candidate)
+        elif self._current_topic_id is not None:
+            self._scroll_to_heading(self._current_topic_id, fragment)
+
+    def _scroll_to_heading(self, topic_id: str, fragment: str) -> None:
+        """Move the view to the heading ``fragment`` names on the page shown.
+
+        The fragment names a heading of the topic's English source; its ordinal is
+        counted there and the heading of that ordinal in the rendered page (the
+        translated page's counterpart) is put at the top of the view. A fragment
+        that names no heading, or an ordinal the rendered page lacks, moves nothing.
+        """
+        if self._model is None:
+            return
+        try:
+            topic = self._model.topic(topic_id)
+            english = self._reader(
+                content_ref_path(topic.content_ref, DEFAULT_GUIDE_LOCALE)
+            )
+        except GuideModelError, GuideContentError:
+            return
+        ordinal = heading_ordinal(english, fragment)
+        if ordinal is None:
+            return
+        document = self._content_view.document()
+        seen = 0
+        block = document.begin()
+        while block.isValid():
+            if block.blockFormat().headingLevel() > 0:
+                if seen == ordinal:
+                    top = document.documentLayout().blockBoundingRect(block).top()
+                    self._content_view.verticalScrollBar().setValue(int(top))
+                    return
+                seen += 1
+            block = block.next()
 
     def _topic_id_for_stem(self, stem: str) -> Optional[str]:
         """Return the topic id whose content_ref matches ``stem`` (or ``None``)."""
