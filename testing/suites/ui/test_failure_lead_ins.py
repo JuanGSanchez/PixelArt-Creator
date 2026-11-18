@@ -1070,6 +1070,12 @@ def sites() -> List[Site]:
     return derive_inventory()
 
 
+@pytest.fixture(scope="module")
+def alone_site_count() -> int:
+    """The number of ``failure_text`` calls outside a template join, counted once."""
+    return count_alone_sites()
+
+
 def _examine(
     code: str,
     sites: List[Site],
@@ -1488,6 +1494,53 @@ def _after_ending_findings(shown: str, sentence: str) -> List[str]:
 #: Where a sentence can stand in a text shown, as ``_placed_findings`` names it.
 PLACES = ("alone", "own line", "after a sentence", "inline", "absent")
 
+#: The places this verdict judges. Each is a kind of site, and a kind the inventory
+#: holds in a language must be examined there: none examined is a failure, not a pass.
+JUDGED_PLACES = ("alone", "own line", "after a sentence")
+
+#: The two frames of the status bar's real-time messages: the reason's, which carries
+#: no failure sentence, and the failure-only frame, which does.
+_STATUS_BAR_FRAMES = (REASON_FRAME[1], FAILURE_ONLY_FRAME[1])
+
+
+def sites_held(code: str, sites: List[Site], alone: int) -> Dict[str, int]:
+    """Return how many sites of each judged place the inventory holds in ``code``.
+
+    ``alone`` is the number of ``failure_text`` calls outside a template join
+    (``count_alone_sites``), which no language changes. ``own line`` is the sites the
+    inventory derived, less the status bar's two frames. ``after a sentence`` is the
+    failure-only frame when ``code``'s own catalogue text of it ends, before its
+    placeholder, with a sentence-ending mark of ``code``: the inventory's template
+    pass names the one ``frame`` variable of ``_on_realtime_error`` by its last
+    assignment, so only the reason's frame is a row of it, and the failure-only frame
+    is read from the catalogue here. A language whose frame is unfinished holds none.
+    """
+    frame = finished_text(code, *FAILURE_ONLY_FRAME)
+    before = "" if frame is None else frame.partition("{msg}")[0].rstrip()
+    ends_as_sentence = bool(before) and before[-1] in SENTENCE_ENDINGS[code]
+    return {
+        "alone": alone,
+        "own line": sum(1 for site in sites if site.source not in _STATUS_BAR_FRAMES),
+        "after a sentence": 1 if ends_as_sentence else 0,
+    }
+
+
+def unexamined_kind_findings(
+    code: str, held: Dict[str, int], examined: Dict[str, int]
+) -> List[str]:
+    """Return a finding, naming the language and the kind, for each kind not examined.
+
+    A kind the inventory holds in ``code`` (``held`` above 0) whose examined count
+    is 0 fails: a check that examined nothing has not passed (NFR-6). A kind the
+    inventory holds no site of in ``code`` is not a finding; the case prints it as 0.
+    """
+    return [
+        f"[{code}] {kind}: the inventory holds {held[kind]} site(s) of this kind in "
+        f"{code} and the case examined 0 of them"
+        for kind in JUDGED_PLACES
+        if held[kind] > 0 and examined[kind] == 0
+    ]
+
 
 def _placed_findings(shown: str, sentence: str, code: str) -> Tuple[str, List[str]]:
     """Return where ``sentence`` stands in ``shown`` and what is wrong with it there.
@@ -1536,7 +1589,15 @@ def form_failures(
 
 @pytest.mark.parametrize("code", LANGUAGES)
 def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
-    code, sites, language, qtbot, monkeypatch, mute_message_boxes, tmp_path, capsys
+    code,
+    sites,
+    alone_site_count,
+    language,
+    qtbot,
+    monkeypatch,
+    mute_message_boxes,
+    tmp_path,
+    capsys,
 ):
     """SC-L10N-UI-020-3: alone, or on a line of its own, the sentence is the
     catalogue's.
@@ -1551,6 +1612,12 @@ def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
     none in a language is printed as 0) and the surfaces that gave it, and the total
     is non-zero. A sentence shown after a lead-in that ends as a sentence is checked
     on the status bar's failure-only frame, where the surface shows it.
+
+    Each kind the derived inventory holds in the language (``sites_held``) must have
+    an examined count above 0, or the case fails naming the language and the kind
+    (``unexamined_kind_findings``); a kind it holds no site of is printed as 0 and
+    does not fail (NFR-6: every check states its denominator and fails on a count of
+    zero).
 
     Every judgement is ``form_failures``, which calls one named verdict per place
     (``_alone_findings``, ``_own_line_findings``, ``_after_ending_findings``); the
@@ -1581,9 +1648,9 @@ def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
                 place, worded = form_failures(code, surface.name, kind, shown, sentence)
                 sites_of[place].append(surface.name)
                 failures += worded
-    alone, own_line, after_ending = (
-        len(sites_of[place]) for place in ("alone", "own line", "after a sentence")
-    )
+    examined = {place: len(sites_of[place]) for place in JUDGED_PLACES}
+    held = sites_held(code, sites, alone_site_count)
+    unexamined = unexamined_kind_findings(code, held, examined)
 
     def named(place: str) -> str:
         return f"{len(sites_of[place])} {sorted(set(sites_of[place]))}"
@@ -1591,15 +1658,41 @@ def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
     line = (
         f"[lead-in sentences] {code}: sites examined alone {named('alone')}, on a line "
         f"of its own {named('own line')}, after a lead-in that ends as a sentence "
-        f"{named('after a sentence')}; total {alone + own_line + after_ending}; not "
-        f"in this verdict: continuing on a lead-in's line {len(sites_of['inline'])}, "
-        f"sentence absent {len(sites_of['absent'])}"
+        f"{named('after a sentence')}; total {sum(examined.values())}; sites the "
+        f"inventory holds, alone {held['alone']}, own line {held['own line']}, after "
+        f"a sentence {held['after a sentence']}; not in this verdict: continuing on "
+        f"a lead-in's line {len(sites_of['inline'])}, sentence absent "
+        f"{len(sites_of['absent'])}"
     )
     print(line)
     with capsys.disabled():
         print(line)
-    assert alone + own_line + after_ending > 0
-    assert not failures, "\n".join(failures)
+    assert sum(examined.values()) > 0
+    problems = unexamined + failures
+    assert not problems, "\n".join(problems)
+
+
+def test_sc_l10n_ui_020_3_a_kind_examined_zero_times_fails_naming_language_and_kind():
+    """SC-L10N-UI-020-3 control (NFR-6): a held kind with no examined site fails.
+
+    The words are those the case asserts (``unexamined_kind_findings``). Each judged
+    kind, made to examine nothing while the inventory holds sites of it, gives one
+    finding that names the language and the kind; a kind the inventory holds no
+    site of gives none (it is printed as 0); and when every held kind is examined
+    there is no finding. Every language is named in turn.
+    """
+    held = {"alone": 2, "own line": 3, "after a sentence": 1}
+    every = {place: 1 for place in JUDGED_PLACES}
+    for code in LANGUAGES:
+        assert unexamined_kind_findings(code, held, every) == []
+        for kind in JUDGED_PLACES:
+            findings = unexamined_kind_findings(code, held, {**every, kind: 0})
+            assert len(findings) == 1, f"[{code}] {kind}: {findings}"
+            assert findings[0].startswith(f"[{code}] {kind}: "), findings
+            assert (
+                unexamined_kind_findings(code, {**held, kind: 0}, {**every, kind: 0})
+                == []
+            )
 
 
 def test_sc_l10n_ui_020_3_a_lower_case_spanish_sentence_alone_fails_naming_the_site():
