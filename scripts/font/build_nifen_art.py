@@ -40,6 +40,7 @@ import sys
 import tempfile
 import unicodedata
 from dataclasses import dataclass
+from typing import Dict, List, Tuple, cast
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
@@ -454,7 +455,7 @@ def lint(srcs, font: Font, script_files, src_dir, fonts_dir=None, gate=None):
                     % (cp, rb.adv, bb_.adv, cell_adv)
                 )
             continue
-        ink = bbox(rb.px)
+        ink = cast(Tuple[int, int, int, int], bbox(rb.px))
         if not tab and ink[0] != 0:
             v.append("U+%04X Regular left sidebearing %d != 0" % (cp, ink[0]))
         rsb = rb.adv - 1 - ink[2]
@@ -471,7 +472,7 @@ def lint(srcs, font: Font, script_files, src_dir, fonts_dir=None, gate=None):
                 "U+%04X Bold advance %d != Regular %d + %d"
                 % (cp, bb_.adv, rb.adv, want - rb.adv)
             )
-        brsb = bb_.adv - 1 - bbox(bb_.px)[2]
+        brsb = bb_.adv - 1 - cast(Tuple[int, int, int, int], bbox(bb_.px))[2]
         if brsb < 1:
             v.append("U+%04X Bold right sidebearing %d < 1" % (cp, brsb))
     rep.add("R03", "advance consistent with the proportional / cell policy", n, v)
@@ -533,7 +534,7 @@ def lint(srcs, font: Font, script_files, src_dir, fonts_dir=None, gate=None):
                 font.bmp(a.source_cp, w)
             except SourceError as exc:
                 v.append("alias U+%04X -> U+%04X: %s" % (a.target_cp, a.source_cp, exc))
-    trim_stats = {"regular": [], "bold": []}
+    trim_stats: Dict[str, List[int]] = {"regular": [], "bold": []}
     cut_used = []
     for r in srcs.recipes:
         n += 1

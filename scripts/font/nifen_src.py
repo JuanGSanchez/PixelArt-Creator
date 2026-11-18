@@ -19,7 +19,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass, field
-from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Set, Tuple, cast
 
 Pixel = Tuple[int, int]
 PixelSet = FrozenSet[Pixel]
@@ -193,7 +193,7 @@ def _flush(cur: Optional[Record], srcs: Sources) -> None:
             f"{cur.path}:{cur.line}: duplicate {cur.kind} {cur.key!r}"
         )
         return
-    bucket[cur.key] = cur
+    bucket[cast(Any, cur.key)] = cur
 
 
 def _parse_file(text: str, name: str, srcs: Sources) -> None:
@@ -313,7 +313,7 @@ class Font:
         self.recipe_by_cp: Dict[int, Recipe] = {}
         for r in srcs.recipes:
             self.recipe_by_cp.setdefault(r.target_cp, r)
-        self._cache: Dict[Tuple[int, str], Bmp] = {}
+        self._cache: Dict[Tuple[object, str], Bmp] = {}
 
     # classification ---------------------------------------------------------
     def codepoints(self) -> List[int]:
@@ -391,9 +391,13 @@ class Font:
     def _mark_dx(base_px: PixelSet, mark_px: PixelSet, attach: int, r: Recipe) -> int:
         """Horizontal offset of a mark: on the anchor column, or flush to one side."""
         if r.opts.get("align") == "left":
-            return bbox(base_px)[0] - min(p[0] for p in mark_px)
+            return cast(Tuple[int, int, int, int], bbox(base_px))[0] - min(
+                p[0] for p in mark_px
+            )
         if r.opts.get("align") == "right":
-            return bbox(base_px)[2] - max(p[0] for p in mark_px)
+            return cast(Tuple[int, int, int, int], bbox(base_px))[2] - max(
+                p[0] for p in mark_px
+            )
         return anchor_col(base_px) - attach + int(r.opts.get("dx", "0"))
 
     @staticmethod

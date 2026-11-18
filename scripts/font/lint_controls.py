@@ -26,6 +26,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from typing import Any, Dict, List
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.dont_write_bytecode = True
@@ -53,7 +54,7 @@ def show_child_output(r, tail=12):
         print("      | " + ln.encode("ascii", "backslashreplace").decode("ascii"))
 
 
-_PRISTINE = []
+_PRISTINE: List[Any] = []
 
 
 def pristine_findings(build):
@@ -297,7 +298,7 @@ FIXTURE_FILES = {
     "hangul.txt": "# fixture\n" + KR_HEAD + PLUS,
     "r05-exemptions.txt": "# fixture: no entry\n",
 }
-_FIXTURE = {}
+_FIXTURE: Dict[str, Any] = {}
 
 
 def make_cjk_fixture(dst):

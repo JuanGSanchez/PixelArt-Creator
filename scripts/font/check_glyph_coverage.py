@@ -87,6 +87,7 @@ import re
 import sys
 import unicodedata
 import xml.etree.ElementTree as ET
+from typing import Any, Dict, List, cast
 
 sys.dont_write_bytecode = True
 
@@ -261,7 +262,8 @@ class Collector:
 
     def __init__(self, ranges: Ranges):
         self.ranges = ranges
-        self.chars = {}  # ch -> {"dest": set, "keys": list, "langs": set}
+        # ch -> {"dest": set, "keys": list, "langs": set}
+        self.chars: Dict[str, Dict[str, Any]] = {}
         self.occurrences = 0
 
     def add(self, text, lang, endonym_lang, key):
@@ -493,7 +495,7 @@ def read_endonyms(endonyms, coll: Collector):
 
 
 def read_declared(path: str):
-    chars = []
+    chars: List[str] = []
     with open(path, "rb") as fh:
         for raw in fh.read().decode("utf-8").split("\n"):
             if not raw or raw.startswith("# "):
@@ -506,7 +508,7 @@ def read_declared(path: str):
 
 
 def read_strings(path: str):
-    out = []
+    out: List[str] = []
     with open(path, "rb") as fh:
         for raw in fh.read().decode("utf-8").split("\n"):
             if raw and not raw.startswith("# "):
@@ -537,7 +539,7 @@ def cmap_of(path: str):
     from fontTools.ttLib import TTFont
 
     font = TTFont(path)
-    return set(font.getBestCmap().keys())
+    return set(cast(Dict[int, str], font.getBestCmap()).keys())
 
 
 # --------------------------------------------------------------------------
