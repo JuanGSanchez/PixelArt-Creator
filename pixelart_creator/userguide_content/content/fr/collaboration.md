@@ -184,7 +184,7 @@ synchronisation en temps réel** dédié (voir la note à l'intention de l'opér
 > **Connexion impossible dans cette version.** L'application de bureau n'a aucune connexion temps réel
 > configurée : **Cloud ▸ Démarrer le mode temps réel…** (après la saisie d'un identifiant de membre)
 > ne rejoint donc aucune session. La barre d'état affiche un message se terminant par
-> « no real-time transport configured », et il n'en résulte ni pairs, ni curseurs en direct, ni
+> « aucun transport temps réel n'est configuré », et il n'en résulte ni pairs, ni curseurs en direct, ni
 > rejeu pour les retardataires. Les étapes ci-dessous décrivent le fonctionnement d'une session une
 > fois qu'une connexion existe.
 

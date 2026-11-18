@@ -3,7 +3,7 @@
 Faites glisser un fichier directement depuis l'explorateur de fichiers de votre système
 d'exploitation (Explorateur de fichiers de Windows, Finder de macOS, Nautilus de Linux)
 **dans** la fenêtre de PixelArt Creator, et l'application fait ce qu'il faut pour ce type de
-fichier. Inutile de passer par Fichier ▸ Ouvrir — déposez-le n'importe où dans la fenêtre et
+fichier. Inutile de passer par Fichier ▸ Ouvrir… — déposez-le n'importe où dans la fenêtre et
 l'application l'aiguille **selon le type de fichier**, et non selon l'endroit de la fenêtre où
 vous le relâchez.
 
@@ -36,14 +36,14 @@ actuel reste intact.
 Déposez un fichier **`.pixproj`** et il s'ouvre comme un projet.
 
 Si le document que vous modifiez actuellement contient des **modifications non
-enregistrées**, l'application affiche d'abord une invite **Enregistrer / Ne pas tenir compte
+enregistrées**, l'application affiche d'abord une invite **Enregistrer / Abandonner
 / Annuler** afin que vous ne perdiez jamais de travail par accident :
 
 | Choix | Résultat |
 | --- | --- |
 | **Enregistrer** | Enregistre le document actuel, puis ouvre le projet déposé. |
-| **Ne pas tenir compte** | Ouvre le projet déposé sans enregistrer. |
-| **Annuler** | Abandonne l'ouverture — rien ne change. |
+| **Abandonner** | Ouvre le projet déposé sans enregistrer. |
+| **Annuler** | Annule l'ouverture — rien ne change. |
 
 Si le document actuel ne contient **aucune** modification non enregistrée (ou si aucun
 document n'est ouvert), le projet s'ouvre immédiatement, sans invite.

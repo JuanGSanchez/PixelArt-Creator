@@ -80,44 +80,44 @@ avez chargé le manifeste, et les active et les désactive. Un plugin est destin
 l'éditeur en ajoutant de nouvelles opérations au DSL. **Dans cette version, l'application n'a
 aucune étape qui charge ou exécute le code d'un plugin :** détecter un plugin, charger un
 manifeste, activer et désactiver n'appellent jamais un plugin. Les permissions que déclare un
-manifeste décrivent l'usage prévu du plugin ; elles ne limitent pas ce que peut faire le code
-propre du plugin (voir la note ci-dessous).
+manifeste décrivent l'usage prévu du plugin ; elles ne limitent pas ce que peut faire le propre
+code du plugin (voir la note ci-dessous).
 
-- **La détection est inerte.** L'application trouve les plugins installés via les points
+- **La détection ne fait que lister les plugins.** L'application trouve les plugins installés via les points
   d'entrée Python standard, mais elle ne lit que leurs noms et leurs versions : elle
   **ne charge ni n'exécute** leur code. Un plugin détecté n'affiche aucune permission et ne
   peut pas être activé, car l'application ne lit pas les permissions dans le plugin lui-même.
   Elles proviennent d'un fichier de manifeste que vous ajoutez au panneau depuis le disque, et
   qui apparaît comme sa propre entrée dans la liste. L'application ne vérifie pas qu'un
   manifeste appartient à un plugin que vous avez installé.
-- **Le consentement couvre ce que déclare le manifeste.** **Activer** affiche les permissions
+- **Le consentement porte sur le manifeste, pas sur le code du plugin.** **Activer** affiche les permissions
   que déclare le manifeste et vous demande de confirmer. Vous les approuvez en bloc, ou vous
   n'activez pas le plugin. L'application ne compare pas le manifeste à ce que fait réellement
   le code du plugin. Activer un plugin consigne en mémoire les permissions que vous avez
   approuvées et le marque comme activé ; cela n'exécute pas le code du plugin, car
   l'application n'a aucune étape qui le fasse. Votre consentement n'est pas enregistré :
   chaque plugin est de nouveau désactivé quand vous fermez l'éditeur. L'hôte de plugins est
-  écrit de telle sorte que, si un appelant lui fournissait une étape d'activation, cette étape
-  reçoive un objet de permissions et qu'un appel fait via cet objet, sans que la permission ait
-  été accordée, soit refusé ; rien dans cette version ne fournit une telle étape. Les
+  écrit de telle sorte que, si un appelant lui fournissait du code à exécuter lorsqu'un plugin est activé,
+  ce code reçoive un objet de permissions. Un appel fait via cet objet, sans que la permission ait été
+  accordée, serait alors refusé ; rien dans cette version ne lui fournit un tel code. Les
   opérations ajoutées via cet objet reçoivent le nom du plugin comme préfixe, de sorte qu'elles
   ne peuvent pas coïncider avec le nom d'une opération intégrée, et une permission de lecture
   via cet objet renvoie le document qui lui est transmis, et non une copie. Le code qui ne
   passe pas par l'objet n'est pas limité par lui : il peut ajouter ou retirer des opérations
   directement, y compris des opérations intégrées.
-- **Désactiver retire les opérations du plugin.** **Désactiver** supprime les opérations qui
+- **Désactiver retire des opérations, pas le code du plugin.** **Désactiver** supprime les opérations qui
   ont été ajoutées via l'objet de permissions ; dans cette version, il n'y en a aucune, car
-  rien n'en ajoute. Cela n'annule rien de ce que le code propre d'un plugin a déjà fait.
+  rien n'en ajoute. Cela n'annule rien de ce que le propre code d'un plugin a déjà fait.
 
 > **Les plugins ne sont pas placés dans un bac à sable.** Un plugin n'est pas isolé de votre
 > ordinateur, et l'application n'offre d'isolation à aucun plugin dans cette version.
 > Installer un plugin met sur votre ordinateur du code Python écrit par quelqu'un d'autre, et
-> l'application n'effectue ni ne vérifie l'installation. Un paquet peut aussi demander à
-> Python d'exécuter du code chaque fois que Python démarre dans l'environnement où il est
+> l'application n'effectue ni ne vérifie l'installation. Un paquet Python peut aussi demander à
+> Python d'exécuter du code chaque fois que Python démarre dans l'environnement où ce paquet est
 > installé, ce qui inclut l'éditeur, si bien qu'installer un plugin peut suffire à ce que son
 > code s'exécute, même si vous n'ouvrez jamais le panneau **Plugins**. Le code qui s'exécute
-> dans le propre processus de l'éditeur, quelle que soit la façon dont il y est arrivé, a le
-> même accès à vos fichiers et au réseau que l'éditeur lui-même, quelles que soient les
+> dans le propre processus de l'éditeur a le même accès à vos fichiers et au réseau que
+> l'éditeur lui-même, de quelque façon qu'il y soit arrivé et quelles que soient les
 > permissions que le plugin a déclarées. N'installez et n'activez que des plugins auxquels vous
 > faites confiance.
 
