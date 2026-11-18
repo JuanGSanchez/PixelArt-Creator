@@ -255,6 +255,16 @@ disallow_incomplete_defs = true
 module = ["PySide6.*", "keyring.*"]
 ignore_missing_imports = true
 
+# fontTools and yaml are installed, but mypy cannot use what they ship: fontTools
+# has no py.typed marker, and the stubs for yaml are a separate package this
+# project does not install. By default mypy then skips both and treats every
+# name imported from them as Any, so calls into them are never checked. This
+# makes mypy read their installed source and check against it. It checks more
+# and silences nothing.
+[[tool.mypy.overrides]]
+module = ["fontTools", "fontTools.*", "yaml", "yaml.*"]
+follow_untyped_imports = true
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 # Phase-13: web_viewer is a SEPARATE package (its own
