@@ -1751,8 +1751,8 @@ UNIT_NBSP_LANGUAGES: tuple[str, ...] = ("fr", "ru")
 """Interface languages that keep a number and its unit together with a no-break
 space. Source: the user's ruling of 2026-11-14 on the formatting of sizes in the
 French and Russian interface (spec ``REQ-L10N-UI-015``, acceptance "one U+00A0
-between the figure and the unit"; ``research-of8-language-conventions-and-
-terminology.md``). The other six languages keep what Qt's data gives."""
+between the figure and the unit"). The other six languages keep what Qt's data
+gives."""
 
 NO_BREAK_SPACE: int = 0x00A0
 """Code point of the character that joins a number and its unit in
