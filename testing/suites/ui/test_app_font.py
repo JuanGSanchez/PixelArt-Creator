@@ -60,6 +60,7 @@ would pass for the wrong reason.
 from __future__ import annotations
 
 import functools
+import io
 import json
 import operator
 import os
@@ -67,7 +68,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pytest
@@ -90,6 +91,7 @@ from PySide6.QtWidgets import (
     QListView,
     QListWidget,
     QMenu,
+    QStyledItemDelegate,
     QStyleOptionViewItem,
     QTabBar,
     QTableWidget,
@@ -294,9 +296,63 @@ def open_guide(win: Main_Window, qtbot, topic: str = "app-basics"):
 
 
 def say(capsys: pytest.CaptureFixture, text: str) -> None:
-    """Print a line that reaches the terminal even without ``-s``."""
+    """Print a line that reaches the terminal even without ``-s``.
+
+    The line never raises on a character the stream's encoding cannot hold (a
+    Han, Hangul or kana character on a Windows stdout redirected to a file is
+    cp1252). The first try prints the line as it is, so under UTF-8 the bytes are
+    exactly what they were. Only on ``UnicodeEncodeError`` is the line written
+    again, encoded with the stream's own encoding and ``backslashreplace``: the
+    character it cannot hold becomes its ``\\uXXXX`` escape and the rest is kept.
+    A failed encode writes nothing, so the line is never written twice.
+    """
+    line = f"\n[font] {text}"
     with capsys.disabled():
-        print(f"\n[font] {text}", flush=True)
+        try:
+            print(line, flush=True)
+        except UnicodeEncodeError:
+            encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+            kept = line.encode(encoding, "backslashreplace").decode(encoding)
+            print(kept, flush=True)
+
+
+class _NoCapture:
+    """Stand-in for ``capsys`` that leaves ``sys.stdout`` as the test set it."""
+
+    def disabled(self) -> "_NoCapture":
+        """Return the context manager that does nothing."""
+        return self
+
+    def __enter__(self) -> None:
+        return None
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+
+def test_req_l10n_ui_013_say_writes_a_line_with_han_hangul_and_kana_on_a_cp1252_stream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """REQ-L10N-UI-013: the font report's print survives a cp1252 stdout.
+
+    A Windows run with stdout redirected to a file has a cp1252 stream, which holds
+    none of the three scripts. ``say`` must raise nothing and must write the line:
+    its ASCII text intact, and each of the three characters kept as its code point
+    rather than dropped. The stream is a captured text stream (``io.TextIOWrapper``
+    over a ``BytesIO``), not the console, and ``capsys`` is stood in for so that
+    ``sys.stdout`` stays that stream. On Windows the stream writes CR LF for the
+    line end, so the line is compared after that is put back to a bare LF.
+    """
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="cp1252", write_through=True)
+    monkeypatch.setattr(sys, "stdout", stream)
+    line = "han \u65e5 hangul \ud55c kana \u3042 end"
+    say(cast(pytest.CaptureFixture, _NoCapture()), line)
+    written = raw.getvalue().decode("cp1252").replace("\r\n", "\n")
+    assert written.startswith("\n[font] han "), written
+    assert written.endswith(" end\n"), written
+    for character in "\u65e5\ud55c\u3042":
+        assert f"{ord(character):04x}" in written, (character, written)
 
 
 # --------------------------------------------------------------------------- #
@@ -432,7 +488,7 @@ def named(widget: QWidget) -> str:
 def _menu_roles(win: Main_Window) -> List[Tuple[str, QFont, bool]]:
     roles: List[Tuple[str, QFont, bool]] = [("menu bar", win.menuBar().font(), False)]
     for top in win.menuBar().actions():
-        menu = top.menu()
+        menu = cast(Optional[QMenu], top.menu())
         if menu is None:
             continue
         menu.ensurePolished()
@@ -481,7 +537,8 @@ def test_sc_vi_ui_013_1_menus_dock_titles_tabs_and_buttons_are_nifen_art(
 def test_sc_vi_ui_013_1_the_dock_title_is_bold_and_everything_else_regular(
     qtbot, capsys, mode
 ):
-    """The Bold dock title is accepted by a resolved-font assertion, not by a style rule.
+    """The Bold dock title is accepted by a resolved-font assertion, not by a style
+    rule.
 
     Dock title: family Nifen Art, style Bold, weight 700, 12 px, no smoothing, no
     hinting adjustments. Body, label, button, line edit and list: Regular, 400. The
@@ -575,7 +632,8 @@ def test_sc_vi_ui_013_1_the_dock_title_ink_is_the_bold_face_not_the_regular(
     bold = _reference_ink(title, QFont.Weight.Bold)
     say(
         capsys,
-        f"title {title!r} [{mode}]: dock ink {ink}, Regular ref {regular}, Bold ref {bold}",
+        f"title {title!r} [{mode}]: dock ink {ink}, Regular ref {regular}, "
+        f"Bold ref {bold}",
     )
     assert regular > 0 and bold > 0, "a reference rendered nothing"
     assert (
@@ -593,7 +651,8 @@ def test_sc_vi_ui_013_1_the_dock_title_ink_is_the_bold_face_not_the_regular(
 
 
 def test_sc_vi_ui_013_2_the_guide_page_starts_in_the_platform_font(qtbot, capsys, mode):
-    """SC-VI-UI-013-2: page text in the platform font; topic list and search in Nifen Art.
+    """SC-VI-UI-013-2: page text in the platform font; topic list and search in
+    Nifen Art.
 
     "Use system font" off, the hidden switch never used. The page's document default
     font is the platform's own default font (given as the platform's family, never
@@ -606,7 +665,8 @@ def test_sc_vi_ui_013_2_the_guide_page_starts_in_the_platform_font(qtbot, capsys
     page = dialog._content_view.document().defaultFont()
     say(
         capsys,
-        f"[{mode}] page font {facts_of(page).describe()}; platform {platform.family()!r}",
+        f"[{mode}] page font {facts_of(page).describe()}; "
+        f"platform {platform.family()!r}",
     )
     assert dialog.page_uses_pixel_font() is False
     assert (
@@ -645,14 +705,17 @@ def _option_font(view: QAbstractItemView) -> QFont:
     model = view.model()
     assert model is not None and model.rowCount() > 0, "the view has no row"
     option = QStyleOptionViewItem()
-    view.itemDelegate().initStyleOption(option, model.index(0, 0))
+    cast(QStyledItemDelegate, view.itemDelegate()).initStyleOption(
+        option, model.index(0, 0)
+    )
     return QFont(option.font)
 
 
 def test_sc_vi_ui_013_3_dock_rows_dialog_tooltip_and_status_bar_are_nifen_art(
     qtbot, capsys, mode
 ):
-    """SC-VI-UI-013-3: layer rows, a dialog's labels and fields, a tool tip, the status bar.
+    """SC-VI-UI-013-3: layer rows, a dialog's labels and fields, a tool tip, the
+    status bar.
 
     The scenario names a "New Layer dialog". The product has no such dialog (layers
     are added from the panel), so the nearest "new" dialog stands in for it: the New
@@ -740,7 +803,8 @@ def _fresh_widgets(_parent: Optional[QWidget] = None) -> List[Tuple[str, QWidget
 
 
 def class_font_problems(app: QApplication, parent: QWidget) -> List[str]:
-    """Return what is wrong with the per-class fonts and with fresh widgets of those classes."""
+    """Return what is wrong with the per-class fonts and with fresh widgets of those
+    classes."""
     wrong: List[str] = []
     base = app.font()
     for name in app_font._PLATFORM_CLASS_FONTS:
@@ -786,7 +850,8 @@ def test_item_views_menus_and_dock_titles_keep_nifen_art_after_every_style_sheet
         )
     say(
         capsys,
-        f"{combo.label()}: {examined} class fonts + 5 fresh widgets per step; {len(wrong)} problems",
+        f"{combo.label()}: {examined} class fonts + 5 fresh widgets per step; "
+        f"{len(wrong)} problems",
     )
     assert not wrong, "\n  ".join(wrong[:25])
 
@@ -823,7 +888,8 @@ def test_the_class_font_regression_check_fires_when_the_platform_fonts_come_back
 
 
 def test_a_just_launched_window_and_its_children_are_nifen_art(qtbot, capsys, mode):
-    """Every widget of a freshly built window was GIVEN Nifen Art, not just resolved to it.
+    """Every widget of a freshly built window was GIVEN Nifen Art, not just resolved
+    to it.
 
     The application font is changed while the window is being built. Qt tells
     already-existing top-level windows about an application font change only once
@@ -843,7 +909,8 @@ def test_a_just_launched_window_and_its_children_are_nifen_art(qtbot, capsys, mo
     assert total > 50
     assert not stale, (
         f"{len(stale)} of {total} widgets were not given {NIFEN!r} "
-        f"(the application font is {QApplication.font().family()!r}); first: {stale[:8]}"
+        f"(the application font is {QApplication.font().family()!r}); "
+        f"first: {stale[:8]}"
     )
 
 
@@ -901,8 +968,8 @@ def test_sc_vi_ui_014_2_the_dock_title_line_lies_inside_the_plate_band(
     control = agreement(plate_rows, wrong_style)
     say(
         capsys,
-        f"{combo.label()}: the dock body starts at row {plate_rows}; the composed plate "
-        f"agrees {scores[plate_rows]:.3f} (by height "
+        f"{combo.label()}: the dock body starts at row {plate_rows}; the composed "
+        f"plate agrees {scores[plate_rows]:.3f} (by height "
         f"{{{', '.join(f'{r}: {v:.3f}' for r, v in scores.items())}}}); the plate of "
         f"{wrong_style.label()} agrees {control:.3f}",
     )
@@ -967,7 +1034,8 @@ def test_sc_vi_ui_014_2_the_dock_title_line_lies_inside_the_plate_band(
     line_bottom = line_top + line_height
     say(
         capsys,
-        f"{combo.label()}: band rows [{band_top}, {band_bottom}), line box rows [{line_top}, {line_bottom})",
+        f"{combo.label()}: band rows [{band_top}, {band_bottom}), "
+        f"line box rows [{line_top}, {line_bottom})",
     )
     assert (
         band_top <= line_top
@@ -1007,7 +1075,7 @@ def test_sc_vi_ui_016_1_use_system_font_returns_the_interface_to_the_platform_fo
     )
     assert app.font().family() == platform.family() != NIFEN
     for name in app_font._PLATFORM_CLASS_FONTS:
-        assert app.font(name).family() != NIFEN, f"class {name} is Nifen Art"  # type: ignore[call-overload]
+        assert app.font(name).family() != NIFEN, f"class {name} is Nifen Art"
     assert win.menuBar().font().family() != NIFEN
 
     win.set_use_system_font(False)
@@ -1017,11 +1085,12 @@ def test_sc_vi_ui_016_1_use_system_font_returns_the_interface_to_the_platform_fo
     win.set_use_system_font(True)
     QApplication.processEvents()
     assert app.font().family() == platform.family()
-    # The platform's per-class fonts are what they were before the product touched anything.
+    # The platform's per-class fonts are what they were before the product touched
+    # anything.
     classes = app_font._platform["classes"]
     assert isinstance(classes, dict)
     for name, font in classes.items():
-        assert app.font(name) == font, f"class {name}: not restored"  # type: ignore[call-overload]
+        assert app.font(name) == font, f"class {name}: not restored"
     say(capsys, f"[{mode}] {len(classes)} captured per-class fonts compared")
 
 
@@ -1040,7 +1109,8 @@ def test_use_system_font_survives_a_style_switch_and_a_mode_switch(qtbot, mode):
 def test_sc_vi_ui_016_2_the_system_font_wins_over_the_hidden_switch(
     qtbot, capsys, mode
 ):
-    """SC-VI-UI-016-2 (in one process): switch on, then "Use system font" wins everywhere.
+    """SC-VI-UI-016-2 (in one process): switch on, then "Use system font" wins
+    everywhere.
 
     The hidden switch has put the guide's page in Nifen Art. Checking "Use system
     font" puts all interface text, dock and panel content and the guide's page text
@@ -1058,7 +1128,8 @@ def test_sc_vi_ui_016_2_the_system_font_wins_over_the_hidden_switch(
     page = dialog._content_view.document().defaultFont().family()
     say(
         capsys,
-        f"[{mode}] system font on: page {page!r}, application {QApplication.font().family()!r}",
+        f"[{mode}] system font on: page {page!r}, "
+        f"application {QApplication.font().family()!r}",
     )
     assert dialog.page_uses_pixel_font() is False
     assert dialog.guide_pixel_font() is True, "the switch's own state was lost"
@@ -1170,7 +1241,8 @@ def run_child(
 def test_sc_vi_ui_015_1_a_missing_character_falls_back_alone_with_no_box(
     tmp_path, capsys
 ):
-    """SC-VI-UI-015-1: "Capa 森" - "Capa " in Nifen Art, the ideograph from a fallback, no box.
+    """SC-VI-UI-015-1: "Capa 森" - "Capa " in Nifen Art, the ideograph from a fallback,
+    no box.
 
     Runs in a child process whose font database is the platform's own. The
     character is chosen at run time from candidates that Nifen Art lacks and that
@@ -1188,19 +1260,22 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QRawFont, QTextLayout, QFont
 from pixelart_creator.ui.main_window import Main_Window
 w = Main_Window(); w.resize(1100, 700); w.show(); app.processEvents()
-app_font.apply_interface_font(app, False)   # settled: the first-launch defect has its own test
+# settled: the first-launch defect has its own test
+app_font.apply_interface_font(app, False)
 doc = w.active_document()
 doc.frames[0].layers[0].name = "Capa X"
 families = [f for f in QFontDatabase.families() if f != "Nifen Art"]
 nifen = QRawFont.fromFont(app_font.interface_font())
-# QRawFont.supportsCharacter(<one-character str>) is wrong on Linux. Measured there (offscreen,
-# PySide6 6.11.1, DejaVu Sans): it answers True for "A" and False for U+00E9 and U+2500, which
-# the font holds, while the integer code point answers True for them and False for U+10FFFD.
-# That is what turned "DejaVu Sans covers U+2500" into "no font" in CI (Windows answers the
-# str form correctly, so only Linux shows it). Every coverage question below passes ord(ch).
-# One face per family, resolved by the database with the family's own first style and
-# accepted only if Qt really resolved THAT family: a request the platform answered with a
-# different face (an alias such as "Monospace", a missing family) is not a family's coverage.
+# QRawFont.supportsCharacter(<one-character str>) is wrong on Linux. Measured there
+# (offscreen, PySide6 6.11.1, DejaVu Sans): it answers True for "A" and False for
+# U+00E9 and U+2500, which the font holds, while the integer code point answers True
+# for them and False for U+10FFFD. That is what turned "DejaVu Sans covers U+2500"
+# into "no font" in CI (Windows answers the str form correctly, so only Linux shows
+# it). Every coverage question below passes ord(ch).
+# One face per family, resolved by the database with the family's own first style
+# and accepted only if Qt really resolved THAT family: a request the platform
+# answered with a different face (an alias such as "Monospace", a missing family)
+# is not a family's coverage.
 faces = []
 for fam in families:
     styles = QFontDatabase.styles(fam)
@@ -1214,15 +1289,20 @@ def covers_elsewhere(ch):
         if raw.supportsCharacter(ord(ch)):
             return fam
     return None
-# Controls (a probe must show a known-true and a known-false signal before it is believed):
-# an ASCII letter must be found in some face, and a code point no font has must not be.
-probe_control = {"positive": covers_elsewhere("A"), "negative": covers_elsewhere("\\U0010fffd")}
+# Controls (a probe must show a known-true and a known-false signal before it is
+# believed): an ASCII letter must be found in some face, and a code point no font has
+# must not be.
+probe_control = {
+    "positive": covers_elsewhere("A"),
+    "negative": covers_elsewhere("\\U0010fffd"),
+}
 chosen = None; fallback_family = None; candidates = 0; table = []
-# Scripts first (what a user's layer names look like), then characters that a stock Linux
-# font (DejaVu, Liberation) covers and Nifen Art lacks in both weights: Latin Extended-B,
-# IPA, box drawing, a math sum and root, a shade, a face, a house.
-for ch in ["\\u68ee", "\\u6f22", "\\u5b57", "\\u65e5", "\\uc0b0", "\\u0e01", "\\u05d0", "\\u0639", "\\u0915",
-           "\\u0192", "\\u0259", "\\u2500", "\\u2211", "\\u221a", "\\u2592", "\\u263a", "\\u2302"]:
+# Scripts first (what a user's layer names look like), then characters that a stock
+# Linux font (DejaVu, Liberation) covers and Nifen Art lacks in both weights: Latin
+# Extended-B, IPA, box drawing, a math sum and root, a shade, a face, a house.
+for ch in ["\\u68ee", "\\u6f22", "\\u5b57", "\\u65e5", "\\uc0b0", "\\u0e01", "\\u05d0",
+           "\\u0639", "\\u0915", "\\u0192", "\\u0259", "\\u2500", "\\u2211", "\\u221a",
+           "\\u2592", "\\u263a", "\\u2302"]:
     if nifen.supportsCharacter(ord(ch)):
         table.append("U+%04X nifen" % ord(ch))
         continue
@@ -1238,17 +1318,27 @@ w._layer_panel.rebuild(); app.processEvents()
 label = w._layer_panel._rows[0]._name
 row_text = label.text()
 def shape(text, font):
-    lay = QTextLayout(text, font); lay.beginLayout(); line = lay.createLine(); line.setLineWidth(10000); lay.endLayout()
+    lay = QTextLayout(text, font)
+    lay.beginLayout()
+    line = lay.createLine()
+    line.setLineWidth(10000)
+    lay.endLayout()
     runs = []
     for run in lay.glyphRuns():
         raw = run.rawFont()
-        runs.append({"family": raw.familyName(), "glyphs": len(run.glyphIndexes()), "notdef": 0 in list(run.glyphIndexes())})
+        runs.append({
+            "family": raw.familyName(),
+            "glyphs": len(run.glyphIndexes()),
+            "notdef": 0 in list(run.glyphIndexes()),
+        })
     return runs
 runs = shape(row_text, label.font())
 control = shape("\\U0010fffd", label.font())
 import os
-out(families=len(families), faces=len(faces), probe_control=probe_control, chosen=chosen, fallback=fallback_family, candidates=candidates,
-    platform=app.platformName(), fontdir=os.environ.get("QT_QPA_FONTDIR", ""), table=table,
+out(families=len(families), faces=len(faces), probe_control=probe_control,
+    chosen=chosen, fallback=fallback_family, candidates=candidates,
+    platform=app.platformName(), fontdir=os.environ.get("QT_QPA_FONTDIR", ""),
+    table=table,
     family_names=sorted(families)[:60],
     row_text=row_text, runs=runs, control=control, row_font=label.font().family(),
     nifen_runs=[r for r in runs if r["family"] == "Nifen Art"])
@@ -1258,14 +1348,16 @@ out(families=len(families), faces=len(faces), probe_control=probe_control, chose
     say(
         capsys,
         f"015-1: fonts in the child's database {result['families']}, candidates "
-        f"{result['candidates']}, chose {result['chosen']!r} (covered by {result['fallback']!r}); "
+        f"{result['candidates']}, chose {result['chosen']!r} "
+        f"(covered by {result['fallback']!r}); "
         f"runs {result['runs']}; control {result['control']}",
     )
     # What the database holds, so the log of a failing or skipped run shows why.
     census = (
         f"Qt platform {result['platform']!r}, QT_QPA_FONTDIR {result['fontdir']!r}, "
         f"{result['families']} families besides Nifen Art "
-        f"({result['faces']} resolved to their own face; probe controls {result['probe_control']}) "
+        f"({result['faces']} resolved to their own face; "
+        f"probe controls {result['probe_control']}) "
         f"(first {len(result['family_names'])}): {result['family_names']}; "
         f"candidates: {result['table']}"
     )
@@ -1273,9 +1365,9 @@ out(families=len(families), faces=len(faces), probe_control=probe_control, chose
     assert result["families"] > 0, (
         "the child's font database holds no font besides Nifen Art; " + census
     )
-    # The coverage probe must see before it may say "no font": a letter every font holds is
-    # found, and a code point no font holds is not. Otherwise "no candidate" below would be
-    # the probe's blindness and not the environment's font database.
+    # The coverage probe must see before it may say "no font": a letter every font
+    # holds is found, and a code point no font holds is not. Otherwise "no candidate"
+    # below would be the probe's blindness and not the environment's font database.
     assert result["probe_control"]["positive"], (
         "the coverage probe is blind: no installed face reports the letter A; " + census
     )
@@ -1327,7 +1419,11 @@ def test_sc_vi_ui_016_2_and_017_3_the_choices_survive_a_real_restart(tmp_path, c
     still remembered. Each child redirects the settings store to ``tmp_path``.
     """
     open_guide_js = """
-w._on_user_guide(); d = w._user_guide_dialog; d.resize(900, 700); d.show(); app.processEvents()
+w._on_user_guide()
+d = w._user_guide_dialog
+d.resize(900, 700)
+d.show()
+app.processEvents()
 d.show_topic("app-basics"); app.processEvents()
 """
     head = """
@@ -1340,7 +1436,8 @@ out(app=app.font().family(), menu=QFontInfo(w.menuBar().font()).family(),
     page=page.family(), page_resolved=QFontInfo(page).family(),
     page_pixel=d.page_uses_pixel_font(), switch=d.guide_pixel_font(),
     toc=QFontInfo(d._toc_tree.font()).family(), system=w.use_system_font(),
-    action=w._use_system_font_action.isChecked(), platform=app_font.platform_default_font().family(),
+    action=w._use_system_font_action.isChecked(),
+    platform=app_font.platform_default_font().family(),
     platform_resolved=QFontInfo(app_font.platform_default_font()).family(),
     families=len(QFontDatabase.families()))
 """
@@ -1353,7 +1450,8 @@ out(app=app.font().family(), menu=QFontInfo(w.menuBar().font()).family(),
         head
         + open_guide_js
         + state.replace("out(", "first = dict(")
-        + "\nw.set_use_system_font(True); app.processEvents()\nout(first=first, system_after=w.use_system_font())\n",
+        + "\nw.set_use_system_font(True); app.processEvents()\n"
+        "out(first=first, system_after=w.use_system_font())\n",
         tmp_path,
     )
     first = p2["first"]
@@ -1452,7 +1550,8 @@ def test_smoke_mode_prints_the_interface_font_nifen_art(tmp_path, capsys):
 
 
 def test_the_platform_font_directory_is_one_the_child_can_use():
-    """The helper that finds the platform's fonts returns an existing folder or nothing."""
+    """The helper that finds the platform's fonts returns an existing folder or
+    nothing."""
     folder = platform_font_dir()
     assert folder == "" or Path(folder).is_dir()
     if os.name == "nt":
