@@ -137,7 +137,7 @@ Ihrer Bearbeitungssitzung aufzunehmen und abzuspielen und so zu zeigen, wie ein 
   **Zeitraffer öffnen**). Die Sitzung speichert ein geordnetes Manifest aus **Befehlsverweisen, nicht
   Pixeln**, sodass sie klein bleibt und **deterministisch wiedergegeben wird**: Dieselbe aufgenommene
   Sitzung liefert, zweimal abgespielt, die **identische** Frame-Sequenz. Sitzungen sind auf **4096**
-  Frames begrenzt; eine fehlerhafte Datei führt zu einer dem Benutzer angezeigten Fehlermeldung.
+  Frames begrenzt; eine fehlerhafte Datei führt zu einer angezeigten Fehlermeldung.
 
 ### Wiedergabe
 

@@ -11,8 +11,8 @@ doch diese Version schließt ihn nicht an (siehe *Optionale Cloud-Anbindung*). S
 > **Referenz statt Kopie.** Alles hier beruht auf einer Idee, die die Bibliothek bereits verwendet: Die Bytes
 > eines Assets werden **einmal** gespeichert, mit ihrem Inhalt als Schlüssel, in einem
 > inhaltsadressierbaren Speicher, und ein Projekt hält nur eine **Referenz** (eine stabile ID plus den
-> Inhalts-Hash, den es erwartet). Versionierung und Wiederverwendung verschieben beide Referenzen und
-> prüfen Inhalte – sie legen nie eine zweite Kopie Ihrer Grafik an.
+> Inhalts-Hash, den es erwartet). Sowohl die Versionierung als auch die Wiederverwendung verschieben
+> Referenzen und prüfen Inhalte – sie legen nie eine zweite Kopie Ihrer Grafik an.
 
 ## Versionsverlauf
 

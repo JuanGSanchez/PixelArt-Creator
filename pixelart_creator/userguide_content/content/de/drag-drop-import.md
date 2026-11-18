@@ -2,7 +2,7 @@
 
 Ziehen Sie eine Datei direkt aus dem Datei-Explorer Ihres Betriebssystems (Windows Explorer, macOS
 Finder, Linux Nautilus) **in** das Fenster von PixelArt Creator, und die Anwendung tut für diese Art
-von Datei das Naheliegende. Ein Umweg über Datei ▸ Öffnen ist nicht nötig – legen Sie die Datei
+von Datei das Naheliegende. Ein Umweg über Datei ▸ Öffnen… ist nicht nötig – legen Sie die Datei
 einfach irgendwo im Fenster ab, und die Anwendung leitet sie **nach Dateityp** weiter, nicht danach,
 an welcher Stelle des Fensters Sie loslassen.
 

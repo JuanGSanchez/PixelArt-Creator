@@ -96,10 +96,10 @@ dessen, was der Code des Plugins selbst tun kann (siehe den Hinweis unten).
   Berechtigungen, die Sie genehmigt haben, im Arbeitsspeicher fest und markiert das Plugin als
   aktiviert; es führt den Code des Plugins nicht aus, weil die Anwendung keinen Vorgang hat, der das
   tut. Ihre Zustimmung wird nicht gespeichert: Beim Schließen des Editors ist jedes Plugin wieder
-  deaktiviert. Der Plugin-Host ist so programmiert: Gäbe ihm ein Aufrufer Code, der beim Aktivieren
-  eines Plugins ausgeführt werden soll, so würde dieser Code ein Berechtigungsobjekt erhalten, und ein
-  Aufruf über dieses Objekt, für den keine Berechtigung erteilt wurde, würde abgelehnt; in dieser
-  Version übergibt ihm nichts derartigen Code. Über dieses Objekt registrierte Operationen erhalten den
+  deaktiviert. Der Plugin-Host ist so geschrieben: Wenn ihm ein Aufrufer Code übergäbe, der beim
+  Aktivieren eines Plugins ausgeführt werden soll, bekäme dieser Code ein Berechtigungsobjekt, und ein
+  Aufruf über dieses Objekt ohne erteilte Berechtigung würde abgelehnt; in dieser Version gibt es
+  jedoch nichts, das ihm solchen Code übergibt. Über dieses Objekt registrierte Operationen erhalten den
   Namen des Plugins als Präfix, sodass sie nicht mit dem Namen einer eingebauten Operation
   übereinstimmen können, und eine Leseberechtigung über dieses Objekt liefert das übergebene Dokument
   selbst zurück, nicht eine Kopie. Code, der nicht über das Objekt läuft, wird davon nicht begrenzt: Er
@@ -112,10 +112,10 @@ dessen, was der Code des Plugins selbst tun kann (siehe den Hinweis unten).
 > **Plugins sind nicht in einer Sandbox gekapselt.** Ein Plugin ist nicht von Ihrem Computer isoliert,
 > und die Anwendung bietet in dieser Version für kein Plugin eine Isolierung. Die Installation eines
 > Plugins bringt fremden Python-Code auf Ihren Computer, und die Anwendung führt die Installation weder
-> durch noch prüft sie diese. Eine Python-Distribution kann Python außerdem darum bitten, bei jedem
-> Start von Python in der Umgebung, in der diese Distribution installiert ist und zu der der Editor
-> gehört, Code auszuführen, sodass das Installieren eines Plugins genügen kann, damit dessen Code
-> ausgeführt wird, auch wenn Sie das Bedienfeld **Plugins** nie öffnen. Code, der im Prozess des
+> durch noch prüft sie diese. Ein Python-Paket kann Python außerdem darum bitten, bei jedem Start
+> von Python in der Umgebung, in der dieses Paket installiert ist, Code auszuführen; zu dieser
+> Umgebung gehört auch der Editor. Das Installieren eines Plugins kann deshalb genügen, damit dessen
+> Code ausgeführt wird, auch wenn Sie das Bedienfeld **Plugins** nie öffnen. Code, der im Prozess des
 > Editors läuft, hat – gleichgültig, wie er dorthin gelangt ist – denselben Zugriff auf Ihre Dateien
 > und das Netzwerk wie der Editor selbst, unabhängig davon, welche Berechtigungen das Plugin
 > deklariert hat. Installieren und aktivieren Sie nur Plugins, denen Sie vertrauen.

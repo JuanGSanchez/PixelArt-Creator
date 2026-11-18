@@ -190,7 +190,7 @@ Die Abfrage selbst bietet zwei Optionen (in dieser Version sehen Sie sie nicht):
 
 ## Der Rest des Meilensteins Cloud und Zusammenarbeit
 
-Diese Seite behandelt die Cloud-Arbeit für einen einzelnen Benutzer – Speichern, Versionen, automatisches
+Diese Seite behandelt die Cloud-Arbeit für eine einzelne Person – Speichern, Versionen, automatisches
 Speichern – sowie die Anbieter der Speicherschicht. Die Funktionen zur Zusammenarbeit (in dieser Version auf
 einem eigenen Adapter im Arbeitsspeicher, pro Anwendungsfenster; das gemeinsame Bearbeiten in Echtzeit und
 Live-Cursor können keine Verbindung herstellen) – **geteilte Projekte und Mitgliedschaft**, **Kommentare**,

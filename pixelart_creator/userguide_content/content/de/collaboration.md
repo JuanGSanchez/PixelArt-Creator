@@ -28,15 +28,15 @@ Versionsverlauf die andockbaren Bedienfelder zur Zusammenarbeit und die Steuerun
 - **Cloud ▸ Anwesenheit** – sehen, wer anwesend ist, und sich selbst als anwesend anzeigen.
 - **Cloud ▸ Echtzeit starten… / Echtzeit beenden** – einer Live-Sitzung zum gemeinsamen Bearbeiten beitreten
   oder sie verlassen (in dieser Version nicht verbindbar).
-- **Cloud ▸ Live-Cursor anzeigen** – die Live-Cursor anderer Bearbeiter auf Ihrer Arbeitsfläche ein- oder
+- **Cloud ▸ Live-Cursor anzeigen** – die Live-Cursor anderer Mitwirkender auf Ihrer Arbeitsfläche ein- oder
   ausblenden (es gibt keine anzuzeigenden, bis eine Echtzeit-Sitzung eine Verbindung herstellen kann).
 - **Cloud ▸ Branching** – das Bedienfeld zum Verzweigen, Wechseln und Zusammenführen öffnen.
 
 Jeder dieser Einträge blendet das jeweilige Bedienfeld ein oder aus, sodass Sie die Bedienfelder neben den
 Bedienfeldern für Ebenen und Zeitleiste sowie anderen Arbeitsablauf-Bedienfeldern anordnen können.
 
-> **Ein anbieterunabhängiger Port – kein Lock-in.** Genau wie das Speichern in der Cloud für einen einzelnen
-> Benutzer spricht auch die Zusammenarbeit nie direkt mit einem bestimmten Anbieter. Teilen, Mitgliedschaft,
+> **Ein anbieterunabhängiger Port – kein Lock-in.** Genau wie das Speichern in der Cloud für eine einzelne
+> Person spricht auch die Zusammenarbeit nie direkt mit einem bestimmten Anbieter. Teilen, Mitgliedschaft,
 > Kommentare und Anwesenheit laufen alle über **dieselbe anbieterunabhängige Schnittstelle** (die Familie
 > der *Cloud-Ports*), sodass sich die Anwendung identisch verhält, egal welcher Anbieter dahintersteht. In
 > dieser Version wird diese Schnittstelle vom oben beschriebenen integrierten Adapter im Arbeitsspeicher
@@ -174,11 +174,11 @@ geschehen, ist der als Nächstes beschriebene Echtzeit-Pfad.
 Beim gemeinsamen Bearbeiten in Echtzeit werden die Änderungen jeder teilnehmenden Person auf die
 Arbeitsfläche **jeder** anderen teilnehmenden Person angewendet, während sie geschehen, und konvergieren mit demselben
 deterministischen Modell wie die Stapel-Zusammenführung oben. Die Änderungen laufen über ein eigenes
-**Echtzeit-Sync-Backend** (siehe den Hinweis für Betreiber am Ende).
+**Echtzeit-Sync-Backend** (siehe den Betriebshinweis am Ende).
 
 > **In dieser Version nicht verbindbar.** Die Desktop-Anwendung hat keine Echtzeit-Verbindung konfiguriert,
 > sodass **Cloud ▸ Echtzeit starten…** (nachdem Sie eine Mitglieds-ID eingegeben haben) keiner Sitzung
-> beitritt: Die Statusleiste zeigt eine Meldung, die auf „no real-time transport configured“ endet, und es
+> beitritt: Die Statusleiste zeigt eine Meldung, die auf „kein Echtzeit-Transport konfiguriert“ endet, und es
 > ergeben sich weder weitere Teilnehmende noch Live-Cursor noch ein Nachholen für später Beitretende. Die Schritte unten
 > beschreiben, wie eine Sitzung funktioniert, sobald eine Verbindung besteht.
 
@@ -216,7 +216,7 @@ verbinden; das Verlassen löscht die Live-Cursor.
 ### Live-Cursor und Auswahl
 
 Solange Echtzeit verbunden ist, schaltet **Cloud ▸ Live-Cursor anzeigen** eine Einblendung ein oder aus, die
-die Cursor und Auswahlen anderer Bearbeiter auf Ihrer Arbeitsfläche zeichnet, jeweils mit der Mitglieds-ID
+die Cursor und Auswahlen anderer Mitwirkender auf Ihrer Arbeitsfläche zeichnet, jeweils mit der Mitglieds-ID
 der jeweiligen Person beschriftet.
 
 - Cursor sind **flüchtig** – sie sind nur ein Live-Signal und werden **nie** in die `.pixproj`-Datei oder in den
@@ -270,7 +270,7 @@ zusammengeführt.*).
 
 <!-- split-with: docs/site/pages/en/usage/hosting.md (that page extracts and expands this section's deployment detail; this section stays the bundle's single mention) -->
 
-## Hinweis für Betreiber: das Sync-Backend betreiben
+## Betriebshinweis: das Sync-Backend betreiben
 
 Das gemeinsame Bearbeiten in Echtzeit braucht ein **Sync-Backend** – einen kleinen, eigenständigen Dienst, der
 Änderungen zwischen den Mitwirkenden weiterleitet und dauerhaft speichert. Es ist **nicht** Teil des
