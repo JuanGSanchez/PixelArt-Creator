@@ -1473,6 +1473,67 @@ def _own_line_findings(shown: str, sentence: str) -> List[str]:
     return [f"no line of {shown!r} equals the catalogue's {sentence!r}"]
 
 
+def _after_ending_findings(shown: str, sentence: str) -> List[str]:
+    """Return what is wrong with a sentence shown after a lead-in that ends as one.
+
+    The sentence is the end of what is shown, whole: its first letter and its closing
+    mark are compared like every other character, so a mark added after it or one of
+    its own that is missing is a finding.
+    """
+    if not shown.endswith(sentence):
+        return [f"the sentence is not the end of {shown!r}"]
+    return []
+
+
+#: Where a sentence can stand in a text shown, as ``_placed_findings`` names it.
+PLACES = ("alone", "own line", "after a sentence", "inline", "absent")
+
+
+def _placed_findings(shown: str, sentence: str, code: str) -> Tuple[str, List[str]]:
+    """Return where ``sentence`` stands in ``shown`` and what is wrong with it there.
+
+    The place is ``absent`` (the catalogue's sentence is not in the text, which is
+    what a closing mark dropped or a letter changed looks like), ``own line`` (no
+    text before it on its line), ``after a sentence`` (the text before it on its line
+    ends with a sentence-ending mark of the language) or ``inline`` (it continues on
+    its lead-in's line: the verdict of SC-L10N-UI-020-1 and -2, not of this one).
+    Each place with a verdict of its own applies it.
+    """
+    index = shown.find(sentence)
+    if index < 0:
+        return "absent", [
+            f"the catalogue's {sentence!r} is not in what is shown, {shown!r}"
+        ]
+    before = shown[:index].rsplit("\n", 1)[-1].rstrip()
+    if not before:
+        return "own line", _own_line_findings(shown, sentence)
+    if before[-1] in SENTENCE_ENDINGS[code]:
+        return "after a sentence", _after_ending_findings(shown, sentence)
+    return "inline", []
+
+
+def form_failures(
+    code: str,
+    site: str,
+    kind: str,
+    shown: str,
+    sentence: str,
+    alone: bool = False,
+) -> Tuple[str, List[str]]:
+    """Return the place of ``sentence`` in ``shown`` and its failures, each worded.
+
+    This is the one function that judges a sentence against its catalogue form and
+    words what it finds: every failure names the language, the site and the kind of
+    sentence. The case calls it for every site it examines, and the controls read the
+    words it gives, so a control runs the code the case runs.
+    """
+    if alone:
+        place, findings = "alone", _alone_findings(shown, sentence)
+    else:
+        place, findings = _placed_findings(shown, sentence, code)
+    return place, [f"[{code}] {site}, {kind}: {finding}" for finding in findings]
+
+
 @pytest.mark.parametrize("code", LANGUAGES)
 def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
     code, sites, language, qtbot, monkeypatch, mute_message_boxes, tmp_path, capsys
@@ -1486,9 +1547,14 @@ def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
     line of its own, one line equals it; after a lead-in that ends as a sentence,
     it ends the text shown. Each is an equality, so the closing mark is compared
     like every other character, and a language without one (``zh_CN``) fails when
-    one is added. Sites are printed per kind and the total is non-zero. A sentence
-    shown after a lead-in that ends as a sentence is checked on the status bar's
-    failure-only frame, where the surface shows it.
+    one is added. Sites are printed per kind, each kind with its count (a kind with
+    none in a language is printed as 0) and the surfaces that gave it, and the total
+    is non-zero. A sentence shown after a lead-in that ends as a sentence is checked
+    on the status bar's failure-only frame, where the surface shows it.
+
+    Every judgement is ``form_failures``, which calls one named verdict per place
+    (``_alone_findings``, ``_own_line_findings``, ``_after_ending_findings``); the
+    controls below run the same functions on planted texts.
     """
     found = {kind: sentence_in(code, kind) for kind in SENTENCES}
     unfinished = [kind for kind, text in found.items() if text is None]
@@ -1497,12 +1563,14 @@ def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
     language(code)
     env = _env(qtbot, monkeypatch, mute_message_boxes, tmp_path, code)
     failures: List[str] = []
-    alone = own_line = after_ending = 0
+    sites_of: Dict[str, List[str]] = {place: [] for place in PLACES}
     for site_name, drive in ALONE_SITES.items():
         for kind, sentence in sentences.items():
-            alone += 1
-            findings = _alone_findings(drive(env, kind), sentence)
-            failures += [f"[{code}] {site_name}, {kind}: {f}" for f in findings]
+            place, worded = form_failures(
+                code, site_name, kind, drive(env, kind), sentence, alone=True
+            )
+            sites_of[place].append(site_name)
+            failures += worded
     for surface in SURFACES:
         for kind, sentence in sentences.items():
             text = surface.drive(env, kind)
@@ -1510,32 +1578,22 @@ def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
                 text.split(f"\n{surface.separator}\n") if surface.separator else [text]
             )
             for shown in parts:
-                index = shown.find(sentence)
-                before = (
-                    shown[:index].rsplit("\n", 1)[-1].rstrip() if index >= 0 else ""
-                )
-                if index < 0:
-                    failures.append(
-                        f"[{code}] {surface.name}, {kind}: the catalogue's "
-                        f"{sentence!r} is not in what is shown, {shown!r}"
-                    )
-                elif not before:
-                    own_line += 1
-                    findings = _own_line_findings(shown, sentence)
-                    failures += [
-                        f"[{code}] {surface.name}, {kind}: {f}" for f in findings
-                    ]
-                elif before[-1] in SENTENCE_ENDINGS[code]:
-                    after_ending += 1
-                    if not shown.endswith(sentence):
-                        failures.append(
-                            f"[{code}] {surface.name}, {kind}: the sentence is not "
-                            f"the end of {shown!r}"
-                        )
+                place, worded = form_failures(code, surface.name, kind, shown, sentence)
+                sites_of[place].append(surface.name)
+                failures += worded
+    alone, own_line, after_ending = (
+        len(sites_of[place]) for place in ("alone", "own line", "after a sentence")
+    )
+
+    def named(place: str) -> str:
+        return f"{len(sites_of[place])} {sorted(set(sites_of[place]))}"
+
     line = (
-        f"[lead-in sentences] {code}: sites examined alone {alone}, on a line of its "
-        f"own {own_line}, after a lead-in that ends as a sentence {after_ending}; "
-        f"total {alone + own_line + after_ending}"
+        f"[lead-in sentences] {code}: sites examined alone {named('alone')}, on a line "
+        f"of its own {named('own line')}, after a lead-in that ends as a sentence "
+        f"{named('after a sentence')}; total {alone + own_line + after_ending}; not "
+        f"in this verdict: continuing on a lead-in's line {len(sites_of['inline'])}, "
+        f"sentence absent {len(sites_of['absent'])}"
     )
     print(line)
     with capsys.disabled():
@@ -1549,12 +1607,13 @@ def test_sc_l10n_ui_020_3_a_lower_case_spanish_sentence_alone_fails_naming_the_s
     names the site."""
     site = "message box (ui/asset_tagging_panel.py)"
     expected = REVIEW_SENTENCE
-    findings = _alone_findings(REVIEW_LOWER, expected)
-    assert findings, "a sentence in lower case where it stands alone passed"
-    with pytest.raises(AssertionError) as failure:
-        assert not findings, f"{site}: {findings}"
-    assert site in str(failure.value)
-    assert _alone_findings(expected, expected) == []
+    place, worded = form_failures("es", site, "TIMEOUT", REVIEW_LOWER, expected, True)
+    assert place == "alone" and worded, "a lower-case sentence where it is alone passed"
+    assert all(failure.startswith(f"[es] {site}, TIMEOUT: ") for failure in worded)
+    assert form_failures("es", site, "TIMEOUT", expected, expected, True) == (
+        "alone",
+        [],
+    )
 
 
 def test_sc_l10n_ui_020_3_the_junction_verdict_is_exact_at_the_end_of_the_sentence():
@@ -1624,14 +1683,17 @@ def test_sc_l10n_ui_020_3_a_closing_mark_added_is_caught_in_every_language(
     assert (
         shown == sentence + "."
     ), f"[{code}] the plant did not reach {site}: {shown!r}"
-    findings = _alone_findings(shown, sentence)
-    assert findings, f"[{code}] {site}: a sentence with a mark added passed"
-    with pytest.raises(AssertionError) as failure:
-        assert not findings, f"[{code}] {site}: {findings}"
-    assert code in str(failure.value) and site in str(failure.value)
+    place, worded = form_failures(code, site, "TIMEOUT", shown, sentence, alone=True)
+    assert place == "alone" and worded, f"[{code}] {site}: a mark added passed"
+    assert all(failure.startswith(f"[{code}] {site}, TIMEOUT: ") for failure in worded)
     surface = "dependency cycle notice"
     notice = _drive_cycle_label(env, "TIMEOUT")
     assert sentence + "." in notice, f"[{code}] the plant did not reach {surface}"
+    place, worded = form_failures(code, surface, "TIMEOUT", notice, sentence)
+    assert place == "own line" and worded, f"[{code}] {surface}: a mark added passed"
+    assert all(
+        failure.startswith(f"[{code}] {surface}, TIMEOUT: ") for failure in worded
+    )
     verdict = junction_findings(notice, sentence, code)
     assert verdict, f"[{code}] {surface}: a sentence with a mark added passed"
     with pytest.raises(AssertionError) as failure:
@@ -1657,14 +1719,17 @@ def test_sc_l10n_ui_020_3_a_closing_mark_dropped_is_caught_where_the_catalogue_h
     site = "message box (ui/asset_tagging_panel.py)"
     shown = _drive_alone_message_box(env, "TIMEOUT")
     assert shown == sentence[:-1], f"[{code}] the plant did not reach {site}: {shown!r}"
-    findings = _alone_findings(shown, sentence)
-    assert findings, f"[{code}] {site}: a sentence with its mark dropped passed"
-    with pytest.raises(AssertionError) as failure:
-        assert not findings, f"[{code}] {site}: {findings}"
-    assert code in str(failure.value) and site in str(failure.value)
+    place, worded = form_failures(code, site, "TIMEOUT", shown, sentence, alone=True)
+    assert place == "alone" and worded, f"[{code}] {site}: a mark dropped passed"
+    assert all(failure.startswith(f"[{code}] {site}, TIMEOUT: ") for failure in worded)
     surface = "dependency cycle notice"
     notice = _drive_cycle_label(env, "TIMEOUT")
     assert sentence not in notice, f"[{code}] the plant did not reach {surface}"
+    place, worded = form_failures(code, surface, "TIMEOUT", notice, sentence)
+    assert place == "absent" and worded, f"[{code}] {surface}: a mark dropped passed"
+    assert all(
+        failure.startswith(f"[{code}] {surface}, TIMEOUT: ") for failure in worded
+    )
     with pytest.raises(AssertionError) as failure:
         assert_junction(code, surface, "lead-in", sentence, notice)
     assert code in str(failure.value) and surface in str(failure.value)
@@ -1680,6 +1745,58 @@ def test_sc_l10n_ui_020_3_zh_cn_has_no_closing_mark_to_drop():
         sentence = sentence_in("zh_CN", kind)
         assert sentence is not None, kind
         assert sentence[-1] not in SENTENCE_ENDINGS["zh_CN"], (kind, sentence)
+
+
+#: The two places whose verdict the case applies to a sentence it finds there: the
+#: lead-in that puts a sentence in that place, and the function the case calls on it.
+VERDICT_PLACES: Dict[str, Tuple[str, Callable[[str, str], List[str]]]] = {
+    "own line": ("Lead-in:\n", _own_line_findings),
+    "after a sentence": ("Lead-in. ", _after_ending_findings),
+}
+
+
+@pytest.mark.parametrize("code", LANGUAGES)
+@pytest.mark.parametrize("place", sorted(VERDICT_PLACES))
+def test_sc_l10n_ui_020_3_each_places_verdict_is_exact_at_both_ends_of_the_sentence(
+    code, place
+):
+    """SC-L10N-UI-020-3 control: the own-line and the after-a-sentence verdicts hold.
+
+    Each verdict is the function the case calls, run on a sentence put in its place:
+    the catalogue's own sentence passes; the same sentence with a closing mark added
+    (a full stop, and the full-width one) is a finding, in every language including
+    ``zh_CN``, which has none of its own; and, where the catalogue's sentence ends
+    in a mark, the sentence with it dropped is a finding. A verdict weakened to
+    contain the sentence, or to compare the wrong end of the text, fails here,
+    saying the language and the place. The words of each failure are those the case
+    prints (``form_failures``), read and not rebuilt.
+    """
+    lead, verdict = VERDICT_PLACES[place]
+    site = f"control ({place})"
+    sentence = sentence_in(code, "TIMEOUT")
+    assert sentence is not None, code
+    shown = lead + sentence
+    placed, worded = form_failures(code, site, "TIMEOUT", shown, sentence)
+    assert (placed, worded) == (place, []), (
+        f"[{code}] {site}: the catalogue's own sentence was not accepted, "
+        f"{placed!r}, {worded}"
+    )
+    plants: Dict[str, List[str]] = {
+        "added": [sentence + ".", sentence + _ENDING_FULL_WIDTH[0]]
+    }
+    if sentence[-1] in SENTENCE_ENDINGS[code]:
+        plants["dropped"] = [sentence[:-1]]
+    for mode, variants in plants.items():
+        for variant in variants:
+            shown = lead + variant
+            assert verdict(
+                shown, sentence
+            ), f"[{code}] {site}: the verdict let a mark {mode} pass, {shown!r}"
+            placed, worded = form_failures(code, site, "TIMEOUT", shown, sentence)
+            assert worded, f"[{code}] {site}: a mark {mode} passed the case, {shown!r}"
+            assert all(w.startswith(f"[{code}] {site}, TIMEOUT: ") for w in worded)
+            if mode == "added":
+                assert placed == place, f"[{code}] {site}: placed {placed!r}"
 
 
 # --------------------------------------------------------------------------- #
