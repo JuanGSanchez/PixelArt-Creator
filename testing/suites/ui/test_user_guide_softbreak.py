@@ -34,6 +34,7 @@ bypassed and must name the page, the line and the clause. Both themes, offscreen
 from __future__ import annotations
 
 import difflib
+import itertools
 import re
 import subprocess
 import unicodedata
@@ -41,7 +42,15 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 import pytest
 from PySide6.QtGui import (
@@ -402,10 +411,16 @@ def probe(source: str, page: str = "") -> Probed:
     return Probed(qt, breaks, skipped)
 
 
-def _deleted_spaces(before: str, after: str, page: str) -> List[int]:
+def _deleted_spaces_whole_text(
+    before: str, after: str, page: str, offset: int = 0
+) -> List[int]:
     """Return the indexes of ``before`` whose space ``after`` does not show.
 
-    Fails if ``after`` differs from ``before`` in any other way.
+    One ``difflib`` comparison of the two whole strings, so its cost grows faster
+    than linearly with their length: on a page of a few thousand characters it is
+    cheap, over all the pages of one test it is not (see ``_deleted_spaces``).
+    ``offset`` is added to every index returned. Fails if ``after`` differs from
+    ``before`` in any other way.
     """
     deleted: List[int] = []
     matcher = difflib.SequenceMatcher(None, before, after, autojunk=False)
@@ -417,8 +432,55 @@ def _deleted_spaces(before: str, after: str, page: str) -> List[int]:
             f"{tag} {before[max(i1 - 6, 0) : i2 + 6]!r} -> "
             f"{after[max(j1 - 6, 0) : j2 + 6]!r}"
         )
-        deleted.extend(range(i1, i2))
+        deleted.extend(range(offset + i1, offset + i2))
     return deleted
+
+
+def _has_whitespace_beside(text: str, index: int) -> bool:
+    """Return whether a whitespace character stands next to ``text[index]``."""
+    return (index > 0 and text[index - 1].strip() == "") or (
+        index + 1 < len(text) and text[index + 1].strip() == ""
+    )
+
+
+def _deleted_spaces(before: str, after: str, page: str) -> List[int]:
+    """Return the indexes of ``before`` whose space ``after`` does not show.
+
+    Fails if ``after`` differs from ``before`` in any other way. It answers exactly
+    as ``_deleted_spaces_whole_text`` does, and is cheap only where that is safe.
+
+    The fast path compares the two texts one block at a time: with equal numbers of
+    line feeds every block of ``after`` must be its block of ``before`` less some
+    blanks, and a block that is equal is not compared at all. Its answer is returned
+    only if it is certain to be the whole-text answer, which it is when no deleted
+    blank has another whitespace character beside it: then the deleted blanks are
+    the only ones the texts allow, and which blank of a run is "the" deleted one is
+    no choice, because there is no run. In every other case the whole texts are
+    compared by ``_deleted_spaces_whole_text`` and its answer, or its refusal, is
+    the answer: a run of blanks (difflib's choice among equal blanks, which decides
+    the SC-4 verdict beside a zero width space), a blank on an otherwise empty line
+    (the whole-text comparison refuses some such texts), a refusal of the fast path
+    (so no text the whole-text comparison accepts is refused here) and unequal
+    numbers of line feeds. On every tracked guide page the fast path answers, which
+    takes the two heavy tests from about 70 s each to a few seconds.
+    """
+    if before == after:
+        return []
+    old, new = before.split("\n"), after.split("\n")
+    if len(old) == len(new):
+        fast: List[int] = []
+        offset = 0
+        try:
+            for one, other in zip(old, new):
+                if one != other:
+                    fast.extend(_deleted_spaces_whole_text(one, other, page, offset))
+                offset += len(one) + 1
+        except AssertionError:
+            fast = []
+        else:
+            if not any(_has_whitespace_beside(before, index) for index in fast):
+                return fast
+    return _deleted_spaces_whole_text(before, after, page)
 
 
 @dataclass
@@ -951,6 +1013,216 @@ def test_the_probe_refuses_a_page_it_cannot_validate():
     """Control: a page holding the sentinel fails validation and is not skipped."""
     with pytest.raises(AssertionError):
         probe(f"日本\n{SENTINEL}語", "planted.md")
+
+
+#: (label, text Qt shows, text the dialog shows, the indexes deleted or ``None`` for
+#: "refused"). A ``...`` in the last place means the choice among equal blanks is
+#: difflib's: only agreement with the whole-text comparison is asserted there.
+DELETED_SPACE_CASES = [
+    ("equal texts", "ab cd\nef", "ab cd\nef", []),
+    ("a space in the first block", "日本 語\nef", "日本語\nef", [2]),
+    ("a space in the last block", "ab\ncd e", "ab\ncde", [5]),
+    ("a space in every block", "a b\nc d\ne f", "ab\ncd\nef", [1, 5, 9]),
+    ("a space beside a line feed", "a \nb", "a\nb", [1]),
+    ("one of two blanks", "a  b", "a b", ...),
+    ("a line feed deleted", "ab\ncd", "abcd", [2]),
+    ("a character replaced", "ab\ncd", "ab\ncX", None),
+    ("a character inserted", "ab\ncd", "ab\ncdX", None),
+    ("a visible character deleted", "ab\ncd", "ab\nc", None),
+    ("a zero width space deleted", "a\u200bb\ncd", "ab\ncd", None),
+    ("a block's last character moved on", "a\nbc", "ab\nc", None),
+    ("a line feed added", "ab\ncd", "ab\ncd\n", None),
+    ("a space replaced by a letter", "a b\ncd", "aXb\ncd", None),
+    # The classes in which the answer is a choice, or the whole-text comparison
+    # slips: the blank of a run that is reported, a blank alone on its line, and a
+    # block whose fast comparison is refused although the whole-text one accepts.
+    ("a run of two blanks, one deleted", "  \n", " \n", "accepted"),
+    ("a run of three blanks, two deleted", "   \n", " \n", "accepted"),
+    ("a run after a line feed", "\n  a", "\n a", "accepted"),
+    ("a run, a letter before and a line feed after", "a  a\n", "a a\n", "accepted"),
+    ("a run, a line feed before and letters beside", "\na  aa", "\na aa", "accepted"),
+    ("a run beside a zero width space", "\n  \u200b", "\n \u200b", "accepted"),
+    (
+        "a run, a zero width space after the line feed",
+        "  \n\u200b",
+        " \n\u200b",
+        "accepted",
+    ),
+    ("a blank alone on its line, then text", "\n \n ", "\n\n ", None),
+    ("a blank alone on its line, then a line feed", "\n \n\n", "\n\n\n", None),
+    (
+        "a block the fast comparison misaligns",
+        "\u200b a\n\nb bb\nb",
+        "\u200b a\n\nbbb\nb",
+        "accepted",
+    ),
+]
+
+
+def _finder_outcome(
+    finder: Callable[[str, str, str], List[int]], before: str, after: str
+) -> Optional[List[int]]:
+    """Return what ``finder`` answers for the pair: its list, ``None`` if it refuses."""
+    try:
+        return finder(before, after, "planted.md")
+    except AssertionError as error:
+        assert "planted.md" in str(error), "a refusal that does not name the page"
+        return None
+
+
+@pytest.mark.parametrize(
+    "label, before, after, expected",
+    DELETED_SPACE_CASES,
+    ids=[row[0] for row in DELETED_SPACE_CASES],
+)
+def test_the_deleted_space_finder_answers_as_the_whole_text_comparison_does(
+    label, before, after, expected
+):
+    """Control (REQ-L10N-UI-014): the block-wise finder equals the whole-text one.
+
+    The two heavy tests use ``_deleted_spaces``, which compares block by block; each
+    pair here, the refused ones among them, gets the same answer from it as from
+    ``_deleted_spaces_whole_text`` (the comparison it replaced), and the refused
+    ones are refused with the page named, so a text that differs by more than
+    blanks is never read as "only spaces removed".
+    """
+    fast = _finder_outcome(_deleted_spaces, before, after)
+    whole = _finder_outcome(_deleted_spaces_whole_text, before, after)
+    assert fast == whole, label
+    if expected is None:
+        assert fast is None, f"{label}: the pair is not refused"
+    elif expected is Ellipsis:
+        assert fast is not None and len(fast) == 1, label
+    elif expected == "accepted":
+        assert fast, f"{label}: the pair is refused or nothing is deleted"
+    else:
+        assert fast == expected, label
+
+
+def test_the_deleted_space_finder_agrees_on_a_shipped_page(qtbot):
+    """Control (REQ-L10N-UI-014): on a real Japanese page the two finders agree.
+
+    The shortest tracked Japanese page, shown through the window: the block-wise
+    finder returns the indexes of the whole-text one, and there are some (the page
+    holds breaks the rule removes), so the agreement is not two empty lists.
+    """
+    page = min(tracked_pages(_ROOT)["ja"], key=lambda path: len(_read(path)))
+    source = _read(page)
+    shown = _shown_through_dialog(qtbot, "ja", source)
+    baseline = qt_alone(source)
+    found = _deleted_spaces(baseline, shown, page)
+    assert found == _deleted_spaces_whole_text(baseline, shown, page)
+    assert found, f"{page}: no break of the page is removed, nothing was compared"
+
+
+def _finder_result(
+    finder: Callable[[str, str, str], List[int]], before: str, after: str
+) -> Tuple[str, object]:
+    """Return what ``finder`` answers: ``("ok", indexes)`` or ``("refused", text)``."""
+    try:
+        return "ok", finder(before, after, "planted.md")
+    except AssertionError as error:
+        return "refused", str(error)
+
+
+def _short_pairs() -> List[Tuple[str, str]]:
+    """Return ``(before, after)`` for every ``before`` of at most four characters.
+
+    The characters are a letter, a blank, a line feed and U+200B. For each
+    ``before``: every ``after`` that is ``before`` less any set of its whitespace
+    characters (a blank, a line feed), and every ``after`` that differs by one
+    character replaced or inserted.
+    """
+    pairs = set()
+    for length in range(1, 5):
+        for chars in itertools.product(
+            ("a", " ", "\n", "\N{ZERO WIDTH SPACE}"), repeat=length
+        ):
+            before = "".join(chars)
+            gaps = [at for at, char in enumerate(before) if char.strip() == ""]
+            for mask in range(1 << len(gaps)):
+                dropped = {gaps[bit] for bit in range(len(gaps)) if mask >> bit & 1}
+                kept = "".join(c for at, c in enumerate(before) if at not in dropped)
+                pairs.add((before, kept))
+            for at in range(len(before)):
+                pairs.add((before, before[:at] + "X" + before[at + 1 :]))
+            for at in range(len(before) + 1):
+                pairs.add((before, before[:at] + "X" + before[at:]))
+    return sorted(pairs)
+
+
+def test_the_deleted_space_finder_equals_the_whole_text_one_on_every_short_pair():
+    """Control (REQ-L10N-UI-014): the same answer on every short pair, run or not.
+
+    For every ``before`` of up to four characters over a letter, a blank, a line
+    feed and U+200B: every ``after`` that is ``before`` less any set of its blanks
+    and line feeds, and every ``after`` with one character replaced or inserted
+    (about four thousand pairs). Among them are the runs of blanks beside a line
+    feed or a zero width space, in which the blank that is reported decides the
+    SC-4 verdict, and a blank alone on its line. The block-wise finder and the
+    whole-text one return the same indexes, or both refuse with the same text, on
+    every pair, so no verdict can differ between them. The pairs the whole-text
+    one accepts are counted, so the agreement is not refusals everywhere.
+    """
+    pairs = _short_pairs()
+    accepted = runs = 0
+    for before, after in pairs:
+        whole = _finder_result(_deleted_spaces_whole_text, before, after)
+        assert _finder_result(_deleted_spaces, before, after) == whole, (before, after)
+        if whole[0] == "ok":
+            accepted += 1
+            runs += "  " in before and before != after
+    assert len(pairs) > 4000, f"only {len(pairs)} pairs were compared"
+    assert accepted > 1000, f"only {accepted} accepted pairs were compared"
+    assert runs > 150, f"only {runs} pairs with a run of blanks were compared"
+
+
+#: ``(label, text, the text the window is handed instead)``: a table whose header
+#: cell holds only a blank, so Qt's text has a line with a blank and nothing else,
+#: and the window loses that blank.
+BLANK_ONLY_LINE_PAGES = [
+    (
+        "a blank cell, then an empty one",
+        "| &nbsp; |  |\n|---|---|",
+        "|  |  |\n|---|---|",
+    ),
+    (
+        "a blank cell, then a blank one",
+        "| &nbsp; | &nbsp; |\n|---|---|",
+        "|  | &nbsp; |\n|---|---|",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "label, source, handed",
+    BLANK_ONLY_LINE_PAGES,
+    ids=[row[0] for row in BLANK_ONLY_LINE_PAGES],
+)
+def test_a_blank_removed_from_a_line_of_one_blank_is_named_by_the_structure_check(
+    qtbot, monkeypatch, label, source, handed
+):
+    """Control (REQ-L10N-UI-014): a line of one blank that loses it is a problem.
+
+    Qt shows a table cell of ``&nbsp;`` as a line holding one blank. With the rule
+    in place the page is shown as Qt shows it and the structure check is silent;
+    with the window handed a text that loses that blank (a planted defect, not a
+    break the rule removes) the check must name the page. The whole-text comparison
+    refuses these two texts, and the structure check relies on that refusal: it
+    allows removed blanks and compares nothing else about them.
+    """
+    name = f"planted-{label}.md"
+    working = differential_problems(name, source, show_page(qtbot, "ja", source))
+    assert working == [], f"the page fails with the rule: {working}"
+    monkeypatch.setattr(
+        user_guide,
+        "apply_soft_break_rule",
+        lambda text, language: SimpleNamespace(markdown=handed),
+    )
+    dialog = show_page(qtbot, "ja", source)
+    assert shown_text(dialog) != qt_alone(source), "the plant changed nothing"
+    problems = differential_problems(name, source, dialog)
+    assert len(problems) == 1 and name in problems[0], problems
 
 
 def test_the_clauses_restated_here_agree_with_the_requirement_on_literals():
