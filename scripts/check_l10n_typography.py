@@ -27,6 +27,19 @@
 #                 list and its count are printed with the rule. Count nouns
 #                 (``%n images``, ``%n points``) are not units; only
 #                 ``images par seconde`` is.
+#     de-num-unit  German, catalogue, worklist and guide: a number (read as for
+#                 fr-num-unit) followed, with or without spacing, by a unit from
+#                 the explicit list ``DE_UNITS`` below (it holds ``%``, ``px``,
+#                 ``ms``, ``fps``, ``MiB`` and ``Minute``/``Minuten`` among others,
+#                 and not ``°``, which German writes closed) must be joined
+#                 to it by exactly one U+0020. Nothing (``125%``, ``8px``), a
+#                 U+00A0, a U+202F, any other space character or more than one
+#                 space character is a finding. Examined = de entries (catalogue
+#                 messages, worklist entries) or de guide pages scanned; the
+#                 number+unit pairs found (correct ones included) are a sub-count
+#                 that may be 0. The unit list and its count are printed with the
+#                 rule. A count noun (``%n Bilder``) is not a unit, and code spans
+#                 are not prose. Content in any other language is not examined.
 #     ru-no-straight-quote  Russian: no U+0022 in prose, where the language
 #                 takes « » (markup attributes, code spans and link targets
 #                 are not prose). Both surfaces.
@@ -74,7 +87,7 @@
 #                 sub-count that may be 0; with no zh_CN page every one of the four
 #                 exits 1 and says "nothing examined".
 #                 A VERBATIM QUOTATION of an interface message is exempt from all four
-#                 (REQ-L10N-DATA-004, round 21, Q-61): a run of the shown text equal
+#                 (REQ-L10N-DATA-004): a run of the shown text equal
 #                 to the whole finished translation of one message of the zh_CN
 #                 catalogue (read from --catalogues, else the product default).
 #                 Each placeholder (%1..%99, %n, %L1.., {field}) matches the
@@ -175,6 +188,36 @@ NUM_UNIT = re.compile(
     r"(?P<num>(?<![\w%{.,])\d+(?:[.,]\d+)*|%L?(?:n|[1-9])|\{[^{}\n]*\})"
     r"(?P<gap>[ " + NBSP + NARROW_NBSP + r"]+)"
     r"(?P<unit>(?:" + _UNIT_ALTERNATIVES + r")(?![\w]))"
+)
+# Units that take one U+0020 after a number (de-num-unit): (label, regex source).
+# The French list without the degree sign, which German writes closed (``90°``),
+# with the German words for the byte and time units, and ``fps``, ``MiB`` and
+# ``Minute``/``Minuten`` added. ``K``, ``x`` and ``×`` are not units, and
+# count nouns are not units.
+DE_UNITS = (
+    ("px", "px"),
+    ("ms", "ms"),
+    ("mm", "mm"),
+    ("cm", "cm"),
+    ("PPI", "PPI"),
+    ("%", "%"),
+    ("Byte/Bytes", "Bytes?"),
+    ("KB", "KB"),
+    ("MB", "MB"),
+    ("GB", "GB"),
+    ("Millisekunde/Millisekunden", "Millisekunden?"),
+    ("Sekunde/Sekunden", "Sekunden?"),
+    ("Bilder pro Sekunde", "Bilder pro Sekunde"),
+    ("fps", "fps"),
+    ("MiB", "MiB"),
+    ("Minute/Minuten", "Minuten?"),
+)
+_DE_UNIT_ALTERNATIVES = "|".join(pattern for _label, pattern in DE_UNITS)
+# The gap may be empty and holds any space character but a line break.
+DE_NUM_UNIT = re.compile(
+    r"(?P<num>(?<![\w%{.,])\d+(?:[.,]\d+)*|%L?(?:n|[1-9]\d?)|\{[^{}\n]*\})"
+    r"(?P<gap>[^\S" + r"\n]*)"
+    r"(?P<unit>(?:" + _DE_UNIT_ALTERNATIVES + r")(?![\w]))"
 )
 SURFACES = ("catalogue", "guide")
 SHOWN = 20
@@ -386,6 +429,35 @@ def num_unit_problems(text: str) -> tuple:
     return examined, problems
 
 
+def de_num_unit_problems(text: str) -> tuple:
+    """Return ``(examined, [(offset, detail)])`` for the German number+unit rule.
+
+    A pair is a number or numeric placeholder, a possibly empty run of space
+    characters and a unit from ``DE_UNITS``. The run must be exactly one U+0020.
+    """
+    examined = 0
+    problems = []
+    for match in DE_NUM_UNIT.finditer(text):
+        examined += 1
+        gap = match.group("gap")
+        if gap == " ":
+            continue
+        if not gap:
+            shown = "no space"
+        elif len(gap) == 1:
+            shown = _space_name(gap)
+        else:
+            shown = f"more than one space character ({len(gap)})"
+        pair = match.group("num") + (" " if gap else "") + match.group("unit")
+        problems.append(
+            (
+                match.start("gap"),
+                f"{pair}: {shown} between number and unit (needs one U+0020)",
+            )
+        )
+    return examined, problems
+
+
 def french_problems(text: str) -> tuple:
     """Return ``(marks, guillemet_sides, [(offset, detail)])`` for ``fr-nbsp``."""
     marks, mark_problems = nbsp_problems(text)
@@ -446,7 +518,7 @@ ZH_RULES = (
     ("zh-space-symbol", ("trailing-symbol edges", "opening-symbol edges")),
 )
 ZH_RULE_NAMES = tuple(name for name, _parts in ZH_RULES)
-# The verbatim-quotation exemption (Q-61): a message's placeholders (``%1``..``%99``,
+# The verbatim-quotation exemption: a message's placeholders (``%1``..``%99``,
 # ``%n``, ``%L1``.., a ``{field}``), its access-key suffix and its access-key ``&``.
 ZH_PLACEHOLDER = re.compile(r"%L?(?:n|[1-9][0-9]?)|\{[^{}\n]*\}")
 ZH_SUFFIX = re.compile(r" \(&[A-Za-z0-9]\)\Z")
@@ -846,7 +918,7 @@ def zh_quotations(cells: list, quotes: tuple) -> list:
     """Return ``[(first cell, last cell, source)]`` of the verbatim quotations.
 
     A verbatim quotation is a run of the shown text equal to the whole finished
-    translation of one message (``REQ-L10N-DATA-004``, Q-61). Every such run is
+    translation of one message (``REQ-L10N-DATA-004``). Every such run is
     returned, because an edge inside any of them is exempt. Where runs overlap
     the precedence (more of the message's own text, then the shorter, then the
     earlier) decides only the ORDER: the runs it keeps, which never overlap,
@@ -1271,6 +1343,7 @@ def catalogue_units(tally: Tally, surface: str, language: str) -> dict:
         "ellipsis": tally.unit("ellipsis", surface, language),
         "fr-nbsp": unit("fr-nbsp", "fr"),
         "fr-num-unit": unit("fr-num-unit", "fr"),
+        "de-num-unit": unit("de-num-unit", "de"),
         "ru-no-straight-quote": unit("ru-no-straight-quote", "ru"),
         "ko-no-han": unit("ko-no-han", "ko"),
         "zh-fullwidth": unit("zh-fullwidth", "zh"),
@@ -1299,6 +1372,14 @@ def apply_message_rules(
         for form in forms:
             pairs, problems = num_unit_problems(markup_free(form, catalogues))
             target["sub"]["pairs"] = target["sub"].get("pairs", 0) + pairs
+            for _offset, detail in problems:
+                tally.add(target, where, detail)
+    target = units["de-num-unit"]
+    if target:
+        target["examined"] += 1
+        for form in forms:
+            pairs, problems = de_num_unit_problems(markup_free(form, catalogues))
+            target["sub"]["pairs"] = pairs + target["sub"].get("pairs", 0)
             for _offset, detail in problems:
                 tally.add(target, where, detail)
     target = units["ru-no-straight-quote"]
@@ -1424,6 +1505,16 @@ def scan_guide_page(
         unit["sub"]["pairs"] = unit["sub"].get("pairs", 0) + pairs
         for offset, detail in problems:
             tally.add(unit, f"{rel}:{_line_of(prose, offset)}", detail)
+    if lang == "de":
+        unit = tally.unit("de-num-unit", "guide", language)
+        unit["files"] += 1
+        unit["examined"] += 1
+        prose = markdown_prose(text)
+        pairs, problems = de_num_unit_problems(prose)
+        unit["sub"]["pairs"] = pairs + unit["sub"].get("pairs", 0)
+        for offset, detail in problems:
+            where = f"{rel}:{_line_of(prose, offset)}"
+            tally.add(unit, where, detail)
     if lang == "ru":
         unit = tally.unit("ru-no-straight-quote", "guide", language)
         unit["files"] += 1
@@ -1556,6 +1647,8 @@ def _report(tally: Tally, surfaces_run: list, skipped: list) -> dict:
     }
     if any(r["rule"] == "fr-num-unit" for r in rows):
         report["fr_num_unit_units"] = [label for label, _pattern in UNITS]
+    if any(r["rule"] == "de-num-unit" for r in rows):
+        report["de_num_unit_units"] = [label for label, _pattern in DE_UNITS]
     if any(r["rule"] in ZH_RULE_NAMES for r in rows):
         report["zh_num_unit_units"] = list(ZH_NUM_UNITS)
         report["zh_trailing_symbols"] = list(ZH_TRAILING_SYMBOLS)
@@ -1617,19 +1710,24 @@ def print_report(report: dict, out) -> None:
     if any(row["rule"] == "fr-num-unit" for row in report["rules"]):
         labels = ", ".join(label for label, _pattern in UNITS)
         print(f"fr-num-unit units ({len(UNITS)}): {labels}", file=out)
+    if any(row["rule"] == "de-num-unit" for row in report["rules"]):
+        labels = ", ".join(label for label, _pattern in DE_UNITS)
+        print(f"de-num-unit units ({len(DE_UNITS)}): {labels}", file=out)
     if any(row["rule"] in ZH_RULE_NAMES for row in report["rules"]):
         print_zh_lists(report, out)
     for row in report["rules"]:
         unit = "item(s)"
         if row["rule"] == "no-u202f" and row["surface"] != "worklist":
             unit = "file(s)"
-        if row["rule"] == "fr-num-unit":
+        if row["rule"] in ("fr-num-unit", "de-num-unit"):
             unit = "page(s)" if row["surface"] == "guide" else "entr(ies)"
         if row["rule"] in ZH_RULE_NAMES:
             unit = "page(s)"
         parts = ", ".join(f"{k} {v}" for k, v in row["sub_counts"].items())
         split = f" ({parts})" if row["rule"] == "fr-nbsp" and parts else ""
         if row["rule"] in ("fr-num-unit", *ZH_RULE_NAMES) and parts:
+            split = f" ({parts})"
+        if row["rule"] == "de-num-unit" and parts:
             split = f" ({parts})"
         print(
             f"{row['rule']} [{row['surface']}] {row['language']}: examined "
