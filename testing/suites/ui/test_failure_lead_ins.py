@@ -67,6 +67,7 @@ from PySide6.QtWidgets import QFileDialog, QWidget
 import pixelart_creator
 import pixelart_creator.ui.dependency_graph_view as dependency_graph_view
 import pixelart_creator.ui.export_worker as export_worker
+import pixelart_creator.ui.failure_messages as failure_messages
 import pixelart_creator.ui.provider_config_dialog as provider_config_dialog
 import pixelart_creator.ui.realtime_actions as realtime_actions
 import pixelart_creator.ui.script_runner_panel as script_runner_panel
@@ -450,15 +451,28 @@ def junction_findings(shown: str, sentence: str, code: str) -> List[str]:
 
     The sentence passes when it starts a line, or when the text before it on its
     line ends with a sentence-ending mark of the language. Anything else is a
-    sentence that continues on its lead-in's line.
+    sentence that continues on its lead-in's line. The sentence must also be shown
+    whole, closing punctuation included and nothing added: it is found as the
+    catalogue holds it (its first letter and its last character compared like every
+    other), and what follows it on its line is nothing, so a mark added after it, or
+    a mark of its own that is missing, is a finding.
     """
     index = shown.find(sentence)
     if index < 0:
         return ["the sentence is not in the text shown"]
+    findings: List[str] = []
+    after = shown[index + len(sentence) :]
+    if after and not after.startswith("\n"):
+        findings.append(
+            f"the sentence does not end its line, {after[:24]!r} follows it "
+            "(an added closing mark?)"
+        )
     before = shown[:index].rsplit("\n", 1)[-1].rstrip()
-    if not before or before[-1] in SENTENCE_ENDINGS[code]:
-        return []
-    return [f"the sentence continues on its lead-in's line, after {before!r}"]
+    if before and before[-1] not in SENTENCE_ENDINGS[code]:
+        findings.append(
+            f"the sentence continues on its lead-in's line, after {before!r}"
+        )
+    return findings
 
 
 def passes_by_ending_mark(shown: str, sentence: str, code: str) -> bool:
@@ -1459,28 +1473,38 @@ def _own_line_findings(shown: str, sentence: str) -> List[str]:
     return [f"no line of {shown!r} equals the catalogue's {sentence!r}"]
 
 
+@pytest.mark.parametrize("code", LANGUAGES)
 def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
-    sites, language, qtbot, monkeypatch, mute_message_boxes, tmp_path, capsys
+    code, sites, language, qtbot, monkeypatch, mute_message_boxes, tmp_path, capsys
 ):
     """SC-L10N-UI-020-3: alone, or on a line of its own, the sentence is the
     catalogue's.
 
-    English is examined (the other languages follow as their sentences are
-    finished). Sites are printed per kind and the total is non-zero. A sentence
+    Every language is examined, each against its own catalogue's finished
+    sentences (a sentence that is missing or unfinished fails the case, so no
+    language is passed unexamined). Alone, the shown text equals the sentence; on a
+    line of its own, one line equals it; after a lead-in that ends as a sentence,
+    it ends the text shown. Each is an equality, so the closing mark is compared
+    like every other character, and a language without one (``zh_CN``) fails when
+    one is added. Sites are printed per kind and the total is non-zero. A sentence
     shown after a lead-in that ends as a sentence is checked on the status bar's
     failure-only frame, where the surface shows it.
     """
-    language("en")
-    env = _env(qtbot, monkeypatch, mute_message_boxes, tmp_path, "en")
+    found = {kind: sentence_in(code, kind) for kind in SENTENCES}
+    unfinished = [kind for kind, text in found.items() if text is None]
+    assert not unfinished, f"[{code}] the sentences of {unfinished} are unfinished"
+    sentences = {kind: text for kind, text in found.items() if text is not None}
+    language(code)
+    env = _env(qtbot, monkeypatch, mute_message_boxes, tmp_path, code)
     failures: List[str] = []
     alone = own_line = after_ending = 0
     for site_name, drive in ALONE_SITES.items():
-        for kind, sentence in SENTENCES.items():
+        for kind, sentence in sentences.items():
             alone += 1
             findings = _alone_findings(drive(env, kind), sentence)
-            failures += [f"{site_name}, {kind}: {f}" for f in findings]
+            failures += [f"[{code}] {site_name}, {kind}: {f}" for f in findings]
     for surface in SURFACES:
-        for kind, sentence in SENTENCES.items():
+        for kind, sentence in sentences.items():
             text = surface.drive(env, kind)
             parts = (
                 text.split(f"\n{surface.separator}\n") if surface.separator else [text]
@@ -1492,24 +1516,26 @@ def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
                 )
                 if index < 0:
                     failures.append(
-                        f"{surface.name}, {kind}: the catalogue's {sentence!r} is "
-                        f"not in what is shown, {shown!r}"
+                        f"[{code}] {surface.name}, {kind}: the catalogue's "
+                        f"{sentence!r} is not in what is shown, {shown!r}"
                     )
                 elif not before:
                     own_line += 1
                     findings = _own_line_findings(shown, sentence)
-                    failures += [f"{surface.name}, {kind}: {f}" for f in findings]
-                elif before[-1] in SENTENCE_ENDINGS["en"]:
+                    failures += [
+                        f"[{code}] {surface.name}, {kind}: {f}" for f in findings
+                    ]
+                elif before[-1] in SENTENCE_ENDINGS[code]:
                     after_ending += 1
                     if not shown.endswith(sentence):
                         failures.append(
-                            f"{surface.name}, {kind}: the sentence is not "
+                            f"[{code}] {surface.name}, {kind}: the sentence is not "
                             f"the end of {shown!r}"
                         )
     line = (
-        f"[lead-in sentences] en: sites examined alone {alone}, on a line of its own "
-        f"{own_line}, after a lead-in that ends as a sentence {after_ending}; total "
-        f"{alone + own_line + after_ending}"
+        f"[lead-in sentences] {code}: sites examined alone {alone}, on a line of its "
+        f"own {own_line}, after a lead-in that ends as a sentence {after_ending}; "
+        f"total {alone + own_line + after_ending}"
     )
     print(line)
     with capsys.disabled():
@@ -1529,6 +1555,131 @@ def test_sc_l10n_ui_020_3_a_lower_case_spanish_sentence_alone_fails_naming_the_s
         assert not findings, f"{site}: {findings}"
     assert site in str(failure.value)
     assert _alone_findings(expected, expected) == []
+
+
+def test_sc_l10n_ui_020_3_the_junction_verdict_is_exact_at_the_end_of_the_sentence():
+    """SC-L10N-UI-020-3 control: a mark after the sentence is a finding, everywhere.
+
+    For every language, the catalogue's sentence alone, after a lead-in that ends
+    with a line break and after one that ends as a sentence passes, and so does a
+    tail on a line of its own. The same texts with one closing mark added after the
+    sentence (the language's own mark, or the other script's) each fail saying the
+    sentence does not end its line, and the sentence with its last character
+    removed is not found.
+    """
+    for code in LANGUAGES:
+        sentence = sentence_in(code, "TIMEOUT")
+        assert sentence is not None, code
+        for lead in ("", "Lead-in:\n", "Lead-in. "):
+            assert junction_findings(lead + sentence, sentence, code) == [], code
+            tail = sentence + "\nmore"
+            assert junction_findings(lead + tail, sentence, code) == [], code
+            for mark in (".", "\u3002"):
+                findings = junction_findings(lead + sentence + mark, sentence, code)
+                assert any("does not end its line" in f for f in findings), (
+                    code,
+                    lead,
+                    mark,
+                    findings,
+                )
+            cut = junction_findings(lead + sentence[:-1], sentence, code)
+            assert cut == ["the sentence is not in the text shown"], (code, cut)
+
+
+def _planted_mark(monkeypatch, code: str, mode: str) -> None:
+    """Plant, at the one seam that gives a sentence, an added or a dropped mark."""
+    real = failure_messages.failure_text
+    marks = SENTENCE_ENDINGS[code]
+
+    def added(kind: Any) -> str:
+        return real(kind) + "."
+
+    def dropped(kind: Any) -> str:
+        text = real(kind)
+        return text[:-1] if text and text[-1] in marks else text
+
+    monkeypatch.setattr(
+        failure_messages, "failure_text", added if mode == "added" else dropped
+    )
+
+
+@pytest.mark.parametrize("code", LANGUAGES)
+def test_sc_l10n_ui_020_3_a_closing_mark_added_is_caught_in_every_language(
+    code, language, qtbot, monkeypatch, mute_message_boxes, tmp_path
+):
+    """SC-L10N-UI-020-3 control: an added mark fails, naming language and site.
+
+    The seam is planted to add a full stop after each sentence, in every language
+    (``zh_CN``, which has no closing mark, included). The message box and the
+    notice of the dependency graph view each show the added mark, and the verdict
+    that each case of the module applies fails naming the language and the site.
+    """
+    sentence = sentence_in(code, "TIMEOUT")
+    assert sentence is not None, code
+    language(code)
+    env = _env(qtbot, monkeypatch, mute_message_boxes, tmp_path, code)
+    _planted_mark(monkeypatch, code, "added")
+    site = "message box (ui/asset_tagging_panel.py)"
+    shown = _drive_alone_message_box(env, "TIMEOUT")
+    assert (
+        shown == sentence + "."
+    ), f"[{code}] the plant did not reach {site}: {shown!r}"
+    findings = _alone_findings(shown, sentence)
+    assert findings, f"[{code}] {site}: a sentence with a mark added passed"
+    with pytest.raises(AssertionError) as failure:
+        assert not findings, f"[{code}] {site}: {findings}"
+    assert code in str(failure.value) and site in str(failure.value)
+    surface = "dependency cycle notice"
+    notice = _drive_cycle_label(env, "TIMEOUT")
+    assert sentence + "." in notice, f"[{code}] the plant did not reach {surface}"
+    verdict = junction_findings(notice, sentence, code)
+    assert verdict, f"[{code}] {surface}: a sentence with a mark added passed"
+    with pytest.raises(AssertionError) as failure:
+        assert_junction(code, surface, "lead-in", sentence, notice)
+    assert code in str(failure.value) and surface in str(failure.value)
+
+
+@pytest.mark.parametrize("code", [c for c in LANGUAGES if c != "zh_CN"])
+def test_sc_l10n_ui_020_3_a_closing_mark_dropped_is_caught_where_the_catalogue_has_one(
+    code, language, qtbot, monkeypatch, mute_message_boxes, tmp_path
+):
+    """SC-L10N-UI-020-3 control: a dropped mark fails, naming language and site.
+
+    The seam is planted to drop the closing mark of each sentence that has one. The
+    message box and the dependency graph notice then show the sentence without it,
+    and the verdict of each case fails naming the language and the site.
+    """
+    sentence = sentence_in(code, "TIMEOUT")
+    assert sentence is not None and sentence[-1] in SENTENCE_ENDINGS[code], code
+    language(code)
+    env = _env(qtbot, monkeypatch, mute_message_boxes, tmp_path, code)
+    _planted_mark(monkeypatch, code, "dropped")
+    site = "message box (ui/asset_tagging_panel.py)"
+    shown = _drive_alone_message_box(env, "TIMEOUT")
+    assert shown == sentence[:-1], f"[{code}] the plant did not reach {site}: {shown!r}"
+    findings = _alone_findings(shown, sentence)
+    assert findings, f"[{code}] {site}: a sentence with its mark dropped passed"
+    with pytest.raises(AssertionError) as failure:
+        assert not findings, f"[{code}] {site}: {findings}"
+    assert code in str(failure.value) and site in str(failure.value)
+    surface = "dependency cycle notice"
+    notice = _drive_cycle_label(env, "TIMEOUT")
+    assert sentence not in notice, f"[{code}] the plant did not reach {surface}"
+    with pytest.raises(AssertionError) as failure:
+        assert_junction(code, surface, "lead-in", sentence, notice)
+    assert code in str(failure.value) and surface in str(failure.value)
+
+
+def test_sc_l10n_ui_020_3_zh_cn_has_no_closing_mark_to_drop():
+    """SC-L10N-UI-020-3 control: the six ``zh_CN`` sentences end in no closing mark.
+
+    So a dropped mark cannot be planted there, and the added-mark control above is
+    the one that applies to it. Read from the catalogue, never assumed.
+    """
+    for kind in SENTENCES:
+        sentence = sentence_in("zh_CN", kind)
+        assert sentence is not None, kind
+        assert sentence[-1] not in SENTENCE_ENDINGS["zh_CN"], (kind, sentence)
 
 
 # --------------------------------------------------------------------------- #
