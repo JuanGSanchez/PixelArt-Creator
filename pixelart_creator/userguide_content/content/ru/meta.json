@@ -11,7 +11,7 @@
     "tileset-and-tilemap": {"title": "Редактор тайлсетов и тайлмэпов"},
     "export-and-pipeline": {"title": "Экспорт и конвейер"},
     "automation-and-scripting": {"title": "Автоматизация и скрипты"},
-    "visual-aids": {"title": "Средства наглядности"},
+    "visual-aids": {"title": "Утилиты"},
     "cloud-and-collaboration": {"title": "Облако и совместная работа"},
     "asset-library": {"title": "Библиотека ресурсов"}
   },
