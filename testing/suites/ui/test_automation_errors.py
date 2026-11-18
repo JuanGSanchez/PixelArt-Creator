@@ -115,7 +115,10 @@ def test_sc_ui_008_runaway_script_hits_bound_gracefully(
     assert arrays_equal(buffer_of(tab.document), initial)
     warnings = [text for kind, _title, text in mute_message_boxes if kind == "warning"]
     assert warnings, "the failed run must tell the user"
-    assert any(expected in text for text in warnings)
+    assert all(text == expected for text in warnings), (
+        f"the automation failure box must show exactly {expected!r}, "
+        f"but the box shows {warnings!r}"
+    )
     for text in warnings:
         assert str(bound_error) not in text
         assert "MAX_SCRIPT_OPS" not in text
