@@ -24,9 +24,9 @@ drop handler of the real window:
 The words expected come from the requirement, never from the code under test. For
 English they are the three words the user guide quotes. For any other language
 they are read from that language's own ``.ts`` file, finished entries only.
-Only English is examined for now: a language joins ``LANGUAGES_UNDER_TEST`` when
-its catalogue carries the three messages, and every printed line says how many of
-the eight were examined.
+All eight languages are examined, each row against that language's own catalogue
+(an entry missing or ``unfinished`` fails the row), and the line printed says how
+many of the eight were examined.
 
 The box is found while the handler blocks in its modal loop, by a timer that reads
 it and answers it, so the rows hold whether the handler uses a static
@@ -74,9 +74,18 @@ Role = QMessageBox.ButtonRole
 #: The number of languages the finished product ships (English included).
 EXPECTED_LANGUAGE_COUNT = 8
 
-#: The languages examined now. A language joins when its catalogue holds the
-#: three messages as finished entries.
-LANGUAGES_UNDER_TEST: Tuple[str, ...] = (FALLBACK_LANGUAGE,)
+#: The languages examined: all eight. Each one's catalogue must hold the three
+#: messages as finished entries, or its rows fail.
+LANGUAGES_UNDER_TEST: Tuple[str, ...] = (
+    FALLBACK_LANGUAGE,
+    "es",
+    "fr",
+    "de",
+    "ru",
+    "zh_CN",
+    "ko",
+    "ja",
+)
 
 #: The context the three messages belong to, in the catalogue.
 CATALOGUE_CONTEXT = "Main_Window"
@@ -385,8 +394,10 @@ def scene(code, theme_words, qtbot, tmp_path, monkeypatch) -> Scene:
     qtbot.addWidget(window)
     project = tmp_path / f"dropped{FILE_SUFFIX}"
     window.save_document(str(project))  # the file the user drops
-    window.active_tab().stack.push(QUndoCommand("edit"))  # unsaved changes now
-    assert not window.active_tab().stack.isClean()
+    tab = window.active_tab()
+    assert tab is not None, "the window has no open document"
+    tab.stack.push(QUndoCommand("edit"))  # unsaved changes now
+    assert not tab.stack.isClean()
     save_target = tmp_path / f"saved{FILE_SUFFIX}"
     calls: List[int] = []
 
@@ -594,14 +605,21 @@ def test_the_driver_closes_a_box_that_its_answer_did_not_dismiss(qtbot):
     assert not box.isVisible()
 
 
-def test_the_languages_examined_are_printed():
-    """REQ-L10N-UI-005: say how many of the eight languages these rows examined."""
+def test_the_languages_examined_are_printed(capsys):
+    """REQ-L10N-UI-005: say how many of the eight languages these rows examined.
+
+    Every language the product ships is examined: the count is 8 and the set is
+    exactly the eight, so a language dropped from the rows fails here.
+    """
     known = {"en", "fr", "de", "es", "ru", "ja", "ko", "zh_CN"}
     assert len(known) == EXPECTED_LANGUAGE_COUNT
     assert len(set(LANGUAGES_UNDER_TEST)) == len(LANGUAGES_UNDER_TEST)
-    assert set(LANGUAGES_UNDER_TEST) <= known, LANGUAGES_UNDER_TEST
-    assert LANGUAGES_UNDER_TEST, "no language is examined"
-    print(
+    assert set(LANGUAGES_UNDER_TEST) == known, LANGUAGES_UNDER_TEST
+    assert len(LANGUAGES_UNDER_TEST) == EXPECTED_LANGUAGE_COUNT == 8
+    line = (
         f"languages examined: {len(LANGUAGES_UNDER_TEST)} of "
         f"{EXPECTED_LANGUAGE_COUNT} {list(LANGUAGES_UNDER_TEST)}"
     )
+    print(line)
+    with capsys.disabled():
+        print(f"[unsaved prompt] {line}")
