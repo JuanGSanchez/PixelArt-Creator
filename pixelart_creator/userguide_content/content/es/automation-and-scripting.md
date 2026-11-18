@@ -103,7 +103,7 @@ código propio del complemento (consulta la nota de abajo).
   ejecuta el código del complemento, porque la aplicación no tiene ningún mecanismo que lo
   haga. Tu consentimiento no se guarda: todos los complementos vuelven a quedar
   deshabilitados cuando cierras el editor. El anfitrión de complementos está escrito de
-  modo que, si el código que lo llama le proporcionara código que se ejecute cuando se
+  modo que, si quien lo llama le proporcionara código que se ejecute cuando se
   habilita un complemento, a ese código se le entregaría un objeto de permisos, y se
   rechazaría cualquier llamada hecha a través de ese objeto para la que no se hubiera
   concedido el permiso; en esta versión nada le proporciona ningún código así. Las operaciones registradas a través de ese objeto llevan como prefijo el
@@ -129,16 +129,16 @@ código propio del complemento (consulta la nota de abajo).
 
 ## Recolor por lotes
 
-**Recolor por lotes** aplica un remapeo de color a **muchos objetivos a la vez** como
+**Recolor por lotes** aplica un remapeo de color a **muchos destinos a la vez** como
 un **único comando transaccional y reversible**:
 
-- Para objetivos **indexados**, remapea índices de paleta (`índice_antiguo →
-  índice_nuevo`); para objetivos **RGBA**, remapea colores (`rgba_antiguo →
+- Para destinos **indexados**, remapea índices de paleta (`índice_antiguo →
+  índice_nuevo`); para destinos **RGBA**, remapea colores (`rgba_antiguo →
   rgba_nuevo`). Reutiliza las operaciones de recolor existentes del editor, así que
-  un objetivo procesado por lotes es **idéntico byte a byte** a recolorear ese
-  objetivo por sí solo con el mismo mapeo.
-- Es **transaccional**: cada objetivo se valida y su paso individual se construye
-  **antes de aplicar nada**. Un objetivo inválido falla nombrando el objetivo
+  un destino procesado por lotes es **idéntico byte a byte** a recolorear ese
+  destino por sí solo con el mismo mapeo.
+- Es **transaccional**: cada destino se valida y su paso individual se construye
+  **antes de aplicar nada**. Un destino inválido falla nombrando el destino
   problemático con **cero mutación**. El lote completo es **un único paso de
   deshacer**.
 

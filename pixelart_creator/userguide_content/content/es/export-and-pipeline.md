@@ -24,7 +24,7 @@ Abre el diálogo de exportación desde **Archivo ▸ Exportar…** o con **Ctrl+
 
 ## Exportación ráster (PNG / GIF)
 
-- **PNG** exporta el **fotograma 0** como una única imagen RGBA — el objetivo de
+- **PNG** exporta el **fotograma 0** como una única imagen RGBA — el destino de
   imagen fija.
 - **GIF** exporta la animación: cada fotograma en orden, mostrado durante su propia
   **duración por fotograma** (las duraciones establecidas en la
@@ -57,7 +57,7 @@ Abre el diálogo de exportación desde **Archivo ▸ Exportar…** o con **Ctrl+
 
 ## Metadatos JSON
 
-Las exportaciones de hoja de sprites y atlas pueden emitir un **complemento de
+Las exportaciones de hoja de sprites y atlas pueden emitir un **archivo auxiliar de
 metadatos JSON** en el formato **Array de Aseprite**: un array `frames[]` (el
 rectángulo, tamaño de origen y duración de cada fotograma) más un bloque `meta{}` que
 lleva las **etiquetas** de fotograma y las duraciones por fotograma. El JSON es
@@ -73,7 +73,7 @@ el motor** para que el recurso caiga directamente en un proyecto:
 
 | Preajuste | Qué escribe |
 | --- | --- |
-| **Unity** | Un complemento `.meta` de sprite — modo de sprite **Multiple**, `pixelsPerUnit`, pivote, y `filterMode = Point` (píxeles nítidos, sin suavizado bilineal). |
+| **Unity** | Un archivo auxiliar `.meta` de sprite — modo de sprite **Multiple**, `pixelsPerUnit`, pivote, y `filterMode = Point` (píxeles nítidos, sin suavizado bilineal). |
 | **Godot** | Un recurso `.tres` de `SpriteFrames` (Godot 4.2) construido a partir de los fotogramas exportados. |
 
 Elige el preajuste en el diálogo, o pasa `--preset unity` / `--preset godot` en la
@@ -110,9 +110,9 @@ exportación es **de solo lectura** sobre tu documento: nunca lo muta y no apila
 ningún paso de deshacer.
 
 > **Cancelar un único destino grande.** Cancelar surte efecto entre destinos con
-> prontitud; cancelar **a mitad de la codificación de un único destino grande** es
-> más grueso — la codificación en curso termina antes de que se observe la
-> cancelación.
+> prontitud; cancelar **a mitad de la codificación de un único destino grande**
+> tiene una granularidad más gruesa — la codificación en curso termina antes de que
+> se observe la cancelación.
 
 ## La línea de comandos `pixelart-export`
 
@@ -136,7 +136,7 @@ pixelart-export --input PROYECTO.pixproj --format FORMATO --output SALIDA [opcio
 | `--padding N` | relleno entre sprites, en píxeles. |
 | `--loop N` | número de repeticiones del GIF (`0` = repetir indefinidamente). |
 | `--tag NOMBRE` | exporta solo el rango de una etiqueta de fotograma con nombre (por defecto: el documento completo). |
-| `--json` / `--no-json` | emite el complemento JSON de la hoja de sprites/atlas (por defecto: activado). |
+| `--json` / `--no-json` | emite el archivo auxiliar JSON de la hoja de sprites/atlas (por defecto: activado). |
 
 **Códigos de salida:** `0` éxito; `1` un error de exportación/empaquetado/escritura
 (por ejemplo, un atlas que no cabe, o un fallo de escritura en el sistema de

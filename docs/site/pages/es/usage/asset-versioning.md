@@ -99,7 +99,7 @@ completo en otra máquina; **importar** trae de vuelta ese paquete.
 - **Exactamente los recursos referenciados — ni más ni menos.** Exportar
   resuelve el conjunto de referencias del proyecto y empaqueta precisamente
   los blobs de esos recursos, cada uno almacenado una vez por contenido, más
-  un índice de catálogo y complementos por recurso. No se incluye nada que
+  un índice de catálogo y archivos auxiliares por recurso. No se incluye nada que
   el proyecto no referencie, y no se omite nada que sí referencie.
 - **Reutiliza el formato de proyecto ya distribuido.** El paquete compone
   la maquinaria de catálogo y `.pixproj` existente — no hay un formato

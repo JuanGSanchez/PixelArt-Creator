@@ -9,7 +9,7 @@ edición no destructiva.
 - Las capas se muestran **de arriba a abajo en orden z**: la fila en la **parte
   superior de la lista es la parte superior de la pila** (se dibuja al final / al
   frente).
-- Exactamente una fila es la **capa activa** — es el objetivo de las herramientas de
+- Exactamente una fila es la **capa activa** — es el destino de las herramientas de
   pintura.
 - Los **grupos** aparecen como nodos expandibles/colapsables que contienen a sus
   hijos.
@@ -58,7 +58,7 @@ grupos está acotado.
 Adjunta una **máscara** a una capa para modular su alfa de forma no destructiva:
 
 1. Elige **Añadir máscara** para la capa seleccionada.
-2. Activa **Editar máscara** para convertir la máscara en el objetivo de pintura — pintar ahora
+2. Activa **Editar máscara** para convertir la máscara en el destino de pintura — pintar ahora
    edita el búfer de la máscara, no los píxeles de la capa.
 3. Donde la máscara es 0 la capa está oculta; donde está al máximo la capa se muestra
    por completo; los valores intermedios son proporcionales.

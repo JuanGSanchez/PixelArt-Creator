@@ -22,7 +22,7 @@ produce los **mismos bytes**.
 
 ## Exportación ráster (PNG / GIF)
 
-- **PNG** exporta el **fotograma 0** como una única imagen RGBA — el objetivo de
+- **PNG** exporta el **fotograma 0** como una única imagen RGBA — el destino de
   imagen fija.
 - **GIF** exporta la animación: cada fotograma en orden, mostrado durante su
   propia **duración por fotograma** (las duraciones establecidas en la línea de
@@ -59,7 +59,7 @@ produce los **mismos bytes**.
 
 ## Metadatos JSON
 
-Las exportaciones de hoja de sprites y atlas pueden emitir un **complemento de
+Las exportaciones de hoja de sprites y atlas pueden emitir un **archivo auxiliar de
 metadatos JSON** en el formato **Aseprite *Array***: un array `frames[]` (el
 rectángulo, tamaño de origen y duración de cada fotograma) más un bloque `meta{}`
 que lleva las **etiquetas** de fotograma y las duraciones por fotograma. El JSON
@@ -75,7 +75,7 @@ para el motor** para que el recurso caiga directamente en un proyecto:
 
 | Preajuste | Qué escribe |
 | --- | --- |
-| **Unity** | Un complemento `.meta` de sprite — modo de sprite **Multiple**, `pixelsPerUnit`, pivote, y `filterMode = Point` (píxeles nítidos, sin suavizado bilineal). |
+| **Unity** | Un archivo auxiliar `.meta` de sprite — modo de sprite **Multiple**, `pixelsPerUnit`, pivote, y `filterMode = Point` (píxeles nítidos, sin suavizado bilineal). |
 | **Godot** | Un recurso `.tres` de `SpriteFrames` (Godot 4.2) construido a partir de los fotogramas exportados. |
 
 Elige el preajuste en el diálogo, o pasa `--preset unity` / `--preset godot` en
@@ -128,7 +128,7 @@ pixelart-export --input PROJECT.pixproj --format FORMAT --output OUT [options]
 | `--padding N` | relleno entre sprites, en píxeles. |
 | `--loop N` | número de repeticiones del GIF (`0` = repetir indefinidamente). |
 | `--tag NAME` | exporta solo el rango de una etiqueta de fotograma con nombre (por defecto: el documento completo). |
-| `--json` / `--no-json` | emite el complemento JSON de la hoja de sprites/atlas (por defecto: activado). |
+| `--json` / `--no-json` | emite el archivo auxiliar JSON de la hoja de sprites/atlas (por defecto: activado). |
 
 **Códigos de salida:** `0` éxito; `1` un error de exportación / empaquetado /
 escritura (por ejemplo, un atlas que no cabe, o un fallo de escritura en el

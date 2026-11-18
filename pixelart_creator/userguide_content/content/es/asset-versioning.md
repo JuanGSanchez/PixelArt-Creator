@@ -113,7 +113,7 @@ menú **Biblioteca**.
 - **Exactamente los recursos referenciados — ni más ni menos.** Exportar resuelve
   el conjunto de referencias del proyecto y empaqueta precisamente los blobs de
   esos recursos, cada uno almacenado una vez por contenido, más un índice de
-  catálogo y complementos por recurso.
+  catálogo y archivos auxiliares por recurso.
 - **Reutiliza el formato de proyecto ya existente.** El paquete compone la
   maquinaria de catálogo y proyecto existente — no hay un formato nuevo que
   aprender.

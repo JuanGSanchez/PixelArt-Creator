@@ -1,7 +1,7 @@
 # Automatización y extensibilidad
 
 El **sistema de automatización** te permite grabar, programar mediante
-scripts, reproducir y procesar por lotes las operaciones propias del editor,
+scripts, reproducir y procesar por lotes las operaciones propias del editor, y
 generar contenido de forma procedural — todo a través de **un solo** motor que la interfaz
 gráfica y la línea de comandos sin interfaz gráfica `pixelart-run` comparten,
 así que una automatización se ejecuta **de forma idéntica** tanto si la
@@ -91,36 +91,36 @@ Como la ejecución es un único comando agrupado, un script completado es **un
 
 El **gestor de complementos** descubre, habilita y deshabilita complementos. Un complemento
 está pensado para ampliar el editor registrando nuevas operaciones del DSL. **En esta
-versión la aplicación no tiene ningún paso que cargue o ejecute el código de un
+versión la aplicación no tiene ningún mecanismo que cargue o ejecute el código de un
 complemento:** descubrir un complemento, cargar un manifiesto, habilitar y
 deshabilitar nunca invocan a un complemento. Los permisos que declara un manifiesto
 describen el uso previsto del complemento; no son un límite de lo que puede hacer el
 código propio del complemento (consulta la nota de abajo).
 
-- **El descubrimiento es inerte.** La aplicación encuentra los complementos instalados
+- **El descubrimiento solo lista los complementos.** La aplicación encuentra los complementos instalados
   mediante los puntos de entrada estándar de Python, pero solo lee sus nombres y
   versiones: **no** carga ni ejecuta su código. Un complemento descubierto no muestra
   permisos y no se puede habilitar, porque la aplicación no lee los permisos del propio
   complemento. Los permisos proceden de un archivo de manifiesto que añades al panel
   desde el disco, y que aparece como una entrada propia en la lista. La aplicación no
   comprueba que un manifiesto pertenezca a un complemento que hayas instalado.
-- **El consentimiento cubre lo que declara el manifiesto.** **Habilitar** muestra los
+- **El consentimiento cubre el manifiesto, no el código del complemento.** **Habilitar** muestra los
   permisos que declara el manifiesto y te pide que confirmes. Los apruebas en
   conjunto, o no habilitas el complemento. La aplicación no comprueba el manifiesto
   frente a lo que el código del complemento hace realmente. Habilitar registra los
   permisos que aprobaste, en memoria, y marca el complemento como habilitado; no
-  ejecuta el código del complemento, porque la aplicación no tiene ningún paso que lo
+  ejecuta el código del complemento, porque la aplicación no tiene ningún mecanismo que lo
   haga. Tu consentimiento no se guarda: todos los complementos vuelven a quedar
   deshabilitados cuando cierras el editor. El anfitrión de complementos está escrito de
-  modo que, si el código que lo llama le proporcionara un paso de activación, a ese paso
-  se le entregaría un objeto de permisos, y se rechazaría toda llamada a través de ese
-  objeto cuyo permiso no se hubiera concedido; en esta versión nada proporciona un
-  paso así. Las operaciones registradas a través de ese objeto llevan como prefijo el
+  modo que, si quien lo llama le proporcionara código que se ejecute cuando se
+  habilita un complemento, a ese código se le entregaría un objeto de permisos, y se
+  rechazaría cualquier llamada hecha a través de ese objeto para la que no se hubiera
+  concedido el permiso; en esta versión nada le proporciona ningún código así. Las operaciones registradas a través de ese objeto llevan como prefijo el
   nombre del complemento, así que no pueden coincidir con el nombre de una operación
   integrada, y un permiso de lectura a través de él devuelve el documento que se le
   pasa, no una copia. El código que no pasa por el objeto no queda limitado por él:
   puede registrar o eliminar operaciones directamente, incluidas las integradas.
-- **Deshabilitar elimina las operaciones del complemento.** **Deshabilitar** anula el
+- **Deshabilitar elimina operaciones, no el código del complemento.** **Deshabilitar** anula el
   registro de las operaciones que se registraron a través del objeto de permisos; en
   esta versión no hay ninguna, porque nada registra ninguna. No deshace nada de lo que
   el código propio de un complemento ya ha hecho.
@@ -131,7 +131,7 @@ código propio del complemento (consulta la nota de abajo).
     complemento en esta versión. Instalar un complemento coloca en tu equipo código de
     Python ajeno, y la aplicación ni realiza ni comprueba la instalación. Un paquete
     también puede pedirle a Python que ejecute código cada vez que Python se inicia en el
-    entorno donde está instalado, lo cual incluye el editor, así que instalar un
+    entorno donde está instalado el paquete, lo cual incluye el editor, así que instalar un
     complemento puede bastar para que su código se ejecute, aunque nunca abras el panel
     **Complementos**. El código que se ejecuta en el propio proceso del editor, sea cual
     sea el modo en que haya llegado allí, tiene el mismo acceso a tus archivos y a la red
@@ -140,15 +140,15 @@ código propio del complemento (consulta la nota de abajo).
 
 ## Recolor por lotes
 
-**Recolor por lotes** aplica un remapeo de color a **muchos objetivos a la
+**Recolor por lotes** aplica un remapeo de color a **muchos destinos a la
 vez** como un **único comando transaccional y reversible**:
 
 - Para objetivos **indexados**, remapea índices de paleta
   (`old_index → new_index`); para objetivos **RGBA**, remapea colores
   (`old_rgba → new_rgba`). Reutiliza las operaciones de recolor existentes del
-  editor, así que un objetivo procesado por lotes es **idéntico byte a byte**
-  a recolorear ese objetivo por sí solo con el mismo mapeo.
-- Es **transaccional**: cada objetivo se valida y su paso individual se
+  editor, así que un destino procesado por lotes es **idéntico byte a byte**
+  a recolorear ese destino por sí solo con el mismo mapeo.
+- Es **transaccional**: cada destino se valida y su paso individual se
   construye **antes de aplicar nada**. Un objetivo inválido (un desajuste de
   modo o un mapeo fuera de rango) falla nombrando el objetivo problemático con
   **cero mutación** — un objetivo defectuoso nunca corrompe a los demás. El
