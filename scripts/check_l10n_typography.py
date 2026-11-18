@@ -30,8 +30,9 @@
 #     ru-no-straight-quote  Russian: no U+0022 in prose, where the language
 #                 takes « » (markup attributes, code spans and link targets
 #                 are not prose). Both surfaces.
-#     no-u202f   No U+202F (narrow no-break space) in any scanned file. Both
-#                 surfaces, every language.
+#     no-u202f   No U+202F (narrow no-break space) in any scanned file, in
+#                 any spelling: the character itself or a numeric character
+#                 reference (&#x202f;, &#8239;). Both surfaces, every language.
 #     ellipsis    Catalogue only: a finished translation holds as many U+2026
 #                 as its source message, no space before one, and no run of
 #                 three periods unless its source has one.
@@ -415,6 +416,18 @@ def _line_of(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
+# U+202F written as a numeric character reference (decimal or hexadecimal,
+# leading zeros allowed, the semicolon required as in HTML and CommonMark). The
+# character itself is found by the callers' own scan. HTML5 has no named
+# reference for it (measured on html.entities.html5), so none is listed.
+NARROW_NBSP_REFERENCE = re.compile(r"&#(?:[xX]0*202[fF]|0*8239);")
+
+
+def narrow_nbsp_references(text: str) -> list:
+    """Return the offset of every U+202F written as a character reference."""
+    return [match.start() for match in NARROW_NBSP_REFERENCE.finditer(text)]
+
+
 def _clip(text: str, width: int = 60) -> str:
     """Shorten a string for one-line display."""
     text = " ".join((text or "").split())
@@ -493,7 +506,8 @@ def scan_catalogue(path: str, tally: Tally, endonyms, catalogues) -> str:
     unit["files"] += 1
     unit["examined"] += 1
     raw = _read_bytes(path)
-    for offset in [i for i, c in enumerate(raw) if c == NARROW_NBSP]:
+    spelled = [i for i, c in enumerate(raw) if c == NARROW_NBSP]
+    for offset in sorted(spelled + narrow_nbsp_references(raw)):
         tally.add(unit, f"{name}:{_line_of(raw, offset)}", "U+202F")
     if catalogue.identity:
         return language
@@ -564,7 +578,8 @@ def scan_guide_page(path: str, rel: str, language: str, tally: Tally, endonyms):
     unit = tally.unit("no-u202f", "guide", language)
     unit["files"] += 1
     unit["examined"] += 1
-    for offset in [i for i, c in enumerate(text) if c == NARROW_NBSP]:
+    spelled = [i for i, c in enumerate(text) if c == NARROW_NBSP]
+    for offset in sorted(spelled + narrow_nbsp_references(text)):
         tally.add(unit, f"{rel}:{_line_of(text, offset)}", "U+202F")
     if lang == "fr":
         unit = tally.unit("fr-nbsp", "guide", language)

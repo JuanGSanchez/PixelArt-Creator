@@ -562,6 +562,148 @@ def case_no_narrow_no_break_space_anywhere(tools: Tools, work: Path) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# No narrow no-break space, in any spelling (SC-L10N-DATA-004-3).
+#
+# A catalogue is XML and a guide page is Markdown, and both resolve a numeric
+# character reference, so ``&#x202f;`` puts U+202F on the screen exactly as the
+# character itself does. The rule must see it in every spelling: hexadecimal or
+# decimal, either case of the ``x`` and of the digit, leading zeros. A reference
+# to another code point, or one that is not closed by a semicolon, is not U+202F.
+# --------------------------------------------------------------------------- #
+NNBSP_REFERENCES = (
+    "&#x202f;",
+    "&#8239;",
+    "&#X202f;",
+    "&#x202F;",
+    "&#x0202f;",
+    "&#008239;",
+)
+#: XML allows only a lower-case ``x`` in a reference, so a catalogue cannot hold
+#: ``&#X202f;``: it would not parse and the run would exit 2.
+NNBSP_XML_REFERENCES = tuple(
+    each for each in NNBSP_REFERENCES if not each.startswith("&#X")
+)
+#: Spellings that must NOT be read as U+202F: the neighbouring code points in both
+#: bases (U+2020, U+2030, U+202FB, U+14186, U+473F), and, on a page, a hexadecimal
+#: reference with no semicolon (CommonMark leaves that as text).
+NNBSP_LOOKALIKES = ("&#x2020;", "&#8240;", "&#x202fb;", "&#82390;", "&#18239;")
+NNBSP_UNCLOSED = "&#x202f"
+#: A reference to an ampersand followed by literal text that looks like a reference.
+NNBSP_LITERAL = "&amp;#x202f;"
+NNBSP_REFERENCE_REGEX = 'r"&#(?:[xX]0*202[fF]|0*8239);"'
+
+
+def reference_regex(replacement: str) -> Edit:
+    """Edit the script's reference pattern into ``replacement`` (a regex literal)."""
+    return ty(NNBSP_REFERENCE_REGEX, replacement)
+
+
+@REGISTRY.regression(
+    mutant(
+        "catalogue-references-not-scanned",
+        ty(
+            "    for offset in sorted(spelled + narrow_nbsp_references(raw)):\n",
+            "    for offset in sorted(spelled):\n",
+        ),
+    ),
+    mutant(
+        "guide-references-not-scanned",
+        ty(
+            "    for offset in sorted(spelled + narrow_nbsp_references(text)):\n",
+            "    for offset in sorted(spelled):\n",
+        ),
+    ),
+    mutant(
+        "decimal-reference-not-seen",
+        reference_regex('r"&#(?:[xX]0*202[fF]);"'),
+    ),
+    mutant(
+        "hexadecimal-reference-not-seen",
+        reference_regex('r"&#(?:0*8239);"'),
+    ),
+    mutant(
+        "capital-x-not-seen",
+        reference_regex('r"&#(?:x0*202[fF]|0*8239);"'),
+    ),
+    mutant(
+        "capital-f-not-seen",
+        reference_regex('r"&#(?:[xX]0*202f|0*8239);"'),
+    ),
+    mutant(
+        "leading-zeros-not-seen",
+        reference_regex('r"&#(?:[xX]202[fF]|8239);"'),
+    ),
+    mutant(
+        "semicolon-not-required",
+        reference_regex('r"&#(?:[xX]0*202[fF]|0*8239);?"'),
+    ),
+    mutant(
+        "every-code-point-taken",
+        reference_regex('r"&#(?:[xX][0-9a-fA-F]+|[0-9]+);"'),
+    ),
+)
+def case_a_narrow_no_break_space_is_found_in_every_spelling(
+    tools: Tools, work: Path
+) -> None:
+    """The character and each reference to it are findings; look-alikes are not.
+
+    A catalogue and a guide page each hold the raw U+202F and the spellings of a
+    reference to it that the format allows (the page also the capital ``X`` that
+    XML forbids), on lines of their own: every one is a ``no-u202f`` finding
+    with the place named, in file order, and the one file is counted once. A
+    second fixture holds references to other code points and an unclosed one,
+    and exits 0.
+    """
+    bodies = [f"Ein{NNBSP}Text", *(f"Ein{each}Text" for each in NNBSP_XML_REFERENCES)]
+    plain = len(bodies)
+
+    tree = build_tree(work / "catalogue")
+    path = tree.catalogue(
+        "de", [Msg(f"Plant {n}", raw=body) for n, body in enumerate(bodies)]
+    )
+    run, payload = scan(tools, tree, "--surface", "catalogue")
+    assert run.returncode == 1, (run.stdout, run.stderr)
+    unit = row(payload, "no-u202f", "catalogue", "de")
+    assert (unit["files"], unit["examined"]) == (1, 1), unit
+    assert details(unit) == ["U+202F"] * plain, unit
+    wanted = [f"pixelart_de.ts:{line_of(path, body)}" for body in bodies]
+    assert len(set(wanted)) == plain, wanted
+    assert [item["where"] for item in unit["findings"]] == wanted, unit
+    text = text_of(tools, tree, "--surface", "catalogue")
+    head = f"no-u202f [catalogue] de: examined 1 file(s), {plain} finding(s)"
+    assert head in text.stdout, text.stdout
+
+    guide = build_tree(work / "guide")
+    bodies = [f"Ein{NNBSP}Text", *(f"Ein{each}Text" for each in NNBSP_REFERENCES)]
+    plain = len(bodies)
+    lines = "\n\n".join(f"{body}." for body in bodies)
+    page = guide.page("de", "index.md", f"# Hilfe\n\n{lines}\n")
+    run, payload = scan(tools, guide, "--surface", "guide")
+    assert run.returncode == 1, (run.stdout, run.stderr)
+    unit = row(payload, "no-u202f", "guide", "de")
+    assert (unit["files"], unit["examined"]) == (1, 1), unit
+    assert details(unit) == ["U+202F"] * plain, unit
+    wanted = [f"de/index.md:{line_of(page, body)}" for body in bodies]
+    assert len(set(wanted)) == plain, wanted
+    assert [item["where"] for item in unit["findings"]] == wanted, unit
+    text = text_of(tools, guide, "--surface", "guide")
+    head = f"no-u202f [guide] de: examined 1 file(s), {plain} finding(s)"
+    assert head in text.stdout, text.stdout
+
+    near = [*NNBSP_LOOKALIKES, NNBSP_LITERAL]
+    clean = build_tree(work / "lookalikes")
+    clean.catalogue(
+        "de", [Msg(f"Near {n}", raw=f"Ein{each}Text") for n, each in enumerate(near)]
+    )
+    lines = "\n\n".join(f"Ein{each}Text." for each in [*near, NNBSP_UNCLOSED])
+    clean.page("de", "index.md", f"# Hilfe\n\n{lines}\n")
+    run, payload = scan(tools, clean)
+    assert_clean(run, payload)
+    assert row(payload, "no-u202f", "catalogue", "de")["examined"] == 1
+    assert row(payload, "no-u202f", "guide", "de")["examined"] == 1
+
+
+# --------------------------------------------------------------------------- #
 # Ellipsis (SC-L10N-DATA-004-4).
 # --------------------------------------------------------------------------- #
 @REGISTRY.regression(
