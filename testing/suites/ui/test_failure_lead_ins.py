@@ -58,6 +58,7 @@ from typing import (
     Optional,
     Tuple,
     TypeGuard,
+    cast,
 )
 
 import pytest
@@ -225,13 +226,16 @@ def _literal(node: ast.AST) -> Optional[str]:
     return None
 
 
-def _template_of(
-    node: ast.AST, class_name: str, templates: Dict[str, Tuple[str, str]]
-) -> Optional[Tuple[str, str]]:
-    """Return ``(context, source)`` if ``node`` is a translated template.
+def _templates_of(
+    node: ast.AST, class_name: str, templates: Dict[str, List[Tuple[str, str]]]
+) -> List[Tuple[str, str]]:
+    """Return the ``(context, source)`` of every translated template ``node`` is.
 
     A template is a ``tr("...")`` or ``translate("context", "...")`` call, a name
     that was assigned one, or either of those with ``.replace`` / ``.format`` chained.
+    A name assigned a template more than once, as a handler does that picks its frame
+    by a branch, is every one of them: none is dropped because a later assignment
+    exists.
     """
     while (
         isinstance(node, ast.Call)
@@ -240,19 +244,19 @@ def _template_of(
     ):
         node = node.func.value
     if isinstance(node, ast.Name):
-        return templates.get(node.id)
+        return list(templates.get(node.id, []))
     if not isinstance(node, ast.Call):
-        return None
+        return []
     func = node.func
     name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
     if name == "tr" and node.args:
         source = _literal(node.args[0])
-        return (class_name, source) if source is not None else None
+        return [(class_name, source)] if source is not None else []
     if name == "translate" and len(node.args) >= 2:
         context, source = _literal(node.args[0]), _literal(node.args[1])
         if context is not None and source is not None:
-            return (context, source)
-    return None
+            return [(context, source)]
+    return []
 
 
 def _receivers(tree: ast.AST) -> set:
@@ -330,7 +334,7 @@ def derive_inventory(ui_root: Path = UI_ROOT) -> List[Site]:
                     collected.add(node.func.value.attr)
         for class_name, function in _functions(tree):
             tainted = _str_params(function) if function.name in receivers else set()
-            templates: Dict[str, Tuple[str, str]] = {}
+            templates: Dict[str, List[Tuple[str, str]]] = {}
 
             def carries(expression: ast.AST) -> bool:
                 for part in ast.walk(expression):
@@ -349,43 +353,43 @@ def derive_inventory(ui_root: Path = UI_ROOT) -> List[Site]:
 
             for node in ast.walk(function):
                 if isinstance(node, ast.Assign):
-                    found = _template_of(node.value, class_name, templates)
+                    found = _templates_of(node.value, class_name, templates)
                     for target in node.targets:
                         if not isinstance(target, ast.Name):
                             continue
-                        if found is not None and isinstance(node.value, ast.Call):
+                        if found and isinstance(node.value, ast.Call):
                             if not isinstance(node.value.func, ast.Attribute) or (
                                 node.value.func.attr not in ("replace", "format")
                             ):
-                                templates[target.id] = found
+                                held = templates.setdefault(target.id, [])
+                                held += [one for one in found if one not in held]
                         if carries(node.value):
                             tainted.add(target.id)
             for node in ast.walk(function):
                 if not isinstance(node, ast.Call):
                     continue
                 func = node.func
-                joined: Optional[Tuple[str, str]] = None
+                joined: List[Tuple[str, str]] = []
                 arguments = list(node.args) + [kw.value for kw in node.keywords]
                 if isinstance(func, ast.Attribute) and func.attr in (
                     "replace",
                     "format",
                 ):
-                    joined = _template_of(node, class_name, templates)
+                    joined = _templates_of(node, class_name, templates)
                 elif (
                     isinstance(func, ast.Attribute)
                     and func.attr == "failure_on_own_line"
                 ) or (isinstance(func, ast.Name) and func.id == "failure_on_own_line"):
                     if node.args:
-                        joined = _template_of(node.args[0], class_name, templates)
+                        joined = _templates_of(node.args[0], class_name, templates)
                         arguments = list(node.args[1:]) + [
                             kw.value for kw in node.keywords
                         ]
-                if joined is not None and any(carries(arg) for arg in arguments):
-                    sites.append(
-                        Site(
-                            path.name, function.name, node.lineno, joined[0], joined[1]
+                if joined and any(carries(arg) for arg in arguments):
+                    for context, source in joined:
+                        sites.append(
+                            Site(path.name, function.name, node.lineno, context, source)
                         )
-                    )
     return _outermost(sites)
 
 
@@ -831,7 +835,7 @@ def _drive_status_bar(env: Env, kind: str) -> str:
         mp.setattr(client, "send_update", lambda blob: None)
         mp.setattr(client, "send_presence", lambda data: None)
         mp.setattr(realtime_actions, "encode_update", raising_for(RealtimeError))
-        session.push_local_update([object()])  # type: ignore[list-item]
+        session.push_local_update(cast(List[MetadataOp], [object()]))
         read()
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(client, "is_active", lambda: True)
@@ -1498,30 +1502,52 @@ PLACES = ("alone", "own line", "after a sentence", "inline", "absent")
 #: holds in a language must be examined there: none examined is a failure, not a pass.
 JUDGED_PLACES = ("alone", "own line", "after a sentence")
 
-#: The two frames of the status bar's real-time messages: the reason's, which carries
-#: no failure sentence, and the failure-only frame, which does.
-_STATUS_BAR_FRAMES = (REASON_FRAME[1], FAILURE_ONLY_FRAME[1])
+#: The words the case's finding lines use for a place, as its printed line does for
+#: the three it judges; a place it does not judge is named as ``PLACES`` names it.
+PLACE_WORDS = {
+    "alone": "alone",
+    "own line": "own line",
+    "after a sentence": "after a lead-in that ends as a sentence",
+}
+
+#: The placeholder of a frame: a template that shows one message after a lead-in of
+#: its own, whose end decides where the sentence stands (the status bar's two).
+FRAME_PLACEHOLDER = "{msg}"
+
+
+def site_kind(code: str, site: Site) -> str:
+    """Return the kind of ``site`` in ``code``: where its template puts the sentence.
+
+    A frame (a template with ``{msg}``) is ``after a sentence`` when ``code``'s own
+    finished text of it ends, before ``{msg}``, with a sentence-ending mark of
+    ``code``, and ``inline`` when it does not (a language whose frame is unfinished
+    included): that kind is the verdict of SC-L10N-UI-020-1 and -2, not of this
+    one. Any other template is joined on a line of its own.
+    """
+    if FRAME_PLACEHOLDER not in site.source:
+        return "own line"
+    frame = finished_text(code, site.context, site.source)
+    before = "" if frame is None else frame.partition(FRAME_PLACEHOLDER)[0].rstrip()
+    if before and before[-1] in SENTENCE_ENDINGS[code]:
+        return "after a sentence"
+    return "inline"
 
 
 def sites_held(code: str, sites: List[Site], alone: int) -> Dict[str, int]:
     """Return how many sites of each judged place the inventory holds in ``code``.
 
     ``alone`` is the number of ``failure_text`` calls outside a template join
-    (``count_alone_sites``), which no language changes. ``own line`` is the sites the
-    inventory derived, less the status bar's two frames. ``after a sentence`` is the
-    failure-only frame when ``code``'s own catalogue text of it ends, before its
-    placeholder, with a sentence-ending mark of ``code``: the inventory's template
-    pass names the one ``frame`` variable of ``_on_realtime_error`` by its last
-    assignment, so only the reason's frame is a row of it, and the failure-only frame
-    is read from the catalogue here. A language whose frame is unfinished holds none.
+    (``count_alone_sites``), which no language changes. The other two are rows of
+    the derived inventory, each counted under its ``site_kind`` in ``code``: the
+    inventory holds every frame a handler can show, so the failure-only frame of
+    ``_on_realtime_error`` is a row, and in a language whose text of it ends as a
+    sentence it is the one ``after a sentence``.
     """
-    frame = finished_text(code, *FAILURE_ONLY_FRAME)
-    before = "" if frame is None else frame.partition("{msg}")[0].rstrip()
-    ends_as_sentence = bool(before) and before[-1] in SENTENCE_ENDINGS[code]
+    kinds = [site_kind(code, site) for site in sites]
     return {
         "alone": alone,
-        "own line": sum(1 for site in sites if site.source not in _STATUS_BAR_FRAMES),
-        "after a sentence": 1 if ends_as_sentence else 0,
+        "own line": kinds.count("own line"),
+        "after a sentence": kinds.count("after a sentence"),
     }
 
 
@@ -1572,19 +1598,23 @@ def form_failures(
     shown: str,
     sentence: str,
     alone: bool = False,
+    place_named: bool = False,
 ) -> Tuple[str, List[str]]:
     """Return the place of ``sentence`` in ``shown`` and its failures, each worded.
 
     This is the one function that judges a sentence against its catalogue form and
     words what it finds: every failure names the language, the site and the kind of
-    sentence. The case calls it for every site it examines, and the controls read the
-    words it gives, so a control runs the code the case runs.
+    sentence, and, when ``place_named`` is set, the place it was examined under
+    (``PLACE_WORDS``). The case calls it for every site it examines, with the place
+    named, and the controls read the words it gives, so a control runs the code the
+    case runs.
     """
     if alone:
         place, findings = "alone", _alone_findings(shown, sentence)
     else:
         place, findings = _placed_findings(shown, sentence, code)
-    return place, [f"[{code}] {site}, {kind}: {finding}" for finding in findings]
+    where = f", {PLACE_WORDS.get(place, place)}" if place_named else ""
+    return place, [f"[{code}] {site}, {kind}{where}: {finding}" for finding in findings]
 
 
 @pytest.mark.parametrize("code", LANGUAGES)
@@ -1611,7 +1641,8 @@ def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
     one is added. Sites are printed per kind, each kind with its count (a kind with
     none in a language is printed as 0) and the surfaces that gave it, and the total
     is non-zero. A sentence shown after a lead-in that ends as a sentence is checked
-    on the status bar's failure-only frame, where the surface shows it.
+    on the status bar's failure-only frame, where the surface shows it, and that
+    frame is a row of the derived inventory (the case fails when it is not).
 
     Each kind the derived inventory holds in the language (``sites_held``) must have
     an examined count above 0, or the case fails naming the language and the kind
@@ -1621,7 +1652,8 @@ def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
 
     Every judgement is ``form_failures``, which calls one named verdict per place
     (``_alone_findings``, ``_own_line_findings``, ``_after_ending_findings``); the
-    controls below run the same functions on planted texts.
+    controls below run the same functions on planted texts. Each finding line names
+    the language, the site, the kind of sentence and the place it was examined under.
     """
     found = {kind: sentence_in(code, kind) for kind in SENTENCES}
     unfinished = [kind for kind, text in found.items() if text is None]
@@ -1634,7 +1666,13 @@ def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
     for site_name, drive in ALONE_SITES.items():
         for kind, sentence in sentences.items():
             place, worded = form_failures(
-                code, site_name, kind, drive(env, kind), sentence, alone=True
+                code,
+                site_name,
+                kind,
+                drive(env, kind),
+                sentence,
+                alone=True,
+                place_named=True,
             )
             sites_of[place].append(site_name)
             failures += worded
@@ -1645,11 +1683,18 @@ def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
                 text.split(f"\n{surface.separator}\n") if surface.separator else [text]
             )
             for shown in parts:
-                place, worded = form_failures(code, surface.name, kind, shown, sentence)
+                place, worded = form_failures(
+                    code, surface.name, kind, shown, sentence, place_named=True
+                )
                 sites_of[place].append(surface.name)
                 failures += worded
     examined = {place: len(sites_of[place]) for place in JUDGED_PLACES}
     held = sites_held(code, sites, alone_site_count)
+    frame_rows = [site for site in sites if site.source == FAILURE_ONLY_FRAME[1]]
+    assert frame_rows, (
+        f"[{code}] the derived inventory holds no row of the failure-only frame "
+        f"{FAILURE_ONLY_FRAME[1]!r}"
+    )
     unexamined = unexamined_kind_findings(code, held, examined)
 
     def named(place: str) -> str:
@@ -1660,7 +1705,8 @@ def test_sc_l10n_ui_020_3_a_sentence_not_joined_inline_keeps_its_catalogue_form(
         f"of its own {named('own line')}, after a lead-in that ends as a sentence "
         f"{named('after a sentence')}; total {sum(examined.values())}; sites the "
         f"inventory holds, alone {held['alone']}, own line {held['own line']}, after "
-        f"a sentence {held['after a sentence']}; not in this verdict: continuing on "
+        f"a sentence {held['after a sentence']} (failure-only frame rows "
+        f"{len(frame_rows)}); not in this verdict: continuing on "
         f"a lead-in's line {len(sites_of['inline'])}, sentence absent "
         f"{len(sites_of['absent'])}"
     )
@@ -1693,6 +1739,39 @@ def test_sc_l10n_ui_020_3_a_kind_examined_zero_times_fails_naming_language_and_k
                 unexamined_kind_findings(code, {**held, kind: 0}, {**every, kind: 0})
                 == []
             )
+
+
+def test_sc_l10n_ui_020_3_the_derivation_keeps_every_frame_a_handler_can_show(tmp_path):
+    """SC-L10N-UI-020-3 control: a handler that assigns two frames is two rows.
+
+    The scratch handler has the shape of the status bar's: a receiver of a failure
+    signal that picks its frame by a branch and formats the message into the one it
+    picked. Neither frame is dropped because a later assignment exists, and each
+    row has the kind its own text gives: the frame that closes the lead-in as a
+    sentence is ``after a sentence``, the one that does not is ``inline``.
+    """
+    (tmp_path / "scratch_frames.py").write_text(
+        "class Scratch:\n"
+        "    def wire(self, controller):\n"
+        "        controller.errorOccurred.connect(self.on_error)\n"
+        "    def on_error(self, message: str, is_failure: bool = False):\n"
+        "        if is_failure:\n"
+        "            frame = self.tr('Scratch. {msg}')\n"
+        "        else:\n"
+        "            frame = self.tr('Scratch: {msg}')\n"
+        "        return frame.format(msg=message)\n",
+        encoding="utf-8",
+    )
+    found = derive_inventory(tmp_path)
+    assert sorted(site.source for site in found) == [
+        "Scratch. {msg}",
+        "Scratch: {msg}",
+    ], found
+    kinds = {site.source: site_kind("en", site) for site in found}
+    assert kinds == {
+        "Scratch. {msg}": "after a sentence",
+        "Scratch: {msg}": "inline",
+    }, kinds
 
 
 def test_sc_l10n_ui_020_3_a_lower_case_spanish_sentence_alone_fails_naming_the_site():
