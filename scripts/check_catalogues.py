@@ -47,6 +47,7 @@ import json
 import os
 import re
 import sys
+import typing
 import xml.etree.ElementTree as ET
 
 EXIT_OK = 0
@@ -563,7 +564,7 @@ def _filled_tokens(call: ast.Call, position: int) -> list:
     The tokens are alternatives: any one of them marks a count-bearing text.
     """
     tokens = []
-    name = call.func.attr
+    name = typing.cast(ast.Attribute, call.func).attr
     if name == "arg":
         for offset, value in enumerate(call.args):
             if _count_like(value):
@@ -600,7 +601,7 @@ def _scan_file(path: str, root: str) -> list:
         if not isinstance(node, ast.Call) or id(node) in inner:
             continue
         fills = []
-        current = node
+        current: ast.expr = node
         while (
             isinstance(current, ast.Call)
             and isinstance(current.func, ast.Attribute)
@@ -618,7 +619,7 @@ def _scan_file(path: str, root: str) -> list:
         position = 0
         for fill in reversed(fills):
             tokens.extend(_filled_tokens(fill, position))
-            if fill.func.attr == "arg":
+            if typing.cast(ast.Attribute, fill.func).attr == "arg":
                 position += len(fill.args)
         counted = tokens
         sites.append(
@@ -685,7 +686,7 @@ def inventory_plurals(catalogue: Catalogue, py_dir: str) -> dict:
     for site in sites:
         by_text[site["text"]].append(site)
     listed = []
-    excluded = []
+    excluded: list[dict] = []
     for message in live:
         if message.numerus:
             continue
