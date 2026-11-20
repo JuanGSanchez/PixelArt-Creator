@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import importlib
 import xml.etree.ElementTree as ET
-from typing import Callable, Dict, Iterator, List, Optional, Tuple
+from typing import Callable, Dict, Iterator, List, Tuple, cast
 
 import pytest
 from PySide6.QtCore import QCoreApplication
@@ -221,7 +221,7 @@ _MIN_PRODUCT_KEYS = 3
 
 def _discover_languages() -> Tuple[str, ...]:
     """Return the languages the app itself offers, English first."""
-    manager = LanguageManager(QCoreApplication.instance())
+    manager = LanguageManager(cast(QCoreApplication, QCoreApplication.instance()))
     return tuple(manager.available_languages())
 
 

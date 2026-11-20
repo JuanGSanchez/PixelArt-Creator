@@ -4,7 +4,8 @@ atomic cancellation (canvas-scale-defects `spec.md` REQ-CSD-UI-008..013).
 Every scenario here drives the REAL Qt surfaces introduced by this batch —
 :class:`~pixelart_creator.ui.document_transform_runner.Document_Transform_Runner`,
 :class:`~pixelart_creator.ui.document_transform_dialogs.Document_Transform_Confirm_Dialog`
-and :class:`~pixelart_creator.ui.document_transform_dialogs.Document_Transform_Progress_Dialog`
+and
+:class:`~pixelart_creator.ui.document_transform_dialogs.Document_Transform_Progress_Dialog`
 — headless, through the real ``QTimer``/``QEventLoop`` chain the runner uses
 (`plan.md` §5.2/§5.3). None of the runner's internals are mocked; only the
 *dialog result* (accept/decline/cancel) is driven, exactly as this task
@@ -44,7 +45,7 @@ from typing import List
 import pytest
 from PySide6.QtCore import QLocale
 from PySide6.QtGui import QUndoStack
-from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
 from pixelart_creator.logic.constants import (
     DOCUMENT_TRANSFORM_CONFIRM_BYTES,

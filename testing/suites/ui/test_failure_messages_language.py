@@ -44,7 +44,7 @@ import ssl
 import urllib.error
 import xml.etree.ElementTree as ET
 import zipfile
-from typing import Callable, Dict, Iterator, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Type, cast
 
 import pytest
 from PySide6.QtGui import QTextDocument
@@ -784,9 +784,7 @@ def _implicit_context_only() -> BaseException:
 _URL_TIMEOUT = urllib.error.URLError(TimeoutError("t"))
 _URL_REFUSED = urllib.error.URLError(ConnectionRefusedError("c"))
 _URL_NO_HOST = urllib.error.URLError(socket.gaierror(-2, "no such host"))
-_HTTP_ERROR = urllib.error.HTTPError(
-    "http://x", 500, "x", None, None  # type: ignore[arg-type]
-)
+_HTTP_ERROR = cast(Any, urllib.error.HTTPError)("http://x", 500, "x", None, None)
 
 
 def _wrapped_runtime(cause: BaseException) -> BaseException:
@@ -975,9 +973,7 @@ def _drive_assistant(
             timeout=5000,
             check_params_cb=lambda busy: busy is False,
         ):
-            controller.submit(
-                Document(8, 8), Conversation(), object()  # type: ignore[arg-type]
-            )
+            cast(Any, controller).submit(Document(8, 8), Conversation(), object())
         QApplication.processEvents()
     finally:
         controller.shutdown()

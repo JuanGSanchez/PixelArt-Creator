@@ -3465,7 +3465,9 @@ def cmap_of(path: Path) -> Dict[int, str]:
     from fontTools.ttLib import TTFont
 
     with TTFont(str(path)) as font:
-        return dict(font.getBestCmap())
+        cmap = font.getBestCmap()
+        assert cmap is not None
+        return dict(cmap)
 
 
 def han_or_hangul(cp: int, family: str) -> bool:

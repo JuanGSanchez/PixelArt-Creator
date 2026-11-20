@@ -33,7 +33,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Iterator, List, Optional, Tuple, cast
 
 import pytest
 from PIL import Image
@@ -50,6 +50,7 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from pixelart_creator.data.project_io import FILE_SUFFIX
 from pixelart_creator.logic.constants import MAX_CANVAS_WIDTH
+from pixelart_creator.logic.document import Layer
 from pixelart_creator.logic.pixel_buffer import ColorMode
 from pixelart_creator.ui.main_window import Main_Window
 from testing.suites.ui.focus_helpers import assert_focus_rendered
@@ -117,7 +118,7 @@ def _make_png(path: Path, width: int, height: int, color=(230, 30, 30, 255)) -> 
     """Write a solid-colour RGBA PNG via QImage; return the path."""
     image = QImage(width, height, QImage.Format.Format_RGBA8888)
     image.fill(QColor(*color))
-    assert image.save(str(path), "PNG")
+    assert cast(Any, image).save(str(path), "PNG")
     return path
 
 
@@ -125,7 +126,7 @@ def _make_image(path: Path, fmt: str, width: int, height: int) -> Path:
     """Write a solid image in ``fmt`` (bmp/jpg) via QImage; return the path."""
     image = QImage(width, height, QImage.Format.Format_RGBA8888)
     image.fill(QColor(40, 90, 220, 255))
-    assert image.save(str(path), fmt.lstrip(".").upper())
+    assert cast(Any, image).save(str(path), fmt.lstrip(".").upper())
     return path
 
 
@@ -172,12 +173,15 @@ def _write_pal(path: Path, colors) -> Path:
 
 def _active_buffer(window: Main_Window):
     doc = window.active_document()
-    return doc.frames[0].layers[0].buffer
+    assert doc is not None
+    return cast(Layer, doc.frames[0].layers[0]).buffer
 
 
 def _mark_dirty(window: Main_Window) -> None:
     """Push a no-op command so the active tab's undo stack is not clean."""
-    window.active_tab().stack.push(QUndoCommand("edit"))
+    tab = window.active_tab()
+    assert tab is not None
+    tab.stack.push(QUndoCommand("edit"))
 
 
 #: The three words of the unsaved-changes prompt, as the user guide quotes them

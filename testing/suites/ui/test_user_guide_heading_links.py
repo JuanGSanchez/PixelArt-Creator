@@ -387,7 +387,8 @@ def _dropping_handler(self: User_Guide_Dialog, url: QUrl) -> None:
     before."""
     if url.path().endswith(".md"):
         stem = url.path().rsplit("/", 1)[-1][: -len(".md")]
-        for topic in self._model.topics():  # type: ignore[union-attr]
+        assert self._model is not None
+        for topic in self._model.topics():
             if topic.content_ref == stem:
                 self.show_topic(topic.id)
                 return

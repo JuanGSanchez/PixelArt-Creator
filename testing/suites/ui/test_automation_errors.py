@@ -12,8 +12,8 @@ The ATOMICITY nuance the UI layer flagged was a real defect: for a MULTI-op scri
 op[0] applied and a later op failed, ``logic.scripting.dispatch`` raised WITHOUT
 rolling back op[0], so the off-thread worker (which reverts only a returned
 command) never reverted it — leaving op[0] applied on the live document, off the
-undo stack. The implementation has since made dispatch ATOMIC (validate-all-up-front → one
-GroupCommand → reverse-order rollback on failure): a failed multi-op dispatch now
+undo stack. The implementation has since made dispatch ATOMIC (validate-all-up-front
+→ one GroupCommand → reverse-order rollback on failure): a failed multi-op dispatch now
 leaves the document byte-identical, and a valid one is a single reversible command
 (macro replay inherits it). The strict-xfail that pinned the defect has therefore
 been REMOVED; the test below asserts the REAL atomic contract in both halves.

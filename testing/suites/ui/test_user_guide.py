@@ -18,12 +18,11 @@ executed (Article VII); the guide is fully offline (no network object exists).
 from __future__ import annotations
 
 import logging
-from typing import Dict
+from typing import Dict, cast
 
-import pytest
 from PySide6.QtCore import QEvent, Qt, QUrl
 from PySide6.QtGui import QKeyEvent, QKeySequence
-from PySide6.QtWidgets import QApplication, QListWidget, QTextBrowser, QTreeWidget
+from PySide6.QtWidgets import QApplication, QTextBrowser, QTreeWidget
 
 from pixelart_creator.data.guide_content import GuideContentError
 from pixelart_creator.logic.guide_model import (
@@ -620,7 +619,7 @@ def _heading_dialog(qtbot, *, pixel_font: bool) -> User_Guide_Dialog:
 
     app_font.capture_platform_font()
     assert app_font.register_app_fonts(), "the bundled Nifen Art face did not register"
-    app_font.apply_interface_font(QApplication.instance(), False)
+    app_font.apply_interface_font(cast(QApplication, QApplication.instance()), False)
     dialog = _make_dialog(
         qtbot,
         reader=lambda ref: _HEADING_PAGE,
@@ -635,7 +634,8 @@ def _heading_dialog(qtbot, *, pixel_font: bool) -> User_Guide_Dialog:
 
 
 def _page_blocks(dialog: User_Guide_Dialog):
-    """Return ``(heading level, line height, natural width, fragment formats)`` per block."""
+    """Return ``(heading level, line height, natural width, fragment formats)`` per
+    block."""
     out = []
     block = dialog._content_view.document().begin()
     while block.isValid():
@@ -670,7 +670,8 @@ def _is_crisp(fmt) -> bool:
 def test_vi_ui_013_headings_are_on_the_em_grid_and_stay_crisp_with_the_pixel_font(
     qtbot, theme, capsys
 ):
-    """REQ-VI-UI-013: with the pixel font on, headings are 24/24/12/12 px and unsmoothed.
+    """REQ-VI-UI-013: with the pixel font on, headings are 24/24/12/12 px and
+    unsmoothed.
 
     Measured on the laid-out page, not on a format's own ``font()`` (which fills in
     defaults and misreads): the line height of each heading (28/28/14/14 for a
@@ -697,7 +698,8 @@ def test_vi_ui_013_headings_are_on_the_em_grid_and_stay_crisp_with_the_pixel_fon
         font.setWeight(QFont.Weight.Bold)
         expected_width = QFontMetricsF(font).horizontalAdvance("Hh")
         print(
-            f"[{theme}] h{level}: line {height} px, width {width:.1f} (expect {expected_width:.1f})"
+            f"[{theme}] h{level}: line {height} px, width {width:.1f} "
+            f"(expect {expected_width:.1f})"
         )
         assert px % em == 0
         assert (
@@ -721,7 +723,8 @@ def test_vi_ui_013_headings_are_on_the_em_grid_and_stay_crisp_with_the_pixel_fon
     assert all(f.font().family() != app_font.NIFEN_ART_FAMILY for f in code_formats)
     with capsys.disabled():
         print(
-            f"\n[guide] headings examined {len(headings)}, code faces {len(code_formats)}",
+            f"\n[guide] headings examined {len(headings)}, "
+            f"code faces {len(code_formats)}",
             flush=True,
         )
 
@@ -752,7 +755,8 @@ def test_vi_ui_013_a_fresh_font_would_lose_the_no_smoothing_request(qtbot):
 def test_vi_ui_013_headings_keep_qts_own_sizes_while_the_pixel_font_is_off(
     qtbot, theme
 ):
-    """With the switch off nothing is rounded: four different line heights, no forced font."""
+    """With the switch off nothing is rounded: four different line heights, no forced
+    font."""
     dialog = _heading_dialog(qtbot, pixel_font=False)
     assert dialog.page_uses_pixel_font() is False
     headings = [b for b in _page_blocks(dialog) if b[0] > 0]
@@ -765,7 +769,8 @@ def test_vi_ui_013_headings_keep_qts_own_sizes_while_the_pixel_font_is_off(
 
 
 def test_vi_ui_017_turning_the_switch_on_and_off_re_sets_the_headings(qtbot, theme):
-    """Toggling the switch re-renders the page: 28/28/14/14 with it on, Qt's own sizes off."""
+    """Toggling the switch re-renders the page: 28/28/14/14 with it on, Qt's own sizes
+    off."""
     dialog = _heading_dialog(qtbot, pixel_font=False)
     off = [b[1] for b in _page_blocks(dialog) if b[0] > 0]
     dialog._logo_switch.click()

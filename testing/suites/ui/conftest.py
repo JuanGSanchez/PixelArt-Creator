@@ -17,7 +17,7 @@ import sys
 import types
 import weakref
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator, cast
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -191,10 +191,10 @@ _PHASE9_DISPOSABLE = (
     # Phase-10 Slice B collaboration panels. The three new dock panels are
     # top-level ``QWidget``s bound to a synchronous, worker-free
     # ``Collaboration_Session`` (Slice B is synchronous over the loopback adapter —
-    # The UI implementation introduced NO off-thread worker, so there is no new drain/teardown
-    # wiring). STILL, a test may build a panel directly (parent-less) + register it
-    # with ``qtbot.addWidget``; headless (offscreen, no running event loop) that
-    # widget's ``deleteLater`` never fires, so ``QApplication`` keeps it in
+    # The UI implementation introduced NO off-thread worker, so there is no new
+    # drain/teardown wiring). STILL, a test may build a panel directly (parent-less) +
+    # register it with ``qtbot.addWidget``; headless (offscreen, no running event loop)
+    # that widget's ``deleteLater`` never fires, so ``QApplication`` keeps it in
     # ``topLevelWidgets()`` and it survives the test. Registering them here disposes
     # them SYNCHRONOUSLY (``shiboken6.delete``) at teardown exactly like the Phase-9
     # aids + the Slice-A cloud dialogs, so no collaboration panel accumulates across
@@ -215,15 +215,16 @@ _PHASE9_DISPOSABLE = (
     # surfaces — so no branching panel or cursor overlay accumulates across the suite
     # under ``pytest -n auto`` (the Phase-5/6/9 disposal-hygiene contract). Neither owns
     # a worker thread; the off-GUI-thread real-time worker lives in ``Realtime_Session``
-    # (drained separately below, FIRST, exactly as ``Main_Window.shutdown_prewarm`` does).
+    # (drained separately below, FIRST, exactly as ``Main_Window.shutdown_prewarm``
+    # does).
     Branching_Panel,
     Live_Cursors_Overlay,
     # User Guide (REQ-UG-UI-*). ``User_Guide_Dialog`` is a read-only,
     # fully-offline ``QDialog`` that loads its content SYNCHRONOUSLY from the
-    # committed ``userguide_content/`` bundle — the UI implementation introduced NO off-thread
-    # worker, timer, or network client, so there is NO new drain/teardown wiring
-    # (disposal only, no ``shutdown_*`` call). When opened from the Help menu it is
-    # parented to ``Main_Window`` (disposed with it), but a guide test may build one
+    # committed ``userguide_content/`` bundle — the UI implementation introduced NO
+    # off-thread worker, timer, or network client, so there is NO new drain/teardown
+    # wiring (disposal only, no ``shutdown_*`` call). When opened from the Help menu it
+    # is parented to ``Main_Window`` (disposed with it), but a guide test may build one
     # STANDALONE (parent-less, with an injected model/reader); headless (offscreen,
     # no running event loop) its ``deleteLater`` never fires, so ``QApplication``
     # keeps it in ``topLevelWidgets()`` and it survives the test. Registering it here
@@ -235,55 +236,57 @@ _PHASE9_DISPOSABLE = (
     # Phase-11 asset-library panels. The three new dock panels
     # (asset library / tagging / search-filter) are top-level ``QWidget``s bound to a
     # synchronous, worker-free ``Asset_Library_Session`` (browse/tag/search is
-    # purely in-memory over the immutable ``AssetCatalog`` value — the UI implementation introduced NO
-    # off-thread worker, timer, or poller, so there is NO new drain/shutdown wiring).
-    # STILL, a test may build a panel directly (parent-less) + register it with
-    # ``qtbot.addWidget``; headless (offscreen, no running event loop) that widget's
-    # ``deleteLater`` never fires, so ``QApplication`` keeps it in ``topLevelWidgets()``
-    # and it survives the test. Registering them here disposes them SYNCHRONOUSLY
-    # (``shiboken6.delete``) at teardown exactly like the Phase-9 aids + the
-    # Slice-A/-B/-C surfaces + the User Guide — so no asset panel accumulates across the
-    # suite under ``pytest -n auto`` (the Phase-5/6/9 disposal-hygiene contract; here a
-    # regression guard even though no worker was added). ``Asset_Library_Session`` is a
-    # parent-owned ``QObject`` (no widget, no worker) disposed with its parent — nothing
-    # to register.
+    # purely in-memory over the immutable ``AssetCatalog`` value — the UI implementation
+    # introduced NO off-thread worker, timer, or poller, so there is NO new
+    # drain/shutdown wiring). STILL, a test may build a panel directly (parent-less) +
+    # register it with ``qtbot.addWidget``; headless (offscreen, no running event loop)
+    # that widget's ``deleteLater`` never fires, so ``QApplication`` keeps it in
+    # ``topLevelWidgets()`` and it survives the test. Registering them here disposes
+    # them SYNCHRONOUSLY (``shiboken6.delete``) at teardown exactly like the Phase-9
+    # aids + the Slice-A/-B/-C surfaces + the User Guide — so no asset panel accumulates
+    # across the suite under ``pytest -n auto`` (the Phase-5/6/9 disposal-hygiene
+    # contract; here a regression guard even though no worker was added).
+    # ``Asset_Library_Session`` is a parent-owned ``QObject`` (no widget, no worker)
+    # disposed with its parent — nothing to register.
     Asset_Library_Panel,
     Asset_Tagging_Panel,
     Asset_Search_Panel,
     # Phase-11 dependency-graph view. ``Dependency_Graph_View`` is a
     # top-level ``QWidget`` bound to the SAME synchronous, worker-free
     # ``Asset_Library_Session`` — but on ``set_session`` it connects to the session's
-    # ``catalogChanged`` AND ``graphChanged`` signals (its passive break surface refreshes
-    # on both). No off-GUI-thread worker, timer, or poller is added (graph/break
-    # queries are microsecond in-memory calls over the immutable graph value — the UI implementation
-    # kept them synchronous), so there is NO new drain/shutdown wiring. STILL, a test may
-    # build the view directly (parent-less) + register it with ``qtbot.addWidget``;
-    # headless (offscreen, no running event loop) its ``deleteLater`` never fires, so
-    # ``QApplication`` keeps it in ``topLevelWidgets()`` and it survives the test with its
-    # session signal connections live. Registering it here disposes it SYNCHRONOUSLY
-    # (``shiboken6.delete``) at teardown exactly like the earlier asset panels — deleting
-    # the receiver drops its ``catalogChanged`` / ``graphChanged`` connections cleanly, so
-    # no dangling connection survives into a later test's event loop (the recurring
-    # PySide6 cross-thread/GC-of-Qt-C++ xdist native-segfault guard; Phase-5/6/9 disposal
+    # ``catalogChanged`` AND ``graphChanged`` signals (its passive break surface
+    # refreshes on both). No off-GUI-thread worker, timer, or poller is added
+    # (graph/break queries are microsecond in-memory calls over the immutable graph
+    # value — the UI implementation kept them synchronous), so there is NO new
+    # drain/shutdown wiring. STILL, a test may build the view directly (parent-less) +
+    # register it with ``qtbot.addWidget``; headless (offscreen, no running event loop)
+    # its ``deleteLater`` never fires, so ``QApplication`` keeps it in
+    # ``topLevelWidgets()`` and it survives the test with its session signal connections
+    # live. Registering it here disposes it SYNCHRONOUSLY (``shiboken6.delete``) at
+    # teardown exactly like the earlier asset panels — deleting the receiver drops its
+    # ``catalogChanged`` / ``graphChanged`` connections cleanly, so no dangling
+    # connection survives into a later test's event loop (the recurring PySide6
+    # cross-thread/GC-of-Qt-C++ xdist native-segfault guard; Phase-5/6/9 disposal
     # contract, here a regression guard even though no worker was added).
     Dependency_Graph_View,
     # Phase-11 version-browser + reuse panels. ``Asset_Version_Browser``
-    # and ``Asset_Reuse_Panel`` are top-level ``QWidget``s bound to the SAME synchronous,
-    # worker-free ``Asset_Library_Session`` (revision read/record + reference-not-
-    # copy are microsecond in-memory / CAS calls — the UI implementation added NO off-thread worker,
-    # timer, or poller, so there is NO new drain/shutdown wiring). On ``set_session`` the
-    # version browser connects to the session's ``catalogChanged`` signal (so a restore's
-    # ``replace_descriptor`` reflection reaches the other panels), and the reuse panel
-    # connects to ``catalogChanged`` (its shared-asset list refreshes on catalog change).
-    # A test may build either widget directly (parent-less) + register it with
-    # ``qtbot.addWidget``; headless (offscreen, no running event loop) its ``deleteLater``
-    # never fires, so ``QApplication`` keeps it in ``topLevelWidgets()`` and it survives
-    # the test with its session signal connections live. Registering them here disposes
-    # them SYNCHRONOUSLY (``shiboken6.delete``) at teardown exactly like the earlier
-    # asset panels — deleting the receiver drops its ``catalogChanged`` connection cleanly,
-    # so no dangling connection survives into a later test's event loop (the recurring
-    # PySide6 cross-thread/GC-of-Qt-C++ xdist native-segfault guard; Phase-5/6/9 disposal
-    # contract, here a regression guard even though no worker was added).
+    # and ``Asset_Reuse_Panel`` are top-level ``QWidget``s bound to the SAME
+    # synchronous, worker-free ``Asset_Library_Session`` (revision read/record +
+    # reference-not-copy are microsecond in-memory / CAS calls — the UI implementation
+    # added NO off-thread worker, timer, or poller, so there is NO new drain/shutdown
+    # wiring). On ``set_session`` the version browser connects to the session's
+    # ``catalogChanged`` signal (so a restore's ``replace_descriptor`` reflection
+    # reaches the other panels), and the reuse panel connects to ``catalogChanged`` (its
+    # shared-asset list refreshes on catalog change). A test may build either widget
+    # directly (parent-less) + register it with ``qtbot.addWidget``; headless
+    # (offscreen, no running event loop) its ``deleteLater`` never fires, so
+    # ``QApplication`` keeps it in ``topLevelWidgets()`` and it survives the test with
+    # its session signal connections live. Registering them here disposes them
+    # SYNCHRONOUSLY (``shiboken6.delete``) at teardown exactly like the earlier asset
+    # panels — deleting the receiver drops its ``catalogChanged`` connection cleanly, so
+    # no dangling connection survives into a later test's event loop (the recurring
+    # PySide6 cross-thread/GC-of-Qt-C++ xdist native-segfault guard; Phase-5/6/9
+    # disposal contract, here a regression guard even though no worker was added).
     Asset_Version_Browser,
     Asset_Reuse_Panel,
     # Phase-9 guides/rulers overlay (decision-batch D-08/D-09/D-11/D-28
@@ -315,7 +318,7 @@ _PHASE9_DISPOSABLE = (
 
 def _register_on_init(cls: type) -> None:
     """Wrap ``cls.__init__`` once so every new instance joins the teardown set."""
-    original = cls.__init__
+    original = cast(Any, cls).__init__
     if getattr(original, "_pac_registered", False):
         return  # already wrapped (idempotent across re-imports)
 
@@ -325,19 +328,20 @@ def _register_on_init(cls: type) -> None:
         _LIVE_UI_INSTANCES.add(self)
 
     _wrapped._pac_registered = True  # type: ignore[attr-defined]
-    cls.__init__ = _wrapped  # type: ignore[method-assign]
+    cast(Any, cls).__init__ = _wrapped
 
 
 #: Phase-10 Slice C: the real-time session owns the ONLY off-GUI-thread network worker
 #: added this slice (a ``data/cloud`` ``TransportPort`` poll loop on a
-#: ``threading.Thread`` + a GUI-thread-affine carrier). A window-owned session is drained
-#: by ``Main_Window.shutdown_prewarm`` (which calls ``_realtime_session.shutdown()``
-#: FIRST — see main_window.py), but a test may build a STANDALONE ``Realtime_Session``
-#: (over an injected loopback factory) and connect it; if its worker thread or connected
-#: carrier survives into a later test's GC it triggers the recurring PySide6 cross-thread
-#: GC-of-Qt-C++ xdist native segfault (worse here with a live socket). Tracking it here so
-#: the drain fixture calls the idempotent, event-loop-free ``shutdown()`` on every live
-#: session — joining the worker (bounded) + releasing the carrier — BEFORE any disposal.
+#: ``threading.Thread`` + a GUI-thread-affine carrier). A window-owned session is
+#: drained by ``Main_Window.shutdown_prewarm`` (which calls
+#: ``_realtime_session.shutdown()`` FIRST — see main_window.py), but a test may build a
+#: STANDALONE ``Realtime_Session`` (over an injected loopback factory) and connect it;
+#: if its worker thread or connected carrier survives into a later test's GC it triggers
+#: the recurring PySide6 cross-thread GC-of-Qt-C++ xdist native segfault (worse here
+#: with a live socket). Tracking it here so the drain fixture calls the idempotent,
+#: event-loop-free ``shutdown()`` on every live session — joining the worker (bounded) +
+#: releasing the carrier — BEFORE any disposal.
 _REALTIME_DISPOSABLE = (Realtime_Session,)
 
 
@@ -721,7 +725,8 @@ def _art_root_session(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path
 
 @pytest.fixture(params=[THEME_LIGHT, THEME_DARK], autouse=True)
 def theme(request: pytest.FixtureRequest, qapp) -> str:
-    """Apply light/dark of the canonical style to the app; parametrises every test (025).
+    """Apply light/dark of the canonical style to the app; parametrises every test
+    (025).
 
     Two modes of the DEFAULT style, not the full style x mode matrix: a six-way
     run of every UI test would triple the suite for no theme-specific assertion
@@ -925,7 +930,8 @@ def make_blob_setup(make_tilemap_setup):
 
 @pytest.fixture
 def automation_controller():
-    """Yield a standalone :class:`Automation_Controller`, torn down deterministically."""
+    """Yield a standalone :class:`Automation_Controller`, torn down
+    deterministically."""
     from pixelart_creator.ui.automation_worker import Automation_Controller
 
     controller = Automation_Controller()

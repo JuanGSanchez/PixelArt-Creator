@@ -60,7 +60,17 @@ import sys
 import tempfile
 import unicodedata
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional, Sequence, Set, Tuple
+from typing import (
+    Dict,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    cast,
+)
 
 import pytest
 
@@ -251,7 +261,9 @@ def parse_sets(text: str) -> Dict[Tuple[str, str], Tuple[int, int]]:
 def cmap_of(path: Path) -> Set[int]:
     from fontTools.ttLib import TTFont
 
-    return set(TTFont(str(path)).getBestCmap())
+    cmap = TTFont(str(path)).getBestCmap()
+    assert cmap is not None
+    return set(cmap)
 
 
 def read_declared_chars(path: Path) -> Set[str]:
@@ -364,7 +376,7 @@ def plain_chars(*texts: str) -> int:
     """Unique characters a scratch catalogue of ``texts`` routes to the existing
     face: those that are neither Han nor Hangul, and the ``s0``, ``s1`` ... source
     labels that ``ts_file`` writes."""
-    seen = set()
+    seen: Set[str] = set()
     for index, text in enumerate(texts):
         seen.update(
             c for c in "s%d%s" % (index, text) if not (is_han(c) or is_hangul(c))
@@ -379,7 +391,7 @@ def endonyms() -> Dict[str, str]:
     exec(  # noqa: S102 - the product's own constant table, read only
         compile(LANGUAGE_NAMES.read_bytes(), str(LANGUAGE_NAMES), "exec"), namespace
     )
-    return dict(namespace["ENDONYMS"])  # type: ignore[call-overload]
+    return dict(cast(Mapping[str, str], namespace["ENDONYMS"]))
 
 
 def is_han(ch: str) -> bool:

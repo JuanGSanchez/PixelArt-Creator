@@ -166,7 +166,8 @@ def test_sc_u027_bijection_glyph_ids_match_mounted_tool_actions(qtbot):
     assert glyph_ids == mounted_ids, (
         "TOOL_GLYPH_IDS and win._tool_actions diverge -- "
         f"glyph ids with no mounted action: {sorted(glyphs_without_action) or 'none'}; "
-        f"mounted actions with no matching glyph id: {sorted(actions_without_glyph) or 'none'}"
+        f"mounted actions with no matching glyph id: "
+        f"{sorted(actions_without_glyph) or 'none'}"
     )
 
 
@@ -183,9 +184,10 @@ def test_sc_u027_1_every_tool_action_has_non_null_icon(qtbot):
         assert not icon.isNull(), f"{tool_id}: mounted action.icon() is null"
         pixmap = icon.pixmap(_RENDER_PX, _RENDER_PX)
         assert not pixmap.isNull(), f"{tool_id}: icon renders to a null pixmap"
-        assert (
-            pixmap.width() > 0 and pixmap.height() > 0
-        ), f"{tool_id}: icon renders to an empty ({pixmap.width()}x{pixmap.height()}) pixmap"
+        assert pixmap.width() > 0 and pixmap.height() > 0, (
+            f"{tool_id}: icon renders to an empty "
+            f"({pixmap.width()}x{pixmap.height()}) pixmap"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -325,7 +327,8 @@ def test_sc_u027_5_runtime_theme_switch_retints_mounted_icons(qtbot):
         before_pixel = before_image.pixelColor(x, y)
         after_pixel = after_image.pixelColor(x, y)
         assert before_pixel != after_pixel, (
-            f"{tool_id}: mounted icon did not change after set_theme({THEME_DARK!r}) -- "
+            f"{tool_id}: mounted icon did not change after "
+            f"set_theme({THEME_DARK!r}) -- "
             f"pixel at ({x}, {y}) stayed {before_pixel.name()}"
         )
         # The re-tinted mounted icon must match the resolver's own dark-theme
@@ -458,7 +461,8 @@ def test_tint_is_the_text_role_of_the_style_and_mode(qapp, tool_id, style, mode)
 @pytest.mark.parametrize("style", available_styles())
 @_ICON_NAMES_ITS_OWN_THEME
 def test_tint_differs_between_the_two_modes_of_every_style(qapp, style):
-    """Within a style, Light and Dark tint the same glyph differently (live, not baked)."""
+    """Within a style, Light and Dark tint the same glyph differently (live, not
+    baked)."""
     tool_id = TOOL_GLYPH_IDS[0]
     light = _rendered_image(tool_icon(tool_id, theme=THEME_LIGHT, style=style))
     dark = _rendered_image(tool_icon(tool_id, theme=THEME_DARK, style=style))
@@ -469,7 +473,8 @@ def test_tint_differs_between_the_two_modes_of_every_style(qapp, style):
 @pytest.mark.parametrize("mode", available_themes())
 @_ICON_NAMES_ITS_OWN_THEME
 def test_the_style_argument_changes_the_tint_where_the_text_roles_differ(qapp, mode):
-    """The ``style`` argument is live: styles whose ``text`` roles differ tint differently.
+    """The ``style`` argument is live: styles whose ``text`` roles differ tint
+    differently.
 
     The set of tints over the shipped styles must contain more than one colour (a
     ``style`` argument that was ignored would give one), and each style's tint is
@@ -494,7 +499,8 @@ def test_the_style_argument_changes_the_tint_where_the_text_roles_differ(qapp, m
 @pytest.mark.parametrize("mode", available_themes())
 @_ICON_NAMES_ITS_OWN_THEME
 def test_no_style_argument_means_the_default_style(qapp, mode):
-    """``tool_icon(..., theme=mode)`` is ``tool_icon(..., theme=mode, style=DEFAULT_STYLE)``."""
+    """``tool_icon(..., theme=mode)`` is ``tool_icon(..., theme=mode,
+    style=DEFAULT_STYLE)``."""
     tool_id = TOOL_GLYPH_IDS[0]
     bare = _rendered_image(tool_icon(tool_id, theme=mode))
     explicit = _rendered_image(tool_icon(tool_id, theme=mode, style=DEFAULT_STYLE))
@@ -503,6 +509,7 @@ def test_no_style_argument_means_the_default_style(qapp, mode):
 
 @_ICON_NAMES_ITS_OWN_THEME
 def test_an_unknown_style_is_refused_not_drawn_blank(qapp):
-    """An unknown style raises ``ValueError`` naming it (never a blank or default icon)."""
+    """An unknown style raises ``ValueError`` naming it (never a blank or default
+    icon)."""
     with pytest.raises(ValueError, match="no-such-style"):
         tool_icon(TOOL_GLYPH_IDS[0], theme=THEME_LIGHT, style="no-such-style")

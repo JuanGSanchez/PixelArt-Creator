@@ -2,8 +2,9 @@
 
 Scenarios SC-UI-021-1 (LanguageManager installs a translator by locale, English
 fallback), SC-UI-022-1 (changeEvent re-translates on LanguageChange). Both
-themes. REQ-P1-UI-026 (no bare literals) is verified by the localisation owner's `string_audit_check`
-and referenced in the checklist rather than duplicated as a pytest here.
+themes. REQ-P1-UI-026 (no bare literals) is verified by the localisation owner's
+`string_audit_check` and referenced in the checklist rather than duplicated as a pytest
+here.
 
 SC-CSD-U014-1 (canvas-scale-defects REQ-CSD-UI-014) below adds
 the two new whole-document-transform dialogs: every user-visible string is
@@ -81,7 +82,8 @@ def test_sc_ui_022_1_palette_panel_retranslates(qtbot):
 
 
 def test_available_languages_discovers_catalogues(qtbot, qapp, tmp_path):
-    """SC-UI-021-1 (discovery): a packaged pixelart_<code>.qm is offered as a language."""
+    """SC-UI-021-1 (discovery): a packaged pixelart_<code>.qm is offered as a
+    language."""
     (tmp_path / "pixelart_es.qm").write_bytes(
         b""
     )  # placeholder catalogue (localisation)

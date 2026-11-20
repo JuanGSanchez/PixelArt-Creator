@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
-from typing import Callable, Iterator, List, Tuple
+from typing import Callable, Iterator, List, Tuple, cast
 
 import pytest
 from PySide6.QtCore import QCoreApplication, QLocale, QTranslator
@@ -99,7 +99,7 @@ _SETTLE_TIMEOUT_MS = 2000
 
 def _discover_languages() -> Tuple[str, ...]:
     """Return the languages the app itself offers, English first."""
-    manager = LanguageManager(QCoreApplication.instance())
+    manager = LanguageManager(cast(QCoreApplication, QCoreApplication.instance()))
     return tuple(manager.available_languages())
 
 

@@ -49,6 +49,7 @@ import gc
 import sys
 import traceback
 from collections import Counter
+from types import TracebackType
 from typing import Callable, Dict, Iterator, List, Optional, Sequence, Tuple, TypeVar
 
 import pytest
@@ -85,7 +86,9 @@ class _Watch:
     def __init__(self) -> None:
         """Start empty; :func:`_watching` and :meth:`run` fill the three channels."""
         self.raised: List[str] = []
-        self.captured: List[Tuple[type, BaseException, object]] = []
+        self.captured: List[
+            Tuple[type[BaseException], BaseException, Optional[TracebackType]]
+        ] = []
         self.unraisable: List[str] = []
 
     @property

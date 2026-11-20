@@ -58,11 +58,11 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, cast
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMenu
 
 from pixelart_creator.ui.i18n import _source_mnemonic_letter, apply_source_mnemonic
 from pixelart_creator.ui.main_window import Main_Window
@@ -224,7 +224,7 @@ def _assert_unique_mnemonics_recursive(actions: List[QAction], context: str) -> 
                 f"{seen.get(key)!r} and {action.text()!r}"
             )
             seen[key] = action.text()
-        menu = action.menu()
+        menu = cast(Optional[QMenu], action.menu())
         if menu is not None:
             _assert_unique_mnemonics_recursive(
                 menu.actions(), f"{context} > {action.text()!r}"
@@ -245,7 +245,7 @@ def _mnemonic_tree(
         out[".".join(str(i) for i in node_path)] = _source_mnemonic_letter(
             action.text()
         )
-        menu = action.menu()
+        menu = cast(Optional[QMenu], action.menu())
         if menu is not None:
             _mnemonic_tree(menu.actions(), node_path, out)
 
@@ -379,7 +379,7 @@ def _icon_text_tree(
             continue
         node_path = path + [index]
         out[".".join(str(i) for i in node_path)] = action.iconText()
-        menu = action.menu()
+        menu = cast(Optional[QMenu], action.menu())
         if menu is not None:
             _icon_text_tree(menu.actions(), node_path, out)
 

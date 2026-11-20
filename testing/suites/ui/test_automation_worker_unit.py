@@ -55,7 +55,7 @@ def test_replay_job_applies_then_reverts(make_document):
 
 
 def _capture(signals: AutomationWorkerSignals):
-    got = {"finished": [], "failed": [], "done": []}
+    got: dict[str, list] = {"finished": [], "failed": [], "done": []}
     signals.finished.connect(lambda t, c: got["finished"].append((t, c)))
     signals.failed.connect(lambda t, m: got["failed"].append((t, m)))
     signals.done.connect(lambda t: got["done"].append(t))
@@ -91,7 +91,8 @@ def test_worker_run_skips_when_cancelled_before_start(qtbot, make_document):
 
 
 def test_worker_run_drops_result_when_cancelled_during_job(qtbot, make_document):
-    """A run cancelled while the job runs drops the (reverted) result; done still fires."""
+    """A run cancelled while the job runs drops the (reverted) result; done still
+    fires."""
     doc = make_document(64, 64)
     signals = AutomationWorkerSignals()
     got = _capture(signals)
@@ -116,7 +117,7 @@ def test_worker_run_emits_failed_then_done_on_error(qtbot, make_document, caplog
     documented kind for a ``ValueError`` is ``invalid_value``), never the exception's
     message or type name; the detail goes to the log.
     """
-    doc = make_document(64, 64)
+    make_document(64, 64)
     signals = AutomationWorkerSignals()
     got = _capture(signals)
 

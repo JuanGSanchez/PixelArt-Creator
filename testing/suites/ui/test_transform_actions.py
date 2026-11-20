@@ -22,7 +22,6 @@ from __future__ import annotations
 
 from typing import List
 
-import numpy as np
 import pytest
 from PySide6.QtCore import QLocale
 from PySide6.QtWidgets import QDialog
@@ -83,6 +82,7 @@ def _load_document(win: Main_Window, document: Document):
     """Swap ``document`` into the active tab (same seam ``_on_branch_document_switched``
     uses: ``record.document`` plus ``scene.set_document``), with a clean selection."""
     record = win.active_tab()
+    assert record is not None
     record.document = document
     record.scene.set_document(document)
     record.view.clear_selection()

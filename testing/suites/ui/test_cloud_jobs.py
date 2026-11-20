@@ -17,7 +17,6 @@ import threading
 from pixelart_creator.data.cloud import (
     CloudError,
     FakeCloudAdapter,
-    deserialize_project,
     serialize_project,
 )
 from pixelart_creator.logic.document import Document
