@@ -1429,7 +1429,9 @@ def case_a_worklist_entry_is_judged_on_its_own(tools: Tools, work: Path) -> None
     assert payload["examined_total"] == 9
     by_entry: dict[int, list[str]] = {}
     for found in payload["record"]["findings"]:
-        number = int(re.match(r"entry (\d+)", found["detail"]).group(1))
+        located = re.match(r"entry (\d+)", found["detail"])
+        assert located is not None, found["detail"]
+        number = int(located.group(1))
         by_entry.setdefault(number, []).append(found["check"])
     assert by_entry == {
         2: ["duplicate-entry"],

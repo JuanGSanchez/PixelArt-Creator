@@ -703,7 +703,9 @@ CRLF_SPANISH = [
     mutant(
         "line-ends-become-lf",
         tsw(
-            '    newline = "\\r\\n" if "\\r\\n" in block else "\\n"\n',  # portability: ok (source text of the tool under mutation, not a path)
+            '    newline = "\\r\\n" if "\\r\\n" in block'  # portability: ok
+            # (source text of the tool under mutation, not a path)
+            ' else "\\n"\n',
             '    newline = "\\n"\n',
         ),
     ),

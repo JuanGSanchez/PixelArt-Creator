@@ -102,7 +102,10 @@ def _program_of(step: dict) -> str:
 # The scratch repository root a scenario runs in
 # --------------------------------------------------------------------------- #
 def _message(source: str, translation: str) -> str:
-    return f"<message><source>{source}</source><translation>{translation}</translation></message>"
+    return (
+        f"<message><source>{source}</source>"
+        f"<translation>{translation}</translation></message>"
+    )
 
 
 def _catalogue(site: str) -> bytes:
@@ -132,7 +135,8 @@ def _site_text(kind: str) -> str:
 
 
 def _build_root(base: Path, kind: str, spelling: str, patches: Dict[str, str]) -> Path:
-    """Write the scratch root; ``patches`` maps a script name to code spliced into its copy."""
+    """Write the scratch root; ``patches`` maps a script name to code spliced into its
+    copy."""
     root = base / "r"
     shutil.rmtree(root, ignore_errors=True)
     (root / "scripts").mkdir(parents=True)
@@ -176,7 +180,8 @@ _DOUBLE_RULE = _BLIND_RULE.replace(
 #: Code appended to the catalogue reader's copy so it never sees ``&#xa0;``.
 _BLIND_REFERENCES = (
     "_real_fromstring = ET.fromstring\n"
-    "ET.fromstring = lambda data, *a, **k: _real_fromstring(data.replace(b'&#xa0;', b''), *a, **k)\n"
+    "ET.fromstring = lambda data, *a, **k: "
+    "_real_fromstring(data.replace(b'&#xa0;', b''), *a, **k)\n"
 )
 
 
@@ -248,9 +253,9 @@ class Outcome(NamedTuple):
 def _run(program: str, base: Path, scenario: Scenario) -> Outcome:
     """Run the step's shell line and its program in a root built for ``scenario``.
 
-    The shell line is run with ``--surface catalogue`` added: the scratch root has no guide
-    tree (the program's guide floor is then empty), and the guide rules of the checker are
-    not what this module judges.
+    The shell line is run with ``--surface catalogue`` added: the scratch root has no
+    guide tree (the program's guide floor is then empty), and the guide rules of the
+    checker are not what this module judges.
     """
     root = _build_root(base, scenario.kind, scenario.spelling, dict(scenario.patches))
     work = base / "w"
@@ -288,7 +293,8 @@ def _run(program: str, base: Path, scenario: Scenario) -> Outcome:
 
 
 def judge(program: str, base: Path, names: Optional[List[str]] = None) -> List[str]:
-    """Violations of the control's contract over the named scenarios (all by default)."""
+    """Violations of the control's contract over the named scenarios (all by
+    default)."""
     problems: List[str] = []
     for scenario in SCENARIOS:
         if names is not None and scenario.name not in names:
@@ -326,13 +332,16 @@ WEAKENINGS: Tuple[Weakening, ...] = (
     ),
     Weakening(
         "'exactly one' becomes 'at least one'",
-        'if len(plant_row["findings"]) != len(base_row["findings"]) + 1 or sum(extra.values()) != 1:',
-        'if len(plant_row["findings"]) < len(base_row["findings"]) + 1 or sum(extra.values()) < 1:',
+        'if len(plant_row["findings"]) != len(base_row["findings"]) + 1 '
+        "or sum(extra.values()) != 1:",
+        'if len(plant_row["findings"]) < len(base_row["findings"]) + 1 '
+        "or sum(extra.values()) < 1:",
         ("the checker sees the planted defect twice",),
     ),
     Weakening(
         "no extra finding is demanded at all",
-        'if len(plant_row["findings"]) != len(base_row["findings"]) + 1 or sum(extra.values()) != 1:',
+        'if len(plant_row["findings"]) != len(base_row["findings"]) + 1 '
+        "or sum(extra.values()) != 1:",
         "if False:",
         ("the checker does not see the planted defect",),
     ),
@@ -356,7 +365,8 @@ WEAKENINGS: Tuple[Weakening, ...] = (
 
 def _weaken(program: str, weakening: Weakening) -> str:
     assert program.count(weakening.old) == 1, (
-        f"the workflow no longer contains the single text this weakening replaces ({weakening.name!r}); "
+        "the workflow no longer contains the single text this weakening replaces "
+        f"({weakening.name!r}); "
         "update the weakening together with the workflow, do not drop it"
     )
     return program.replace(weakening.old, weakening.new)

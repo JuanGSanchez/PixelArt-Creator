@@ -740,7 +740,9 @@ def _exception_no_condition(doc: Dict[str, Any]) -> None:
 
 def _exception_removed(doc: Dict[str, Any]) -> None:
     steps = _steps(doc)
-    steps.pop(_index_of(doc, EXCEPTION_TEXT_NAME))
+    at = _index_of(doc, EXCEPTION_TEXT_NAME)
+    assert at is not None, EXCEPTION_TEXT_NAME
+    steps.pop(at)
 
 
 @pytest.mark.parametrize(

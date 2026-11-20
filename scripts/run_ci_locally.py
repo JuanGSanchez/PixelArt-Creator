@@ -647,7 +647,7 @@ def _load_workflow(path: Path) -> Dict[str, Any]:
         # No stubs are declared for it here (mypy only gates `pixelart_creator`
         # in CI's "Type check" step, not scripts/ -- see ci.yml's `mypy
         # pixelart_creator` invocation).
-        import yaml  # type: ignore[import-untyped]
+        import yaml
     except ImportError:
         print(
             "run_ci_locally: PyYAML is required to parse the workflow "

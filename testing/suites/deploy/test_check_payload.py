@@ -111,7 +111,10 @@ def _find_bash() -> Tuple[Optional[str], List[str]]:
         candidates: List[Path] = []
         if git:
             git_root = Path(git).resolve().parent.parent
-            candidates += [git_root / "bin" / "bash.exe", git_root / "usr" / "bin" / "bash.exe"]
+            candidates += [
+                git_root / "bin" / "bash.exe",
+                git_root / "usr" / "bin" / "bash.exe",
+            ]
         for var in ("ProgramFiles", "ProgramW6432", "LOCALAPPDATA"):
             base = os.environ.get(var)
             if base:
@@ -215,7 +218,11 @@ class Result:
 
 def _run(bash_exe: str, script: Path, *args: Path | str) -> Result:
     proc = subprocess.run(
-        [bash_exe, script.as_posix(), *[a.as_posix() if isinstance(a, Path) else a for a in args]],
+        [
+            bash_exe,
+            script.as_posix(),
+            *[a.as_posix() if isinstance(a, Path) else a for a in args],
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -287,11 +294,11 @@ MUTATIONS: Dict[str, List[Tuple[str, str]]] = {
     "no-empty-folder-refusal": [
         (
             'if [ "${pkg_dirs}" -eq 0 ]; then',
-            'if false; then',
+            "if false; then",
         ),
         (
             'if [ "${files_examined}" -eq 0 ]; then',
-            'if false; then',
+            "if false; then",
         ),
     ],
     "no-self-comparison-refusal": [
@@ -353,7 +360,9 @@ def _notice_only_in_the_package_folder(fx: Fixture) -> None:
 
 def _one_good_one_different(fx: Fixture) -> None:
     other = fx.notice.read_bytes() + b"one more line\n"
-    fx.put_notice(fx.parent / "pixelart_creator-1.dist-info" / "licenses" / "NOTICE", other)
+    fx.put_notice(
+        fx.parent / "pixelart_creator-1.dist-info" / "licenses" / "NOTICE", other
+    )
 
 
 def _fontlog_cjk_missing_from_payload(fx: Fixture) -> None:
@@ -389,7 +398,10 @@ def _ofl_differs_by_one_copyright_line(fx: Fixture) -> None:
 def _ofl_lacks_the_donor_line_in_both(fx: Fixture) -> None:
     # Same edit in the repository and the payload: the byte comparison passes,
     # so only the donor-line check can refuse it.
-    for ofl in (fx.pkg / "fonts" / "OFL.txt", fx.repo / "pixelart_creator" / "fonts" / "OFL.txt"):
+    for ofl in (
+        fx.pkg / "fonts" / "OFL.txt",
+        fx.repo / "pixelart_creator" / "fonts" / "OFL.txt",
+    ):
         text = ofl.read_bytes().decode("utf-8")
         assert "TakWolf" in text
         ofl.write_bytes(text.replace("TakWolf", "Somebody Else").encode("utf-8"))
@@ -417,7 +429,12 @@ class Case:
 
 
 REFUSALS: List[Case] = [
-    Case("notice-absent", _notice_absent, "NOTICE is missing from the payload", "no-notice-block"),
+    Case(
+        "notice-absent",
+        _notice_absent,
+        "NOTICE is missing from the payload",
+        "no-notice-block",
+    ),
     Case(
         "notice-differs-by-one-line",
         _notice_one_line_different,
@@ -533,17 +550,26 @@ def test_complete_payload_prints_the_eleven_font_folder_names(bash, tmp_path):
     "where",
     [
         pytest.param(("NOTICE",), id="installer-form-beside-the-package-folder"),
-        pytest.param(("pixelart_creator-1.0.dist-info", "licenses", "NOTICE"), id="wheel-licenses-form"),
-        pytest.param(("pixelart_creator-1.0.dist-info", "NOTICE"), id="wheel-older-form"),
+        pytest.param(
+            ("pixelart_creator-1.0.dist-info", "licenses", "NOTICE"),
+            id="wheel-licenses-form",
+        ),
+        pytest.param(
+            ("pixelart_creator-1.0.dist-info", "NOTICE"), id="wheel-older-form"
+        ),
     ],
 )
-def test_notice_at_each_of_the_three_candidate_paths_passes_and_is_printed(bash, tmp_path, where):
+def test_notice_at_each_of_the_three_candidate_paths_passes_and_is_printed(
+    bash, tmp_path, where
+):
     fx = Fixture(tmp_path, REAL_SCRIPT.read_bytes())
     fx.drop_notice()
     fx.put_notice(fx.parent.joinpath(*where))
     res = _run_payload(bash, fx)
     assert res.rc == 0, res.both
-    printed = [line for line in res.out.splitlines() if line.lstrip().startswith("NOTICE ")]
+    printed = [
+        line for line in res.out.splitlines() if line.lstrip().startswith("NOTICE ")
+    ]
     assert len(printed) == 1, res.out
     # The script prints the payload path in its own (MSYS) spelling on Windows,
     # so the check is on the part below the fixture's payload folder.
@@ -552,7 +578,9 @@ def test_notice_at_each_of_the_three_candidate_paths_passes_and_is_printed(bash,
     assert int(_SUMMARY.search(res.out)["notices"]) == 1
 
 
-def test_a_third_party_notice_deeper_in_the_payload_is_neither_required_nor_compared(bash, tmp_path):
+def test_a_third_party_notice_deeper_in_the_payload_is_neither_required_nor_compared(
+    bash, tmp_path
+):
     fx = Fixture(tmp_path, REAL_SCRIPT.read_bytes())
     fx.put_notice(fx.parent / "somepkg" / "NOTICE", b"a bundled package's own notice\n")
     res = _run_payload(bash, fx)
@@ -622,7 +650,9 @@ def test_a_notice_that_differs_names_the_path_it_found(bash, tmp_path):
     assert res.err.count("payload/NOTICE") == 1, res.err
 
 
-def test_the_repository_without_a_root_notice_fails_rather_than_passing_blind(bash, tmp_path):
+def test_the_repository_without_a_root_notice_fails_rather_than_passing_blind(
+    bash, tmp_path
+):
     fx = Fixture(tmp_path, REAL_SCRIPT.read_bytes())
     fx.notice.unlink()
     res = _run_payload(bash, fx)
@@ -640,10 +670,14 @@ def test_the_source_checkout_given_as_the_payload_root_exits_1(bash, tmp_path):
     assert "refusing to compare it with itself" in res.err
 
 
-def test_the_source_checkout_as_the_payload_root_passes_blind_in_the_broken_copy(bash, tmp_path):
+def test_the_source_checkout_as_the_payload_root_passes_blind_in_the_broken_copy(
+    bash, tmp_path
+):
     fx = Fixture(tmp_path, _mutated_script("no-self-comparison-refusal"))
     res = _run(bash, fx.script, fx.repo, "self")
-    assert res.rc == 0, f"the control needs the refusal removed to pass blind:\n{res.both}"
+    assert (
+        res.rc == 0
+    ), f"the control needs the refusal removed to pass blind:\n{res.both}"
 
 
 def test_a_payload_root_that_does_not_exist_exits_1(bash, tmp_path):
