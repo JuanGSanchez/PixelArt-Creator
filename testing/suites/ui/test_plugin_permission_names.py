@@ -30,6 +30,8 @@ or product file is changed.
 
 from __future__ import annotations
 
+import io
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import (
@@ -41,6 +43,7 @@ from typing import (
     NamedTuple,
     Optional,
     Sequence,
+    TextIO,
     Tuple,
 )
 
@@ -206,6 +209,24 @@ def english_name_findings(names: Dict[str, str]) -> List[str]:
 
 
 # --------------------------------------------------------------------------- #
+# Reporting: the diagnostic line, whatever the output's encoding              #
+# --------------------------------------------------------------------------- #
+
+
+def write_line(line: str, stream: Optional[TextIO] = None) -> None:
+    """Print ``line`` to ``stream`` (the current ``sys.stdout`` if none is given).
+
+    A character the stream's encoding cannot hold is written as its backslash escape
+    instead of raising, so the diagnostic line never decides a case. The text is
+    encoded with the stream's own encoding and ``backslashreplace``, then printed;
+    under a UTF-8 stream that is exactly what ``print`` writes.
+    """
+    target = sys.stdout if stream is None else stream
+    encoding = getattr(target, "encoding", None) or "utf-8"
+    print(line.encode(encoding, "backslashreplace").decode(encoding), file=target)
+
+
+# --------------------------------------------------------------------------- #
 # Driving the panel                                                           #
 # --------------------------------------------------------------------------- #
 
@@ -359,9 +380,9 @@ def test_sc_l10n_ui_016_5_the_prompt_names_each_declared_permission_in_words(
             f"[permission names] {code}: not yet comparable, {len(members)} "
             f"rows counted and not passed ({reason})"
         )
-        print(line)
+        write_line(line)
         with capsys.disabled():
-            print(line)
+            write_line(line)
         pytest.skip(f"not yet comparable: {reason}")
     language(code)
     reading = read_surfaces(qtbot, monkeypatch, tmp_path, [m.value for m in members])
@@ -390,9 +411,9 @@ def test_sc_l10n_ui_016_5_the_prompt_names_each_declared_permission_in_words(
         f"examined {len(lines)} (the plugin host defines {len(members)}); prompt lines "
         f"{lines!r}"
     )
-    print(line)
+    write_line(line)
     with capsys.disabled():
-        print(line)
+        write_line(line)
     assert len(members) > 0 and len(lines) == len(members)
     assert not findings, f"[{code}] the prompt: " + "; ".join(findings)
 
@@ -468,9 +489,9 @@ def test_sc_l10n_ui_016_6_no_two_permissions_share_a_name_in_any_language(
             f"[permission names] {code}: names not yet comparable, "
             f"{len(members)} rows counted and not passed ({reason})"
         )
-        print(line)
+        write_line(line)
         with capsys.disabled():
-            print(line)
+            write_line(line)
         pytest.skip(f"not yet comparable: {reason}")
     names = {
         permission: finished_text(code, *sorted(messages)[0][:2]) or ""
@@ -481,9 +502,9 @@ def test_sc_l10n_ui_016_6_no_two_permissions_share_a_name_in_any_language(
         f"[permission names] {code}: names compared {len(names)} of "
         f"{len(members)}: {names!r}"
     )
-    print(line)
+    write_line(line)
     with capsys.disabled():
-        print(line)
+        write_line(line)
     assert len(names) == len(members) > 0
     assert duplicate_findings(code, names) == []
 
@@ -530,9 +551,9 @@ def test_sc_l10n_ui_016_8_the_label_uses_the_prompts_name_messages(
             f"[permission names] {code}: label not yet comparable, "
             f"{len(members)} rows counted and not passed ({reason})"
         )
-        print(line)
+        write_line(line)
         with capsys.disabled():
-            print(line)
+            write_line(line)
         pytest.skip(f"not yet comparable: {reason}")
     language(code)
     reading = read_surfaces(qtbot, monkeypatch, tmp_path, [m.value for m in members])
@@ -564,9 +585,9 @@ def test_sc_l10n_ui_016_8_the_label_uses_the_prompts_name_messages(
         f"examined {len(label_lines)} (the plugin host defines {len(members)}); "
         f"label {reading.label!r}"
     )
-    print(line)
+    write_line(line)
     with capsys.disabled():
-        print(line)
+        write_line(line)
     assert len(members) > 0 and len(label_lines) == len(members)
     assert not findings, f"[{code}] the label: " + "; ".join(findings)
 
@@ -633,3 +654,23 @@ def test_sc_l10n_ui_016_5_and_8_the_recorder_matches_a_line_to_its_message():
     twice = lookups + [Lookup((CONTEXT, "source 0", "label"), "text 0")]
     both = identities(lines, twice, members)[members[0].value]
     assert both == frozenset({lookups[0].message, (CONTEXT, "source 0", "label")})
+
+
+def test_sc_l10n_ui_016_5_6_and_8_the_line_is_written_whole_to_a_cp1252_stream():
+    """SC-L10N-UI-016-5, -6 and -8: a line holding Cyrillic, Han, Hangul and kana is
+    written whole to a cp1252 stream, without raising.
+
+    The stream is a text wrapper over a byte buffer, never the console. Each
+    character cp1252 can hold (here the e acute and the euro sign) arrives
+    unchanged; each one it cannot hold arrives as its backslash escape.
+    """
+    held = "[permission names] ru Ж zh 读 ko 한 ja あ fr é €"
+    buffer = io.BytesIO()
+    stream = io.TextIOWrapper(buffer, "cp1252", newline="\n", write_through=True)
+    write_line(held, stream)
+    written = buffer.getvalue()
+    assert written == (
+        b"[permission names] ru \\u0416 zh \\u8bfb ko \\ud55c ja \\u3042 fr "
+        b"\xe9 \x80\n"
+    )
+    assert written.decode("cp1252").endswith("fr é €\n")
