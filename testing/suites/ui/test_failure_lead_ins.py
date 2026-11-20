@@ -43,7 +43,9 @@ the catalogues are only read.
 from __future__ import annotations
 
 import ast
+import io
 import json
+import sys
 import types
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -56,6 +58,7 @@ from typing import (
     List,
     NamedTuple,
     Optional,
+    TextIO,
     Tuple,
     TypeGuard,
     cast,
@@ -1145,6 +1148,24 @@ def _env(qtbot, monkeypatch, mute_message_boxes, tmp_path, code: str) -> Env:
 
 
 # --------------------------------------------------------------------------- #
+# Reporting: the diagnostic line, whatever the output's encoding              #
+# --------------------------------------------------------------------------- #
+
+
+def write_line(line: str, stream: Optional[TextIO] = None) -> None:
+    """Print ``line`` to ``stream`` (the current ``sys.stdout`` if none is given).
+
+    A character the stream's encoding cannot hold is written as its backslash escape
+    instead of raising, so the diagnostic line never decides a case. The text is
+    encoded with the stream's own encoding and ``backslashreplace``, then printed;
+    under a UTF-8 stream that is exactly what ``print`` writes.
+    """
+    target = sys.stdout if stream is None else stream
+    encoding = getattr(target, "encoding", None) or "utf-8"
+    print(line.encode(encoding, "backslashreplace").decode(encoding), file=target)
+
+
+# --------------------------------------------------------------------------- #
 # SC-L10N-UI-020-4: every surface is examined, none is exempt                 #
 # --------------------------------------------------------------------------- #
 
@@ -1169,7 +1190,7 @@ def test_sc_l10n_ui_020_4_the_inventory_is_derived_and_every_surface_is_driven(
     )
     print(line)
     with capsys.disabled():
-        print(line)
+        write_line(line)
     assert len(sites) > 0
     assert unexamined(sites, SURFACES) == []
 
@@ -2118,3 +2139,23 @@ def test_sc_l10n_ui_020_4_the_reason_in_the_failure_only_frame_fails():
     assert "status bar" in text and REASON_SOURCE in text
     existing = REASON_FRAME[1].replace("{msg}", REASON_SOURCE)
     assert failure_only_frame_findings(existing, REASON_SOURCE, "en") == []
+
+
+def test_sc_l10n_ui_020_4_the_line_is_written_whole_to_a_cp1252_stream():
+    """SC-L10N-UI-020-4: a line holding Cyrillic, Han, Hangul and kana is written whole
+    to a cp1252 stream, without raising.
+
+    The stream is a text wrapper over a byte buffer, never the console. Each
+    character cp1252 can hold (here the e acute and the euro sign) arrives
+    unchanged; each one it cannot hold arrives as its backslash escape.
+    """
+    held = "[lead-in inventory] ru Ж zh 读 ko 한 ja あ fr é €"
+    buffer = io.BytesIO()
+    stream = io.TextIOWrapper(buffer, "cp1252", newline="\n", write_through=True)
+    write_line(held, stream)
+    written = buffer.getvalue()
+    assert written == (
+        b"[lead-in inventory] ru \\u0416 zh \\u8bfb ko \\ud55c ja \\u3042 fr "
+        b"\xe9 \x80\n"
+    )
+    assert written.decode("cp1252").endswith("fr é €\n")
