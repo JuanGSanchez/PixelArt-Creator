@@ -14,13 +14,14 @@ from __future__ import annotations
 import dataclasses
 import json
 from io import BytesIO
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from PIL import Image
+from PIL.GifImagePlugin import GifImageFile
 
 from pixelart_creator import __version__
 from pixelart_creator.logic import export as export_module
@@ -33,7 +34,7 @@ from pixelart_creator.logic.constants import (
     MAX_BATCH_TARGETS,
     MAX_EXPORT_FRAMES,
 )
-from pixelart_creator.logic.document import Document
+from pixelart_creator.logic.document import Document, Layer
 from pixelart_creator.logic.export import (
     BatchTargetResult,
     ExportError,
@@ -76,13 +77,13 @@ def make_doc(
 ) -> Document:
     """Build an RGBA document whose frame k is a solid fill of ``colors[k]``."""
     doc = Document(w, h)
-    doc.frames[0].layers[0].buffer.fill(colors[0])
+    cast(Layer, doc.frames[0].layers[0]).buffer.fill(colors[0])
     if durations is not None:
         doc.frames[0].duration_ms = durations[0]
     for k, color in enumerate(colors[1:], start=1):
         dur = durations[k] if durations is not None else 100
         frame = doc.add_frame(duration_ms=dur)
-        frame.layers[0].buffer.fill(color)
+        cast(Layer, frame.layers[0]).buffer.fill(color)
     return doc
 
 
@@ -121,9 +122,9 @@ def test_flatten_frame_equals_composite_stack() -> None:
 def test_flatten_frame_is_non_destructive() -> None:
     """REQ-P7-LOGIC-001: flattening never mutates the frame's source buffers."""
     doc = make_doc([RED])
-    before = doc.frames[0].layers[0].buffer.data.copy()
+    before = cast(Layer, doc.frames[0].layers[0]).buffer.data.copy()
     flatten_frame(doc.frames[0], doc.width, doc.height)
-    assert np.array_equal(doc.frames[0].layers[0].buffer.data, before)
+    assert np.array_equal(cast(Layer, doc.frames[0].layers[0]).buffer.data, before)
 
 
 def test_flatten_composites_multiple_layers() -> None:
@@ -240,7 +241,7 @@ def test_gif_decodes_with_frame_count_and_durations() -> None:
     """REQ-P7-LOGIC-004: decoded frame count + per-frame delays reflect duration_ms."""
     doc = make_doc([RED, GREEN, BLUE], [100, 500, 100])
     result = export_document(doc, ExportRequest(fmt=ExportFormat.GIF))
-    img = Image.open(BytesIO(result.image_bytes))
+    img = cast(GifImageFile, Image.open(BytesIO(result.image_bytes)))
     assert img.n_frames == 3
     durations = []
     for i in range(img.n_frames):
@@ -253,7 +254,7 @@ def test_gif_decodes_with_frame_count_and_durations() -> None:
 def test_encode_gif_single_frame_source() -> None:
     """REQ-P7-LOGIC-004: a single-frame source yields a single-image GIF."""
     data = encode_gif([rgba_buffer(4, 4, RED)], [100])
-    assert Image.open(BytesIO(data)).n_frames == 1
+    assert cast(GifImageFile, Image.open(BytesIO(data))).n_frames == 1
 
 
 def test_encode_gif_over_256_colours_is_deterministic() -> None:
@@ -516,6 +517,7 @@ def test_sheet_maps_document_tags_with_directions() -> None:
     result = export_document(
         doc, ExportRequest(fmt=ExportFormat.SPRITE_SHEET, columns=8)
     )
+    assert result.metadata_json is not None
     obj = json.loads(result.metadata_json)
     directions = {t["name"]: t["direction"] for t in obj["meta"]["frameTags"]}
     assert directions == {"loop": "forward", "rev": "reverse", "pp": "pingpong"}
@@ -526,7 +528,7 @@ def test_named_tag_selects_its_range() -> None:
     doc = make_doc([RED, GREEN, BLUE], [100, 200, 300])
     _add_tag(doc, "mid", 1, 2, PlaybackMode.LOOP)
     result = export_document(doc, ExportRequest(fmt=ExportFormat.GIF, tag="mid"))
-    img = Image.open(BytesIO(result.image_bytes))
+    img = cast(GifImageFile, Image.open(BytesIO(result.image_bytes)))
     assert img.n_frames == 2  # frames 1 and 2 only
 
 
@@ -537,6 +539,7 @@ def test_named_tag_maps_to_zero_based_span_in_sheet() -> None:
     result = export_document(
         doc, ExportRequest(fmt=ExportFormat.SPRITE_SHEET, tag="mid")
     )
+    assert result.metadata_json is not None
     obj = json.loads(result.metadata_json)
     assert len(obj["frames"]) == 2
     assert obj["meta"]["frameTags"][0] == {
@@ -607,6 +610,7 @@ def test_run_batch_each_output_equals_single_export() -> None:
     assert batch.all_succeeded
     for req, target in zip(requests, batch.targets):
         assert target.success
+        assert target.result is not None
         single = export_document(doc, req)
         assert target.result.image_bytes == single.image_bytes
         assert target.result.metadata_json == single.metadata_json
@@ -645,6 +649,7 @@ def test_run_batch_captures_export_error_with_index() -> None:
     assert batch.targets[0].success
     assert not batch.targets[1].success
     assert batch.targets[1].index == 1
+    assert batch.targets[1].error is not None
     assert "nope" in batch.targets[1].error
     assert not batch.all_succeeded
     assert batch.failures == (batch.targets[1],)

@@ -17,6 +17,7 @@ reproduces the English index exactly.
 from __future__ import annotations
 
 from types import MappingProxyType
+from typing import Any, cast
 
 import pytest
 from hypothesis import given
@@ -113,7 +114,7 @@ def _ids(topics: tuple[GuideTopic, ...]) -> list[str]:
 class TestLocaleMeta:
     def test_is_frozen(self) -> None:
         with pytest.raises(AttributeError):
-            _FULL.locale = "ja"  # type: ignore[misc]
+            cast(Any, _FULL).locale = "ja"
 
     def test_equal_metadata_compares_equal(self) -> None:
         assert _meta(titles={"a": "x"}) == _meta(titles={"a": "x"})

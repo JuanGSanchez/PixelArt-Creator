@@ -10,16 +10,17 @@ mechanism (the copy is what the tests loaded) works.
 
 The 22 named mutants are M1 to M8 with M4b in M4's place (the eight clause and scanner
 mutants), S1 to S6 (the six structural ones), E1 (the entity rule dropped), the four
-joiner and guard mutants: M-J (the joiner pairs beside backticks and brackets dropped),
-M-P (the paragraph-wide preservation check dropped), M-A (the permissive-link guard
-dropped) and M-T (the delimiter-row header guard dropped), and the three table mutants:
-M-D (the guard after a delimiter-shaped line dropped), M-S (the table start reverted to
-the cell-count rule) and M-E (the rule for what ends a table dropped).
+joiner and guard mutants: M-JP (the joiner pairs beside backticks and brackets dropped),
+M-PC (the paragraph-wide preservation check dropped), M-AG (the permissive-link guard
+dropped) and M-TH (the delimiter-row header guard dropped), and the three table mutants:
+M-DG (the guard after a delimiter-shaped line dropped), M-ST (the table start
+reverted to the cell-count rule) and M-EN (the rule for what ends a table dropped).
 M1 is "each clause disabled in turn" and is run as its four variants M1a to M1d; M6 has
 the variant M6b. M4, the two clauses tried in the other order, is EQUIVALENT (no code
 point is both East Asian Width A and F/W/H), so it is run and reported but not counted.
 The ``X*`` mutants are extra. ``MUST_BE_KILLED_BY`` names, for a mutant, the tests that
-must be among its killers (M-D: both ``TestRegressionDelimiterShapedLine`` and P2-T): the run reports each.
+must be among its killers (M-DG: both ``TestRegressionDelimiterShapedLine`` and
+table-idempotence): the run reports each.
 
 A run that is not complete because the Emoji table is missing has failures
 that are not mutants' doing. The control run records them as the BASELINE, and a
@@ -28,7 +29,7 @@ what the baseline may contain; anything else in the control stops the run.
 
 Usage (from the product repository root, under the ``.python-version`` interpreter)::
 
-    py -3.13 testing/suites/logic/_softbreak_mutants.py [--plugin NAME] [--json PATH]
+    py -3.13 -m testing.suites.logic._softbreak_mutants [--plugin NAME] [--json PATH]
 
 The source file is only READ. Copies go under ``ORCH_TEST_TMP`` (or the system
 temporary folder) and are deleted at the end.
@@ -45,7 +46,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from _softbreak_support import (  # type: ignore[import-not-found]
+from ._softbreak_support import (
     make_scratch,
     remove_scratch,
 )
@@ -125,7 +126,8 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
             ),
             (
                 "    return _in_ranges(GUIDE_HANGUL_SCRIPT_RANGES, _HANGUL_STARTS, ch)",
-                "    return _in_ranges(_C.HANGUL_RANGES, _starts(_C.HANGUL_RANGES), ch)",
+                "    return _in_ranges("
+                "_C.HANGUL_RANGES, _starts(_C.HANGUL_RANGES), ch)",
             ),
         ],
     ),
@@ -174,8 +176,10 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
         "str.isspace() in place of the space-and-tab test (leading)",
         [
             (
-                "while pos < len(self.text) and self.text[pos] in _SPACE_TAB:\n            col +=",
-                "while pos < len(self.text) and self.text[pos].isspace():\n            col +=",
+                "while pos < len(self.text) and "
+                "self.text[pos] in _SPACE_TAB:\n            col +=",
+                "while pos < len(self.text) and "
+                "self.text[pos].isspace():\n            col +=",
             )
         ],
     ),
@@ -185,7 +189,8 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
             (
                 "    if left in _EMPHASIS_CHARS or right in _EMPHASIS_CHARS:\n"
                 "        return SOFT_BREAK_JOINER\n"
-                '    return SOFT_BREAK_JOINER if (left, right) in _JOINER_PAIRS else ""',
+                "    return SOFT_BREAK_JOINER "
+                'if (left, right) in _JOINER_PAIRS else ""',
                 '    return ""',
             )
         ],
@@ -204,7 +209,8 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
         [
             (
                 "        if self._para_in_matched() and _SETEXT.match(rest):\n",
-                "        if False and self._para_in_matched() and _SETEXT.match(rest):\n",
+                "        if False and self._para_in_matched() "
+                "and _SETEXT.match(rest):\n",
             )
         ],
     ),
@@ -223,11 +229,13 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
             (
                 "            self._open_block()\n"
                 "            self._mark_content(whole_stack=True)\n"
-                "            self.stack.append(_Container(is_quote=True, has_content=True))\n",
+                "            self.stack.append("
+                "_Container(is_quote=True, has_content=True))\n",
                 "            if not any(c.is_quote for c in self.stack):\n"
                 "                self._open_block()\n"
                 "                self._mark_content(whole_stack=True)\n"
-                "                self.stack.append(_Container(is_quote=True, has_content=True))\n",
+                "                self.stack.append("
+                "_Container(is_quote=True, has_content=True))\n",
             )
         ],
     ),
@@ -244,8 +252,11 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
         "table detection dropped (re-anchored to the current _table_start)",
         [
             (
-                "        leaf = self.leaf\n        if (\n            leaf is None\n            or _delimiter_cells(rest) is None\n",
-                "        return False\n        leaf = self.leaf\n        if (\n            leaf is None\n            or _delimiter_cells(rest) is None\n",
+                "        leaf = self.leaf\n        if (\n            leaf is None\n"
+                "            or _delimiter_cells(rest) is None\n",
+                "        return False\n        leaf = self.leaf\n        if (\n"
+                "            leaf is None\n"
+                "            or _delimiter_cells(rest) is None\n",
             )
         ],
     ),
@@ -253,8 +264,10 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
         "link reference definitions read as text",
         [
             (
-                '    end = _parse_label(text, pos)\n    if end is None or end >= len(text) or text[end] != ":":',
-                '    return None\n    end = _parse_label(text, pos)\n    if end is None or end >= len(text) or text[end] != ":":',
+                "    end = _parse_label(text, pos)\n"
+                '    if end is None or end >= len(text) or text[end] != ":":',
+                "    return None\n    end = _parse_label(text, pos)\n"
+                '    if end is None or end >= len(text) or text[end] != ":":',
             )
         ],
     ),
@@ -262,22 +275,27 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
         "the entity rule dropped (references are plain visible text)",
         [
             (
-                "        match = _ENTITY.match(self.text, i)\n        if match is None:\n            return i + 1\n",
-                "        return i + 1\n        match = _ENTITY.match(self.text, i)\n        if match is None:\n            return i + 1\n",
+                "        match = _ENTITY.match(self.text, i)\n"
+                "        if match is None:\n            return i + 1\n",
+                "        return i + 1\n        match = _ENTITY.match(self.text, i)\n"
+                "        if match is None:\n            return i + 1\n",
             )
         ],
     ),
-    "M-J": (
-        "the joiner pairs beside backticks and brackets dropped (the joiner only beside * _ ~)",
+    "M-JP": (
+        "the joiner pairs beside backticks and brackets dropped "
+        "(the joiner only beside * _ ~)",
         [
             (
-                '_JOINER_PAIRS = frozenset({("`", "`"), ("]", "("), ("]", "["), ("]", ":"), ("!", "[")})',
+                "_JOINER_PAIRS = frozenset("
+                '{("`", "`"), ("]", "("), ("]", "["), ("]", ":"), ("!", "[")})',
                 "_JOINER_PAIRS = frozenset()",
             )
         ],
     ),
-    "M-P": (
-        "paragraph-wide preservation check dropped (no preservation check over the joined paragraph)",
+    "M-PC": (
+        "paragraph-wide preservation check dropped "
+        "(no preservation check over the joined paragraph)",
         [
             (
                 "        if not _keeps_parse(text, kinds, definitions, cuts):",
@@ -285,7 +303,7 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
             )
         ],
     ),
-    "M-A": (
+    "M-AG": (
         "permissive-link guard dropped (no guard for the shape of a permissive link)",
         [
             (
@@ -294,17 +312,20 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
             )
         ],
     ),
-    "M-T": (
-        "delimiter-row header guard dropped (the header candidate of a delimiter row is not kept)",
+    "M-TH": (
+        "delimiter-row header guard dropped "
+        "(the header candidate of a delimiter row is not kept)",
         [
             (
-                "            or (k + 2 < len(paragraph) and paragraph[k + 2].delimiter_like)\n",
+                "            or (k + 2 < len(paragraph) "
+                "and paragraph[k + 2].delimiter_like)\n",
                 "            or False\n",
             )
         ],
     ),
-    "M-D": (
-        "post-delimiter guard dropped (the break after a delimiter-shaped line is not kept)",
+    "M-DG": (
+        "post-delimiter guard dropped "
+        "(the break after a delimiter-shaped line is not kept)",
         [
             (
                 "        elif (\n            paragraph[k].delimiter_like\n",
@@ -312,8 +333,9 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
             )
         ],
     ),
-    "M-S": (
-        "table start reverted to the cell-count rule (a table under any paragraph line)",
+    "M-ST": (
+        "table start reverted to the cell-count rule "
+        "(a table under any paragraph line)",
         [
             (
                 "        if len(leaf.lines) != 1:\n"
@@ -334,22 +356,26 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
             )
         ],
     ),
-    "M-E": (
-        "table-end rule dropped (a heading, fence or HTML start, and an indented line, end a table)",
+    "M-EN": (
+        "table-end rule dropped (a heading, fence or HTML start, "
+        "and an indented line, end a table)",
         [
             (
                 "        in_table = self._kind_is(_Leaf.TABLE) and self._all_matched\n",
                 "        in_table = False\n",
             ),
             (
-                "            if indent >= GUIDE_MD_CODE_INDENT:\n                if in_paragraph:\n",
                 "            if indent >= GUIDE_MD_CODE_INDENT:\n"
-                "                if in_paragraph or (self._kind_is(_Leaf.TABLE) and self._all_matched):\n",
+                "                if in_paragraph:\n",
+                "            if indent >= GUIDE_MD_CODE_INDENT:\n"
+                "                if in_paragraph or "
+                "(self._kind_is(_Leaf.TABLE) and self._all_matched):\n",
             ),
         ],
     ),
     "X8": (
-        "(extra) table-end rule, its first half only: a heading, fence or HTML start ends a table",
+        "(extra) table-end rule, its first half only: "
+        "a heading, fence or HTML start ends a table",
         [
             (
                 "        in_table = self._kind_is(_Leaf.TABLE) and self._all_matched\n",
@@ -358,12 +384,15 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
         ],
     ),
     "X9": (
-        "(extra) table-end rule, its second half only: an indented line continues a table",
+        "(extra) table-end rule, its second half only: "
+        "an indented line continues a table",
         [
             (
-                "            if indent >= GUIDE_MD_CODE_INDENT:\n                if in_paragraph:\n",
                 "            if indent >= GUIDE_MD_CODE_INDENT:\n"
-                "                if in_paragraph or (self._kind_is(_Leaf.TABLE) and self._all_matched):\n",
+                "                if in_paragraph:\n",
+                "            if indent >= GUIDE_MD_CODE_INDENT:\n"
+                "                if in_paragraph or "
+                "(self._kind_is(_Leaf.TABLE) and self._all_matched):\n",
             )
         ],
     ),
@@ -393,8 +422,10 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
         "(extra) hard breaks are not recognised",
         [
             (
-                '    spaces = len(raw) - len(raw.rstrip(" "))\n    if spaces >= GUIDE_MD_HARD_BREAK_SPACES:\n        return True\n',
-                '    return False\n    spaces = len(raw) - len(raw.rstrip(" "))\n    if spaces >= GUIDE_MD_HARD_BREAK_SPACES:\n        return True\n',
+                '    spaces = len(raw) - len(raw.rstrip(" "))\n'
+                "    if spaces >= GUIDE_MD_HARD_BREAK_SPACES:\n        return True\n",
+                '    return False\n    spaces = len(raw) - len(raw.rstrip(" "))\n'
+                "    if spaces >= GUIDE_MD_HARD_BREAK_SPACES:\n        return True\n",
             )
         ],
     ),
@@ -420,7 +451,8 @@ MUTANTS: Dict[str, Tuple[str, Sequence[Patch]]] = {
         "(extra) a break kept as UNDECIDED beside a tab is decided instead",
         [
             (
-                "            or following.tabby\n            or following.delimiter_like\n",
+                "            or following.tabby\n"
+                "            or following.delimiter_like\n",
                 "            or following.delimiter_like\n",
             )
         ],
@@ -449,29 +481,30 @@ NAMED = {
     "S5": ["S5"],
     "S6": ["S6"],
     "E1": ["E1"],
-    "M-J": ["M-J"],
-    "M-P": ["M-P"],
-    "M-A": ["M-A"],
-    "M-T": ["M-T"],
-    "M-D": ["M-D"],
-    "M-S": ["M-S"],
-    "M-E": ["M-E"],
+    "M-JP": ["M-JP"],
+    "M-PC": ["M-PC"],
+    "M-AG": ["M-AG"],
+    "M-TH": ["M-TH"],
+    "M-DG": ["M-DG"],
+    "M-ST": ["M-ST"],
+    "M-EN": ["M-EN"],
 }  # fmt: skip
 
-#: For a mutant, substrings of test ids that MUST be among its killers (all of its failed
-#: tests are searched, not the first three). M-D is the positive control of the table idempotence property.
+#: For a mutant, substrings of test ids that MUST be among its killers (all of its
+#: failed tests are searched, not the first three). M-DG is the positive control of the
+#: table idempotence property.
 MUST_BE_KILLED_BY = {
-    "M-D": (
+    "M-DG": (
         "TestRegressionDelimiterShapedLine",
         "test_p2t_the_transform_is_idempotent",
     ),
-    "M-S": (
+    "M-ST": (
         "header-of-three-cells-then-two-rows",
         "one-line-header-then-two-rows",
         "header-candidate-is-a-second-line",
         "header-candidate-is-a-third-line",
     ),
-    "M-E": (
+    "M-EN": (
         "an-atx-heading-is-a-body-row",
         "a-fence-is-a-body-row",
         "an-indented-line-ends-the-table",
@@ -499,7 +532,8 @@ def apply_patches(source: str, patches: Sequence[Patch]) -> str:
 def run_suite(
     mutant_file: Optional[Path], plugin: Optional[str], extra: Sequence[str]
 ) -> Tuple[int, List[str], str]:
-    """Run the two test files; return the exit code, the failed node ids and the tail."""
+    """Run the two test files; return the exit code, the failed node ids and the
+    tail."""
     env = dict(os.environ)
     env["QT_QPA_PLATFORM"] = "offscreen"
     env["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -556,14 +590,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         unexpected = [n for n in baseline if not re.search(MISSING_EMOJI_CASES, n)]
         if code not in (0, 1) or unexpected:
             print(
-                "The control run failed outside the pending Emoji cases: the table would prove nothing."
+                "The control run failed outside the pending Emoji cases: "
+                "the table would prove nothing."
             )
             for node in unexpected:
                 print(f"  unexpected: {node}")
             return 2
         if baseline:
             print(
-                f"  the control fails only {len(baseline)} cases (Emoji cases that need the table) "
+                f"  the control fails only {len(baseline)} cases "
+                f"(Emoji cases that need the table) "
                 f"(the baseline; a mutant must fail a test outside it)"
             )
         ids = args.only or list(MUTANTS)

@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import json
 import tempfile
+from collections.abc import MutableMapping
 from pathlib import Path
+from typing import cast
 from unittest import mock
 
 import pytest
@@ -255,7 +257,7 @@ class TestLoadLocaleMetaHappyPath:
         meta = load_locale_meta("ko")
         assert meta is not None
         with pytest.raises(TypeError):
-            meta.topic_titles["x"] = "y"  # type: ignore[index]
+            cast(MutableMapping[str, str], meta.topic_titles)["x"] = "y"
 
     def test_unknown_ids_are_not_checked_here(self, bundle: Path) -> None:
         data = json.loads(json.dumps(_KO_META))

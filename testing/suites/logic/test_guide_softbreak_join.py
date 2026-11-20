@@ -9,21 +9,25 @@ One named case per row of the joiner table and per guard:
 * *joined with the comment* ``<!---->`` (the pairs the joiner is proven for);
 * *joined plainly* (the measured non-triggers: the joiner must NOT appear);
 * *kept, UNDECIDED, source byte for byte* (what the joiner cannot be proven safe for);
-* the paragraph-wide preservation check (an ordinary break beside the bad one is kept too);
+* the paragraph-wide preservation check (an ordinary break beside the bad one is kept
+  too);
 * the permissive-link and header-candidate guards, per break (the ordinary break beside
   them is still removed).
 
 The module under test can be a broken copy (``SOFTBREAK_MUTANT_FILE``): the mutants
-M-J, M-P, M-A and M-T of ``_softbreak_mutants.py`` are killed by this file.
+M-JP, M-PC, M-AG and M-TH of ``_softbreak_mutants.py`` are killed by this file.
 """
 
 from __future__ import annotations
 
-from typing import List, Sequence, Tuple
+from typing import TYPE_CHECKING, List, Sequence, Tuple
 
 import pytest
 
 from ._softbreak_support import load_softbreak
+
+if TYPE_CHECKING:
+    from pixelart_creator.logic.guide_softbreak import SoftBreakClause
 
 sb = load_softbreak()
 
@@ -36,7 +40,7 @@ Z = sb.SoftBreakClause.ZERO_WIDTH_SPACE
 W = sb.SoftBreakClause.WIDE_PAIR
 SP = sb.SoftBreakClause.SPACE
 
-Row = Tuple[str, Sequence[str], str, Sequence[Tuple[int, "sb.SoftBreakClause"]]]
+Row = Tuple[str, Sequence[str], str, Sequence[Tuple[int, "SoftBreakClause"]]]
 
 
 def page_of(lines: Sequence[str], ending: str = "\n") -> str:
@@ -50,7 +54,7 @@ def run(lines: Sequence[str], language: str = "ja", ending: str = "\n"):
     return page, sb.apply_soft_break_rule(page, language)
 
 
-def summary(result) -> List[Tuple[int, "sb.SoftBreakClause"]]:
+def summary(result) -> List[Tuple[int, "SoftBreakClause"]]:
     """``(line, clause)`` for every examined break, in order."""
     return [(b.line, b.clause) for b in result.breaks]
 
@@ -89,7 +93,8 @@ EMPHASIS_ROWS: List[Row] = [
     ("underline-both-sides", ["_日_", "_本_"], "_日_" + JOINER + "_本_\n", [(1, W)]),
 ]
 
-#: The pairs beside backticks and brackets. Joined with the comment, so the intent survives.
+#: The pairs beside backticks and brackets. Joined with the comment, so the intent
+#: survives.
 PAIR_ROWS: List[Row] = [
     ("backtick-both", ["`日`", "`本`"], "`日`" + JOINER + "`本`\n", [(1, W)]),
     ("double-runs", ["``日``", "``本``"], "``日``" + JOINER + "``本``\n", [(1, W)]),
@@ -172,8 +177,9 @@ PRESERVATION_ROWS: List[Row] = [
     ),
 ]
 
-#: The permissive-link guard: the seven permissive-link rows and the three permissive URLs that end in a
-#: wide character (the space-free run at the break holds ``://``, ``www.`` or ``@``).
+#: The permissive-link guard: the seven permissive-link rows and the three permissive
+#: URLs that end in a wide character (the space-free run at the break holds ``://``,
+#: ``www.`` or ``@``).
 PERMISSIVE_LINK_ROWS: List[Row] = [
     (
         "url-then-ideographic-stop",
@@ -232,7 +238,8 @@ PERMISSIVE_LINK_ROWS: List[Row] = [
     ),
 ]
 
-#: The header-candidate guard: the break above a delimiter row's header candidate. Both breaks are kept.
+#: The header-candidate guard: the break above a delimiter row's header candidate.
+#: Both breaks are kept.
 HEADER_CANDIDATE_ROWS: List[Row] = [
     (
         "delimiter-row-header-candidate",
@@ -384,7 +391,7 @@ class TestKeptByThePreservationCheck:
     # A paragraph with one ordinary break (日 / 本) before the bad one. The
     # preservation check is PARAGRAPH-WIDE: the ordinary break is kept as well.
     # The URI autolink row is not here: its ``://`` makes the permissive-link guard keep
-    # that one break by itself, so it cannot tell the two guards apart (M-P does not
+    # that one break by itself, so it cannot tell the two guards apart (M-PC does not
     # need it).
     WIDE = {
         "inline-destination": ["日", "本 [x](日", "本)"],
@@ -581,7 +588,8 @@ class TestTheJoinerIsNotLanguageScoped:
     @pytest.mark.parametrize("language", ["en", "es", "ko"])
     def test_no_guard_changes_a_break_that_no_clause_removes(self, language):
         # 。 beside a Latin letter is clause 4 (ja and zh_CN only): outside them the
-        # break is kept as a space, whatever the permissive-link guard would say about the address.
+        # break is kept as a space, whatever the permissive-link guard would say about
+        # the address.
         page, result = run(["https://example.com/a", "。"], language=language)
         assert result.markdown == page
         assert [b.removed for b in result.breaks] == [False]

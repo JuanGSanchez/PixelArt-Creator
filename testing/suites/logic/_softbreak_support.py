@@ -258,7 +258,8 @@ def guard_problems(
     for loc in non_cjk_trees:
         if loc not in NON_CJK_LOCALES:
             problems.append(
-                f"{loc}: listed in REQUIRED_NON_CJK_TREES but it is not a non-CJK locale"
+                f"{loc}: listed in REQUIRED_NON_CJK_TREES "
+                "but it is not a non-CJK locale"
             )
     for loc in cj_trees:
         if loc not in CJ_LOCALES:
@@ -272,11 +273,13 @@ def guard_problems(
         other_tuple = non_cjk_trees if loc in CJ_LOCALES else cj_trees
         if has and loc not in own_tuple and loc not in other_tuple:
             problems.append(
-                f"{loc}: the tree is tracked ({len(tracked[loc])} pages) but {loc} is not in {own}"
+                f"{loc}: the tree is tracked ({len(tracked[loc])} pages) "
+                f"but {loc} is not in {own}"
             )
         if not has and (loc in own_tuple or loc in other_tuple):
             problems.append(
-                f"{loc}: listed in a REQUIRED_* tuple but no tracked non-empty {loc} tree exists"
+                f"{loc}: listed in a REQUIRED_* tuple "
+                f"but no tracked non-empty {loc} tree exists"
             )
     return problems
 

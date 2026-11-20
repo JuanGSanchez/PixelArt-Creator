@@ -4,33 +4,38 @@ Logic layer, no Qt: every expected value below is a LITERAL written from the
 architect's decision (measured against Qt 6.11.1 and re-measured for this file), never
 computed from the module, so the module cannot agree with itself here.
 
-* ``TestRegressionDelimiterShapedLine`` -- the defect where the transform was not idempotent on a
-  delimiter-shaped line that the same pass rewrote, as a strict, permanent regression case.
-* ``TestTableRows`` -- one case per row of the table model (sixteen rows): the exact output, the exact
-  ``breaks`` set, a second pass that is a no-op, the same in CRLF, and -- from Qt's own
-  table grids, written here as literals -- that no line Qt puts in a table was joined to
-  its neighbour.
+* ``TestRegressionDelimiterShapedLine`` -- the defect where the transform was not
+  idempotent on a delimiter-shaped line that the same pass rewrote, as a strict,
+  permanent regression case.
+* ``TestTableRows`` -- one case per row of the table model (sixteen rows): the exact
+  output, the exact ``breaks`` set, a second pass that is a no-op, the same in CRLF,
+  and -- from Qt's own table grids, written here as literals -- that no line Qt puts
+  in a table was joined to its neighbour.
 * ``TestQtTableModel`` -- where a table starts and what ends one, one
   behaviour per test, with the control beside each.
-* ``test_p2t_*`` -- the idempotence property (P2-T): idempotence over table-shaped pages,
-  under the repository's ``ci`` profile, and its positive control: the same property
-  against a copy of the module with the post-delimiter guard removed (M-D) must FAIL.
+* ``test_p2t_*`` -- the idempotence property (table-idempotence): idempotence over
+  table-shaped pages, under the repository's ``ci`` profile, and its positive control:
+  the same property against a copy of the module with the post-delimiter guard removed
+  (M-DG) must FAIL.
 
-The module under test can be a broken copy (``SOFTBREAK_MUTANT_FILE``): the mutants M-D,
-M-S and M-E of ``_softbreak_mutants.py`` are killed by this file.
+The module under test can be a broken copy (``SOFTBREAK_MUTANT_FILE``): the mutants
+M-DG, M-ST and M-EN of ``_softbreak_mutants.py`` are killed by this file.
 """
 
 from __future__ import annotations
 
 import sys
 import types
-from typing import List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple
 
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from ._softbreak_support import REPO_ROOT, load_softbreak
+
+if TYPE_CHECKING:
+    from pixelart_creator.logic.guide_softbreak import SoftBreakClause
 
 sb = load_softbreak()
 
@@ -41,7 +46,7 @@ Z = sb.SoftBreakClause.ZERO_WIDTH_SPACE
 W = sb.SoftBreakClause.WIDE_PAIR
 SP = sb.SoftBreakClause.SPACE
 
-Breaks = Sequence[Tuple[int, "sb.SoftBreakClause"]]
+Breaks = Sequence[Tuple[int, "SoftBreakClause"]]
 
 
 def page_of(lines: Sequence[str], ending: str = "\n") -> str:
@@ -55,7 +60,7 @@ def run(lines: Sequence[str], language: str = "ja", ending: str = "\n"):
     return page, sb.apply_soft_break_rule(page, language)
 
 
-def summary(result) -> List[Tuple[int, "sb.SoftBreakClause"]]:
+def summary(result) -> List[Tuple[int, "SoftBreakClause"]]:
     """``(line, clause)`` for every examined break, in order."""
     return [(b.line, b.clause) for b in result.breaks]
 
@@ -76,7 +81,8 @@ def assert_second_pass_is_a_no_op(markdown: str, language: str) -> None:
 # 1. The delimiter-shaped-line defect, a permanent regression case
 # ===========================================================================
 
-#: (id, lines, language). Every one is kept byte for byte with all three breaks UNDECIDED.
+#: (id, lines, language). Every one is kept byte for byte with all three breaks
+#: UNDECIDED.
 DELIMITER_LINE_PAGES = [
     ("delimiter-line-ja", ["日", "本", "|-|-|", ZWSP + "語"], "ja"),
     ("delimiter-line-en", ["日", "本", "|-|-|", ZWSP + "語"], "en"),
@@ -145,12 +151,12 @@ class TestRegressionDelimiterShapedLine:
         assert summary(result) == [(1, U), (2, U), (3, U)]
         assert_second_pass_is_a_no_op(result.markdown, "ja")
 
-    def test_the_post_delimiter_guard_alone_keeps_the_break_after_a_delimiter_shaped_line(
+    def test_post_delimiter_guard_alone_keeps_the_break_after_a_delimiter_shaped_line(
         self,
     ):
         # No wide character: break 1 is a clause 5 space, break 2 is UNDECIDED (it sits
-        # above a delimiter-shaped line), and the third is kept only by the post-delimiter guard (clause 1
-        # would remove it). M-D drops exactly this.
+        # above a delimiter-shaped line), and the third is kept only by the
+        # post-delimiter guard (clause 1 would remove it). M-DG drops exactly this.
         for language in ("en", "ja"):
             page, result = run(["x", "y", "|-|-|", ZWSP + "語"], language)
             assert result.markdown == page
@@ -332,9 +338,9 @@ class TestTableRows:
     )
     def test_no_line_qt_puts_in_a_table_was_joined(self, row):
         # The Qt grid is the oracle's reading of the SOURCE. A table holds the header,
-        # the delimiter row and one line per body row: len(grid) + 1 lines, from the first
-        # line. Each body row's first cell is the line itself. The output must keep all of
-        # them as lines of their own, untouched.
+        # the delimiter row and one line per body row: len(grid) + 1 lines, from the
+        # first line. Each body row's first cell is the line itself. The output must
+        # keep all of them as lines of their own, untouched.
         _, lines, _wanted, _breaks, grid = row
         table_lines = list(lines[: len(grid) + 1])
         for index, cells in enumerate(grid[1:], start=2):
@@ -376,7 +382,8 @@ def expect(
 
 
 class TestQtTableModel:
-    """Qt (md4c) starts a table below a paragraph's FIRST line and ends it on 5 shapes."""
+    """Qt (md4c) starts a table below a paragraph's FIRST line and ends it on 5
+    shapes."""
 
     def test_the_header_cell_count_is_not_compared(self):
         # Qt: ``a|b|c`` over ``|-|-|`` is a table with 2 columns.
@@ -397,7 +404,8 @@ class TestQtTableModel:
         expect(["a|b", "|-|-|", "日", "本"], [])
 
     def test_the_first_line_of_a_paragraph_after_a_blank_line_is_a_header(self):
-        # Qt: ``x`` blank ``本`` ``|-|`` is a table (the blank line starts a new paragraph).
+        # Qt: ``x`` blank ``本`` ``|-|`` is a table (the blank line starts a new
+        # paragraph).
         expect(["x", "", "本", "|-|", "日", "本"], [])
 
     def test_a_link_reference_definition_counts_as_the_first_line(self):
@@ -497,7 +505,7 @@ class TestQtTableModel:
 
 
 # ===========================================================================
-# 4. P2-T: idempotence over table-shaped pages
+# 4. table-idempotence: idempotence over table-shaped pages
 # ===========================================================================
 
 #: The pool of lines: wide, U+200B-led, delimiter-shaped, header-shaped, block starts.
@@ -554,9 +562,9 @@ def prefixed(lines: Sequence[str], prefix: str) -> List[str]:
 
 #: The lines of a table-shaped skeleton: what comes above a delimiter-shaped line
 #: (wide, header-shaped), the delimiter-shaped line itself, and what comes below it.
-#: A repeated entry weights the draw: the defect's shape (two wide lines, a delimiter-shaped
-#: line, a U+200B-led line) must turn up often enough for the positive control to fail
-#: under the ci profile whatever the seed.
+#: A repeated entry weights the draw: the defect's shape (two wide lines, a
+#: delimiter-shaped line, a U+200B-led line) must turn up often enough for the
+#: positive control to fail under the ci profile whatever the seed.
 P2T_HEADS = [
     "日",
     "日",
@@ -617,12 +625,14 @@ def p2t_pages(draw):
 
 
 def p2t_holds(module, page: str, language: str) -> None:
-    """The property, for ``module``: the second pass is a no-op (raises AssertionError)."""
+    """The property, for ``module``: the second pass is a no-op (raises
+    AssertionError)."""
     once = module.apply_soft_break_rule(page, language)
     twice = module.apply_soft_break_rule(once.markdown, language)
-    assert (
-        twice.markdown == once.markdown
-    ), f"not idempotent ({language}): {page!r} -> {once.markdown!r} -> {twice.markdown!r}"
+    assert twice.markdown == once.markdown, (
+        f"not idempotent ({language}): "
+        f"{page!r} -> {once.markdown!r} -> {twice.markdown!r}"
+    )
     assert not any(b.removed for b in twice.breaks)
 
 
@@ -632,17 +642,20 @@ def test_p2t_the_transform_is_idempotent_over_table_shaped_pages(page, language)
     p2t_holds(sb, page, language)
 
 
-#: The anchor of the post-delimiter guard in the module (the post-``decide`` guard), and what removes it.
+#: The anchor of the post-delimiter guard in the module (the post-``decide`` guard),
+#: and what removes it.
 GUARD_ANCHOR = "        elif (\n            paragraph[k].delimiter_like\n"
 GUARD_REMOVED = "        elif (\n            False\n"
 MODULE_FILE = REPO_ROOT / "pixelart_creator" / "logic" / "guide_softbreak.py"
 
 
 def load_copy(name: str, *, without_guard: bool) -> types.ModuleType:
-    """A copy of the REPOSITORY'S module under its own name, the post-delimiter guard removed (M-D) or not.
+    """A copy of the REPOSITORY'S module under its own name, the post-delimiter guard
+    removed (M-DG) or not.
 
-    Independent of ``SOFTBREAK_MUTANT_FILE``: the control must hold whatever the suite is
-    pointed at. It is registered in ``sys.modules`` while it runs (dataclasses read it).
+    Independent of ``SOFTBREAK_MUTANT_FILE``: the control must hold whatever the
+    suite is pointed at. It is registered in ``sys.modules`` while it runs
+    (dataclasses read it).
     """
     source = MODULE_FILE.read_bytes().decode("utf-8")
     if without_guard:
@@ -676,7 +689,7 @@ def module_with_guard():
 
 
 class TestP2TPositiveControl:
-    """P2-T must be able to fail: against M-D it does."""
+    """table-idempotence must be able to fail: against M-DG it does."""
 
     def test_the_delimiter_line_page_is_not_idempotent_without_guard(
         self, module_without_guard

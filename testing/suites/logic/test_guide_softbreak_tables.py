@@ -25,7 +25,7 @@ import sys
 import unicodedata
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict, FrozenSet, Sequence, Tuple
+from typing import Dict, FrozenSet, Sequence, Set, Tuple
 
 import fontTools
 import pytest
@@ -81,7 +81,7 @@ def table(name: str) -> Tuple[Tuple[int, int], ...]:
 
 def expand(ranges: Sequence[Tuple[int, int]]) -> FrozenSet[int]:
     """All code points of inclusive ``(first, last)`` ranges."""
-    points = set()
+    points: Set[int] = set()
     for first, last in ranges:
         points.update(range(first, last + 1))
     return frozenset(points)

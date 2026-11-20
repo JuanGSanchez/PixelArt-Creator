@@ -26,7 +26,16 @@ import re
 import sys
 import time
 import unicodedata
-from typing import Callable, Dict, List, Sequence, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Collection,
+    Dict,
+    List,
+    Sequence,
+    Tuple,
+)
 
 import pytest
 from hypothesis import given, settings
@@ -58,6 +67,9 @@ from ._softbreak_support import (
     untracked_present,
 )
 
+if TYPE_CHECKING:
+    from pixelart_creator.logic.guide_softbreak import SoftBreakResult
+
 sb = load_softbreak()
 
 # ---------------------------------------------------------------------------
@@ -82,8 +94,9 @@ CL = {
 }
 NUMBER_OF = {member: number for number, member in CL.items()}
 
-#: Clause 4's marks per page language, copied from the requirement's own lists (never read
-#: from the constant under test). A language with no entry has no clause-4 mark.
+#: Clause 4's marks per page language, copied from the requirement's own lists
+#: (never read from the constant under test). A language with no entry has no
+#: clause-4 mark.
 CLAUSE4_MARKS_TEXT = {
     "zh_CN": "、 。 ， ； ： ！ ？ （ ） 《 》 “ ”",
     "ja": "、 。 「 」 『 』",
@@ -92,10 +105,11 @@ CLAUSE4_MARKS = {
     language: tuple(text.split()) for language, text in CLAUSE4_MARKS_TEXT.items()
 }
 ALL_CLAUSE4_MARKS = sorted({m for marks in CLAUSE4_MARKS.values() for m in marks})
-#: Marks near the lists but on neither: halfwidth ideographic comma and full stop, and the
-#: fullwidth full stop.
+#: Marks near the lists but on neither: halfwidth ideographic comma and full stop,
+#: and the fullwidth full stop.
 UNLISTED_EVERYWHERE = ("､", "｡", "．")
-#: Per language, the marks its page list lacks (the other language's, and the near misses).
+#: Per language, the marks its page list lacks (the other language's, and the near
+#: misses).
 UNLISTED_MARKS = {
     language: [m for m in ALL_CLAUSE4_MARKS + list(UNLISTED_EVERYWHERE) if m not in own]
     for language, own in CLAUSE4_MARKS.items()
@@ -103,13 +117,15 @@ UNLISTED_MARKS = {
 
 
 def oracle(before: str, after: str, language: str) -> int:
-    """The independent oracle's clause number, with the requirement's marks per language."""
+    """The independent oracle's clause number, with the requirement's marks per
+    language."""
     return oracle_clause(before, after, language, marks=CLAUSE4_MARKS.get(language, ()))
 
 
 JOINER = "<!---->"
 BACKSLASH = chr(92)
-#: The Emoji property's size at UCD 15.1.0 (Unicode 15.1.0): what the import guard checks.
+#: The Emoji property's size at UCD 15.1.0 (Unicode 15.1.0): what the import guard
+#: checks.
 EMOJI_TOTAL = 1424
 EMOJI_MISSING = (
     "the Emoji table is not delivered: GUIDE_EMOJI_RANGES is missing or empty in "
@@ -134,7 +150,9 @@ def summary(result) -> List[Tuple[int, int]]:
     return [(b.line, number(b)) for b in result.breaks]
 
 
-def join_after(lines: Sequence[str], removed: Sequence[int], ending: str = "\n") -> str:
+def join_after(
+    lines: Sequence[str], removed: Collection[int], ending: str = "\n"
+) -> str:
     """Join ``lines`` with ``ending``; the endings after the 1-based ``removed`` go.
 
     Only for lines that carry no container prefix and no joiner: it is the
@@ -192,10 +210,10 @@ class TestPublicSurface:
         )
         assert dataclasses.is_dataclass(item)
         with pytest.raises(dataclasses.FrozenInstanceError):
-            item.line = 2  # type: ignore[misc]
+            item.line = 2
         result = sb.SoftBreakResult(markdown="x", breaks=(item,))
         with pytest.raises(dataclasses.FrozenInstanceError):
-            result.markdown = "y"  # type: ignore[misc]
+            result.markdown = "y"
         assert result.breaks == (item,)
 
     @pytest.mark.parametrize("clause_number", [1, 2, 3, 4, 5, 0])
@@ -397,7 +415,8 @@ class TestDecideClauseThree:
 
 
 class TestDecideClauseFour:
-    """Clause 4: a listed mark beside a Latin letter or Nd, in its own page language only."""
+    """Clause 4: a listed mark beside a Latin letter or Nd, in its own page language
+    only."""
 
     @pytest.mark.parametrize(
         ("language", "mark"),
@@ -546,7 +565,8 @@ CHAR_ANY = st.sampled_from(sorted(set(NON_EMOJI_CHARS + EMOJI_CHARS)))
 
 
 class TestOracleSanity:
-    """The oracle itself is checked on the spec's own pairs, before it judges anything."""
+    """The oracle itself is checked on the spec's own pairs, before it judges
+    anything."""
 
     @pytest.mark.parametrize(
         ("before", "after", "language", "clause"),
@@ -818,7 +838,8 @@ class TestIdeographicPunctuation:
         _expect_row(language, source, expected, before, after, 4)
 
 
-#: (language, the marks as the requirement's row lists them, whether the break is removed).
+#: (language, the marks as the requirement's row lists them, whether the break is
+#: removed).
 MARKS_PER_LANGUAGE_ROWS = [
     ("zh_CN", "、 。 ， ； ： ！ ？ （ ） 《 》 “ ”", True),
     ("ja", "、 。 「 」 『 』", True),
@@ -828,7 +849,8 @@ MARKS_PER_LANGUAGE_ROWS = [
 
 
 class TestMarksPerLanguage:
-    """Each mark is removed beside a Latin letter or a digit only in its own language's pages."""
+    """Each mark is removed beside a Latin letter or a digit only in its own
+    language's pages."""
 
     @pytest.mark.parametrize(
         ("language", "marks_text", "removed"),
@@ -881,9 +903,7 @@ class TestEmojiWidth:
 # ===========================================================================
 
 
-def run_ja(
-    lines: Sequence[str], ending: str = "\n"
-) -> Tuple[str, "sb.SoftBreakResult"]:
+def run_ja(lines: Sequence[str], ending: str = "\n") -> Tuple[str, "SoftBreakResult"]:
     page = ending.join(lines) + ending
     return page, sb.apply_soft_break_rule(page, "ja")
 
@@ -946,7 +966,8 @@ class TestConstructHtmlBlocks:
             lines.append(end)
         tail = ["", "本", "語"] if end is None else ["本", "語"]
         lines += tail
-        # the paragraph before the block has one break (line 1); the paragraph after has one
+        # the paragraph before the block has one break (line 1); the paragraph after
+        # has one
         after_line = len(lines) - 1
         expect_plain(lines, [(1, 2), (after_line, 2)])
 
@@ -1106,10 +1127,11 @@ class TestConstructContainers:
 
 class TestConstructTables:
     # Re-expected from Qt, not weakened. Qt (md4c,
-    # PySide6 6.11.1) starts a table only under a paragraph's FIRST line, so it reads both
-    # pages below as ONE paragraph (blocks=1, tables=0; plain text
-    # ``日本 | a | b | | --- | --- | | 本 | 語 |``). The transformed source stays as it was
-    # asserted; the ``breaks`` set grows by the breaks Qt shows inside the paragraph.
+    # PySide6 6.11.1) starts a table only under a paragraph's FIRST line, so it
+    # reads both pages below as ONE paragraph (blocks=1, tables=0; plain text
+    # ``日本 | a | b | | --- | --- | | 本 | 語 |``). The transformed source stays as
+    # it was asserted; the ``breaks`` set grows by the breaks Qt shows inside the
+    # paragraph.
     def test_a_table_header_directly_after_a_paragraph_line_is_never_joined(self):
         lines = ["日本", "| a | b |", "| --- | --- |", "| 本 | 語 |"]
         old_breaks: List[Tuple[int, int]] = (
@@ -1124,7 +1146,8 @@ class TestConstructTables:
         again = sb.apply_soft_break_rule(result.markdown, "ja")  # idempotence
         assert again.markdown == result.markdown
         assert not any(b.removed for b in again.breaks)
-        # control: with the header FIRST the same rows are a Qt table, and none is examined
+        # control: with the header FIRST the same rows are a Qt table, and none is
+        # examined
         assert summary(run_ja(lines[1:])[1]) == []
 
     def test_a_table_after_a_two_line_paragraph_keeps_the_paragraph_break_only(self):
@@ -1143,7 +1166,8 @@ class TestConstructTables:
         again = sb.apply_soft_break_rule(result.markdown, "ja")  # idempotence
         assert again.markdown == result.markdown
         assert not any(b.removed for b in again.breaks)
-        # control: after a blank line the header is the paragraph's first line, so a table
+        # control: after a blank line the header is the paragraph's first line, so a
+        # table
         blank = ["日本", "語", "", "| a | b |", "| --- | --- |", "| 本 | 語 |"]
         assert summary(run_ja(blank)[1]) == [(1, 2)]
 
@@ -1187,7 +1211,7 @@ class TestConstructHardBreaksAndBackslashes:
         expect_plain(["日本\\\\\\", "語"], [])
         expect_plain(["日本\\\\\\\\\\", "語"], [])
 
-    def test_an_even_run_of_backslashes_is_an_escaped_backslash_and_the_break_stays_soft(
+    def test_an_even_run_of_backslashes_is_an_escaped_backslash_so_the_break_stays_soft(
         self,
     ):
         page, result = run_ja(["日本\\\\", "語"])
@@ -1339,7 +1363,8 @@ class TestFailSafeIsUndecided:
 
 
 class TestConstructLinksAndDefinitions:
-    """Link syntax, in the inline pass and in link reference definitions (CommonMark 6.3, 4.7)."""
+    """Link syntax, in the inline pass and in link reference definitions (CommonMark
+    6.3, 4.7)."""
 
     def test_an_angle_bracket_destination_is_a_link(self):
         page, result = run_ja(["[日本](<a b.md>)", "語"])
@@ -1446,7 +1471,7 @@ class TestConstructLinksAndDefinitions:
         page, result = run_ja(["[foo]: /url bar", "日本", "語"])
         assert summary(result) == [(1, 5), (2, 2)]
 
-    def test_a_definition_with_a_destination_and_a_bad_title_line_is_the_destination_only(
+    def test_a_definition_with_a_destination_and_a_bad_title_line_is_destination_only(
         self,
     ):
         page, result = run_ja(["[foo]: /url", '"t" x', "日本"])
@@ -1880,7 +1905,8 @@ def pages(draw):
 
 
 def _subsequence_deleted(source: str, produced: str) -> Tuple[bool, str]:
-    """Is ``produced`` a subsequence of ``source``? Also return the deleted characters."""
+    """Is ``produced`` a subsequence of ``source``? Also return the deleted
+    characters."""
     deleted = []
     index = 0
     for char in source:
@@ -1910,7 +1936,8 @@ def test_p1_only_whitespace_line_endings_and_container_prefix_are_deleted(
     assert result.markdown.count(JOINER) <= sum(1 for b in result.breaks if b.removed)
 
 
-#: The joiner pairs beside backticks and brackets, written here as literals and not read from the module.
+#: The joiner pairs beside backticks and brackets, written here as literals and not
+#: read from the module.
 TRIGGER_PAIRS = {("`", "`"), ("]", "("), ("]", "["), ("]", ":"), ("!", "[")}
 
 
@@ -2102,7 +2129,8 @@ def text_line(draw):
 
 @st.composite
 def block(draw):
-    """Return ``(lines, candidate offsets)``: offsets are 0-based line indexes with a candidate."""
+    """Return ``(lines, candidate offsets)``: offsets are 0-based line indexes with a
+    candidate."""
     kind = draw(
         st.sampled_from(
             [
@@ -2174,7 +2202,8 @@ def test_p6_generated_documents_have_exactly_the_constructed_breaks(
     result = sb.apply_soft_break_rule(page, language)
     assert [b.line for b in result.breaks] == expected
     if "://" not in page:
-        # only a bare URL can make the permissive-link guard keep a break in this grammar
+        # only a bare URL can make the permissive-link guard keep a break in this
+        # grammar
         assert not [b for b in result.breaks if b.clause is CL[0]]
 
 
@@ -2251,7 +2280,7 @@ class TestContentRefLocale:
     @pytest.mark.parametrize("bad", [None, 3, b"content/ja/x.md", ["content/ja/x.md"]])
     def test_a_non_string_raises(self, bad):
         with pytest.raises(guide_model.GuideModelError):
-            guide_model.content_ref_locale(bad)  # type: ignore[arg-type]
+            guide_model.content_ref_locale(bad)
 
 
 # ===========================================================================
@@ -2401,7 +2430,8 @@ def non_cjk_text_violations(name: str, text: str, locale: str) -> List[str]:
     for item in sb.apply_soft_break_rule(text, locale).breaks:
         if item.removed and ZWSP not in (item.before, item.after):
             out.append(
-                f"{name}:{item.line}: {item.clause.value} removed a break with no U+200B beside it"
+                f"{name}:{item.line}: {item.clause.value} removed a break with no "
+                "U+200B beside it"
             )
     return out
 
@@ -2411,7 +2441,7 @@ def non_cjk_findings(trees: Dict[str, List[str]]) -> Tuple[List[str], Dict[str, 
     violations: List[str] = []
     stats: Dict[str, dict] = {}
     for locale, pages in trees.items():
-        entry = {
+        entry: Dict[str, Any] = {
             "pages": 0,
             "removed": 0,
             "identical": 0,
@@ -2460,9 +2490,11 @@ class TestNonCjkTrees:
                         f"candidates {examined}"
                     )
                 print(
-                    f"[softbreak][non-CJK] {locale}: pages {entry['pages']}, candidates "
-                    f"{entry['candidates']}, removed {entry['removed']}, byte-identical "
-                    f"{entry['identical']}/{entry['pages']}, Hangul-Hangul {entry['hangul_hangul']}"
+                    f"[softbreak][non-CJK] {locale}: pages {entry['pages']}, "
+                    f"candidates {entry['candidates']}, removed {entry['removed']}, "
+                    "byte-identical "
+                    f"{entry['identical']}/{entry['pages']}, "
+                    f"Hangul-Hangul {entry['hangul_hangul']}"
                 )
         assert not violations, "\n".join(violations)
 
@@ -2496,9 +2528,10 @@ def cjk_tree_check(
     name: str,
     markdown: str,
     language: str,
-    apply_fn: Callable[[str, str], "sb.SoftBreakResult"],
+    apply_fn: Callable[[str, str], "SoftBreakResult"],
 ) -> Tuple[List[str], Dict[str, int]]:
-    """Return the violations of the CJK-tree check for one page, and the candidates per clause.
+    """Return the violations of the CJK-tree check for one page, and the candidates
+    per clause.
 
     A violation is a break that the spec's clauses 1 to 4 remove (judged by the
     oracle, which is independent of the module) and that is still a line ending
@@ -2528,7 +2561,7 @@ def cjk_tree_check(
     return violations, counts
 
 
-def bypass(markdown: str, _language: str) -> "sb.SoftBreakResult":
+def bypass(markdown: str, _language: str) -> "SoftBreakResult":
     """The rule bypassed: the page unchanged."""
     return sb.SoftBreakResult(markdown=markdown, breaks=())
 
@@ -2628,7 +2661,8 @@ class TestTimingReport:
         elapsed = time.perf_counter() - started
         with capsys.disabled():
             print(
-                f"[softbreak][TIMING] largest tracked page {largest}: {len(text.encode('utf-8'))} bytes, "
+                f"[softbreak][TIMING] largest tracked page {largest}: "
+                f"{len(text.encode('utf-8'))} bytes, "
                 f"{len(result.breaks)} candidates, {elapsed * 1000:.2f} ms (ja)"
             )
         named = f"{TREE_REL}/es/collaboration.md"
@@ -2653,7 +2687,8 @@ class TestTimingReport:
         elapsed = time.perf_counter() - started
         with capsys.disabled():
             print(
-                f"[softbreak][TIMING] synthetic page at GUIDE_MAX_CONTENT_BYTES ({len(text.encode('utf-8'))} "
+                "[softbreak][TIMING] synthetic page at GUIDE_MAX_CONTENT_BYTES "
+                f"({len(text.encode('utf-8'))} "
                 f"bytes), {len(result.breaks)} candidates, {elapsed * 1000:.2f} ms (ja)"
             )
         assert isinstance(result.markdown, str)
