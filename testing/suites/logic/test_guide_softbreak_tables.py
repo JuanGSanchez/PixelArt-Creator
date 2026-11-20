@@ -21,11 +21,12 @@ from __future__ import annotations
 
 import bisect
 import hashlib
+import io
 import sys
 import unicodedata
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict, FrozenSet, Sequence, Set, Tuple
+from typing import Dict, FrozenSet, Optional, Sequence, Set, TextIO, Tuple
 
 import fontTools
 import pytest
@@ -207,6 +208,24 @@ class TestTableShape:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Reporting: the diagnostic line, whatever the output's encoding
+# ---------------------------------------------------------------------------
+
+
+def write_line(line: str, stream: Optional[TextIO] = None) -> None:
+    """Print ``line`` to ``stream`` (the current ``sys.stdout`` if none is given).
+
+    A character the stream's encoding cannot hold is written as its backslash escape
+    instead of raising, so the diagnostic line never decides a case. The text is
+    encoded with the stream's own encoding and ``backslashreplace``, then printed;
+    under a UTF-8 stream that is exactly what ``print`` writes.
+    """
+    target = sys.stdout if stream is None else stream
+    encoding = getattr(target, "encoding", None) or "utf-8"
+    print(line.encode(encoding, "backslashreplace").decode(encoding), file=target)
+
+
 def versions_line() -> str:
     return (
         f"interpreter {sys.version.split()[0]}, unicodedata.unidata_version "
@@ -219,7 +238,7 @@ def versions_line() -> str:
 class TestFontToolsCrossCheck:
     def test_it_prints_what_it_read(self, capsys):
         with capsys.disabled():
-            print(f"[softbreak][FONTTOOLS] {versions_line()}")
+            write_line(f"[softbreak][FONTTOOLS] {versions_line()}")
         assert unicodedata.unidata_version
         assert scripts_header().startswith("# Scripts-")
 
@@ -239,7 +258,7 @@ class TestFontToolsCrossCheck:
         missing = sorted(oracle - listed)
         extra = sorted(listed - oracle)
         with capsys.disabled():
-            print(
+            write_line(
                 f"[softbreak][FONTTOOLS] {name}: table {len(listed)}, "
                 f"oracle {len(oracle)}, table-only {len(extra)}, "
                 f"oracle-only {len(missing)}; {versions_line()}"
@@ -265,7 +284,7 @@ class TestPinnedInterpreter:
     def test_the_pinned_interpreter_carries_the_tables_version(self, capsys):
         pin = python_version_pin()
         with capsys.disabled():
-            print(
+            write_line(
                 f"[softbreak][PIN] running {running_version()}, .python-version {pin}; "
                 f"{versions_line()}"
             )
@@ -428,3 +447,22 @@ class TestEmojiTable:
             assert ord(last) == int(high or low, 16)
             assert ord(before_first) == ord(first) - 1
             assert ord(after_last) == ord(last) + 1
+
+
+def test_the_diagnostic_line_is_written_whole_to_a_cp1252_stream():
+    """A line holding Cyrillic, Han, Hangul and kana is written whole to a cp1252
+    stream, without raising.
+
+    The stream is a text wrapper over a byte buffer, never the console. Each
+    character cp1252 can hold (here the e acute and the euro sign) arrives
+    unchanged; each one it cannot hold arrives as its backslash escape.
+    """
+    held = "[softbreak] ru Ж zh 读 ko 한 ja あ fr é €"
+    buffer = io.BytesIO()
+    stream = io.TextIOWrapper(buffer, "cp1252", newline="\n", write_through=True)
+    write_line(held, stream)
+    written = buffer.getvalue()
+    assert written == (
+        b"[softbreak] ru \\u0416 zh \\u8bfb ko \\ud55c ja \\u3042 fr \xe9 \x80\n"
+    )
+    assert written.decode("cp1252").endswith("fr é €\n")

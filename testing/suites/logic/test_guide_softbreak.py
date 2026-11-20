@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import ast
 import dataclasses
+import io
 import re
 import sys
 import time
@@ -33,7 +34,9 @@ from typing import (
     Collection,
     Dict,
     List,
+    Optional,
     Sequence,
+    TextIO,
     Tuple,
 )
 
@@ -2298,6 +2301,22 @@ def scratch(tmp_path_factory):
         remove_scratch(folder)
 
 
+# --- reporting: the diagnostic line, whatever the output's encoding -----------
+
+
+def write_line(line: str, stream: Optional[TextIO] = None) -> None:
+    """Print ``line`` to ``stream`` (the current ``sys.stdout`` if none is given).
+
+    A character the stream's encoding cannot hold is written as its backslash escape
+    instead of raising, so the diagnostic line never decides a case. The text is
+    encoded with the stream's own encoding and ``backslashreplace``, then printed;
+    under a UTF-8 stream that is exactly what ``print`` writes.
+    """
+    target = sys.stdout if stream is None else stream
+    encoding = getattr(target, "encoding", None) or "utf-8"
+    print(line.encode(encoding, "backslashreplace").decode(encoding), file=target)
+
+
 def judged_trees() -> Dict[str, List[str]]:
     """The tracked trees of the product repository, or a clear failure."""
     try:
@@ -2485,11 +2504,11 @@ class TestNonCjkTrees:
         with capsys.disabled():
             for locale, entry in stats.items():
                 for relative, identical, examined in entry["per_page"]:
-                    print(
+                    write_line(
                         f"[softbreak][non-CJK] {relative}: byte-identical {identical}, "
                         f"candidates {examined}"
                     )
-                print(
+                write_line(
                     f"[softbreak][non-CJK] {locale}: pages {entry['pages']}, "
                     f"candidates {entry['candidates']}, removed {entry['removed']}, "
                     "byte-identical "
@@ -2660,7 +2679,7 @@ class TestTimingReport:
         result = sb.apply_soft_break_rule(text, "ja")
         elapsed = time.perf_counter() - started
         with capsys.disabled():
-            print(
+            write_line(
                 f"[softbreak][TIMING] largest tracked page {largest}: "
                 f"{len(text.encode('utf-8'))} bytes, "
                 f"{len(result.breaks)} candidates, {elapsed * 1000:.2f} ms (ja)"
@@ -2693,3 +2712,22 @@ class TestTimingReport:
             )
         assert isinstance(result.markdown, str)
         assert len(result.breaks) > 0
+
+
+def test_the_diagnostic_line_is_written_whole_to_a_cp1252_stream():
+    """A line holding Cyrillic, Han, Hangul and kana is written whole to a cp1252
+    stream, without raising.
+
+    The stream is a text wrapper over a byte buffer, never the console. Each
+    character cp1252 can hold (here the e acute and the euro sign) arrives
+    unchanged; each one it cannot hold arrives as its backslash escape.
+    """
+    held = "[softbreak] ru Ж zh 读 ko 한 ja あ fr é €"
+    buffer = io.BytesIO()
+    stream = io.TextIOWrapper(buffer, "cp1252", newline="\n", write_through=True)
+    write_line(held, stream)
+    written = buffer.getvalue()
+    assert written == (
+        b"[softbreak] ru \\u0416 zh \\u8bfb ko \\ud55c ja \\u3042 fr \xe9 \x80\n"
+    )
+    assert written.decode("cp1252").endswith("fr é €\n")
