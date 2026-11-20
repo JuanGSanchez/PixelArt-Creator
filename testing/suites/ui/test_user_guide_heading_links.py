@@ -24,9 +24,11 @@ guide content is only read.
 
 from __future__ import annotations
 
+import io
 import re
 import shutil
-from typing import Callable, Dict, List, Optional, Tuple
+import sys
+from typing import Callable, Dict, List, Optional, TextIO, Tuple
 
 import pytest
 from PySide6.QtCore import QUrl
@@ -535,6 +537,24 @@ def test_sc_l10n_ui_019_4_a_link_with_another_scheme_does_not_navigate(
 
 
 # --------------------------------------------------------------------------- #
+# Reporting: the diagnostic line, whatever the output's encoding              #
+# --------------------------------------------------------------------------- #
+
+
+def write_line(line: str, stream: Optional[TextIO] = None) -> None:
+    """Print ``line`` to ``stream`` (the current ``sys.stdout`` if none is given).
+
+    A character the stream's encoding cannot hold is written as its backslash escape
+    instead of raising, so the diagnostic line never decides a case. The text is
+    encoded with the stream's own encoding and ``backslashreplace``, then printed;
+    under a UTF-8 stream that is exactly what ``print`` writes.
+    """
+    target = sys.stdout if stream is None else stream
+    encoding = getattr(target, "encoding", None) or "utf-8"
+    print(line.encode(encoding, "backslashreplace").decode(encoding), file=target)
+
+
+# --------------------------------------------------------------------------- #
 # The ordinal guard                                                           #
 # --------------------------------------------------------------------------- #
 
@@ -592,7 +612,7 @@ def test_the_ordinal_guard_rendered_headings_equal_the_functions_count(
     line = f"[heading links] english pages, rendered headings: {', '.join(lines)}"
     print(line)
     with capsys.disabled():
-        print(line)
+        write_line(line)
     assert lines
     assert mismatched == []
 
@@ -626,3 +646,24 @@ def test_the_page_models_in_every_language_hold_links_to_click(open_guide, model
             same, cross = heading_links(view, topic_ids)
             total += len(same) + len(cross)
         assert total > 0, f"{code}: no heading link in the rendered pages"
+
+
+def test_the_diagnostic_line_is_written_whole_to_a_cp1252_stream():
+    """SC-L10N-UI-019-1 (ordinal guard): a line holding Cyrillic, Han, Hangul and kana
+    is written whole to a cp1252 stream, without raising.
+
+    The stream is a text wrapper over a byte buffer, never the console. Each
+    character cp1252 can hold (here the e acute and the euro sign) arrives
+    unchanged; each one it cannot hold arrives as its backslash escape. The
+    characters are spelled with escapes, so this file stays ASCII.
+    """
+    held = "[heading links] ru \u0416 zh \u8bfb ko \ud55c ja \u3042 fr \u00e9 \u20ac"
+    buffer = io.BytesIO()
+    stream = io.TextIOWrapper(buffer, "cp1252", newline="\n", write_through=True)
+    write_line(held, stream)
+    written = buffer.getvalue()
+    assert written == (
+        b"[heading links] ru \\u0416 zh \\u8bfb ko \\ud55c ja \\u3042 fr "
+        b"\xe9 \x80\n"
+    )
+    assert written.decode("cp1252").endswith("fr \u00e9 \u20ac\n")
