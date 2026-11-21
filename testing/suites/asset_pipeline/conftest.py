@@ -9,14 +9,70 @@ working-tree root.
 from __future__ import annotations
 
 import os
+import shutil
+import stat
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
-from typing import List, NamedTuple, Optional
+from typing import Iterator, List, NamedTuple, Optional
+
+import pytest
 
 #: Repo root: testing/suites/asset_pipeline/conftest.py -> parents[3].
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS_DIR = REPO_ROOT / "scripts"
+
+
+def _redraw_scratch(factory: pytest.TempPathFactory) -> Path:
+    """A new empty folder under ``ORCH_TEST_TMP`` (or pytest's base temp directory)."""
+    root = os.environ.get("ORCH_TEST_TMP")
+    if root:
+        base = Path(root) / "asset-pipeline-redraw"
+        base.mkdir(parents=True, exist_ok=True)
+        return Path(tempfile.mkdtemp(prefix="r-", dir=str(base)))
+    return factory.mktemp("redraw")
+
+
+def _remove(folder: Path) -> None:
+    """Remove a scratch folder, scratch git repositories included.
+
+    The object files of a git repository are read-only, and on Windows ``rmtree``
+    stops at the first one (an ``ignore_errors`` call then leaves the whole folder
+    behind). Each refusal is retried once with the file made writable.
+    """
+
+    def writable(func, path, _error):
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+
+    shutil.rmtree(folder, onexc=writable)
+
+
+@pytest.fixture
+def font_scratch(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
+    """A private folder for the redraw and visual-reference tests, removed afterwards.
+
+    ``ORCH_TEST_TMP`` is the root this repository's test runner configures; without
+    it the folder comes from pytest's own base temp directory. The modules that use
+    it (``test_redraw_set.py`` and its four siblings) build every plant, copy and
+    scratch repository here, and never write beside a committed file.
+    """
+    folder = _redraw_scratch(tmp_path_factory)
+    try:
+        yield folder
+    finally:
+        _remove(folder)
+
+
+@pytest.fixture(scope="module")
+def font_scratch_shared(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
+    """``font_scratch`` for a module that builds one read-only copy and reuses it."""
+    folder = _redraw_scratch(tmp_path_factory)
+    try:
+        yield folder
+    finally:
+        _remove(folder)
 
 
 class ScriptRun(NamedTuple):
