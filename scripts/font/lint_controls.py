@@ -10,6 +10,13 @@ sources, the licence files, the notice file or a built font. A control whose exp
 rule is SCENARIO runs a named scenario that also requires a clean result where one is
 due. The undamaged fixture is linted first, so a quiet check cannot pass.
 
+The controls of the citation records, the no-borrow rule and the no-entry class lint a
+fixture with a measured set, citation records and two small lists (a Joyo list and a
+list of the table of forms) in the scratch folder. Each is a scenario that runs the
+build as a child: an acceptance run (--lint --acceptance-run with both lists), which
+measures the class and writes no-entry-class.txt, and other runs, which judge against
+that record. A planted change is made after the acceptance run that recorded the class.
+
 A control whose expected rule is NAME0 exercises the build's name ID 0 check instead:
 the copy is built in process (Regular only), the listed damage is done to name ID 0 of
 the built file (an edit whose file is "name ID 0" or "name ID 0 (Macintosh)"; any other
@@ -20,6 +27,7 @@ text. The undamaged build must be clean first, so a quiet check cannot pass.
 """
 
 import atexit
+import hashlib
 import os
 import re
 import shutil
@@ -152,8 +160,10 @@ class Scratch:
             shutil.copy(os.path.join(FONTS, fname), os.path.join(self.fonts, fname))
         self.cjk_dir = os.path.join(self.d, "cjk")
         self.notice = os.path.join(self.d, "NOTICE")
+        self.lists = os.path.join(self.d, "lists")
         if cjk:
             make_cjk_fixture(self.cjk_dir)
+            self.set_lists(*fixture_lists("base"))
             shutil.copy(NOTICE, self.notice)
             for fname in os.listdir(FONTS):
                 if fname.endswith(".ttf") and fname.startswith("NifenArt-"):
@@ -183,7 +193,26 @@ class Scratch:
             open(path, "wb").write(text.replace(old, new, 1).encode("utf-8"))
         return True
 
-    def lint(self):
+    def set_lists(self, joyo, hyogai):
+        """Write the two fixture lists (UTF-8, LF) under the real lists' names."""
+        os.makedirs(self.lists, exist_ok=True)
+        with open(os.path.join(self.lists, "joyo-2010.txt"), "wb") as fh:
+            fh.write(joyo.encode("utf-8"))
+        with open(os.path.join(self.lists, "hyogai-2000-checked.txt"), "wb") as fh:
+            fh.write(hyogai.encode("utf-8"))
+
+    def list_args(self, which=("joyo", "hyogai")):
+        out = []
+        if "joyo" in which:
+            out += ["--joyo-list", os.path.join(self.lists, "joyo-2010.txt")]
+        if "hyogai" in which:
+            out += [
+                "--hyogai-list",
+                os.path.join(self.lists, "hyogai-2000-checked.txt"),
+            ]
+        return out
+
+    def lint(self, extra=()):
         args = [
             PY,
             os.path.join(HERE, "build_nifen_art.py"),
@@ -204,6 +233,7 @@ class Scratch:
                 "--out",
                 self.fonts,
             ]
+        args += list(extra)
         return subprocess.run(
             args,
             capture_output=True,
@@ -292,11 +322,29 @@ BLOCK = PLUS.replace(
     ".....##....\n###########\n.....##....\n",
     1,
 )
+JP_HEAD = "glyph U+3400 set=jp src=drawn top=10 x=0\n"
+JP_HEAD_2 = "glyph U+3401 set=jp src=drawn top=10 x=0\n"
+HAN = chr(0x3400)  # the fixture's Han character, in both form sets
+HAN_2 = chr(0x3401)
+JP_LINE = "JP | U+3400 | joyo-2010 | page=1 pos=2 | via=textlayer\n"
+SC_LINE = "SC | U+3400 | tongyong-2013 | page=1 cell=0001 | via=index-agree\n"
+NO_ENTRY_LINE = (
+    "JP | U+3400 | no-entry | absent=joyo-2010,hyogai-2000 | via=membership\n"
+)
+MEASURED_JP = "jp: " + HAN + "\n"
+MEASURED_SC = "sc: " + HAN + "\n"
 FIXTURE_FILES = {
-    "han-jp.txt": "# fixture\nglyph U+3400 set=jp src=drawn same-as=sc\n",
+    "han-jp.txt": "# fixture\n" + JP_HEAD + PLUS,
     "han-sc.txt": "# fixture\n" + SC_HEAD + PLUS,
     "hangul.txt": "# fixture\n" + KR_HEAD + PLUS,
     "r05-exemptions.txt": "# fixture: no entry\n",
+    "han-citations.txt": "# fixture\n" + JP_LINE + SC_LINE,
+    "coverage/measured-set.txt": "# fixture\n"
+    + MEASURED_JP
+    + MEASURED_SC
+    + "kr: "
+    + chr(0xAC00)
+    + "\n",
 }
 _FIXTURE: Dict[str, Any] = {}
 
@@ -306,7 +354,10 @@ def make_cjk_fixture(dst):
     for fname in ("face.txt", "existing-face.sha256"):
         shutil.copy(os.path.join(CJK_SOURCES, fname), os.path.join(dst, fname))
     for fname, text in FIXTURE_FILES.items():
-        open(os.path.join(dst, fname), "wb").write(text.encode("utf-8"))
+        path = os.path.join(dst, *fname.split("/"))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as fh:
+            fh.write(text.encode("utf-8"))
 
 
 def fixture_fonts():
@@ -2026,6 +2077,647 @@ CONTROLS.extend(
         ("freeze: the manifest missing", [], "SCENARIO", "freeze: missing manifest"),
     ]
 )
+
+
+# --------------------------------------------------------------------------
+# The citation records, the no-borrow rule and the no-entry class
+# --------------------------------------------------------------------------
+# Each scenario starts from the clean fixture (a Han character in both form sets, one
+# drawing and one citation record in each, and two small lists), makes one change and
+# runs the build as a child process. The scenarios that need a recorded class first run
+# an acceptance run, which measures the class and writes no-entry-class.txt, and make
+# the planted change after it.
+
+LIST_HEADER = (
+    "# fixture list of the table of forms\n"
+    "#   Slots with no text layer (table No.): %s\n"
+    "#   (In rows 1 the table also prints another form; they are not listed here.)\n"
+    "# The lines below start after this header.\n"
+)
+LIST_KINDS = {
+    "base": {},
+    # U+3400 is in neither list: a member of the no-entry class.
+    "member": {"joyo": (0x5E38,)},
+    # U+3400 is listed only at an unchecked entry of the second list: printed apart.
+    "apart": {
+        "joyo": (0x5E38, 0x3401),
+        "hyogai": (0x3402, 0x3403, 0x3404, 0x3405, 0x3400),
+        "unchecked": (2, 4, 5),
+    },
+    # The same body, one entry marked as checked.
+    "mark": {"unchecked": (2,)},
+    # The Joyo list with one more line.
+    "joyo+1": {"joyo": (0x5E38, 0x3400, 0x3406)},
+}
+
+
+def fixture_lists(kind="base"):
+    """(the Joyo list, the list of the table of forms) of the fixture, as text. The
+    lists satisfy the preconditions of the membership code's own controls: the Joyo list
+    holds U+5E38, and the second list has a checked and an unchecked entry outside it.
+    """
+    spec = {
+        "joyo": (0x5E38, 0x3400),
+        "hyogai": (0x3402, 0x3403, 0x3404, 0x3405),
+        "unchecked": (2, 4),
+    }
+    spec.update(LIST_KINDS[kind])
+    joyo = "# fixture list of the Joyo kanji table\n" + "".join(
+        chr(cp) + "\n" for cp in spec["joyo"]
+    )
+    hyogai = LIST_HEADER % " ".join(str(n) for n in spec["unchecked"]) + "".join(
+        chr(cp) + "\n" for cp in spec["hyogai"]
+    )
+    return joyo, hyogai
+
+
+def decide(name, r, exit_want, viol=(), seen=(), absent=(), no_viol=()):
+    """Decide one run of a citation control. exit_want is the exact exit code (1 is a
+    failed lint). Every text of viol must sit on a VIOLATION line, every text of seen
+    must be printed, no text of absent may be printed and no VIOLATION line may hold a
+    text of no_viol."""
+    lines = r.stdout.split("\n")
+    flagged = [ln for ln in lines if "VIOLATION" in ln]
+    wrong = []
+    if r.returncode != exit_want:
+        wrong.append("exit %d, expected %d" % (r.returncode, exit_want))
+    wrong += ["not flagged: %s" % t for t in viol if not any(t in ln for ln in flagged)]
+    wrong += ["not printed: %s" % t for t in seen if t not in r.stdout]
+    wrong += ["printed: %s" % t for t in absent if t in r.stdout]
+    wrong += ["flagged: %s" % t for t in no_viol if any(t in ln for ln in flagged)]
+    print(
+        "%-44s exit %d  expected exit %d; %s"
+        % (
+            name,
+            r.returncode,
+            exit_want,
+            "CAUGHT" if not wrong else "NOT: " + "; ".join(wrong),
+        )
+    )
+    if wrong:
+        show_child_output(r)
+    return not wrong
+
+
+def recorded_by(first):
+    """Did an acceptance run record a class: exit 0 and the record written."""
+    return first.returncode == 0 and "no-entry-class.txt written: run " in first.stdout
+
+
+def citation_scenario(
+    lists="base",
+    edits=(),
+    pre=False,
+    run="plain",
+    lists_after=None,
+    exit_want=1,
+    viol=(),
+    seen=(),
+    absent=(),
+    no_viol=(),
+    precheck=None,
+):
+    """A scenario of one planted change. run is acceptance (an acceptance run with both
+    lists), lists (a lint given both lists) or plain (a lint given none). pre records a
+    class by an acceptance run first; lists_after changes the lists after it."""
+
+    def scenario(name):
+        if not cjk_fixture_is_clean(name):
+            return False
+        sc = Scratch(cjk=True)
+        sc.name = name
+        try:
+            sc.set_lists(*fixture_lists(lists))
+            if pre:
+                first = sc.lint(["--acceptance-run"] + sc.list_args())
+                if not recorded_by(first):
+                    print(
+                        "%-44s the acceptance run that records the class failed" % name
+                    )
+                    show_child_output(first)
+                    return False
+            if not sc.edit(sc.cjk_dir, list(edits), "the CJK sources"):
+                return None
+            if lists_after:
+                sc.set_lists(*fixture_lists(lists_after))
+            if precheck is not None and not precheck(name):
+                return False
+            extra = {
+                "acceptance": ["--acceptance-run"] + sc.list_args(),
+                "lists": sc.list_args(),
+                "plain": [],
+            }[run]
+            return decide(name, sc.lint(extra), exit_want, viol, seen, absent, no_viol)
+        finally:
+            sc.close()
+
+    return scenario
+
+
+def mark_only_changes_the_bytes(name):
+    """The plant of the list control is one checked mark: the body of the list is
+    byte-identical and the file is not."""
+    base, changed = fixture_lists("base")[1], fixture_lists("mark")[1]
+
+    def body(text):
+        return [ln for ln in text.split("\n") if not ln.startswith("#")]
+
+    ok = body(base) == body(changed) and base != changed
+    if not ok:
+        print("%-44s the planted list differs in more than its marks" % name)
+    return ok
+
+
+def scenario_recorded_run_named(name):
+    """A run other than an acceptance run prints the class it judges against as the
+    recorded class of the acceptance run that recorded it, naming that run."""
+    if not cjk_fixture_is_clean(name):
+        return False
+    sc = Scratch(cjk=True)
+    sc.name = name
+    try:
+        first = sc.lint(["--acceptance-run"] + sc.list_args())
+        found = re.search(r"acceptance run (\d{8}T\d{6}Z-[0-9a-f]{12})", first.stdout)
+        if not recorded_by(first) or not found:
+            print("%-44s the acceptance run that records the class failed" % name)
+            show_child_output(first)
+            return False
+        run_id = found.group(1)
+        return decide(
+            name,
+            sc.lint(),
+            0,
+            seen=[
+                "the recorded class of acceptance run %s; not measured on this run"
+                % run_id
+            ],
+            absent=["measured in this acceptance run"],
+        )
+    finally:
+        sc.close()
+
+
+def scenario_acceptance_refused(name):
+    """An acceptance run without both list options is refused with exit 2, whichever is
+    missing, and records no class."""
+    if not cjk_fixture_is_clean(name):
+        return False
+    sc = Scratch(cjk=True)
+    sc.name = name
+    try:
+        ok = True
+        for label, extra in (
+            ("no list", []),
+            ("only the Joyo list", sc.list_args(("joyo",))),
+            ("only the second list", sc.list_args(("hyogai",))),
+        ):
+            r = sc.lint(["--acceptance-run"] + extra)
+            ok &= decide(
+                "%s (%s)" % (name, label),
+                r,
+                2,
+                seen=["an acceptance run needs both --joyo-list and --hyogai-list"],
+            )
+            ok &= not os.path.exists(os.path.join(sc.cjk_dir, "no-entry-class.txt"))
+        return bool(ok)
+    finally:
+        sc.close()
+
+
+def scenario_malformed_class_file(name):
+    """A class file that cannot be read counts as no recorded class, and is named."""
+    if not cjk_fixture_is_clean(name):
+        return False
+    sc = Scratch(cjk=True)
+    sc.name = name
+    try:
+        first = sc.lint(["--acceptance-run"] + sc.list_args())
+        if not recorded_by(first):
+            print("%-44s the acceptance run that records the class failed" % name)
+            show_child_output(first)
+            return False
+        with open(os.path.join(sc.cjk_dir, "no-entry-class.txt"), "wb") as fh:
+            fh.write(b"not a class file\n")
+        return decide(
+            name,
+            sc.lint(),
+            1,
+            viol=["no-entry-class.txt is malformed and counts as no recorded class"],
+            seen=["no-entry class: none recorded on this run"],
+        )
+    finally:
+        sc.close()
+
+
+JP_DRAWN = JP_HEAD + PLUS
+SC_DRAWN = SC_HEAD + PLUS
+TWO_DRAWINGS = "\n" + JP_HEAD_2 + PLUS
+STALE = "STALE recorded class: "
+
+CITATION_SCENARIOS = {
+    "citation: empty record on a class member": citation_scenario(
+        lists="member",
+        edits=[("han-citations.txt", JP_LINE, "JP | U+3400 |  |  | via=\n")],
+        run="acceptance",
+        viol=["set=jp: its record at line 2 is malformed"],
+        seen=["drawings without a cited place, or citing another standard: 1"],
+    ),
+    "citation: no-entry record on a non-member": citation_scenario(
+        edits=[("han-citations.txt", JP_LINE, NO_ENTRY_LINE)],
+        run="acceptance",
+        viol=[
+            "set=jp (han-citations.txt:2): a no-entry record, but U+3400 is not "
+            "a member of the no-entry class (measured in this run)"
+        ],
+    ),
+    "no-borrow: alias to the other set's drawing": citation_scenario(
+        edits=[
+            (
+                "han-jp.txt",
+                JP_DRAWN,
+                "glyph U+3400 set=jp src=drawn same-as=sc\n",
+            )
+        ],
+        viol=["U+3400 set=jp is made of the sc drawing of the same code point"],
+    ),
+    "no-borrow: transitive route to the other set": citation_scenario(
+        edits=[
+            (
+                "han-jp.txt",
+                JP_DRAWN,
+                "glyph U+3400 set=jp src=recipe:part.a at=0:0\n\n"
+                "glyph part.a set=jp src=drawn same-as=sc\n",
+            ),
+            (
+                "han-sc.txt",
+                None,
+                "\nglyph part.a set=sc src=recipe:U+3400 at=0:0\n",
+            ),
+        ],
+        viol=["U+3400 set=jp is made of the sc drawing of the same code point"],
+    ),
+    "no-borrow: same-as= on the Simplified record": citation_scenario(
+        edits=[("han-sc.txt", SC_DRAWN, "glyph U+3400 set=sc src=drawn same-as=jp\n")],
+        viol=["U+3400 set=sc: same-as=jp is refused"],
+    ),
+    "citation: SC record citing joyo-2010": citation_scenario(
+        edits=[
+            (
+                "han-citations.txt",
+                SC_LINE,
+                "SC | U+3400 | joyo-2010 | page=1 pos=2 | via=textlayer\n",
+            )
+        ],
+        viol=[
+            "set=sc (han-citations.txt:3): cites joyo-2010 page=1 pos=2, which "
+            "is not the standard named for a Simplified-form drawing"
+        ],
+    ),
+    "citation: JP record citing tongyong-2013": citation_scenario(
+        edits=[
+            (
+                "han-citations.txt",
+                JP_LINE,
+                "JP | U+3400 | tongyong-2013 | page=1 cell=0001 | via=index-agree\n",
+            )
+        ],
+        viol=[
+            "set=jp (han-citations.txt:2): cites tongyong-2013 page=1 cell=0001, "
+            "which is not the standard named for a Japanese-form drawing"
+        ],
+    ),
+    "citation: class member citing a place": citation_scenario(
+        lists="member",
+        run="acceptance",
+        viol=[
+            "set=jp (han-citations.txt:2): cites joyo-2010 page=1 pos=2, but a "
+            "member of the no-entry class has no standard entry"
+        ],
+    ),
+    "citation: a malformed line": citation_scenario(
+        edits=[("han-citations.txt", None, "this is not a record\n")],
+        viol=["han-citations.txt:4: a record has five fields"],
+    ),
+    "citation: no shared character": citation_scenario(
+        edits=[("coverage/measured-set.txt", MEASURED_SC, "sc: " + HAN_2 + "\n")],
+        viol=["the shared count is 0"],
+    ),
+    "citation: a pixel-identical pair passes and is counted": citation_scenario(
+        exit_want=0,
+        seen=[
+            "shared characters with both drawings made: 1; with the two drawings "
+            "pixel-identical: 1 (information)",
+            "JP joyo-2010 page=1 pos=2 / SC tongyong-2013 page=1 cell=0001",
+        ],
+        absent=["VIOLATION"],
+    ),
+    "class: stale, the Japanese-form set changed": citation_scenario(
+        pre=True,
+        run="lists",
+        edits=[("coverage/measured-set.txt", MEASURED_JP, "jp: " + HAN + HAN_2 + "\n")],
+        viol=[STALE + "the Japanese-form set differs [jp-set]"],
+        seen=["the recorded class of acceptance run"],
+        absent=["list differs [joyo-list]", "list differs [hyogai-list]"],
+    ),
+    "class: stale, the Joyo list changed by one line": citation_scenario(
+        pre=True,
+        run="lists",
+        lists_after="joyo+1",
+        viol=["kanji table's list differs [joyo-list]"],
+        absent=["differs [jp-set]", "list differs [hyogai-list]"],
+    ),
+    "class: stale, the second list changed by one mark": citation_scenario(
+        pre=True,
+        run="lists",
+        lists_after="mark",
+        precheck=mark_only_changes_the_bytes,
+        viol=["'s list differs [hyogai-list]"],
+        absent=["differs [jp-set]", "differs [joyo-list]"],
+    ),
+    "class: none recorded, a no-entry record fails": citation_scenario(
+        lists="member",
+        run="lists",
+        edits=[("han-citations.txt", JP_LINE, NO_ENTRY_LINE)],
+        viol=[
+            "set=jp (han-citations.txt:2): a no-entry record, but no class is "
+            "recorded on this run: no no-entry record is valid"
+        ],
+        seen=[
+            "no-entry class: none recorded on this run",
+            "drawings without a cited place, or citing another standard: 1",
+        ],
+    ),
+    "class: only the Simplified part changed, not stale": citation_scenario(
+        pre=True,
+        run="lists",
+        edits=[("coverage/measured-set.txt", MEASURED_SC, "sc: " + HAN + HAN_2 + "\n")],
+        exit_want=0,
+        seen=["lists compared: joyo-2010.txt"],
+        absent=["STALE"],
+    ),
+    "class: lists not given, nothing compared": citation_scenario(
+        pre=True,
+        exit_want=0,
+        seen=["lists: not given on this run, not compared"],
+        absent=["STALE"],
+    ),
+    "class: the recorded class print names its run": scenario_recorded_run_named,
+    "class: an acceptance run without both lists is refused": (
+        scenario_acceptance_refused
+    ),
+    "class: a printed-apart drawing fails and no other": citation_scenario(
+        lists="apart",
+        run="acceptance",
+        edits=[
+            ("han-jp.txt", None, TWO_DRAWINGS),
+            (
+                "coverage/measured-set.txt",
+                MEASURED_JP,
+                "jp: " + HAN + HAN_2 + "\n",
+            ),
+            (
+                "han-citations.txt",
+                None,
+                "JP | U+3401 | joyo-2010 | page=1 pos=3 | via=textlayer\n",
+            ),
+        ],
+        viol=[
+            "No.5: its Japanese-form drawing is not accepted while the "
+            "character is printed apart on an unchecked entry"
+        ],
+        seen=["count 1"],
+        no_viol=["U+3401"],
+    ),
+    "class: a malformed class file counts as none": scenario_malformed_class_file,
+}
+SCENARIOS.update(CITATION_SCENARIOS)
+
+CONTROLS.extend([(name, [], "SCENARIO", name) for name in CITATION_SCENARIOS])
+
+
+# --------------------------------------------------------------------------
+# The whole recipe of the other set's drawing, the declared tokens, the lists of record
+# and the class file that only a passing acceptance run writes
+# --------------------------------------------------------------------------
+# A control of this group may make more than one run, each printed on a line of its own
+# under the control's name; the control is caught when every run is.
+
+
+def every_run(parts):
+    """A scenario that runs each (label, scenario) of one control and is caught when
+    every run is; it is skipped when any run is."""
+
+    def scenario(name):
+        results = [run_one("%s (%s)" % (name, label)) for label, run_one in parts]
+        if any(res is None for res in results):
+            return None
+        return all(results)
+
+    return scenario
+
+
+def whole_recipe_run(token, kind):
+    """A Japanese-form recipe whose only part names the Simplified-form record of its
+    own code point, spelled as token. No spelling can reach the other set, so the
+    parser refuses it, naming the line and the token, and no drawing resolves through
+    the other set."""
+    return citation_scenario(
+        edits=[
+            (
+                "han-jp.txt",
+                JP_DRAWN,
+                "glyph U+3400 set=jp src=recipe:%s at=0:0\n" % token,
+            )
+        ],
+        viol=["han-jp.txt:2: bad %s %r" % (kind, token)],
+        absent=["is made of the sc drawing"],
+    )
+
+
+# A name that is not declared: an older spelling of the first token, in two pieces.
+UNDECLARED_TOKEN = "t6" + "6c-1-template"
+
+
+def via_run(token, exit_want, viol=(), absent=()):
+    """The citation of the Japanese-form drawing, with via= set to token."""
+    return citation_scenario(
+        edits=[("han-citations.txt", "via=textlayer", "via=" + token)],
+        exit_want=exit_want,
+        viol=viol,
+        absent=absent,
+    )
+
+
+def sha256_of_file(path):
+    """The sha256 of a file's bytes, or None when the file is absent."""
+    if not os.path.exists(path):
+        return None
+    with open(path, "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
+
+
+def kept(before, after):
+    """What a run did to the class file, in words that do not hold a run id: its sha256
+    before and after are compared and the answer is printed."""
+    if before is None and after is None:
+        return "absent before, absent after"
+    if before is not None and before == after:
+        return "sha256 equal before and after"
+    return "sha256 DIFFERS (before %s, after %s)" % (before, after)
+
+
+def scenario_list_refused(kind):
+    """An acceptance run given a list that is not the list of record, by name or by
+    folder, is refused with exit 2 before any record is read: it names the option, the
+    name given and the name required, runs no lint, and leaves the recorded class file
+    byte-identical."""
+
+    def scenario(name):
+        if not cjk_fixture_is_clean(name):
+            return False
+        sc = Scratch(cjk=True)
+        sc.name = name
+        try:
+            first = sc.lint(["--acceptance-run"] + sc.list_args())
+            if not recorded_by(first):
+                print("%-44s the acceptance run that records the class failed" % name)
+                show_child_output(first)
+                return False
+            joyo = os.path.join(sc.lists, "joyo-2010.txt")
+            hyogai = os.path.join(sc.lists, "hyogai-2000-checked.txt")
+            if kind == "second list":
+                other = os.path.join(sc.lists, "hyogai-2000.txt")
+                shutil.copy(hyogai, other)
+                given = ["--joyo-list", joyo, "--hyogai-list", other]
+                seen = [
+                    "--hyogai-list is named 'hyogai-2000.txt'",
+                    "needs the file name 'hyogai-2000-checked.txt'",
+                ]
+            elif kind == "Joyo list":
+                other = os.path.join(sc.lists, "joyo-2010-copy.txt")
+                shutil.copy(joyo, other)
+                given = ["--joyo-list", other, "--hyogai-list", hyogai]
+                seen = [
+                    "--joyo-list is named 'joyo-2010-copy.txt'",
+                    "needs the file name 'joyo-2010.txt'",
+                ]
+            else:
+                apart = os.path.join(sc.d, "lists-two")
+                os.makedirs(apart)
+                other = os.path.join(apart, "hyogai-2000-checked.txt")
+                shutil.copy(hyogai, other)
+                given = ["--joyo-list", joyo, "--hyogai-list", other]
+                seen = [
+                    "--joyo-list and --hyogai-list lie in two folders",
+                    "needs both lists in one folder",
+                ]
+            record = os.path.join(sc.cjk_dir, "no-entry-class.txt")
+            before = sha256_of_file(record)
+            r = sc.lint(["--acceptance-run"] + given)
+            ok = decide(name, r, 2, seen=seen, absent=["== the existing face"])
+            after = sha256_of_file(record)
+            same = before is not None and before == after
+            print("%-44s class file %s: %s" % (name, kept(before, after), same))
+            return bool(ok and same)
+        finally:
+            sc.close()
+
+    return scenario
+
+
+def scenario_failed_run_writes_nothing(recorded):
+    """A planted lint failure (a 2x2 block in a Han Regular glyph that no exemption
+    declares) makes an acceptance run exit 1 and print that the class file was not
+    written. A class file that was there is byte-identical afterwards; one that was
+    not there is still absent."""
+
+    def scenario(name):
+        if not cjk_fixture_is_clean(name):
+            return False
+        sc = Scratch(cjk=True)
+        sc.name = name
+        try:
+            record = os.path.join(sc.cjk_dir, "no-entry-class.txt")
+            if recorded:
+                first = sc.lint(["--acceptance-run"] + sc.list_args())
+                if not recorded_by(first):
+                    print(
+                        "%-44s the acceptance run that records the class failed" % name
+                    )
+                    show_child_output(first)
+                    return False
+            if not sc.edit(
+                sc.cjk_dir,
+                [("han-jp.txt", JP_DRAWN, JP_HEAD + BLOCK)],
+                "the CJK sources",
+            ):
+                return None
+            before = sha256_of_file(record)
+            r = sc.lint(["--acceptance-run"] + sc.list_args())
+            after = sha256_of_file(record)
+            ok = decide(
+                name,
+                r,
+                1,
+                viol=["U+3400 set=jp"],
+                seen=[
+                    "no-entry-class.txt not written: the acceptance run did not pass, "
+                    "so the recorded class is unchanged (the file is %s)"
+                    % ("left byte-identical" if recorded else "still absent")
+                ],
+                absent=["no-entry-class.txt written"],
+            )
+            same = before == after and (before is not None) == recorded
+            print("%-44s class file %s: %s" % (name, kept(before, after), same))
+            return bool(ok and same)
+        finally:
+            sc.close()
+
+    return scenario
+
+
+NEW_SCENARIOS = {
+    "no-borrow: a whole recipe of the other set's drawing": every_run(
+        [
+            ("U+3400@sc", whole_recipe_run("U+3400@sc", "codepoint")),
+            ("sc:U+3400", whole_recipe_run("sc:U+3400", "glyph reference")),
+        ]
+    ),
+    "citation: via= names one of the declared tokens": every_run(
+        [
+            (
+                "template-identity",
+                via_run("template-identity", 0, absent=["VIOLATION"]),
+            ),
+            (
+                "identity-review",
+                via_run("identity-review", 0, absent=["VIOLATION"]),
+            ),
+            (
+                "an undeclared name",
+                via_run(
+                    UNDECLARED_TOKEN,
+                    1,
+                    viol=["han-citations.txt:2: via= must name one of"],
+                ),
+            ),
+        ]
+    ),
+    "list of record: another name for the second list": scenario_list_refused(
+        "second list"
+    ),
+    "list of record: another name for the Joyo list": scenario_list_refused(
+        "Joyo list"
+    ),
+    "list of record: the two lists in two folders": scenario_list_refused("folders"),
+    "class file: a failed run leaves the recorded one": (
+        scenario_failed_run_writes_nothing(True)
+    ),
+    "class file: a failed run writes none": scenario_failed_run_writes_nothing(False),
+}
+SCENARIOS.update(NEW_SCENARIOS)
+
+CONTROLS.extend([(name, [], "SCENARIO", name) for name in NEW_SCENARIOS])
 
 
 def main():

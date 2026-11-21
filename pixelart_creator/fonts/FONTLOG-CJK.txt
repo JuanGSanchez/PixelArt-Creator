@@ -64,6 +64,49 @@ Design notes:
 - The fonts are generated from plain-text glyph grids by a deterministic build:
   rebuilding the same sources gives byte-identical files.
 
+Standards of the Han forms
+--------------------------
+
+The Han drawings follow the glyph forms of three national standards, each for its own
+language:
+
+- Japanese forms: the Jōyō kanji table of 2010 (常用漢字表), and, for the kanji outside
+  it, the table of forms for kanji outside the Jōyō list of 2000 (表外漢字字体表);
+- Simplified forms: the Table of General Standard Chinese Characters of 2013
+  (通用规范汉字表).
+
+The build's checks of the Japanese forms (the shared drawings, the characters that
+neither Japanese standard lists) are made against two lists of the characters of the
+Japanese standards. The lists are identified by their SHA-256 digests:
+
+  joyo-2010.txt             60a6e9b686ea1673a8b44c3e17b459269957572ad5a9b773a0234d56c6f81d85
+  hyogai-2000-checked.txt   107d793f644732a5a1afd4081315d26db20d66cc9138dbeb8d2718d3169f910b
+
+
+Visual references
+-----------------
+
+The block below is the notice of the visual references used for the redrawn Han
+drawings. It is kept word for word.
+
+Visual references of the redrawn Han drawings
+
+Two regional builds of one typeface family were looked at as a visual
+reference, one for each form set:
+
+  Source Han Sans, Regular, Version 2.005;addfeatures 5.0.0b21: Japanese form
+  Source Han Sans SC, Regular, Version 2.005;addfeatures 5.0.0b21: Simplified form
+
+Owner: © 2014-2025 Adobe (http://www.adobe.com/)
+
+  Japanese form: 394
+  Simplified form: 534
+
+They were used only as a visual reference, looked at by eye, for the
+redrawn drawings. No glyph, outline, bitmap or other data was taken from
+them or from any other font, and no part of them is in the font.
+
+
 Reserved Font Name: "Nifen Art". The author declared this on 10 October 2026, and the
 declaration is made in the copyright line of OFL.txt and in the copyright record (name ID
 0) of every font file of the typeface, these included. Under clause 3 of the SIL Open
@@ -76,6 +119,13 @@ Project: https://github.com/JuanGSanchez/PixelArt-Creator
 
 ChangeLog
 ---------
+
+21 November 2026 (JuanGSanchez)
+  - The glyph sets are complete for the application's text: every Han character and
+    every Hangul syllable that the interface texts, the user guide pages and the names
+    of the languages use is drawn in its family.
+  - Part of the Han drawings were redrawn with a regional build of a typeface family
+    as a visual reference, looked at by eye; see "Visual references" above.
 
 24 October 2026 (JuanGSanchez)
   Nifen Art CJK version 0.100, work in progress.

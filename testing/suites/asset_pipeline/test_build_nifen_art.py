@@ -44,6 +44,14 @@ Scenarios covered (one group each):
   CHANGELOG.md out), -3 (a glyph copied from a font is refused), the CJK cmap rule,
   the scan list for a set with no record, and the OS/2 range bits.
   SC-L10N-BUILD-001-4 is in ``test_existing_face_frozen.py``.
+* SC-L10N-UI-012-3 (the recorded no-entry class), on the same scratch world and on
+  fixture lists named as the lists of record: an acceptance run records the class,
+  bound to the Japanese-form set and to both lists; a run that is not an acceptance run
+  fails as stale and names the input that differs (the set, the Joyo list, the other
+  list by one checked mark), does not compare a list it is not given, and names the
+  recorded run; an acceptance run is refused without both lists and for a list that is
+  not of record, writes no class file when its lint fails, and refuses the drawing of a
+  character printed apart.
 * The lint-control SHARDS: their number is derived from the size of the
   catalogue, ``CONTROLS_PER_SHARD`` controls to a shard, so a new control cannot
   overload one.
@@ -2712,13 +2720,46 @@ TEE_BLOCK_DRAWING = TEE_DRAWING.replace(".....#.....\n", ".....##....\n", 1)
 SC_HEAD = "glyph U+7B80 set=sc src=drawn top=10 x=0\n"
 JP_HEAD = "glyph U+65E5 set=jp src=drawn top=10 x=0\n"
 KR_HEAD = "glyph U+D55C set=kr src=drawn top=10 x=0\n"
+#: One citation record of the fixture's own: the Japanese-form drawing of U+65E5 is the
+#: drawing of a shared character (see ``CJK_FIXTURE_SHARED``), and a shared character's
+#: drawing needs a record (REQ-L10N-UI-012). The page and position are the fixture's own
+#: figures, not a place in the real table: no run of this module reads the Joyo list.
+CITATIONS_TEXT = "# fixture\nJP | U+65E5 | joyo-2010 | page=1 pos=1 | via=textlayer\n"
 CJK_FIXTURE_FILES = {
     "han-jp.txt": "# fixture\n" + JP_HEAD + TEE_DRAWING,
     "han-sc.txt": "# fixture\n" + SC_HEAD + PLUS_DRAWING,
     "hangul.txt": "# fixture\n" + KR_HEAD + ELL_DRAWING,
     "r05-exemptions.txt": "# fixture: no entry\n",
+    "han-citations.txt": CITATIONS_TEXT,
 }
 CJK_FIXTURE_CODE_POINTS = {"jp": 0x65E5, "sc": 0x7B80, "kr": 0xD55C}
+#: The fixture's one shared Han character: the measured set lists it in the
+#: Japanese-form line and in the Simplified-form line, as the real set lists a
+#: character that text of another language uses. The lint's R17 fails a world whose
+#: shared count is 0, because REQ-L10N-UI-012 says the shared count is non-zero; the
+#: world's records are unchanged (it draws U+65E5 in the Japanese-form set only, and a
+#: measured character with no drawing yet is allowed).
+CJK_FIXTURE_SHARED = 0x65E5
+MEASURED_REL = ("coverage", "measured-set.txt")
+RECORD_HEAD = re.compile(r"^glyph U\+([0-9A-F]+) set=(jp|sc|kr)\b", re.M)
+
+
+def measured_set_text(files: Dict[str, str]) -> str:
+    """``coverage/measured-set.txt`` of a world, built from the characters of the
+    world's own record files (never read from the real tree): each set's line holds the
+    characters its records draw, and the shared character stands in the Japanese-form
+    and the Simplified-form line both."""
+    chars: Dict[str, List[str]] = {"jp": [], "sc": [], "kr": []}
+    for text in files.values():
+        for found in RECORD_HEAD.finditer(text):
+            chars[found[2]].append(chr(int(found[1], 16)))
+    for key in ("jp", "sc"):
+        chars[key].append(chr(CJK_FIXTURE_SHARED))
+    return "# fixture\n" + "".join(
+        "%s: %s\n" % (key, "".join(sorted(set(chars[key]))))
+        for key in ("jp", "sc", "kr")
+    )
+
 
 LICENCE_FILES = ("OFL.txt", "FONTLOG.txt", "FONTLOG-CJK.txt")
 FONTLOG_ANCHOR = "Project: https://github.com/JuanGSanchez/PixelArt-Creator\n"
@@ -2763,12 +2804,17 @@ def append_to(path: Path, text: str) -> None:
 
 def write_cjk_sources(cjk: Path, files: Optional[Dict[str, str]] = None) -> None:
     """The CJK source folder of a world: the real face record and freeze manifest,
-    copied, and the record files and exemption list from ``files``."""
+    copied; the record files, exemption list and citation records from ``files``; and
+    the measured set the lint's R17 reads, built from those records."""
     cjk.mkdir(parents=True, exist_ok=True)
     for name in ("face.txt", "existing-face.sha256"):
         shutil.copy(TOOLS_ROOT / "fonts-src" / "nifen-art-cjk" / name, cjk / name)
-    for name, text in (files or CJK_FIXTURE_FILES).items():
+    records = files or CJK_FIXTURE_FILES
+    for name, text in records.items():
         (cjk / name).write_bytes(text.encode("utf-8"))
+    measured = cjk.joinpath(*MEASURED_REL)
+    measured.parent.mkdir(exist_ok=True)
+    measured.write_bytes(measured_set_text(records).encode("utf-8"))
 
 
 def record_counts(cjk: Path) -> Dict[str, int]:
@@ -2847,34 +2893,38 @@ def cjk_fixture_fonts(tmp_path_factory):
         folder = Path(tempfile.mkdtemp(prefix="c-", dir=str(base)))
     else:
         folder = tmp_path_factory.mktemp("nifen-cjk-fixture")
-    cjk, fonts = folder / "cjk", folder / "fonts"
-    write_cjk_sources(cjk)
-    fonts.mkdir()
-    for name in LICENCE_FILES:
-        shutil.copy(FONT_DIR / name, fonts / name)
-    shutil.copy(TOOLS_ROOT / "NOTICE", folder / "NOTICE")
-    res = run_font(
-        BUILD,
-        [
-            "--build",
-            "--face",
-            "nifen-art-cjk",
-            "--cjk-src",
-            cjk,
-            "--out",
-            fonts,
-            "--licence-dir",
-            fonts,
-            "--notice",
-            folder / "NOTICE",
-        ],
-        folder,
-    )
-    assert res.returncode == 0, res.text
-    built = sorted(p.name for p in fonts.glob("*.ttf"))
-    assert len(built) == 6, built
-    yield fonts
-    shutil.rmtree(folder)
+    try:
+        cjk, fonts = folder / "cjk", folder / "fonts"
+        write_cjk_sources(cjk)
+        fonts.mkdir()
+        for name in LICENCE_FILES:
+            shutil.copy(FONT_DIR / name, fonts / name)
+        shutil.copy(TOOLS_ROOT / "NOTICE", folder / "NOTICE")
+        res = run_font(
+            BUILD,
+            [
+                "--build",
+                "--face",
+                "nifen-art-cjk",
+                "--cjk-src",
+                cjk,
+                "--out",
+                fonts,
+                "--licence-dir",
+                fonts,
+                "--notice",
+                folder / "NOTICE",
+            ],
+            folder,
+        )
+        assert res.returncode == 0, res.text
+        built = sorted(p.name for p in fonts.glob("*.ttf"))
+        assert len(built) == 6, built
+        yield fonts
+    finally:
+        # Every path removes the folder, a failed build included: an ``assert`` before
+        # the ``yield`` once left it behind under the temp root.
+        shutil.rmtree(folder, ignore_errors=True)
 
 
 @pytest.fixture
@@ -2925,6 +2975,32 @@ def test_the_scratch_world_holds_records_in_every_set_and_lints_clean(world):
     assert " examined     3  violations   0" in r05_line(res), res.stdout
     assert exempted(res) == 0
     assert "lint violations: 0" in res.stdout
+
+
+def test_req_l10n_build_001_a_cjk_build_without_a_measured_set_is_refused(world):
+    """REQ-L10N-BUILD-001 (the CJK drawing list is *measured by a script*): a CJK world
+    identical to the fixture's but WITHOUT ``coverage/measured-set.txt`` is refused by
+    ``--build``: it exits 1, prints ``VIOLATION measured-set.txt is missing``, and
+    writes no ``.ttf``. The control is the same world WITH the file: it lints clean over
+    a shared count of 1, so the refusal is the missing file and nothing else."""
+    measured = world.cjk.joinpath(*MEASURED_REL)
+    control = clean_lint(world)
+    shared = lint_lines(control, "shared characters (in both")
+    assert len(shared) == 1 and shared[0].endswith(": 1"), control.stdout
+    assert measured.is_file()
+
+    measured.unlink()
+    out = world.scratch / "refused-fonts"
+    out.mkdir()
+    res = cjk_build(world, out=out)
+    assert res.returncode == 1, res.text
+    assert any(
+        v.startswith("VIOLATION measured-set.txt is missing")
+        for v in violations_of(res)
+    ), res.text
+    assert "build refused" in res.text, res.text
+    written = sorted(p.name for p in out.glob("*.ttf"))
+    assert written == [], "a refused build wrote fonts: %s" % written
 
 
 # --- SC-L10N-BUILD-001-6, -7, -8: R05 on the CJK face ------------------------------
@@ -3629,6 +3705,514 @@ def test_a_build_of_a_face_with_no_glyph_record_at_all_is_refused(scratch, world
     assert res.returncode == 1, res.text
     assert "build refused: the CJK face has no glyph record" in res.stdout
     assert not out.exists() or not list(out.glob("*.ttf"))
+
+
+# --- SC-L10N-UI-012-3: the recorded no-entry class and the acceptance run ----------
+#
+# Every case runs the real ``build_nifen_art.py`` on a SCRATCH WORLD (above) and on
+# LISTS of its own: two small files named ``joyo-2010.txt`` and
+# ``hyogai-2000-checked.txt`` in one scratch folder. The real lists are never read, and
+# the class file a case records is the world's own copy. Each planted case is paired
+# with its control: the same world, unplanted, passes, so the failure is the plant and
+# nothing else. What each case expects is worded as REQ-L10N-UI-012 and
+# SC-L10N-UI-012-3 word it.
+
+JOYO_LIST = "joyo-2010.txt"
+HYOGAI_LIST = "hyogai-2000-checked.txt"
+CLASS_FILE = "no-entry-class.txt"
+CLASS_DOT = "㐀"  # in neither list: a member of the no-entry class when measured
+CLASS_NEXT = "㐁"  # in the Joyo list of the "apart" and "checked" lists
+COMMON_KANJI = "常"  # U+5E38, in every Joyo list (a control of the membership code)
+SUN = chr(CJK_FIXTURE_SHARED)
+JOYO_TEXT = "Jōyō kanji table's list"
+HYOGAI_TEXT = "表外漢字字体表's list"
+LIST_HEADER = (
+    "# fixture list of the table of forms\n"
+    "#   Slots with no text layer (table No.): %s\n"
+    "#   (In rows 1 the table also prints another form; they are not listed here.)\n"
+    "# The lines below start after this header.\n"
+)
+#: Each kind of list changes the base by what it names. In the base lists the
+#: Japanese-form character of the world (U+65E5) is in the Joyo list, U+3400 is in
+#: neither list, and the second list holds one checked and one unchecked entry outside
+#: the Joyo list (the preconditions of the membership code's own controls).
+LIST_SPECS: Dict[str, Dict[str, Tuple[int, ...]]] = {
+    "base": {
+        "joyo": (0x5E38, 0x65E5),
+        "hyogai": (0x3402, 0x3403, 0x3404, 0x3405),
+        "unchecked": (2, 4),
+    },
+    # One more line in the Joyo list.
+    "joyo+1": {"joyo": (0x5E38, 0x65E5, 0x3401)},
+    # The base body with entry 4 marked as checked: the bytes differ, the body not.
+    "mark": {"unchecked": (2,)},
+    # U+3400 is listed only at an unchecked entry of the second list: printed apart.
+    "apart": {
+        "joyo": (0x5E38, 0x65E5, 0x3401),
+        "hyogai": (0x3402, 0x3403, 0x3404, 0x3405, 0x3400),
+        "unchecked": (2, 4, 5),
+    },
+    # The same entries with that one checked: U+3400 is listed, and not apart.
+    "checked": {
+        "joyo": (0x5E38, 0x65E5, 0x3401),
+        "hyogai": (0x3402, 0x3403, 0x3404, 0x3405, 0x3400),
+        "unchecked": (2, 4),
+    },
+}
+#: A Japanese-form record of a code point, to be given its drawing.
+CLASS_DRAWINGS = "glyph U+%04X set=jp src=drawn top=10 x=0\n%s"
+NO_ENTRY_RECORD = (
+    "JP | U+3400 | no-entry | absent=joyo-2010,hyogai-2000 | via=membership\n"
+)
+RUN_WRITTEN = re.compile(
+    r"no-entry-class\.txt written: run (\d{8}T\d{6}Z-[0-9a-f]{12})"
+)
+
+
+def fixture_lists(kind: str = "base") -> Tuple[str, str]:
+    """``(the Joyo list, the list of the table of forms)`` of a kind, as text."""
+    spec = dict(LIST_SPECS["base"])
+    spec.update(LIST_SPECS[kind])
+    joyo = "# fixture list of the Joyo kanji table\n" + "".join(
+        chr(cp) + "\n" for cp in spec["joyo"]
+    )
+    hyogai = LIST_HEADER % " ".join(str(n) for n in spec["unchecked"]) + "".join(
+        chr(cp) + "\n" for cp in spec["hyogai"]
+    )
+    return joyo, hyogai
+
+
+def write_lists(folder: Path, kind: str = "base") -> Tuple[Path, Path]:
+    """The two lists of record of a kind, written under their names in one folder."""
+    folder.mkdir(parents=True, exist_ok=True)
+    joyo, hyogai = fixture_lists(kind)
+    paths = (folder / JOYO_LIST, folder / HYOGAI_LIST)
+    paths[0].write_bytes(joyo.encode("utf-8"))
+    paths[1].write_bytes(hyogai.encode("utf-8"))
+    return paths
+
+
+def set_measured(world: World, key: str, characters: str) -> None:
+    """Replace the ``<key>:`` line of the world's measured set."""
+    path = world.cjk.joinpath(*MEASURED_REL)
+    lines = path.read_bytes().decode("utf-8").split("\n")
+    hit = [i for i, ln in enumerate(lines) if ln.startswith(key + ":")]
+    assert len(hit) == 1, "the measured set holds no single %r line" % key
+    lines[hit[0]] = "%s: %s" % (key, characters)
+    path.write_bytes("\n".join(lines).encode("utf-8"))
+
+
+def list_args(joyo: Path, hyogai: Path) -> List[object]:
+    return ["--joyo-list", joyo, "--hyogai-list", hyogai]
+
+
+def acceptance_run(world: World, *more: object) -> Run:
+    """An acceptance run: ``--lint --acceptance-run`` and what it is given."""
+    return run_font(
+        BUILD, cjk_args(world, "--lint", "--acceptance-run", *more), world.scratch
+    )
+
+
+def judging_run(world: World, *more: object) -> Run:
+    """A run that is not an acceptance run: a lint of the CJK face, given the lists or
+    not. It judges against the class the last acceptance run recorded."""
+    return run_font(BUILD, cjk_args(world, "--lint", *more), world.scratch)
+
+
+def class_path(world: World) -> Path:
+    return world.cjk / CLASS_FILE
+
+
+def sha_or_none(path: Path) -> Optional[str]:
+    return _sha(path) if path.is_file() else None
+
+
+def folder_state(folder: Path) -> Dict[str, str]:
+    """Every file of a folder, by name, with its sha256: what a run left behind."""
+    return {p.name: _sha(p) for p in sorted(folder.iterdir()) if p.is_file()}
+
+
+def record_the_class(world: World, kind: str = "base") -> Tuple[Path, Path, str]:
+    """An acceptance run on the lists of a kind, which must record the class: it exits
+    0, prints that the file was written, and the file is there. Returns the two lists
+    and the run's id."""
+    joyo, hyogai = write_lists(world.scratch / "lists", kind)
+    res = acceptance_run(world, *list_args(joyo, hyogai))
+    assert res.returncode == 0, res.text
+    found = RUN_WRITTEN.search(res.stdout)
+    assert found, "the acceptance run did not record the class:\n" + res.stdout
+    assert class_path(world).is_file()
+    return joyo, hyogai, found[1]
+
+
+def agrees(world: World, joyo: Path, hyogai: Path) -> Run:
+    """The control of a stale case: a run given the lists and judging against the class
+    just recorded passes, and compares each list as equal."""
+    res = judging_run(world, *list_args(joyo, hyogai))
+    assert res.returncode == 0, res.text
+    assert violations_of(res) == [], res.text
+    assert "STALE" not in res.stdout and "DIFFERS" not in res.stdout, res.stdout
+    assert lint_lines(res, "lists compared: %s" % JOYO_LIST), res.stdout
+    return res
+
+
+def stale_lines(res: Run) -> List[str]:
+    return [v for v in violations_of(res) if "STALE recorded class" in v]
+
+
+def test_sc_l10n_ui_012_3_control_an_acceptance_run_records_and_binds_the_class(world):
+    """SC-L10N-UI-012-3 (the control of every case below): an acceptance run on the two
+    lists of record exits 0 and writes ``no-entry-class.txt``, bound to the
+    Japanese-form set and to both lists by name, size and sha256; a run that is not an
+    acceptance run and is given the same lists then passes and compares both as
+    equal."""
+    assert not class_path(world).exists()
+    joyo, hyogai, run_id = record_the_class(world)
+    text = class_path(world).read_bytes().decode("utf-8")
+    assert "run: " + run_id in text.split("\n"), text
+    assert "jp-set: count=1 sha256=" in text, text
+    for path in (joyo, hyogai):
+        bound = "name=%s bytes=%d sha256=%s" % (
+            path.name,
+            len(path.read_bytes()),
+            _sha(path),
+        )
+        assert bound in text, text
+    assert "unchecked=2" in text, text
+    res = agrees(world, joyo, hyogai)
+    equal = "%s %s equal" % (HYOGAI_LIST, _sha(hyogai)[:12])
+    assert lint_lines(res, equal), res.stdout
+
+
+def test_sc_l10n_ui_012_3_a_changed_japanese_form_set_is_stale_and_named(world):
+    """SC-L10N-UI-012-3 (a planted recorded class, the Japanese-form set changed): one
+    more character in the Japanese-form set of the measured set, and a run that judges
+    against the recorded class fails as stale and names the Japanese-form set, and no
+    other input."""
+    joyo, hyogai, run_id = record_the_class(world)
+    agrees(world, joyo, hyogai)
+    set_measured(world, "jp", COMMON_KANJI + SUN)
+    res = judging_run(world, *list_args(joyo, hyogai))
+    assert res.returncode == 1, res.text
+    assert violations_of(res) == stale_lines(res), res.text
+    stale = stale_lines(res)
+    assert len(stale) == 1, res.text
+    assert "STALE recorded class: the Japanese-form set differs [jp-set]" in stale[0]
+    assert "the recorded class of acceptance run %s" % run_id in res.stdout
+
+
+def test_sc_l10n_ui_012_3_a_joyo_list_changed_by_one_line_is_stale_and_named(world):
+    """SC-L10N-UI-012-3 (a planted recorded class, the Joyo list changed): one line more
+    in the Joyo list, and a run that judges against the recorded class fails as stale
+    and names the Joyo kanji table's list, and no other input."""
+    joyo, hyogai, _run_id = record_the_class(world)
+    agrees(world, joyo, hyogai)
+    before = joyo.read_bytes()
+    joyo.write_bytes(fixture_lists("joyo+1")[0].encode("utf-8"))
+    assert joyo.read_bytes() != before, "the plant changed nothing"
+    res = judging_run(world, *list_args(joyo, hyogai))
+    assert res.returncode == 1, res.text
+    assert violations_of(res) == stale_lines(res), res.text
+    stale = stale_lines(res)
+    assert len(stale) == 1, res.text
+    assert "STALE recorded class: the %s differs [joyo-list]" % JOYO_TEXT in stale[0]
+    assert "%s %s DIFFERS" % (JOYO_LIST, _sha(joyo)[:12]) in res.stdout, res.stdout
+    assert "%s %s equal" % (HYOGAI_LIST, _sha(hyogai)[:12]) in res.stdout, res.stdout
+
+
+def test_sc_l10n_ui_012_3_a_hyogai_list_changed_by_one_mark_is_stale_and_named(world):
+    """SC-L10N-UI-012-3 (a planted recorded class, the list of the table of forms
+    changed by one entry's checked mark only): the body of the list is byte-identical
+    and its header differs; a run that judges against the recorded class fails as stale
+    and names that list, and no other input."""
+    joyo, hyogai, _run_id = record_the_class(world)
+    agrees(world, joyo, hyogai)
+    before = hyogai.read_bytes().decode("utf-8")
+    hyogai.write_bytes(fixture_lists("mark")[1].encode("utf-8"))
+    after = hyogai.read_bytes().decode("utf-8")
+
+    def body(text: str) -> List[str]:
+        return [ln for ln in text.split("\n") if not ln.startswith("#")]
+
+    assert body(before) == body(after), "the plant changed more than a mark"
+    assert before != after, "the plant changed nothing"
+    res = judging_run(world, *list_args(joyo, hyogai))
+    assert res.returncode == 1, res.text
+    assert violations_of(res) == stale_lines(res), res.text
+    stale = stale_lines(res)
+    assert len(stale) == 1, res.text
+    assert "STALE recorded class: %s differs [hyogai-list]" % HYOGAI_TEXT in stale[0]
+    assert "%s %s equal" % (JOYO_LIST, _sha(joyo)[:12]) in res.stdout, res.stdout
+
+
+def test_sc_l10n_ui_012_3_with_no_recorded_class_a_no_entry_record_fails(world):
+    """SC-L10N-UI-012-3 (*a run with no recorded class has no class, so no no-entry
+    record is valid on it*): U+3400 is in neither list, so an acceptance run measures it
+    as a member and its no-entry record is valid (the control). The same run with no
+    recorded class counts that record among the drawings without a cited place, fails,
+    and prints that no class is recorded."""
+    set_measured(world, "jp", CLASS_DOT + SUN)
+    append_to(world.cjk / "han-citations.txt", NO_ENTRY_RECORD)
+    joyo, hyogai = write_lists(world.scratch / "lists")
+    first = acceptance_run(world, *list_args(joyo, hyogai))
+    assert first.returncode == 0, first.text
+    measured = lint_lines(first, "no-entry class (measured in this acceptance run")
+    assert len(measured) == 1 and "U+3400" in measured[0], first.stdout
+    assert RUN_WRITTEN.search(first.stdout), first.stdout
+    agrees(world, joyo, hyogai)
+
+    class_path(world).unlink()
+    res = judging_run(world, *list_args(joyo, hyogai))
+    assert res.returncode == 1, res.text
+    refusal = (
+        "a no-entry record, but no class is recorded on this run: no no-entry record "
+        "is valid"
+    )
+    assert any("U+3400" in v and refusal in v for v in violations_of(res)), res.text
+    assert lint_lines(res, "no-entry class: none recorded on this run"), res.stdout
+    uncited = "drawings without a cited place, or citing another standard: 1"
+    assert lint_lines(res, uncited), res.stdout
+
+
+def test_sc_l10n_ui_012_3_a_change_to_the_simplified_part_is_not_stale(world):
+    """SC-L10N-UI-012-3 (the negative of the Japanese-form binding): a change to the
+    Simplified-form line of the measured set alone is not stale. The measured set file
+    differs, the Japanese-form line does not, and a run that judges against the
+    recorded class passes and compares both lists as equal."""
+    joyo, hyogai, _run_id = record_the_class(world)
+    path = world.cjk.joinpath(*MEASURED_REL)
+    before = path.read_bytes()
+    simplified = chr(CJK_FIXTURE_CODE_POINTS["sc"])
+    set_measured(world, "sc", COMMON_KANJI + SUN + simplified)
+    after = path.read_bytes()
+    assert before != after, "the plant changed nothing"
+
+    def line(data: bytes, key: str) -> str:
+        lines = data.decode("utf-8").split("\n")
+        return [ln for ln in lines if ln.startswith(key + ":")][0]
+
+    assert line(before, "jp") == line(after, "jp")
+    assert line(before, "sc") != line(after, "sc")
+    res = judging_run(world, *list_args(joyo, hyogai))
+    assert res.returncode == 0, res.text
+    assert violations_of(res) == [] and "STALE" not in res.stdout, res.text
+    assert "%s %s equal" % (JOYO_LIST, _sha(joyo)[:12]) in res.stdout, res.stdout
+    assert "%s %s equal" % (HYOGAI_LIST, _sha(hyogai)[:12]) in res.stdout, res.stdout
+
+
+def test_sc_l10n_ui_012_3_a_run_not_given_the_lists_compares_none_and_fails_on_none(
+    world,
+):
+    """SC-L10N-UI-012-3 (the negative of the list binding; *where it cannot reach the
+    lists, as in the product's own runs, it does not see a change to the lists made
+    after the last acceptance run*): both lists are changed after the class is
+    recorded, and a run that is not given them prints that they are not compared and
+    fails on nothing that is list-based. The control: the same changed lists, given,
+    are what the stale rule sees."""
+    joyo, hyogai, run_id = record_the_class(world)
+    joyo.write_bytes(fixture_lists("joyo+1")[0].encode("utf-8"))
+    hyogai.write_bytes(fixture_lists("mark")[1].encode("utf-8"))
+    res = judging_run(world)
+    assert res.returncode == 0, res.text
+    assert violations_of(res) == [], res.text
+    assert lint_lines(res, "lists: not given on this run, not compared"), res.stdout
+    assert "STALE" not in res.stdout and "DIFFERS" not in res.stdout, res.stdout
+    assert "the recorded class of acceptance run %s" % run_id in res.stdout
+    seen = judging_run(world, *list_args(joyo, hyogai))
+    assert seen.returncode == 1, seen.text
+    assert len(stale_lines(seen)) == 2, seen.text
+
+
+def test_sc_l10n_ui_012_3_a_later_run_names_the_recorded_acceptance_run(world):
+    """SC-L10N-UI-012-3 (*the members printed are the recorded class, and the print says
+    so*): the class print of a run that is not an acceptance run names the acceptance
+    run that recorded it, by the id the acceptance run printed and the class file
+    holds, and says it was not measured on this run; the acceptance run's own print
+    says it was."""
+    joyo, hyogai, run_id = record_the_class(world)
+    assert "run: " + run_id in class_path(world).read_bytes().decode("utf-8")
+    recorded = (
+        "no-entry class (the recorded class of acceptance run %s; not measured on "
+        "this run)" % run_id
+    )
+    res = agrees(world, joyo, hyogai)
+    assert lint_lines(res, recorded), res.stdout
+    assert "measured in this acceptance run" not in res.stdout, res.stdout
+    bare = judging_run(world)
+    assert bare.returncode == 0, bare.text
+    assert lint_lines(bare, recorded), bare.stdout
+
+
+@pytest.mark.parametrize(
+    "which", ["no list", "only the Joyo list", "only the second list"]
+)
+def test_sc_l10n_ui_012_3_an_acceptance_run_without_both_lists_is_refused(world, which):
+    """SC-L10N-UI-012-3 (*the acceptance run has no default list*): an acceptance run
+    given neither list, only the Joyo list or only the list of the table of forms is
+    refused with exit 2, runs no lint and writes no class file. The control: given
+    both, it exits 0."""
+    joyo, hyogai = write_lists(world.scratch / "lists")
+    given = {
+        "no list": [],
+        "only the Joyo list": ["--joyo-list", joyo],
+        "only the second list": ["--hyogai-list", hyogai],
+    }[which]
+    before = folder_state(world.cjk)
+    res = acceptance_run(world, *given)
+    assert res.returncode == 2, res.text
+    needs = "refused: an acceptance run needs both --joyo-list and --hyogai-list"
+    assert needs in res.stdout, res.text
+    assert "== the existing face" not in res.stdout, res.stdout
+    assert not class_path(world).exists()
+    assert folder_state(world.cjk) == before, "a refused run changed the CJK sources"
+    control = acceptance_run(world, *list_args(joyo, hyogai))
+    assert control.returncode == 0, control.text
+
+
+def _hyogai_under_another_name(world: World, joyo: Path, hyogai: Path):
+    other = hyogai.parent / "hyogai-2000.txt"
+    shutil.copy(hyogai, other)
+    return joyo, other
+
+
+def _joyo_under_another_name(world: World, joyo: Path, hyogai: Path):
+    other = joyo.parent / "joyo-2010-copy.txt"
+    shutil.copy(joyo, other)
+    return other, hyogai
+
+
+def _lists_in_two_folders(world: World, joyo: Path, hyogai: Path):
+    other = world.scratch / "lists-two" / HYOGAI_LIST
+    other.parent.mkdir()
+    shutil.copy(hyogai, other)
+    return joyo, other
+
+
+LIST_REFUSALS = {
+    "the list of the table of forms under another name": (
+        _hyogai_under_another_name,
+        [
+            "--hyogai-list is named 'hyogai-2000.txt'",
+            "needs the file name 'hyogai-2000-checked.txt'",
+        ],
+    ),
+    "the Joyo list under another name": (
+        _joyo_under_another_name,
+        [
+            "--joyo-list is named 'joyo-2010-copy.txt'",
+            "needs the file name 'joyo-2010.txt'",
+        ],
+    ),
+    "the two lists in two folders": (
+        _lists_in_two_folders,
+        [
+            "--joyo-list and --hyogai-list lie in two folders",
+            "needs both lists in one folder",
+        ],
+    ),
+}
+
+
+@pytest.mark.parametrize("which", sorted(LIST_REFUSALS))
+def test_sc_l10n_ui_012_3_an_acceptance_run_refuses_a_list_not_of_record(world, which):
+    """SC-L10N-UI-012-3 (*the lists in the standards folder*): an acceptance run is
+    refused, exit 2, before any record is read and with nothing written, unless the
+    Joyo list is named ``joyo-2010.txt``, the list of the table of forms is named
+    ``hyogai-2000-checked.txt`` and both lie in one folder. The refusal names the
+    option, the name it was given and the name it needs; the class file recorded before
+    is byte-identical afterwards and no file of the CJK sources changed. The control is
+    the acceptance run that recorded the class from the same two lists under the right
+    names."""
+    plant, seen = LIST_REFUSALS[which]
+    joyo, hyogai, _run_id = record_the_class(world)
+    given_joyo, given_hyogai = plant(world, joyo, hyogai)
+    before_class = sha_or_none(class_path(world))
+    before = folder_state(world.cjk)
+    assert before_class is not None
+    res = acceptance_run(world, *list_args(given_joyo, given_hyogai))
+    assert res.returncode == 2, res.text
+    for text in seen:
+        assert text in res.stdout, res.stdout
+    nothing = "refused: nothing was read and no-entry-class.txt was not written"
+    assert nothing in res.stdout, res.stdout
+    assert "== the existing face" not in res.stdout, "a lint ran on a refused run"
+    assert sha_or_none(class_path(world)) == before_class
+    assert folder_state(world.cjk) == before, "a refused run changed the CJK sources"
+
+
+@pytest.mark.parametrize(
+    "recorded", [True, False], ids=["a class is recorded", "no class is recorded"]
+)
+def test_sc_l10n_ui_012_3_a_failed_acceptance_run_writes_no_class_file(world, recorded):
+    """SC-L10N-UI-012-3 (*an acceptance run is a run cited as evidence that a drawing is
+    accepted*): a lint that fails is not that, so an acceptance run whose lint fails
+    (an undeclared 2x2 block in a Han Regular glyph) exits 1 and says the class file
+    was not written. A class file that was there is byte-identical afterwards and one
+    that was not there is still absent; the folder holds no temporary file either. The
+    control is the same world before the plant: its acceptance run passed and recorded
+    the class."""
+    joyo, hyogai, _run_id = record_the_class(world)
+    if not recorded:
+        class_path(world).unlink()
+    edit_once(
+        world.cjk / "han-jp.txt", JP_HEAD + TEE_DRAWING, JP_HEAD + TEE_BLOCK_DRAWING
+    )
+    before_class = sha_or_none(class_path(world))
+    assert (before_class is not None) == recorded
+    before = folder_state(world.cjk)
+    res = acceptance_run(world, *list_args(joyo, hyogai))
+    assert res.returncode == 1, res.text
+    assert any("U+65E5 set=jp" in v for v in violations_of(res)), res.text
+    left = "left byte-identical" if recorded else "still absent"
+    not_written = (
+        "no-entry-class.txt not written: the acceptance run did not pass, so the "
+        "recorded class is unchanged (the file is %s)" % left
+    )
+    assert not_written in res.stdout, res.stdout
+    assert RUN_WRITTEN.search(res.stdout) is None, res.stdout
+    assert sha_or_none(class_path(world)) == before_class
+    assert folder_state(world.cjk) == before, "the folder holds a changed or new file"
+
+
+def test_sc_l10n_ui_012_3_a_character_printed_apart_is_refused_its_drawing(world):
+    """SC-L10N-UI-012-3 (*that character's Japanese-form drawing is not accepted while
+    it is printed so*): U+3400 is listed in neither list but at an entry of the list of
+    the table of forms that is not yet checked, so it is printed apart with its entry.
+    An acceptance run fails on its Japanese-form drawing and names it, prints the apart
+    count, and no other drawing is named. The control is the same world with that entry
+    checked: nothing is printed apart and the run passes."""
+    append_to(
+        world.cjk / "han-jp.txt",
+        "\n"
+        + CLASS_DRAWINGS % (0x3400, TEE_DRAWING)
+        + "\n"
+        + CLASS_DRAWINGS % (0x3401, TEE_DRAWING),
+    )
+    append_to(
+        world.cjk / "han-citations.txt",
+        "JP | U+3401 | joyo-2010 | page=1 pos=3 | via=textlayer\n",
+    )
+    set_measured(world, "jp", CLASS_DOT + CLASS_NEXT + SUN)
+    assert record_counts(world.cjk)["jp"] == 3
+
+    joyo, hyogai = write_lists(world.scratch / "lists", "checked")
+    control = acceptance_run(world, *list_args(joyo, hyogai))
+    assert control.returncode == 0, control.text
+    none_apart = "printed apart, on an unchecked entry: none - count 0"
+    assert lint_lines(control, none_apart), control.stdout
+    class_path(world).unlink()
+
+    joyo, hyogai = write_lists(world.scratch / "lists", "apart")
+    res = acceptance_run(world, *list_args(joyo, hyogai))
+    assert res.returncode == 1, res.text
+    named = [v for v in violations_of(res) if "printed apart" in v]
+    assert len(named) == 1 and "U+3400" in named[0] and "No.5" in named[0], res.text
+    refused = "its Japanese-form drawing is not accepted while the character is"
+    assert refused in named[0], res.text
+    assert violations_of(res) == named, "a drawing other than the apart one was named"
+    assert lint_lines(res, "printed apart, on an unchecked entry: U+3400"), res.stdout
+    assert lint_lines(res, "- count 1"), res.stdout
+    assert not class_path(world).exists(), "a failed acceptance run wrote the class"
 
 
 # --- The OS/2 range bits of the CJK build ---------------------------------------

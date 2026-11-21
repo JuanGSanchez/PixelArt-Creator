@@ -21,6 +21,26 @@ with no glyph record yet lints clean (the glyph rules examine nothing) and has n
 font to build or check. The lint of either face runs the donor gate: one donor
 (the hiragana), none for the CJK face.
 
+The lint of the CJK face also judges the citation records of its Han drawings
+(han-citations.txt), refuses a drawing that takes the other form set's drawing, and
+holds the no-entry class to the class recorded in no-entry-class.txt. Only an
+acceptance run measures that class:
+
+    python scripts/font/build_nifen_art.py --lint --acceptance-run \\
+        --joyo-list <file> --hyogai-list <file>
+
+It is one process: it classifies the Japanese-form set against the two lists and lints
+both faces against what it has just measured. Only when both faces lint with no
+violation does it write no-entry-class.txt, with the three inputs the class is bound
+to, to a temporary file in the same folder that then replaces the old one in one step;
+after a failed lint the file on disk is left as it was, or absent. The two lists must be
+the lists of record: files named joyo-2010.txt and hyogai-2000-checked.txt, in one
+folder, or the run is refused (exit 2) before any record is read. Any other lint
+judges against the recorded class,
+fails as stale when the Japanese-form set differs from the recorded one or when a
+list it is given (--joyo-list, --hyogai-list) differs, and names each input that
+differs. Without a recorded class there is no class.
+
 --verify-freeze, and --check, compare the existing face with its freeze manifest
 (fonts-src/nifen-art-cjk/existing-face.sha256), which is never regenerated.
 
@@ -1887,9 +1907,6 @@ def cjk_allowance(cjk, key, set_key, seen=()):
     if rec is None or ident in seen:
         return 0
     seen = seen + (ident,)
-    same = rec.attrs.get("same-as")
-    if same:
-        return cjk_allowance(cjk, key, same, seen)
     src = rec.attrs.get("src", "")
     total = dots_of(rec)
     if src.startswith("recipe:"):
@@ -1911,10 +1928,66 @@ def order_key(ident):
     return (rank, 1, 0, str(key))
 
 
-def lint_cjk(srcs, font, cjk, cfont, script_files, src_dir, cjk_dir, fonts_dir, gate):
+def citations_module():
+    """The citation module beside this script: the records of the Han drawings, the
+    no-entry class and its membership code."""
+    import han_citations
+
+    return han_citations
+
+
+def cjk_reach(cjk, ident):
+    """Every record a CJK drawing is made of, directly or through other records: the
+    drawing a same-as names, and the parts of a recipe (parts are read in the set of
+    the recipe that names them)."""
+    seen, stack = set(), [ident]
+    while stack:
+        cur = stack.pop()
+        rec = cjk.glyphs.get(cur)
+        if rec is None:
+            continue
+        nxt = []
+        same = rec.attrs.get("same-as")
+        if same:
+            nxt.append((cur[0], same))
+        src = rec.attrs.get("src", "")
+        if src.startswith("recipe:"):
+            for tok in src[len("recipe:") :].split(","):
+                try:
+                    nxt.append((cjk_key(tok, ""), cur[1]))
+                except SourceError:
+                    pass
+        for item in nxt:
+            if item not in seen:
+                seen.add(item)
+                stack.append(item)
+    seen.discard(ident)
+    return seen
+
+
+def lint_cjk(
+    srcs,
+    font,
+    cjk,
+    cfont,
+    script_files,
+    src_dir,
+    cjk_dir,
+    fonts_dir,
+    gate,
+    mode=None,
+    view=None,
+):
     """Lint of the CJK face. Returns the report. A face with no glyph record yet is a
     scaffold: the rules that examine glyphs report 0 examined and do not fail on that
-    alone (they fail as soon as a record exists and the rule reaches none of it)."""
+    alone (they fail as soon as a record exists and the rule reaches none of it).
+
+    mode says what kind of run this is (han_citations.RunMode: an acceptance run, or
+    any other run with the lists it was given). view is the class the run judges
+    against; an acceptance run measures it before the lint and passes it in, every other
+    run reads the recorded class here."""
+    hc = citations_module()
+    mode = mode or hc.RunMode()
     rep = Report()
     m = srcs.metrics
     face = cjk.face
@@ -1925,7 +1998,7 @@ def lint_cjk(srcs, font, cjk, cfont, script_files, src_dir, cjk_dir, fonts_dir, 
     cp_idents = [i for i in idents if isinstance(i[0], int)]
     if not idents:
         rep.zero_ok.update(
-            ("R01", "R04", "R05", "R06", "R07", "R08", "R10", "R15", "R16")
+            ("R01", "R04", "R05", "R06", "R07", "R08", "R10", "R15", "R16", "R18")
         )
 
     # Resolve every record once. A record that does not resolve is reported by R06 and
@@ -2160,6 +2233,9 @@ def lint_cjk(srcs, font, cjk, cfont, script_files, src_dir, cjk_dir, fonts_dir, 
     v, n = [], 0
     targets = [os.path.join(cjk_dir, "face.txt")]
     targets += [os.path.join(cjk_dir, name) for name in cjk.files]
+    for extra in (hc.CITATIONS_NAME, hc.CLASS_NAME):
+        if os.path.exists(os.path.join(cjk_dir, extra)):
+            targets.append(os.path.join(cjk_dir, extra))
     log = os.path.join(fonts_dir, "FONTLOG-CJK.txt")
     if os.path.exists(log):
         targets.append(log)
@@ -2355,6 +2431,58 @@ def lint_cjk(srcs, font, cjk, cfont, script_files, src_dir, cjk_dir, fonts_dir, 
         if not isinstance(ident[0], int) and (src != "drawn" or same):
             v.append("%s: a part is a drawing of its own (src=drawn, no same-as)" % t)
     rep.add("R16", "provenance: every glyph is drawn or a recipe of drawn glyphs", n, v)
+
+    # R17 to R20: citation records, the no-borrow rule, the no-entry class ----------
+    han, _hangul = han_hangul_ranges()
+    measured, measured_error = hc.load_measured(cjk_dir)
+    jp_cps = sorted(measured["jp"]) if measured else []
+    try:
+        if view is None:
+            view = hc.class_view(cjk_dir, mode, jp_cps)
+        judged = hc.judge(
+            cjk_dir,
+            measured,
+            measured_error,
+            [i for i in idents if isinstance(i[0], int)],
+            {
+                i: r.attrs["same-as"]
+                for i, r in cjk.glyphs.items()
+                if isinstance(i[0], int) and r.attrs.get("same-as")
+            },
+            lambda ident: cjk_reach(cjk, ident),
+            lambda ident: pixels.get(ident),
+            lambda cp: in_ranges(cp, han),
+            view,
+            mode.acceptance,
+        )
+    except hc.HanCitationError as exc:
+        raise SourceError(str(exc))
+    for code, title, res in (
+        (
+            "R17",
+            "citation records: shared drawings and class members cite a place",
+            judged.citations,
+        ),
+        (
+            "R18",
+            "no drawing takes the other form set's drawing",
+            judged.no_borrow,
+        ),
+        (
+            "R19",
+            "no-entry class: measured or recorded, bound to its inputs",
+            judged.the_class,
+        ),
+    ):
+        rep.add(code, title, res.examined, res.violations, res.info)
+    if view.kind == "measured":
+        failed = [name for name, ok in view.controls if not ok]
+        rep.add(
+            "R20",
+            "membership code: its controls pass before a class is recorded",
+            len(view.controls),
+            ["control failed: %s" % name for name in failed],
+        )
     return rep
 
 
@@ -2624,11 +2752,8 @@ def built_name_findings(paths, cjk_scope):
     return out
 
 
-def cmd_lint(args):
-    if getattr(args, "face", FACE_EXISTING) == FACE_CJK:
-        return cmd_lint_cjk(args)
-    srcs = parse_sources(args.src)
-    font = Font(srcs)
+def lint_existing_face(args, srcs, font):
+    """Lint of the existing face and its summary lines. Returns the exit code."""
     rep = lint(
         srcs,
         font,
@@ -2650,9 +2775,17 @@ def cmd_lint(args):
     return 1 if rep.failed() else 0
 
 
-def cmd_lint_cjk(args):
-    srcs = parse_sources(args.src)
-    font = Font(srcs)
+def run_mode(args, acceptance=False):
+    """What kind of run this is, and the lists it was given."""
+    return citations_module().RunMode(
+        acceptance,
+        getattr(args, "joyo_list", None),
+        getattr(args, "hyogai_list", None),
+    )
+
+
+def lint_cjk_face(args, srcs, font, view=None, mode=None):
+    """Lint of the CJK face and its summary lines. Returns the exit code."""
     cjk_src = getattr(args, "cjk_src", DEFAULT_CJK_SRC)
     cjk = parse_cjk_sources(cjk_src)
     cfont = CjkFont(cjk)
@@ -2666,6 +2799,8 @@ def cmd_lint_cjk(args):
         cjk_src,
         getattr(args, "licence_dir", DEFAULT_OUT),
         existing_gate(args, True),
+        mode or run_mode(args),
+        view,
     )
     total = rep.print()
     counts = {s: len(cfont.codepoints(s)) for s in CJK_SETS}
@@ -2681,6 +2816,76 @@ def cmd_lint_cjk(args):
         )
     print("lint violations: %d" % total)
     return 1 if rep.failed() else 0
+
+
+def cmd_lint(args):
+    if getattr(args, "acceptance_run", False):
+        return cmd_lint_acceptance(args)
+    if getattr(args, "face", FACE_EXISTING) == FACE_CJK:
+        return cmd_lint_cjk(args)
+    srcs = parse_sources(args.src)
+    return lint_existing_face(args, srcs, Font(srcs))
+
+
+def cmd_lint_cjk(args):
+    srcs = parse_sources(args.src)
+    return lint_cjk_face(args, srcs, Font(srcs))
+
+
+def cmd_lint_acceptance(args):
+    """An acceptance run: one process that measures the no-entry class from the two
+    lists, writes no-entry-class.txt, and lints both faces against what it measured."""
+    hc = citations_module()
+    if not (getattr(args, "joyo_list", None) and getattr(args, "hyogai_list", None)):
+        print(
+            "refused: an acceptance run needs both --joyo-list and --hyogai-list; it "
+            "has no default list"
+        )
+        return 2
+    refusals = hc.list_refusals(args.joyo_list, args.hyogai_list)
+    if refusals:
+        for line in refusals:
+            print(line)
+        print("refused: nothing was read and no-entry-class.txt was not written")
+        return 2
+    cjk_src = getattr(args, "cjk_src", DEFAULT_CJK_SRC)
+    measured, error = hc.load_measured(cjk_src)
+    if measured is None:
+        raise SourceError(
+            "%s: an acceptance run measures the class of that set" % error
+        )
+    mode = run_mode(args, True)
+    try:
+        view = hc.class_view(cjk_src, mode, sorted(measured["jp"]))
+    except hc.HanCitationError as exc:
+        raise SourceError(str(exc))
+    srcs = parse_sources(args.src)
+    font = Font(srcs)
+    print("== the existing face (nifen-art) ==")
+    code = lint_existing_face(args, srcs, font)
+    print("== the CJK face (nifen-art-cjk) ==")
+    code |= lint_cjk_face(args, srcs, font, view, mode)
+    if code == 0 and view.file_text is not None:
+        try:
+            hc.write_class_file(cjk_src, view)
+        except hc.HanCitationError as exc:
+            raise SourceError(str(exc))
+        print("%s written: run %s" % (hc.CLASS_NAME, view.run_id))
+    else:
+        left = (
+            "left byte-identical"
+            if os.path.exists(os.path.join(cjk_src, hc.CLASS_NAME))
+            else "still absent"
+        )
+        print(
+            "%s not written: the acceptance run did not pass, so the recorded class "
+            "is unchanged (the file is %s)" % (hc.CLASS_NAME, left)
+        )
+    print(
+        "acceptance run %s: both faces linted, %s"
+        % (view.run_id, "exit 1" if code else "exit 0")
+    )
+    return code
 
 
 def cmd_build(args):
@@ -2734,6 +2939,7 @@ def cmd_build_cjk(args):
         cjk_src,
         getattr(args, "licence_dir", DEFAULT_OUT),
         existing_gate(args, False),
+        run_mode(args),
     )
     if rep.failed():
         rep.print()
@@ -2908,6 +3114,26 @@ def main():
         default=None,
         help="scratch folder for --check (default: the system temporary folder)",
     )
+    ap.add_argument(
+        "--acceptance-run",
+        action="store_true",
+        help="with --lint: measure the no-entry class from the two lists in this run, "
+        "lint both faces and, when both pass, write no-entry-class.txt (needs both "
+        "list options, files named joyo-2010.txt and hyogai-2000-checked.txt in one "
+        "folder; --face is ignored)",
+    )
+    ap.add_argument(
+        "--joyo-list",
+        default=None,
+        help="the Joyo list. Compared with the recorded class by every other lint of "
+        "the CJK face that is given it; read by an acceptance run",
+    )
+    ap.add_argument(
+        "--hyogai-list",
+        default=None,
+        help="the list of the table of forms for characters outside the Joyo list: "
+        "compared or read as --joyo-list is",
+    )
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--lint", action="store_true")
     g.add_argument("--build", action="store_true")
@@ -2919,6 +3145,9 @@ def main():
     )
     args = ap.parse_args()
     make_console_safe()
+    if args.acceptance_run and not args.lint:
+        print("refused: --acceptance-run is an option of --lint")
+        return 2
     try:
         if args.lint:
             return cmd_lint(args)

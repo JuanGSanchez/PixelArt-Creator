@@ -1588,7 +1588,6 @@ glyph U+B2F7 set=kr src=recipe:part.iA1s-d,part.vA1-a,part.f-s
 glyph U+B2F9 set=kr src=recipe:part.iA1s-d,part.vA1-a,part.f-ng
 glyph U+B2FF set=kr src=recipe:part.iA1s-d,part.vA1-a,part.f-h
 glyph U+B300 set=kr src=recipe:part.iA0d-d,part.vA0-ae
-glyph U+B308 set=kr src=recipe:part.iA1d-d,part.vA1-ae,part.f-r
 glyph U+B311 set=kr src=recipe:part.iA1d-d,part.vA1-ae,part.f-b
 glyph U+B313 set=kr src=recipe:part.iA1d-d,part.vA1-ae,part.f-s
 glyph U+B354 set=kr src=recipe:part.iA0s-d,part.vA0-eo
@@ -2020,7 +2019,6 @@ glyph U+CEEC set=kr src=recipe:part.iA1s-k,part.vA1-eo,part.f-r
 glyph U+CEF4 set=kr src=recipe:part.iA1s-k,part.vA1-eo,part.f-m
 glyph U+CEF7 set=kr src=recipe:part.iA1s-k,part.vA1-eo,part.f-s
 glyph U+CF00 set=kr src=recipe:part.iA0d-k,part.vA0-e
-glyph U+CF13 set=kr src=recipe:part.iA1d-k,part.vA1-e,part.f-s
 glyph U+CF1C set=kr src=recipe:part.iA0s-k,part.vA0-yeo
 glyph U+CF24 set=kr src=recipe:part.iA1s-k,part.vA1-yeo,part.f-r
 glyph U+CF2D set=kr src=recipe:part.iA1s-k,part.vA1-yeo,part.f-b

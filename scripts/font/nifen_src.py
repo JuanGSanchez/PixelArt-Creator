@@ -3,8 +3,8 @@
 Parses the text-grid sources, resolves every codepoint to a bitmap in either
 weight (drawn, aliased or composed by recipe, with the Bold rule and hand
 overlays), and converts bitmaps to rectilinear outlines. The CJK face has its own
-records (parse_cjk_sources, CjkFont): drawn, shared between form sets or composed
-by recipe, one drawing for both weights.
+records (parse_cjk_sources, CjkFont): drawn or composed by recipe, one drawing for
+both weights, and no drawing shared between form sets.
 
 Pure Python 3, standard library only. The font build (fontTools) lives in
 build_nifen_art.py; nothing here imports it.
@@ -898,10 +898,11 @@ def parse_cjk_sources(cjk_dir: str) -> CjkSources:
 class CjkFont:
     """The glyphs of the CJK face, resolved per form set.
 
-    A glyph is drawn (rows), the same drawing as another set's (``same-as=``), or a
-    recipe: the union of other glyphs of its own set, each shifted by the offset
-    given in ``at=`` (``src=recipe:<ids>`` with ``at=dx:dy,dx:dy``). The weights are
-    one drawing: ``pixels(..., "bold")`` returns the Regular bitmap unchanged.
+    A glyph is drawn (rows) or a recipe: the union of other glyphs of its own set,
+    each shifted by the offset given in ``at=`` (``src=recipe:<ids>`` with
+    ``at=dx:dy,dx:dy``). A drawing is never the same drawing as another set's: a record
+    that names one (``same-as=``) does not resolve. The weights are one drawing:
+    ``pixels(..., "bold")`` returns the Regular bitmap unchanged.
     """
 
     def __init__(self, cjk: CjkSources):
@@ -931,10 +932,11 @@ class CjkFont:
         same = rec.attrs.get("same-as")
         src = rec.attrs.get("src", "")
         if same:
-            if same == s or same not in CJK_SETS:
-                raise SourceError(f"{where}: same-as={same!r} is not another set")
-            px = self.pixels(key, same, "regular", stack)
-        elif src.startswith("recipe:"):
+            raise SourceError(
+                f"{where}: same-as={same!r}: a drawing is never shared with another "
+                "form set"
+            )
+        if src.startswith("recipe:"):
             ids = [t for t in src[len("recipe:") :].split(",") if t]
             offs = rec.attrs["at"].split(",") if "at" in rec.attrs else []
             if not ids or (offs and len(offs) != len(ids)):
@@ -948,7 +950,13 @@ class CjkFont:
                         dx, dy = int(a), int(b)
                     except ValueError:
                         raise SourceError(f"{where}: bad at= offset {offs[i]!r}")
-                part = self.pixels(cjk_key(tok, where), s, "regular", stack)
+                part_key = cjk_key(tok, where)
+                if (part_key, s) not in self.cjk.glyphs:
+                    raise SourceError(
+                        f"{where}: {cjk_key_text(part_key)} set={s}: "
+                        "there is no such record"
+                    )
+                part = self.pixels(part_key, s, "regular", stack)
                 acc |= shift(part, dx, dy)
             px = frozenset(acc)
         else:
