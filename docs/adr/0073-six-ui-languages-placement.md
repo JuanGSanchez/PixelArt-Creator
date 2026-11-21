@@ -200,7 +200,8 @@ the font module, and the font module must never import `main_window` back.
 - An English guide edit must reach seven trees, or the parity gate fails.
 - A translation that adds a Han or Hangul character fails coverage until it is drawn.
 - An English string change must reach seven catalogues through the worklist export and import.
-- Each installer spec gains 18 Qt catalogue lines and one `NOTICE` line; package data gains the
+- Each installer spec gains 6 Qt catalogue lines (18 across the three specs) and one `NOTICE` line;
+  package data gains the
   six CJK fonts, `FONTLOG-CJK.txt` and the `meta.json` glob.
 
 **What it constrains.** `logic/locale_match.py`, `logic/language_names.py` and
@@ -240,3 +241,205 @@ check.
   the candidate set is a placement question, never a reason to widen the set.
 - Whether `QFont` equality treats a family list as the application's "already applied" comparisons
   need is not measured; the change that puts the chain into `ui/app_font.py` measures it.
+
+## Amendment (2026-11-18) — the chain tag: Qt's font cache shares a family list's tail
+
+This record was committed before the decision below was taken. The decision text above is left as
+written; this section adds to decision 1.
+
+### Context: the cache behaviour, as measured
+
+In one process, a font whose family list has the **same first family, pixel size and weight** as a
+font drawn earlier is drawn with the **earlier list's later families**. Measured first on Windows 11
+(PySide6 6.11.1, the `offscreen` platform plugin, application-registered fixture faces, the drawing
+family read from `QTextLayout` glyph runs): `[Nifen Art, A]` drawn first, then `[Nifen Art, B]`, and
+the second draws its Han and Hangul from `A`. A different pixel size, weight, italic, stretch, style
+hint, style strategy or style name gets its own tail. Letter spacing, kerning and underline do not.
+`QApplication.setFont`, `QFont.insertSubstitutions` and idle time do not clear it. The sharing was
+then reproduced on **Linux, Windows and macOS** by the pull request's CI legs.
+
+The chains of decision 1 are exposed. The Simplified and Japanese lists share their first family
+(Nifen Art, or the platform family), and the language selector shows 简体中文 and 日本語 at once, so
+the second list built would draw its Han in the first list's forms (SC-L10N-UI-012-1, -2). **The
+mirror is measured too:** a one-family font drawn after an untagged chain of the same first family
+draws its Han from that chain's tail. The reverse order was measured not to happen.
+
+### Decision
+
+1. **The invariant.** Two fonts the application draws with must not agree on every attribute that
+   Qt's font cache keys on unless their family lists are equal. As measured, those attributes are
+   the first family, pixel size, weight, italic, stretch, style hint, style strategy and style name;
+   the families after the first are not among them.
+2. **The one-family rule.** An untagged style strategy belongs to one-family fonts only. Every
+   family list of two or more families that the application draws with carries a tag, and a family
+   reaches a font in `ui/` only through `chain_font`. A one-family list has no tail to share, and
+   it is what every font Qt builds by itself already is.
+3. **The mechanism: a chain tag carried in the style strategy.**
+   - `logic/font_chain.py` (Qt-free): `ChainTagRegistry(capacity)` with
+     `tag_for(families) -> int | None`. The same list always gets the same tag. Family names are
+     compared case-insensitively, as Qt compares them. Two different lists with the same first
+     family get different tags, and lists with different first families are allocated
+     independently. A one-family list returns `None` (untagged) and uses no capacity. A first family
+     that would need more lists than the capacity raises `ChainTagsExhausted`, naming the family; an
+     empty list raises `ValueError`. **The capacity is not a tuning value:** it is the length of
+     the flag table in `ui/`, passed in by the caller, so `logic/constants.py` gains no constant and
+     `logic/` holds no Qt-derived number.
+   - `ui/app_font.py`: `_CHAIN_TAG_STRATEGIES` holds one combination of the kept flags per tag, and
+     one module-level registry is sized by it. **`chain_font(base, families) -> QFont` is the only
+     place a family list is put on a font:** it copies `base`, calls `setFamilies(families)`, clears
+     every tag flag from the base's style strategy and sets the list's flags (clearing first, so a
+     flag already on the base cannot mask the tag). A `setFamilies(` or `setFamily(` call elsewhere
+     in `ui/`, or a family name passed to a `QFont` constructor other than the base that
+     `interface_font()` hands to `chain_font`, is a defect.
+   - On `ChainTagsExhausted`, `chain_font` logs a warning naming the list and returns **the first
+     family alone, untagged**. Its Han then comes from substitution or the operating system's
+     fallback: visibly wrong and logged, but drawn from no other font's face, and no other font is
+     changed. An untagged chain is exactly the font that produced the mirror, so the exhausted path
+     never makes one.
+4. **The kept flags, and what grounds them.** `QFont.StyleStrategy.PreferMatch`, `PreferQuality`,
+   `PreferOutline` and `ForceOutline`, **all four kept on all three operating systems** by the
+   pull request's three-OS measurement step. Each flag separates (it gives a list its own tail) and
+   is neutral (no difference in glyph runs, layout pixels, label pixels or eight font metrics at 12,
+   13 and 24 px). The 15 non-empty combinations each draw their own tail.
+   - **Documentation:** the Qt 6.6 and current `QFont` pages
+     (<https://doc.qt.io/qt-6.6/qfont.html>, <https://doc.qt.io/qt-6/qfont.html>) describe the four
+     only as font-type and size-selection hints. No page says they affect glyph selection, merging,
+     fallback, hinting, antialiasing or metrics.
+   - **Source, Qt 6.11:** the style strategy is part of `QFontDef`'s comparison and hash
+     (<https://raw.githubusercontent.com/qt/qtbase/6.11/src/gui/text/qfont_p.h>), and each fallback
+     engine is requested with a copy of the primary font's definition, so a tag reaches every cache
+     layer read. The fontconfig backend reads none of the four
+     (<https://raw.githubusercontent.com/qt/qtbase/6.11/src/gui/text/unix/qfontconfigdatabase.cpp>).
+     `PreferMatch`, `PreferQuality` and `ForceOutline` are read in foundry and size selection
+     (<https://raw.githubusercontent.com/qt/qtbase/6.11/src/gui/text/qfontdatabase.cpp>).
+   - **Not grounded by reading:** the DirectWrite, GDI and CoreText handling of the four flags. The
+     measurement on the Windows and macOS legs covers that. That the style strategy is part of the
+     cache key is **measured and read in the source; it is not documented**.
+5. **The table's order: fewest flags first, the size-matching flags before the outline ones**
+   (`PreferMatch`, `PreferQuality`, `PreferOutline`, `ForceOutline`). Tags 1 to 3 are
+   `{PreferMatch}`, `{PreferQuality}` and `{PreferOutline}`. Today's two lists per first family take
+   tags 1 and 2, so **no tag the product allocates today carries an outline flag.** A third list
+   would take tag 3, `{PreferOutline}`, which the three-OS measurement of the kept flags found
+   neutral at 12, 13 and 24 px. A fallback face with a bitmap style is not measured.
+   Reason: `ForceOutline` is a filter in foundry selection that skips styles that are
+   not smoothly scalable, and the outline flags' documented subject is outline against bitmap. A
+   platform or fallback face behind the CJK faces is where a bitmap style could exist, and that case
+   is not measured. This is a minimal-exposure choice, not a claim that the outline flags misbehave.
+
+### Alternatives considered
+
+- **Distinct first families per chain.** Rejected: the Nifen-mode chains would then collide with the
+  system-font chains whenever the guide page and the interface share one process, and putting the
+  CJK families first in the platform chain would change the platform text's line box on every
+  machine, which the maintainer's family-order ruling (above, "What has no detector") excluded.
+- **A distinct tail length per chain.** Rejected: a source reading suggests that the multi-engine
+  key orders fallback lists by their size only. That reading is unresolved, it is not Qt's
+  documented behaviour, and it was not measured as the cause. It also cannot tell the Simplified
+  and Japanese chains apart, which have equal length, without padding the ruled family lists.
+- **Clearing the font cache on a language switch.** Rejected: application-font registration and
+  removal clear Qt's font cache as a side effect (6.11 source), which is not a documented contract.
+  Whether a clear equals a fresh process is unresolved, and it cannot help the selector, where both
+  forms are on screen at once.
+- **A stateless tag that encodes only the Han form.** Rejected: it is enough for the two forms, but
+  not for two per-class platform fonts with different Han-capable families.
+- **Stretch, style hint or style name as the carrier.** Rejected: stretch has only two neutral
+  values; the style hint may steer fallback under fontconfig (not verified); the style name changes
+  which face is matched.
+
+### Consequences
+
+- One more font engine per tagged list, a handful per process.
+- A third Han form (Traditional Chinese) needs one more list per first family and fits the
+  capacity. Past the capacity, the exception names the family; nothing is silent.
+- **Tests.** `testing/suites/logic/test_font_chain.py`: the registry's injectivity, against a copy
+  keyed on the first family only, as Qt's cache is (it must fail). The three-OS mechanism module
+  `testing/suites/ui/test_font_family_chain_mechanism.py`: an untagged pair shares a tail where the
+  platform shares at all, a tagged pair does not, and tagged and untagged renderings are
+  pixel-identical. The application-level and glyph-level checks walk every font the application
+  holds and draw both selector labels in each build order, each beside an untagged control.
+
+### Escalation route
+
+If a later Qt or platform shares tails and the style strategy does not separate them there, the
+three-OS mechanism test is red on that platform. The decision then returns to architecture. The
+directions known within the maintainer's family-order ruling would be used up, so the question goes
+to the maintainer as a re-opening of that ruling. An implementer does not change it.
+
+## Amendment (2026-11-18) — soft line breaks in guide pages (`REQ-L10N-UI-014`)
+
+This record was committed before the decision below was taken. The decision text above is left as
+written. Grounded by the feature's implementation plan, section 9.17, as revised in its sections
+9.19, 9.20, 9.22 and 9.23 (a design record kept outside this repository), and by `REQ-L10N-UI-014`.
+
+### Context
+
+Markdown shows a line ending inside a paragraph as a space. Where a translator wrapped Japanese or
+Chinese text, the guide window then shows a stray space between two ideographs. `REQ-L10N-UI-014`
+decides, for each such break, from the visible characters on either side and in the spec's clause
+order, whether the window removes it.
+
+### Decision
+
+1. **The seam.** One Qt-free module, `logic/guide_softbreak.py`, holds the rule. Its public surface
+   is `decide(before, after, language) -> SoftBreakClause` and
+   `apply_soft_break_rule(markdown, language) -> SoftBreakResult`, which returns the text to show and
+   every break it examined, removed or kept, with the clause that decided it. It imports the standard
+   library and `logic.constants` only. `ui/user_guide.py` applies it between the content reader and
+   `QTextDocument.setMarkdown`. **`data/guide_content.read_content` stays the raw-source reader.** A
+   page in which no break is removed is returned byte for byte, and the transform is idempotent
+   (a stated property of its contract, checked by a property test).
+   - Rejected: **inside `read_content`.** Other readers, and the guide's structure checks, count the
+     source's lines and tokens, and the rule is a display decision over characters, not I/O
+     (Article I).
+   - Rejected: **post-processing the `QTextDocument` in `ui/`.** The domain rule could then be tested
+     only through Qt, and Qt exposes no map from source positions to document positions.
+   - Rejected: **a CommonMark library at run time.** It is not a declared dependency, and it is not
+     the renderer: Qt's own Markdown parser is.
+   - Rejected: **unwrapping the content.** The maintainer ruled it out.
+   - Rejected: **iterating the transform to a fixed point.** It would hide a guard's inconsistency
+     instead of removing it, and break the linear bound.
+2. **The joiner, and its measurement.** A removed break joins two lines. The joiner is empty, except
+   where the source characters at the join would form Markdown syntax, and then it is an empty HTML
+   comment, `<!---->` (`SOFT_BREAK_JOINER`). Let L be the source character before the break and R the
+   one after it. The comment is inserted when L or R is `*`, `_` or `~`; when both are a backtick;
+   when L is `]` and R is `(`, `[` or `:`; or when L is `!` and R is `[`.
+   - **Measured** with PySide6 6.11.1 (`setMarkdown`, then `toPlainText` and the bold fragments,
+     offscreen): `**移動。**`, a line ending, then `を選ぶ` shows 移動。 in bold. Joined plainly, the
+     closing run is no longer right-flanking, and the literal `**` shows with no bold. Joined with the
+     comment, 移動。 is bold again and the comment shows nothing.
+   - A paragraph whose parse the join would change keeps its breaks. Tables start and end where Qt
+     starts and ends them.
+   - The joiner's effect is measured on 6.11.1 only, not at the 6.6 floor.
+3. **The tables: their version and source.** Script=Hangul, Script=Latin and Emoji are not in
+   `unicodedata`. They are therefore inclusive range tables in `logic/constants.py`
+   (`GUIDE_HANGUL_SCRIPT_RANGES`, `GUIDE_LATIN_SCRIPT_RANGES`, `GUIDE_EMOJI_RANGES`), with
+   `GUIDE_UCD_TABLES_VERSION = "16.0.0"`.
+   - They were generated deterministically from byte-exact copies of Unicode 16.0.0's `Scripts.txt`
+     and `emoji/emoji-data.txt`. Each table's total equals its file's own "Total" line (Emoji:
+     `GUIDE_EMOJI_TOTAL_ELEMENTS = 1431`), and both files' SHA-256 are quoted in the module's
+     docstring.
+   - East Asian Width, the general category and decimal digits come from the running `unicodedata`.
+   - **Invariant:** the tables' version equals the UCD version of the interpreter that
+     `.python-version` names. The tables are not `HANGUL_RANGES`, which is the Hangul Syllables block
+     for font coverage and excludes the jamo that clause 2 counts as Hangul.
+   - Rejected: **keeping 15.1.0 with a declared version split.** It would commit about 296 KB of UCD
+     data, and the rule would read Script and Emoji at one version and East Asian Width at another.
+   - **Recurrence, accepted:** each interpreter move that changes `unidata_version` needs a new
+     byte-exact pair of files.
+4. **Clause 4's marks are data.** `GUIDE_SOFTBREAK_IDEOGRAPHIC_MARKS` in `logic/constants.py` maps a
+   page language to its marks, as `REQ-L10N-UI-014` clause 4 lists them: `ja` → 、 。 「 」 『 』;
+   `zh_CN` → 、 。 ， ； ： ！ ？ （ ） 《 》 “ ”. A mark not in its page's list leaves the break as a
+   space. The languages of clauses 3 and 4 are data too (`CLAUSE3_LANGUAGES`, and
+   `CLAUSE4_LANGUAGES`, derived from the mapping). Changing a list is a data edit plus scenario
+   rows, not a code change.
+
+### Consequences
+
+- The Simplified Chinese guide tree takes the rule with no code change.
+- If the guide's full-body search is ever built, it indexes the rule's output, the text the reader
+  sees, never the raw source.
+- **Tests:** `testing/suites/logic/test_guide_softbreak.py`, `test_guide_softbreak_join.py`,
+  `test_guide_softbreak_tablemodel.py` and `test_guide_softbreak_tables.py` (the logic layer and the
+  tables), and `testing/suites/ui/test_user_guide_softbreak.py` (what the window shows).
+- **What has no detector:** idempotence is argued from the rules and checked by a property test, not
+  proven. The joiner's effect is known for PySide6 6.11.1 only.
