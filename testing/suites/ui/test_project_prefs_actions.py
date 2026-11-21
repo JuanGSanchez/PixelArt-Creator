@@ -213,7 +213,7 @@ EXPECTED_LANGUAGE_COUNT = 8
 #: 1, so the zero-examined guard still bites and every run prints ``HELD`` and how
 #: many of the eight were discovered. The commit that brings the eighth catalogue
 #: flips it to ``True``.
-EIGHT_LANGUAGE_FLOOR_ENFORCED = False
+EIGHT_LANGUAGE_FLOOR_ENFORCED = True
 
 #: A minimum on the product keys the every-key case examines (the denominator).
 _MIN_PRODUCT_KEYS = 3

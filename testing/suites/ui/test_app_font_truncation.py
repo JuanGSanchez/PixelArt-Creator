@@ -2320,7 +2320,7 @@ EXPECTED_LANGUAGE_COUNT = 8
 #: so the zero-examined guard still bites, and every run prints ``HELD`` and how many
 #: of the eight were discovered. The commit that compiles the eighth catalogue flips
 #: it to ``True``.
-EIGHT_LANGUAGE_FLOOR_ENFORCED = False
+EIGHT_LANGUAGE_FLOOR_ENFORCED = True
 
 
 def active_language_floor() -> int:

@@ -71,7 +71,7 @@ EXPECTED_LANGUAGE_COUNT = 8
 #: 1, so the zero-examined guard still bites and every run prints ``HELD`` and how
 #: many of the eight were discovered. The commit that brings the eighth catalogue
 #: flips it to ``True``.
-EIGHT_LANGUAGE_FLOOR_ENFORCED = False
+EIGHT_LANGUAGE_FLOOR_ENFORCED = True
 
 _MAIN_WINDOW = "Main_Window"
 _WHEEL = "Colour_Wheel_Widget"
