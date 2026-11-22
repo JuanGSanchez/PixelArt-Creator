@@ -660,11 +660,25 @@ def _page_blocks(dialog: User_Guide_Dialog):
 
 
 def _is_crisp(fmt) -> bool:
-    """Whether a fragment's format asks for no smoothing (read from the property)."""
+    """Whether a fragment's format asks for no smoothing (read from the property).
+
+    The interface font carries a family-chain tag in its style strategy beside the
+    no-smoothing request, so the strategy is read with the tag bits cleared and what
+    is left must be the no-smoothing request alone. The tag bits are the product's
+    (``app_font._CHAIN_TAG_MASK``), never a literal written here.
+    """
     from PySide6.QtGui import QFont, QTextFormat
 
+    from pixelart_creator.ui import app_font
+
     value = fmt.property(QTextFormat.Property.FontStyleStrategy)
-    return value == QFont.StyleStrategy.NoAntialias.value
+    if value is None:
+        return False
+    strategy = int(getattr(value, "value", value))
+    return (
+        strategy & ~int(app_font._CHAIN_TAG_MASK.value)
+        == QFont.StyleStrategy.NoAntialias.value
+    )
 
 
 def test_vi_ui_013_headings_are_on_the_em_grid_and_stay_crisp_with_the_pixel_font(
@@ -750,6 +764,42 @@ def test_vi_ui_013_a_fresh_font_would_lose_the_no_smoothing_request(qtbot):
     right.setFont(forced)
     assert _is_crisp(right) is True
     assert _is_crisp(bad) is False
+
+
+def test_vi_ui_013_a_tag_without_the_no_smoothing_request_is_not_crisp(qtbot):
+    """Control: a font that carries a family-chain tag and no no-smoothing request
+    is read as smoothed.
+
+    The reading used above clears the tag bits before it looks at the strategy, so it
+    must not pass on the tag alone. The interface font carries a tag and the
+    no-smoothing request; the same font with the request taken off still carries the
+    tag (read back here, so the control cannot be vacuous) and reads as smoothed.
+    """
+    from PySide6.QtGui import QFont, QTextCharFormat, QTextFormat
+
+    from pixelart_creator.ui import app_font
+
+    mask = int(app_font._CHAIN_TAG_MASK.value)
+    no_smoothing = QFont.StyleStrategy.NoAntialias.value
+    crisp_font = app_font.interface_font()
+    crisp_font.setPixelSize(24)
+    tagged = QFont(crisp_font)
+    tagged.setStyleStrategy(
+        crisp_font.styleStrategy() & ~QFont.StyleStrategy.NoAntialias
+    )
+    strategy = int(tagged.styleStrategy().value)
+    assert strategy & mask, "the control font carries no chain tag"
+    assert not strategy & no_smoothing, "the control font still asks for no smoothing"
+    smoothed = QTextCharFormat()
+    smoothed.setFont(tagged)
+    assert (
+        smoothed.property(QTextFormat.Property.FontStyleStrategy) == strategy
+    ), "the strategy did not reach the format's property"
+    assert _is_crisp(smoothed) is False
+    crisp = QTextCharFormat()
+    crisp.setFont(crisp_font)
+    assert int(crisp_font.styleStrategy().value) & mask, "the crisp font has no tag"
+    assert _is_crisp(crisp) is True
 
 
 def test_vi_ui_013_headings_keep_qts_own_sizes_while_the_pixel_font_is_off(

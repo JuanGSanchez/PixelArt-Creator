@@ -3066,15 +3066,32 @@ def run_vertical_script_control(
 ) -> Dict[str, object]:
     """Plant labels and buttons at, and one pixel below, the height their text needs.
 
-    Called inside the child process, with the stand-in as the platform font and the
-    language's modelled chain. Every plant is measured by the real examiner; the
-    ones that fit are measured by the broken copy as well.
+    Called inside the child process, with the stand-in as the platform font and
+    ``language`` the active interface language, made so through the product's own
+    language manager. The Han form of the application font follows the active
+    language (REQ-L10N-UI-012), so the chain measured is the one the product builds
+    for it, and a product that gave the wrong form for ``language`` fails the
+    premise below.
+    Every plant is measured by the real examiner; the ones that fit are measured
+    by the broken copy as well.
     """
+    from pixelart_creator.ui import i18n
+
     app = QApplication.instance()
     assert isinstance(app, QApplication)
     register_instruments(standin, latin_only)
     plugin = positive_control()
-    han_capable_platform(app, language)
+    manager = i18n.LanguageManager(app)
+    assert manager.set_language(language) is True, f"no {language!r} catalogue"
+    assert i18n.current_ui_language() == language, (
+        f"the interface language is {i18n.current_ui_language()!r}, "
+        f"not {language!r}"
+    )
+    chained = han_capable_platform(app, language)
+    assert chained["source"] == "product", (
+        f"the application font carries {chained['chain']!r}: the product put no "
+        "family list on it, so nothing of the product was measured"
+    )
     family, face_box, pure = _face_facts(face_file)
     # The premise of every case: the pure text really is drawn by the CJK face, and
     # a Latin letter and a space really are not. A control whose premise does not

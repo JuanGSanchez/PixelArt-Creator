@@ -54,9 +54,9 @@ from typing import Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Ty
 
 import pytest
 import shiboken6
-from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, QPoint, Qt, QTimer
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtWidgets import QAbstractButton, QApplication, QDockWidget, QWidget
 from pytestqt.exceptions import capture_exceptions
 
 from pixelart_creator.logic.language_names import selector_entries
@@ -493,3 +493,287 @@ def test_switching_every_shipped_language_twice_on_one_window_raises_nothing(
         if shiboken6.isValid(manager):
             manager.set_language(_SOURCE_LANGUAGE)
             QApplication.processEvents()
+
+
+# --------------------------------------------------------------------------- #
+# The dock title-bar buttons: Qt's own names and descriptions follow the       #
+# language (REQ-L10N-UI-001 accessible names, REQ-L10N-UI-005 Qt's own text)  #
+# --------------------------------------------------------------------------- #
+#
+# A dock's close and float buttons are Qt's. Qt builds their accessible names and
+# descriptions from its own catalogue when the dock is made and keeps them across a
+# language switch, so a window that does nothing shows a stale language on them.
+# The four existing cases above catch it only as a count of differing entries; this
+# one reads the texts themselves against the catalogue of the language chosen.
+
+#: Qt's object name of each title-bar button, and the (context, source) pairs of
+#: Qt's catalogue that give its accessible name and its accessible description.
+_DOCK_BUTTON_TEXTS = {
+    "qt_dockwidget_closebutton": (
+        ("QDockWidget", "Close"),
+        ("QDockWidget", "Closes the dock widget"),
+    ),
+    "qt_dockwidget_floatbutton": (
+        ("QDockWidget", "Float"),
+        ("QDockWidget", "Undocks and re-attaches the dock widget"),
+    ),
+}
+
+
+def _dock_texts_wanted() -> Dict[str, Tuple[str, str]]:
+    """Return what Qt's catalogue gives each button for the language now active.
+
+    Read with the translators the product has installed (the application's and Qt's
+    own base catalogue), and never from a dock: a dock's buttons are what is checked.
+    English is what Qt returns when no translator knows the pair.
+    """
+    return {
+        name: (
+            QCoreApplication.translate(*name_pair),
+            QCoreApplication.translate(*description_pair),
+        )
+        for name, (name_pair, description_pair) in _DOCK_BUTTON_TEXTS.items()
+    }
+
+
+def _dock_button_problems(
+    window: Main_Window, wanted: Dict[str, Tuple[str, str]]
+) -> Tuple[int, int, List[str]]:
+    """Return ``(docks, buttons, problems)`` for every dock the window holds.
+
+    Every ``QDockWidget`` below the window, found by walking; for each, the close and
+    float buttons' accessible name and description against ``wanted``. A dock that
+    lacks a button is a problem, so a button that is missing cannot pass unseen.
+    """
+    docks = window.findChildren(QDockWidget)
+    problems: List[str] = []
+    buttons = 0
+    for index, dock in enumerate(docks):
+        label = f"dock {index} {dock.windowTitle()!r}"
+        found = {
+            button.objectName(): button
+            for button in dock.findChildren(QAbstractButton)
+            if button.objectName() in wanted
+        }
+        for object_name, (name, description) in wanted.items():
+            button = found.get(object_name)
+            if button is None:
+                problems.append(f"{label}: no {object_name}")
+                continue
+            buttons += 1
+            if button.accessibleName() != name:
+                problems.append(
+                    f"{label} {object_name} accessible name "
+                    f"{button.accessibleName()!r}, wanted {name!r}"
+                )
+            if button.accessibleDescription() != description:
+                problems.append(
+                    f"{label} {object_name} accessible description "
+                    f"{button.accessibleDescription()!r}, wanted {description!r}"
+                )
+    return len(docks), buttons, problems
+
+
+def _walk_dock_buttons(
+    window: Main_Window,
+    qtbot,
+    theme: str,
+    sequence: Optional[Sequence[str]] = None,
+) -> Tuple[int, int, List[str], List[Tuple[str, List[str]]]]:
+    """Switch through every language and back to English; check the docks each step.
+
+    One window, in ``theme`` (read back from the window), through the real selector
+    action, in the order of the cycle (every other language in the selector's order,
+    then English), or in ``sequence`` when one is given. The window starts in
+    English. The texts wanted are those of the language chosen, read from the
+    catalogue after the switch; for a language other than English they must differ
+    from English, or the check would compare English with English. Returns the docks
+    and buttons examined at the last step, the steps taken, and the failures as
+    ``(step description, problems)``.
+    """
+    window.set_mode(theme)
+    window.show()
+    qtbot.waitExposed(window)
+    assert window.current_mode() == theme, "the window is not in the mode under test"
+    manager = window._language_manager
+    offered = list(_selector_entries(window))
+    steps = list(sequence) if sequence else _cycle(offered)[: len(offered)]
+    assert set(steps) <= set(offered) and len(steps) >= 2
+    assert manager.current_language() == _SOURCE_LANGUAGE
+    _settle(window)
+    english = _dock_texts_wanted()
+    docks, buttons, problems = _dock_button_problems(window, english)
+    failures: List[Tuple[str, List[str]]] = []
+    if problems:
+        failures.append((f"start ({_SOURCE_LANGUAGE})", problems))
+    previous = _SOURCE_LANGUAGE
+    for number, code in enumerate(steps, start=1):
+        where = f"step {number} of {len(steps)} ({previous} -> {code})"
+        with qtbot.waitSignal(manager.languageChanged, timeout=2000):
+            _select(window, qtbot, code, "action")
+        _settle(window)
+        assert manager.current_language() == code, where
+        wanted = _dock_texts_wanted()
+        if code != _SOURCE_LANGUAGE:
+            for object_name, texts in wanted.items():
+                assert all(
+                    got != was for got, was in zip(texts, english[object_name])
+                ), f"{where}: Qt's catalogue gives {object_name} the English text"
+        docks, buttons, problems = _dock_button_problems(window, wanted)
+        if problems:
+            failures.append((where, problems))
+        previous = code
+    return docks, buttons, steps, failures
+
+
+def _say_ascii(capsys: pytest.CaptureFixture, text: str) -> None:
+    """Print ``text`` past the capture, with any non-ASCII character escaped."""
+    with capsys.disabled():
+        shown = text.encode("ascii", "backslashreplace").decode("ascii")
+        print("\n[dock buttons] " + shown, flush=True)
+
+
+def test_dock_title_bar_buttons_follow_the_language_through_the_selector(
+    qapp, qtbot, theme, capsys
+) -> None:
+    """REQ-L10N-UI-001 / REQ-L10N-UI-005: the dock buttons' names follow the language.
+
+    On one window, through the real selector action, for every shipped language in
+    the cycle's order and back to English, in the mode under test: every
+    ``QDockWidget``'s close and float buttons' accessible name and description equal
+    what Qt's catalogue gives for the language chosen, computed here with the
+    product's translators installed. The docks examined are printed, and more than
+    none is asserted, so a window with no docks cannot pass.
+    """
+    window = Main_Window()
+    qtbot.addWidget(window)
+    manager = window._language_manager
+    try:
+        docks, buttons, steps, failures = _walk_dock_buttons(window, qtbot, theme)
+        _say_ascii(
+            capsys,
+            f"[{theme}] {docks} docks, {buttons} buttons examined at each of "
+            f"{len(steps)} steps ({' -> '.join([_SOURCE_LANGUAGE, *steps])}), "
+            f"{len(failures)} failing steps",
+        )
+        assert docks > 0 and buttons == 2 * docks, (docks, buttons)
+        assert not failures, "\n".join(
+            f"{where}: {len(problems)} differ, first: {problems[:2]}"
+            for where, problems in failures
+        )
+    finally:
+        if shiboken6.isValid(manager):
+            manager.set_language(_SOURCE_LANGUAGE)
+            QApplication.processEvents()
+
+
+def test_dock_button_check_fails_when_the_re_set_is_neutralised(
+    qapp, qtbot, theme, capsys, monkeypatch
+) -> None:
+    """Control: with the window's re-set of the dock buttons a no-op, the check fails.
+
+    The slot that names the dock buttons on a language change is replaced by one
+    that does nothing before the window is built, which is how the window behaved
+    before the fix. Qt itself re-labels the buttons on the way to Japanese and
+    Korean (a font re-application makes it rebuild them), and never again, so the
+    check has to fail by the step to Russian, and on the way back to English, naming
+    dock buttons only. It is run on the cycle's own order and on the order Japanese,
+    Korean, Russian, English, in which the stale Korean names show at Russian. The
+    failures are printed.
+    """
+    monkeypatch.setattr(
+        Main_Window, "_on_language_dock_buttons", lambda self, _code: None
+    )
+    window = Main_Window()
+    qtbot.addWidget(window)
+    manager = window._language_manager
+    try:
+        docks, buttons, steps, failures = _walk_dock_buttons(window, qtbot, theme)
+        failed_at = [where for where, _ in failures]
+        first = failures[0][1][:2] if failures else None
+        _say_ascii(
+            capsys,
+            f"[{theme}] control, re-set neutralised: {len(failures)} failing steps "
+            f"of {len(steps)}: {failed_at}; first: {first}",
+        )
+        assert failures, "the check passed with the re-set neutralised: it is blind"
+        assert any(f"-> {_SOURCE_LANGUAGE})" in where for where in failed_at), failed_at
+        for _, problems in failures:
+            assert all("qt_dockwidget_" in problem for problem in problems), problems
+        # The order of the field defect: the names follow Japanese and Korean (Qt
+        # rebuilds them then) and stay Korean at Russian.
+        _, _, steps, failures = _walk_dock_buttons(
+            window, qtbot, theme, ["ja", "ko", "ru", _SOURCE_LANGUAGE]
+        )
+        failed_at = [where for where, _ in failures]
+        first = failures[0][1][:2] if failures else None
+        _say_ascii(
+            capsys,
+            f"[{theme}] control, re-set neutralised, {' -> '.join(steps)}: "
+            f"failing steps {failed_at}; first: {first}",
+        )
+        assert any("(ko -> ru)" in where for where in failed_at), failed_at
+        for _, problems in failures:
+            assert all("qt_dockwidget_" in problem for problem in problems), problems
+    finally:
+        if shiboken6.isValid(manager):
+            manager.set_language(_SOURCE_LANGUAGE)
+            QApplication.processEvents()
+
+
+# --------------------------------------------------------------------------- #
+# The slot that names the dock buttons leaves nothing behind                  #
+# --------------------------------------------------------------------------- #
+#
+# On every language change the window builds a throwaway dock to read Qt's own
+# texts for the title-bar buttons. A dock made without a parent is a top-level
+# window, and a queued deletion is only carried out by a running event loop; a
+# test, like the window code under it, runs none. So the dock has to be gone when
+# the slot returns, by how it is made and not by anything a caller does later.
+
+#: How many language changes are made in the leak check. One change can move a
+#: count once; three or more show a count that keeps growing.
+_LEAK_SWITCHES = 4
+
+
+def _parentless_docks() -> List[QDockWidget]:
+    """Return every top-level ``QDockWidget`` that has no parent, alive now."""
+    return [
+        widget
+        for widget in QApplication.topLevelWidgets()
+        if isinstance(widget, QDockWidget) and widget.parent() is None
+    ]
+
+
+def test_language_changes_leave_no_parentless_dock_behind(qapp, qtbot) -> None:
+    """REQ-L10N-UI-001 / REQ-L10N-UI-005: naming the dock buttons leaks no dock.
+
+    On one window, through the real selector action, the language is changed
+    several times. The number of parentless top-level docks alive after each change
+    equals the number alive before the first, so the slot that names the dock
+    buttons leaves no window behind per change. Nothing in this test runs the
+    event loop between the changes and the counts: a stray dock is not hidden by
+    a flush the product does not make, and the check fails while one is left.
+    """
+    window = Main_Window()
+    qtbot.addWidget(window)
+    manager = window._language_manager
+    try:
+        shipped = list(_selector_entries(window))
+        assert len(shipped) >= 2, f"only {shipped!r} is shipped: nothing to switch"
+        steps = _cycle(shipped)[:_LEAK_SWITCHES]
+        assert len(steps) >= 3, steps
+        before = len(_parentless_docks())
+        counts: List[int] = []
+        for code in steps:
+            _select(window, qtbot, code, "action")
+            assert manager.current_language() == code, steps
+            counts.append(len(_parentless_docks()))
+        assert counts == [before] * len(steps), (
+            f"{before} parentless top-level docks before, and {counts} after each of "
+            f"the language changes {steps}: the slot that names the dock buttons "
+            "leaves a window behind per change"
+        )
+    finally:
+        if shiboken6.isValid(manager):
+            manager.set_language(_SOURCE_LANGUAGE)

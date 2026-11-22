@@ -1258,8 +1258,9 @@ TAG_CANDIDATES: Tuple[str, ...] = (
     "PreferMatch",
     "PreferQuality",
 )
-#: The two bases a family list is put on: the interface font (Nifen mode) and
-#: the platform default font (the platform-text mode).
+#: The two bases a family list is put on: the product's one-family Nifen Art font
+#: (Nifen mode: the interface font's size, hinting and smoothing, one family and no
+#: chain tag) and the platform default font (the platform-text mode).
 BASES: Tuple[str, ...] = ("nifen", "default")
 
 #: Latin, Han, Hangul, kana, punctuation and a space: what neutrality draws.
@@ -1448,17 +1449,40 @@ for token, entry in spec["faces"].items():
     NAMES[token] = expected
 
 
+def tag_flags_of(font):
+    strategy = font.styleStrategy()
+    return [
+        name
+        for name in ("PreferOutline", "ForceOutline", "PreferMatch", "PreferQuality")
+        if strategy & getattr(STRAT, name)
+    ]
+
+
 def base_font():
     if spec["base"] == "nifen":
-        return app_font.interface_font()
+        # The interface font carries the family chain of the active language, so
+        # the one-family font is built from it by the product's own path.
+        return app_font.chain_font(
+            app_font.interface_font(), [app_font.NIFEN_ART_FAMILY]
+        )
     return app_font.platform_default_font()
 
 
 NAMES["P"] = base_font().family()
 
+BASE_PREMISE = None
+if spec["base"] == "nifen":
+    premise_font = base_font()
+    BASE_PREMISE = {
+        "families": list(premise_font.families()),
+        "tag_flags": tag_flags_of(premise_font),
+        "expected": app_font.NIFEN_ART_FAMILY,
+    }
+    say("base premise: %r" % (BASE_PREMISE,))
 
-def make_font(chain, px, tag):
-    font = base_font()
+
+def make_font(chain, px, tag, product_chain=False):
+    font = app_font.interface_font() if product_chain else base_font()
     if chain is not None:
         font.setFamilies(list(chain))
     font.setPixelSize(px)
@@ -1609,10 +1633,13 @@ for step in spec["steps"]:
     chain = [NAMES[t] for t in step["chain"]] if step["chain"] is not None else None
     px = step["px"]
     tag = step.get("tag", [])
-    font = make_font(chain, px, tag)
+    font = make_font(chain, px, tag, step.get("product_chain", False))
     want = step.get("want", ["probes"])
     text = text_of(step.get("text", spec["sample"]))
     record = {"chain": chain, "px": px, "tag": tag}
+    if step.get("product_chain", False):
+        record["families"] = list(font.families())
+        record["tag_flags"] = tag_flags_of(font)
     shown = []
     if "probes" in want:
         record["probes"] = {str(cp): one(font, cp) for cp in spec["probes"]}
@@ -1642,6 +1669,7 @@ print(
             "nifen_registered": nifen_registered,
             "registration_errors": errors,
             "names": NAMES,
+            "base_premise": BASE_PREMISE,
             "control": control,
             "steps": steps,
             "info": LINES,
@@ -1715,6 +1743,18 @@ def _spawn_tail(
         f"{name}: a synthetic face was not registered under its own family name: "
         f"{result['registration_errors']}"
     )
+    if base == "nifen":
+        premise = result["base_premise"]
+        one_family = premise["families"] == [premise["expected"]]
+        untagged = not premise["tag_flags"]
+        message = (
+            f"{name}: the nifen base is not the product's one-family Nifen Art "
+            f"font: its families are {premise['families']} (expected only "
+            f"{premise['expected']!r}) and it carries the chain tag flags "
+            f"{premise['tag_flags']}. Every case on this base compares a "
+            "one-family font, so none of them says anything until the base is one."
+        )
+        assert one_family and untagged, message
     ctl = result["control"]
     assert ctl["ok"], (
         f"{name}: the positive control FAILED on the {result['plugin']!r} plugin "
@@ -1734,10 +1774,14 @@ def _step(
     tag: Sequence[str] = (),
     want: Sequence[str] = ("probes",),
     text: Optional[Sequence[int]] = None,
+    product_chain: bool = False,
 ) -> Dict[str, Any]:
     """Return one draw step: a family list at a pixel size, with a tag.
 
     ``chain`` None draws the base font itself, with no family list put on it.
+    ``product_chain`` draws the product's own interface font instead of the base
+    (a tagged chain behind Nifen Art, whatever the base is) and reports its
+    families and tag flags.
     """
     step: Dict[str, Any] = {
         "id": step_id,
@@ -1748,6 +1792,8 @@ def _step(
     }
     if text is not None:
         step["text"] = list(text)
+    if product_chain:
+        step["product_chain"] = True
     return step
 
 
@@ -2190,8 +2236,8 @@ def test_chain_tag_probe_fails_for_a_tag_that_changes_rendering(tmp_path):
 
 #: The one-family fonts drawn first, and the chain drawn after each. ``set-*`` put a
 #: one-entry list on the font with ``setFamilies``; ``base-plain`` is the base font
-#: exactly as the application builds it (the interface font, or the platform
-#: default), whose family list is empty.
+#: as the case builds it (the product's one-family Nifen Art font, or the platform
+#: default), with no further family list put on it.
 COMPETITORS: Tuple[str, ...] = ("set-latin-only", "set-nifen", "base-plain")
 #: Where, measured on Windows, a one-family font drawn AFTER an untagged chain with
 #: the same first family draws Han from the chain's tail. It is not so for the
@@ -2220,8 +2266,8 @@ def test_chain_tag_untagged_single_family_font_and_a_chain_in_both_orders(
     The chain with each candidate flag must draw its Han from ``Fq`` after the
     one-family font; and a one-family font drawn after tagged chains must not
     inherit their tail. The one-family font is the Latin-only face, then Nifen
-    Art, both set through ``setFamilies``, and then the base font as the
-    application builds it, with no family list at all.
+    Art, both set through ``setFamilies``, and then the base font itself, with no
+    further family list put on it.
     """
     if kind == "set-latin-only":
         alone: Optional[List[str]] = ["L"]
@@ -2289,6 +2335,75 @@ def test_chain_tag_untagged_single_family_font_and_a_chain_in_both_orders(
             f"On Windows a {kind} font drawn after an untagged chain used to draw "
             f"Han from the chain's face and now draws it from {inherited!r}: "
             "re-measure before relying on either."
+        )
+
+
+def test_chain_tag_product_chain_and_one_family_font_in_both_orders(tmp_path):
+    """``REQ-L10N-UI-012``: the product's tagged chain and its one-family font part.
+
+    The product's interface font is a tagged family chain behind Nifen Art, and the
+    one-family base of the cases above is the same font with one family and no tag.
+    Both are drawn in ONE process, in both orders (at two pixel sizes, so that the
+    two orders cannot give one another a tail): the chain and then the one-family
+    font at 12 px, the one-family font and then the chain at 14 px. The reference
+    is the one-family font drawn in a process where no chain was drawn first. The
+    one-family font must draw U+5B57 from the face the reference draws it from, and
+    not from the chain's tail; the chain must draw it from one of its own later
+    families in both orders. Where the reference draws it from the chain's own face
+    already, the separation is not observable and the case prints that.
+    """
+    mixed = _spawn_tail(
+        "tag-product-chain-mixed",
+        tmp_path / "mixed",
+        "nifen",
+        [
+            _step("chain-first-chain", None, 12, product_chain=True),
+            _step("chain-first-font", None, 12),
+            _step("font-first-font", None, 14),
+            _step("font-first-chain", None, 14, product_chain=True),
+        ],
+        quiet=True,
+    )
+    alone = _spawn_tail(
+        "tag-product-chain-alone",
+        tmp_path / "alone",
+        "nifen",
+        [_step("font-12", None, 12), _step("font-14", None, 14)],
+        quiet=True,
+    )
+    chain_row = mixed["steps"]["chain-first-chain"]
+    families = chain_row["families"]
+    is_chain = len(families) >= 2 and families[0] == mixed["names"]["N"]
+    is_tagged = bool(chain_row["tag_flags"])
+    assert is_chain and is_tagged, (
+        "the product's interface font is not a tagged family chain behind Nifen "
+        f"Art (families {families}, tag flags {chain_row['tag_flags']}): this case "
+        "compares a chain with a one-family font, so it says nothing without one"
+    )
+    cases = {
+        "chain first": ("chain-first-chain", "chain-first-font", "font-12"),
+        "font first": ("font-first-chain", "font-first-font", "font-14"),
+    }
+    for order, (chain_id, font_id, alone_id) in cases.items():
+        tail = _han_by(mixed, chain_id)
+        after = _han_by(mixed, font_id)
+        reference = _han_by(alone, alone_id)
+        print(
+            f"[tag-product-chain] {_OS_NAME} {order}: the chain {families} drew "
+            f"U+5B57 from {tail!r}; the one-family font drew it from {after!r}, "
+            f"alone it draws it from {reference!r}; separation observable: "
+            f"{reference != tail}"
+        )
+        assert tail in families[1:], (
+            f"the product's tagged chain ({order}) drew U+5B57 from {tail!r}, not "
+            f"from one of its own later families {families[1:]}: the chain lost its "
+            f"tail on {_OS_NAME}"
+        )
+        assert after == reference, (
+            f"the one-family Nifen Art font ({order}) drew U+5B57 from {after!r} "
+            f"beside the product's tagged chain, and draws it from {reference!r} "
+            f"alone; the chain's own face is {tail!r}: the tag does not keep the "
+            f"one-family font from taking the chain's tail on {_OS_NAME}"
         )
 
 

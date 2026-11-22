@@ -91,6 +91,7 @@ from pixelart_creator.logic.guide_search import query
 from pixelart_creator.logic.guide_softbreak import apply_soft_break_rule
 from pixelart_creator.ui.app_font import (
     NIFEN_ART_EM_PX,
+    chained_font,
     interface_font,
     nifen_art_available,
     platform_default_font,
@@ -401,6 +402,15 @@ class User_Guide_Dialog(QDialog):
         self._use_system_font = enabled
         self._refresh_page()
 
+    def refresh_page_font(self) -> None:
+        """Re-apply the page and heading fonts for the language now active.
+
+        Called by the main window on ``languageChanged``: the family chain follows
+        the interface language, which is recorded after the ``LanguageChange``
+        event this dialog re-translates on.
+        """
+        self._refresh_page()
+
     def page_uses_pixel_font(self) -> bool:
         """Return whether the page text is set in the pixel font right now."""
         return (
@@ -422,7 +432,7 @@ class User_Guide_Dialog(QDialog):
         if self.page_uses_pixel_font():
             font = interface_font()
         else:
-            font = platform_default_font()
+            font = chained_font(platform_default_font())
         self._content_view.apply_page_font(font)
 
     def _refresh_page(self) -> None:

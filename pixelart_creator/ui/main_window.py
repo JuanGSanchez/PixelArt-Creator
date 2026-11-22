@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Final, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
+import shiboken6
 from PySide6.QtCore import (
     QEvent,
     QObject,
@@ -48,6 +49,7 @@ from PySide6.QtGui import (
     QUndoStack,
 )
 from PySide6.QtWidgets import (
+    QAbstractButton,
     QApplication,
     QComboBox,
     QDialog,
@@ -395,6 +397,15 @@ _COLOUR_CONSUMING_TOOL_IDS = frozenset(
 #: promoted to logic/constants.py (a logic-layer surface) as e.g.
 #: ``WORKFLOW_DOCK_MIN_WIDTH_PX`` rather than reached into from here.
 _WORKFLOW_DOCK_MIN_WIDTH_PX = 220
+
+#: Object names Qt gives a dock's two title-bar buttons. Qt builds their
+#: accessible names and descriptions from its own catalogue and does not keep
+#: them current across a language switch, so ``Main_Window`` reads the active
+#: texts from a fresh dock and sets them on every dock it holds.
+_DOCK_TITLE_BUTTON_OBJECT_NAMES = (
+    "qt_dockwidget_closebutton",
+    "qt_dockwidget_floatbutton",
+)
 
 #: FIX 3 (2026-08-24 field defect). Bound on ``Main_Window._settle_width()``'s
 #: event-flush loop (presentation-only startup timing, not a domain tuning
@@ -1248,6 +1259,12 @@ class Main_Window(QMainWindow):
         apply_theme(self._app, self._theme, self._style)
         ensure_interface_font(self._app, self._appearance.use_system_font)
         self.useSystemFontChanged.connect(self._on_use_system_font_changed)
+        # The family chains follow the interface language (REQ-L10N-UI-009..012);
+        # connected before the first install so the start-up language is chained.
+        self._language_manager.languageChanged.connect(self._on_language_chains)
+        # Connected before the first install too, so docks built before the
+        # start-up language was installed are named in it.
+        self._language_manager.languageChanged.connect(self._on_language_dock_buttons)
         self._language_manager.install_from_locale()
         # Fields the panels built above took the manager's initial formatting
         # locale; give them the installed language's (REQ-L10N-UI-015). Direct
@@ -5157,6 +5174,52 @@ class Main_Window(QMainWindow):
             action.setFont(
                 chain_font(base, font_chain.label_chain(primary, code, holds_cjk))
             )
+
+    def _on_language_chains(self, _code: str) -> None:
+        """Re-apply the family chains for the language now active.
+
+        The application font (and each captured per-class font), the Language
+        entries and the open guide page all carry the chain of the active
+        language, so each is re-applied after a switch.
+        """
+        ensure_interface_font(self._app, self._appearance.use_system_font)
+        self._apply_language_entry_fonts()
+        if self._user_guide_dialog is not None:
+            self._user_guide_dialog.refresh_page_font()
+
+    def _on_language_dock_buttons(self, _code: str) -> None:
+        """Name every dock's title-bar buttons in the active language.
+
+        Runs on ``languageChanged``, once Qt's own catalogue for the new
+        language is installed. The texts are not typed here: a fresh dock is
+        built now and its two buttons' accessible names and descriptions are
+        read, so they are exactly what Qt's catalogue gives for the active
+        language (English for the source language). The docks are the window's
+        ``QDockWidget`` children, found by walking them, so a dock added later
+        is covered without a change here.
+
+        The reference dock is destroyed before this returns, not queued for
+        deletion: a queued deletion is only carried out by a running event loop,
+        and until then the parentless top-level dock would stay alive.
+        """
+        reference = QDockWidget()
+        try:
+            texts = {
+                button.objectName(): (
+                    button.accessibleName(),
+                    button.accessibleDescription(),
+                )
+                for button in reference.findChildren(QAbstractButton)
+                if button.objectName() in _DOCK_TITLE_BUTTON_OBJECT_NAMES
+            }
+        finally:
+            shiboken6.delete(reference)
+        for dock in self.findChildren(QDockWidget):
+            for button in dock.findChildren(QAbstractButton):
+                shown = texts.get(button.objectName())
+                if shown is not None:
+                    button.setAccessibleName(shown[0])
+                    button.setAccessibleDescription(shown[1])
 
     def _on_language_action(self) -> None:
         action = self.sender()

@@ -5,8 +5,12 @@
 Nifen Art (Regular and Bold, one 12 px em) is the interface font
 (``REQ-VI-UI-013``). This module is the one place that
 
-* registers the two bundled font files with Qt, logging and degrading to the
-  platform font when a file cannot be read (``REQ-VI-BUILD-006``);
+* registers the bundled font files with Qt (Nifen Art, Regular and Bold, and the
+  six Nifen Art CJK files), logging and degrading to the platform font when a
+  file cannot be read (``REQ-VI-BUILD-006``);
+* gives the application font, and each platform per-class font it puts back, the
+  family chain of the active language, through :func:`chain_font`
+  (``REQ-L10N-UI-009`` to ``-012``);
 * captures the platform's own default font once, before the application first
   changes it, so "Use system font" can restore exactly that font without the
   application ever naming a platform family (``REQ-VI-UI-016``);
@@ -51,12 +55,14 @@ from collections.abc import Sequence
 from importlib import resources
 from typing import Dict, Final, FrozenSet, List, Optional, Tuple
 
-from PySide6.QtCore import QByteArray
+from PySide6.QtCore import QByteArray, QLocale
 from PySide6.QtGui import QFont, QFontDatabase, QFontInfo, QFontMetrics, QRawFont
 from PySide6.QtWidgets import QApplication, QWidget
 
 import pixelart_creator.logic.constants as logic_constants
 import pixelart_creator.logic.font_chain as font_chain
+import pixelart_creator.logic.language_names as language_names
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.ui.theme import _UI_FONT_FALLBACKS
 
 __all__ = [
@@ -75,6 +81,7 @@ __all__ = [
     "round_to_em",
     "primary_holds_cjk",
     "chain_font",
+    "chained_font",
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -89,7 +96,16 @@ NIFEN_ART_EM_PX: Final[int] = 12
 #: Package data holding the font files (``pixelart_creator/fonts/``).
 _FONT_PACKAGE: Final[str] = "pixelart_creator"
 _FONT_SUBDIR: Final[str] = "fonts"
-_FONT_FILES: Final[Tuple[str, ...]] = ("NifenArt-Regular.ttf", "NifenArt-Bold.ttf")
+_FONT_FILES: Final[Tuple[str, ...]] = (
+    "NifenArt-Regular.ttf",
+    "NifenArt-Bold.ttf",
+    "NifenArtCJKJP-Regular.ttf",
+    "NifenArtCJKJP-Bold.ttf",
+    "NifenArtCJKSC-Regular.ttf",
+    "NifenArtCJKSC-Bold.ttf",
+    "NifenArtCJKKR-Regular.ttf",
+    "NifenArtCJKKR-Bold.ttf",
+)
 
 #: Widget classes the platform theme may give a font of their own. The names are
 #: the ones Qt keys its per-class font table by.
@@ -124,6 +140,8 @@ _registered_ids: List[int] = []
 #: The platform's default font and per-class fonts, captured once.
 _platform: Dict[str, object] = {"font": None, "classes": None, "style": None}
 _substitutions_installed = False
+#: ``primary_holds_cjk`` answers, by (family, registered-font count).
+_holds_cjk_cache: Dict[Tuple[str, int], bool] = {}
 
 #: The style-strategy flags a family-list tag may be built from, in the order the
 #: table below lists them. All four were kept on Linux, Windows and macOS; they
@@ -178,9 +196,11 @@ def _still_registered() -> bool:
 
 
 def register_app_fonts() -> bool:
-    """Register the bundled Nifen Art files; return whether the family is usable.
+    """Register the bundled font files; return whether Nifen Art is usable.
 
-    A file that is missing, unreadable or rejected by Qt is logged and skipped;
+    The files are the two Nifen Art files and the six Nifen Art CJK files (the
+    Japanese, Simplified Chinese and Korean families, Regular and Bold). A file
+    that is missing, unreadable or rejected by Qt is logged and skipped;
     nothing is raised, so a damaged install keeps the platform font instead of
     stopping the application (the same degrade as ``app_icon``). Safe to call
     more than once: a registration that is still valid is not repeated.
@@ -246,12 +266,19 @@ def platform_default_font() -> QFont:
 
 
 def interface_font() -> QFont:
-    """Return the interface font: Nifen Art, one em, no smoothing, no hinting."""
+    """Return the interface font: Nifen Art, one em, no smoothing, no hinting.
+
+    The font carries the family chain of the language now active (Nifen Art, then
+    the Han family of the right form, then the Hangul family), built by
+    :func:`_chained`. Nifen Art holds no Han and no Hangul character (the frozen
+    face, asserted by the font checks), so the chain is the one with the CJK families
+    behind it and no measurement is needed.
+    """
     font = QFont(NIFEN_ART_FAMILY)
     font.setPixelSize(NIFEN_ART_EM_PX)
     font.setStyleStrategy(QFont.StyleStrategy.NoAntialias)
     font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
-    return font
+    return _chained(font, primary_holds=False)
 
 
 def install_font_substitutions() -> None:
@@ -363,10 +390,79 @@ def primary_holds_cjk(family: str) -> bool:
     return any(metrics.inFontUcs4(code_point) for code_point in sorted(held))
 
 
+def _holds_cjk(family: str) -> bool:
+    """Return :func:`primary_holds_cjk` for ``family``, measured once per state.
+
+    The key is the family and the number of registered application fonts, so the
+    answer is measured again when a face gets registered and is otherwise reused
+    (every captured per-class font asks, on every application of the font).
+    """
+    key = (family, len(_registered_ids))
+    if key not in _holds_cjk_cache:
+        _holds_cjk_cache[key] = primary_holds_cjk(family)
+    return _holds_cjk_cache[key]
+
+
+def _chain_language() -> str:
+    """Return the active interface language code, or English for an unknown one."""
+    code = i18n.current_ui_language()
+    if code not in language_names.ENDONYMS:
+        return i18n.FALLBACK_LANGUAGE
+    return code
+
+
+def _chained(font: QFont, primary_holds: Optional[bool] = None) -> QFont:
+    """Return ``font`` drawn with the family chain of the active language.
+
+    The primary is the family of ``font``. ``primary_holds`` is the caller's
+    answer to "does the primary draw a shipped Han or Hangul character"; ``None``
+    measures it. The list comes from :func:`font_chain.family_chain` (the active
+    interface language and the system language decide the Han form) and is put on
+    the font by :func:`chain_font`, the one place a family list is set.
+    """
+    primary = font.family()
+    holds = _holds_cjk(primary) if primary_holds is None else primary_holds
+    families = font_chain.family_chain(
+        primary, _chain_language(), QLocale.system().name(), holds
+    )
+    return chain_font(font, families)
+
+
+def chained_font(font: QFont) -> QFont:
+    """Return ``font`` drawn with the family chain of the active language.
+
+    The public entry for callers outside this module (the guide's page font): the
+    primary is measured, and the list is put on the font by :func:`chain_font`.
+
+    In: a base font that carries one family, as :func:`platform_default_font` or
+    a captured per-class font gives it. The function is not specified for a font
+    that already carries a chain.
+
+    Out: a copy; ``font`` is not mutated. Its families are the list the product's
+    logic gives for the base's family under the active interface language and
+    font mode: the CJK form family first when :func:`primary_holds_cjk` is true
+    for that family, the family first otherwise. The style strategy carries the
+    list's allocated tag, put there by :func:`chain_font` only. Equal inputs
+    under the same language and mode give equal fonts (``QFont.__eq__``).
+
+    This function never calls ``setFamilies`` or ``setFamily`` and never
+    constructs a ``QFont`` from a family name.
+
+    When the tags are exhausted the result is :func:`chain_font`'s, unchanged:
+    the first family alone, with no tag flag.
+    """
+    return _chained(font)
+
+
+def _uses_platform_font(use_system_font: bool) -> bool:
+    """Return whether the platform's font (not Nifen Art) is the base font."""
+    return use_system_font or not nifen_art_available()
+
+
 def _target_font(use_system_font: bool) -> QFont:
-    """Return the application font the preference asks for."""
-    if use_system_font or not nifen_art_available():
-        return platform_default_font()
+    """Return the application font the preference asks for, with its chain."""
+    if _uses_platform_font(use_system_font):
+        return _chained(platform_default_font())
     return interface_font()
 
 
@@ -413,11 +509,11 @@ def apply_interface_font(app: QApplication, use_system_font: bool) -> str:
     install_font_substitutions()
     font = _target_font(use_system_font)
     app.setFont(font)
-    if font == platform_default_font():
+    if _uses_platform_font(use_system_font):
         classes = _platform["classes"]
         if isinstance(classes, dict):
             for name, class_font in classes.items():
-                app.setFont(class_font, name)
+                app.setFont(_chained(class_font), name)
         if _combo_needs_point_font():
             _set_combo_font(app, font)
     elif _combo_needs_point_font():
@@ -463,14 +559,11 @@ def ensure_interface_font(app: QApplication, use_system_font: bool) -> None:
     if app.font() != wanted:
         apply_interface_font(app, use_system_font)
         return
-    if wanted != platform_default_font() and not _class_fonts_follow_application():
+    nifen = not _uses_platform_font(use_system_font)
+    if nifen and not _class_fonts_follow_application():
         apply_interface_font(app, use_system_font)
         return
-    if (
-        wanted != platform_default_font()
-        and _combo_needs_point_font()
-        and not _combo_font_in_place()
-    ):
+    if nifen and _combo_needs_point_font() and not _combo_font_in_place():
         apply_interface_font(app, use_system_font)
 
 
