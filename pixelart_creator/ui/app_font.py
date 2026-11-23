@@ -73,6 +73,7 @@ __all__ = [
     "capture_platform_font",
     "platform_default_font",
     "interface_font",
+    "role_base_font",
     "install_font_substitutions",
     "apply_interface_font",
     "prepare_interface_font",
@@ -265,6 +266,15 @@ def platform_default_font() -> QFont:
     return QFont(stored)
 
 
+def _nifen_font() -> QFont:
+    """Return the Nifen Art base font: one family, one em, no smoothing, no hinting."""
+    font = QFont(NIFEN_ART_FAMILY)
+    font.setPixelSize(NIFEN_ART_EM_PX)
+    font.setStyleStrategy(QFont.StyleStrategy.NoAntialias)
+    font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
+    return font
+
+
 def interface_font() -> QFont:
     """Return the interface font: Nifen Art, one em, no smoothing, no hinting.
 
@@ -274,11 +284,29 @@ def interface_font() -> QFont:
     face, asserted by the font checks), so the chain is the one with the CJK families
     behind it and no measurement is needed.
     """
-    font = QFont(NIFEN_ART_FAMILY)
-    font.setPixelSize(NIFEN_ART_EM_PX)
-    font.setStyleStrategy(QFont.StyleStrategy.NoAntialias)
-    font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
-    return _chained(font, primary_holds=False)
+    return _chained(_nifen_font(), primary_holds=False)
+
+
+def role_base_font(use_system_font: bool, class_name: str) -> QFont:
+    """Return the font a widget class's chain is built from, before any chain.
+
+    In: ``use_system_font`` as the appearance preference holds it, and the Qt
+    class name of the widget (``"QMenu"``).
+
+    Out: a copy that carries one family and no chain tag. In the platform-font
+    mode (also when Nifen Art is not registered) it is the font the platform gave
+    that class, or the platform's default font when it gave the class none of its
+    own; otherwise it is the Nifen Art base font. Its family is therefore the
+    role's primary family, which ``family()`` of the application's or a widget's
+    font is not once a chain is applied.
+    """
+    stored = platform_default_font()
+    if _uses_platform_font(use_system_font):
+        classes = _platform["classes"]
+        if isinstance(classes, dict) and class_name in classes:
+            return QFont(classes[class_name])
+        return stored
+    return _nifen_font()
 
 
 def install_font_substitutions() -> None:

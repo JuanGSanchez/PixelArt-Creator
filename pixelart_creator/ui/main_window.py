@@ -164,10 +164,9 @@ from pixelart_creator.ui.app_font import (
     apply_interface_font,
     chain_font,
     ensure_interface_font,
-    interface_font,
-    nifen_art_available,
     prepare_interface_font,
     primary_holds_cjk,
+    role_base_font,
 )
 from pixelart_creator.ui.app_icon import app_icon
 from pixelart_creator.ui.appearance_settings import (
@@ -5150,22 +5149,25 @@ class Main_Window(QMainWindow):
         return image.copy()
 
     def _language_role_font(self) -> QFont:
-        """Return the font the Language menu really gets (its UI role primary).
+        """Return the font the Language menu's chain is built from (its role primary).
 
-        The interface font in the pixel-font mode; otherwise the platform's font
-        for menus, which the application font module puts back (the application
-        font when the platform gave menus none of their own).
+        The menu's font before any chain is applied: the platform's font for
+        menus in the platform-font mode, the Nifen Art base font in the
+        pixel-font mode. It is never the menu's current font, whose family is the
+        first family of the chain the application font module put on it.
         """
-        if self._appearance.use_system_font or not nifen_art_available():
-            return QFont(QApplication.font(self._language_menu))
-        return interface_font()
+        return role_base_font(
+            self._appearance.use_system_font,
+            self._language_menu.metaObject().className(),
+        )
 
     def _apply_language_entry_fonts(self) -> None:
         """Draw each Language entry in its own language's font chain.
 
-        Re-applied when the font mode changes and after a style or mode switch
-        re-applies the application font, never on a language change: the label
-        and its chain do not depend on the active language.
+        Re-applied when the font mode changes, after a style or mode switch
+        re-applies the application font, and on every language change. The
+        label and its chain do not depend on the active language: the base is the
+        role's font before any chain, so the result is the same each time.
         """
         base = self._language_role_font()
         primary = base.family()
