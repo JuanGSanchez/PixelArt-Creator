@@ -741,3 +741,120 @@ def test_a_drop_notice_raised_in_the_language_reads_in_it(
     expected = _numerus_text(code, _TIMELAPSE, _DROPPED_SOURCE, _DROPPED_COUNT)
     _assert_reason(controls, expected, f"{code} notice raised in the language")
     assert not controls._reason_label.isHidden()
+
+
+# --------------------------------------------------------------------------- #
+# An action already on the undo history                                       #
+# --------------------------------------------------------------------------- #
+
+#: The text the canvas's add-frame action pushes: its own catalogue entry in the
+#: main window's context, translated when the command is pushed.
+_ADD_FRAME_SOURCE = "Add Frame"
+
+#: The languages in which the known limit can be seen: all but English.
+NON_ENGLISH_LANGUAGES = tuple(code for code in LANGUAGES if code != FALLBACK_LANGUAGE)
+
+
+def _perform_action(window: Main_Window) -> str:
+    """Perform one real, undoable action; return the text its command carries.
+
+    The Ctrl+left-click add-frame path pushes a command on the active document's
+    stack with a text translated at the moment of the push. The command is
+    counted onto the stack, so the case cannot pass because nothing was pushed.
+    """
+    stack = _stack(window)
+    record = window.active_tab()
+    assert record is not None, "the window has no active document"
+    assert record.stack is stack, "the active tab's stack is not the active stack"
+    before = stack.count()
+    window._on_canvas_add_frame_requested()
+    assert stack.count() == before + 1, "the action pushed no command"
+    return stack.undoText()
+
+
+def test_the_known_limit_is_exercised_in_every_non_english_language():
+    """REQ-L10N-UI-001: the undo-history cases have something to run over.
+
+    Prints how many languages they run for. Zero is a failure, never a pass over
+    an empty set, and Deutsch, the language the scenario names, is among them.
+    """
+    print(
+        f"languages the undo-history cases run for: {len(NON_ENGLISH_LANGUAGES)} "
+        f"{sorted(NON_ENGLISH_LANGUAGES)} of {len(LANGUAGES)} discovered"
+    )
+    assert len(NON_ENGLISH_LANGUAGES) > 0, "no non-English language was discovered"
+    assert len(NON_ENGLISH_LANGUAGES) == len(LANGUAGES) - 1
+    assert "de" in NON_ENGLISH_LANGUAGES
+
+
+@pytest.mark.parametrize("code", NON_ENGLISH_LANGUAGES)
+def test_an_action_performed_in_english_keeps_its_text_after_a_switch(
+    make_window, code
+):
+    """SC-L10N-UI-001-4, REQ-L10N-UI-001: the item's word changes, the text does not.
+
+    An action is performed in English and then the language is switched. The Undo
+    item's own word is the catalogue's translation of ``&Undo`` with its access
+    key (Alt+U), and the description after it equals the undo history's own text
+    for that action, the English it was pushed with. Neither the item nor the
+    stack shows that action in the new language, which is the known limit.
+    """
+    window = make_window()
+    pushed = _perform_action(window)
+    assert pushed == _ADD_FRAME_SOURCE
+    assert window._undo_action.text() == f"{_UNDO_SOURCE} {pushed}"
+    undo_prefix, redo_prefix = _expected_prefixes(code)
+    in_language = _catalogue_text(code, _MAIN_WINDOW, _ADD_FRAME_SOURCE)
+    assert in_language != pushed, f"{code}: the action reads the same in both"
+    assert _plain(undo_prefix) != _plain(_UNDO_SOURCE), f"{code}: Undo is English"
+
+    _switch(window, code)
+
+    assert window._undo_action in window._edit_menu.actions()
+    assert _stack(window).undoText() == pushed
+    assert window._undo_group.undoText() == pushed
+    _assert_composed(window._undo_action, undo_prefix, "Alt+U", pushed, code)
+    assert in_language not in window._undo_action.text()
+    assert _plain(window._redo_action.text()) == _plain(redo_prefix)
+    assert _mnemonic(window._redo_action.text()) == "Alt+R"
+
+
+@pytest.mark.parametrize("code", NON_ENGLISH_LANGUAGES)
+def test_an_action_performed_after_the_switch_is_described_in_the_language(
+    make_window, code
+):
+    """SC-L10N-UI-001-4, REQ-L10N-UI-001: a second action reads in the new language.
+
+    After the switch a second action is performed. Its description in the Undo
+    item is the catalogue's translation of the action's text, and it equals the
+    stack's own text. The first action, still on the history, keeps its English:
+    after an undo the Undo item describes it in English under the new language's
+    word, and the Redo item describes the second action in the new language.
+    Switching back to English leaves each description in the language it was
+    performed in.
+    """
+    window = make_window()
+    in_english = _perform_action(window)
+    assert in_english == _ADD_FRAME_SOURCE
+    undo_prefix, redo_prefix = _expected_prefixes(code)
+    in_language = _catalogue_text(code, _MAIN_WINDOW, _ADD_FRAME_SOURCE)
+    assert in_language != in_english, f"{code}: the action reads the same in both"
+
+    _switch(window, code)
+    second = _perform_action(window)
+
+    assert second == in_language, f"{code}: the stack holds {second!r}"
+    assert _stack(window).undoText() == in_language
+    _assert_composed(window._undo_action, undo_prefix, "Alt+U", in_language, code)
+    assert _plain(window._redo_action.text()) == _plain(redo_prefix)
+
+    _stack(window).undo()
+    assert _stack(window).undoText() == in_english
+    _assert_composed(window._undo_action, undo_prefix, "Alt+U", in_english, code)
+    assert _stack(window).redoText() == in_language
+    _assert_composed(window._redo_action, redo_prefix, "Alt+R", in_language, code)
+
+    _stack(window).redo()
+    _switch(window, FALLBACK_LANGUAGE)
+    assert window._undo_action.text() == f"{_UNDO_SOURCE} {in_language}"
+    assert window._redo_action.text() == _REDO_SOURCE

@@ -10,11 +10,23 @@ itself -- so a missing or empty ``es`` catalogue fails these tests outright
 (``manager.set_language("es")`` returns ``False`` and the following
 assertion raises, or the Spanish literal simply never appears).
 
-``pixelart_en.ts`` is a deliberately unfinished IDENTITY catalogue (0
-compiled translations, source-text fallback) and is not asserted "against"
-here beyond the load check this module requires -- an app that shows the English
-source under ``en`` is correct, not a defect (see the module under test's
-own docstring / the task brief).
+``pixelart_en.ts`` is an IDENTITY catalogue for every message that carries no
+count: the compiled ``pixelart_en.qm`` gives none of them a translation that
+differs from its source text, and an app that shows the English source under
+``en`` is correct, not a defect. The count-bearing messages
+(REQ-L10N-UI-006) are the exception: they carry finished English singular and
+plural forms, so the identity check is narrowed to the messages without a count
+and a second check reads those forms instead. Each instrument is shown failing
+against a catalogue it must reject (the Spanish one).
+
+All eight compiled catalogues (``en``, ``es``, ``fr``, ``de``, ``ru``,
+``zh_CN``, ``ja``, ``ko``) are asserted to load. The eight codes are written
+here from the requirement, not read from the product. The Spanish literals
+below are unchanged. ``PIXELART_I18N_CATALOGUE_DIR`` names a directory of
+compiled ``.qm`` files to measure instead of the shipped ones; it exists to show
+these cases fail against an incomplete or wrong set, and unset, the shipped
+ones are measured. The ``.ts`` sources are always read from the shipped
+directory.
 
 Both themes run automatically via the suite's autouse, parametrised
 ``theme`` fixture (``testing/suites/ui/conftest.py``); none of these
@@ -35,7 +47,13 @@ against.
 
 from __future__ import annotations
 
+import os
+import xml.etree.ElementTree as ElementTree
+from dataclasses import dataclass
+from pathlib import Path
+
 import pytest
+from PySide6.QtCore import QTranslator
 from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import QWidget
 
@@ -74,23 +92,206 @@ def es_language(qapp):
 
 
 # --------------------------------------------------------------------------- #
-# 1. Both compiled catalogues load                                            #
+# 1. All eight compiled catalogues load                                       #
+# --------------------------------------------------------------------------- #
+
+#: The eight shipped interface languages, in the selector order of REQ-L10N-UI-003.
+EIGHT_LANGUAGES = ("en", "es", "fr", "de", "ru", "zh_CN", "ja", "ko")
+
+#: Names a directory of compiled catalogues to measure instead of the shipped ones.
+CATALOGUE_DIR_ENV = "PIXELART_I18N_CATALOGUE_DIR"
+
+#: The English plural rule, written from the language and not from the product: the
+#: first form for one, the second for every other count (zero included). Maps a count
+#: to the index of the form that must be shown.
+ENGLISH_FORM_FOR_COUNT = {0: 1, 1: 0, 2: 1, 5: 1}
+
+
+@dataclass(frozen=True)
+class _Message:
+    """One message of ``pixelart_en.ts`` and, for a count-bearing one, its forms."""
+
+    context: str
+    source: str
+    disambiguation: str | None
+    numerus: bool
+    forms: tuple[str, ...]
+
+    @property
+    def key(self) -> str:
+        """Return a printable name for the message."""
+        return f"{self.context}: {self.source}"
+
+
+def _catalogue_dir() -> Path:
+    """Return the directory of compiled catalogues under test."""
+    named = os.environ.get(CATALOGUE_DIR_ENV)
+    return Path(named) if named else _default_translations_dir()
+
+
+def _load(code: str) -> QTranslator:
+    """Return a plain translator loaded from ``pixelart_<code>.qm``, or fail."""
+    directory = _catalogue_dir()
+    translator = QTranslator()
+    loaded = translator.load(f"pixelart_{code}", str(directory))
+    assert loaded, f"pixelart_{code}.qm failed to load from {directory}"
+    return translator
+
+
+def _english_messages() -> list[_Message]:
+    """Read every message of the shipped ``pixelart_en.ts`` with ElementTree."""
+    path = _default_translations_dir() / "pixelart_en.ts"
+    messages: list[_Message] = []
+    for ctx in ElementTree.parse(path).getroot().iter("context"):
+        name = ctx.findtext("name") or ""
+        for message in ctx.iter("message"):
+            forms = tuple(
+                form.text or "" for form in message.iterfind("translation/numerusform")
+            )
+            source = message.findtext("source") or ""
+            numerus = message.get("numerus") == "yes"
+            comment = message.findtext("comment")
+            messages.append(_Message(name, source, comment, numerus, forms))
+    return messages
+
+
+def _shown(translator: QTranslator, message: _Message, count: int = -1) -> str:
+    """Return the text one compiled catalogue gives a message, or ``""`` on a miss."""
+    text = translator.translate(
+        message.context, message.source, message.disambiguation, count
+    )
+    return text or ""
+
+
+def _identity_departures(
+    translator: QTranslator, messages: list[_Message]
+) -> list[str]:
+    """Return the messages WITHOUT a count whose compiled text differs from the source.
+
+    A miss (no compiled translation) is the source-text fallback and is identity.
+    Fails when no message without a count is examined, because a verdict over
+    nothing proves nothing.
+    """
+    plain = [message for message in messages if not message.numerus]
+    if not plain:
+        raise AssertionError("no message without a count was examined")
+    return [
+        message.key
+        for message in plain
+        if _shown(translator, message) not in ("", message.source)
+    ]
+
+
+def _form_problems(translator: QTranslator, messages: list[_Message]) -> list[str]:
+    """Return the count-bearing messages shown with the wrong English form.
+
+    Each message is asked for the counts of :data:`ENGLISH_FORM_FOR_COUNT`; the text
+    shown must be the ``.ts`` form that the English rule picks, with ``%n`` replaced
+    by the count. Fails when no count-bearing message is examined.
+    """
+    counted = [message for message in messages if message.numerus]
+    if not counted:
+        raise AssertionError("no count-bearing message was examined")
+    problems: list[str] = []
+    for message in counted:
+        for count, index in ENGLISH_FORM_FOR_COUNT.items():
+            expected = message.forms[index].replace("%n", str(count))
+            shown = _shown(translator, message, count).replace("%n", str(count))
+            if shown != expected:
+                problems.append(f"{message.key} (n={count})")
+    return problems
+
+
+@pytest.mark.parametrize("code", EIGHT_LANGUAGES)
+def test_req_is_build_002_every_shipped_qm_catalogue_loads(qapp, code):
+    """REQ-IS-BUILD-002: each of the eight ``pixelart_<code>.qm`` files loads.
+
+    Each compiled catalogue must load as a valid, non-empty ``.qm`` and have its
+    ``.ts`` source beside it. ``en`` included: it is the identity catalogue for
+    messages without a count and carries finished English forms for the rest, so
+    it is not empty."""
+    directory = _catalogue_dir()
+    assert (directory / f"pixelart_{code}.qm").is_file()
+    assert (_default_translations_dir() / f"pixelart_{code}.ts").is_file()
+    translator = _load(code)
+    print(f"{code}: loaded, empty={translator.isEmpty()}")
+    assert translator.isEmpty() is False
+
+
+def test_req_is_build_002_exactly_eight_catalogues_are_shipped(qapp):
+    """REQ-IS-BUILD-002: the directory holds the eight compiled catalogues and no
+    other, and a manager over it offers the same eight."""
+    directory = _catalogue_dir()
+    on_disk = sorted(
+        path.stem.removeprefix("pixelart_") for path in directory.glob("pixelart_*.qm")
+    )
+    offered = LanguageManager(qapp, translations_dir=directory).available_languages()
+    print(f"compiled on disk: {len(on_disk)} {on_disk}; offered: {len(offered)}")
+    assert on_disk == sorted(EIGHT_LANGUAGES)
+    assert sorted(offered) == sorted(EIGHT_LANGUAGES)
+    assert offered[0] == FALLBACK_LANGUAGE
+
+
+# --------------------------------------------------------------------------- #
+# 1b. The English catalogue: identity for messages without a count, English   #
+#     forms for the count-bearing ones (the identity claim, narrowed)         #
 # --------------------------------------------------------------------------- #
 
 
-def test_req_is_build_002_both_qm_catalogues_load(qapp):
-    """REQ-IS-BUILD-002: both ``pixelart_es.qm`` and ``pixelart_en.qm`` load.
+def test_req_is_build_002_en_catalogue_is_identity_for_messages_without_a_count(qapp):
+    """REQ-IS-BUILD-002: for every message of ``pixelart_en.ts`` that carries no
+    count, ``pixelart_en.qm`` gives no text that differs from the source (the
+    source-text fallback). Count-bearing messages are judged by the next test."""
+    messages = _english_messages()
+    plain = sum(1 for message in messages if not message.numerus)
+    departures = _identity_departures(_load("en"), messages)
+    print(
+        f"en identity: {len(messages)} messages, {plain} without a count examined, "
+        f"{len(departures)} differ from their source"
+    )
+    assert plain > 0
+    assert not departures, ascii(departures[:5])
 
-    ``en`` is the deliberately-unfinished identity catalogue (0 compiled
-    translations -- source-text fallback is correct); it must still LOAD as
-    a valid compiled ``.qm``, which is the only claim made about it here."""
-    from PySide6.QtCore import QTranslator
 
-    i18n_dir = str(_default_translations_dir())
-    for code in ("es", "en"):
-        translator = QTranslator()
-        loaded = translator.load(f"pixelart_{code}", i18n_dir)
-        assert loaded is True, f"pixelart_{code}.qm failed to load from {i18n_dir}"
+def test_req_is_build_002_en_catalogue_has_english_forms_for_count_messages(qapp):
+    """REQ-L10N-UI-006 / REQ-IS-BUILD-002: every count-bearing message of
+    ``pixelart_en.ts`` has two finished English forms, and ``pixelart_en.qm``
+    shows the singular for one and the plural for zero, two and five."""
+    messages = _english_messages()
+    counted = [message for message in messages if message.numerus]
+    for message in counted:
+        assert len(message.forms) == 2 and all(message.forms), ascii(message.key)
+    different = sum(1 for message in counted if message.forms[0] != message.forms[1])
+    problems = _form_problems(_load("en"), messages)
+    counts = sorted(ENGLISH_FORM_FOR_COUNT)
+    print(
+        f"en forms: {len(counted)} count-bearing messages, {different} with "
+        f"two different forms, {len(problems)} problems over counts {counts}"
+    )
+    # A verdict that cannot tell the two forms apart proves nothing.
+    assert different > 0
+    assert not problems, ascii(problems[:5])
+
+
+def test_the_identity_and_form_checks_reject_a_catalogue_that_translates(qapp):
+    """Control: both instruments, run over the Spanish catalogue, report problems.
+
+    Spanish translates the messages without a count and gives the count-bearing
+    ones Spanish forms, so each check must fail; one that could not fail would say
+    nothing when it passes. Each instrument also refuses to give a verdict over no
+    message at all."""
+    messages = _english_messages()
+    spanish = _load("es")
+    departures = _identity_departures(spanish, messages)
+    problems = _form_problems(spanish, messages)
+    print(f"control: es differs on {len(departures)}, wrong forms {len(problems)}")
+    assert len(departures) > 0
+    assert len(problems) > 0
+    without_count = [message for message in messages if not message.numerus]
+    with pytest.raises(AssertionError, match="no message without a count"):
+        _identity_departures(spanish, [])
+    with pytest.raises(AssertionError, match="no count-bearing message"):
+        _form_problems(spanish, without_count)
 
 
 # --------------------------------------------------------------------------- #

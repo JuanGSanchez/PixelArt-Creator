@@ -43,6 +43,13 @@ The groups of tests:
   SC-L10N-UI-013-2, each built inside the test with a translation planted in a
   scratch catalogue compiled for the purpose, and a broken copy of the comparison
   (one that drops the English side) that must fail the second.
+* ``test_a_menu_title_cut_off_in_...`` are the two planted cases of
+  SC-L10N-UI-013-4: a top-level menu title moved whole into the menu bar's overflow
+  button in the check's 1280 x 800 px window, in Russian only (a finding naming the
+  title, the menu bar and the language) and in Russian and in English (not a
+  finding, printed among English's). Each runs in Light and Dark. Their controls: a
+  blinded menu-bar detector passes the first, a bar that holds no title fails the
+  zero guard, and the width measure is read with room and without.
 * the vertical check: with "Use system font" on and a Han-capable platform family
   forced (a registered stand-in), each label class is also measured for height: the
   height of its text in the platform font must not exceed the height its widget
@@ -82,6 +89,20 @@ what the layout gave it):
   (what the delegate would elide with an ellipsis).
 
 The number of widgets and texts examined is printed per kind and must not be zero.
+For the main window each item also prints, per font case, the menu bar's line: the
+width of every top-level title at its natural width, their total, what they need of
+the bar's width and the margin left (negative when they do not fit), and the titles
+the bar moved into its overflow button; no title measured fails the item.
+The "system" font case must draw the operating system's own UI face: each item prints
+the family the measured widgets asked for and the family Qt resolved them to (the menu
+bar on the main surface; every dialog and every prompt box on the dialogs surface),
+and the child fails when one of them resolved to anything but that face, naming it.
+A face that holds a shipped Han or Hangul character is the product's designed
+CJK-first order: the line then says "CJK-first host" and nothing is asserted. On
+Windows the child first sets the platform font the product reads to that face (the
+headless plugin's captured default is the generic "Sans Serif", which the product
+measures as Han-capable); without it the case drew a Nifen Art CJK face and compared
+Nifen Art with Nifen Art.
 Art scale 1 is 100 %. Art scale 2 is the pixel-perfect scale (the whole-number
 scale "Pixel-perfect interface" produces above 100 %), pinned with
 ``apply_theme(..., scale=2)``, which changes the style sheet's metrics; a real
@@ -143,6 +164,7 @@ from PySide6.QtCore import (
     QTimer,
 )
 from PySide6.QtGui import (
+    QAction,
     QFont,
     QFontDatabase,
     QFontMetrics,
@@ -1803,14 +1825,132 @@ def _point_the_generic_family_at_the_operating_system_ui_font() -> str:
     return QFontInfo(QFont(QFont().family())).family()
 
 
-def _examine_surface(win: QWidget, surface: str, examiner: Examiner) -> None:
+def _point_the_platform_snapshot_at_the_operating_system_ui_font(generic: str) -> bool:
+    """Make the platform font the application captured the OS's own UI face.
+
+    The matrix child captures the platform font right after ``QApplication`` exists
+    (the shared prelude of ``test_app_font``), before the generic family is
+    substituted. On the ``offscreen`` plugin that capture is the generic family
+    ("Sans Serif"), which the product's Han and Hangul probe measures without the
+    substitution (measured: a Han and Hangul face, ``Malgun Gothic``). The product
+    then took its designed CJK-first branch, and the "system" font case drew a Nifen
+    Art CJK face, not the platform's. On Windows the snapshot the product reads is
+    therefore set to ``generic`` (what the function above returned: the OS's own UI
+    face) at the size that was captured, before the window is built; nothing else of
+    the snapshot is changed and the product is not touched. On other hosts the
+    snapshot is left as captured and the generic family is left to fontconfig and
+    CoreText, as before. Returns whether the snapshot was set.
+    """
+    if os.name != "nt":
+        return False
+    snapshot = app_font.platform_default_font()
+    snapshot.setFamily(generic)
+    app_font._platform["font"] = QFont(snapshot)
+    stored = app_font.platform_default_font().family()
+    assert stored == generic, (
+        f"the platform snapshot was not set to the OS UI face {generic!r}: it reads "
+        f"{stored!r}"
+    )
+    return True
+
+
+#: The Nifen Art families the product ships, read from the product's constants.
+NIFEN_FAMILIES = frozenset(
+    {
+        font_chain.NIFEN_ART_FAMILY,
+        font_chain.CJK_JP_FAMILY,
+        font_chain.CJK_SC_FAMILY,
+        font_chain.CJK_HANGUL_FAMILY,
+    }
+)
+
+
+def _families_of(widget: QWidget) -> List[str]:
+    """Return the family ``widget`` asks for and the family Qt resolves it to."""
+    from PySide6.QtGui import QFontInfo
+
+    font = widget.font()
+    return [font.family(), QFontInfo(font).family()]
+
+
+def _recorder(name: str, rows: List[List[str]]) -> Callable[[QMessageBox], None]:
+    """Return a callback that records the families of a prompt box under ``name``."""
+
+    def record(box: QMessageBox) -> None:
+        rows.append([name, *_families_of(box)])
+
+    return record
+
+
+def judge_system_case_faces(generic: str, rows: List[List[str]]) -> Dict[str, object]:
+    """Fail unless the "system" case drew the OS's UI face; return what it drew.
+
+    ``rows`` holds one ``[widget, requested family, resolved family]`` per measured
+    widget of the system case. Without a widget the case measured nothing, which
+    fails. When the OS's own UI face holds no shipped Han or Hangul character, the
+    product puts it first (measured), so every measured widget must resolve to
+    ``generic``: a widget that resolves to a Nifen Art CJK face compared Nifen Art
+    with Nifen Art. When the OS face does hold one, the CJK-first order is the
+    product's design: the result says so and nothing is asserted. A host whose OS
+    face is itself a Nifen family has nothing to compare: it is printed, not judged.
+    """
+    assert rows, "the system font case measured no widget's family"
+    cjk_first = app_font.primary_holds_cjk(generic)
+    os_face_is_nifen = generic in NIFEN_FAMILIES
+    wrong = [row for row in rows if row[2] != generic]
+    if not cjk_first and not os_face_is_nifen:
+        assert not wrong, (
+            f"the system font case drew {sorted({row[2] for row in wrong})} on "
+            f"{len(wrong)} of {len(rows)} measured widgets, not {generic!r}, the "
+            f"operating system's UI face, which holds no shipped Han or Hangul "
+            f"character; the first is {wrong[0][0]!r}, which asked for "
+            f"{wrong[0][1]!r} and resolved to {wrong[0][2]!r}"
+        )
+    return {
+        "os_face": generic,
+        "cjk_first_host": cjk_first,
+        "os_face_is_nifen": os_face_is_nifen,
+        "measured": len(rows),
+        "matching": len(rows) - len(wrong),
+        "requested": dict(Counter(row[1] for row in rows)),
+        "resolved": dict(Counter(row[2] for row in rows)),
+    }
+
+
+def drew_text(drew: Dict[str, Any]) -> str:
+    """Return the item-line text of what the system case drew on its widgets."""
+    if drew["cjk_first_host"] or drew["os_face_is_nifen"]:
+        why = (
+            "CJK-first host" if drew["cjk_first_host"] else "OS face is a Nifen family"
+        )
+        return (
+            f"{why}: system case drew {drew['resolved']} on {drew['measured']} "
+            f"measured widgets (asked for {drew['requested']}), nothing asserted"
+        )
+    return (
+        f"system case drew {drew['os_face']!r} on {drew['matching']} of "
+        f"{drew['measured']} measured widgets (asked for {drew['requested']})"
+    )
+
+
+def _examine_surface(
+    win: QWidget,
+    surface: str,
+    examiner: Examiner,
+    faces: Optional[List[List[str]]] = None,
+) -> None:
     """Examine one surface: the main window with every dock raised, or every dialog.
 
-    The "dialogs" surface also opens each prompt of :data:`PROMPTS`.
+    The "dialogs" surface also opens each prompt of :data:`PROMPTS`. When ``faces``
+    is given, the family each measured widget asks for and the one Qt resolves it to
+    are appended to it: the menu bar on the main surface, each dialog and each prompt
+    box on the dialogs surface.
     """
     if surface == "main":
         examiner.prefix = "main"
         examiner.examine(win)
+        if faces is not None:
+            faces.append(["menu bar", *_families_of(cast(QMainWindow, win).menuBar())])
         docks = win.findChildren(QDockWidget)
         for dock in docks:
             dock.show()
@@ -1824,12 +1964,105 @@ def _examine_surface(win: QWidget, surface: str, examiner: Examiner) -> None:
         dialog = factory()
         dialog.show()
         QApplication.processEvents()
+        if faces is not None:
+            faces.append([name, *_families_of(dialog)])
         examiner.examine(dialog)
         examiner.examined["dialogs"] += 1
         dialog.hide()
         dialog.deleteLater()
     for name in PROMPTS:
-        examine_prompt(win, name, examiner)
+        tweak = None if faces is None else _recorder(name, faces)
+        examine_prompt(win, name, examiner, tweak)
+
+
+#: Width of the probe bar that lays every title out at its natural width: wider than
+#: any bar of the product, so that no title is moved into an overflow button.
+_PROBE_BAR_PX = 4000
+
+
+def measure_menu_bar(bar: QMenuBar) -> Dict[str, Any]:
+    """Measure the top-level titles of ``bar``: each width, the total, the margin.
+
+    A title that the bar has moved into its overflow button has no rectangle in the
+    bar, so the natural widths are read from a probe bar that holds the same titles
+    in the same font and style sheet and is far wider than any bar of the product.
+    ``titles`` lists, per title in the bar's order, its text, its natural width, whether
+    the real bar shows it whole, and the width the real bar gave it (0 when none).
+    ``total`` is the sum of the natural widths; ``needs`` is the right edge of the last
+    title in the probe, which includes the bar's own margin and the gaps between the
+    titles; ``margin`` is what the real bar has beyond ``needs`` (negative when the
+    titles do not fit).
+    """
+    real = [action for action in bar.actions() if action.text()]
+    probe = QMenuBar()
+    probe.setFont(bar.font())
+    copies = []
+    for action in real:
+        copy = QAction(action.text(), probe)
+        probe.addAction(copy)
+        copies.append(copy)
+    probe.resize(_PROBE_BAR_PX, max(bar.height(), 1))
+    probe.show()
+    QApplication.processEvents()
+    titles: List[List[Any]] = []
+    needs = 0
+    for action, copy in zip(real, copies):
+        natural = probe.actionGeometry(copy)
+        assert not natural.isEmpty(), (
+            f"the probe bar did not lay {action.text()!r} out at {_PROBE_BAR_PX} px: "
+            "its natural width is unknown"
+        )
+        laid = bar.actionGeometry(action)
+        whole = not laid.isEmpty() and bar.rect().contains(laid)
+        titles.append([action.text(), natural.width(), whole, laid.width()])
+        needs = max(needs, natural.right() + 1)
+    probe.close()
+    probe.deleteLater()
+    QApplication.sendPostedEvents(None, 0)
+    return {
+        "titles": titles,
+        "total": sum(int(title[1]) for title in titles),
+        "needs": needs,
+        "bar_width": bar.width(),
+        "margin": bar.width() - needs,
+    }
+
+
+def _ascii(text: str) -> str:
+    """Return ``text`` with every non-ASCII character escaped, for a terminal."""
+    return text.encode("ascii", "backslashreplace").decode("ascii")
+
+
+def menu_bar_line(label: str, measured: Dict[str, Any]) -> str:
+    """Return the printed line of one measured menu bar: widths, total and margin."""
+    titles = measured["titles"]
+    widths = [title[1] for title in titles]
+    moved = [_ascii(str(title[0])) for title in titles if not title[2]]
+    return (
+        f"menu bar [{label}]: {len(titles)} top-level titles, widths {widths}, total "
+        f"{measured['total']}, the titles need {measured['needs']} px of the bar's "
+        f"{measured['bar_width']} px, margin {measured['margin']}; moved into the "
+        f"overflow button: {len(moved)} {moved}"
+    )
+
+
+def require_menu_titles(
+    examined: Dict[str, int], measured: Dict[str, Any], where: str
+) -> int:
+    """Return how many top-level titles were measured; fail when none was.
+
+    A bar that holds no title, or that the walk never reached, would pass every
+    overflow check with nothing examined. This is the bar's own zero guard: neither
+    the detector's count nor the width measure may be zero.
+    """
+    seen = int(examined.get("menu", 0))
+    measured_titles = len(measured["titles"])
+    assert seen > 0 and measured_titles > 0, (
+        f"{where}: no top-level menu title was measured (the detector examined "
+        f"{seen}, the width measure found {measured_titles}), so the menu bar check "
+        "examined nothing"
+    )
+    return measured_titles
 
 
 def run_matrix(
@@ -1870,6 +2103,7 @@ def run_matrix(
     app = QApplication.instance()
     assert isinstance(app, QApplication)
     generic = _point_the_generic_family_at_the_operating_system_ui_font()
+    snapshot_set = _point_the_platform_snapshot_at_the_operating_system_ui_font(generic)
     plant(**{KEY_MODE: mode})
     win = Main_Window()
     win.resize(1280, 800)
@@ -1902,6 +2136,7 @@ def run_matrix(
             QApplication.processEvents()
     lap("warm-up")
     results: Dict[str, Dict[str, object]] = {}
+    faces: Dict[str, List[List[str]]] = {font: [] for font in FONT_CASES}
     for font in FONT_CASES:
         if font == "system":
             # The menu action's own path: the choice is stored, the listener
@@ -1914,9 +2149,14 @@ def run_matrix(
             _settle(win)
         lap("settle")
         examiner = Examiner()
-        _examine_surface(win, surface, examiner)
+        _examine_surface(win, surface, examiner, faces[font])
         lap("examine")
         results[font] = examiner.dump()
+        if examines_window:
+            results[font]["menu_bar"] = measure_menu_bar(win.menuBar())
+    # The guard: the system case must have drawn the OS's UI face on the widgets it
+    # measured, or the comparison above compared Nifen Art with a Nifen Art face.
+    system_faces = judge_system_case_faces(generic, faces["system"])
     vertical: Optional[Dict[str, object]] = None
     if standin:
         # After the two font cases, so that registering the instrument faces cannot
@@ -1941,6 +2181,8 @@ def run_matrix(
         "families": len([f for f in QFontDatabase.families() if f != NIFEN]),
         "platform": generic,
         "app_font_nifen": app_font.interface_font().family(),
+        "system_faces": system_faces,
+        "snapshot_set": snapshot_set,
     }
 
 
@@ -2256,13 +2498,35 @@ def _measure(
         f"examined {total} with Nifen Art ({nifen['examined']}), "
         f"{sum(system['examined'].values())} with {result['platform']!r}; "
         f"truncated with Nifen Art only: {len(verdict.platform_only)}, with both: "
-        f"{verdict.both_fonts}{english}; vertical ({verdict.vertical_source} chain "
+        f"{verdict.both_fonts}{english}; "
+        f"{drew_text(cast(Dict[str, Any], result['system_faces']))}; "
+        f"vertical ({verdict.vertical_source} chain "
         f"{vertical['chain']}): examined {verdict.vertical_examined}, "
         f"clipped {len(verdict.clipped)}; child seconds {result['timing']}",
     )
     if verdict.english_too:
         print(verdict.english_report())
+    if surface == "main":
+        for case, data in results.items():
+            _report(
+                capsys,
+                menu_bar_line(
+                    f"{language} scale{scale} {mode} {style} {case}", data["menu_bar"]
+                ),
+            )
+            require_menu_titles(
+                data["examined"], data["menu_bar"], f"{language} {case} font"
+            )
     if surface == "dialogs":
+        nifen_keys = {k for found in nifen["keys"].values() for k in found}
+        system_keys = {k for found in system["keys"].values() for k in found}
+        if nifen_keys != system_keys:
+            _report(
+                capsys,
+                f"dialog keys examined in one font case only [{language} scale{scale} "
+                f"{mode} {style}]: system only {sorted(system_keys - nifen_keys)}, "
+                f"Nifen Art only {sorted(nifen_keys - system_keys)}",
+            )
         rows = prompt_rows(nifen["keys"])
         _report(
             capsys,
@@ -2316,10 +2580,10 @@ SURFACES = ("main", "dialogs")
 #: The number of languages the finished product ships (English included).
 EXPECTED_LANGUAGE_COUNT = 8
 
-#: Switch for the language-count floor. ``False`` holds it: the floor in force is 1,
-#: so the zero-examined guard still bites, and every run prints ``HELD`` and how many
-#: of the eight were discovered. The commit that compiles the eighth catalogue flips
-#: it to ``True``.
+#: Switch for the language-count floor. ``True`` enforces it (T78, final): the floor
+#: in force is 8, and every run prints ``ENFORCED`` and how many of the eight were
+#: discovered. ``False`` would hold it at 1, so the zero-examined guard alone bites,
+#: and every run would print ``HELD``; the control below proves both settings.
 EIGHT_LANGUAGE_FLOOR_ENFORCED = True
 
 
@@ -2479,7 +2743,7 @@ def test_the_items_cover_every_combination_exactly_once():
 
 
 def test_the_eight_language_floor_is_written_and_held():
-    """The floor of eight compiled languages is written here and held."""
+    """The floor of eight compiled languages is written here and enforced (T78)."""
     floor = active_language_floor()
     held = "ENFORCED" if EIGHT_LANGUAGE_FLOOR_ENFORCED else "HELD"
     print(
@@ -3430,3 +3694,349 @@ def test_guide_page_lines_are_as_tall_as_the_glyphs_drawn_on_them(
     )
     assert rows, f"{language}: no guide line was examined"
     assert not result["problems"], f"{language}: " + "; ".join(result["problems"][:10])
+
+
+# --------------------------------------------------------------------------- #
+# SC-L10N-UI-013-4: a top-level menu title moved into the overflow button      #
+# --------------------------------------------------------------------------- #
+#
+# The check's window is 1280 x 800 px at art scale 1. A host window of that size
+# gets a menu bar of a few plain titles, a pad whose length is found by measuring,
+# and one planted title last. The planted title is translated in a scratch Russian
+# catalogue. The pad is grown until the bar first moves the planted title whole
+# into its overflow button, with the language that case is sized by: "english-fits"
+# is sized by Russian, so that the short English title fits with room to spare and
+# only the Russian is moved; "english-squeezed" is sized by English, whose long title
+# is moved, and the Russian title, far longer, is moved with it.
+
+#: The check's window (width, height) in px.
+PLANTED_MENU_WINDOW_PX = (1280, 800)
+
+#: The plain titles that come before the pad and the planted title.
+_PLANTED_MENU_FILLERS = ("File", "Edit", "Image")
+
+#: case -> (English title, planted Russian title, sizing)
+PLANTED_MENU_CASES: Dict[str, Tuple[str, str, str]] = {
+    # English is shown whole; the Russian needs far more room than the bar has left.
+    "ru-only": (
+        "View",
+        "Очень длинное название меню на русском языке",
+        "english-fits",
+    ),
+    # English is already moved into the overflow button, and so is the Russian.
+    "ru-and-english": (
+        "The long English title",
+        "Очень длинное название меню на русском языке",
+        "english-squeezed",
+    ),
+}
+
+
+class _PlantedMenuHost(QMainWindow):
+    """A window of the check's size whose menu bar ends with one planted title."""
+
+    def __init__(self, source: str) -> None:
+        super().__init__()
+        self._source = source
+        bar = self.menuBar()
+        for title in _PLANTED_MENU_FILLERS:
+            bar.addMenu(title)
+        self.pad = bar.addMenu("W")
+        self.planted = bar.addMenu(QCoreApplication.translate("Planted", source))
+        self.resize(*PLANTED_MENU_WINDOW_PX)
+
+    def changeEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        """Re-translate the planted title when the language changes."""
+        if event.type() == event.Type.LanguageChange:
+            self.planted.setTitle(QCoreApplication.translate("Planted", self._source))
+        super().changeEvent(event)
+
+
+def _plant_menu_catalogue(folder: Path, source: str, translation: str) -> Path:
+    """Write and compile a scratch ``pixelart_ru.qm`` holding one planted title."""
+    folder.mkdir(parents=True, exist_ok=True)
+    ts = folder / "pixelart_ru.ts"
+    ts.write_text(
+        '<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE TS>\n'
+        '<TS version="2.1" language="ru_RU">\n<context>\n'
+        "    <name>Planted</name>\n    <message>\n"
+        f"        <source>{source}</source>\n"
+        f"        <translation>{translation}</translation>\n"
+        "    </message>\n</context>\n</TS>\n",
+        encoding="utf-8",
+    )
+    done = subprocess.run(
+        [_lrelease(), str(ts), "-qm", str(folder / "pixelart_ru.qm")],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert (
+        done.returncode == 0 and (folder / "pixelart_ru.qm").is_file()
+    ), f"lrelease exited {done.returncode}: {done.stdout}{done.stderr}"
+    return folder
+
+
+def run_planted_menu(
+    case: str, catalogue_dir: str, mode: str, blind: bool = False
+) -> Dict[str, object]:
+    """Measure the planted menu title in English, then in Russian; return both.
+
+    Called inside the child process: art scale 1, the first style, ``mode``, the
+    host window of the check's size as the one surface, the same ``Examiner`` as the
+    matrix. ``blind`` replaces the menu-bar detector by one that sees nothing, for
+    the control that proves the case depends on it.
+    """
+    from pixelart_creator.data import style_catalog
+    from pixelart_creator.ui.i18n import LanguageManager
+
+    source, _translation, sizing = PLANTED_MENU_CASES[case]
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+    app_font.register_app_fonts()
+    apply_theme(app, mode, style_catalog.style_ids()[0], scale=1)
+    app_font.apply_interface_font(app, False)
+    manager = LanguageManager(app, Path(catalogue_dir))
+    host = _PlantedMenuHost(source)
+    host.show()
+    QApplication.processEvents()
+    bar = host.menuBar()
+    assert bar.width() == PLANTED_MENU_WINDOW_PX[0], (
+        f"the menu bar is {bar.width()} px wide, not the check's "
+        f"{PLANTED_MENU_WINDOW_PX[0]} px"
+    )
+
+    def whole(menu: QMenu) -> bool:
+        laid = bar.actionGeometry(menu.menuAction())
+        return not laid.isEmpty() and bar.rect().contains(laid)
+
+    def pad_to(length: int) -> None:
+        host.pad.setTitle("W" * length)
+        QApplication.processEvents()
+
+    sized_by = "ru" if sizing == "english-fits" else EN
+    if sized_by != EN:
+        assert manager.set_language(sized_by) is True, "the catalogue did not load"
+        QApplication.processEvents()
+    length = 1
+    pad_to(length)
+    assert whole(host.planted), f"the {sized_by} title does not fit beside a pad of 1"
+    while whole(host.planted):
+        length += 1
+        assert length < 400, f"the {sized_by} title never left the bar"
+        pad_to(length)
+    assert whole(host.pad), f"the pad of {length} is itself moved into the overflow"
+    if sized_by != EN:
+        manager.set_language(EN)
+        QApplication.processEvents()
+    assert whole(host.pad), f"the pad of {length} is moved into the overflow in English"
+    assert whole(host.planted) == (sizing == "english-fits"), sizing
+    if blind:
+        Examiner.menu_bar = lambda self, bar: None  # type: ignore[method-assign]
+
+    def measure() -> Dict[str, object]:
+        _settle(host)
+        examiner = Examiner()
+        examiner.prefix = "planted"
+        examiner.examine(host)
+        return {"results": {"nifen": examiner.dump()}, "bar": measure_menu_bar(bar)}
+
+    english = measure()
+    assert manager.set_language("ru") is True, "the planted catalogue did not load"
+    QApplication.processEvents()
+    russian = measure()
+    shown = host.planted.title()
+    manager.set_language(EN)
+    return {"en": english, "ru": russian, "ru_text": shown, "pad": length}
+
+
+_PLANTED_MENU_CHILD = """
+from testing.suites.ui.test_app_font_truncation import run_planted_menu
+out(**run_planted_menu({case!r}, {folder!r}, {mode!r}, {blind!r}))
+"""
+
+
+def _run_planted_menu_case(
+    tmp_path: Path, case: str, mode: str, blind: bool = False
+) -> Dict[str, Any]:
+    """Compile the case's scratch catalogue and measure the planted title in a child."""
+    from testing.suites.ui.test_app_font import run_child
+
+    source, translation, _sizing = PLANTED_MENU_CASES[case]
+    work = tmp_path / ("blind" if blind else "real")
+    work.mkdir(exist_ok=True)
+    folder = _plant_menu_catalogue(work / "catalogue", source, translation)
+    result = run_child(
+        _PLANTED_MENU_CHILD.format(
+            case=case, folder=str(folder), mode=mode, blind=blind
+        ),
+        work,
+        timeout=120,
+    )
+    assert result["ru_text"] == translation, (
+        "the planted translation was not applied: the menu bar shows "
+        f"{_ascii(result['ru_text'])}"
+    )
+    return result
+
+
+def _print_planted_menu(
+    capsys, case: str, mode: str, planted: Dict[str, Any], verdict: Verdict
+) -> None:
+    """Print the planted bar's two measured lines and the verdict's exit and names."""
+    for language in ("en", "ru"):
+        label = f"planted {case} {mode} {language}"
+        _report(capsys, menu_bar_line(label, planted[language]["bar"]))
+    _report(
+        capsys,
+        f"planted menu {case} [{mode}]: exit {verdict.exit_status}, pad "
+        f"{planted['pad']}\n{_ascii(verdict.report())}\n"
+        f"{_ascii(verdict.english_report())}",
+    )
+
+
+@pytest.mark.parametrize("mode", _CONTROL_MODES)
+def test_a_menu_title_cut_off_in_russian_only_fails_naming_title_bar_and_language(
+    tmp_path, capsys, mode
+):
+    """SC-L10N-UI-013-4 row "ru only": a finding, a non-zero exit, and its three names.
+
+    The English title is shown whole in the 1280 px bar. The Russian planted in the
+    scratch catalogue is moved whole into the overflow button. The check must report
+    it and exit non-zero, naming the title, the menu bar and the language.
+    """
+    planted = _run_planted_menu_case(tmp_path, "ru-only", mode)
+    verdict = judge("ru", planted["ru"], planted["en"])
+    _print_planted_menu(capsys, "ru-only", mode, planted, verdict)
+    title = PLANTED_MENU_CASES["ru-only"][1]
+    assert planted["en"]["bar"]["titles"][-1][2] is True, "English must show the title"
+    assert planted["ru"]["bar"]["titles"][-1][2] is False, "Russian must be cut off"
+    titles = len(planted["ru"]["bar"]["titles"])
+    assert planted["ru"]["results"]["nifen"]["examined"]["menu"] == titles
+    assert verdict.exit_status != 0, "the check passed a title only Russian cuts off"
+    report = verdict.report()
+    assert title in report, report
+    assert "QMenuBar" in report, report
+    assert "language ru" in report, report
+    assert verdict.english_too["nifen"] == []
+
+
+@pytest.mark.parametrize("mode", _CONTROL_MODES)
+def test_a_menu_title_cut_off_in_russian_and_english_passes_and_is_printed(
+    tmp_path, capsys, mode
+):
+    """SC-L10N-UI-013-4 row "ru and in English": exit zero, the title printed for ru.
+
+    The English title is already moved into the overflow button, and so is the
+    planted Russian one. English is the reference: the title is not a finding. It
+    is counted and printed among those cut off in English as well, for ``ru``. The
+    copy of the comparison that judges Russian alone exits non-zero on the same
+    measurements, so the case tells the differential rule from the absolute one.
+    """
+    planted = _run_planted_menu_case(tmp_path, "ru-and-english", mode)
+    english = planted["en"]["results"]["nifen"]
+    assert planted["en"]["bar"]["titles"][-1][2] is False, "English must be cut off"
+    source = PLANTED_MENU_CASES["ru-and-english"][0]
+    assert [found[2] for found in english["findings"]] == [source], english["findings"]
+    verdict = judge("ru", planted["ru"], planted["en"])
+    _print_planted_menu(capsys, "ru-and-english", mode, planted, verdict)
+    title = PLANTED_MENU_CASES["ru-and-english"][1]
+    assert verdict.exit_status == 0, verdict.report()
+    printed = verdict.english_report()
+    assert "truncated in English as well, for ru" in printed, printed
+    assert title in printed, printed
+    assert len(verdict.english_too["nifen"]) == 1
+    broken = judge("ru", planted["ru"], planted["en"], compare=judge_language_alone)
+    assert broken.exit_status != 0, (
+        "the copy that judges Russian alone passed the case: the case cannot tell "
+        "the differential rule from the absolute one"
+    )
+    assert title in broken.report()
+
+
+@pytest.mark.parametrize("mode", _CONTROL_MODES)
+def test_a_menu_bar_check_that_sees_no_overflow_passes_the_russian_only_case(
+    tmp_path, capsys, mode
+):
+    """Control: with the menu-bar detector blinded, the "ru only" case is not reported.
+
+    The title is really in the overflow button (the bar's own measure says so), and
+    a check that cannot see a menu bar exits zero on it. That is what the "ru only"
+    row of SC-L10N-UI-013-4 depends on the detector to prevent.
+    """
+    planted = _run_planted_menu_case(tmp_path, "ru-only", mode, blind=True)
+    verdict = judge("ru", planted["ru"], planted["en"])
+    _print_planted_menu(capsys, "ru-only blind", mode, planted, verdict)
+    assert planted["ru"]["bar"]["titles"][-1][2] is False, "Russian must be cut off"
+    assert planted["ru"]["results"]["nifen"]["examined"].get("menu", 0) == 0
+    assert verdict.exit_status == 0, "a blinded menu-bar detector still reported"
+
+
+def _menu_host(qtbot, titles: Sequence[str]) -> QMainWindow:
+    """Return a shown window of the check's size whose menu bar holds ``titles``."""
+    host = QMainWindow()
+    qtbot.addWidget(host)
+    for title in titles:
+        host.menuBar().addMenu(title)
+    host.resize(*PLANTED_MENU_WINDOW_PX)
+    host.show()
+    qtbot.waitExposed(host)
+    QApplication.processEvents()
+    return host
+
+
+@pytest.mark.parametrize("mode", _CONTROL_MODES)
+def test_a_menu_bar_that_holds_no_title_fails_the_zero_titles_guard(qapp, qtbot, mode):
+    """SC-L10N-UI-013-4: a bar that examined no title fails; one with titles passes.
+
+    The guard reads both the detector's count and the width measure's. A window
+    whose bar holds nothing yields zero for both and must fail, naming the bar.
+    """
+    apply_theme(qapp, mode, DEFAULT_STYLE)
+    empty = _menu_host(qtbot, ())
+    examiner = Examiner()
+    examiner.examine(empty)
+    measured = measure_menu_bar(empty.menuBar())
+    assert examiner.examined["menu"] == 0 and measured["titles"] == []
+    with pytest.raises(AssertionError, match="no top-level menu title"):
+        require_menu_titles(examiner.examined, measured, "an empty bar")
+    full = _menu_host(qtbot, ("File", "Edit"))
+    examiner = Examiner()
+    examiner.examine(full)
+    count = require_menu_titles(
+        examiner.examined, measure_menu_bar(full.menuBar()), "a bar of two titles"
+    )
+    assert count == 2
+
+
+@pytest.mark.parametrize("mode", _CONTROL_MODES)
+def test_the_menu_bar_measure_reads_natural_widths_total_and_margin(
+    qapp, qtbot, capsys, mode
+):
+    """Control: widths, total and margin are measured, with room and without.
+
+    In a 1280 px bar that holds every title, each natural width is the width the real
+    bar gave the title, the total is their sum and the margin is positive. In a bar
+    narrower than the titles need, the natural widths are the same, the margin is
+    negative and the last title is reported as moved into the overflow button.
+    """
+    apply_theme(qapp, mode, DEFAULT_STYLE)
+    names = ("File", "Edit", "Select", "Image", "View", "Palette", "Tilemap", "Help")
+    host = _menu_host(qtbot, names)
+    roomy = measure_menu_bar(host.menuBar())
+    _report(capsys, menu_bar_line(f"control roomy {mode}", roomy))
+    widths = [title[1] for title in roomy["titles"]]
+    assert [title[0] for title in roomy["titles"]] == list(names)
+    assert all(width > 0 for width in widths)
+    assert roomy["total"] == sum(widths) and roomy["needs"] >= roomy["total"]
+    assert roomy["margin"] == roomy["bar_width"] - roomy["needs"] > 0
+    assert all(title[2] for title in roomy["titles"])
+    assert [title[3] for title in roomy["titles"]] == widths
+    host.setFixedWidth(roomy["needs"] * 6 // 10)
+    qtbot.waitUntil(lambda: host.menuBar().width() < roomy["needs"], timeout=2000)
+    QApplication.processEvents()
+    tight = measure_menu_bar(host.menuBar())
+    _report(capsys, menu_bar_line(f"control tight {mode}", tight))
+    assert [title[1] for title in tight["titles"]] == widths
+    assert tight["margin"] < 0
+    assert tight["titles"][0][2] is True and tight["titles"][-1][2] is False
