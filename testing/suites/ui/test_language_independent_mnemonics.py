@@ -50,7 +50,7 @@ the English reference tree, and the raw (mnemonic-wrapper-bypassed) Spanish
 display-text reference tree, are each captured in their own isolated
 subprocess instead.
 
-T73 -- the oracle for every shipped language (REQ-L10N-UI-004,
+The access-key oracle for every shipped language (REQ-L10N-UI-004,
 SC-L10N-UI-004-1 to -4). The last section of this module generalises A3 and A4
 from Spanish to every language the product ships, discovered from the compiled
 catalogues and not named here:
@@ -71,13 +71,13 @@ catalogues and not named here:
   empty tree;
 * the M1 value table gains Japanese, Simplified Chinese, Korean and Russian
   rows (SC-L10N-UI-004-3, -4); the suffix pattern ``_TRAILING_FALLBACK_SUFFIX``
-  is the one this module has always carried (Q-15 (a)) and is not edited;
+  is the one this module has always carried and is not edited;
 * the children never touch the user's own settings or configuration folder: each
   redirects ``QSettings`` and the application-config location into a scratch
   folder under pytest's own base temp.
 
-OB-10 (how macOS presents the appended ``(&X)``) cannot be measured on a
-non-macOS host: ``test_t73_ob10_reports_qts_reading_of_the_suffix`` prints, on
+How macOS presents the appended ``(&X)`` cannot be measured on a
+non-macOS host: ``test_reports_qts_reading_of_the_appended_suffix`` prints, on
 every platform, what Qt itself reads from the suffix, so that the macOS CI log
 carries the measurement. It does not see a native macOS menu being drawn.
 """
@@ -572,7 +572,7 @@ def test_a6_user_guide_shortcut_context_is_application_wide(qtbot):
 
 
 # =========================================================================== #
-# T73 -- the access-key oracle for every shipped language                     #
+# The access-key oracle for every shipped language                            #
 # =========================================================================== #
 
 #: How many languages the oracle must examine (REQ-L10N-UI-004: eight).
@@ -599,7 +599,7 @@ def _shipped_language_codes(translations_dir: Optional[Path] = None) -> List[str
 
     English first, then every ``pixelart_<code>.qm`` in file-name order -- the
     product's own rule, read here without Qt so that the parametrisation below
-    can be built when the module is collected. ``test_t73_oracle_discovers_*``
+    can be built when the module is collected. ``test_oracle_discovers_*``
     compares it with ``LanguageManager.available_languages()``, so the two
     cannot drift apart unnoticed.
     """
@@ -736,9 +736,9 @@ def _language_dump(code: str, mode: str, scratch_root: Path) -> _Dump:
 
 
 @pytest.fixture(scope="module")
-def _t73_scratch(tmp_path_factory: pytest.TempPathFactory) -> Path:
+def _children_scratch(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The folder the children redirect their settings and config into."""
-    return tmp_path_factory.mktemp("t73-children")
+    return tmp_path_factory.mktemp("children")
 
 
 def _path_order(path: str) -> List[int]:
@@ -807,7 +807,7 @@ def _oracle_problems(reference: Tree, nodes: Tree, raw: Optional[Tree]) -> List[
 _LANGUAGE_NAMES = pytest.mark.parametrize("code", _SHIPPED_CODES, ids=_SHIPPED_CODES)
 
 
-def test_t73_oracle_discovers_eight_languages(
+def test_oracle_discovers_eight_languages(
     qapp: QApplication, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """SC-L10N-UI-004-1/-2: the oracle discovers the languages and prints them;
@@ -818,7 +818,7 @@ def test_t73_oracle_discovers_eight_languages(
     """
     codes = _discover_languages(qapp, monkeypatch)
     print(
-        f"T73 oracle: {len(codes)} of {REQUIRED_LANGUAGE_COUNT} languages "
+        f"oracle: {len(codes)} of {REQUIRED_LANGUAGE_COUNT} languages "
         f"discovered: {codes!r}"
     )
     _assert_enough_languages(codes)
@@ -840,7 +840,7 @@ def _folder_holding(tmp_path: Path, codes: Sequence[str]) -> Path:
     return folder
 
 
-def test_t73_a_folder_with_english_and_spanish_only_fails_stating_2_of_8(
+def test_a_folder_with_english_and_spanish_only_fails_stating_2_of_8(
     qapp: QApplication, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """SC-L10N-UI-004-2 (planted): English and Spanish alone fail the oracle,
@@ -853,7 +853,7 @@ def test_t73_a_folder_with_english_and_spanish_only_fails_stating_2_of_8(
     assert "2 of 8 required languages were examined" in str(caught.value)
 
 
-def test_t73_seven_languages_fail_stating_7_of_8(
+def test_seven_languages_fail_stating_7_of_8(
     qapp: QApplication, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """SC-L10N-UI-004-2 (planted): one shipped catalogue missing is one too
@@ -874,7 +874,7 @@ def test_t73_seven_languages_fail_stating_7_of_8(
         )
 
 
-def test_t73_an_empty_folder_fails_stating_1_of_8(
+def test_an_empty_folder_fails_stating_1_of_8(
     qapp: QApplication, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """SC-L10N-UI-004-2 (planted): no catalogue at all leaves English alone."""
@@ -887,19 +887,19 @@ def test_t73_an_empty_folder_fails_stating_1_of_8(
 
 
 @_LANGUAGE_NAMES
-def test_t73_language_keeps_the_english_access_keys(
-    code: str, _t73_scratch: Path, _qt_auto_mnemonic_enabled: None
+def test_language_keeps_the_english_access_keys(
+    code: str, _children_scratch: Path, _qt_auto_mnemonic_enabled: None
 ) -> None:
     """SC-L10N-UI-004-1: in ``code``, every node's access-key letter equals the
     English node's, no letter repeats within a menu, and the wrapper changes
     nothing a user reads beyond one trailing ``" (X)"``. Prints the language and
     its node count, which must be non-zero (and, for English, more than 100)."""
-    reference = _language_dump(FALLBACK_LANGUAGE, "wrapped", _t73_scratch).nodes
-    nodes = _language_dump(code, "wrapped", _t73_scratch).nodes
+    reference = _language_dump(FALLBACK_LANGUAGE, "wrapped", _children_scratch).nodes
+    nodes = _language_dump(code, "wrapped", _children_scratch).nodes
     raw = (
         None
         if code == FALLBACK_LANGUAGE
-        else _language_dump(code, "raw", _t73_scratch).nodes
+        else _language_dump(code, "raw", _children_scratch).nodes
     )
     problems = _oracle_problems(reference, nodes, raw)
     with_letter = sum(1 for node in nodes.values() if node["letter"])
@@ -911,7 +911,7 @@ def test_t73_language_keeps_the_english_access_keys(
         )
     )
     print(
-        f"T73 language={code} nodes={len(nodes)} with_access_key={with_letter} "
+        f"oracle language={code} nodes={len(nodes)} with_access_key={with_letter} "
         f"suffix_appended={suffixed}"
     )
     assert nodes, f"{code}: no node was examined"
@@ -924,8 +924,8 @@ def test_t73_language_keeps_the_english_access_keys(
     [c for c in _SHIPPED_CODES if c != FALLBACK_LANGUAGE],
     ids=[c for c in _SHIPPED_CODES if c != FALLBACK_LANGUAGE],
 )
-def test_t73_help_title_keeps_alt_h(
-    code: str, _t73_scratch: Path, _qt_auto_mnemonic_enabled: None
+def test_help_title_keeps_alt_h(
+    code: str, _children_scratch: Path, _qt_auto_mnemonic_enabled: None
 ) -> None:
     """SC-L10N-UI-004-3: the Help menu's access key is Alt+H in ``code``.
 
@@ -934,8 +934,8 @@ def test_t73_help_title_keeps_alt_h(
     parenthesis; when it does hold one, the letter is marked in the word and no
     suffix is added (spec scenario outline's own "Given").
     """
-    title = _language_dump(code, "wrapped", _t73_scratch).help_title
-    own = QAction(_language_dump(code, "raw", _t73_scratch).help_title).iconText()
+    title = _language_dump(code, "wrapped", _children_scratch).help_title
+    own = QAction(_language_dump(code, "raw", _children_scratch).help_title).iconText()
     suffix = " (&H)"
     assert QKeySequence.mnemonic(title).toString() == "Alt+H", title
     if "h" not in own.lower():
@@ -945,7 +945,7 @@ def test_t73_help_title_keeps_alt_h(
     else:
         assert not title.endswith(suffix), (own, title)
         outcome = "letter marked in the word"
-    print(f"T73 help language={code} own={own!r} title={title!r} -> {outcome}")
+    print(f"oracle help language={code} own={own!r} title={title!r} -> {outcome}")
 
 
 # --- the comparator, shown failing -------------------------------------------
@@ -964,7 +964,7 @@ def _planted_reference() -> Tree:
     }
 
 
-def test_t73_comparator_accepts_a_language_that_keeps_every_rule() -> None:
+def test_comparator_accepts_a_language_that_keeps_every_rule() -> None:
     """The comparator reports nothing for a language that keeps every rule,
     including the one allowed trailing suffix."""
     nodes = {
@@ -982,7 +982,7 @@ def test_t73_comparator_accepts_a_language_that_keeps_every_rule() -> None:
     assert _oracle_problems(_planted_reference(), nodes, raw) == []
 
 
-def test_t73_comparator_reports_a_changed_letter() -> None:
+def test_comparator_reports_a_changed_letter() -> None:
     """A translator's own letter at one node is reported, with its path."""
     nodes = _planted_reference()
     nodes["0.1"] = _node("V", "Ouvrir")
@@ -990,7 +990,7 @@ def test_t73_comparator_reports_a_changed_letter() -> None:
     assert len(problems) == 1 and problems[0].startswith("0.1: access key 'v'")
 
 
-def test_t73_comparator_reports_a_letter_used_twice_in_one_menu() -> None:
+def test_comparator_reports_a_letter_used_twice_in_one_menu() -> None:
     """Two nodes of one menu sharing a letter is reported, even when English
     has the same fault; the same letter in two different menus is not."""
     shared = _planted_reference()
@@ -1002,7 +1002,7 @@ def test_t73_comparator_reports_a_letter_used_twice_in_one_menu() -> None:
     assert _oracle_problems(elsewhere, elsewhere, None) == []
 
 
-def test_t73_comparator_reports_altered_wording_and_a_doubled_suffix() -> None:
+def test_comparator_reports_altered_wording_and_a_doubled_suffix() -> None:
     """The wrapper may add one trailing suffix and nothing else: a different
     word, or a second suffix, is reported."""
     reference = _planted_reference()
@@ -1016,7 +1016,7 @@ def test_t73_comparator_reports_altered_wording_and_a_doubled_suffix() -> None:
         assert len(problems) == 1 and "changed VISIBLE wording" in problems[0]
 
 
-def test_t73_comparator_reports_a_missing_node_and_an_empty_tree() -> None:
+def test_comparator_reports_a_missing_node_and_an_empty_tree() -> None:
     """A node English has and the language lacks is reported; so is a tree
     with no node at all."""
     reference = _planted_reference()
@@ -1084,11 +1084,11 @@ def test_m1_the_cyrillic_rows_really_use_cyrillic_letters() -> None:
         assert all(name.startswith("CYRILLIC") for name in names), (word, names)
 
 
-# --- OB-10 -------------------------------------------------------------------
+# --- How macOS presents the appended suffix ----------------------------------
 
 
-def test_t73_ob10_reports_qts_reading_of_the_suffix(qapp: QApplication) -> None:
-    """OB-10 (reported, not asserted for macOS): what Qt itself reads from the
+def test_reports_qts_reading_of_the_appended_suffix(qapp: QApplication) -> None:
+    """The macOS case (reported, not asserted for macOS): what Qt itself reads from the
     appended suffix on this platform.
 
     Printed so the macOS CI log carries the measurement: the displayed text, and
@@ -1104,7 +1104,7 @@ def test_t73_ob10_reports_qts_reading_of_the_suffix(qapp: QApplication) -> None:
     finally:
         qt_set_sequence_auto_mnemonic(sys.platform != "darwin")
     print(
-        f"T73 OB-10: platform={sys.platform} shown={shown!r} "
+        f"suffix reading: platform={sys.platform} shown={shown!r} "
         f"mnemonic_platform_default={platform_default!r} mnemonic_forced={forced!r}"
     )
     assert shown == "Ayuda (H)"

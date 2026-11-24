@@ -2580,7 +2580,7 @@ SURFACES = ("main", "dialogs")
 #: The number of languages the finished product ships (English included).
 EXPECTED_LANGUAGE_COUNT = 8
 
-#: Switch for the language-count floor. ``True`` enforces it (T78, final): the floor
+#: Switch for the language-count floor. ``True`` enforces it (final): the floor
 #: in force is 8, and every run prints ``ENFORCED`` and how many of the eight were
 #: discovered. ``False`` would hold it at 1, so the zero-examined guard alone bites,
 #: and every run would print ``HELD``; the control below proves both settings.
@@ -2743,7 +2743,7 @@ def test_the_items_cover_every_combination_exactly_once():
 
 
 def test_the_eight_language_floor_is_written_and_held():
-    """The floor of eight compiled languages is written here and enforced (T78)."""
+    """The floor of eight compiled languages is written here and enforced."""
     floor = active_language_floor()
     held = "ENFORCED" if EIGHT_LANGUAGE_FLOOR_ENFORCED else "HELD"
     print(
