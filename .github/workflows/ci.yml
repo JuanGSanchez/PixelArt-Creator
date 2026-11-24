@@ -1296,6 +1296,199 @@ jobs:
             --timeout=120 --timeout-method=thread \
             testing/suites/ui/test_font_family_chain_mechanism.py
 
+      - name: Soft line breaks on every supported entry (REQ-L10N-UI-014)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
+        # No `runner.os` test -- this step runs on all three legs. The rule that
+        # decides where a soft line break in a guide page becomes a space is
+        # applied in `logic/`, but what the guide window finally SHOWS is decided
+        # by Qt's text engine, and that differs by operating system and by
+        # PySide6 release. A green run therefore has to say which combination it
+        # ran on, and a case that was skipped on one combination must never pass
+        # for coverage of it.
+        #
+        # THE ENTRY. The first thing the step prints is ONE line: the Python
+        # version, the PySide6 version, and the operating system's name, version
+        # and architecture. That line is the entry this run covers; "tested on
+        # this entry" is judged from it and not from the matrix.
+        #
+        # THE GUARD. The modules that test the rule (the logic-layer modules, the
+        # window-layer module and the table cases) run here as ONE pytest run
+        # with --junitxml. The guard program below reads that junit file, which
+        # is the run's own record, and fails the step when no case ran, when any
+        # named module ran no case, when any case was skipped (an xfail is
+        # written as a skip too, so it counts), and when any case failed. No
+        # count is typed into this file: adding a case never needs an edit here,
+        # while losing a module or skipping a case always fails. The same modules
+        # also run in the main pytest step above; this run is narrower because
+        # only it keeps the junit record and applies the no-skip rule.
+        #
+        # THE CONTROLS. A guard that cannot fail proves nothing, so the same
+        # program is run over three scratch runs in the CI temp root before its
+        # verdict is trusted: a clean run (must pass), a run holding one planted
+        # skipped case (must fail, naming the skip) and a run whose selection
+        # matches nothing (must fail, naming "no case ran"). pytest itself exits
+        # 0 on the planted skip, which is the blind spot the guard closes.
+        #
+        # Exit: pytest's own status, the guard's and the controls' are each kept
+        # and each fatal. No `continue-on-error`, no `|| true` on a verdict.
+        run: |
+          GUARD_DIR="${CI_TEMP_ROOT}/softbreak-guard"
+          rm -rf "${GUARD_DIR}"
+          mkdir -p "${GUARD_DIR}"
+
+          cat > "${GUARD_DIR}/entry.py" <<'PY'
+          import platform
+
+          import PySide6
+
+          system = platform.system()
+          if system == "Darwin":
+              os_name, os_version = "macOS", platform.mac_ver()[0]
+          elif system == "Linux":
+              try:
+                  release = platform.freedesktop_os_release()
+                  os_name = release.get("NAME", "Linux")
+                  os_version = release.get("VERSION_ID", platform.release())
+              except OSError:
+                  os_name, os_version = "Linux", platform.release()
+          else:
+              os_name, os_version = system, platform.version()
+          print(
+              f"entry: Python {platform.python_version()} | PySide6 {PySide6.__version__}"
+              f" | {os_name} {os_version} | {platform.machine()}"
+          )
+          PY
+
+          cat > "${GUARD_DIR}/skip_guard.py" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+
+          def main(argv):
+              if len(argv) < 3:
+                  print("usage: skip_guard.py JUNIT_XML MODULE_PATH...")
+                  return 2
+              junit, paths = argv[1], argv[2:]
+              cases = list(ET.parse(junit).getroot().iter("testcase"))
+              skipped = []
+              broken = 0
+              for case in cases:
+                  kinds = {child.tag for child in case}
+                  if "skipped" in kinds:
+                      skipped.append(f"{case.get('classname')}::{case.get('name')}")
+                  if kinds & {"failure", "error"}:
+                      broken += 1
+              print(
+                  f"skip guard: {len(cases)} case(s) in the run's junit record,"
+                  f" {len(skipped)} skipped, {broken} failed or errored"
+              )
+              findings = []
+              if not cases:
+                  findings.append("no case ran")
+              for path in paths:
+                  module = path[: -len(".py")].replace("/", ".")
+                  ran = sum(
+                      1
+                      for case in cases
+                      if case.get("classname", "") == module
+                      or case.get("classname", "").startswith(module + ".")
+                  )
+                  print(f"  {path}: {ran} case(s) ran")
+                  if ran == 0:
+                      findings.append(f"{path}: no case ran")
+              if skipped:
+                  findings.append(
+                      f"{len(skipped)} case(s) skipped: " + ", ".join(skipped[:20])
+                  )
+              if broken:
+                  findings.append(f"{broken} case(s) failed or errored")
+              for finding in findings:
+                  print(f"GUARD FINDING: {finding}")
+              return 1 if findings else 0
+
+
+          sys.exit(main(sys.argv))
+          PY
+
+          python -I "${GUARD_DIR}/entry.py"
+
+          SOFTBREAK_MODULES=(
+            testing/suites/logic/test_guide_softbreak.py
+            testing/suites/logic/test_guide_softbreak_join.py
+            testing/suites/logic/test_guide_softbreak_tablemodel.py
+            testing/suites/logic/test_guide_softbreak_tables.py
+            testing/suites/ui/test_user_guide_softbreak.py
+          )
+          PYTEST_EXIT=0
+          python -m pytest -rs -p no:cacheprovider \
+            -o junit_family=xunit2 --junitxml="${GUARD_DIR}/softbreak.xml" \
+            --basetemp="${GUARD_DIR}/pytest-softbreak" \
+            --timeout=120 --timeout-method=thread \
+            "${SOFTBREAK_MODULES[@]}" || PYTEST_EXIT=$?
+          GUARD_EXIT=0
+          python -I "${GUARD_DIR}/skip_guard.py" "${GUARD_DIR}/softbreak.xml" \
+            "${SOFTBREAK_MODULES[@]}" || GUARD_EXIT=$?
+
+          # The controls: three scratch runs, each with its own pytest.ini so its
+          # rootdir is the scratch folder and none of the repository's
+          # configuration reaches it.
+          CONTROL_DIR="${GUARD_DIR}/control"
+          for NAME in clean skip none; do
+            mkdir -p "${CONTROL_DIR}/${NAME}"
+            printf '[pytest]\n' > "${CONTROL_DIR}/${NAME}/pytest.ini"
+          done
+          printf 'def test_clean_case():\n    assert True\n' > "${CONTROL_DIR}/clean/test_clean_case.py"
+          cp "${CONTROL_DIR}/clean/test_clean_case.py" "${CONTROL_DIR}/none/test_clean_case.py"
+          cat > "${CONTROL_DIR}/skip/test_planted_skip.py" <<'PY'
+          import pytest
+
+
+          def test_ran():
+              assert True
+
+
+          @pytest.mark.skip(reason="planted by the guard's own control")
+          def test_planted_skip():
+              pass
+          PY
+
+          run_control() {
+            # run_control LABEL EXPECTED(pass|fail) MODULE FINDING DIR [pytest args]
+            local label="$1" expected="$2" module="$3" finding="$4" dir="$5"
+            local pytest_rc=0 guard_rc=0
+            shift 5
+            python -m pytest -p no:cacheprovider -q -o junit_family=xunit2 \
+              --junitxml="${dir}/junit.xml" "$@" "${dir}" > "${dir}/pytest.log" 2>&1 || pytest_rc=$?
+            python -I "${GUARD_DIR}/skip_guard.py" "${dir}/junit.xml" "${module}" \
+              > "${dir}/guard.log" 2>&1 || guard_rc=$?
+            echo "control (${label}): pytest exit ${pytest_rc}, guard exit ${guard_rc}"
+            sed 's/^/    /' "${dir}/guard.log"
+            if [[ "${expected}" == "pass" ]]; then
+              if [[ "${guard_rc}" -ne 0 ]]; then
+                echo "::error::guard control (${label}) FAILED: the guard rejected a clean run"
+                return 1
+              fi
+            elif [[ "${guard_rc}" -ne 1 ]] || ! grep -qF "${finding}" "${dir}/guard.log"; then
+              echo "::error::guard control (${label}) FAILED: the guard did not reject it with \"${finding}\""
+              return 1
+            fi
+            return 0
+          }
+
+          CONTROL_FAILURES=0
+          run_control "clean run" pass test_clean_case.py "" "${CONTROL_DIR}/clean" \
+            || CONTROL_FAILURES=$((CONTROL_FAILURES + 1))
+          run_control "planted skip" fail test_planted_skip.py "case(s) skipped" "${CONTROL_DIR}/skip" \
+            || CONTROL_FAILURES=$((CONTROL_FAILURES + 1))
+          run_control "nothing ran" fail test_clean_case.py "no case ran" "${CONTROL_DIR}/none" -k no_such_case_selected \
+            || CONTROL_FAILURES=$((CONTROL_FAILURES + 1))
+
+          echo "soft line break step: pytest exit ${PYTEST_EXIT}, skip guard exit ${GUARD_EXIT}, control failures ${CONTROL_FAILURES}"
+          if [[ "${PYTEST_EXIT}" -ne 0 || "${GUARD_EXIT}" -ne 0 || "${CONTROL_FAILURES}" -ne 0 ]]; then
+            echo "::error::soft line break step failed: see the pytest summary, the guard's findings and the controls above"
+            exit 1
+          fi
+
       - name: Coverage gate — client package (>=90 line / >=80 branch, S13)
         if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # SCOPE (made explicit): this gate reads the coverage.xml produced by the
@@ -1580,6 +1773,382 @@ jobs:
         # reused here, never re-typed. No wildcard is used anywhere in this
         # step. Only the scoped root is touched; the runner workspace, tool
         # cache and Actions cache are never in scope here.
+        if: always()
+        run: |
+          if [[ -z "${CI_TEMP_ROOT:-}" ]]; then
+            echo "::error::CI_TEMP_ROOT is not set; refusing to guess a path to delete."
+            exit 1
+          fi
+          case "${CI_TEMP_ROOT}" in
+            "${RUNNER_TEMP}"/CI-PixelArtCreator/*) ;;
+            *)
+              echo "::error::CI_TEMP_ROOT (${CI_TEMP_ROOT}) does not resolve under \${RUNNER_TEMP}/CI-PixelArtCreator/<name>; refusing to delete."
+              exit 1
+              ;;
+          esac
+          if [[ -d "${CI_TEMP_ROOT}" ]]; then
+            echo "Removing CI temp root: ${CI_TEMP_ROOT}"
+            rm -rf "${CI_TEMP_ROOT}"
+            echo "Removed: ${CI_TEMP_ROOT}"
+          else
+            echo "CI temp root already absent (nothing to remove): ${CI_TEMP_ROOT}"
+          fi
+
+  # ===========================================================================
+  # Oldest installable PySide6 (REQ-L10N-UI-014).
+  #
+  # The `quality-gate` legs run the pinned PySide6 from constraints.txt. The
+  # lowest release the manifest still allows is older than that, and Qt's text
+  # engine, which decides where a guide page can break a line, changes between
+  # releases. This job runs the soft line break modules a second time on the
+  # OLDEST PySide6 release that can be installed for the interpreter named in
+  # .python-version, on the same three operating systems.
+  #
+  # A job of its own, on purpose:
+  #   - NOT a matrix entry of `quality-gate`: that would rename the job's
+  #     checks, and `main`'s ruleset requires them by exact name.
+  #   - NOT a second install inside `quality-gate`: that would change the
+  #     PySide6 every later step of that job sees, and would depend on where
+  #     the block sits among the steps.
+  # It has no `needs:` on `quality-gate` and runs beside it. Like
+  # `quality-gate` it waits for `setup` only, and takes its operating systems
+  # from the same output, so a pull request gets all three legs and every other
+  # trigger gets the one leg `setup` names.
+  # ===========================================================================
+  pyside6-floor:
+    name: Oldest installable PySide6 (${{ matrix.os }})
+    needs: setup
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # fail-fast OFF, as in `quality-gate`: a platform-specific failure on
+      # one leg must not cancel the other legs.
+      fail-fast: false
+      matrix:
+        # The same expression as `quality-gate`'s matrix, read from the same
+        # `setup` output.
+        os: ${{ fromJSON(needs.setup.outputs.os) }}
+    # Far below `quality-gate`'s cap: this job installs twice and runs five
+    # test modules, not the suite. Only a runaway guard.
+    timeout-minutes: 45
+    env:
+      # THE FLOOR, declared once; every step below reads it from here. It is
+      # the oldest PySide6 release that publishes wheels for the Python in
+      # .python-version (CPython 3.14). The source is the public list of
+      # PySide6 release files on PyPI: https://pypi.org/project/PySide6/#files
+      # The floor moves when the interpreter moves: the next interpreter makes
+      # a later release the oldest one that can be installed. Change it on
+      # this line only; the guard step below fails if an older release has
+      # become installable, which is the signal that this value is stale.
+      PYSIDE6_FLOOR: "6.10.1"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up CI temp root (CI-PixelArtCreator)
+        # The same routing as `quality-gate`'s identically-named step (see that
+        # step's comment for the rationale), duplicated because a temp root set
+        # in one job does not carry into another. The leg name is this job's
+        # id plus the matrix leg: deterministic, and overwritten on a re-run.
+        run: |
+          CI_TEMP_ROOT="${RUNNER_TEMP}/CI-PixelArtCreator/ci-pyside6-floor-${{ matrix.os }}"
+          rm -rf "${CI_TEMP_ROOT}"
+          mkdir -p "${CI_TEMP_ROOT}"
+          echo "CI_TEMP_ROOT=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TEMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMPDIR=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "CI temp root for this leg: ${CI_TEMP_ROOT}"
+
+      - name: Set up Python (pinned via .python-version)
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+
+      # The same operating-system libraries, with the same reasons, as
+      # `quality-gate`'s step of this name: headless Qt needs them on a clean
+      # Ubuntu runner, and the two font packages give the guide pages a real
+      # fallback face. QT_QPA_PLATFORM is the workflow-level setting at the top
+      # of this file, which every job inherits.
+      - name: Install Qt runtime OS libraries (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+            fonts-dejavu-core fonts-noto-cjk
+
+      - name: Install project (runtime + dev) from manifest
+        # The same install as `quality-gate`: the full locked closure first.
+        # The floor is applied by the next step, on top of it.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -c constraints.txt -e ".[dev]"
+
+      - name: Install the four PySide6 packages at the floor
+        # Without the constraints file: constraints.txt pins the newer release
+        # and would refuse the floor. The four packages are the whole PySide6
+        # family the project imports; installing them together keeps them on
+        # one release.
+        run: |
+          python -m pip install \
+            "PySide6==${PYSIDE6_FLOOR}" \
+            "PySide6_Essentials==${PYSIDE6_FLOOR}" \
+            "PySide6_Addons==${PYSIDE6_FLOOR}" \
+            "shiboken6==${PYSIDE6_FLOOR}"
+
+      - name: The installed PySide6 versions are the floor
+        # One line per package, and a failure unless each is the declared
+        # floor, so a resolver that silently kept the newer release cannot
+        # pass this job.
+        run: |
+          MISMATCH=0
+          for PACKAGE in PySide6 PySide6_Essentials PySide6_Addons shiboken6; do
+            INSTALLED="$(python -m pip show "${PACKAGE}" | sed -n 's/^Version: //p' | tr -d '\r')" \
+              || INSTALLED="not installed"
+            echo "${PACKAGE} ${INSTALLED}"
+            if [[ "${INSTALLED}" != "${PYSIDE6_FLOOR}" ]]; then
+              echo "::error::${PACKAGE} is ${INSTALLED}, not the floor ${PYSIDE6_FLOOR}"
+              MISMATCH=1
+            fi
+          done
+          if [[ "${MISMATCH}" -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Installed packages are consistent (pip check)
+        run: python -m pip check
+
+      - name: No older PySide6 can be installed (the floor is the lowest)
+        # THE GUARD, failing closed. It asks pip for a PySide6 release below
+        # the floor, for the running interpreter, and the job fails if one is
+        # found: the floor would then no longer be the oldest installable
+        # release, and the value above would be stale.
+        #
+        # THE POSITIVE CONTROL runs first. Asking pip for the floor itself must
+        # exit 0 and fetch exactly one file, which shows that the index is
+        # reachable and that this command's shape finds what exists. Without
+        # it a network or index failure would look like "nothing older found".
+        #
+        # THE GUARD: pip must find no distribution, and its refusal must be
+        # the no-match kind. A non-zero exit whose output lacks pip's "No
+        # matching distribution found" line, or that shows a connection
+        # problem, fails the job: an error is never read as an absence.
+        # `--no-cache-dir` so that no cached index page answers for the index.
+        run: |
+          DOWNLOAD_DIR="${CI_TEMP_ROOT}/floor-download"
+          rm -rf "${DOWNLOAD_DIR}"
+          mkdir -p "${DOWNLOAD_DIR}/control" "${DOWNLOAD_DIR}/below"
+
+          CONTROL_EXIT=0
+          python -m pip download --no-cache-dir --no-deps --dest "${DOWNLOAD_DIR}/control" \
+            "PySide6==${PYSIDE6_FLOOR}" > "${DOWNLOAD_DIR}/control.log" 2>&1 || CONTROL_EXIT=$?
+          cat "${DOWNLOAD_DIR}/control.log"
+          FETCHED="$(find "${DOWNLOAD_DIR}/control" -type f | wc -l | tr -d '[:space:]')"
+          echo "positive control: pip exit ${CONTROL_EXIT}, ${FETCHED} file(s) fetched"
+          if [[ "${CONTROL_EXIT}" -ne 0 || "${FETCHED}" != "1" ]]; then
+            echo "::error::positive control FAILED: pip could not fetch PySide6==${PYSIDE6_FLOOR} (exit ${CONTROL_EXIT}, ${FETCHED} file(s)); the guard below proves nothing"
+            exit 1
+          fi
+
+          GUARD_EXIT=0
+          python -m pip download --no-cache-dir --no-deps --dest "${DOWNLOAD_DIR}/below" \
+            "PySide6<${PYSIDE6_FLOOR}" > "${DOWNLOAD_DIR}/below.log" 2>&1 || GUARD_EXIT=$?
+          cat "${DOWNLOAD_DIR}/below.log"
+          echo "guard: pip exit ${GUARD_EXIT}"
+          if [[ "${GUARD_EXIT}" -eq 0 ]]; then
+            echo "::error::pip found a PySide6 release below ${PYSIDE6_FLOOR} for this interpreter: the floor is no longer the lowest installable release"
+            exit 1
+          fi
+          if grep -qE 'Retrying|Could not fetch URL|Connection|timed out|Temporary failure|Max retries' "${DOWNLOAD_DIR}/below.log"; then
+            echo "::error::the guard's pip run shows a network or index problem, so its refusal is not evidence of absence"
+            exit 1
+          fi
+          if ! grep -qF "No matching distribution found" "${DOWNLOAD_DIR}/below.log"; then
+            echo "::error::the guard's pip run failed, but not with pip's \"No matching distribution found\"; that is an error, not an absence"
+            exit 1
+          fi
+          echo "guard: no PySide6 release below ${PYSIDE6_FLOOR} is installable for this interpreter"
+
+      - name: Soft line breaks on the floor (REQ-L10N-UI-014)
+        # The guarded modules of `quality-gate`'s step "Soft line breaks on
+        # every supported entry", run the same way: the same five modules, the
+        # same junit record, the same skip guard and the same three controls.
+        # The two programs and the run are byte for byte the ones of that step;
+        # read its comment for the reasoning. Only the PySide6 differs, and the
+        # first line printed says which: the entry of this leg, so every pull
+        # request run prints six entries, three from each job.
+        #
+        # Exit: pytest's own status, the guard's and the controls' are each kept
+        # and each fatal. No `continue-on-error`, no `|| true` on a verdict.
+        run: |
+          GUARD_DIR="${CI_TEMP_ROOT}/softbreak-guard"
+          rm -rf "${GUARD_DIR}"
+          mkdir -p "${GUARD_DIR}"
+
+          cat > "${GUARD_DIR}/entry.py" <<'PY'
+          import platform
+
+          import PySide6
+
+          system = platform.system()
+          if system == "Darwin":
+              os_name, os_version = "macOS", platform.mac_ver()[0]
+          elif system == "Linux":
+              try:
+                  release = platform.freedesktop_os_release()
+                  os_name = release.get("NAME", "Linux")
+                  os_version = release.get("VERSION_ID", platform.release())
+              except OSError:
+                  os_name, os_version = "Linux", platform.release()
+          else:
+              os_name, os_version = system, platform.version()
+          print(
+              f"entry: Python {platform.python_version()} | PySide6 {PySide6.__version__}"
+              f" | {os_name} {os_version} | {platform.machine()}"
+          )
+          PY
+
+          cat > "${GUARD_DIR}/skip_guard.py" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+
+          def main(argv):
+              if len(argv) < 3:
+                  print("usage: skip_guard.py JUNIT_XML MODULE_PATH...")
+                  return 2
+              junit, paths = argv[1], argv[2:]
+              cases = list(ET.parse(junit).getroot().iter("testcase"))
+              skipped = []
+              broken = 0
+              for case in cases:
+                  kinds = {child.tag for child in case}
+                  if "skipped" in kinds:
+                      skipped.append(f"{case.get('classname')}::{case.get('name')}")
+                  if kinds & {"failure", "error"}:
+                      broken += 1
+              print(
+                  f"skip guard: {len(cases)} case(s) in the run's junit record,"
+                  f" {len(skipped)} skipped, {broken} failed or errored"
+              )
+              findings = []
+              if not cases:
+                  findings.append("no case ran")
+              for path in paths:
+                  module = path[: -len(".py")].replace("/", ".")
+                  ran = sum(
+                      1
+                      for case in cases
+                      if case.get("classname", "") == module
+                      or case.get("classname", "").startswith(module + ".")
+                  )
+                  print(f"  {path}: {ran} case(s) ran")
+                  if ran == 0:
+                      findings.append(f"{path}: no case ran")
+              if skipped:
+                  findings.append(
+                      f"{len(skipped)} case(s) skipped: " + ", ".join(skipped[:20])
+                  )
+              if broken:
+                  findings.append(f"{broken} case(s) failed or errored")
+              for finding in findings:
+                  print(f"GUARD FINDING: {finding}")
+              return 1 if findings else 0
+
+
+          sys.exit(main(sys.argv))
+          PY
+
+          python -I "${GUARD_DIR}/entry.py"
+
+          SOFTBREAK_MODULES=(
+            testing/suites/logic/test_guide_softbreak.py
+            testing/suites/logic/test_guide_softbreak_join.py
+            testing/suites/logic/test_guide_softbreak_tablemodel.py
+            testing/suites/logic/test_guide_softbreak_tables.py
+            testing/suites/ui/test_user_guide_softbreak.py
+          )
+          PYTEST_EXIT=0
+          python -m pytest -rs -p no:cacheprovider \
+            -o junit_family=xunit2 --junitxml="${GUARD_DIR}/softbreak.xml" \
+            --basetemp="${GUARD_DIR}/pytest-softbreak" \
+            --timeout=120 --timeout-method=thread \
+            "${SOFTBREAK_MODULES[@]}" || PYTEST_EXIT=$?
+          GUARD_EXIT=0
+          python -I "${GUARD_DIR}/skip_guard.py" "${GUARD_DIR}/softbreak.xml" \
+            "${SOFTBREAK_MODULES[@]}" || GUARD_EXIT=$?
+
+          # The controls: three scratch runs, each with its own pytest.ini so its
+          # rootdir is the scratch folder and none of the repository's
+          # configuration reaches it.
+          CONTROL_DIR="${GUARD_DIR}/control"
+          for NAME in clean skip none; do
+            mkdir -p "${CONTROL_DIR}/${NAME}"
+            printf '[pytest]\n' > "${CONTROL_DIR}/${NAME}/pytest.ini"
+          done
+          printf 'def test_clean_case():\n    assert True\n' > "${CONTROL_DIR}/clean/test_clean_case.py"
+          cp "${CONTROL_DIR}/clean/test_clean_case.py" "${CONTROL_DIR}/none/test_clean_case.py"
+          cat > "${CONTROL_DIR}/skip/test_planted_skip.py" <<'PY'
+          import pytest
+
+
+          def test_ran():
+              assert True
+
+
+          @pytest.mark.skip(reason="planted by the guard's own control")
+          def test_planted_skip():
+              pass
+          PY
+
+          run_control() {
+            # run_control LABEL EXPECTED(pass|fail) MODULE FINDING DIR [pytest args]
+            local label="$1" expected="$2" module="$3" finding="$4" dir="$5"
+            local pytest_rc=0 guard_rc=0
+            shift 5
+            python -m pytest -p no:cacheprovider -q -o junit_family=xunit2 \
+              --junitxml="${dir}/junit.xml" "$@" "${dir}" > "${dir}/pytest.log" 2>&1 || pytest_rc=$?
+            python -I "${GUARD_DIR}/skip_guard.py" "${dir}/junit.xml" "${module}" \
+              > "${dir}/guard.log" 2>&1 || guard_rc=$?
+            echo "control (${label}): pytest exit ${pytest_rc}, guard exit ${guard_rc}"
+            sed 's/^/    /' "${dir}/guard.log"
+            if [[ "${expected}" == "pass" ]]; then
+              if [[ "${guard_rc}" -ne 0 ]]; then
+                echo "::error::guard control (${label}) FAILED: the guard rejected a clean run"
+                return 1
+              fi
+            elif [[ "${guard_rc}" -ne 1 ]] || ! grep -qF "${finding}" "${dir}/guard.log"; then
+              echo "::error::guard control (${label}) FAILED: the guard did not reject it with \"${finding}\""
+              return 1
+            fi
+            return 0
+          }
+
+          CONTROL_FAILURES=0
+          run_control "clean run" pass test_clean_case.py "" "${CONTROL_DIR}/clean" \
+            || CONTROL_FAILURES=$((CONTROL_FAILURES + 1))
+          run_control "planted skip" fail test_planted_skip.py "case(s) skipped" "${CONTROL_DIR}/skip" \
+            || CONTROL_FAILURES=$((CONTROL_FAILURES + 1))
+          run_control "nothing ran" fail test_clean_case.py "no case ran" "${CONTROL_DIR}/none" -k no_such_case_selected \
+            || CONTROL_FAILURES=$((CONTROL_FAILURES + 1))
+
+          echo "soft line break step: pytest exit ${PYTEST_EXIT}, skip guard exit ${GUARD_EXIT}, control failures ${CONTROL_FAILURES}"
+          if [[ "${PYTEST_EXIT}" -ne 0 || "${GUARD_EXIT}" -ne 0 || "${CONTROL_FAILURES}" -ne 0 ]]; then
+            echo "::error::soft line break step failed: see the pytest summary, the guard's findings and the controls above"
+            exit 1
+          fi
+
+      - name: Clean up CI temp root (CI-PixelArtCreator)
+        # Same guard shape as `quality-gate`'s identically-named step: runs even
+        # after a failure, refuses to delete unless CI_TEMP_ROOT is non-empty,
+        # under ${RUNNER_TEMP} and still shaped CI-PixelArtCreator/<name>, reads
+        # the variable exported by the first step, and uses no wildcard.
         if: always()
         run: |
           if [[ -z "${CI_TEMP_ROOT:-}" ]]; then
