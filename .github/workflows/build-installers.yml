@@ -331,8 +331,11 @@ jobs:
         # than pass on nothing. packaging/check_payload.sh compares every file
         # the repository ships under pixelart_creator/fonts and
         # pixelart_creator/themes, byte for byte, and checks the licence
-        # notices in OFL.txt (REQ-VI-BUILD-005). The empty-folder control
-        # shows the check can fail before its result is trusted.
+        # notices in OFL.txt and the root NOTICE (REQ-VI-BUILD-005,
+        # REQ-L10N-BUILD-008). The empty-folder control shows the check can
+        # fail before its result is trusted; the two controls after each real
+        # run show it refuses a payload without fonts/FONTLOG-CJK.txt and one
+        # with a changed NOTICE.
         run: |
           DIST_DIRS="$(find . -maxdepth 4 -type d -name '*.dist' -not -path './.git/*')"
           if [ -z "${DIST_DIRS}" ]; then
@@ -347,8 +350,74 @@ jobs:
             exit 1
           fi
           echo "payload check control OK: an empty folder is refused"
+          # Two more in-run controls follow the real check on each payload
+          # (REQ-L10N-BUILD-002, REQ-L10N-BUILD-008). Each works on a copy of
+          # the payload's fonts/ and themes/ folders plus its root NOTICE, and
+          # the leg fails unless check_payload.sh exits exactly 1, says which
+          # file it refused, and compared more than zero files. Control A
+          # removes fonts/FONTLOG-CJK.txt from the copy; control B changes one
+          # line of the copied NOTICE. Both outputs are printed. Nothing in the
+          # checkout or in the payload is altered, and no broken spec is built.
+          # The same two functions and the same text sit in the Linux and macOS
+          # payload steps below; keep the three identical.
+          payload_copy() {
+            # $1 destination, $2 the payload's package folder, $3 the folder that holds it
+            mkdir -p "$1/pixelart_creator"
+            cp -R "$2/fonts" "$2/themes" "$1/pixelart_creator/"
+            cp "$3/NOTICE" "$1/NOTICE"
+            chmod -R u+w "$1"
+          }
+          expect_refusal() {
+            # $1 the copy, $2 its label, $3 the text the refusal must contain
+            local out rc n
+            rc=0
+            out="$(bash packaging/check_payload.sh "$1" "$2" 2>&1)" || rc=$?
+            printf '%s\n' "${out}"
+            n="$(printf '%s\n' "${out}" | sed -n 's/.*, \([0-9][0-9]*\) file(s) compared.*/\1/p' | tail -n 1)"
+            if [ "${rc}" -ne 1 ]; then
+              echo "::error::payload control FAILED (${2}): check_payload.sh exited ${rc}, not 1"
+              return 1
+            fi
+            case "${out}" in
+              *"$3"*) ;;
+              *)
+                echo "::error::payload control FAILED (${2}): the refusal does not say: ${3}"
+                return 1
+                ;;
+            esac
+            if [ -z "${n}" ] || [ "${n}" -le 0 ]; then
+              echo "::error::payload control FAILED (${2}): it compared no files"
+              return 1
+            fi
+            echo "payload control OK (${2}): exit 1, says '${3}', ${n} file(s) compared"
+          }
+          payload_controls() {
+            # $1 the payload root that just passed, $2 what it is
+            local fonts_dir pkg_dir parent work
+            fonts_dir="$(find "$1" -type d -path '*/pixelart_creator/fonts' | sed -n '1p')"
+            if [ -z "${fonts_dir}" ]; then
+              echo "::error::payload controls (${2}): no pixelart_creator/fonts folder under ${1}"
+              return 1
+            fi
+            pkg_dir="$(dirname "${fonts_dir}")"
+            parent="$(dirname "${pkg_dir}")"
+            if [ ! -f "${pkg_dir}/fonts/FONTLOG-CJK.txt" ] || [ ! -f "${parent}/NOTICE" ]; then
+              echo "::error::payload controls (${2}): fonts/FONTLOG-CJK.txt or ${parent}/NOTICE is absent from the payload that just passed"
+              return 1
+            fi
+            work="${CI_TEMP_ROOT}/payload-controls"
+            rm -rf "${work}"
+            payload_copy "${work}/a" "${pkg_dir}" "${parent}"
+            rm "${work}/a/pixelart_creator/fonts/FONTLOG-CJK.txt"
+            expect_refusal "${work}/a" "control A, ${2}: CJK font log removed" "fonts/FONTLOG-CJK.txt is missing from the payload" || return 1
+            payload_copy "${work}/b" "${pkg_dir}" "${parent}"
+            sed '1s/$/ (changed)/' "${parent}/NOTICE" > "${work}/b/NOTICE"
+            expect_refusal "${work}/b" "control B, ${2}: one NOTICE line changed" "NOTICE differs from the repository's root NOTICE" || return 1
+            rm -rf "${work}"
+          }
           while IFS= read -r DIST_DIR; do
             bash packaging/check_payload.sh "${DIST_DIR}" "windows .exe payload"
+            payload_controls "${DIST_DIR}" "windows .exe payload"
           done <<< "${DIST_DIRS}"
 
       - name: Upload Windows artifact
@@ -448,8 +517,10 @@ jobs:
         # packaging/check_payload.sh examines (REQ-VI-BUILD-005): every file
         # the repository ships under pixelart_creator/fonts and
         # pixelart_creator/themes, byte for byte, plus the licence notices in
-        # OFL.txt. The empty-folder control shows the check can fail before
-        # its result is trusted.
+        # OFL.txt and the root NOTICE (REQ-L10N-BUILD-008). The empty-folder
+        # control shows the check can fail before its result is trusted; the
+        # two controls after the real run show it refuses a payload without
+        # fonts/FONTLOG-CJK.txt and one with a changed NOTICE.
         run: |
           chmod +x artifact/PixelArtCreator-x86_64.AppImage
           APPIMAGE="$(pwd)/artifact/PixelArtCreator-x86_64.AppImage"
@@ -464,7 +535,73 @@ jobs:
             exit 1
           fi
           echo "payload check control OK: an empty folder is refused"
+          # Two more in-run controls follow the real check on the payload
+          # (REQ-L10N-BUILD-002, REQ-L10N-BUILD-008). Each works on a copy of
+          # the payload's fonts/ and themes/ folders plus its root NOTICE, and
+          # the leg fails unless check_payload.sh exits exactly 1, says which
+          # file it refused, and compared more than zero files. Control A
+          # removes fonts/FONTLOG-CJK.txt from the copy; control B changes one
+          # line of the copied NOTICE. Both outputs are printed. Nothing in the
+          # checkout or in the payload is altered, and no broken spec is built.
+          # The same two functions and the same text sit in the Windows and
+          # macOS payload steps; keep the three identical.
+          payload_copy() {
+            # $1 destination, $2 the payload's package folder, $3 the folder that holds it
+            mkdir -p "$1/pixelart_creator"
+            cp -R "$2/fonts" "$2/themes" "$1/pixelart_creator/"
+            cp "$3/NOTICE" "$1/NOTICE"
+            chmod -R u+w "$1"
+          }
+          expect_refusal() {
+            # $1 the copy, $2 its label, $3 the text the refusal must contain
+            local out rc n
+            rc=0
+            out="$(bash packaging/check_payload.sh "$1" "$2" 2>&1)" || rc=$?
+            printf '%s\n' "${out}"
+            n="$(printf '%s\n' "${out}" | sed -n 's/.*, \([0-9][0-9]*\) file(s) compared.*/\1/p' | tail -n 1)"
+            if [ "${rc}" -ne 1 ]; then
+              echo "::error::payload control FAILED (${2}): check_payload.sh exited ${rc}, not 1"
+              return 1
+            fi
+            case "${out}" in
+              *"$3"*) ;;
+              *)
+                echo "::error::payload control FAILED (${2}): the refusal does not say: ${3}"
+                return 1
+                ;;
+            esac
+            if [ -z "${n}" ] || [ "${n}" -le 0 ]; then
+              echo "::error::payload control FAILED (${2}): it compared no files"
+              return 1
+            fi
+            echo "payload control OK (${2}): exit 1, says '${3}', ${n} file(s) compared"
+          }
+          payload_controls() {
+            # $1 the payload root that just passed, $2 what it is
+            local fonts_dir pkg_dir parent work
+            fonts_dir="$(find "$1" -type d -path '*/pixelart_creator/fonts' | sed -n '1p')"
+            if [ -z "${fonts_dir}" ]; then
+              echo "::error::payload controls (${2}): no pixelart_creator/fonts folder under ${1}"
+              return 1
+            fi
+            pkg_dir="$(dirname "${fonts_dir}")"
+            parent="$(dirname "${pkg_dir}")"
+            if [ ! -f "${pkg_dir}/fonts/FONTLOG-CJK.txt" ] || [ ! -f "${parent}/NOTICE" ]; then
+              echo "::error::payload controls (${2}): fonts/FONTLOG-CJK.txt or ${parent}/NOTICE is absent from the payload that just passed"
+              return 1
+            fi
+            work="${CI_TEMP_ROOT}/payload-controls"
+            rm -rf "${work}"
+            payload_copy "${work}/a" "${pkg_dir}" "${parent}"
+            rm "${work}/a/pixelart_creator/fonts/FONTLOG-CJK.txt"
+            expect_refusal "${work}/a" "control A, ${2}: CJK font log removed" "fonts/FONTLOG-CJK.txt is missing from the payload" || return 1
+            payload_copy "${work}/b" "${pkg_dir}" "${parent}"
+            sed '1s/$/ (changed)/' "${parent}/NOTICE" > "${work}/b/NOTICE"
+            expect_refusal "${work}/b" "control B, ${2}: one NOTICE line changed" "NOTICE differs from the repository's root NOTICE" || return 1
+            rm -rf "${work}"
+          }
           bash packaging/check_payload.sh "${EXTRACT_DIR}/squashfs-root" "linux AppImage"
+          payload_controls "${EXTRACT_DIR}/squashfs-root" "linux AppImage"
 
       - name: Smoke-launch the AppImage (offscreen, auto-quit)
         if: runner.os == 'Linux'
@@ -608,10 +745,13 @@ jobs:
         # packaging/check_payload.sh examines the mounted volume
         # (REQ-VI-BUILD-005): every file the repository ships under
         # pixelart_creator/fonts and pixelart_creator/themes, byte for byte,
-        # plus the licence notices in OFL.txt. The volume is always detached
-        # again, and the check's own result is what the step returns. The
-        # empty-folder control shows the check can fail before its result is
-        # trusted.
+        # plus the licence notices in OFL.txt and the root NOTICE
+        # (REQ-L10N-BUILD-008). The volume is always detached again, and the
+        # check's own result (the real run, then the two in-run controls) is
+        # what the step returns. The empty-folder control shows the check can
+        # fail before its result is trusted; the two controls after the real
+        # run show it refuses a payload without fonts/FONTLOG-CJK.txt and one
+        # with a changed NOTICE.
         run: |
           CONTROL_DIR="${CI_TEMP_ROOT}/payload-control-empty"
           mkdir -p "${CONTROL_DIR}"
@@ -623,8 +763,76 @@ jobs:
           MOUNT_DIR="${CI_TEMP_ROOT}/dmg-mount"
           mkdir -p "${MOUNT_DIR}"
           hdiutil attach artifact/PixelArtCreator-macos.dmg -readonly -nobrowse -noverify -mountpoint "${MOUNT_DIR}"
+          # Two more in-run controls follow the real check on the mounted
+          # payload (REQ-L10N-BUILD-002, REQ-L10N-BUILD-008). Each works on a
+          # copy of the payload's fonts/ and themes/ folders plus its root
+          # NOTICE, and the leg fails unless check_payload.sh exits exactly 1,
+          # says which file it refused, and compared more than zero files.
+          # Control A removes fonts/FONTLOG-CJK.txt from the copy; control B
+          # changes one line of the copied NOTICE. Both outputs are printed.
+          # Nothing in the checkout or in the payload is altered, and no broken
+          # spec is built. The same two functions and the same text sit in the
+          # Windows and Linux payload steps; keep the three identical.
+          payload_copy() {
+            # $1 destination, $2 the payload's package folder, $3 the folder that holds it
+            mkdir -p "$1/pixelart_creator"
+            cp -R "$2/fonts" "$2/themes" "$1/pixelart_creator/"
+            cp "$3/NOTICE" "$1/NOTICE"
+            chmod -R u+w "$1"
+          }
+          expect_refusal() {
+            # $1 the copy, $2 its label, $3 the text the refusal must contain
+            local out rc n
+            rc=0
+            out="$(bash packaging/check_payload.sh "$1" "$2" 2>&1)" || rc=$?
+            printf '%s\n' "${out}"
+            n="$(printf '%s\n' "${out}" | sed -n 's/.*, \([0-9][0-9]*\) file(s) compared.*/\1/p' | tail -n 1)"
+            if [ "${rc}" -ne 1 ]; then
+              echo "::error::payload control FAILED (${2}): check_payload.sh exited ${rc}, not 1"
+              return 1
+            fi
+            case "${out}" in
+              *"$3"*) ;;
+              *)
+                echo "::error::payload control FAILED (${2}): the refusal does not say: ${3}"
+                return 1
+                ;;
+            esac
+            if [ -z "${n}" ] || [ "${n}" -le 0 ]; then
+              echo "::error::payload control FAILED (${2}): it compared no files"
+              return 1
+            fi
+            echo "payload control OK (${2}): exit 1, says '${3}', ${n} file(s) compared"
+          }
+          payload_controls() {
+            # $1 the payload root that just passed, $2 what it is
+            local fonts_dir pkg_dir parent work
+            fonts_dir="$(find "$1" -type d -path '*/pixelart_creator/fonts' | sed -n '1p')"
+            if [ -z "${fonts_dir}" ]; then
+              echo "::error::payload controls (${2}): no pixelart_creator/fonts folder under ${1}"
+              return 1
+            fi
+            pkg_dir="$(dirname "${fonts_dir}")"
+            parent="$(dirname "${pkg_dir}")"
+            if [ ! -f "${pkg_dir}/fonts/FONTLOG-CJK.txt" ] || [ ! -f "${parent}/NOTICE" ]; then
+              echo "::error::payload controls (${2}): fonts/FONTLOG-CJK.txt or ${parent}/NOTICE is absent from the payload that just passed"
+              return 1
+            fi
+            work="${CI_TEMP_ROOT}/payload-controls"
+            rm -rf "${work}"
+            payload_copy "${work}/a" "${pkg_dir}" "${parent}"
+            rm "${work}/a/pixelart_creator/fonts/FONTLOG-CJK.txt"
+            expect_refusal "${work}/a" "control A, ${2}: CJK font log removed" "fonts/FONTLOG-CJK.txt is missing from the payload" || return 1
+            payload_copy "${work}/b" "${pkg_dir}" "${parent}"
+            sed '1s/$/ (changed)/' "${parent}/NOTICE" > "${work}/b/NOTICE"
+            expect_refusal "${work}/b" "control B, ${2}: one NOTICE line changed" "NOTICE differs from the repository's root NOTICE" || return 1
+            rm -rf "${work}"
+          }
           rc=0
           bash packaging/check_payload.sh "${MOUNT_DIR}" "macOS .dmg" || rc=$?
+          if [ "${rc}" -eq 0 ]; then
+            payload_controls "${MOUNT_DIR}" "macOS .dmg" || rc=$?
+          fi
           hdiutil detach "${MOUNT_DIR}" || hdiutil detach "${MOUNT_DIR}" -force
           exit "${rc}"
 

@@ -83,10 +83,15 @@ mode = onefile
 # it is necessary but NOT sufficient, which is why this explicit
 # `--include-package-data` line does the actual work. `--include-package-
 # data` resolves its SOURCE relative to the INSTALLED PySide6 package (not a
-# repo path), so it is portable across CI runners. Only `qtbase_es` is listed
-# because pixelart_creator/i18n/ currently ships only `pixelart_es.qm`
-# (English is the source language and needs no Qt catalogue either); ADD the
-# matching `qtbase_<code>.qm` entry here whenever a new UI language ships.
+# repo path), so it is portable across CI runners. One entry is listed per
+# non-English language that pixelart_creator/i18n/ ships (es, de, fr, ja, ko,
+# ru, zh_CN); English is the source language and needs no Qt catalogue either.
+# ADD the matching `qtbase_<code>.qm` entry here whenever a new UI language
+# ships.
+# --include-data-files=NOTICE=NOTICE ships the repository's root NOTICE file
+# (the third-party notices) at the root of the distribution, beside the
+# pixelart_creator/ data folder. The build takes the root file of the commit
+# being built; it is not copied, renamed or generated.
 # --nofollow-import-to: keep the non-desktop / dev-only packages OUT of the
 # frozen app (defence-in-depth mirroring the pyproject wheel `exclude`;
 # sync_backend/web_viewer are separate services, tests/scripts/docs are dev
@@ -105,7 +110,14 @@ extra_args = --quiet --assume-yes-for-downloads --windows-console-mode=attach
     --include-data-dir=pixelart_creator/icons=pixelart_creator/icons
     --include-data-dir=pixelart_creator/themes=pixelart_creator/themes
     --include-data-dir=pixelart_creator/userguide_content=pixelart_creator/userguide_content
+    --include-data-files=NOTICE=NOTICE
     --include-package-data=PySide6:translations/qtbase_es.qm
+    --include-package-data=PySide6:translations/qtbase_de.qm
+    --include-package-data=PySide6:translations/qtbase_fr.qm
+    --include-package-data=PySide6:translations/qtbase_ja.qm
+    --include-package-data=PySide6:translations/qtbase_ko.qm
+    --include-package-data=PySide6:translations/qtbase_ru.qm
+    --include-package-data=PySide6:translations/qtbase_zh_CN.qm
     --nofollow-import-to=sync_backend --nofollow-import-to=web_viewer
     --nofollow-import-to=tests --nofollow-import-to=scripts
     --nofollow-import-to=docs --nofollow-import-to=pytest

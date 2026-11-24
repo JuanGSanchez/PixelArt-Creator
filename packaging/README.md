@@ -105,7 +105,7 @@ fails only for an installed user, exactly as the missing `icons/` directory did 
 
 | Directory | Contents | Wheel (`pyproject.toml` package-data) | Installers (`--include-data-dir` in all three specs) |
 | --- | --- | --- | --- |
-| `pixelart_creator/fonts/` | `NifenArt-Regular.ttf`, `NifenArt-Bold.ttf`, `OFL.txt`, `FONTLOG.txt` | the four files, by name | the whole directory |
+| `pixelart_creator/fonts/` | `NifenArt-Regular.ttf`, `NifenArt-Bold.ttf`, the six `NifenArtCJK{JP,SC,KR}-{Regular,Bold}.ttf`, `OFL.txt`, `FONTLOG.txt`, `FONTLOG-CJK.txt` | the eleven files, by name | the whole directory |
 | `pixelart_creator/themes/` | `index.json`, `contrast-pairs.json`, and per style `roles.json`, `templates.json`, `pattern.grid.txt`, `templates/*.grid.txt` | one glob per depth (`themes/*.json`, `themes/*/*.json`, `themes/*/*.grid.txt`, `themes/*/templates/*.grid.txt`) | the whole directory |
 
 Not shipped, by design: the font sources in `fonts-src/` and the build scripts in
@@ -120,6 +120,21 @@ do not name needs a new glob; a new top-level data directory needs a package-dat
 `--include-data-dir` line in each of the three specs. Prove it the way the icon entries were
 proven: build the wheel and list it (`python -m build --wheel`, then list the archive and
 compare against `git ls-files pixelart_creator/fonts pixelart_creator/themes`).
+
+## Notices in every distribution
+
+Every distribution carries the licence and notice files that travel with what it bundles:
+
+| Notice | Wheel | Installers |
+| --- | --- | --- |
+| `NOTICE` (the repository root file: third-party notices, including the bundled typefaces) | in the wheel's `*.dist-info` metadata (CI's wheel step runs `check_payload.sh` on the wheel) | `--include-data-files=NOTICE=NOTICE` in each of the three specs, which puts the file at the root of the Nuitka distribution, beside the `pixelart_creator/` data folder |
+| `pixelart_creator/fonts/OFL.txt`, `FONTLOG.txt` and `FONTLOG-CJK.txt` | package-data entries, by name | the whole `fonts/` directory |
+
+The build takes the root `NOTICE` of the commit being built: it is not copied, renamed or
+generated. The payload check (`packaging/check_payload.sh`) runs on each installer's unpacked
+payload in `build-installers.yml`, and two in-run controls prove it can fail: with
+`fonts/FONTLOG-CJK.txt` removed from a copy of the payload, and with one line of `NOTICE`
+changed in a copy, it must exit 1 naming the file. A leg fails if either control does not.
 
 ## macOS signing (credential-gated: skipped without credentials, blocking with them — ADR-0038 §4, Article XI)
 
@@ -231,4 +246,4 @@ plugin is `cocoa` (+ offscreen for the CI smoke). Run **from the repo root**:
 - `[app] input_file = pixelart_creator/__main__.py` — the shipped GUI entry point.
 - `[python] packages = Nuitka` — names the Nuitka backend without a version, because pyside6-deploy discards a version written there. The pin is the `NUITKA_PIN` env value in `.github/workflows/build-installers.yml`, checked before and after the build (Nuitka 4.3 builds an app that crashes at launch).
 - `[qt] plugins = platforms,styles,imageformats,iconengines,platforminputcontexts` — bundled Qt plugins.
-- `[nuitka] extra_args` includes `--include-data-dir` lines for `i18n`, `fonts`, `icons`, `themes` and `userguide_content` (every runtime data directory; see "Fonts and themes" above), `--include-package-data=PySide6:translations/qtbase_es.qm` (ADR-0067 Part 4) so Qt's own base catalogue ships alongside the app's own `.qm` (Article V) — Nuitka's PySide plugin only auto-bundles Qt's translations for a QtWebEngine dependency, which this app does not have, so the file must be listed explicitly; see the spec header comments for the full reasoning — and `--nofollow-import-to=` for `sync_backend`, `web_viewer`, `tests`, `scripts`, `docs`, `pytest`, `hypothesis` (defence-in-depth mirroring the pyproject wheel `exclude`).
+- `[nuitka] extra_args` includes `--include-data-dir` lines for `i18n`, `fonts`, `icons`, `themes` and `userguide_content` (every runtime data directory; see "Fonts and themes" above), `--include-data-files=NOTICE=NOTICE` (the root `NOTICE`, see "Notices in every distribution" below), one `--include-package-data=PySide6:translations/qtbase_<code>.qm` line for each of `es`, `de`, `fr`, `ja`, `ko`, `ru` and `zh_CN` (seven lines; ADR-0067 Part 4, ADR-0073) so Qt's own base catalogue ships alongside the app's own `.qm` for every language the app offers (Article V) — Nuitka's PySide plugin only auto-bundles Qt's translations for a QtWebEngine dependency, which this app does not have, so each file must be listed explicitly; see the spec header comments for the full reasoning — and `--nofollow-import-to=` for `sync_backend`, `web_viewer`, `tests`, `scripts`, `docs`, `pytest`, `hypothesis` (defence-in-depth mirroring the pyproject wheel `exclude`).
