@@ -171,6 +171,11 @@ correctly in both **light and dark** themes (overlay and guide colours are
 defined once by role and stay legible over artwork), and has **fully
 translatable** text that re-sets on a language change.
 
+The app's own font does not contain every character. A character it lacks is
+drawn from another font, one character at a time. On Linux, where no font is
+bundled with the app, a character that no installed font covers can show as a
+box; install a font that covers it to see the character.
+
 ## What is not covered
 
 - **Exporting a timelapse to video/GIF** — deferred to the export pipeline; this
