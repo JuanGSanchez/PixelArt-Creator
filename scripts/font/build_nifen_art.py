@@ -157,6 +157,30 @@ OTHER_FONTS = (
     "Misaki",
     "Unifont",
 )
+# The one declared notice of a work that is not a font: the licence of the Unicode
+# Character Database data behind three range tables of the code, which supplies no
+# glyph and no drawing. It is two spans of the notice file, each pinned by the sha256
+# of its text (lines joined by a line feed, no final line feed, read as UTF-8) and
+# found by its first and last line. A span whose text hashes to its pin is excused from
+# the holder check and the credit-sentence check, and from nothing else: the check of
+# the other fonts' names and the structured-credit check read it, and so does every
+# check on every other file. A span that differs by one character is not excused. The
+# record is fixed here, apart from the metrics, so that a metrics edit cannot widen it.
+NOTICE_SPANS = (
+    (
+        "span 1",
+        "This product bundles two works, and carries tables derived from the "
+        "data of a",
+        "third, that are licensed separately from the Apache License above:",
+        "e242e9cf4c730e9af12a7aa9c9c87e192a202320d423ac9f389d9519ec86384b",
+    ),
+    (
+        "span 2",
+        "  - Unicode Character Database data, version 16.0.0 (Scripts.txt and",
+        "SPDX-License-Identifier: Unicode-3.0",
+        "9cbcdbe3d3313ebfafc00ee3af5e104d994e2b117859e826d216bb1c7620a8eb",
+    ),
+)
 
 # A copyright statement (the holder is the text after the year, up to a bracket or a
 # semicolon), and a sentence that credits the source of a drawing. A negated sentence
@@ -1262,17 +1286,68 @@ def holder_ok(holder, allowed):
     return re.match(re.escape(allowed) + r"(?![A-Za-z0-9])", holder, re.I) is not None
 
 
-def credit_findings(label, text, cjk_scope, prose, donors):
+def notice_spans(text):
+    """The declared non-font notice (NOTICE_SPANS) in the text of the notice file.
+    Returns the cuts, one (start, end) pair of offsets for each span whose text hashes
+    to its pin, and one (name, status) entry for each span, for the scan list."""
+    lines = text.split("\n")
+    starts, at = [], 0
+    for line in lines:
+        starts.append(at)
+        at += len(line) + 1
+    cuts, entries = [], []
+    for name, first, last, pin in NOTICE_SPANS:
+        try:
+            i = lines.index(first)
+            j = lines.index(last, i)
+        except ValueError:
+            entries.append(
+                (name, "examined; not excused (its first or last line is not found)")
+            )
+            continue
+        body = "\n".join(lines[i : j + 1])
+        got = hashlib.sha256(body.encode("utf-8")).hexdigest()
+        if got != pin:
+            entries.append(
+                (
+                    name,
+                    "examined; not excused (its text differs: sha256 %s, pinned %s)"
+                    % (got, pin),
+                )
+            )
+            continue
+        cuts.append((starts[i], starts[i] + len(body)))
+        entries.append(
+            (
+                name,
+                "examined; excused from the holder and credit-sentence checks, "
+                "sha256 %s" % got,
+            )
+        )
+    return cuts, entries
+
+
+def credit_findings(label, text, cjk_scope, prose, donors, cuts=()):
     """What one text credits. Every copyright holder must be a declared one (the donor's
     only outside the CJK face); the CJK face names no donor at all; no other font is
     named; and, in a licence file, a change log, the notice file or a name record
     (prose), a sentence that says a drawing was adapted, copied, traced or derived from
     something must name the donor, unless it states that nothing was taken from another
-    font. Names found as donors are added to the set donors."""
+    font. Names found as donors are added to the set donors. The offsets in cuts (the
+    excused spans of the notice file) are left out of the holder check and the
+    credit-sentence check only; every other check reads the whole text."""
     out = []
     flat = " ".join(text.replace("#", " ").split())
+    checked = flat
+    if cuts:
+        kept, at = [], 0
+        for lo, hi in sorted(cuts):
+            kept.append(text[at:lo])
+            at = hi
+        kept.append(text[at:])
+        checked = " ".join(". ".join(kept).replace("#", " ").split())
     allowed = OWN_HOLDERS if cjk_scope else OWN_HOLDERS + (DONOR_HOLDER,)
-    for mt in HOLDER_RE.finditer(flat):
+    for mt in HOLDER_RE.finditer(checked):
         holder = HOLDER_END_RE.split(mt.group(1).strip(), 1)[0].rstrip(" .,;:")
         if holder_ok(holder, DONOR_HOLDER):
             donors.add(DONOR_NAME)
@@ -1293,7 +1368,7 @@ def credit_findings(label, text, cjk_scope, prose, donors):
     for mt in STRUCTURED_CREDIT_RE.finditer(flat):
         donors.add(mt.group(1).strip()[:40])
     if prose:
-        for sentence in SENTENCE_SPLIT_RE.split(flat):
+        for sentence in SENTENCE_SPLIT_RE.split(checked):
             mt = CREDIT_RE.search(sentence)
             if mt is None:
                 continue
@@ -1459,7 +1534,9 @@ def donor_gate(srcs, src_dir, fonts_dir, gate):
     if text is not None:
         n += 1
         scan.append(("NOTICE", "examined"))
-        v.extend(credit_findings("NOTICE", text, False, True, donors))
+        cuts, span_entries = notice_spans(text)
+        scan.extend(("NOTICE " + name, status) for name, status in span_entries)
+        v.extend(credit_findings("NOTICE", text, False, True, donors, cuts))
 
     # 4. The name tables of all eight fonts.
     try:

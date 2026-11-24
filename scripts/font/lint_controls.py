@@ -1985,6 +1985,48 @@ CONTROLS.extend(
                 )
             ],
         ),
+        # The declared non-font notice: two spans of NOTICE, excused on an exact match
+        # only. Each control keeps the notice as it is and plants one change.
+        cjk(
+            "gate: NOTICE span 2 with one character changed",
+            "R14",
+            "NOTICE: a copyright line credits 'Unicode, Inc'",
+            notice_edits=[("2004-2025", "2004-2026")],
+        ),
+        cjk(
+            "gate: NOTICE span 2 with a font credit inside it",
+            "R14",
+            "NOTICE: names another font (Unifont) as a donor",
+            notice_edits=[
+                (
+                    "UNICODE LICENSE V3\n",
+                    "UNICODE LICENSE V3\nThe Hangul glyphs are adapted from Unifont.\n",
+                )
+            ],
+        ),
+        cjk(
+            "gate: a Unicode copyright line outside both NOTICE spans",
+            "R14",
+            "NOTICE: a copyright line credits 'Unicode, Inc'",
+            notice_edits=[
+                (
+                    "This software depends on",
+                    "  - Copyright 2026 Unicode, Inc.\n\nThis software depends on",
+                )
+            ],
+        ),
+        cjk(
+            "gate: a credit sentence outside both NOTICE spans",
+            "R14",
+            "NOTICE: a credit sentence names no declared donor",
+            notice_edits=[
+                (
+                    "This software depends on",
+                    "  - The Han glyphs are derived from the Unicode code charts.\n\n"
+                    "This software depends on",
+                )
+            ],
+        ),
         cjk(
             "gate: a second holder in a name table of the existing face",
             "R14",
