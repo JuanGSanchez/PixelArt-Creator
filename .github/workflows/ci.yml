@@ -1008,6 +1008,25 @@ jobs:
         # an installed copy shows it, so the wheel itself is what is examined.
         # The empty-folder control shows the check can fail before its result
         # is trusted. The installers get the same check in build-installers.yml.
+        #
+        # Three more checks follow the build (REQ-L10N-BUILD-002,
+        # REQ-L10N-BUILD-008). (1) The unpacked wheel is compared with
+        # `git ls-files` over pixelart_creator/fonts, pixelart_creator/i18n and
+        # pixelart_creator/userguide_content: the step prints how many tracked
+        # files it examined and fails on any that the wheel does not hold, so a
+        # file a package-data glob misses (a guide page's meta.json was one)
+        # turns the run red. Its planted-omission control runs first: the same
+        # comparison over a copy of the unpacked wheel without
+        # content/ko/meta.json must report that file, or the step fails. (2) After
+        # the real payload check passes, a copy of the wheel's fonts/ and themes/
+        # folders without fonts/FONTLOG-CJK.txt must be refused by
+        # check_payload.sh with exit 1, naming that file, over more than zero
+        # compared files. (3) A copy of the same folders plus the wheel's
+        # *.dist-info folder, with one line of the copied NOTICE changed, must be
+        # refused with exit 1, naming NOTICE. The real run prints the wheel's
+        # NOTICE path it compared and its verdict. Both outputs are printed, and
+        # nothing in the checkout or in the unpacked wheel is altered. A listing
+        # failure does not hide the payload checks: it is reported at the end.
         run: |
           WHEEL_DIR="${CI_TEMP_ROOT}/wheel"
           WHEEL_SRC="${CI_TEMP_ROOT}/wheel-src"
@@ -1018,6 +1037,60 @@ jobs:
           WHEEL="$(ls "${WHEEL_DIR}"/pixelart_creator-*.whl)"
           echo "wheel built: ${WHEEL}"
           python -m zipfile -e "${WHEEL}" "${WHEEL_DIR}/unpacked"
+          UNPACKED="${WHEEL_DIR}/unpacked"
+          LIST_RC=0
+          TRACKED="${CI_TEMP_ROOT}/wheel-tracked.txt"
+          git -c core.quotepath=off ls-files pixelart_creator/fonts pixelart_creator/i18n pixelart_creator/userguide_content > "${TRACKED}"
+          wheel_missing() {
+            # $1 an unpacked wheel, $2 the file of tracked names. Sets
+            # TRACKED_EXAMINED, TRACKED_MISSING (counts) and MISSING_NAMES (one
+            # name per line).
+            local name
+            TRACKED_EXAMINED=0
+            TRACKED_MISSING=0
+            MISSING_NAMES=""
+            while IFS= read -r name; do
+              TRACKED_EXAMINED=$((TRACKED_EXAMINED + 1))
+              if [ ! -f "$1/${name}" ]; then
+                TRACKED_MISSING=$((TRACKED_MISSING + 1))
+                MISSING_NAMES="${MISSING_NAMES}${name}"$'\n'
+              fi
+            done < "$2"
+          }
+          PLANT="pixelart_creator/userguide_content/content/ko/meta.json"
+          if ! grep -qxF "${PLANT}" "${TRACKED}"; then
+            echo "::error::wheel listing control FAILED: ${PLANT} is not a tracked file, so the planted omission has nothing to remove"
+            exit 1
+          fi
+          LISTING_CONTROL="${CI_TEMP_ROOT}/wheel-listing-control"
+          rm -rf "${LISTING_CONTROL}"
+          mkdir -p "${LISTING_CONTROL}"
+          cp -R "${UNPACKED}/." "${LISTING_CONTROL}/"
+          rm -f "${LISTING_CONTROL}/${PLANT}"
+          wheel_missing "${LISTING_CONTROL}" "${TRACKED}"
+          printf '%s' "${MISSING_NAMES}" | sed 's/^/  control: missing from the copy: /'
+          if [ "${TRACKED_EXAMINED}" -le 0 ]; then
+            echo "::error::wheel listing control FAILED: it examined no tracked file"
+            exit 1
+          fi
+          case "${MISSING_NAMES}" in
+            *"${PLANT}"*) echo "wheel listing control OK: the copy without ${PLANT} is reported, ${TRACKED_MISSING} missing of ${TRACKED_EXAMINED} examined" ;;
+            *)
+              echo "::error::wheel listing control FAILED: the copy without ${PLANT} was not reported as missing it"
+              exit 1
+              ;;
+          esac
+          rm -rf "${LISTING_CONTROL}"
+          wheel_missing "${UNPACKED}" "${TRACKED}"
+          echo "wheel listing: ${TRACKED_EXAMINED} tracked file(s) examined, ${TRACKED_MISSING} missing from the wheel"
+          if [ "${TRACKED_EXAMINED}" -le 0 ]; then
+            echo "::error::wheel listing examined no tracked file"
+            LIST_RC=1
+          elif [ "${TRACKED_MISSING}" -gt 0 ]; then
+            printf '%s' "${MISSING_NAMES}" | sed 's/^/  MISSING from the wheel: /'
+            echo "::error::${TRACKED_MISSING} tracked file(s) are missing from the wheel: a package-data entry does not name them"
+            LIST_RC=1
+          fi
           CONTROL_DIR="${CI_TEMP_ROOT}/payload-control-empty"
           mkdir -p "${CONTROL_DIR}"
           if bash packaging/check_payload.sh "${CONTROL_DIR}" "control: empty folder" > /dev/null 2>&1; then
@@ -1025,7 +1098,61 @@ jobs:
             exit 1
           fi
           echo "payload check control OK: an empty folder is refused"
-          bash packaging/check_payload.sh "${WHEEL_DIR}/unpacked" "wheel"
+          bash packaging/check_payload.sh "${UNPACKED}" "wheel"
+          WHEEL_NOTICE="$(find "${UNPACKED}" -path '*.dist-info/*' -type f -name NOTICE | sort | sed -n '1p')"
+          if [ -z "${WHEEL_NOTICE}" ]; then
+            echo "::error::the wheel carries no NOTICE inside its dist-info folder"
+            exit 1
+          fi
+          WHEEL_NOTICE_REL="${WHEEL_NOTICE#"${UNPACKED}"/}"
+          echo "wheel NOTICE compared: ${WHEEL_NOTICE_REL}"
+          wheel_copy() {
+            # $1 destination, $2 the wheel's package folder, $3 the folder that
+            # holds it and the wheel's *.dist-info folder
+            mkdir -p "$1/pixelart_creator"
+            cp -R "$2/fonts" "$2/themes" "$1/pixelart_creator/"
+            cp -R "$3"/*.dist-info "$1/"
+            chmod -R u+w "$1"
+          }
+          expect_refusal() {
+            # $1 the copy, $2 its label, $3 the text the refusal must contain
+            local out rc n
+            rc=0
+            out="$(bash packaging/check_payload.sh "$1" "$2" 2>&1)" || rc=$?
+            printf '%s\n' "${out}"
+            n="$(printf '%s\n' "${out}" | sed -n 's/.*, \([0-9][0-9]*\) file(s) compared.*/\1/p' | tail -n 1)"
+            if [ "${rc}" -ne 1 ]; then
+              echo "::error::payload control FAILED (${2}): check_payload.sh exited ${rc}, not 1"
+              return 1
+            fi
+            case "${out}" in
+              *"$3"*) ;;
+              *)
+                echo "::error::payload control FAILED (${2}): the refusal does not say: ${3}"
+                return 1
+                ;;
+            esac
+            if [ -z "${n}" ] || [ "${n}" -le 0 ]; then
+              echo "::error::payload control FAILED (${2}): it compared no files"
+              return 1
+            fi
+            echo "payload control OK (${2}): exit 1, says '${3}', ${n} file(s) compared"
+          }
+          PKG_DIR="${UNPACKED}/pixelart_creator"
+          if [ ! -f "${PKG_DIR}/fonts/FONTLOG-CJK.txt" ]; then
+            echo "::error::fonts/FONTLOG-CJK.txt is absent from the wheel that just passed"
+            exit 1
+          fi
+          CONTROLS="${CI_TEMP_ROOT}/wheel-controls"
+          rm -rf "${CONTROLS}"
+          wheel_copy "${CONTROLS}/a" "${PKG_DIR}" "${UNPACKED}"
+          rm "${CONTROLS}/a/pixelart_creator/fonts/FONTLOG-CJK.txt"
+          expect_refusal "${CONTROLS}/a" "control A, wheel: CJK font log removed" "fonts/FONTLOG-CJK.txt is missing from the payload"
+          wheel_copy "${CONTROLS}/b" "${PKG_DIR}" "${UNPACKED}"
+          sed '1s/$/ (changed)/' "${WHEEL_NOTICE}" > "${CONTROLS}/b/${WHEEL_NOTICE_REL}"
+          expect_refusal "${CONTROLS}/b" "control B, wheel: one NOTICE line changed" "NOTICE differs from the repository's root NOTICE"
+          rm -rf "${CONTROLS}"
+          exit "${LIST_RC}"
 
       # ----- Docs gates (REMEDIATION 2026-07-30, F14): neither gate below had
       # ever run in CI before this change — mkdocs build --strict and
@@ -1260,8 +1387,17 @@ jobs:
         # is installed): turns the font-fallback test's "no fallback font found"
         # skip into a failure, so a runner image that loses its fonts is caught
         # rather than silently skipped. Windows and macOS ship fonts and need no flag.
+        # PULL_REQUEST_HEAD_SHA: the release-evidence tests under
+        # testing/suites/release/ (this bare `pytest` collects them through
+        # testpaths) compare the thresholds of THIS pull request's head with
+        # those of its merge base. On a pull_request event the checked-out
+        # commit is GitHub's merge ref, not the head, so the head is named here
+        # from the event payload and the tests read it from this variable. It
+        # is blank on any other event, which the tests read as HEAD. Nothing
+        # here hides a failure: no continue-on-error, no `|| true`, no skip.
         env:
           PIXELART_REQUIRE_FALLBACK_FONT: ${{ runner.os == 'Linux' && '1' || '' }}
+          PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           pytest -n auto -m "not slow and not gpu and not cloud_live and not assistant_live and not integration" \
             --basetemp="${CI_TEMP_ROOT}/pytest-main" \
