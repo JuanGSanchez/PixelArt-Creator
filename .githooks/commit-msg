@@ -39,6 +39,21 @@
 # STDOUT of the gate is DISCARDED here (it is JSON, for CI); the human verdict
 # and the named exit are on stderr, which git shows the committer as-is.
 #
+# SECOND HALF - THE VOCABULARY GATE. The same message file is then scanned by
+# scripts/check_vocabulary_regrowth.py in its `--message-file` mode, and a
+# message carrying an internal development-system identifier is refused with
+# the family and the offending token named. WHY HERE: the pull request's own
+# quality check reads every message the pull request adds, so a message that
+# leaks one keeps that check red on every later head, and adding commits cannot
+# clear it - the only cure left would be rewriting published history. Refusing
+# the commit costs one re-run. THE HOOK HOLDS NO PATTERN OF ITS OWN: the
+# families live in that script and nowhere else, so the hook and the pull
+# request's check cannot disagree about what a family is, and this file carries
+# no instance of one for the check to trip on. Both halves always RUN, and a
+# message that fails both is told both; the verdict is refusal if either
+# refuses. The same loud-refusal rule applies: a gate that cannot run is a
+# refusal, never a pass.
+#
 # GATE CLASS / NAMED EXIT / PLATFORM CONSTRAINTS are declared ONCE, in the
 # docstring of scripts/check_attribution.py, which is where the decision lives
 # — this file is its wiring and states no second, driftable copy (P7).
@@ -122,8 +137,55 @@ $PY "$gate" --message-file "$msg" >/dev/null
 status=$?
 set -e
 
+# The vocabulary gate, second half. Its stdout (JSON) is discarded like the
+# attribution gate's; its stderr is NOT, because that is where it names the
+# family and the offending token. An absent script is a refusal, not a skip.
+vocab_gate="$repo_root/scripts/check_vocabulary_regrowth.py"
+vocab_absent=0
+vocab_status=0
+if [ ! -f "$vocab_gate" ]; then
+    vocab_absent=1
+    vocab_status=2
+else
+    set +e
+    $PY "$vocab_gate" --message-file "$msg" >/dev/null
+    vocab_status=$?
+    set -e
+fi
+
+vocab_refusal() {
+    echo "$HOOK: commit refused - vocabulary gate." >&2
+    if [ "$vocab_absent" -eq 1 ]; then
+        echo "$HOOK: $vocab_gate is absent, so the vocabulary gate did NOT run." >&2
+        echo "$HOOK: refusing rather than passing an unrunnable gate." >&2
+        echo "$HOOK: fix: restore scripts/check_vocabulary_regrowth.py" >&2
+        echo "$HOOK: (git checkout -- scripts/check_vocabulary_regrowth.py)." >&2
+    elif [ "$vocab_status" -eq 1 ]; then
+        echo "$HOOK: the message carries an internal development-system" >&2
+        echo "$HOOK: identifier; the family and the token are named above." >&2
+        echo "$HOOK: Such a message keeps the pull request's vocabulary check" >&2
+        echo "$HOOK: red on every later head, and a later commit cannot clear" >&2
+        echo "$HOOK: it. fix: reword the message in plain product terms." >&2
+    elif [ "$vocab_status" -eq 2 ]; then
+        echo "$HOOK: the gate could NOT answer its own question (BLOCKED), and a" >&2
+        echo "$HOOK: gate that cannot see must not report green. The reason is" >&2
+        echo "$HOOK: printed above." >&2
+    else
+        echo "$HOOK: the gate exited $vocab_status, which is not one of its declared" >&2
+        echo "$HOOK: codes (0 clean / 1 findings / 2 blocked) - treat it as a" >&2
+        echo "$HOOK: broken gate and report it. Run it by hand:" >&2
+        echo "$HOOK:   $PY $vocab_gate --message-file $msg" >&2
+    fi
+    echo "$HOOK: your message is not lost - 'git commit --edit' reopens it, and" >&2
+    echo "$HOOK: 'git commit --no-verify' bypasses this gate, visibly." >&2
+}
+
 if [ "$status" -eq 0 ]; then
-    exit 0
+    if [ "$vocab_status" -eq 0 ]; then
+        exit 0
+    fi
+    vocab_refusal
+    exit 1
 fi
 
 echo "$HOOK: commit refused - VCS attribution gate." >&2
@@ -150,4 +212,7 @@ echo "$HOOK: $msg - 'git commit --edit' reopens it with everything you typed," >
 echo "$HOOK: or re-run the commit with the offending line deleted." >&2
 echo "$HOOK: If this gate is itself wrong, 'git commit --no-verify' proceeds" >&2
 echo "$HOOK: deliberately and visibly." >&2
+if [ "$vocab_status" -ne 0 ]; then
+    vocab_refusal
+fi
 exit 1

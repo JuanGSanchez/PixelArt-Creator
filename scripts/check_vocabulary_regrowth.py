@@ -17,7 +17,9 @@
 # INVOKED BY: CI, as a step inside the existing `quality-gate` job (never its
 #   own job -- the branch-protection ruleset matches required checks BY NAME,
 #   and a new job would not be enforced without a repository-settings change
-#   nobody has requested).
+#   nobody has requested); and, in its `--message-file` form, by the local
+#   `commit-msg` hook (.githooks/commit-msg), which refuses a commit whose
+#   message carries any of the eight patterns BEFORE the commit exists.
 # RUNTIME: Python 3.8+ (CPython, stdlib only: argparse, json, os, re,
 #   subprocess, sys).
 # OWNER: the delivery and DevOps role (the script-test default for this
@@ -29,6 +31,9 @@
 #             --paths PATH [PATH ...] [--vendor-names]
 #             (the second form is the SCOPED SCAN, described in the section of
 #             that name below; the two forms never combine.)
+#             python scripts/check_vocabulary_regrowth.py --message-file PATH
+#             (the third form is the MESSAGE-FILE MODE, described in the
+#             section of that name below; it combines with none of the others.)
 # INPUTS:
 #   --root      (CLI arg, optional, default "."): repo root, matching the
 #               neighbour scripts' `--root .` CI convention.
@@ -47,6 +52,9 @@
 #   --vendor-names (CLI flag, only with --paths): also report the bare assistant-
 #               vendor names. Off by default, for the reason given in SCOPED
 #               SCAN.
+#   --message-file (CLI arg, optional): one prospective commit message, as git
+#               hands it to a `commit-msg` hook. Switches to the MESSAGE-FILE
+#               MODE; --root is not used there.
 # OUTPUTS:
 #   stdout: JSON {"findings":[{"kind":"file"|"commit-message", "pattern",
 #            "file"|"commit", "line"|"subject", "token"}], "scanned":
@@ -63,7 +71,9 @@
 #   not resolvable, a half-specified commit range, a resolved commit range
 #   with zero commits in it, or zero tracked text files examined; for the
 #   scoped scan also a path that does not exist, lies outside --root or yields
-#   no scanned file, and --paths combined with a commit range) -> BLOCKED.
+#   no scanned file, and --paths combined with a commit range; for the
+#   message-file mode also a file that cannot be read or holds no scannable
+#   line, and --message-file combined with any other mode) -> BLOCKED.
 #   A denominator of zero is NEVER read as "nothing to report" -- it is
 #   always the BLOCKED path (P11: this project has recorded five gates that
 #   passed while unable to answer their own question).
@@ -260,6 +270,36 @@
 #   Every pattern is assembled from parts (see VENDOR_NAMES): no line of this
 #   source is a working trailer, e-mail address or link.
 #
+# MESSAGE-FILE MODE (`--message-file`) -- the same question, asked before the
+#   commit exists:
+#   The pull-request check reads every message a pull request adds, so a message
+#   that leaks one of the eight patterns turns that check red on every later
+#   head, and adding commits cannot clear it. The local `commit-msg` hook
+#   prevents it: it calls this mode on the message file git hands it, and a
+#   finding refuses the commit. The hook holds no pattern of its own -- the
+#   patterns are PATTERNS below, the same objects the pull-request mode
+#   applies, so the two can never disagree about what a family is. In
+#   particular they agree on its edges: the patterns are case-sensitive and
+#   anchored on the hyphen, so a lowercase or separator variant passes in both.
+#   - WHAT IS READ: the file's bytes, decoded as UTF-8. Lines that start with
+#     git's comment character (`core.commentChar`, default `#`) and everything
+#     from a scissors line on are NOT scanned: git's default cleanup removes both
+#     before the message is stored, so a hit there would refuse text that
+#     never reaches history (the template's own commentary, or the diff that
+#     `git commit -v` appends). RESIDUAL, RECORDED: under a cleanup mode that
+#     keeps commentary (`-m` and `-F` do, unless `--cleanup=strip` is given), a
+#     commented line DOES land; the pull-request mode and the pre-push range
+#     scan catch it afterwards.
+#   - THE DENOMINATOR: one message, and the number of non-blank lines scanned
+#     and of lines excluded, are printed (stdout JSON and stderr). A message
+#     with no scannable line is exit 2, never 0: a gate that looked at nothing
+#     has not passed.
+#   - STDOUT: {"findings":[{"kind":"message-file","pattern","line","token"}],
+#     "mode":"message-file","scanned":{"messages_examined":1,"lines_scanned":N,
+#     "lines_excluded":N,"comment_char":C}}; stderr names every finding
+#     (`MESSAGE pattern=... line=... token=...`) so the committer sees the
+#     family and the offending token. The mode takes no other flag.
+#
 # ## Principles Applied
 # Inherited: P1 (grounded in the 2026-09-06 vocabulary-cleanup measurement
 #   and the maintainer's rulings that followed it), P2,
@@ -445,6 +485,9 @@ BARE_VENDOR_PATTERN = (
     ),
 )
 MAX_QUOTE = 120
+# A scissors line, as git writes it under `commit -v` and `--cleanup=scissors`:
+# the comment character, then a run of dashes, `>8`, and a run of dashes.
+SCISSORS_RE = re.compile(r"^\s*\S?\s*-{6,}\s*>8\s*-{6,}")
 
 
 def _run_git(args, root):
@@ -754,6 +797,120 @@ def scoped_main(args):
     return 1
 
 
+def comment_char(directory):
+    """Return git's comment character for the repository at `directory`.
+
+    `core.commentChar`, or `#`. Never fatal: an unreadable or unusual setting
+    (`auto`, or more than one character) is read as `#`, and so is a machine
+    where git cannot be started.
+    """
+    try:
+        out, code = _run_git(["config", "--get", "core.commentChar"], directory)
+    except OSError:
+        return "#"
+    value = out.strip() if code == 0 else ""
+    if len(value) != 1:
+        return "#"
+    return value
+
+
+def message_main(args):
+    """Run the `--message-file` mode and return its exit code.
+
+    Scans one prospective commit message for the eight patterns, skipping what
+    git's own cleanup removes (commentary, and everything below a scissors
+    line). Exit 0 / 1 / 2 as the module header states; a message with nothing
+    to scan is 2, never 0.
+    """
+    target = args.message_file
+    try:
+        with open(target, "rb") as handle:
+            raw = handle.read()
+    except OSError as exc:
+        sys.stderr.write(
+            "check_vocabulary_regrowth: message file %s could not be read "
+            "(%s) -- nothing was examined, so nothing has passed.\n"
+            % (ascii(target), exc.strerror or type(exc).__name__)
+        )
+        print(json.dumps({"error": "message-file-unreadable", "mode": "message-file"}))
+        return 2
+
+    all_lines = _split_lines(raw.decode("utf-8", errors="replace"))
+    directory = os.path.dirname(os.path.abspath(target))
+    marker = comment_char(directory)
+
+    kept = []  # (line number in the file, text) of every line that is scanned
+    excluded = 0
+    cut = False
+    for number, line in enumerate(all_lines, start=1):
+        if cut:
+            excluded += 1
+        elif line.lstrip().startswith(marker):
+            excluded += 1
+            if SCISSORS_RE.match(line):
+                cut = True
+        else:
+            kept.append((number, line))
+
+    scannable = sum(1 for _, line in kept if line.strip())
+    scanned = {
+        "messages_examined": 1,
+        "lines_scanned": scannable,
+        "lines_excluded": excluded,
+        "comment_char": marker,
+    }
+    if scannable == 0:
+        sys.stderr.write(
+            "check_vocabulary_regrowth: the message file holds no scannable "
+            "line (%d line(s) in the file, all blank, commentary or below the "
+            "scissors) -- a scan that examined nothing has not passed.\n"
+            % len(all_lines)
+        )
+        payload = {"error": "nothing-to-scan", "mode": "message-file"}
+        payload["scanned"] = scanned
+        print(json.dumps(payload, sort_keys=True))
+        return 2
+
+    findings = []
+    for number, line in kept:
+        for name, pattern in PATTERNS.items():
+            for m in pattern.finditer(line):
+                findings.append(
+                    {
+                        "kind": "message-file",
+                        "pattern": name,
+                        "line": number,
+                        "token": m.group(0),
+                    }
+                )
+    findings.sort(key=lambda f: (f["line"], f["pattern"], f["token"]))
+    print(
+        json.dumps(
+            {"findings": findings, "mode": "message-file", "scanned": scanned},
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    sys.stderr.write(
+        "check_vocabulary_regrowth: message-file scan: examined 1 message "
+        "(%d line(s) scanned, %d excluded as commentary or below the "
+        "scissors).\n" % (scannable, excluded)
+    )
+    if not findings:
+        sys.stderr.write("check_vocabulary_regrowth: clean.\n")
+        return 0
+    sys.stderr.write(
+        "check_vocabulary_regrowth: %d finding(s) in the commit message:\n"
+        % len(findings)
+    )
+    for f in findings:
+        sys.stderr.write(
+            "  MESSAGE pattern=%s line=%d token=%s\n"
+            % (f["pattern"], f["line"], ascii(f["token"]))
+        )
+    return 1
+
+
 def main():
     ap = argparse.ArgumentParser(
         description=(
@@ -787,7 +944,34 @@ def main():
             "(off by default; the product ships them on purpose)."
         ),
     )
+    ap.add_argument(
+        "--message-file",
+        default=None,
+        metavar="PATH",
+        help=(
+            "message-file mode: scan ONE prospective commit message (the file "
+            "git hands a commit-msg hook) for the eight patterns, skipping "
+            "commentary and anything below a scissors line; exits 2 when "
+            "nothing was scanned. Takes no other flag."
+        ),
+    )
     args = ap.parse_args()
+
+    if args.message_file is not None:
+        if (
+            args.paths is not None
+            or args.vendor_names
+            or args.base_sha is not None
+            or args.head_sha is not None
+        ):
+            sys.stderr.write(
+                "check_vocabulary_regrowth: --message-file takes no other "
+                "mode flag (--paths, --vendor-names, --base-sha, --head-sha): "
+                "a combined run would leave one of the questions unasked.\n"
+            )
+            print(json.dumps({"error": "message-file-with-other-mode"}))
+            return 2
+        return message_main(args)
 
     if not os.path.isdir(args.root):
         sys.stderr.write("check_vocabulary_regrowth: root not found.\n")
