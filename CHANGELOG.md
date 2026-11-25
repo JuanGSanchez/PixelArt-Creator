@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-25
+
 ### Added
 
 - Six more interface languages: French, German, Russian, Simplified Chinese, Korean and Japanese. They can be chosen while the app is running.
