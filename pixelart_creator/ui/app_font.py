@@ -241,27 +241,41 @@ def _class_font(name: str) -> QFont:
 def _resolved_platform_font(font: QFont) -> QFont:
     """Return a copy of ``font`` whose family names the face that is drawn.
 
-    A platform may name its default by an alias that is not an installed family
-    (the offscreen plugin gives the generic "Sans Serif"). Everything downstream
-    measures or lists the family by name, and an alias is not the face drawn: the
-    Han and Hangul probe answers for it with a face that holds them, so the chain
-    would put a bundled CJK face first. The family Qt resolves the font to takes
-    the alias's place, read once at capture, before the bundled faces can answer
-    for the alias. A resolution that is empty or is itself a bundled face is no
-    answer, and the first installed family of the application's cross-platform
-    fallback chain takes its place. An installed family is kept as it is.
+    A platform may name its default by an alias, a name that is not the face
+    drawn (the offscreen plugin gives the generic "Sans Serif"). The font
+    database may list the alias as a family (fontconfig does) or not (Windows and
+    macOS offscreen). Everything downstream measures or lists the family by name,
+    and an alias is not the face drawn: the Han and Hangul probe answers for it
+    with a face that holds them, so the chain would put a bundled CJK face first.
+    The family Qt resolves the font to takes the alias's place, read once at
+    capture, before the bundled faces can answer for the alias.
+
+    A name the database lists is replaced only by a resolution that is a listed,
+    non-bundled family and differs from it by more than letter case; a listed
+    family that resolves to itself is kept as it is. A name the database does not
+    list is replaced by its resolution; when that is empty or is itself a bundled
+    face it is no answer, and the first installed family of the application's
+    cross-platform fallback chain takes its place.
     """
     result = QFont(font)
     installed = set(QFontDatabase.families())
-    if font.family() in installed:
-        return result
     bundled = {
         NIFEN_ART_FAMILY,
         font_chain.CJK_SC_FAMILY,
         font_chain.CJK_JP_FAMILY,
         font_chain.CJK_HANGUL_FAMILY,
     }
+    requested = font.family()
     resolved = QFontInfo(font).family()
+    if requested in installed:
+        if (
+            resolved
+            and resolved not in bundled
+            and resolved in installed
+            and resolved.casefold() != requested.casefold()
+        ):
+            result.setFamily(resolved)
+        return result
     if not resolved or resolved in bundled:
         resolved = next(
             (
@@ -281,8 +295,8 @@ def capture_platform_font() -> QFont:
     """Capture the platform's default fonts once, before the first change.
 
     The first call wins: it stores the application font and the per-class
-    fonts as the platform gave them (a family that is not installed replaced by
-    the one it resolves to, see :func:`_resolved_platform_font`). Later calls
+    fonts as the platform gave them (a family replaced by the one Qt draws for
+    it when the two differ, see :func:`_resolved_platform_font`). Later calls
     return the stored font. Call it right after the application object exists,
     before the bundled faces are registered.
     """
