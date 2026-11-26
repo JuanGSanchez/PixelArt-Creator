@@ -193,7 +193,9 @@ jobs:
     # grew to about 70 minutes, which left no headroom under 75. The cap stays a
     # runaway guard ONLY; the per-test --timeout and every quality gate are
     # unchanged.
-    timeout-minutes: 100
+    # Raised 100 -> 150 (maintainer ruling 2026-11-25): the Windows leg was
+    # cancelled at the 100-minute cap with its test step at 95%.
+    timeout-minutes: 150
     # Run every step under bash on ALL three OSes so the SAME pytest invocation
     # (with `\` line continuations) executes identically — the Windows default
     # shell (pwsh) would otherwise break the multi-line command (portability).
