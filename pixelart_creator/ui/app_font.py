@@ -238,22 +238,63 @@ def _class_font(name: str) -> QFont:
     return QApplication.font(name)  # type: ignore[call-overload]
 
 
+def _resolved_platform_font(font: QFont) -> QFont:
+    """Return a copy of ``font`` whose family names the face that is drawn.
+
+    A platform may name its default by an alias that is not an installed family
+    (the offscreen plugin gives the generic "Sans Serif"). Everything downstream
+    measures or lists the family by name, and an alias is not the face drawn: the
+    Han and Hangul probe answers for it with a face that holds them, so the chain
+    would put a bundled CJK face first. The family Qt resolves the font to takes
+    the alias's place, read once at capture, before the bundled faces can answer
+    for the alias. A resolution that is empty or is itself a bundled face is no
+    answer, and the first installed family of the application's cross-platform
+    fallback chain takes its place. An installed family is kept as it is.
+    """
+    result = QFont(font)
+    installed = set(QFontDatabase.families())
+    if font.family() in installed:
+        return result
+    bundled = {
+        NIFEN_ART_FAMILY,
+        font_chain.CJK_SC_FAMILY,
+        font_chain.CJK_JP_FAMILY,
+        font_chain.CJK_HANGUL_FAMILY,
+    }
+    resolved = QFontInfo(font).family()
+    if not resolved or resolved in bundled:
+        resolved = next(
+            (
+                family
+                for fallbacks in _UI_FONT_FALLBACKS.values()
+                for family in fallbacks
+                if family in installed and family not in bundled
+            ),
+            "",
+        )
+    if resolved:
+        result.setFamily(resolved)
+    return result
+
+
 def capture_platform_font() -> QFont:
     """Capture the platform's default fonts once, before the first change.
 
     The first call wins: it stores the application font and the per-class
-    fonts exactly as the platform gave them. Later calls return the stored
-    font. Call it right after the application object exists.
+    fonts as the platform gave them (a family that is not installed replaced by
+    the one it resolves to, see :func:`_resolved_platform_font`). Later calls
+    return the stored font. Call it right after the application object exists,
+    before the bundled faces are registered.
     """
     if _platform["font"] is None:
         font = QApplication.font()
-        _platform["font"] = QFont(font)
+        _platform["font"] = _resolved_platform_font(font)
         _platform["style"] = QApplication.style().objectName()
         classes: Dict[str, QFont] = {}
         for name in _PLATFORM_CLASS_FONTS:
             class_font = _class_font(name)
             if class_font != font:
-                classes[name] = QFont(class_font)
+                classes[name] = _resolved_platform_font(class_font)
         _platform["classes"] = classes
     return platform_default_font()
 
@@ -400,6 +441,8 @@ def primary_holds_cjk(family: str) -> bool:
     answer is false, which is right: nothing shipped can be stolen yet.
     """
     present = set(QFontDatabase.families())
+    if family not in present:
+        return False
     shipped = tuple(
         name
         for name in (
@@ -565,8 +608,8 @@ def prepare_interface_font(app: QApplication, use_system_font: bool) -> str:
     before constructing the first window; :func:`ensure_interface_font` still
     runs after each style sheet. Returns the family now in effect.
     """
-    register_app_fonts()
     capture_platform_font()
+    register_app_fonts()
     return apply_interface_font(app, use_system_font)
 
 
