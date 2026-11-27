@@ -155,14 +155,24 @@ jobs:
         # own C-build intermediates and pip's install scratch both honour
         # TMP/TEMP/TMPDIR, so they are routed here too rather than left on
         # whatever default the runner OS would otherwise use.
+        # On Windows, TMP, TEMP and TMPDIR name the same folder with
+        # backslashes only: the runner image's default MSVC compiler, with
+        # /GL, cannot open its intermediate file when TMP holds a forward
+        # slash. CI_TEMP_ROOT keeps its form, which the clean-up step's guard
+        # matches. testing/suites/deploy/test_installer_temp_root.py runs
+        # this step's body and pins both forms.
         run: |
           CI_TEMP_ROOT="${RUNNER_TEMP}/CI-PixelArtCreator/ci-build-installers-${{ matrix.os }}"
           rm -rf "${CI_TEMP_ROOT}"
           mkdir -p "${CI_TEMP_ROOT}"
           echo "CI_TEMP_ROOT=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
-          echo "TMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
-          echo "TEMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
-          echo "TMPDIR=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          LEG_TMP="${CI_TEMP_ROOT}"
+          if [ "${RUNNER_OS}" = "Windows" ]; then
+            LEG_TMP="$(printf '%s' "${CI_TEMP_ROOT}" | tr '/' '\134')"
+          fi
+          printf 'TMP=%s\n' "${LEG_TMP}" >> "${GITHUB_ENV}"
+          printf 'TEMP=%s\n' "${LEG_TMP}" >> "${GITHUB_ENV}"
+          printf 'TMPDIR=%s\n' "${LEG_TMP}" >> "${GITHUB_ENV}"
           echo "CI temp root for this leg: ${CI_TEMP_ROOT}"
 
       - name: Set up Python (pinned via .python-version)
