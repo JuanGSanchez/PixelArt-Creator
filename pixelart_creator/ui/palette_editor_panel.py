@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic import history
 from pixelart_creator.logic.color import BLACK, RGBA, to_hex
 from pixelart_creator.logic.palette import Palette
@@ -285,7 +286,13 @@ class Palette_Editor_Panel(QWidget):
             text = encode(self._palette, fmt)
             Path(path).write_text(text, encoding="utf-8")
         except (PaletteIOError, OSError) as exc:
-            QMessageBox.warning(self, self.tr("Export Palette"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Export Palette"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
 
     def _on_import(self) -> None:
         if self._palette is None or self._undo_stack is None:
@@ -302,7 +309,13 @@ class Palette_Editor_Panel(QWidget):
             imported = decode(text, fmt)
         except (PaletteIOError, OSError, ValueError) as exc:
             # A malformed file surfaces an error and never crashes (SC-U002-2).
-            QMessageBox.warning(self, self.tr("Import Palette"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Import Palette"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(self._palette.colors(), imported.colors(), self.tr("Import Palette"))
 

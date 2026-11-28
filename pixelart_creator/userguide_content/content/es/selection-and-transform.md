@@ -19,8 +19,8 @@ Usa las herramientas de selección para definir la región en la que quieres tra
 
 | Herramienta | Qué selecciona |
 | --- | --- |
-| **Rectángulo** | Una región rectangular que arrastras. |
-| **Lazo** | Una región a mano alzada que dibujas alrededor. |
+| **Selección rectangular** | Una región rectangular que arrastras. |
+| **Selección de lazo** | Una región a mano alzada que dibujas alrededor. |
 | **Varita mágica** | Un área contigua de color similar bajo el clic. |
 
 **Duración de la selección.** Cambiar a una de las tres herramientas de
@@ -32,7 +32,7 @@ trazos siguen recortados a la selección mientras pintas con otra herramienta.
 
 Mientras una de las tres herramientas de selección de arriba está activa,
 **Shift** y **Alt** significan algo distinto que en el resto del lienzo —
-consulta [Desplazar frente a construir una selección](#desplazar-frente-a-construir-una-seleccion)
+consulta [Desplazar frente a construir una selección](#panning-vs-building-a-selection)
 más abajo:
 
 | Modificador | Resultado con una herramienta de selección activa |
@@ -63,7 +63,7 @@ tabla de [Primeros pasos](app-basics.md).
 La selección flotante levanta la selección que ya está activa — **no** crea una
 nueva forma de selección, reutiliza la máscara que ya tienes.
 
-1. Con la herramienta de selección/movimiento activa, **presiona dentro** de la
+1. Con una de las herramientas de selección (Selección rectangular, Selección de lazo o Varita mágica) activa, **presiona dentro** de la
    selección activa. Los píxeles enmascarados se levantan en una vista previa
    flotante.
 2. **Arrastra.** Los colores flotantes siguen al cursor; la región de origen se lee
@@ -96,7 +96,7 @@ mover y copiar **durante** el arrastre pulsando o soltando Ctrl.
 | *sin modificador* | Levantar/**mover** la selección (el origen se vacía al confirmar) |
 | **Ctrl** | **Copiar** la selección (el origen se conserva) |
 | **Alt** | **Restar** de la selección (gesto de construcción) |
-| **Shift** | **Añadir** a la selección (gesto de construcción) — fuera de una herramienta de selección activa, **Shift+left-drag** desplaza el lienzo en vez de añadir; consulta [Desplazar frente a construir una selección](#desplazar-frente-a-construir-una-seleccion) más arriba. |
+| **Shift** | **Añadir** a la selección (gesto de construcción) — fuera de una herramienta de selección activa, **Shift+left-drag** desplaza el lienzo en vez de añadir; consulta [Desplazar frente a construir una selección](#panning-vs-building-a-selection) más arriba. |
 
 ## Confirmar o cancelar
 

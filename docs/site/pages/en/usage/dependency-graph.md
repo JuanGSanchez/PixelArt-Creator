@@ -3,7 +3,7 @@
 The **dependency graph** records how your assets reference one another — a sprite is a
 frame *of* an animation, a sprite is the source image *of* a tileset, a tileset is used
 *by* a tilemap — and the **break indicator** passively warns you when changing one asset
-would break another that points at it. Both are reached from the **&Library** menu,
+would break another that points at it. Both are reached from the **Library** menu,
 alongside the [asset library](asset-library.md) panels they build on.
 
 !!! note "What a dependency is"
@@ -16,15 +16,15 @@ alongside the [asset library](asset-library.md) panels they build on.
 
 ## Opening the dependency graph
 
-The **&Library** menu gains a **Dependency Graph** dock toggle. The
+The **Library** menu gains a **Dependency Graph** dock toggle. The
 **Dependency Graph** view visualises the references for either the whole catalog or the
 single asset currently selected in the [Asset Library](asset-library.md) panel, in two
 directions:
 
 | Relation | Reads as | Shows |
 | --- | --- | --- |
-| **Depends on** | what this asset *references* | the assets the selected asset points at |
-| **Referenced by** | what *references* this asset | the assets that point at the selected asset |
+| **Dependencies (depends on)** | what this asset *references* | the assets the selected asset points at |
+| **Dependents (referenced by)** | what *references* this asset | the assets that point at the selected asset |
 
 Both relations are shown as stable, alphabetically ordered lists. By default the view
 shows the **direct** neighbours; the same relations can be read transitively (the full
@@ -58,8 +58,8 @@ A reference is reported broken for one of two reasons:
 
 | Reason | Meaning |
 | --- | --- |
-| **Missing** | the referenced asset is no longer in the catalog (it was removed). |
-| **Hash mismatch** | the referenced asset is still present, but its content has changed since the reference was made. |
+| **missing target** | the referenced asset is no longer in the catalog (it was removed). The Dependency Graph shows it as "Broken (missing target)". |
+| **changed target** | the referenced asset is still present, but its content has changed since the reference was made. The Dependency Graph shows it as "Broken (changed target)". |
 
 An asset whose references are all still valid shows no indicator; only a genuinely broken
 reference is flagged, so the warning stays meaningful (no false positives).
@@ -74,7 +74,7 @@ correctly in both the light and dark themes.
 
 Dependency tracking and break detection build on the [asset library](asset-library.md)
 catalog. The companion capability — an append-only **version history** per asset, plus
-**cross-project reuse**, **export/import** and **optional cloud backing** — is documented in
+**cross-project reuse**, **export/import** and **optional cloud backing** (not connected in this release) — is documented in
 [Asset versioning & cross-project reuse](asset-versioning.md). A reused asset is a reference
 like any other, so the break indicator described here flags a reuse whose target later goes
 missing or changes.

@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic.branch_recording import (
     BranchRecordingError,
     ops_for_traces,
@@ -372,7 +373,13 @@ class Branching_Panel(QWidget):
         try:
             self._session.create_branch(name)
         except RealtimeError as exc:
-            QMessageBox.warning(self, self.tr("Branch"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Branch"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
 
     def _on_switch(self) -> None:
         if self._session is None:
@@ -383,7 +390,13 @@ class Branching_Panel(QWidget):
         try:
             self._session.switch_to(name)
         except RealtimeError as exc:
-            QMessageBox.warning(self, self.tr("Branch"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Branch"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
 
     def _on_merge(self) -> None:
         if self._session is None:
@@ -394,7 +407,13 @@ class Branching_Panel(QWidget):
         try:
             self._session.merge_to_mainline(name)
         except RealtimeError as exc:
-            QMessageBox.warning(self, self.tr("Merge"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Merge"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
 
     def _on_open_diff(self) -> None:
         """Request the pre-merge diff for the selected feature branch (REQ-P10-UI-014).
@@ -420,9 +439,10 @@ class Branching_Panel(QWidget):
         name, _, count = summary.partition("|")
         self._outcome.setText(
             self.tr(
-                "Merged branch '{name}' ({count} edits) into mainline — "
-                "conflict-free."
-            ).format(name=name, count=count)
+                "Merged branch '{name}' (%n edits) into mainline — conflict-free.",
+                "",
+                int(count) if count.isdigit() else 0,
+            ).format(name=name)
         )
 
     # -- view population --------------------------------------------------

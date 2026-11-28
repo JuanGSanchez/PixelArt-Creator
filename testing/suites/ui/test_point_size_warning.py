@@ -488,6 +488,15 @@ print("RESULT " + json.dumps(dict(
     platform=app.platformName(), style=style, qt=qVersion(),
     walked=walked, errors=errors, messages=messages, timing=timing,
 )), flush=True)
+# Delete every top-level window before the hard exit: exiting with the
+# application and its windows still alive ended this process with an access
+# violation (exit code 3221225477) in about one run in five on Windows.
+from PySide6.QtCore import QCoreApplication, QEvent
+for _w in list(QApplication.topLevelWidgets()):
+    _w.deleteLater()
+pump(3)
+QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+pump(3)
 os._exit(0)
 """
 

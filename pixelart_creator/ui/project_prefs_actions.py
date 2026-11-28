@@ -41,6 +41,7 @@ from pixelart_creator.logic.project_prefs import (
     REGISTRY,
     PrefKey,
 )
+from pixelart_creator.ui.tools.floating_move import CONFIRM_FLOATING_OVERWRITE
 
 #: A domain wider than this renders as a nested exclusive submenu rather than
 #: a single checkable action (plan §3.4) — a plain boolean-shaped preference
@@ -218,6 +219,11 @@ class _Project_Prefs_Menu(QMenu):
             return self.tr("Confirm before overwriting a cel")
         if key.name == ASSET_LIBRARY_EDIT.name:
             return self.tr("When a referenced library asset changes")
+        if key.name == CONFIRM_FLOATING_OVERWRITE.name:
+            overwrite_label = QCoreApplication.translate(
+                "Overwrite_Confirm_Dialog", "Overwrite existing pixels confirmation"
+            )
+            return overwrite_label
         return self.tr("Confirm: %1").replace("%1", key.name.replace("_", " "))
 
     def _retranslate(self) -> None:

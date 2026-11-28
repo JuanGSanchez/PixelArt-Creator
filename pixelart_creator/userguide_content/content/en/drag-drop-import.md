@@ -2,7 +2,7 @@
 
 Drag a file straight from your operating system's file explorer (Windows Explorer,
 macOS Finder, Linux Nautilus) **into** the PixelArt Creator window and it does the
-obvious thing for that kind of file. There is no File ▸ Open dance — drop it anywhere
+obvious thing for that kind of file. There is no File ▸ Open… dance — drop it anywhere
 on the window and the app routes it **by file type**, not by where on the window you
 let go.
 
@@ -52,7 +52,7 @@ file and its colours **replace** your active document's palette.
 - If no document is open, the drop is a harmless no-op with a short notice.
 
 > **Which palette formats?** The palette set is the common **text** pixel-art formats:
-> `.gpl`, `.hex` and `.pal`. The binary Adobe formats **`.aco`** and **`.aseprite`**
+> `.gpl`, `.hex` and `.pal`. The binary formats **`.aco`** (Adobe) and **`.aseprite`** (Aseprite's own format)
 > are **not yet supported** — they are reported as an unsupported type for now.
 
 ## Dropping several files at once
@@ -86,7 +86,7 @@ light and dark themes.
 - **Import as a layer** — an image always opens as a new document, never as a layer on
   the current one.
 - **Indexed import** of a paletted source image — images decode to RGBA; apply
-  *Convert to Indexed* afterwards (see [Layers](layers.md)) if you want an indexed
+  **Palette ▸ Convert to Indexed** afterwards (see [Layers](layers.md)) if you want an indexed
   document.
 - **Animated GIF import** — only the first frame is imported.
 - The **export / save-out** side of the pipeline — see

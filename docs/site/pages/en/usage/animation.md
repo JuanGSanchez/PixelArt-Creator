@@ -93,7 +93,7 @@ that frame's on-screen time on the next pass.
 Onion skinning shows **adjacent frames** behind the one you are editing, so you
 can align motion.
 
-- **Enable** it with the onion toggle. Ghost frames render behind the active
+- **Enable** it with the **Enable onion skinning** checkbox in the Onion Skin panel. Ghost frames render behind the active
   frame; the active frame itself is unchanged.
 - Set how many **previous** and **next** frames to show (each `0` disables that
   side; the default is **1 previous / 1 next**).
@@ -112,13 +112,15 @@ they may overlap.
 
 From the **Frame Tags** panel:
 
-- **Add / Edit / Delete** a tag — each opens a dialog for the tag's **name**,
+- **Add Tag / Edit Tag** — each opens a dialog for the tag's **name**,
   inclusive **from / to** range, **playback mode**, **repeat** count (`0` =
-  infinite for looping modes) and a **colour**. Each change is **one undo step**.
+  infinite for looping modes) and a **colour**. **Remove Tag** deletes the
+  selected tag at once, with no dialog, and is available only while a tag is
+  selected. Each change is **one undo step**.
   A tag is shown as a span across the frames it covers.
 - **Play Tag** plays the selected tag as its own named animation: it runs the
   tag's range under the **tag's own** playback mode and repeat, independently of
-  the global playback mode. An **Once** tag with repeat 3 plays its range three
+  the global playback mode. A **Once** tag with repeat 3 plays its range three
   times, then stops.
 
 When you add or remove frames, tag ranges are kept valid automatically (clamped
@@ -138,12 +140,12 @@ forth never loses your place.
 - **Overwrite confirmation** — dropping onto a cell that already holds a cel opens the
   **Overwrite Existing Cel?** dialog. Tick its **"Don't ask again for this project"**
   checkbox to stop being asked for the rest of this project; restore it from
-  **Edit -> Project confirmations**.
+  **Edit ▸ Project confirmations**.
 - **Toggle per-cell visibility** — click a cell's visibility indicator to show/hide
   that frame's layer; this is one undo step, the same as the visibility toggle
   anywhere else.
 - **Create a cel here** — right-click (or the keyboard context-menu key) an empty cell
-  for a **"Create cel here"** action. It is not offered at all when the cell is
+  for a **"Create Cel Here"** action. It is not offered at all when the cell is
   already occupied, or when the frame is already at the maximum layer count.
 - **Scrub** — drag across empty grid cells to scrub the displayed frame, exactly like
   dragging along the strip.
@@ -153,7 +155,7 @@ forth never loses your place.
 !!! note "Project confirmations"
     The Grid View's overwrite confirmation is one of the app's per-project
     preferences: once suppressed with "Don't ask again for this project," it stays
-    off for that project until restored from **Edit -> Project confirmations**, which
+    off for that project until restored from **Edit ▸ Project confirmations**, which
     lists every suppressed confirmation and turns each back on individually.
 
 ## Persistence

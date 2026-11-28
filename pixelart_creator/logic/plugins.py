@@ -4,23 +4,31 @@
 
 Realises ADR-0021's plugin model (REQ-P8-LOGIC-008/-009/-010): plugins are
 discovered **inertly**, validated **defensively**, and — only after explicit
-consent — handed a **capability object whose ONLY surface is the DSL command
-registry** (:mod:`logic.scripting`). A plugin therefore cannot ``eval``/``exec``,
-cannot import or reach ``ui/``, cannot touch the filesystem/network outside its
-grants, and cannot mutate document state except through a registered reversible
-command — every capability the plugin did not declare **and** was not granted is
-**denied by default** (no silent bypass).
+consent — enabled, which mints a **capability object** (:class:`PluginCapability`)
+that exposes the DSL command registry (:mod:`logic.scripting`) to an activation step
+when a caller supplies one (none does in this release, see below). A call made
+*through that object* for a capability the plugin was not granted is **denied by
+default** (:class:`PluginError`), and an operation registered through it is
+namespaced under the plugin's name.
 
-Honesty about strength (ADR-0021): because *loading* a Python
-plugin is itself code execution, in-process capability injection is
-**advisory-strength**, adequate only for **trusted, consent-installed** extensions.
-This module therefore never *auto-loads* or *auto-runs* anything: :func:`discover`
-is inert (no ``.load()``), and :func:`enable` mints the capability handle and, only
-if the host passes the consent-gated ``activate`` callable, invokes it **under** the
-capability. Untrusted-marketplace OS-isolation is deferred (Article XI).
+This module is NOT a sandbox. Nothing here isolates plugin code: ``activate`` is an
+ordinary inline call, so code it runs executes in the editor's own process and
+thread with that process's full access to files, network and the UI, and it can
+call :mod:`logic.scripting` (including ``register_command`` and
+``unregister_command``) directly, without the capability object. The grants limit
+only what is done through the object. Honesty about strength (ADR-0021): in-process
+capability injection is **advisory-strength**, adequate only for **trusted**
+extensions; untrusted-marketplace OS-isolation is deferred (Article XI).
+
+This module never *auto-loads* or *auto-runs* anything: :func:`discover` is inert
+(no ``.load()``), and :func:`enable` mints the capability handle and, only if the
+caller passes an ``activate`` callable, invokes it with the capability. No caller in
+this release passes one (the plugin manager panel does not), so no plugin code is
+loaded or run by the application.
 
 Layering (plan §4.4 / ADR-0022): ``plugins`` imports ``scripting`` **one-way** (to
-register/dispatch) + ``constants``; ``scripting`` never imports ``plugins`` (no
+register/dispatch), plus ``constants`` and, for their types, ``document``,
+``history`` and ``macro``; ``scripting`` never imports ``plugins`` (no
 cycle). Zero Qt. No ``eval``/``exec``/``compile`` anywhere.
 """
 
@@ -69,9 +77,11 @@ class PluginError(ValueError):
 class Capability(enum.Enum):
     """The module-local plugin capability vocabulary (enumerated, ADR-0001 / BF-2).
 
-    Deliberately grants NO raw filesystem/network/UI capability (deny-by-default,
-    ADR-0021): a plugin may only read the document, register DSL command/procgen
-    factories, and write through the reversible-command path.
+    Deliberately grants NO raw filesystem/network/UI capability through the
+    capability object (deny-by-default, ADR-0021): the vocabulary names only reading
+    the document, registering DSL command/procgen factories, and writing through the
+    reversible-command path. It limits calls made through that object, not a plugin's
+    own code (this module is not a sandbox).
     """
 
     READ_DOCUMENT = "read_document"
@@ -175,11 +185,13 @@ class PluginCapability:
 
     Exposes just the allow-listed command registry + dispatch (:mod:`logic.scripting`)
     and read access, each guarded by a granted :class:`Capability`. It holds **no**
-    filesystem/network/UI handle, so a plugin given only this object cannot reach
-    those layers; an operation whose capability was not granted raises
-    :class:`PluginError` (deny-by-default, REQ-P8-LOGIC-010). Registered op-names are
-    namespaced under the plugin (``"<plugin>.<op>"``) so a plugin cannot clobber a
-    built-in, and are tracked for clean unregistration on disable.
+    filesystem/network/UI handle, but it does not stop code from reaching them by
+    other means: it is a view, not a sandbox. An operation whose capability was not
+    granted raises :class:`PluginError` (deny-by-default, REQ-P8-LOGIC-010).
+    :meth:`read_document` returns the live document, not a copy. Op-names registered
+    through this object are namespaced under the plugin (``"<plugin>.<op>"``), so
+    they cannot match a built-in's name, and are tracked for unregistration on
+    disable.
     """
 
     __slots__ = ("_plugin_name", "_granted", "_registered")
@@ -315,9 +327,10 @@ def enable(
     :data:`~pixelart_creator.logic.constants.MAX_PLUGINS_LOADED`, mints a
     capability object exposing ONLY the DSL API + granted caps, and — only if the
     consent-gated ``activate`` callable is supplied — invokes it **under** that
-    capability (the "load" step; **no auto-run** otherwise). A plugin can neither
-    reach ``ui/``/filesystem/network nor mutate outside a command (REQ-P8-LOGIC-009),
-    and any ungranted capability is denied at use (REQ-P8-LOGIC-010).
+    capability (the "load" step; **no auto-run** otherwise). Through the capability
+    object a plugin can mutate only via a command (REQ-P8-LOGIC-009) and an ungranted
+    capability is denied at use (REQ-P8-LOGIC-010); code run by ``activate`` is not
+    otherwise confined (no sandbox: it runs in this process).
 
     Args:
         manifest: The (already-parsed) plugin manifest.

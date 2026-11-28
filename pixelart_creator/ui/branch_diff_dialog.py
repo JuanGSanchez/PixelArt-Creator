@@ -32,16 +32,18 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtCore import QEvent, QSize, Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -67,6 +69,27 @@ from pixelart_creator.logic.realtime_apply import Branch
 #: ``branch_diff._CLASS_RANK``'s declaration order (metadata, layer_attr,
 #: layer_order, raster; ``convergence.py:228``).
 _GROUP_ORDER: List[str] = ["metadata", "layer_attr", "layer_order", "raster"]
+
+
+class _Wrapped_Label(QLabel):
+    """A word-wrapped label whose minimum height is the height its text needs.
+
+    A plain wrapped label reports a one-line minimum, so a layout short of room
+    squeezes it below the height of its own text. Here the minimum follows
+    ``heightForWidth`` at the width the label has, so the room is taken from the
+    list below it instead.
+    """
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        """Build a word-wrapped label."""
+        super().__init__(parent)
+        self.setWordWrap(True)
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802 (Qt override)
+        """Return a minimum no shorter than the wrapped text at the current width."""
+        hint = super().minimumSizeHint()
+        wrapped = self.heightForWidth(max(self.width(), hint.width()))
+        return QSize(hint.width(), max(hint.height(), wrapped))
 
 
 class Branch_Diff_Dialog(QDialog):
@@ -131,7 +154,7 @@ class Branch_Diff_Dialog(QDialog):
         for group_key, group_title in self._group_titles().items():
             box = QGroupBox(group_title, self)
             box_layout = QVBoxLayout(box)
-            count_label = QLabel(box)
+            count_label = _Wrapped_Label(box)
             count_label.setWordWrap(True)
             list_widget = QListWidget(box)
             box_layout.addWidget(count_label)
@@ -159,13 +182,25 @@ class Branch_Diff_Dialog(QDialog):
         button_row.addWidget(self._continue_button)
         button_row.addWidget(self._close_button)
 
+        # The report scrolls: a translation that wraps onto more lines makes the
+        # content taller, and a dialog taller than the screen would squeeze the
+        # wrapped labels below their text. The buttons stay outside the scroll.
+        content = QWidget(self)
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.addWidget(self._basis_label)
+        content_layout.addWidget(self._supervision_label)
+        content_layout.addWidget(self._identical_label)
+        content_layout.addLayout(groups_layout)
+        content_layout.addWidget(self._region_box)
+        content_layout.addWidget(self._total_label)
+        self._scroll = QScrollArea(self)
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setWidget(content)
+
         layout = QVBoxLayout(self)
-        layout.addWidget(self._basis_label)
-        layout.addWidget(self._supervision_label)
-        layout.addWidget(self._identical_label)
-        layout.addLayout(groups_layout)
-        layout.addWidget(self._region_box)
-        layout.addWidget(self._total_label)
+        layout.addWidget(self._scroll, 1)
         layout.addLayout(button_row)
 
         self._populate()
@@ -271,6 +306,7 @@ class Branch_Diff_Dialog(QDialog):
             )
         )
         self.setAccessibleName(self.tr("Branch diff"))
+        self._scroll.setAccessibleName(self.tr("Branch diff"))
         self._basis_label.setText(
             self.tr(
                 "Comparing branch '{source}' (source) against '{target}' "
@@ -318,13 +354,11 @@ class Branch_Diff_Dialog(QDialog):
             if count == 0:
                 count_label.setText(self.tr("No changes."))
             else:
-                count_label.setText(self.tr("{count} change(s).").format(count=count))
+                count_label.setText(self.tr("%n change(s).", "", count))
             list_widget.setAccessibleName(
                 self.tr("{title} list").format(title=titles[group_key])
             )
-            list_widget.setAccessibleDescription(
-                self.tr("{count} entries.").format(count=count)
-            )
+            list_widget.setAccessibleDescription(self.tr("%n entries.", "", count))
 
         self._region_box.setTitle(self.tr("Affected regions"))
         self._region_granularity_label.setText(
@@ -336,16 +370,15 @@ class Branch_Diff_Dialog(QDialog):
         )
         self._region_list.setAccessibleName(self.tr("Affected regions list"))
         self._region_list.setAccessibleDescription(
-            self.tr("{count} regions.").format(count=len(self._divergence.regions))
+            self.tr("%n regions.", "", len(self._divergence.regions))
         )
 
         self._total_label.setText(
             self.tr(
-                "{total} operation(s) total, across {targets} distinct target(s)."
-            ).format(
-                total=self._divergence.total,
-                targets=self._divergence.distinct_targets,
-            )
+                "%n operation(s) total, across %2 distinct target(s).",
+                "",
+                self._divergence.total,
+            ).replace("%2", str(self._divergence.distinct_targets))
         )
         self._total_label.setAccessibleName(self.tr("Divergence total"))
 

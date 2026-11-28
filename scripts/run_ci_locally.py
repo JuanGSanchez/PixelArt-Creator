@@ -23,6 +23,9 @@
 #             [--workflow .github/workflows/ci.yml] [--list-jobs] [--dry-run]
 #             [--event push] [--ref ""] [--input KEY=VALUE ...]
 #             [--only SUBSTRING ...] [--skip SUBSTRING ...]
+#             [--runner-os Linux|Windows|macOS]
+#             [--context github.KEY=VALUE ...]
+#             [--needs-output JOB.NAME=VALUE ...]
 # INPUTS:
 #   --workflow  (CLI, optional, default ".github/workflows/ci.yml" relative
 #               to the repo root computed from this file's location).
@@ -41,6 +44,18 @@
 #               contains the given substring (case-insensitive). Selects
 #               AMONG the steps the workflow already defines -- it cannot add
 #               a step that is not in ci.yml.
+#   --runner-os (CLI, optional): SIMULATE the runner's OS for `runner.os` and
+#               for the matrix leg that is chosen, e.g. `Linux` to evaluate
+#               the workflow's Linux-only steps on a Windows machine. The
+#               commands still run on THIS machine, so a step that needs the
+#               real OS (apt, sudo) must be left out with --skip. Printed as a
+#               simulation, never as the real OS.
+#   --context   (CLI, repeatable, "github.KEY=VALUE"): set one value of the
+#               `github`, `inputs` or `env` context, e.g.
+#               `github.event.pull_request.base.sha=<sha>`. A value not given
+#               resolves to "" exactly as it does for an event that lacks it.
+#   --needs-output (CLI, repeatable, "JOB.NAME=VALUE"): DECLARE the output of
+#               a job the selected job `needs`, instead of computing it.
 # OUTPUTS:
 #   stdout: a live stream of each executed step's real output, then a final
 #     per-step summary table (ran-pass / ran-fail / skipped + reason), and an
@@ -48,15 +63,16 @@
 # EXIT CODES: 0 all executed steps passed (>=1 step executed) -> local PASS;
 #   1 at least one executed step failed -> local FAIL;
 #   2 usage/parse error (workflow/job not found, PyYAML missing, bad --input,
-#     no bash on PATH) -> BLOCKED;
+#     no bash on PATH, an `if:` or `${{ }}` this script cannot evaluate, a
+#     matrix that resolves to no leg) -> BLOCKED;
 #   3 nothing was actually executed (every step skipped/filtered out, or the
 #     job-level `if:` was false) -> NO SIGNAL. This is deliberately distinct
 #     from exit 0: a run that skipped everything and exited 0 would be the
 #     quietest, most dangerous failure mode of all -- a green result that
 #     checked nothing.
-# PRECONDITIONS: run from (or given --workflow/--repo-root pointing at) a
-#   checkout of this repository; the workflow file must parse as YAML with a
-#   top-level `jobs:` mapping.
+# PRECONDITIONS: run from (or given --workflow pointing at) a checkout of this
+#   repository; the workflow file must parse as YAML with a top-level `jobs:`
+#   mapping.
 # DETERMINISM NOTE: NOT deterministic in the way the other P11 gates are --
 #   it depends on the local OS, the local toolchain versions on PATH, network
 #   access (pip installs), and wall-clock timing. That is inherent to what it
@@ -71,6 +87,31 @@
 # each such step is mapped to an honest local equivalent where one exists, or
 # SKIPPED with a stated, printed reason. Silent skipping is the failure mode
 # this script is designed against: every skip appears in the final summary.
+#
+# WHAT IT READS FROM THE WORKFLOW, AND HOW CLOSELY IT FOLLOWS GITHUB:
+#   * Step status. A step with no status function in its `if:` runs only while
+#     no earlier step has failed (GitHub's implicit `success() &&`); a step
+#     whose `if:` names success(), failure(), always() or cancelled() is
+#     evaluated as written, so `always()` runs after a failure and a step
+#     guarded by `steps.<id>.outcome` sees the real outcome of that step. A
+#     failed step does NOT stop the run: the steps that are allowed to run
+#     after it do, and the exit code is 1 whenever any step failed.
+#   * Matrix. A literal `matrix.os` list is used as written. A
+#     `${{ fromJSON(needs.<job>.outputs.<name>) }}` matrix is resolved from the
+#     needed job's OWN computation (its `run:` steps are executed here, the
+#     files `GITHUB_OUTPUT`/`GITHUB_ENV` are honoured), or, under --dry-run
+#     (which executes nothing), from a DECLARED LOCAL DEFAULT that is printed
+#     as such. --needs-output overrides both. A matrix that resolves to no
+#     leg stops the run with exit 2; it never silently runs nothing.
+#   * `${{ }}` inside a `run:` block is substituted before the block runs.
+#   * `&&` and `||` return a value, as in GitHub (`a && '1' || ''` is '1' or
+#     ''), and a boolean prints as true/false.
+#   * Blocks run as `bash --noprofile --norc -eo pipefail <file>`, GitHub's own
+#     invocation for `shell: bash`: a failing command in the middle of a block
+#     fails the step, as it does on a hosted runner.
+#   * RUNNER_TEMP, GITHUB_ENV and GITHUB_OUTPUT exist: a fresh folder under
+#     the declared temp root (ORCH_TEST_TMP when set), removed when the run
+#     ends. Only that folder is ever deleted by this script.
 #
 # SUPERVISION RULE (normative, ADR-0045): a local run of this script is
 # EVIDENCE OF A DIFFERENT AND WEAKER KIND than a GitHub Actions CI run -- same
@@ -93,21 +134,27 @@
 # SOURCES: ADR-0045 (this decision, with the verified GitHub Actions billing
 #   block and the verified absence of Docker/WSL2 on this machine);
 #   .github/workflows/ci.yml (the parsed source of truth); asset-templates.md
-#   Script template.
+#   Script template; GitHub's documentation of status check functions
+#   ("Evaluate expressions in workflows and actions"), of `shell: bash`
+#   ("Workflow syntax", the shell table) and of the GITHUB_ENV / GITHUB_OUTPUT
+#   command files ("Workflow commands").
 # =============================================================================
 from __future__ import annotations
 
 import argparse
+import contextlib
+import json
 import os
 import platform
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, Iterator, List, Optional, Tuple, cast
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
@@ -128,20 +175,31 @@ _RUNNER_OS_BY_LABEL = {
     "windows-latest": "Windows",
     "macos-latest": "macOS",
 }
+_LABEL_BY_RUNNER_OS = {os_name: label for label, os_name in _RUNNER_OS_BY_LABEL.items()}
 _LOCAL_RUNNER_OS = {"Linux": "Linux", "Windows": "Windows", "Darwin": "macOS"}.get(
     platform.system(), platform.system()
 )
+_RUNNER_OS_CHOICES = ("Linux", "Windows", "macOS")
+
+#: GitHub's four status check functions. A step condition that names none of
+#: them is implicitly wrapped in `success() &&`.
+_STATUS_FUNCTIONS = ("success", "failure", "always", "cancelled")
+
+#: The context namespaces `--context` may set.
+_SETTABLE_NAMESPACES = ("github", "inputs", "env")
 
 
 # --------------------------------------------------------------------------
 # Minimal GitHub-Actions-expression evaluator.
 #
 # GitHub Actions' expression language is much larger than this; this
-# implements only what .github/workflows/ci.yml's `if:` conditions and
-# `env:` values actually use (verified by reading the file): dotted context
-# lookups (runner.os, matrix.os, env.X, github.event_name, github.ref,
-# inputs.X, secrets.X), string literals, ==, !=, &&, ||, !, parentheses, and
-# the startsWith() function. Anything else raises rather than guessing.
+# implements only what .github/workflows/ci.yml's `if:` conditions, `env:`
+# values, matrix and `run:` substitutions actually use (verified by reading
+# the file): dotted context lookups (runner.os, matrix.os, env.X,
+# github.event_name, github.ref, inputs.X, secrets.X, needs.J.outputs.N,
+# steps.ID.outcome), string literals, ==, !=, &&, ||, !, parentheses, and the
+# functions startsWith(), fromJSON(), success(), failure(), always() and
+# cancelled(). Anything else raises rather than guessing.
 # --------------------------------------------------------------------------
 _TOKEN_RE = re.compile(
     r"""\s*(?:
@@ -171,6 +229,14 @@ class _SecretsNamespace(dict):
 
     def get(self, key: str, default: str = "") -> str:  # type: ignore[override]
         return dict.get(self, key, os.environ.get(key, default))
+
+
+def _truthy(value: Any) -> bool:
+    """GitHub's truthiness: false, 0, "" and null are falsy; an array or an
+    object is always truthy, even when empty."""
+    if isinstance(value, (list, dict)):
+        return True
+    return bool(value)
 
 
 def _tokenize(expr: str) -> List[str]:
@@ -210,19 +276,22 @@ class _Parser:
         return val
 
     def _or_expr(self) -> Any:
+        # GitHub's `||` returns its left operand when that is truthy and its
+        # right operand otherwise -- a VALUE, not a boolean.
         val = self._and_expr()
         while self._peek() == "||":
             self._advance()
             rhs = self._and_expr()
-            val = bool(val) or bool(rhs)
+            val = val if _truthy(val) else rhs
         return val
 
     def _and_expr(self) -> Any:
+        # `&&` returns its left operand when that is falsy, else the right one.
         val = self._equality()
         while self._peek() == "&&":
             self._advance()
             rhs = self._equality()
-            val = bool(val) and bool(rhs)
+            val = rhs if _truthy(val) else val
         return val
 
     def _equality(self) -> Any:
@@ -237,7 +306,7 @@ class _Parser:
     def _unary(self) -> Any:
         if self._peek() == "!":
             self._advance()
-            return not bool(self._unary())
+            return not _truthy(self._unary())
         return self._primary()
 
     def _primary(self) -> Any:
@@ -247,8 +316,9 @@ class _Parser:
         if tok == "(":
             self._advance()
             val = self._or_expr()
-            if self._advance() != ")":
+            if self._peek() != ")":
                 raise ExprError("expected ')'")
+            self._advance()
             return val
         if tok.startswith("'"):
             self._advance()
@@ -259,6 +329,18 @@ class _Parser:
             return self._call(tok)
         return self._lookup(tok)
 
+    def _status_function(self, name: str) -> bool:
+        status = self.ctx.get("_status") or {}
+        failed = bool(status.get("failed"))
+        cancelled = bool(status.get("cancelled"))
+        if name == "always":
+            return True
+        if name == "cancelled":
+            return cancelled
+        if name == "failure":
+            return failed
+        return not failed and not cancelled  # success()
+
     def _call(self, fname: str) -> Any:
         self._advance()  # '('
         args = []
@@ -267,12 +349,29 @@ class _Parser:
             while self._peek() == ",":
                 self._advance()
                 args.append(self._or_expr())
-        if self._advance() != ")":
+        if self._peek() != ")":
             raise ExprError("expected ')' after call arguments")
-        if fname == "startsWith":
+        self._advance()
+        # GitHub matches function names without regard to case.
+        lowered = fname.lower()
+        if lowered == "startswith":
             if len(args) != 2:
                 raise ExprError("startsWith() takes exactly 2 arguments")
-            return str(args[0]).startswith(str(args[1]))
+            return str(args[0]).lower().startswith(str(args[1]).lower())
+        if lowered in _STATUS_FUNCTIONS:
+            if args:
+                raise ExprError(f"{fname}() takes no arguments")
+            return self._status_function(lowered)
+        if lowered == "fromjson":
+            if len(args) != 1:
+                raise ExprError("fromJSON() takes exactly 1 argument")
+            try:
+                return json.loads(str(args[0]))
+            except ValueError as exc:
+                raise ExprError(
+                    f"fromJSON() was given text that is not JSON ({exc}): "
+                    f"{str(args[0])!r}"
+                ) from exc
         raise ExprError(f"unsupported function: {fname}()")
 
     def _lookup(self, dotted: str) -> Any:
@@ -300,23 +399,73 @@ _WRAPPED_RE = re.compile(r"^\$\{\{\s*(.*?)\s*\}\}$", re.DOTALL)
 _INLINE_RE = re.compile(r"\$\{\{\s*(.*?)\s*\}\}")
 
 
+def _unwrap(raw: Any) -> str:
+    text = str(raw).strip()
+    m = _WRAPPED_RE.match(text)
+    return m.group(1) if m else text
+
+
 def eval_condition(raw: Any, ctx: Dict[str, Any]) -> bool:
     """Evaluate an `if:` field, with or without the optional ${{ }} wrapper."""
     if raw is None:
         return True
-    text = str(raw).strip()
-    m = _WRAPPED_RE.match(text)
-    inner = m.group(1) if m else text
-    return bool(eval_expr(inner, ctx))
+    return _truthy(eval_expr(_unwrap(raw), ctx))
+
+
+def has_status_function(expr: str) -> bool:
+    """True when the expression calls success(), failure(), always() or
+    cancelled() -- the test GitHub applies to decide whether an `if:` already
+    says what happens after a failure."""
+    tokens = _tokenize(expr)
+    return any(
+        tok.lower() in _STATUS_FUNCTIONS
+        and index + 1 < len(tokens)
+        and tokens[index + 1] == "("
+        for index, tok in enumerate(tokens)
+    )
+
+
+def _job_is_healthy(ctx: Dict[str, Any]) -> bool:
+    status = ctx.get("_status") or {}
+    return not status.get("failed") and not status.get("cancelled")
+
+
+def eval_step_condition(raw: Any, ctx: Dict[str, Any]) -> bool:
+    """Decide whether a STEP runs, as GitHub does.
+
+    A step with no `if:` has the implicit condition `success()`: it runs only
+    while no earlier step of the job has failed. A step whose `if:` names a
+    status check function is evaluated exactly as written. A step whose `if:`
+    names none is evaluated as `success() && (<if>)`.
+    """
+    if raw is None:
+        return _job_is_healthy(ctx)
+    inner = _unwrap(raw)
+    value = _truthy(eval_expr(inner, ctx))
+    if has_status_function(inner):
+        return value
+    return _job_is_healthy(ctx) and value
+
+
+def _render(value: Any) -> str:
+    """How a value prints inside `${{ }}` text: true/false, "" for null, JSON
+    for an array or object."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return ""
+    if isinstance(value, (list, dict)):
+        return json.dumps(value)
+    return str(value)
 
 
 def resolve_string(raw: Any, ctx: Dict[str, Any]) -> str:
-    """Resolve every ${{ ... }} occurrence in a string (used for env: values).
-    A value with no ${{ }} is returned unchanged."""
+    """Resolve every ${{ ... }} occurrence in a string (env: values and run:
+    blocks). A value with no ${{ }} is returned unchanged."""
     text = str(raw)
 
     def _sub(m: "re.Match[str]") -> str:
-        return str(eval_expr(m.group(1), ctx))
+        return _render(eval_expr(m.group(1), ctx))
 
     return _INLINE_RE.sub(_sub, text)
 
@@ -498,7 +647,7 @@ def _load_workflow(path: Path) -> Dict[str, Any]:
         # No stubs are declared for it here (mypy only gates `pixelart_creator`
         # in CI's "Type check" step, not scripts/ -- see ci.yml's `mypy
         # pixelart_creator` invocation).
-        import yaml  # type: ignore[import-untyped]
+        import yaml
     except ImportError:
         print(
             "run_ci_locally: PyYAML is required to parse the workflow "
@@ -535,6 +684,12 @@ def _on_block(doc: Dict[str, Any]) -> Dict[str, Any]:
     return raw.get("on", raw.get(True, {})) or {}
 
 
+def _fail_usage(message: str) -> "SystemExit":
+    """Print a usage/parse error and return the exit-2 SystemExit to raise."""
+    print(f"run_ci_locally: {message}", file=sys.stderr)
+    return SystemExit(2)
+
+
 def _parse_inputs(pairs: List[str]) -> Dict[str, str]:
     result: Dict[str, str] = {}
     for pair in pairs:
@@ -549,6 +704,37 @@ def _parse_inputs(pairs: List[str]) -> Dict[str, str]:
     return result
 
 
+def _parse_context(pairs: List[str]) -> Dict[str, Dict[str, str]]:
+    """`--context NAMESPACE.KEY=VALUE` -> {NAMESPACE: {KEY: VALUE}}."""
+    result: Dict[str, Dict[str, str]] = {}
+    for pair in pairs:
+        name, sep, value = pair.partition("=")
+        namespace, dot, key = name.partition(".")
+        if not sep or not dot or not key or namespace not in _SETTABLE_NAMESPACES:
+            raise _fail_usage(
+                f"--context must be NAMESPACE.KEY=VALUE with NAMESPACE one of "
+                f"{', '.join(_SETTABLE_NAMESPACES)}, got {pair!r}"
+            )
+        result.setdefault(namespace, {})[key] = value
+    return result
+
+
+def _parse_needs_outputs(pairs: List[str]) -> Dict[str, str]:
+    """`--needs-output JOB.NAME=VALUE` -> {"JOB.NAME": VALUE}."""
+    result: Dict[str, str] = {}
+    for pair in pairs:
+        name, sep, value = pair.partition("=")
+        job, dot, output = name.partition(".")
+        if not sep or not dot or not job or not output:
+            raise _fail_usage(f"--needs-output must be JOB.NAME=VALUE, got {pair!r}")
+        result[name] = value
+    return result
+
+
+def _effective_runner_os(args: argparse.Namespace) -> str:
+    return cast(str, args.runner_os or _LOCAL_RUNNER_OS)
+
+
 def _build_base_context(
     doc: Dict[str, Any], args: argparse.Namespace
 ) -> Dict[str, Any]:
@@ -559,27 +745,57 @@ def _build_base_context(
             inputs[key] = str(spec["default"])
     inputs.update(_parse_inputs(args.input))
 
-    return {
-        "runner": {"os": _LOCAL_RUNNER_OS},
+    ctx: Dict[str, Any] = {
+        "runner": {"os": _effective_runner_os(args)},
         "matrix": {},  # filled in per-job if the job declares a matrix
         "github": {"event_name": args.event, "ref": args.ref},
         "inputs": inputs,
         "secrets": _SecretsNamespace(),
         "env": {},  # filled in from the workflow's top-level env: below
+        "steps": {},  # "<id>.outcome", "<id>.conclusion", "<id>.outputs.<name>"
+        "needs": {},  # "<job>.outputs.<name>", filled in when a matrix needs it
+        "_status": {"failed": False, "cancelled": False},
     }
+    for namespace, items in _parse_context(args.context).items():
+        ctx[namespace].update(items)
+    return ctx
 
 
-def _select_matrix_os(job: Dict[str, Any]) -> Optional[str]:
-    matrix = (job.get("strategy") or {}).get("matrix") or {}
-    os_list = matrix.get("os")
-    if not os_list:
-        return None
+@contextlib.contextmanager
+def _runner_temp() -> Iterator[Path]:
+    """The run's RUNNER_TEMP: a fresh short-named folder under the declared
+    project temp root (ORCH_TEST_TMP) or the system temp, removed when the run
+    ends. It is the one folder this script ever deletes."""
+    base = os.environ.get("ORCH_TEST_TMP") or None
+    if base:
+        os.makedirs(base, exist_ok=True)
+    path = Path(tempfile.mkdtemp(prefix="rcl-", dir=base)).resolve()
+    try:
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
+
+
+def _base_env(ctx: Dict[str, Any], temp_dir: Path) -> Dict[str, str]:
+    env = dict(os.environ)
+    env.update(ctx["env"])
+    env["RUNNER_TEMP"] = temp_dir.as_posix()
+    env["RUNNER_OS"] = str(ctx["runner"]["os"])
+    env["GITHUB_WORKSPACE"] = str(REPO_ROOT)
+    return env
+
+
+def _select_matrix_os(os_list: List[str], runner_os: str) -> str:
     for label in os_list:
-        if _RUNNER_OS_BY_LABEL.get(label) == _LOCAL_RUNNER_OS:
+        if _RUNNER_OS_BY_LABEL.get(label) == runner_os:
             return label
+    if runner_os == _LOCAL_RUNNER_OS:
+        where = f"this machine's OS ({_LOCAL_RUNNER_OS})"
+    else:
+        where = f"the simulated runner OS ({runner_os})"
     raise SystemExit(
-        f"run_ci_locally: job's matrix.os {os_list!r} has no leg matching this "
-        f"machine's OS ({_LOCAL_RUNNER_OS}); nothing to run here."
+        f"run_ci_locally: job's matrix.os {os_list!r} has no leg matching "
+        f"{where}; nothing to run here."
     )
 
 
@@ -594,11 +810,52 @@ def _merge_env(
 # --------------------------------------------------------------------------
 # Execution.
 # --------------------------------------------------------------------------
+def _find_bash() -> Optional[str]:
+    return shutil.which("bash")
+
+
+def _spawn(cmd: List[str], env: Dict[str, str]) -> int:
+    """Run one command in the repository root and return its exit code. The
+    single seam between this script's logic and a real process."""
+    return subprocess.run(cmd, cwd=str(REPO_ROOT), env=env).returncode
+
+
+def _parse_command_file(text: str) -> Dict[str, str]:
+    """Read a GITHUB_ENV / GITHUB_OUTPUT file: `name=value` lines and
+    `name<<DELIMITER` ... `DELIMITER` blocks."""
+    result: Dict[str, str] = {}
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        index += 1
+        block = re.match(r"^([^=<]+)<<(.+)$", line)
+        if block:
+            name, delimiter = block.groups()
+            body: List[str] = []
+            while index < len(lines) and lines[index] != delimiter:
+                body.append(lines[index])
+                index += 1
+            index += 1
+            result[name] = "\n".join(body)
+        elif "=" in line:
+            name, _, value = line.partition("=")
+            result[name] = value
+    return result
+
+
 def _run_step(
-    step: Dict[str, Any], env: Dict[str, str], shell: str, dry_run: bool
-) -> StepResult:
-    name = step.get("name", "<unnamed step>")
-    script = step["run"]
+    name: str,
+    script: str,
+    env: Dict[str, str],
+    shell: str,
+    dry_run: bool,
+    work_dir: Path,
+    index: int,
+) -> Tuple[StepResult, Dict[str, str], Dict[str, str]]:
+    """Run one `run:` block (already substituted). Returns the result, the
+    environment the block exported through GITHUB_ENV and the outputs it wrote
+    through GITHUB_OUTPUT."""
     if "bash" not in shell:
         print(
             f"  [run_ci_locally] NOTE: step declares shell={shell!r}; this "
@@ -606,7 +863,7 @@ def _run_step(
             "anyway -- if the block uses shell-specific syntax this may not "
             "behave as it would in CI.",
         )
-    bash = shutil.which("bash")
+    bash = _find_bash()
     if not bash:
         print(
             "run_ci_locally: no 'bash' found on PATH; cannot execute run: "
@@ -616,19 +873,86 @@ def _run_step(
         raise SystemExit(2)
 
     if dry_run:
-        return StepResult(
+        result = StepResult(
             name, "NOT-RUN", "--dry-run: parsed and would execute via bash."
         )
+        return result, {}, {}
+
+    script_file = work_dir / f"step{index}.sh"
+    env_file = work_dir / f"step{index}.env"
+    out_file = work_dir / f"step{index}.out"
+    # The block as written, ending in one newline (a `|` block already does).
+    script_file.write_bytes(
+        script.encode("utf-8") + (b"" if script.endswith("\n") else b"\n")
+    )
+    env_file.write_bytes(b"")
+    out_file.write_bytes(b"")
+    step_env = dict(env)
+    step_env["GITHUB_ENV"] = env_file.as_posix()
+    step_env["GITHUB_OUTPUT"] = out_file.as_posix()
 
     print(f"\n----- RUN: {name} " + "-" * max(0, 40 - len(name)))
     start = time.monotonic()
-    proc = subprocess.run([bash, "-c", script], cwd=str(REPO_ROOT), env=env)
-    elapsed = time.monotonic() - start
-    if proc.returncode == 0:
-        return StepResult(name, "RAN-PASS", f"exit 0 in {elapsed:.1f}s", elapsed)
-    return StepResult(
-        name, "RAN-FAIL", f"exit {proc.returncode} in {elapsed:.1f}s", elapsed
+    # GitHub's own invocation for `shell: bash`.
+    code = _spawn(
+        [bash, "--noprofile", "--norc", "-eo", "pipefail", script_file.as_posix()],
+        step_env,
     )
+    elapsed = time.monotonic() - start
+    exported = _parse_command_file(env_file.read_bytes().decode("utf-8", "replace"))
+    written = _parse_command_file(out_file.read_bytes().decode("utf-8", "replace"))
+    if code == 0:
+        result = StepResult(name, "RAN-PASS", f"exit 0 in {elapsed:.1f}s", elapsed)
+    else:
+        result = StepResult(name, "RAN-FAIL", f"exit {code} in {elapsed:.1f}s", elapsed)
+    return result, exported, written
+
+
+def _step_name(step: Dict[str, Any]) -> str:
+    return cast(str, step.get("name", step.get("uses", step.get("run", "<step>"))[:60]))
+
+
+def _expression_failure(where: str, exc: ExprError) -> "SystemExit":
+    return _fail_usage(f"{where}: cannot evaluate an expression: {exc}")
+
+
+def _execute_run_step(
+    step: Dict[str, Any],
+    ctx: Dict[str, Any],
+    base_env: Dict[str, str],
+    shell: str,
+    dry_run: bool,
+    work_dir: Path,
+    index: int,
+) -> StepResult:
+    """Substitute `${{ }}` in a step's env and script, run it, and carry what
+    it exported (GITHUB_ENV) and wrote (GITHUB_OUTPUT) into the job."""
+    name = _step_name(step)
+    step_ctx = dict(ctx)
+    step_ctx["env"] = dict(ctx["env"])
+    step_env = dict(base_env)
+    try:
+        if step.get("env"):
+            _merge_env(step_env, step["env"], step_ctx)
+        script = resolve_string(step["run"], step_ctx)
+    except ExprError as exc:
+        raise _expression_failure(f"step {name!r}", exc)
+    result, exported, written = _run_step(
+        name, script, step_env, shell, dry_run, work_dir, index
+    )
+    base_env.update(exported)
+    ctx["env"].update(exported)
+    if step.get("id"):
+        for key, value in written.items():
+            ctx["steps"][f"{step['id']}.outputs.{key}"] = value
+    return result
+
+
+def _record_outcome(ctx: Dict[str, Any], step: Dict[str, Any], outcome: str) -> None:
+    """Make `steps.<id>.outcome` / `.conclusion` readable by later conditions."""
+    if step.get("id"):
+        ctx["steps"][f"{step['id']}.outcome"] = outcome
+        ctx["steps"][f"{step['id']}.conclusion"] = outcome
 
 
 def _filtered_out(name: str, only: List[str], skip: List[str]) -> Optional[str]:
@@ -639,6 +963,150 @@ def _filtered_out(name: str, only: List[str], skip: List[str]) -> Optional[str]:
         if s.lower() in lname:
             return f"excluded by --skip filter {s!r}"
     return None
+
+
+# --------------------------------------------------------------------------
+# `matrix.os` resolution, including a matrix computed by a needed job.
+# --------------------------------------------------------------------------
+_NEEDS_REF_RE = re.compile(
+    r"\bneeds\.([A-Za-z_][A-Za-z0-9_\-]*)\.outputs\.([A-Za-z_][A-Za-z0-9_\-]*)"
+)
+
+
+def _compute_job_outputs(
+    doc: Dict[str, Any],
+    job_name: str,
+    ctx: Dict[str, Any],
+    args: argparse.Namespace,
+    temp_dir: Path,
+) -> Dict[str, str]:
+    """Compute a needed job's outputs by running its own `run:` steps here.
+
+    Only `run:` steps run (a `uses:` action has no local equivalent and no
+    output this script could read). The needed job's steps are not part of the
+    selected job's summary and never count as executed steps of it.
+    """
+    cache = ctx.setdefault("_needs_cache", {})
+    if job_name in cache:
+        return cast(Dict[str, str], cache[job_name])
+    needed = doc["jobs"].get(job_name)
+    if needed is None:
+        raise _fail_usage(
+            f"the matrix needs job {job_name!r}, which the workflow does not "
+            f"define. Known jobs: {sorted(doc['jobs'])}."
+        )
+    print(
+        f"[run_ci_locally] computing the outputs of job {job_name!r} by running "
+        "its own run: steps here (the matrix is computed from them)."
+    )
+    sub = dict(ctx)
+    sub["env"] = dict(ctx["env"])
+    sub["steps"] = {}
+    sub["_status"] = {"failed": False, "cancelled": False}
+    needed_env = _base_env(sub, temp_dir)
+    work_dir = temp_dir / f"needs-{job_name}"
+    work_dir.mkdir(exist_ok=True)
+    shell = ((needed.get("defaults") or {}).get("run") or {}).get("shell", "bash")
+    for index, step in enumerate(needed.get("steps", [])):
+        if "run" not in step:
+            continue
+        try:
+            runs = eval_step_condition(step.get("if"), sub)
+        except ExprError as exc:
+            raise _expression_failure(
+                f"job {job_name!r}, step {_step_name(step)!r}", exc
+            )
+        if not runs:
+            continue
+        result = _execute_run_step(
+            step, sub, needed_env, shell, args.dry_run, work_dir, index
+        )
+        _record_outcome(
+            sub, step, "success" if result.status == "RAN-PASS" else "failure"
+        )
+        if result.status == "RAN-FAIL":
+            raise _fail_usage(
+                f"job {job_name!r} failed while computing its outputs "
+                f"({result.name!r}: {result.detail}); the matrix cannot be resolved."
+            )
+    outputs: Dict[str, str] = {}
+    try:
+        for name, expr in (needed.get("outputs") or {}).items():
+            outputs[name] = resolve_string(expr, sub)
+    except ExprError as exc:
+        raise _expression_failure(f"job {job_name!r} outputs", exc)
+    cache[job_name] = outputs
+    return outputs
+
+
+def _needs_output(
+    doc: Dict[str, Any],
+    job_name: str,
+    output: str,
+    ctx: Dict[str, Any],
+    args: argparse.Namespace,
+    temp_dir: Path,
+) -> Tuple[str, str]:
+    """The value of needs.<job>.outputs.<output> and how it was obtained."""
+    declared = _parse_needs_outputs(args.needs_output)
+    key = f"{job_name}.{output}"
+    if key in declared:
+        return declared[key], "declared with --needs-output"
+    if not args.dry_run:
+        outputs = _compute_job_outputs(doc, job_name, ctx, args, temp_dir)
+        if output not in outputs:
+            raise _fail_usage(
+                f"job {job_name!r} ran but defines no output named {output!r} "
+                f"(it defines {sorted(outputs)}); the matrix cannot be resolved."
+            )
+        return outputs[output], f"computed by running job {job_name!r} here"
+    label = _LABEL_BY_RUNNER_OS.get(_effective_runner_os(args), "")
+    return (
+        json.dumps([label] if label else []),
+        f"DECLARED LOCAL DEFAULT, not the workflow's computation: --dry-run runs "
+        f"no `run:` block, so job {job_name!r} was not run; the default is the "
+        "leg of the runner OS alone (run without --dry-run, or declare the "
+        "output with --needs-output, to see the workflow's own list)",
+    )
+
+
+def _resolve_matrix_os_list(
+    doc: Dict[str, Any],
+    job: Dict[str, Any],
+    ctx: Dict[str, Any],
+    args: argparse.Namespace,
+    temp_dir: Path,
+) -> Tuple[Optional[List[str]], str]:
+    """The legs of the job's `matrix.os` and where the list came from; (None,
+    "") for a job with no `matrix.os`. A matrix that resolves to no leg is a
+    usage error (exit 2), never an empty run."""
+    raw = ((job.get("strategy") or {}).get("matrix") or {}).get("os")
+    if not raw:
+        return None, ""
+    if isinstance(raw, list):
+        return [str(label) for label in raw], "a literal list in the workflow"
+    text = str(raw).strip()
+    wrapped = _WRAPPED_RE.match(text)
+    if not wrapped:
+        return [text], "a single literal label in the workflow"
+    expr = wrapped.group(1)
+    sources: List[str] = []
+    for need_job, output in _NEEDS_REF_RE.findall(expr):
+        value, how = _needs_output(doc, need_job, output, ctx, args, temp_dir)
+        ctx["needs"][f"{need_job}.outputs.{output}"] = value
+        sources.append(f"needs.{need_job}.outputs.{output} = {value} ({how})")
+    try:
+        resolved = eval_expr(expr, ctx)
+    except ExprError as exc:
+        raise _expression_failure(f"matrix.os {text!r}", exc)
+    if isinstance(resolved, str):
+        resolved = [resolved] if resolved else []
+    if not isinstance(resolved, list) or not resolved:
+        raise _fail_usage(
+            f"matrix.os {text!r} resolved to no leg ({resolved!r}); refusing to "
+            "run a job with nothing to run. " + "; ".join(sources)
+        )
+    return [str(label) for label in resolved], "; ".join(sources) or text
 
 
 def run_job(
@@ -652,19 +1120,42 @@ def run_job(
             file=sys.stderr,
         )
         raise SystemExit(2)
-    job = jobs[job_name]
+    with _runner_temp() as temp_dir:
+        return _run_job(doc, job_name, args, temp_dir)
+
+
+def _run_job(
+    doc: Dict[str, Any], job_name: str, args: argparse.Namespace, temp_dir: Path
+) -> List[StepResult]:
+    job = doc["jobs"][job_name]
+    runner_os = _effective_runner_os(args)
 
     ctx = _build_base_context(doc, args)
+    ctx["runner"]["temp"] = temp_dir.as_posix()
     _merge_env({}, doc.get("env"), ctx)  # top-level env, resolved into ctx["env"]
+    if runner_os != _LOCAL_RUNNER_OS:
+        print(
+            f"[run_ci_locally] SIMULATED runner OS: {runner_os} (this machine is "
+            f"{_LOCAL_RUNNER_OS}). `runner.os` and the matrix leg follow the "
+            "simulation; every command still runs here."
+        )
 
-    matrix_os = _select_matrix_os(job)
+    os_list, source = _resolve_matrix_os_list(doc, job, ctx, args, temp_dir)
     # NOTE: matrix.os must be resolved into ctx BEFORE the job-level env: block
     # is merged below, because that block (e.g. build-installers' credential
     # env) may itself reference ${{ matrix.os }} or other matrix-derived
     # values in a future workflow edit.
+    matrix_os = None
+    if os_list is not None:
+        print(
+            f"[run_ci_locally] matrix legs of job {job_name!r}: {os_list!r} "
+            f"(from {source})"
+        )
+        matrix_os = _select_matrix_os(os_list, runner_os)
     if matrix_os:
         ctx["matrix"]["os"] = matrix_os
-        print(f"[run_ci_locally] matrix leg selected: os={matrix_os} (local OS)")
+        which = "local OS" if runner_os == _LOCAL_RUNNER_OS else "simulated OS"
+        print(f"[run_ci_locally] matrix leg selected: os={matrix_os} ({which})")
 
     # Job-level env: (e.g. build-installers' credential-gated APPLE_* vars,
     # each `${{ secrets.X }}` -- resolved via _SecretsNamespace to the real
@@ -693,24 +1184,50 @@ def run_job(
         )
         return []
 
-    base_env = dict(os.environ)
-    base_env.update(ctx["env"])
+    base_env = _base_env(ctx, temp_dir)
+    print(f"[run_ci_locally] RUNNER_TEMP for this run: {temp_dir.as_posix()}")
 
     results: List[StepResult] = []
     default_shell = ((job.get("defaults") or {}).get("run") or {}).get("shell", "bash")
+    work_dir = temp_dir / f"job-{job_name}"
+    work_dir.mkdir(exist_ok=True)
 
-    for step in job.get("steps", []):
-        name = step.get("name", step.get("uses", step.get("run", "<step>"))[:60])
+    for index, step in enumerate(job.get("steps", [])):
+        name = _step_name(step)
 
         reason = _filtered_out(name, args.only, args.skip)
         if reason:
             results.append(StepResult(name, "SKIPPED", reason))
+            _record_outcome(ctx, step, "skipped")
             continue
 
-        if "if" in step and not eval_condition(step["if"], ctx):
-            results.append(
-                StepResult(name, "SKIPPED", f"if: {step['if']!r} evaluated false")
-            )
+        try:
+            runs = eval_step_condition(step.get("if"), ctx)
+            if not runs and not _job_is_healthy(ctx):
+                # Would it have run had nothing failed? Then the failure, not
+                # the condition, is why it did not.
+                healthy_ctx = dict(ctx)
+                healthy_ctx["_status"] = {"failed": False, "cancelled": False}
+                stopped_by_failure = eval_step_condition(step.get("if"), healthy_ctx)
+            else:
+                stopped_by_failure = False
+        except ExprError as exc:
+            raise _expression_failure(f"step {name!r} `if:`", exc)
+        if not runs:
+            if stopped_by_failure:
+                results.append(
+                    StepResult(
+                        name,
+                        "NOT-RUN",
+                        "upstream step failed; this step's condition has no "
+                        "always()/failure() so success() is implied and false",
+                    )
+                )
+            else:
+                results.append(
+                    StepResult(name, "SKIPPED", f"if: {step['if']!r} evaluated false")
+                )
+            _record_outcome(ctx, step, "skipped")
             continue
 
         if "uses" in step:
@@ -720,34 +1237,31 @@ def run_job(
                 handler(step) if handler else _handle_unknown_action(step, step["uses"])
             )
             results.append(result)
+            _record_outcome(
+                ctx, step, "skipped" if result.status == "SKIPPED" else "success"
+            )
             continue
 
         if "run" not in step:
             results.append(
                 StepResult(name, "SKIPPED", "no run: or uses: -- nothing to execute")
             )
+            _record_outcome(ctx, step, "skipped")
             continue
 
-        step_env = dict(base_env)
-        if step.get("env"):
-            step_ctx = dict(ctx)
-            _merge_env(step_env, step["env"], step_ctx)
         shell = step.get("shell", default_shell)
-        result = _run_step(step, step_env, shell, args.dry_run)
+        result = _execute_run_step(
+            step, ctx, base_env, shell, args.dry_run, work_dir, index
+        )
         results.append(result)
         if result.status == "RAN-FAIL":
-            remaining = job.get("steps", [])
-            idx = remaining.index(step)
-            for later in remaining[idx + 1 :]:
-                lname = later.get(
-                    "name", later.get("uses", later.get("run", "<step>"))[:60]
-                )
-                results.append(
-                    StepResult(
-                        lname, "NOT-RUN", "upstream step failed; run stopped here"
-                    )
-                )
-            break
+            # The job is now failed: later steps run only if their own `if:`
+            # says so (always(), failure(), a status-aware condition). The run
+            # does not stop here -- GitHub does not.
+            ctx["_status"]["failed"] = True
+            _record_outcome(ctx, step, "failure")
+        else:
+            _record_outcome(ctx, step, "success")
 
     return results
 
@@ -764,9 +1278,16 @@ def list_jobs(doc: Dict[str, Any]) -> None:
         print(f"  {name!r}: {n_steps} steps ({n_run} run:, {n_uses} uses:){mx}{cond}")
 
 
-def print_summary(job_name: str, results: List[StepResult]) -> int:
+def print_summary(
+    job_name: str, results: List[StepResult], runner_os: Optional[str] = None
+) -> int:
     print("\n" + "-" * 78)
-    print(f"LOCAL RUN SUMMARY -- job={job_name!r} os={_LOCAL_RUNNER_OS}")
+    simulated = (
+        f" (SIMULATED runner OS {runner_os})"
+        if runner_os and runner_os != _LOCAL_RUNNER_OS
+        else ""
+    )
+    print(f"LOCAL RUN SUMMARY -- job={job_name!r} os={_LOCAL_RUNNER_OS}{simulated}")
     print("-" * 78)
     width = max((len(r.name) for r in results), default=10)
     for r in results:
@@ -797,7 +1318,7 @@ def print_summary(job_name: str, results: List[StepResult]) -> int:
     return 0
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         description=(
             "Run .github/workflows/ci.yml locally by parsing it and executing "
@@ -832,7 +1353,34 @@ def main() -> int:
         metavar="SUBSTRING",
         help="skip steps whose name contains SUBSTRING (repeatable)",
     )
-    args = ap.parse_args()
+    ap.add_argument(
+        "--runner-os",
+        choices=_RUNNER_OS_CHOICES,
+        default=None,
+        help=(
+            "simulate the runner's OS for runner.os and the matrix leg; "
+            "commands still run on this machine"
+        ),
+    )
+    ap.add_argument(
+        "--context",
+        action="append",
+        default=[],
+        metavar="NAMESPACE.KEY=VALUE",
+        help="set one value of the github, inputs or env context (repeatable)",
+    )
+    ap.add_argument(
+        "--needs-output",
+        action="append",
+        default=[],
+        metavar="JOB.NAME=VALUE",
+        help="declare a needed job's output instead of computing it (repeatable)",
+    )
+    return ap
+
+
+def main() -> int:
+    args = build_parser().parse_args()
 
     print(BANNER)
     doc = _load_workflow(args.workflow)
@@ -846,7 +1394,7 @@ def main() -> int:
         f"local OS={_LOCAL_RUNNER_OS}  dry_run={args.dry_run}"
     )
     results = run_job(doc, args.job, args)
-    return print_summary(args.job, results)
+    return print_summary(args.job, results, args.runner_os)
 
 
 if __name__ == "__main__":

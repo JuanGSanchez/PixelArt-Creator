@@ -39,6 +39,8 @@ from typing import Callable, Optional
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
 
+import pixelart_creator.ui.failure_messages as failure_messages
+
 #: A Qt-free cloud job: given the cooperative cancel event, do the port I/O off
 #: the GUI thread and return a plain, Qt-free result object (a ``CloudVersion``,
 #: ``bytes``, a ``Tuple[CloudVersion, ...]``, a ``Document``, or ``None`` for a
@@ -63,7 +65,7 @@ class CloudWorkerSignals(QObject):
 
     #: ``(token, kind, result)`` — the job produced a Qt-free result object.
     succeeded = Signal(int, str, object)
-    #: ``(token, kind, message)`` — the job raised (surfaced, never a crash).
+    #: ``(token, kind, failure)`` — the job raised; ``failure`` is a kind value.
     failed = Signal(int, str, str)
     #: ``(token,)`` — the job ended (success, failure, or cancel); clears busy.
     done = Signal(int)
@@ -123,8 +125,9 @@ class Cloud_Worker(QRunnable):
             # Any port error (CloudError / CloudDataError / ProjectIOError / OSError
             # / value error) surfaces as a user-facing message; it never crashes the
             # app and never re-raises through Qt.
+            failure_messages.log_failure(exc)
             self._signals.failed.emit(
-                self._token, self._kind, f"{type(exc).__name__}: {exc}"
+                self._token, self._kind, failure_messages.failure_kind(exc).value
             )
         finally:
             self._signals.done.emit(self._token)
@@ -254,7 +257,10 @@ class Cloud_Controller(QObject):
         if token == self._token:
             # Same idle-before-terminal-emit contract as ``_on_succeeded``.
             self._set_busy(False)
-            self.operationFailed.emit(kind, message)
+            self.operationFailed.emit(
+                kind,
+                failure_messages.failure_text(failure_messages.FailureKind(message)),
+            )
 
     @Slot(int)
     def _on_done(self, token: int) -> None:

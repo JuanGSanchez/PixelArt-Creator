@@ -1,4 +1,4 @@
-# PixelArt Creator — Guía de usuario
+# PixelArt Creator — Guía del usuario
 
 PixelArt Creator es un editor de arte pixel construido en torno a un lienzo con
 capacidad para 8K, un modelo de capas no destructivo y un compositor rápido y
@@ -27,7 +27,7 @@ biblioteca de recursos:
 - **[Línea de tiempo de animación](usage/animation.md)** — construye una línea de
   tiempo de fotogramas (añadir / eliminar / reordenar / duplicar, duración por
   fotograma), reprodúcela (bucle / una vez / ping-pong / inversa), usa el
-  onion skinning, y agrupa rangos de fotogramas en animaciones con nombre
+  papel cebolla, y agrupa rangos de fotogramas en animaciones con nombre
   mediante etiquetas de fotograma.
 - **[Mapa de tiles y diseño de niveles](usage/tilemap.md)** — divide una imagen de
   origen en un tileset, pinta un mapa de tiles multicapa e infinito con
@@ -41,8 +41,7 @@ biblioteca de recursos:
   gráfica con la línea de comandos `pixelart-export` — todo byte-reproducible.
 - **[Automatización y extensibilidad](usage/automation.md)** — graba y reproduce
   macros (`.pixmacro`, deterministas), ejecuta scripts DSL acotados (sin
-  `eval`/`exec`), amplía la aplicación con complementos de confianza y
-  consentimiento explícito, recolorea por lotes muchos objetivos a la vez,
+  `eval`/`exec`), recolorea por lotes muchos objetivos a la vez,
   genera contenido de forma procedural, y ejecuta cualquier automatización sin
   interfaz gráfica con la línea de comandos `pixelart-run`.
 - **[Asistente de IA](usage/ai-assistant.md)** — maneja el editor en lenguaje
@@ -57,22 +56,27 @@ biblioteca de recursos:
   perspectiva, un tablero de referencia de estilo PureRef, varias vistas
   sincronizadas de un mismo documento, y grabación reproducible de timelapse —
   todo ayudas de vista no destructivas.
-- **[Nube, versiones y recuperación](usage/cloud.md)** — conecta un proveedor de
-  nube, guarda un proyecto en la nube y ábrelo de nuevo desde cualquier sesión,
-  explora un historial de versiones completo y restaura un guardado anterior, y
-  confía en el guardado automático en segundo plano con un aviso de recuperación
-  ante fallos al reiniciar — todo tras una única interfaz agnóstica de proveedor.
+- **[Nube, versiones y guardado automático](usage/cloud.md)** — conecta el
+  adaptador de nube integrado, guarda un proyecto en él y ábrelo de nuevo en la
+  misma sesión, explora un historial de versiones y restaura un guardado
+  anterior, y cuenta con guardado automático en segundo plano — todo tras una
+  única interfaz agnóstica de proveedor. En esta versión el adaptador está en
+  memoria, así que el historial y el guardado automático duran solo hasta que
+  cierras la aplicación.
 - **[Proyectos compartidos y comentarios](usage/collaboration.md)** — comparte un
   proyecto con un listado de miembros con nombre (roles propietario / editor /
-  espectador), deja y resuelve comentarios encadenados, y ve quién más está
+  visualizador), deja y resuelve comentarios encadenados, y ve quién más está
   presente, con ediciones concurrentes fusionadas mediante un modelo determinista
-  de convergencia híbrida — la co-edición en tiempo real, los cursores en vivo de
-  otros editores y la ramificación de arte al estilo git (con una revisión de
-  diferencias opcional antes de fusionar) se entregan todas en esta versión.
+  de convergencia híbrida, además de coedición en tiempo real, los cursores en
+  vivo de otros editores y la ramificación de arte al estilo git (con una
+  revisión de diferencias opcional antes de fusionar). En esta versión los
+  paneles se ejecutan en memoria dentro de una sola ventana de la aplicación
+  (otra ventana o la copia de otra persona no pueden verlos), y la coedición en
+  tiempo real no puede conectarse.
 - **[Biblioteca de recursos](usage/asset-library.md)** — cataloga tus sprites,
   animaciones, tilesets, mapas de tiles y paletas como recursos con nombre y
   etiquetados, y encuéntralos rápido con búsqueda y filtro por nombre, etiqueta y
-  tipo, desde el menú **&Biblioteca**.
+  tipo, desde el menú **Biblioteca**.
 - **[Dependencias de recursos y detección de roturas](usage/dependency-graph.md)**
   — un grafo consultable de cómo se referencian los recursos entre sí
   (`sprite → animación → tileset → mapa de tiles`) y un indicador pasivo que
@@ -83,8 +87,8 @@ biblioteca de recursos:
   restaurar, restaurar añade una nueva cabeza), reutilización por referencia (no
   por copia) de un recurso compartido entre proyectos, exportación/importación
   de los recursos referenciados de un proyecto como paquete autocontenido, y
-  respaldo opcional en la nube de los blobs compartidos sin dejar de funcionar
-  completamente sin conexión.
+  funcionamiento completamente sin conexión (el respaldo opcional en la nube de
+  los blobs compartidos no está conectado en esta versión).
 
 ## Versión y Acerca de
 

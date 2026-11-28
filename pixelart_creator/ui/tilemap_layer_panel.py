@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic.history import Command
 from pixelart_creator.logic.tilemap import Tilemap, TilemapError
 from pixelart_creator.ui.commands import TilemapCommand
@@ -175,7 +176,12 @@ class Tilemap_Layer_Panel(QWidget):
         try:
             command = tilemap.make_add_layer_command(name=name)
         except TilemapError as exc:
-            self._warn(self.tr("Add Layer"), str(exc))
+            self._warn(
+                self.tr("Add Layer"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(command, self.tr("Add Layer"))
 
@@ -187,7 +193,12 @@ class Tilemap_Layer_Panel(QWidget):
         try:
             command = tilemap.make_remove_layer_command(index)
         except TilemapError as exc:
-            self._warn(self.tr("Remove Layer"), str(exc))
+            self._warn(
+                self.tr("Remove Layer"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(command, self.tr("Remove Layer"))
 
@@ -221,7 +232,12 @@ class Tilemap_Layer_Panel(QWidget):
         try:
             command = tilemap.make_move_layer_command(from_index, to_index)
         except TilemapError as exc:
-            self._warn(self.tr("Reorder Layer"), str(exc))
+            self._warn(
+                self.tr("Reorder Layer"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(command, self.tr("Reorder Layer"))
 
@@ -239,7 +255,12 @@ class Tilemap_Layer_Panel(QWidget):
                 int(index), visible
             )
         except TilemapError as exc:
-            self._warn(self.tr("Layer Visibility"), str(exc))
+            self._warn(
+                self.tr("Layer Visibility"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._push(command, self.tr("Toggle Layer Visibility"))
 

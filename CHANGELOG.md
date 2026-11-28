@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-25
+
+### Added
+
+- Six more interface languages: French, German, Russian, Simplified Chinese, Korean and Japanese. They can be chosen while the app is running.
+
+### Fixed
+
+- In the Chinese and Japanese pages of the User Guide, a line break in the source text no longer shows as a stray space between two characters.
+
+### Known limitations
+
+- The six new translations had no native-speaker review. Corrections are invited: if a translation reads wrongly to you, please open an issue.
+- Known limitation: if you switch the interface language while the app is running, the Undo and Redo commands keep showing the names of actions you performed before the switch in the language that was active at the time. Actions you perform after the switch are named in the new language.
+- In the bundled pixel font for Chinese, Japanese and Korean text, a few characters with many strokes are drawn in a simplified form at the 12 px size, so that they fit the grid. Japanese text keeps its Japanese character forms; the simplified drawings are not Simplified Chinese forms.
+
 ## [0.4.1] - 2026-11-14
 
 ### Changed

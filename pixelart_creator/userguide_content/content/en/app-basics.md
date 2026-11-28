@@ -5,7 +5,7 @@
 
 Welcome to **PixelArt Creator** — a desktop pixel-art studio with an 8K canvas, a
 non-destructive layer system, an animation timeline, a tileset/tilemap editor, an
-export pipeline, automation and scripting, visual aids, and cloud collaboration.
+export pipeline, automation and scripting, visual aids, and cloud and collaboration tools.
 This topic orients you to the workspace so the rest of the guide makes sense.
 
 ## The main window at a glance
@@ -15,10 +15,10 @@ This topic orients you to the workspace so the rest of the guide makes sense.
   are reading now is opened from **Help ▸ User Guide** (or by pressing **F1**).
 - **Canvas** (centre) — the drawing surface. See
   [The canvas: zoom, pan & the grid](canvas-and-view.md).
-- **Docks / panels** (sides) — the layer panel, the animation timeline, the tileset
+- **Docks / panels** (sides) — the layer panel, the animation timeline, the Tileset Editor
   panel, and the cloud/collaboration panels. Most panels can be toggled on or off and
   arranged to suit your workflow.
-- **Status bar** (bottom) — coordinate readouts, progress indicators for background
+- **Status bar** (bottom) — progress indicators for background
   work (exporting, playback preparation, cloud saves), and brief notices.
 
 ## Documents & tabs
@@ -89,16 +89,16 @@ back to this table rather than repeating it.
 | Shortcut | Action |
 | --- | --- |
 | **A** | Pencil tool — freehand pixel painting. |
-| **Shift+A** | Colour selector (eyedropper) tool — pick up a colour from the canvas. |
+| **Shift+A** | Colour picker tool — pick up a colour from the canvas. |
 | **Q** | Eraser tool. |
 | **S** | Rectangle tool. |
 | **W** | Line tool. |
 | **Shift+W** | Ellipse tool. |
-| **D** | Rectangular-marquee selector tool. |
+| **D** | Rectangle select tool. |
 | **F** | Fill tool. |
 | **Shift+F** | Dither tool. |
-| **E** | Lasso selector tool (free-hand). |
-| **Shift+E** | Magic-wand selector tool (contiguous colour). |
+| **E** | Lasso select tool (free-hand). |
+| **Shift+E** | Magic wand tool (contiguous colour). |
 | **Shift+S** | Toggle **Filled Shapes**, shared by the rectangle and ellipse tools. |
 | **Shift+R** | Toggle **Pixel Perfect** on every open tab's canvas view. |
 | **Shift+Q** | Clear the selection contents. |
@@ -141,5 +141,7 @@ that covers.
   [tileset & tilemap editor](tileset-and-tilemap.md), and ship assets through
   [export](export-and-pipeline.md).
 - Speed up repetitive work with [automation & scripting](automation-and-scripting.md),
-  draw more precisely with [visual aids](visual-aids.md), and work together through
-  [cloud](cloud-and-collaboration.md) and [collaboration](collaboration.md).
+  draw more precisely with [visual aids](visual-aids.md), and try the in-session
+  [cloud](cloud-and-collaboration.md) and [collaboration](collaboration.md) tools (in this
+  release they run in memory inside a single app window and do not connect you to other
+  windows or other people).

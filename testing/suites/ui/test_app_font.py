@@ -16,7 +16,13 @@ What is covered, by scenario id (the visual-identity feature's scenarios):
 * the smoke line ``interface-font: <family>`` (REQ-VI-BUILD-006);
 * the platform's per-class fonts: item views, menus and dock titles keep the
   application font after a style sheet is applied (the cause of the item-view
-  colour fringe on native Windows).
+  colour fringe on native Windows);
+* **the family chains** (REQ-L10N-UI-009..012): the per-class put-back WITH
+  the chain, measured on injected per-class fonts (case A, in the SC-VI-UI-016-1
+  case); the dock title drawn from the Bold CJK face (B); the chains re-applied on
+  a language switch, a style or mode switch and the font-mode toggle, on the
+  application font and the guide page (C); and the ``chained_font`` contract (D).
+  Each has a control that is shown failing.
 
 The truncation check is ``test_app_font_truncation.py``; the hidden switch is
 ``test_guide_logo_switch.py``; the guide page text and its headings are in
@@ -59,24 +65,31 @@ would pass for the wrong reason.
 
 from __future__ import annotations
 
+import functools
+import io
 import json
+import operator
 import os
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pytest
-from PySide6.QtCore import QPoint, QSettings
+import shiboken6
+from fontTools.ttLib import TTFont
+from PySide6.QtCore import QLocale, QPoint, QSettings
 from PySide6.QtGui import (
     QFont,
+    QFontDatabase,
     QFontInfo,
     QFontMetrics,
     QGuiApplication,
     QImage,
     QPainter,
+    QTextLayout,
 )
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -88,6 +101,7 @@ from PySide6.QtWidgets import (
     QListView,
     QListWidget,
     QMenu,
+    QStyledItemDelegate,
     QStyleOptionViewItem,
     QTabBar,
     QTableWidget,
@@ -99,7 +113,9 @@ from PySide6.QtWidgets import (
 )
 
 from pixelart_creator.data import style_catalog
-from pixelart_creator.ui import app_font
+from pixelart_creator.logic import constants as logic_constants
+from pixelart_creator.logic import font_chain
+from pixelart_creator.ui import app_font, i18n
 from pixelart_creator.ui.app import APPLICATION_NAME, ORGANIZATION_NAME
 from pixelart_creator.ui.appearance_settings import (
     KEY_GUIDE_PIXEL_FONT,
@@ -108,6 +124,7 @@ from pixelart_creator.ui.appearance_settings import (
     KEY_USE_SYSTEM_FONT,
     SETTINGS_GROUP,
 )
+from pixelart_creator.ui.i18n import LanguageManager
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.theme import (
     DEFAULT_STYLE,
@@ -115,7 +132,14 @@ from pixelart_creator.ui.theme import (
     THEME_LIGHT,
     apply_theme,
 )
+from pixelart_creator.ui.user_guide import User_Guide_Dialog
 from testing.suites.ui.conftest import assert_settings_isolated
+from testing.suites.ui.test_font_family_chain_mechanism import (
+    FACES,
+    N_TILDE,
+    Face,
+    build_face,
+)
 from testing.suites.ui.test_theme import _COMBO_IDS, COMBOS, Combo, _agree, _composed
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -292,9 +316,63 @@ def open_guide(win: Main_Window, qtbot, topic: str = "app-basics"):
 
 
 def say(capsys: pytest.CaptureFixture, text: str) -> None:
-    """Print a line that reaches the terminal even without ``-s``."""
+    """Print a line that reaches the terminal even without ``-s``.
+
+    The line never raises on a character the stream's encoding cannot hold (a
+    Han, Hangul or kana character on a Windows stdout redirected to a file is
+    cp1252). The first try prints the line as it is, so under UTF-8 the bytes are
+    exactly what they were. Only on ``UnicodeEncodeError`` is the line written
+    again, encoded with the stream's own encoding and ``backslashreplace``: the
+    character it cannot hold becomes its ``\\uXXXX`` escape and the rest is kept.
+    A failed encode writes nothing, so the line is never written twice.
+    """
+    line = f"\n[font] {text}"
     with capsys.disabled():
-        print(f"\n[font] {text}", flush=True)
+        try:
+            print(line, flush=True)
+        except UnicodeEncodeError:
+            encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+            kept = line.encode(encoding, "backslashreplace").decode(encoding)
+            print(kept, flush=True)
+
+
+class _NoCapture:
+    """Stand-in for ``capsys`` that leaves ``sys.stdout`` as the test set it."""
+
+    def disabled(self) -> "_NoCapture":
+        """Return the context manager that does nothing."""
+        return self
+
+    def __enter__(self) -> None:
+        return None
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+
+def test_req_l10n_ui_013_say_writes_a_line_with_han_hangul_and_kana_on_a_cp1252_stream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """REQ-L10N-UI-013: the font report's print survives a cp1252 stdout.
+
+    A Windows run with stdout redirected to a file has a cp1252 stream, which holds
+    none of the three scripts. ``say`` must raise nothing and must write the line:
+    its ASCII text intact, and each of the three characters kept as its code point
+    rather than dropped. The stream is a captured text stream (``io.TextIOWrapper``
+    over a ``BytesIO``), not the console, and ``capsys`` is stood in for so that
+    ``sys.stdout`` stays that stream. On Windows the stream writes CR LF for the
+    line end, so the line is compared after that is put back to a bare LF.
+    """
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="cp1252", write_through=True)
+    monkeypatch.setattr(sys, "stdout", stream)
+    line = "han \u65e5 hangul \ud55c kana \u3042 end"
+    say(cast(pytest.CaptureFixture, _NoCapture()), line)
+    written = raw.getvalue().decode("cp1252").replace("\r\n", "\n")
+    assert written.startswith("\n[font] han "), written
+    assert written.endswith(" end\n"), written
+    for character in "\u65e5\ud55c\u3042":
+        assert f"{ord(character):04x}" in written, (character, written)
 
 
 # --------------------------------------------------------------------------- #
@@ -313,6 +391,7 @@ class Facts:
     pixel: int
     no_smoothing: bool
     no_hinting: bool
+    stray_strategy: str = ""
 
     def describe(self) -> str:
         """Return the facts as one readable string."""
@@ -323,17 +402,37 @@ class Facts:
         )
 
 
+#: Every style-strategy flag a family-list tag may carry, read from the tag table
+#: itself (the union of its entries), so a flag added to the table is allowed here
+#: without an edit and a flag outside it is not.
+_TAG_FLAGS_ALLOWED = functools.reduce(operator.or_, app_font._CHAIN_TAG_STRATEGIES)
+
+
+def stray_strategy_of(strategy: QFont.StyleStrategy) -> QFont.StyleStrategy:
+    """Return the bits of ``strategy`` that are not NoAntialias or a chain-tag flag.
+
+    A multi-family font carries a chain tag beside NoAntialias (``PreferMatch |
+    NoAntialias``), so the strategy is no longer *equal* to NoAntialias. What the
+    interface font must keep is that the NoAntialias bit is set and that nothing
+    else is, other than the flags the tag table may use.
+    """
+    return strategy & ~(QFont.StyleStrategy.NoAntialias | _TAG_FLAGS_ALLOWED)
+
+
 def facts_of(font: QFont) -> Facts:
     """Return the :class:`Facts` of ``font``."""
     info = QFontInfo(font)
+    strategy = font.styleStrategy()
+    stray = stray_strategy_of(strategy)
     return Facts(
         declared=font.family(),
         resolved=info.family(),
         style=info.styleName(),
         weight=info.weight(),
         pixel=info.pixelSize(),
-        no_smoothing=font.styleStrategy() == QFont.StyleStrategy.NoAntialias,
+        no_smoothing=bool(strategy & QFont.StyleStrategy.NoAntialias),
         no_hinting=font.hintingPreference() == QFont.HintingPreference.PreferNoHinting,
+        stray_strategy=str(stray) if stray else "",
     )
 
 
@@ -353,6 +452,11 @@ def nifen_problems(label: str, font: QFont, *, bold: bool = False) -> List[str]:
         wrong.append(f"{label}: {f.pixel} px, not {EM}")
     if not f.no_smoothing:
         wrong.append(f"{label}: smoothing is not switched off")
+    if f.stray_strategy:
+        wrong.append(
+            f"{label}: style strategy carries {f.stray_strategy}, "
+            "which is neither NoAntialias nor a chain-tag flag"
+        )
     if not f.no_hinting:
         wrong.append(f"{label}: hinting is not switched off")
     want = (700, "Bold") if bold else (400, "Regular")
@@ -404,7 +508,7 @@ def named(widget: QWidget) -> str:
 def _menu_roles(win: Main_Window) -> List[Tuple[str, QFont, bool]]:
     roles: List[Tuple[str, QFont, bool]] = [("menu bar", win.menuBar().font(), False)]
     for top in win.menuBar().actions():
-        menu = top.menu()
+        menu = cast(Optional[QMenu], top.menu())
         if menu is None:
             continue
         menu.ensurePolished()
@@ -453,7 +557,8 @@ def test_sc_vi_ui_013_1_menus_dock_titles_tabs_and_buttons_are_nifen_art(
 def test_sc_vi_ui_013_1_the_dock_title_is_bold_and_everything_else_regular(
     qtbot, capsys, mode
 ):
-    """The Bold dock title is accepted by a resolved-font assertion, not by a style rule.
+    """The Bold dock title is accepted by a resolved-font assertion, not by a style
+    rule.
 
     Dock title: family Nifen Art, style Bold, weight 700, 12 px, no smoothing, no
     hinting adjustments. Body, label, button, line edit and list: Regular, 400. The
@@ -547,7 +652,8 @@ def test_sc_vi_ui_013_1_the_dock_title_ink_is_the_bold_face_not_the_regular(
     bold = _reference_ink(title, QFont.Weight.Bold)
     say(
         capsys,
-        f"title {title!r} [{mode}]: dock ink {ink}, Regular ref {regular}, Bold ref {bold}",
+        f"title {title!r} [{mode}]: dock ink {ink}, Regular ref {regular}, "
+        f"Bold ref {bold}",
     )
     assert regular > 0 and bold > 0, "a reference rendered nothing"
     assert (
@@ -565,7 +671,8 @@ def test_sc_vi_ui_013_1_the_dock_title_ink_is_the_bold_face_not_the_regular(
 
 
 def test_sc_vi_ui_013_2_the_guide_page_starts_in_the_platform_font(qtbot, capsys, mode):
-    """SC-VI-UI-013-2: page text in the platform font; topic list and search in Nifen Art.
+    """SC-VI-UI-013-2: page text in the platform font; topic list and search in
+    Nifen Art.
 
     "Use system font" off, the hidden switch never used. The page's document default
     font is the platform's own default font (given as the platform's family, never
@@ -578,14 +685,34 @@ def test_sc_vi_ui_013_2_the_guide_page_starts_in_the_platform_font(qtbot, capsys
     page = dialog._content_view.document().defaultFont()
     say(
         capsys,
-        f"[{mode}] page font {facts_of(page).describe()}; platform {platform.family()!r}",
+        f"[{mode}] page font {facts_of(page).describe()}; "
+        f"platform {platform.family()!r}",
     )
     assert dialog.page_uses_pixel_font() is False
     assert (
         page.family() == platform.family()
     ), f"the page text is {page.family()!r}, the platform font is {platform.family()!r}"
     assert page.family() != NIFEN
-    assert page == platform
+    # The page font is the platform font WITH the family chain of the active language
+    # (the guide's page is drawn through ``chained_font``), so it is not equal to the
+    # raw platform font: its family list and the tag bits of its style strategy are the
+    # chain's. Every other attribute equals the platform font's; the list and the tag
+    # are read through the product (the same reading as the put-back case).
+    language = i18n.current_ui_language()
+    assert platform.family() in page.families()
+    assert not font_attribute_problems("page", page, platform)
+    assert not chain_problems("page", page, platform.family(), language)
+    # Control: the same check against the other Han form's list, read from the
+    # product, must fail on the list.
+    other = other_form_language(
+        platform.family(),
+        language,
+        QLocale.system().name(),
+        app_font.primary_holds_cjk(platform.family()),
+    )
+    skewed = chain_problems("page", page, platform.family(), other)
+    say(capsys, f"[{mode}] control, the list wanted for {other!r}: {skewed}")
+    assert any("families" in problem for problem in skewed), skewed
     assert_roles(
         capsys,
         f"013-2 guide controls [{mode}]",
@@ -617,14 +744,17 @@ def _option_font(view: QAbstractItemView) -> QFont:
     model = view.model()
     assert model is not None and model.rowCount() > 0, "the view has no row"
     option = QStyleOptionViewItem()
-    view.itemDelegate().initStyleOption(option, model.index(0, 0))
+    cast(QStyledItemDelegate, view.itemDelegate()).initStyleOption(
+        option, model.index(0, 0)
+    )
     return QFont(option.font)
 
 
 def test_sc_vi_ui_013_3_dock_rows_dialog_tooltip_and_status_bar_are_nifen_art(
     qtbot, capsys, mode
 ):
-    """SC-VI-UI-013-3: layer rows, a dialog's labels and fields, a tool tip, the status bar.
+    """SC-VI-UI-013-3: layer rows, a dialog's labels and fields, a tool tip, the
+    status bar.
 
     The scenario names a "New Layer dialog". The product has no such dialog (layers
     are added from the panel), so the nearest "new" dialog stands in for it: the New
@@ -712,7 +842,8 @@ def _fresh_widgets(_parent: Optional[QWidget] = None) -> List[Tuple[str, QWidget
 
 
 def class_font_problems(app: QApplication, parent: QWidget) -> List[str]:
-    """Return what is wrong with the per-class fonts and with fresh widgets of those classes."""
+    """Return what is wrong with the per-class fonts and with fresh widgets of those
+    classes."""
     wrong: List[str] = []
     base = app.font()
     for name in app_font._PLATFORM_CLASS_FONTS:
@@ -758,7 +889,8 @@ def test_item_views_menus_and_dock_titles_keep_nifen_art_after_every_style_sheet
         )
     say(
         capsys,
-        f"{combo.label()}: {examined} class fonts + 5 fresh widgets per step; {len(wrong)} problems",
+        f"{combo.label()}: {examined} class fonts + 5 fresh widgets per step; "
+        f"{len(wrong)} problems",
     )
     assert not wrong, "\n  ".join(wrong[:25])
 
@@ -795,7 +927,8 @@ def test_the_class_font_regression_check_fires_when_the_platform_fonts_come_back
 
 
 def test_a_just_launched_window_and_its_children_are_nifen_art(qtbot, capsys, mode):
-    """Every widget of a freshly built window was GIVEN Nifen Art, not just resolved to it.
+    """Every widget of a freshly built window was GIVEN Nifen Art, not just resolved
+    to it.
 
     The application font is changed while the window is being built. Qt tells
     already-existing top-level windows about an application font change only once
@@ -815,7 +948,8 @@ def test_a_just_launched_window_and_its_children_are_nifen_art(qtbot, capsys, mo
     assert total > 50
     assert not stale, (
         f"{len(stale)} of {total} widgets were not given {NIFEN!r} "
-        f"(the application font is {QApplication.font().family()!r}); first: {stale[:8]}"
+        f"(the application font is {QApplication.font().family()!r}); "
+        f"first: {stale[:8]}"
     )
 
 
@@ -873,8 +1007,8 @@ def test_sc_vi_ui_014_2_the_dock_title_line_lies_inside_the_plate_band(
     control = agreement(plate_rows, wrong_style)
     say(
         capsys,
-        f"{combo.label()}: the dock body starts at row {plate_rows}; the composed plate "
-        f"agrees {scores[plate_rows]:.3f} (by height "
+        f"{combo.label()}: the dock body starts at row {plate_rows}; the composed "
+        f"plate agrees {scores[plate_rows]:.3f} (by height "
         f"{{{', '.join(f'{r}: {v:.3f}' for r, v in scores.items())}}}); the plate of "
         f"{wrong_style.label()} agrees {control:.3f}",
     )
@@ -939,7 +1073,8 @@ def test_sc_vi_ui_014_2_the_dock_title_line_lies_inside_the_plate_band(
     line_bottom = line_top + line_height
     say(
         capsys,
-        f"{combo.label()}: band rows [{band_top}, {band_bottom}), line box rows [{line_top}, {line_bottom})",
+        f"{combo.label()}: band rows [{band_top}, {band_bottom}), "
+        f"line box rows [{line_top}, {line_bottom})",
     )
     assert (
         band_top <= line_top
@@ -947,6 +1082,373 @@ def test_sc_vi_ui_014_2_the_dock_title_line_lies_inside_the_plate_band(
     assert (
         line_bottom <= band_bottom
     ), f"the line box ends at row {line_bottom}, below the band ({band_bottom})"
+
+
+# --------------------------------------------------------------------------- #
+# The family chains as the product's logic gives them                          #
+# (REQ-L10N-UI-009..012). Cases A (the per-class put-back), B (the Bold dock    #
+# title), C (the re-application wiring) and D (the ``chained_font`` contract).  #
+# --------------------------------------------------------------------------- #
+#
+# Every expected family list below is READ from the product's logic
+# (``font_chain.family_chain``, the measurement ``app_font.primary_holds_cjk`` and
+# the tag table of ``app_font``), never written out in a test, so a change to the
+# list's rule moves the product and the check together and a wrong list in the
+# product is not echoed by the check. The platform's own font on this host is not a
+# registered family (the offscreen database holds only what the tests register), so
+# the cases that need a Han-free platform family register one: a fontTools fixture
+# that holds two Latin letters and no Han or Hangul character.
+
+#: Every style-strategy bit a chain tag may use (the union of the tag table).
+_TAG_MASK = int(app_font._CHAIN_TAG_MASK.value)
+
+
+@pytest.fixture
+def platform_snapshot_kept() -> Iterator[None]:
+    """Put the product's platform snapshot back after a test that injects into it."""
+    app_font.capture_platform_font()
+    saved = dict(app_font._platform)
+    yield
+    app_font._platform.update(saved)
+
+
+def _bold_twin(regular: Path, path: Path) -> Path:
+    """Write a Bold file of the same family: the Regular outlines under a Bold style.
+
+    A platform family has a Bold file. A Regular-only family makes Qt draw the whole
+    list with a synthesised bold (measured: the CJK fallback then reports the
+    Regular style at weight 700), which is not what the dock title is asked to show.
+    """
+    font = TTFont(str(regular))
+    for record in font["name"].names:
+        if record.nameID == 2:
+            record.string = "Bold"
+        elif record.nameID in (4, 6):
+            record.string = record.toUnicode() + " Bold"
+    os2 = cast(Any, font["OS/2"])
+    os2.usWeightClass = 700
+    os2.fsSelection = (os2.fsSelection & ~0x40) | 0x20
+    cast(Any, font["head"]).macStyle |= 1
+    font.save(str(path))
+    return path
+
+
+def _registered_face(path: Path, face: Face, *, bold: bool) -> Iterator[str]:
+    """Register the synthetic ``face`` (and any Bold twin); yield its family."""
+    app_font.register_app_fonts()
+    files = [build_face(face, path)]
+    if bold:
+        files.append(_bold_twin(path, path.with_name(f"{path.stem}-bold.ttf")))
+    font_ids = [QFontDatabase.addApplicationFont(str(file)) for file in files]
+    assert min(font_ids) >= 0, f"Qt rejected the fixture face {face.family!r}"
+    try:
+        yield face.family
+    finally:
+        for font_id in font_ids:
+            QFontDatabase.removeApplicationFont(font_id)
+
+
+@pytest.fixture
+def han_free_family(qapp, tmp_path: Path) -> Iterator[str]:
+    """A registered family that holds no Han and no Hangul character."""
+    yield from _registered_face(tmp_path / "han-free.ttf", FACES["L"], bold=True)
+
+
+@pytest.fixture
+def second_han_free_family(qapp, tmp_path: Path) -> Iterator[str]:
+    """A second registered Han-free family, a different name from the first."""
+    other = replace(FACES["L"], family="Probe Latin Only Two")
+    yield from _registered_face(tmp_path / "han-free-two.ttf", other, bold=True)
+
+
+@pytest.fixture
+def han_capable_family(qapp, tmp_path: Path) -> Iterator[str]:
+    """A registered family that holds Latin, Han and Hangul characters."""
+    yield from _registered_face(tmp_path / "han-capable.ttf", FACES["P"], bold=False)
+
+
+@pytest.fixture
+def english_afterwards() -> Iterator[List[Main_Window]]:
+    """Put every window given to the list back to English when the test ends."""
+    windows: List[Main_Window] = []
+    yield windows
+    for window in windows:
+        if shiboken6.isValid(window):
+            window._language_manager.set_language("en")
+
+
+@pytest.fixture
+def language_manager(qapp) -> Iterator[LanguageManager]:
+    """The application's manager for a test with no window, English again afterwards."""
+    manager = LanguageManager(qapp)
+    manager.set_language("en")
+    try:
+        yield manager
+    finally:
+        manager.set_language("en")
+
+
+def inject_platform_font(
+    family: str, classes: Optional[Dict[str, QFont]] = None
+) -> QFont:
+    """Make ``family`` the platform's own font, with ``classes`` its per-class fonts.
+
+    The product reads the snapshot ``capture_platform_font`` took; the host's own
+    is replaced for the test (the fixture ``platform_snapshot_kept`` puts it back).
+    """
+    app_font.capture_platform_font()
+    font = QFont(family)
+    font.setPointSize(9)
+    app_font._platform["font"] = QFont(font)
+    app_font._platform["classes"] = dict(classes or {})
+    return font
+
+
+def injected_class_fonts(platform: QFont, other_family: str) -> Dict[str, QFont]:
+    """Return two per-class platform fonts that differ from the platform font.
+
+    One is the platform family at another size; the other is a different Han-free
+    family at another size, weight, slant and stretch.
+    """
+    resized = QFont(platform)
+    resized.setPointSizeF(platform.pointSizeF() + 3)
+    other = QFont(other_family)
+    other.setPixelSize(17)
+    other.setWeight(QFont.Weight.DemiBold)
+    other.setItalic(True)
+    other.setStretch(110)
+    return {"QAbstractItemView": resized, "QMenu": other}
+
+
+def tag_bits(font: QFont) -> int:
+    """Return the chain-tag bits of ``font``'s style strategy."""
+    return int(font.styleStrategy().value) & _TAG_MASK
+
+
+def allocated_tag_bits(families: Sequence[str]) -> int:
+    """Return the style-strategy bits the product's table gives the list ``families``.
+
+    Read through the product's own registry and table. A one-family list has no tag.
+    """
+    tag = app_font._CHAIN_TAG_REGISTRY.tag_for(families)
+    return 0 if tag is None else int(app_font._CHAIN_TAG_STRATEGIES[tag - 1].value)
+
+
+def expected_families(primary: str, language: str) -> Tuple[str, ...]:
+    """Return the list the product's logic gives for ``primary`` under ``language``."""
+    return font_chain.family_chain(
+        primary,
+        language,
+        QLocale.system().name(),
+        app_font.primary_holds_cjk(primary),
+    )
+
+
+def other_form_language(
+    primary: str, language: str, system_locale: str, holds_cjk: bool
+) -> str:
+    """Return a shipped language whose list for ``primary`` differs from ``language``'s.
+
+    Read from the product's logic: the other Han form's list is the wrong
+    expectation a control holds a font against, so that a check that compares
+    the list can be seen to fail.
+    """
+    mine = font_chain.family_chain(primary, language, system_locale, holds_cjk)
+    for candidate in ("ja", "zh_CN"):
+        if (
+            font_chain.family_chain(primary, candidate, system_locale, holds_cjk)
+            != mine
+        ):
+            return candidate
+    raise AssertionError(f"no language gives {primary!r} a list other than {mine}")
+
+
+#: The code a child runs to report a font: its list, its tag bits, the tag the
+#: product's own table gives that list, the family Qt resolved, the family Qt
+#: resolves for the first entry alone and the attributes the chain leaves alone.
+#: ``context`` adds the platform font's report and what the child measured for the
+#: platform family (``primary_holds_cjk``), the active language and the system
+#: locale: the three inputs of the product's list.
+_FONT_REPORT = """
+from PySide6.QtCore import QLocale
+from PySide6.QtGui import QFont
+from pixelart_creator.ui import i18n
+_TAGS = int(app_font._CHAIN_TAG_MASK.value)
+def _num(value):
+    return int(getattr(value, "value", value))
+def attributes(font):
+    return dict(
+        pixel_size=font.pixelSize(), point_size=font.pointSizeF(),
+        weight=_num(font.weight()), italic=font.italic(), stretch=font.stretch(),
+        style_hint=_num(font.styleHint()),
+        strategy_outside_tags=_num(font.styleStrategy()) & ~_TAGS,
+        underline=font.underline(), strike_out=font.strikeOut(),
+        kerning=font.kerning(), hinting=_num(font.hintingPreference()),
+        letter_spacing=font.letterSpacing(), fixed_pitch=font.fixedPitch())
+def report(font):
+    families = list(font.families()) or [font.family()]
+    tag = app_font._CHAIN_TAG_REGISTRY.tag_for(families)
+    return dict(
+        families=families, tag=_num(font.styleStrategy()) & _TAGS,
+        allocated=0 if tag is None else _num(app_font._CHAIN_TAG_STRATEGIES[tag - 1]),
+        resolved=QFontInfo(font).family(),
+        first_resolved=QFontInfo(QFont(families[0])).family(),
+        attributes=attributes(font))
+def context(platform_font):
+    family = platform_font.family()
+    return dict(
+        platform=report(platform_font), family=family,
+        holds=app_font.primary_holds_cjk(family),
+        language=i18n.current_ui_language(), locale=QLocale.system().name())
+"""
+
+
+def child_font_problems(
+    label: str,
+    shown: Dict[str, Any],
+    context: Dict[str, Any],
+    *,
+    same_attributes: bool,
+    language: Optional[str] = None,
+) -> List[str]:
+    """Return what is wrong with a font a child reported (``_FONT_REPORT``).
+
+    The list is the one the product's logic gives for the platform family, the
+    language, the system locale and the child's own measurement of whether the
+    platform family holds a shipped Han or Hangul character; the platform family
+    is in it; the tag is the one the child's own table gives that list; and the
+    family Qt resolved is the platform's when the list starts with the platform
+    family and the first entry's otherwise (the CJK families come first by design
+    when the platform family holds such a character). With ``same_attributes`` every
+    attribute the chain leaves alone equals the platform font's. ``language`` is
+    given only by a control, as the wrong expectation.
+    """
+    family = context["family"]
+    want = list(
+        font_chain.family_chain(
+            family, language or context["language"], context["locale"], context["holds"]
+        )
+    )
+    wrong: List[str] = []
+    if shown["families"] != want:
+        wrong.append(f"{label}: families {shown['families']}, wanted {want}")
+    if family not in shown["families"]:
+        wrong.append(f"{label}: the platform family {family!r} is not in the list")
+    if shown["tag"] != shown["allocated"]:
+        wrong.append(
+            f"{label}: tag bits {shown['tag']:#x}, the allocated tag is "
+            f"{shown['allocated']:#x}"
+        )
+    resolved = (
+        context["platform"]["resolved"]
+        if want[0] == family
+        else shown["first_resolved"]
+    )
+    if shown["resolved"] != resolved:
+        wrong.append(f"{label}: resolved {shown['resolved']!r}, wanted {resolved!r}")
+    if same_attributes:
+        platform = context["platform"]["attributes"]
+        for name, have in shown["attributes"].items():
+            if have != platform[name]:
+                wrong.append(
+                    f"{label}: {name} is {have!r}, the platform font has "
+                    f"{platform[name]!r}"
+                )
+    return wrong
+
+
+def font_attribute_problems(label: str, got: QFont, captured: QFont) -> List[str]:
+    """Return every difference between ``got`` and ``captured`` outside the chain.
+
+    The family list and the chain-tag bits of the style strategy are the two things
+    the chain changes; everything else must equal the captured font's.
+    """
+    keep = ~_TAG_MASK
+    wrong: List[str] = []
+    for name, have, want in (
+        ("pixel size", got.pixelSize(), captured.pixelSize()),
+        ("point size", got.pointSizeF(), captured.pointSizeF()),
+        ("weight", got.weight(), captured.weight()),
+        ("italic", got.italic(), captured.italic()),
+        ("stretch", got.stretch(), captured.stretch()),
+        ("style hint", got.styleHint(), captured.styleHint()),
+        (
+            "strategy bits outside the tags",
+            int(got.styleStrategy().value) & keep,
+            int(captured.styleStrategy().value) & keep,
+        ),
+        ("underline", got.underline(), captured.underline()),
+        ("strike-out", got.strikeOut(), captured.strikeOut()),
+        ("kerning", got.kerning(), captured.kerning()),
+        ("hinting", got.hintingPreference(), captured.hintingPreference()),
+        ("letter spacing", got.letterSpacing(), captured.letterSpacing()),
+        ("fixed pitch", got.fixedPitch(), captured.fixedPitch()),
+    ):
+        if have != want:
+            wrong.append(f"{label}: {name} is {have!r}, the captured font has {want!r}")
+    rest = QFont(captured)
+    rest.setFamilies(got.families())
+    rest.setStyleStrategy(
+        (captured.styleStrategy() & ~app_font._CHAIN_TAG_MASK)
+        | (got.styleStrategy() & app_font._CHAIN_TAG_MASK)
+    )
+    if got != rest:
+        wrong.append(f"{label}: the font differs from the captured one in an attribute")
+    return wrong
+
+
+def chain_problems(label: str, font: QFont, primary: str, language: str) -> List[str]:
+    """Return what is wrong with ``font``'s list and tag for ``primary``/``language``.
+
+    The list is the one the product's logic gives (A (ii)); the tag is the one the
+    product allocated for that list (A (iii)); and, for the two languages that name
+    a Han form, the form's family is there and the other form's is not.
+    """
+    wrong: List[str] = []
+    want = expected_families(primary, language)
+    if tuple(font.families()) != want:
+        wrong.append(f"{label}: families {list(font.families())}, wanted {list(want)}")
+    if tag_bits(font) != allocated_tag_bits(want):
+        wrong.append(
+            f"{label}: tag bits {tag_bits(font):#x}, the allocated tag is "
+            f"{allocated_tag_bits(want):#x}"
+        )
+    forms = {
+        "zh_CN": (font_chain.CJK_SC_FAMILY, font_chain.CJK_JP_FAMILY),
+        "ja": (font_chain.CJK_JP_FAMILY, font_chain.CJK_SC_FAMILY),
+    }
+    if language in forms:
+        mine, theirs = forms[language]
+        if mine not in font.families() or theirs in font.families():
+            wrong.append(
+                f"{label}: {language} wants {mine!r} and not {theirs!r}, "
+                f"got {list(font.families())}"
+            )
+    return wrong
+
+
+def per_class_problems(captured: Dict[str, QFont], language: str) -> List[str]:
+    """Return what is wrong with each per-class font the product put back.
+
+    For each captured font: (i) every attribute but the family list and the tag
+    flags equals the captured one; (ii) the list is the one the logic gives for the
+    captured family; (iii) the tag is the allocated one.
+    """
+    wrong: List[str] = []
+    for name, font in captured.items():
+        label = f"class {name}"
+        got = app_font._class_font(name)
+        wrong.extend(font_attribute_problems(label, got, font))
+        wrong.extend(chain_problems(label, got, font.family(), language))
+    return wrong
+
+
+def assert_per_class_restored(captured: Dict[str, QFont], language: str) -> int:
+    """Assert every captured per-class font is put back; return how many."""
+    assert captured, "no per-class font was captured: the check would compare nothing"
+    problems = per_class_problems(captured, language)
+    assert not problems, f"{len(captured)} per-class fonts\n  " + "\n  ".join(problems)
+    return len(captured)
 
 
 # --------------------------------------------------------------------------- #
@@ -959,14 +1461,27 @@ def _every_widget(win: Main_Window) -> List[QWidget]:
 
 
 def test_sc_vi_ui_016_1_use_system_font_returns_the_interface_to_the_platform_font(
-    qtbot, capsys, mode
+    qtbot, capsys, mode, han_free_family, second_han_free_family, platform_snapshot_kept
 ):
     """SC-VI-UI-016-1: with the switch on, the application font is the platform's.
 
     Turned on at run time and from the stored setting at launch. The application
     font family is the platform font's, not Nifen Art; menus, item views and dock
     titles (the per-class fonts) follow; turning it off brings Nifen Art back.
+
+    The interface returns to the platform font WITH the chain
+    (REQ-L10N-UI-009..012), so a per-class font put back is not equal to the raw
+    captured font: its family list and the tag flags of its style strategy are the
+    chain's. For each one, every other attribute equals the captured font's, the
+    list is the one the product's logic gives for the captured family, and the tag
+    is the allocated one. The host captures no per-class font of its own, so a
+    Han-free platform family is injected with two per-class fonts (the platform
+    family at another size, and a different Han-free family at another size, weight
+    and slant) and the count compared is printed.
     """
+    platform_font = inject_platform_font(han_free_family)
+    injected = injected_class_fonts(platform_font, second_han_free_family)
+    inject_platform_font(han_free_family, injected)
     win = open_window(qtbot, mode, use_system_font=True)
     app = QApplication.instance()
     assert isinstance(app, QApplication)
@@ -979,7 +1494,7 @@ def test_sc_vi_ui_016_1_use_system_font_returns_the_interface_to_the_platform_fo
     )
     assert app.font().family() == platform.family() != NIFEN
     for name in app_font._PLATFORM_CLASS_FONTS:
-        assert app.font(name).family() != NIFEN, f"class {name} is Nifen Art"  # type: ignore[call-overload]
+        assert app_font._class_font(name).family() != NIFEN, f"class {name} is Nifen"
     assert win.menuBar().font().family() != NIFEN
 
     win.set_use_system_font(False)
@@ -989,12 +1504,47 @@ def test_sc_vi_ui_016_1_use_system_font_returns_the_interface_to_the_platform_fo
     win.set_use_system_font(True)
     QApplication.processEvents()
     assert app.font().family() == platform.family()
-    # The platform's per-class fonts are what they were before the product touched anything.
+    # The platform's per-class fonts are what they were before the product touched
+    # anything, with the chain the active language asks for.
     classes = app_font._platform["classes"]
     assert isinstance(classes, dict)
-    for name, font in classes.items():
-        assert app.font(name) == font, f"class {name}: not restored"  # type: ignore[call-overload]
-    say(capsys, f"[{mode}] {len(classes)} captured per-class fonts compared")
+    assert set(injected) <= set(classes), "an injected per-class font was not captured"
+    compared = assert_per_class_restored(classes, i18n.current_ui_language())
+    say(capsys, f"[{mode}] {compared} captured per-class fonts compared, 0 failed")
+    assert compared >= 2
+
+
+def test_sc_vi_ui_016_1_the_per_class_check_fails_when_the_put_back_is_skipped(
+    qtbot,
+    capsys,
+    mode,
+    han_free_family,
+    second_han_free_family,
+    platform_snapshot_kept,
+    monkeypatch,
+):
+    """Control for the adapted per-class check: skip the put-back and it must fail.
+
+    The platform's per-class fonts are what ``apply_interface_font`` writes back
+    from the captured table. With the table empty at the moment of the switch the
+    put-back is skipped (the application font is set, which clears every class
+    font), and the very check the test above uses has to fail on both injected
+    fonts. The failure is printed.
+    """
+    platform_font = inject_platform_font(han_free_family)
+    injected = injected_class_fonts(platform_font, second_han_free_family)
+    inject_platform_font(han_free_family, injected)
+    win = open_window(qtbot, mode, use_system_font=False)
+    classes = dict(cast(Dict[str, QFont], app_font._platform["classes"]))
+    assert set(injected) <= set(classes)
+    monkeypatch.setattr(app_font, "_platform", {**app_font._platform, "classes": {}})
+    win.set_use_system_font(True)
+    QApplication.processEvents()
+    with pytest.raises(AssertionError) as shown:
+        assert_per_class_restored(classes, i18n.current_ui_language())
+    say(capsys, f"[{mode}] control, put-back skipped: {str(shown.value)[:400]}")
+    for name in injected:
+        assert f"class {name}" in str(shown.value), (name, str(shown.value))
 
 
 def test_use_system_font_survives_a_style_switch_and_a_mode_switch(qtbot, mode):
@@ -1012,7 +1562,8 @@ def test_use_system_font_survives_a_style_switch_and_a_mode_switch(qtbot, mode):
 def test_sc_vi_ui_016_2_the_system_font_wins_over_the_hidden_switch(
     qtbot, capsys, mode
 ):
-    """SC-VI-UI-016-2 (in one process): switch on, then "Use system font" wins everywhere.
+    """SC-VI-UI-016-2 (in one process): switch on, then "Use system font" wins
+    everywhere.
 
     The hidden switch has put the guide's page in Nifen Art. Checking "Use system
     font" puts all interface text, dock and panel content and the guide's page text
@@ -1030,7 +1581,8 @@ def test_sc_vi_ui_016_2_the_system_font_wins_over_the_hidden_switch(
     page = dialog._content_view.document().defaultFont().family()
     say(
         capsys,
-        f"[{mode}] system font on: page {page!r}, application {QApplication.font().family()!r}",
+        f"[{mode}] system font on: page {page!r}, "
+        f"application {QApplication.font().family()!r}",
     )
     assert dialog.page_uses_pixel_font() is False
     assert dialog.guide_pixel_font() is True, "the switch's own state was lost"
@@ -1142,7 +1694,8 @@ def run_child(
 def test_sc_vi_ui_015_1_a_missing_character_falls_back_alone_with_no_box(
     tmp_path, capsys
 ):
-    """SC-VI-UI-015-1: "Capa 森" - "Capa " in Nifen Art, the ideograph from a fallback, no box.
+    """SC-VI-UI-015-1: "Capa 森" - "Capa " in Nifen Art, the ideograph from a fallback,
+    no box.
 
     Runs in a child process whose font database is the platform's own. The
     character is chosen at run time from candidates that Nifen Art lacks and that
@@ -1160,19 +1713,22 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QRawFont, QTextLayout, QFont
 from pixelart_creator.ui.main_window import Main_Window
 w = Main_Window(); w.resize(1100, 700); w.show(); app.processEvents()
-app_font.apply_interface_font(app, False)   # settled: the first-launch defect has its own test
+# settled: the first-launch defect has its own test
+app_font.apply_interface_font(app, False)
 doc = w.active_document()
 doc.frames[0].layers[0].name = "Capa X"
 families = [f for f in QFontDatabase.families() if f != "Nifen Art"]
 nifen = QRawFont.fromFont(app_font.interface_font())
-# QRawFont.supportsCharacter(<one-character str>) is wrong on Linux. Measured there (offscreen,
-# PySide6 6.11.1, DejaVu Sans): it answers True for "A" and False for U+00E9 and U+2500, which
-# the font holds, while the integer code point answers True for them and False for U+10FFFD.
-# That is what turned "DejaVu Sans covers U+2500" into "no font" in CI (Windows answers the
-# str form correctly, so only Linux shows it). Every coverage question below passes ord(ch).
-# One face per family, resolved by the database with the family's own first style and
-# accepted only if Qt really resolved THAT family: a request the platform answered with a
-# different face (an alias such as "Monospace", a missing family) is not a family's coverage.
+# QRawFont.supportsCharacter(<one-character str>) is wrong on Linux. Measured there
+# (offscreen, PySide6 6.11.1, DejaVu Sans): it answers True for "A" and False for
+# U+00E9 and U+2500, which the font holds, while the integer code point answers True
+# for them and False for U+10FFFD. That is what turned "DejaVu Sans covers U+2500"
+# into "no font" in CI (Windows answers the str form correctly, so only Linux shows
+# it). Every coverage question below passes ord(ch).
+# One face per family, resolved by the database with the family's own first style
+# and accepted only if Qt really resolved THAT family: a request the platform
+# answered with a different face (an alias such as "Monospace", a missing family)
+# is not a family's coverage.
 faces = []
 for fam in families:
     styles = QFontDatabase.styles(fam)
@@ -1186,15 +1742,20 @@ def covers_elsewhere(ch):
         if raw.supportsCharacter(ord(ch)):
             return fam
     return None
-# Controls (a probe must show a known-true and a known-false signal before it is believed):
-# an ASCII letter must be found in some face, and a code point no font has must not be.
-probe_control = {"positive": covers_elsewhere("A"), "negative": covers_elsewhere("\\U0010fffd")}
+# Controls (a probe must show a known-true and a known-false signal before it is
+# believed): an ASCII letter must be found in some face, and a code point no font has
+# must not be.
+probe_control = {
+    "positive": covers_elsewhere("A"),
+    "negative": covers_elsewhere("\\U0010fffd"),
+}
 chosen = None; fallback_family = None; candidates = 0; table = []
-# Scripts first (what a user's layer names look like), then characters that a stock Linux
-# font (DejaVu, Liberation) covers and Nifen Art lacks in both weights: Latin Extended-B,
-# IPA, box drawing, a math sum and root, a shade, a face, a house.
-for ch in ["\\u68ee", "\\u6f22", "\\u5b57", "\\u65e5", "\\uc0b0", "\\u0e01", "\\u05d0", "\\u0639", "\\u0915",
-           "\\u0192", "\\u0259", "\\u2500", "\\u2211", "\\u221a", "\\u2592", "\\u263a", "\\u2302"]:
+# Scripts first (what a user's layer names look like), then characters that a stock
+# Linux font (DejaVu, Liberation) covers and Nifen Art lacks in both weights: Latin
+# Extended-B, IPA, box drawing, a math sum and root, a shade, a face, a house.
+for ch in ["\\u68ee", "\\u6f22", "\\u5b57", "\\u65e5", "\\uc0b0", "\\u0e01", "\\u05d0",
+           "\\u0639", "\\u0915", "\\u0192", "\\u0259", "\\u2500", "\\u2211", "\\u221a",
+           "\\u2592", "\\u263a", "\\u2302"]:
     if nifen.supportsCharacter(ord(ch)):
         table.append("U+%04X nifen" % ord(ch))
         continue
@@ -1210,17 +1771,27 @@ w._layer_panel.rebuild(); app.processEvents()
 label = w._layer_panel._rows[0]._name
 row_text = label.text()
 def shape(text, font):
-    lay = QTextLayout(text, font); lay.beginLayout(); line = lay.createLine(); line.setLineWidth(10000); lay.endLayout()
+    lay = QTextLayout(text, font)
+    lay.beginLayout()
+    line = lay.createLine()
+    line.setLineWidth(10000)
+    lay.endLayout()
     runs = []
     for run in lay.glyphRuns():
         raw = run.rawFont()
-        runs.append({"family": raw.familyName(), "glyphs": len(run.glyphIndexes()), "notdef": 0 in list(run.glyphIndexes())})
+        runs.append({
+            "family": raw.familyName(),
+            "glyphs": len(run.glyphIndexes()),
+            "notdef": 0 in list(run.glyphIndexes()),
+        })
     return runs
 runs = shape(row_text, label.font())
 control = shape("\\U0010fffd", label.font())
 import os
-out(families=len(families), faces=len(faces), probe_control=probe_control, chosen=chosen, fallback=fallback_family, candidates=candidates,
-    platform=app.platformName(), fontdir=os.environ.get("QT_QPA_FONTDIR", ""), table=table,
+out(families=len(families), faces=len(faces), probe_control=probe_control,
+    chosen=chosen, fallback=fallback_family, candidates=candidates,
+    platform=app.platformName(), fontdir=os.environ.get("QT_QPA_FONTDIR", ""),
+    table=table,
     family_names=sorted(families)[:60],
     row_text=row_text, runs=runs, control=control, row_font=label.font().family(),
     nifen_runs=[r for r in runs if r["family"] == "Nifen Art"])
@@ -1230,14 +1801,16 @@ out(families=len(families), faces=len(faces), probe_control=probe_control, chose
     say(
         capsys,
         f"015-1: fonts in the child's database {result['families']}, candidates "
-        f"{result['candidates']}, chose {result['chosen']!r} (covered by {result['fallback']!r}); "
+        f"{result['candidates']}, chose {result['chosen']!r} "
+        f"(covered by {result['fallback']!r}); "
         f"runs {result['runs']}; control {result['control']}",
     )
     # What the database holds, so the log of a failing or skipped run shows why.
     census = (
         f"Qt platform {result['platform']!r}, QT_QPA_FONTDIR {result['fontdir']!r}, "
         f"{result['families']} families besides Nifen Art "
-        f"({result['faces']} resolved to their own face; probe controls {result['probe_control']}) "
+        f"({result['faces']} resolved to their own face; "
+        f"probe controls {result['probe_control']}) "
         f"(first {len(result['family_names'])}): {result['family_names']}; "
         f"candidates: {result['table']}"
     )
@@ -1245,9 +1818,9 @@ out(families=len(families), faces=len(faces), probe_control=probe_control, chose
     assert result["families"] > 0, (
         "the child's font database holds no font besides Nifen Art; " + census
     )
-    # The coverage probe must see before it may say "no font": a letter every font holds is
-    # found, and a code point no font holds is not. Otherwise "no candidate" below would be
-    # the probe's blindness and not the environment's font database.
+    # The coverage probe must see before it may say "no font": a letter every font
+    # holds is found, and a code point no font holds is not. Otherwise "no candidate"
+    # below would be the probe's blindness and not the environment's font database.
     assert result["probe_control"]["positive"], (
         "the coverage probe is blind: no installed face reports the letter A; " + census
     )
@@ -1299,7 +1872,11 @@ def test_sc_vi_ui_016_2_and_017_3_the_choices_survive_a_real_restart(tmp_path, c
     still remembered. Each child redirects the settings store to ``tmp_path``.
     """
     open_guide_js = """
-w._on_user_guide(); d = w._user_guide_dialog; d.resize(900, 700); d.show(); app.processEvents()
+w._on_user_guide()
+d = w._user_guide_dialog
+d.resize(900, 700)
+d.show()
+app.processEvents()
 d.show_topic("app-basics"); app.processEvents()
 """
     head = """
@@ -1312,7 +1889,8 @@ out(app=app.font().family(), menu=QFontInfo(w.menuBar().font()).family(),
     page=page.family(), page_resolved=QFontInfo(page).family(),
     page_pixel=d.page_uses_pixel_font(), switch=d.guide_pixel_font(),
     toc=QFontInfo(d._toc_tree.font()).family(), system=w.use_system_font(),
-    action=w._use_system_font_action.isChecked(), platform=app_font.platform_default_font().family(),
+    action=w._use_system_font_action.isChecked(),
+    platform=app_font.platform_default_font().family(),
     platform_resolved=QFontInfo(app_font.platform_default_font()).family(),
     families=len(QFontDatabase.families()))
 """
@@ -1325,7 +1903,8 @@ out(app=app.font().family(), menu=QFontInfo(w.menuBar().font()).family(),
         head
         + open_guide_js
         + state.replace("out(", "first = dict(")
-        + "\nw.set_use_system_font(True); app.processEvents()\nout(first=first, system_after=w.use_system_font())\n",
+        + "\nw.set_use_system_font(True); app.processEvents()\n"
+        "out(first=first, system_after=w.use_system_font())\n",
         tmp_path,
     )
     first = p2["first"]
@@ -1335,7 +1914,17 @@ out(app=app.font().family(), menu=QFontInfo(w.menuBar().font()).family(),
     ), "017-3: the switch was not remembered"
     assert first["page"] == NIFEN and first["page_resolved"] == NIFEN
     assert p2["system_after"] is True
-    p3 = run_child(head + open_guide_js + state, tmp_path)
+    p3 = run_child(
+        head
+        + _FONT_REPORT
+        + open_guide_js
+        + state.replace("out(", "shown = dict(")
+        + "\nout(**shown, context=context(app_font.platform_default_font()),"
+        " page_report=report(page), app_report=report(app.font()),"
+        " menu_report=report(w.menuBar().font()),"
+        " toc_report=report(d._toc_tree.font()))\n",
+        tmp_path,
+    )
     say(capsys, f"P3 (restart after 'Use system font'): {p3}")
     assert (
         p3["families"] > 1
@@ -1346,14 +1935,42 @@ out(app=app.font().family(), menu=QFontInfo(w.menuBar().font()).family(),
     ), "'Use system font' was not remembered"
     assert p3["switch"] is True, "the hidden switch's state was lost"
     assert p3["page_pixel"] is False
-    assert (
-        p3["page"] == p3["platform"] and p3["page_resolved"] == p3["platform_resolved"]
+    # The interface is in the platform font WITH the chain: when the
+    # platform family holds a shipped Han or Hangul character the CJK families come
+    # first by design, so a font's family() is not the platform family. What holds
+    # is the list the product's logic gives for the platform family, the language and
+    # the system locale (with the child's own measurement of that family) and the
+    # platform family in it; every attribute the chain leaves alone equals the
+    # platform font's.
+    context = p3["context"]
+    say(
+        capsys,
+        f"P3 chain inputs: family {context['family']!r}, holds a shipped CJK "
+        f"character {context['holds']}, language {context['language']!r}, "
+        f"locale {context['locale']!r}",
     )
-    assert p3["app"] == p3["platform"]
-    assert (
-        p3["menu"] == p3["platform_resolved"] != NIFEN
-    ), "the menu bar is not in the platform font"
-    assert p3["toc"] == p3["platform_resolved"] != NIFEN
+    assert context["family"] == p3["platform"] != NIFEN
+    for role, same_attributes in (
+        ("page", True),
+        ("app", True),
+        ("menu", False),
+        ("toc", False),
+    ):
+        shown = p3[f"{role}_report"]
+        problems = child_font_problems(
+            role, shown, context, same_attributes=same_attributes
+        )
+        assert not problems, problems
+        assert shown["resolved"] != NIFEN, f"the {role} is in the pixel font"
+    # Control: against the other Han form's list the same check fails on the list.
+    other = other_form_language(
+        context["family"], context["language"], context["locale"], context["holds"]
+    )
+    skewed = child_font_problems(
+        "page", p3["page_report"], context, same_attributes=True, language=other
+    )
+    say(capsys, f"P3 control, the list wanted for {other!r}: {skewed}")
+    assert any("families" in problem for problem in skewed), skewed
     p4 = run_child(
         head
         + open_guide_js
@@ -1424,7 +2041,8 @@ def test_smoke_mode_prints_the_interface_font_nifen_art(tmp_path, capsys):
 
 
 def test_the_platform_font_directory_is_one_the_child_can_use():
-    """The helper that finds the platform's fonts returns an existing folder or nothing."""
+    """The helper that finds the platform's fonts returns an existing folder or
+    nothing."""
     folder = platform_font_dir()
     assert folder == "" or Path(folder).is_dir()
     if os.name == "nt":
@@ -1435,7 +2053,7 @@ def test_the_platform_font_directory_is_one_the_child_can_use():
 # The combo box's point-sized font (the "Point size <= 0" warning)            #
 # --------------------------------------------------------------------------- #
 
-_COMBO_FONT_CHILD = """
+_COMBO_FONT_CHILD = _FONT_REPORT + """
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QFontInfo
 from pixelart_creator.ui.theme import DEFAULT_STYLE, THEME_LIGHT, apply_theme
@@ -1458,11 +2076,13 @@ app_font.ensure_interface_font(app, False)
 ensured = state()
 app_font.apply_interface_font(app, True)
 system = state()
-out(style=style, nifen=nifen, after_sheet=after_sheet, ensured=ensured, system=system)
+out(style=style, nifen=nifen, after_sheet=after_sheet, ensured=ensured, system=system,
+    system_report=report(QApplication.font("QComboBox")),
+    context=context(app_font.platform_default_font()))
 """
 
 
-def test_the_combo_box_gets_a_point_sized_interface_font(tmp_path: Path):
+def test_the_combo_box_gets_a_point_sized_interface_font(tmp_path: Path, capsys):
     """On the ``windows11`` style a combo box gets Nifen Art in POINTS, same pixels.
 
     Qt's ``windows11`` style reads ``widget.font().pointSize()`` for a combo box,
@@ -1485,9 +2105,543 @@ def test_the_combo_box_gets_a_point_sized_interface_font(tmp_path: Path):
     assert nifen["family"] == NIFEN == nifen["app_family"], nifen
     assert ensured["point"] > 0 and ensured["px_resolved"] == EM, fixed
     assert ensured["family"] == NIFEN, ensured
-    assert system["family"] == system["platform_family"], system
+    # "Use system font": the combo font is the platform font WITH the chain,
+    # so its family() is the platform family only when the platform family holds no
+    # shipped Han or Hangul character. What holds is the list the product's logic
+    # gives for the platform family (with the child's own measurement of it), the
+    # platform family in it, the allocated tag, and every other attribute equal to
+    # the platform font's.
+    context = fixed["context"]
+    assert context["family"] == system["platform_family"]
+    problems = child_font_problems(
+        "combo box", fixed["system_report"], context, same_attributes=True
+    )
+    assert not problems, problems
     assert system["point"] == system["platform_point"], system
+    # Control: against the other Han form's list the same check fails on the list.
+    wrong_language = other_form_language(
+        context["family"], context["language"], context["locale"], context["holds"]
+    )
+    skewed = child_font_problems(
+        "combo box",
+        fixed["system_report"],
+        context,
+        same_attributes=True,
+        language=wrong_language,
+    )
+    say(capsys, f"combo control, the list wanted for {wrong_language!r}: {skewed}")
+    assert any("families" in problem for problem in skewed), skewed
     other = run_child(_COMBO_FONT_CHILD.replace("@STYLE@", repr("fusion")), tmp_path)
     assert other["nifen"]["point"] <= 0, other["nifen"]
     assert other["nifen"]["px_resolved"] == EM, other["nifen"]
     assert other["nifen"]["family"] == NIFEN, other["nifen"]
+
+
+# --------------------------------------------------------------------------- #
+# Case B: the dock title is the Bold face of the CJK family                     #
+# --------------------------------------------------------------------------- #
+#
+# The style sheet's ``QDockWidget { font-weight: bold; }`` makes the dock title
+# Bold and gives the title no family: the family list is inherited from the
+# application font, and Qt picks each family's Bold file. The check reads the
+# title font the dock resolved after polish and draws each Han character of the
+# translated title ALONE (a one-character layout, so the face is keyed by the
+# character and never by the position of a run in a multi-run layout).
+
+
+def choose_language(win: Main_Window, code: str) -> None:
+    """Switch the interface language through the real Language-menu entry."""
+    entries = [action for entry, action in win._language_entry_actions if entry == code]
+    assert len(entries) == 1, f"the Language menu offers no single entry for {code!r}"
+    entries[0].trigger()
+    QApplication.processEvents()
+    assert i18n.current_ui_language() == code, f"the switch to {code!r} did not hold"
+
+
+#: The Han ranges the logic declares (``logic/constants.py``), read, never copied.
+HAN_RANGES = logic_constants.HAN_RANGES
+
+
+def han_code_points(text: str) -> List[int]:
+    """Return the integer code points of the Han characters in ``text``."""
+    return [
+        ord(character)
+        for character in text
+        if any(first <= ord(character) <= last for first, last in HAN_RANGES)
+    ]
+
+
+def drawn_by(font: QFont, code_point: int) -> Tuple[str, str, int]:
+    """Return the family, style name and weight of the face drawing ``code_point``.
+
+    One character at a time: a multi-run layout's ``glyphRuns()`` come back in an
+    order that differs between processes on identical input.
+    """
+    layout = QTextLayout(chr(code_point), font)
+    layout.beginLayout()
+    line = layout.createLine()
+    if line.isValid():
+        line.setLineWidth(100000)
+    layout.endLayout()
+    runs = layout.glyphRuns()
+    if not runs:
+        return ("", "", 0)
+    raw = runs[0].rawFont()
+    return (str(raw.familyName()), str(raw.styleName()), int(raw.weight()))
+
+
+def plugin_tells_families_apart(han_free: str) -> str:
+    """The positive control: the next registered family must be used.
+
+    The n-tilde is absent from the Han-free fixture and present in Nifen Art, so a
+    list [fixture, Nifen Art] must draw it from Nifen Art. If it does not, this
+    platform cannot tell registered families apart and no drawing verdict below it
+    can be read. Returns the plugin's name.
+    """
+    font = QFont(han_free)
+    font.setFamilies([han_free, NIFEN])
+    font.setPixelSize(EM)
+    font.setStyleStrategy(QFont.StyleStrategy.NoAntialias)
+    drew = drawn_by(font, N_TILDE)[0]
+    plugin = QGuiApplication.platformName()
+    assert drew == NIFEN, (
+        f"the positive control FAILED on the {plugin!r} plugin: U+{N_TILDE:04X} in "
+        f"{[han_free, NIFEN]} was drawn by {drew!r}, not by the next registered "
+        f"family {NIFEN!r}. This plugin cannot tell registered families apart."
+    )
+    return plugin
+
+
+def bold_title_problems(
+    font: QFont, title: str, form_family: str, inherited: QFont
+) -> Tuple[List[str], List[Tuple[int, str, str, int]]]:
+    """Return what is wrong with a dock title font, and what each Han character drew.
+
+    The font is Bold, carries the application font's list, and draws each Han
+    character of ``title`` from ``form_family`` in a Bold face (the raw font's
+    weight is at least Bold AND its style name is Bold: a weight alone is also what
+    a synthesised bold of the Regular file reports).
+    """
+    wrong: List[str] = []
+    drawn: List[Tuple[int, str, str, int]] = []
+    if not font.bold():
+        wrong.append("font().bold() is false")
+    if font.families() != inherited.families():
+        wrong.append(
+            f"families {font.families()} differ from the application font's "
+            f"{inherited.families()}"
+        )
+    characters = han_code_points(title)
+    if not characters:
+        wrong.append(f"the title {title!r} has no Han character to examine")
+    bold = int(QFont.Weight.Bold.value)
+    for code_point in characters:
+        family, style, weight = drawn_by(font, code_point)
+        drawn.append((code_point, family, style, weight))
+        if family != form_family:
+            wrong.append(f"U+{code_point:04X} drawn by {family!r}, not {form_family!r}")
+        elif weight < bold or style.lower() != "bold":
+            wrong.append(
+                f"U+{code_point:04X} drawn by {family!r} in {style!r} (weight "
+                f"{weight}), not a Bold face"
+            )
+    return wrong, drawn
+
+
+@pytest.mark.parametrize(
+    ("language", "form_family"),
+    [("zh_CN", font_chain.CJK_SC_FAMILY), ("ja", font_chain.CJK_JP_FAMILY)],
+)
+@pytest.mark.parametrize("font_mode", ["nifen", "system"])
+def test_req_l10n_ui_012_a_dock_title_draws_its_han_from_the_bold_cjk_face(
+    qtbot,
+    capsys,
+    mode,
+    font_mode,
+    language,
+    form_family,
+    han_free_family,
+    platform_snapshot_kept,
+    english_afterwards,
+):
+    """REQ-L10N-UI-012 (dock titles): the Bold CJK face draws a title.
+
+    The main window is built with its style sheet applied, in Nifen mode or in
+    system-font mode with a Han-free platform family injected, then switched
+    through the real selector to ``zh_CN`` or ``ja``. For one dock, after polish:
+    its font is Bold and carries the application font's family list (inherited, no
+    call made); each Han character of its translated title is drawn from
+    ``Nifen Art CJK SC`` (``zh_CN``) or ``Nifen Art CJK JP`` (``ja``) in a Bold
+    face. The control sets the same title font's weight back to normal: it must
+    resolve the Regular face and fail the Bold assertion.
+    """
+    plugin = plugin_tells_families_apart(han_free_family)
+    system = font_mode == "system"
+    if system:
+        inject_platform_font(han_free_family)
+    win = open_window(qtbot, mode, use_system_font=system)
+    english_afterwards.append(win)
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+    assert app.styleSheet(), "no style sheet is applied: the Bold rule is not in force"
+    expected_application = han_free_family if system else NIFEN
+    assert app.font().family() == expected_application, app.font().families()
+    choose_language(win, language)
+    dock = win._symmetry_dock
+    dock.ensurePolished()
+    title = dock.windowTitle()
+    problems, drawn = bold_title_problems(dock.font(), title, form_family, app.font())
+    examined = " ".join(f"U+{cp:04X}" for cp, _f, _s, _w in drawn)
+    faces = sorted({(family, style, weight) for _c, family, style, weight in drawn})
+    say(
+        capsys,
+        f"{language} [{mode}/{font_mode}] plugin {plugin!r}: dock title "
+        f"{len(drawn)} Han characters examined ({examined}), drawn by {faces}, "
+        f"{len(problems)} failed",
+    )
+    assert not problems, "\n  ".join(problems)
+    assert drawn, "no Han character was examined"
+
+    regular = QFont(dock.font())
+    regular.setWeight(QFont.Weight.Normal)
+    shown, drawn_regular = bold_title_problems(regular, title, form_family, app.font())
+    say(
+        capsys,
+        f"{language} [{mode}/{font_mode}] control, weight back to normal: "
+        f"{len(shown)} problems, first: {shown[:1]}; drawn {drawn_regular[:1]}",
+    )
+    assert any("bold" in problem.lower() for problem in shown), shown
+    assert any("Regular" in problem for problem in shown), shown
+
+
+# --------------------------------------------------------------------------- #
+# Case C: the chains are re-applied on every trigger                            #
+# --------------------------------------------------------------------------- #
+#
+# One window, the user guide open. The language is switched zh_CN -> ja -> zh_CN
+# through the real Language-menu entries; after each switch the application font
+# and the guide page font carry the list of the form that language asks for and
+# the tag the product allocated for that list, and the selector labels' fonts are
+# unchanged (a label keeps its own language's form whatever language is active).
+# Then a style switch (``_switch_appearance``) and a "Use system font" toggle: the
+# form's list and tag stand. The two guide-page branches are both walked: the
+# platform-font page (the default, and always under "Use system font") and the
+# pixel-font page (the hidden switch, with the system font off).
+
+#: (system font on, hidden pixel-font switch on) for the three walked cases.
+_FONT_CASES = [
+    pytest.param(False, False, id="nifen-platform-page"),
+    pytest.param(False, True, id="nifen-pixel-page"),
+    pytest.param(True, False, id="system-font"),
+]
+
+_LANGUAGE_STEPS = ("zh_CN", "ja", "zh_CN")
+
+
+def selector_labels(win: Main_Window) -> List[Tuple[str, List[str], int]]:
+    """Return each Language entry's code, family list and style strategy."""
+    labels = [
+        (code, list(action.font().families()), int(action.font().styleStrategy().value))
+        for code, action in win._language_entry_actions
+    ]
+    assert labels, "the Language menu has no entries"
+    assert all(len(families) >= 2 for _c, families, _s in labels), labels
+    return labels
+
+
+def assert_chains(
+    step: str,
+    dialog: User_Guide_Dialog,
+    language: str,
+    *,
+    system: bool,
+    guide_pixel: bool,
+    platform_family: str,
+) -> None:
+    """Assert the application font and the guide page font carry the form's chain."""
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+    application_primary = platform_family if system else NIFEN
+    page_pixel = guide_pixel and not system
+    assert dialog.page_uses_pixel_font() is page_pixel, (step, system, guide_pixel)
+    page_primary = NIFEN if page_pixel else platform_family
+    wrong = chain_problems(
+        f"[{step}] application font", app.font(), application_primary, language
+    )
+    assert not wrong, "\n  ".join(wrong)
+    page = dialog._content_view.document().defaultFont()
+    wrong = chain_problems(f"[{step}] guide page font", page, page_primary, language)
+    assert not wrong, "\n  ".join(wrong)
+
+
+def walk_the_wiring(
+    qtbot,
+    capsys,
+    english_afterwards: List[Main_Window],
+    mode: str,
+    *,
+    system: bool,
+    guide_pixel: bool,
+    platform_family: str,
+) -> int:
+    """Walk the three triggers on one window; return the number of steps checked."""
+    inject_platform_font(platform_family)
+    win = open_window(qtbot, mode, use_system_font=system, guide_pixel_font=guide_pixel)
+    english_afterwards.append(win)
+    dialog = open_guide(win, qtbot)
+    labels = selector_labels(win)
+    checked = 0
+    seen: List[Tuple[str, ...]] = []
+    for code in _LANGUAGE_STEPS:
+        choose_language(win, code)
+        assert_chains(
+            code,
+            dialog,
+            code,
+            system=system,
+            guide_pixel=guide_pixel,
+            platform_family=platform_family,
+        )
+        assert selector_labels(win) == labels, f"the selector labels changed at {code}"
+        seen.append(tuple(QApplication.font().families()))
+        checked += 1
+    assert seen[0] != seen[1] and seen[0] == seen[2], seen
+    say(
+        capsys,
+        f"[{mode}] system={system} pixel-page={guide_pixel}: "
+        f"{checked} language steps checked, forms {[s[-2] for s in seen]}",
+    )
+    language = _LANGUAGE_STEPS[-1]
+    others = [s for s in style_catalog.style_ids() if s != win.current_style()]
+    win.set_style(others[0])
+    win.set_mode(THEME_DARK if mode == THEME_LIGHT else THEME_LIGHT)
+    QApplication.processEvents()
+    assert_chains(
+        "style and mode switch",
+        dialog,
+        language,
+        system=system,
+        guide_pixel=guide_pixel,
+        platform_family=platform_family,
+    )
+    assert selector_labels(win) == labels
+    for toggled in (not system, system):
+        win.set_use_system_font(toggled)
+        QApplication.processEvents()
+        assert_chains(
+            f"use system font {toggled}",
+            dialog,
+            language,
+            system=toggled,
+            guide_pixel=guide_pixel,
+            platform_family=platform_family,
+        )
+        checked += 1
+    assert selector_labels(win) == labels, "the labels differ after the round trip"
+    return checked
+
+
+@pytest.mark.parametrize(("system", "guide_pixel"), _FONT_CASES)
+def test_req_l10n_ui_012_the_chains_follow_the_language_style_and_font_switches(
+    qtbot,
+    capsys,
+    mode,
+    system,
+    guide_pixel,
+    han_free_family,
+    platform_snapshot_kept,
+    english_afterwards,
+):
+    """REQ-L10N-UI-012 (re-application): every trigger re-applies.
+
+    On one window with the guide open: zh_CN -> ja -> zh_CN through the selector
+    carries the Simplified form (and not the Japanese), then the Japanese (and not
+    the Simplified), then the Simplified again, on the application font and on the
+    guide page font, with the product's allocated tag; the selector labels are
+    unchanged; a style and mode switch and two "Use system font" toggles leave the
+    form's list and tag in force.
+    """
+    checked = walk_the_wiring(
+        qtbot,
+        capsys,
+        english_afterwards,
+        mode,
+        system=system,
+        guide_pixel=guide_pixel,
+        platform_family=han_free_family,
+    )
+    assert checked == len(_LANGUAGE_STEPS) + 2
+
+
+@pytest.mark.parametrize(("system", "guide_pixel"), _FONT_CASES)
+def test_req_l10n_ui_012_control_a_language_handler_that_does_nothing_is_caught(
+    qtbot,
+    capsys,
+    mode,
+    system,
+    guide_pixel,
+    han_free_family,
+    platform_snapshot_kept,
+    english_afterwards,
+    monkeypatch,
+):
+    """Control (i): ``Main_Window._on_language_chains`` a no-op before the window.
+
+    The application font keeps the list it had under English (Simplified form), so
+    the switch to ``zh_CN`` still reads right and the step to ``ja`` must fail the
+    application-font assertion.
+    """
+    monkeypatch.setattr(Main_Window, "_on_language_chains", lambda self, _code: None)
+    with pytest.raises(AssertionError) as shown:
+        walk_the_wiring(
+            qtbot,
+            capsys,
+            english_afterwards,
+            mode,
+            system=system,
+            guide_pixel=guide_pixel,
+            platform_family=han_free_family,
+        )
+    message = str(shown.value)
+    say(capsys, f"[{mode}] control (i), no-op language handler: {message[:300]}")
+    assert "[ja] application font" in message, message
+
+
+@pytest.mark.parametrize(("system", "guide_pixel"), _FONT_CASES)
+def test_req_l10n_ui_010_control_a_guide_refresh_that_does_nothing_is_caught(
+    qtbot,
+    capsys,
+    mode,
+    system,
+    guide_pixel,
+    han_free_family,
+    platform_snapshot_kept,
+    english_afterwards,
+    monkeypatch,
+):
+    """Control (ii): ``User_Guide_Dialog.refresh_page_font`` a no-op.
+
+    The application font follows the switch, so the application-font assertions
+    pass, and the guide page keeps the list it was opened with: the step to ``ja``
+    must fail the guide-page assertion.
+    """
+    monkeypatch.setattr(User_Guide_Dialog, "refresh_page_font", lambda self: None)
+    with pytest.raises(AssertionError) as shown:
+        walk_the_wiring(
+            qtbot,
+            capsys,
+            english_afterwards,
+            mode,
+            system=system,
+            guide_pixel=guide_pixel,
+            platform_family=han_free_family,
+        )
+    message = str(shown.value)
+    say(capsys, f"[{mode}] control (ii), no-op page refresh: {message[:300]}")
+    assert "[ja] guide page font" in message, message
+
+
+# --------------------------------------------------------------------------- #
+# Case D: the ``chained_font`` contract                                         #
+# --------------------------------------------------------------------------- #
+
+
+def contract_problems(
+    call: Callable[[QFont], QFont], base: QFont, language: str
+) -> List[str]:
+    """Return how ``call`` departs from the contract of ``app_font.chained_font``.
+
+    The input is not changed (its families and strategy are the same before and
+    after) and the output is a copy; the output's list and tag are the ones the
+    product's logic and table give for the input's family; two calls on equal
+    inputs give equal fonts.
+    """
+    wrong: List[str] = []
+    before = (list(base.families()), int(base.styleStrategy().value), base.family())
+    out = call(base)
+    after = (list(base.families()), int(base.styleStrategy().value), base.family())
+    if after != before:
+        wrong.append(f"the input was changed: {before} became {after}")
+    if out is base:
+        wrong.append("the output is the input object, not a copy")
+    wrong.extend(chain_problems("output", out, base.family(), language))
+    twin = call(QFont(base))
+    if twin != out:
+        wrong.append("two calls on equal inputs gave different fonts")
+    return wrong
+
+
+def contract_bases(
+    platform: QFont, han_free: str, han_capable: str
+) -> List[Tuple[str, QFont]]:
+    """Return the input fonts of the contract: one family each, as the product gives."""
+    free = QFont(han_free)
+    free.setPixelSize(15)
+    capable = QFont(han_capable)
+    capable.setPixelSize(EM)
+    nifen = QFont(NIFEN)
+    nifen.setPixelSize(EM)
+    return [
+        ("platform default", QFont(platform)),
+        ("Han-free family, another size", free),
+        ("Han-capable family", capable),
+        ("Nifen Art", nifen),
+    ]
+
+
+@pytest.mark.parametrize("language", ["en", "zh_CN", "ja"])
+def test_req_l10n_ui_012_chained_font_keeps_its_contract(
+    capsys,
+    language,
+    han_free_family,
+    second_han_free_family,
+    han_capable_family,
+    language_manager,
+    platform_snapshot_kept,
+):
+    """REQ-L10N-UI-012: ``chained_font`` is a pure, tagged copy.
+
+    Four input fonts (the platform default, a Han-free family at another size, a
+    Han-capable family and Nifen Art) under each of three languages: the input is
+    unchanged, the output is a copy carrying the list and the tag the product's
+    logic and table give, and two calls on equal inputs give equal fonts. The two
+    registered families make the detector's both answers part of the case: the
+    Han-capable family must be measured Han-capable and the other Han-free.
+    """
+    assert language_manager.set_language(language)
+    assert i18n.current_ui_language() == language
+    platform = inject_platform_font(han_free_family)
+    assert app_font.primary_holds_cjk(han_capable_family) is True
+    assert app_font.primary_holds_cjk(han_free_family) is False
+    bases = contract_bases(platform, second_han_free_family, han_capable_family)
+    for label, base in bases:
+        wrong = contract_problems(app_font.chained_font, base, language)
+        assert not wrong, f"{label} under {language}:\n  " + "\n  ".join(wrong)
+    say(capsys, f"{language}: chained_font contract held on {len(bases)} input fonts")
+
+
+@pytest.mark.parametrize("language", ["en", "zh_CN", "ja"])
+def test_req_l10n_ui_012_control_a_chained_font_that_returns_its_input_fails(
+    capsys,
+    language,
+    han_free_family,
+    second_han_free_family,
+    han_capable_family,
+    language_manager,
+    platform_snapshot_kept,
+):
+    """Control for case D: a stand-in that returns its input fails the contract."""
+    assert language_manager.set_language(language)
+    platform = inject_platform_font(han_free_family)
+    failures = 0
+    bases = contract_bases(platform, second_han_free_family, han_capable_family)
+    for label, base in bases:
+        wrong = contract_problems(lambda font: font, base, language)
+        assert wrong, f"the stand-in passed the contract on {label!r}"
+        assert any("not a copy" in problem for problem in wrong), wrong
+        failures += 1
+    say(
+        capsys,
+        f"{language}: control, stand-in returning its input failed on {failures} "
+        f"inputs, first: {wrong[:2]}",
+    )

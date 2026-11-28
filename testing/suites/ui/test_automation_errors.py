@@ -12,8 +12,8 @@ The ATOMICITY nuance the UI layer flagged was a real defect: for a MULTI-op scri
 op[0] applied and a later op failed, ``logic.scripting.dispatch`` raised WITHOUT
 rolling back op[0], so the off-thread worker (which reverts only a returned
 command) never reverted it — leaving op[0] applied on the live document, off the
-undo stack. The implementation has since made dispatch ATOMIC (validate-all-up-front → one
-GroupCommand → reverse-order rollback on failure): a failed multi-op dispatch now
+undo stack. The implementation has since made dispatch ATOMIC (validate-all-up-front
+→ one GroupCommand → reverse-order rollback on failure): a failed multi-op dispatch now
 leaves the document byte-identical, and a valid one is a single reversible command
 (macro replay inherits it). The strict-xfail that pinned the defect has therefore
 been REMOVED; the test below asserts the REAL atomic contract in both halves.
@@ -22,7 +22,13 @@ Headless; both themes.
 
 from __future__ import annotations
 
+import logging
+
+import pytest
+
 from pixelart_creator.logic.constants import MAX_SCRIPT_OPS
+from pixelart_creator.logic.scripting import ScriptError, dispatch
+from pixelart_creator.ui.failure_messages import failure_kind, failure_text
 from pixelart_creator.ui.main_window import Main_Window
 from testing.suites.ui._automation_helpers import (
     GREEN,
@@ -75,8 +81,15 @@ def test_sc_ui_008_out_of_range_procgen_surfaces_error_uncorrupted(
     assert any(kind == "warning" for kind, *_ in mute_message_boxes)
 
 
-def test_sc_ui_008_runaway_script_hits_bound_gracefully(qtbot, mute_message_boxes):
-    """SC-UI-008-1: a script above MAX_SCRIPT_OPS fails safely, document uncorrupted."""
+def test_sc_ui_008_runaway_script_hits_bound_gracefully(
+    qtbot, mute_message_boxes, caplog
+):
+    """SC-UI-008-1: a script above MAX_SCRIPT_OPS fails safely, document uncorrupted.
+
+    REQ-L10N-UI-018: the user is told so with the sentence for the failure's kind in
+    the active language; neither the exception's message nor its type name reaches
+    the box, and the detail goes to the log instead.
+    """
     win = _window(qtbot)
     tab = win.active_tab()
     stack = tab.stack
@@ -84,11 +97,34 @@ def test_sc_ui_008_runaway_script_hits_bound_gracefully(qtbot, mute_message_boxe
 
     # The len bound is checked before any op applies (dispatch raises immediately).
     runaway = [procgen_op(seed=1)] * (int(MAX_SCRIPT_OPS) + 1)
-    run_ops(qtbot, win, runaway)
+    # The exception the bound raises, taken from the logic layer itself, so what the
+    # user must be shown and what must stay out of the interface are both derived
+    # from the real failure and not from the interface's current output.
+    with pytest.raises(ScriptError) as raised:
+        dispatch(tab.document, runaway)
+    bound_error = raised.value
+    expected = failure_text(failure_kind(bound_error))
+    assert str(
+        bound_error
+    ), "the bound's exception must carry text for this test to mean anything"
+
+    with caplog.at_level(logging.WARNING):
+        run_ops(qtbot, win, runaway)
 
     assert stack.count() == 0
     assert arrays_equal(buffer_of(tab.document), initial)
-    assert any("MAX_SCRIPT_OPS" in text for _kind, _title, text in mute_message_boxes)
+    warnings = [text for kind, _title, text in mute_message_boxes if kind == "warning"]
+    assert warnings, "the failed run must tell the user"
+    assert all(text == expected for text in warnings), (
+        f"the automation failure box must show exactly {expected!r}, "
+        f"but the box shows {warnings!r}"
+    )
+    for text in warnings:
+        assert str(bound_error) not in text
+        assert "MAX_SCRIPT_OPS" not in text
+        assert type(bound_error).__name__ not in text
+    logged = [str(record.exc_info[1]) for record in caplog.records if record.exc_info]
+    assert str(bound_error) in logged
 
 
 def test_sc_ui_008_multiop_script_failure_is_atomic(qtbot, mute_message_boxes):

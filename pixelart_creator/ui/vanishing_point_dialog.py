@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.constants import (
     MAX_CANVAS_HEIGHT,
     MAX_CANVAS_WIDTH,
@@ -59,6 +60,7 @@ class Vanishing_Point_Dialog(QDialog):
 
         self._horizon_label = QLabel(self)
         self._horizon_spin = QDoubleSpinBox(self)
+        self._horizon_spin.setLocale(i18n.current_formatting_locale())
         self._horizon_spin.setRange(-MAX_CANVAS_HEIGHT, 2 * MAX_CANVAS_HEIGHT)
 
         self._vp_groups: List[QGroupBox] = []
@@ -70,8 +72,10 @@ class Vanishing_Point_Dialog(QDialog):
         for _ in range(MAX_PERSPECTIVE_VANISHING_POINTS):
             group = QGroupBox(self)
             x_spin = QDoubleSpinBox(group)
+            x_spin.setLocale(i18n.current_formatting_locale())
             x_spin.setRange(-MAX_CANVAS_WIDTH, 2 * MAX_CANVAS_WIDTH)
             y_spin = QDoubleSpinBox(group)
+            y_spin.setLocale(i18n.current_formatting_locale())
             y_spin.setRange(-MAX_CANVAS_HEIGHT, 2 * MAX_CANVAS_HEIGHT)
             form = QFormLayout(group)
             x_label = QLabel(group)

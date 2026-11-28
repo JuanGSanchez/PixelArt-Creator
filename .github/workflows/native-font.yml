@@ -16,7 +16,9 @@
 # TRIGGERS: `workflow_dispatch` (a manual run on any ref) and `pull_request`
 # limited by `paths:` to the surface this workflow checks -- the shipped font
 # files, their sources and build scripts, the application's font loader, the
-# crispness test, and this file. The `pull_request` trigger is not decoration:
+# crispness test, the CJK family-chain and language-name modules with the CJK
+# face sources and the two glyph-level test modules that judge them, and this
+# file. The `pull_request` trigger is not decoration:
 # GitHub does not list a workflow that is only dispatchable until its file
 # exists on the default branch, so a dispatch-only file added in a pull request
 # cannot be run for that very pull request (the dispatch API answers 404). The
@@ -46,6 +48,11 @@ on:
       - "scripts/font/**"
       - "pixelart_creator/ui/app_font.py"
       - "testing/suites/ui/test_app_font_crispness.py"
+      - "pixelart_creator/logic/font_chain.py"
+      - "pixelart_creator/logic/language_names.py"
+      - "fonts-src/nifen-art-cjk/**"
+      - "testing/suites/ui/test_font_family_chain_mechanism.py"
+      - "testing/suites/ui/test_l10n_glyph_coverage.py"
       - ".github/workflows/native-font.yml"
 
 concurrency:
@@ -85,6 +92,16 @@ jobs:
   # counts) is the per-OS denominator to quote; `-rs` prints the reason of any
   # skip, and the crispness module itself fails a run that selected the marker
   # but ended up on a non-native platform, or that examined no glyph.
+  #
+  # The two glyph-level modules (the per-character family-chain mechanism and
+  # the glyph coverage of the interface languages) are also run here BY PATH, in
+  # their own step after the checks above, so the real plugin of each leg judges
+  # the same cases the default suite judges on `offscreen`. They are named by
+  # path, not selected by marker, so they run whether or not they carry it. The
+  # step skips a module that is not in the checkout, by name, with a notice --
+  # in THIS workflow only, which is informational: a missing module costs the
+  # reviewer a line of context here and gates nothing. ci.yml has no such
+  # tolerance and must never gain one: there a missing module fails collection.
   #
   # A failing platform is a result to bring back as a question, never a reason
   # to loosen a check here.
@@ -141,7 +158,10 @@ jobs:
       # The quality-gate Ubuntu libraries, plus what Qt's `xcb` plugin needs to
       # open a window (the offscreen platform needs none of these) and xvfb to
       # give it a display. fonts-dejavu-core: a fallback face for the fonts
-      # tests, as in quality-gate.
+      # tests, as in quality-gate. fonts-noto-cjk: the same CJK probe font as
+      # quality-gate's Ubuntu step (see the comment there for why it is a probe
+      # and what it cannot prove), so the real `xcb` plugin has a system face
+      # for Han, Hangul and kana to fall back to.
       - name: Install Qt runtime OS libraries + xvfb (Ubuntu)
         if: runner.os == 'Linux'
         run: |
@@ -151,7 +171,7 @@ jobs:
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
             libxcb-xkb1 \
-            fonts-dejavu-core
+            fonts-dejavu-core fonts-noto-cjk
 
       - name: Install project (runtime + dev) from manifest
         run: |
@@ -174,6 +194,45 @@ jobs:
 
       - name: Font rebuild is byte-identical on this OS (build_nifen_art.py --check)
         run: python scripts/font/build_nifen_art.py --check
+
+      # After the checks above on purpose: a red result here must not stop the
+      # byte-identical rebuild from running on this OS. No `-m` filter: the two
+      # modules are named by path. Its own --basetemp, because pytest empties
+      # the one it is given at start and the native_font run keeps its own.
+      #
+      # ABSENCE IS TOLERATED HERE, AND ONLY HERE (this workflow is informational
+      # and not a required check). A module that is not in the checkout is
+      # skipped BY NAME with a ::notice::, which lists it in the run summary; if
+      # neither is present the step says so and exits 0. A module that IS present
+      # runs and its pytest exit code is the step's own: no `|| true`, no
+      # `continue-on-error`, and a present module that collects nothing exits 5
+      # and fails the step.
+      - name: Family-chain and glyph-coverage modules on the native platform plugin (by path)
+        run: |
+          MODULES=()
+          for module in \
+            testing/suites/ui/test_font_family_chain_mechanism.py \
+            testing/suites/ui/test_l10n_glyph_coverage.py; do
+            if [[ -f "${module}" ]]; then
+              MODULES+=("${module}")
+            else
+              echo "::notice title=native-font::${module} is not in this checkout; skipped by name (informational workflow)."
+            fi
+          done
+          if [[ ${#MODULES[@]} -eq 0 ]]; then
+            echo "::notice title=native-font::none of the glyph-level modules is in this checkout; nothing to run in this step."
+            exit 0
+          fi
+          echo "Qt platform plugin for this leg: ${QT_QPA_PLATFORM}"
+          echo "Modules run by path: ${MODULES[*]}"
+          if [[ "${RUNNER_OS}" == "Linux" ]]; then
+            RUNNER_PREFIX=(xvfb-run -a -s "-screen 0 1280x1024x24")
+          else
+            RUNNER_PREFIX=()
+          fi
+          "${RUNNER_PREFIX[@]}" python -m pytest "${MODULES[@]}" -p no:cacheprovider -rs \
+            --basetemp="${CI_TEMP_ROOT}/pytest-glyph" \
+            --timeout=120 --timeout-method=thread
 
       - name: Clean up CI temp root (CI-PixelArtCreator)
         # Same guard shape as the quality-gate job's identically-named step.

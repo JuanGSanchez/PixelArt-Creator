@@ -6,6 +6,8 @@ Every numeric tuning value used across ui/, logic/, and data/ is defined here
 and imported by name, so a change is made in exactly one place (S12, Dossier §1).
 """
 
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Tuple
 
 MAX_CANVAS_WIDTH = 7680  # 8K UHD width  (S1, F7)
@@ -1323,3 +1325,441 @@ review's rule that a widget keeps at least 2 px between a frame ring and its own
 sub-controls. The mechanism it serves (paint with the children's rectangles
 clipped out) was measured by the 2026-10-09 Qt probe: 0 pattern pixels inside
 text boxes in 48 of 48 runs, against 233-1,908 for a stylesheet background."""
+
+# --- Language scripts (feature six-ui-languages) -----------------------------
+
+HAN_RANGES: tuple[tuple[int, int], ...] = (
+    (0x3400, 0x4DBF),
+    (0x4E00, 0x9FFF),
+    (0xF900, 0xFAFF),
+    (0x20000, 0x323AF),
+)
+"""Inclusive ``(first, last)`` code points counted as Han (REQ-L10N-BUILD-001,
+REQ-L10N-UI-012): CJK Extension A (U+3400-U+4DBF), CJK Unified Ideographs
+(U+4E00-U+9FFF), CJK Compatibility Ideographs (U+F900-U+FAFF) and the span
+U+20000-U+323AF, which holds Extensions B to H. Source: the Unicode Standard's
+block assignments (``Blocks.txt``, unicode.org/Public/UCD/latest/ucd). Script=Han
+characters outside these blocks (U+3005, U+3006, U+3007, U+303B and the radicals
+U+2E80-U+2FDF) are deliberately **not** Han here. The single source for ``ui/`` and
+for the font scripts."""
+
+HANGUL_RANGES: tuple[tuple[int, int], ...] = ((0xAC00, 0xD7A3),)
+"""Inclusive ``(first, last)`` code points counted as Hangul (REQ-L10N-BUILD-001,
+REQ-L10N-UI-012): the Hangul Syllables block, U+AC00-U+D7A3. Source: the Unicode
+Standard's block assignments (``Blocks.txt``, unicode.org/Public/UCD/latest/ucd).
+Conjoining and compatibility jamo are deliberately **not** Hangul here."""
+
+# --- Menu bar (feature six-ui-languages) ------------------------------------
+
+MENU_BAR_ITEM_PADDING_VERTICAL_PX: int = 3
+"""Vertical padding, in logical px, above and below the text of each top-level
+menu-bar item (the ``padding`` of the ``QMenuBar::item`` rule). Source: the value
+the application has always used; it is not a tuning target, so it is unchanged.
+Qt Style Sheets reference, "Customizing QMenuBar"
+(doc.qt.io/qt-6/stylesheet-examples.html#customizing-qmenubar)."""
+
+MENU_BAR_ITEM_PADDING_HORIZONTAL_PX: int = 6
+"""Horizontal padding, in logical px, on each side of the text of every top-level
+menu-bar item (REQ-L10N-UI-013: the bar must fit the 1,280 px window, every title
+visible, in every language). It is 6 px, the smallest value the rule allows, and
+that is the only value measured to fit: with the accepted Russian titles and the
+Tilemap title, on the DejaVu Sans stand-in for a CI runner's system font, the bar
+needs 1,294 px at 8 px, 1,266 px at 7 px (14 px to spare) and 1,238 px at 6 px
+(42 px to spare), against a 1,280 px window; the margin the requirement asks for is
+16 px, which 7 px does not leave. English needs 907 px at 8 px, and the Nifen Art
+face 1,100 px, so the bar fits in them with room. Source: scratch measurement of the
+real main window offscreen at 1,280 x 800 (``QMenuBar.actionGeometry`` of the 14
+visible items, window widened to read the full width), padding swept in whole
+pixels, both themes agreeing to the pixel; the CI margin reading overrides it. Not
+below 6 px: the floor set for this padding, so that the item text keeps a
+visible gap from its highlight edge."""
+
+# --- Guide soft line breaks ---------------------------------------------------
+
+GUIDE_UCD_TABLES_VERSION: str = "16.0.0"
+"""Unicode Character Database version of the Script and Emoji range tables below.
+Python 3.14 (``.python-version`` 3.14.10) ships ``unicodedata`` built from UCD
+16.0.0 (docs.python.org/3.14/library/unicodedata.html), so the tables agree with the
+East Asian Width and general-category data where CI runs. Source: the
+Python 3.14 documentation cited above and the UCD 16.0.0 data files."""
+
+GUIDE_HANGUL_SCRIPT_RANGES: tuple[tuple[int, int], ...] = (
+    (0x1100, 0x11FF),
+    (0x302E, 0x302F),
+    (0x3131, 0x318E),
+    (0x3200, 0x321E),
+    (0x3260, 0x327E),
+    (0xA960, 0xA97C),
+    (0xAC00, 0xD7A3),
+    (0xD7B0, 0xD7C6),
+    (0xD7CB, 0xD7FB),
+    (0xFFA0, 0xFFBE),
+    (0xFFC2, 0xFFC7),
+    (0xFFCA, 0xFFCF),
+    (0xFFD2, 0xFFD7),
+    (0xFFDA, 0xFFDC),
+)
+"""Inclusive ``(first, last)`` code points with Script=Hangul at UCD 16.0.0: 14
+ranges, 11,739 code points (the file's ``# Total code points: 11739``; the same
+set as at 15.1.0). NOT :data:`HANGUL_RANGES`, which is the Hangul Syllables block for
+font coverage: the soft-line-break rule needs the Script property, under which
+conjoining jamo, compatibility jamo and half-width Hangul are Hangul too (the rule's
+"a Hangul character"). Source: the Unicode Character Database,
+https://www.unicode.org/Public/16.0.0/ucd/Scripts.txt (header ``# Scripts-16.0.0.txt``,
+``# Date: 2024-04-30, 21:48:40 GMT``, ``# (c) 2024 Unicode(R), Inc.``; terms of use:
+https://www.unicode.org/terms_of_use.html), the raw bytes of that file (189,588 bytes,
+LF line endings), SHA-256
+``9e88f0a677df47311106340be8ede2ecdacd9c1c931831218d2be6d5508e0039``.
+Generated deterministically by an ephemeral script (not committed) that reads those
+bytes, refuses any other header and keeps the lines whose script is ``Hangul``,
+coalescing adjacent code points; the same method run on the 15.1.0 file gives the
+previous revision's 15.1.0 table exactly. Run it on the same file and the output is
+identical."""
+
+GUIDE_LATIN_SCRIPT_RANGES: tuple[tuple[int, int], ...] = (
+    (0x0041, 0x005A),
+    (0x0061, 0x007A),
+    (0x00AA, 0x00AA),
+    (0x00BA, 0x00BA),
+    (0x00C0, 0x00D6),
+    (0x00D8, 0x00F6),
+    (0x00F8, 0x02B8),
+    (0x02E0, 0x02E4),
+    (0x1D00, 0x1D25),
+    (0x1D2C, 0x1D5C),
+    (0x1D62, 0x1D65),
+    (0x1D6B, 0x1D77),
+    (0x1D79, 0x1DBE),
+    (0x1E00, 0x1EFF),
+    (0x2071, 0x2071),
+    (0x207F, 0x207F),
+    (0x2090, 0x209C),
+    (0x212A, 0x212B),
+    (0x2132, 0x2132),
+    (0x214E, 0x214E),
+    (0x2160, 0x2188),
+    (0x2C60, 0x2C7F),
+    (0xA722, 0xA787),
+    (0xA78B, 0xA7CD),
+    (0xA7D0, 0xA7D1),
+    (0xA7D3, 0xA7D3),
+    (0xA7D5, 0xA7DC),
+    (0xA7F2, 0xA7FF),
+    (0xAB30, 0xAB5A),
+    (0xAB5C, 0xAB64),
+    (0xAB66, 0xAB69),
+    (0xFB00, 0xFB06),
+    (0xFF21, 0xFF3A),
+    (0xFF41, 0xFF5A),
+    (0x10780, 0x10785),
+    (0x10787, 0x107B0),
+    (0x107B2, 0x107BA),
+    (0x1DF00, 0x1DF1E),
+    (0x1DF25, 0x1DF2A),
+)
+"""Inclusive ``(first, last)`` code points with Script=Latin at UCD 16.0.0: 39
+coalesced ranges, 1,487 code points (the file's ``# Total code points: 1487``). With
+general category L it defines "a Latin letter" (clause 4 of the soft-break rule).
+Full-width Latin letters (U+FF21-U+FF3A, U+FF41-U+FF5A) and the Roman numerals
+U+2160-U+2188 are Script=Latin. Source: the file named at
+:data:`GUIDE_HANGUL_SCRIPT_RANGES` (SHA-256
+``9e88f0a677df47311106340be8ede2ecdacd9c1c931831218d2be6d5508e0039``).
+Generated deterministically by an ephemeral script (not committed) that reads those
+bytes, refuses any other header and keeps the lines whose script is ``Latin``,
+coalescing adjacent code points; the same method run on the 15.1.0 file gives the
+previous revision's 15.1.0 table exactly. Run it on the same file and the output is
+identical. UCD 16.0.0 added U+A7CB-U+A7CD and U+A7DA-U+A7DC to the 15.1.0 set."""
+
+GUIDE_EMOJI_RANGES: tuple[tuple[int, int], ...] = (
+    (0x0023, 0x0023),
+    (0x002A, 0x002A),
+    (0x0030, 0x0039),
+    (0x00A9, 0x00A9),
+    (0x00AE, 0x00AE),
+    (0x203C, 0x203C),
+    (0x2049, 0x2049),
+    (0x2122, 0x2122),
+    (0x2139, 0x2139),
+    (0x2194, 0x2199),
+    (0x21A9, 0x21AA),
+    (0x231A, 0x231B),
+    (0x2328, 0x2328),
+    (0x23CF, 0x23CF),
+    (0x23E9, 0x23F3),
+    (0x23F8, 0x23FA),
+    (0x24C2, 0x24C2),
+    (0x25AA, 0x25AB),
+    (0x25B6, 0x25B6),
+    (0x25C0, 0x25C0),
+    (0x25FB, 0x25FE),
+    (0x2600, 0x2604),
+    (0x260E, 0x260E),
+    (0x2611, 0x2611),
+    (0x2614, 0x2615),
+    (0x2618, 0x2618),
+    (0x261D, 0x261D),
+    (0x2620, 0x2620),
+    (0x2622, 0x2623),
+    (0x2626, 0x2626),
+    (0x262A, 0x262A),
+    (0x262E, 0x262F),
+    (0x2638, 0x263A),
+    (0x2640, 0x2640),
+    (0x2642, 0x2642),
+    (0x2648, 0x2653),
+    (0x265F, 0x2660),
+    (0x2663, 0x2663),
+    (0x2665, 0x2666),
+    (0x2668, 0x2668),
+    (0x267B, 0x267B),
+    (0x267E, 0x267F),
+    (0x2692, 0x2697),
+    (0x2699, 0x2699),
+    (0x269B, 0x269C),
+    (0x26A0, 0x26A1),
+    (0x26A7, 0x26A7),
+    (0x26AA, 0x26AB),
+    (0x26B0, 0x26B1),
+    (0x26BD, 0x26BE),
+    (0x26C4, 0x26C5),
+    (0x26C8, 0x26C8),
+    (0x26CE, 0x26CF),
+    (0x26D1, 0x26D1),
+    (0x26D3, 0x26D4),
+    (0x26E9, 0x26EA),
+    (0x26F0, 0x26F5),
+    (0x26F7, 0x26FA),
+    (0x26FD, 0x26FD),
+    (0x2702, 0x2702),
+    (0x2705, 0x2705),
+    (0x2708, 0x270D),
+    (0x270F, 0x270F),
+    (0x2712, 0x2712),
+    (0x2714, 0x2714),
+    (0x2716, 0x2716),
+    (0x271D, 0x271D),
+    (0x2721, 0x2721),
+    (0x2728, 0x2728),
+    (0x2733, 0x2734),
+    (0x2744, 0x2744),
+    (0x2747, 0x2747),
+    (0x274C, 0x274C),
+    (0x274E, 0x274E),
+    (0x2753, 0x2755),
+    (0x2757, 0x2757),
+    (0x2763, 0x2764),
+    (0x2795, 0x2797),
+    (0x27A1, 0x27A1),
+    (0x27B0, 0x27B0),
+    (0x27BF, 0x27BF),
+    (0x2934, 0x2935),
+    (0x2B05, 0x2B07),
+    (0x2B1B, 0x2B1C),
+    (0x2B50, 0x2B50),
+    (0x2B55, 0x2B55),
+    (0x3030, 0x3030),
+    (0x303D, 0x303D),
+    (0x3297, 0x3297),
+    (0x3299, 0x3299),
+    (0x1F004, 0x1F004),
+    (0x1F0CF, 0x1F0CF),
+    (0x1F170, 0x1F171),
+    (0x1F17E, 0x1F17F),
+    (0x1F18E, 0x1F18E),
+    (0x1F191, 0x1F19A),
+    (0x1F1E6, 0x1F1FF),
+    (0x1F201, 0x1F202),
+    (0x1F21A, 0x1F21A),
+    (0x1F22F, 0x1F22F),
+    (0x1F232, 0x1F23A),
+    (0x1F250, 0x1F251),
+    (0x1F300, 0x1F321),
+    (0x1F324, 0x1F393),
+    (0x1F396, 0x1F397),
+    (0x1F399, 0x1F39B),
+    (0x1F39E, 0x1F3F0),
+    (0x1F3F3, 0x1F3F5),
+    (0x1F3F7, 0x1F4FD),
+    (0x1F4FF, 0x1F53D),
+    (0x1F549, 0x1F54E),
+    (0x1F550, 0x1F567),
+    (0x1F56F, 0x1F570),
+    (0x1F573, 0x1F57A),
+    (0x1F587, 0x1F587),
+    (0x1F58A, 0x1F58D),
+    (0x1F590, 0x1F590),
+    (0x1F595, 0x1F596),
+    (0x1F5A4, 0x1F5A5),
+    (0x1F5A8, 0x1F5A8),
+    (0x1F5B1, 0x1F5B2),
+    (0x1F5BC, 0x1F5BC),
+    (0x1F5C2, 0x1F5C4),
+    (0x1F5D1, 0x1F5D3),
+    (0x1F5DC, 0x1F5DE),
+    (0x1F5E1, 0x1F5E1),
+    (0x1F5E3, 0x1F5E3),
+    (0x1F5E8, 0x1F5E8),
+    (0x1F5EF, 0x1F5EF),
+    (0x1F5F3, 0x1F5F3),
+    (0x1F5FA, 0x1F64F),
+    (0x1F680, 0x1F6C5),
+    (0x1F6CB, 0x1F6D2),
+    (0x1F6D5, 0x1F6D7),
+    (0x1F6DC, 0x1F6E5),
+    (0x1F6E9, 0x1F6E9),
+    (0x1F6EB, 0x1F6EC),
+    (0x1F6F0, 0x1F6F0),
+    (0x1F6F3, 0x1F6FC),
+    (0x1F7E0, 0x1F7EB),
+    (0x1F7F0, 0x1F7F0),
+    (0x1F90C, 0x1F93A),
+    (0x1F93C, 0x1F945),
+    (0x1F947, 0x1F9FF),
+    (0x1FA70, 0x1FA7C),
+    (0x1FA80, 0x1FA89),
+    (0x1FA8F, 0x1FAC6),
+    (0x1FACE, 0x1FADC),
+    (0x1FADF, 0x1FAE9),
+    (0x1FAF0, 0x1FAF8),
+)
+"""The Unicode ``Emoji`` property at UCD 16.0.0 (property ``Emoji``, not
+``Emoji_Presentation`` or ``Extended_Pictographic``): the whole property, 1,431 code
+points in 150 coalesced ranges (411 lines of the file's ``Emoji`` block). The East
+Asian Width W/N restriction is applied in ``logic.guide_softbreak.decide``, not baked
+in. Source: https://www.unicode.org/Public/16.0.0/ucd/emoji/emoji-data.txt (header
+``# emoji-data.txt``, ``# Date: 2024-05-01, 21:25:24 GMT``, ``# (c) 2024 Unicode(R),
+Inc.``; terms of use: https://www.unicode.org/terms_of_use.html), the raw bytes
+of that file (113,024 bytes, LF line endings), SHA-256
+``f1365a5173eee18e1f98b240cdc492e84a25f1ce7e0c9d1094eb29c41a22696a``.
+Generated deterministically by an ephemeral script (not committed) that reads those
+bytes, refuses any other header, and for every ``Emoji`` line checks that
+``[n]`` equals the range length and that the comment's endpoint characters equal the
+hex endpoints, then that the lines are sorted and disjoint and that their total equals
+the block's ``# Total elements: 1431``; adjacent lines are coalesced. Re-run it on the
+same file and the output is identical."""
+
+GUIDE_EMOJI_TOTAL_ELEMENTS: int = 1431
+"""The ``# Total elements:`` line of the ``Emoji`` block of emoji-data.txt 16.0.0
+(confirmed from the complete raw bytes). ``logic.guide_softbreak`` compares it with the
+size of :data:`GUIDE_EMOJI_RANGES` at import, so a missing or partial table fails
+loudly."""
+
+GUIDE_SOFTBREAK_IDEOGRAPHIC_MARKS: Mapping[str, tuple[int, ...]] = MappingProxyType(
+    {
+        "ja": (
+            0x3001,  # IDEOGRAPHIC COMMA
+            0x3002,  # IDEOGRAPHIC FULL STOP
+            0x300C,  # LEFT CORNER BRACKET
+            0x300D,  # RIGHT CORNER BRACKET
+            0x300E,  # LEFT WHITE CORNER BRACKET
+            0x300F,  # RIGHT WHITE CORNER BRACKET
+        ),
+        "zh_CN": (
+            0x3001,  # IDEOGRAPHIC COMMA
+            0x3002,  # IDEOGRAPHIC FULL STOP
+            0xFF0C,  # FULLWIDTH COMMA
+            0xFF1B,  # FULLWIDTH SEMICOLON
+            0xFF1A,  # FULLWIDTH COLON
+            0xFF01,  # FULLWIDTH EXCLAMATION MARK
+            0xFF1F,  # FULLWIDTH QUESTION MARK
+            0xFF08,  # FULLWIDTH LEFT PARENTHESIS
+            0xFF09,  # FULLWIDTH RIGHT PARENTHESIS
+            0x300A,  # LEFT DOUBLE ANGLE BRACKET
+            0x300B,  # RIGHT DOUBLE ANGLE BRACKET
+            0x201C,  # LEFT DOUBLE QUOTATION MARK
+            0x201D,  # RIGHT DOUBLE QUOTATION MARK
+        ),
+    }
+)
+"""Code points of clause 4 of the soft-break rule, per page language (the guide
+folder the page came from). A language that is not a key has no clause-4 mark.
+``ja``: U+3001, U+3002 and the corner brackets U+300C to U+300F. ``zh_CN``: U+3001,
+U+3002, the full-width comma, semicolon, colon, exclamation and question marks
+(U+FF0C, U+FF1B, U+FF1A, U+FF01, U+FF1F), the full-width parentheses (U+FF08,
+U+FF09), the double angle brackets (U+300A, U+300B) and the curly double quotation
+marks (U+201C, U+201D). Source: the spec's requirement on soft line breaks, clause 4
+(the two references' lists, as the user ruled). A mark that one language lists and the
+other does not is judged by the page's language only. A later ruling can only edit
+this mapping."""
+
+GUIDE_SOFTBREAK_ZERO_WIDTH_SPACE: int = 0x200B
+"""U+200B ZERO WIDTH SPACE, the character of clause 1 of the soft-break rule."""
+
+GUIDE_CONTENT_REF_MIN_SEGMENTS: int = 3
+"""Segments of a bundle content path ``content/<locale>/<stem>.md`` (a stem may
+itself hold ``/``): the directory, the locale and at least one stem segment."""
+
+# CommonMark 0.31.2 structural limits used by the soft-line-break scanner (S12).
+
+GUIDE_MD_MAX_INDENT: int = 3
+"""Most columns a block start may be indented (CommonMark §4.1: four make code)."""
+
+GUIDE_MD_CODE_INDENT: int = 4
+"""Columns of indentation that make an indented code block (CommonMark §4.4)."""
+
+GUIDE_MD_TAB_STOP: int = 4
+"""Columns per tab stop (CommonMark §2.2)."""
+
+GUIDE_MD_MIN_FENCE: int = 3
+"""Shortest code-fence run (CommonMark §4.5)."""
+
+GUIDE_MD_MIN_THEMATIC: int = 3
+"""Fewest marks in a thematic break (CommonMark §4.1)."""
+
+GUIDE_MD_MAX_ATX_LEVEL: int = 6
+"""Deepest ATX heading (CommonMark §4.2)."""
+
+GUIDE_MD_MAX_ORDERED_DIGITS: int = 9
+"""Most digits in an ordered-list marker (CommonMark §5.2)."""
+
+GUIDE_MD_HARD_BREAK_SPACES: int = 2
+"""Spaces at a line end that make a hard line break (CommonMark §6.7)."""
+
+GUIDE_MD_MAX_LABEL_CHARS: int = 999
+"""Most characters in a link label (CommonMark §4.7)."""
+
+GUIDE_MD_MAX_PAREN_DEPTH: int = 32
+"""Nesting of unescaped parentheses accepted in a link destination (CommonMark §6.3
+leaves a limit to the implementation; the reference implementation uses 32)."""
+
+GUIDE_MD_MAX_ENTITY_NAME: int = 32
+"""Longest named character reference, in characters after the ``&`` (CommonMark
+§2.5: 32 is the longest HTML5 name)."""
+
+GUIDE_MD_MAX_DECIMAL_REF_DIGITS: int = 7
+"""Most digits in a decimal numeric reference (CommonMark §2.5)."""
+
+GUIDE_MD_MAX_HEX_REF_DIGITS: int = 6
+"""Most digits in a hexadecimal numeric reference (CommonMark §2.5)."""
+
+GUIDE_MD_STRONG_RUN: int = 2
+"""Delimiters that a strong-emphasis (and a double strikethrough) match uses."""
+
+GUIDE_MD_MAX_STRIKE_RUN: int = 2
+"""Longest ``~`` run that can be a strikethrough delimiter (GitHub's form)."""
+
+GUIDE_MD_EMPHASIS_MODULUS: int = 3
+"""The "multiple of 3" rule of CommonMark §6.2 (the process-emphasis procedure)."""
+
+GUIDE_MD_ESCAPE_LENGTH: int = 2
+"""Characters of a backslash escape: the backslash and the character it escapes
+(CommonMark §2.4). Also the step by which a run of backslashes pairs off."""
+
+# --- Number formatting (feature six-ui-languages) ----------------------------
+
+UNIT_NBSP_LANGUAGES: tuple[str, ...] = ("fr", "ru")
+"""Interface languages that keep a number and its unit together with a no-break
+space. Source: the user's ruling of 2026-11-14 on the formatting of sizes in the
+French and Russian interface (spec ``REQ-L10N-UI-015``, acceptance "one U+00A0
+between the figure and the unit"). The other six languages keep what Qt's data
+gives."""
+
+NO_BREAK_SPACE: int = 0x00A0
+"""Code point of the character that joins a number and its unit in
+``UNIT_NBSP_LANGUAGES``: U+00A0 NO-BREAK SPACE (Unicode Standard, Latin-1
+Supplement; named by ``REQ-L10N-UI-015``)."""
+
+NUMBER_UNIT_SEPARATORS: tuple[int, ...] = (0x0020, NO_BREAK_SPACE, 0x202F)
+"""Code points Qt's data-size text may put between a number and its unit, which
+``with_unit_space`` replaces: U+0020 SPACE, U+00A0 NO-BREAK SPACE and U+202F
+NARROW NO-BREAK SPACE, the three that scenario SC-L10N-UI-015-3 names."""

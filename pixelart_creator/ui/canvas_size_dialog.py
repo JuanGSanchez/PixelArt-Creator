@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.constants import MAX_CANVAS_HEIGHT, MAX_CANVAS_WIDTH
 
 
@@ -42,10 +43,12 @@ class Canvas_Size_Dialog(QDialog):
         super().__init__(parent)
 
         self._width = QSpinBox(self)
+        self._width.setLocale(i18n.current_formatting_locale())
         self._width.setRange(1, MAX_CANVAS_WIDTH)
         self._width.setValue(int(width))
 
         self._height = QSpinBox(self)
+        self._height.setLocale(i18n.current_formatting_locale())
         self._height.setRange(1, MAX_CANVAS_HEIGHT)
         self._height.setValue(int(height))
 

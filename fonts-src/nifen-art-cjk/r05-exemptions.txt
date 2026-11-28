@@ -1,0 +1,47 @@
+# R05 exemptions of the CJK face: Regular glyphs that may hold a 2x2 pixel block.
+#
+# One line per glyph:
+#   U+XXXX set=<jp|sc|kr> reason=<text>
+# reason= is the last item of the line and runs to the end of it. An entry with no reason
+# is not a declaration: the lint refuses it and names it. An undeclared block fails the
+# lint and names the glyph. An entry for a glyph that has no block, an entry that names no
+# glyph of the set, and a glyph declared twice (here and by the solid flag of its record)
+# are refused too. The lint prints the number of exempted glyphs and the name of each.
+# A glyph flagged solid in its own record is exempt in the same way and is counted with
+# these; it keeps its reason in that record, not here.
+#
+# Three kinds of syllable hold a 2x2 block, and each is named by its reason:
+#   - a syllable whose final consonant is the aspirated t: three bars (top, middle, bottom)
+#     cannot keep a pixel apart in the four-row final slot, so the middle bar sits on the
+#     bottom bar;
+#   - a syllable whose initial consonant is the aspirated t, beside a flat vowel and a final
+#     consonant: the initial has only three rows, so its middle bar sits on the top and the
+#     bottom bar;
+#   - a syllable whose initial consonant is h under the same conditions: the bar and the foot
+#     of the ring share columns in the three rows.
+# Every other drawn syllable keeps one-pixel strokes. The user set no maximum; the lint prints
+# the count.
+U+AC19 set=kr reason=final consonant t: its middle bar sits on the bottom bar in the four-row final slot
+U+AE65 set=kr reason=final consonant t: its middle bar sits on the bottom bar in the four-row final slot
+U+B05D set=kr reason=final consonant t: its middle bar sits on the bottom bar in the four-row final slot
+U+B9E1 set=kr reason=final consonant t: its middle bar sits on the bottom bar in the four-row final slot
+U+BD99 set=kr reason=final consonant t: its middle bar sits on the bottom bar in the four-row final slot
+U+D1A4 set=kr reason=initial consonant t in the three-row band: its middle bar sits on the top and bottom bars
+U+D1B1 set=kr reason=initial consonant t in the three-row band: its middle bar sits on the top and bottom bars
+U+D1B5 set=kr reason=initial consonant t in the three-row band: its middle bar sits on the top and bottom bars
+U+D234 set=kr reason=initial consonant t in the three-row band: its middle bar sits on the top and bottom bars
+U+D2B9 set=kr reason=initial consonant t in the three-row band: its middle bar sits on the top and bottom bars
+U+D2BC set=kr reason=initial consonant t in the three-row band: its middle bar sits on the top and bottom bars
+U+D2C0 set=kr reason=initial consonant t in the three-row band: its middle bar sits on the top and bottom bars
+U+D2C8 set=kr reason=initial consonant t in the three-row band: its middle bar sits on the top and bottom bars
+U+D63C set=kr reason=initial consonant h in the three-row band: the bar and the foot of the ring share columns
+U+D648 set=kr reason=initial consonant h in the three-row band: the bar and the foot of the ring share columns
+U+D655 set=kr reason=initial consonant h in the three-row band: the bar and the foot of the ring share columns
+U+D658 set=kr reason=initial consonant h in the three-row band: the bar and the foot of the ring share columns
+U+D65C set=kr reason=initial consonant h in the three-row band: the bar and the foot of the ring share columns
+U+D669 set=kr reason=initial consonant h in the three-row band: the bar and the foot of the ring share columns
+U+D68D set=kr reason=initial consonant h in the three-row band: the bar and the foot of the ring share columns
+U+D69F set=kr reason=initial consonant h in the three-row band: the bar and the foot of the ring share columns
+U+D720 set=kr reason=initial consonant h in the three-row band: the bar and the foot of the ring share columns
+U+D754 set=kr reason=initial consonant h in the three-row band: the bar and the foot of the ring share columns
+U+D770 set=kr reason=initial consonant h in the three-row band: the bar and the foot of the ring share columns

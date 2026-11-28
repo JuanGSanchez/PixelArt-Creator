@@ -1,10 +1,11 @@
-# Cloud: save, versions, autosave & recovery
+# Cloud: save, versions & autosave
 
-The **cloud layer** lets a project live in the cloud instead of only on one machine. You
-can **connect a cloud provider**, **save** the current project to the cloud, **open** it
-again from any session, browse a full **version history** and **restore** an earlier
-save, and rely on **autosave + crash recovery** so an unclean shutdown never loses your
-unsaved work.
+In this release the **cloud layer** runs on a built-in, in-memory adapter, so the version
+history and the autosaved copy last only until you close the app; they do not protect you
+from a crash or power loss. Save a local copy of the project for anything you want to keep.
+Within that limit, the cloud layer lets you **connect**, **save** the current project,
+**open** it again, browse a **version history** and **restore** an earlier save, and keep
+an **autosaved working copy** while you work.
 
 Everything in this guide is driven from the **Cloud menu** in the menu bar.
 
@@ -14,22 +15,24 @@ Everything in this guide is driven from the **Cloud menu** in the menu bar.
 > The app behaves **identically** regardless of which provider backs it, so you are not
 > locked in, and a new provider is just a new adapter behind the same port.
 
-The full cloud & collaboration milestone ships in this release: the provider-agnostic
-port, a fully-tested built-in adapter, `.pixproj` cloud round-trip, version history +
-restore, and autosave/crash recovery; **shared projects, comments and presence**; and
-**real-time co-editing, live cursors and art branching** plus the **real Google Drive /
-OneDrive / Dropbox providers**. Sharing, comments, presence, real-time and branching are
-covered in [Shared projects, comments, presence & real-time](collaboration.md).
+What works in this release: the provider-agnostic port, a fully-tested built-in adapter,
+`.pixproj` cloud round-trip, version history + restore, and autosave; **shared projects,
+comments and presence**, which run on an in-memory adapter inside one app window (another
+window or another person's copy cannot see them); and local **art branching**. What does
+not work yet: the **real Google Drive / OneDrive / Dropbox providers** are implemented in
+the storage layer but cannot be selected from the Cloud menu, and **real-time co-editing
+with live cursors** cannot connect. All of these collaboration features are covered in
+[Shared projects, comments, presence & real-time](collaboration.md).
 
 ## Connecting a cloud provider
 
 Cloud actions are disabled until you connect.
 
 1. Open the **Cloud** menu.
-2. Choose **Connect…**. This establishes a provider-agnostic connection through the cloud
-   port and enables the rest of the Cloud menu (**Save to Cloud**, **Open from Cloud**,
-   **Version History**, and **Disconnect**).
-3. To sign out, choose **Cloud → Disconnect**. This releases the connection and
+2. Choose **Connect…**. This connects the built-in adapter through the cloud port and
+   enables the rest of the Cloud menu (**Save to Cloud…**, **Open from Cloud…**,
+   **Version History…**, and **Disconnect**).
+3. To sign out, choose **Cloud ▸ Disconnect**. This releases the connection and
    re-disables the cloud actions until you connect again.
 
 > **Your credentials never leave the storage layer.** When a real provider adapter is
@@ -38,33 +41,38 @@ Cloud actions are disabled until you connect.
 > **never** written into a `.pixproj`, and **never** written to logs. The UI only ever
 > sees a plain *connected / not connected* state.
 
-> **The built-in adapter.** The default connection is a built-in, in-memory adapter that
-> is deterministic and needs no network or account — it exists so the whole save /
-> version / recovery workflow is complete and usable end to end. To use a real online
-> provider instead, see *Connecting a real cloud provider* below.
+> **The built-in adapter.** The connection in this release is a built-in, in-memory
+> adapter that is deterministic and needs no network or account — it makes the whole save
+> / version workflow usable within a session. Because it lives in memory, everything it
+> holds is gone when you close the app. The real online providers are described in
+> *Connecting a real cloud provider* below, but they cannot be chosen from the Cloud menu
+> in this release.
 
 ## Connecting a real cloud provider
 
-You can connect a **real** Google Drive, OneDrive, or Dropbox account behind the **same**
-Connect flow, so every step in this guide (save, open, version history, autosave/recovery)
-works identically on top of your online storage.
+The storage layer contains **real** Google Drive, OneDrive and Dropbox providers that sit
+behind the **same** cloud port as the built-in adapter. When such a provider is used,
+the steps in this guide (save, open, version history) work the same way on top of your
+online storage. This release has no Cloud menu command that selects one: **Connect…**
+connects the built-in adapter.
 
-> **Credential-gated feature.** The real providers are **credential-gated**: each needs an
-> OAuth **client id** for the chosen service and live network access, so they are
-> configured deliberately rather than being on by default. The built-in adapter above
-> needs none of this.
+> **Credential-gated feature.** The real providers are **credential-gated**: each would need
+> an OAuth **client id** for the chosen service and live network access, so they are
+> not on by default, and this release has no Cloud menu command that turns one on.
+> The built-in adapter above needs none of this.
 
 ### How sign-in works
 
-1. Choose **Cloud → Connect…** and pick the real provider you configured.
-2. The app opens your **system browser** to the provider's sign-in / consent page.
+1. Using a storage-layer provider starts its sign-in. **Cloud ▸ Connect…** does not do
+   this in this release: it connects the built-in adapter.
+2. The sign-in opens your **system browser** to the provider's sign-in / consent page.
    PixelArt Creator uses the standard desktop **OAuth Authorization Code + PKCE over a
    loopback redirect** flow — there is **no embedded web view** and **no client secret**
    stored in the app.
 3. Approve access in the browser. The browser redirects back to the app, which completes
-   the connection. The Cloud menu's save/open/version actions enable just as they do for
-   the built-in adapter.
-4. To sign out, choose **Cloud → Disconnect**.
+   the connection. The Cloud menu's save/open/version actions then enable just as they do
+   for the built-in adapter.
+4. To sign out, choose **Cloud ▸ Disconnect**.
 
 > **Your credentials never leave the storage layer.** The whole sign-in runs **entirely
 > inside the storage layer**. Your **refresh token is stored in the operating-system
@@ -73,12 +81,13 @@ works identically on top of your online storage.
 > `.pixproj`, or written to logs.
 
 > **Same behaviour, any provider.** Because every provider sits behind the one cloud port,
-> switching from the built-in adapter to Drive / OneDrive / Dropbox — or between them —
-> changes **nothing** about how you save, browse versions, or recover work.
+> saving and browsing versions work the same way whether the built-in adapter or Drive /
+> OneDrive / Dropbox backs them. That is the no-lock-in design; choosing a provider from
+> the Cloud menu is not available in this release.
 
 ## Saving a project to the cloud
 
-1. With a project open and a provider connected, choose **Cloud → Save to Cloud…**.
+1. With a project open and a provider connected, choose **Cloud ▸ Save to Cloud…**.
 2. Enter a **cloud project name** when prompted. This is the key your project is stored
    under; reuse the same name to keep adding versions to the same project.
 3. The app serialises the project to a `.pixproj` and stores it as a **new version**. When
@@ -98,7 +107,7 @@ carries the `.pixproj` as the atomic *sync unit*.
 
 ## Opening a project from the cloud
 
-1. Choose **Cloud → Open from Cloud…**.
+1. Choose **Cloud ▸ Open from Cloud…**.
 2. Enter the **cloud project name** to open.
 3. The app fetches the project's latest version and opens it in a **new tab**.
 
@@ -114,9 +123,12 @@ project comes in as its own tab.
 
 ## Browsing version history and restoring a version
 
-Every save creates a new, ordered version, and you can go back to any of them.
+Every save creates a new, ordered version, and you can go back to any of them. Version
+history lasts for the current session only: the built-in adapter keeps it in memory and
+starts empty the next time you launch the app. Save a local copy of the project for
+anything you want to keep.
 
-1. Choose **Cloud → Version History…** (if you have not opened or saved a cloud project
+1. Choose **Cloud ▸ Version History…** (if you have not opened or saved a cloud project
    this session, you will be asked for the cloud project name first).
 2. The **Cloud Version History** dialog lists every stored version, oldest to newest, with
    these columns:
@@ -136,10 +148,11 @@ Every save creates a new, ordered version, and you can go back to any of them.
 The version list is fetched off the GUI thread before the dialog opens, so browsing history
 never freezes the app.
 
-## Autosave and crash recovery
+## Autosave and the recovery slot
 
 While you work on a connected project, the app **autosaves** your working copy to a
-dedicated **recovery slot** in the background.
+dedicated **recovery slot** in the background. In this release the slot is held in memory
+only, so it protects your work within the session, not across a crash.
 
 - Autosave runs on a fixed cadence (default **every 2 minutes**) and **only when the
   document has unsaved changes** — a clean document is never autosaved.
@@ -149,26 +162,30 @@ dedicated **recovery slot** in the background.
 
 ### The recovery prompt on restart
 
-If the app is closed uncleanly (a crash or power loss) while you had unsaved work, the next
-time you start it **and connect**, it detects the leftover recovery slot and shows a
-**Recover Unsaved Work** prompt:
+Restart recovery is not available in this release. The built-in adapter does not keep the
+recovery slot across a restart, and the **Recover Unsaved Work** prompt is checked only
+once, as the app starts, before you can connect. After a crash or power loss, no prompt
+appears the next time you start the app. Until a persistent provider can be selected, rely
+on saving a local copy of the project.
+
+The prompt itself offers two choices (you will not see it in this release):
 
 - **Recover** — fetches and validates the autosaved copy and opens it in a **new tab**.
   Your last explicit save is not affected.
 - **Discard** — dismisses the prompt and leaves everything as it was.
 
 > **Recovery is decoded defensively too.** The recovered copy goes through the same
-> untrusted-input validation as any cloud file, so a corrupted recovery slot can never
-> crash the app on startup — at worst you get a clear error and can carry on.
+> untrusted-input validation as any cloud file, so a malformed recovery slot is rejected
+> with a clear error instead of being opened.
 
-> **Autosave needs a connected provider.** Autosave and the restart recovery prompt operate
-> through the cloud port, so they are active while you are **connected**. Connect a provider
-> at the start of a session to keep a safety net running.
+> **Autosave needs a connection.** Autosave operates through the cloud port, so it runs
+> only while you are **connected**. It protects your work within the session, not across a
+> crash.
 
 ## The rest of the cloud & collaboration milestone
 
-This page covers single-user cloud work — save, versions, autosave/recovery — plus
-connecting a real provider. The collaboration features that build on top of it —
-**shared projects & membership**, **comments**, **presence**, **deterministic
-convergence**, **real-time co-editing & live cursors**, and **art branching** — are all
-covered in [Shared projects, comments, presence & real-time](collaboration.md).
+This page covers single-user cloud work — save, versions, autosave — plus the
+storage-layer providers. The collaboration features (on their own in-memory adapter, per app window, in this
+release; real-time co-editing & live cursors cannot connect) — **shared projects &
+membership**, **comments**, **presence**, **deterministic convergence**, **real-time
+co-editing & live cursors**, and **art branching** — are all covered in [Shared projects, comments, presence & real-time](collaboration.md).

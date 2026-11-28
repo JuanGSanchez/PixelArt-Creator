@@ -1,21 +1,35 @@
 # Shared projects, comments, presence & real-time
 
-The **collaboration layer** lets several people work around one cloud project. You can
-**share a project** with a named set of members (each with a role), leave and resolve
-**comments** on it, see **who else is present**, **co-edit in real time** with other
-editors' **live cursors** on your canvas, and **branch** the artwork like source code.
-Everything here builds on the [cloud layer](cloud-and-collaboration.md) — a shared
-project is still a `.pixproj` stored through the same provider-agnostic cloud port.
+In this release the **collaboration layer** works inside one running window of the app,
+entirely in memory (see the note below). In that window you can **share a project** with a
+named set of members (each with a role), leave and resolve **comments** on it, see **who
+else is present**, and **branch** the artwork like source code. **Real-time co-editing and
+live cursors cannot connect in this release**: **Start Real-time…** does not join anything,
+so the real-time sections below describe how a session works once a connection exists. The
+layer is designed for several people to work around one cloud project and follows the
+[cloud layer](cloud-and-collaboration.md)'s provider-agnostic design, but in this release the
+panels do not save or open any `.pixproj`; they manage the member roster, comments and
+presence only.
+
+> **What this release connects to.** The **Shared Projects**, **Comments** and **Presence**
+> panels use a built-in adapter that keeps everything in memory inside the one app window
+> that created it. Each window has its own, so a second window of the app on the same
+> computer cannot see the projects, members, comments or presence of the first, and neither
+> can another person's copy. Nothing is sent over a network or written to disk, and all of it
+> is gone when you close the app. **Start Real-time…** cannot join anything in this release
+> (see *Real-time co-editing* below). Branching is a local, in-session feature.
 
 Everything in this guide is driven from the **Cloud menu**, which carries the
 collaboration dock panels and the real-time controls below the version-history entry:
 
-- **Cloud → Shared Projects** — share the current project and manage its members.
-- **Cloud → Comments** — add, thread, and resolve comments.
-- **Cloud → Presence** — see who is present and announce yourself.
-- **Cloud → Start Real-time… / Stop Real-time** — join or leave a live co-editing session.
-- **Cloud → Show Live Cursors** — toggle other editors' live cursors on your canvas.
-- **Cloud → Branching** — open the branch / switch / merge panel.
+- **Cloud ▸ Shared Projects** — share the current project and manage its members.
+- **Cloud ▸ Comments** — add, thread, and resolve comments.
+- **Cloud ▸ Presence** — see who is present and announce yourself.
+- **Cloud ▸ Start Real-time… / Stop Real-time** — join or leave a live co-editing session
+  (not connectable in this release).
+- **Cloud ▸ Show Live Cursors** — toggle other editors' live cursors on your canvas (there
+  are none to show until a real-time session can connect).
+- **Cloud ▸ Branching** — open the branch / switch / merge panel.
 
 Each dock entry toggles the matching panel on or off, so you can arrange them alongside the
 layer, timeline, and other workflow docks.
@@ -23,11 +37,12 @@ layer, timeline, and other workflow docks.
 > **One provider-agnostic port — no lock-in.** Just like single-user cloud saves,
 > collaboration never talks to a specific provider directly. Sharing, membership, comments,
 > and presence all go through the **same provider-agnostic interface** (the *cloud port*
-> family), so the app behaves identically regardless of which provider backs it.
+> family), so the app behaves identically regardless of which provider backs it. In this release
+> that interface is served by the built-in in-memory adapter described above.
 
 ## Sharing a project and managing the member roster
 
-Sharing a project is done from the **Shared Projects** panel. Open it with **Cloud →
+Sharing a project is done from the **Shared Projects** panel. Open it with **Cloud ▸
 Shared Projects**.
 
 ### Creating (sharing) a project
@@ -72,7 +87,7 @@ at once.
 
 ## Adding and viewing comments
 
-Comments live on the active shared project. Open the thread with **Cloud → Comments**.
+Comments live on the active shared project. Open the thread with **Cloud ▸ Comments**.
 
 ### Reading the thread
 
@@ -116,11 +131,10 @@ thread for the record.
 ## Seeing who is present
 
 The **Presence** panel shows a live roster of *who is currently present* in the active
-shared project. Open it with **Cloud → Presence**.
+shared project. Open it with **Cloud ▸ Presence**.
 
 1. Enter **your member id** in the presence field.
-2. Click **Join** to announce yourself as present. Your id appears in the *Present members*
-   list.
+2. Click **Join** to announce yourself as present. Your id appears in the list of present members.
 3. Click **Leave** to clear your presence when you step away.
 
 > **Presence is ephemeral.** Presence is **never saved into the project file** or its
@@ -155,10 +169,16 @@ Real-time co-editing applies each participant's edits to **every** peer's canvas
 happen, converging with the same deterministic model as the batch merge above. Edits travel
 through a dedicated **real-time sync backend** (see the operator note at the end).
 
+> **Not connectable in this release.** The desktop app has no real-time connection
+> configured, so **Cloud ▸ Start Real-time…** (after you enter a member id) does not join
+> a session: the status bar shows a message ending in "no real-time transport configured",
+> and no peers, live cursors or late-joiner replay result. The steps below describe how a
+> session works once a connection exists.
+
 ### Starting or joining a session
 
 1. Open the document you want to co-edit (a shared project or any open tab).
-2. Choose **Cloud → Start Real-time…**.
+2. Choose **Cloud ▸ Start Real-time…**.
 3. Enter **your member id** when prompted — this is how peers see you (and it labels your
    live cursor). The app joins the document's real-time relay.
 4. When you connect, the **Show Live Cursors** overlay is switched on automatically.
@@ -167,7 +187,7 @@ Everyone who starts real-time on the **same document** joins the same session. I
 project is open, the session is keyed to that shared project so the whole team converges on
 one document; otherwise it is keyed to your local document.
 
-To leave, choose **Cloud → Stop Real-time**. You can reconnect at any time; leaving clears
+To leave, choose **Cloud ▸ Stop Real-time**. You can reconnect at any time; leaving clears
 the live cursors.
 
 > **Late joiners catch up automatically.** The sync backend **persists** each document's
@@ -185,7 +205,7 @@ the live cursors.
 
 ### Live cursors and selection
 
-While real-time is connected, **Cloud → Show Live Cursors** toggles an overlay that draws
+While real-time is connected, **Cloud ▸ Show Live Cursors** toggles an overlay that draws
 other editors' cursors and selections on your canvas, each labelled with the peer's member
 id.
 
@@ -198,7 +218,7 @@ id.
 Branching lets you fork the current project into an independent line of edits, work on it
 without disturbing the mainline, and **merge** it back with **no manual conflict
 resolution** — the same CRDT/last-writer-wins model that powers convergence merges the two
-lines automatically. Open the panel with **Cloud → Branching**.
+lines automatically. Open the panel with **Cloud ▸ Branching**.
 
 ### Creating a branch
 
@@ -220,7 +240,7 @@ computes the divergence between the branch and mainline once, when it opens, and
 the **Affected regions** — every changed area, reported at a fixed pixel-tile
 granularity so even a one-pixel edit shows as a full tile — plus a supervision warning
 when one applies. The dialog performs no merge itself; from it you choose **Continue to
-merge** (which runs the same merge described below) or **Close** to go back without
+Merge** (which runs the same merge described below) or **Close** to go back without
 merging.
 
 ### Merging a branch
@@ -253,6 +273,8 @@ the real-time transport.
 - Running the backend as a standalone, network-reachable service for a distributed team is a
   **deployment concern** (host, port, and process management), separate from the desktop
   app.
+- The desktop app in this release has no connection configured to a sync backend, so a
+  running backend cannot be joined from the app yet.
 
-Connecting a real cloud provider is covered in the
-[cloud guide](cloud-and-collaboration.md).
+The [cloud guide](cloud-and-collaboration.md) explains that the real cloud providers
+cannot be selected from the Cloud menu in this release.

@@ -14,8 +14,8 @@ the returned ``BatchResult`` (fe311a6). The six tests below that used to patch
 ``export_worker.export_document`` (a name no longer imported into this module —
 patching it now raises ``AttributeError``, confirmed against the shipped code
 this session) are rewritten to patch ``export_worker.run_batch`` and feed it a
-CRAFTED ``BatchResult`` (per the UI implementation's own handoff, §"Open items" in report
-a24fa5e0), proving the worker's own consumption contract: mixed success/failure,
+CRAFTED ``BatchResult`` (per the UI implementation's own handoff, §"Open items" in
+report a24fa5e0), proving the worker's own consumption contract: mixed success/failure,
 order stability, ``write_export`` only on the success branch.
 
 **A genuine regression this rewrite surfaced (kept, not watered down).** The
@@ -39,7 +39,9 @@ exception type outside the three ``run_batch`` now enumerates.
 
 from __future__ import annotations
 
+import logging
 import threading
+from typing import Callable
 
 import pixelart_creator.ui.export_worker as export_worker
 from pixelart_creator.logic.export import (
@@ -49,11 +51,15 @@ from pixelart_creator.logic.export import (
     ExportRequest,
     export_document,
 )
-from pixelart_creator.logic.pixel_buffer import PixelBufferError
 from pixelart_creator.ui.export_worker import (
     Export_Worker,
     ExportTarget,
     ExportWorkerSignals,
+)
+from pixelart_creator.ui.failure_messages import (
+    FailureKind,
+    failure_kind,
+    failure_text,
 )
 from testing.suites.ui._export_helpers import single_frame_document
 
@@ -64,7 +70,7 @@ _FAIL_PIXELBUFFER = "__fail_pixelbuffer__"
 _FAIL_GENERIC = "__fail_generic__"
 
 
-def _crafted_run_batch(failures: dict) -> callable:
+def _crafted_run_batch(failures: dict) -> Callable[..., BatchResult]:
     """Return a fake ``run_batch(document, requests) -> BatchResult``.
 
     Requests tagged in ``failures`` (``{tag: error_message}``) become a
@@ -107,11 +113,17 @@ def _png_target(tmp_path, name, tag=None):
 
 
 def test_d1_invariant_failing_targets_reach_idle_and_batch_continues(
-    qtbot, monkeypatch, export_controller, tmp_path
+    qtbot, monkeypatch, export_controller, tmp_path, caplog
 ):
     """D-1 INVARIANT: two failing ``BatchResult`` targets AND one genuinely
     succeeding target all still reach ``batchFinished`` + ``busyChanged(False)``;
-    the batch continues; the errors are surfaced (never swallowed)."""
+    the batch continues; the errors are surfaced (never swallowed).
+
+    REQ-L10N-UI-018: each failure is surfaced as a sentence of the catalogue, never
+    as the text ``run_batch`` kept; ``run_batch`` hands the interface only that text
+    (no exception class), so the sentence is the generic one, which is true of any
+    failure. The text goes to the log.
+    """
     monkeypatch.setattr(
         export_worker,
         "run_batch",
@@ -137,8 +149,9 @@ def test_d1_invariant_failing_targets_reach_idle_and_batch_continues(
         _png_target(tmp_path, "c.png"),  # index 2 — real, succeeds
     )
 
-    with qtbot.waitSignal(export_controller.batchFinished, timeout=5000):
-        export_controller.submit(doc, targets)
+    with caplog.at_level(logging.WARNING):
+        with qtbot.waitSignal(export_controller.batchFinished, timeout=5000):
+            export_controller.submit(doc, targets)
 
     assert busy_transitions[0] is True
     assert busy_transitions[-1] is False
@@ -153,8 +166,18 @@ def test_d1_invariant_failing_targets_reach_idle_and_batch_continues(
     assert not (tmp_path / "b.png").exists()
 
     messages = {index: msg for index, msg in failed}
-    assert "8192" in messages[0]
-    assert "RuntimeError" in messages[1]
+    sentence = failure_text(FailureKind.GENERIC)
+    for index, kept_text in (
+        (0, "width 8192 exceeds maximum 7680"),
+        (1, "RuntimeError: totally unforeseen"),
+    ):
+        assert messages[index] == sentence
+        assert kept_text not in messages[index]
+    assert "8192" not in messages[0]
+    assert "RuntimeError" not in messages[1]
+    # The detail is logged, so it is not lost to the person who has to diagnose it.
+    assert any("width 8192 exceeds maximum 7680" in m for m in caplog.messages)
+    assert any("RuntimeError: totally unforeseen" in m for m in caplog.messages)
 
 
 def test_d1_invariant_all_targets_failing_still_reaches_finished(
@@ -216,14 +239,20 @@ def test_d1_invariant_unwritable_path_target_is_reported_not_fatal(
 
 
 def test_d1_write_stage_generic_exception_backstop_still_works(
-    qtbot, monkeypatch, export_controller, tmp_path
+    qtbot, monkeypatch, export_controller, tmp_path, caplog
 ):
     """The worker's OWN write-stage ``except Exception`` backstop (line ~191,
     UNCHANGED by D-15 — ``run_batch`` never touches the filesystem) still
-    isolates a totally unforeseen exception raised from ``write_export``."""
+    isolates a totally unforeseen exception raised from ``write_export``.
+
+    REQ-L10N-UI-018: the user is shown the sentence for the failure's kind, not the
+    exception's type name or message; both go to the log.
+    """
+    disk_error = MemoryError("disk cache exhausted")
+    expected = failure_text(failure_kind(disk_error))
 
     def _boom(_result, _path):
-        raise MemoryError("disk cache exhausted")
+        raise disk_error
 
     monkeypatch.setattr(export_worker, "write_export", _boom)
     doc = single_frame_document()
@@ -231,12 +260,17 @@ def test_d1_write_stage_generic_exception_backstop_still_works(
     failed: list[str] = []
     export_controller.targetFailed.connect(lambda _i, m: failed.append(m))
 
-    with qtbot.waitSignal(export_controller.batchFinished, timeout=5000):
-        export_controller.submit(doc, (_png_target(tmp_path, "a.png"),))
+    with caplog.at_level(logging.WARNING):
+        with qtbot.waitSignal(export_controller.batchFinished, timeout=5000):
+            export_controller.submit(doc, (_png_target(tmp_path, "a.png"),))
 
     assert export_controller.is_busy() is False
     assert len(failed) == 1
-    assert "MemoryError" in failed[0]
+    assert failed[0] == expected
+    assert "MemoryError" not in failed[0]
+    assert "disk cache exhausted" not in failed[0]
+    logged = [str(record.exc_info[1]) for record in caplog.records if record.exc_info]
+    assert "disk cache exhausted" in logged
 
 
 def test_d1_regression_unforeseen_export_exception_no_longer_isolated_per_target(

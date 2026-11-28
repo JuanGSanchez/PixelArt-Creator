@@ -24,7 +24,8 @@ por esta capa.
 
 ## Vista previa a tamaño real
 
-La ventana de **vista previa a tamaño real** muestra tu documento en su
+El panel **Vista a tamaño real** (su ventana se titula **Vista previa a tamaño real**)
+muestra tu documento en su
 **tamaño físico real**, para que puedas juzgar cómo se verá realmente un
 sprite o un icono.
 
@@ -144,7 +145,7 @@ de detalle con zoom junto a una vista general ajustada a la ventana.
 
 ## Grabación de timelapse
 
-Abre el panel **Timelapse** desde **Ayudas visuales -> Timelapse** para grabar y
+Abre el panel **Timelapse** desde **Ayudas visuales ▸ Timelapse** para grabar y
 reproducir un timelapse de tu sesión de edición, y así compartir cómo se
 hizo una pieza.
 
@@ -153,7 +154,7 @@ hizo una pieza.
   de nuevo para detener.
 - Grabar es **estado de vista/sesión** — nunca es deshacible y nunca cambia
   el documento.
-- **Guardar timelapse / Abrir timelapse** la sesión como un archivo `.pixtimelapse`. La sesión
+- **Guardar… / Abrir…** la sesión como un archivo `.pixtimelapse` (los botones abren los cuadros de diálogo de archivo **Guardar timelapse** y **Abrir timelapse**). La sesión
   almacena un manifiesto ordenado de **referencias de comandos, no
   píxeles**, así que se mantiene pequeña y **se reproduce de forma
   determinista**: la misma sesión grabada reproducida dos veces produce la

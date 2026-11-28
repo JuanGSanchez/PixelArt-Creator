@@ -1,0 +1,7 @@
+# The no-entry class, recorded by an acceptance run. Written by the check only.
+run: 20261121T034136Z-db098933d4aa
+jp-set: count=627 sha256=f83a487c5da87193fb41a565d7e30ebad30dad67c1128b4361b859dd38ca092d
+joyo-list: name=joyo-2010.txt bytes=10010 sha256=60a6e9b686ea1673a8b44c3e17b459269957572ad5a9b773a0234d56c6f81d85
+hyogai-list: name=hyogai-2000-checked.txt bytes=7844 sha256=107d793f644732a5a1afd4081315d26db20d66cc9138dbeb8d2718d3169f910b unchecked=206
+CLASS U+68B1 梱
+CLASS U+77E9 矩

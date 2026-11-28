@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import enum
 import json
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from io import BytesIO
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -643,12 +643,23 @@ class BatchTargetResult:
     ``index`` is the target's position in the original ``requests`` sequence
     (ADR-0019 deterministic order), so a caller can correlate a result back to
     the request it built, even after filtering successes/failures apart.
+
+    ``caught_exception`` holds the exception object a failing target raised
+    (``None`` for a success), so a caller can classify the failure by its class
+    instead of parsing ``error``. Its traceback is dropped
+    (``exc.with_traceback(None)``) so a stored result keeps no stack frames
+    alive. The field is declared ``compare=False`` and ``repr=False``: two
+    results that differ only in it compare equal, and it does not appear in
+    the ``repr``. ``error`` is unchanged and stays the text form.
     """
 
     index: int
     request: ExportRequest
     result: Optional[ExportResult] = None
     error: Optional[str] = None
+    caught_exception: Optional[Exception] = field(
+        default=None, compare=False, repr=False
+    )
 
     @property
     def success(self) -> bool:
@@ -723,13 +734,21 @@ def run_batch(document: Document, requests: Sequence[ExportRequest]) -> BatchRes
         try:
             result = export_document(document, request)
         except (ExportError, AtlasError, PixelBufferError) as exc:
-            targets.append(BatchTargetResult(index=i, request=request, error=str(exc)))
+            targets.append(
+                BatchTargetResult(
+                    index=i,
+                    request=request,
+                    error=str(exc),
+                    caught_exception=exc.with_traceback(None),
+                )
+            )
         except Exception as exc:  # noqa: BLE001 — intentional per-target backstop
             targets.append(
                 BatchTargetResult(
                     index=i,
                     request=request,
                     error=f"{type(exc).__name__}: {exc}",
+                    caught_exception=exc.with_traceback(None),
                 )
             )
         else:

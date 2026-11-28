@@ -17,12 +17,12 @@ executed (Article VII); the guide is fully offline (no network object exists).
 
 from __future__ import annotations
 
-from typing import Dict
+import logging
+from typing import Dict, cast
 
-import pytest
 from PySide6.QtCore import QEvent, Qt, QUrl
 from PySide6.QtGui import QKeyEvent, QKeySequence
-from PySide6.QtWidgets import QApplication, QListWidget, QTextBrowser, QTreeWidget
+from PySide6.QtWidgets import QApplication, QTextBrowser, QTreeWidget
 
 from pixelart_creator.data.guide_content import GuideContentError
 from pixelart_creator.logic.guide_model import (
@@ -35,6 +35,7 @@ from pixelart_creator.logic.guide_model import (
     content_ref_path,
     missing_required_areas,
 )
+from pixelart_creator.ui.failure_messages import failure_kind, failure_text
 from pixelart_creator.ui.main_window import Main_Window
 from pixelart_creator.ui.user_guide import User_Guide_Dialog
 
@@ -252,18 +253,33 @@ def test_sc_u005_2b_external_link_is_a_noop(qtbot):
         assert dialog.current_topic_id() == "layers"  # unchanged, no navigation
 
 
-def test_sc_u005_3_content_load_error_surfaces_message_no_crash(qtbot):
-    """SC-U005-3: a content-load error surfaces a user-facing message, not a crash."""
+def test_sc_u005_3_content_load_error_surfaces_message_no_crash(qtbot, caplog):
+    """SC-U005-3: a content-load error surfaces a user-facing message, not a crash.
+
+    REQ-L10N-UI-018: the pane shows the frame sentence and the sentence for the
+    failure's kind in the active language, and nothing of the exception: neither its
+    message nor its type name. The detail is logged.
+    """
+    refs_asked: list = []
 
     def _raising_reader(ref: str) -> str:
+        refs_asked.append(ref)
         raise GuideContentError(f"boom: {ref}")
 
-    dialog = _make_dialog(qtbot, reader=_raising_reader)
+    with caplog.at_level(logging.WARNING):
+        dialog = _make_dialog(qtbot, reader=_raising_reader)
     # No exception was raised building/showing; the pane holds the error message
     # rendered as PLAIN text (never interpreted as markup).
     text = dialog._content_view.toPlainText()
+    assert refs_asked, "the failing reader must have been asked for a topic"
+    detail = f"boom: {refs_asked[0]}"
     assert "Could not load this topic" in text
-    assert "boom" in text
+    assert failure_text(failure_kind(GuideContentError(detail))) in text
+    assert "boom" not in text
+    assert detail not in text
+    assert "GuideContentError" not in text
+    logged = [str(record.exc_info[1]) for record in caplog.records if record.exc_info]
+    assert detail in logged
 
 
 def test_sc_u005_3b_malformed_bundle_degrades_to_error_screen(qtbot, monkeypatch):
@@ -603,7 +619,7 @@ def _heading_dialog(qtbot, *, pixel_font: bool) -> User_Guide_Dialog:
 
     app_font.capture_platform_font()
     assert app_font.register_app_fonts(), "the bundled Nifen Art face did not register"
-    app_font.apply_interface_font(QApplication.instance(), False)
+    app_font.apply_interface_font(cast(QApplication, QApplication.instance()), False)
     dialog = _make_dialog(
         qtbot,
         reader=lambda ref: _HEADING_PAGE,
@@ -618,7 +634,8 @@ def _heading_dialog(qtbot, *, pixel_font: bool) -> User_Guide_Dialog:
 
 
 def _page_blocks(dialog: User_Guide_Dialog):
-    """Return ``(heading level, line height, natural width, fragment formats)`` per block."""
+    """Return ``(heading level, line height, natural width, fragment formats)`` per
+    block."""
     out = []
     block = dialog._content_view.document().begin()
     while block.isValid():
@@ -643,17 +660,32 @@ def _page_blocks(dialog: User_Guide_Dialog):
 
 
 def _is_crisp(fmt) -> bool:
-    """Whether a fragment's format asks for no smoothing (read from the property)."""
+    """Whether a fragment's format asks for no smoothing (read from the property).
+
+    The interface font carries a family-chain tag in its style strategy beside the
+    no-smoothing request, so the strategy is read with the tag bits cleared and what
+    is left must be the no-smoothing request alone. The tag bits are the product's
+    (``app_font._CHAIN_TAG_MASK``), never a literal written here.
+    """
     from PySide6.QtGui import QFont, QTextFormat
 
+    from pixelart_creator.ui import app_font
+
     value = fmt.property(QTextFormat.Property.FontStyleStrategy)
-    return value == QFont.StyleStrategy.NoAntialias.value
+    if value is None:
+        return False
+    strategy = int(getattr(value, "value", value))
+    return (
+        strategy & ~int(app_font._CHAIN_TAG_MASK.value)
+        == QFont.StyleStrategy.NoAntialias.value
+    )
 
 
 def test_vi_ui_013_headings_are_on_the_em_grid_and_stay_crisp_with_the_pixel_font(
     qtbot, theme, capsys
 ):
-    """REQ-VI-UI-013: with the pixel font on, headings are 24/24/12/12 px and unsmoothed.
+    """REQ-VI-UI-013: with the pixel font on, headings are 24/24/12/12 px and
+    unsmoothed.
 
     Measured on the laid-out page, not on a format's own ``font()`` (which fills in
     defaults and misreads): the line height of each heading (28/28/14/14 for a
@@ -680,7 +712,8 @@ def test_vi_ui_013_headings_are_on_the_em_grid_and_stay_crisp_with_the_pixel_fon
         font.setWeight(QFont.Weight.Bold)
         expected_width = QFontMetricsF(font).horizontalAdvance("Hh")
         print(
-            f"[{theme}] h{level}: line {height} px, width {width:.1f} (expect {expected_width:.1f})"
+            f"[{theme}] h{level}: line {height} px, width {width:.1f} "
+            f"(expect {expected_width:.1f})"
         )
         assert px % em == 0
         assert (
@@ -704,7 +737,8 @@ def test_vi_ui_013_headings_are_on_the_em_grid_and_stay_crisp_with_the_pixel_fon
     assert all(f.font().family() != app_font.NIFEN_ART_FAMILY for f in code_formats)
     with capsys.disabled():
         print(
-            f"\n[guide] headings examined {len(headings)}, code faces {len(code_formats)}",
+            f"\n[guide] headings examined {len(headings)}, "
+            f"code faces {len(code_formats)}",
             flush=True,
         )
 
@@ -732,10 +766,47 @@ def test_vi_ui_013_a_fresh_font_would_lose_the_no_smoothing_request(qtbot):
     assert _is_crisp(bad) is False
 
 
+def test_vi_ui_013_a_tag_without_the_no_smoothing_request_is_not_crisp(qtbot):
+    """Control: a font that carries a family-chain tag and no no-smoothing request
+    is read as smoothed.
+
+    The reading used above clears the tag bits before it looks at the strategy, so it
+    must not pass on the tag alone. The interface font carries a tag and the
+    no-smoothing request; the same font with the request taken off still carries the
+    tag (read back here, so the control cannot be vacuous) and reads as smoothed.
+    """
+    from PySide6.QtGui import QFont, QTextCharFormat, QTextFormat
+
+    from pixelart_creator.ui import app_font
+
+    mask = int(app_font._CHAIN_TAG_MASK.value)
+    no_smoothing = QFont.StyleStrategy.NoAntialias.value
+    crisp_font = app_font.interface_font()
+    crisp_font.setPixelSize(24)
+    tagged = QFont(crisp_font)
+    tagged.setStyleStrategy(
+        crisp_font.styleStrategy() & ~QFont.StyleStrategy.NoAntialias
+    )
+    strategy = int(tagged.styleStrategy().value)
+    assert strategy & mask, "the control font carries no chain tag"
+    assert not strategy & no_smoothing, "the control font still asks for no smoothing"
+    smoothed = QTextCharFormat()
+    smoothed.setFont(tagged)
+    assert (
+        smoothed.property(QTextFormat.Property.FontStyleStrategy) == strategy
+    ), "the strategy did not reach the format's property"
+    assert _is_crisp(smoothed) is False
+    crisp = QTextCharFormat()
+    crisp.setFont(crisp_font)
+    assert int(crisp_font.styleStrategy().value) & mask, "the crisp font has no tag"
+    assert _is_crisp(crisp) is True
+
+
 def test_vi_ui_013_headings_keep_qts_own_sizes_while_the_pixel_font_is_off(
     qtbot, theme
 ):
-    """With the switch off nothing is rounded: four different line heights, no forced font."""
+    """With the switch off nothing is rounded: four different line heights, no forced
+    font."""
     dialog = _heading_dialog(qtbot, pixel_font=False)
     assert dialog.page_uses_pixel_font() is False
     headings = [b for b in _page_blocks(dialog) if b[0] > 0]
@@ -748,7 +819,8 @@ def test_vi_ui_013_headings_keep_qts_own_sizes_while_the_pixel_font_is_off(
 
 
 def test_vi_ui_017_turning_the_switch_on_and_off_re_sets_the_headings(qtbot, theme):
-    """Toggling the switch re-renders the page: 28/28/14/14 with it on, Qt's own sizes off."""
+    """Toggling the switch re-renders the page: 28/28/14/14 with it on, Qt's own sizes
+    off."""
     dialog = _heading_dialog(qtbot, pixel_font=False)
     off = [b[1] for b in _page_blocks(dialog) if b[0] > 0]
     dialog._logo_switch.click()

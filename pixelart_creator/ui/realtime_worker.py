@@ -47,6 +47,7 @@ from typing import Callable, Optional, Tuple
 
 from PySide6.QtCore import QObject, Signal
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.cloud.transport import TransportPort
 
 #: Builds a fresh :class:`TransportPort` on connect, called **on the worker thread**.
@@ -81,7 +82,8 @@ class RealtimeWorkerSignals(QObject):
     frameReceived = Signal(str, object)
     #: ``(connected,)`` — the worker joined (``True``) the document's relay.
     connectionChanged = Signal(bool)
-    #: ``(message,)`` — the worker hit a transport error (surfaced, never a crash).
+    #: ``(kind,)`` — the worker hit a transport error (surfaced, never a crash); the
+    #: payload is a ``FailureKind`` value, translated on the GUI thread.
     failed = Signal(str)
     #: emitted once when the worker loop has fully exited (thread is ending).
     stopped = Signal()
@@ -122,7 +124,8 @@ def _run_worker(
     except Exception as exc:  # noqa: BLE001 - deliberate worker backstop
         # Any transport/connect failure surfaces as a message; it never crashes the
         # app and never re-raises through Qt.
-        signals.failed.emit(f"{type(exc).__name__}: {exc}")
+        failure_messages.log_failure(exc)
+        signals.failed.emit(failure_messages.failure_kind(exc).value)
     finally:
         _teardown_transport(transport, document_id)
         signals.stopped.emit()
@@ -161,7 +164,8 @@ def _dispatch_one(
         elif kind == "presence":
             transport.send_presence(document_id, payload)
     except Exception as exc:  # noqa: BLE001 - a bad send must not kill the loop
-        signals.failed.emit(f"{type(exc).__name__}: {exc}")
+        failure_messages.log_failure(exc)
+        signals.failed.emit(failure_messages.failure_kind(exc).value)
 
 
 def _poll_inbound(
@@ -204,8 +208,10 @@ class Realtime_Client(QObject):
     frameReceived = Signal(str, object)
     #: ``(connected,)`` — the real-time connection state changed.
     connectionChanged = Signal(bool)
-    #: ``(message,)`` — a transport error occurred (surfaced to the user).
-    errorOccurred = Signal(str)
+    #: ``(message, is_failure)`` — a transport error occurred (surfaced to the user).
+    #: ``is_failure`` is ``True`` for a failure sentence and ``False`` for a reason that
+    #: is not one (no transport configured); the status bar frames the two differently.
+    errorOccurred = Signal(str, bool)
 
     def __init__(
         self,
@@ -246,7 +252,8 @@ class Realtime_Client(QObject):
         if self._signals is None or self.is_active():
             return
         if self._factory is None:
-            self.errorOccurred.emit("no real-time transport configured")
+            reason = self.tr("no real-time transport configured")
+            self.errorOccurred.emit(reason, False)
             return
         self._document_id = document_id
         self._stop = threading.Event()
@@ -328,7 +335,8 @@ class Realtime_Client(QObject):
         self.connectionChanged.emit(connected)
 
     def _on_failed(self, message: str) -> None:
-        self.errorOccurred.emit(message)
+        sentence = failure_messages.failure_text(failure_messages.FailureKind(message))
+        self.errorOccurred.emit(sentence, True)
 
 
 def make_loopback_factory() -> Tuple[object, TransportFactory]:

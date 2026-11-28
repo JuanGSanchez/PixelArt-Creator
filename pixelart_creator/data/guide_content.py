@@ -8,7 +8,11 @@ It locates the bundle root via :func:`importlib.resources.files` (portable acros
 source tree, a wheel, and a zip — no hardcoded separators, ``path_portability_check``),
 reads and validates ``manifest.json`` into a
 :class:`~pixelart_creator.logic.guide_model.Manifest`, and reads a manifest-known
-per-topic Markdown resource as **text**.
+per-topic Markdown resource as **text**. It also reports which locales hold a given
+topic's page (:func:`topic_locales`, ``REQ-L10N-UI-007``) and reads one language's
+``content/<lang>/meta.json`` into a
+:class:`~pixelart_creator.logic.guide_model.LocaleMeta`
+(:func:`load_locale_meta`, ``REQ-L10N-UI-008``; schema in ``REQ-L10N-DATA-003``).
 
 Security posture (Article VII / REQ-UG-DATA-003): **no network access, ever**;
 content is returned as text/markup and is **never** passed to ``eval``/``exec``; a
@@ -24,16 +28,21 @@ crash. This module imports only from ``logic`` (the domain types) — never from
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from importlib import resources
 from importlib.resources.abc import Traversable
+from types import MappingProxyType
 from typing import Any
 
 from pixelart_creator.logic.constants import GUIDE_MAX_CONTENT_BYTES
 from pixelart_creator.logic.guide_model import (
     CONTENT_DIR_NAME,
+    GuideModel,
     GuideSection,
     GuideTopic,
+    LocaleMeta,
     Manifest,
+    content_ref_path,
 )
 
 __all__ = [
@@ -42,7 +51,11 @@ __all__ = [
     "load_manifest",
     "read_content",
     "available_locales",
+    "topic_locales",
+    "topic_locale_map",
+    "load_locale_meta",
     "BUNDLE_PACKAGE",
+    "META_FILE_NAME",
     "BUNDLE_DIR_NAME",
     "MANIFEST_FILE_NAME",
 ]
@@ -56,6 +69,10 @@ BUNDLE_DIR_NAME = "userguide_content"
 
 #: The discovery/ordering manifest file name at the bundle root.
 MANIFEST_FILE_NAME = "manifest.json"
+
+#: The per-locale metadata file name inside ``content/<locale>/`` (titles, summaries
+#: and keywords of one language; English lives in the manifest).
+META_FILE_NAME = "meta.json"
 
 #: Logical resource-path separator for a bundle content reference (forward slash —
 #: the importlib.resources convention; never an OS separator).
@@ -90,20 +107,22 @@ def _require(condition: bool, message: str) -> None:
         raise GuideContentError(message)
 
 
-def _as_str(value: Any, field: str) -> str:
+def _as_str(value: Any, field: str, source: str = "guide manifest") -> str:
     """Return ``value`` as a non-empty ``str`` or raise ``GuideContentError``."""
     _require(
         isinstance(value, str) and bool(value.strip()),
-        f"guide manifest field {field!r} must be a non-empty string",
+        f"{source} field {field!r} must be a non-empty string",
     )
     return value
 
 
-def _as_str_tuple(value: Any, field: str) -> tuple[str, ...]:
+def _as_str_tuple(
+    value: Any, field: str, source: str = "guide manifest"
+) -> tuple[str, ...]:
     """Return ``value`` as a tuple of strings or raise ``GuideContentError``."""
     _require(
         isinstance(value, list) and all(isinstance(item, str) for item in value),
-        f"guide manifest field {field!r} must be a list of strings",
+        f"{source} field {field!r} must be a list of strings",
     )
     return tuple(value)
 
@@ -216,6 +235,38 @@ def _guard_ref(content_ref: str) -> tuple[str, ...]:
     return segments
 
 
+def _resolve(content_ref: str) -> Traversable:
+    """Return the bundle node for ``content_ref`` after the bundle-root path guard."""
+    node: Traversable = bundle_root()
+    for segment in _guard_ref(content_ref):
+        node = node / segment
+    return node
+
+
+def _read_bounded_text(node: Traversable, content_ref: str, noun: str) -> str:
+    """Return the UTF-8 text of file ``node``, size-guarded before decode.
+
+    ``noun`` names the kind of resource in the error messages. Raises
+    :class:`GuideContentError` if the node is not a file, is unreadable, exceeds
+    :data:`~pixelart_creator.logic.constants.GUIDE_MAX_CONTENT_BYTES`, or is not valid
+    UTF-8 (Article VII).
+    """
+    if not node.is_file():
+        raise GuideContentError(f"{noun} not found: {content_ref!r}")
+    try:
+        raw = node.read_bytes()
+    except OSError as exc:
+        raise GuideContentError(f"{noun} not readable: {content_ref!r}: {exc}") from exc
+    if len(raw) > GUIDE_MAX_CONTENT_BYTES:
+        raise GuideContentError(
+            f"{noun} exceeds {GUIDE_MAX_CONTENT_BYTES} bytes: {content_ref!r}"
+        )
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise GuideContentError(f"{noun} is not valid UTF-8: {content_ref!r}") from exc
+
+
 def read_content(content_ref: str) -> str:
     """Return the bundled Markdown text for a manifest-known ``content_ref``.
 
@@ -236,28 +287,7 @@ def read_content(content_ref: str) -> str:
         GuideContentError: If the ref fails the path guard, the resource is
             missing/unreadable, or its byte length exceeds the size guard.
     """
-    segments = _guard_ref(content_ref)
-    node: Traversable = bundle_root()
-    for segment in segments:
-        node = node / segment
-    if not node.is_file():
-        raise GuideContentError(f"guide content not found: {content_ref!r}")
-    try:
-        raw = node.read_bytes()
-    except OSError as exc:
-        raise GuideContentError(
-            f"guide content not readable: {content_ref!r}: {exc}"
-        ) from exc
-    if len(raw) > GUIDE_MAX_CONTENT_BYTES:
-        raise GuideContentError(
-            f"guide content exceeds {GUIDE_MAX_CONTENT_BYTES} bytes: {content_ref!r}"
-        )
-    try:
-        return raw.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise GuideContentError(
-            f"guide content is not valid UTF-8: {content_ref!r}"
-        ) from exc
+    return _read_bounded_text(_resolve(content_ref), content_ref, "guide content")
 
 
 def available_locales() -> frozenset[str]:
@@ -272,3 +302,140 @@ def available_locales() -> frozenset[str]:
     if not content_root.is_dir():
         return frozenset()
     return frozenset(child.name for child in content_root.iterdir() if child.is_dir())
+
+
+def topic_locales(content_ref: str) -> frozenset[str]:
+    """Return the locales whose content tree holds the page for ``content_ref``.
+
+    Per-topic availability (``REQ-L10N-UI-007``): a locale is in the set only when
+    ``content/<locale>/<content_ref>.md`` exists, not merely when the locale folder
+    does. Passed as ``available_locales`` to
+    :func:`pixelart_creator.logic.guide_model.resolve_content_ref`, it makes a folder
+    that lacks one page fall back to English for that page only. Deterministic; a
+    missing content directory yields the empty set.
+
+    Args:
+        content_ref: The manifest's content stem for the topic (no locale, no suffix).
+
+    Returns:
+        The locale codes that hold the topic's page.
+
+    Raises:
+        GuideContentError: If ``content_ref`` fails the bundle-root path guard.
+    """
+    return frozenset(
+        locale
+        for locale in available_locales()
+        if _resolve(content_ref_path(content_ref, locale)).is_file()
+    )
+
+
+def topic_locale_map(model: GuideModel) -> dict[str, frozenset[str]]:
+    """Return ``{topic id: topic_locales(content stem)}`` for every topic of ``model``.
+
+    The precomputed per-topic availability the viewer hands to the resolver
+    (``REQ-L10N-UI-007``).
+
+    Raises:
+        GuideContentError: If a topic's content stem fails the path guard.
+    """
+    return {topic.id: topic_locales(topic.content_ref) for topic in model.topics()}
+
+
+def _entry(raw: Any, where: str) -> dict[str, Any]:
+    """Return ``raw`` as a ``dict`` or raise ``GuideContentError``."""
+    _require(isinstance(raw, dict), f"guide locale metadata {where} must be an object")
+    return dict(raw)
+
+
+def _collect(
+    entries: dict[str, Any],
+    group: str,
+    field: str,
+    convert: Callable[[Any, str, str], Any],
+) -> dict[str, Any]:
+    """Map each entry id to its validated ``field`` value, skipping absent fields."""
+    out: dict[str, Any] = {}
+    for item_id, raw in entries.items():
+        where = f"{group}[{item_id!r}]"
+        entry = _entry(raw, where)
+        if field in entry:
+            out[item_id] = convert(
+                entry[field], f"{where}.{field}", "guide locale metadata"
+            )
+    return out
+
+
+def load_locale_meta(locale: str) -> LocaleMeta | None:
+    """Read and validate ``content/<locale>/meta.json`` into a :class:`LocaleMeta`.
+
+    Applies the same Article VII guards as :func:`read_content`: the bundle-root path
+    guard (on the locale code), the size guard
+    (:data:`~pixelart_creator.logic.constants.GUIDE_MAX_CONTENT_BYTES`, checked before
+    decode) and a strict UTF-8 decode; the text is parsed as JSON data and never
+    executed. **No network access.** Schema (``REQ-L10N-DATA-003``)::
+
+        {"schema_version": 1, "locale": "ko",
+         "sections": {"<section-id>": {"title": "..."}},
+         "topics": {"<topic-id>": {"title": "...", "summary": "...", "keywords": []}}}
+
+    Every title, summary and keyword list is optional per entry (an absent one falls
+    back to English at lookup); a field that is present must be well formed. Ids are
+    not checked against the manifest here: unknown ids are never looked up, and id
+    parity is the locale parity check's duty.
+
+    Args:
+        locale: The language code (the ``content/<locale>/`` folder name).
+
+    Returns:
+        The metadata, or ``None`` when that locale ships no ``meta.json`` (English,
+        which has none, and any tree that has not gained one yet).
+
+    Raises:
+        GuideContentError: If ``locale`` fails the path guard, or the file is
+            unreadable, oversized, not UTF-8, not JSON, or fails the schema check.
+    """
+    _require(
+        len(_guard_ref(locale)) == 1,
+        f"guide locale code must be one plain name: {locale!r}",
+    )
+    ref = _REF_SEP.join((CONTENT_DIR_NAME, locale, META_FILE_NAME))
+    node = _resolve(ref)
+    if not node.is_file():
+        return None
+    try:
+        data = json.loads(_read_bounded_text(node, ref, "guide locale metadata"))
+    except json.JSONDecodeError as exc:
+        raise GuideContentError(
+            f"guide locale metadata is not valid JSON: {ref!r}: {exc}"
+        ) from exc
+    _require(
+        isinstance(data, dict),
+        f"guide locale metadata root must be a JSON object: {ref!r}",
+    )
+    schema_version = data.get("schema_version")
+    _require(
+        isinstance(schema_version, int) and not isinstance(schema_version, bool),
+        f"guide locale metadata 'schema_version' must be an integer: {ref!r}",
+    )
+    declared = _as_str(data.get("locale"), "locale", "guide locale metadata")
+    _require(
+        declared == locale,
+        f"guide locale metadata declares {declared!r}, expected {locale!r}",
+    )
+    sections = _entry(data.get("sections", {}), "'sections'")
+    topics = _entry(data.get("topics", {}), "'topics'")
+    return LocaleMeta(
+        locale=locale,
+        schema_version=schema_version,
+        section_titles=MappingProxyType(
+            _collect(sections, "sections", "title", _as_str)
+        ),
+        topic_titles=MappingProxyType(_collect(topics, "topics", "title", _as_str)),
+        topic_summaries=MappingProxyType(
+            _collect(topics, "topics", "summary", _as_str)
+        ),
+        topic_keywords=MappingProxyType(
+            _collect(topics, "topics", "keywords", _as_str_tuple)
+        ),
+    )

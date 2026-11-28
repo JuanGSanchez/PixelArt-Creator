@@ -61,6 +61,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.color import CHANNEL_MAX, RGBA, to_hex
 from pixelart_creator.logic.color_theory import (
     analogous,
@@ -369,6 +370,7 @@ class Colour_Wheel_Widget(QWidget):
         )
 
         self._preview = QLabel(self)
+        self._preview_hex: Optional[str] = None
         self._hex_label = QLabel(self)
 
         # Pre-created harmony swatch groups (updated in place on every change so
@@ -396,6 +398,7 @@ class Colour_Wheel_Widget(QWidget):
 
     def _make_spin(self, maximum: int, slot, accessible_name: str) -> QSpinBox:
         spin = QSpinBox(self)
+        spin.setLocale(i18n.current_formatting_locale())
         spin.setRange(0, maximum)
         spin.valueChanged.connect(slot)
         # Named at construction (not only in `_retranslate`) so the control is
@@ -551,9 +554,15 @@ class Colour_Wheel_Widget(QWidget):
         self._preview.setPixmap(pixmap)
         hex_text = to_hex(rgba, with_alpha=False)
         self._hex_label.setText(hex_text)
-        self._preview.setAccessibleName(
-            self.tr("Current colour %1").replace("%1", hex_text)
-        )
+        self._preview_hex = hex_text
+        self._retranslate_preview_name()
+
+    def _retranslate_preview_name(self) -> None:
+        """Re-set the preview's accessible name from the colour on show."""
+        if self._preview_hex is None:
+            return
+        template = self.tr("Current colour %1")
+        self._preview.setAccessibleName(template.replace("%1", self._preview_hex))
 
     def _update_harmonies(self, rgba: RGBA) -> None:
         # Harmony MATHS live in logic/color_theory (C1); recomputed every change.
@@ -616,6 +625,7 @@ class Colour_Wheel_Widget(QWidget):
 
     def _retranslate(self) -> None:
         self.setAccessibleName(self.tr("Colour wheel picker"))
+        self._retranslate_preview_name()
         self._value_label.setText(self.tr("Value"))
         self._value_slider.setAccessibleName(self.tr("Brightness value"))
         self._lbl_r.setText(self.tr("R"))

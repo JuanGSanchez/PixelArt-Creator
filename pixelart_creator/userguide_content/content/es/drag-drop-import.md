@@ -3,7 +3,7 @@
 Arrastra un archivo directamente desde el explorador de archivos de tu sistema
 operativo (Explorador de Windows, Finder de macOS, Nautilus de Linux) **hacia** la
 ventana de PixelArt Creator y hará lo obvio para ese tipo de archivo. No hay que pasar
-por Archivo ▸ Abrir — suéltalo en cualquier parte de la ventana y la aplicación lo
+por Archivo ▸ Abrir… — suéltalo en cualquier parte de la ventana y la aplicación lo
 enruta **por tipo de archivo**, no por dónde en la ventana lo soltaste.
 
 > **El enrutamiento es por tipo, nunca por el lugar donde sueltas.** Una imagen
@@ -57,8 +57,8 @@ Suelta un archivo de paleta **`.gpl` (GIMP), `.hex` (lista hexadecimal plana) o 
   efecto, con un breve aviso.
 
 > **¿Qué formatos de paleta?** El conjunto de paletas admitidas son los formatos de
-> **texto** habituales en pixel art: `.gpl`, `.hex` y `.pal`. Los formatos binarios de
-> Adobe **`.aco`** y **`.aseprite`** **aún no están soportados** — se informan como un
+> **texto** habituales en pixel art: `.gpl`, `.hex` y `.pal`. Los formatos binarios
+> **`.aco`** (Adobe) y **`.aseprite`** (el formato propio de Aseprite) **aún no están soportados** — se informan como un
 > tipo no compatible por ahora.
 
 ## Soltar varios archivos a la vez
@@ -93,7 +93,7 @@ legibles en ambos temas, claro y oscuro.
 - **Importar como capa** — una imagen siempre se abre como un documento nuevo, nunca
   como una capa en el actual.
 - **Importación indexada** de una imagen de origen paletizada — las imágenes se
-  descodifican a RGBA; aplica *Convertir a indexado* después (consulta
+  descodifican a RGBA; aplica **Paleta ▸ Convertir a indexado** después (consulta
   [Capas](layers.md)) si quieres un documento indexado.
 - **Importación de GIF animado** — solo se importa el primer fotograma.
 - El lado de **exportación / guardado** de la canalización — consulta

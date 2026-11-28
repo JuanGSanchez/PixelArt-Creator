@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Final, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
+import shiboken6
 from PySide6.QtCore import (
     QEvent,
     QObject,
@@ -37,6 +38,7 @@ from PySide6.QtGui import (
     QCursor,
     QDragEnterEvent,
     QDropEvent,
+    QFont,
     QGuiApplication,
     QIcon,
     QImage,
@@ -47,10 +49,12 @@ from PySide6.QtGui import (
     QUndoStack,
 )
 from PySide6.QtWidgets import (
+    QAbstractButton,
     QApplication,
     QComboBox,
     QDialog,
     QDockWidget,
+    QDoubleSpinBox,
     QFileDialog,
     QGraphicsScene,
     QGridLayout,
@@ -68,6 +72,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.logic.font_chain as font_chain
+import pixelart_creator.logic.language_names as language_names
+import pixelart_creator.ui.failure_messages as failure_messages
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.data.asset_cas import default_content_store
 from pixelart_creator.data.asset_decision_journal import (
     JOURNAL_FILENAME,
@@ -154,8 +162,11 @@ from pixelart_creator.logic.version_history import CloudVersion
 from pixelart_creator.ui.about_dialog import About_Dialog
 from pixelart_creator.ui.app_font import (
     apply_interface_font,
+    chain_font,
     ensure_interface_font,
     prepare_interface_font,
+    primary_holds_cjk,
+    role_base_font,
 )
 from pixelart_creator.ui.app_icon import app_icon
 from pixelart_creator.ui.appearance_settings import (
@@ -385,6 +396,15 @@ _COLOUR_CONSUMING_TOOL_IDS = frozenset(
 #: promoted to logic/constants.py (a logic-layer surface) as e.g.
 #: ``WORKFLOW_DOCK_MIN_WIDTH_PX`` rather than reached into from here.
 _WORKFLOW_DOCK_MIN_WIDTH_PX = 220
+
+#: Object names Qt gives a dock's two title-bar buttons. Qt builds their
+#: accessible names and descriptions from its own catalogue and does not keep
+#: them current across a language switch, so ``Main_Window`` reads the active
+#: texts from a fresh dock and sets them on every dock it holds.
+_DOCK_TITLE_BUTTON_OBJECT_NAMES = (
+    "qt_dockwidget_closebutton",
+    "qt_dockwidget_floatbutton",
+)
 
 #: FIX 3 (2026-08-24 field defect). Bound on ``Main_Window._settle_width()``'s
 #: event-flush loop (presentation-only startup timing, not a domain tuning
@@ -1238,7 +1258,17 @@ class Main_Window(QMainWindow):
         apply_theme(self._app, self._theme, self._style)
         ensure_interface_font(self._app, self._appearance.use_system_font)
         self.useSystemFontChanged.connect(self._on_use_system_font_changed)
+        # The family chains follow the interface language (REQ-L10N-UI-009..012);
+        # connected before the first install so the start-up language is chained.
+        self._language_manager.languageChanged.connect(self._on_language_chains)
+        # Connected before the first install too, so docks built before the
+        # start-up language was installed are named in it.
+        self._language_manager.languageChanged.connect(self._on_language_dock_buttons)
         self._language_manager.install_from_locale()
+        # Fields the panels built above took the manager's initial formatting
+        # locale; give them the installed language's (REQ-L10N-UI-015). Direct
+        # call, not a languageChanged slot: a live switch leaves them as built.
+        self._apply_formatting_locale_to_spin_boxes()
 
         self.new_document()
         self._retranslate()
@@ -1296,6 +1326,11 @@ class Main_Window(QMainWindow):
         self._undo_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_Z)
         self._redo_action = self._undo_group.createRedoAction(self, self.tr("&Redo"))
         self._redo_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_Y)
+        # Qt fixes the prefix when the action is created (before any catalogue
+        # is installed), so it is re-set from the existing messages after Qt's
+        # own slot runs, on every command-text change and on a language change.
+        self._undo_group.undoTextChanged.connect(self._retranslate_undo_redo)
+        self._undo_group.redoTextChanged.connect(self._retranslate_undo_redo)
 
         self._new_action = QAction(self)
         self._new_action.setShortcut(Qt.Modifier.CTRL | Qt.Key.Key_N)
@@ -1484,6 +1519,7 @@ class Main_Window(QMainWindow):
 
         # Magic-wand tolerance control (REQ-P2-UI-006).
         self._tolerance_spin = QSpinBox(self)
+        self._tolerance_spin.setLocale(i18n.current_formatting_locale())
         self._tolerance_spin.setRange(0, 255)
         self._tolerance_spin.setValue(self._wand_tool.tolerance)
         self._tolerance_spin.valueChanged.connect(self._on_tolerance_changed)
@@ -1804,11 +1840,20 @@ class Main_Window(QMainWindow):
         self._theme_menu.addAction(self._interface_pixel_perfect_action)
 
         self._language_menu = bar.addMenu("")
-        for code in self._language_manager.available_languages():
-            action = QAction(code, self)
+        # Each entry is labelled by the language's own name (REQ-L10N-UI-003), the
+        # same in every language and so not a tr() string, and is drawn in its own
+        # language's font chain (REQ-L10N-UI-012). The label is the accessible name
+        # a menu entry reports.
+        self._language_entry_actions: List[Tuple[str, QAction]] = []
+        for code, endonym in language_names.selector_entries(
+            self._language_manager.available_languages()
+        ):
+            action = QAction(endonym, self)
             action.setData(code)
             action.triggered.connect(self._on_language_action)
             self._language_menu.addAction(action)
+            self._language_entry_actions.append((code, action))
+        self._apply_language_entry_fonts()
 
         # Help menu (REQ-UG-UI-001): hosts the User Guide entry, consistent with the
         # existing menu structure (added last, the conventional trailing menu).
@@ -3136,21 +3181,31 @@ class Main_Window(QMainWindow):
         record = self.active_tab()
         previous_index = self._tab_widget.currentIndex()
         if record is not None and not record.stack.isClean():
-            choice = QMessageBox.warning(
-                self,
-                self.tr("Unsaved Changes"),
+            # The three buttons carry the application's own words, never the
+            # platform theme's (it renames Discard on macOS and GNOME).
+            box = QMessageBox(self)
+            box.setIcon(QMessageBox.Icon.Warning)
+            box.setWindowTitle(self.tr("Unsaved Changes"))
+            box.setText(
                 self.tr(
                     "The current document has unsaved changes. Save it before "
                     "opening the dropped project?"
-                ),
-                QMessageBox.StandardButton.Save
-                | QMessageBox.StandardButton.Discard
-                | QMessageBox.StandardButton.Cancel,
-                QMessageBox.StandardButton.Save,
+                )
             )
-            if choice == QMessageBox.StandardButton.Cancel:
+            save_button = box.addButton(
+                self.tr("Save"), QMessageBox.ButtonRole.AcceptRole
+            )
+            box.addButton(self.tr("Discard"), QMessageBox.ButtonRole.DestructiveRole)
+            cancel_button = box.addButton(
+                self.tr("Cancel"), QMessageBox.ButtonRole.RejectRole
+            )
+            box.setDefaultButton(save_button)
+            box.setEscapeButton(cancel_button)
+            box.exec()
+            clicked = box.clickedButton()
+            if clicked is cancel_button or clicked is None:
                 return  # abort: leave everything unchanged (SC-U004-3)
-            if choice == QMessageBox.StandardButton.Save and not self._save_for_guard():
+            if clicked is save_button and not self._save_for_guard():
                 return  # a cancelled save must not lose the unsaved work
         self.open_document(path)
         # REPLACE the previously active document: the project opened in a new tab
@@ -3323,7 +3378,12 @@ class Main_Window(QMainWindow):
             self.tr("Import Failed"),
             self.tr("Could not import %1:\n%2")
             .replace("%1", Path(path).name)
-            .replace("%2", str(exc)),
+            .replace(
+                "%2",
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            ),
         )
 
     # -- slots ------------------------------------------------------------
@@ -3574,7 +3634,13 @@ class Main_Window(QMainWindow):
                 buffer, palette, mask=mask, target=self._edit_target(record)
             )
         except (QuantizeError, PaletteError) as exc:
-            QMessageBox.warning(self, self.tr("Constrain to Palette"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Constrain to Palette"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(
             LogicCommand(
@@ -3610,7 +3676,13 @@ class Main_Window(QMainWindow):
                 buffer, start, end, step, target=self._edit_target(record)
             )
         except PaletteError as exc:
-            QMessageBox.warning(self, self.tr("Colour Cycling"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Colour Cycling"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(
             LogicCommand(
@@ -3663,7 +3735,13 @@ class Main_Window(QMainWindow):
                 target=self._edit_target(record),
             )
         except PaletteError as exc:
-            QMessageBox.warning(self, self.tr("Palette Swap"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Palette Swap"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(
             LogicCommand(
@@ -3692,7 +3770,13 @@ class Main_Window(QMainWindow):
         try:
             command = record.document.make_convert_to_indexed_command(palette)
         except (DocumentError, IndexedModeError, PaletteError) as exc:
-            QMessageBox.warning(self, self.tr("Convert to Indexed"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Convert to Indexed"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(
             LogicCommand(
@@ -3718,7 +3802,13 @@ class Main_Window(QMainWindow):
         try:
             command = record.document.make_convert_to_rgba_command(palette)
         except (DocumentError, IndexedModeError, PaletteError) as exc:
-            QMessageBox.warning(self, self.tr("Convert to RGBA"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Convert to RGBA"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(
             LogicCommand(
@@ -3850,7 +3940,13 @@ class Main_Window(QMainWindow):
                     extracted = extract_masked(layer.buffer, mask)
                     document = Document.from_buffer(extracted, name="Selection")
                 except (PixelBufferError, DocumentError, SelectionError) as exc:
-                    QMessageBox.warning(self, self.tr("Register Selection"), str(exc))
+                    QMessageBox.warning(
+                        self,
+                        self.tr("Register Selection"),
+                        failure_messages.failure_text(
+                            failure_messages.logged_failure_kind(exc)
+                        ),
+                    )
                     return
         self._asset_session.register_selection(document, parent=self)
 
@@ -4335,9 +4431,19 @@ class Main_Window(QMainWindow):
             # Auto-show the live-cursor overlay on connect.
             self._live_cursors_action.setChecked(True)
 
-    def _on_realtime_error(self, message: str) -> None:
-        """Surface a rejected/failed real-time frame (never a crash — Article VII)."""
-        self.statusBar().showMessage(self.tr("Real-time: {msg}").format(msg=message))
+    def _on_realtime_error(self, message: str, is_failure: bool = False) -> None:
+        """Surface a rejected/failed real-time frame (never a crash — Article VII).
+
+        A failure sentence is shown in the failure-only frame, whose lead-in ends as a
+        sentence; any other message (the reason no transport is configured) keeps
+        the ``Real-time: {msg}`` frame. The frame is chosen by the message's kind as
+        the session tagged it, never by comparing the shown text (REQ-L10N-UI-020).
+        """
+        if is_failure:
+            frame = self.tr("Real-time. {msg}")
+        else:
+            frame = self.tr("Real-time: {msg}")
+        self.statusBar().showMessage(frame.format(msg=message))
 
     def _on_remote_update_applied(self, regions: object) -> None:
         """Repaint ONLY the tiles a remote CRDT update touched (dirty-rect redraw).
@@ -4441,7 +4547,13 @@ class Main_Window(QMainWindow):
         try:
             self._branching_session.merge_to_mainline(name)
         except RealtimeError as exc:
-            QMessageBox.warning(self, self.tr("Merge"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Merge"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         if self._branch_diff_dialog is not None:
             self._branch_diff_dialog.close()
@@ -4910,7 +5022,13 @@ class Main_Window(QMainWindow):
                     document, fn, new_w, new_h, self.tr("Scale Canvas"), self
                 )
             except TransformError as exc:
-                QMessageBox.warning(self, self.tr("Scale Canvas"), str(exc))
+                QMessageBox.warning(
+                    self,
+                    self.tr("Scale Canvas"),
+                    failure_messages.failure_text(
+                        failure_messages.logged_failure_kind(exc)
+                    ),
+                )
                 return
             if command is None:
                 return
@@ -4923,7 +5041,13 @@ class Main_Window(QMainWindow):
                 layer, fn, mask, target=self._edit_target(record)
             )
         except TransformError as exc:
-            QMessageBox.warning(self, self.tr("Scale Canvas"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Scale Canvas"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         dims_change = isinstance(command, history.FunctionCommand)
         self._apply_buffer_command(command, dims_change, self.tr("Scale Canvas"))
@@ -4958,7 +5082,13 @@ class Main_Window(QMainWindow):
                 document, new_w, new_h, rebind, self.tr("Canvas Size")
             )
         except PixelBufferError as exc:
-            QMessageBox.warning(self, self.tr("Canvas Size"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Canvas Size"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(command)
 
@@ -5017,6 +5147,81 @@ class Main_Window(QMainWindow):
             QImage.Format.Format_RGBA8888,
         )
         return image.copy()
+
+    def _language_role_font(self) -> QFont:
+        """Return the font the Language menu's chain is built from (its role primary).
+
+        The menu's font before any chain is applied: the platform's font for
+        menus in the platform-font mode, the Nifen Art base font in the
+        pixel-font mode. It is never the menu's current font, whose family is the
+        first family of the chain the application font module put on it.
+        """
+        return role_base_font(
+            self._appearance.use_system_font,
+            self._language_menu.metaObject().className(),
+        )
+
+    def _apply_language_entry_fonts(self) -> None:
+        """Draw each Language entry in its own language's font chain.
+
+        Re-applied when the font mode changes, after a style or mode switch
+        re-applies the application font, and on every language change. The
+        label and its chain do not depend on the active language: the base is the
+        role's font before any chain, so the result is the same each time.
+        """
+        base = self._language_role_font()
+        primary = base.family()
+        holds_cjk = primary_holds_cjk(primary)
+        for code, action in self._language_entry_actions:
+            action.setFont(
+                chain_font(base, font_chain.label_chain(primary, code, holds_cjk))
+            )
+
+    def _on_language_chains(self, _code: str) -> None:
+        """Re-apply the family chains for the language now active.
+
+        The application font (and each captured per-class font), the Language
+        entries and the open guide page all carry the chain of the active
+        language, so each is re-applied after a switch.
+        """
+        ensure_interface_font(self._app, self._appearance.use_system_font)
+        self._apply_language_entry_fonts()
+        if self._user_guide_dialog is not None:
+            self._user_guide_dialog.refresh_page_font()
+
+    def _on_language_dock_buttons(self, _code: str) -> None:
+        """Name every dock's title-bar buttons in the active language.
+
+        Runs on ``languageChanged``, once Qt's own catalogue for the new
+        language is installed. The texts are not typed here: a fresh dock is
+        built now and its two buttons' accessible names and descriptions are
+        read, so they are exactly what Qt's catalogue gives for the active
+        language (English for the source language). The docks are the window's
+        ``QDockWidget`` children, found by walking them, so a dock added later
+        is covered without a change here.
+
+        The reference dock is destroyed before this returns, not queued for
+        deletion: a queued deletion is only carried out by a running event loop,
+        and until then the parentless top-level dock would stay alive.
+        """
+        reference = QDockWidget()
+        try:
+            texts = {
+                button.objectName(): (
+                    button.accessibleName(),
+                    button.accessibleDescription(),
+                )
+                for button in reference.findChildren(QAbstractButton)
+                if button.objectName() in _DOCK_TITLE_BUTTON_OBJECT_NAMES
+            }
+        finally:
+            shiboken6.delete(reference)
+        for dock in self.findChildren(QDockWidget):
+            for button in dock.findChildren(QAbstractButton):
+                shown = texts.get(button.objectName())
+                if shown is not None:
+                    button.setAccessibleName(shown[0])
+                    button.setAccessibleDescription(shown[1])
 
     def _on_language_action(self) -> None:
         action = self.sender()
@@ -5109,6 +5314,7 @@ class Main_Window(QMainWindow):
     def _on_use_system_font_changed(self, enabled: bool) -> None:
         """Apply the "Use system font" choice at once (REQ-VI-UI-016)."""
         apply_interface_font(self._app, enabled)
+        self._apply_language_entry_fonts()
         if self._user_guide_dialog is not None:
             self._user_guide_dialog.set_use_system_font(enabled)
 
@@ -5147,6 +5353,7 @@ class Main_Window(QMainWindow):
         # Applies first: an unknown id raises here, before any state changes.
         apply_theme(self._app, mode, style_id)
         ensure_interface_font(self._app, self._appearance.use_system_font)
+        self._apply_language_entry_fonts()
         self._style = style_id
         self._theme = mode
         self._style_actions[style_id].setChecked(True)
@@ -5260,7 +5467,13 @@ class Main_Window(QMainWindow):
         try:
             source = decode_image(path)
         except ImageImportError as exc:
-            QMessageBox.warning(self, self.tr("Open Tileset Image"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Open Tileset Image"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         doc = record.document
         first_gid = 1
@@ -5269,7 +5482,13 @@ class Main_Window(QMainWindow):
         try:
             tileset = Tileset(source, first_gid=first_gid, name=Path(path).stem)
         except TilesetError as exc:
-            QMessageBox.warning(self, self.tr("New Tileset"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("New Tileset"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         record.stack.push(
             TilesetCommand(
@@ -5438,16 +5657,16 @@ class Main_Window(QMainWindow):
             QMessageBox.warning(
                 self,
                 self.tr("Export Failed"),
-                self.tr("%1 export target(s) failed:\n%2")
-                .replace("%1", str(len(self._export_run_failures)))
-                .replace("%2", detail),
+                self.tr(
+                    "%n export target(s) failed:\n%2",
+                    "",
+                    len(self._export_run_failures),
+                ).replace("%2", detail),
             )
             self.statusBar().clearMessage()
         else:
             self.statusBar().showMessage(
-                self.tr("Export complete (%1 file(s)).").replace(
-                    "%1", str(self._export_run_ok)
-                ),
+                self.tr("Export complete (%n file(s)).", "", self._export_run_ok),
                 UI_NOTICE_DURATION_MS,
             )
 
@@ -5597,8 +5816,36 @@ class Main_Window(QMainWindow):
 
     # -- i18n -------------------------------------------------------------
 
+    def _apply_formatting_locale_to_spin_boxes(self) -> None:
+        """Give every integer and decimal field of the window the formatting locale.
+
+        Run once, right after the language is installed at startup: the panels
+        are built before that point, so their fields read the manager's initial
+        locale when they were made. Not connected to ``languageChanged``; a field
+        keeps the locale it was given until it is built again.
+        """
+        locale = i18n.current_formatting_locale()
+        for spin in self.findChildren(QSpinBox):
+            spin.setLocale(locale)
+        for dspin in self.findChildren(QDoubleSpinBox):
+            dspin.setLocale(locale)
+
+    def _retranslate_undo_redo(self) -> None:
+        """Re-set Edit > Undo / Redo as translated prefix + command text."""
+        undo_prefix = self.tr("&Undo")
+        redo_prefix = self.tr("&Redo")
+        undo_text = self._undo_group.undoText()
+        redo_text = self._undo_group.redoText()
+        self._undo_action.setText(
+            f"{undo_prefix} {undo_text}" if undo_text else undo_prefix
+        )
+        self._redo_action.setText(
+            f"{redo_prefix} {redo_text}" if redo_text else redo_prefix
+        )
+
     def _retranslate(self) -> None:
         self.setWindowTitle(about_info.window_title(self.tr("PixelArt Creator")))
+        self._retranslate_undo_redo()
         self._toolbar.setWindowTitle(self.tr("Tools"))
         self._palette_dock.setWindowTitle(self.tr("Palette"))
         self._symmetry_dock.setWindowTitle(self.tr("Symmetry"))

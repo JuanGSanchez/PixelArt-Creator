@@ -193,7 +193,9 @@ jobs:
     # grew to about 70 minutes, which left no headroom under 75. The cap stays a
     # runaway guard ONLY; the per-test --timeout and every quality gate are
     # unchanged.
-    timeout-minutes: 100
+    # Raised 100 -> 150 (maintainer ruling 2026-11-25): the Windows leg was
+    # cancelled at the 100-minute cap with its test step at 95%.
+    timeout-minutes: 150
     # Run every step under bash on ALL three OSes so the SAME pytest invocation
     # (with `\` line continuations) executes identically — the Windows default
     # shell (pwsh) would otherwise break the multi-line command (portability).
@@ -295,6 +297,19 @@ jobs:
       # fonts-dejavu-core: a bare Ubuntu runner ships no system font, so the
       # application font's fallback behaviour could not be exercised there at
       # all; installing one gives the font tests a real fallback face to find.
+      # fonts-noto-cjk: the CJK probe font. DejaVu has no Han, Hangul or kana,
+      # so without a face that does, the interface languages written in those
+      # scripts could never be seen falling back to an operating-system font on
+      # this leg: the fontconfig lookup would find nothing. The package is Noto
+      # Sans/Serif CJK (SIL OFL), one set covering all three scripts, in Ubuntu
+      # `main` for the runner's release (noble, 1:20230817+repack1-3), so it
+      # needs no extra repository. It is a PROBE, not a requirement of the
+      # product: the application ships its own faces and a user's system
+      # supplies whatever else it has. Because it makes the system CJK lookup
+      # succeed, a test that must prove the application's own family list does
+      # the drawing has to hide system fonts from fontconfig, or register every
+      # family it judges; a green result that depends on this package alone
+      # proves nothing about the list.
       - name: Install Qt runtime OS libraries (Ubuntu)
         if: runner.os == 'Linux'
         run: |
@@ -303,7 +318,7 @@ jobs:
             libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
-            fonts-dejavu-core
+            fonts-dejavu-core fonts-noto-cjk
 
       - name: Install project (runtime + dev) from manifest
         # -c constraints.txt: reproducibility lock — pins the full
@@ -405,23 +420,527 @@ jobs:
         # extra, pinned in constraints.txt.
         run: python scripts/font/build_nifen_art.py --lint
 
+      - name: CJK font source lint (REQ-L10N-BUILD-001)
+        if: runner.os == 'Linux'
+        # The same lint for the second face, over fonts-src/nifen-art-cjk: the
+        # grid contract, Bold equal to Regular, a Han and Hangul character map,
+        # every glyph drawn or a recipe of drawn glyphs, the R05 exemptions and
+        # the donor gate over the notices (none is a donor for this face). It
+        # prints each rule's count and the exempted glyphs, then the file list
+        # it scanned, and exits non-zero on a violation and when it examined
+        # nothing. fontTools comes from the dev extra, pinned in constraints.txt.
+        run: python scripts/font/build_nifen_art.py --lint --face nifen-art-cjk
+
+      - name: Existing face is unchanged (freeze manifest; REQ-L10N-BUILD-001)
+        if: runner.os == 'Linux'
+        # Compares every file the existing face is made of (sources, built
+        # fonts and notices) with the hashes in fonts-src/nifen-art-cjk/
+        # existing-face.sha256 and prints "N files compared, N identical". Exits
+        # non-zero on a changed, missing or unlisted file, and on a manifest that
+        # lists nothing. The manifest is never regenerated.
+        run: python scripts/font/build_nifen_art.py --verify-freeze
+
       - name: Font rebuild is byte-identical to the committed fonts (REQ-VI-BUILD-002)
         if: runner.os == 'Linux'
         # Builds both weights twice from the sources and compares both builds
         # with the committed TTFs in pixelart_creator/fonts, byte for byte.
         run: python scripts/font/build_nifen_art.py --check
 
+      - name: CJK font rebuild is byte-identical to the committed fonts (REQ-L10N-BUILD-001)
+        if: runner.os == 'Linux'
+        # The same comparison for the second face: builds the six Nifen Art CJK
+        # files (three families, Regular and Bold) twice from fonts-src/nifen-art-cjk
+        # and compares both builds with the committed TTFs in pixelart_creator/fonts,
+        # byte for byte. It prints the six files compared and exits non-zero on a
+        # difference, a missing file, and when it compared nothing.
+        run: python scripts/font/build_nifen_art.py --check --face nifen-art-cjk
+
       - name: Font glyph coverage (REQ-VI-BUILD-004)
+        id: glyph_coverage
         if: runner.os == 'Linux'
         # --gate-catalogues makes a character used in a shipped translation
         # catalogue, or in an interface string literal under ui/, that either
         # weight lacks a FAILURE; without it those are only reported. The
         # declared set and the probe text are always gated. Exit non-zero on
         # any missing character and when nothing was examined.
+        #
+        # A FAILURE HERE DOES NOT HIDE THE STEPS BELOW IT (REQ-L10N-BUILD-006).
+        # Every step after this one carries the condition
+        #   !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure')
+        # (joined with its own runner.os test where it has one), so the
+        # coverage gates, the documentation gates, the JS tests and the perf
+        # gates each run and report their own verdict when this step failed.
+        # The job still FAILS on this step: it is not continue-on-error, its
+        # command and thresholds are unchanged, and GitHub marks a job failed
+        # when any of its steps failed, whatever the later steps do. A failure
+        # in any OTHER step before this one keeps stopping the later steps, as
+        # before: success() is then false and this step did not fail. On a leg
+        # where this step is skipped (Windows, macOS) the condition reduces to
+        # the implicit success() every step had, so those legs are unchanged.
         run: python scripts/font/check_glyph_coverage.py --gate-catalogues --py-dir pixelart_creator/ui
 
+      - name: Localisation typography (REQ-L10N-DATA-004)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
+        # No `runner.os` test -- this step runs on all three legs (stdlib only, no OS
+        # dependence). scripts/check_l10n_typography.py judges the committed
+        # catalogues and guide trees by the rules of REQ-L10N-DATA-004. On its
+        # own it has one blind spot: a language whose catalogue is missing or
+        # renamed simply produces no rule rows, and it still exits 0. This step
+        # closes that with a floor and three controls, all in one program below.
+        #
+        # THE FLOOR. The shipped set is the pixelart_<code>.qm files under
+        # pixelart_creator/i18n (the product's own definition, see
+        # `available_languages`), English aside; the guide set is the folders
+        # under userguide_content/content, English aside. Nothing is listed by
+        # hand per language. For each shipped code the catalogue surface must
+        # show every rule of that language with examined > 0 (ellipsis and
+        # no-u202f for all; fr-nbsp and fr-num-unit for fr; ru-no-straight-quote
+        # for ru; ko-no-han for ko; zh-fullwidth for zh_CN). For each guide
+        # folder the guide surface must show no-u202f, plus the French, Russian
+        # and Korean rules for those languages, and the four Simplified Chinese
+        # rules for zh_CN (REQ-L10N-DATA-004; the page count of each is printed
+        # on its floor line, and is non-zero or the floor fails). Each landing of a language
+        # therefore raises the floor by itself. The step prints both sets and
+        # one line per floor entry, and names each missing (rule, surface,
+        # language).
+        #
+        # CONTROL (i), blind. The typography checker is run over a copy of the catalogue folder
+        # without pixelart_fr.ts while the shipped set is still read from the
+        # real folder; the floor must fail and name fr-num-unit [catalogue] fr.
+        #
+        # CONTROL (ii), planted, FORM (a): an existing message picked at run
+        # time. The program reads the finished fr messages the way the checker does and
+        # applies the script's own NUM_UNIT to each form's markup-free text; a
+        # match whose gap is exactly one U+00A0 is a candidate, for ANY unit of
+        # the script's UNITS list (read at run time, never re-typed here). The
+        # first candidate in file order whose number, U+00A0 and unit occur
+        # exactly once in that message's translation (over both spellings the file
+        # may use for U+00A0: the raw character and a numeric reference such as
+        # &#xa0;, which the extraction writes) gets that U+00A0, whichever spelling,
+        # replaced by U+0020, in a copy. The unplanted copy must exit 0; the planted copy
+        # must exit 1 with exactly one more fr-num-unit finding, whose location
+        # names the planted message. There is no fallback to a synthetic entry:
+        # if no candidate is left the control fails with "control site not
+        # found". The denominator (candidates, fr messages examined) and the
+        # planted message, its unit and the form are printed on every run.
+        #
+        # CONTROL (iii), planted, one defect per zh_CN guide rule. Applies once
+        # content/ holds a zh_CN folder; without one the checker itself exits 1
+        # on a guide run with no zh_CN page, so the real run above is red. The
+        # zh_CN tree is copied twice; the second copy gains one page of four
+        # paragraphs, each breaking exactly one of the four rules (a U+0020-less
+        # edge between Han and a Latin letter; a full-width mark against a Latin
+        # letter; a number and a listed unit with a space between; a trailing
+        # symbol closed against Han). The checker is run over each copy
+        # (--guide-root, --surface guide, --languages zh_CN). The unplanted copy
+        # must exit 0; the planted copy must exit 1, examine one more page under
+        # each of the four rules, and report exactly one more finding per rule,
+        # at the planted page and line, and exactly four more in all. Each rule's
+        # page count and finding count before and after are printed.
+        #
+        # Every copy lives under CI_TEMP_ROOT; nothing tracked is written.
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          L10N_TMP="${CI_TEMP_ROOT}/l10n-typography"
+          rm -rf "${L10N_TMP}"
+          mkdir -p "${L10N_TMP}"
+          TYPOGRAPHY_EXIT=0
+          python scripts/check_l10n_typography.py --json > "${L10N_TMP}/report.json" || TYPOGRAPHY_EXIT=$?
+          python -I - "${L10N_TMP}/report.json" "${TYPOGRAPHY_EXIT}" <<'PY'
+          import collections
+          import importlib.util
+          import json
+          import os
+          import re
+          import shutil
+          import subprocess
+          import sys
+
+          sys.dont_write_bytecode = True
+          sys.stdout.reconfigure(encoding="utf-8")
+
+          REPORT_PATH, REAL_EXIT = sys.argv[1], int(sys.argv[2])
+          ROOT = os.getcwd()
+          SCRIPT = os.path.join(ROOT, "scripts", "check_l10n_typography.py")
+          I18N = os.path.join(ROOT, "pixelart_creator", "i18n")
+          GUIDE = os.path.join(ROOT, "pixelart_creator", "userguide_content", "content")
+          WORK = os.path.join(os.environ["CI_TEMP_ROOT"], "l10n-typography")
+          NBSP = chr(0xA0)
+          # U+00A0 as the file may spell it: the raw character or a numeric reference.
+          NBSP_FORMS = "(?:" + NBSP + "|&#(?:[xX]0*[aA]0|0*160);)"
+          CATALOGUE_RULES = {
+              "fr": ("fr-nbsp", "fr-num-unit"),
+              "ru": ("ru-no-straight-quote",),
+              "ko": ("ko-no-han",),
+              "zh": ("zh-fullwidth",),
+          }
+          GUIDE_RULES = {
+              "fr": ("fr-nbsp", "fr-num-unit"),
+              "ru": ("ru-no-straight-quote",),
+              "ko": ("ko-no-han",),
+              "zh": ("zh-space-han-latin", "zh-space-mark-latin", "zh-num-unit-closed", "zh-space-symbol"),
+          }
+          failures = []
+
+
+          def fail(text):
+              failures.append(text)
+              print(f"::error::{text}")
+
+
+          spec = importlib.util.spec_from_file_location("check_l10n_typography", SCRIPT)
+          tm = importlib.util.module_from_spec(spec)
+          sys.modules["check_l10n_typography"] = tm
+          spec.loader.exec_module(tm)
+          catalogues = tm._catalogue_reader()
+
+
+          def run_checker(folder, surface=None):
+              command = [sys.executable, SCRIPT, "--catalogues", folder, "--json"]
+              if surface:
+                  command += ["--surface", surface]
+              done = subprocess.run(
+                  command, cwd=ROOT, capture_output=True, text=True,
+                  encoding="utf-8", errors="replace",
+              )
+              try:
+                  parsed = json.loads(done.stdout)
+              except ValueError:
+                  parsed = None
+              return done.returncode, parsed, done.stderr.strip()
+
+
+          def copy_catalogues(folder, skip=()):
+              shutil.rmtree(folder, ignore_errors=True)
+              os.makedirs(folder)
+              names = sorted(
+                  n for n in os.listdir(I18N)
+                  if n.startswith("pixelart_") and n.endswith(".ts") and n not in skip
+              )
+              for name in names:
+                  shutil.copyfile(os.path.join(I18N, name), os.path.join(folder, name))
+              return names
+
+
+          def rule_row(parsed, rule, surface, language):
+              for row in parsed["rules"]:
+                  if (row["rule"], row["surface"], row["language"]) == (rule, surface, language):
+                      return row
+              return None
+
+
+          # ---- the real run: the checker's own report and exit code ----
+          print(f"typography checker exit code on the committed content: {REAL_EXIT}")
+          try:
+              with open(REPORT_PATH, encoding="utf-8") as handle:
+                  report = json.load(handle)
+          except (OSError, ValueError) as exc:
+              report = None
+              fail(f"the typography checker wrote no readable report (exit {REAL_EXIT}): {exc}")
+          if REAL_EXIT != 0:
+              fail(f"the typography checker exited {REAL_EXIT} on the committed content")
+          if report is None:
+              sys.exit(1)
+          tm.print_report(report, sys.stdout)
+
+          # ---- the floor, derived from the shipped files ----
+          shipped = sorted(
+              n[len("pixelart_") : -len(".qm")]
+              for n in os.listdir(I18N)
+              if n.startswith("pixelart_") and n.endswith(".qm")
+          )
+          shipped = [code for code in shipped if code and code != "en"]
+          guide_set = sorted(
+              n for n in os.listdir(GUIDE)
+              if os.path.isdir(os.path.join(GUIDE, n)) and n != "en"
+          )
+          print("shipped set (pixelart_<code>.qm, English aside): " + (", ".join(shipped) or "NONE"))
+          print("guide set (folders under content/, English aside): " + (", ".join(guide_set) or "NONE"))
+          if not shipped:
+              fail("floor: no pixelart_<code>.qm other than English was found, so the floor has no denominator")
+          floor = []
+          for code in shipped:
+              rules = ("ellipsis", "no-u202f") + CATALOGUE_RULES.get(tm.primary(code), ())
+              floor += [(rule, "catalogue", code) for rule in rules]
+          for code in guide_set:
+              rules = ("no-u202f",) + GUIDE_RULES.get(tm.primary(code), ())
+              floor += [(rule, "guide", code) for rule in rules]
+
+
+          def check_floor(parsed):
+              missing = []
+              lines = []
+              for entry in floor:
+                  row = rule_row(parsed, *entry)
+                  count = row["examined"] if row else 0
+                  verdict = "ok" if count > 0 else "MISSING"
+                  lines.append(f"  floor {entry[0]} [{entry[1]}] {entry[2]}: examined {count} {verdict}")
+                  if count == 0:
+                      missing.append(entry)
+              return lines, missing
+
+
+          lines, missing = check_floor(report)
+          print(f"floor: {len(floor)} entries")
+          print("\n".join(lines))
+          for rule, surface, code in missing:
+              fail(f"floor: {rule} [{surface}] {code} was not examined (examined 0 or no rule row)")
+
+          # ---- control (i), blind: no pixelart_fr.ts in the copy ----
+          fr_ts = os.path.join(I18N, "pixelart_fr.ts")
+          if not (os.path.isfile(fr_ts) and os.path.isfile(os.path.join(I18N, "pixelart_fr.qm"))):
+              fail("control (i): control site not found (pixelart_fr.ts and pixelart_fr.qm are not both present)")
+          else:
+              blind = os.path.join(WORK, "blind")
+              names = copy_catalogues(blind, skip=("pixelart_fr.ts",))
+              code, parsed, err = run_checker(blind)
+              print(f"control (i), blind: the checker over {len(names)} catalogues copied without pixelart_fr.ts")
+              if parsed is None:
+                  fail(f"control (i): the checker wrote no readable report on the blind copy (exit {code}): {err}")
+              else:
+                  print(
+                      f"  the checker alone on the blind copy: exit {code}, {len(parsed['rules'])} rule units, "
+                      f"{parsed['examined_total']} examined"
+                  )
+                  _lines, blind_missing = check_floor(parsed)
+                  for rule, surface, language in blind_missing:
+                      print(f"  floor names: {rule} [{surface}] {language}")
+                  if ("fr-num-unit", "catalogue", "fr") in blind_missing:
+                      print("  the floor failed and named fr-num-unit [catalogue] fr: control (i) OK")
+                  else:
+                      fail("control (i): the floor did not name fr-num-unit [catalogue] fr on a copy without pixelart_fr.ts")
+
+          # ---- control (ii), planted, form (a) ----
+          print("control (ii), planted, form (a): an existing fr message picked at run time by the script's NUM_UNIT")
+
+
+          def unit_label(unit):
+              for label, pattern in tm.UNITS:
+                  if re.fullmatch(pattern, unit):
+                      return label
+              return "?"
+
+
+          def names_message(where, message):
+              prefix = f"pixelart_fr.ts [{message.context}] "
+              if not where.startswith(prefix):
+                  return False
+              tail = where[len(prefix):]
+              normal = " ".join(message.source.split())
+              return tail == normal or (tail.endswith("...") and normal.startswith(tail[:-3]))
+
+
+          def control_planted():
+              if not os.path.isfile(fr_ts):
+                  fail("control (ii): control site not found (no pixelart_fr.ts)")
+                  return
+              fr = catalogues.load_catalogue(fr_ts)
+              with open(fr_ts, "rb") as handle:
+                  raw = handle.read().decode("utf-8")
+              blocks = list(re.finditer(r"<message(?:\s[^>]*)?>.*?</message>", raw, re.DOTALL))
+              if len(blocks) != len(fr.messages):
+                  fail(f"control (ii): control site not found ({len(blocks)} message blocks in the file, {len(fr.messages)} parsed)")
+                  return
+              examined = 0
+              candidates = []
+              for message, block in zip(fr.messages, blocks):
+                  if not message.live or message.kind == "unfinished" or not message.forms or not all(message.forms):
+                      continue
+                  examined += 1
+                  for form in message.forms:
+                      text = tm.markup_free(form, catalogues)
+                      for match in tm.NUM_UNIT.finditer(text):
+                          if match.group("gap") == NBSP:
+                              candidates.append((message, block, match))
+              by_unit = collections.Counter(unit_label(m.group("unit")) for _msg, _blk, m in candidates)
+              spread = ", ".join(f"{label} {n}" for label, n in sorted(by_unit.items()))
+              print(f"  fr messages examined by this step: {examined}")
+              print(f"  candidates (number, U+00A0, unit): {len(candidates)} over {len(by_unit)} of {len(tm.UNITS)} UNITS entries ({spread})")
+              row = rule_row(report, "fr-num-unit", "catalogue", "fr")
+              if row is None or row["examined"] != examined:
+                  fail(f"control (ii): the step read {examined} finished fr messages but the checker examined {row['examined'] if row else 'none'}")
+                  return
+              chosen = None
+              for message, block, match in candidates:
+                  translation = re.search(r"<translation(?:\s[^>]*)?>.*?</translation>", raw[block.start():block.end()], re.DOTALL)
+                  if translation is None:
+                      continue
+                  # The file may write U+00A0 as the raw character or as a numeric reference
+                  # (the extraction writes `&#xa0;`); the pair is searched in either spelling
+                  # and must occur exactly once over both.
+                  spelled = re.compile(re.escape(match.group("num")) + NBSP_FORMS + re.escape(match.group("unit")))
+                  hits = list(spelled.finditer(translation.group(0)))
+                  if len(hits) != 1:
+                      continue
+                  site = block.start() + translation.start() + hits[0].start() + len(match.group("num"))
+                  width = hits[0].end() - hits[0].start() - len(match.group("num")) - len(match.group("unit"))
+                  if not re.fullmatch(NBSP_FORMS, raw[site:site + width]):
+                      continue
+                  chosen = (message, match, site, width)
+                  break
+              if chosen is None:
+                  fail("control (ii): control site not found (no candidate whose number, U+00A0 and unit occur exactly once in its translation)")
+                  return
+              message, match, site, width = chosen
+              unit = match.group("unit")
+              print(
+                  f"  planted: [{message.context}] {' '.join(message.source.split())[:60]} | "
+                  f"pair {match.group('num')}+U+00A0+{unit} | unit {unit!r} = UNITS entry {unit_label(unit)!r} | form (a)"
+              )
+              unplanted_dir = os.path.join(WORK, "unplanted")
+              planted_dir = os.path.join(WORK, "planted")
+              copy_catalogues(unplanted_dir)
+              copy_catalogues(planted_dir)
+              with open(os.path.join(planted_dir, "pixelart_fr.ts"), "wb") as handle:
+                  handle.write((raw[:site] + " " + raw[site + width:]).encode("utf-8"))
+              base_code, base, base_err = run_checker(unplanted_dir, "catalogue")
+              plant_code, plant, plant_err = run_checker(planted_dir, "catalogue")
+              if base is None or plant is None:
+                  fail(f"control (ii): the checker wrote no readable report (unplanted exit {base_code}: {base_err}; planted exit {plant_code}: {plant_err})")
+                  return
+              base_row = rule_row(base, "fr-num-unit", "catalogue", "fr")
+              plant_row = rule_row(plant, "fr-num-unit", "catalogue", "fr")
+              if base_row is None or plant_row is None:
+                  fail("control (ii): control site not found (the checker did not read fr-num-unit on the copies)")
+                  return
+              before = collections.Counter(f["where"] for f in base_row["findings"])
+              extra = collections.Counter(f["where"] for f in plant_row["findings"]) - before
+              print(f"  unplanted copy: exit {base_code}, fr-num-unit findings {len(base_row['findings'])}")
+              print(f"  planted copy:   exit {plant_code}, fr-num-unit findings {len(plant_row['findings'])}")
+              if base_code != 0:
+                  fail(f"control (ii): the checker on the unplanted copy exited {base_code}, expected 0")
+              if plant_code != 1:
+                  fail(f"control (ii): the checker on the planted copy exited {plant_code}, expected 1")
+              if len(plant_row["findings"]) != len(base_row["findings"]) + 1 or sum(extra.values()) != 1:
+                  fail(f"control (ii): expected exactly one more fr-num-unit finding, got {len(plant_row['findings'])} against {len(base_row['findings'])}")
+                  return
+              where = next(iter(extra))
+              if not names_message(where, message):
+                  fail(f"control (ii): the new finding does not name the planted message: {where}")
+                  return
+              detail = [f["detail"] for f in plant_row["findings"] if f["where"] == where][-1]
+              print(f"  the new finding names the planted message: {where}: {detail}")
+              if not failures:
+                  print("  control (ii) OK")
+
+
+          control_planted()
+
+          # ---- control (iii), planted, one defect per zh_CN guide rule ----
+          print("control (iii), planted: one defect per zh_CN guide rule, in a copy of the zh_CN tree")
+          ZH_PLANT_PAGE = "zz-planted-control.md"
+          ZH_PLANTS = (
+              # (rule, the one paragraph that breaks it and no other); Han by code point
+              ("zh-space-han-latin", chr(0x4F7F) + chr(0x7528) + "F"),
+              ("zh-space-mark-latin", chr(0xFF08) + "A"),
+              ("zh-num-unit-closed", chr(0x5BBD) + " 3 px"),
+              ("zh-space-symbol", chr(0x8BBE) + chr(0x4E3A) + " 100%" + chr(0x7684)),
+          )
+
+
+          def run_zh_guide(guide_root):
+              command = [
+                  sys.executable, SCRIPT, "--guide-root", guide_root,
+                  "--surface", "guide", "--languages", "zh_CN", "--json",
+              ]
+              done = subprocess.run(
+                  command, cwd=ROOT, capture_output=True, text=True,
+                  encoding="utf-8", errors="replace",
+              )
+              try:
+                  parsed = json.loads(done.stdout)
+              except ValueError:
+                  parsed = None
+              return done.returncode, parsed, done.stderr.strip()
+
+
+          def control_zh_planted():
+              source = os.path.join(GUIDE, "zh_CN")
+              if not os.path.isdir(source):
+                  print("  not applicable: content/ has no zh_CN folder (the checker exits 1 on a guide run with no zh_CN page)")
+                  return
+              mark = len(failures)
+              lines = ["# Planted", ""]
+              placed = {}
+              for rule, paragraph in ZH_PLANTS:
+                  lines.append(paragraph)
+                  placed[rule] = len(lines)
+                  lines.append("")
+              unplanted_root = os.path.join(WORK, "zh-unplanted")
+              planted_root = os.path.join(WORK, "zh-planted")
+              for folder in (unplanted_root, planted_root):
+                  shutil.rmtree(folder, ignore_errors=True)
+                  shutil.copytree(source, os.path.join(folder, "zh_CN"))
+              with open(os.path.join(planted_root, "zh_CN", ZH_PLANT_PAGE), "wb") as handle:
+                  handle.write(("\n".join(lines) + "\n").encode("utf-8"))
+              base_code, base, base_err = run_zh_guide(unplanted_root)
+              plant_code, plant, plant_err = run_zh_guide(planted_root)
+              if base is None or plant is None:
+                  fail(f"control (iii): the checker wrote no readable report (unplanted exit {base_code}: {base_err}; planted exit {plant_code}: {plant_err})")
+                  return
+              print(f"  unplanted copy: exit {base_code}, {base['findings_total']} finding(s)")
+              print(f"  planted copy:   exit {plant_code}, {plant['findings_total']} finding(s)")
+              if base_code != 0:
+                  fail(f"control (iii): the checker on the unplanted zh_CN copy exited {base_code}, expected 0")
+              if plant_code != 1:
+                  fail(f"control (iii): the checker on the planted zh_CN copy exited {plant_code}, expected 1")
+              if plant["findings_total"] != base["findings_total"] + len(ZH_PLANTS):
+                  fail(f"control (iii): expected exactly {len(ZH_PLANTS)} more findings in all, got {plant['findings_total']} against {base['findings_total']}")
+              for rule, _paragraph in ZH_PLANTS:
+                  base_row = rule_row(base, rule, "guide", "zh_CN")
+                  plant_row = rule_row(plant, rule, "guide", "zh_CN")
+                  if base_row is None or plant_row is None:
+                      fail(f"control (iii): {rule} [guide] zh_CN was not read on the copies")
+                      continue
+                  place = f"zh_CN/{ZH_PLANT_PAGE}:{placed[rule]}"
+                  before = collections.Counter(f["where"] for f in base_row["findings"])
+                  extra = collections.Counter(f["where"] for f in plant_row["findings"]) - before
+                  print(
+                      f"  {rule}: planted at line {placed[rule]}, pages {base_row['examined']} -> {plant_row['examined']}, "
+                      f"findings {len(base_row['findings'])} -> {len(plant_row['findings'])}"
+                  )
+                  if plant_row["examined"] != base_row["examined"] + 1:
+                      fail(f"control (iii): {rule} examined {plant_row['examined']} page(s) on the planted copy against {base_row['examined']}, expected one more")
+                  if len(plant_row["findings"]) != len(base_row["findings"]) + 1 or extra != collections.Counter([place]):
+                      fail(f"control (iii): {rule}: expected exactly one more finding, at {place}; got {len(plant_row['findings'])} against {len(base_row['findings'])} ({', '.join(extra) or 'none new'})")
+                      continue
+                  detail = [f["detail"] for f in plant_row["findings"] if f["where"] == place][-1]
+                  print(f"    the new finding names {place}: {detail}")
+              if len(failures) == mark:
+                  print("  control (iii) OK")
+
+
+          control_zh_planted()
+
+          if failures:
+              print(f"Localisation typography step: {len(failures)} failure(s)")
+              sys.exit(1)
+          print("Localisation typography step: checker clean, floor met, all three controls behaved")
+          PY
+
+      - name: Exception text reaching the user (REQ-L10N-UI-018)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
+        # No `runner.os` test -- this step runs on all three legs (stdlib only,
+        # no OS dependence: it parses the interface sources with `ast` and
+        # imports none of them). scripts/check_exception_text.py finds every
+        # place under pixelart_creator/ui where the text of a caught exception
+        # can reach a surface the user reads (message box, translated template,
+        # worker signal, stored for later display, direct surface) and fails on
+        # each place whose shown text takes a value from the exception: a
+        # message that comes from the exception is English whatever language the
+        # interface is in. It prints the denominators first, then the count per
+        # channel (sites and tainted) and the total, so a green step names what
+        # it looked at.
+        # Exit codes, all fatal to this step: 0 clean (a non-zero number of
+        # sites, none tainted); 1 any tainted site, or nothing examined, or no
+        # site found (a zero denominator is a failure, never a pass); 2 usage
+        # error, a missing root, or a file that cannot be parsed. Nothing here
+        # swallows a non-zero exit: no `|| true`, no `continue-on-error`.
+        run: python scripts/check_exception_text.py
+
       - name: Application icon family (REQ-VI-BUILD-007/-008)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # scripts/derive_app_icons.py --check: every committed icon member
         # equals the one re-derived from the five hand-drawn masters, compared
         # as decoded pixels (a re-encoded PNG's bytes depend on the platform's
@@ -431,7 +950,7 @@ jobs:
         run: python scripts/derive_app_icons.py --check
 
       - name: Asset-pipeline suite is collected (named-test presence check)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # The main pytest step below already runs testing/suites/asset_pipeline
         # as part of testpaths. This step makes that fact a gate of its own: a
         # suite that stops being collected (a moved folder, a renamed module, a
@@ -479,7 +998,7 @@ jobs:
           exit "${MISSING}"
 
       - name: Wheel content check (fonts, themes, licence notices; REQ-VI-BUILD-005)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Builds the wheel from a clean export of the checked-out commit (the
         # build runs in the CI temp root, so no build/ or egg-info folder lands
         # in the workspace the later steps scan), unpacks it there and runs
@@ -491,6 +1010,25 @@ jobs:
         # an installed copy shows it, so the wheel itself is what is examined.
         # The empty-folder control shows the check can fail before its result
         # is trusted. The installers get the same check in build-installers.yml.
+        #
+        # Three more checks follow the build (REQ-L10N-BUILD-002,
+        # REQ-L10N-BUILD-008). (1) The unpacked wheel is compared with
+        # `git ls-files` over pixelart_creator/fonts, pixelart_creator/i18n and
+        # pixelart_creator/userguide_content: the step prints how many tracked
+        # files it examined and fails on any that the wheel does not hold, so a
+        # file a package-data glob misses (a guide page's meta.json was one)
+        # turns the run red. Its planted-omission control runs first: the same
+        # comparison over a copy of the unpacked wheel without
+        # content/ko/meta.json must report that file, or the step fails. (2) After
+        # the real payload check passes, a copy of the wheel's fonts/ and themes/
+        # folders without fonts/FONTLOG-CJK.txt must be refused by
+        # check_payload.sh with exit 1, naming that file, over more than zero
+        # compared files. (3) A copy of the same folders plus the wheel's
+        # *.dist-info folder, with one line of the copied NOTICE changed, must be
+        # refused with exit 1, naming NOTICE. The real run prints the wheel's
+        # NOTICE path it compared and its verdict. Both outputs are printed, and
+        # nothing in the checkout or in the unpacked wheel is altered. A listing
+        # failure does not hide the payload checks: it is reported at the end.
         run: |
           WHEEL_DIR="${CI_TEMP_ROOT}/wheel"
           WHEEL_SRC="${CI_TEMP_ROOT}/wheel-src"
@@ -501,6 +1039,60 @@ jobs:
           WHEEL="$(ls "${WHEEL_DIR}"/pixelart_creator-*.whl)"
           echo "wheel built: ${WHEEL}"
           python -m zipfile -e "${WHEEL}" "${WHEEL_DIR}/unpacked"
+          UNPACKED="${WHEEL_DIR}/unpacked"
+          LIST_RC=0
+          TRACKED="${CI_TEMP_ROOT}/wheel-tracked.txt"
+          git -c core.quotepath=off ls-files pixelart_creator/fonts pixelart_creator/i18n pixelart_creator/userguide_content > "${TRACKED}"
+          wheel_missing() {
+            # $1 an unpacked wheel, $2 the file of tracked names. Sets
+            # TRACKED_EXAMINED, TRACKED_MISSING (counts) and MISSING_NAMES (one
+            # name per line).
+            local name
+            TRACKED_EXAMINED=0
+            TRACKED_MISSING=0
+            MISSING_NAMES=""
+            while IFS= read -r name; do
+              TRACKED_EXAMINED=$((TRACKED_EXAMINED + 1))
+              if [ ! -f "$1/${name}" ]; then
+                TRACKED_MISSING=$((TRACKED_MISSING + 1))
+                MISSING_NAMES="${MISSING_NAMES}${name}"$'\n'
+              fi
+            done < "$2"
+          }
+          PLANT="pixelart_creator/userguide_content/content/ko/meta.json"
+          if ! grep -qxF "${PLANT}" "${TRACKED}"; then
+            echo "::error::wheel listing control FAILED: ${PLANT} is not a tracked file, so the planted omission has nothing to remove"
+            exit 1
+          fi
+          LISTING_CONTROL="${CI_TEMP_ROOT}/wheel-listing-control"
+          rm -rf "${LISTING_CONTROL}"
+          mkdir -p "${LISTING_CONTROL}"
+          cp -R "${UNPACKED}/." "${LISTING_CONTROL}/"
+          rm -f "${LISTING_CONTROL}/${PLANT}"
+          wheel_missing "${LISTING_CONTROL}" "${TRACKED}"
+          printf '%s' "${MISSING_NAMES}" | sed 's/^/  control: missing from the copy: /'
+          if [ "${TRACKED_EXAMINED}" -le 0 ]; then
+            echo "::error::wheel listing control FAILED: it examined no tracked file"
+            exit 1
+          fi
+          case "${MISSING_NAMES}" in
+            *"${PLANT}"*) echo "wheel listing control OK: the copy without ${PLANT} is reported, ${TRACKED_MISSING} missing of ${TRACKED_EXAMINED} examined" ;;
+            *)
+              echo "::error::wheel listing control FAILED: the copy without ${PLANT} was not reported as missing it"
+              exit 1
+              ;;
+          esac
+          rm -rf "${LISTING_CONTROL}"
+          wheel_missing "${UNPACKED}" "${TRACKED}"
+          echo "wheel listing: ${TRACKED_EXAMINED} tracked file(s) examined, ${TRACKED_MISSING} missing from the wheel"
+          if [ "${TRACKED_EXAMINED}" -le 0 ]; then
+            echo "::error::wheel listing examined no tracked file"
+            LIST_RC=1
+          elif [ "${TRACKED_MISSING}" -gt 0 ]; then
+            printf '%s' "${MISSING_NAMES}" | sed 's/^/  MISSING from the wheel: /'
+            echo "::error::${TRACKED_MISSING} tracked file(s) are missing from the wheel: a package-data entry does not name them"
+            LIST_RC=1
+          fi
           CONTROL_DIR="${CI_TEMP_ROOT}/payload-control-empty"
           mkdir -p "${CONTROL_DIR}"
           if bash packaging/check_payload.sh "${CONTROL_DIR}" "control: empty folder" > /dev/null 2>&1; then
@@ -508,7 +1100,61 @@ jobs:
             exit 1
           fi
           echo "payload check control OK: an empty folder is refused"
-          bash packaging/check_payload.sh "${WHEEL_DIR}/unpacked" "wheel"
+          bash packaging/check_payload.sh "${UNPACKED}" "wheel"
+          WHEEL_NOTICE="$(find "${UNPACKED}" -path '*.dist-info/*' -type f -name NOTICE | sort | sed -n '1p')"
+          if [ -z "${WHEEL_NOTICE}" ]; then
+            echo "::error::the wheel carries no NOTICE inside its dist-info folder"
+            exit 1
+          fi
+          WHEEL_NOTICE_REL="${WHEEL_NOTICE#"${UNPACKED}"/}"
+          echo "wheel NOTICE compared: ${WHEEL_NOTICE_REL}"
+          wheel_copy() {
+            # $1 destination, $2 the wheel's package folder, $3 the folder that
+            # holds it and the wheel's *.dist-info folder
+            mkdir -p "$1/pixelart_creator"
+            cp -R "$2/fonts" "$2/themes" "$1/pixelart_creator/"
+            cp -R "$3"/*.dist-info "$1/"
+            chmod -R u+w "$1"
+          }
+          expect_refusal() {
+            # $1 the copy, $2 its label, $3 the text the refusal must contain
+            local out rc n
+            rc=0
+            out="$(bash packaging/check_payload.sh "$1" "$2" 2>&1)" || rc=$?
+            printf '%s\n' "${out}"
+            n="$(printf '%s\n' "${out}" | sed -n 's/.*, \([0-9][0-9]*\) file(s) compared.*/\1/p' | tail -n 1)"
+            if [ "${rc}" -ne 1 ]; then
+              echo "::error::payload control FAILED (${2}): check_payload.sh exited ${rc}, not 1"
+              return 1
+            fi
+            case "${out}" in
+              *"$3"*) ;;
+              *)
+                echo "::error::payload control FAILED (${2}): the refusal does not say: ${3}"
+                return 1
+                ;;
+            esac
+            if [ -z "${n}" ] || [ "${n}" -le 0 ]; then
+              echo "::error::payload control FAILED (${2}): it compared no files"
+              return 1
+            fi
+            echo "payload control OK (${2}): exit 1, says '${3}', ${n} file(s) compared"
+          }
+          PKG_DIR="${UNPACKED}/pixelart_creator"
+          if [ ! -f "${PKG_DIR}/fonts/FONTLOG-CJK.txt" ]; then
+            echo "::error::fonts/FONTLOG-CJK.txt is absent from the wheel that just passed"
+            exit 1
+          fi
+          CONTROLS="${CI_TEMP_ROOT}/wheel-controls"
+          rm -rf "${CONTROLS}"
+          wheel_copy "${CONTROLS}/a" "${PKG_DIR}" "${UNPACKED}"
+          rm "${CONTROLS}/a/pixelart_creator/fonts/FONTLOG-CJK.txt"
+          expect_refusal "${CONTROLS}/a" "control A, wheel: CJK font log removed" "fonts/FONTLOG-CJK.txt is missing from the payload"
+          wheel_copy "${CONTROLS}/b" "${PKG_DIR}" "${UNPACKED}"
+          sed '1s/$/ (changed)/' "${WHEEL_NOTICE}" > "${CONTROLS}/b/${WHEEL_NOTICE_REL}"
+          expect_refusal "${CONTROLS}/b" "control B, wheel: one NOTICE line changed" "NOTICE differs from the repository's root NOTICE"
+          rm -rf "${CONTROLS}"
+          exit "${LIST_RC}"
 
       # ----- Docs gates (REMEDIATION 2026-07-30, F14): neither gate below had
       # ever run in CI before this change — mkdocs build --strict and
@@ -516,7 +1162,7 @@ jobs:
       # never wired, so a red docs build or a docstring regression could never
       # have blocked a merge. Ubuntu-only, same as the other static gates. -----
       - name: Docs build (mkdocs --strict, F14)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # main/docs/site/mkdocs.yml (mkdocs-site skill). --strict turns
         # every warning (broken internal link, a nav entry with no matching
         # page, etc.) into a build failure so the published User Guide can
@@ -525,96 +1171,28 @@ jobs:
         # exception needed.
         run: mkdocs build -f docs/site/mkdocs.yml --strict
 
-      - name: Docstring lint (pydocstyle, PEP 257) [TIME-BOXED EXCEPTION, expires 2026-08-31]
-        if: runner.os == 'Linux'
+      - name: Docstring lint (pydocstyle, PEP 257)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Ruleset: [tool.pydocstyle] convention="pep257" in pyproject.toml (see
-        # that file's comment for why pep257 — the project's own documented
-        # docstring discipline — and not google/numpy, which would manufacture
+        # that file's comment for why pep257 -- the project's own documented
+        # docstring discipline -- and not google/numpy, which would manufacture
         # section-formatting findings against a style never adopted here).
         #
-        # HONEST MEASUREMENT, EXPLICIT EXCEPTION — same pattern as the
-        # non-client coverage gate above. This is the REAL pep257 check; it is
-        # NOT weakened (no add-ignore/add-select) and pixelart_creator is NOT
-        # excluded.
+        # A plain BLOCKING gate: the step's exit status is pydocstyle's own,
+        # so any pep257 finding in pixelart_creator fails the Linux leg. The
+        # target is the whole package; there is no ignore/select override, no
+        # excluded path and no continue-on-error.
         #
-        # Real numbers measured 2026-07-30 (local, py3.13, convention=pep257,
-        # no add-ignore): 102 findings across 41 files — D102 x48 (missing
-        # public-method docstring), D107 x16 (missing __init__ docstring),
-        # D401 x13 (first line not imperative mood), D105 x11 (missing
-        # magic-method docstring), plus D101/D209/D301/D402 (minor,
-        # single-digit each). Concentrated in Phase 1-3 modules; this
-        # redness is TRUE, not a tooling artefact — the gate simply never ran
-        # before. Clearing the findings is the documentation owner's job (docs content), not
-        # this workflow's.
-        #
-        # DEBT REPAID, THEN REGRESSED, THEN REPAID AGAIN -- history kept, not
-        # deleted (CI-warning fix, 2026-08-18):
-        #   - Repaid 2026-08-16 (job
-        #     20260816-spec-audit-test-rebuild-docs-move): `pydocstyle
-        #     pixelart_creator` exited 0.
-        #   - Regressed: PRs #9 and #10 reintroduced 15 findings across 4
-        #     files (logic/branch_diff.py, logic/history.py,
-        #     logic/project_prefs.py, ui/timeline_grid_view.py) -- codes
-        #     D102, D400, D205, D402, D107 dominant (measured on this branch
-        #     before the fix below landed; NOT the same breakdown as the
-        #     original 2026-07-30 102-finding redness, which was D102/D107/
-        #     D401/D105).
-        #   - Repaid again on this branch (fix-ci-hygiene, verified
-        #     2026-08-18): `pydocstyle pixelart_creator` exits 0.
-        # The 102-finding number that used to be hardcoded into the
-        # `::warning::` line below is now HISTORICAL CONTEXT ONLY, not the
-        # live state -- the step measures and reports its own real count
-        # every run instead (see the capture below), which is exactly the
-        # fix for the "warning reports a fixed historical number" defect
-        # this project keeps tripping on. The time-boxed exception scaffold
-        # stays in place (unexercised while the gate is green) so a future
-        # regression is still caught and self-expires on the same
-        # 2026-08-31 milestone.
-        #
-        # The time-box is SELF-ENFORCING, not a comment: past EXPIRY this step
-        # starts failing the build unconditionally. Same 2026-08-31 milestone
-        # as the non-client coverage exception above, so both known gaps are
-        # repaid on one shared deadline instead of drifting independently.
-        run: |
-          EXPIRY=2026-08-31
-          # Capture pydocstyle's OWN output + exit code (rather than letting
-          # the command's exit status drive `if` directly) so the real
-          # finding count and per-code breakdown can be parsed out of it for
-          # the warning line below -- the whole point of this fix is that the
-          # message must never again quote a number pydocstyle didn't just
-          # produce. `set +e`/`set -e` bracket the capture so a nonzero
-          # pydocstyle exit (findings present) never trips this script's own
-          # `-e` (GitHub's default bash step flags) before STATUS is read.
-          set +e
-          FINDINGS_OUTPUT="$(pydocstyle pixelart_creator 2>&1)"
-          STATUS=$?
-          set -e
-          if [[ ${STATUS} -eq 0 ]]; then
-            echo "pixelart_creator meets the pep257 docstring gate"
-            exit 0
-          fi
-          echo "${FINDINGS_OUTPUT}"
-          TODAY="$(date -u +%F)"
-          # Real count + real per-code breakdown, parsed from pydocstyle's own
-          # output (format: "path.py:LINE in ...:" followed by an indented
-          # "    D1xx: <message>" line per violation) -- never a baked-in
-          # number. `|| true` on each: a clean grep/awk pipeline finding zero
-          # matches exits non-zero, which must not fail this step (robustness
-          # requirement -- this path must also work correctly when the count
-          # is legitimately zero, e.g. a pydocstyle tool error with no D-code
-          # lines at all).
-          COUNT=$(printf '%s\n' "${FINDINGS_OUTPUT}" | grep -cE '^[[:space:]]+D[0-9]{3}:' || true)
-          BREAKDOWN=$(printf '%s\n' "${FINDINGS_OUTPUT}" | grep -oE 'D[0-9]{3}' | sort | uniq -c | sort -rn | awk '{printf "%s x%s, ", $2, $1}' | sed 's/, $//' || true)
-          if [[ -z "${BREAKDOWN}" ]]; then
-            BREAKDOWN="(no per-code breakdown parsed -- see step log above for the full pydocstyle output)"
-          fi
-          if [[ "${TODAY}" > "${EXPIRY}" ]]; then
-            echo "::error::Time-boxed pydocstyle exception EXPIRED on ${EXPIRY}. pixelart_creator still fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see step log above for the full findings). This now BLOCKS: clear the findings (the documentation owner) -- do not extend the box without an explicit decision."
-            exit 1
-          fi
-          echo "::warning::pixelart_creator fails the pep257 docstring gate (${COUNT} findings measured ${TODAY}; ${BREAKDOWN} -- see pyproject.toml [tool.pydocstyle] for the ruleset and the step log above for the full findings). KNOWN and time-boxed until ${EXPIRY} (owner: documentation). This step BLOCKS the build after ${EXPIRY}."
+        # History: the gate was wired on 2026-07-30 as a time-boxed exception
+        # (a warning until 2026-08-31, a failure after it) while the first
+        # findings were being cleared. pixelart_creator has exited 0 since
+        # then, apart from a short regression repaid on 2026-08-18. The
+        # time-boxed scaffold was removed on the owner's ruling of
+        # 2026-10-23, leaving this step.
+        run: pydocstyle pixelart_creator
 
       - name: Documentation-reference gate (ADR citations + control-label currency, P11 script)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
         # scripts/check_doc_references.py checks two independent legs, both
         # over the WHOLE checkout (no OS-gate needed -- pure-Python, stdlib
         # only, deterministic):
@@ -694,6 +1272,7 @@ jobs:
         run: python scripts/check_doc_references.py --root .
 
       - name: Internal-vocabulary regrowth gate (P11 script)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
         # scripts/check_vocabulary_regrowth.py -- fails on any new occurrence,
         # in a tracked file OR in a commit message this pull request adds, of
         # one of the internal development-system identifier families cleaned
@@ -740,6 +1319,7 @@ jobs:
           fi
 
       - name: VCS attribution gate (P11 script)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
         # scripts/check_attribution.py -- fails on any AI/vendor authorship in
         # the commit MESSAGES or the author/committer IDENTITIES this pull
         # request adds: a vendor co-author trailer, an assistant session
@@ -773,6 +1353,7 @@ jobs:
           fi
 
       - name: Tests (pytest, headless, parallel, with coverage XML)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
         # -n auto: pytest-xdist fans the suite across all runner cores, cutting
         # the ~46-48 min single-process wall-time to a fraction (FU-20). Per-test
         # QStandardPaths app-config is isolated to a per-test tmp dir in the ui
@@ -808,16 +1389,246 @@ jobs:
         # is installed): turns the font-fallback test's "no fallback font found"
         # skip into a failure, so a runner image that loses its fonts is caught
         # rather than silently skipped. Windows and macOS ship fonts and need no flag.
+        # PULL_REQUEST_HEAD_SHA: the release-evidence tests under
+        # testing/suites/release/ (this bare `pytest` collects them through
+        # testpaths) compare the thresholds of THIS pull request's head with
+        # those of its merge base. On a pull_request event the checked-out
+        # commit is GitHub's merge ref, not the head, so the head is named here
+        # from the event payload and the tests read it from this variable. It
+        # is blank on any other event, which the tests read as HEAD. Nothing
+        # here hides a failure: no continue-on-error, no `|| true`, no skip.
         env:
           PIXELART_REQUIRE_FALLBACK_FONT: ${{ runner.os == 'Linux' && '1' || '' }}
+          PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           pytest -n auto -m "not slow and not gpu and not cloud_live and not assistant_live and not integration" \
             --basetemp="${CI_TEMP_ROOT}/pytest-main" \
             --timeout=120 --timeout-method=thread --durations=15 \
             --cov=pixelart_creator --cov-branch --cov-report=xml --cov-report=term
 
+      - name: Print the font-cache measurements (font family chain, per-OS prints)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
+        # The main pytest step above runs this module too, but a passing test's
+        # output is not shown there, so the per-OS measurements the module
+        # prints (the `[tag-verdict]` lines: which style-strategy flags each
+        # operating system keeps, the cache capacity, whether two font lists
+        # share one tail) never reach the log. `-rP` adds the captured output
+        # of every PASSED test to the summary, which is the whole purpose of
+        # this second, narrower run. The prints are information about the
+        # operating system; the assertions of the cases that make them are what
+        # gate.
+        #
+        # A GATING step like any other: its exit status is pytest's own, with no
+        # `continue-on-error` and no `|| true`. A selection that matches no test
+        # exits 5 and fails the step, so a rename that stops the selection from
+        # matching cannot leave this green while printing nothing. No `-n`: one
+        # process keeps the prints in order. Same offscreen environment as the
+        # main step (job-level QT_QPA_PLATFORM), its own --basetemp under the
+        # leg's CI temp root, and the same per-test timeout options.
+        env:
+          PIXELART_REQUIRE_FALLBACK_FONT: ${{ runner.os == 'Linux' && '1' || '' }}
+        run: |
+          python -m pytest -rP -p no:cacheprovider \
+            -k "chain_tag or share_one_tail" \
+            --basetemp="${CI_TEMP_ROOT}/pytest-font-cache" \
+            --timeout=120 --timeout-method=thread \
+            testing/suites/ui/test_font_family_chain_mechanism.py
+
+      - name: Soft line breaks on every supported entry (REQ-L10N-UI-014)
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') }}
+        # No `runner.os` test -- this step runs on all three legs. The rule that
+        # decides where a soft line break in a guide page becomes a space is
+        # applied in `logic/`, but what the guide window finally SHOWS is decided
+        # by Qt's text engine, and that differs by operating system and by
+        # PySide6 release. A green run therefore has to say which combination it
+        # ran on, and a case that was skipped on one combination must never pass
+        # for coverage of it.
+        #
+        # THE ENTRY. The first thing the step prints is ONE line: the Python
+        # version, the PySide6 version, and the operating system's name, version
+        # and architecture. That line is the entry this run covers; "tested on
+        # this entry" is judged from it and not from the matrix.
+        #
+        # THE GUARD. The modules that test the rule (the logic-layer modules, the
+        # window-layer module and the table cases) run here as ONE pytest run
+        # with --junitxml. The guard program below reads that junit file, which
+        # is the run's own record, and fails the step when no case ran, when any
+        # named module ran no case, when any case was skipped (an xfail is
+        # written as a skip too, so it counts), and when any case failed. No
+        # count is typed into this file: adding a case never needs an edit here,
+        # while losing a module or skipping a case always fails. The same modules
+        # also run in the main pytest step above; this run is narrower because
+        # only it keeps the junit record and applies the no-skip rule.
+        #
+        # THE CONTROLS. A guard that cannot fail proves nothing, so the same
+        # program is run over three scratch runs in the CI temp root before its
+        # verdict is trusted: a clean run (must pass), a run holding one planted
+        # skipped case (must fail, naming the skip) and a run whose selection
+        # matches nothing (must fail, naming "no case ran"). pytest itself exits
+        # 0 on the planted skip, which is the blind spot the guard closes.
+        #
+        # Exit: pytest's own status, the guard's and the controls' are each kept
+        # and each fatal. No `continue-on-error`, no `|| true` on a verdict.
+        run: |
+          GUARD_DIR="${CI_TEMP_ROOT}/softbreak-guard"
+          rm -rf "${GUARD_DIR}"
+          mkdir -p "${GUARD_DIR}"
+
+          cat > "${GUARD_DIR}/entry.py" <<'PY'
+          import platform
+
+          import PySide6
+
+          system = platform.system()
+          if system == "Darwin":
+              os_name, os_version = "macOS", platform.mac_ver()[0]
+          elif system == "Linux":
+              try:
+                  release = platform.freedesktop_os_release()
+                  os_name = release.get("NAME", "Linux")
+                  os_version = release.get("VERSION_ID", platform.release())
+              except OSError:
+                  os_name, os_version = "Linux", platform.release()
+          else:
+              os_name, os_version = system, platform.version()
+          print(
+              f"entry: Python {platform.python_version()} | PySide6 {PySide6.__version__}"
+              f" | {os_name} {os_version} | {platform.machine()}"
+          )
+          PY
+
+          cat > "${GUARD_DIR}/skip_guard.py" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+
+          def main(argv):
+              if len(argv) < 3:
+                  print("usage: skip_guard.py JUNIT_XML MODULE_PATH...")
+                  return 2
+              junit, paths = argv[1], argv[2:]
+              cases = list(ET.parse(junit).getroot().iter("testcase"))
+              skipped = []
+              broken = 0
+              for case in cases:
+                  kinds = {child.tag for child in case}
+                  if "skipped" in kinds:
+                      skipped.append(f"{case.get('classname')}::{case.get('name')}")
+                  if kinds & {"failure", "error"}:
+                      broken += 1
+              print(
+                  f"skip guard: {len(cases)} case(s) in the run's junit record,"
+                  f" {len(skipped)} skipped, {broken} failed or errored"
+              )
+              findings = []
+              if not cases:
+                  findings.append("no case ran")
+              for path in paths:
+                  module = path[: -len(".py")].replace("/", ".")
+                  ran = sum(
+                      1
+                      for case in cases
+                      if case.get("classname", "") == module
+                      or case.get("classname", "").startswith(module + ".")
+                  )
+                  print(f"  {path}: {ran} case(s) ran")
+                  if ran == 0:
+                      findings.append(f"{path}: no case ran")
+              if skipped:
+                  findings.append(
+                      f"{len(skipped)} case(s) skipped: " + ", ".join(skipped[:20])
+                  )
+              if broken:
+                  findings.append(f"{broken} case(s) failed or errored")
+              for finding in findings:
+                  print(f"GUARD FINDING: {finding}")
+              return 1 if findings else 0
+
+
+          sys.exit(main(sys.argv))
+          PY
+
+          python -I "${GUARD_DIR}/entry.py"
+
+          SOFTBREAK_MODULES=(
+            testing/suites/logic/test_guide_softbreak.py
+            testing/suites/logic/test_guide_softbreak_join.py
+            testing/suites/logic/test_guide_softbreak_tablemodel.py
+            testing/suites/logic/test_guide_softbreak_tables.py
+            testing/suites/ui/test_user_guide_softbreak.py
+          )
+          PYTEST_EXIT=0
+          python -m pytest -rs -p no:cacheprovider \
+            -o junit_family=xunit2 --junitxml="${GUARD_DIR}/softbreak.xml" \
+            --basetemp="${GUARD_DIR}/pytest-softbreak" \
+            --timeout=120 --timeout-method=thread \
+            "${SOFTBREAK_MODULES[@]}" || PYTEST_EXIT=$?
+          GUARD_EXIT=0
+          python -I "${GUARD_DIR}/skip_guard.py" "${GUARD_DIR}/softbreak.xml" \
+            "${SOFTBREAK_MODULES[@]}" || GUARD_EXIT=$?
+
+          # The controls: three scratch runs, each with its own pytest.ini so its
+          # rootdir is the scratch folder and none of the repository's
+          # configuration reaches it.
+          CONTROL_DIR="${GUARD_DIR}/control"
+          for NAME in clean skip none; do
+            mkdir -p "${CONTROL_DIR}/${NAME}"
+            printf '[pytest]\n' > "${CONTROL_DIR}/${NAME}/pytest.ini"
+          done
+          printf 'def test_clean_case():\n    assert True\n' > "${CONTROL_DIR}/clean/test_clean_case.py"
+          cp "${CONTROL_DIR}/clean/test_clean_case.py" "${CONTROL_DIR}/none/test_clean_case.py"
+          cat > "${CONTROL_DIR}/skip/test_planted_skip.py" <<'PY'
+          import pytest
+
+
+          def test_ran():
+              assert True
+
+
+          @pytest.mark.skip(reason="planted by the guard's own control")
+          def test_planted_skip():
+              pass
+          PY
+
+          run_control() {
+            # run_control LABEL EXPECTED(pass|fail) MODULE FINDING DIR [pytest args]
+            local label="$1" expected="$2" module="$3" finding="$4" dir="$5"
+            local pytest_rc=0 guard_rc=0
+            shift 5
+            python -m pytest -p no:cacheprovider -q -o junit_family=xunit2 \
+              --junitxml="${dir}/junit.xml" "$@" "${dir}" > "${dir}/pytest.log" 2>&1 || pytest_rc=$?
+            python -I "${GUARD_DIR}/skip_guard.py" "${dir}/junit.xml" "${module}" \
+              > "${dir}/guard.log" 2>&1 || guard_rc=$?
+            echo "control (${label}): pytest exit ${pytest_rc}, guard exit ${guard_rc}"
+            sed 's/^/    /' "${dir}/guard.log"
+            if [[ "${expected}" == "pass" ]]; then
+              if [[ "${guard_rc}" -ne 0 ]]; then
+                echo "::error::guard control (${label}) FAILED: the guard rejected a clean run"
+                return 1
+              fi
+            elif [[ "${guard_rc}" -ne 1 ]] || ! grep -qF "${finding}" "${dir}/guard.log"; then
+              echo "::error::guard control (${label}) FAILED: the guard did not reject it with \"${finding}\""
+              return 1
+            fi
+            return 0
+          }
+
+          CONTROL_FAILURES=0
+          run_control "clean run" pass test_clean_case.py "" "${CONTROL_DIR}/clean" \
+            || CONTROL_FAILURES=$((CONTROL_FAILURES + 1))
+          run_control "planted skip" fail test_planted_skip.py "case(s) skipped" "${CONTROL_DIR}/skip" \
+            || CONTROL_FAILURES=$((CONTROL_FAILURES + 1))
+          run_control "nothing ran" fail test_clean_case.py "no case ran" "${CONTROL_DIR}/none" -k no_such_case_selected \
+            || CONTROL_FAILURES=$((CONTROL_FAILURES + 1))
+
+          echo "soft line break step: pytest exit ${PYTEST_EXIT}, skip guard exit ${GUARD_EXIT}, control failures ${CONTROL_FAILURES}"
+          if [[ "${PYTEST_EXIT}" -ne 0 || "${GUARD_EXIT}" -ne 0 || "${CONTROL_FAILURES}" -ne 0 ]]; then
+            echo "::error::soft line break step failed: see the pytest summary, the guard's findings and the controls above"
+            exit 1
+          fi
+
       - name: Coverage gate — client package (>=90 line / >=80 branch, S13)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # SCOPE (made explicit): this gate reads the coverage.xml produced by the
         # pytest step above, which measures `--cov=pixelart_creator` ONLY. It
         # therefore says NOTHING about the two shipped non-three-layer packages
@@ -841,7 +1652,7 @@ jobs:
       # files. The omit drops the test modules themselves from the measurement so
       # only shipped code is graded.
       - name: Measure non-client coverage (sync_backend + web_viewer)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         env:
           COVERAGE_FILE: .coverage.nonclient
         run: |
@@ -855,7 +1666,7 @@ jobs:
           python -m coverage xml --omit="*/tests/*" -o coverage/nonclient.xml
 
       - name: Coverage gate — non-client packages (>=90 line / >=80 branch, S13)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Formerly a time-boxed exception (expired scaffolding removed
         # 2026-07-30): sync_backend/web_viewer measured below the
         # constitutional 90/80 on 2026-07-29 (sync_backend 93.57%/76.00%,
@@ -877,7 +1688,7 @@ jobs:
       # integer-scale + render-fidelity vs the shipped Python reference (+/-1 LSB).
       # A distinct step: a JS-unit failure fails THIS leg. -----
       - name: Set up Node.js (web-viewer JS-unit)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # actions/setup-node@v7 (was @v4, CI-warning fix, 2026-08-18): v4 is
         # the only stale action in this file -- its own manifest declares
         # `using: node20`, a runtime GitHub has deprecated and is
@@ -921,14 +1732,14 @@ jobs:
           node-version: "26"
 
       - name: Web-viewer JS-unit tests (node, framework-free)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         run: node web_viewer/tests/test_viewer_core.mjs
 
       # ----- Perf gates: Ubuntu-only. The ceilings are calibrated to the Ubuntu
       # GitHub runner; running them on Windows/macOS would compare against the
       # wrong baseline (plan §6, invoker directive). -----
       - name: 8K paint/redraw perf gate (P-A scenario, D-32, REQ-P1-UI-023)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-1 (D-32 rebuild, then CI wiring, decision
         # batch 2026-08-16). The rebuilt scripts/perf_profile.py default
         # (tiling) mode now imports and drives the REAL
@@ -950,7 +1761,7 @@ jobs:
         run: python scripts/perf_profile.py --width 7680 --height 4320 --zoom 0.25 --viewport 1920 1080 --frames 60
 
       - name: Compositor region-recomposite perf gate (FU-15)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Standalone, Qt-free P11 gate: times the region-recomposite path on an
         # 8K multi-layer document and exits non-zero if the median exceeds
         # COMPOSITE_REGION_CEILING_MS (200 ms, logic/constants.py). No pytest
@@ -959,7 +1770,7 @@ jobs:
         run: python scripts/perf_profile.py --composite
 
       - name: Tilemap render_region perf gate — part 1 (interactive frame budget)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Standalone, Qt-free P11 gate (Phase-6). Times
         # logic/tilemap.render_region over a typical interactive viewport tile
         # (256x256 px @ 16 px tiles = 16x16 cells) and exits non-zero if the
@@ -969,7 +1780,7 @@ jobs:
         run: python scripts/perf_profile.py --tilemap --tm-region 256 256 --tm-tile 16 --frames 30
 
       - name: Tilemap render_region perf gate — part 2 (catastrophic ceiling)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Companion catastrophic-ceiling gate: renders the full 8K region
         # (7680x4320 px @ 16 px tiles = 480x270 cells) and exits non-zero if the
         # median exceeds TILEMAP_VIEWPORT_CEILING_MS (3000 ms, logic/constants.py,
@@ -979,7 +1790,7 @@ jobs:
         run: python scripts/perf_profile.py --tilemap --tm-region 7680 4320 --tm-tile 16 --frames 8 --budget-ms 3000
 
       - name: Visual-aids overlay perf gate — part 1 (worst-case iso overlay)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-9 (REQ-P9-UI-011). Times the REAL shipped iso-grid
         # overlay item's paint() over the full-scene worst case (fine 2 px tiles,
         # 1920x1080 viewport) and exits non-zero if the median frame exceeds
@@ -990,14 +1801,14 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind iso --ov-tile 2 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 2 (zoomed iso, exposed sub-rect)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Companion iso gate at an interactive zoom (16x) over a small exposed
         # sub-rect (120x67 px) — the culled-viewport draw the user actually pays
         # for while editing. Same OVERLAY_FRAME_CEILING_MS (48 ms) ceiling.
         run: python scripts/perf_profile.py --overlay --ov-kind iso --ov-tile 2 --ov-zoom 16 --ov-exposed 120 67 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 3 (combined multi-view + preview)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Combined dirty-rect composite: 7 extra views + the real-size preview each
         # blit a 64x64 dirty sub-rect (MinimalViewportUpdate — cost scales with the
         # dirty rect x views, not the 8K canvas x N). Guards the REQ-P9-UI-008
@@ -1005,7 +1816,7 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind combined --ov-views 7 --ov-dirty 64 64 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 4 (Slice-C live cursors)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-10 Slice C (report §5, REQ-P10-UI-013). Times the REAL
         # shipped Live_Cursors_Overlay.paint() with the worst case of
         # MAX_SHARED_MEMBERS (32) collaborator cursors all inside the exposed rect
@@ -1015,7 +1826,7 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind cursors --ov-cursors 32 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 5 (Slice-C combined apply + cursors frame)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Companion Slice-C gate: the COMBINED interactive frame — one
         # realtime_apply.apply_remote plus the 32-cursor overlay paint — against
         # the same 48 ms OVERLAY_FRAME_CEILING_MS. Guards the live-collab render
@@ -1024,7 +1835,7 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind cursors-rt --ov-cursors 32 --ov-viewport 1920 1080 --frames 30 --budget-ms 48
 
       - name: Visual-aids overlay perf gate — part 6 (D-29, 8K overlay catastrophic ceiling)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-9/Phase-12 (D-29 rebuild, then CI wiring, decision
         # batch 2026-08-16). The literal 8K overlay viewport
         # (`--ov-viewport 7680 4320`) was missing entirely from every wired
@@ -1047,7 +1858,7 @@ jobs:
         run: python scripts/perf_profile.py --overlay --ov-kind iso --ov-tile 32 --ov-viewport 7680 4320 --frames 30 --budget-ms 2000
 
       - name: Realtime apply-remote perf gate (Slice-C, sub-frame ceiling)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-10 Slice C (REQ-P10-LOGIC — realtime_apply). Standalone
         # Qt-free P11 gate: times a single realtime_apply.apply_remote of a 47-tile
         # remote update on an 8K document and exits non-zero if the median exceeds
@@ -1059,7 +1870,7 @@ jobs:
         run: python scripts/perf_profile.py --realtime --rt-tiles 47 --frames 30
 
       - name: Full-frame flatten perf gate (Slice-A, realistic-content ceiling)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-12 Slice A (RE-PROFILE, REQ-P12-LOGIC-001/-002/-003).
         # Standalone, Qt-free P11 gate: times the OPTIMISED cold full-frame flatten
         # — blend.composite_stack(region=None) over an 8K, 8-layer realistic stack
@@ -1073,7 +1884,7 @@ jobs:
         run: python scripts/perf_profile.py --full-frame --content realistic --layers 8 --frames 3
 
       - name: Viewport-recomposite commit perf gate (Slice-B, opacity-drag)
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && (success() || steps.glyph_coverage.outcome == 'failure') && runner.os == 'Linux' }}
         # Phase-12 Slice B (RE-PROFILE, REQ-P12-LOGIC-004/-005 + UI-001).
         # Standalone, Qt-free P11 gate: times the opacity-drag split-cache COMMIT
         # path — blend.composite_range suffix re-blend over the worst-case culled
@@ -1100,6 +1911,382 @@ jobs:
         # reused here, never re-typed. No wildcard is used anywhere in this
         # step. Only the scoped root is touched; the runner workspace, tool
         # cache and Actions cache are never in scope here.
+        if: always()
+        run: |
+          if [[ -z "${CI_TEMP_ROOT:-}" ]]; then
+            echo "::error::CI_TEMP_ROOT is not set; refusing to guess a path to delete."
+            exit 1
+          fi
+          case "${CI_TEMP_ROOT}" in
+            "${RUNNER_TEMP}"/CI-PixelArtCreator/*) ;;
+            *)
+              echo "::error::CI_TEMP_ROOT (${CI_TEMP_ROOT}) does not resolve under \${RUNNER_TEMP}/CI-PixelArtCreator/<name>; refusing to delete."
+              exit 1
+              ;;
+          esac
+          if [[ -d "${CI_TEMP_ROOT}" ]]; then
+            echo "Removing CI temp root: ${CI_TEMP_ROOT}"
+            rm -rf "${CI_TEMP_ROOT}"
+            echo "Removed: ${CI_TEMP_ROOT}"
+          else
+            echo "CI temp root already absent (nothing to remove): ${CI_TEMP_ROOT}"
+          fi
+
+  # ===========================================================================
+  # Oldest installable PySide6 (REQ-L10N-UI-014).
+  #
+  # The `quality-gate` legs run the pinned PySide6 from constraints.txt. The
+  # lowest release the manifest still allows is older than that, and Qt's text
+  # engine, which decides where a guide page can break a line, changes between
+  # releases. This job runs the soft line break modules a second time on the
+  # OLDEST PySide6 release that can be installed for the interpreter named in
+  # .python-version, on the same three operating systems.
+  #
+  # A job of its own, on purpose:
+  #   - NOT a matrix entry of `quality-gate`: that would rename the job's
+  #     checks, and `main`'s ruleset requires them by exact name.
+  #   - NOT a second install inside `quality-gate`: that would change the
+  #     PySide6 every later step of that job sees, and would depend on where
+  #     the block sits among the steps.
+  # It has no `needs:` on `quality-gate` and runs beside it. Like
+  # `quality-gate` it waits for `setup` only, and takes its operating systems
+  # from the same output, so a pull request gets all three legs and every other
+  # trigger gets the one leg `setup` names.
+  # ===========================================================================
+  pyside6-floor:
+    name: Oldest installable PySide6 (${{ matrix.os }})
+    needs: setup
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # fail-fast OFF, as in `quality-gate`: a platform-specific failure on
+      # one leg must not cancel the other legs.
+      fail-fast: false
+      matrix:
+        # The same expression as `quality-gate`'s matrix, read from the same
+        # `setup` output.
+        os: ${{ fromJSON(needs.setup.outputs.os) }}
+    # Far below `quality-gate`'s cap: this job installs twice and runs five
+    # test modules, not the suite. Only a runaway guard.
+    timeout-minutes: 45
+    env:
+      # THE FLOOR, declared once; every step below reads it from here. It is
+      # the oldest PySide6 release that publishes wheels for the Python in
+      # .python-version (CPython 3.14). The source is the public list of
+      # PySide6 release files on PyPI: https://pypi.org/project/PySide6/#files
+      # The floor moves when the interpreter moves: the next interpreter makes
+      # a later release the oldest one that can be installed. Change it on
+      # this line only; the guard step below fails if an older release has
+      # become installable, which is the signal that this value is stale.
+      PYSIDE6_FLOOR: "6.10.1"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up CI temp root (CI-PixelArtCreator)
+        # The same routing as `quality-gate`'s identically-named step (see that
+        # step's comment for the rationale), duplicated because a temp root set
+        # in one job does not carry into another. The leg name is this job's
+        # id plus the matrix leg: deterministic, and overwritten on a re-run.
+        run: |
+          CI_TEMP_ROOT="${RUNNER_TEMP}/CI-PixelArtCreator/ci-pyside6-floor-${{ matrix.os }}"
+          rm -rf "${CI_TEMP_ROOT}"
+          mkdir -p "${CI_TEMP_ROOT}"
+          echo "CI_TEMP_ROOT=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TEMP=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "TMPDIR=${CI_TEMP_ROOT}" >> "${GITHUB_ENV}"
+          echo "CI temp root for this leg: ${CI_TEMP_ROOT}"
+
+      - name: Set up Python (pinned via .python-version)
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+
+      # The same operating-system libraries, with the same reasons, as
+      # `quality-gate`'s step of this name: headless Qt needs them on a clean
+      # Ubuntu runner, and the two font packages give the guide pages a real
+      # fallback face. QT_QPA_PLATFORM is the workflow-level setting at the top
+      # of this file, which every job inherits.
+      - name: Install Qt runtime OS libraries (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+            fonts-dejavu-core fonts-noto-cjk
+
+      - name: Install project (runtime + dev) from manifest
+        # The same install as `quality-gate`: the full locked closure first.
+        # The floor is applied by the next step, on top of it.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -c constraints.txt -e ".[dev]"
+
+      - name: Install the four PySide6 packages at the floor
+        # Without the constraints file: constraints.txt pins the newer release
+        # and would refuse the floor. The four packages are the whole PySide6
+        # family the project imports; installing them together keeps them on
+        # one release.
+        run: |
+          python -m pip install \
+            "PySide6==${PYSIDE6_FLOOR}" \
+            "PySide6_Essentials==${PYSIDE6_FLOOR}" \
+            "PySide6_Addons==${PYSIDE6_FLOOR}" \
+            "shiboken6==${PYSIDE6_FLOOR}"
+
+      - name: The installed PySide6 versions are the floor
+        # One line per package, and a failure unless each is the declared
+        # floor, so a resolver that silently kept the newer release cannot
+        # pass this job.
+        run: |
+          MISMATCH=0
+          for PACKAGE in PySide6 PySide6_Essentials PySide6_Addons shiboken6; do
+            INSTALLED="$(python -m pip show "${PACKAGE}" | sed -n 's/^Version: //p' | tr -d '\r')" \
+              || INSTALLED="not installed"
+            echo "${PACKAGE} ${INSTALLED}"
+            if [[ "${INSTALLED}" != "${PYSIDE6_FLOOR}" ]]; then
+              echo "::error::${PACKAGE} is ${INSTALLED}, not the floor ${PYSIDE6_FLOOR}"
+              MISMATCH=1
+            fi
+          done
+          if [[ "${MISMATCH}" -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Installed packages are consistent (pip check)
+        run: python -m pip check
+
+      - name: No older PySide6 can be installed (the floor is the lowest)
+        # THE GUARD, failing closed. It asks pip for a PySide6 release below
+        # the floor, for the running interpreter, and the job fails if one is
+        # found: the floor would then no longer be the oldest installable
+        # release, and the value above would be stale.
+        #
+        # THE POSITIVE CONTROL runs first. Asking pip for the floor itself must
+        # exit 0 and fetch exactly one file, which shows that the index is
+        # reachable and that this command's shape finds what exists. Without
+        # it a network or index failure would look like "nothing older found".
+        #
+        # THE GUARD: pip must find no distribution, and its refusal must be
+        # the no-match kind. A non-zero exit whose output lacks pip's "No
+        # matching distribution found" line, or that shows a connection
+        # problem, fails the job: an error is never read as an absence.
+        # `--no-cache-dir` so that no cached index page answers for the index.
+        run: |
+          DOWNLOAD_DIR="${CI_TEMP_ROOT}/floor-download"
+          rm -rf "${DOWNLOAD_DIR}"
+          mkdir -p "${DOWNLOAD_DIR}/control" "${DOWNLOAD_DIR}/below"
+
+          CONTROL_EXIT=0
+          python -m pip download --no-cache-dir --no-deps --dest "${DOWNLOAD_DIR}/control" \
+            "PySide6==${PYSIDE6_FLOOR}" > "${DOWNLOAD_DIR}/control.log" 2>&1 || CONTROL_EXIT=$?
+          cat "${DOWNLOAD_DIR}/control.log"
+          FETCHED="$(find "${DOWNLOAD_DIR}/control" -type f | wc -l | tr -d '[:space:]')"
+          echo "positive control: pip exit ${CONTROL_EXIT}, ${FETCHED} file(s) fetched"
+          if [[ "${CONTROL_EXIT}" -ne 0 || "${FETCHED}" != "1" ]]; then
+            echo "::error::positive control FAILED: pip could not fetch PySide6==${PYSIDE6_FLOOR} (exit ${CONTROL_EXIT}, ${FETCHED} file(s)); the guard below proves nothing"
+            exit 1
+          fi
+
+          GUARD_EXIT=0
+          python -m pip download --no-cache-dir --no-deps --dest "${DOWNLOAD_DIR}/below" \
+            "PySide6<${PYSIDE6_FLOOR}" > "${DOWNLOAD_DIR}/below.log" 2>&1 || GUARD_EXIT=$?
+          cat "${DOWNLOAD_DIR}/below.log"
+          echo "guard: pip exit ${GUARD_EXIT}"
+          if [[ "${GUARD_EXIT}" -eq 0 ]]; then
+            echo "::error::pip found a PySide6 release below ${PYSIDE6_FLOOR} for this interpreter: the floor is no longer the lowest installable release"
+            exit 1
+          fi
+          if grep -qE 'Retrying|Could not fetch URL|Connection|timed out|Temporary failure|Max retries' "${DOWNLOAD_DIR}/below.log"; then
+            echo "::error::the guard's pip run shows a network or index problem, so its refusal is not evidence of absence"
+            exit 1
+          fi
+          if ! grep -qF "No matching distribution found" "${DOWNLOAD_DIR}/below.log"; then
+            echo "::error::the guard's pip run failed, but not with pip's \"No matching distribution found\"; that is an error, not an absence"
+            exit 1
+          fi
+          echo "guard: no PySide6 release below ${PYSIDE6_FLOOR} is installable for this interpreter"
+
+      - name: Soft line breaks on the floor (REQ-L10N-UI-014)
+        # The guarded modules of `quality-gate`'s step "Soft line breaks on
+        # every supported entry", run the same way: the same five modules, the
+        # same junit record, the same skip guard and the same three controls.
+        # The two programs and the run are byte for byte the ones of that step;
+        # read its comment for the reasoning. Only the PySide6 differs, and the
+        # first line printed says which: the entry of this leg, so every pull
+        # request run prints six entries, three from each job.
+        #
+        # Exit: pytest's own status, the guard's and the controls' are each kept
+        # and each fatal. No `continue-on-error`, no `|| true` on a verdict.
+        run: |
+          GUARD_DIR="${CI_TEMP_ROOT}/softbreak-guard"
+          rm -rf "${GUARD_DIR}"
+          mkdir -p "${GUARD_DIR}"
+
+          cat > "${GUARD_DIR}/entry.py" <<'PY'
+          import platform
+
+          import PySide6
+
+          system = platform.system()
+          if system == "Darwin":
+              os_name, os_version = "macOS", platform.mac_ver()[0]
+          elif system == "Linux":
+              try:
+                  release = platform.freedesktop_os_release()
+                  os_name = release.get("NAME", "Linux")
+                  os_version = release.get("VERSION_ID", platform.release())
+              except OSError:
+                  os_name, os_version = "Linux", platform.release()
+          else:
+              os_name, os_version = system, platform.version()
+          print(
+              f"entry: Python {platform.python_version()} | PySide6 {PySide6.__version__}"
+              f" | {os_name} {os_version} | {platform.machine()}"
+          )
+          PY
+
+          cat > "${GUARD_DIR}/skip_guard.py" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+
+          def main(argv):
+              if len(argv) < 3:
+                  print("usage: skip_guard.py JUNIT_XML MODULE_PATH...")
+                  return 2
+              junit, paths = argv[1], argv[2:]
+              cases = list(ET.parse(junit).getroot().iter("testcase"))
+              skipped = []
+              broken = 0
+              for case in cases:
+                  kinds = {child.tag for child in case}
+                  if "skipped" in kinds:
+                      skipped.append(f"{case.get('classname')}::{case.get('name')}")
+                  if kinds & {"failure", "error"}:
+                      broken += 1
+              print(
+                  f"skip guard: {len(cases)} case(s) in the run's junit record,"
+                  f" {len(skipped)} skipped, {broken} failed or errored"
+              )
+              findings = []
+              if not cases:
+                  findings.append("no case ran")
+              for path in paths:
+                  module = path[: -len(".py")].replace("/", ".")
+                  ran = sum(
+                      1
+                      for case in cases
+                      if case.get("classname", "") == module
+                      or case.get("classname", "").startswith(module + ".")
+                  )
+                  print(f"  {path}: {ran} case(s) ran")
+                  if ran == 0:
+                      findings.append(f"{path}: no case ran")
+              if skipped:
+                  findings.append(
+                      f"{len(skipped)} case(s) skipped: " + ", ".join(skipped[:20])
+                  )
+              if broken:
+                  findings.append(f"{broken} case(s) failed or errored")
+              for finding in findings:
+                  print(f"GUARD FINDING: {finding}")
+              return 1 if findings else 0
+
+
+          sys.exit(main(sys.argv))
+          PY
+
+          python -I "${GUARD_DIR}/entry.py"
+
+          SOFTBREAK_MODULES=(
+            testing/suites/logic/test_guide_softbreak.py
+            testing/suites/logic/test_guide_softbreak_join.py
+            testing/suites/logic/test_guide_softbreak_tablemodel.py
+            testing/suites/logic/test_guide_softbreak_tables.py
+            testing/suites/ui/test_user_guide_softbreak.py
+          )
+          PYTEST_EXIT=0
+          python -m pytest -rs -p no:cacheprovider \
+            -o junit_family=xunit2 --junitxml="${GUARD_DIR}/softbreak.xml" \
+            --basetemp="${GUARD_DIR}/pytest-softbreak" \
+            --timeout=120 --timeout-method=thread \
+            "${SOFTBREAK_MODULES[@]}" || PYTEST_EXIT=$?
+          GUARD_EXIT=0
+          python -I "${GUARD_DIR}/skip_guard.py" "${GUARD_DIR}/softbreak.xml" \
+            "${SOFTBREAK_MODULES[@]}" || GUARD_EXIT=$?
+
+          # The controls: three scratch runs, each with its own pytest.ini so its
+          # rootdir is the scratch folder and none of the repository's
+          # configuration reaches it.
+          CONTROL_DIR="${GUARD_DIR}/control"
+          for NAME in clean skip none; do
+            mkdir -p "${CONTROL_DIR}/${NAME}"
+            printf '[pytest]\n' > "${CONTROL_DIR}/${NAME}/pytest.ini"
+          done
+          printf 'def test_clean_case():\n    assert True\n' > "${CONTROL_DIR}/clean/test_clean_case.py"
+          cp "${CONTROL_DIR}/clean/test_clean_case.py" "${CONTROL_DIR}/none/test_clean_case.py"
+          cat > "${CONTROL_DIR}/skip/test_planted_skip.py" <<'PY'
+          import pytest
+
+
+          def test_ran():
+              assert True
+
+
+          @pytest.mark.skip(reason="planted by the guard's own control")
+          def test_planted_skip():
+              pass
+          PY
+
+          run_control() {
+            # run_control LABEL EXPECTED(pass|fail) MODULE FINDING DIR [pytest args]
+            local label="$1" expected="$2" module="$3" finding="$4" dir="$5"
+            local pytest_rc=0 guard_rc=0
+            shift 5
+            python -m pytest -p no:cacheprovider -q -o junit_family=xunit2 \
+              --junitxml="${dir}/junit.xml" "$@" "${dir}" > "${dir}/pytest.log" 2>&1 || pytest_rc=$?
+            python -I "${GUARD_DIR}/skip_guard.py" "${dir}/junit.xml" "${module}" \
+              > "${dir}/guard.log" 2>&1 || guard_rc=$?
+            echo "control (${label}): pytest exit ${pytest_rc}, guard exit ${guard_rc}"
+            sed 's/^/    /' "${dir}/guard.log"
+            if [[ "${expected}" == "pass" ]]; then
+              if [[ "${guard_rc}" -ne 0 ]]; then
+                echo "::error::guard control (${label}) FAILED: the guard rejected a clean run"
+                return 1
+              fi
+            elif [[ "${guard_rc}" -ne 1 ]] || ! grep -qF "${finding}" "${dir}/guard.log"; then
+              echo "::error::guard control (${label}) FAILED: the guard did not reject it with \"${finding}\""
+              return 1
+            fi
+            return 0
+          }
+
+          CONTROL_FAILURES=0
+          run_control "clean run" pass test_clean_case.py "" "${CONTROL_DIR}/clean" \
+            || CONTROL_FAILURES=$((CONTROL_FAILURES + 1))
+          run_control "planted skip" fail test_planted_skip.py "case(s) skipped" "${CONTROL_DIR}/skip" \
+            || CONTROL_FAILURES=$((CONTROL_FAILURES + 1))
+          run_control "nothing ran" fail test_clean_case.py "no case ran" "${CONTROL_DIR}/none" -k no_such_case_selected \
+            || CONTROL_FAILURES=$((CONTROL_FAILURES + 1))
+
+          echo "soft line break step: pytest exit ${PYTEST_EXIT}, skip guard exit ${GUARD_EXIT}, control failures ${CONTROL_FAILURES}"
+          if [[ "${PYTEST_EXIT}" -ne 0 || "${GUARD_EXIT}" -ne 0 || "${CONTROL_FAILURES}" -ne 0 ]]; then
+            echo "::error::soft line break step failed: see the pytest summary, the guard's findings and the controls above"
+            exit 1
+          fi
+
+      - name: Clean up CI temp root (CI-PixelArtCreator)
+        # Same guard shape as `quality-gate`'s identically-named step: runs even
+        # after a failure, refuses to delete unless CI_TEMP_ROOT is non-empty,
+        # under ${RUNNER_TEMP} and still shaped CI-PixelArtCreator/<name>, reads
+        # the variable exported by the first step, and uses no wildcard.
         if: always()
         run: |
           if [[ -z "${CI_TEMP_ROOT:-}" ]]; then

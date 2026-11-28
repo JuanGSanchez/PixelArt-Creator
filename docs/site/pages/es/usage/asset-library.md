@@ -5,7 +5,7 @@ reutilizables — sprites, animaciones, tilesets, mapas de tiles y paletas — e
 solo lugar. Registra las entidades que ya has creado como **recursos con
 nombre**, organízalos con **etiquetas** libres, y encuentra el correcto rápidamente
 con **búsqueda y filtro**. La biblioteca y sus tres paneles se acceden desde el
-menú **&Biblioteca**.
+menú **Biblioteca**.
 
 !!! note "Qué es un recurso"
     Un recurso es una **entrada de catálogo** que *referencia* una de las
@@ -19,8 +19,8 @@ menú **&Biblioteca**.
 
 ## Abrir la biblioteca
 
-El menú **&Biblioteca** tiene tres alternadores de panel acoplable, cada uno
-mostrando u ocultando un panel:
+El menú **Biblioteca** tiene un alternador de panel acoplable para cada uno de estos
+tres paneles; cada alternador muestra u oculta su panel:
 
 | Entrada de menú | Panel | Para qué sirve |
 | --- | --- | --- |
@@ -35,8 +35,8 @@ cambio hecho en un panel se refleja de inmediato en los demás.
 
 ## Explorar el catálogo
 
-El panel de **Biblioteca de recursos** lista el catálogo en tres columnas — **nombre**,
-**tipo** y **etiquetas**. Siempre muestra exactamente lo que contiene el
+El panel de **Biblioteca de recursos** lista el catálogo en cuatro columnas — **Nombre**,
+**Tipo**, **Etiquetas** y **Estado**. Siempre muestra exactamente lo que contiene el
 catálogo: añadir, eliminar o etiquetar un recurso actualiza la lista de
 inmediato. Seleccionar una fila elige ese recurso, que es lo que edita después
 el panel de **Etiquetado de recursos**.
@@ -133,4 +133,4 @@ Más allá del catálogo, el etiquetado y la búsqueda/filtro de esta página:
   restaurar), reutilización por referencia (no por copia) de un recurso
   compartido entre proyectos, exportación/importación de los recursos
   referenciados de un proyecto como paquete autocontenido, y respaldo opcional
-  en la nube de los blobs compartidos.
+  en la nube de los blobs compartidos (no conectado en esta versión).

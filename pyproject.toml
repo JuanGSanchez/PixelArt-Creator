@@ -11,7 +11,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pixelart-creator"
-version = "0.4.1"
+version = "0.5.0"
 description = "Unified pixel-art platform: 8K editable grid, colour tools, layers, GPU render pipeline."
 readme = "NOTICE"
 # PYTHON VERSION — SINGLE PARAMETRIC SOURCE (2026-08-24): the repo-root
@@ -173,6 +173,7 @@ exclude = ["testing*", "scripts*", "docs*", "sync_backend*", "web_viewer*"]
 pixelart_creator = [
     "userguide_content/**/*.md",
     "userguide_content/*.json",
+    "userguide_content/content/*/*.json",
     "i18n/*.qm",
     "i18n/*.ts",
     "icons/tools/*.svg",
@@ -184,8 +185,15 @@ pixelart_creator = [
     # by building the wheel and listing it, not by reading these entries.
     "fonts/NifenArt-Regular.ttf",
     "fonts/NifenArt-Bold.ttf",
+    "fonts/NifenArtCJKJP-Regular.ttf",
+    "fonts/NifenArtCJKJP-Bold.ttf",
+    "fonts/NifenArtCJKSC-Regular.ttf",
+    "fonts/NifenArtCJKSC-Bold.ttf",
+    "fonts/NifenArtCJKKR-Regular.ttf",
+    "fonts/NifenArtCJKKR-Bold.ttf",
     "fonts/OFL.txt",
     "fonts/FONTLOG.txt",
+    "fonts/FONTLOG-CJK.txt",
     "themes/*.json",
     "themes/*/*.json",
     "themes/*/*.grid.txt",
@@ -246,6 +254,16 @@ disallow_incomplete_defs = true
 [[tool.mypy.overrides]]
 module = ["PySide6.*", "keyring.*"]
 ignore_missing_imports = true
+
+# fontTools and yaml are installed, but mypy cannot use what they ship: fontTools
+# has no py.typed marker, and the stubs for yaml are a separate package this
+# project does not install. By default mypy then skips both and treats every
+# name imported from them as Any, so calls into them are never checked. This
+# makes mypy read their installed source and check against it. It checks more
+# and silences nothing.
+[[tool.mypy.overrides]]
+module = ["fontTools", "fontTools.*", "yaml", "yaml.*"]
+follow_untyped_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
@@ -311,9 +329,9 @@ exclude_lines = [
 # changes nothing about what is enforced today — it only makes the
 # previously-implicit ruleset explicit, durable, and immune to a future
 # pydocstyle major-version default change. NO add-ignore/add-select: the 102
-# real findings this convention surfaces (D101/D102/D105/D107/D209/D301/D401/
-# D402) are genuine gaps, not convention noise, and are gated (with a
-# time-boxed exception) in ci.yml rather than suppressed here.
+# real findings this convention surfaced (D101/D102/D105/D107/D209/D301/D401/
+# D402) were genuine gaps, not convention noise, so any finding is gated by
+# a blocking step in ci.yml rather than suppressed here.
 [tool.pydocstyle]
 convention = "pep257"
 

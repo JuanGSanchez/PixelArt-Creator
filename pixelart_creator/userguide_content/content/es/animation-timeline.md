@@ -96,7 +96,7 @@ duración cambia el tiempo en pantalla de ese fotograma en el siguiente pase.
 El papel cebolla muestra los **fotogramas adyacentes** detrás del que estás editando,
 así puedes alinear el movimiento.
 
-- **Actívalo** con el alternador de papel cebolla. Los fotogramas fantasma se
+- **Actívalo** con la casilla **Activar papel cebolla** del panel Papel cebolla. Los fotogramas fantasma se
   renderizan detrás del fotograma activo; el fotograma activo en sí no cambia.
 - Establece cuántos fotogramas **anteriores** y **siguientes** mostrar (cada `0`
   desactiva ese lado; el valor por defecto es **1 anterior / 1 siguiente**).
@@ -114,12 +114,14 @@ Una **etiqueta de fotograma** nombra un rango de fotogramas como su propia
 animación. Un archivo puede tener varias etiquetas — por ejemplo `caminar` sobre los
 fotogramas 1–4, `quieto` sobre el fotograma 0 — y pueden solaparse.
 
-Desde el panel de **Etiquetas de fotograma**:
+Desde el panel de **Etiquetas de fotogramas**:
 
-- **Añadir/editar/eliminar** una etiqueta — cada una abre un diálogo para el
+- **Añadir etiqueta / Editar etiqueta** — cada una abre un diálogo para el
   **nombre** de la etiqueta, el rango **desde/hasta** inclusivo, el **modo de
   reproducción**, el número de **repeticiones** (`0` = infinito para los modos en
-  bucle) y un **color**. Cada cambio es **un paso de deshacer**. Una etiqueta se
+  bucle) y un **color**. **Eliminar etiqueta** borra la etiqueta seleccionada al
+  instante, sin diálogo, y solo está disponible mientras haya una etiqueta
+  seleccionada. Cada cambio es **un paso de deshacer**. Una etiqueta se
   muestra como un tramo a través de los fotogramas que abarca.
 - **Reproducir etiqueta** reproduce la etiqueta seleccionada como su propia animación
   con nombre: ejecuta el rango de la etiqueta bajo el **modo de reproducción y
@@ -133,7 +135,7 @@ el cambio de fotogramas como los rangos de etiquetas originales juntos.
 
 ## Vista de cuadrícula (la cuadrícula de celdas)
 
-El alternador **Grid View** (aún sin traducir al español en esta versión) de la
+El alternador **Vista de cuadrícula** de la
 barra de herramientas de la línea de tiempo cambia de la tira horizontal a una
 **cuadrícula de celdas**: fotogramas como columnas, pistas de capa como filas, al
 estilo de la cuadrícula de celdas de Aseprite. Muestra el mismo documento que la
@@ -144,14 +146,14 @@ tira — alternar entre ambas vistas nunca pierde tu posición.
   para copiarlo en su lugar, dejando el origen intacto. Ambas acciones son un único
   paso de deshacer. Este es un gesto **distinto** de **Ctrl+drag** en el lienzo, que
   sigue copiando una selección flotante — consulta
-  [Selección y movimiento/copia flotante](selection-and-transform.md#copiar-en-lugar-de-mover-manten-pulsado-ctrl)
+  [Selección y movimiento/copia flotante](selection-and-transform.md#copy-instead-of-move-hold-ctrl)
   — el modificador es el mismo, pero cuál se aplica depende de dónde arrastres.
 - **Confirmación de sobrescritura** — soltar sobre una celda que ya tiene contenido
   abre el diálogo **¿Sobrescribir celda existente?** pidiéndote confirmación
   antes de reemplazarlo. Marca su casilla
   **"No volver a preguntar para este proyecto"** para dejar de recibir esa
   pregunta el resto de este proyecto; consulta [Confirmaciones del
-  proyecto](#confirmaciones-del-proyecto) más abajo para volver a activarla.
+  proyecto](#project-confirmations) más abajo para volver a activarla.
 - **Alternar visibilidad por celda** — haz clic en el indicador de visibilidad de una
   celda para mostrar/ocultar la capa de ese fotograma; es un paso de deshacer, igual
   que el alternador de visibilidad en cualquier otro lugar.
@@ -165,31 +167,27 @@ tira — alternar entre ambas vistas nunca pierde tu posición.
 - **Reordenar columnas** — arrastra el encabezado de una columna para reordenar
   fotogramas, el equivalente en la cuadrícula de arrastrar una celda de la tira.
 
-> **Nota de idioma.** "Grid View" aparece todavía en inglés en la interfaz en
-> español: el catálogo de traducción (`i18n/pixelart_es.ts`) aún no incluye esta
-> cadena. Esto es un hueco de localización, no un error de esta guía.
-
 ### Confirmaciones del proyecto
 
 La confirmación de sobrescritura de la vista de cuadrícula es una de las
 preferencias por proyecto de la aplicación: una vez suprimida con
 "No volver a preguntar para este proyecto," permanece desactivada para ese
-proyecto hasta que la restaures desde el menú **Project confirmations** (bajo
-Editar; también pendiente de traducción), que lista todas las confirmaciones
-suprimidas y reactiva cada una individualmente.
+proyecto hasta que la restaures desde **Editar ▸ Confirmaciones del proyecto**,
+que lista todas las confirmaciones suprimidas y reactiva cada una
+individualmente.
 
 ## Gestos de puntero
 
 La tira de fotogramas responde a cuatro gestos de puntero modificados con
 **Ctrl**, además de los botones de la barra de herramientas de
-[Gestionar fotogramas](#gestionar-fotogramas) arriba:
+[Gestionar fotogramas](#managing-frames) arriba:
 
 | Gesto | Resultado |
 | --- | --- |
 | **Ctrl+wheel** | Avanza el documento activo al fotograma siguiente/anterior. |
 | **Ctrl+middle-click** | Salta directamente al fotograma 1 del documento activo. |
 | **Ctrl+left-click** | Añade un fotograma después del activo — la misma acción deshacible que el botón **Añadir fotograma**. |
-| **Ctrl+right-click** | Elimina el fotograma activo — la misma acción deshacible que el botón **Eliminar fotograma**, y **solo en la línea de tiempo**: no tiene equivalente en la Grid View. Igual que el botón, se rechaza en el último fotograma restante de un documento, del que siempre se conserva al menos uno. |
+| **Ctrl+right-click** | Elimina el fotograma activo — la misma acción deshacible que el botón **Eliminar fotograma**, y **solo en la línea de tiempo**: no tiene equivalente en la Vista de cuadrícula. Igual que el botón, se rechaza en el último fotograma restante de un documento, del que siempre se conserva al menos uno. |
 
 ## Persistencia
 

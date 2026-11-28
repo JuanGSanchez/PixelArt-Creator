@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.logic.asset_catalog import AssetDescriptor
 from pixelart_creator.logic.asset_tags import (
     AssetTagError,
@@ -118,7 +119,13 @@ class Asset_Tagging_Panel(QWidget):
         try:
             tag_op = make_add_tag(descriptor, tag)
         except AssetTagError as exc:
-            QMessageBox.warning(self, self.tr("Tagging"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Tagging"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         command = AddTagCommand(
             tag_op,
@@ -142,7 +149,13 @@ class Asset_Tagging_Panel(QWidget):
         try:
             tag_op = make_remove_tag(descriptor, tag)
         except AssetTagError as exc:
-            QMessageBox.warning(self, self.tr("Tagging"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Tagging"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         command = RemoveTagCommand(
             tag_op,

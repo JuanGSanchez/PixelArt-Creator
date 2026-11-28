@@ -27,6 +27,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
+
 #: Angle input bounds, degrees (a full turn either way; not a domain tuning value).
 _ANGLE_MIN = -360.0
 _ANGLE_MAX = 360.0
@@ -48,6 +50,7 @@ class RotSprite_Dialog(QDialog):
         self._render = render
 
         self._angle = QDoubleSpinBox(self)
+        self._angle.setLocale(i18n.current_formatting_locale())
         self._angle.setDecimals(1)
         self._angle.setRange(_ANGLE_MIN, _ANGLE_MAX)
         self._angle.setSingleStep(15.0)

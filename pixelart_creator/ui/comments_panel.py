@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.cloud import ProjectComment, SharedProjectError
 from pixelart_creator.logic.constants import MAX_COMMENT_BYTES
 from pixelart_creator.ui.collaboration_actions import Collaboration_Session
@@ -132,9 +133,7 @@ class Comments_Panel(QWidget):
             QMessageBox.warning(
                 self,
                 self.tr("Comments"),
-                self.tr("A comment may be at most %1 bytes.").replace(
-                    "%1", str(MAX_COMMENT_BYTES)
-                ),
+                self.tr("A comment may be at most %n bytes.", "", MAX_COMMENT_BYTES),
             )
             return
         parent_id = (
@@ -143,7 +142,13 @@ class Comments_Panel(QWidget):
         try:
             self._session.add_comment(project_id, author_id, text, parent_id)
         except SharedProjectError as exc:
-            QMessageBox.warning(self, self.tr("Comments"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Comments"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self._editor.clear()
         self._reply_check.setChecked(False)
@@ -159,7 +164,13 @@ class Comments_Panel(QWidget):
         try:
             self._session.resolve_comment(project_id, comment_id)
         except SharedProjectError as exc:
-            QMessageBox.warning(self, self.tr("Comments"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Comments"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
 
     # -- session reactions ------------------------------------------------
 
@@ -208,9 +219,7 @@ class Comments_Panel(QWidget):
     def _update_counter(self) -> None:
         used = len(self._editor.toPlainText().encode("utf-8"))
         self._counter.setText(
-            self.tr("%1 / %2 bytes")
-            .replace("%1", str(used))
-            .replace("%2", str(MAX_COMMENT_BYTES))
+            self.tr("%1 / %n bytes", "", MAX_COMMENT_BYTES).replace("%1", str(used))
         )
 
     def _update_enabled(self) -> None:

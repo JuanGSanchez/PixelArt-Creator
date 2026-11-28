@@ -3,15 +3,25 @@
 ## Supported Versions
 
 PixelArt Creator is currently in **0.x**, pre-1.0 development
-(`pyproject.toml` reports `version = "0.3.1"`, classified
-`Development Status :: 3 - Alpha`). Only the **latest released 0.x
-version** is supported with security fixes; there is no long-term-support
-branch at this stage.
+(`pyproject.toml` reports `version = "0.5.0"`, classified
+`Development Status :: 3 - Alpha`). Only the **latest released version**
+receives security fixes; there is no long-term-support branch at this
+stage. The latest released version is **0.5.0**.
 
-| Version        | Supported          |
+| Version        | Supported           |
 | -------------- | ------------------- |
-| Latest 0.x     | :white_check_mark:  |
-| Older releases | :x:                  |
+| 0.5.0 (latest) | :white_check_mark:  |
+| Older releases | :x:                 |
+
+### Version 0.4.0
+
+Security support for **0.4.0** has ended. It was the last release that
+installs on Python 3.13; every later release needs Python 3.14 or newer
+(see the [changelog](CHANGELOG.md)). Staying on 0.4.0 to keep Python 3.13
+means running a version that no longer receives security fixes. To receive
+them, use Python 3.14 or newer and upgrade to the latest release. The
+packaged installers (Windows, macOS and Linux) are self-contained builds
+and do not depend on the Python version of your system.
 
 ## Reporting a Vulnerability
 

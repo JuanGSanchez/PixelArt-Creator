@@ -1,0 +1,16 @@
+Visual references of the redrawn Han drawings
+
+Two regional builds of one typeface family were looked at as a visual
+reference, one for each form set:
+
+  Source Han Sans, Regular, Version 2.005;addfeatures 5.0.0b21: Japanese form
+  Source Han Sans SC, Regular, Version 2.005;addfeatures 5.0.0b21: Simplified form
+
+Owner: © 2014-2025 Adobe (http://www.adobe.com/)
+
+  Japanese form: 394
+  Simplified form: 534
+
+They were used only as a visual reference, looked at by eye, for the
+redrawn drawings. No glyph, outline, bitmap or other data was taken from
+them or from any other font, and no part of them is in the font.

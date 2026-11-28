@@ -11,17 +11,20 @@ deterministic. Includes a Hypothesis byte-reproducibility property.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from io import BytesIO
-from typing import List, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from PIL import Image
+from PIL.GifImagePlugin import GifImageFile
 
 from pixelart_creator import __version__
+from pixelart_creator.logic import export as export_module
 from pixelart_creator.logic.animation import PlaybackMode
 from pixelart_creator.logic.atlas import AtlasError
 from pixelart_creator.logic.blend import composite_stack
@@ -31,8 +34,9 @@ from pixelart_creator.logic.constants import (
     MAX_BATCH_TARGETS,
     MAX_EXPORT_FRAMES,
 )
-from pixelart_creator.logic.document import Document
+from pixelart_creator.logic.document import Document, Layer
 from pixelart_creator.logic.export import (
+    BatchTargetResult,
     ExportError,
     ExportFormat,
     ExportRequest,
@@ -47,7 +51,11 @@ from pixelart_creator.logic.export import (
     flatten_frame,
     run_batch,
 )
-from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
+from pixelart_creator.logic.pixel_buffer import (
+    ColorMode,
+    PixelBuffer,
+    PixelBufferError,
+)
 
 RED = (255, 0, 0, 255)
 GREEN = (0, 255, 0, 255)
@@ -69,13 +77,13 @@ def make_doc(
 ) -> Document:
     """Build an RGBA document whose frame k is a solid fill of ``colors[k]``."""
     doc = Document(w, h)
-    doc.frames[0].layers[0].buffer.fill(colors[0])
+    cast(Layer, doc.frames[0].layers[0]).buffer.fill(colors[0])
     if durations is not None:
         doc.frames[0].duration_ms = durations[0]
     for k, color in enumerate(colors[1:], start=1):
         dur = durations[k] if durations is not None else 100
         frame = doc.add_frame(duration_ms=dur)
-        frame.layers[0].buffer.fill(color)
+        cast(Layer, frame.layers[0]).buffer.fill(color)
     return doc
 
 
@@ -114,9 +122,9 @@ def test_flatten_frame_equals_composite_stack() -> None:
 def test_flatten_frame_is_non_destructive() -> None:
     """REQ-P7-LOGIC-001: flattening never mutates the frame's source buffers."""
     doc = make_doc([RED])
-    before = doc.frames[0].layers[0].buffer.data.copy()
+    before = cast(Layer, doc.frames[0].layers[0]).buffer.data.copy()
     flatten_frame(doc.frames[0], doc.width, doc.height)
-    assert np.array_equal(doc.frames[0].layers[0].buffer.data, before)
+    assert np.array_equal(cast(Layer, doc.frames[0].layers[0]).buffer.data, before)
 
 
 def test_flatten_composites_multiple_layers() -> None:
@@ -233,7 +241,7 @@ def test_gif_decodes_with_frame_count_and_durations() -> None:
     """REQ-P7-LOGIC-004: decoded frame count + per-frame delays reflect duration_ms."""
     doc = make_doc([RED, GREEN, BLUE], [100, 500, 100])
     result = export_document(doc, ExportRequest(fmt=ExportFormat.GIF))
-    img = Image.open(BytesIO(result.image_bytes))
+    img = cast(GifImageFile, Image.open(BytesIO(result.image_bytes)))
     assert img.n_frames == 3
     durations = []
     for i in range(img.n_frames):
@@ -246,7 +254,7 @@ def test_gif_decodes_with_frame_count_and_durations() -> None:
 def test_encode_gif_single_frame_source() -> None:
     """REQ-P7-LOGIC-004: a single-frame source yields a single-image GIF."""
     data = encode_gif([rgba_buffer(4, 4, RED)], [100])
-    assert Image.open(BytesIO(data)).n_frames == 1
+    assert cast(GifImageFile, Image.open(BytesIO(data))).n_frames == 1
 
 
 def test_encode_gif_over_256_colours_is_deterministic() -> None:
@@ -509,6 +517,7 @@ def test_sheet_maps_document_tags_with_directions() -> None:
     result = export_document(
         doc, ExportRequest(fmt=ExportFormat.SPRITE_SHEET, columns=8)
     )
+    assert result.metadata_json is not None
     obj = json.loads(result.metadata_json)
     directions = {t["name"]: t["direction"] for t in obj["meta"]["frameTags"]}
     assert directions == {"loop": "forward", "rev": "reverse", "pp": "pingpong"}
@@ -519,7 +528,7 @@ def test_named_tag_selects_its_range() -> None:
     doc = make_doc([RED, GREEN, BLUE], [100, 200, 300])
     _add_tag(doc, "mid", 1, 2, PlaybackMode.LOOP)
     result = export_document(doc, ExportRequest(fmt=ExportFormat.GIF, tag="mid"))
-    img = Image.open(BytesIO(result.image_bytes))
+    img = cast(GifImageFile, Image.open(BytesIO(result.image_bytes)))
     assert img.n_frames == 2  # frames 1 and 2 only
 
 
@@ -530,6 +539,7 @@ def test_named_tag_maps_to_zero_based_span_in_sheet() -> None:
     result = export_document(
         doc, ExportRequest(fmt=ExportFormat.SPRITE_SHEET, tag="mid")
     )
+    assert result.metadata_json is not None
     obj = json.loads(result.metadata_json)
     assert len(obj["frames"]) == 2
     assert obj["meta"]["frameTags"][0] == {
@@ -600,6 +610,7 @@ def test_run_batch_each_output_equals_single_export() -> None:
     assert batch.all_succeeded
     for req, target in zip(requests, batch.targets):
         assert target.success
+        assert target.result is not None
         single = export_document(doc, req)
         assert target.result.image_bytes == single.image_bytes
         assert target.result.metadata_json == single.metadata_json
@@ -638,6 +649,7 @@ def test_run_batch_captures_export_error_with_index() -> None:
     assert batch.targets[0].success
     assert not batch.targets[1].success
     assert batch.targets[1].index == 1
+    assert batch.targets[1].error is not None
     assert "nope" in batch.targets[1].error
     assert not batch.all_succeeded
     assert batch.failures == (batch.targets[1],)
@@ -703,6 +715,230 @@ def test_run_batch_all_succeeded_false_when_any_target_fails() -> None:
     assert not batch.all_succeeded
     assert len(batch.successes) == 1
     assert len(batch.failures) == 1
+
+
+# --------------------------------------------------------------------------- #
+# A failing batch target carries the caught exception (clause 4, logic layer)   #
+# --------------------------------------------------------------------------- #
+#
+# The ui layer shows a failure sentence chosen by the exception's CLASS. The
+# batch result used to keep only the exception's text, so the class was lost at
+# the logic/ui boundary. The result now also carries the caught exception, with
+# its traceback dropped (an 8,192-target batch must not keep 8,192 frame chains
+# alive), excluded from equality and from repr, beside the unchanged ``error``
+# text. The contract names the field by its declaration, not by a spelling, so
+# the cases below locate it through ``dataclasses.fields``.
+
+
+class _DomainFault(ValueError):
+    """A ValueError subclass standing for a domain error of any layer."""
+
+
+def _carried_field_name() -> str:
+    """Return the name of the one field declared ``compare=False, repr=False``."""
+    names = [
+        f.name
+        for f in dataclasses.fields(BatchTargetResult)
+        if f.compare is False and f.repr is False
+    ]
+    assert len(names) == 1, (
+        "BatchTargetResult must declare exactly one field with "
+        f"compare=False and repr=False to hold the caught exception; found {names}"
+    )
+    return names[0]
+
+
+def _target(
+    request: ExportRequest,
+    error: str,
+    exc: Optional[BaseException] = None,
+    index: int = 3,
+) -> BatchTargetResult:
+    """Build a result, giving the carried exception only when one is passed."""
+    extra: Dict[str, Any] = {} if exc is None else {_carried_field_name(): exc}
+    return BatchTargetResult(index=index, request=request, error=error, **extra)
+
+
+def _carried(target: BatchTargetResult) -> object:
+    return getattr(target, _carried_field_name())
+
+
+def _fail_with(monkeypatch: pytest.MonkeyPatch, exc: BaseException) -> None:
+    """Make every export_document call inside run_batch raise ``exc``."""
+
+    def _raise(document: Document, request: ExportRequest) -> None:
+        raise exc
+
+    monkeypatch.setattr(export_module, "export_document", _raise)
+
+
+def test_batch_target_declares_the_caught_exception_field() -> None:
+    """The new field is declared compare=False, repr=False, default None."""
+    name = _carried_field_name()
+    field = next(f for f in dataclasses.fields(BatchTargetResult) if f.name == name)
+    assert field.default is None
+    request = ExportRequest(fmt=ExportFormat.PNG)
+    assert getattr(BatchTargetResult(index=0, request=request), name) is None
+
+
+_RAISED = [
+    pytest.param(PermissionError("denied"), id="permission-error"),
+    pytest.param(_DomainFault("bad value"), id="value-error-subclass"),
+    pytest.param(ExportError("export bound hit"), id="export-error"),
+    pytest.param(AtlasError("atlas cannot fit"), id="atlas-error"),
+    pytest.param(PixelBufferError("buffer rejected"), id="pixel-buffer-error"),
+    pytest.param(MemoryError("out of memory"), id="memory-error"),
+]
+
+
+@pytest.mark.parametrize("exc", _RAISED)
+def test_failed_target_carries_an_instance_of_the_raised_class(
+    monkeypatch: pytest.MonkeyPatch, exc: Exception
+) -> None:
+    """A failing target carries an instance of exactly the class raised."""
+    expected_class = type(exc)
+    _fail_with(monkeypatch, exc)
+    batch = run_batch(make_doc([RED]), [ExportRequest(fmt=ExportFormat.PNG)])
+    carried = _carried(batch.targets[0])
+    assert type(carried) is expected_class
+
+
+@pytest.mark.parametrize("exc", _RAISED)
+def test_failed_target_exception_has_no_traceback(
+    monkeypatch: pytest.MonkeyPatch, exc: Exception
+) -> None:
+    """The carried exception's traceback is dropped, so no frames are retained."""
+    _fail_with(monkeypatch, exc)
+    batch = run_batch(make_doc([RED]), [ExportRequest(fmt=ExportFormat.PNG)])
+    carried = _carried(batch.targets[0])
+    assert isinstance(carried, BaseException)
+    assert carried.__traceback__ is None
+
+
+def test_a_raise_does_carry_a_traceback_before_it_is_dropped() -> None:
+    """Control: the raising mechanism the cases above use does set a traceback."""
+    try:
+        raise _DomainFault("x")
+    except _DomainFault as caught:
+        assert caught.__traceback__ is not None
+
+
+@pytest.mark.parametrize(
+    "exc, expected_error",
+    [
+        pytest.param(
+            PermissionError("denied"),
+            "PermissionError: denied",
+            id="permission-error",
+        ),
+        pytest.param(
+            _DomainFault("bad value"), "_DomainFault: bad value", id="subclass"
+        ),
+        pytest.param(ExportError("bound hit"), "bound hit", id="export-error"),
+        pytest.param(AtlasError("cannot fit"), "cannot fit", id="atlas-error"),
+        pytest.param(PixelBufferError("rejected"), "rejected", id="pixel-buffer-error"),
+        pytest.param(MemoryError("oom"), "MemoryError: oom", id="memory-error"),
+    ],
+)
+def test_error_text_is_unchanged_beside_the_carried_exception(
+    monkeypatch: pytest.MonkeyPatch, exc: Exception, expected_error: str
+) -> None:
+    """``error`` keeps its two documented forms.
+
+    The three named export types read as ``str(exc)``; any other exception reads
+    as ``"<ClassName>: <text>"``.
+    """
+    _fail_with(monkeypatch, exc)
+    batch = run_batch(make_doc([RED]), [ExportRequest(fmt=ExportFormat.PNG)])
+    target = batch.targets[0]
+    assert target.error == expected_error
+    assert target.result is None
+    assert not target.success
+
+
+def test_real_export_error_is_carried_as_export_error() -> None:
+    """The real pipeline, no stub: an unknown tag yields a carried ExportError."""
+    doc = make_doc([RED, GREEN])
+    batch = run_batch(doc, [ExportRequest(fmt=ExportFormat.GIF, tag="nope")])
+    carried = _carried(batch.targets[0])
+    assert type(carried) is ExportError
+    assert carried.__traceback__ is None
+    assert str(carried) == batch.targets[0].error
+
+
+def test_real_atlas_error_is_carried_as_atlas_error() -> None:
+    """The real pipeline, no stub: an atlas that cannot fit carries AtlasError."""
+    doc = make_doc([RED])
+    batch = run_batch(doc, [ExportRequest(fmt=ExportFormat.ATLAS, max_dimension=2)])
+    carried = _carried(batch.targets[0])
+    assert type(carried) is AtlasError
+    assert carried.__traceback__ is None
+    assert str(carried) == batch.targets[0].error
+
+
+def test_successful_target_carries_no_exception() -> None:
+    """A succeeding target's carried exception stays None; failures keep order."""
+    doc = make_doc([RED, GREEN])
+    requests = [
+        ExportRequest(fmt=ExportFormat.PNG),
+        ExportRequest(fmt=ExportFormat.GIF, tag="nope"),
+        ExportRequest(fmt=ExportFormat.PNG),
+    ]
+    batch = run_batch(doc, requests)
+    carried = [_carried(t) for t in batch.targets]
+    assert carried[0] is None and carried[2] is None
+    assert type(carried[1]) is ExportError
+
+
+def test_each_failing_target_carries_its_own_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two failures of different classes in one batch are not mixed up."""
+    raised = iter([PermissionError("first"), _DomainFault("second")])
+
+    def _raise(document: Document, request: ExportRequest) -> None:
+        raise next(raised)
+
+    monkeypatch.setattr(export_module, "export_document", _raise)
+    request = ExportRequest(fmt=ExportFormat.PNG)
+    batch = run_batch(make_doc([RED]), [request, request])
+    first, second = (_carried(t) for t in batch.targets)
+    assert type(first) is PermissionError and first.args == ("first",)
+    assert type(second) is _DomainFault and second.args == ("second",)
+
+
+def test_results_differing_only_in_the_carried_exception_are_equal() -> None:
+    """The field is excluded from equality (compare=False)."""
+    request = ExportRequest(fmt=ExportFormat.PNG)
+    a = _target(request, "x", OSError("a"))
+    b = _target(request, "x", _DomainFault("b"))
+    c = _target(request, "x")
+    assert a == b == c
+
+
+def test_results_differing_in_another_field_are_still_unequal() -> None:
+    """Control: equality is not vacuous; a differing ``error`` still differs."""
+    request = ExportRequest(fmt=ExportFormat.PNG)
+    shared = OSError("same")
+    a = _target(request, "x", shared)
+    b = _target(request, "y", shared)
+    assert a != b
+
+
+def test_repr_does_not_show_the_carried_exception() -> None:
+    """The field is excluded from repr (repr=False)."""
+    name = _carried_field_name()
+    request = ExportRequest(fmt=ExportFormat.PNG)
+    target = _target(request, "short", OSError("secret-detail"), index=0)
+    assert "secret-detail" not in repr(target)
+    assert name not in repr(target)
+
+
+def test_repeated_batches_compare_equal_with_carried_exceptions() -> None:
+    """Two runs of the same failing batch give equal results (ADR-0019 order)."""
+    doc = make_doc([RED])
+    requests = [ExportRequest(fmt=ExportFormat.GIF, tag="nope")]
+    assert run_batch(doc, requests) == run_batch(doc, requests)
 
 
 # NOTE (follow-up, not written here): a "one implementation only" grep-gate

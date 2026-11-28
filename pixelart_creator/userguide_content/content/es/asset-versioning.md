@@ -3,9 +3,10 @@
 La biblioteca de recursos mantiene un **historial de versiones de solo adición**
 para cada recurso, te permite **reutilizar un recurso compartido en varios
 proyectos sin duplicar sus bytes**, **exportar e importar** los recursos que un
-proyecto referencia como un paquete autónomo, y — cuando conectas un proveedor de
-nube — **respaldar los blobs compartidos en la nube** mientras sigues trabajando
-totalmente sin conexión. Todo esto se accede desde el menú **Biblioteca**, junto a
+proyecto referencia como un paquete autónomo, y
+trabajar **totalmente sin conexión**; en la capa de almacenamiento existe un almacén de
+blobs respaldado en la nube, pero esta versión no lo conecta (consulta *Respaldo
+opcional en la nube*). Todo esto se accede desde el menú **Biblioteca**, junto a
 los paneles de [biblioteca de recursos](asset-library.md) y
 [dependencias](asset-dependencies.md) sobre los que se construyen.
 
@@ -13,7 +14,7 @@ los paneles de [biblioteca de recursos](asset-library.md) y
 > usa: los bytes de un recurso se almacenan **una vez**, con clave según su
 > contenido, en un almacén direccionable por contenido, y un proyecto solo
 > mantiene una **referencia** (un id estable más el hash de contenido que espera).
-> El versionado, la reutilización y la exportación mueven referencias y verifican
+> Tanto el versionado como la reutilización mueven referencias y verifican
 > contenido — nunca hacen una segunda copia de tu obra.
 
 ## Historial de versiones
@@ -38,7 +39,7 @@ Cada vez que registras un nuevo estado de un recurso, la biblioteca añade una
 
 ### Explorar y restaurar revisiones
 
-El **Explorador de versiones de recursos** lista las revisiones del recurso
+El panel **Versiones del recurso** lista las revisiones del recurso
 seleccionado en orden. Selecciona una para **inspeccionarla**, o **restaura** una
 revisión anterior para volver a hacerla actual.
 
@@ -94,8 +95,8 @@ Updated*), una vez por cada recurso cambiado:
 Cancelar o cerrar el aviso se comporta igual que **Mantener la versión
 referenciada**. Marcar **No volver a preguntar** al elegir cualquiera de las dos
 opciones recuerda esa elección para futuras ediciones de este recurso, en este
-proyecto; puedes restaurar el aviso más tarde desde **Editar → Confirmaciones del
-proyecto → Cuando cambia un recurso de biblioteca referenciado**. La elección se
+proyecto; puedes restaurar el aviso más tarde desde **Editar ▸ Confirmaciones del
+proyecto ▸ Cuando cambia un recurso de biblioteca referenciado**. La elección se
 guarda en cuanto la haces, actives o no la casilla — no necesitas guardar el proyecto
 para que se conserve. Si dejas sin marcar **No volver a preguntar**, tu respuesta se
 aplica igualmente a esta edición; la siguiente edición distinta de este recurso vuelve
@@ -112,7 +113,7 @@ menú **Biblioteca**.
 - **Exactamente los recursos referenciados — ni más ni menos.** Exportar resuelve
   el conjunto de referencias del proyecto y empaqueta precisamente los blobs de
   esos recursos, cada uno almacenado una vez por contenido, más un índice de
-  catálogo y complementos por recurso.
+  catálogo y archivos auxiliares por recurso.
 - **Reutiliza el formato de proyecto ya existente.** El paquete compone la
   maquinaria de catálogo y proyecto existente — no hay un formato nuevo que
   aprender.
@@ -124,14 +125,16 @@ menú **Biblioteca**.
 
 ## Respaldo opcional en la nube
 
-Por defecto, la biblioteca almacena cada blob **localmente** y funciona
-**totalmente sin conexión**. Si conectas un proveedor de nube (consulta
-[Nube, versiones y recuperación](cloud-and-collaboration.md)), la biblioteca también
-puede **respaldar los blobs compartidos en la nube** — sin cambiar nada de cómo la
-usas:
+La biblioteca almacena cada blob **localmente** y funciona **totalmente sin
+conexión**. La capa de almacenamiento también contiene un almacén de blobs opcional
+respaldado en la nube, pero **esta versión no lo conecta**: la biblioteca siempre es
+local, y ni **Nube ▸ Conectar…** (que conecta el adaptador integrado, en memoria,
+descrito en [Nube: guardado, versiones y guardado automático](cloud-and-collaboration.md))
+ni ningún proveedor real lo activa. Una vez conectado, el respaldo en la nube está
+diseñado para funcionar sin cambiar nada de cómo usas la biblioteca:
 
-- **Local primero.** Cuando no hay ningún proveedor conectado, la biblioteca es
-  puramente local; la nube se activa **solo cuando hay un proveedor conectado**.
+- **Local primero.** En esta versión la biblioteca es puramente local; el respaldo
+  en la nube se activaría **solo cuando hay un proveedor conectado**.
 - **La misma interfaz de almacenamiento.** El respaldo en la nube es solo otro
   backend de blobs detrás de la misma interfaz que usa el almacén local, así que
   el catálogo, las revisiones y la reutilización se comportan de forma idéntica,

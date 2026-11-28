@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.blend import composite_stack
 from pixelart_creator.logic.color import RGBA
 from pixelart_creator.logic.constants import DEFAULT_FRAME_DURATION_MS
@@ -134,6 +135,7 @@ class Timeline_Panel(QWidget):
 
         self._duration_label = QLabel(self)
         self._duration_spin = QSpinBox(self)
+        self._duration_spin.setLocale(i18n.current_formatting_locale())
         self._duration_spin.setRange(1, _DURATION_SPIN_MAX)
         self._duration_spin.setValue(DEFAULT_FRAME_DURATION_MS)
         self._duration_spin.editingFinished.connect(self._on_duration_committed)

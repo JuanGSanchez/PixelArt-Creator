@@ -19,8 +19,8 @@ Use the selection tools to define the region you want to work on:
 
 | Tool | What it selects |
 | --- | --- |
-| **Rectangle** | A rectangular region you drag out. |
-| **Lasso** | A free-hand region you draw around. |
+| **Rectangle select** | A rectangular region you drag out. |
+| **Lasso select** | A free-hand region you draw around. |
 | **Magic wand** | A contiguous area of similar colour under the click. |
 
 **Selection lifetime.** Switching to one of the three selection tools above
@@ -62,7 +62,7 @@ separate action with its own shortcuts, **Shift+Q** and **Delete** — see the
 The float lifts whatever selection is already active — it does **not** create a new
 selection shape, it reuses the mask you already have.
 
-1. With the selection/move tool active, **press inside** the active selection. The
+1. With one of the selection tools (Rectangle select, Lasso select or Magic wand) active, **press inside** the active selection. The
    masked pixels lift into a floating preview.
 2. **Drag.** The floated colours follow the cursor; the origin region reads as
    **cleared to transparent** (index 0 in indexed mode) in the live preview.

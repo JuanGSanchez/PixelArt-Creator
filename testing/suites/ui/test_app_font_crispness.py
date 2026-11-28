@@ -562,6 +562,31 @@ def test_environment_is_recorded(qapp, capsys, model: Model) -> None:
     assert model.metrics.em_px == 12 and model.metrics.line_px == 14
 
 
+@pytest.mark.usefixtures("mode")
+def test_platform_default_family_is_recorded(
+    qtbot, capsys, request: pytest.FixtureRequest
+) -> None:
+    """Print the platform's default family and how Qt resolves it; assert nothing.
+
+    One line per mode, so the log of a native run carries the family the
+    platform gave as the application default, whether the font database lists
+    it, the family a font of that name alone resolves to, and the family the
+    chained font resolves to.
+    """
+    current = request.getfixturevalue("mode")
+    open_window(qtbot, current, use_system_font=True, settle=False)
+    p = app_font.platform_default_font()
+    f = p.family()
+    fams = QFontDatabase.families()
+    c = app_font.chained_font(p)
+    _say(
+        capsys,
+        f"{_platform()} [{current}] PLATFORM DEFAULT family {f!r} installed "
+        f"{f in fams} single resolves to {QFontInfo(p).family()!r} chained "
+        f"resolves to {QFontInfo(c).family()!r} chain {c.families()!r}",
+    )
+
+
 def test_native_platform_was_examined(
     qapp, capsys, request: pytest.FixtureRequest
 ) -> None:

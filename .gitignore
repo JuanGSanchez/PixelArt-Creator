@@ -58,6 +58,9 @@ coverage/
 # The Nifen Art coverage DATA (declared-set.txt, probe-text.txt) is tracked
 # font input, not coverage output: re-include it after the rule above.
 !fonts-src/nifen-art/coverage/
+# The Nifen Art CJK face's coverage DATA (measured-set.txt, its measured set)
+# is tracked font input, not coverage output: re-include it after the rule above.
+!fonts-src/nifen-art-cjk/coverage/
 
 # ---- (e) Python / PySide6 stack ---------------------------------------------
 # Python bytecode & extensions

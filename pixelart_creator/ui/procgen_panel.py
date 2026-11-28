@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.constants import (
     DEFAULT_PROCGEN_SEED,
     MAX_PROCGEN_DIMENSION,
@@ -70,22 +71,27 @@ class Procgen_Panel(QWidget):
             self._algorithm_combo.addItem(algorithm, algorithm)
 
         self._seed_spin = QSpinBox(self)
+        self._seed_spin.setLocale(i18n.current_formatting_locale())
         self._seed_spin.setRange(0, _MAX_SEED)
         self._seed_spin.setValue(int(DEFAULT_PROCGEN_SEED))
 
         self._width_spin = QSpinBox(self)
+        self._width_spin.setLocale(i18n.current_formatting_locale())
         self._width_spin.setRange(1, int(MAX_PROCGEN_DIMENSION))
         self._width_spin.setValue(64)
         self._width_spin.setSuffix(self.tr(" px"))
         self._height_spin = QSpinBox(self)
+        self._height_spin.setLocale(i18n.current_formatting_locale())
         self._height_spin.setRange(1, int(MAX_PROCGEN_DIMENSION))
         self._height_spin.setValue(64)
         self._height_spin.setSuffix(self.tr(" px"))
 
         self._frequency_spin = QSpinBox(self)
+        self._frequency_spin.setLocale(i18n.current_formatting_locale())
         self._frequency_spin.setRange(1, 256)
         self._frequency_spin.setValue(4)
         self._octaves_spin = QSpinBox(self)
+        self._octaves_spin.setLocale(i18n.current_formatting_locale())
         self._octaves_spin.setRange(1, 12)
         self._octaves_spin.setValue(1)
 

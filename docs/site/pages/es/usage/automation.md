@@ -1,9 +1,8 @@
 # Automatización y extensibilidad
 
 El **sistema de automatización** te permite grabar, programar mediante
-scripts, reproducir y procesar por lotes las operaciones propias del editor,
-generar contenido de forma procedural, y ampliar la aplicación con
-complementos de confianza — todo a través de **un solo** motor que la interfaz
+scripts, reproducir y procesar por lotes las operaciones propias del editor, y
+generar contenido de forma procedural — todo a través de **un solo** motor que la interfaz
 gráfica y la línea de comandos sin interfaz gráfica `pixelart-run` comparten,
 así que una automatización se ejecuta **de forma idéntica** tanto si la
 activas desde un panel como desde un script de compilación.
@@ -13,15 +12,14 @@ activas desde un panel como desde un script de compilación.
     Python arbitrario. Una automatización es una *lista validada de
     operaciones* (`{name, params, seed}`), nunca un lenguaje: **no hay
     `eval` / `exec` / `compile` / `__import__` de tu entrada en ningún punto**
-    de este camino — no hay ningún intérprete del que escapar (Artículo VII de
-    la constitución, satisfecho por construcción). Un único despachador de
+    de este camino — no hay ningún intérprete del que escapar. Un único despachador de
     confianza comprueba el nombre de cada operación contra una **lista de
     permitidos** y sus parámetros contra un esquema declarado antes de
     construir el comando reversible al que se asigna.
 
 ## Macros — grabar, reproducir y el formato `.pixmacro`
 
-El **panel de macros** graba las operaciones que realizas y las reproduce
+El panel **Macros** graba las operaciones que realizas y las reproduce
 después:
 
 - **Grabar** captura las *entradas* de cada paso — los parámetros resueltos y,
@@ -91,45 +89,66 @@ Como la ejecución es un único comando agrupado, un script completado es **un
 
 ## Complementos — el gestor, el consentimiento y el modelo de confianza
 
-El **gestor de complementos** descubre, activa y desactiva complementos. Los
-complementos amplían el editor registrando nuevas operaciones del DSL — y
-solo eso.
+El **gestor de complementos** descubre, habilita y deshabilita complementos. Un complemento
+está pensado para ampliar el editor registrando nuevas operaciones del DSL. **En esta
+versión la aplicación no tiene ningún mecanismo que cargue o ejecute el código de un
+complemento:** descubrir un complemento, cargar un manifiesto, habilitar y
+deshabilitar nunca invocan a un complemento. Los permisos que declara un manifiesto
+describen el uso previsto del complemento; no son un límite de lo que puede hacer el
+código propio del complemento (consulta la nota de abajo).
 
-- **El descubrimiento es inerte.** Los complementos instalados se *encuentran*
-  (mediante los puntos de entrada estándar de Python) pero **nada se carga ni
-  se ejecuta** solo por estar instalado. Los ves listados; no hacen nada hasta
-  que actúas.
-- **Denegar por defecto, con consentimiento explícito.** Activar un
-  complemento le entrega un **objeto de capacidad cuya única superficie es el
-  registro de comandos del DSL**. Un complemento no puede hacer
-  `eval`/`exec`, no puede alcanzar la interfaz, y no puede tocar el sistema de
-  archivos o la red fuera de las capacidades que le concedas — **toda
-  capacidad que no declaró y no le concediste se deniega**. Sus operaciones
-  están asociadas al espacio de nombres del complemento, así que un
-  complemento no puede suplantar una operación integrada.
-- **Desactivar es limpio.** Desactivar un complemento anula el registro de
-  las operaciones que añadió.
+- **El descubrimiento solo lista los complementos.** La aplicación encuentra los complementos instalados
+  mediante los puntos de entrada estándar de Python, pero solo lee sus nombres y
+  versiones: **no** carga ni ejecuta su código. Un complemento descubierto no muestra
+  permisos y no se puede habilitar, porque la aplicación no lee los permisos del propio
+  complemento. Los permisos proceden de un archivo de manifiesto que añades al panel
+  desde el disco, y que aparece como una entrada propia en la lista. La aplicación no
+  comprueba que un manifiesto pertenezca a un complemento que hayas instalado.
+- **El consentimiento cubre el manifiesto, no el código del complemento.** **Habilitar** muestra los
+  permisos que declara el manifiesto y te pide que confirmes. Los apruebas en
+  conjunto, o no habilitas el complemento. La aplicación no comprueba el manifiesto
+  frente a lo que el código del complemento hace realmente. Habilitar registra los
+  permisos que aprobaste, en memoria, y marca el complemento como habilitado; no
+  ejecuta el código del complemento, porque la aplicación no tiene ningún mecanismo que lo
+  haga. Tu consentimiento no se guarda: todos los complementos vuelven a quedar
+  deshabilitados cuando cierras el editor. El anfitrión de complementos está escrito de
+  modo que, si quien lo llama le proporcionara código que se ejecute cuando se
+  habilita un complemento, a ese código se le entregaría un objeto de permisos, y se
+  rechazaría cualquier llamada hecha a través de ese objeto para la que no se hubiera
+  concedido el permiso; en esta versión nada le proporciona ningún código así. Las operaciones registradas a través de ese objeto llevan como prefijo el
+  nombre del complemento, así que no pueden coincidir con el nombre de una operación
+  integrada, y un permiso de lectura a través de él devuelve el documento que se le
+  pasa, no una copia. El código que no pasa por el objeto no queda limitado por él:
+  puede registrar o eliminar operaciones directamente, incluidas las integradas.
+- **Deshabilitar elimina operaciones, no el código del complemento.** **Deshabilitar** anula el
+  registro de las operaciones que se registraron a través del objeto de permisos; en
+  esta versión no hay ninguna, porque nada registra ninguna. No deshace nada de lo que
+  el código propio de un complemento ya ha hecho.
 
-!!! warning "De confianza con consentimiento, en esta versión"
-    Como *cargar* un complemento de Python es en sí mismo ejecutar código, el
-    modelo de capacidades en proceso es de **fuerza consultiva** — adecuado
-    para **extensiones de confianza que instalas y consientes**, no para
-    código arbitrario de un mercado no confiable. El aislamiento a nivel de
-    sistema operativo de complementos de terceros no confiables queda
-    **aplazado** a una fase posterior (Artículo XI de la constitución). Instala
-    solo complementos en los que confíes.
+!!! warning "Los complementos no están dentro de un entorno aislado (sandbox)"
+    Un complemento
+    no está aislado de tu equipo, y la aplicación no proporciona aislamiento para ningún
+    complemento en esta versión. Instalar un complemento coloca en tu equipo código de
+    Python ajeno, y la aplicación ni realiza ni comprueba la instalación. Un paquete
+    también puede pedirle a Python que ejecute código cada vez que Python se inicia en el
+    entorno donde está instalado el paquete, lo cual incluye el editor, así que instalar un
+    complemento puede bastar para que su código se ejecute, aunque nunca abras el panel
+    **Complementos**. El código que se ejecuta en el propio proceso del editor, sea cual
+    sea el modo en que haya llegado allí, tiene el mismo acceso a tus archivos y a la red
+    que el editor mismo, cualesquiera que sean los permisos que haya declarado el
+    complemento. Instala y habilita solo complementos en los que confíes.
 
 ## Recolor por lotes
 
-**Recolor por lotes** aplica un remapeo de color a **muchos objetivos a la
+**Recolor por lotes** aplica un remapeo de color a **muchos destinos a la
 vez** como un **único comando transaccional y reversible**:
 
 - Para objetivos **indexados**, remapea índices de paleta
   (`old_index → new_index`); para objetivos **RGBA**, remapea colores
   (`old_rgba → new_rgba`). Reutiliza las operaciones de recolor existentes del
-  editor, así que un objetivo procesado por lotes es **idéntico byte a byte**
-  a recolorear ese objetivo por sí solo con el mismo mapeo.
-- Es **transaccional**: cada objetivo se valida y su paso individual se
+  editor, así que un destino procesado por lotes es **idéntico byte a byte**
+  a recolorear ese destino por sí solo con el mismo mapeo.
+- Es **transaccional**: cada destino se valida y su paso individual se
   construye **antes de aplicar nada**. Un objetivo inválido (un desajuste de
   modo o un mapeo fuera de rango) falla nombrando el objetivo problemático con
   **cero mutación** — un objetivo defectuoso nunca corrompe a los demás. El
@@ -137,16 +156,16 @@ vez** como un **único comando transaccional y reversible**:
 
 ## Generación procedural
 
-El **panel de procgen** rellena una región con contenido generado. Hay cinco
+El panel **Generación procedural** rellena una región con contenido generado. Hay cinco
 generadores propios y **con semilla** disponibles:
 
 | Generador | Qué produce |
 | --- | --- |
 | **Ruido de valor** | Ruido de cuadrícula de valor con semilla. |
 | **Ruido de gradiente** | Ruido de gradiente estilo Perlin. |
-| **OpenSimplex** | Un ruido de gradiente de cuadrícula simplex libre de patentes. |
-| **Celular** | Patrones de autómata celular. |
-| **Degradado con dithering** | Un degradado suave de dos colores con dithering aplicado sobre la paleta del documento (usando el dithering ordenado / de Floyd–Steinberg incluido), así que el resultado permanece dentro de la paleta. |
+| **Ruido OpenSimplex** | Un ruido de gradiente de cuadrícula simplex libre de patentes. |
+| **Autómatas celulares** | Patrones de autómata celular. |
+| **Gradiente con tramado** | Un degradado suave de dos colores con tramado aplicado sobre la paleta del documento (usando el tramado ordenado / de Floyd–Steinberg incluido), así que el resultado permanece dentro de la paleta. |
 
 Cada generador es una **función pura y determinista de sus parámetros y
 semilla** — la misma semilla y los mismos parámetros siempre producen la
@@ -188,7 +207,7 @@ pixelart-run --input PROJECT.pixproj --macro MACRO.pixmacro --output OUT.pixproj
 | `--param KEY=VALUE` | inyecta o sustituye un parámetro de la macro; se puede repetir. Un valor numérico se interpreta como entero; en caso contrario se conserva como cadena. |
 
 **Códigos de salida:** `0` éxito; `1` un fallo de automatización (un error de
-script / macro / complemento / lote / procgen, o un fallo de escritura); `2`
+script / macro / lote / procgen, o un fallo de escritura); `2`
 argumentos incorrectos o un proyecto o macro de entrada malformado / ilegible.
 
 !!! tip "El mismo camino que la interfaz gráfica"
@@ -204,9 +223,7 @@ argumentos incorrectos o un proyecto o macro de entrada malformado / ilegible.
 - **Scripting arbitrario en Python** — **no soportado por diseño.** El
   scripting es un DSL de comandos acotado y basado en lista de permitidos, no
   un intérprete de propósito general; esto es un límite de seguridad
-  deliberado (Artículo VII), no una limitación pendiente de levantar.
-- **Aislamiento de complementos de terceros no confiables** — **aplazado.**
-  Los complementos son de confianza con consentimiento en esta versión; el
-  sandboxing a nivel de sistema operativo de complementos de mercado no
-  confiables es un desarrollo posterior de una fase futura (Artículo XI).
-  Instala solo complementos en los que confíes.
+  deliberado, no una limitación pendiente de levantar.
+- **Aislamiento de complementos de terceros no confiables** — **aplazado.** Los
+  complementos no están dentro de un entorno aislado en esta versión; instala y
+  habilita solo complementos en los que confíes.

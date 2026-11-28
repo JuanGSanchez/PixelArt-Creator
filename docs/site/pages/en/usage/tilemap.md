@@ -17,8 +17,7 @@ single undo step.
 
 ## Tilesets
 
-A **tileset** is a source image sliced into a grid of equally-sized tiles. Open
-the **Tileset** panel and add a tileset from an image; the slicer reads the
+A **tileset** is a source image sliced into a grid of equally-sized tiles. Open the **Tileset Editor** panel (Tilemap menu) and add a tileset with **Tilemap ▸ New Tileset from Image…**; the slicer reads the
 image with your **tile size**, optional outer **margin** and inter-tile
 **spacing**, and indexes the resulting tiles left-to-right, top-to-bottom
 starting at `0`.
@@ -39,21 +38,21 @@ starting at `0`.
 ## Painting a tilemap
 
 The **tilemap canvas** paints cells on a grid, one tile per cell. Pick a tile in
-the tileset panel, then use the map tools:
+the Tileset Editor panel, then use the map tools:
 
 | Tool | What it does |
 | --- | --- |
-| **Stamp** | Places the selected tile in the cell under the cursor (drag to paint a run). |
-| **Erase** | Clears the cell back to empty. |
-| **Fill** | Flood-fills the contiguous region of like cells under the cursor with the selected tile. |
+| **Stamp Tool** | Places the selected tile in the cell under the cursor (drag to paint a run). |
+| **Tile Eraser** | Clears the cell back to empty. |
+| **Rectangle Fill** | Fills a rectangle you drag out with the selected tile. |
 
-Each stamp / erase / fill is **exactly one undo step**, and undo restores the
+Each stamp / erase / rectangle fill is **exactly one undo step**, and undo restores the
 exact prior cells. Painting near existing tiles re-resolves the **auto-tile**
 neighbourhood so borders stay correct as you draw (see below).
 
 ### Flip and rotate
 
-Before you stamp, you can transform the tile: **H-flip** and **V-flip** mirror
+Before you stamp, you can transform the tile: **Flip Stamp Horizontal** and **Flip Stamp Vertical** mirror
 it, and **rotate** steps it through the four right-angle orientations (the D4
 rotations). The transform is stored per placed cell as a compact flag on the
 tile, so flipping or rotating a tile costs **no extra tileset entries** and
@@ -67,8 +66,8 @@ neighbours** (the Blob-47 scheme: an 8-neighbour bitmask with edge-implies-corne
 gating, giving 47 distinct tiles). Paint a single "terrain" tile and the map
 fills in the correct straight edges, inner and outer corners automatically.
 
-- **Toggle** auto-tiling with the auto-tile control. When it is **on**, painting,
-  erasing or filling a cell also re-resolves the affected cell **and its
+- **Toggle** auto-tiling with the **Auto-tile (Blob-47)** checkbox in the Tilemap Layers panel. When it is **on**, painting,
+  erasing or rectangle-filling also re-resolves the affected cells **and their
   neighbours** so the border is always consistent — all inside the same one undo
   step.
 - The resolution is a **pure, deterministic function** of the logical placement
@@ -104,10 +103,8 @@ round-trip preserves the layers, every cell and its flip/rotate flags, and any
 fields the editor does not itself use (unknown fields are passed through
 verbatim).
 
-- **Export** writes a valid Tiled map. Layer data is emitted as **CSV by
-  default**; **base64** (raw / gzip / zlib compressed) is also supported.
-- **Import** reads Tiled maps written with CSV or base64 (empty / gzip / zlib)
-  layer data, and accepts an **external `.tsj`** tileset reference.
+- **Export** (**Tilemap ▸ Export Tiled JSON…**) writes a valid Tiled map with layer data as **CSV**.
+- **Import** (**Tilemap ▸ Import Tiled JSON…**) reads Tiled maps written with CSV or with base64 layer data that is uncompressed, gzip or zlib, and accepts an **external `.tsj`** tileset reference.
 - Import is a **defensive, validated load**: a malformed map, an unsupported
   **zstd**-compressed layer, or an external **`.tsx`** tileset reference are
   rejected with a clear error rather than a crash or silent corruption.
@@ -127,16 +124,16 @@ tilemaps existed) still open — they simply load with no tilesets or tilemaps.
 
 ## Undo, redo and what is *not* undoable
 
-- **Undoable (one step each):** stamp / erase / fill a cell (including any
+- **Undoable (one step each):** stamp / erase a cell, rectangle-fill an area (including any
   auto-tile neighbour re-resolution), and add / remove / reorder / show-hide a
   tilemap layer.
-- **Not undoable (view state):** selecting a tile in the tileset panel, toggling
+- **Not undoable (view state):** selecting a tile in the Tileset Editor panel, toggling
   auto-tiling, choosing a flip / rotate for the next stamp, and panning the map.
 
 ## What is not covered
 
 - **zstd-compressed** Tiled layer data and **external `.tsx`** tilesets on import
-  — rejected by design (import accepts CSV / base64 gzip/zlib and external
+  — rejected by design (import accepts CSV and base64 (uncompressed, gzip or zlib) and external
   `.tsj`); use one of the supported encodings.
 - **Corner / edge Wang** tile sets beyond the Blob-47 8-neighbour scheme — the
   auto-tiler is designed to extend to them in a later phase.

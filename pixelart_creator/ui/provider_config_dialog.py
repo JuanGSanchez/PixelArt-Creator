@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.llm.anthropic_translator import AnthropicTranslator
 from pixelart_creator.data.llm.openai_compatible import OpenAICompatibleAdapter
 from pixelart_creator.data.llm.port import LLMPort
@@ -264,7 +265,13 @@ class Provider_Config_Dialog(QDialog):
                 store_token(config.provider, _ACCOUNT, key)
             except TokenStoreError as exc:
                 self._hint_label.setText(
-                    self.tr("Could not store the API key: {0}").format(str(exc))
+                    failure_messages.failure_on_own_line(
+                        self.tr("Could not store the API key: {0}"),
+                        "{0}",
+                        failure_messages.failure_text(
+                            failure_messages.logged_failure_kind(exc)
+                        ),
+                    )
                 )
                 return
         self.accept()

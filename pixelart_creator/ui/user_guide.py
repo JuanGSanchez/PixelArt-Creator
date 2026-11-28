@@ -65,22 +65,33 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
 from pixelart_creator.data.guide_content import (
     GuideContentError,
     available_locales,
+    load_locale_meta,
     load_manifest,
     read_content,
+    topic_locales,
 )
+from pixelart_creator.logic.guide_anchors import heading_ordinal
 from pixelart_creator.logic.guide_model import (
     DEFAULT_GUIDE_LOCALE,
     GuideModel,
     GuideModelError,
+    LocaleMeta,
     build_model,
+    content_ref_locale,
+    content_ref_path,
+    localised_section_title,
+    localised_title,
     resolve_content_ref,
 )
 from pixelart_creator.logic.guide_search import query
+from pixelart_creator.logic.guide_softbreak import apply_soft_break_rule
 from pixelart_creator.ui.app_font import (
     NIFEN_ART_EM_PX,
+    chained_font,
     interface_font,
     nifen_art_available,
     platform_default_font,
@@ -205,6 +216,11 @@ class User_Guide_Dialog(QDialog):
         self._model, self._content_locales, self._load_error = self._resolve_model(
             model, content_locales
         )
+        # Per-topic availability and the localised titles come from the bundle
+        # itself; an injected model or locale set (tests) is taken as given.
+        self._bundle_backed = (
+            model is None and content_locales is None and self._model is not None
+        )
 
         self._build_ui()
         self._populate_toc()
@@ -218,11 +234,14 @@ class User_Guide_Dialog(QDialog):
     def _resolve_model(
         model: Optional[GuideModel],
         content_locales: Optional[Iterable[str]],
-    ) -> tuple[Optional[GuideModel], frozenset[str], Optional[str]]:
+    ) -> tuple[
+        Optional[GuideModel], frozenset[str], Optional[failure_messages.FailureKind]
+    ]:
         """Return ``(model, content_locales, error)`` — building from the bundle.
 
-        A missing/malformed bundle is caught and reported as an error string (shown
-        in the content pane), so opening the guide never raises (REQ-UG-UI-005).
+        A missing/malformed bundle is caught and reported as a failure kind (shown
+        in the content pane as its sentence), so opening the guide never raises
+        (REQ-UG-UI-005).
         """
         if model is not None:
             locales = (
@@ -240,7 +259,8 @@ class User_Guide_Dialog(QDialog):
             )
             return built, locales, None
         except (GuideContentError, GuideModelError) as exc:
-            return None, frozenset(), str(exc)
+            failure_messages.log_failure(exc)
+            return None, frozenset(), failure_messages.failure_kind(exc)
 
     def _build_ui(self) -> None:
         """Assemble the search box, ToC/results stack, and content pane."""
@@ -303,22 +323,41 @@ class User_Guide_Dialog(QDialog):
         """Fill the ToC tree from the model's ordered sections → topics.
 
         Section/topic titles come from the content model (authored data, localised
-        via the manifest), not ``tr()`` — only the surrounding chrome is translated.
+        by the active language's metadata with a per-item English fallback), not
+        ``tr()`` — only the surrounding chrome is translated.
         """
-        self._toc_tree.clear()
+        self._suppress_nav = True
+        try:
+            self._toc_tree.clear()
+        finally:
+            self._suppress_nav = False
         self._toc_items.clear()
         if self._model is None:
             return
+        meta = self._active_meta()
         for section in self._model.sections:
-            section_item = QTreeWidgetItem([section.title])
+            section_item = QTreeWidgetItem([localised_section_title(section, meta)])
             # Sections are not selectable targets (no topic id) but stay expandable.
             self._toc_tree.addTopLevelItem(section_item)
             for topic in section.topics:
-                topic_item = QTreeWidgetItem([topic.title])
+                topic_item = QTreeWidgetItem([localised_title(topic, meta)])
                 topic_item.setData(0, _TOPIC_ID_ROLE, topic.id)
                 section_item.addChild(topic_item)
                 self._toc_items[topic.id] = topic_item
         self._toc_tree.expandAll()
+
+    def _active_meta(self) -> Optional[LocaleMeta]:
+        """Return the active language's guide metadata, or ``None`` for English.
+
+        ``None`` also covers a missing or unreadable metadata file: every title
+        then falls back to English, item by item, and the guide never raises.
+        """
+        if not self._bundle_backed:
+            return None
+        try:
+            return load_locale_meta(self._locale_provider())
+        except GuideContentError:
+            return None
 
     def _show_initial(self) -> None:
         """Render the first topic, or the load-error message if the bundle failed."""
@@ -343,7 +382,9 @@ class User_Guide_Dialog(QDialog):
         self._render_topic(topic_id)
         self._select_in_toc(topic_id)
         # Reflect the topic's own title in the pane's accessible name for AT users.
-        self._content_view.setAccessibleName(topic.title)
+        self._content_view.setAccessibleName(
+            localised_title(topic, self._active_meta())
+        )
 
     def current_topic_id(self) -> Optional[str]:
         """Return the id of the topic currently shown (or ``None``)."""
@@ -359,6 +400,15 @@ class User_Guide_Dialog(QDialog):
         if enabled == self._use_system_font:
             return
         self._use_system_font = enabled
+        self._refresh_page()
+
+    def refresh_page_font(self) -> None:
+        """Re-apply the page and heading fonts for the language now active.
+
+        Called by the main window on ``languageChanged``: the family chain follows
+        the interface language, which is recorded after the ``LanguageChange``
+        event this dialog re-translates on.
+        """
         self._refresh_page()
 
     def page_uses_pixel_font(self) -> bool:
@@ -382,7 +432,7 @@ class User_Guide_Dialog(QDialog):
         if self.page_uses_pixel_font():
             font = interface_font()
         else:
-            font = platform_default_font()
+            font = chained_font(platform_default_font())
         self._content_view.apply_page_font(font)
 
     def _refresh_page(self) -> None:
@@ -445,12 +495,20 @@ class User_Guide_Dialog(QDialog):
         assert self._model is not None
         locale = self._locale_provider()
         try:
+            # Per topic: a language that lacks this one page falls back to English
+            # for this page only (REQ-L10N-UI-007).
+            available = (
+                topic_locales(self._model.topic(topic_id).content_ref)
+                if self._bundle_backed
+                else self._content_locales
+            )
             ref = resolve_content_ref(
                 self._model,
                 topic_id,
                 locale,
-                available_locales=self._content_locales,
+                available_locales=available,
             )
+            language = content_ref_locale(ref)
             text = self._reader(ref)
         except (GuideModelError, GuideContentError) as exc:
             # A content-load error surfaces a user-facing message, not a crash
@@ -458,11 +516,16 @@ class User_Guide_Dialog(QDialog):
             # a single translatable unit with a ``%1`` placeholder (no '+'-join of a
             # translated string — word order stays under the translator's control).
             self._content_view.setPlainText(
-                self.tr("Could not load this topic:\n\n%1").replace("%1", str(exc))
+                self.tr("Could not load this topic:\n\n%1").replace(
+                    "%1",
+                    failure_messages.failure_text(
+                        failure_messages.logged_failure_kind(exc)
+                    ),
+                )
             )
             self._logo_switch.place()
             return
-        self._content_view.setMarkdown(text)
+        self._content_view.setMarkdown(apply_soft_break_rule(text, language).markdown)
         # The mark reaches the browser ONLY as an in-memory QTextDocument
         # resource -- never a filesystem search path (setSearchPaths) and
         # never a path from importlib.resources.as_file, whose temporary
@@ -510,10 +573,10 @@ class User_Guide_Dialog(QDialog):
     def _show_load_error(self) -> None:
         """Show the bundle load-error message and disable navigation controls."""
         self._search_edit.setEnabled(False)
-        if self._load_error:
+        if self._load_error is not None:
             message = self.tr(
                 "The User Guide content could not be loaded:\n\n%1"
-            ).replace("%1", self._load_error)
+            ).replace("%1", failure_messages.failure_text(self._load_error))
         else:
             message = self.tr("The User Guide content could not be loaded.")
         self._content_view.setPlainText(message)
@@ -541,8 +604,9 @@ class User_Guide_Dialog(QDialog):
         self._suppress_nav = True
         try:
             self._results_list.clear()
-            for topic in query(self._model, text):
-                item = QListWidgetItem(topic.title)
+            meta = self._active_meta()
+            for topic in query(self._model, text, meta=meta):
+                item = QListWidgetItem(localised_title(topic, meta))
                 item.setData(_TOPIC_ID_ROLE, topic.id)
                 self._results_list.addItem(item)
         finally:
@@ -583,6 +647,11 @@ class User_Guide_Dialog(QDialog):
         External/filesystem schemes are ignored (offline + safe, REQ-UG-UI-007). An
         in-guide link may be ``topic:<id>``, a ``#<id>`` fragment, or a bare id; the
         target is matched against a known topic id and navigated to, else ignored.
+
+        A fragment that is not a topic id names a heading of the target page
+        (REQ-L10N-UI-019): a link with a path opens that page, then moves to the
+        heading; a link with no path moves to the heading of the page shown. A
+        fragment that names no heading moves nothing and shows nothing.
         """
         if url.scheme().lower() in _EXTERNAL_SCHEMES:
             return
@@ -592,8 +661,50 @@ class User_Guide_Dialog(QDialog):
         if candidate.endswith(".md"):
             stem = candidate.rsplit("/", 1)[-1][: -len(".md")]
             candidate = self._topic_id_for_stem(stem) or candidate
+        fragment = url.fragment().lstrip("#").strip()
+        if url.path():
+            if candidate not in self._toc_items:
+                return
+            self.show_topic(candidate)
+            if fragment and fragment not in self._toc_items:
+                self._scroll_to_heading(candidate, fragment)
+            return
         if candidate in self._toc_items:
             self.show_topic(candidate)
+        elif self._current_topic_id is not None:
+            self._scroll_to_heading(self._current_topic_id, fragment)
+
+    def _scroll_to_heading(self, topic_id: str, fragment: str) -> None:
+        """Move the view to the heading ``fragment`` names on the page shown.
+
+        The fragment names a heading of the topic's English source; its ordinal is
+        counted there and the heading of that ordinal in the rendered page (the
+        translated page's counterpart) is put at the top of the view. A fragment
+        that names no heading, or an ordinal the rendered page lacks, moves nothing.
+        """
+        if self._model is None:
+            return
+        try:
+            topic = self._model.topic(topic_id)
+            english = self._reader(
+                content_ref_path(topic.content_ref, DEFAULT_GUIDE_LOCALE)
+            )
+        except GuideModelError, GuideContentError:
+            return
+        ordinal = heading_ordinal(english, fragment)
+        if ordinal is None:
+            return
+        document = self._content_view.document()
+        seen = 0
+        block = document.begin()
+        while block.isValid():
+            if block.blockFormat().headingLevel() > 0:
+                if seen == ordinal:
+                    top = document.documentLayout().blockBoundingRect(block).top()
+                    self._content_view.verticalScrollBar().setValue(int(top))
+                    return
+                seen += 1
+            block = block.next()
 
     def _topic_id_for_stem(self, stem: str) -> Optional[str]:
         """Return the topic id whose content_ref matches ``stem`` (or ``None``)."""
@@ -619,8 +730,14 @@ class User_Guide_Dialog(QDialog):
         # the load-error text if the bundle failed to load.
         if self._model is None:
             self._show_load_error()
-        elif self._current_topic_id is not None:
+            return
+        # Titles and search results follow the language too (REQ-L10N-UI-008).
+        self._populate_toc()
+        if self._left_stack.currentWidget() is self._results_list:
+            self._on_search(self._search_edit.text())
+        if self._current_topic_id is not None:
             self._render_topic(self._current_topic_id)
+            self._select_in_toc(self._current_topic_id)
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
         """Re-translate on QEvent.LanguageChange (F5); delegate otherwise."""

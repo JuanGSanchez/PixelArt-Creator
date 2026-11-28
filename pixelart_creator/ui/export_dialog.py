@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.constants import (
     DEFAULT_ATLAS_PADDING,
     DEFAULT_SPRITE_SHEET_COLUMNS,
@@ -161,6 +162,7 @@ class Export_Dialog(QDialog):
         self._gif_source_combo = QComboBox(page)
         self._gif_source_label = QLabel(page)
         self._gif_loop_spin = QSpinBox(page)
+        self._gif_loop_spin.setLocale(i18n.current_formatting_locale())
         self._gif_loop_spin.setRange(0, _MAX_LOOP)
         self._gif_loop_spin.setValue(GIF_DEFAULT_LOOP_COUNT)
         self._gif_loop_label = QLabel(page)
@@ -175,10 +177,12 @@ class Export_Dialog(QDialog):
         page = QWidget(self)
         form = QFormLayout(page)
         self._columns_spin = QSpinBox(page)
+        self._columns_spin.setLocale(i18n.current_formatting_locale())
         self._columns_spin.setRange(1, MAX_EXPORT_FRAMES)
         self._columns_spin.setValue(DEFAULT_SPRITE_SHEET_COLUMNS)
         self._columns_label = QLabel(page)
         self._sheet_padding_spin = QSpinBox(page)
+        self._sheet_padding_spin.setLocale(i18n.current_formatting_locale())
         self._sheet_padding_spin.setRange(0, _MAX_PADDING)
         self._sheet_padding_spin.setValue(DEFAULT_ATLAS_PADDING)
         self._sheet_padding_label = QLabel(page)
@@ -193,10 +197,12 @@ class Export_Dialog(QDialog):
         page = QWidget(self)
         form = QFormLayout(page)
         self._atlas_padding_spin = QSpinBox(page)
+        self._atlas_padding_spin.setLocale(i18n.current_formatting_locale())
         self._atlas_padding_spin.setRange(0, _MAX_PADDING)
         self._atlas_padding_spin.setValue(DEFAULT_ATLAS_PADDING)
         self._atlas_padding_label = QLabel(page)
         self._atlas_maxdim_spin = QSpinBox(page)
+        self._atlas_maxdim_spin.setLocale(i18n.current_formatting_locale())
         self._atlas_maxdim_spin.setRange(1, MAX_ATLAS_DIMENSION)
         self._atlas_maxdim_spin.setValue(MAX_ATLAS_DIMENSION)
         self._atlas_maxdim_label = QLabel(page)

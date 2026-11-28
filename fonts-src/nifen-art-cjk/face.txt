@@ -1,0 +1,39 @@
+# Nifen Art CJK - the face record: family names, file names and record files.
+#
+# The grid (em, units per pixel, the full-width cell, its ink columns and rows, the line
+# box) is read from fonts-src/nifen-art/metrics.txt and is never restated here: the lint
+# refuses a grid key in this file. The copyright holder, year, designer, licence texts,
+# vendor id and Reserved Font Name clause come from the same metrics.txt.
+#
+# This face declares no donor. It has no copyright_prior_line key and no key that starts
+# with donor; the lint refuses both, and the name table of every CJK font carries only the
+# Nifen Art copyright line.
+#
+# Bold is Regular, pixel for pixel: no Bold drawing exists in this folder, and the lint
+# refuses a bold record.
+
+face = nifen-art-cjk
+version_string = Version 0.100
+font_revision = 0.1
+created_utc = 2026-10-24T00:00:00Z
+modified_utc = 2026-10-24T00:00:00Z
+
+# One family per form set. The set keys are jp (Japanese Han forms), sc (Simplified Han
+# forms) and kr (Hangul). The font files are <postscript>-Regular.ttf and -Bold.ttf.
+family_jp = Nifen Art CJK JP
+family_sc = Nifen Art CJK SC
+family_kr = Nifen Art CJK KR
+postscript_jp = NifenArtCJKJP
+postscript_sc = NifenArtCJKSC
+postscript_kr = NifenArtCJKKR
+
+# The record file of each set and the R05 exemption list.
+records_jp = han-jp.txt
+records_sc = han-sc.txt
+records_kr = hangul.txt
+exemptions = r05-exemptions.txt
+
+# The missing-glyph box (.notdef), drawn by the build: a one-pixel frame in these
+# columns and rows of the cell.
+notdef_box_x = 1..9
+notdef_box_rows = 0..8

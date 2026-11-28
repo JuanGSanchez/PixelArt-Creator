@@ -20,7 +20,7 @@ does **not** create a new selection shape, it reuses the mask you already have.
 
 ## Lift and move (drag)
 
-1. With the selection/move tool active, **press inside** the active selection.
+1. With one of the selection tools (Rectangle select, Lasso select or Magic wand) active, **press inside** the active selection.
    The masked pixels lift into a floating preview.
 2. **Drag.** The floated colours follow the cursor; the origin region reads as
    **cleared to transparent** (index 0 in indexed mode) in the live preview.

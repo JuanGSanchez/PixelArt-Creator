@@ -22,7 +22,6 @@ from __future__ import annotations
 
 from typing import List
 
-import numpy as np
 import pytest
 from PySide6.QtCore import QLocale
 from PySide6.QtWidgets import QDialog
@@ -83,6 +82,7 @@ def _load_document(win: Main_Window, document: Document):
     """Swap ``document`` into the active tab (same seam ``_on_branch_document_switched``
     uses: ``record.document`` plus ``scene.set_document``), with a clean selection."""
     record = win.active_tab()
+    assert record is not None
     record.document = document
     record.scene.set_document(document)
     record.view.clear_selection()
@@ -630,7 +630,10 @@ def test_sc_csd_u015_3_flip_is_subject_to_the_family_cost_guard_at_the_boundary(
     win._on_flip_horizontal()
     assert len(seen) == 1  # exactly one confirmation, above the boundary
     dialog = seen[0]
-    assert QLocale().formattedDataSize(projected_above) in dialog._message.text()
+    # The figure is the interface language's (English here, the suite's system
+    # locale being en_US), not the machine's own default locale.
+    assert win._language_manager.current_language() == "en"
+    assert QLocale("en").formattedDataSize(projected_above) in dialog._message.text()
     assert record2.stack.count() == count_before  # declined -> nothing pushed
 
 

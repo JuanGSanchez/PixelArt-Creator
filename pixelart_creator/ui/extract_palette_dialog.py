@@ -35,6 +35,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import pixelart_creator.ui.failure_messages as failure_messages
+import pixelart_creator.ui.i18n as i18n
 from pixelart_creator.logic.constants import PALETTE_EXTRACT_DEFAULT_N
 from pixelart_creator.logic.palette import MAX_PALETTE_SIZE, Palette
 from pixelart_creator.logic.pixel_buffer import ColorMode, PixelBuffer
@@ -76,6 +78,7 @@ class Extract_Palette_Dialog(QDialog):
         self._choose_button.clicked.connect(self._on_choose_image)
 
         self._n_spin = QSpinBox(self)
+        self._n_spin.setLocale(i18n.current_formatting_locale())
         self._n_spin.setRange(1, MAX_PALETTE_SIZE)
         self._n_spin.setValue(PALETTE_EXTRACT_DEFAULT_N)
 
@@ -150,7 +153,13 @@ class Extract_Palette_Dialog(QDialog):
             else:
                 self._result = median_cut(self._source, n)
         except QuantizeError as exc:
-            QMessageBox.warning(self, self.tr("Extract Palette"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.tr("Extract Palette"),
+                failure_messages.failure_text(
+                    failure_messages.logged_failure_kind(exc)
+                ),
+            )
             return
         self.accept()
 

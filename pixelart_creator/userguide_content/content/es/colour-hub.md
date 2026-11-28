@@ -20,9 +20,9 @@ salir y seguir pintando exactamente donde estabas.
 
 **Favoritos** es tu lista personal y persistente de colores de referencia.
 
-- **Añade** el color actual a Favoritos para tenerlo a un clic la próxima vez.
+- **Añadir a favoritos** conserva el color actual en Favoritos para tenerlo a un clic la próxima vez.
 - **Elimina** un color que ya no necesites.
-- **Reordena** los favoritos para que los colores que más usas estén primero.
+- **Subir** / **Bajar** reordenan los favoritos para que los colores que más usas estén primero.
 
 Tu lista de Favoritos **persiste** entre sesiones, así que tu paleta de trabajo
 siempre está ahí cuando vuelves a abrir la aplicación. Hacer clic en un favorito lo
@@ -51,9 +51,9 @@ coherente sin adivinar:
 | **Complementario** | El tono opuesto (+180°) — contraste máximo. |
 | **Análogo** | Los vecinos (±30°) — esquemas tranquilos y cohesivos. |
 | **Triádico** | Dos tonos a 120° de distancia (±120°) — equilibrado y vibrante. |
-| **Tetrádicos** | Tres tonos a intervalos de 90° equidistantes — cuatro colores, alto contraste. |
+| **Tetrádico** | Tres tonos a intervalos de 90° equidistantes — cuatro colores, alto contraste. |
 | **Complementario dividido** | Los dos tonos a cada lado del complementario (±150°). |
-| **Rampas de sombra / tinte** | Pasos más oscuros (sombra) y más claros (tinte) de tu color. |
+| **Sombras** y **Tintes** | Las **Sombras** son pasos más oscuros de tu color; los **Tintes** son pasos más claros. El panel **Rampas de sombra** (se abre desde el menú **Paleta**) despliega rampas completas de sombras, tintes y tonos para tu color activo, cada una con un botón **Añadir a la paleta**. |
 
 La rueda en sí y las muestras de armonía — los pequeños círculos dispuestos a su
 alrededor — se comportan de forma distinta, y conviene diferenciarlos:
@@ -76,9 +76,9 @@ vivo mientras te mueves por la rueda.
 
 ## Aplicar y guardar
 
-- **Aplicar** — el color elegido se activa de inmediato y la muestra activa lo
-  refleja, así que tu próximo trazo lo usará.
-- **Guardar en Favoritos** — conserva un color que te guste para más adelante.
+- Al elegir un color, se activa de inmediato y la muestra activa lo refleja, así que
+  tu próximo trazo lo usará.
+- **Añadir a favoritos** — conserva un color que te guste para más adelante.
 
 ## Paletas y documentos indexados
 
@@ -91,5 +91,4 @@ paletas soltando un archivo `.gpl`, `.hex` o `.pal` sobre la ventana (consulta
 ## Temas relacionados
 
 - Pinta con el color elegido en [el lienzo](canvas-and-view.md).
-- Gestiona el modo de color (RGBA frente a indexado) en
-  [El panel de capas](layers.md).
+- Convierte entre el modo de color RGBA e indexado desde el menú **Paleta** (**Convertir a indexado** / **Convertir a RGBA**); consulta [El panel de capas](layers.md) para ver qué hace con las capas.
